@@ -22,17 +22,12 @@ export async function issueDevToken(input: {
   name: string;
   platformRole: PlatformRole;
 }, testLoginKey = ''): Promise<AuthProfile> {
-  const headers: Record<string, string> = {};
-  // Never embed a server authentication secret into a public Vite bundle.
-  const key = testLoginKey.trim();
-  if (!key) throw new Error('기존 WebRTC 서버의 테스트 로그인 키를 입력해 주십시오.');
-  headers['x-test-login-key'] = key;
+  // The application's same-origin reverse proxy handles test authentication.
 
   let result: {accessToken: string};
   try {
     result = await request<{ accessToken: string }>('/auth/dev-token', {
     method: 'POST',
-    headers,
     body: JSON.stringify(input),
     });
   } catch (error) {
