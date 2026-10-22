@@ -35,3 +35,10 @@ npm run dev
 Fly.io `fly secrets list`에 나오는 16자리 Digest는 원문 키가 아닙니다.
 하이텔 방의 Fly 앱에 `TEST_LOGIN_KEY` Secret을 한 번 등록하거나 GitHub Actions Secret `TEST_LOGIN_KEY`를 등록하면, 배포 시 Nginx 프록시에 적용됩니다.
 공개 GitHub 저장소와 브라우저 번들에 비밀키를 넣지 않습니다.
+
+## VideoCore SDK 재사용
+기존 `lyonbegin/video-town-front`의 SDK 소스를 배포 단계에서 빌드해 사용합니다. 가면 알고리즘은 복사하지 않습니다.
+- SDK: `/sdk/video-core.esm.js`
+- 독립 SDK Playground: `/sdk-playground.html`
+- 가면/원본 전환: `VideoCore.openCamera({mode})`, `camera.setMode(mode)`와 mediasoup `producer.replaceTrack`
+- WebRTC 서버 `webrtc-new.fly.dev`는 변경하지 않습니다.

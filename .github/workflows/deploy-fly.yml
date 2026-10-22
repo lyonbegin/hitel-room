@@ -88,6 +88,16 @@ jobs:
           fi
           test "$LOGIN_STATUS" -lt 500
           echo "DEPLOY_URL=https://$APP.fly.dev"
+      - name: Verify shared VideoCore SDK and standalone playground
+        run: |
+          set -euo pipefail
+          BASE="https://${{ steps.app.outputs.app }}.fly.dev"
+          curl -fsSL --retry 5 --retry-delay 3 "$BASE/sdk/video-core.esm.js" -o /tmp/video-core.esm.js
+          test "$(wc -c </tmp/video-core.esm.js)" -gt 10000
+          grep -q 'VideoCore' /tmp/video-core.esm.js
+          curl -fsSL --retry 5 --retry-delay 3 "$BASE/sdk-playground.html" -o /tmp/sdk-playground.html
+          grep -q 'Video Core SDK Playground' /tmp/sdk-playground.html
+          echo VIDEO_CORE_SDK_ASSETS_OK
       - name: Verify authenticated clients and Socket.IO realtime
         run: |
           set -euo pipefail

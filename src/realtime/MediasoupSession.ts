@@ -105,6 +105,14 @@ export class MediasoupSession {
     return joined.resumed;
   }
 
+  async replaceLocalTracks(stream: MediaStream) {
+    const video=stream.getVideoTracks()[0];
+    const audio=stream.getAudioTracks()[0];
+    if(this.videoProducer&&video)await this.videoProducer.replaceTrack({track:video});
+    if(this.audioProducer&&audio)await this.audioProducer.replaceTrack({track:audio});
+    this.localStream=stream;
+  }
+
   async setMicrophoneEnabled(enabled: boolean) {
     const track = this.localStream?.getAudioTracks()[0];
     if (track) track.enabled = enabled;
