@@ -1,0 +1,49 @@
+name: Fly.io inventory (read-only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fly-inventory.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Count and identify Fly apps
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          flyctl auth whoami
+          flyctl apps list --json > /tmp/fly-apps.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/fly-apps.json'))
+          if isinstance(d,dict):
+            for key in ('apps','Apps','applications','data'):
+              if isinstance(d.get(key),list):
+                d=d[key];break
+          if not isinstance(d,list): raise ValueError('Fly app list output is not a list')
+          print('FLY_APP_COUNT='+str(len(d)))
+          for a in d:
+            if isinstance(a,dict):
+              print('FLY_APP='+str(a.get('Name') or a.get('name') or a.get('ID') or a.get('id') or '?'))
+          PY
+      - name: Inspect this frontend app only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set +e
+          echo '=== HITEL STATUS ==='
+          flyctl status -a hitel-room
+          echo '=== HITEL MACHINES ==='
+          flyctl machine list -a hitel-room
+          echo '=== HITEL VOLUMES ==='
+          flyctl volumes list -a hitel-room
+          echo '=== HITEL IPS ==='
+          flyctl ips list -a hitel-room
+          echo '=== HITEL CERTIFICATES ==='
+          flyctl certs list -a hitel-room
