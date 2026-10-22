@@ -24,7 +24,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
-          ORG="$(flyctl orgs list --json | python3 -c 'import json,sys; x=json.load(sys.stdin); print((x[0].get("Slug") or x[0].get("slug") or "") if x else "")')"
+          ORG="$(flyctl orgs list --json | python3 -c 'import json,sys; d=json.load(sys.stdin); xs=d if isinstance(d,list) else (d.get("organizations") or d.get("Organizations") or d.get("orgs") or d.get("data") or []); xs=list(xs.values()) if isinstance(xs,dict) else xs; print(next((x.get("Slug") or x.get("slug") or x.get("SlugName") or "" for x in xs if isinstance(x,dict) and (x.get("Slug") or x.get("slug") or x.get("SlugName"))), "personal"))')"
           test -n "$ORG"
           for APP in hitel-room hitel-room-lyonbegin; do
             if flyctl status --app "$APP" >/dev/null 2>&1 || flyctl apps create "$APP" --org "$ORG" >/dev/null 2>&1; then
