@@ -51,10 +51,17 @@ jobs:
           APP: ${{ steps.app.outputs.app }}
           TEST_LOGIN_KEY: ${{ secrets.TEST_LOGIN_KEY }}
         run: |
+          set -euo pipefail
+          if [ -z "${TEST_LOGIN_KEY:-}" ]; then
+            echo "Attempting read-only retrieval of test-key config from the existing WebRTC app."
+            TEST_LOGIN_KEY="$(timeout 40s flyctl ssh console -q -a webrtc-new -C 'printenv TEST_LOGIN_KEY' 2>/dev/null | tail -n 1 | tr -d '\r' || true)"
+          fi
           if [ -n "${TEST_LOGIN_KEY:-}" ]; then
+            echo "::add-mask::$TEST_LOGIN_KEY"
             flyctl secrets set TEST_LOGIN_KEY="$TEST_LOGIN_KEY" -a "$APP"
+            echo "Frontend Fly test-key configuration synchronized."
           else
-            echo "::warning::GitHub Actions TEST_LOGIN_KEY is not set; existing Fly secret (if any) will be reused."
+            echo "::warning::No plaintext TEST_LOGIN_KEY accessible. Existing frontend secret, if any, is retained."
           fi
       - name: Deploy frontend only
         env:
