@@ -21,8 +21,10 @@ jobs:
           for attempt in $(seq 1 18); do
             if curl --fail --silent --show-error --max-time 12 "$SMOKE_ORIGIN/healthz" >/dev/null \
               && curl --fail --silent --show-error --max-time 12 "$SMOKE_ORIGIN/api/health" | grep -q '"ok":true' \
-              && curl --fail --silent --show-error --max-time 12 "$SMOKE_ORIGIN/sdk/video-core.esm.js" | grep -q VideoCore \
-              && curl --fail --silent --show-error --max-time 12 "$SMOKE_ORIGIN/sdk-playground.html" | grep -q 'Video Core SDK Playground' \
+              && curl --fail --silent --show-error --max-time 12 "$SMOKE_ORIGIN/sdk/video-core.esm.js" -o /tmp/video-core.esm.js \
+              && grep -q VideoCore /tmp/video-core.esm.js \
+              && curl --fail --silent --show-error --max-time 12 "$SMOKE_ORIGIN/sdk-playground.html" -o /tmp/sdk-playground.html \
+              && grep -q 'Video Core SDK Playground' /tmp/sdk-playground.html \
               && node scripts/smoke.mjs; then
               ok=1
               break
