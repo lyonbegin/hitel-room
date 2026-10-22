@@ -64,6 +64,17 @@ jobs:
             --request POST "https://$APP.fly.dev/api/auth/dev-token" \
             --header 'Content-Type: application/json' \
             --data '{"userId":"hitel-smoke-test","name":"Smoke Test","platformRole":"doctor"}')"
-          echo "UPSTREAM_LOGIN_HTTP=$LOGIN_STATUS"
+          echo "PROXY_LOGIN_HTTP=$LOGIN_STATUS"
+          LOGIN_KEY="$(awk '/proxy_set_header x-test-login-key/ { gsub(/['\'';]/, "", $3); print $3; exit }' nginx.conf)"
+          if [ -n "$LOGIN_KEY" ]; then
+            DIRECT_CODE="$(curl --silent --show-error --output /tmp/direct-login.json --write-out '%{http_code}' \
+              --request POST "https://webrtc-new.fly.dev/auth/dev-token" \
+              --header 'Content-Type: application/json' --header "x-test-login-key: $LOGIN_KEY" \
+              --data '{"userId":"hitel-smoke-test","name":"Smoke Test","platformRole":"doctor"}')"
+            echo "DIRECT_LOGIN_HTTP=$DIRECT_CODE"
+            if [ "$DIRECT_CODE" != "200" ] && [ "$DIRECT_CODE" != "201" ]; then
+              python3 -c 'import json; d=json.load(open("/tmp/direct-login.json")); print("DIRECT_ERROR="+str(d.get("message",d.get("error", "unknown"))))' || true
+            fi
+          fi
           test "$LOGIN_STATUS" -lt 500
           echo "DEPLOY_URL=https://$APP.fly.dev"
