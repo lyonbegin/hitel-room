@@ -17,13 +17,13 @@ jobs:
           set -euo pipefail
           cat > /tmp/handoff-public.pem <<'KEY'
           -----BEGIN PUBLIC KEY-----
-          MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx5G6apmjiLeQzaXQ8aLU
-          QkehBNlwY608gkj47FBxk6KOCWzftlseDMSHReiA8V6U3QhqbZ+ulC/5VJrJYbCv
-          tEWaKgCYn2ieGIyMvVmve6lPsRiOia9m9I1/zU5PfACVcUNsZKbVcB2eUymKjrSE
-          U/RhVt8UZqmX4VCIbFktXLhTifOHoo66QZVOnrL/2k/54pxgHlSlG9gwE/K51CUw
-          TeJSN/359bcXcDmHZOddGEYrLJMeurEoXBQ6jsMX797cHsIlx5OdMZvZs5PakPib
-          JJ1tLwTQL+5vWy/jXf1NfrslAveoVyjrBZVIPregZwBNpFG9MKxu5mw6eYBnko1t
-          0QIDAQAB
+          MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs1h4XInP/S1hKqUythje
+          7AL5gDXooyNki/iAjvErbvDlJfhqqGmPmYE6GOcg96bbYusdiDsdukYq1Pt4xT+m
+          Mv3WrtGpTKdlQdKF/L4iupyfSqEtIJ3bxNdlq1e2IRYRPmIrHx6Ei5jyDKMrfo79
+          KMTbv0cOu2Sbq/xeGIpoj1doP0/POwKG46KXxrKjUYNtZ+EHLlRAIbCj7jEGOIHk
+          Clt+y1ic0/e0wfNcNyByYLqWRUm7Qg7T4ed5JGkvsXtmlITcfTCzQp9bEm7mZpkT
+          YXYloknx8S7vuvyuT7Ww7RExRNzraaPKiK9qzJZDKlG+Uk0i5ETo5oeZJ78iGqX+
+          GwIDAQAB
           -----END PUBLIC KEY-----
           KEY
           KEY_VALUE="$(timeout 45s flyctl ssh console -q -a webrtc-new -C 'printenv TEST_LOGIN_KEY' 2>/dev/null | tail -n 1 | tr -d '\r')"
