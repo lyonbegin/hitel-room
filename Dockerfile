@@ -4,7 +4,7 @@ COPY package.json ./
 RUN npm install --no-audit --no-fund
 COPY tsconfig.json vite.config.ts index.html ./
 COPY src ./src
-ARG VITE_API_BASE_URL=https://webrtc-new.fly.dev
+ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 FROM nginx:1.27-alpine

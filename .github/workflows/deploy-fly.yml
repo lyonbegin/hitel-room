@@ -59,4 +59,11 @@ jobs:
           flyctl status --app "$APP"
           curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "https://$APP.fly.dev/healthz"
           curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "https://$APP.fly.dev/" | grep -q '하이텔 방'
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 3 --retry-all-errors "https://$APP.fly.dev/api/health" | grep -q '"ok":true'
+          LOGIN_STATUS="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --request POST "https://$APP.fly.dev/api/auth/dev-token" \
+            --header 'Content-Type: application/json' \
+            --data '{"userId":"hitel-smoke-test","name":"Smoke Test","platformRole":"doctor"}')"
+          echo "UPSTREAM_LOGIN_HTTP=$LOGIN_STATUS"
+          test "$LOGIN_STATUS" -lt 500
           echo "DEPLOY_URL=https://$APP.fly.dev"

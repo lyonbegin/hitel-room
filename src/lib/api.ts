@@ -1,6 +1,6 @@
 import type { AuthProfile, ConsultationSession, PlatformRole, TelemedicineRole } from '../types';
 
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888').replace(/\/$/, '');
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 export const TEST_LOGIN_KEY = import.meta.env.VITE_TEST_LOGIN_KEY || '';
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);

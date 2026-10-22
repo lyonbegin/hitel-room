@@ -2,7 +2,12 @@ import { io, type Socket } from 'socket.io-client';
 import type { Ack } from '../types';
 
 export function createRealtimeSocket(baseUrl: string, token: string): Socket {
-  return io(`${baseUrl.replace(/\/$/, '')}/realtime`, {
+  const clean = baseUrl.replace(/\/$/, '');
+  // Nginx serves the frontend and proxies /api + /socket.io on this same origin.
+  const socketOrigin = clean === '/api' || clean === `${window.location.origin}/api`
+    ? window.location.origin
+    : clean;
+  return io(`${socketOrigin}/realtime`, {
     transports: ['websocket'],
     auth: { token },
     autoConnect: false,

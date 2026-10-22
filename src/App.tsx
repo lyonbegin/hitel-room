@@ -22,7 +22,7 @@ function Room({profile, initial, onClose}:{profile:AuthProfile,initial:Consultat
  const [session,setSession]=useState(initial),[connection,setConnection]=useState('연결 중'),[stream,setStream]=useState<MediaStream>(),[remote,setRemote]=useState<RemoteTile[]>([]),[ready,setReady]=useState(false),[live,setLive]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[mic,setMic]=useState(true),[camera,setCamera]=useState(true);
  const socket=useRef<Socket|null>(null),engine=useRef<MediasoupSession|null>(null),streamRef=useRef<MediaStream|null>(null);
  const isHost=session.hostUserIds.includes(profile.userId);
- useEffect(()=>{let dead=false;const sock=createRealtimeSocket(initial.mediaNodePublicUrl||API_BASE_URL,profile.token);socket.current=sock;
+ useEffect(()=>{let dead=false;const sock=createRealtimeSocket(API_BASE_URL,profile.token);socket.current=sock;
  const started=(p:{session:ConsultationSession})=>{if(p.session.id===initial.id&&!dead){setSession(p.session);setConnection('대화 시작됨 — 영상 연결 버튼을 눌러주세요');}};
  const ended=(p:{session:ConsultationSession})=>{if(p.session.id===initial.id&&!dead){setSession(p.session);void engine.current?.dispose(false);engine.current=null;setLive(false);}};
  sock.on('session:started',started);sock.on('session:ended',ended);

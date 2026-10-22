@@ -23,3 +23,8 @@ npm run dev
 ```
 기본 API 주소는 https://webrtc-new.fly.dev 입니다.
 서버가 브라우저 Origin / CORS를 허용하지 않는 경우 서버 변경 없이 이 클라이언트만으로 접속을 복구할 수 없습니다.
+
+## CORS 우회 구성
+브라우저가 `https://webrtc-new.fly.dev`에 직접 교차 출처로 요청하면 허용 Origin 헤더가 없어 CORS로 차단됩니다.
+프론트엔드 앱의 Nginx에서 `/api/*`를 기존 API로, `/socket.io/*`를 기존 Socket.IO 서버로 전달합니다.
+브라우저는 `https://hitel-room.fly.dev` 한 도메인에만 접속합니다. 기존 서버의 설정 및 소스는 변경하지 않습니다.
