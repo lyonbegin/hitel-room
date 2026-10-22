@@ -21,7 +21,7 @@ export async function issueDevToken(input: {
   userId: string;
   name: string;
   platformRole: PlatformRole;
-}, testLoginKey: string): Promise<AuthProfile> {
+}, testLoginKey = ''): Promise<AuthProfile> {
   const headers: Record<string, string> = {};
   // Never embed a server authentication secret into a public Vite bundle.
   const key = testLoginKey.trim();
