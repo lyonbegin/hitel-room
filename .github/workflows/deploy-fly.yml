@@ -18,6 +18,18 @@ jobs:
           set -euo pipefail
           test -n "${FLY_API_TOKEN:-}" || { echo "::error::GitHub secret FLY_API_TOKEN is missing"; exit 1; }
           flyctl auth whoami
+      - name: Diagnose upstream DNS, HTTP and CORS
+        continue-on-error: true
+        run: |
+          set +e
+          echo '=== DNS ==='
+          getent ahostsv4 webrtc-new.fly.dev
+          echo '=== GET health with Origin ==='
+          curl --max-time 15 -sS -i -H 'Origin: https://hitel-room.fly.dev' 'https://webrtc-new.fly.dev/health' | head -c 3500
+          echo
+          echo '=== OPTIONS login preflight ==='
+          curl --max-time 15 -sS -i -X OPTIONS 'https://webrtc-new.fly.dev/auth/dev-token' -H 'Origin: https://hitel-room.fly.dev' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' | head -c 3500
+          echo
       - name: Create or locate the isolated Fly app
         id: app
         env:
