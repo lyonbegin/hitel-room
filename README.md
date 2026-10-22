@@ -30,4 +30,8 @@ npm run dev
 브라우저는 `https://hitel-room.fly.dev` 한 도메인에만 접속합니다. 기존 서버의 설정 및 소스는 변경하지 않습니다.
 
 ## 개발용 로그인 인증
-로그인 화면에서 **기존 WebRTC 서버의 WEBRTC_TEST_LOGIN_KEY**를 입력하거나, 기존 서버에서 발급받은 사용자 JWT를 입력하십시오. 개발용 로그인 API는 x-test-login-key 헤더를 검증합니다. 이 값은 공개 GitHub 저장소, 번들, 프론트엔드 환경변수에 넣지 않습니다. 입력 키는 로그인 호출 시에만 전송하고 저장하지 않습니다.
+로그인 화면에서는 ID/이름/역할만 입력합니다. 키 또는 JWT 입력란은 없습니다.
+테스트 로그인 원문 키는 기존 WebRTC 서버의 `TEST_LOGIN_KEY`와 동일해야 합니다.
+Fly.io `fly secrets list`에 나오는 16자리 Digest는 원문 키가 아닙니다.
+하이텔 방의 Fly 앱에 `TEST_LOGIN_KEY` Secret을 한 번 등록하거나 GitHub Actions Secret `TEST_LOGIN_KEY`를 등록하면, 배포 시 Nginx 프록시에 적용됩니다.
+공개 GitHub 저장소와 브라우저 번들에 비밀키를 넣지 않습니다.

@@ -45,6 +45,17 @@ jobs:
             fi
           done
           test -s "$GITHUB_OUTPUT" || { echo "::error::Could not create Fly app"; exit 1; }
+      - name: Sync private test key to Fly frontend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          APP: ${{ steps.app.outputs.app }}
+          TEST_LOGIN_KEY: ${{ secrets.TEST_LOGIN_KEY }}
+        run: |
+          if [ -n "${TEST_LOGIN_KEY:-}" ]; then
+            flyctl secrets set TEST_LOGIN_KEY="$TEST_LOGIN_KEY" -a "$APP"
+          else
+            echo "::warning::GitHub Actions TEST_LOGIN_KEY is not set; existing Fly secret (if any) will be reused."
+          fi
       - name: Deploy frontend only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -65,16 +76,8 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{"userId":"hitel-smoke-test","name":"Smoke Test","platformRole":"doctor"}')"
           echo "PROXY_LOGIN_HTTP=$LOGIN_STATUS"
-          LOGIN_KEY="$(awk '/proxy_set_header x-test-login-key/ { gsub(/['\'';]/, "", $3); print $3; exit }' nginx.conf)"
-          if [ -n "$LOGIN_KEY" ]; then
-            DIRECT_CODE="$(curl --silent --show-error --output /tmp/direct-login.json --write-out '%{http_code}' \
-              --request POST "https://webrtc-new.fly.dev/auth/dev-token" \
-              --header 'Content-Type: application/json' --header "x-test-login-key: $LOGIN_KEY" \
-              --data '{"userId":"hitel-smoke-test","name":"Smoke Test","platformRole":"doctor"}')"
-            echo "DIRECT_LOGIN_HTTP=$DIRECT_CODE"
-            if [ "$DIRECT_CODE" != "200" ] && [ "$DIRECT_CODE" != "201" ]; then
-              python3 -c 'import json; d=json.load(open("/tmp/direct-login.json")); print("DIRECT_ERROR="+str(d.get("message",d.get("error", "unknown"))))' || true
-            fi
+          if [ "$LOGIN_STATUS" != "200" ] && [ "$LOGIN_STATUS" != "201" ]; then
+            echo "::warning::Login smoke test rejected. Configure Fly TEST_LOGIN_KEY with the real plaintext value, not the Fly secret digest."
           fi
           test "$LOGIN_STATUS" -lt 500
           echo "DEPLOY_URL=https://$APP.fly.dev"

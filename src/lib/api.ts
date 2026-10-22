@@ -21,7 +21,7 @@ export async function issueDevToken(input: {
   userId: string;
   name: string;
   platformRole: PlatformRole;
-}, testLoginKey = ''): Promise<AuthProfile> {
+}): Promise<AuthProfile> {
   // The application's same-origin reverse proxy handles test authentication.
 
   let result: {accessToken: string};
@@ -32,7 +32,7 @@ export async function issueDevToken(input: {
     });
   } catch (error) {
     if (error instanceof Error && /invalid test login key/i.test(error.message)) {
-      throw new Error('테스트 로그인 키가 기존 서버 설정과 일치하지 않습니다. 실제 WEBRTC_TEST_LOGIN_KEY 값을 입력해 주십시오.');
+      throw new Error('기존 WebRTC 서버의 TEST_LOGIN_KEY가 올바르게 설정되지 않았습니다.');
     }
     throw error;
   }
