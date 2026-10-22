@@ -28,3 +28,6 @@ npm run dev
 브라우저가 `https://webrtc-new.fly.dev`에 직접 교차 출처로 요청하면 허용 Origin 헤더가 없어 CORS로 차단됩니다.
 프론트엔드 앱의 Nginx에서 `/api/*`를 기존 API로, `/socket.io/*`를 기존 Socket.IO 서버로 전달합니다.
 브라우저는 `https://hitel-room.fly.dev` 한 도메인에만 접속합니다. 기존 서버의 설정 및 소스는 변경하지 않습니다.
+
+## 개발용 로그인 인증
+로그인 화면에서 **기존 WebRTC 서버의 WEBRTC_TEST_LOGIN_KEY**를 입력하거나, 기존 서버에서 발급받은 사용자 JWT를 입력하십시오. 개발용 로그인 API는 x-test-login-key 헤더를 검증합니다. 이 값은 공개 GitHub 저장소, 번들, 프론트엔드 환경변수에 넣지 않습니다. 입력 키는 로그인 호출 시에만 전송하고 저장하지 않습니다.

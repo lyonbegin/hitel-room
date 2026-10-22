@@ -1,7 +1,6 @@
 import type { AuthProfile, ConsultationSession, PlatformRole, TelemedicineRole } from '../types';
 
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
-export const TEST_LOGIN_KEY = import.meta.env.VITE_TEST_LOGIN_KEY || '';
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -22,15 +21,26 @@ export async function issueDevToken(input: {
   userId: string;
   name: string;
   platformRole: PlatformRole;
-}): Promise<AuthProfile> {
+}, testLoginKey: string): Promise<AuthProfile> {
   const headers: Record<string, string> = {};
-  if (TEST_LOGIN_KEY) headers['x-test-login-key'] = TEST_LOGIN_KEY;
+  // Never embed a server authentication secret into a public Vite bundle.
+  const key = testLoginKey.trim();
+  if (!key) throw new Error('기존 WebRTC 서버의 테스트 로그인 키를 입력해 주십시오.');
+  headers['x-test-login-key'] = key;
 
-  const result = await request<{ accessToken: string }>('/auth/dev-token', {
+  let result: {accessToken: string};
+  try {
+    result = await request<{ accessToken: string }>('/auth/dev-token', {
     method: 'POST',
     headers,
     body: JSON.stringify(input),
-  });
+    });
+  } catch (error) {
+    if (error instanceof Error && /invalid test login key/i.test(error.message)) {
+      throw new Error('테스트 로그인 키가 기존 서버 설정과 일치하지 않습니다. 실제 WEBRTC_TEST_LOGIN_KEY 값을 입력해 주십시오.');
+    }
+    throw error;
+  }
   return { ...input, token: result.accessToken };
 }
 
