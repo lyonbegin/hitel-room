@@ -1,0 +1,50 @@
+name: Deploy Hitel Room to Fly
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Check FLY_API_TOKEN
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${FLY_API_TOKEN:-}" || { echo "::error::GitHub secret FLY_API_TOKEN is missing"; exit 1; }
+          flyctl auth whoami
+      - name: Create or locate the isolated Fly app
+        id: app
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          ORG="$(flyctl orgs list --json | python3 -c 'import json,sys; x=json.load(sys.stdin); print((x[0].get("Slug") or x[0].get("slug") or "") if x else "")')"
+          test -n "$ORG"
+          for APP in hitel-room hitel-room-lyonbegin; do
+            if flyctl status --app "$APP" >/dev/null 2>&1 || flyctl apps create "$APP" --org "$ORG" >/dev/null 2>&1; then
+              echo "app=$APP" >> "$GITHUB_OUTPUT"
+              break
+            fi
+          done
+          test -s "$GITHUB_OUTPUT" || { echo "::error::Could not create Fly app"; exit 1; }
+      - name: Deploy frontend only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          APP: ${{ steps.app.outputs.app }}
+        run: flyctl deploy --remote-only --app "$APP" --config fly.toml
+      - name: Verify public page and health endpoint
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          APP: ${{ steps.app.outputs.app }}
+        run: |
+          set -euo pipefail
+          flyctl status --app "$APP"
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "https://$APP.fly.dev/healthz"
+          curl --fail --location --retry 10 --retry-delay 4 --retry-all-errors "https://$APP.fly.dev/" | grep -q '하이텔 방'
+          echo "DEPLOY_URL=https://$APP.fly.dev"
