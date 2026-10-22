@@ -88,3 +88,8 @@ jobs:
           fi
           test "$LOGIN_STATUS" -lt 500
           echo "DEPLOY_URL=https://$APP.fly.dev"
+      - name: Verify authenticated clients and Socket.IO realtime
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          node scripts/smoke.mjs
