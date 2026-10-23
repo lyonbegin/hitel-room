@@ -12,7 +12,7 @@ import socket
 import socketserver
 import sys
 
-ALLOWED_HOST = "hitel-room-production-ecce.up.railway.app"
+ALLOWED_HOST = "hitel-web-preview-production.up.railway.app"
 PORT = 18888
 
 

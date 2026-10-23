@@ -37,6 +37,7 @@ grep -q "APP_STARTED" "$out/events.log"
 grep -q "WEB_LOADED" "$out/events.log"
 grep -q "BRIDGE_PING_OK" "$out/events.log"
 grep -q "CAPABILITIES_OK" "$out/events.log"
+grep -q "CAPABILITIES_OK" "$out/events.log"
 if grep -q "WEB_ERROR" "$out/events.log"; then
     echo "FAIL: HITEL WKWebView navigation error"
     exit 1

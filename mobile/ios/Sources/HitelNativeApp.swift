@@ -2,8 +2,8 @@ import SwiftUI
 import WebKit
 import AVFoundation
 
-private let allowedHost = "hitel-room-production-ecce.up.railway.app"
-private let hitelURL = URL(string: "https://hitel-room-production-ecce.up.railway.app/")!
+private let allowedHost = "hitel-web-preview-production.up.railway.app"
+private let hitelURL = URL(string: "https://hitel-web-preview-production.up.railway.app/portal")!
 
 @main
 struct HitelNativeApp: App {

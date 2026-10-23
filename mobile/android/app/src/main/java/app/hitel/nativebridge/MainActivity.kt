@@ -14,8 +14,8 @@ import java.util.Locale
 
 class MainActivity : Activity() {
     companion object {
-        const val ORIGIN = "https://hitel-room-production-ecce.up.railway.app"
-        const val HOME = "$ORIGIN/"
+        const val ORIGIN = "https://hitel-web-preview-production.up.railway.app"
+        const val HOME = "$ORIGIN/portal"
         const val LOG_TAG = "HITEL_E2E"
     }
 
