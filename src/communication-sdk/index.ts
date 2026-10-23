@@ -320,3 +320,6 @@ export class CommunicationSDK {
 export function createCommunicationSDK(options: CommunicationOptions = {}) {
   return CommunicationSDK.create(options);
 }
+
+export { CommunicationNetworkAdapter, createCommunicationNetworkBridge, createCommunicationNetworkPair } from './networkAdapter';
+export type { NetworkSide, NetworkPair, NetworkCommand } from './networkAdapter';
