@@ -22,6 +22,7 @@ struct HitelWebView: UIViewRepresentable {
         config.userContentController = controller
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
+        view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = true
         NSLog("HITEL_E2E APP_STARTED")
         view.load(URLRequest(url: hitelURL))
@@ -30,7 +31,7 @@ struct HitelWebView: UIViewRepresentable {
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate {
         private let speaker = AVSpeechSynthesizer()
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -111,6 +112,19 @@ struct HitelWebView: UIViewRepresentable {
                 "window.dispatchEvent(new CustomEvent('hitel-native-response',{detail:" + json + "}))",
                 completionHandler: nil
             )
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+            initiatedByFrame frame: WKFrameInfo,
+            type: WKMediaCaptureType,
+            decisionHandler: @escaping (WKPermissionDecision) -> Void
+        ) {
+            // WKWebView may use camera/microphone only in trusted HITEL content.
+            let trusted = origin.protocol == "https" && origin.host == allowedHost &&
+                frame.isMainFrame
+            decisionHandler(trusted ? .grant : .deny)
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
