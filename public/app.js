@@ -282,7 +282,19 @@ function community(){
 function contents(){
  return '<div class="wrap"><section class="source-list-heading"><h1>강남언니 칼럼</h1></section><div class="editorial-cards source-editorial-list">'+ORIGINAL_ARTICLE_LIST.map(editorialCard).join('')+'</div><div class="bottom-space"></div></div>';
 }
-function contentDetail(c){if(!c)return notFound();return '<div class="wrap"><div class="breadcrumbs">홈　›　칼럼　›　'+safe(c.tag)+'</div><article class="article-content"><span class="blog-pill">'+safe(c.tag)+'</span><h1 style="margin-top:15px">'+safe(c.title)+'</h1><time>'+c.date+'</time>'+img(c.image||ORIGINAL_COLUMN_IMAGES[C.indexOf(c)]||ASSETS[c.img],'',c.title)+'<p>어떤 시술을 선택할지 고민하고 있다면 정보를 충분히 이해하고 비교해보는 과정이 필요합니다.</p><div class="article-toc"><strong>목차</strong><br/>1. 시술의 특징과 원리<br/>2. 선택할 때 확인할 점<br/>3. 주의사항과 관리 방법<br/>4. 자주 묻는 질문(FAQ)</div><h2>1. 시술의 특징과 원리</h2><p>다양한 시술은 목적과 방법에 따라 특징이 다릅니다. 원하는 결과를 얻기 위해서는 시술 정보와 의료진의 설명을 함께 확인하는 것이 좋습니다.</p><h2>2. 선택할 때 확인할 점</h2><p>여러 병원과 후기, 시술 옵션을 비교하면서 나에게 적절한 선택을 고민할 수 있습니다.</p><h2>3. 주의사항과 관리 방법</h2><p>시술 전후 관리 방법과 발생 가능한 부작용은 의료진과 상담하여 확인해야 합니다.</p><h2>4. 자주 묻는 질문(FAQ)</h2><p>모든 시술은 개인의 상태에 따라 적용 방법과 결과가 다르므로 담당 의료진의 진료가 중요합니다.</p><div style="margin-top:40px">'+sectionHead('함께 읽으면 좋은 콘텐츠','', '/contents')+'<div class="editorial-cards">'+C.slice(0,4).map(editorialCard).join('')+'</div></div></article></div>'}
+function contentDetail(c){
+ if(!c)return notFound();
+ const data=ORIGINAL_ARTICLE_SECTIONS[c.id];
+ if(!data)return '<div class="wrap source-article-detail"><article><header><h1>'+safe(c.title)+'</h1><time>업데이트: '+safe(c.date)+'</time></header>'+img(c.image,'source-article-cover',c.title)+'</article></div>';
+ const headings=data.headings||[],main=headings.filter(x=>x.level===3),other=headings.filter(x=>x.text!=='목차'&&x.text!=='세 문장 요약');
+ const figure=data.images?.[0]||c.image;
+ return '<div class="wrap source-article-detail"><article><header><h1>'+safe(c.title)+'</h1><time>업데이트: '+safe(c.date)+'</time></header>'+
+ '<figure>'+img(figure,'source-article-cover',c.title)+'</figure>'+
+ '<section class="source-article-summary"><p>'+safe(data.preview||'')+'</p></section>'+
+ '<section class="source-article-toc"><h4>목차</h4>'+main.map((h,i)=>'<a href="#article-section-'+i+'">'+safe(h.text)+'</a>').join('')+'</section>'+
+ '<div class="source-article-sections">'+other.map((h,i)=>h.level===3?'<h3 id="article-section-'+main.findIndex(t=>t.text===h.text)+'">'+safe(h.text)+'</h3>':'<h4>'+safe(h.text)+'</h4>').join('')+'</div>'+
+ '</article></div>';
+}
 function about(){return '<div class="wrap"><div class="about-hero"><span class="blog-pill">GANGNAM UNNI</span><h1 style="margin-top:15px">내 선택에 확신을,<br/>강남언니</h1><p>탐색은 더 쉬워지고, 선택은 선명해지고,<br/>원하는 나를 향한 여정은 계속 이어져요</p></div><div class="about-features">'+[['시술이 궁금할 땐 AI 대화로 시작','필요한 질문으로 바로 검색하고 원하는 정보를 살펴보세요'],['시술 트렌드를 한눈에','전문 칼럼과 큐레이션으로 시술 정보를 탐색하세요'],['후기와 정보를 함께 비교','병원, 의료진, 시술 가격과 후기를 함께 살펴보세요'],['원하는 기준으로 시술 정보 비교','비교와 상세 옵션으로 선택을 도와줘요'],['혜택이 쌓이는 포인트와 쿠폰','다양한 혜택과 프로모션을 확인하세요'],['쓸수록 나에게 맞춰지는 탐색','개인화된 홈과 검색을 제공하는 서비스']].map(([a,b])=>'<div class="about-feature"><h3>'+a+'</h3><p>'+b+'</p></div>').join('')+'</div><div class="bottom-space"></div></div>'}
 function promotion(){return '<div class="wrap"><div class="page-banner"><div><h1>강남언니 케어링 키트</h1><p>수술 후기 남기고 케어링 키트 신청하세요</p></div><span>🎁</span></div><div class="article-content"><h2>여러분의 선택, 그 이후의 삶은 어떠신가요?</h2><p>고민부터 결심, 그리고 지금의 회복까지. 고객님의 솔직한 경험을 다른 이용자와 함께 나눠주세요.</p><h2>HOW TO　신청 방법</h2><p>① 앱에서 시술 후 후기를 작성해 주세요.</p><p>② 후기 작성 후 신청 버튼을 통해 접수합니다.</p><button class="cta" data-action="download">앱 다운로드</button></div></div>'}
 function notFound(){return '<div class="notfound"><h2>페이지를 찾을 수 없습니다</h2><p>다른 메뉴에서 원하는 정보를 찾아보세요.</p><button class="cta" style="max-width:250px;margin:25px auto" data-to="/">홈으로 돌아가기 →</button></div>'}
