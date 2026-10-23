@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunicationSDK, describeRoute, type CommunicationEvent } from '../communication-sdk';
 import './DeviceLab.css';
+import './DeviceLab.extra.css';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
