@@ -22,6 +22,7 @@ cat "$out/events.log"
 grep -q "APP_STARTED" "$out/events.log"
 grep -q "WEB_LOADED" "$out/events.log"
 grep -q "BRIDGE_PING_OK" "$out/events.log"
+grep -q "CAPABILITIES_OK" "$out/events.log"
 if grep -E "WEB_ERROR|HTTP_ERROR" "$out/events.log"; then
   echo "FAIL: HITEL WebView navigation error"
   exit 1

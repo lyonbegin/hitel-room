@@ -13,6 +13,21 @@ permissions:
   contents: read
 
 jobs:
+  web-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Store Vite build
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-web-dist
+          path: dist/
   android-emulator:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
