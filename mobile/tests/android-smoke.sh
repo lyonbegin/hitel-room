@@ -24,6 +24,7 @@ cat "$out/events.log"
 grep -q "APP_STARTED" "$out/events.log"
 grep -q "WEB_LOADED" "$out/events.log"
 grep -q "BRIDGE_PING_OK" "$out/events.log"
+grep -q "LAB_SOCKET_CONNECTED" "$out/events.log"
 grep -q "CAPABILITIES_OK" "$out/events.log"
 grep -q "hitel-communication-web-production.up.railway.app/sdk-lab/device" "$out/events.log"
 if grep -E "WEB_ERROR|HTTP_ERROR" "$out/events.log"; then
