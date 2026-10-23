@@ -45,4 +45,5 @@ if grep -q "WEB_ERROR" "$out/events.log"; then
     echo "FAIL: HITEL WKWebView navigation error"
     exit 1
 fi
+python3 mobile/tests/lab-ci.py probe ios
 echo "PASS: iOS app started, remote Vite page loaded, trusted native bridge responded"
