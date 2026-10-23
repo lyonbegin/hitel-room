@@ -27,6 +27,8 @@ xcodebuild -project mobile/ios/HitelNative.xcodeproj \
         tail -100 "$out/build.log"; exit 1;
     }
 xcrun simctl install "$udid" /tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app
+SIMCTL_CHILD_HITEL_LAB_URL="${HITEL_LAB_URL:-https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=ios}" \
+SIMCTL_CHILD_HITEL_LAB_TICKET="${HITEL_LAB_TICKET:-}" \
 xcrun simctl launch "$udid" app.hitel.native | tee "$out/launch.txt"
 sleep 40
 xcrun simctl io "$udid" screenshot "$out/screen.png"
@@ -37,7 +39,7 @@ grep -q "APP_STARTED" "$out/events.log"
 grep -q "WEB_LOADED" "$out/events.log"
 grep -q "BRIDGE_PING_OK" "$out/events.log"
 grep -q "CAPABILITIES_OK" "$out/events.log"
-grep -q "CAPABILITIES_OK" "$out/events.log"
+grep -q "hitel-communication-web-production.up.railway.app/sdk-lab/device" "$out/events.log"
 if grep -q "WEB_ERROR" "$out/events.log"; then
     echo "FAIL: HITEL WKWebView navigation error"
     exit 1
