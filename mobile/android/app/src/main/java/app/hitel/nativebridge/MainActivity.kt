@@ -109,6 +109,13 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 Log.i(LOG_TAG, "WEB_LOADED $url")
+                // Native -> WebView event channel consumed by Communication SDK.
+                if (Uri.parse(url).host == Uri.parse(ORIGIN).host) {
+                    view.evaluateJavascript(
+                        """window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:{type:'app.ready',platform:'android'}}))""",
+                        null
+                    )
+                }
                 view.evaluateJavascript(
                     """window.HitelNative && (window.HitelNative.postMessage(JSON.stringify({action:'ping'})),window.HitelNative.postMessage(JSON.stringify({action:'getCapabilities'})))""",
                     null
