@@ -2,6 +2,9 @@
 set -euo pipefail
 out="mobile-test-results/android"
 mkdir -p "$out"
+# Route HTTPS CONNECT through the GitHub host: Android guest DNS is unreliable.
+adb shell settings put global http_proxy 10.0.2.2:18888
+adb shell settings get global http_proxy | tee "$out/proxy-setting.txt"
 adb install -r mobile/android/app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c
 adb shell am start -n app.hitel.nativebridge/.MainActivity | tee "$out/launch.txt"
