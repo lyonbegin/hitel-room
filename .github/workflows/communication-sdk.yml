@@ -5,6 +5,9 @@ on:
     branches: [feature/communication-sdk]
     paths:
       - 'src/communication-sdk/**'
+      - 'src/App.tsx'
+      - 'src/communication/**'
+      - 'tests/communication-sdk.test.mjs'
       - 'src/portal/nativeBridge.ts'
       - 'vite.communication-sdk.config.ts'
       - 'package*.json'
@@ -31,6 +34,8 @@ jobs:
         run: npx vite build --config vite.communication-sdk.config.ts
       - name: Verify distributable
         run: test -s dist/sdk/communication.esm.js
+      - name: Execute Communication SDK contract tests
+        run: node --test tests/communication-sdk.test.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: communication-sdk-esm
