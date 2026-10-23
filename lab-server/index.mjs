@@ -18,10 +18,35 @@ try {
   }
   console.log('LAB_RESTORED_ACTIVE_PAIRS',tickets.size);
 }catch{/* first boot: no existing pair file */}
-async function persistTickets(){
-  const temp=ticketFile+'.tmp';
-  await fs.writeFile(temp,JSON.stringify([...tickets]));
-  await fs.rename(temp,ticketFile);
+const tokenDir=path.join(STORE,'pairs');
+await fs.mkdir(tokenDir,{recursive:true});
+const tokenPath=(key)=>path.join(tokenDir,crypto.createHash('sha256').update(key).digest('hex')+'.json');
+async function persistPair(key) {
+  await fs.writeFile(tokenPath(key),JSON.stringify([key,tickets.get(key)]));
+}
+async function findPair(key) {
+  if(!key)return null;
+  const cache=tickets.get(key);
+  if(cache&&cache.expires>Date.now())return cache;
+  try {
+    const [stored,detail]=JSON.parse(await fs.readFile(tokenPath(key),'utf8'));
+    if(stored===key&&detail.expires>Date.now()){tickets.set(key,detail);return detail}
+  }catch{/* invalid or unknown pairing */}
+  return null;
+}
+async function findController(controller,side){
+  const existing=[...tickets.values()].find(v=>v.controller===controller&&v.expires>Date.now()&&(v.side===side||v.side==='both'));
+  if(existing)return existing;
+  try{
+    for(const file of await fs.readdir(tokenDir)){
+      if(!file.endsWith('.json'))continue;
+      const [key,value]=JSON.parse(await fs.readFile(path.join(tokenDir,file),'utf8'));
+      if(value.controller===controller&&value.expires>Date.now()&&(value.side===side||value.side==='both')){
+        tickets.set(key,value);return value;
+      }
+    }
+  }catch{/* no known controller */}
+  return null;
 }
 const connections = new Map();
 const liveFrames = new Map();
@@ -120,7 +145,7 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=ticketString(),controller=ticketString();
       tickets.set(ticket,{controller,side,expires:Date.now()+30*60_000,origin:'dashboard'});
-      await persistTickets();
+      await persistPair(ticket);
       return json(res,201,{ok:true,ticket,controller,expiresInSeconds:1800,side});
     }
     if(req.method==='POST'&&route==='/lab-api/ci/session'){
@@ -130,7 +155,7 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=ticketString(),controller=ticketString();
       tickets.set(ticket,{controller,side:body.side,origin:'ci',expires:Date.now()+15*60_000,runId:String(payload.run_id||'')});
-      await persistTickets();
+      await persistPair(ticket);
       return json(res,201,{ok:true,ticket,controller,expiresInSeconds:900});
     }
     if(req.method==='POST'&&route==='/lab-api/ci/upload'){
@@ -159,7 +184,7 @@ const server=http.createServer(async(req,res)=>{
       const controller=(req.headers.authorization||'').match(/^Bearer (.+)$/i)?.[1];
       const body=await readBody(req,2048);
       cleanExpired();
-      const ticket=[...tickets.values()].find(v=>v.controller&&v.controller===controller&&v.expires>Date.now()&&(v.side===body.device||v.side==='both'));
+      const ticket=await findController(controller,body.device);
       if(!ticket)return error(res,401,'Pairing control token required');
       if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate','getCapabilities','tts.speak','tts.stop','call.openDialer'].includes(body.action))
         return error(res,400,'Invalid device/action');
@@ -187,13 +212,13 @@ const server=http.createServer(async(req,res)=>{
   }
 });
 const wss=new WebSocketServer({noServer:true,maxPayload:4*1024*1024});
-server.on('upgrade',(req,socket,head)=>{
+server.on('upgrade',async(req,socket,head)=>{
   try{
     const url=new URL(req.url||'/', 'http://localhost');
     if(url.pathname!=='/lab-api/ws'||url.searchParams.get('role')!=='device')throw Error('Invalid WebSocket path');
     const ticket=url.searchParams.get('ticket'),side=url.searchParams.get('side');
     cleanExpired();
-    const paired=tickets.get(ticket);
+    const paired=await findPair(ticket);
     if(!paired||!SIDES.has(side)||(paired.side!==side&&paired.side!=='both'))throw Error('Unpaired device');
     wss.handleUpgrade(req,socket,head,ws=>{
       ws.labSide=side;
