@@ -267,7 +267,7 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                Log.i(LOG_TAG, "WEB_LOADED $url")
+                Log.i(LOG_TAG, "WEB_LOADED " + Uri.parse(url).buildUpon().clearQuery().build().toString())
                 // Native -> WebView event channel consumed by Communication SDK.
                 if (isTrusted(Uri.parse(url).host)) {
                     val paired = Uri.parse(url).getQueryParameter("pair")
