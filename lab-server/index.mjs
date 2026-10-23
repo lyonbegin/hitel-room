@@ -11,6 +11,7 @@ const ORIGIN = process.env.LAB_ALLOWED_ORIGIN || 'https://hitel-communication-we
 const SIDES = new Set(['android', 'ios']);
 const tickets = new Map();
 const connections = new Map();
+const liveFrames = new Map();
 const windows = new Map();
 const jwks = createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 
@@ -63,7 +64,7 @@ function deviceState(side,report){
     bridge:report?.bridge||'GitHub Actions 대기',
     sdk:report?.sdk||null,
     note:current?'에뮬레이터 네트워크 접속 중':report?'마지막 GitHub Actions 스크린샷 저장됨':'연결된 에뮬레이터 없음',
-    capture:!!report,runId:report?.runId||null,ciPass:report?.passed??null};
+    capture:!!report||!!liveFrames.get(side),screenMode:current&&liveFrames.get(side)?'live':'github-actions',runId:report?.runId||null,ciPass:report?.passed??null};
 }
 function notifyDevices(){
   for(const [side,ws] of connections){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ack',side,time:Date.now()}))}
@@ -85,7 +86,8 @@ const server=http.createServer(async(req,res)=>{
       const side=route.split('/').at(-1);
       if(!SIDES.has(side))return error(res,404,'Invalid device');
       try{
-        const png=await fs.readFile(path.join(STORE,side+'.png'));
+        const recent=liveFrames.get(side);
+        const png=recent&&Date.now()-recent.time<20_000?recent.png:await fs.readFile(path.join(STORE,side+'.png'));
         res.writeHead(200,{'content-type':'image/png','cache-control':'no-store','content-length':png.length});
         return res.end(png);
       }catch{return error(res,404,'No GitHub Actions capture uploaded')}
@@ -137,11 +139,12 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=[...tickets.values()].find(v=>v.controller&&v.controller===controller&&v.expires>Date.now()&&(v.side===body.device||v.side==='both'));
       if(!ticket)return error(res,401,'Pairing control token required');
-      if(!SIDES.has(body.device)||!['home','back','reload','ping','launch'].includes(body.action))
+      if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate'].includes(body.action))
         return error(res,400,'Invalid device/action');
       const ws=connections.get(body.device);
       if(!ws||ws.readyState!==WebSocket.OPEN)return error(res,409,'Real native device is offline');
-      ws.send(JSON.stringify({type:'command',action:body.action,requestId:ticketString()}));
+      const screen=['sdk','ai','call','media'].includes(body.screen)?body.screen:'home';
+      ws.send(JSON.stringify({type:'command',action:body.action,screen,requestId:ticketString()}));
       return json(res,202,{ok:true,status:'sent-to-native-app'});
     }
     return error(res,404,'Not found');
@@ -150,7 +153,7 @@ const server=http.createServer(async(req,res)=>{
     if(!res.headersSent)error(res,/OIDC|Untrusted workflow|signature|JWT|audience/.test(err.message)?401:400,err.message);
   }
 });
-const wss=new WebSocketServer({noServer:true,maxPayload:128*1024});
+const wss=new WebSocketServer({noServer:true,maxPayload:4*1024*1024});
 server.on('upgrade',(req,socket,head)=>{
   try{
     const url=new URL(req.url||'/', 'http://localhost');
@@ -173,11 +176,17 @@ wss.on('connection',ws=>{
   ws.on('message',raw=>{
     try{
       const message=JSON.parse(String(raw));
+      if(message.type==='frame'&&typeof message.png==='string'){
+        const png=Buffer.from(message.png,'base64');
+        if(png.length>100&&png.length<=3_000_000&&png.subarray(0,8).toString('hex')==='89504e470d0a1a0a'){
+          liveFrames.set(side,{png,time:Date.now()});
+        }
+      }
       if(message.type==='event'||message.type==='hello'){
         console.log('LAB_NATIVE',side,String(message.name||message.type).slice(0,80),String(message.value||'').slice(0,100));
       }
     }catch{/* invalid telemetry ignored */}
   });
-  ws.on('close',()=>{if(connections.get(side)===ws)connections.delete(side)});
+  ws.on('close',()=>{if(connections.get(side)===ws){connections.delete(side);liveFrames.delete(side)}});
 });
 server.listen(PORT,'0.0.0.0',()=>console.log('HITEL_DEVICE_LAB_RELAY_READY',PORT));
