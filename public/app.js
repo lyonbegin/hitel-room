@@ -11,7 +11,7 @@ const ASSETS=[
 'https://image2.gnsister.com/images/direct/1699239555529_4890829b86c14468a0e6a874779b07ab.jpg?w=400&f=webp',
 'https://image2.gnsister.com/images/direct/1756108593794_6f2ac7b4b28746e3b8d04d682b99e897.jpg?w=400&f=webp',
 'https://image2.gnsister.com/images/direct/1777347457955_c89a2a7461f440bca5e082cf38457611.jpg?w=400&f=webp',
-'https://image2.gnsister.com/images/direct/1753850007300_5ff4f74421ca4834aa631ec32ed3e.jpg?w=400&f=webp',
+'https://image2.gnsister.com/images/direct/1753850007300_5ff4f74421ca4834aa631ec32e4ce9a0.jpg?w=400&f=webp',
 'https://image2.gnsister.com/images/direct/1744181311829_9e7ceed9eae04fe3b60473f95cc0661c.jpg?w=400&f=webp',
 'https://image2.gnsister.com/images/direct/1783914022201_b851e5e55540444ea12562304c259c74.jpg?w=400&f=webp',
 'https://image2.gnsister.com/images/direct/1770258559571_c2188a136033489ea0be5de2b29700a3.jpg?w=400&f=webp',
