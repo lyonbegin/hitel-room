@@ -38,6 +38,7 @@ class MainActivity : Activity() {
     private val networkClient = OkHttpClient()
     private var labSocket: WebSocket? = null
     private var activeTicket: String? = null
+    private var labDestroyed = false
     private val frameHandler = Handler(Looper.getMainLooper())
     private var frameTask: Runnable? = null
 
@@ -109,7 +110,12 @@ class MainActivity : Activity() {
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(LOG_TAG, "LAB_SOCKET_FAILURE " + t.message)
-                if (labSocket === webSocket) activeTicket = null
+                if (labSocket === webSocket) {
+                    activeTicket = null
+                    frameHandler.postDelayed({
+                        if (!labDestroyed && activeTicket == null) connectLabNetwork(ticket)
+                    },3000)
+                }
             }
         })
     }
@@ -293,6 +299,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         speaker?.stop()
         speaker?.shutdown()
+        labDestroyed = true
         frameTask?.let { frameHandler.removeCallbacks(it) }
         labSocket?.close(1000, "Activity destroyed")
         networkClient.dispatcher.executorService.shutdown()
