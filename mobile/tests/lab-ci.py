@@ -39,6 +39,7 @@ def post(target, body):
 if sys.argv[1] == "session":
     result = post("/lab-api/ci/session", {"side": PLATFORM})
     ticket = result["ticket"]
+    print("::add-mask::" + ticket, flush=True)
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
         output.write("HITEL_LAB_TICKET=" + ticket + "\n")
     print(f"Native {PLATFORM} short-lived WebSocket pairing created (token hidden)")
