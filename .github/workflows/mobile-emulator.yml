@@ -47,6 +47,7 @@ jobs:
           echo $! > mobile-test-results/android/https-proxy.pid
           sleep 2
           grep -q HITEL_PROXY_READY mobile-test-results/android/https-proxy.log
+          curl --proxy http://127.0.0.1:18888 -fsSL             --connect-timeout 10 --max-time 40             -o /dev/null -w "HITEL via CONNECT proxy HTTP %{http_code}\\n"             https://hitel-room-production-ecce.up.railway.app/             | tee mobile-test-results/android/proxy-http.txt
       - name: Start emulator, install, open app, capture screenshot/logs
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -55,7 +56,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -http-proxy http://10.0.2.2:18888
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -http-proxy http://127.0.0.1:18888
           disable-animations: true
           script: bash mobile/tests/android-smoke.sh
       - name: Store Android screenshot and diagnostics
