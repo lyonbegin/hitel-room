@@ -1,6 +1,8 @@
 package app.hitel.nativebridge
 
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -22,6 +24,8 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private var speaker: TextToSpeech? = null
     private var ttsReady = false
+    private var pendingMediaPermission: PermissionRequest? = null
+    private val mediaPermissionRequestCode = 9001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,7 +99,41 @@ class MainActivity : Activity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = true
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest) {
+                runOnUiThread {
+                    val trusted = request.origin.scheme == "https" &&
+                        request.origin.host == Uri.parse(ORIGIN).host
+                    val resources = request.resources.toSet()
+                    val allowed = setOf(
+                        PermissionRequest.RESOURCE_AUDIO_CAPTURE,
+                        PermissionRequest.RESOURCE_VIDEO_CAPTURE
+                    )
+                    if (!trusted || resources.isEmpty() || !allowed.containsAll(resources)) {
+                        request.deny()
+                        return@runOnUiThread
+                    }
+                    val missing = mutableListOf<String>()
+                    if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE) &&
+                        checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+                    ) missing.add(Manifest.permission.RECORD_AUDIO)
+                    if (resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE) &&
+                        checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+                    ) missing.add(Manifest.permission.CAMERA)
+                    if (missing.isEmpty()) {
+                        request.grant(request.resources)
+                    } else {
+                        pendingMediaPermission?.deny()
+                        pendingMediaPermission = request
+                        requestPermissions(missing.toTypedArray(), mediaPermissionRequestCode)
+                    }
+                }
+            }
+
+            override fun onPermissionRequestCanceled(request: PermissionRequest) {
+                if (pendingMediaPermission === request) pendingMediaPermission = null
+            }
+        }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
@@ -129,6 +167,25 @@ class MainActivity : Activity() {
             }
         }
         webView.loadUrl(HOME)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != mediaPermissionRequestCode) return
+        val webRequest = pendingMediaPermission ?: return
+        pendingMediaPermission = null
+        if (grantResults.isNotEmpty() &&
+            grantResults.size == permissions.size &&
+            grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+        ) {
+            webRequest.grant(webRequest.resources)
+        } else {
+            webRequest.deny()
+        }
     }
 
     @Deprecated("Deprecated in Java")
