@@ -125,10 +125,10 @@ const server=http.createServer(async(req,res)=>{
       const body=await readBody(req,2048);
       if(!SIDES.has(body.side))return error(res,400,'Invalid device');
       cleanExpired();
-      const ticket=ticketString();
-      tickets.set(ticket,{controller:null,side:body.side,expires:Date.now()+15*60_000,runId:String(payload.run_id||'')});
+      const ticket=ticketString(),controller=ticketString();
+      tickets.set(ticket,{controller,side:body.side,expires:Date.now()+15*60_000,runId:String(payload.run_id||'')});
       await persistTickets();
-      return json(res,201,{ok:true,ticket,expiresInSeconds:900});
+      return json(res,201,{ok:true,ticket,controller,expiresInSeconds:900});
     }
     if(req.method==='POST'&&route==='/lab-api/ci/upload'){
       const payload=await verifyOIDC(req);
