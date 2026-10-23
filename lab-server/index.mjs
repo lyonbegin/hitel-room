@@ -100,7 +100,10 @@ const server=http.createServer(async(req,res)=>{
       const side=route.split('/').at(-1);
       if(!SIDES.has(side))return error(res,404,'Invalid device');
       try{
-        const recent=liveFrames.get(side);
+        const current=connections.get(side);
+        const controller=(req.headers.authorization||'').match(/^Bearer (.+)$/i)?.[1];
+        const liveAllowed=current?.labOrigin==='ci'||(current?.labController&&controller===current.labController);
+        const recent=liveAllowed?liveFrames.get(side):null;
         const png=recent&&Date.now()-recent.time<20_000?recent.png:await fs.readFile(path.join(STORE,side+'.png'));
         res.writeHead(200,{'content-type':'image/png','cache-control':'no-store','content-length':png.length});
         return res.end(png);
@@ -126,7 +129,7 @@ const server=http.createServer(async(req,res)=>{
       if(!SIDES.has(body.side))return error(res,400,'Invalid device');
       cleanExpired();
       const ticket=ticketString(),controller=ticketString();
-      tickets.set(ticket,{controller,side:body.side,expires:Date.now()+15*60_000,runId:String(payload.run_id||'')});
+      tickets.set(ticket,{controller,side:body.side,origin:'ci',expires:Date.now()+15*60_000,runId:String(payload.run_id||'')});
       await persistTickets();
       return json(res,201,{ok:true,ticket,controller,expiresInSeconds:900});
     }
@@ -146,6 +149,9 @@ const server=http.createServer(async(req,res)=>{
         log:String(body.log||'').slice(-12000),
         url:'https://github.com/lyonbegin/hitel-room/actions/runs/'+encodeURIComponent(runId)
       };
+      const previous=await loadReport(body.side);
+      if(previous?.runId&&Number(previous.runId)>Number(runId))
+        return json(res,200,{ok:true,side:body.side,ignoredOlderRun:true,runId:previous.runId});
       await saveReport(body.side,info,png);
       return json(res,201,{ok:true,side:body.side,runId});
     }
@@ -190,7 +196,10 @@ server.on('upgrade',(req,socket,head)=>{
     const paired=tickets.get(ticket);
     if(!paired||!SIDES.has(side)||(paired.side!==side&&paired.side!=='both'))throw Error('Unpaired device');
     wss.handleUpgrade(req,socket,head,ws=>{
-      ws.labSide=side;connections.get(side)?.close(4001,'Replaced by new connection');
+      ws.labSide=side;
+      ws.labOrigin=paired.origin||'dashboard';
+      ws.labController=paired.controller;
+      connections.get(side)?.close(4001,'Replaced by new connection');
       connections.set(side,ws);
       ws.send(JSON.stringify({type:'connected',side,authenticated:true,at:Date.now()}));
       notifyDevices();
