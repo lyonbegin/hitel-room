@@ -183,7 +183,9 @@ struct HitelWebView: UIViewRepresentable {
             if let url = webView.url, let ticket = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "pair" })?.value {
                 connectLabNetwork(ticket, webView: webView)
             }
-            NSLog("HITEL_E2E WEB_LOADED %@", webView.url?.absoluteString ?? "")
+            var safeURL = webView.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) }
+            safeURL?.query = nil
+            NSLog("HITEL_E2E WEB_LOADED %@", safeURL?.string ?? "")
             // Native -> WKWebView event channel consumed by Communication SDK.
             webView.evaluateJavaScript(
                 "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:{type:'app.ready',platform:'ios'}}))",
