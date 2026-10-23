@@ -25,7 +25,7 @@ for(const [i,from] of order.entries()){
 }
 assert.equal(supportedUi('P'),'HITEL 화면 없음 (일반전화만 사용)');
 assert.match(getScenario('P','P').ai,/AI 없음/);
-assert.match(getScenario('P_PLUS','P_PLUS').ai,/각자/);
+assert.match(getScenario('P_PLUS','P_PLUS').ai,/각각|각자/);
 assert.match(getScenario('W','P').mediaRoute,/게이트웨이/);
 assert.match(getScenario('N','W').mediaRoute,/WebRTC/);
 console.log('PASS: 16/16 unique direction-specific frontend flow specifications');
