@@ -4,7 +4,6 @@ on:
     branches: [feature/mobile-native]
     paths:
       - 'mobile/**'
-      - 'src/**'
       - 'package*.json'
       - '.github/workflows/mobile-emulator.yml'
   workflow_dispatch:
