@@ -1,113 +1,103 @@
-/* Desktop browser framing reproduced from collected UNNI PC reference material.
-   Original viewport remains a mobile-width storefront within a neutral PC canvas. */
-@media(min-width:820px){
- html,body{min-height:100%;background:#eff1f4!important}
- #app{position:relative;width:430px;margin-left:calc(50% - 70px);margin-right:0;min-height:100vh;background:#fff;box-shadow:0 0 16px #27334514;overflow:visible}
- body::before{content:'';width:277px;height:570px;position:fixed;left:calc(50% - 396px);top:50%;transform:translateY(-50%);background-image:url('https://unni.app/images/splash/kr.webp'),url('https://static.waveon.io/img/blog/495/1776217021809.jpeg');background-position:center,10px center;background-size:contain,690px auto;background-repeat:no-repeat,no-repeat}
- .wrap{max-width:430px!important;width:100%!important;padding-left:17px!important;padding-right:17px!important}
- .promo{display:none!important}
- .top-header{position:sticky;top:0;background:#fff;box-shadow:0 1px 0 #eeeeee;z-index:50}
- .topbar{height:119px!important;padding-top:9px;padding-bottom:13px;display:flex;align-content:start;align-items:center;flex-wrap:wrap;row-gap:10px!important;column-gap:10px!important}
- .logo{order:0;margin-right:auto!important}
- .logo-text{font-size:18px!important}
- .logo-symbol{width:22px!important;height:22px!important;font-size:16px!important}
- .head-actions{order:1;margin-left:0!important}
- .head-login{font-size:11px!important;background:#fafafa;border:1px solid #ececec;border-radius:14px;padding:5px 10px}
- .head-link{display:none!important}
- .head-search{order:2;flex:none;flex-basis:100%;max-width:100%;width:100%;height:42px!important;margin:0!important;background:#fff!important;border:1px solid #ff784f!important;border-radius:20px!important}
- .head-search input{font-size:12px!important;padding-left:13px}
- .search-go{font-size:20px!important}
- .navigation{display:none!important}
- .cat-strip{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px 4px!important;margin:19px 0 24px!important}
- .cat-link{font-size:10px!important;gap:7px!important;padding:4px 0!important}
- .cat-link img,.cat-link .cat-fallback{width:42px!important;height:42px!important}
- .hero{margin:12px 0 0!important}
- .hero-shell{width:100%;height:auto!important;aspect-ratio:1406/656!important;border-radius:7px!important}
- .hero-slide{display:block!important;padding:0!important;width:100%;height:100%}
- .hero-slide.source-banner>img{width:100%;height:100%;object-fit:cover;display:block}
- .hero-controls{bottom:8px!important;left:auto!important;right:8px!important}
- .hero-controls button{display:none!important}
- .hero-index{padding:4px 10px!important;background:#0007!important;color:#fff!important;font-size:10px!important}
- .hero-dotbar{display:none!important}
- .site-section{margin-top:28px!important}
- .section-head{margin-bottom:14px!important;align-items:center}
- .section-head h2{font-size:17px!important;line-height:1.3!important}
- .section-head p{font-size:11px!important;margin-top:5px!important}
- .section-head>a,.section-head>button{font-size:10px!important}
- .cards{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;row-gap:22px!important}
- .event-cover{aspect-ratio:1.05/1!important}
- .event-title{font-size:12px!important;line-height:1.35!important;min-height:33px!important}
- .event-area{font-size:10px!important;margin-top:7px!important}
- .event-price strong{font-size:14px!important}
- .event-price .off{font-size:12px!important}
- .event-rating{font-size:10px!important}
- .editorial-cards{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
- .editorial-img{height:auto!important;aspect-ratio:1.12/1;object-fit:cover}
- .editorial-card h3{font-size:12px!important;line-height:1.4!important}
- .editorial-category{font-size:10px!important}
- .hospitals-grid{display:grid!important;grid-template-columns:1fr!important;gap:13px!important}
- .hospital-card{display:grid!important;grid-template-columns:114px minmax(0,1fr);padding-bottom:0!important;min-height:121px!important}
- .hospital-card .hospital-pic,.hospital-card img{width:114px!important;height:100%!important;min-height:122px!important}
- .hospital-card .copy{padding:9px 12px 8px!important}
- .hospital-card h3{font-size:14px!important;margin-bottom:4px!important}
- .hospital-card p,.hospital-count{font-size:10px!important;margin-top:3px!important}
- .detail-layout{display:block!important}
- .detail-side{position:static!important;margin:20px 0!important}
- .detail-heroimg{height:230px!important}
- .detail-info h1{font-size:22px!important}
- .comment-feed{grid-template-columns:1fr!important}
- .article-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
- .article-content{max-width:100%;padding:0 17px!important}
- .article-content h1{font-size:22px!important}
- .article-content>img{height:220px!important}
- .search-mini{grid-template-columns:1fr!important}
- .list-head{padding-top:22px!important}
- .list-head h1{font-size:21px!important}
- .listing-toolbar{padding:13px 0!important}
- .tabs{gap:5px!important;margin:12px 0!important}
- .tabs button{font-size:10px!important;padding:8px 10px!important}
- .pills{padding-top:12px!important}
- .pill{font-size:10px!important;padding:8px 10px!important}
- .site-footer{margin-top:28px!important;padding-bottom:66px;background:#fff!important}
- .footer-content{padding:21px 17px!important}
- .footer-tabs{display:none!important}
- .bottom-mobile{display:flex!important;position:fixed!important;left:calc(50% - 70px)!important;right:auto!important;bottom:0!important;width:430px!important;height:64px!important;background:#fff;border-top:1px solid #ececec;z-index:100;justify-content:space-around;box-shadow:0 -2px 10px #0000000a}
- .bottom-mobile button{min-width:0;font-size:10px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
- .bottom-mobile button span{font-size:21px}
- .bottom-mobile button.on{color:#ff603d}
- .modal{width:min(410px,calc(100vw - 35px))!important}
-}
-@media(min-width:820px) and (max-width:1120px){
- #app{margin:0 auto!important}
- body::before{display:none}
- .bottom-mobile{left:50%!important;transform:translateX(-50%)}
-}
-@media(max-width:819px){
- .promo{display:none}
- .navigation{display:none!important}
- .topbar{height:119px!important}
- .cat-strip{grid-template-columns:repeat(4,1fr)!important}
- .hero{margin-top:11px!important}
- .hero-shell{height:auto!important;aspect-ratio:1406/656}
- .hero-slide.source-banner{padding:0!important;display:block!important}
- .hero-slide.source-banner img{height:100%;width:100%;object-fit:cover}
- .hero-controls{left:auto;right:8px}
- .hero-controls button{display:none}
- .hero-dotbar{display:none}
- .cards{grid-template-columns:repeat(2,1fr)!important}
- .editorial-cards{grid-template-columns:repeat(2,1fr)!important}
- .site-section{margin-top:30px!important}
-}
 
-/* Gallery follows the image-first order of the source hospital detail template. */
+/* Present-day UNNI PC DOM reference: max-w-[616px] storefront, 360px side poster,
+   horizontal category chip rail, 110px editorial list, 2.5-visible-item product carousel. */
+html,body{background:#f5f6f8!important}
+#app{position:relative;width:min(616px,100%);margin:0 auto;min-height:100vh;background:#fff}
+.wrap{max-width:616px!important;width:100%!important;padding-left:17px!important;padding-right:17px!important}
+.promo{display:none!important}
+.top-header{position:sticky;top:0;background:#fff;border-bottom:0!important;box-shadow:0 1px 0 #f2f2f2;z-index:50}
+.topbar{height:105px!important;padding-top:8px!important;padding-bottom:10px!important;display:flex!important;align-content:start!important;align-items:center!important;flex-wrap:wrap!important;gap:5px 10px!important}
+.logo{order:0;margin-right:0!important;gap:6px}
+.logo-text{font-size:18px!important;letter-spacing:-.09em!important}
+.logo-symbol{width:21px!important;height:21px!important;font-size:15px!important}
+.head-actions{order:1;margin-left:auto!important;display:flex!important;align-items:center!important;gap:16px!important}
+.head-link{display:inline-flex!important;color:#343434!important;font-size:14px!important}
+.head-login{font-size:11px!important;border:1px solid #e8e8e8;border-radius:15px;color:#333;padding:5px 10px}
+.head-search{order:2!important;flex-basis:100%!important;max-width:none!important;width:100%!important;height:41px!important;margin:8px 0 0!important;background:#f7f8f9!important;border:1px solid #f2f2f2!important;border-radius:10px!important}
+.head-search input{font-size:13px!important;padding-left:15px!important}
+.search-go{font-size:18px!important;color:#777!important}
+.navigation{display:none!important}
+.cat-strip{display:flex!important;flex-flow:row nowrap!important;gap:8px!important;overflow-x:auto!important;margin:12px -5px 0!important;padding:6px 5px!important;scrollbar-width:none!important;scroll-snap-type:x proximity}
+.cat-strip::-webkit-scrollbar,.tabs::-webkit-scrollbar,.site-section .cards::-webkit-scrollbar{display:none}
+.cat-link{flex:0 0 auto!important;min-width:0!important;display:flex!important;flex-direction:row!important;align-items:center!important;gap:8px!important;border:1px solid #e7e9ed!important;border-radius:13px!important;background:#fff!important;padding:7px 13px 7px 7px!important;color:#525963!important;font-size:12px!important;white-space:nowrap!important;scroll-snap-align:start}
+.cat-link img,.cat-link .cat-fallback{width:30px!important;height:30px!important;object-fit:contain!important;margin:0!important}
+.cat-link .cat-fallback{border-radius:9px!important;font-size:17px!important}
+.cat-link.active{border-color:#ff7655!important;color:#f45c33!important}
+.hero{margin-top:17px!important}
+.hero-shell{height:auto!important;aspect-ratio:1406/656!important;border-radius:8px!important;overflow:hidden!important}
+.hero-slide.source-banner{display:block!important;padding:0!important;width:100%;height:100%}
+.hero-slide.source-banner>img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+.hero-controls{right:8px!important;bottom:8px!important;left:auto!important;gap:0!important}
+.hero-controls button{display:none!important}
+.hero-index{color:#fff!important;background:#0007!important;font-size:11px!important;padding:5px 10px!important;border-radius:20px!important}
+.hero-dotbar{display:none!important}
+.site-section{margin-top:21px!important}
+.section-head{display:flex!important;justify-content:space-between!important;align-items:center!important;margin-bottom:10px!important}
+.section-head h2{font-size:18px!important;font-weight:800!important;line-height:1.3!important;color:#25272b!important}
+.section-head p{font-size:12px!important;color:#8f959d!important;margin-top:4px!important}
+.section-head>a,.section-head>button{font-size:12px!important;color:#727982!important}
+.editorial-cards{display:flex!important;flex-direction:column!important;gap:0!important}
+.editorial-card{border-bottom:1px solid #f0f1f3!important;display:flex!important;align-items:center!important;gap:14px!important;padding:10px 0!important;text-align:left!important;min-height:130px!important;background:#fff!important}
+.editorial-img{flex:0 0 110px!important;width:110px!important;height:110px!important;min-width:110px!important;border-radius:9px!important;object-fit:cover!important}
+.editorial-card-copy{display:flex!important;flex:1;min-width:0;flex-direction:column!important;align-items:flex-start!important;gap:7px!important}
+.editorial-category{font-size:10px!important;color:#71777e!important;font-weight:700!important;margin:0!important;background:#f6f6f6;padding:5px 7px;border-radius:4px}
+.editorial-card h3{font-size:13px!important;line-height:1.4!important;letter-spacing:-.025em;margin:0!important;font-weight:550!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.editorial-date{font-size:11px!important;margin:0!important;color:#9ba2ac!important}
+.tabs{display:flex!important;flex-flow:row nowrap!important;gap:6px!important;overflow-x:auto!important;margin:10px -5px 12px!important;padding:4px 5px!important;scrollbar-width:none!important}
+.tabs button{border:1px solid #e7e7e7!important;background:#fff!important;color:#73787f!important;border-radius:10px!important;padding:9px 13px!important;font-size:12px!important}
+.tabs button.active{border-color:#272727!important;background:#282828!important;color:#fff!important}
+.site-section .cards{display:flex!important;flex-flow:row nowrap!important;align-items:stretch!important;overflow-x:auto!important;gap:8px!important;padding:3px 1px 8px!important;margin:0 -1px!important;scroll-snap-type:x mandatory!important;scrollbar-width:none!important}
+.site-section .cards .event-card{flex:0 0 39.5%!important;max-width:39.5%!important;scroll-snap-align:start!important}
+.event-cover{aspect-ratio:1/1!important;border-radius:9px!important}
+.event-cover img{object-fit:contain!important;background:white!important}
+.event-area{font-size:10px!important;margin-top:9px!important;line-height:1.3!important}
+.event-title{font-size:13px!important;line-height:1.4!important;min-height:38px!important;font-weight:600!important}
+.event-price{margin-top:5px!important;gap:4px!important}
+.event-price .off{font-size:13px!important}
+.event-price strong{font-size:15px!important}
+.event-rating{font-size:11px!important}
+.event-badge{font-size:10px!important}
+.cards.listing-cards{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;row-gap:23px!important}
+.source-popular{border-top:1px solid #f0f0f0;padding-top:25px;margin-top:40px!important}
+.source-popular-links{display:flex;gap:9px;flex-wrap:wrap}
+.source-popular-link{background:#f7f7f7;border-radius:5px;font-size:12px;padding:7px 10px;color:#6f6f6f}
+.hospitals-grid{display:flex!important;flex-direction:column!important;gap:12px!important}
+.hospital-card{display:flex!important;gap:12px!important;padding:10px!important;min-height:130px!important}
+.hospital-pic,.hospital-card img{width:114px!important;height:110px!important;min-height:0!important;flex:0 0 114px!important;border-radius:8px!important;object-fit:cover!important}
+.hospital-card .copy{padding:5px 0!important}
+.hospital-card h3{font-size:14px!important;margin:4px 0!important}
+.hospital-card p,.hospital-count{font-size:11px!important;margin-top:4px!important}
+.list-head{padding-top:22px!important}
+.list-head h1{font-size:23px!important}
+.list-head p{font-size:12px!important}
+.listing-toolbar{padding:15px 0!important}
+.pills{padding-top:13px!important}
+.pill{font-size:12px!important;padding:8px 11px!important}
+.detail-layout{display:block!important}
+.detail-side{position:static!important;margin:16px 0 26px!important;padding:19px!important}
+.detail-heroimg{height:260px!important}
+.detail-info h1{font-size:23px!important}
+.detail-block{padding:25px 0!important}
+.detail-block h2{font-size:19px!important}
+.comment-feed{display:flex!important;flex-direction:column!important}
+.comment-card{padding:17px!important}
+.article-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.article-content{max-width:100%!important;padding:0 17px!important}
+.article-content h1{font-size:23px!important}
+.article-content>img{height:260px!important}
+.search-mini{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.site-footer{background:#fff!important;border-top:1px solid #eee;margin-top:24px!important;padding-bottom:65px}
+.footer-content{padding-top:25px!important;padding-bottom:30px!important}
+.footer-tabs{display:none!important}
+.bottom-mobile{display:flex!important;height:65px!important;position:fixed!important;bottom:0!important;z-index:100!important;justify-content:space-between!important;width:min(616px,100%)!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;background:#fff!important;border-top:1px solid #eee;box-shadow:0 -3px 12px #00000008}
+.bottom-mobile button{display:flex!important;align-items:center!important;justify-content:center!important;flex-direction:column!important;gap:4px!important;flex:1!important;font-size:11px!important;color:#72777e!important;min-width:0!important}
+.bottom-mobile button span{font-size:22px!important}
+.bottom-mobile button.on{color:#ff613e!important}
 .hospital-gallery{width:100%;overflow:hidden;border-radius:9px;background:#f7f7f7}
-.hospital-gallery-main{display:block;width:100%;height:220px;object-fit:cover}
+.hospital-gallery-main{display:block;width:100%;height:290px;object-fit:cover}
 .hospital-gallery-thumbs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-top:4px}
-.hospital-gallery-thumbs img{width:100%;height:73px;object-fit:cover}
-.hospital-pic img{width:100%;height:100%;object-fit:cover}
-.doctor-avatar img{width:100%;height:100%;object-fit:cover}
-@media(max-width:819px){.hospital-gallery-main{height:220px}.hospital-gallery-thumbs img{height:62px}}
-
+.hospital-gallery-thumbs img{width:100%;height:95px;object-fit:cover}
+.hospital-pic img,.doctor-avatar img{width:100%;height:100%;object-fit:cover}
 .original-event-hero{width:100%;height:auto;display:block;border-radius:10px}
 .original-option-primary h2{font-size:18px;margin:12px 0 7px}
 .original-option-primary p{font-size:12px;color:#777;margin-bottom:8px}
@@ -124,3 +114,21 @@
 .source-option-row .source-was{margin-top:12px}
 .source-option-row strong{font-size:14px}
 .source-detail-images img{width:100%;display:block;height:auto;max-width:100%;margin:0}
+@media(min-width:1001px){
+ #app{width:616px;margin-left:calc(50% - 120px);margin-right:0;box-shadow:0 1px 7px #0000000d}
+ body::before{content:'';width:344px;height:540px;position:fixed;left:calc(50% - 496px);top:150px;background-image:url('https://unni.app/images/splash/kr.webp'),url('https://static.waveon.io/img/blog/495/1776217021809.jpeg');background-position:center,10px center;background-size:contain,750px auto;background-repeat:no-repeat,no-repeat}
+ .bottom-mobile{left:calc(50% - 120px)!important;transform:none!important}
+}
+@media(max-width:1000px){
+ #app{margin:0 auto!important}
+ body::before{display:none!important}
+}
+@media(max-width:616px){
+ .wrap{padding-left:14px!important;padding-right:14px!important}
+ .head-search{height:40px!important}
+ .head-link{font-size:12px!important}
+ .cat-link{padding:7px 10px 7px 6px!important}
+ .editorial-img{flex-basis:100px!important;width:100px!important;height:100px!important;min-width:100px!important}
+ .site-section .cards .event-card{flex-basis:43%!important;max-width:43%!important}
+ .original-event-hero{border-radius:8px}
+}
