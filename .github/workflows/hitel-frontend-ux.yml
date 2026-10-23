@@ -1,0 +1,31 @@
+name: HITEL Frontend 16-Flow Plan
+on:
+  push:
+    branches: [feature/mobile-native]
+    paths:
+      - 'src/**'
+      - 'docs/frontend-16-scenarios.md'
+      - 'scripts/check-flow-catalog.cjs'
+      - '.github/workflows/hitel-frontend-ux.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frontend-plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - name: Validate all sixteen routing specifications
+        run: node scripts/check-flow-catalog.cjs
+      - name: Compile Vite React frontend
+        run: npm run build
+      - name: Upload frontend
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-16-flow-frontend
+          path: dist/
