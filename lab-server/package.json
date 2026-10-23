@@ -1,0 +1,13 @@
+{
+  "name": "hitel-device-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3",
+    "jose": "^6.1.0"
+  }
+}
