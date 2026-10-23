@@ -1,6 +1,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Portal from './portal/Portal';
+import FlowPlanner from './portal/FlowPlanner';
 import { API_BASE_URL, issueDevToken, listMyConsultations, createConsultation, getHealth } from './lib/api';
 import { createRealtimeSocket, emitAck, waitForSocketReady } from './realtime/socket';
 import { MediasoupSession } from './realtime/MediasoupSession';
@@ -80,4 +81,4 @@ function Lobby({profile,onLogout,onOpen}:{profile:AuthProfile,onLogout:()=>void,
 }
 function LegacyApp(){const [profile,setProfile]=useState<AuthProfile|null>(getSaved),[session,setSession]=useState<ConsultationSession|null>(null);function logout(){sessionStorage.removeItem(PROFILE_KEY);setSession(null);setProfile(null)}return !profile?<Login onLogin={setProfile}/>:session?<Room key={session.id} profile={profile} initial={session} onClose={()=>setSession(null)}/>:<Lobby profile={profile} onLogout={logout} onOpen={setSession}/>;}
 
-export default function App(){return window.location.pathname.startsWith('/portal')?<Portal/>:<LegacyApp/>;}
+export default function App(){return window.location.pathname.startsWith('/portal/flows')?<FlowPlanner/>:window.location.pathname.startsWith('/portal')?<Portal/>:<LegacyApp/>;}

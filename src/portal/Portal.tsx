@@ -46,7 +46,7 @@ export default function Portal() {
     finally { setBusy(false); }
   }
   return <div className="ht-portal">
-    <header className="ht-top"><div><strong>HITEL</strong><small>Intelligent Communication Portal</small></div><a href="/">기존 영상방 ↗</a></header>
+    <header className="ht-top"><div><strong>HITEL</strong><small>Intelligent Communication Portal</small></div><nav style={{display:"flex",gap:14,flexWrap:"wrap"}}><a href="/portal/flows">16가지 연결 설계 ↗</a><a href="/">기존 영상방 ↗</a></nav></header>
     <section className="ht-intro"><span>PERSONAL AI FOR EVERY CONVERSATION</span><h1>모든 대화에<br/>각자의 AI를 연결합니다.</h1><p>앱·웹·일반전화가 서로 다른 방식으로 연결되어도, 대화 참여자는 필요한 AI와 자료를 자신의 화면에서 이용합니다.</p></section>
     <section className="ht-panel"><div className="ht-row"><h2>01 · 연결 방식</h2><span>{os === 'browser' ? '브라우저' : os + ' 앱'}</span></div><div className="ht-modes">
       {modes.map(m => <button key={m.key} type="button" aria-pressed={m.key===channel} className={m.key===channel?'active':''} onClick={()=>setChannel(m.key)}><b>{m.name}</b><small>{m.description}</small></button>)}
