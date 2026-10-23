@@ -13,9 +13,9 @@ const contacts=[
  {name:'보건복지상담센터',category:'공공기관',number:'129',detail:'보건·복지 상담'}
 ];
 const initialModes=['실시간 통역','통화 자막','AI 대화 도움','통화 요약'];
-export default function HitelHome({onLegacy}:{onLegacy:()=>void}){
- const [tab,setTab]=useState<Tab>('전화');
- const [number,setNumber]=useState('');
+export default function HitelHome({onLegacy,onPortal,initialTab='전화',initialNumber=''}:{onLegacy:()=>void;onPortal?:()=>void;initialTab?:Tab;initialNumber?:string}){
+ const [tab,setTab]=useState<Tab>(initialTab);
+ const [number,setNumber]=useState(initialNumber);
  const [query,setQuery]=useState('');
  const [enabled,setEnabled]=useState<string[]>(['통화 자막','통화 요약']);
  const [message,setMessage]=useState('');
@@ -26,9 +26,9 @@ export default function HitelHome({onLegacy}:{onLegacy:()=>void}){
  const result=contacts.filter(c=>(c.name+' '+c.number+' '+c.detail).includes(query));
  return <div className="hc-shell">
   <aside className="hc-side">
-   <button className="hc-logo" onClick={()=>setTab('전화')}><span className="hc-logomark">H</span><span><b>HITEL</b><small>AI COMMUNICATION</small></span></button>
+   <button className="hc-logo" onClick={()=>onPortal?onPortal():setTab('전화')}><span className="hc-logomark">H</span><span><b>HITEL</b><small>AI COMMUNICATION</small></span></button>
    <div className="hc-navlabel">커뮤니케이션</div>
-   <nav className="hc-nav">{tabs.map(t=><button key={t.name} className={tab===t.name?'hc-active':''} onClick={()=>{setTab(t.name);setMessage('');}}><span className="hc-icon">{t.icon}</span><span>{t.name}</span><span className="hc-navhint">{t.hint}</span></button>)}</nav>
+   <nav className="hc-nav">{onPortal&&<button onClick={onPortal}><span className="hc-icon">⌂</span><span>포털 홈</span><span className="hc-navhint">통합검색</span></button>}{tabs.map(t=><button key={t.name} className={tab===t.name?'hc-active':''} onClick={()=>{setTab(t.name);setMessage('');}}><span className="hc-icon">{t.icon}</span><span>{t.name}</span><span className="hc-navhint">{t.hint}</span></button>)}</nav>
    <div className="hc-sidebottom"><div className="hc-aiicon">✦</div><strong>AI가 함께하는 통화</strong><p>전화의 시작부터 종료 후 정리까지, HITEL이 연결을 돕습니다.</p><button onClick={()=>setTab('내 AI')}>내 AI 설정 →</button></div>
    <button className="hc-legacy" onClick={onLegacy}>↗ 기존 영상 대화방 열기</button>
   </aside>
