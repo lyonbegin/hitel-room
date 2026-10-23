@@ -198,13 +198,13 @@ export default function DeviceLab(){
   useEffect(()=>{void readStatus();const timer=window.setInterval(()=>void readStatus(),5000);return ()=>clearInterval(timer)},[readStatus]);
   const loadCapture=useCallback(async(side:Side)=>{
     try{
-      const response=await fetch('/lab-api/frame/'+side,{cache:'no-store'});
+      const response=await fetch('/lab-api/frame/'+side,{cache:'no-store',headers:adminToken?{Authorization:'Bearer '+adminToken}:{}});
       if(!response.ok)throw new Error('HTTP '+response.status);
       const next=URL.createObjectURL(await response.blob());
       const old=urls.current[side];urls.current[side]=next;setCapture(v=>({...v,[side]:next}));
       if(old)URL.revokeObjectURL(old);
     }catch{/* no frame available */ }
-  },[]);
+  },[adminToken]);
   useEffect(()=>{
     if(view!=='remote')return;
     SIDES.forEach(s=>void loadCapture(s));
