@@ -12,7 +12,7 @@ import socket
 import socketserver
 import sys
 
-ALLOWED_HOST = "hitel-web-preview-production.up.railway.app"
+ALLOWED_HOSTS = {"hitel-web-preview-production.up.railway.app", "hitel-communication-web-production.up.railway.app", "hitel-device-relay-production.up.railway.app"}
 PORT = 18888
 
 
@@ -21,7 +21,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_CONNECT(self):
         host, separator, port_text = self.path.rpartition(":")
-        if not separator or host.lower() != ALLOWED_HOST or port_text != "443":
+        if not separator or host.lower() not in ALLOWED_HOSTS or port_text != "443":
             self.send_error(403, "Only the HITEL HTTPS origin is allowed")
             return
         try:
@@ -65,7 +65,7 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 if __name__ == "__main__":
     server = Server(("0.0.0.0", PORT), Handler)
-    print(f"HITEL_PROXY_READY port={PORT} host={ALLOWED_HOST}", flush=True)
+    print(f"HITEL_PROXY_READY port={PORT} hosts={','.join(sorted(ALLOWED_HOSTS))}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
