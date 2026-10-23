@@ -31,4 +31,5 @@ if grep -E "WEB_ERROR|HTTP_ERROR" "$out/events.log"; then
   echo "FAIL: HITEL WebView navigation error"
   exit 1
 fi
+python3 mobile/tests/lab-ci.py probe android
 echo "PASS: app started, remote Vite page loaded, secure native bridge replied"
