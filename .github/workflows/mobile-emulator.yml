@@ -39,6 +39,14 @@ jobs:
           gradle-version: "8.10.2"
       - name: Build Android APK
         run: gradle -p mobile/android --no-daemon :app:assembleDebug
+      - name: Verify live HITEL host and start emulator HTTPS proxy
+        run: |
+          mkdir -p mobile-test-results/android
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 40             -o /dev/null -w "HITEL upstream HTTP %{http_code}\n"             https://hitel-room-production-ecce.up.railway.app/ | tee mobile-test-results/android/upstream-http.txt
+          python3 -u mobile/tests/host-connect-proxy.py             > mobile-test-results/android/https-proxy.log 2>&1 &
+          echo $! > mobile-test-results/android/https-proxy.pid
+          sleep 2
+          grep -q HITEL_PROXY_READY mobile-test-results/android/https-proxy.log
       - name: Start emulator, install, open app, capture screenshot/logs
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -47,6 +55,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -http-proxy http://10.0.2.2:18888
           disable-animations: true
           script: bash mobile/tests/android-smoke.sh
       - name: Store Android screenshot and diagnostics
@@ -57,7 +66,7 @@ jobs:
           path: mobile-test-results/android/
           if-no-files-found: warn
       - name: Store APK
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hitel-android-debug-apk
