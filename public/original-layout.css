@@ -132,3 +132,9 @@ html,body{background:#f5f6f8!important}
  .site-section .cards .event-card{flex-basis:43%!important;max-width:43%!important}
  .original-event-hero{border-radius:8px}
 }
+
+.source-logo{clip-path:none!important;background:none!important;color:transparent!important;box-shadow:none!important;display:grid!important;place-items:center!important;width:24px!important;height:24px!important}
+.source-logo svg{display:block;width:24px;height:24px}
+.head-actions{margin-left:0!important;flex:1!important}
+.head-link{margin-left:3px!important;margin-right:auto!important;font-size:14px!important;font-weight:700!important}
+.head-login{margin-left:auto!important}
