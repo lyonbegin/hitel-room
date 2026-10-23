@@ -36,6 +36,11 @@ struct HitelWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard webView.url?.host == allowedHost else { return }
             NSLog("HITEL_E2E WEB_LOADED %@", webView.url?.absoluteString ?? "")
+            // Native -> WKWebView event channel consumed by Communication SDK.
+            webView.evaluateJavaScript(
+                "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:{type:'app.ready',platform:'ios'}}))",
+                completionHandler: nil
+            )
             webView.evaluateJavaScript(
                 "window.webkit.messageHandlers.hitelNative.postMessage({action:'ping'});window.webkit.messageHandlers.hitelNative.postMessage({action:'getCapabilities'})",
                 completionHandler: nil
