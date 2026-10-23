@@ -108,7 +108,7 @@ const route=()=>decodeURIComponent(location.pathname);
 const qs=()=>new URLSearchParams(location.search);
 const img=(u,cl='',alt='')=>'<img loading="lazy" class="'+cl+'" src="'+safe(u)+'" alt="'+safe(alt)+'" onerror="this.style.opacity=0;this.parentElement.classList.add(\'broken-img\')"/>';
 const link=(t,path,cls='')=>'<button class="'+cls+'" data-to="'+safe(path)+'">'+t+'</button>';
-const catNav=()=>'<div class="cat-strip">'+catNames.map((c,i)=>'<button class="cat-link" data-to="/search?category='+encode(c)+'"><img src="/source-icon/'+icons[i]+'_off.png" alt="" onerror="this.outerHTML=\'<span class=cat-fallback>'+catEmoji[i]+'</span>\'"/><span>'+safe(c)+'</span></button>').join('')+'</div>';
+const catNav=()=>'<div class="cat-strip">'+catNames.map((c,i)=>'<button class="cat-link" data-to="/search?category='+encode(c)+'"><img src="/source-icon/'+icons[i]+'_off.png" alt="" loading="lazy"/><span>'+safe(c)+'</span></button>').join('')+'</div>';
 function header(){
  const p=route();const sections=[['/','홈'],['/hospitals','병원'],['/events','이벤트'],['/community','커뮤니티'],['/contents','칼럼']];
  return '<div class="promo"><strong>앱 첫 설치 시</strong> 89,000원 쿠폰팩 증정 <span>🎁</span></div><header class="top-header"><div class="wrap topbar">'+
