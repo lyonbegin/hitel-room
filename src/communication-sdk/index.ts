@@ -1,4 +1,4 @@
-import { nativeCall, platform, type NativeCapabilities } from '../portal/nativeBridge';
+import { nativeCall, platform, type NativeCapabilities, type NativeReply } from '../portal/nativeBridge';
 
 /**
  * Reuses HITEL's existing authenticated WebView Bridge.
@@ -105,7 +105,18 @@ interface AICounselorModule {
   }): AICounselorInstance };
 }
 
+export interface NativeBridgeAdapter {
+  platform(): 'android' | 'ios' | 'browser';
+  request(action: string, data?: Record<string, unknown>): Promise<NativeReply>;
+}
+
+const defaultBridge: NativeBridgeAdapter = {
+  platform: () => platform() as 'android' | 'ios' | 'browser',
+  request: nativeCall,
+};
+
 export interface CommunicationOptions {
+  nativeBridge?: NativeBridgeAdapter;
   aiCounselorUrl?: string;
   aiRuntimeUrl?: string;
   profile?: AIProfile;
@@ -126,6 +137,7 @@ export class CommunicationSDK {
 
   private readonly listeners = new Set<Listener>();
   private readonly options: CommunicationOptions;
+  private readonly bridge: NativeBridgeAdapter;
   private counselor?: AICounselorInstance;
   private counselorLoading?: Promise<AICounselorInstance>;
   private room?: RoomSession;
@@ -134,6 +146,7 @@ export class CommunicationSDK {
 
   constructor(options: CommunicationOptions = {}) {
     this.options = options;
+    this.bridge = options.nativeBridge || defaultBridge;
     if (typeof window !== 'undefined') {
       this.nativeListener = (event: Event) => {
         this.emit('native.event', (event as CustomEvent<unknown>).detail);
@@ -142,7 +155,7 @@ export class CommunicationSDK {
     }
   }
 
-  get platform() { return platform() as CommunicationCapabilities['platform']; }
+  get platform() { return this.bridge.platform(); }
   get version() { return COMMUNICATION_SDK_VERSION; }
 
   on(listener: Listener): () => void {
@@ -161,7 +174,7 @@ export class CommunicationSDK {
 
   async getCapabilities(): Promise<CommunicationCapabilities> {
     try {
-      const reply = await nativeCall('getCapabilities');
+      const reply = await this.bridge.request('getCapabilities');
       const native = reply.capabilities;
       if (!native) throw new Error('Bridge did not return capabilities');
       return {
@@ -181,15 +194,15 @@ export class CommunicationSDK {
   }
 
   async openSystemDialer(phone: string): Promise<void> {
-    await nativeCall('call.openDialer', { phone });
+    await this.bridge.request('call.openDialer', { phone });
   }
 
   async speakLocally(text: string, language = 'ko-KR'): Promise<void> {
-    await nativeCall('tts.speak', { text, language });
+    await this.bridge.request('tts.speak', { text, language });
   }
 
   async stopLocalSpeech(): Promise<void> {
-    await nativeCall('tts.stop');
+    await this.bridge.request('tts.stop');
   }
 
   private async loadAICounselor(): Promise<AICounselorInstance> {
