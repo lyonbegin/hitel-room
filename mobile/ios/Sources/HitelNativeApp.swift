@@ -44,6 +44,23 @@ struct HitelWebView: UIViewRepresentable {
         private var labSocket: URLSessionWebSocketTask?
         private var labTicket: String?
         private weak var attachedWebView: WKWebView?
+        private func streamFrames(_ socket: URLSessionWebSocketTask) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+                guard let self = self, self.labSocket === socket,
+                      let web = self.attachedWebView else { return }
+                web.takeSnapshot(with: nil) { image, error in
+                    if let image = image, let png = image.pngData(), png.count < 2_000_000,
+                       self.labSocket === socket {
+                        let payload = ["type": "frame", "png": png.base64EncodedString()]
+                        if let data = try? JSONSerialization.data(withJSONObject: payload),
+                           let value = String(data: data, encoding: .utf8) {
+                            socket.send(.string(value)) { _ in }
+                        }
+                    }
+                    self.streamFrames(socket)
+                }
+            }
+        }
         private func receiveLabMessage(_ socket: URLSessionWebSocketTask) {
             socket.receive { [weak self] result in
                 guard let self = self, self.labSocket === socket else { return }
@@ -61,9 +78,12 @@ struct HitelWebView: UIViewRepresentable {
                         DispatchQueue.main.async {
                             guard let web = self.attachedWebView else { return }
                             switch action {
-                            case "home", "launch":
+                            case "home", "launch", "navigate":
+                                let desired = action == "navigate" ? (obj["screen"] as? String ?? "home") : "home"
+                                let screen = ["home","sdk","ai","call","media"].contains(desired) ? desired : "home"
                                 if let ticket = self.labTicket,
-                                   let url = URL(string: "https://" + labHost + "/sdk-lab/device?side=ios&pair=" + ticket.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!) {
+                                   let encoded = ticket.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                                   let url = URL(string: "https://" + labHost + "/sdk-lab/device?side=ios&screen=" + screen + "&pair=" + encoded) {
                                     web.load(URLRequest(url: url))
                                 }
                             case "reload": web.reload()
@@ -103,6 +123,7 @@ struct HitelWebView: UIViewRepresentable {
                 }
             }
             receiveLabMessage(socket)
+            streamFrames(socket)
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
