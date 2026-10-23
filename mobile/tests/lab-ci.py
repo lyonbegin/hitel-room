@@ -45,6 +45,7 @@ if sys.argv[1] == "session":
     print("::add-mask::" + controller, flush=True)
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
         output.write("HITEL_LAB_TICKET=" + ticket + "\n")
+        output.write("HITEL_LAB_CONTROLLER=" + controller + "\n")
     print(f"Native {PLATFORM} short-lived WebSocket pairing created (token hidden)")
 elif sys.argv[1] == "probe":
     controller = os.environ["HITEL_LAB_CONTROLLER"]
