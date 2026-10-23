@@ -100,7 +100,19 @@ struct HitelWebView: UIViewRepresentable {
                         }
                     }
                 }
-                self.receiveLabMessage(socket)
+                switch result {
+                case .success:
+                    self.receiveLabMessage(socket)
+                case .failure(let error):
+                    NSLog("HITEL_E2E LAB_SOCKET_RECEIVE_ERROR %@", error.localizedDescription)
+                    guard let ticket = self.labTicket, let web = self.attachedWebView else { return }
+                    self.labSocket = nil
+                    self.labTicket = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self, weak web] in
+                        guard let self = self, let web = web else { return }
+                        self.connectLabNetwork(ticket, webView: web)
+                    }
+                }
             }
         }
         func connectLabNetwork(_ ticket: String, webView: WKWebView) {
