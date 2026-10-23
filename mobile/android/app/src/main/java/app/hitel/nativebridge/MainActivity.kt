@@ -13,15 +13,67 @@ import android.webkit.*
 import androidx.webkit.WebViewCompat
 import org.json.JSONObject
 import java.util.Locale
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 
 class MainActivity : Activity() {
     companion object {
         const val ORIGIN = "https://hitel-web-preview-production.up.railway.app"
+        const val LAB_ORIGIN = "https://hitel-communication-web-production.up.railway.app"
+        const val RELAY_ORIGIN = "wss://hitel-device-relay-production.up.railway.app"
         const val HOME = "$ORIGIN/portal"
         const val LOG_TAG = "HITEL_E2E"
     }
 
     private lateinit var webView: WebView
+    private val networkClient = OkHttpClient()
+    private var labSocket: WebSocket? = null
+    private var activeTicket: String? = null
+    private fun isTrusted(host: String?) = host == Uri.parse(ORIGIN).host || host == Uri.parse(LAB_ORIGIN).host
+
+    private fun connectLabNetwork(ticket: String) {
+        if (ticket.isBlank() || ticket == activeTicket) return
+        labSocket?.close(1000, "Pairing replaced")
+        activeTicket = ticket
+        val uri = Uri.parse(RELAY_ORIGIN + "/lab-api/ws").buildUpon()
+            .appendQueryParameter("role", "device")
+            .appendQueryParameter("side", "android")
+            .appendQueryParameter("ticket", ticket).build().toString()
+        val request = Request.Builder().url(uri).build()
+        labSocket = networkClient.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i(LOG_TAG, "LAB_SOCKET_CONNECTED")
+                webSocket.send(JSONObject().put("type", "hello").put("platform", "android")
+                    .put("capabilities", "webview,tts,dialer,camera,mic").toString())
+            }
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                try {
+                    val msg = JSONObject(text)
+                    if (msg.optString("type") != "command") return
+                    val action = msg.optString("action")
+                    runOnUiThread {
+                        when (action) {
+                            "home", "launch" -> webView.loadUrl(LAB_ORIGIN + "/sdk-lab/device?side=android&pair=" + Uri.encode(ticket))
+                            "reload" -> webView.reload()
+                            "back" -> if (webView.canGoBack()) webView.goBack()
+                            "ping" -> Unit
+                            else -> return@runOnUiThread
+                        }
+                        Log.i(LOG_TAG, "LAB_CMD_" + action.uppercase(Locale.ROOT))
+                        webSocket.send(JSONObject().put("type", "event").put("name", "command.done")
+                            .put("value", action).toString())
+                    }
+                } catch (e: Exception) { Log.w(LOG_TAG, "LAB_SOCKET_MESSAGE_ERROR " + e.message) }
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Log.e(LOG_TAG, "LAB_SOCKET_FAILURE " + t.message)
+                if (labSocket === webSocket) activeTicket = null
+            }
+        })
+    }
     private var speaker: TextToSpeech? = null
     private var ttsReady = false
     private var pendingMediaPermission: PermissionRequest? = null
@@ -37,9 +89,9 @@ class MainActivity : Activity() {
         webView = WebView(this)
         setContentView(webView)
 
-        WebViewCompat.addWebMessageListener(webView, "HitelNative", setOf(ORIGIN)) {
+        WebViewCompat.addWebMessageListener(webView, "HitelNative", setOf(ORIGIN, LAB_ORIGIN)) {
             _, message, origin, isMainFrame, reply ->
-            if (!isMainFrame || origin.scheme != "https" || origin.host != Uri.parse(ORIGIN).host) {
+            if (!isMainFrame || origin.scheme != "https" || !isTrusted(origin.host)) {
                 return@addWebMessageListener
             }
             try {
@@ -103,7 +155,7 @@ class MainActivity : Activity() {
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
                     val trusted = request.origin.scheme == "https" &&
-                        request.origin.host == Uri.parse(ORIGIN).host
+                        isTrusted(request.origin.host)
                     val resources = request.resources.toSet()
                     val allowed = setOf(
                         PermissionRequest.RESOURCE_AUDIO_CAPTURE,
@@ -137,7 +189,7 @@ class MainActivity : Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
-                if (url.scheme == "https" && url.host == Uri.parse(ORIGIN).host) return false
+                if (url.scheme == "https" && isTrusted(url.host)) return false
                 if (url.scheme == "http" || url.scheme == "https")
                     startActivity(Intent(Intent.ACTION_VIEW, url))
                 else if (url.scheme == "tel")
@@ -148,7 +200,9 @@ class MainActivity : Activity() {
                 super.onPageFinished(view, url)
                 Log.i(LOG_TAG, "WEB_LOADED $url")
                 // Native -> WebView event channel consumed by Communication SDK.
-                if (Uri.parse(url).host == Uri.parse(ORIGIN).host) {
+                if (isTrusted(Uri.parse(url).host)) {
+                    val paired = Uri.parse(url).getQueryParameter("pair")
+                    if (!paired.isNullOrEmpty()) connectLabNetwork(paired)
                     view.evaluateJavascript(
                         """window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:{type:'app.ready',platform:'android'}}))""",
                         null
@@ -166,7 +220,11 @@ class MainActivity : Activity() {
                 if (request.isForMainFrame) Log.e(LOG_TAG, "HTTP_ERROR " + response.statusCode)
             }
         }
-        webView.loadUrl(HOME)
+        val labUrl = intent.getStringExtra("hitel_url")
+        val launchUrl = if (!labUrl.isNullOrBlank() && Uri.parse(labUrl).scheme == "https" &&
+            Uri.parse(labUrl).host == Uri.parse(LAB_ORIGIN).host) labUrl else HOME
+        webView.loadUrl(launchUrl)
+        intent.getStringExtra("hitel_ticket")?.let { connectLabNetwork(it) }
     }
 
     override fun onRequestPermissionsResult(
@@ -196,6 +254,8 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         speaker?.stop()
         speaker?.shutdown()
+        labSocket?.close(1000, "Activity destroyed")
+        networkClient.dispatcher.executorService.shutdown()
         webView.destroy()
         super.onDestroy()
     }
