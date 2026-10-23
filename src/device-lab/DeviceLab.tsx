@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CommunicationSDK, describeRoute, type CommunicationEvent } from '../communication-sdk';
+import { CommunicationSDK, CommunicationNetworkAdapter, createCommunicationNetworkPair, describeRoute, type CommunicationEvent } from '../communication-sdk';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
 
@@ -214,9 +214,7 @@ export default function DeviceLab(){
   useEffect(()=>()=>{Object.values(urls.current).forEach(u=>{if(u)URL.revokeObjectURL(u)})},[]);
   const createPair=useCallback(async()=>{
     try{
-      const response=await fetch('/lab-api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({side:selected})});
-      if(!response.ok)throw new Error('HTTP '+response.status);
-      const pair=await response.json() as {ticket:string;controller:string};
+      const pair=await createCommunicationNetworkPair(selected);
       setPairTicket(pair.ticket);setAdminToken(pair.controller);
       push('android','새 기기 페어링 발급 완료 — 앱의 SDK Lab 입력란에 코드 입력');
     }catch(e){push('android','페어링 실패: '+String(e))}
@@ -231,13 +229,18 @@ export default function DeviceLab(){
       }else{
         if(!adminToken.trim()){push(side,'원격제어 토큰이 없습니다');continue}
         try{
-          // Only actual emulator host executes these commands, never the browser frame.
-          const operation = action==='refresh'?'reload':action==='capabilities'?'ping':['home','back'].includes(action)?action:'navigate';
-          const response=await fetch('/lab-api/command',{method:'POST',
-            headers:{'Content-Type':'application/json',Authorization:'Bearer '+adminToken},
-            body:JSON.stringify({device:side,action:operation,screen:action==='capabilities'?'sdk':action})});
-          if(!response.ok)throw new Error('HTTP '+response.status);
-          push(side,'네이티브 앱 원격 명령 전송: '+operation);
+          // No JavaScript Native Bridge: ordinary browser -> HTTPS -> Railway WSS -> native app.
+          const network=new CommunicationNetworkAdapter(side,adminToken);
+          if(action==='capabilities'){
+            const result=await network.request('getCapabilities');
+            push(side,'실제 네이티브 기능: '+JSON.stringify(result.capabilities));
+          }else if(action==='refresh'||action==='back'){
+            await network.request(action==='refresh'?'reload':'back');
+            push(side,'네이티브 원격 명령 완료: '+action);
+          }else{
+            await network.navigate(action==='sdk'||action==='ai'||action==='call'||action==='media'?action:'home');
+            push(side,'네이티브 화면 전환 명령 전송: '+action);
+          }
         }catch(error){push(side,'명령 실패: '+String(error))}
       }
     }
