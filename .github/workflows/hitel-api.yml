@@ -1,0 +1,25 @@
+name: HITEL Platform API Tests
+on:
+  push:
+    branches: [feature/mobile-native]
+    paths:
+      - 'services/hitel-api/**'
+      - '.github/workflows/hitel-api.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r services/hitel-api/requirements.txt
+      - name: Test verification, authentication, devices and interactions
+        env:
+          PYTHONPATH: services/hitel-api
+        run: python -m pytest -q services/hitel-api/tests
