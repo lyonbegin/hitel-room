@@ -1,15 +1,20 @@
 name: HITEL Mobile Emulator E2E
 on:
   push:
-    branches: [feature/mobile-native]
+    branches: [feature/mobile-native, feature/communication-sdk]
     paths:
       - 'mobile/**'
+      - 'src/device-lab/**'
+      - 'src/communication-sdk/**'
+      - 'Dockerfile'
+      - 'nginx.conf'
       - 'package*.json'
       - '.github/workflows/mobile-emulator.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   web-build:
@@ -30,6 +35,9 @@ jobs:
   android-emulator:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+      HITEL_LAB_URL: https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=android
     steps:
       - uses: actions/checkout@v4
       - name: Enable Android emulator KVM acceleration
@@ -61,12 +69,15 @@ jobs:
       - name: Verify live HITEL host and start emulator HTTPS proxy
         run: |
           mkdir -p mobile-test-results/android
-          curl -fsSL --retry 3 --connect-timeout 10 --max-time 40             -o /dev/null -w "HITEL upstream HTTP %{http_code}\n"             https://hitel-web-preview-production.up.railway.app/ | tee mobile-test-results/android/upstream-http.txt
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 40             -o /dev/null -w "HITEL upstream HTTP %{http_code}\n"             https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=android | tee mobile-test-results/android/upstream-http.txt
           python3 -u mobile/tests/host-connect-proxy.py             > mobile-test-results/android/https-proxy.log 2>&1 &
           echo $! > mobile-test-results/android/https-proxy.pid
           sleep 2
           grep -q HITEL_PROXY_READY mobile-test-results/android/https-proxy.log
-          curl --proxy http://127.0.0.1:18888 -fsSL             --connect-timeout 10 --max-time 40             -o /dev/null -w "HITEL via CONNECT proxy HTTP %{http_code}\\n"             https://hitel-web-preview-production.up.railway.app/             | tee mobile-test-results/android/proxy-http.txt
+          curl --proxy http://127.0.0.1:18888 -fsSL             --connect-timeout 10 --max-time 40             -o /dev/null -w "HITEL via CONNECT proxy HTTP %{http_code}\\n"             https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=android             | tee mobile-test-results/android/proxy-http.txt
+      - name: Create OIDC-paired Android WebSocket session
+        if: github.ref_name == 'feature/communication-sdk'
+        run: python3 mobile/tests/lab-ci.py session android
       - name: Start emulator, install, open app, capture screenshot/logs
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -78,6 +89,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash mobile/tests/android-smoke.sh
+      - name: Publish actual Android emulator screenshot and Bridge log
+        if: always() && github.ref_name == 'feature/communication-sdk'
+        run: python3 mobile/tests/lab-ci.py upload android
       - name: Store Android screenshot and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -95,12 +109,21 @@ jobs:
   ios-simulator:
     runs-on: macos-15
     timeout-minutes: 55
+    env:
+      LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+      HITEL_LAB_URL: https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=ios
     steps:
       - uses: actions/checkout@v4
       - name: Prepare XcodeGen
         run: command -v xcodegen || brew install xcodegen
+      - name: Create OIDC-paired iPhone WebSocket session
+        if: github.ref_name == 'feature/communication-sdk'
+        run: python3 mobile/tests/lab-ci.py session ios
       - name: Boot iPhone Simulator, build, open app, capture screenshot/logs
         run: bash mobile/tests/ios-smoke.sh
+      - name: Publish actual iPhone simulator screenshot and Bridge log
+        if: always() && github.ref_name == 'feature/communication-sdk'
+        run: python3 mobile/tests/lab-ci.py upload ios
       - name: Store iPhone screenshot and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
