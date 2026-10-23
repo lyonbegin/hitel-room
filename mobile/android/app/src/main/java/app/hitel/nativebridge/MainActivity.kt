@@ -1,6 +1,12 @@
 package app.hitel.nativebridge
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.view.PixelCopy
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.ActivityNotFoundException
@@ -32,6 +38,34 @@ class MainActivity : Activity() {
     private val networkClient = OkHttpClient()
     private var labSocket: WebSocket? = null
     private var activeTicket: String? = null
+    private val frameHandler = Handler(Looper.getMainLooper())
+    private var frameTask: Runnable? = null
+
+    private fun startFrameStream(socket: WebSocket) {
+        frameTask?.let { frameHandler.removeCallbacks(it) }
+        val task = object : Runnable {
+            override fun run() {
+                if (labSocket !== socket || webView.width <= 0 || webView.height <= 0) return
+                try {
+                    val bitmap = Bitmap.createBitmap(webView.width,webView.height,Bitmap.Config.ARGB_8888)
+                    PixelCopy.request(window,bitmap,{status ->
+                        if(status == PixelCopy.SUCCESS && labSocket === socket){
+                            val out=ByteArrayOutputStream()
+                            bitmap.compress(Bitmap.CompressFormat.PNG,80,out)
+                            if(out.size() < 2_000_000){
+                                socket.send(JSONObject().put("type","frame")
+                                    .put("png",Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP)).toString())
+                            }
+                        }
+                        bitmap.recycle()
+                    },frameHandler)
+                } catch(e: Exception){Log.w(LOG_TAG,"LAB_FRAME_ERROR " + e.message)}
+                frameHandler.postDelayed(this,4000)
+            }
+        }
+        frameTask=task
+        frameHandler.postDelayed(task,2500)
+    }
     private fun isTrusted(host: String?) = host == Uri.parse(ORIGIN).host || host == Uri.parse(LAB_ORIGIN).host
 
     private fun connectLabNetwork(ticket: String) {
@@ -46,6 +80,7 @@ class MainActivity : Activity() {
         labSocket = networkClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.i(LOG_TAG, "LAB_SOCKET_CONNECTED")
+                runOnUiThread { startFrameStream(webSocket) }
                 webSocket.send(JSONObject().put("type", "hello").put("platform", "android")
                     .put("capabilities", "webview,tts,dialer,camera,mic").toString())
             }
@@ -56,7 +91,11 @@ class MainActivity : Activity() {
                     val action = msg.optString("action")
                     runOnUiThread {
                         when (action) {
-                            "home", "launch" -> webView.loadUrl(LAB_ORIGIN + "/sdk-lab/device?side=android&pair=" + Uri.encode(ticket))
+                            "home", "launch", "navigate" -> {
+                                val screen = if(action == "navigate") msg.optString("screen","home") else "home"
+                                val safeScreen = if(screen in setOf("home","sdk","ai","call","media")) screen else "home"
+                                webView.loadUrl(LAB_ORIGIN + "/sdk-lab/device?side=android&screen=" + safeScreen + "&pair=" + Uri.encode(ticket))
+                            }
                             "reload" -> webView.reload()
                             "back" -> if (webView.canGoBack()) webView.goBack()
                             "ping" -> Unit
@@ -254,6 +293,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         speaker?.stop()
         speaker?.shutdown()
+        frameTask?.let { frameHandler.removeCallbacks(it) }
         labSocket?.close(1000, "Activity destroyed")
         networkClient.dispatcher.executorService.shutdown()
         webView.destroy()
