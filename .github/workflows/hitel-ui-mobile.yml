@@ -1,0 +1,36 @@
+name: HITEL v3 Mobile First Browser UI
+on:
+  push:
+    branches: [feature/mobile-native]
+    paths:
+      - 'src/communication/**'
+      - 'src/App.tsx'
+      - 'tests/hitel-ui-smoke.cjs'
+      - '.github/workflows/hitel-ui-mobile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  responsive-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install app and browser harness
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Build Vite UI
+        run: npm run build
+      - name: Test 390px / 820px / 1440px layouts and routes
+        run: node tests/hitel-ui-smoke.cjs
+      - name: Upload mobile, tablet and desktop screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-v3-responsive-ui
+          path: ui-test-results/
+          if-no-files-found: warn
