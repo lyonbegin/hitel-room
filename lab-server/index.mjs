@@ -10,6 +10,19 @@ const STORE = process.env.LAB_DATA_DIR || '/tmp/hitel-device-lab';
 const ORIGIN = process.env.LAB_ALLOWED_ORIGIN || 'https://hitel-communication-web-production.up.railway.app';
 const SIDES = new Set(['android', 'ios']);
 const tickets = new Map();
+const ticketFile = path.join(STORE,'pairing-tickets.json');
+await fs.mkdir(STORE,{recursive:true});
+try {
+  for(const [key,value] of JSON.parse(await fs.readFile(ticketFile,'utf8'))){
+    if(value.expires>Date.now())tickets.set(key,value);
+  }
+  console.log('LAB_RESTORED_ACTIVE_PAIRS',tickets.size);
+}catch{/* first boot: no existing pair file */}
+async function persistTickets(){
+  const temp=ticketFile+'.tmp';
+  await fs.writeFile(temp,JSON.stringify([...tickets]));
+  await fs.rename(temp,ticketFile);
+}
 const connections = new Map();
 const liveFrames = new Map();
 const windows = new Map();
@@ -104,6 +117,7 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=ticketString(),controller=ticketString();
       tickets.set(ticket,{controller,side,expires:Date.now()+30*60_000,origin:'dashboard'});
+      await persistTickets();
       return json(res,201,{ok:true,ticket,controller,expiresInSeconds:1800,side});
     }
     if(req.method==='POST'&&route==='/lab-api/ci/session'){
@@ -113,6 +127,7 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=ticketString();
       tickets.set(ticket,{controller:null,side:body.side,expires:Date.now()+15*60_000,runId:String(payload.run_id||'')});
+      await persistTickets();
       return json(res,201,{ok:true,ticket,expiresInSeconds:900});
     }
     if(req.method==='POST'&&route==='/lab-api/ci/upload'){
@@ -181,7 +196,7 @@ server.on('upgrade',(req,socket,head)=>{
       notifyDevices();
       wss.emit('connection',ws,req);
     });
-  }catch{socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');socket.destroy()}
+  }catch(err){console.error('LAB_WS_AUTH_REJECT',String(err.message),req.url?.split('?')[0]);socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');socket.destroy()}
 });
 wss.on('connection',ws=>{
   const side=ws.labSide;
