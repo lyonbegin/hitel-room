@@ -9,10 +9,27 @@ permissions:
 
 jobs:
   android-emulator:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Enable Android emulator KVM acceleration
+        run: |
+          mkdir -p mobile-test-results/android
+          {
+            echo "Kernel: $(uname -a)"
+            echo "KVM device:"
+            ls -l /dev/kvm || true
+            echo "KVM group:"
+            getent group kvm || true
+          } | tee mobile-test-results/android/kvm-before.txt
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::Hosted runner does not expose /dev/kvm; cannot boot accelerated x86 Android emulator."
+            exit 1
+          fi
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm | tee mobile-test-results/android/kvm-after.txt
+          test -r /dev/kvm && test -w /dev/kvm
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -29,6 +46,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          emulator-boot-timeout: 300
           disable-animations: true
           script: bash mobile/tests/android-smoke.sh
       - name: Store Android screenshot and diagnostics
