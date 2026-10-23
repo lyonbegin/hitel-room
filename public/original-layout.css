@@ -3,7 +3,7 @@
 @media(min-width:820px){
  html,body{min-height:100%;background:#eff1f4!important}
  #app{position:relative;width:430px;margin-left:calc(50% - 70px);margin-right:0;min-height:100vh;background:#fff;box-shadow:0 0 16px #27334514;overflow:visible}
- body::before{content:'';width:277px;height:570px;position:fixed;left:calc(50% - 396px);top:50%;transform:translateY(-50%);background-image:url('https://unni.app/images/splash/kr.webp');background-position:center;background-size:contain;background-repeat:no-repeat}
+ body::before{content:'';width:277px;height:570px;position:fixed;left:calc(50% - 396px);top:50%;transform:translateY(-50%);background-image:url('https://unni.app/images/splash/kr.webp'),url('https://static.waveon.io/img/blog/495/1776217021809.jpeg');background-position:center,10px center;background-size:contain,690px auto;background-repeat:no-repeat,no-repeat}
  .wrap{max-width:430px!important;width:100%!important;padding-left:17px!important;padding-right:17px!important}
  .promo{display:none!important}
  .top-header{position:sticky;top:0;background:#fff;box-shadow:0 1px 0 #eeeeee;z-index:50}
