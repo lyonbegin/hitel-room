@@ -31,6 +31,10 @@ export function createHitelRoomAdapter(
         throw error;
       }
       return {
+        isStarted: () => engine.isStarted(),
+        replaceLocalTracks: (nextStream: MediaStream) => engine.replaceLocalTracks(nextStream),
+        setMicrophoneEnabled: (enabled: boolean) => engine.setMicrophoneEnabled(enabled),
+        setCameraEnabled: (enabled: boolean) => engine.setCameraEnabled(enabled),
         async leave() {
           try {
             await engine.dispose(true);
