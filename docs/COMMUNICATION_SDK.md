@@ -16,6 +16,7 @@ Communication SDK는 VideoCore 구현을 복사하지 않습니다. AI Counselor
 
 `src/communication-sdk/index.ts`
 - `CommunicationSDK.create(options)` / `createCommunicationSDK(options)`
+- `options.nativeBridge`: 다른 앱에서 플랫폼별 Native Bridge를 주입할 수 있는 인터페이스. 생략 시 기존 HITEL `src/portal/nativeBridge.ts`를 그대로 사용
 - `getCapabilities()`: Android/iOS/브라우저 기능 판단
 - `openSystemDialer(phone)`, `speakLocally(text)`, `stopLocalSpeech()`
 - `describeRoute(from, to)`: P/P+/N/W의 16개 상황을 1~16 번호로 식별
