@@ -144,16 +144,21 @@ function eventListRow(e){
  const title=safe(e.title),loc=safe(e.location||''),off=e.discount;
  return '<button class="source-event-row" data-to="/events/'+safe(e.id)+'">'+img(e.image,'source-event-thumb',e.title)+'<span class="source-event-copy"><span class="source-event-location">'+loc+'</span><strong>'+title+'</strong><small>VAT 포함</small><span class="source-event-price">'+(off?'<b>'+off+'% </b>':'')+fmt(e.price)+'원</span>'+(e.rating?'<span class="source-event-rating">★ '+safe(e.rating)+(e.reviews?' <small>'+safe(e.reviews)+'</small>':'')+'</span>':'')+'</span></button>';
 }
+
+const ORIGINAL_EVENT_CATEGORIES=[["전체","/events"],["제모","/events?q=제모&categoryId=537"],["지방·다이어트","/events?q=지방·다이어트&categoryId=422"],["가슴성형","/events?q=가슴성형&categoryId=421"],["치아","/events?q=치아&categoryId=420"],["리프팅","/events?q=리프팅&categoryId=419"],["모발이식","/events?q=모발이식&categoryId=418"],["한방","/events?q=한방&categoryId=417"],["필러","/events?q=필러&categoryId=416"],["보톡스","/events?q=보톡스&categoryId=415"],["안면윤곽·양악","/events?q=안면윤곽·양악&categoryId=414"],["눈성형","/events?q=눈성형&categoryId=413"],["코성형","/events?q=코성형&categoryId=412"],["피부","/events?q=피부&categoryId=411"],["기타","/events?q=기타&categoryId=423"]];
 function eventsListing(){
- const q=qs().get('q')||'',sort=qs().get('s')||sortValue;
- let list=ORIGINAL_EVENT_LIST.filter(e=>!q||[e.title,e.location].join(' ').includes(q));
+ const q=qs().get('q')||'',sort=qs().get('s')||'RECOMMENDATION',fromCategory=Boolean(qs().get('categoryId'));
+ const category=fromCategory?ORIGINAL_CATEGORY_SEARCH[q]:null;
+ let list=category?category.events.slice():ORIGINAL_EVENT_LIST.filter(e=>!q||[e.title,e.location].join(' ').includes(q));
  if(sort==='LOWEST_DISCOUNTED_COST')list.sort((a,b)=>a.price-b.price);
  if(sort==='HIGHEST_DISCOUNTED_COST')list.sort((a,b)=>b.price-a.price);
  if(sort==='HIGHEST_DISCOUNT_RATE')list.sort((a,b)=>(b.discount||0)-(a.discount||0));
  if(sort==='HIGHEST_RATING_AMOUNT')list.sort((a,b)=>Number(b.rating||0)-Number(a.rating||0));
- if(sort==='MOST_REVIEWS')list.sort((a,b)=>Number(String(b.reviews||'').replace(/[^0-9]/g,''))-Number(String(a.reviews||'').replace(/[^0-9]/g,'')));
- const sorts=[['RECOMMENDED','추천순'],['LATEST_STARTS_AT','최신순'],['LOWEST_DISCOUNTED_COST','낮은 가격순'],['HIGHEST_DISCOUNT_RATE','높은 할인순'],['HIGHEST_DISCOUNTED_COST','높은 가격순'],['MOST_REVIEWS','후기많은순'],['ENDING_SOON','마감 임박순'],['POPULAR','인기순'],['HIGHEST_RATING_AMOUNT','높은 평점순']];
- return '<div class="wrap"><section class="source-list-heading"><h1>이벤트</h1><button data-action="region">지역</button></section><div class="source-list-controls"><select id="sort-select" aria-label="정렬 기준">'+sorts.map(([v,n])=>'<option value="'+v+'" '+(sort===v?'selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="source-event-list">'+(list.length?list.map(eventListRow).join(''):'<div class="empty-box">검색 결과가 없습니다.</div>')+'</div><div class="bottom-space"></div></div>';
+ if(sort==='HIGHEST_RATING_COUNT')list.sort((a,b)=>Number(String(b.reviews||'').replace(/[^0-9]/g,''))-Number(String(a.reviews||'').replace(/[^0-9]/g,'')));
+ const sorts=[['RECOMMENDATION','추천순'],['LATEST_STARTS_AT','최신순'],['LOWEST_DISCOUNTED_COST','낮은 가격순'],['HIGHEST_DISCOUNT_RATE','높은 할인순'],['HIGHEST_DISCOUNTED_COST','높은 가격순'],['HIGHEST_RATING_COUNT','후기많은순'],['EARLIEST_ENDS_AT','마감 임박순'],['HIGHEST_POPULARITY','인기순'],['HIGHEST_RATING_AMOUNT','높은 평점순']];
+ return '<div class="wrap"><section class="source-list-heading"><h1>이벤트</h1><button data-action="region">지역</button></section><div class="source-list-controls"><select id="sort-select" aria-label="정렬 기준">'+sorts.map(([v,n])=>'<option value="'+v+'" '+(sort===v?'selected':'')+'>'+n+'</option>').join('')+'</select></div>'+
+ '<nav class="source-event-category-tabs" aria-label="시술 분야">'+ORIGINAL_EVENT_CATEGORIES.map(([n,path])=>'<button data-to="'+safe(path)+'" class="'+((!q&&!fromCategory&&n==='전체')||(q===n&&fromCategory)?'on':'')+'">'+safe(n)+'</button>').join('')+'</nav>'+
+ '<div class="source-event-list">'+(list.length?list.map(eventListRow).join(''):'<div class="empty-box">검색 결과가 없습니다.</div>')+'</div><div class="bottom-space"></div></div>';
 }
 function hospitalCard(h){
  const photo=h.image||ORIGINAL_HOSPITAL_COVERS[H.indexOf(h)]||'';
