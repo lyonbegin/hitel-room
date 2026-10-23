@@ -77,6 +77,13 @@ struct HitelWebView: UIViewRepresentable {
                        let action = obj["action"] as? String {
                         DispatchQueue.main.async {
                             guard let web = self.attachedWebView else { return }
+                            let data = obj["data"] as? [String: Any] ?? [:]
+                            var reply: [String: Any] = [
+                                "type": "result",
+                                "requestId": obj["requestId"] as? String ?? "",
+                                "platform": "ios",
+                                "ok": true
+                            ]
                             switch action {
                             case "home", "launch", "navigate":
                                 let desired = action == "navigate" ? (obj["screen"] as? String ?? "home") : "home"
@@ -89,12 +96,45 @@ struct HitelWebView: UIViewRepresentable {
                             case "reload": web.reload()
                             case "back": if web.canGoBack { web.goBack() }
                             case "ping": break
-                            default: break
+                            case "getCapabilities":
+                                reply["capabilities"] = [
+                                    "nativeBridge": true,"localTts": true,"openSystemDialer": true,
+                                    "webrtcWebview": true,"readCellularRemoteAudio": false,
+                                    "injectCellularAudio": false
+                                ]
+                            case "tts.speak":
+                                let text = String((data["text"] as? String ?? "").prefix(1000))
+                                if text.isEmpty {
+                                    reply["ok"] = false
+                                    reply["error"] = "Empty TTS text"
+                                } else {
+                                    let line = AVSpeechUtterance(string: text)
+                                    line.voice = AVSpeechSynthesisVoice(language: data["language"] as? String ?? "ko-KR")
+                                    self.speaker.stopSpeaking(at: .immediate)
+                                    self.speaker.speak(line)
+                                    reply["scope"] = "local-device-only"
+                                }
+                            case "tts.stop":
+                                self.speaker.stopSpeaking(at: .immediate)
+                                reply["scope"] = "local-device-only"
+                            case "call.openDialer":
+                                let number = data["phone"] as? String ?? ""
+                                let chars = CharacterSet(charactersIn: "+0123456789*# -")
+                                if number.isEmpty || number.count > 24 ||
+                                   !number.unicodeScalars.allSatisfy({ chars.contains($0) }) {
+                                    reply["ok"] = false
+                                    reply["error"] = "Invalid number"
+                                } else if let encoded = number.addingPercentEncoding(withAllowedCharacters: chars),
+                                          let url = URL(string: "tel:" + encoded) {
+                                    UIApplication.shared.open(url)
+                                }
+                            default:
+                                reply["ok"] = false
+                                reply["error"] = "Unsupported network action"
                             }
                             NSLog("HITEL_E2E LAB_CMD_%@", action.uppercased())
-                            let event = ["type": "event", "name": "command.done", "value": action]
-                            if let data = try? JSONSerialization.data(withJSONObject: event),
-                               let value = String(data: data, encoding: .utf8) {
+                            if let bytes = try? JSONSerialization.data(withJSONObject: reply),
+                               let value = String(data: bytes, encoding: .utf8) {
                                 socket.send(.string(value)) { _ in }
                             }
                         }
