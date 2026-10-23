@@ -12,18 +12,18 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json ./
 RUN npm install --no-audit --no-fund
-COPY tsconfig.json vite.config.ts index.html ./
+COPY tsconfig.json vite.config.ts vite.communication-sdk.config.ts index.html ./
 COPY src ./src
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ARG VITE_HITEL_PLATFORM_API_URL=
 ENV VITE_HITEL_PLATFORM_API_URL=$VITE_HITEL_PLATFORM_API_URL
-RUN npm run build
+RUN npm run build && npx vite build --config vite.communication-sdk.config.ts
 FROM nginx:1.27-alpine
 ENV TEST_LOGIN_KEY=""
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY --from=video-core-build /video-core/dist/sdk /usr/share/nginx/html/sdk
+COPY --from=video-core-build /video-core/dist/sdk /usr/share/nginx/html/sdk/video-core
 COPY --from=video-core-build /video-core/public/sdk-playground.html /usr/share/nginx/html/sdk-playground.html
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
