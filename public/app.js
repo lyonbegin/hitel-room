@@ -201,8 +201,31 @@ function eventDetailPop(e){
  '<section class="detail-block"><h2>팝성형외과의원</h2><button class="doctor-row" data-to="/hospitals/370"><span class="doctor-avatar">✚</span><span><strong>병원 정보 보기</strong><span>서울 강남구 논현로 837 원방빌딩 1층</span></span></button></section></main>'+
  '<aside class="detail-side"><p>옵션 1</p><h3>추가금 없는 12홀 자연유착(비절개)</h3><select class="option-select" id="pop-option-select">'+options.map((o,i)=>'<option value="'+i+'">'+String(i+1)+'. '+safe(o[0])+'</option>').join('')+'</select><p>VAT 포함</p><div class="price-big" id="pop-price"><span>49% </span>429,000원</div><p>최대 18,000P 적립 · 후기 적립</p><button class="cta" data-action="consult">상담받기</button></aside></div></div>';
 }
-function eventDetailCatalog(e){return '<div class="wrap"><div class="breadcrumbs">홈　›　이벤트</div><div class="detail-layout"><main class="detail-main">'+img(e.image,'original-event-hero',e.title)+'<div class="detail-info"><h1>'+safe(e.title)+'</h1><p>'+safe(e.hospital)+(e.area?' · '+safe(e.area):'')+(e.rating?'　★ '+safe(e.rating):'')+'</p></div><section class="detail-block"><h2>시술 정보</h2><p>해당 시술 이벤트에 관한 추가 안내는 원본 공개 상세 화면과 대조하여 등록됩니다.</p></section><section class="detail-block"><h2>시술 후기</h2><div class="original-review-locked">'+img('https://unni.app/images/review-login/kr.webp','','로그인 후 시술 후기')+'<button class="cta" data-action="login">3초만에 로그인하고 보기</button></div></section><section class="detail-block"><h2>병원 정보</h2><p>'+safe(e.hospital)+'</p></section></main><aside class="detail-side"><h3>'+safe(e.title)+'</h3><p>'+safe(e.hospital)+'</p><div class="price-big">'+(e.discount?'<span>'+e.discount+'% </span>':'')+fmt(e.price)+'원</div><button class="cta" data-action="consult">상담 신청하기</button></aside></div></div>'}
 
+const eventSelectedState={},eventExpandedState={};
+function eventDetailCatalog(e){
+ const d=ORIGINAL_EVENT_DETAILS[e.id];
+ if(!d){return '<div class="wrap"><div class="detail-info"><h1>'+safe(e.title)+'</h1><p>'+safe(e.hospital||e.location||'')+'</p></div>'+img(e.image||ASSETS[0],'original-event-hero',e.title)+'<p class="source-detail-note">원본에서 확인한 상세 정보가 등록되지 않은 항목입니다.</p></div>';}
+ const ops=d.options||[],selected=Math.min(eventSelectedState[e.id]||0,Math.max(ops.length-1,0)),choice=ops[selected]||{price:e.price,discount:e.discount,name:e.title};
+ const hospital=ORIGINAL_HOSPITAL_LIST.find(h=>(e.location||'').includes(h.name));
+ const images=d.details||[];
+ const expanded=Boolean(eventExpandedState[e.id]);
+ return '<div class="wrap source-event-detail">'+
+ img(d.banner||e.image,'source-event-banner',e.title)+
+ '<section class="source-event-summary"><h1>'+safe(d.title||e.title)+'</h1><p>'+safe(e.location||'')+'　'+(e.rating?'★ '+safe(e.rating):'')+(e.reviews?' '+safe(e.reviews):'')+'</p></section>'+
+ '<section class="detail-block"><div class="source-event-main-option"><strong>옵션 '+(selected+1)+'</strong><h2>'+safe(choice.name)+'</h2><p>VAT 포함</p><div class="source-event-main-price">'+(e.discount?'<b>'+e.discount+'% </b>':'')+fmt(choice.price||e.price)+'원</div></div><button class="source-option-open" data-action="event-options">전체보기</button></section>'+
+ '<section class="detail-block"><h2>시술 후기</h2><div class="original-review-locked">'+img('https://unni.app/images/review-login/kr.webp','','시술 후기 로그인 안내')+'<button class="cta" data-action="login">3초만에 로그인하고 보기</button></div></section>'+
+ '<section class="detail-block"><h2>시술 설명</h2><p>'+safe(d.sourceDescription||'')+'</p></section>'+
+ '<section class="detail-block source-all-options" id="source-event-option-list"><h2>옵션 정보</h2><div class="feature-tags"><span>VAT 포함</span><span>마취비 포함</span><span>사후관리비 포함</span></div><p class="source-detail-note">시술에 대한 정보는 참고 사항이며, 병원 방문 시 개인의 상태에 따라 달라질 수 있어요.</p>'+
+ ops.map((op,i)=>'<button class="source-option-row '+(i===selected?'selected':'')+'" data-event-opt="'+safe(e.id)+'" data-opt-index="'+i+'"><b>'+(i+1)+'</b><span><strong>'+safe(op.name)+'</strong>'+(op.originalPrice&&op.originalPrice!==op.price?'<small><del>'+fmt(op.originalPrice)+'원</del></small>':'')+'<span class="source-option-price">'+fmt(op.price||e.price)+'원</span></span></button>').join('')+'</section>'+
+ '<section class="detail-block"><h2>이런 분에게 추천해요</h2></section>'+
+ '<section class="detail-block"><h2>시술 과정</h2></section>'+
+ '<section class="detail-block"><h2>부작용 안내</h2></section>'+
+ '<section class="detail-block"><h2>상세 정보</h2><div class="source-event-more '+(expanded?'expanded':'')+'">'+images.map(u=>img(u,'','시술 상세 이미지')).join('')+'</div>'+(images.length?'<button class="source-event-expand" data-event-expand="'+safe(e.id)+'">'+(expanded?'접기':'전체보기')+'</button>':'')+'</section>'+
+ '<section class="detail-block"><h2>'+safe(hospital?.name||e.location||'병원 정보')+'</h2>'+(hospital?'<button class="doctor-row" data-to="/hospitals/'+hospital.id+'">'+img(hospital.image,'source-brief-hospital-image',hospital.name)+'<span><strong>'+safe(hospital.name)+'</strong><span>'+safe(hospital.region)+'</span></span></button>':'')+'</section>'+
+ '<button class="source-event-sticky-cta" data-action="consult">상담 신청하기</button>'+
+ '<div class="bottom-space"></div></div>';
+}
 const hospitalSlideState={};
 function hospitalDetailSource(h){
  const d=ORIGINAL_HOSPITAL_DETAILS[h.id],images=d.gallery.length>1?[...d.gallery.slice(1),d.gallery[0]]:d.gallery;
@@ -272,6 +295,8 @@ function render(){
 document.addEventListener('click',e=>{
  const target=e.target.closest('button');if(!target)return;
  if(target.dataset.to){navigate(target.dataset.to);return;}
+ if(target.dataset.eventOpt!==undefined){eventSelectedState[target.dataset.eventOpt]=Number(target.dataset.optIndex)||0;render();return;}
+ if(target.dataset.eventExpand!==undefined){eventExpandedState[target.dataset.eventExpand]=!eventExpandedState[target.dataset.eventExpand];render();return;}
  if(target.dataset.hospitalSlide!==undefined){const id=target.dataset.hospitalSlide,n=ORIGINAL_HOSPITAL_DETAILS[id]?.gallery?.length||1;hospitalSlideState[id]=((hospitalSlideState[id]||0)+Number(target.dataset.dir||'1')+n)%n;render();return;}
  if(target.dataset.hero!==undefined){const n=target.dataset.hero;heroIndex=n==='next'?(heroIndex+1)%banners.length:n==='prev'?(heroIndex+banners.length-1)%banners.length:Number(n);render();return;}
  if(target.dataset.collection!==undefined){collectionTabs[target.dataset.collection]=target.dataset.tab;render();return;}
