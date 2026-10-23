@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { nativeCall, platform, type NativeCapabilities } from '../portal/nativeBridge';
+import type { NativeCapabilities } from '../portal/nativeBridge';
+import { CommunicationSDK } from '../communication-sdk';
 import './communication.css';
 
 type Tab = 'phone' | 'find' | 'talk' | 'ai' | 'my';
@@ -74,6 +75,8 @@ function isSpecial(s:string){const digits=s.replace(/\D/g,'');return digits.leng
 function Label({children,kind='mint'}:{children:ReactNode;kind?:string}){return <span className={`hc-label hc-label-${kind}`}>{children}</span>}
 
 export default function CommunicationPortal(){
+  // One SDK instance for this mounted UI; actual WebView Bridge is shared with native apps.
+  const communicationSdk = useMemo(() => CommunicationSDK.create(), []);
   const {path,move}=useRoute();const tab=tabOf(path);
   const params=useMemo(()=>new URLSearchParams(path.includes('?')?path.split('?')[1]:''),[path]);
   const [search,setSearch]=useState(params.get('q')||'');const [dial,setDial]=useState(params.get('to')||'');
@@ -85,7 +88,7 @@ export default function CommunicationPortal(){
   const [providerDraft,setProviderDraft]=useState({title:'',category:'상담',description:''});
   const [capabilities,setCapabilities]=useState<NativeCapabilities|null>(null);
   const [selectRoom,setSelectRoom]=useState('team');
-  useEffect(()=>{nativeCall('getCapabilities').then(v=>setCapabilities(v.capabilities||null)).catch(()=>{});},[]);
+  useEffect(()=>{let active=true;void communicationSdk.getCapabilities().then(v=>{if(active)setCapabilities(v.native)}).catch(()=>{});return ()=>{active=false;void communicationSdk.dispose()};},[communicationSdk]);
   useEffect(()=>{localStorage.setItem('hitel-ui-ai-settings',JSON.stringify(aiSettings));},[aiSettings]);
   useEffect(()=>{localStorage.setItem('hitel-ui-groups',JSON.stringify(joined));},[joined]);
   useEffect(()=>{if(!toast)return;const timer=window.setTimeout(()=>setToast(null),4200);return ()=>window.clearTimeout(timer)},[toast]);
@@ -93,8 +96,8 @@ export default function CommunicationPortal(){
   function startPreview(n:string){setDial(n);setRoute('sidecar');move('/portal/call/preview?to='+encodeURIComponent(n));}
   function searchFor(){const text=search.trim();if(!text){move('/portal/find');return;}if(numberOK(text)){startPreview(text);return;}move('/portal/find?q='+encodeURIComponent(text));}
   function dialNumber(n:string){setDial(n);startPreview(n)}
-  async function openSystemDial(){if(!numberOK(dial)){notify('전화번호를 입력해 주세요.','warning');return;}try{await nativeCall('call.openDialer',{phone:dial});notify('기본 전화 앱을 열었습니다. HITEL의 통화 음성 연결을 의미하지 않습니다.')}catch(e){notify('전화 앱 호출 실패: '+(e instanceof Error?e.message:String(e)),'warning')}}
-  async function speak(text:string){if(!text.trim()){notify('읽을 문장을 먼저 입력하세요.','warning');return;}try{await nativeCall('tts.speak',{text,language:aiSettings.language==='영어'?'en-US':'ko-KR'});notify('내 기기에서 음성 재생을 요청했습니다. 상대방 통화 송출은 아닙니다.')}catch(e){notify('로컬 음성 재생 오류: '+String(e),'warning')}}
+  async function openSystemDial(){if(!numberOK(dial)){notify('전화번호를 입력해 주세요.','warning');return;}try{await communicationSdk.openSystemDialer(dial);notify('기본 전화 앱을 열었습니다. HITEL의 통화 음성 연결을 의미하지 않습니다.')}catch(e){notify('전화 앱 호출 실패: '+(e instanceof Error?e.message:String(e)),'warning')}}
+  async function speak(text:string){if(!text.trim()){notify('읽을 문장을 먼저 입력하세요.','warning');return;}try{await communicationSdk.speakLocally(text,aiSettings.language==='영어'?'en-US':'ko-KR');notify('내 기기에서 음성 재생을 요청했습니다. 상대방 통화 송출은 아닙니다.')}catch(e){notify('로컬 음성 재생 오류: '+String(e),'warning')}}
   const filtered=ITEMS.filter(item=>(activeFilter==='전체'||item.type===activeFilter)&&(!params.get('q')||[item.name,item.category,item.description].join(' ').toLowerCase().includes((params.get('q')||'').toLowerCase())));
   const current=ITEMS.find(i=>i.id===params.get('id'));
   const isPreview=path.startsWith('/portal/call/preview');const isDial=path.startsWith('/portal/call')&&!isPreview;
