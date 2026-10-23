@@ -218,9 +218,9 @@ function eventDetailCatalog(e){
  '<section class="detail-block"><h2>시술 설명</h2><p>'+safe(d.sourceDescription||'')+'</p></section>'+
  '<section class="detail-block source-all-options" id="source-event-option-list"><h2>옵션 정보</h2><div class="feature-tags"><span>VAT 포함</span><span>마취비 포함</span><span>사후관리비 포함</span></div><p class="source-detail-note">시술에 대한 정보는 참고 사항이며, 병원 방문 시 개인의 상태에 따라 달라질 수 있어요.</p>'+
  ops.map((op,i)=>'<button class="source-option-row '+(i===selected?'selected':'')+'" data-event-opt="'+safe(e.id)+'" data-opt-index="'+i+'"><b>'+(i+1)+'</b><span><strong>'+safe(op.name)+'</strong>'+(op.originalPrice&&op.originalPrice!==op.price?'<small><del>'+fmt(op.originalPrice)+'원</del></small>':'')+'<span class="source-option-price">'+fmt(op.price||e.price)+'원</span></span></button>').join('')+'</section>'+
- '<section class="detail-block"><h2>이런 분에게 추천해요</h2></section>'+
- '<section class="detail-block"><h2>시술 과정</h2></section>'+
- '<section class="detail-block"><h2>부작용 안내</h2></section>'+
+ '<section class="detail-block"><h2>이런 분에게 추천해요</h2>'+(d.recommendations?.length?'<ul class="source-recommend-list">'+d.recommendations.map(n=>'<li>'+safe(n)+'</li>').join('')+'</ul>':'')+'</section>'+ 
+ '<section class="detail-block"><h2>시술 과정'+(d.duration?' : '+safe(d.duration):'')+'</h2>'+(d.steps?.length?'<ol class="source-step-list">'+d.steps.map(n=>'<li>'+safe(n)+'</li>').join('')+'</ol>':'')+'</section>'+ 
+ '<section class="detail-block"><h2>부작용 안내</h2><p>'+safe(d.sideEffects||'')+'</p></section>'+ 
  '<section class="detail-block"><h2>상세 정보</h2><div class="source-event-more '+(expanded?'expanded':'')+'">'+images.map(u=>img(u,'','시술 상세 이미지')).join('')+'</div>'+(images.length?'<button class="source-event-expand" data-event-expand="'+safe(e.id)+'">'+(expanded?'접기':'전체보기')+'</button>':'')+'</section>'+
  '<section class="detail-block"><h2>'+safe(hospital?.name||e.location||'병원 정보')+'</h2>'+(hospital?'<button class="doctor-row" data-to="/hospitals/'+hospital.id+'">'+img(hospital.image,'source-brief-hospital-image',hospital.name)+'<span><strong>'+safe(hospital.name)+'</strong><span>'+safe(hospital.region)+'</span></span></button>':'')+'</section>'+
  '<button class="source-event-sticky-cta" data-action="consult">상담 신청하기</button>'+
