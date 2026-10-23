@@ -4,8 +4,8 @@ import './DeviceLab.css';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
-type AgentState = { online: boolean; lastSeen?: string; app?: string; bridge?: string; sdk?: string; note?: string };
-type StatusResult = { devices?: Partial<Record<Side, AgentState>>; mode?: string };
+type AgentState = { online: boolean; lastSeen?: string; app?: string; bridge?: string; sdk?: string; note?: string; capture?: boolean; screenMode?: string; runId?: string; ciPass?: boolean|null };
+type StatusResult = { devices?: Partial<Record<Side, AgentState>>; ci?: Partial<Record<Side,{runId:string;updatedAt:string;passed:boolean;log:string;url:string}>>; mode?: string };
 type LabNotice = { side: Side; message: string; time: string };
 const SIDES: Side[] = ['android','ios'];
 const LABELS: Record<Side,string> = {android:'Android Emulator',ios:'iPhone Simulator'};
@@ -28,7 +28,8 @@ function MiniIcon({side}:{side:Side}){
 export function DeviceLabPhone() {
   const side: Side = new URLSearchParams(window.location.search).get('side') === 'ios' ? 'ios':'android';
   const sdk = useMemo(()=>CommunicationSDK.create(),[]);
-  const [route,setRoute]=useState<LabAction>('home');
+  const [route,setRoute]=useState<LabAction>(()=>{const screen=new URLSearchParams(window.location.search).get('screen');return (['home','sdk','ai','call','media'].includes(screen||'')?screen:'home') as LabAction;});
+  const [pairInput,setPairInput]=useState('');
   const [platform,setPlatform]=useState(sdk.platform);
   const [bridge,setBridge]=useState('검사 전');
   const [camera,setCamera]=useState('사용 안 함');
@@ -117,6 +118,8 @@ export function DeviceLabPhone() {
           <button onClick={()=>navigate('media')}><span>▣</span>영상</button>
         </div>
         <div className="dl-device-panel"><b>Communication SDK</b><p>이 화면은 실제 앱의 WebView에서도 동일하게 실행됩니다. 아래 진단 기능은 SDK API를 직접 호출합니다.</p>
+          <input aria-label="네트워크 페어링 코드" value={pairInput} onChange={e=>setPairInput(e.target.value)} placeholder="관리 화면의 페어링 코드 입력" />
+          <button onClick={()=>{const v=pairInput.trim();if(v)window.location.assign(labPath(side)+'&pair='+encodeURIComponent(v))}}>Wi-Fi/WebSocket으로 앱 연결</button>
           <button className="dl-device-primary" onClick={()=>void check()}>Native Bridge 연결 검사 →</button>
         </div>
         <div className="dl-device-16"><strong>16가지 연결 시나리오</strong><span>P / P+ / N / W</span><small>W → N: #{describeRoute('W','N').id} · WebRTC 후보</small></div>
@@ -160,6 +163,9 @@ export default function DeviceLab(){
   const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
   const [notices,setNotices]=useState<LabNotice[]>([]);
   const [adminToken,setAdminToken]=useState('');
+  const [pairTicket,setPairTicket]=useState('');
+  const [ci,setCi]=useState<StatusResult['ci']>({});
+  const firstCapture=useRef(false);
   const [capture,setCapture]=useState<Partial<Record<Side,string>>>({});
   const urls=useRef<Partial<Record<Side,string>>>({});
   const ref=useRef<Partial<Record<Side,HTMLIFrameElement|null>>>({});
@@ -181,19 +187,23 @@ export default function DeviceLab(){
       if(!result.ok)return;
       const data=await result.json() as StatusResult;
       setAgent(data.devices||{});
+      setCi(data.ci||{});
+      if(!firstCapture.current && (data.devices?.android?.capture||data.devices?.ios?.capture)){
+        firstCapture.current=true;
+        setView('remote');
+      }
     } catch { /* server not yet deployed */ }
   },[]);
   useEffect(()=>{void readStatus();const timer=window.setInterval(()=>void readStatus(),5000);return ()=>clearInterval(timer)},[readStatus]);
   const loadCapture=useCallback(async(side:Side)=>{
-    if(!adminToken.trim())return;
     try{
-      const response=await fetch('/lab-api/frame/'+side,{headers:{Authorization:'Bearer '+adminToken}});
+      const response=await fetch('/lab-api/frame/'+side,{cache:'no-store'});
       if(!response.ok)throw new Error('HTTP '+response.status);
       const next=URL.createObjectURL(await response.blob());
       const old=urls.current[side];urls.current[side]=next;setCapture(v=>({...v,[side]:next}));
       if(old)URL.revokeObjectURL(old);
     }catch{/* no frame available */ }
-  },[adminToken]);
+  },[]);
   useEffect(()=>{
     if(view!=='remote')return;
     SIDES.forEach(s=>void loadCapture(s));
@@ -201,6 +211,15 @@ export default function DeviceLab(){
     return ()=>{clearInterval(timer)};
   },[view,loadCapture]);
   useEffect(()=>()=>{Object.values(urls.current).forEach(u=>{if(u)URL.revokeObjectURL(u)})},[]);
+  const createPair=useCallback(async()=>{
+    try{
+      const response=await fetch('/lab-api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({side:selected})});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const pair=await response.json() as {ticket:string;controller:string};
+      setPairTicket(pair.ticket);setAdminToken(pair.controller);
+      push('android','새 기기 페어링 발급 완료 — 앱의 SDK Lab 입력란에 코드 입력');
+    }catch(e){push('android','페어링 실패: '+String(e))}
+  },[selected,push]);
   const send=useCallback(async(action:LabAction)=>{
     const targets=selected==='both'?SIDES:[selected];
     for(const side of targets){
@@ -212,12 +231,12 @@ export default function DeviceLab(){
         if(!adminToken.trim()){push(side,'원격제어 토큰이 없습니다');continue}
         try{
           // Only actual emulator host executes these commands, never the browser frame.
-          const operation = action==='refresh'?'reload':(['home','back'].includes(action)?action:'launch');
+          const operation = action==='refresh'?'reload':action==='capabilities'?'ping':['home','back'].includes(action)?action:'navigate';
           const response=await fetch('/lab-api/command',{method:'POST',
             headers:{'Content-Type':'application/json',Authorization:'Bearer '+adminToken},
-            body:JSON.stringify({device:side,action:operation})});
+            body:JSON.stringify({device:side,action:operation,screen:action==='capabilities'?'sdk':action})});
           if(!response.ok)throw new Error('HTTP '+response.status);
-          push(side,'실제 에뮬레이터 명령 접수: '+operation);
+          push(side,'네이티브 앱 원격 명령 전송: '+operation);
         }catch(error){push(side,'명령 실패: '+String(error))}
       }
     }
@@ -245,7 +264,7 @@ export default function DeviceLab(){
       <div className="dl-layout">
         {SIDES.map(side=><section key={side} className="dl-emulator-card">
           <header className="dl-card-top"><div className="dl-card-heading"><MiniIcon side={side}/><div><b>{LABELS[side]}</b><small>{side==='android'?'Android APK · WebView':'iOS App · WKWebView'}</small></div></div>
-          <span className={'dl-pill '+(agent[side]?.online?'live':'waiting')}>{agent[side]?.online?'● 호스트 연결':'● 웹 프리뷰'}</span></header>
+          <span className={'dl-pill '+(agent[side]?.online?'live':'waiting')}>{agent[side]?.online?'● 앱 WebSocket 연결':agent[side]?.capture?'● CI 캡처 보관':'● 연결 대기'}</span></header>
           <div className="dl-emulator-toolbar"><select aria-label={LABELS[side]+' 디바이스 크기'} value={deviceSize} onChange={e=>setDeviceSize(e.target.value)}>
             <option value="390">iPhone 14 · 390</option><option value="360">Android · 360</option><option value="430">Large · 430</option></select>
             <div><button title="홈" onClick={()=>{setSelected(side);ref.current[side]?.contentWindow?.postMessage({source:'hitel-device-lab-control',side,action:'home'},window.location.origin)}}>⌂</button>
@@ -255,27 +274,30 @@ export default function DeviceLab(){
           <div className="dl-emulator-display">
             <div className={'dl-phone-shell dl-phone-'+side} style={{width:'min(100%, '+deviceSize+'px)'}}>
               <div className="dl-phone-notch"/>
-              {view==='remote'&&agent[side]?.online&&capture[side]?
-                <img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 에뮬레이터 캡처'}/>:
-                <iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
+              {view==='remote'?(
+                capture[side]?<img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 앱/시뮬레이터 화면'}/>:
+                <div className="dl-capture-empty"><b>실제 에뮬레이터 화면 대기</b><p>GitHub Actions에서 앱 설치 및 화면 캡처 후 표시됩니다.</p></div>
+                ):<iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
             </div>
-            {view==='remote'&&!agent[side]?.online&&<div className="dl-overlay-warning">원격 호스트 미연결 · 웹 미리보기 표시 중</div>}
+            {view==='remote'&&!agent[side]?.online&&<div className="dl-overlay-warning">{capture[side]?'GitHub Actions 마지막 실제 캡처 · 현재 실시간 연결 아님':'실제 에뮬레이터 실행 결과 대기'}</div>}
           </div>
-          <footer className="dl-card-footer"><span>{deviceSize} px · {view==='remote'&&agent[side]?.online?'실제 캡처':'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
+          <footer className="dl-card-footer"><span>{deviceSize} px · {view==='remote'?(agent[side]?.online?'실시간 네트워크 캡처':'GitHub Actions 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 에뮬레이터</button></div>
             <div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>void send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>
-            <label className="dl-token-label">원격제어 관리자 토큰<input type="password" autoComplete="off" value={adminToken} onChange={e=>setAdminToken(e.target.value)} placeholder="실제 호스트 제어 시 입력"/></label>
+            <div className="dl-pair"><button onClick={()=>void createPair()}>Wi-Fi 기기 페어링 코드 발급</button>{pairTicket&&<><label>앱의 SDK Lab 화면에 아래 코드를 입력하세요.</label><input readOnly aria-label="기기 페어링 코드" value={pairTicket}/><button onClick={()=>void navigator.clipboard.writeText(pairTicket)}>코드 복사</button></>}</div>
+            <label className="dl-token-label">네트워크 제어 토큰<input type="password" autoComplete="off" value={adminToken} onChange={e=>setAdminToken(e.target.value)} placeholder="페어링을 발급하면 자동 입력됩니다"/></label>
             <div className="dl-status-list"><b>연결 상태</b><div><span>Android 호스트</span><strong>{agent.android?.online?'연결됨':'대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>실제 Bridge 인증</span><strong>기기 내부에서 검증</strong></div></div>
           </div>
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
-        <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div></section>
+        <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
+        <div className="dl-ci-reports">{SIDES.map(side=><details key={side}><summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'검증 성공':'검증 결과 확인'):'아직 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId}</span>}</summary><pre>{ci?.[side]?.log||'GitHub Actions 실행 및 실제 앱 화면 캡처 대기'}</pre>{ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">해당 GitHub Actions 실행 열기 ↗</a>}</details>)}</div></section>
     </main>
   </div>;
 }
