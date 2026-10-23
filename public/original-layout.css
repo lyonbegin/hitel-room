@@ -255,3 +255,27 @@ html,body{background:#f5f6f8!important}
 .source-event-sticky-cta{display:block;background:#ff633e;color:#fff;width:calc(100% - 40px);padding:14px;font-weight:800;border-radius:9px;margin:15px 20px 20px}
 .source-brief-hospital-image{width:52px;height:52px;border-radius:12px;object-fit:cover}
 @media(max-width:616px){.source-event-summary{padding:18px 16px}.source-event-detail>.detail-block{padding:22px 16px!important}}
+
+/* UNNI source community single-column feed, seven category chips, locked-photo preview. */
+.source-community{padding-bottom:38px}
+.source-community-tabs{display:flex;flex-flow:row nowrap;gap:8px;overflow-x:auto;scrollbar-width:none;white-space:nowrap;padding:14px 0 18px}
+.source-community-tabs::-webkit-scrollbar{display:none}
+.source-community-tabs button{flex:0 0 auto;background:#f4f5f6;border-radius:24px;padding:9px 13px;font-size:12px;color:#747980}
+.source-community-tabs button.selected{background:#33363a;color:#fff;font-weight:700}
+.source-community-feed{display:flex;flex-direction:column;gap:0}
+.source-community-item{padding:18px 0 15px;text-align:left;border:0;border-bottom:8px solid #f7f7f8;background:#fff;width:100%}
+.source-community-person{display:flex;align-items:center;gap:11px}
+.source-community-avatar{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;color:#fff;background:#65a583;border-radius:13px;font-size:17px}
+.source-community-item:nth-child(4n+2) .source-community-avatar{background:#7aa4d4}
+.source-community-item:nth-child(4n+3) .source-community-avatar{background:#d4a76c}
+.source-community-item:nth-child(4n+4) .source-community-avatar{background:#a48cc3}
+.source-community-person strong{font-size:13px;font-weight:620}
+.source-community-person p{font-size:11px;color:#9d9d9d;margin-top:5px}
+.source-community-excerpt{font-size:14px;color:#5d636b;line-height:1.7;margin:17px 0 15px;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.source-community-photo-lock{display:flex;align-items:center;gap:12px;background:#f6f7f8;border-radius:12px;padding:13px}
+.source-community-photo-lock img{width:64px;height:48px;object-fit:contain;flex:0 0 64px}
+.source-community-photo-lock span{display:flex;flex-direction:column;gap:5px;min-width:0}
+.source-community-photo-lock small{font-size:11px;color:#9a9fa9}
+.source-community-photo-lock strong{font-size:12px;color:#4d5661}
+.source-community-reactions{display:flex;align-items:center;gap:17px;color:#777;font-size:12px;margin-top:15px}
+.source-community-reactions .source-community-save{margin-left:auto}
