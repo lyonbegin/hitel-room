@@ -13,6 +13,7 @@ const tickets = new Map();
 const connections = new Map();
 const liveFrames = new Map();
 const windows = new Map();
+const pendingCommands = new Map();
 const jwks = createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 
 function json(res,code,obj){
@@ -139,13 +140,24 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=[...tickets.values()].find(v=>v.controller&&v.controller===controller&&v.expires>Date.now()&&(v.side===body.device||v.side==='both'));
       if(!ticket)return error(res,401,'Pairing control token required');
-      if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate'].includes(body.action))
+      if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate','getCapabilities','tts.speak','tts.stop','call.openDialer'].includes(body.action))
         return error(res,400,'Invalid device/action');
       const ws=connections.get(body.device);
       if(!ws||ws.readyState!==WebSocket.OPEN)return error(res,409,'Real native device is offline');
       const screen=['sdk','ai','call','media'].includes(body.screen)?body.screen:'home';
-      ws.send(JSON.stringify({type:'command',action:body.action,screen,requestId:ticketString()}));
-      return json(res,202,{ok:true,status:'sent-to-native-app'});
+      const requestId=ticketString();
+      pendingCommands.set(requestId,{side:body.device,controller,expires:Date.now()+15_000,result:null});
+      ws.send(JSON.stringify({type:'command',action:body.action,screen,data:body.data||{},requestId}));
+      return json(res,202,{ok:true,status:'sent-to-native-app',requestId});
+    }
+    if(req.method==='GET'&&route.startsWith('/lab-api/result/')){
+      const controller=(req.headers.authorization||'').match(/^Bearer (.+)$/i)?.[1];
+      const requestId=route.split('/').at(-1);
+      const cmd=pendingCommands.get(requestId);
+      if(!cmd||cmd.expires<Date.now()||cmd.controller!==controller)return error(res,404,'No authorized pending command');
+      if(!cmd.result)return json(res,202,{ok:true,status:'pending'});
+      pendingCommands.delete(requestId);
+      return json(res,200,cmd.result);
     }
     return error(res,404,'Not found');
   }catch(err){
@@ -180,6 +192,14 @@ wss.on('connection',ws=>{
         const png=Buffer.from(message.png,'base64');
         if(png.length>100&&png.length<=3_000_000&&png.subarray(0,8).toString('hex')==='89504e470d0a1a0a'){
           liveFrames.set(side,{png,time:Date.now()});
+        }
+      }
+      if(message.type==='result'&&typeof message.requestId==='string'){
+        const pending=pendingCommands.get(message.requestId);
+        if(pending&&pending.side===side&&pending.expires>Date.now()){
+          pending.result={requestId:message.requestId,platform:side,
+            ok:message.ok===true,capabilities:message.capabilities,
+            error:message.error,scope:message.scope};
         }
       }
       if(message.type==='event'||message.type==='hello'){
