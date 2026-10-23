@@ -12,6 +12,10 @@ on:
       - '.github/workflows/mobile-emulator.yml'
   workflow_dispatch:
 
+concurrency:
+  group: hitel-mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   id-token: write
