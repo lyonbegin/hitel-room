@@ -91,20 +91,44 @@ class MainActivity : Activity() {
                     if (msg.optString("type") != "command") return
                     val action = msg.optString("action")
                     runOnUiThread {
-                        when (action) {
-                            "home", "launch", "navigate" -> {
-                                val screen = if(action == "navigate") msg.optString("screen","home") else "home"
-                                val safeScreen = if(screen in setOf("home","sdk","ai","call","media")) screen else "home"
-                                webView.loadUrl(LAB_ORIGIN + "/sdk-lab/device?side=android&screen=" + safeScreen + "&pair=" + Uri.encode(ticket))
+                        val result = JSONObject().put("type","result")
+                            .put("requestId",msg.optString("requestId")).put("platform","android")
+                            .put("ok",true)
+                        val data=msg.optJSONObject("data") ?: JSONObject()
+                        try {
+                            when (action) {
+                                "home", "launch", "navigate" -> {
+                                    val screen=if(action=="navigate")msg.optString("screen","home")else "home"
+                                    val safe=if(screen in setOf("home","sdk","ai","call","media"))screen else "home"
+                                    webView.loadUrl(LAB_ORIGIN + "/sdk-lab/device?side=android&screen=" + safe + "&pair=" + Uri.encode(ticket))
+                                }
+                                "reload" -> webView.reload()
+                                "back" -> if (webView.canGoBack()) webView.goBack()
+                                "ping" -> Unit
+                                "getCapabilities" -> result.put("capabilities", JSONObject()
+                                    .put("nativeBridge",true).put("localTts",true)
+                                    .put("openSystemDialer",true).put("webrtcWebview",true)
+                                    .put("readCellularRemoteAudio",false).put("injectCellularAudio",false))
+                                "tts.speak" -> {
+                                    val body=data.optString("text").take(1000)
+                                    if(body.isBlank()||!ttsReady)throw IllegalStateException("TTS unavailable")
+                                    speaker?.language=Locale.forLanguageTag(data.optString("language","ko-KR"))
+                                    result.put("ok",speaker?.speak(body,TextToSpeech.QUEUE_FLUSH,null,"hitel-wifi") == TextToSpeech.SUCCESS)
+                                    result.put("scope","local-device-only")
+                                }
+                                "tts.stop" -> {speaker?.stop();result.put("scope","local-device-only")}
+                                "call.openDialer" -> {
+                                    val phone=data.optString("phone")
+                                    if(!phone.matches(Regex("[+0-9*# -]{1,24}")))throw IllegalArgumentException("Invalid number")
+                                    startActivity(Intent(Intent.ACTION_DIAL,Uri.fromParts("tel",phone,null)))
+                                }
+                                else -> throw IllegalArgumentException("Unsupported network action")
                             }
-                            "reload" -> webView.reload()
-                            "back" -> if (webView.canGoBack()) webView.goBack()
-                            "ping" -> Unit
-                            else -> return@runOnUiThread
+                        }catch(e:Exception){
+                            result.put("ok",false).put("error",e.message ?: "Native command failed")
                         }
-                        Log.i(LOG_TAG, "LAB_CMD_" + action.uppercase(Locale.ROOT))
-                        webSocket.send(JSONObject().put("type", "event").put("name", "command.done")
-                            .put("value", action).toString())
+                        Log.i(LOG_TAG,"LAB_CMD_"+action.uppercase(Locale.ROOT))
+                        webSocket.send(result.toString())
                     }
                 } catch (e: Exception) { Log.w(LOG_TAG, "LAB_SOCKET_MESSAGE_ERROR " + e.message) }
             }
