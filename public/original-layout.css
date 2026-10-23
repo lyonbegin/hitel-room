@@ -291,3 +291,9 @@ html,body{background:#f5f6f8!important}
 .source-search-more{display:block;width:100%;font-size:12px;color:#777;border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:14px 0 0;background:#fff}
 .source-search .original-review-locked{padding:15px;border-radius:10px}
 .source-search .original-review-locked .cta{max-width:260px;margin:15px auto 0}
+
+/* Original events page: horizontally scrolling category rail with an active 3px rule. */
+.source-event-category-tabs{display:flex;flex-flow:row nowrap;gap:20px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;white-space:nowrap;width:100%;border-bottom:1px solid #eee}
+.source-event-category-tabs::-webkit-scrollbar{display:none}
+.source-event-category-tabs button{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:13px 0;border-bottom:3px solid transparent;color:#8a8d94;font-size:14px;font-weight:500;min-height:48px;scroll-snap-align:start}
+.source-event-category-tabs button.on{border-bottom-color:#34343a;color:#2e2e32;font-weight:750}
