@@ -304,6 +304,7 @@ document.addEventListener('click',e=>{
  if(target.dataset.region){activeRegion=target.dataset.region;activeArea='전체';render();return;}
  if(target.dataset.area){activeArea=target.dataset.area;render();return;}
  if(target.dataset.action){const a=target.dataset.action;
+ if(a==='event-options'){document.getElementById('source-event-option-list')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(a==='modalclose'){showModal='';render();return;}
  if(a==='regionreset'){activeRegion='서울';activeArea='전체';render();return;}
  if(a==='more'){pageCount+=12;render();return;}
