@@ -64,6 +64,11 @@ export interface CommunicationCapabilities {
 
 export interface RoomSession {
   leave(): Promise<void> | void;
+  // Optional media controls supplied by the existing HITEL mediasoup adapter.
+  isStarted?(): boolean;
+  replaceLocalTracks?(stream: MediaStream): Promise<void>;
+  setMicrophoneEnabled?(enabled: boolean): Promise<void>;
+  setCameraEnabled?(enabled: boolean): Promise<void>;
 }
 
 export interface RoomAdapter {
