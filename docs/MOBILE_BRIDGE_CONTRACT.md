@@ -44,3 +44,11 @@ feature/mobile-native 의 .github/workflows/mobile-emulator.yml:
 - iOS: XcodeGen, 시뮬레이터 빌드 및 구동, Bridge ping / capabilities 로그, 스크린샷.
 
 새 이벤트는 코드에 추가되었으나, CI 스크린샷 및 실제 단말에서 JS 측 이벤트 수신까지 검증한 것으로 표시하지 않습니다.
+
+
+## 6. WebRTC 카메라·마이크 권한 (Android/iOS 공통)
+- Android Manifest: CAMERA, RECORD_AUDIO 선언.
+- Android WebChromeClient: 신뢰된 HTTPS origin에서 요청한 AUDIO_CAPTURE/VIDEO_CAPTURE만 처리하고, OS 런타임 권한이 없으면 이용자에게 권한을 요청한 다음 WebView에 응답.
+- iOS XcodeGen Info.plist: NSCameraUsageDescription, NSMicrophoneUsageDescription.
+- iOS WKUIDelegate: HITEL HTTPS origin의 메인 프레임에 대해서만 미디어 접근을 허용하고 실제 OS 권한은 iOS가 관리.
+- 이 권한은 HITEL 앱 내부 WebRTC에서만 사용하며, **통신사 일반전화의 상대 음성 취득/송출 권한을 뜻하지 않습니다.**
