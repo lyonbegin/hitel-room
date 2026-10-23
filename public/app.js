@@ -119,7 +119,7 @@ function header(){
 }
 function footer(){
  return '<footer class="site-footer"><div class="wrap footer-content"><div class="footer-tabs">'+[['홈','/'],['병원','/hospitals'],['이벤트','/events'],['커뮤니티','/community'],['칼럼','/contents'],['서비스 소개','/about']].map(x=>link(x[0],x[1])).join('')+'</div><div class="company"><strong>강남언니 · 주식회사 힐링페이퍼</strong><br/>대표: 홍승일 · 서울특별시 강남구 테헤란로 142<br/>사업자등록번호: 117-81-81256 · 통신판매업신고: 2015-서울서초-1147호<br/>이용약관 · 개인정보처리방침 · 고객센터<br/><span class="clone-label">※ 별도 개발된 UI 연구용 클론 시제품으로 강남언니 공식 사이트가 아닙니다. 상담·결제·예약 기능 및 실시간 DB는 제공되지 않습니다.</span></div></div></footer>'+
- '<nav class="bottom-mobile">'+[['⌂','홈','/'],['⌖','병원','/hospitals'],['✦','이벤트','/events'],['☻','커뮤니티','/community'],['▤','칼럼','/contents']].map(x=>'<button data-to="'+x[2]+'" class="'+(route()===x[2]?'on':'')+'"><span>'+x[0]+'</span>'+x[1]+'</button>').join('')+'</nav>';
+ '<nav class="bottom-mobile" aria-label="주요 탐색">'+ORIGINAL_BOTTOM_NAV.map(x=>'<button data-to="'+x.href+'" class="'+(route()===x.href?'on':'')+'" aria-label="'+x.label+'"><span class="source-bottom-icon"><svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="'+(route()===x.href?x.paths[1]:x.paths[0])+'"/></svg></span>'+x.label+'</button>').join('')+'</nav>';
 }
 function eventCard(e){
  if(!e)return '';
