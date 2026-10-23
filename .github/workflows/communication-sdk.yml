@@ -1,0 +1,39 @@
+name: Communication SDK build check
+
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - 'src/communication-sdk/**'
+      - 'src/portal/nativeBridge.ts'
+      - 'vite.communication-sdk.config.ts'
+      - 'package*.json'
+      - '.github/workflows/communication-sdk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck and build existing HITEL UI
+        run: npm run build
+      - name: Build Communication SDK ESM
+        run: npx vite build --config vite.communication-sdk.config.ts
+      - name: Verify distributable
+        run: test -s dist/sdk/communication.esm.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: communication-sdk-esm
+          path: dist/sdk/communication.esm.js
+          if-no-files-found: error
