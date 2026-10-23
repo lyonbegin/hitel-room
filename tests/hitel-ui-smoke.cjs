@@ -21,6 +21,7 @@ async function run(){
    assert(dims.scroll<=dims.viewport+2,name+' horizontal overflow '+JSON.stringify(dims));
    assert.equal(await page.locator('.hc-quick').count(),4);
    await page.screenshot({path:out+'/hitel-v3-'+name+'-home.png',fullPage:true});
+   await page.screenshot({path:out+'/hitel-v3-'+name+'-viewport.png',fullPage:false});
    await page.locator('.hc-entry-input input').fill('1588-0000');
    await page.locator('.hc-entry-input button').click();
    assert.equal(await page.locator('.hc-route').count(),3);
