@@ -1,0 +1,13 @@
+.dl-capture-empty{height:100%;background:#f4f7f9;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:25px;text-align:center;color:#4a6574;font-size:11px}
+.dl-capture-empty p{font-size:10px;color:#879ba8;line-height:1.6}
+.dl-pair{margin-top:14px;padding:11px;border:1px solid #dce7ee;border-radius:9px;background:#f7fbfd;display:flex;flex-direction:column;gap:8px}
+.dl-pair button{border:1px solid #bdceda;background:#fff;border-radius:7px;padding:9px;color:#315e72;font-size:10px;font-weight:700}
+.dl-pair label{color:#536f7e;font-size:10px;line-height:1.5}
+.dl-pair input{width:100%;padding:9px;background:#fff;border:1px solid #d5e3ec;border-radius:6px;font-size:10px;color:#1c4558}
+.dl-ci-reports{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.dl-ci-reports details{border:1px solid #dce7ec;background:#f8fbfc;border-radius:9px;padding:10px;font-size:11px}
+.dl-ci-reports summary{cursor:pointer;font-weight:700;color:#315668}
+.dl-ci-reports summary span{margin-left:6px;color:#7396a6;font-size:10px}
+.dl-ci-reports pre{overflow:auto;max-height:250px;white-space:pre-wrap;font-size:10px;line-height:1.6}
+.dl-ci-reports a{font-size:10px;color:#2b8eb4}
+@media(max-width:650px){.dl-ci-reports{grid-template-columns:1fr}}
