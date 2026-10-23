@@ -56,7 +56,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -http-proxy http://127.0.0.1:18888
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash mobile/tests/android-smoke.sh
       - name: Store Android screenshot and diagnostics
