@@ -258,9 +258,14 @@ wss.on('connection',ws=>{
       if(message.type==='result'&&typeof message.requestId==='string'){
         const pending=pendingCommands.get(message.requestId);
         if(pending&&pending.side===side&&pending.expires>Date.now()){
+          // Explicitly carry bounded structured native automation output back
+          // to the authenticated paired controller; do not log screen text.
+          const resultJson=(message.result&&typeof message.result==='object'&&!Array.isArray(message.result))
+            ?JSON.stringify(message.result):null;
           pending.result={requestId:message.requestId,platform:side,
             ok:message.ok===true,capabilities:message.capabilities,
-            error:message.error,scope:message.scope};
+            error:message.error,scope:message.scope,
+            result:resultJson&&resultJson.length<=32_768?message.result:undefined};
         }
       }
       if(message.type==='event'||message.type==='hello'){
