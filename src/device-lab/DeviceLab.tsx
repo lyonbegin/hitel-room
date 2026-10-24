@@ -232,6 +232,24 @@ export default function DeviceLab(){
   const [apkDevice,setApkDevice]=useState('ci-playstore');
   const [apkHosts,setApkHosts]=useState<Host[]>([]);
   const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
+  useEffect(()=>{
+    if(apkReady)return;
+    let inactive=false;
+    async function connectTest(){
+      try{
+        const response=await fetch('/lab-api/apk/ui/connect',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:'{}',credentials:'same-origin',cache:'no-store'
+        });
+        if(!response.ok)return;
+        const data=await response.json() as {ready?:boolean};
+        if(data.ready&&!inactive)setApkReady(true);
+      }catch{ /* runner has not started yet */ }
+    }
+    void connectTest();
+    const timer=window.setInterval(()=>void connectTest(),5000);
+    return ()=>{inactive=true;window.clearInterval(timer)};
+  },[apkReady]);
   const [deviceSize,setDeviceSize]=useState('390');
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
   const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
