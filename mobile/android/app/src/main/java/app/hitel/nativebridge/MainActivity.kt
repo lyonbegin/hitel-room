@@ -190,8 +190,8 @@ class MainActivity : Activity() {
             "app.open" -> {
                 val pkg=data.optString("packageName")
                 require(pkg.matches(Regex("[a-zA-Z][a-zA-Z0-9_.]{2,149}"))) { "INVALID_APP_PACKAGE" }
-                val launch=packageManager.getLaunchIntentForPackage(pkg)
-                    ?: if(pkg=="com.android.settings") Intent(Settings.ACTION_SETTINGS) else null
+                val launch = packageManager.getLaunchIntentForPackage(pkg)
+                    ?: (if (pkg=="com.android.settings") Intent(Settings.ACTION_SETTINGS) else null)
                     ?: throw IllegalStateException("APP_NOT_INSTALLED_OR_NOT_VISIBLE")
                 AppAccessibilityService.selectedPackage=pkg
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -215,8 +215,14 @@ class MainActivity : Activity() {
             "web.open" -> {
                 val uri=Uri.parse(data.optString("url"))
                 require(uri.scheme=="https" && !uri.host.isNullOrBlank()) { "HTTPS_URL_REQUIRED" }
-                startActivity(Intent(Intent.ACTION_VIEW,uri))
+                val intent = Intent(Intent.ACTION_VIEW,uri)
+                // The accessibility reader follows the browser that Android chooses.
+                val resolved = packageManager.resolveActivity(intent,0)?.activityInfo?.packageName
+                startActivity(intent)
+                if(!resolved.isNullOrBlank() && resolved!="android")
+                    AppAccessibilityService.selectedPackage=resolved
                 return JSONObject().put("opened",true).put("url",uri.toString())
+                    .put("browserPackage",resolved ?: JSONObject.NULL)
             }
             else -> throw IllegalArgumentException("UNSUPPORTED_ASSISTIVE_ACTION")
         }
