@@ -5,6 +5,7 @@ import './DeviceLab.css';
 import './DeviceLab.extra.css';
 import {DisposableAndroidInstaller, type TestHost as Host} from './DisposableAndroidInstaller';
 import {DisposableAndroidScreen} from './DisposableAndroidScreen';
+import {AndroidSessionControls} from './AndroidSessionControls';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
@@ -388,8 +389,9 @@ export default function DeviceLab(){
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
               <strong>{apkReady?(apkOnline?'연결됨':'에뮬레이터 시작 대기'):'자동 연결 대기'}</strong>
             </div></div>
-            <div className="dl-pair"><a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml" target="_blank" rel="noreferrer">일회용 Android 실행 → GitHub Actions · Run workflow ↗</a>
-              <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 세션 미실행 · 실행하면 홈 화면이 자동 표시됩니다'}</small>
+            <AndroidSessionControls onNotice={message=>push('android',message)}/>
+            <div className="dl-pair">
+              <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 실행 버튼으로 가상 기기를 시작하세요.'}</small>
             </div>
             <div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>void send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>
             <details className="dl-advanced-pair">
