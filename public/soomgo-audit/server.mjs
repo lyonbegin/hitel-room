@@ -82,9 +82,69 @@ finally{state.finishedAt=new Date().toISOString();await fs.writeFile(path.join(B
 }
 function html(){const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let stages=Object.entries(state.stages).map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+esc(v.status)+'</td><td>'+esc(v.httpStatus)+'</td><td>'+esc(v.title)+'</td><td>'+esc(v.images)+'</td></tr>').join('');
 return '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HITEL 숨고 원본 분석</title><style>body{font:15px system-ui;background:#f7f7f7;color:#222;margin:28px;max-width:1460px}a{color:#0a684c}button{font-size:16px;padding:9px 15px}pre{white-space:pre-wrap;background:#fff;padding:15px}table{border-collapse:collapse;background:#fff;width:100%}td,th{padding:10px;border:1px solid #ddd}img{width:100%;display:block;border:1px solid #ddd}.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.box{background:white;padding:16px;margin:16px 0}@media(max-width:900px){.cols{grid-template-columns:1fr}}</style><h1>숨고 고수찾기 · 서버 자체 브라우저 감사</h1><p>실제 원본과 복제 화면을 1440×900 Chromium으로 캡처합니다. 성공과 실패를 구분해 표시합니다.</p><p><b>상태: '+esc(state.status)+'</b> · '+esc(state.finishedAt||state.startedAt||'')+' <button onclick="fetch(\'/run\').then(()=>location.reload())">다시 실행</button> <a href="/report">전체 JSON</a></p><table><tr><th>대상</th><th>상태</th><th>HTTP</th><th>제목</th><th>이미지 수</th></tr>'+stages+'</table><h3>원본/재현 이미지 픽셀 차이</h3><pre>'+esc(asJson(state.difference))+'</pre><div class="cols"><div class="box"><h2>숨고 원본</h2><img src="/artifacts/original.png" onerror="this.replaceWith(document.createTextNode(\'원본 캡처 없음\'))"></div><div class="box"><h2>우리 재현 화면</h2><img src="/artifacts/clone.png" onerror="this.replaceWith(document.createTextNode(\'복제 캡처 없음\'))"></div></div><div class="box"><h2>픽셀 차이 이미지</h2><img src="/artifacts/diff.png"></div><div class="box"><h2>도구 설치/실행 확인</h2><pre>'+esc(asJson(state.toolStatus))+'</pre></div><div class="box"><h2>수집 데이터</h2><a href="/artifacts/original.json">원본 DOM·이미지·CSS·네트워크</a> | <a href="/artifacts/search.json">원본 검색</a> | <a href="/artifacts/clone.json">우리 화면</a></div></html>'}
+
+const GROUP_PATHS={
+'이사/청소':'%EC%9D%B4%EC%82%AC-%EC%B2%AD%EC%86%8CA',
+'설치/수리':'%EC%84%A4%EC%B9%98-%EC%88%98%EB%A6%ACA',
+'인테리어':'%EC%9D%B8%ED%85%8C%EB%A6%AC%EC%96%B4A',
+'외주':'%EC%99%B8%EC%A3%BCA',
+'이벤트/뷰티':'%EC%9D%B4%EB%B2%A4%ED%8A%B8-%EB%B7%B0%ED%8B%B0A',
+'취업/직무':'%EC%B7%A8%EC%97%85-%EC%A7%81%EB%AC%B4A',
+'과외':'%EA%B3%BC%EC%99%B8A',
+'취미/자기계발':'%EC%B7%A8%EB%AF%B8-%EC%9E%90%EA%B8%B0%EA%B3%84%EB%B0%9CA',
+'자동차':'%EC%9E%90%EB%8F%99%EC%B0%A8A',
+'법률/금융':'%EB%B2%95%EB%A5%A0-%EA%B8%88%EC%9C%B5A',
+'기타':'%EA%B8%B0%ED%83%80A'};
+const categoryCache=new Map();
+function extractCategories(snapshot,group){
+ const cats=Object.keys(GROUP_PATHS);
+ const controls=snapshot?.controls||[];
+ const sections=[];
+ const byName=new Map();
+ let all=controls.filter(c=>c.tag==='A'&&c.href?.startsWith('/hire/')&&c.text?.trim());
+ for(const item of all){
+   let name=item.text.trim().replace(/\s+/g,' ');
+   let sub='서비스';
+   try{const params=new URL(item.href,'https://soomgo.com').searchParams;sub=JSON.parse(params.get('cat2')||'{}').name||sub}catch{}
+   if(!byName.has(sub)){const next={name:sub,items:[]};byName.set(sub,next);sections.push(next)}
+   const sec=byName.get(sub);if(!sec.items.some(x=>x.name===name))sec.items.push({name,url:'https://soomgo.com'+item.href});
+ }
+ // Do not fabricate child services when the DOM only exposes a truncated subset.
+ const subNames=controls.filter(c=>c.tag==='BUTTON'&&c.rect?.width>180&&c.rect?.width<300&&c.text?.trim()).map(c=>c.text.trim());
+ const presets=controls.filter(c=>c.tag==='A'&&c.href?.startsWith('/requests/preset')).map(c=>({name:c.text.split('\n').map(x=>x.trim()).filter(Boolean).join(' · '),url:'https://soomgo.com'+c.href}));
+ return{group,sections,subNames,presets,count:sections.reduce((n,x)=>n+x.items.length,0),source:'https://soomgo.com/categories/'+GROUP_PATHS[group]+'?from=main',capturedAt:new Date().toISOString()};
+}
+async function fetchCategories(group){
+ if(!GROUP_PATHS[group])throw Error('Unsupported category');
+ const fromCache=categoryCache.get(group);if(fromCache&&Date.now()-fromCache.time<86400000)return fromCache.data;
+ let browser;
+ try{
+   if(group==='이사/청소'){
+     try{const snapshot=JSON.parse(await fs.readFile(path.join(BASE,'categoriesOriginal.json'),'utf8')).snapshot;
+       const d=extractCategories(snapshot,group);if(d.count>35){categoryCache.set(group,{data:d,time:Date.now()});return d}
+     }catch{}
+   }
+   browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage'],timeout:18000});
+   const page=await browser.newPage({viewport:VIEW,locale:'ko-KR'});
+   const url='https://soomgo.com/categories/'+GROUP_PATHS[group]+'?from=main';
+   const resp=await page.goto(url,{waitUntil:'domcontentloaded',timeout:35000});
+   await page.waitForTimeout(1700);
+   const snapshot=await page.evaluate(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{width:Math.round(r.width),height:Math.round(r.height)}};
+    return{controls:Array.from(document.querySelectorAll('a,button')).filter(e=>e.getAttribute('href')?.startsWith('/hire/')||e.getAttribute('href')?.startsWith('/requests/preset')||e.tagName==='BUTTON').map(e=>({tag:e.tagName,text:(e.innerText||'').slice(0,180),href:e.getAttribute('href'),rect:rect(e)}))};
+   });
+   const d=extractCategories(snapshot,group);d.httpStatus=resp?.status()||null;
+   if(d.count===0)throw Error('No public services found');
+   categoryCache.set(group,{data:d,time:Date.now()});
+   console.log('HITEL_CATEGORY_API '+JSON.stringify({group,status:d.httpStatus,sections:d.sections.length,count:d.count}));
+   return d;
+ }finally{await browser?.close().catch(()=>{})}
+}
+
 const mime=(name)=>fileMap.get(name);
 const server=http.createServer(async(req,res)=>{
 try{const u=new URL(req.url,'http://localhost');res.setHeader('Cache-Control','no-store');if(u.pathname==='/health'){res.writeHead(200,{'Content-Type':'text/plain'});return res.end('ready')}
+if(u.pathname==='/api/categories'){const group=u.searchParams.get('group')||'이사/청소';if(!GROUP_PATHS[group]){res.writeHead(400);return res.end('Invalid category')}const data=await fetchCategories(group);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(asJson(data))}
 if(u.pathname==='/categories'){const htmlData=await fs.readFile('/app/categories.html');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(htmlData)}
 if(u.pathname==='/clone'){const htmlData=await fs.readFile('/app/clone.html');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(htmlData)}
 if(u.pathname==='/run'){const accepted=await runAudit();res.writeHead(202,{'Content-Type':'application/json'});return res.end(asJson({accepted,state:state.status}))}
