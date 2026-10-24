@@ -332,3 +332,6 @@ export type { NetworkSide, NetworkPair, NetworkCommand } from './networkAdapter'
 export { CommunicationSignalClient, createCommunicationSession } from './signalClient';
 export type { CommunicationRole, CommunicationAction, CommunicationCallState, CommunicationSignalEvent, CommunicationSessionInfo, CommunicationSnapshot } from './signalClient';
 export { CommunicationCallSession, createCommunicationCallSession } from './callSession';
+
+export { scenarioExecutors, executeCommunicationScenario } from './scenarios';
+export type { ScenarioExecutionContext, ScenarioExecutionResult, ScenarioExecutionStatus, CarrierAppAdapter, PhoneGatewayAdapter } from './scenarios';
