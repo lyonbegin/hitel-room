@@ -46,7 +46,7 @@ test('simultaneous Android devices retain isolated controller sockets',async()=>
     return (await reply.json()).requestId;
   }
   async function replyToNative(ws){
-    await new Promise((resolve,reject)=>{
+    return await new Promise((resolve,reject)=>{
       const timeout=setTimeout(()=>reject(Error('Native test command not delivered')),2000);
       const handler=raw=>{
         const msg=JSON.parse(String(raw));
