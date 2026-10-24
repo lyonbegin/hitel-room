@@ -31,7 +31,7 @@ page.on('response',response=>{if(result.network.length<350)result.network.push({
 const response=await page.goto(url,{timeout:48000,waitUntil:'domcontentloaded'});
 result.httpStatus=response?.status()??null;
 await page.waitForTimeout(4500);
-if(['restaurant','foodie','travel','cloneRestaurant'].includes(name)){const label={restaurant:'restaurant',foodie:'Foodie Map',travel:'travel',cloneRestaurant:'restaurant'}[name];try{const b=page.getByRole('button',{name:label,exact:false}).first();await b.click({timeout:9000});await page.waitForTimeout(1300);result.interaction='clicked '+label}catch(e){result.interaction='failed: '+String(e.message).slice(0,600)}}
+if(['restaurant','foodie','travel','cloneRestaurant'].includes(name)){const label={restaurant:'식당',foodie:'맛동여지도',travel:'여행',cloneRestaurant:'식당'}[name];try{const b=page.getByRole('button',{name:label,exact:false}).first();await b.click({timeout:9000});await page.waitForTimeout(1300);result.interaction='clicked '+label}catch(e){result.interaction='failed: '+String(e.message).slice(0,600)}}
 result.pageUrl=page.url();result.title=await page.title();result.bodyLength=await page.locator('body').innerText().then(t=>t.length).catch(()=>0);
 result.snapshot=await page.evaluate(()=>{
 const rect=e=>{const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}};
@@ -52,7 +52,7 @@ async function diff(){
 try{const pa=PNG.sync.read(await fs.readFile(path.join(BASE,'original.png')));const pb=PNG.sync.read(await fs.readFile(path.join(BASE,'clone.png')));if(pa.width!==pb.width||pa.height!==pb.height)throw Error('image dimensions do not match');
 const d=new PNG({width:pa.width,height:pa.height});const mismatch=pixelmatch(pa.data,pb.data,d.data,pa.width,pa.height,{threshold:0.12});
 const sections={};
-for(const [name,x0,x1] of [['top',0,720],['bottom',720,1440]]){
+for(const [name,x0,x1] of [['left',0,720],['right',720,1440]]){
  const w=x1-x0,h=pa.height;const ai=Buffer.alloc(w*h*4),bi=Buffer.alloc(w*h*4);
  for(let y=0;y<h;y++){Buffer.from(pa.data).copy(ai,y*w*4,(y*pa.width+x0)*4,(y*pa.width+x1)*4);Buffer.from(pb.data).copy(bi,y*w*4,(y*pb.width+x0)*4,(y*pb.width+x1)*4);}
  const diffData=new Uint8Array(ai.length);const n=pixelmatch(ai,bi,diffData,w,h,{threshold:0.12});
