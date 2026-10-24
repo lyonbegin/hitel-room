@@ -94,7 +94,8 @@ export function createApkManager({
           job.status='installing';job.startedAt=new Date().toISOString();job.leaseId=crypto.randomUUID();
           job.agentKind=identity.kind;await saveRecord(jobsDir,job);
           return json(res,200,{ok:true,job:{id:job.id,apkId:file.id,sha256:file.sha256,
-            size:file.size,filename:file.filename,leaseId:job.leaseId}});
+            size:file.size,filename:file.filename,leaseId:job.leaseId,
+            launchAfterInstall:job.launchAfterInstall===true}});
         }
         if(req.method==='GET'&&route.startsWith('/lab-api/apk/agent/file/')){
           const jobId=route.split('/').at(-1);
@@ -176,6 +177,7 @@ export function createApkManager({
         const file=await readRecord(filesDir,apkId);
         if(!file)return bad(res,'UNKNOWN_APK',404);
         const job={id:crypto.randomUUID(),apkId,filename:file.filename,deviceId,
+          launchAfterInstall:data.launchAfterInstall===true,
           status:'pending',createdAt:new Date().toISOString(),error:null};
         await saveRecord(jobsDir,job);
         return json(res,201,{ok:true,job});
