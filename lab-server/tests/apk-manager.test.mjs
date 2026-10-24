@@ -210,3 +210,51 @@ test('automatic disposable browser session never asks operator for admin token',
     await rm(dir,{recursive:true,force:true});
   }
 });
+
+test('Railway UI Android start queues a disposable job and signed runner claims it',async()=>{
+  const f=await fixture();
+  try{
+    const base=f.url+'/lab-api/apk/';
+    const first=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+    assert.equal(first.status,202);
+    const created=await first.json();
+    assert.equal(created.status,'queued');
+    const cookie=first.headers.get('set-cookie').split(';')[0];
+    const own=await fetch(base+'ui/status',{headers:{cookie}});
+    assert.equal((await own.json()).status,'queued');
+    const publicView=await fetch(base+'ui/status');
+    assert.equal((await publicView.json()).status,'busy');
+    const claimed=await fetch(base+'ci/claim-start',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_IDENTITY'}});
+    assert.equal(claimed.status,200);
+    assert.equal((await claimed.json()).claim,true);
+    const status=await fetch(base+'ui/status',{headers:{cookie}});
+    assert.equal((await status.json()).status,'starting');
+    const noDuplicate=await fetch(base+'ci/claim-start',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_IDENTITY'}});
+    assert.equal((await noDuplicate.json()).claim,false);
+    const stop=await fetch(base+'ui/stop',{method:'POST',body:'{}',headers:{cookie}});
+    assert.equal(stop.status,200);
+    assert.equal((await stop.json()).status,'stopping');
+    const finish=await fetch(base+'ci/finish',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_IDENTITY'}});
+    assert.equal(finish.status,200);
+    const done=await fetch(base+'ui/status',{headers:{cookie}});
+    assert.equal((await done.json()).status,'completed');
+  }finally{await f.dispose()}
+});
+test('Android queued stop cancels without boot; no other browser can cancel session',async()=>{
+  const f=await fixture();
+  try{
+    const base=f.url+'/lab-api/apk/';
+    const first=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+    const cookie=first.headers.get('set-cookie').split(';')[0];
+    const forbidden=await fetch(base+'ui/stop',{method:'POST',body:'{}'});
+    assert.equal(forbidden.status,403);
+    const stop=await fetch(base+'ui/stop',{method:'POST',body:'{}',headers:{cookie}});
+    assert.equal((await stop.json()).status,'completed');
+    const claim=await fetch(base+'ci/claim-start',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_IDENTITY'}});
+    assert.equal((await claim.json()).claim,false);
+  }finally{await f.dispose()}
+});
