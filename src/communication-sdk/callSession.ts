@@ -1,4 +1,4 @@
-import { CommunicationSDK, type RoomAdapter, type RoomSession } from './index';
+import type { CommunicationSDK, RoomAdapter, RoomSession } from './index';
 import { CommunicationSignalClient, type CommunicationSignalEvent,
   type CommunicationCallState, type CommunicationAction } from './signalClient';
 
