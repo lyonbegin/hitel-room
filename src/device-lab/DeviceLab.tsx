@@ -228,28 +228,10 @@ export function DeviceLabPhone() {
 export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
   const [view,setView]=useState<'preview'|'remote'>('remote');
-  const [apkReady,setApkReady]=useState(false);
+  const [apkToken,setApkToken]=useState('');
   const [apkDevice,setApkDevice]=useState('ci-playstore');
   const [apkHosts,setApkHosts]=useState<Host[]>([]);
   const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
-  useEffect(()=>{
-    if(apkReady)return;
-    let disposed=false;
-    async function connect(){
-      try{
-        const res=await fetch('/lab-api/apk/ui/connect',{method:'POST',
-          headers:{'Content-Type':'application/json'},body:'{}',
-          credentials:'same-origin',cache:'no-store'});
-        if(res.ok){
-          const data=await res.json();
-          if(data.ready&&!disposed)setApkReady(true);
-        }
-      }catch{ /* retry when emulator is online */ }
-    }
-    void connect();
-    const handle=window.setInterval(()=>void connect(),5000);
-    return ()=>{disposed=true;window.clearInterval(handle)};
-  },[apkReady]);
   const [deviceSize,setDeviceSize]=useState('390');
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
   const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
@@ -370,7 +352,7 @@ export default function DeviceLab(){
             <div className={'dl-phone-shell dl-phone-'+side} style={{width:'min(100%, '+deviceSize+'px)'}}>
               <div className="dl-phone-notch"/>
               {view==='remote' && side==='android'?(
-                <EmulatorRemoteScreen compact ready={apkReady} deviceId={apkDevice} online={apkOnline}
+                <EmulatorRemoteScreen compact token={apkToken} deviceId={apkDevice} online={apkOnline}
                   onNotice={message=>push('android',message)}/>
               ):view==='remote'?(
                 capture[side]?<img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 앱/시뮬레이터 화면'}/>:
@@ -385,7 +367,9 @@ export default function DeviceLab(){
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 Android 화면</button></div>
-            <div className="dl-status-list"><div><span>Android 테스트 세션</span><strong>{apkReady?'자동 연결됨':'Android 시작 대기'}</strong></div></div>
+            <label className="dl-token-label">Android 실제 화면 접근 인증
+              <input type="password" autoComplete="off" value={apkToken} onChange={event=>setApkToken(event.target.value)} placeholder="Railway LAB_APK_ADMIN_TOKEN"/>
+            </label>
             <div className="dl-pair"><a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml" target="_blank" rel="noreferrer">일회용 Android 실행 → GitHub Actions · Run workflow ↗</a>
               <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 세션 미실행 · 실행하면 홈 화면이 자동 표시됩니다'}</small>
             </div>
@@ -397,7 +381,7 @@ export default function DeviceLab(){
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
-      <ApkInstaller ready={apkReady} setReady={setApkReady}
+      <ApkInstaller token={apkToken} setToken={setApkToken}
         device={apkDevice} setDevice={setApkDevice} hosts={apkHosts} setHosts={setApkHosts}/>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
