@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createServer} from 'node:http';
+import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {WebSocket} from 'ws';
 import {createCommunicationService} from '../communication.mjs';
 
@@ -189,4 +192,66 @@ test('call cancellation, rejection, missed timeout and forbidden late acceptance
     assert.ok(snapshot.events.some(e=>e.type==='call.missed'));
     assert.equal((await action(missed.calleeToken,'call.accept')).code,409);
   }finally{comm.close();await new Promise(resolve=>server.close(resolve))}
+});
+
+test('persisted call can resume after server restart with caller and callee tokens intact',async()=>{
+  const store=await mkdtemp(join(tmpdir(),'hitel-comm-persist-'));
+  let server,comm;
+  async function start(){
+    comm=createCommunicationService({storageDir:store,ringTimeoutMs:30_000});
+    server=createServer((req,res)=>void comm.http(req,res,new URL(req.url,'http://localhost').pathname));
+    await new Promise(r=>server.listen(0,'127.0.0.1',r));
+    return 'http://127.0.0.1:'+server.address().port+'/comm-api';
+  }
+  async function stop(){
+    comm.close();
+    await new Promise(resolve=>server.close(resolve));
+  }
+  async function action(base,token,type){
+    const r=await fetch(base+'/action',{method:'POST',
+      headers:{'content-type':'application/json',authorization:'Bearer '+token},
+      body:JSON.stringify({action:type})});
+    assert.equal(r.status,200);
+    return r.json();
+  }
+  try{
+    let base=await start();
+    const created=await fetch(base+'/session',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify({from:'W',to:'N'})});
+    const session=await created.json();
+    await action(base,session.callerToken,'call.invite');
+    await action(base,session.calleeToken,'call.ringing');
+    const savedFiles=await readdir(store);
+    assert.equal(savedFiles.length,1);
+    const saved=JSON.parse(await readFile(join(store,savedFiles[0]),'utf8'));
+    assert.equal(saved.state,'ringing');
+    assert.equal(saved.caller.token,undefined);
+    assert.equal(saved.callee.token,undefined);
+    assert.equal(saved.caller.tokenHash.length,64);
+    assert.equal(JSON.stringify(saved).includes(session.callerToken),false);
+    assert.equal(JSON.stringify(saved).includes(session.calleeToken),false);
+    await stop();
+    base=await start();
+    const snapshotRequest=await fetch(base+'/session/'+session.callId,{
+      headers:{authorization:'Bearer '+session.calleeToken}});
+    assert.equal(snapshotRequest.status,200);
+    const snapshot=await snapshotRequest.json();
+    assert.equal(snapshot.state,'ringing');
+    assert.ok(snapshot.events.some(e=>e.type==='call.invite'));
+    assert.ok(snapshot.events.some(e=>e.type==='call.ringing'));
+    const response=await action(base,session.calleeToken,'call.accept');
+    assert.equal(response.state,'accepted');
+    await action(base,session.callerToken,'call.end');
+    const check=await fetch(base+'/session/'+session.callId,{
+      headers:{authorization:'Bearer '+session.callerToken}});
+    assert.equal((await check.json()).state,'ended');
+    await stop();
+    base=await start();
+    const afterRestart=await fetch(base+'/session/'+session.callId,{
+      headers:{authorization:'Bearer '+session.callerToken}});
+    assert.equal((await afterRestart.json()).state,'ended');
+  }finally{
+    try{await stop()}catch{}
+    await rm(store,{recursive:true,force:true});
+  }
 });
