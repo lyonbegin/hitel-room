@@ -107,6 +107,7 @@ interface AICounselorModule {
     profile: AIProfile;
     sessionId?: string;
     roomAdapter?: RoomAdapter;
+    accessToken?: string;
   }): AICounselorInstance };
 }
 
@@ -124,6 +125,8 @@ export interface CommunicationOptions {
   nativeBridge?: NativeBridgeAdapter;
   aiCounselorUrl?: string;
   aiRuntimeUrl?: string;
+  /** Per-user short-lived token supplied by the host after authentication. */
+  aiAccessToken?: string;
   profile?: AIProfile;
   roomAdapter?: RoomAdapter;
   sessionId?: string;
@@ -224,6 +227,7 @@ export class CommunicationSDK {
           endpoint: this.options.aiRuntimeUrl || DEFAULT_AI_RUNTIME_URL,
           profile: this.options.profile || { preset: 'generic' },
           sessionId: this.options.sessionId,
+          accessToken: this.options.aiAccessToken,
           roomAdapter: this.options.roomAdapter,
         });
         this.counselor = counselor;
