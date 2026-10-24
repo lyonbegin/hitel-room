@@ -40,8 +40,25 @@ python3 mobile/tools/apk-emulator-agent.py --device android-lab-01 --serial emul
 ```
 Play Store가 포함된 이미지에서는 사용자가 Play Store에 로그인한 후 카카오T 공식 패키지 `com.kakao.taxi`를 설치할 수 있다. Google Play 로그인은 사용자가 직접 수행한다.
 
-### Windows 예시
-Android Studio / Android SDK를 설치하고 AVD를 실행한다. `adb devices`로 시리얼을 조회한 뒤 동일한 Python 에이전트를 실행한다. `--serial` 에 실제 시리얼을 넣는다.
+### Windows 지속형 호스트 자동 실행
+현재 프로젝트에는 Windows Android 호스트 부트스트랩 파일을 포함한다.
+
+- `mobile/tools/start-persistent-windows.ps1`: Android Studio SDK의 Google Play 이미지 설치·AVD 생성·가상 기기 실행·Railway 에이전트 자동 재연결
+- 인증키: 사용자 계정의 Windows DPAPI로 암호화해 `%LOCALAPPDATA%\\HitelCommunication` 아래 저장
+- `-InstallAutostart` 옵션: 현재 Windows 계정의 **시작프로그램**에 등록해 재로그인 후 자동 시작
+- Google Play 로그인은 기기 사용자가 직접 처리하며 인증 비밀번호를 웹 APK 관리 서버로 보내지 않는다.
+
+Android Studio의 **SDK Command-line Tools**와 Python 3가 준비된 Windows 개발 PC에서 **처음 한 번만** 다음 명령을 실행한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\mobile\tools\start-persistent-windows.ps1 -Configure -InstallAutostart
+```
+
+실행 시 Railway `hitel-device-relay` 서비스의 `LAB_APK_AGENT_TOKEN`을 보안 입력으로 받는다. 지속형 호스트는 `android-lab-01` 장치로 연결되며, 앱 설치 및 Google Play 로그인 상태를 AVD 사용자 데이터에 보존한다.
+
+전제: 해당 Windows 머신이 켜져 있고 사용자 로그인이 유지되어야 지속 실행된다. ChatGPT 작업 컨테이너나 Railway 웹 서버에는 해당 머신의 Android 가상화/ADB 실행 권한이 제공되지 않으므로, **실제 외부 호스트가 한번은 연결되어야** 한다.
+
+Windows 이미지용 [실행 파일](../mobile/tools/start-persistent-windows.ps1) 및 [Windows 사전검증 워크플로](../.github/workflows/windows-host-preflight.yml) 참고.
 
 ## GitHub Actions 임시 에뮬레이터
 사용자는 웹에서 `ci-android`에 설치 작업을 등록할 수 있다. 이후
@@ -78,3 +95,7 @@ Android Studio / Android SDK를 설치하고 AVD를 실행한다. `adb devices`�
 3. **Google Play 카카오T 설치** 섹션에서 `com.kakao.taxi` 패키지의 '에뮬레이터 Play Store에서 열기'를 누른다.
 4. 에뮬레이터의 실제 화면이 웹에 표시되면 사용자가 Install 버튼을 눌러 설치를 승인한다. 스토어 페이지 열림만으로 설치됐다고 기록하지 않는다.
 5. '실제 설치 여부 확인' 버튼은 Android PackageManager `pm path com.kakao.taxi` 명령으로 설치 성공을 검사한다.
+
+
+## 2026-10-24 실제 Google Play 실기 검증
+GitHub Actions의 별도 `google_apis_playstore` Android 35 이미지에서 **Google Play 앱의 실제 패키지 존재**, 공식 `market://details?id=com.kakao.taxi` 페이지 호출, 화면 캡처까지 검증했다. [실기 실행](https://github.com/lyonbegin/hitel-room/actions/runs/40070509148)의 결과는 SUCCESS다. 깨끗한 CI 에뮬레이터에서는 `com.kakao.taxi` 미설치가 정상적으로 보고되었으며, Google 로그인·실제 설치·카카오 계정 인증이 끝났다는 뜻은 아니다.
