@@ -1,20 +1,23 @@
 import {useCallback,useEffect,useState} from 'react';
 import './ApkInstaller.css';
-import {EmulatorRemoteScreen} from './EmulatorRemoteScreen';
 
 type ApkFile={id:string;filename:string;size:number;sha256:string;createdAt:string};
 type InstallJob={id:string;apkId:string;filename:string;deviceId:string;status:'pending'|'installing'|'installed'|'failed'|'completed'|'opened';createdAt:string;finishedAt?:string;packageName?:string;error?:string;installLog?:string;launchAfterInstall?:boolean};
-type Host={deviceId:string;kind:string;online:boolean;lastSeen:string};
+export type Host={deviceId:string;kind:string;online:boolean;lastSeen:string};
 type ApiReply={ok:boolean;error?:string;file?:ApkFile;job?:InstallJob;files?:ApkFile[];jobs?:InstallJob[];hosts?:Host[]};
 
 const base='/lab-api/apk/';
-export function ApkInstaller(){
-  const [token,setToken]=useState('');
+export function ApkInstaller({token,setToken,device,setDevice,hosts,setHosts}:{
+  token:string;
+  setToken:(token:string)=>void;
+  device:string;
+  setDevice:(device:string)=>void;
+  hosts:Host[];
+  setHosts:(hosts:Host[])=>void;
+}){
   const [selectedFile,setSelectedFile]=useState<File|null>(null);
   const [files,setFiles]=useState<ApkFile[]>([]);
   const [jobs,setJobs]=useState<InstallJob[]>([]);
-  const [hosts,setHosts]=useState<Host[]>([]);
-  const [device,setDevice]=useState('android-lab-01');
   const [launch,setLaunch]=useState(true);
   const [playPackage,setPlayPackage]=useState('com.kakao.taxi');
   const [busy,setBusy]=useState(false);
@@ -35,7 +38,7 @@ export function ApkInstaller(){
       ]);
       setFiles(a.files||[]);setJobs(b.jobs||[]);setHosts(c.hosts||[]);
     }catch(e){setNotice('관리 API: '+String(e))}
-  },[request,token]);
+  },[request,token,setHosts]);
   useEffect(()=>{
     if(!token.trim())return;
     void refresh();
@@ -68,7 +71,7 @@ export function ApkInstaller(){
     finally{setBusy(false)}
   }
   async function playStoreAction(operation:'store'|'verify'){
-    if(!hostOnline)return setNotice('실제 에뮬레이터 호스트가 온라인이어야 합니다.');
+    if(!hostOnline)return setNotice('실제 Android 에뮬레이터 세션이 실행 중이어야 합니다.');
     setBusy(true);
     try{
       const result=await request('store','POST',JSON.stringify({
@@ -105,20 +108,21 @@ export function ApkInstaller(){
         <h3>2 · 실제 설치 대상 지정</h3>
         <label>Android 에뮬레이터
           <select value={device} onChange={e=>setDevice(e.target.value)}>
-            <option value="android-lab-01">지속형 Android 호스트 · android-lab-01</option>
-            <option value="ci-android">GitHub Actions 일회용 Android · ci-android</option>
+            <option value="ci-android">일회용 Google Play Android · ci-android</option>
+            <option value="android-lab-01">별도 Android 호스트 · android-lab-01</option>
             {hosts.filter(x=>!['android-lab-01','ci-android'].includes(x.deviceId)).map(h=>
               <option key={h.deviceId} value={h.deviceId}>{h.deviceId}</option>)}
           </select>
         </label>
         <p className={'apk-host '+(hostOnline?'online':'offline')}>
-          {hostOnline?'● 설치 호스트 온라인':'○ 설치 호스트 오프라인 · 작업은 대기열에 보관'}
+          {hostOnline?'● 실제 Android 화면 연결 중':'○ 세션 종료 · GitHub Actions에서 일회용 Android 테스트를 시작하세요'}
         </p>
         <label className="apk-check">
           <input type="checkbox" checked={launch} onChange={e=>setLaunch(e.target.checked)}/>
           설치 성공 후 해당 앱 자동 실행
         </label>
-        <p className="apk-caption">지속형 에뮬레이터를 연결하면 즉시 설치합니다. CI 에뮬레이터는 다음 실행 때만 설치 작업을 가져갑니다.</p>
+        <p className="apk-caption">일회용 Android 에뮬레이터가 켜져 있는 동안 업로드한 APK를 설치하고 앱 화면을 클릭할 수 있습니다. 테스트가 끝나면 기기는 초기화됩니다.</p>
+        <a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml" target="_blank" rel="noreferrer">일회용 Android 실행 · GitHub Actions에서 Run workflow ↗</a>
         <button type="button" onClick={()=>void refresh()} disabled={!token.trim()}>서버·설치 상태 새로고침</button>
       </div>
     </div>
@@ -146,21 +150,21 @@ export function ApkInstaller(){
       </tr>)}</tbody></table></div>}
     </div>
     <div className="apk-panel">
-      <h3>5 · Google Play 카카오T 설치</h3>
-      <p className="apk-caption">Google Play가 포함된 지속형 에뮬레이터에서 앱 상세 페이지를 열어 사용자가 설치를 승인합니다. 공식 앱의 APK를 찾을 필요가 없습니다.</p>
+      <h3>5 · Google Play 앱 설치</h3>
+      <p className="apk-caption">실제 Android 홈 화면의 Play Store 아이콘을 직접 클릭하거나, 아래 버튼으로 카카오T 앱 페이지를 열 수 있습니다. 설치하려면 해당 Android에서 Google 로그인이 필요합니다.</p>
       <label>Google Play 패키지명
         <input value={playPackage} onChange={e=>setPlayPackage(e.target.value)} placeholder="com.kakao.taxi"/>
       </label>
       <div className="apk-remote-buttons">
-        <button type="button" disabled={!hostOnline||busy||device==='ci-android'}
+        <button type="button" disabled={!hostOnline||busy}
           onClick={()=>void playStoreAction('store')}>에뮬레이터 Play Store에서 열기</button>
         <button type="button" disabled={!hostOnline||busy}
           onClick={()=>void playStoreAction('verify')}>실제 설치 여부 확인</button>
         <a href="https://play.google.com/store/apps/details?id=com.kakao.taxi"
           target="_blank" rel="noreferrer">카카오T 공식 Play Store ↗</a>
       </div>
-      <p className="apk-caption">로그인은 사용자가 직접 진행합니다. 앱 상세 페이지를 연 것과 설치 완료는 구분해 기록합니다.</p>
+      <p className="apk-caption">공식 Play Store 화면 열기와 실제 앱 설치는 별개입니다. 일회용 세션 종료 후 로그인·설치 정보는 유지되지 않습니다. 테스트용 계정을 사용하세요.</p>
     </div>
-    <EmulatorRemoteScreen token={token} deviceId={device} online={hostOnline} onNotice={setNotice}/>
+
   </section>;
 }
