@@ -37,6 +37,25 @@ export function createApkManager({
       .find(x=>x.startsWith(name+'='))?.slice(name.length+1)||'';
   }
   const TEST_DEVICE='ci-playstore';
+  // One disposable Android slot. Recover a dead GitHub worker instead of
+  // blocking every visitor indefinitely with a stale "busy" response.
+  // Never reclaim while an actual original scrcpy/noVNC host is registered.
+  async function originalHostLive(){
+    try{
+      const info=JSON.parse(await fs.readFile(path.join(root,'..','original-native-endpoint.json'),'utf8'));
+      return info.status==='online'&&Number(info.expiresAt)>Date.now();
+    }catch{return false}
+  }
+  async function requestActive(current){
+    if(!current||!['queued','starting','running','stopping'].includes(current.status))return false;
+    if(await originalHostLive())return true;
+    const age=Date.now()-Date.parse(current.createdAt||'');
+    if(!Number.isFinite(age)||age<0)return false;
+    // Inactive queued jobs should not freeze the only slot when Actions cron
+    // fails to start. A claimed worker gets longer to boot original Docker.
+    const max=current.status==='queued'?8*60_000:15*60_000;
+    return age<max;
+  }
   const validId=/^[a-f0-9-]{36}$/i;
   const validDevice=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
   const json=(res,code,value)=>{
@@ -133,11 +152,7 @@ export function createApkManager({
       // The website owns the start/stop controls; GitHub is a background worker.
       if(req.method==='POST'&&route==='/lab-api/apk/ui/start'){
         const current=await readUiRequest();
-        // On-demand KVM runners can disappear. Never hold the only device slot
-        // indefinitely for a request whose worker is already gone.
-        const activeAge=current?Date.now()-Date.parse(current.createdAt):Infinity;
-        if(current&&['queued','starting','running','stopping'].includes(current.status)&&
-           activeAge<27*60_000)
+        if(await requestActive(current))
           return json(res,409,{ok:false,error:'EMULATOR_SESSION_ALREADY_ACTIVE'});
         const owner=crypto.randomBytes(24).toString('base64url');
         const request={id:crypto.randomUUID(),owner,status:'queued',
@@ -153,19 +168,13 @@ export function createApkManager({
       if(req.method==='GET'&&route==='/lab-api/apk/ui/status'){
         const current=await readUiRequest();
         if(!current)return json(res,200,{ok:true,status:'idle',online:false});
+        const active=await requestActive(current);
         const owner=cookieValue(req,'hitel_ui_owner');
-        if(owner!==current.owner){
-          const stale=Date.now()-Date.parse(current.createdAt)>27*60_000;
-          return json(res,200,{ok:true,
-            status:!stale&&['queued','starting','running','stopping'].includes(current.status)?'busy':'idle',
-            online:false});
-        }
-        const emulator=hosts.get(TEST_DEVICE);
-        const online=!!emulator&&Date.now()-emulator.lastSeen<20_000;
-        const stale=Date.now()-Date.parse(current.createdAt)>27*60_000;
+        if(owner!==current.owner)return json(res,200,{ok:true,
+          status:active?'busy':'idle',online:false});
         return json(res,200,{ok:true,
-          status:stale&&current.status!=='completed'?'expired':current.status,
-          requestId:current.id,online,
+          status:!active&&['queued','starting','running','stopping'].includes(current.status)?'expired':current.status,
+          requestId:current.id,online:await originalHostLive(),
           requestedAt:current.createdAt});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/ui/stop'){
