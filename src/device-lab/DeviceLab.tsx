@@ -345,6 +345,7 @@ export default function DeviceLab(){
       <a className="dl-nav-item" href="/portal">⌂　HITEL 포털 <small>02</small></a>
       <a className="dl-nav-item" href="/portal/flows">◈　16가지 연결 <small>03</small></a>
       <div className="dl-nav-label">검사 및 관리</div>
+      <a className="dl-nav-item" href="/android-original/">▣　Android 원본 에뮬레이터 <small>04</small></a>
       <a className="dl-nav-item" href="https://github.com/lyonbegin/hitel-room/actions" target="_blank" rel="noreferrer">✓　에뮬레이터 CI</a>
       <a className="dl-nav-item" href="https://github.com/lyonbegin/hitel-room/tree/feature/communication-sdk" target="_blank" rel="noreferrer">☷　SDK 소스</a>
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
@@ -365,7 +366,7 @@ export default function DeviceLab(){
             <option value="390">iPhone 14 · 390</option><option value="360">Android · 360</option><option value="430">Large · 430</option></select>
             <div><button title="홈" onClick={()=>{setSelected(side);ref.current[side]?.contentWindow?.postMessage({source:'hitel-device-lab-control',side,action:'home'},window.location.origin)}}>⌂</button>
               <button title="새로고침" onClick={()=>setFrameVersion(v=>({...v,[side]:v[side]+1}))}>↻</button>
-              <button title="새 창에서 열기" onClick={()=>window.open(labPath(side),'_blank','noopener')}>↗</button></div>
+              <button title="새 창에서 열기" onClick={()=>window.open(side==='android'?'/android-original/':labPath(side),'_blank','noopener')}>↗</button></div>
           </div>
           <div className="dl-emulator-display">
             <div className={'dl-phone-shell dl-phone-'+side} style={{width:'min(100%, '+deviceSize+'px)'}}>
@@ -391,6 +392,7 @@ export default function DeviceLab(){
             </div></div>
             <AndroidSessionControls onNotice={message=>push('android',message)}/>
             <div className="dl-pair">
+              <a href="/android-original/" style={{fontSize:12,fontWeight:750,color:'#126987'}}>▣ Android Emulator Platform 원본 관리 화면 열기 ↗</a>
               <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 실행 버튼으로 가상 기기를 시작하세요.'}</small>
             </div>
             <div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>void send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>
