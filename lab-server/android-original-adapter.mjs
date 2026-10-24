@@ -19,6 +19,7 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
   const deviceId='ci-playstore';
   const starterWindows=new Map();
   const OWNER='hitel_ui_owner';
+  const VISITOR='hitel_android_original_guest';
   const HOST_ORIGIN='https://hitel-communication-web-production.up.railway.app';
   const idPattern=/^[a-f0-9-]{36}$/i;
   let locking=Promise.resolve();
@@ -34,6 +35,8 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
     const temp=runFile+'.'+crypto.randomBytes(4).toString('hex')+'.tmp';
     await fs.writeFile(temp,JSON.stringify(s),{mode:0o600});await fs.rename(temp,runFile)};
   const cookie=(req)=>String(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(OWNER+'='))?.slice(OWNER.length+1)||'';
+  const visitor=(req)=>String(req.headers.cookie||'').split(';').map(s=>s.trim())
+    .find(s=>s.startsWith(VISITOR+'='))?.slice(VISITOR.length+1)||'';
   const owns=(req,s)=>Boolean(s&&s.owner&&cookie(req)===s.owner);
   const fresh=(s)=>!!s&&Date.now()-Date.parse(s.createdAt)<18*60_000;
   const active=(s)=>fresh(s)&&['queued','starting','running','stopping'].includes(s.status);
@@ -97,7 +100,8 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
       return fail(res,400,'APK_ZIP_HEADER_INVALID');
     const id=crypto.randomUUID();
     const entry={id,filename,size:payload.length,sha256:crypto.createHash('sha256').update(payload).digest('hex'),
-      createdAt:new Date().toISOString(),format:'apk',testOnly:true};
+      createdAt:new Date().toISOString(),format:'apk',testOnly:true,
+      originalOwner:visitor(req)};
     await fs.mkdir(filesDir,{recursive:true,mode:0o700});
     await fs.writeFile(path.join(filesDir,id+'.apk'),payload,{mode:0o600,flag:'wx'});
     await fs.writeFile(path.join(filesDir,id+'.json'),JSON.stringify(entry),{mode:0o600,flag:'wx'});
@@ -108,7 +112,10 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
     const method=req.method||'GET';
     try{
       if(method==='GET'&&route==='/api/emulator/devices'){
-        const s=await read();return json(res,200,{devices:[{device:'Pixel 6 · Android 15 · Google Play',total:1,free:active(s)?0:1}]});
+        const s=await read();
+        if(!visitor(req))res.setHeader('set-cookie',VISITOR+'='+crypto.randomBytes(24).toString('base64url')+
+          '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=7200');
+        return json(res,200,{devices:[{device:'Pixel 6 · Android 15 · Google Play',total:1,free:active(s)?0:1}]});
       }
       if(method==='GET'&&route==='/api/emulator/sessions'){
         const s=await read();const sessions=active(s)&&owns(req,s)?[summary(s)]:[];
@@ -116,7 +123,8 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
           free:active(s)?0:1});
       }
       if(method==='GET'&&route==='/api/upload/apks'){
-        const s=await read();const entries=owns(req,s)?(await all(filesDir)).filter(f=>f.testOnly):[];
+        const identity=visitor(req);
+        const entries=identity?(await all(filesDir)).filter(f=>f.testOnly&&f.originalOwner===identity):[];
         return json(res,200,{apks:entries.map(f=>({
           id:f.id,original_name:f.filename,file_size:f.size,uploaded_at:f.createdAt
         }))});
@@ -195,7 +203,9 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
       }
       if(method==='POST'&&route==='/api/upload/apk'){
         if(!checkOrigin(req))return fail(res,403,'WEB_ORIGIN_REQUIRED');
-        const s=await read();if(!owns(req,s))return fail(res,403,'SESSION_NOT_OWNED');
+        const identity=visitor(req);if(!identity)return fail(res,403,'VISITOR_SESSION_REQUIRED');
+        const uploads=(await all(filesDir)).filter(f=>f.originalOwner===identity);
+        if(uploads.length>=5)return fail(res,429,'APK_UPLOAD_LIMIT_REACHED');
         return await uploadApk(req,res);
       }
       if(method==='POST'&&route==='/api/upload/install'){
@@ -204,7 +214,8 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
         const b=await bodyJson(req);
         if(b.sessionId!==s.id||!idPattern.test(String(b.apkId)))return fail(res,400,'INVALID_INSTALL_REQUEST');
         const f=await hostFrame(s);if(!f)return fail(res,409,'ANDROID_HOST_OFFLINE');
-        const entry=(await all(filesDir)).find(f=>f.id===b.apkId&&f.testOnly);
+        const identity=visitor(req);
+        const entry=(await all(filesDir)).find(f=>f.id===b.apkId&&f.testOnly&&f.originalOwner===identity);
         if(!entry)return fail(res,404,'UNKNOWN_APK');
         const j={id:crypto.randomUUID(),apkId:entry.id,deviceId,filename:entry.filename,
           launchAfterInstall:true,status:'pending',createdAt:new Date().toISOString(),error:null};
@@ -224,6 +235,15 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
         }
         return json(res,202,{success:false,apkId:entry.id,sessionId:s.id,
           output:'INSTALLATION_PENDING_ON_ANDROID_HOST'});
+      }
+      if(method==='DELETE'&&route.startsWith('/api/upload/apk/')){
+        if(!checkOrigin(req))return fail(res,403,'WEB_ORIGIN_REQUIRED');
+        const identity=visitor(req),id=route.slice('/api/upload/apk/'.length);
+        const entry=(await all(filesDir)).find(f=>f.id===id&&f.originalOwner===identity);
+        if(!entry)return fail(res,404,'APK_NOT_FOUND');
+        await fs.rm(path.join(filesDir,id+'.apk'),{force:true});
+        await fs.rm(path.join(filesDir,id+'.json'),{force:true});
+        return json(res,200,{deleted:id});
       }
       return fail(res,501,'ORIGINAL_FEATURE_NOT_YET_BRIDGED_TO_ANDROID_RUNNER');
     }catch(e){
