@@ -175,7 +175,7 @@ export function createApkManager({
         let identity;
         try{identity=await agent(req,device)}
         catch{return unauthorized(res)}
-        hosts.set(device,{deviceId:device,lastSeen:Date.now(),kind:identity.kind});
+        hosts.set(device,{...hosts.get(device),deviceId:device,lastSeen:Date.now(),kind:identity.kind});
         if(req.method==='POST'&&route==='/lab-api/apk/agent/next'){
           // Choose oldest pending job. A lease prevents concurrent installers.
           const jobs=(await allRecords(jobsDir)).reverse();
