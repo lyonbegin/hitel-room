@@ -7,7 +7,7 @@ on:
       - 'src/communication-sdk/**'
       - 'src/App.tsx'
       - 'src/communication/**'
-      - 'tests/communication-sdk.test.mjs'
+      - 'tests/communication-sdk*.test.mjs'
       - 'src/portal/nativeBridge.ts'
       - 'vite.communication-sdk.config.ts'
       - 'package*.json'
@@ -28,14 +28,16 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Install signaling relay for E2E transport
+        run: npm install --prefix lab-server --no-audit --no-fund
       - name: Typecheck and build existing HITEL UI
         run: npm run build
       - name: Build Communication SDK ESM
         run: npx vite build --config vite.communication-sdk.config.ts
       - name: Verify distributable
         run: test -s dist/sdk/communication.esm.js
-      - name: Execute Communication SDK contract tests
-        run: node --test tests/communication-sdk.test.mjs
+      - name: Execute Communication SDK and live signaling contract tests
+        run: node --test tests/communication-sdk.test.mjs tests/communication-sdk-live-signal.test.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: communication-sdk-esm
