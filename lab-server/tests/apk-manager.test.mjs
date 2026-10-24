@@ -136,3 +136,35 @@ test('authenticated full-device frame and actual touch-command lease are isolate
     assert.equal(report.body.status,'completed');
   }finally{await f.dispose()}
 });
+
+test('Google Play external-app listing is distinct from actual installed package verification',async()=>{
+  const f=await fixture();
+  try{
+    const png=Buffer.alloc(120);Buffer.from('89504e470d0a1a0a','hex').copy(png);
+    png.writeUInt32BE(1080,16);png.writeUInt32BE(2340,20);
+    const framed=await call(f,'agent/frame',{method:'POST',token:AGENT,device:'android-lab-01',
+      body:png,headers:{'content-type':'image/png'}});
+    assert.equal(framed.status,200);
+    const store=await call(f,'store',{method:'POST',token:ADMIN,
+      body:JSON.stringify({deviceId:'android-lab-01',packageName:'com.kakao.taxi'})});
+    assert.equal(store.status,201);
+    const lease=await call(f,'agent/next',{method:'POST',token:AGENT,device:'android-lab-01',body:'{}'});
+    assert.equal(lease.body.job.operation,'store');
+    assert.equal(lease.body.job.packageName,'com.kakao.taxi');
+    const reported=await call(f,'agent/report',{method:'POST',token:AGENT,device:'android-lab-01',
+      body:JSON.stringify({jobId:lease.body.job.id,leaseId:lease.body.job.leaseId,
+        success:true,packageName:'com.kakao.taxi'})});
+    assert.equal(reported.body.status,'opened');
+    const verification=await call(f,'store',{method:'POST',token:ADMIN,
+      body:JSON.stringify({deviceId:'android-lab-01',packageName:'com.kakao.taxi',
+        operation:'verify'})});
+    assert.equal(verification.status,201);
+    const second=await call(f,'agent/next',{method:'POST',token:AGENT,device:'android-lab-01',body:'{}'});
+    assert.equal(second.body.job.operation,'verify');
+    const verifyReport=await call(f,'agent/report',{method:'POST',token:AGENT,device:'android-lab-01',
+      body:JSON.stringify({jobId:second.body.job.id,leaseId:second.body.job.leaseId,
+        success:false,error:'PACKAGE_NOT_INSTALLED'})});
+    assert.equal(verifyReport.body.status,'failed');
+    assert.equal((await call(f,'jobs',{token:ADMIN})).body.jobs.length,2);
+  }finally{await f.dispose()}
+});
