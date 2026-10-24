@@ -82,6 +82,9 @@ jobs:
       - name: Create OIDC-paired Android WebSocket session
         if: github.ref_name == 'feature/communication-sdk'
         run: python3 mobile/tests/lab-ci.py session android
+      - name: Provision Android Communication WebSocket session
+        if: github.ref_name == 'feature/communication-sdk'
+        run: python3 mobile/tests/comm-ci.py session android
       - name: Start emulator, install, open app, capture screenshot/logs
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -123,6 +126,9 @@ jobs:
       - name: Create OIDC-paired iPhone WebSocket session
         if: github.ref_name == 'feature/communication-sdk'
         run: python3 mobile/tests/lab-ci.py session ios
+      - name: Provision iOS Communication WebSocket session
+        if: github.ref_name == 'feature/communication-sdk'
+        run: python3 mobile/tests/comm-ci.py session ios
       - name: Boot iPhone Simulator, build, open app, capture screenshot/logs
         run: bash mobile/tests/ios-smoke.sh
       - name: Publish actual iPhone simulator screenshot and Bridge log
