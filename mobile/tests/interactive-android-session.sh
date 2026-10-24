@@ -18,13 +18,13 @@ s=p.read_bytes()
 assert s[:8]==bytes.fromhex("89504e470d0a1a0a") and len(s)>1000
 print("PASS: actual Google Play Android launcher captured")
 PY
-echo "HITEL_INTERACTIVE_SESSION_BEGIN ci-android"
+echo "HITEL_INTERACTIVE_SESSION_BEGIN ci-playstore"
 # Timeboxed, not persistent. Signed GitHub Actions OIDC authenticates screen
 # updates and remote taps. On expiration the emulator is destroyed by Actions.
 set +e
-timeout --signal=TERM --kill-after=10s 780s \
+timeout --signal=TERM --kill-after=10s "${ANDROID_SESSION_SECONDS:-780}s" \
   python3 -u mobile/tools/apk-emulator-agent.py \
-    --device ci-android --serial emulator-5554 --interval 2 \
+    --device ci-playstore --serial emulator-5554 --interval 2 \
     2>&1 | tee "$out/emulator-session.log"
 code=${PIPESTATUS[0]}
 set -e
