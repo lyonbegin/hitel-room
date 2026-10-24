@@ -232,8 +232,10 @@ export function createApkManager({
         const host=hosts.get(deviceId);
         if(!host||Date.now()-host.lastSeen>20_000)
           return bad(res,'EMULATOR_HOST_OFFLINE',409);
-        if(operation==='store'&&host.kind!=='persistent')
-          return bad(res,'PLAY_STORE_REQUIRES_PERSISTENT_HOST',409);
+        // Both disposable GitHub Actions and persistent hosts may open Play Store.
+        // The app is NOT considered installed until an independent pm-path verify job.
+        if(operation==='store'&&!['persistent','ci'].includes(host.kind))
+          return bad(res,'GOOGLE_PLAY_HOST_UNSUPPORTED',409);
         const job={id:crypto.randomUUID(),deviceId,operation,packageName,
           filename:(operation==='store'?'Play Store · ':'설치 확인 · ')+packageName,
           status:'pending',createdAt:new Date().toISOString(),error:null};
