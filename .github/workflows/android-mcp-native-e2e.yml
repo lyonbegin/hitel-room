@@ -26,6 +26,18 @@ jobs:
       - name: Verify Railway accepts this signed native MCP diagnostic runner
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          import os,json,base64,urllib.request
+          request=urllib.request.Request(os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']+
+              '&audience=hitel-device-lab',
+              headers={'Authorization':'Bearer '+os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
+          with urllib.request.urlopen(request,timeout=15) as response:
+              jwt=json.load(response)['value']
+          part=jwt.split('.')[1]
+          claims=json.loads(base64.urlsafe_b64decode(part+'='*((4-len(part)%4)%4)))
+          print('HITEL_SIGNED_IDENTITY_METADATA',json.dumps({k:claims.get(k) for k in
+              ['repository','workflow_ref','ref','aud','iss','run_id']},ensure_ascii=False))
+          PY
           python3 mobile/tools/original-native-url.py stop-requested
           echo HITEL_NATIVE_MCP_SIGNED_CI_IDENTITY_ACCEPTED
       - uses: actions/setup-node@v4
