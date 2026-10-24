@@ -217,6 +217,13 @@ class MainActivity : Activity() {
                                     result.put("scope","local-device-only")
                                 }
                                 "tts.stop" -> {speaker?.stop();result.put("scope","local-device-only")}
+                                "communication.action" -> {
+                                    val sent = sendCommunicationAction(data.optString("callAction"),
+                                        data.optJSONObject("payload") ?: JSONObject(),
+                                        "lab-" + msg.optString("requestId"))
+                                    if (!sent) throw IllegalStateException("Native signaling action unavailable")
+                                    result.put("scope","native-signaling-pending-ack")
+                                }
                                 "call.openDialer" -> {
                                     val phone=data.optString("phone")
                                     if(!phone.matches(Regex("[+0-9*# -]{1,24}")))throw IllegalArgumentException("Invalid number")
