@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
+import { dispatchGithubAndroidRun } from './github-dispatch.mjs';
 
 /**
  * APK upload / install work queue.
@@ -13,6 +14,7 @@ export function createApkManager({
   root, adminToken=process.env.LAB_APK_ADMIN_TOKEN||'',
   agentToken=process.env.LAB_APK_AGENT_TOKEN||'',
   verifyCI=async()=>{throw Error('OIDC_NOT_CONFIGURED');},
+  dispatchAndroidRun=dispatchGithubAndroidRun,
   maxBytes=80*1024*1024
 }={}){
   if(!root)throw Error('APK_STORAGE_ROOT_REQUIRED');
@@ -158,6 +160,25 @@ export function createApkManager({
         const request={id:crypto.randomUUID(),owner,status:'queued',
           createdAt:new Date().toISOString(),endedAt:null};
         await writeUiRequest(request);
+        // Critical: GitHub must actually ACK a workflow_dispatch before
+        // telling the web browser its Android is starting.  A failed
+        // dispatch is recorded explicitly and NEVER left as an orphan queue.
+        let dispatch;
+        try{dispatch=await dispatchAndroidRun()}catch{
+          dispatch={ok:false,error:'GITHUB_DISPATCH_UNEXPECTED_ERROR',status:503};
+        }
+        if(!dispatch?.ok){
+          request.status='failed';request.endedAt=new Date().toISOString();
+          request.error=dispatch?.error||'GITHUB_DISPATCH_FAILED';
+          await writeUiRequest(request);
+          console.error('ANDROID_WORKFLOW_DISPATCH_FAILED',request.id,request.error);
+          return json(res,503,{ok:false,status:'failed',error:request.error,
+            message:'GitHub Actions did not accept the Android start request'});
+        }
+        request.dispatchedAt=new Date().toISOString();
+        request.dispatchMethod='workflow_dispatch';
+        await writeUiRequest(request);
+        console.log('ANDROID_WORKFLOW_DISPATCH_ACCEPTED',request.id);
         pendingUiSession=null;
         uiTestSessions.clear();
         res.setHeader('Set-Cookie','hitel_ui_owner='+owner+
@@ -175,6 +196,7 @@ export function createApkManager({
         return json(res,200,{ok:true,
           status:!active&&['queued','starting','running','stopping'].includes(current.status)?'expired':current.status,
           requestId:current.id,online:await originalHostLive(),
+          error:current.error||null,dispatchedAt:current.dispatchedAt||null,
           requestedAt:current.createdAt});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/ui/stop'){
