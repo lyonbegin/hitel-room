@@ -28,3 +28,16 @@
 .apk-remote-screen img{display:block;width:100%;max-width:360px;max-height:650px;object-fit:contain;user-select:none}
 .apk-remote-screen p{font-size:12px;color:#668493;text-align:center;padding:36px}
 .apk-remote-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+
+/* The primary phone is an authenticated view of the real Android framebuffer,
+   never a decorative replica or a browser H5 imitation. */
+.dl-phone-shell .apk-remote-inline{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;background:#0e1720;color:#e8f0f5}
+.dl-phone-shell .apk-remote-screen{flex:1;min-height:0;width:100%;height:0;background:#111921;border-radius:0;align-items:stretch}
+.dl-phone-shell .apk-remote-screen img{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain}
+.dl-phone-shell .apk-remote-placeholder{align-self:center;color:#e7f0f5;text-align:center;padding:30px 14px;display:flex;flex-direction:column;gap:12px;font-size:12px}
+.dl-phone-shell .apk-remote-placeholder p{color:#c3d6df;margin:0;padding:0}
+.dl-phone-shell .apk-remote-placeholder a{font-size:12px;color:#85d4fa}
+.dl-phone-shell .apk-remote-buttons{display:flex;flex:0 0 auto;flex-wrap:nowrap;gap:3px;margin:0;padding:5px;background:#0c161d}
+.dl-phone-shell .apk-remote-buttons button{background:#253d4a;color:#f4fbff;border:0;border-radius:5px;padding:8px 2px;font-size:10px;flex:1;min-width:0}
+.dl-phone-shell .apk-remote-buttons button:disabled{opacity:.4}
+.dl-phone-shell .apk-caption{flex:0 0 auto;color:#a7c1ce;text-align:center;font-size:9px;margin:0;padding:5px 7px}
