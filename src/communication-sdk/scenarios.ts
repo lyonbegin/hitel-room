@@ -41,33 +41,32 @@ export interface ScenarioExecutionResult {
 /** The sixteen separately registered execution routes are deliberately explicit.
  * Missing platform integrations throw; they never resolve as a connected call. */
 type Executor=(ctx:ScenarioExecutionContext,id:number)=>Promise<ScenarioExecutionResult>;
-const error=(id:number,name:string):never=>{throw new Error('Scenario '+id+' requires a real '+name+' adapter')};
 const unmanaged:Executor=async(_ctx,id)=>({scenarioId:id,status:'external-unmanaged',route:'carrier'});
 const incomingSidecar:Executor=async(ctx,id)=>{
-  if(!ctx.carrier)error(id,'native carrier');
+  if(!ctx.carrier)throw new Error('Scenario '+id+' requires a real native carrier adapter');
   const externalResult=await ctx.carrier.attachIncomingSidecar(ctx);
   return {scenarioId:id,status:'native-sidecar-started',route:'sidecar',externalResult};
 };
 const outgoingSidecar:Executor=async(ctx,id)=>{
-  if(!ctx.carrier)error(id,'native carrier');
+  if(!ctx.carrier)throw new Error('Scenario '+id+' requires a real native carrier adapter');
   if(!ctx.phoneNumber)throw new Error('Phone number is required for carrier dialing');
   const externalResult=await ctx.carrier.dialCarrierNumber(ctx);
   return {scenarioId:id,status:'native-sidecar-started',route:'sidecar',externalResult};
 };
 const pairedSidecar:Executor=async(ctx,id)=>{
-  if(!ctx.carrier)error(id,'native carrier');
+  if(!ctx.carrier)throw new Error('Scenario '+id+' requires a real native carrier adapter');
   if(!ctx.phoneNumber)throw new Error('Phone number is required for carrier dialing');
   await ctx.carrier.dialCarrierNumber(ctx);
   const externalResult=await ctx.carrier.pairSidecars(ctx);
   return {scenarioId:id,status:'native-sidecar-started',route:'sidecar',externalResult};
 };
 const gatewayIncoming:Executor=async(ctx,id)=>{
-  if(!ctx.gateway)error(id,'PSTN ingress');
+  if(!ctx.gateway)throw new Error('Scenario '+id+' requires a real PSTN ingress adapter');
   const externalResult=await ctx.gateway.incomingPstn(ctx);
   return {scenarioId:id,status:'gateway-requested',route:'gateway',externalResult};
 };
 const gatewayOutgoing:Executor=async(ctx,id)=>{
-  if(!ctx.gateway)error(id,'PSTN outbound');
+  if(!ctx.gateway)throw new Error('Scenario '+id+' requires a real PSTN outbound adapter');
   const externalResult=await ctx.gateway.outgoingPstn(ctx);
   return {scenarioId:id,status:'gateway-requested',route:'gateway',externalResult};
 };
