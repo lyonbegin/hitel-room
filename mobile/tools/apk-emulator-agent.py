@@ -98,6 +98,26 @@ def apk_package(apk_path):
             if match:return match.group(1)
     return None
 
+def play_store_job(serial,job):
+    package=job.get("packageName","")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+",package):
+        raise RuntimeError("INVALID_PACKAGE_NAME")
+    if job.get("operation")=="verify":
+        result=adb(serial,"shell","pm","path",package,timeout=20)
+        if result.returncode or "package:" not in result.stdout:
+            raise RuntimeError("PACKAGE_NOT_INSTALLED")
+        print("ANDROID_PACKAGE_VERIFIED",package,flush=True)
+        return package,"Verified Android package manager installation"
+    vending=adb(serial,"shell","pm","path","com.android.vending",timeout=20)
+    if vending.returncode or "package:" not in vending.stdout:
+        raise RuntimeError("GOOGLE_PLAY_NOT_INSTALLED")
+    opened=adb(serial,"shell","am","start","-a","android.intent.action.VIEW",
+        "-d","market://details?id="+package,"-p","com.android.vending",timeout=25)
+    if opened.returncode or "Error:" in opened.stdout:
+        raise RuntimeError("PLAY_STORE_LAUNCH_FAILED: "+opened.stdout[-300:])
+    print("GOOGLE_PLAY_LISTING_OPENED",package,flush=True)
+    return package,"Play Store listing opened; the user must approve installation"
+
 def run_job(device,serial,job):
     file_data=send("/lab-api/apk/agent/file/"+job["id"],device,raw=True)
     digest=hashlib.sha256(file_data).hexdigest()
@@ -146,6 +166,8 @@ def main():
                 try:
                     if job.get("operation")=="control":
                         package,log=run_control(args.serial,job)
+                    elif job.get("operation") in ("store","verify"):
+                        package,log=play_store_job(args.serial,job)
                     else:
                         package,log=run_job(args.device,args.serial,job)
                     success=True
