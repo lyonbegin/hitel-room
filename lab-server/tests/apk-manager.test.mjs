@@ -103,3 +103,36 @@ test('OIDC CI upload seeds a real install job restricted to disposable ci-androi
     assert.equal(no.status,401,'OIDC may control only disposable ci-android');
   }finally{await new Promise(resolve=>server.close(resolve));await rm(store,{recursive:true,force:true})}
 });
+
+test('authenticated full-device frame and actual touch-command lease are isolated',async()=>{
+  const f=await fixture();
+  try{
+    const png=Buffer.alloc(128);
+    Buffer.from('89504e470d0a1a0a','hex').copy(png,0);
+    png.writeUInt32BE(1080,16);png.writeUInt32BE(2340,20);
+    const sent=await call(f,'agent/frame',{method:'POST',token:AGENT,
+      device:'android-lab-01',body:png,headers:{'content-type':'image/png'}});
+    assert.equal(sent.status,200);
+    assert.equal(sent.body.width,1080);
+    const unauthorized=await fetch(f.url+'/lab-api/apk/frame/android-lab-01');
+    assert.equal(unauthorized.status,401);
+    const frame=await fetch(f.url+'/lab-api/apk/frame/android-lab-01',
+      {headers:{authorization:'Bearer '+ADMIN}});
+    assert.equal(frame.status,200);
+    assert.deepEqual(Buffer.from(await frame.arrayBuffer()),png);
+    const rejected=await call(f,'control',{method:'POST',token:ADMIN,
+      body:JSON.stringify({deviceId:'android-lab-01',action:'tap',x:1800,y:200})});
+    assert.equal(rejected.status,400);
+    const queued=await call(f,'control',{method:'POST',token:ADMIN,
+      body:JSON.stringify({deviceId:'android-lab-01',action:'tap',x:540,y:1170})});
+    assert.equal(queued.status,201);
+    const delivered=await call(f,'agent/next',{method:'POST',token:AGENT,device:'android-lab-01',body:'{}'});
+    assert.equal(delivered.body.job.operation,'control');
+    assert.equal(delivered.body.job.action,'tap');
+    assert.deepEqual(delivered.body.job.args,{x:540,y:1170});
+    const report=await call(f,'agent/report',{method:'POST',token:AGENT,device:'android-lab-01',
+      body:JSON.stringify({jobId:delivered.body.job.id,leaseId:delivered.body.job.leaseId,
+        success:true,installLog:'ADB input tap done'})});
+    assert.equal(report.body.status,'completed');
+  }finally{await f.dispose()}
+});
