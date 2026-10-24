@@ -3,7 +3,7 @@ import './ApkInstaller.css';
 import {EmulatorRemoteScreen} from './EmulatorRemoteScreen';
 
 type ApkFile={id:string;filename:string;size:number;sha256:string;createdAt:string};
-type InstallJob={id:string;apkId:string;filename:string;deviceId:string;status:'pending'|'installing'|'installed'|'failed'|'completed';createdAt:string;finishedAt?:string;packageName?:string;error?:string;installLog?:string;launchAfterInstall?:boolean};
+type InstallJob={id:string;apkId:string;filename:string;deviceId:string;status:'pending'|'installing'|'installed'|'failed'|'completed'|'opened';createdAt:string;finishedAt?:string;packageName?:string;error?:string;installLog?:string;launchAfterInstall?:boolean};
 type Host={deviceId:string;kind:string;online:boolean;lastSeen:string};
 type ApiReply={ok:boolean;error?:string;file?:ApkFile;job?:InstallJob;files?:ApkFile[];jobs?:InstallJob[];hosts?:Host[]};
 
@@ -16,6 +16,7 @@ export function ApkInstaller(){
   const [hosts,setHosts]=useState<Host[]>([]);
   const [device,setDevice]=useState('android-lab-01');
   const [launch,setLaunch]=useState(true);
+  const [playPackage,setPlayPackage]=useState('com.kakao.taxi');
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('관리자 인증 후 APK 파일을 올릴 수 있습니다.');
   const request=useCallback(async(route:string,method='GET',body?:BodyInit,headers:Record<string,string>={})=>{
@@ -64,6 +65,18 @@ export function ApkInstaller(){
       setNotice('실제 설치 작업 등록: '+(data.job?.id||'')+' → '+device);
       await refresh();
     }catch(e){setNotice('설치 요청 실패: '+String(e))}
+    finally{setBusy(false)}
+  }
+  async function playStoreAction(operation:'store'|'verify'){
+    if(!hostOnline)return setNotice('실제 에뮬레이터 호스트가 온라인이어야 합니다.');
+    setBusy(true);
+    try{
+      const result=await request('store','POST',JSON.stringify({
+        deviceId:device,packageName:playPackage.trim(),operation
+      }),{'Content-Type':'application/json'});
+      setNotice((operation==='store'?'공식 Play Store 페이지 열기':'설치 확인')+' 작업 전송: '+result.job?.id);
+      await refresh();
+    }catch(e){setNotice('Google Play 작업 실패: '+String(e))}
     finally{setBusy(false)}
   }
   const hostOnline=hosts.some(h=>h.deviceId===device&&h.online);
@@ -128,9 +141,25 @@ export function ApkInstaller(){
         <th>APK</th><th>대상</th><th>상태</th><th>실행 결과</th>
       </tr></thead><tbody>{jobs.slice(0,25).map(j=><tr key={j.id}>
         <td>{j.filename}</td><td>{j.deviceId}</td>
-        <td><strong>{({pending:'설치 대기',installing:'ADB 실행 중',installed:'설치 확인',failed:'작업 실패',completed:'조작 완료'} as const)[j.status]}</strong></td>
+        <td><strong>{({pending:'설치 대기',installing:'ADB 실행 중',installed:'설치 확인',failed:'작업 실패',completed:'조작 완료',opened:'스토어 페이지 표시'} as const)[j.status]}</strong></td>
         <td>{j.packageName||j.error|| (j.status==='pending'?'호스트 연결 대기':'')}</td>
       </tr>)}</tbody></table></div>}
+    </div>
+    <div className="apk-panel">
+      <h3>5 · Google Play 카카오T 설치</h3>
+      <p className="apk-caption">Google Play가 포함된 지속형 에뮬레이터에서 앱 상세 페이지를 열어 사용자가 설치를 승인합니다. 공식 앱의 APK를 찾을 필요가 없습니다.</p>
+      <label>Google Play 패키지명
+        <input value={playPackage} onChange={e=>setPlayPackage(e.target.value)} placeholder="com.kakao.taxi"/>
+      </label>
+      <div className="apk-remote-buttons">
+        <button type="button" disabled={!hostOnline||busy||device==='ci-android'}
+          onClick={()=>void playStoreAction('store')}>에뮬레이터 Play Store에서 열기</button>
+        <button type="button" disabled={!hostOnline||busy}
+          onClick={()=>void playStoreAction('verify')}>실제 설치 여부 확인</button>
+        <a href="https://play.google.com/store/apps/details?id=com.kakao.taxi"
+          target="_blank" rel="noreferrer">카카오T 공식 Play Store ↗</a>
+      </div>
+      <p className="apk-caption">로그인은 사용자가 직접 진행합니다. 앱 상세 페이지를 연 것과 설치 완료는 구분해 기록합니다.</p>
     </div>
     <EmulatorRemoteScreen token={token} deviceId={device} online={hostOnline} onNotice={setNotice}/>
   </section>;
