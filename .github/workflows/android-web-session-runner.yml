@@ -1,6 +1,6 @@
 name: HITEL Original Android scrcpy requested from Railway website
 on:
-  # A source update activates and diagnoses the dispatcher immediately; all
+  # Native Android recovery test: start the queued Railway web request on push; all
   # normal user requests are consumed by the scheduled runner.
   push:
     branches: [main]
