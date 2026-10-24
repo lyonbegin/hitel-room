@@ -36,7 +36,7 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
     return {ok:true,callId:call.id,scenarioId:call.scenarioId,from:call.from,to:call.to,
       role:participant.role,state:call.state,sequence:call.sequence,
       expiresAt:new Date(call.expires).toISOString(),
-      participants:{caller:{online:call.caller.sockets.size>0},callee:{online:call.callee.sockets.size>0}},
+      participants:{caller:{online:call.caller.sockets.size>0,connectedDevices:call.caller.sockets.size,lastAck:call.caller.ack},callee:{online:call.callee.sockets.size>0,connectedDevices:call.callee.sockets.size,lastAck:call.callee.ack}},
       events:call.events.filter(e=>e.sequence>since&&(!e.privateTo||e.privateTo===participant.role))};
   }
   function publish(call,from,type,payload={}) {
@@ -151,7 +151,8 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
     const {call,participant}=auth;
     wss.handleUpgrade(req,socket,head,ws=>{
       participant.sockets.add(ws);
-      const since=Math.max(0,Number(uri.searchParams.get('since'))||participant.ack||0);
+      // Never apply another device's ACK to this socket's replay cursor.
+      const since=Math.max(0,Number(uri.searchParams.get('since'))||0);
       send(ws,{type:'comm.snapshot',...publicSnapshot(call,participant,since)});
       publish(call,'server','comm.presence',{role:participant.role,online:true});
       ws.on('message',raw=>{
@@ -159,7 +160,10 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
         try{message=JSON.parse(String(raw));}catch{return send(ws,{type:'comm.error',error:'Invalid JSON'})}
         if(message.type==='comm.ack'){
           const n=Number(message.sequence);
-          if(Number.isSafeInteger(n)&&n>=0&&n<=call.sequence)participant.ack=Math.max(participant.ack,n);
+          if(Number.isSafeInteger(n)&&n>=0&&n<=call.sequence){
+            ws.commAck=Math.max(ws.commAck||0,n);
+            participant.ack=Math.max(participant.ack,n);
+          }
           return;
         }
         if(message.type==='comm.ping')return send(ws,{type:'comm.pong',time:Date.now()});
