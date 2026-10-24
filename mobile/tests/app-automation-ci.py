@@ -48,8 +48,12 @@ def inspect():
             time.sleep(0.5)
     raise AssertionError("Android Settings inaccessible")
 
-status=command("app.accessibility.status")
-assert status.get("enabled") is True, status
+status={}
+for _ in range(20):
+    status=command("app.accessibility.status")
+    if status.get("enabled") is True: break
+    time.sleep(0.5)
+assert status.get("enabled") is True, ("AccessibilityService did not bind",status)
 available=command("app.list")
 assert isinstance(available.get("apps"),list),available
 opened=command("app.open",{"packageName":"com.android.settings"})
