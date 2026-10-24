@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createApkManager} from '../apk-manager.mjs';
@@ -274,5 +274,26 @@ test('Android original web button supports repeated disposable test starts witho
       assert.equal(stop.status,200);
       assert.equal((await stop.json()).status,'completed');
     }
+  }finally{await f.dispose()}
+});
+
+test('abandoned Android job does not lock next real browser forever',async()=>{
+  const f=await fixture();
+  try{
+    const base=f.url+'/lab-api/apk/';
+    const original=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+    assert.equal(original.status,202);
+    const file=join(f.store,'interactive-request.json');
+    const old=JSON.parse(await readFile(file,'utf8'));
+    old.createdAt=new Date(Date.now()-20*60_000).toISOString();
+    await writeFile(file,JSON.stringify(old));
+    const publicStatus=await fetch(base+'ui/status');
+    assert.equal((await publicStatus.json()).status,'idle',
+      'old offline request should not disable Android start button');
+    const next=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+    assert.equal(next.status,202,
+      'old offline request must not block a new original emulator session');
+    const replacement=await next.json();
+    assert.notEqual(replacement.requestId,old.id);
   }finally{await f.dispose()}
 });
