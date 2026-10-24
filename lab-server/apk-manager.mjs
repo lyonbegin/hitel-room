@@ -245,7 +245,7 @@ export function createApkManager({
       if(req.method==='POST'&&route==='/lab-api/apk/control'){
         const body=await readJson(req);
         const device=String(body.deviceId||''),action=String(body.action||'');
-        if(!validDevice.test(device)||!['tap','back','home','scroll'].includes(action))
+        if(!validDevice.test(device)||!['tap','back','home','scroll','playstore','type'].includes(action))
           return bad(res,'INVALID_CONTROL_ACTION');
         const host=hosts.get(device);
         if(!host||Date.now()-host.lastSeen>20_000)return bad(res,'EMULATOR_HOST_OFFLINE',409);
@@ -258,6 +258,14 @@ export function createApkManager({
         }
         if(action==='scroll'){args.direction=body.direction==='up'?'up':'down';
           args.width=host.width;args.height=host.height;}
+        // Search keywords only. Never transmit account passwords/credentials to
+        // persisted ADB control jobs or retain credential typing in the queue.
+        if(action==='type'){
+          const term=String(body.text||'');
+          if(term.length<1||term.length>70||!/^[A-Za-z0-9가-힣 ._-]+$/.test(term))
+            return bad(res,'ONLY_NON_SENSITIVE_SEARCH_TEXT_ALLOWED');
+          args.text=term;
+        }
         const job={id:crypto.randomUUID(),deviceId:device,operation:'control',action,args,
           status:'pending',createdAt:new Date().toISOString(),error:null};
         await saveRecord(jobsDir,job);
