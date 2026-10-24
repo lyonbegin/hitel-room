@@ -46,6 +46,29 @@ struct HitelWebView: UIViewRepresentable {
         private let speaker = AVSpeechSynthesizer()
         private var communicationSocket: URLSessionWebSocketTask?
         private var communicationToken: String?
+        private var communicationLastSequence = 0
+        private func receiveCommunicationEvent(_ event: [String: Any], socket: URLSessionWebSocketTask) {
+            let sequence = event["sequence"] as? Int ?? 0
+            guard sequence > communicationLastSequence else { return }
+            communicationLastSequence = sequence
+            let ack: [String: Any] = ["type": "comm.ack", "sequence": sequence]
+            if let data = try? JSONSerialization.data(withJSONObject: ack),
+               let line = String(data: data, encoding: .utf8) {
+                socket.send(.string(line)) { _ in }
+            }
+            let name = (event["type"] as? String ?? "UNKNOWN").uppercased()
+            NSLog("HITEL_E2E COMM_EVENT_%@", name)
+            let payload: [String: Any] = ["type": "communication.event", "event": event]
+            if let bytes = try? JSONSerialization.data(withJSONObject: payload),
+               let json = String(data: bytes, encoding: .utf8) {
+                DispatchQueue.main.async { [weak self] in
+                    self?.attachedWebView?.evaluateJavaScript(
+                        "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" + json + "}))",
+                        completionHandler: nil
+                    )
+                }
+            }
+        }
         private func receiveCommunication(_ socket: URLSessionWebSocketTask) {
             socket.receive { [weak self] result in
                 guard let self = self, self.communicationSocket === socket else { return }
@@ -61,23 +84,16 @@ struct HitelWebView: UIViewRepresentable {
                        let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any] {
                         switch obj["type"] as? String ?? "" {
                         case "comm.pong": NSLog("HITEL_E2E COMM_SOCKET_PONG")
-                        case "comm.snapshot": NSLog("HITEL_E2E COMM_SNAPSHOT_OK")
-                        case "comm.event":
-                            let eventName = ((obj["event"] as? [String: Any])?["type"] as? String ?? "UNKNOWN").uppercased()
-                            NSLog("HITEL_E2E COMM_EVENT_%@", eventName)
-                            let payload: [String: Any] = [
-                                "type": "communication.event",
-                                "event": obj["event"] ?? [:]
-                            ]
-                            if let bytes = try? JSONSerialization.data(withJSONObject: payload),
-                               let json = String(data: bytes, encoding: .utf8) {
-                                DispatchQueue.main.async { [weak self] in
-                                    self?.attachedWebView?.evaluateJavaScript(
-                                        "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" + json + "}))",
-                                        completionHandler: nil
-                                    )
-                                }
+                        case "comm.snapshot":
+                            NSLog("HITEL_E2E COMM_SNAPSHOT_OK")
+                            for event in obj["events"] as? [[String: Any]] ?? [] {
+                                self.receiveCommunicationEvent(event, socket: socket)
                             }
+                        case "comm.event":
+                            if let event = obj["event"] as? [String: Any] {
+                                self.receiveCommunicationEvent(event, socket: socket)
+                            }
+                        case "comm.actionAck": NSLog("HITEL_E2E COMM_ACTION_ACK")
                         default: break
                         }
                     }
@@ -96,6 +112,7 @@ struct HitelWebView: UIViewRepresentable {
         }
         func connectCommunicationNetwork(_ token: String, webView: WKWebView) {
             if token.isEmpty || token == communicationToken { return }
+            if let oldToken = communicationToken, oldToken != token { communicationLastSequence = 0 }
             communicationSocket?.cancel(with: .normalClosure, reason: nil)
             communicationToken = token
             attachedWebView = webView
@@ -103,7 +120,8 @@ struct HitelWebView: UIViewRepresentable {
             parts.scheme = "wss"
             parts.host = relayHost
             parts.path = "/comm-api/ws"
-            parts.queryItems = [URLQueryItem(name: "token", value: token)]
+            parts.queryItems = [URLQueryItem(name: "token", value: token),
+                                URLQueryItem(name: "since", value: String(communicationLastSequence))]
             guard let url = parts.url else { return }
             let socket = URLSession.shared.webSocketTask(with: url)
             communicationSocket = socket
