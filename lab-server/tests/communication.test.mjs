@@ -78,14 +78,12 @@ test('actual two WebSocket clients: call FSM, role policy, presence, reconnect r
     const snap=await snapshot.json();
     assert.equal(snap.state,'active');
     assert.equal(snap.events.some(e=>e.type==='ai.result'),false);
-    await new Promise(resolve=>b.close(1000,'Reconnect test').once('close',resolve));b=null;
+    await new Promise(resolve=>{b.once('close',resolve);b.close(1000,'Reconnect test')});b=null;
     b=await makeClient(wsurl,calleeToken,0);
-    const retry=waitFor(b,m=>m.type==='comm.snapshot'); // snapshot may arrive immediately after open; query HTTP below instead
     const rep=await fetch(base+'/comm-api/session/'+callId+'?since=0',{headers:{Authorization:'Bearer '+calleeToken}});
     const replay=await rep.json();
     assert.equal(replay.events.some(e=>e.type==='ai.result'),false);
     assert.equal(replay.events.some(e=>e.type==='call.active'),true);
-    void retry.catch(()=>{});
     const ended=waitFor(b,m=>m.type==='comm.event'&&m.event.type==='call.end');
     a.send(JSON.stringify({type:'call.action',action:'call.end',requestId:'end1'}));
     assert.equal((await ended).event.state,'ended');
