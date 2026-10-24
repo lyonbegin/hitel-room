@@ -8,10 +8,10 @@ import {createApkManager} from '../apk-manager.mjs';
 
 const ADMIN='test-admin-token-with-sufficient-entropy';
 const AGENT='test-agent-token-with-sufficient-entropy';
-async function fixture(){
+async function fixture({dispatchAndroidRun=async()=>({ok:true,status:204})}={}){
   const store=await mkdtemp(join(tmpdir(),'hitel-apk-'));
   const apk=createApkManager({root:store,adminToken:ADMIN,agentToken:AGENT,
-    maxBytes:8192,verifyCI:async()=>({run_id:'40100123456'})});
+    maxBytes:8192,verifyCI:async()=>({run_id:'40100123456'}),dispatchAndroidRun});
   const server=http.createServer((req,res)=>apk.http(req,res,new URL(req.url,'http://localhost')));
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   return {store,server,url:'http://127.0.0.1:'+server.address().port,
@@ -295,5 +295,44 @@ test('abandoned Android job does not lock next real browser forever',async()=>{
       'old offline request must not block a new original emulator session');
     const replacement=await next.json();
     assert.notEqual(replacement.requestId,old.id);
+  }finally{await f.dispose()}
+});
+
+test('Android start fails without GitHub dispatch and does NOT leave a queued worker',async()=>{
+  const f=await fixture({dispatchAndroidRun:async()=>({
+    ok:false,status:503,error:'GITHUB_DISPATCH_NOT_CONFIGURED'})});
+  try{
+    const base=f.url+'/lab-api/apk/';
+    const requested=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+    assert.equal(requested.status,503);
+    const data=await requested.json();
+    assert.equal(data.ok,false);
+    assert.equal(data.error,'GITHUB_DISPATCH_NOT_CONFIGURED');
+    const status=await fetch(base+'ui/status');
+    const view=await status.json();
+    assert.equal(view.status,'idle','Failed dispatch must never occupy device slot');
+    const record=JSON.parse(await readFile(join(f.store,'interactive-request.json'),'utf8'));
+    assert.equal(record.status,'failed');
+    assert.ok(!record.dispatchedAt);
+    const claim=await fetch(base+'ci/claim-start',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_IDENTITY'}});
+    assert.equal((await claim.json()).claim,false);
+  }finally{await f.dispose()}
+});
+test('Actual GitHub workflow dispatch is issued exactly once before returning queued',async()=>{
+  let calls=0;
+  const f=await fixture({dispatchAndroidRun:async()=>{
+    calls++;
+    return {ok:true,status:204,method:'workflow_dispatch'};
+  }});
+  try{
+    const start=await fetch(f.url+'/lab-api/apk/ui/start',{method:'POST',body:'{}'});
+    assert.equal(start.status,202);
+    assert.equal(calls,1);
+    const result=await start.json();
+    const record=JSON.parse(await readFile(join(f.store,'interactive-request.json'),'utf8'));
+    assert.equal(result.requestId,record.id);
+    assert.equal(record.dispatchMethod,'workflow_dispatch');
+    assert.ok(record.dispatchedAt);
   }finally{await f.dispose()}
 });
