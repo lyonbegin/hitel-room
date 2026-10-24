@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CommunicationSDK, CommunicationNetworkAdapter, createCommunicationNetworkPair, describeRoute, type CommunicationEvent } from '../communication-sdk';
+import { CommunicationSDK, CommunicationNetworkAdapter, CommunicationCallSession, createCommunicationSession, createCommunicationNetworkPair, describeRoute, type CommunicationEvent, type CommunicationAction } from '../communication-sdk';
+import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
 
@@ -39,6 +40,13 @@ export function DeviceLabPhone() {
   const [phone,setPhone]=useState('120');
   const cameraEl=useRef<HTMLVideoElement>(null);
   const mediaRef=useRef<MediaStream|null>(null);
+  const videoCoreRef=useRef<VideoCoreCameraSession|null>(null);
+  const [callToken,setCallToken]=useState(()=>new URLSearchParams(window.location.search).get('callToken')||'');
+  const [callState,setCallState]=useState('연결 전');
+  const [callId,setCallId]=useState('');
+  const [calleeLink,setCalleeLink]=useState('');
+  const callRef=useRef<CommunicationCallSession|null>(null);
+
   const push=useCallback((line:string)=>{
     setLines(v=>[now()+'  '+line,...v].slice(0,12));
     try {
@@ -46,6 +54,51 @@ export function DeviceLabPhone() {
         window.parent.postMessage({source:'hitel-device-lab',side,line,time:now()},window.location.origin);
     } catch { /* frame messaging is optional */ }
   },[side]);
+  useEffect(()=>{
+    if(!callToken.trim()){setCallState('연결 전');return}
+    const session=new CommunicationCallSession(sdk,callToken.trim());
+    callRef.current=session;
+    const off=session.on(event=>{
+      setCallState(event.state);
+      push('COMM '+event.type+' #'+event.sequence+' '+event.state);
+    });
+    const onConn=session.signaling.onConnection(online=>push(online?'COMM 웹 소켓 연결':'COMM 웹 소켓 재접속 대기'));
+    void session.connect().then(()=>{
+      setCallId(session.callId);
+      setCallState(session.state);
+      push('COMM 인증된 세션 '+session.callId+' / scenario '+session.signaling.scenarioId);
+    }).catch(e=>push('COMM 연결 오류 '+String(e)));
+    return ()=>{off();onConn();if(callRef.current===session)callRef.current=null;void session.dispose()};
+  },[callToken,sdk,push]);
+  async function issueCall(){
+    try{
+      const pair=await createCommunicationSession('N','N');
+      setCalleeLink(window.location.origin+'/sdk-lab/device?side=ios&screen=call&callToken='+encodeURIComponent(pair.calleeToken));
+      setCallToken(pair.callerToken);
+      setRoute('call');
+      push('COMM N→N 세션 생성 '+pair.callId);
+    }catch(e){push('COMM 세션 생성 오류 '+String(e))}
+  }
+  async function callAction(action:CommunicationAction){
+    const session=callRef.current;
+    if(!session){push('COMM 유효한 참가자 토큰을 연결하십시오');return}
+    try{
+      await session.signaling.action(action);
+      push('COMM 실제 서버 ACK '+action);
+    }catch(e){push('COMM 요청 거절 '+action+': '+String(e))}
+  }
+  async function testVideoCore(){
+    try{
+      const camera=await openVideoCoreCamera('original');
+      videoCoreRef.current?.stop();
+      mediaRef.current?.getTracks().forEach(t=>t.stop());
+      videoCoreRef.current=camera;
+      mediaRef.current=camera.stream;
+      setCamera('VideoCore SDK 카메라 연결됨');
+      if(cameraEl.current){cameraEl.current.srcObject=camera.stream;void cameraEl.current.play().catch(()=>{})}
+      push('VIDEO_CORE_CONNECTED '+camera.stream.getTracks().map(t=>t.kind).join(','));
+    }catch(e){push('VIDEO_CORE_ERROR '+String(e))}
+  }
   const check=useCallback(async()=>{
     setBridge('검사 중');
     try{
@@ -82,7 +135,7 @@ export function DeviceLabPhone() {
       if(shortcuts.some(c=>c.id===event.data.action))navigate(event.data.action as LabAction);
     };
     window.addEventListener('message',receive);
-    return ()=>{window.removeEventListener('message',receive);off();mediaRef.current?.getTracks().forEach(t=>t.stop());void sdk.dispose()};
+    return ()=>{window.removeEventListener('message',receive);off();videoCoreRef.current?.stop();mediaRef.current?.getTracks().forEach(t=>t.stop());void sdk.dispose()};
   },[sdk,side,push,check,navigate]);
   async function speak(){
     try{await sdk.speakLocally(text);push('로컬 TTS 요청 성공')}catch(e){push('TTS ERROR '+String(e))}
@@ -132,7 +185,20 @@ export function DeviceLabPhone() {
         <button onClick={()=>navigate('media')}>getUserMedia()</button>
         <button onClick={()=>{setRoute('ai')}}>AI Counselor SDK →</button>
       </div>}
-      {route==='call'&&<div className="dl-device-panel"><b>전화 앱 열기</b><p>통신사 전화 음성에 접근하지 않습니다.</p>
+      {route==='call'&&<div className="dl-device-panel"><b>실제 Communication 통화 신호</b>
+        <p>기존 통화 제어 화면과 별도로 서버의 실제 발신·수락·종료 이벤트를 테스트합니다.</p>
+        <button onClick={()=>void issueCall()}>N→N 통화 테스트 생성</button>
+        <input value={callToken} onChange={e=>setCallToken(e.target.value)} placeholder="실제 통화 참가자 토큰" aria-label="Communication 세션 토큰"/>
+        <small>서버 상태: {callState} · 세션: {callId||'대기'}</small>
+        {calleeLink&&<input readOnly value={calleeLink} aria-label="수신자 접속 링크"/>}
+        <div className="dl-device-quick">
+          <button onClick={()=>void callAction('call.invite')}>발신 요청</button>
+          <button onClick={()=>void callAction('call.ringing')}>수신 알림</button>
+          <button onClick={()=>void callAction('call.accept')}>수락</button>
+          <button onClick={()=>void callAction('call.reject')}>거절</button>
+          <button onClick={()=>void callAction('call.end')}>통화 종료</button>
+        </div>
+        <b>기본 전화 앱 열기</b><p>통신사 전화 음성에 접근하지 않습니다.</p>
         <input value={phone} onChange={e=>setPhone(e.target.value)} inputMode="tel" aria-label="전화번호"/>
         <button className="dl-device-primary" onClick={()=>void openDialer()}>call.openDialer 실행</button>
       </div>}
@@ -144,7 +210,8 @@ export function DeviceLabPhone() {
       {route==='media'&&<div className="dl-device-panel"><b>카메라·마이크</b><p>{camera}</p>
         <video ref={cameraEl} className="dl-device-video" muted autoPlay playsInline/>
         <button className="dl-device-primary" onClick={()=>void testMedia()}>권한 요청 · 영상 열기</button>
-        <button onClick={()=>{mediaRef.current?.getTracks().forEach(t=>t.stop());mediaRef.current=null;setCamera('종료됨');if(cameraEl.current)cameraEl.current.srcObject=null}}>카메라 중지</button>
+        <button onClick={()=>void testVideoCore()}>실제 VideoCore SDK 카메라 열기</button>
+        <button onClick={()=>{videoCoreRef.current?.stop();videoCoreRef.current=null;mediaRef.current?.getTracks().forEach(t=>t.stop());mediaRef.current=null;setCamera('종료됨');if(cameraEl.current)cameraEl.current.srcObject=null}}>카메라 중지</button>
       </div>}
       <div className="dl-device-log"><b>SDK 실행 로그</b>{lines.length?lines.slice(0,4).map((line,i)=><span key={i}>{line}</span>):<span>명령 실행 대기</span>}</div>
     </div>
