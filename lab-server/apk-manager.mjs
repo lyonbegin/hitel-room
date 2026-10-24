@@ -23,7 +23,6 @@ export function createApkManager({
   const uiTestSessions=new Map();
   let pendingUiSession=null;
   const uiStartFile=path.join(root,'interactive-request.json');
-  const starterWindows=new Map();
   async function readUiRequest(){
     try{return JSON.parse(await fs.readFile(uiStartFile,'utf8'))}
     catch{return null}
@@ -133,15 +132,10 @@ export function createApkManager({
       // The operator clicks the link; there is no token field in the browser.
       // The website owns the start/stop controls; GitHub is a background worker.
       if(req.method==='POST'&&route==='/lab-api/apk/ui/start'){
-        const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0];
-        const old=starterWindows.get(ip)||{from:Date.now(),count:0};
-        if(Date.now()-old.from>60*60_000){old.from=Date.now();old.count=0}
-        if(old.count>=3)return bad(res,'TEST_LAUNCH_RATE_LIMIT',429);
         const current=await readUiRequest();
         if(current&&['queued','starting','running','stopping'].includes(current.status)&&
            Date.now()-Date.parse(current.createdAt)<40*60_000)
           return json(res,409,{ok:false,error:'EMULATOR_SESSION_ALREADY_ACTIVE'});
-        old.count++;starterWindows.set(ip,old);
         const owner=crypto.randomBytes(24).toString('base64url');
         const request={id:crypto.randomUUID(),owner,status:'queued',
           createdAt:new Date().toISOString(),endedAt:null};
@@ -194,9 +188,11 @@ export function createApkManager({
         return json(res,200,{ok:true,claim:true,requestId:current.id});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/ci/finish'){
-        try{await verifyCI(req)}catch{return unauthorized(res)}
+        let identity;
+        try{identity=await verifyCI(req)}catch{return unauthorized(res)}
         const current=await readUiRequest();
-        if(current&&['starting','running','stopping'].includes(current.status)){
+        if(current&&current.claimRunId===String(identity.run_id||'')&&
+           ['starting','running','stopping'].includes(current.status)){
           current.status='completed';current.endedAt=new Date().toISOString();
           await writeUiRequest(current);
           uiTestSessions.clear();pendingUiSession=null;
