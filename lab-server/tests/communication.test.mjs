@@ -68,9 +68,12 @@ test('actual two WebSocket clients: call FSM, role policy, presence, reconnect r
     const connect=waitFor(b,m=>m.type==='comm.event'&&m.event.type==='call.connecting');
     a.send(JSON.stringify({type:'call.action',action:'call.connecting',requestId:'conn1'}));
     await connect;
-    const active=waitFor(b,m=>m.type==='comm.event'&&m.event.type==='call.active');
+    const firstMedia=waitFor(b,m=>m.type==='comm.event'&&m.event.type==='call.mediaReady');
     a.send(JSON.stringify({type:'call.action',action:'call.active',requestId:'active1'}));
-    await active;
+    assert.equal((await firstMedia).event.state,'connecting');
+    const active=waitFor(a,m=>m.type==='comm.event'&&m.event.type==='call.active');
+    b.send(JSON.stringify({type:'call.action',action:'call.active',requestId:'active2'}));
+    assert.equal((await active).event.state,'active');
     const ai=waitFor(a,m=>m.type==='comm.event'&&m.event.type==='ai.result');
     a.send(JSON.stringify({type:'call.action',action:'ai.result',requestId:'ai1',payload:{message:'private caller advice'}}));
     assert.equal((await ai).event.payload.message,'private caller advice');
