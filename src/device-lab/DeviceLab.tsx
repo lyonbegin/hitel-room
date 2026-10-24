@@ -4,7 +4,7 @@ import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCo
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
 import {DisposableAndroidInstaller, type TestHost as Host} from './DisposableAndroidInstaller';
-import {DisposableAndroidScreen} from './DisposableAndroidScreen';
+import {OriginalAndroidEmbed} from './OriginalAndroidEmbed';
 import {AndroidSessionControls} from './AndroidSessionControls';
 
 type Side = 'android' | 'ios';
@@ -369,11 +369,12 @@ export default function DeviceLab(){
               <button title="새 창에서 열기" onClick={()=>window.open(side==='android'?'/android-original/':labPath(side),'_blank','noopener')}>↗</button></div>
           </div>
           <div className="dl-emulator-display">
-            <div className={'dl-phone-shell dl-phone-'+side} style={{width:'min(100%, '+deviceSize+'px)'}}>
-              <div className="dl-phone-notch"/>
+            <div className={view==='remote'&&side==='android'?'dl-original-native-host':'dl-phone-shell dl-phone-'+side}
+              style={{width:view==='remote'&&side==='android'?'min(100%, 920px)':'min(100%, '+deviceSize+'px)',
+                ...(view==='remote'&&side==='android'?{height:660,minHeight:660}: {})}}>
+              {!(view==='remote'&&side==='android')&&<div className="dl-phone-notch"/>}
               {view==='remote' && side==='android'?(
-                <DisposableAndroidScreen online={apkOnline}
-                  onNotice={message=>push('android',message)}/>
+                <OriginalAndroidEmbed/>
               ):view==='remote'?(
                 capture[side]?<img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 앱/시뮬레이터 화면'}/>:
                 <div className="dl-capture-empty"><b>실제 에뮬레이터 화면 대기</b><p>GitHub Actions에서 앱 설치 및 화면 캡처 후 표시됩니다.</p></div>
@@ -381,7 +382,7 @@ export default function DeviceLab(){
             </div>
             {view==='remote'&&side==='ios'&&!agent[side]?.online&&<div className="dl-overlay-warning">{capture[side]?'GitHub Actions 마지막 실제 캡처 · 현재 실시간 연결 아님':'실제 에뮬레이터 실행 결과 대기'}</div>}
           </div>
-          <footer className="dl-card-footer"><span>{deviceSize} px · {view==='remote'&&side==='android'?(apkOnline?'실제 Android · 터치 가능':'일회용 Android 연결 대기'):view==='remote'?(agent[side]?.online?'실제 화면 캡처':'마지막 저장 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
+          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?'원본 Android · scrcpy/noVNC':deviceSize+' px'} · {view==='remote'&&side==='android'?'실제 원본 에뮬레이터':view==='remote'?(agent[side]?.online?'실제 화면 캡처':'마지막 저장 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
@@ -393,7 +394,7 @@ export default function DeviceLab(){
             <AndroidSessionControls onNotice={message=>push('android',message)}/>
             <div className="dl-pair">
               <a href="/android-original/" style={{fontSize:12,fontWeight:750,color:'#126987'}}>▣ Android Emulator Platform 원본 관리 화면 열기 ↗</a>
-              <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 실행 버튼으로 가상 기기를 시작하세요.'}</small>
+              <small>원본 Android를 실행하면 scrcpy/noVNC 실시간 화면이 직접 열립니다.</small>
             </div>
             <div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>void send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>
             <details className="dl-advanced-pair">
