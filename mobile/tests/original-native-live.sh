@@ -148,6 +148,15 @@ grep -q 'import RFB' /tmp/original-native-public-phone
 echo 'ORIGINAL_NATIVE_PUBLIC_HTTPS_AND_NOVNC_OK'
 python3 "$ROOT/mobile/tools/original-native-url.py" register "$native_url"
 
+# E2E gate: after real Docker/KVM boot and tunnel registration, the SAME
+# Playwright Chromium process checks Railway's actual iframe and confirms
+# received native noVNC frames. A missing screen makes the job FAIL.
+if [[ "$(printenv ANDROID_ONECLICK_VERIFY || echo 0)" == "1" ]]; then
+  echo 'ANDROID_ONECLICK_NATIVE_CHROMIUM_VERIFY_START'
+  HITEL_REQUIRE_NATIVE_PHONE=1 python3 "$ROOT/mobile/tests/android-native-playwright-e2e.py"
+  echo 'ANDROID_ONECLICK_NATIVE_CHROMIUM_VERIFY_PASS'
+fi
+
 duration="$(printenv ANDROID_SESSION_SECONDS || echo 480)"
 stop_at=$((SECONDS+duration))
 while [[ $SECONDS -lt $stop_at ]]; do
