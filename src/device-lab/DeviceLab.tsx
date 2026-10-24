@@ -392,8 +392,11 @@ export default function DeviceLab(){
               <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 세션 미실행 · 실행하면 홈 화면이 자동 표시됩니다'}</small>
             </div>
             <div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>void send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>
-            <div className="dl-pair"><button onClick={()=>void createPair()}>Wi-Fi 기기 페어링 코드 발급</button>{pairTicket&&<><label>앱의 SDK Lab 화면에 아래 코드를 입력하세요.</label><input readOnly aria-label="기기 페어링 코드" value={pairTicket}/><button onClick={()=>void navigator.clipboard.writeText(pairTicket)}>코드 복사</button></>}</div>
-            <label className="dl-token-label">네트워크 제어 토큰<input type="password" autoComplete="off" value={adminToken} onChange={e=>setAdminToken(e.target.value)} placeholder="페어링을 발급하면 자동 입력됩니다"/></label>
+            <details className="dl-advanced-pair">
+              <summary>실제 외부 단말 연결 설정 (고급)</summary>
+              <div className="dl-pair"><button onClick={()=>void createPair()}>Wi-Fi 기기 페어링 코드 발급</button>{pairTicket&&<><label>앱의 SDK Lab 화면에 아래 코드를 입력하세요.</label><input readOnly aria-label="기기 페어링 코드" value={pairTicket}/><button onClick={()=>void navigator.clipboard.writeText(pairTicket)}>코드 복사</button></>}</div>
+              <label className="dl-token-label">별도 단말 연결키<input type="password" autoComplete="off" value={adminToken} onChange={e=>setAdminToken(e.target.value)} placeholder="페어링 시 자동 입력"/></label>
+            </details>
             <div className="dl-status-list"><b>연결 상태</b><div><span>Android 호스트</span><strong>{agent.android?.online?'연결됨':'대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>실제 Bridge 인증</span><strong>기기 내부에서 검증</strong></div></div>
           </div>
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
