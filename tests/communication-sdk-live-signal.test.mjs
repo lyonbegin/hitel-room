@@ -33,6 +33,16 @@ test('built Communication SDK runs real call signaling with TWO clients and gate
     callee.on(e=>{if(e.type==='ai.result')calleePrivate++});
     await Promise.all([caller.connect(),callee.connect()]);
     await caller.invite();
+    // Kill the actual callee transport and prove it reopens with the same
+    // participant identity and replays unseen call events before acting.
+    const previousSocket=callee.signaling.socket;
+    previousSocket.terminate();
+    const reconnectDeadline=Date.now()+9000;
+    while(Date.now()<reconnectDeadline&&(!callee.signaling.online||callee.signaling.socket===previousSocket))
+      await new Promise(resolve=>setTimeout(resolve,100));
+    assert.equal(callee.signaling.online,true,'callee reconnects after dropped TCP/WebSocket');
+    assert.notEqual(callee.signaling.socket,previousSocket);
+    assert.equal((await callee.signaling.snapshot()).state,'inviting');
     await callee.ringing();
     await callee.accept();
     const fakeStream={getTracks:()=>[{readyState:'live'}]};
