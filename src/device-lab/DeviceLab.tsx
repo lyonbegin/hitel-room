@@ -229,7 +229,7 @@ export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
   const [view,setView]=useState<'preview'|'remote'>('remote');
   const [apkToken,setApkToken]=useState('');
-  const [apkDevice,setApkDevice]=useState('ci-android');
+  const [apkDevice,setApkDevice]=useState('ci-playstore');
   const [apkHosts,setApkHosts]=useState<Host[]>([]);
   const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
   const [deviceSize,setDeviceSize]=useState('390');
