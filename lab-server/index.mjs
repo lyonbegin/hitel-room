@@ -49,7 +49,8 @@ async function findController(controller,side){
   }catch{/* no known controller */}
   return null;
 }
-const connections = new Map();
+const connections = new Map(); // last active device per platform, for dashboard
+const pairedConnections = new Map(); // controller+platform, for isolated commands
 const liveFrames = new Map();
 const windows = new Map();
 const pendingCommands = new Map();
@@ -107,7 +108,8 @@ function deviceState(side,report){
     capture:!!report||!!liveFrames.get(side),screenMode:current&&liveFrames.get(side)?'live':'github-actions',runId:report?.runId||null,ciPass:report?.passed??null};
 }
 function notifyDevices(){
-  for(const [side,ws] of connections){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ack',side,time:Date.now()}))}
+  for(const ws of pairedConnections.values())if(ws.readyState===WebSocket.OPEN)
+    ws.send(JSON.stringify({type:'ack',side:ws.labSide,time:Date.now()}));
 }
 const communication=createCommunicationService();
 const server=http.createServer(async(req,res)=>{
@@ -191,8 +193,8 @@ const server=http.createServer(async(req,res)=>{
       if(!ticket)return error(res,401,'Pairing control token required');
       if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate','getCapabilities','tts.speak','tts.stop','call.openDialer','communication.action'].includes(body.action))
         return error(res,400,'Invalid device/action');
-      const ws=connections.get(body.device);
-      if(!ws||ws.readyState!==WebSocket.OPEN)return error(res,409,'Real native device is offline');
+      const ws=pairedConnections.get(controller+':'+body.device);
+      if(!ws||ws.readyState!==WebSocket.OPEN)return error(res,409,'Paired native device is offline');
       const screen=['sdk','ai','call','media'].includes(body.screen)?body.screen:'home';
       const requestId=ticketString();
       pendingCommands.set(requestId,{side:body.device,controller,expires:Date.now()+15_000,result:null});
@@ -228,7 +230,11 @@ server.on('upgrade',async(req,socket,head)=>{
       ws.labSide=side;
       ws.labOrigin=paired.origin||'dashboard';
       ws.labController=paired.controller;
-      connections.get(side)?.close(4001,'Replaced by new connection');
+      const key=paired.controller+':'+side;
+      pairedConnections.get(key)?.close(4001,'Same paired device reconnected');
+      pairedConnections.set(key,ws);
+      // A second Android/iOS test runner must not disconnect another
+      // authenticated session simply because it uses the same OS.
       connections.set(side,ws);
       ws.send(JSON.stringify({type:'connected',side,authenticated:true,at:Date.now()}));
       notifyDevices();
@@ -260,6 +266,14 @@ wss.on('connection',ws=>{
       }
     }catch{/* invalid telemetry ignored */}
   });
-  ws.on('close',()=>{if(connections.get(side)===ws){connections.delete(side);liveFrames.delete(side)}});
+  ws.on('close',()=>{
+    const key=ws.labController+':'+side;
+    if(pairedConnections.get(key)===ws)pairedConnections.delete(key);
+    if(connections.get(side)===ws){
+      const replacement=[...pairedConnections.values()].reverse().find(candidate=>candidate.labSide===side&&candidate.readyState===WebSocket.OPEN);
+      if(replacement)connections.set(side,replacement);
+      else {connections.delete(side);liveFrames.delete(side)}
+    }
+  });
 });
 server.listen(PORT,'0.0.0.0',()=>console.log('HITEL_DEVICE_LAB_RELAY_READY',PORT));
