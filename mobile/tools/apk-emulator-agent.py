@@ -49,6 +49,44 @@ def adb(serial,*arguments,timeout=120):
         stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
         text=True,timeout=timeout,check=False)
 
+def capture_frame(device,serial):
+    # Full OS framebuffer (not the HITEL WebView PixelCopy).
+    result=subprocess.run(["adb","-s",serial,"exec-out","screencap","-p"],
+        stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=25,check=False)
+    png=result.stdout
+    if result.returncode or len(png)<100 or len(png)>3*1024*1024 or png[:8]!=bytes.fromhex("89504e470d0a1a0a"):
+        return False
+    request=Request(BASE+"/lab-api/apk/agent/frame",data=png,method="POST",
+        headers={"authorization":"Bearer "+credential(),"x-emulator-device":device,
+                 "content-type":"image/png"})
+    with urlopen(request,timeout=30) as response:
+        info=json.load(response)
+    return info.get("ok") is True
+
+def run_control(serial,job):
+    action=job.get("action")
+    args=job.get("args") or {}
+    if action=="tap":
+        x,y=int(args["x"]),int(args["y"])
+        if not (0<=x<=8000 and 0<=y<=8000):raise RuntimeError("INVALID_TOUCH")
+        result=adb(serial,"shell","input","tap",str(x),str(y),timeout=15)
+    elif action=="back":
+        result=adb(serial,"shell","input","keyevent","4",timeout=15)
+    elif action=="home":
+        result=adb(serial,"shell","input","keyevent","3",timeout=15)
+    elif action=="scroll":
+        width,height=int(args["width"]),int(args["height"])
+        direction=args.get("direction","down")
+        x=width//2
+        start_y,end_y=(height*3//4,height//4) if direction=="down" else (height//4,height*3//4)
+        result=adb(serial,"shell","input","swipe",str(x),str(start_y),
+                   str(x),str(end_y),"400",timeout=15)
+    else:
+        raise RuntimeError("UNSUPPORTED_EMULATOR_CONTROL")
+    if result.returncode:raise RuntimeError("ADB_CONTROL_FAILED: "+result.stdout[-250:])
+    print("EMULATOR_CONTROL_EXECUTED",action,job["id"],flush=True)
+    return "",action+" completed"
+
 def apk_package(apk_path):
     # Read only manifest metadata with Android SDK tools; do not trust uploaded filename.
     candidates=glob.glob(os.environ.get("ANDROID_HOME","/opt/android-sdk")+"/build-tools/*/aapt")
@@ -97,12 +135,19 @@ def main():
             ready=adb(args.serial,"get-state",timeout=10)
             if ready.returncode or "device" not in ready.stdout:
                 raise RuntimeError("ADB_DEVICE_NOT_ONLINE: "+ready.stdout[-200:])
+            if not args.once:
+                try:capture_frame(args.device,args.serial)
+                except Exception as frame_exc:
+                    print("EMULATOR_FRAME_ERROR",str(frame_exc)[:150],file=sys.stderr,flush=True)
             answer=send("/lab-api/apk/agent/next",args.device,{})
             job=answer.get("job")
             if job:
                 success=False;error=None;log="";package=None
                 try:
-                    package,log=run_job(args.device,args.serial,job)
+                    if job.get("operation")=="control":
+                        package,log=run_control(args.serial,job)
+                    else:
+                        package,log=run_job(args.device,args.serial,job)
                     success=True
                 except Exception as exc:
                     error=str(exc)[:300]
@@ -111,6 +156,11 @@ def main():
                     "jobId":job["id"],"leaseId":job["leaseId"],"success":success,
                     "packageName":package,"installLog":log,"error":error})
                 print("APK_JOB_REPORTED",report.get("jobId"),report.get("status"),flush=True)
+                try:
+                    if capture_frame(args.device,args.serial):
+                        print("EMULATOR_FULL_SCREEN_CAPTURED",args.device,flush=True)
+                except Exception as exc:
+                    print("EMULATOR_FRAME_ERROR",str(exc)[:150],file=sys.stderr,flush=True)
                 if not success and args.once:sys.exit(2)
             elif args.once:
                 print("APK_INSTALL_QUEUE_EMPTY",args.device,flush=True)
