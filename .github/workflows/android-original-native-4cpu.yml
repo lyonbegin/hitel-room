@@ -1,0 +1,86 @@
+name: HITEL original Android scrcpy runtime 4CPU
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-native-4cpu.yml'
+      - 'infra/android-original/github-4cpu.compose.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 27
+    env:
+      DB_PASSWORD: original-github-test-only
+      PUBLIC_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM and check unchanged source
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          test "$(git ls-files vendor/android-emulator-platform | wc -l | tr -d ' ')" = 53
+          echo 'ORIGINAL_SOURCE_53_FILES_UNCHANGED'
+      - name: Build and start ORIGINAL Android11 emulator with ORIGINAL scrcpy and original backend
+        working-directory: vendor/android-emulator-platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          opts=(-f docker-compose.yml -f ../../infra/android-original/github-4cpu.compose.yml)
+          docker compose "${opts[@]}" config -q
+          docker compose "${opts[@]}" build emulator-1 scrcpy-1 backend > "$GITHUB_WORKSPACE/android-original-4cpu-build.log" 2>&1 || { tail -n 90 "$GITHUB_WORKSPACE/android-original-4cpu-build.log"; exit 1; }
+          echo 'ORIGINAL_BUILD_SUCCESS'
+          docker compose "${opts[@]}" up -d --no-build redis postgres emulator-1 scrcpy-1 backend
+          docker compose "${opts[@]}" ps
+          echo 'ORIGINAL_CONTAINER_STARTED'
+          for i in $(seq 1 36); do
+            if curl -fsS http://127.0.0.1:6090/phone.html -o /tmp/real-phone.html; then break; fi
+            sleep 5
+          done
+          test -s /tmp/real-phone.html
+          grep -q 'import RFB' /tmp/real-phone.html
+          curl -fsS http://127.0.0.1:6090/core/rfb.js -o /tmp/rfb.js
+          test -s /tmp/rfb.js
+          echo 'ORIGINAL_NOVNC_HTTP_ASSETS_PASS'
+          # The actual native guest must boot; healthy HTML alone is not success.
+          booted=false
+          for i in $(seq 1 36); do
+            v="$(docker exec android-emulator-1 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            if test "$v" = '1'; then booted=true; break; fi
+            sleep 5
+          done
+          if test "$booted" != true; then
+            echo 'ORIGINAL_ANDROID_BOOT_FAILED'
+            docker logs android-emulator-1 --tail 100
+            exit 1
+          fi
+          echo 'ORIGINAL_ANDROID_11_BOOTED'
+          for i in $(seq 1 18); do
+            if docker exec emulator-scrcpy-1 pgrep scrcpy >/dev/null 2>&1; then break; fi
+            sleep 4
+          done
+          docker exec emulator-scrcpy-1 pgrep -a scrcpy
+          echo 'ORIGINAL_NATIVE_SCRCPY_RUNNING'
+          docker exec android-emulator-1 adb shell getprop ro.build.version.release
+          docker exec emulator-backend node -e 'fetch("http://127.0.0.1:3001/api/emulator/devices").then(async r => {console.log("ORIGINAL_BACKEND_DEVICES",r.status,await r.text()); process.exit(r.ok?0:1)}).catch(e=>{console.error(e);process.exit(1)})'
+          echo 'ORIGINAL_BACKEND_AND_SCRCPY_VERIFIED'
+      - name: Always collect emulator and native scrcpy diagnostics
+        if: always()
+        working-directory: vendor/android-emulator-platform
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/mobile-test-results/android-original-4cpu"
+          docker compose -f docker-compose.yml -f ../../infra/android-original/github-4cpu.compose.yml ps             > "$GITHUB_WORKSPACE/mobile-test-results/android-original-4cpu/compose-ps.txt" 2>&1 || true
+          docker compose -f docker-compose.yml -f ../../infra/android-original/github-4cpu.compose.yml logs --no-color --tail 150             > "$GITHUB_WORKSPACE/mobile-test-results/android-original-4cpu/compose-logs.txt" 2>&1 || true
+          for name in android-emulator-1 emulator-scrcpy-1 emulator-backend; do
+            docker logs "$name" --tail 200 > "$GITHUB_WORKSPACE/mobile-test-results/android-original-4cpu/$name.log" 2>&1 || true
+          done
+          cp "$GITHUB_WORKSPACE/android-original-4cpu-build.log" "$GITHUB_WORKSPACE/mobile-test-results/android-original-4cpu/build.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-original-android11-scrcpy-4cpu
+          path: mobile-test-results/android-original-4cpu/
+          if-no-files-found: warn
