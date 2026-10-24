@@ -11,7 +11,7 @@ globalThis.WebSocket=require('ws').WebSocket;
 globalThis.window=new EventTarget();
 globalThis.location={href:'http://127.0.0.1/'};
 const {
-  CommunicationSDK,CommunicationCallSession,createCommunicationSession
+  CommunicationSDK,CommunicationCallSession,createCommunicationSession,executeCommunicationScenario
 }=await import(pathToFileURL(resolve('dist/sdk/communication.esm.js')).href);
 
 test('built Communication SDK runs real call signaling with TWO clients and gated media',async()=>{
@@ -53,4 +53,43 @@ test('built Communication SDK runs real call signaling with TWO clients and gate
     await sdkCaller?.dispose();await sdkCallee?.dispose();
     comm.close();await new Promise(resolve=>server.close(resolve));
   }
+});
+
+test('all 16 scenario executors invoke the correct real integration boundary, never fake a carrier call',async()=>{
+  const comm=createCommunicationService();
+  const server=createServer((req,res)=>void comm.http(req,res,new URL(req.url,'http://localhost').pathname));
+  server.on('upgrade',(req,socket,head)=>comm.upgrade(req,socket,head));
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port+'/comm-api';
+  const kinds=['P','P+','N','W'],calls=[];
+  const carrier={
+    attachIncomingSidecar:async()=>{calls.push('sidecar-in');return {connected:false}},
+    dialCarrierNumber:async()=>{calls.push('native-dialer');return {opened:true}},
+    pairSidecars:async()=>{calls.push('sidecar-pair');return {consented:true}}
+  };
+  const gateway={
+    incomingPstn:async()=>{calls.push('gateway-in');return {connected:false}},
+    outgoingPstn:async()=>{calls.push('gateway-out');return {connected:false}}
+  };
+  try{
+    for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+      const from=kinds[i],to=kinds[j],id=i*4+j+1;
+      const sdk=CommunicationSDK.create({nativeBridge:{platform:()=> 'browser',request:async()=>({ok:true})}});
+      const isWebRtc=[11,12,15,16].includes(id);
+      const session=isWebRtc?await createCommunicationSession(from,to,base):null;
+      const result=await executeCommunicationScenario({sdk,from,to,role:'caller',
+        ...(session?{participantToken:session.callerToken}:{}),
+        phoneNumber:'0212345678',baseUrl:base,carrier,gateway});
+      assert.equal(result.scenarioId,id);
+      if(id===1)assert.equal(result.status,'external-unmanaged');
+      else if(isWebRtc){assert.equal(result.status,'signaling-connected');assert.equal(result.session.callId,session.callId);await result.session.dispose()}
+      else assert.notEqual(result.status,'signaling-connected','External telephony cannot be reported as connected WebRTC');
+      await sdk.dispose();
+    }
+    assert.equal(calls.filter(x=>x==='sidecar-in').length,1);
+    assert.equal(calls.filter(x=>x==='native-dialer').length,2);
+    assert.equal(calls.filter(x=>x==='sidecar-pair').length,1);
+    assert.equal(calls.filter(x=>x==='gateway-in').length,2);
+    assert.equal(calls.filter(x=>x==='gateway-out').length,6);
+  }finally{comm.close();await new Promise(resolve=>server.close(resolve))}
 });
