@@ -1,0 +1,9 @@
+.dl-android-session{border:1px solid #d9e7ec;background:#f6fafc;border-radius:12px;padding:12px;margin:10px 0}
+.dl-android-session-actions{display:flex;gap:9px}
+.dl-android-session-actions button{border:0;border-radius:8px;font-size:13px;font-weight:700;padding:11px 16px;cursor:pointer;flex:1}
+.dl-android-session-actions button:disabled{opacity:.45;cursor:not-allowed}
+.dl-android-start{background:#166e83;color:#fff}
+.dl-android-stop{background:#dce7ed;color:#263d49}
+.dl-android-session-status{color:#536d7a;font-size:12px;line-height:1.5;font-weight:650;margin:10px 0 3px}
+.dl-android-session-status.connected{color:#14815e}
+.dl-android-session-hint{font-size:11px;color:#637f8d;margin:4px 0 0;line-height:1.5}
