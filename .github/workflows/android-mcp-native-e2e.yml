@@ -19,6 +19,7 @@ jobs:
       LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
       ANDROID_SESSION_SECONDS: 90
       HITEL_OFFICIAL_MCP_VERIFY: '1'
+      HITEL_SCRCPY_FULLSCREEN_AB: '1'
     steps:
       - uses: actions/checkout@v4
         with:
