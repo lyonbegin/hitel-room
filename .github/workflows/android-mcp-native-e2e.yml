@@ -1,0 +1,69 @@
+name: HITEL Original Android screen size + real browser MCP E2E
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-mcp-native-e2e.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: hitel-web-android-session
+  cancel-in-progress: false
+jobs:
+  native-and-remote-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 29
+    env:
+      LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+      ANDROID_SESSION_SECONDS: 90
+      HITEL_OFFICIAL_MCP_VERIFY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/communication-sdk
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+          install-dependencies: true
+      - name: Install both real browser MCP servers
+        working-directory: mobile/browser-mcp
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install chromium
+          npx --no-install @playwright/mcp --help > /tmp/hitel-pw-help.txt
+          npx --no-install chrome-devtools-mcp --help > /tmp/hitel-cdp-help.txt
+      - name: Run real Chrome DevTools server browser and original Android KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chrome)"
+          export HITEL_CHROME_PATH="$chrome"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222 \
+            --remote-allow-origins='*' --user-data-dir=/tmp/hitel-native-mcp about:blank \
+            > /tmp/hitel-native-chrome.log 2>&1 &
+          for i in $(seq 1 30);do
+            if curl -fsS http://127.0.0.1:9222/json/version >/tmp/hitel-native-chrome.json;then break;fi
+            sleep 1
+          done
+          grep -q webSocketDebuggerUrl /tmp/hitel-native-chrome.json
+          native="$(curl -fsS --max-time 12 "$LAB_RELAY_URL/lab-api/android-native/status" || echo '{}')"
+          if echo "$native" | grep -q '"online":true'; then
+            echo 'HITEL_EXISTING_NATIVE_HOST_ACTIVE_NO_NEW_DEVICE'
+            node mobile/browser-mcp/inspect.mjs
+          else
+            test -c /dev/kvm
+            sudo chmod a+rw /dev/kvm
+            bash mobile/tests/original-native-live.sh
+          fi
+      - name: Save original real Android screenshots and geometry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android-official-mcp-real-native-geometry
+          path: mobile-test-results/android-browser-mcp/
+          if-no-files-found: warn
