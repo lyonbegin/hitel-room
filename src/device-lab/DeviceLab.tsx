@@ -3,7 +3,7 @@ import { CommunicationSDK, CommunicationNetworkAdapter, CommunicationCallSession
 import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
-import {DisposableAndroidInstaller, type TestHost as Host} from './DisposableAndroidInstaller';
+import type {TestHost as Host} from './DisposableAndroidInstaller';
 import {OriginalAndroidEmbed} from './OriginalAndroidEmbed';
 import {AndroidSessionControls} from './AndroidSessionControls';
 
@@ -410,13 +410,11 @@ export default function DeviceLab(){
               <div className="dl-pair"><button onClick={()=>void createPair()}>Wi-Fi 기기 페어링 코드 발급</button>{pairTicket&&<><label>앱의 SDK Lab 화면에 아래 코드를 입력하세요.</label><input readOnly aria-label="기기 페어링 코드" value={pairTicket}/><button onClick={()=>void navigator.clipboard.writeText(pairTicket)}>코드 복사</button></>}</div>
               <label className="dl-token-label">별도 단말 연결키<input type="password" autoComplete="off" value={adminToken} onChange={e=>setAdminToken(e.target.value)} placeholder="페어링 시 자동 입력"/></label>
             </details>
-            <div className="dl-status-list"><b>연결 상태</b><div><span>Android 호스트</span><strong>{agent.android?.online?'연결됨':'대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>실제 Bridge 인증</span><strong>기기 내부에서 검증</strong></div></div>
+            <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'scrcpy 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>실제 Bridge 인증</span><strong>기기 내부에서 검증</strong></div></div>
           </div>
-          <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
+          <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 원본 scrcpy/noVNC 화면</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
-      <DisposableAndroidInstaller online={apkOnline} setHosts={setApkHosts}
-        onNotice={message=>push('android',message)}/>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
         <div className="dl-ci-reports">{SIDES.map(side=><details key={side}><summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'검증 성공':'검증 결과 확인'):'아직 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId}</span>}</summary><pre>{ci?.[side]?.log||'GitHub Actions 실행 및 실제 앱 화면 캡처 대기'}</pre>{ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">해당 GitHub Actions 실행 열기 ↗</a>}</details>)}</div></section>
