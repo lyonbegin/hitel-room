@@ -392,9 +392,17 @@ export default function DeviceLab(){
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 원본 scrcpy/noVNC 화면</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
-      <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
+      <section className="dl-bottom-log"><div><h3>현재 브라우저 명령 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
-        <div className="dl-ci-reports">{SIDES.map(side=><details key={side}><summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'검증 성공':'검증 결과 확인'):'아직 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId}</span>}</summary><pre>{ci?.[side]?.log||'GitHub Actions 실행 및 실제 앱 화면 캡처 대기'}</pre>{ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">해당 GitHub Actions 실행 열기 ↗</a>}</details>)}</div></section>
+        <div className="dl-ci-reports">
+          <p style={{fontSize:12,color:'#667888',margin:'8px 0'}}>아래 내용은 과거 GitHub Actions 앱 빌드·Bridge 테스트 결과입니다. 현재 실행 중인 Android 또는 iPhone 시뮬레이터를 의미하지 않습니다.</p>
+          {SIDES.map(side=><details key={side}>
+            <summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'과거 자동 테스트 통과':'과거 자동 테스트 실패'):'과거 테스트 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId} · 현재 기기 연결 상태와 별개</span>}</summary>
+            <p style={{fontSize:12,color:'#667888'}}>실시간 연결 상태: {side==='android'?(nativeAndroidOnline?'원본 Android 연결됨':'Android 실행기 미연결'):(agent.ios?.online?'iPhone 앱 통신 연결됨':'iPhone 실시간 시뮬레이터 미연결')} · 과거 CI 실행 완료: {ci?.[side]?.updatedAt?new Date(ci[side].updatedAt).toLocaleString('ko-KR'):'기록 없음'}</p>
+            <pre>{ci?.[side]?.log||'과거 GitHub Actions 앱 검증 로그 없음'}</pre>
+            {ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">과거 GitHub Actions 결과 보기 ↗</a>}
+          </details>)}
+        </div></section>
     </main>
   </div>;
 }
