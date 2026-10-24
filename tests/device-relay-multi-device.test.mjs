@@ -45,15 +45,15 @@ test('simultaneous Android devices retain isolated controller sockets',async()=>
     assert.equal(reply.status,202,'each active controller must reach its own native socket');
     return (await reply.json()).requestId;
   }
-  async function replyToNative(ws,requestId){
+  async function replyToNative(ws){
     await new Promise((resolve,reject)=>{
       const timeout=setTimeout(()=>reject(Error('Native test command not delivered')),2000);
       const handler=raw=>{
         const msg=JSON.parse(String(raw));
-        if(msg.type==='command'&&msg.requestId===requestId){
+        if(msg.type==='command'){
           clearTimeout(timeout);ws.off('message',handler);
-          ws.send(JSON.stringify({type:'result',requestId,ok:true,platform:'android'}));
-          resolve();
+          ws.send(JSON.stringify({type:'result',requestId:msg.requestId,ok:true,platform:'android'}));
+          resolve(msg.requestId);
         }
       };
       ws.on('message',handler);
@@ -70,9 +70,12 @@ test('simultaneous Android devices retain isolated controller sockets',async()=>
     const a=await pair(),b=await pair();
     first=await connect('ws://127.0.0.1:'+port+'/lab-api/ws?role=device&side=android&ticket='+encodeURIComponent(a.ticket));
     second=await connect('ws://127.0.0.1:'+port+'/lab-api/ws?role=device&side=android&ticket='+encodeURIComponent(b.ticket));
+    const firstArrival=replyToNative(first),secondArrival=replyToNative(second);
     const firstCommand=await command(a);
     const secondCommand=await command(b);
-    await Promise.all([replyToNative(first,firstCommand),replyToNative(second,secondCommand)]);
+    const [firstReceived,secondReceived]=await Promise.all([firstArrival,secondArrival]);
+    assert.equal(firstReceived,firstCommand);
+    assert.equal(secondReceived,secondCommand);
     for(const [pairData,id] of [[a,firstCommand],[b,secondCommand]]){
       const res=await fetch(base+'/lab-api/result/'+id,{
         headers:{authorization:'Bearer '+pairData.controller}});
