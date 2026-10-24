@@ -108,9 +108,10 @@ export function ApkInstaller({token,setToken,device,setDevice,hosts,setHosts}:{
         <h3>2 · 실제 설치 대상 지정</h3>
         <label>Android 에뮬레이터
           <select value={device} onChange={e=>setDevice(e.target.value)}>
-            <option value="ci-android">일회용 Google Play Android · ci-android</option>
+            <option value="ci-playstore">일회용 Google Play Android · ci-playstore</option>
+            <option value="ci-android">기본 Android 회귀검사 · ci-android</option>
             <option value="android-lab-01">별도 Android 호스트 · android-lab-01</option>
-            {hosts.filter(x=>!['android-lab-01','ci-android'].includes(x.deviceId)).map(h=>
+            {hosts.filter(x=>!['android-lab-01','ci-android','ci-playstore'].includes(x.deviceId)).map(h=>
               <option key={h.deviceId} value={h.deviceId}>{h.deviceId}</option>)}
           </select>
         </label>
