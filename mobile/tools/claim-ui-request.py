@@ -25,6 +25,11 @@ def request(path):
 def main():
     value=request("/lab-api/apk/ci/claim-start")
     claimed=value.get("claim") is True
+    expected=os.environ.get("ANDROID_EXPECTED_REQUEST_ID","").strip()
+    if expected and (not claimed or value.get("requestId")!=expected):
+        raise RuntimeError("Claim mismatch: clicked request "+expected+
+                           " but worker received "+str(value.get("requestId"))+
+                           ", claim="+str(claimed))
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"],"a",encoding="utf8") as f:
             f.write("claimed="+str(claimed).lower()+"\n")
