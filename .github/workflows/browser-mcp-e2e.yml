@@ -1,0 +1,35 @@
+name: HITEL Browser MCP real Chrome verification
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/browser-mcp-e2e.yml'
+      - 'mobile/tests/browser-mcp-e2e.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-both-real-mcp-servers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the MCP client SDK and Chrome runtime
+        run: |
+          mkdir -p /tmp/hitel-browser-mcp
+          npm install --no-audit --no-fund --prefix /tmp/hitel-browser-mcp @modelcontextprotocol/sdk@^1.0.0
+          npm install --no-audit --no-fund -g @playwright/mcp@latest chrome-devtools-mcp@latest
+          npx playwright install chromium
+          echo "NODE_PATH=/tmp/hitel-browser-mcp/node_modules" >> "$GITHUB_ENV"
+      - name: Check actual Playwright MCP and DevTools MCP on HITEL
+        run: node mobile/tests/browser-mcp-e2e.mjs
+      - name: Save real MCP tool responses and browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-real-playwright-chrome-devtools-mcp
+          path: mobile-test-results/browser-mcp/
+          if-no-files-found: error
