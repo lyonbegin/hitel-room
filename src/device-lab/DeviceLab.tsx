@@ -3,7 +3,8 @@ import { CommunicationSDK, CommunicationNetworkAdapter, CommunicationCallSession
 import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
-import {ApkInstaller} from './ApkInstaller';
+import {ApkInstaller, type Host} from './ApkInstaller';
+import {EmulatorRemoteScreen} from './EmulatorRemoteScreen';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
@@ -226,7 +227,11 @@ export function DeviceLabPhone() {
 
 export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
-  const [view,setView]=useState<'preview'|'remote'>('preview');
+  const [view,setView]=useState<'preview'|'remote'>('remote');
+  const [apkToken,setApkToken]=useState('');
+  const [apkDevice,setApkDevice]=useState('ci-android');
+  const [apkHosts,setApkHosts]=useState<Host[]>([]);
+  const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
   const [deviceSize,setDeviceSize]=useState('390');
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
   const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
@@ -326,7 +331,7 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>네이티브 앱과 WebView, Native Bridge, AI 및 WebRTC 연결을 두 단말에서 검증합니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>실제 Android 홈 화면에서 Play Store를 클릭하고 앱을 설치·조작할 수 있습니다. 임시 테스트 종료 후 자동 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android Emulator</small><strong>{agent.android?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WebView</span></div>
         <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
@@ -346,14 +351,17 @@ export default function DeviceLab(){
           <div className="dl-emulator-display">
             <div className={'dl-phone-shell dl-phone-'+side} style={{width:'min(100%, '+deviceSize+'px)'}}>
               <div className="dl-phone-notch"/>
-              {view==='remote'?(
+              {view==='remote' && side==='android'?(
+                <EmulatorRemoteScreen compact token={apkToken} deviceId={apkDevice} online={apkOnline}
+                  onNotice={message=>push('android',message)}/>
+              ):view==='remote'?(
                 capture[side]?<img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 앱/시뮬레이터 화면'}/>:
                 <div className="dl-capture-empty"><b>실제 에뮬레이터 화면 대기</b><p>GitHub Actions에서 앱 설치 및 화면 캡처 후 표시됩니다.</p></div>
                 ):<iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
             </div>
-            {view==='remote'&&!agent[side]?.online&&<div className="dl-overlay-warning">{capture[side]?'GitHub Actions 마지막 실제 캡처 · 현재 실시간 연결 아님':'실제 에뮬레이터 실행 결과 대기'}</div>}
+            {view==='remote'&&side==='ios'&&!agent[side]?.online&&<div className="dl-overlay-warning">{capture[side]?'GitHub Actions 마지막 실제 캡처 · 현재 실시간 연결 아님':'실제 에뮬레이터 실행 결과 대기'}</div>}
           </div>
-          <footer className="dl-card-footer"><span>{deviceSize} px · {view==='remote'?(agent[side]?.online?'실시간 네트워크 캡처':'GitHub Actions 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
+          <footer className="dl-card-footer"><span>{deviceSize} px · {view==='remote'&&side==='android'?(apkOnline?'실제 Android · 터치 가능':'일회용 Android 연결 대기'):view==='remote'?(agent[side]?.online?'실제 화면 캡처':'마지막 저장 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
@@ -367,7 +375,8 @@ export default function DeviceLab(){
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
-      <ApkInstaller/>
+      <ApkInstaller token={apkToken} setToken={setApkToken}
+        device={apkDevice} setDevice={setApkDevice} hosts={apkHosts} setHosts={setApkHosts}/>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
         <div className="dl-ci-reports">{SIDES.map(side=><details key={side}><summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'검증 성공':'검증 결과 확인'):'아직 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId}</span>}</summary><pre>{ci?.[side]?.log||'GitHub Actions 실행 및 실제 앱 화면 캡처 대기'}</pre>{ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">해당 GitHub Actions 실행 열기 ↗</a>}</details>)}</div></section>
