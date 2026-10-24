@@ -1,0 +1,32 @@
+name: HITEL native Android headless Chrome end-to-end
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-native-playwright-e2e.yml'
+      - 'mobile/tests/android-native-playwright-e2e.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-web-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install independent Chromium Playwright runner
+        run: |
+          python -m pip install --quiet playwright==1.56.0
+          python -m playwright install chromium
+      - name: Verify native scrcpy host appears in REAL Railway page
+        run: python mobile/tests/android-native-playwright-e2e.py
+      - name: Save screenshot, evidence even if unavailable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-native-android-real-chromium-e2e
+          path: mobile-test-results/android-native-browser-e2e/
+          if-no-files-found: warn
