@@ -58,6 +58,7 @@ class MainActivity : Activity() {
                         "comm.pong" -> Log.i(LOG_TAG, "COMM_SOCKET_PONG")
                         "comm.snapshot" -> Log.i(LOG_TAG, "COMM_SNAPSHOT_OK")
                         "comm.event" -> {
+                            Log.i(LOG_TAG, "COMM_EVENT_" + event.optJSONObject("event")?.optString("type", "UNKNOWN")?.uppercase(Locale.ROOT))
                             val detail=JSONObject().put("type","communication.event")
                                 .put("event",event.optJSONObject("event"))
                             runOnUiThread {
