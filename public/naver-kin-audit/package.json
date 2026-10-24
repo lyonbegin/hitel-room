@@ -1,0 +1,21 @@
+{
+  "name": "hitel-naver-kin-browser-audit",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "dependencies": {
+    "playwright": "^1.58.0",
+    "pngjs": "^7.0.0",
+    "pixelmatch": "^7.1.0",
+    "@playwright/mcp": "latest",
+    "chrome-devtools-mcp": "latest",
+    "rea-agents": "latest",
+    "@modelcontextprotocol/sdk": "latest"
+  }
+}
