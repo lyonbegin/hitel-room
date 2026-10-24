@@ -5,11 +5,14 @@ import { chromium } from 'playwright';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 import { spawn } from 'node:child_process';
+import { auditTools } from './tools-runner.mjs';
 const BASE='/tmp/hitel-daangn-audit';
 const TARGETS={
 original:'https://www.daangn.com/kr/search/local-profile/',
+region:'https://www.daangn.com/kr/search/local-profile/',
 search:'https://www.daangn.com/kr/search/local-profile/?q='+encodeURIComponent('입주청소'),
 clone:'http://127.0.0.1:8080/clone',
+cloneRegion:'http://127.0.0.1:8080/clone',
 baseline:'https://hitel-fusion-web-production.up.railway.app/daangn.html'
 };
 const VIEW={width:1440,height:900};
@@ -17,7 +20,7 @@ let state={status:'pending',startedAt:null,finishedAt:null,stages:{},toolStatus:
 let running=false,lastStart=0;
 const limit=(s,n=200)=>String(s||'').slice(0,n);
 const asJson=o=>JSON.stringify(o,null,2);
-const fileMap=new Map([['original.png','image/png'],['search.png','image/png'],['clone.png','image/png'],['baseline.png','image/png'],['diff.png','image/png'],['original.json','application/json'],['search.json','application/json'],['clone.json','application/json'],['baseline.json','application/json'],['report.json','application/json']]);
+const fileMap=new Map([['original.png','image/png'],['search.png','image/png'],['region.png','image/png'],['cloneRegion.png','image/png'],['clone.png','image/png'],['baseline.png','image/png'],['diff.png','image/png'],['original.json','application/json'],['search.json','application/json'],['region.json','application/json'],['cloneRegion.json','application/json'],['clone.json','application/json'],['baseline.json','application/json'],['report.json','application/json']]);
 async function command(cmd,args,timeout=13000){return await new Promise(resolve=>{let stdout='',stderr='',done=false;const p=spawn(cmd,args,{cwd:'/app',env:{...process.env,NO_COLOR:'1'},stdio:['ignore','pipe','pipe']});const kill=setTimeout(()=>{if(!done){done=true;p.kill('SIGKILL');resolve({ok:false,reason:'timeout',stdout:stdout.slice(0,500),stderr:stderr.slice(0,500)})}},timeout);p.stdout.on('data',s=>stdout+=s.toString().slice(0,1500));p.stderr.on('data',s=>stderr+=s.toString().slice(0,1500));p.on('error',e=>{if(!done){done=true;clearTimeout(kill);resolve({ok:false,reason:e.message})}});p.on('close',c=>{if(!done){done=true;clearTimeout(kill);resolve({ok:c===0,exitCode:c,stdout:stdout.slice(0,1300),stderr:stderr.slice(0,1200)})}})})}
 async function toolChecks(){
 const tools=[['playwrightMCP','./node_modules/.bin/playwright-mcp',['--help']],['chromeDevToolsMCP','./node_modules/.bin/chrome-devtools-mcp',['--help']],['REA','./node_modules/.bin/rea',['--help']]];
@@ -35,6 +38,7 @@ page.on('response',response=>{if(result.network.length<350)result.network.push({
 const response=await page.goto(url,{timeout:48000,waitUntil:'domcontentloaded'});
 result.httpStatus=response?.status()??null;
 await page.waitForTimeout(2600);
+if(name==='region'||name==='cloneRegion'){try{const b=name==='region'?page.getByRole('button',{name:'지역 선택',exact:true}).first():page.locator('#placeSelect');await b.click({timeout:9000});await page.waitForTimeout(950);result.interaction='clicked region selector'}catch(e){result.interaction='failed: '+String(e.message).slice(0,600)}}
 result.pageUrl=page.url();result.title=await page.title();result.bodyLength=await page.locator('body').innerText().then(t=>t.length).catch(()=>0);
 result.snapshot=await page.evaluate(()=>{
 const rect=e=>{const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height)}};
@@ -51,7 +55,14 @@ await browser.close();return result;
 async function diff(){
 try{const pa=PNG.sync.read(await fs.readFile(path.join(BASE,'original.png')));const pb=PNG.sync.read(await fs.readFile(path.join(BASE,'clone.png')));if(pa.width!==pb.width||pa.height!==pb.height)throw Error('image dimensions do not match');
 const d=new PNG({width:pa.width,height:pa.height});const mismatch=pixelmatch(pa.data,pb.data,d.data,pa.width,pa.height,{threshold:0.12});
-await fs.writeFile(path.join(BASE,'diff.png'),PNG.sync.write(d));return{status:'computed',totalPixels:pa.width*pa.height,mismatchedPixels:mismatch,differencePercent:+(mismatch/(pa.width*pa.height)*100).toFixed(2),width:pa.width,height:pa.height};
+const sections={};
+for(const [name,x0,x1] of [['left-search-list',0,628],['right-map',648,1440]]){
+ const w=x1-x0,h=pa.height;const ai=Buffer.alloc(w*h*4),bi=Buffer.alloc(w*h*4);
+ for(let y=0;y<h;y++){Buffer.from(pa.data).copy(ai,y*w*4,(y*pa.width+x0)*4,(y*pa.width+x1)*4);Buffer.from(pb.data).copy(bi,y*w*4,(y*pb.width+x0)*4,(y*pb.width+x1)*4);}
+ const diffData=new Uint8Array(ai.length);const n=pixelmatch(ai,bi,diffData,w,h,{threshold:0.12});
+ sections[name]={mismatchedPixels:n,totalPixels:w*h,differencePercent:+(n/(w*h)*100).toFixed(2)};
+}
+await fs.writeFile(path.join(BASE,'diff.png'),PNG.sync.write(d));return{status:'computed',totalPixels:pa.width*pa.height,mismatchedPixels:mismatch,differencePercent:+(mismatch/(pa.width*pa.height)*100).toFixed(2),width:pa.width,height:pa.height,regions:sections};
 }catch(e){return{status:'unavailable',reason:String(e.message||e)}}
 }
 async function runAudit(){
@@ -69,6 +80,8 @@ try{const u=new URL(req.url,'http://localhost');res.setHeader('Cache-Control','n
 if(u.pathname==='/clone'){const htmlData=await fs.readFile('/app/clone.html');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(htmlData)}
 if(u.pathname==='/run'){const accepted=await runAudit();res.writeHead(202,{'Content-Type':'application/json'});return res.end(asJson({accepted,state:state.status}))}
 if(u.pathname.startsWith('/image-base64/')){const name=u.pathname.slice('/image-base64/'.length);if(!['original.png','clone.png','diff.png','search.png'].includes(name)){res.writeHead(404);return res.end('Not allowed')}const data=await fs.readFile(path.join(BASE,name));res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});return res.end(data.toString('base64'))}
+if(u.pathname==='/tools-run'){res.writeHead(202,{'Content-Type':'application/json'});res.end('{"accepted":true,"target":"daangn.com"}');auditTools().catch(e=>console.error('mcp_rea_audit',e));return}
+if(u.pathname==='/tools-report'){const data=await fs.readFile(path.join(BASE,'tools-report.json'));res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(data)}
 if(u.pathname==='/report'){res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(asJson(state))}
 if(u.pathname.startsWith('/artifacts/')){const name=u.pathname.slice(11);if(!mime(name)){res.writeHead(404);return res.end('File not allowed')}const data=await fs.readFile(path.join(BASE,name));res.writeHead(200,{'Content-Type':mime(name)});return res.end(data)}
 if(u.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(html())}
