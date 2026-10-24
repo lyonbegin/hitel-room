@@ -6,6 +6,8 @@ on:
     paths:
       - 'lab-server/**'
       - 'tests/device-relay-multi-device.test.mjs'
+      - 'mobile/tests/test_apk_emulator_agent.py'
+      - 'mobile/tools/apk-emulator-agent.py'
       - 'src/communication-sdk/**'
       - 'nginx.conf'
       - '.github/workflows/communication-signaling.yml'
@@ -33,3 +35,4 @@ jobs:
           node --check lab-server/communication.mjs
           node --check lab-server/apk-manager.mjs
           python3 -m py_compile mobile/tools/apk-emulator-agent.py
+          python3 -m unittest discover -s mobile/tests -p 'test_apk_emulator_agent.py' -v
