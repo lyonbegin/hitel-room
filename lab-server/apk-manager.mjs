@@ -37,7 +37,7 @@ export function createApkManager({
     if(!validDevice.test(device||''))throw Error('INVALID_DEVICE_ID');
     if(same(agentToken,tokenOf(req)))return {kind:'persistent',device};
     // OIDC credentials are accepted ONLY for disposable CI emulator id.
-    if(device==='ci-android'){
+    if(device==='ci-android'||device==='ci-playstore'){
       const identity=await verifyCI(req);
       return {kind:'ci',device,runId:String(identity.run_id||'')};
     }
