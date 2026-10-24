@@ -5,6 +5,7 @@
 [CmdletBinding()]
 param(
     [switch]$Configure,
+    [switch]$InstallAutostart,
     [string]$DeviceId = "android-lab-01",
     [string]$AvdName = "hitel-play",
     [string]$RepositoryRoot = ""
@@ -26,6 +27,19 @@ if ($Configure) {
     Write-Host "Agent credential encrypted under current Windows account: $secretsFile"
 }
 
+if ($InstallAutostart) {
+    $startup = [Environment]::GetFolderPath("Startup")
+    if (-not $startup) { throw "Windows Startup folder not found" }
+    $shortcutPath = Join-Path $startup "HITEL Android Emulator.lnk"
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $scriptPath = $MyInvocation.MyCommand.Path
+    $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $scriptPath + '" -DeviceId "' + $DeviceId + '" -AvdName "' + $AvdName + '"'
+    $shortcut.WorkingDirectory = $RepositoryRoot
+    $shortcut.Save()
+    Write-Host "Autostart registered for this Windows user: $shortcutPath"
+}
 if (!(Test-Path $secretsFile)) { throw "Agent not configured. First run with -Configure" }
 if (!(Test-Path $agent)) { throw "HITEL agent missing: $agent" }
 
