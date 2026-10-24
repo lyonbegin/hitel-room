@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Always mark Railway's one-shot session complete on success, early failure,
+# or a user stop, without requiring a GitHub page.
+trap 'python3 mobile/tools/finish-ui-request.py || true' EXIT
 out="mobile-test-results/android-interactive"
 mkdir -p "$out"
 adb wait-for-device
