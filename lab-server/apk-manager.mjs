@@ -20,6 +20,8 @@ export function createApkManager({
   const jobsDir=path.join(root,'jobs');
   const framesDir=path.join(root,'frames');
   const hosts=new Map();
+  const uiTestSessions=new Map();
+  const TEST_DEVICE='ci-playstore';
   const validId=/^[a-f0-9-]{36}$/i;
   const validDevice=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
   const json=(res,code,value)=>{
@@ -111,6 +113,20 @@ export function createApkManager({
     const route=url.pathname;
     await ready;
     try{
+      // A signed GitHub Actions runner creates a short-lived test link.
+      // The operator clicks the link; there is no token field in the browser.
+      if(req.method==='POST'&&route==='/lab-api/apk/ci/ui-session'){
+        let identity;
+        try{identity=await verifyCI(req)}catch{return unauthorized(res)}
+        const token=crypto.randomBytes(32).toString('base64url');
+        for(const [key,value] of uiTestSessions)
+          if(Date.now()>value.expiresAt)uiTestSessions.delete(key);
+        uiTestSessions.set(token,{runId:String(identity.run_id||''),
+          expiresAt:Date.now()+18*60_000,deviceId:TEST_DEVICE});
+        return json(res,201,{ok:true,token,deviceId:TEST_DEVICE,expiresInSeconds:1080});
+      }
+      const session=uiTestSessions.get(tokenOf(req));
+      const isTest=!!session&&session.expiresAt>Date.now()&&session.deviceId===TEST_DEVICE;
       if(req.method==='GET'&&route==='/lab-api/apk/health')
         return json(res,200,{ok:true,enabled:!!adminToken,mode:'APK queue + external emulator agent'});
       if(req.method==='POST'&&route==='/lab-api/apk/ci/seed'){
@@ -203,18 +219,18 @@ export function createApkManager({
         }
         return bad(res,'UNKNOWN_AGENT_ENDPOINT',404);
       }
-      if(!admin(req))return unauthorized(res);
+      if(!admin(req)&&!isTest)return unauthorized(res);
       if(req.method==='GET'&&route==='/lab-api/apk/files'){
         const records=await allRecords(filesDir);
-        return json(res,200,{ok:true,files:records});
+        return json(res,200,{ok:true,files:isTest?records.filter(f=>f.testOnly===true):records});
       }
       if(req.method==='GET'&&route==='/lab-api/apk/jobs'){
         const jobs=await allRecords(jobsDir);
-        return json(res,200,{ok:true,jobs});
+        return json(res,200,{ok:true,jobs:isTest?jobs.filter(j=>j.deviceId===TEST_DEVICE):jobs});
       }
       if(req.method==='GET'&&route.startsWith('/lab-api/apk/frame/')){
         const device=route.split('/').at(-1);
-        if(!validDevice.test(device||''))return bad(res,'INVALID_DEVICE_ID');
+        if(!validDevice.test(device||'')||(isTest&&device!==TEST_DEVICE))return bad(res,'INVALID_DEVICE_ID');
         try{
           const png=await fs.readFile(path.join(framesDir,device+'.png'));
           res.writeHead(200,{'content-type':'image/png','content-length':png.length,
@@ -227,7 +243,7 @@ export function createApkManager({
         const deviceId=String(body.deviceId||'');
         const packageName=String(body.packageName||'');
         const operation=body.operation==='verify'?'verify':'store';
-        if(!validDevice.test(deviceId)||!(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/i).test(packageName)||
+        if((isTest&&deviceId!==TEST_DEVICE)||!validDevice.test(deviceId)||!(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/i).test(packageName)||
            packageName.length>150)return bad(res,'INVALID_GOOGLE_PLAY_PACKAGE');
         const host=hosts.get(deviceId);
         if(!host||Date.now()-host.lastSeen>20_000)
@@ -245,7 +261,7 @@ export function createApkManager({
       if(req.method==='POST'&&route==='/lab-api/apk/control'){
         const body=await readJson(req);
         const device=String(body.deviceId||''),action=String(body.action||'');
-        if(!validDevice.test(device)||!['tap','back','home','scroll','playstore','type'].includes(action))
+        if((isTest&&device!==TEST_DEVICE)||!validDevice.test(device)||!['tap','back','home','scroll','playstore','type'].includes(action))
           return bad(res,'INVALID_CONTROL_ACTION');
         const host=hosts.get(device);
         if(!host||Date.now()-host.lastSeen>20_000)return bad(res,'EMULATOR_HOST_OFFLINE',409);
@@ -272,7 +288,7 @@ export function createApkManager({
         return json(res,201,{ok:true,job});
       }
       if(req.method==='GET'&&route==='/lab-api/apk/hosts'){
-        return json(res,200,{ok:true,hosts:[...hosts.values()].map(h=>({
+        return json(res,200,{ok:true,hosts:[...hosts.values()].filter(h=>!isTest||h.deviceId===TEST_DEVICE).map(h=>({
           deviceId:h.deviceId,kind:h.kind,lastSeen:new Date(h.lastSeen).toISOString(),
           width:h.width||null,height:h.height||null,online:Date.now()-h.lastSeen<20_000
         }))});
@@ -282,13 +298,19 @@ export function createApkManager({
           .split(/[\\/]/).pop().slice(0,120);
         try{
           const file=await storeUpload(req,name);
+          if(isTest){file.testOnly=true;await saveRecord(filesDir,file)}
           return json(res,201,{ok:true,file});
         }catch(e){return bad(res,e.message,e.message==='APK_TOO_LARGE'?413:400)}
       }
       if(req.method==='POST'&&route==='/lab-api/apk/jobs'){
         const data=await readJson(req);
         const apkId=String(data.apkId||''),deviceId=String(data.deviceId||'');
-        if(!validId.test(apkId)||!validDevice.test(deviceId))return bad(res,'INVALID_INSTALL_JOB');
+        if(!validId.test(apkId)||!validDevice.test(deviceId)||(isTest&&deviceId!==TEST_DEVICE))
+          return bad(res,'INVALID_INSTALL_JOB');
+        if(isTest){
+          const apk=await readRecord(filesDir,apkId);
+          if(!apk?.testOnly)return bad(res,'TEST_APK_REQUIRED',403);
+        }
         const job=await queueInstall(apkId,deviceId,data.launchAfterInstall);
         return json(res,201,{ok:true,job});
       }
