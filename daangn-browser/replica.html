@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>동네업체 검색 · HITEL 당근 화면 재현 시험</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Pretendard Variable","Segoe UI",Roboto,Arial,"Noto Sans KR",sans-serif;color:#1a1c20;font-size:16px}
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8}button,input{font:inherit}button{cursor:pointer}
+.sidebar{width:640px;position:fixed;left:0;top:0;bottom:0;overflow:auto;scrollbar-width:thin;background:#f4f6f8;padding:0 16px 40px;z-index:2}
+.top{height:93px;display:flex;gap:17px;align-items:center;position:sticky;top:0;background:#f4f6f8;z-index:8}
+.logo{color:#f66a09;font-size:29px;font-weight:900;white-space:nowrap;letter-spacing:-1.8px;display:flex;align-items:center;text-decoration:none}
+.logo svg{width:25px;height:28px;margin-right:1px}
+.searchform{height:55px;flex:1;border-radius:24px;background:#fff;display:flex;align-items:center;padding:0 13px}
+.searchform input{border:0;outline:0;flex:1;width:0;font-size:14px;background:transparent}
+.searchform button{border:0;background:transparent;font-size:20px;padding:5px 6px;color:#222}
+.tabs{height:50px;background:#fff;border-radius:22px;display:flex;align-items:center;padding:0 10px;white-space:nowrap;gap:3px;overflow:hidden}
+.tabs a,.tabs button{color:#4b5259;text-decoration:none;border:0;background:transparent;font-size:13px;padding:10px 11px;white-space:nowrap}
+.tabs a.active{border-radius:20px;background:#343b47;color:white;font-weight:700}
+.heading{padding:26px 8px 28px;min-height:140px}
+.heading h1{font-size:24px;margin:0 0 4px;letter-spacing:-.7px;line-height:32px;font-weight:740}
+.heading .sub{color:#777;font-size:12px;font-weight:500}
+.heading .h-row{display:flex;align-items:center;gap:9px}
+.heading .actions{margin-top:14px;display:flex;gap:8px}
+.pill{font-size:13px;border-radius:8px;border:0;background:white;height:36px;padding:0 12px}
+.pill.dark{background:#303944;color:white}
+.popular{background:white;border-radius:13px;margin:0 0 11px;padding:16px 9px 18px;min-height:175px}
+.popular h2{font-size:18px;letter-spacing:-.4px;margin:0 10px 19px}
+.popular h2:before{content:"⌕";color:#818ba0;margin-right:10px}
+.tags{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.tags button{background:#f4f5f6;border:0;padding:8px 10px;border-radius:22px;font-size:12px}
+.tags button.sel{background:#ffe6d6;color:#c3540a}
+.list{background:white;border-radius:13px;overflow:hidden}
+.card{padding:16px 10px 18px;border-bottom:1px solid #f1f2f4;background:white;cursor:pointer}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:0 2px}
+.card-head h3{font-size:16px;margin:0 0 3px;font-weight:720;letter-spacing:-.3px}
+.card-head .category{font-size:11px;color:#777;font-weight:500;margin-left:4px}
+.card-head .address{color:#7d8488;font-size:12px}
+.card-head .rating{font-size:14px;white-space:nowrap;font-weight:600;margin-right:3px}
+.star{color:#ff7100}
+.card-head .reviews{color:#7e8388;font-size:12px;font-weight:400;display:block;text-align:right}
+.gallery{display:flex;overflow:hidden;gap:6px;margin:12px 0 10px;align-items:center}
+.gallery img{height:138px;width:138px;flex:none;object-fit:cover;border-radius:9px;background:#eee}
+.excerpt{background:#f7f8f9;border-radius:6px;color:#555;font-size:12px;padding:9px 8px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.empty{padding:32px 20px;line-height:1.8;font-size:14px;text-align:center;color:#67707b}
+.rightmap{position:fixed;left:648px;right:16px;top:16px;bottom:16px;border-radius:22px;overflow:hidden;background:#e8e5df;box-shadow:0 0 0 1px #e3e6ea}
+#tiles{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab}
+#tiles img{position:absolute;width:256px;height:256px;pointer-events:none}
+.mapbanner{position:absolute;top:14px;left:50%;transform:translateX(-50%);padding:8px 15px;border-radius:25px;background:rgba(255,255,255,.94);box-shadow:0 3px 12px #7774;white-space:nowrap;font-size:12px;font-weight:700;border:0;z-index:3}
+.maptools{position:absolute;right:16px;bottom:22px;display:grid;gap:7px;z-index:4}
+.maptools button{width:37px;height:37px;background:#fff;border:1px solid #ddd;border-radius:20px;font-size:23px;box-shadow:0 2px 8px #0002}
+.mapattrib{position:absolute;bottom:4px;left:8px;z-index:4;background:#fffc;padding:2px 4px;font-size:10px;color:#666}
+.backdrop{position:fixed;inset:0;background:#10172044;z-index:15;display:none}
+.backdrop.open{display:block}
+.regionmenu{position:absolute;z-index:16;top:245px;left:24px;width:355px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 6px 35px #0003;display:none}
+.regionmenu.open{display:block}
+.regionmenu h3{margin:0 0 12px;font-size:15px}
+.regionmenu button{width:100%;border:0;border-radius:6px;background:white;text-align:left;padding:12px;font-size:14px}
+.regionmenu button:hover{background:#fff2e8}
+.regionmenu input{width:100%;height:40px;margin-bottom:8px;border:1px solid #ccc;border-radius:8px;padding:8px}
+.detail{position:fixed;top:50%;left:50%;width:min(500px,90vw);transform:translate(-50%,-50%);background:#fff;border-radius:14px;z-index:16;padding:22px;display:none}
+.detail.open{display:block}
+.detail h2{margin:0 0 12px}.detail .photos{display:flex;gap:5px;overflow:hidden;margin:15px 0}
+.detail img{width:110px;height:110px;object-fit:cover;border-radius:7px}
+.detail .close{float:right;border:0;font-size:23px;background:white}
+@media(max-width:920px){.sidebar{position:relative;width:100%;height:auto;max-width:650px;margin:0 auto;overflow:visible}.rightmap{position:relative;left:auto;right:auto;top:auto;bottom:auto;margin:15px;height:350px}.top{position:relative}.heading{min-height:auto}}
+</style></head><body>
+<aside class="sidebar">
+ <header class="top"><a class="logo" href="./replica.html" aria-label="당근 검색">
+ <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M18 10C13 1 22 1 23 11c7-13 17-6 5 5 7 4 7 12 1 18-4 5-14 6-21-2-6-7-4-18 4-19z" fill="#ff6b00"/><circle cx="16" cy="22" r="2.6" fill="white"/><circle cx="27" cy="22" r="2.6" fill="white"/></svg>당근</a>
+ <form class="searchform" id="search"><input type="search" id="query" placeholder="검색어를 입력하세요" aria-label="검색어"/><button aria-label="검색">⌕</button></form>
+ </header>
+ <nav class="tabs"><a href="./replica.html">⌕ 전체</a><a>▣ 중고거래</a><a class="active">▤ 동네업체</a><a>⚙ 중고차</a><a>▤ 동네생활</a><a>♧ 모임</a><button>더보기⌄</button></nav>
+ <section class="heading"><div class="h-row"><h1 id="heading">🥕 서초4동 동네업체 검색 결과</h1><span class="sub" id="addr">서울특별시 서초구 서초4동</span></div>
+ <div class="actions"><button class="pill" id="regionButton">지역 선택</button><button class="pill dark" id="resetLocation">◉ 현재 위치로 설정</button></div></section>
+ <section class="popular"><h2>인기 검색어</h2><div class="tags" id="tags"></div></section>
+ <div id="list" class="list"></div>
+</aside>
+<main class="rightmap" aria-label="지역 지도"><div id="tiles" role="application" aria-label="지도를 드래그하여 이동"></div>
+ <button class="mapbanner" id="searchMap">⟳ <span id="mapLabel">서초4동 업체 검색</span></button>
+ <div class="maptools"><button id="zoomIn" aria-label="확대">+</button><button id="zoomOut" aria-label="축소">−</button><button id="mapCenter" aria-label="중심">⌖</button></div>
+ <small class="mapattrib">© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</small>
+</main>
+<div class="backdrop" id="shade"></div><div class="regionmenu" id="regionMenu"><h3>지역 선택</h3><input id="regionQuery" placeholder="지역 이름을 검색하세요"/><div id="regionOptions"></div></div>
+<div class="detail" id="detail"><button class="close" id="detailClose">×</button><div id="detailBody"></div></div>
+<script>
+const actualImages=[
+'https://dnvefa72aowie.cloudfront.net/capri/bizPlatform/profile/20324770/1717407002328/MjNkMjRlZjUwY2JkYjNmNGVmNWU3Y2UxOGZhYzFkZGMwYzFkZGY3MDhmNDQyOGIzNWI5ODk2MGViMTM0MzFmMF8wLmpwZWc=.jpeg?q=82&s=300x300&t=crop&service=web-mixer&f=webp',
+'https://dnvefa72aowie.cloudfront.net/business-profile/bizPlatform/profile/20324770/1717408733336/NGpkNzdoSDl5UUV0WmpSVURIa0JG.jpeg?q=82&s=300x300&t=crop&service=web-mixer&f=webp',
+'https://img.kr.gcp-karroter.net/local_business_ugc/local_business_ugc/undefined/39535745/1763982632690/MmNjYjFmYWU3YjU5MzljNzczYTk4ZGM2ZDgyNDQ1MmI4ODU0NjdmOTcxZmFiZTQ3MjE4OTUwODUyNzk1ODAxOV8wLmpwZWc=.jpeg?service=web-mixer&s=300x300&q=82&t=crop&f=webp',
+'https://dnvefa72aowie.cloudfront.net/capri/bizPlatform/profile/20324770/1717407002284/NjRkMTFlNGY1MjVjYWVhYWExOTIxNTA3NzZhZWMwYTlmYTY0OTYxNmI4MmNjODNjMzlhYzY0ZWUyYzFiZDVmNl82LmpwZWc=.jpeg?q=82&s=300x300&t=crop&service=web-mixer&f=webp',
+'https://img.kr.gcp-karroter.net/local_business_ugc/local_business_ugc/undefined/24831975/1762508164285/clRNS0pFbVRxMHIxUGpPc0pRZUpn.jpeg?service=web-mixer&s=300x300&q=82&t=crop&f=webp'
+];
+const secondImages=[
+'https://img.kr.gcp-karroter.net/local_business_ugc/local_business_ugc/undefined/25239632/1763435181619/dEZNWFZLdDkwWjdzX1lJUFBjeU00.jpeg?service=web-mixer&s=300x300&q=82&t=crop&f=webp',
+'https://img.kr.gcp-karroter.net/business-profile/bizPlatform/profile/90341089/1729331242282/cDk2T3JGQXhpa28wTDVQN1N0Vzh5.jpeg?q=82&s=300x300&t=crop&service=web-mixer&f=webp',
+'https://img.kr.gcp-karroter.net/local_business_ugc/local_business_ugc/undefined/8462578/1758104891228/bmNWb1YxRnRUUjhOY3Jxc09TdTB2.jpeg?service=web-mixer&s=300x300&q=82&t=crop&f=webp',
+'https://img.kr.gcp-karroter.net/local_business_ugc/local_business_ugc/undefined/3184524/1759910069359/NTFNM2RvUXlSaWNnN2F5azhSYml4.jpeg?service=web-mixer&s=300x300&q=82&t=crop&f=webp',
+'https://img.kr.gcp-karroter.net/local_business_ugc/local_business_ugc/undefined/25642593/1763459710721/WEFQSlZOUGRId0ZOS0FxeXd2WmZn.jpeg?service=web-mixer&s=300x300&q=82&t=crop&f=webp'
+];
+const listings=[
+{name:'감동상회',kind:'보쌈/족발',zone:'서초4동',address:'서초동',review:3,rating:'4.0',regular:11,imgs:actualImages,description:'주안상과 막걸리명인이 만든 생막걸리가 있는 서초동의 맛집 낮에는 부페 저녁에는 한식맛집 막걸리가 맛있는 주안상'},
+{name:'교대 오리사냥',kind:'닭/오리 요리',zone:'서초4동',address:'서초동',review:11,rating:'4.5',regular:3,imgs:secondImages,description:'생오리구이와 오리백숙, 그리고 냉동삼겹살을 전문으로 하는 음식점입니다.'}
+];
+const regions=[
+{name:'서울특별시 서초구 서초4동',short:'서초4동',lat:37.4942,lon:127.0099},
+{name:'서울특별시 강남구 역삼1동',short:'역삼1동',lat:37.5008,lon:127.0366},
+{name:'서울특별시 마포구 합정동',short:'합정동',lat:37.5496,lon:126.9138},
+{name:'부산광역시 해운대구 우동',short:'우동',lat:35.163,lon:129.159}
+];
+let region=regions[0],term='';
+const $=id=>document.getElementById(id);
+const safe=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const keywords=['휴대폰','미용실','인테리어','입주청소','이사','도배','에어컨','철거','청소','네일','신점','보험','더보기'];
+function renderTags(){$('tags').innerHTML=keywords.map(k=>'<button data-word="'+k+'" class="'+(term===k?'sel':'')+'">'+k+'</button>').join('');document.querySelectorAll('[data-word]').forEach(b=>b.onclick=()=>search(b.dataset.word))}
+function renderList(){const rows=listings.filter(x=>x.zone===region.short && (!term||[x.name,x.kind,x.description].some(v=>v.includes(term))));
+ $('heading').textContent='🥕 '+region.short+' 동네업체 검색 결과';$('addr').textContent=region.name;$('mapLabel').textContent=region.short+' 업체 검색';
+ $('list').innerHTML=rows.length?rows.map((c,i)=>'<article class="card" data-detail="'+i+'"><div class="card-head"><div><h3>'+safe(c.name)+'<span class="category">'+safe(c.kind)+'</span></h3><span class="address">'+safe(c.address)+' · 단골 '+c.regular+'</span></div><div class="rating"><span class="star">★</span> '+c.rating+'<span class="reviews">후기 '+c.review+'</span></div></div><div class="gallery">'+c.imgs.map(url=>'<img loading="eager" src="'+safe(url)+'" alt="'+safe(c.name)+' 사진"/>').join('')+'</div><div class="excerpt">소개 '+safe(c.description)+'</div></article>').join(''):'<div class="empty">현재 등록된 공개 참조 데이터에서 일치하는 업체가 없습니다.<br>실제 당근 전체 업체 검색과 아직 연동되지 않았습니다.</div>';
+ document.querySelectorAll('[data-detail]').forEach(el=>el.onclick=()=>openDetail(rows[Number(el.dataset.detail)]));
+ renderTags();}
+function search(value){term=value.trim();$('query').value=term;renderList();history.replaceState(null,'',term?'?q='+encodeURIComponent(term):location.pathname)}
+$('search').onsubmit=e=>{e.preventDefault();search($('query').value)};
+$('resetLocation').onclick=()=>selectRegion(regions[0]);
+function selectRegion(r){region=r;term='';$('query').value='';closeAll();renderList();map.lat=r.lat;map.lon=r.lon;drawMap()}
+function showRegion(){ $('shade').classList.add('open');$('regionMenu').classList.add('open');renderRegions();$('regionQuery').focus()}
+$('regionButton').onclick=showRegion;
+function closeAll(){$('shade').classList.remove('open');$('regionMenu').classList.remove('open');$('detail').classList.remove('open')}
+$('shade').onclick=closeAll;$('detailClose').onclick=closeAll;
+$('regionQuery').oninput=renderRegions;
+function renderRegions(){const q=$('regionQuery').value.trim();$('regionOptions').innerHTML=regions.filter(x=>!q||x.name.includes(q)).map((r,i)=>'<button data-region="'+regions.indexOf(r)+'">'+safe(r.name)+'</button>').join('');document.querySelectorAll('[data-region]').forEach(x=>x.onclick=()=>selectRegion(regions[Number(x.dataset.region)]))}
+function openDetail(c){$('detailBody').innerHTML='<h2>'+safe(c.name)+'</h2><div>'+safe(c.kind)+' · '+safe(c.address)+' · ★ '+c.rating+' · 후기 '+c.review+'</div><div class="photos">'+c.imgs.slice(0,4).map(x=>'<img src="'+safe(x)+'"/>').join('')+'</div><p>'+safe(c.description)+'</p><p style="font-size:12px;color:#777">참조 시연 화면입니다. 실제 업체 상담·예약은 연결되어 있지 않습니다.</p>'; $('shade').classList.add('open');$('detail').classList.add('open')}
+const map={lat:region.lat,lon:region.lon,zoom:14};
+function tileCenter(lat,lon,z){const s=Math.sin(lat*Math.PI/180);const n=2**z;return {x:(lon+180)/360*n,y:(.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n}}
+function drawMap(){const box=$('tiles'),rect=box.getBoundingClientRect(),w=rect.width,h=rect.height,ctr=tileCenter(map.lat,map.lon,map.zoom),tiles=[];const startX=Math.floor(ctr.x-w/512)-1,endX=Math.ceil(ctr.x+w/512)+1,startY=Math.floor(ctr.y-h/512)-1,endY=Math.ceil(ctr.y+h/512)+1,n=2**map.zoom;for(let y=startY;y<=endY;y++)for(let x=startX;x<=endX;x++){if(y<0||y>=n)continue;const xx=((x%n)+n)%n,l=Math.round((x-ctr.x)*256+w/2),t=Math.round((y-ctr.y)*256+h/2);tiles.push('<img draggable="false" src="https://tile.openstreetmap.org/'+map.zoom+'/'+xx+'/'+y+'.png" style="left:'+l+'px;top:'+t+'px" alt=""/>')}box.innerHTML=tiles.join('')}
+$('zoomIn').onclick=()=>{map.zoom=Math.min(19,map.zoom+1);drawMap()};$('zoomOut').onclick=()=>{map.zoom=Math.max(3,map.zoom-1);drawMap()};$('mapCenter').onclick=()=>{map.lat=region.lat;map.lon=region.lon;drawMap()};$('searchMap').onclick=()=>{term='';renderList()};
+let start;const el=$('tiles');el.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,lat:map.lat,lon:map.lon};el.setPointerCapture(e.pointerId)});el.addEventListener('pointerup',e=>{if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y,z=map.zoom;const c=tileCenter(start.lat,start.lon,z),lon=((c.x-dx/256)/(2**z)*360)-180,yy=c.y-dy/256,rad=Math.atan(Math.sinh(Math.PI*(1-2*yy/(2**z))));map.lon=lon;map.lat=rad*180/Math.PI;start=null;drawMap()});el.addEventListener('wheel',e=>{e.preventDefault();map.zoom=Math.min(19,Math.max(3,map.zoom+(e.deltaY<0?1:-1)));drawMap()},{passive:false});
+renderList();drawMap();const params=new URLSearchParams(location.search);if(params.has('q'))search(params.get('q'));window.addEventListener('resize',drawMap);
+</script></body></html>
