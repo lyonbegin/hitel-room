@@ -57,29 +57,37 @@ else:
     assert state["participants"]["callee"]["online"] is True, state
     assert state["participants"]["caller"]["online"] is False, state
     print(f"PASS: Web caller -> native {PLATFORM} WebSocket invite -> native ACK to server; event={target}")
-    # Now invoke the real app's communication.action handler over the existing
-    # OIDC-paired lab socket and verify its native WebSocket changed SERVER state.
+    # Invoke each state transition through the real native app, not HTTP acting
+    # as the callee. The lab socket is only an authenticated test input channel.
     controller = os.environ["HITEL_LAB_CONTROLLER"]
-    _, queued = call("/lab-api/command", {
-        "device": PLATFORM, "action": "communication.action",
-        "data": {"callAction": "call.ringing", "payload": {}}
-    }, token=controller)
-    request_id = queued["requestId"]
-    for _ in range(30):
-        code, response = call("/lab-api/result/" + request_id, token=controller)
-        if code == 200:
-            assert response.get("ok") is True, response
-            assert response.get("scope") == "native-signaling-pending-ack", response
-            break
-        time.sleep(0.25)
-    else:
-        raise SystemExit("FAIL: native Communication action command was not acknowledged")
-    for _ in range(35):
-        _, state = call("/comm-api/session/" + call_id, token=caller_token)
-        if state["state"] == "ringing" and any(e["type"] == "call.ringing"
-                  and e["from"] == "callee" for e in state["events"]):
-            break
-        time.sleep(0.25)
-    else:
-        raise SystemExit(f"FAIL: native {PLATFORM} did not emit call.ringing to real signaling server")
-    print(f"PASS: native {PLATFORM} -> WebSocket -> signaling server -> web caller; state=ringing")
+    def native_action(action):
+        _, queued = call("/lab-api/command", {
+            "device": PLATFORM, "action": "communication.action",
+            "data": {"callAction": action, "payload": {}}
+        }, token=controller)
+        request_id = queued["requestId"]
+        for _ in range(35):
+            code, response = call("/lab-api/result/" + request_id, token=controller)
+            if code == 200:
+                assert response.get("ok") is True, response
+                assert response.get("scope") == "native-signaling-pending-ack", response
+                break
+            time.sleep(0.25)
+        else:
+            raise SystemExit(f"FAIL: native {PLATFORM} did not queue {action}")
+    def expect_state(expected, event):
+        for _ in range(35):
+            _, state = call("/comm-api/session/" + call_id, token=caller_token)
+            if state["state"] == expected and any(
+                e["type"] == event and e["from"] == "callee" for e in state["events"]
+            ):
+                return
+            time.sleep(0.25)
+        raise SystemExit(f"FAIL: native {PLATFORM} did not deliver {event} / {expected}")
+    native_action("call.ringing")
+    expect_state("ringing", "call.ringing")
+    native_action("call.accept")
+    expect_state("accepted", "call.accept")
+    native_action("call.end")
+    expect_state("ended", "call.end")
+    print(f"PASS: native {PLATFORM} -> WebSocket -> caller: ringing -> accepted -> ended")
