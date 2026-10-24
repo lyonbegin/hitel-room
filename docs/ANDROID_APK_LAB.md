@@ -1,0 +1,66 @@
+# Communication SDK — Android 외부 APK 설치 운영
+
+## 실제 구조
+```
+웹 /sdk-lab → /lab-api/apk/upload (운영자 인증, 바이너리)
+                  ↓ /data/apk-manager/files/*.apk (Railway 영속 볼륨)
+웹 /sdk-lab → /lab-api/apk/jobs (설치 대상 등록)
+                  ↓ /data/apk-manager/jobs/*.json (대기열)
+에뮬레이터 호스트 --HTTPS polling--> /lab-api/apk/agent/next
+                  ↓ APK 다운로드 / SHA-256 재검증
+           adb install -r <downloaded.apk>
+                  ↓ adb shell pm path <package>
+           /lab-api/apk/agent/report
+                  ↓
+웹 /sdk-lab → 설치 성공/실패 표시
+```
+
+## 사용자 운영
+1. Railway 서비스 `hitel-device-relay` > **Variables** 에서 `LAB_APK_ADMIN_TOKEN` 값을 관리자가 확인한다. 이 값은 GitHub 코드에 저장하지 않는다.
+2. [Communication SDK 에뮬레이터](https://hitel-communication-web-production.up.railway.app/sdk-lab) 아래 **외부 앱 설치 · 에뮬레이터 관리** 영역에서 토큰을 입력한다.
+3. `.apk` 파일을 업로드하면 80MB 제한과 ZIP 헤더 확인 후 보관하며 SHA-256 해시를 제공한다. 실제 APK 패키지/서명 호환성은 설치 호스트의 Android SDK와 패키지 매니저가 검사한다.
+4. `android-lab-01`(지속형) 또는 `ci-android`(일회용) 대상 선택 → **실제 설치 요청**. 호스트가 오프라인이면 작업은 대기열에 보존된다.
+5. 온라인 에뮬레이터 에이전트가 파일을 받고 `adb install -r`, `pm path`로 설치 성공을 검증하고 결과를 회신한다.
+
+## 상시 가동 Android 에뮬레이터 호스트 (Railway와 분리)
+Railway 컨테이너는 ADB로 다른 머신의 에뮬레이터를 마음대로 실행하지 않는다. KVM 사용 가능한 사용자의 전용 Linux/Windows 개발 머신 또는 별도 VM을 준비해야 한다.
+
+### KVM Linux 예시
+```bash
+# 이미 Android SDK commandline-tools와 Java가 구성돼 있다고 가정
+sdkmanager --install "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis_playstore;x86_64"
+echo no | avdmanager create avd -n hitel-play -k "system-images;android-35;google_apis_playstore;x86_64"
+emulator -avd hitel-play -no-snapshot-load -gpu swiftshader_indirect &
+adb wait-for-device
+adb devices
+# 반드시 개인/조직 비밀관리시스템에서 설정: git에 키를 올리지 않는다.
+export LAB_APK_AGENT_TOKEN='여기에 Railway LAB_APK_AGENT_TOKEN 값'
+export LAB_RELAY_URL='https://hitel-device-relay-production.up.railway.app'
+python3 mobile/tools/apk-emulator-agent.py --device android-lab-01 --serial emulator-5554
+```
+Play Store가 포함된 이미지에서는 사용자가 Play Store에 로그인한 후 카카오T 공식 패키지 `com.kakao.taxi`를 설치할 수 있다. Google Play 로그인은 사용자가 직접 수행한다.
+
+### Windows 예시
+Android Studio / Android SDK를 설치하고 AVD를 실행한다. `adb devices`로 시리얼을 조회한 뒤 동일한 Python 에이전트를 실행한다. `--serial` 에 실제 시리얼을 넣는다.
+
+## GitHub Actions 임시 에뮬레이터
+사용자는 웹에서 `ci-android`에 설치 작업을 등록할 수 있다. 이후
+[HITEL Mobile Emulator E2E](https://github.com/lyonbegin/hitel-room/actions/workflows/mobile-emulator.yml)
+워크플로를 수동 실행하면, GitHub Actions OIDC 인증으로 설치 대기열을 소비한다.
+일회용 에뮬레이터이므로 워크플로가 끝나면 설치 앱과 계정은 사라진다.
+워크플로에서 빌드한 HITEL 테스트 APK를 업로드하고 설치하는 자동 E2E 테스트도 포함되어 있다.
+
+## 구분해야 하는 현재 범위
+- APK 업로드 / 설치 작업 / ADB 호스트 에이전트 / 설치 결과: 구현.
+- 웹에서 설치 작업 등록 즉시 처리: `android-lab-01` 등 **실행 중인 호스트가 연결되었을 때** 가능.
+- 카카오T가 로그인·인증·가상 기기 지원 문제 없이 정상 실행하는지는 별도 실제 테스트.
+- Play Store 앱 설치는 사용자의 로그인과 승인 후 가능. 웹 관리자가 Google 계정 로그인을 우회할 수 없다.
+- 네이티브 앱의 `AccessibilityService` 는 사용자가 승인한 앱 접근성 동작을 처리한다. 실제 결제나 차량 호출은 승인 없이 실행하지 않는다.
+- 타사 앱 화면을 웹에서 연속 스트리밍하고 웹 탭 좌표를 ADB에 전달하는 기능은 후속 개발 대상. 이전의 HITEL `PixelCopy`는 타사 앱 전체 화면을 캡처하지 않는다.
+
+## 보안
+- 관리자용 `LAB_APK_ADMIN_TOKEN` 과 호스트용 `LAB_APK_AGENT_TOKEN` 은 서로 독립된 비밀.
+- GitHub Actions는 저장된 호스트 비밀이 아닌 GitHub OIDC JWT로 **CI 에뮬레이터만** 제어.
+- API는 임의 쉘 실행 요청을 받아들이지 않는다. ADB 설치 명령은 고정된 인수 형식만 사용.
+- 호스트는 업로드 해시와 다운로드한 APK의 SHA-256을 비교한다.
+- 신뢰된 공급처의 APK만 업로드한다. 타사 앱을 설치하면 에뮬레이터 안에서 해당 코드가 실행된다.
