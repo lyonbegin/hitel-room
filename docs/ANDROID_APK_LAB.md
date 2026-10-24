@@ -15,12 +15,15 @@
 웹 /sdk-lab → 설치 성공/실패 표시
 ```
 
-## 사용자 운영
-1. Railway 서비스 `hitel-device-relay` > **Variables** 에서 `LAB_APK_ADMIN_TOKEN` 값을 관리자가 확인한다. 이 값은 GitHub 코드에 저장하지 않는다.
-2. [Communication SDK 에뮬레이터](https://hitel-communication-web-production.up.railway.app/sdk-lab) 아래 **외부 앱 설치 · 에뮬레이터 관리** 영역에서 토큰을 입력한다.
-3. `.apk` 파일을 업로드하면 80MB 제한과 ZIP 헤더 확인 후 보관하며 SHA-256 해시를 제공한다. 실제 APK 패키지/서명 호환성은 설치 호스트의 Android SDK와 패키지 매니저가 검사한다.
-4. `android-lab-01`(지속형) 또는 `ci-android`(일회용) 대상 선택 → **실제 설치 요청**. 호스트가 오프라인이면 작업은 대기열에 보존된다.
-5. 온라인 에뮬레이터 에이전트가 파일을 받고 `adb install -r`, `pm path`로 설치 성공을 검증하고 결과를 회신한다.
+## 현재 테스트 운영 — 사용자 입력키 없음
+
+1. [Communication SDK 에뮬레이터](https://hitel-communication-web-production.up.railway.app/sdk-lab) 화면을 연다.
+2. [일회용 Android 실행](https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml)에서 **Run workflow**를 누른다.
+3. 실제 Android 에뮬레이터가 시작되면 웹이 짧은 테스트 세션에 자동 연결된다. 화면에서 비밀번호나 관리 키 입력은 하지 않는다.
+4. 실제 Android 홈 화면의 **Play Store**를 클릭하거나 APK 파일을 업로드한 후 **Android에 설치**를 누른다.
+5. 화면에서 앱을 직접 터치·스크롤·실행하고 결과를 확인한다. 종료되면 일회용 기기는 초기화된다.
+
+이 경로는 `ci-playstore` 일회용 기기 전용이며, 내부 연결에는 GitHub Actions 인증과 브라우저의 일시적인 세션 쿠키를 사용한다. 별도 Windows 지속형 호스트를 요구하지 않는다.
 
 ## 상시 가동 Android 에뮬레이터 호스트 (Railway와 분리)
 Railway 컨테이너는 ADB로 다른 머신의 에뮬레이터를 마음대로 실행하지 않는다. KVM 사용 가능한 사용자의 전용 Linux/Windows 개발 머신 또는 별도 VM을 준비해야 한다.
@@ -73,7 +76,7 @@ Windows 이미지용 [실행 파일](../mobile/tools/start-persistent-windows.ps
 - 카카오T가 로그인·인증·가상 기기 지원 문제 없이 정상 실행하는지는 별도 실제 테스트.
 - Play Store 앱 설치는 사용자의 로그인과 승인 후 가능. 웹 관리자가 Google 계정 로그인을 우회할 수 없다.
 - 네이티브 앱의 `AccessibilityService` 는 사용자가 승인한 앱 접근성 동작을 처리한다. 실제 결제나 차량 호출은 승인 없이 실행하지 않는다.
-- 타사 앱 화면을 웹에서 연속 스트리밍하고 웹 탭 좌표를 ADB에 전달하는 기능은 후속 개발 대상. 이전의 HITEL `PixelCopy`는 타사 앱 전체 화면을 캡처하지 않는다.
+- 타사 앱 전체 화면 전송, 웹 탭 좌표를 ADB에 전달하는 기본 동작은 구현·검증했으며 실제 사용자 브라우저 조작 확인을 진행 중. 이전의 HITEL `PixelCopy`는 타사 앱 전체 화면을 캡처하지 않는다.
 
 ## 보안
 - 관리자용 `LAB_APK_ADMIN_TOKEN` 과 호스트용 `LAB_APK_AGENT_TOKEN` 은 서로 독립된 비밀.
