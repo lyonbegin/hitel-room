@@ -262,7 +262,7 @@ export function createApkManager({
         // persisted ADB control jobs or retain credential typing in the queue.
         if(action==='type'){
           const term=String(body.text||'');
-          if(term.length<1||term.length>70||!/^[A-Za-z0-9가-힣 ._-]+$/.test(term))
+          if(term.length<1||term.length>70||!/^[A-Za-z0-9 ._-]+$/.test(term))
             return bad(res,'ONLY_NON_SENSITIVE_SEARCH_TEXT_ALLOWED');
           args.text=term;
         }
