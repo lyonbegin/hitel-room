@@ -139,11 +139,11 @@ export function createApkManager({
           if(!job)job=jobs.find(j=>j.deviceId===device&&j.status==='installing'&&
             Date.now()-(Date.parse(j.startedAt)||0)>15*60_000);
           if(!job)return json(res,200,{ok:true,job:null});
-          if(job.operation==='control'){
+          if(['control','store','verify'].includes(job.operation)){
             job.status='installing';job.startedAt=new Date().toISOString();job.leaseId=crypto.randomUUID();
             job.agentKind=identity.kind;await saveRecord(jobsDir,job);
-            return json(res,200,{ok:true,job:{id:job.id,operation:'control',
-              action:job.action,args:job.args,leaseId:job.leaseId}});
+            return json(res,200,{ok:true,job:{id:job.id,operation:job.operation,
+              action:job.action,args:job.args,packageName:job.packageName,leaseId:job.leaseId}});
           }
           const file=await readRecord(filesDir,job.apkId);
           if(!file){job.status='failed';job.error='APK_NOT_FOUND';await saveRecord(jobsDir,job);return bad(res,'APK_NOT_FOUND',410)}
@@ -190,7 +190,9 @@ export function createApkManager({
           const job=await readRecord(jobsDir,String(data.jobId));
           if(!job||job.deviceId!==device||job.status!=='installing'||
              job.leaseId!==data.leaseId)return bad(res,'JOB_LEASE_MISMATCH',409);
-          job.status=data.success===true?(job.operation==='control'?'completed':'installed'):'failed';
+          job.status=data.success===true?(
+            job.operation==='control'?'completed':job.operation==='store'?'opened':'installed'
+          ):'failed';
           job.finishedAt=new Date().toISOString();
           job.packageName=String(data.packageName||'').slice(0,160);
           job.installLog=String(data.installLog||'').slice(-3000);
@@ -219,6 +221,24 @@ export function createApkManager({
             'cache-control':'no-store','x-content-type-options':'nosniff'});
           return res.end(png);
         }catch{return bad(res,'NO_EMULATOR_FRAME',404)}
+      }
+      if(req.method==='POST'&&route==='/lab-api/apk/store'){
+        const body=await readJson(req);
+        const deviceId=String(body.deviceId||'');
+        const packageName=String(body.packageName||'');
+        const operation=body.operation==='verify'?'verify':'store';
+        if(!validDevice.test(deviceId)||!(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/i).test(packageName)||
+           packageName.length>150)return bad(res,'INVALID_GOOGLE_PLAY_PACKAGE');
+        const host=hosts.get(deviceId);
+        if(!host||Date.now()-host.lastSeen>20_000)
+          return bad(res,'EMULATOR_HOST_OFFLINE',409);
+        if(operation==='store'&&host.kind!=='persistent')
+          return bad(res,'PLAY_STORE_REQUIRES_PERSISTENT_HOST',409);
+        const job={id:crypto.randomUUID(),deviceId,operation,packageName,
+          filename:(operation==='store'?'Play Store · ':'설치 확인 · ')+packageName,
+          status:'pending',createdAt:new Date().toISOString(),error:null};
+        await saveRecord(jobsDir,job);
+        return json(res,201,{ok:true,job});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/control'){
         const body=await readJson(req);
