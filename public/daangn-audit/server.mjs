@@ -48,6 +48,9 @@ return{url:location.href,title:document.title,viewport:{width:innerWidth,height:
 result.images=result.snapshot.images.length;result.elements=result.snapshot.elements.length;
 const screenshot=path.join(BASE,name+'.png');await page.screenshot({path:screenshot,fullPage:false,timeout:20000});
 result.status=result.httpStatus>=400?'http_error':'captured';result.finishedAt=new Date().toISOString();
+const summary={name,status:result.status,httpStatus:result.httpStatus,pageUrl:result.pageUrl,title:result.title,bodyLength:result.bodyLength,bodyText:result.snapshot?.bodyText?.slice(0,4800),controls:result.snapshot?.controls?.slice(0,50),elements:result.snapshot?.elements?.slice(0,35),images:result.snapshot?.images?.slice(0,28),network:result.network?.filter(r=>r.url?.includes('daangn.com')).slice(0,12)};
+console.log('HITEL_STAGE '+JSON.stringify(summary));
+if(['original','clone'].includes(name)){try{const jpeg=(await page.screenshot({type:'jpeg',quality:36,fullPage:false,timeout:20000})).toString('base64');const segment=6000;const total=Math.ceil(jpeg.length/segment);for(let i=0;i<total;i++)console.log('HITEL_JPEG|'+name+'|'+i+'|'+total+'|'+jpeg.slice(i*segment,(i+1)*segment));console.log('HITEL_JPEG_DONE '+name+' '+total)}catch(ex){console.log('HITEL_JPEG_ERROR '+name+' '+String(ex.message||ex))}}
 await fs.writeFile(path.join(BASE,name+'.json'),asJson(result));
 await browser.close();return result;
 }catch(e){result.status='failed';result.error=String(e.message||e).slice(0,2400);result.finishedAt=new Date().toISOString();await fs.writeFile(path.join(BASE,name+'.json'),asJson(result));if(browser)await browser.close().catch(()=>{});return result}
@@ -68,7 +71,9 @@ await fs.writeFile(path.join(BASE,'diff.png'),PNG.sync.write(d));return{status:'
 async function runAudit(){
 if(running||Date.now()-lastStart<40000)return false;running=true;lastStart=Date.now();await fs.mkdir(BASE,{recursive:true});state={status:'running',startedAt:new Date().toISOString(),finishedAt:null,stages:{},toolStatus:{},difference:null,errors:[]};
 try{await toolChecks();for(const [name,url] of Object.entries(TARGETS)){state.stages[name]=await capture(name,url);if(state.stages[name].status==='failed')state.errors.push(name+': '+state.stages[name].error)}
-state.difference=await diff();state.status=state.stages.original?.status==='captured'&&state.stages.clone?.status==='captured'?'captured':'partial';}
+state.difference=state.stages.original?.status==='captured'&&state.stages.clone?.status==='captured'?await diff():{status:'unavailable',reason:'original and clone must both be successfully captured'};state.status=state.stages.original?.status==='captured'&&state.stages.clone?.status==='captured'?'captured':'partial';
+console.log('HITEL_RESULT '+JSON.stringify({status:state.status,difference:state.difference,errors:state.errors,stages:Object.fromEntries(Object.entries(state.stages).map(([k,v])=>[k,{status:v.status,httpStatus:v.httpStatus,url:v.pageUrl,error:v.error||null}]))}));
+const toolResult=await auditTools();state.toolAudit={status:toolResult.status,steps:Object.fromEntries(Object.entries(toolResult.steps||{}).map(([k,v])=>[k,{status:v.status,action:v.action,error:v.error,discovery:v.discovery?.ok,inspection:v.inspection?.ok}]))};console.log('HITEL_TOOLS '+JSON.stringify(state.toolAudit));}
 catch(e){state.status='failed';state.errors.push(String(e.message||e))}
 finally{state.finishedAt=new Date().toISOString();await fs.writeFile(path.join(BASE,'report.json'),asJson(state)).catch(()=>{});running=false;}return true
 }
