@@ -100,7 +100,7 @@ def apk_package(apk_path):
 
 def play_store_job(serial,job):
     package=job.get("packageName","")
-    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+",package):
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+",package):
         raise RuntimeError("INVALID_PACKAGE_NAME")
     if job.get("operation")=="verify":
         result=adb(serial,"shell","pm","path",package,timeout=20)
