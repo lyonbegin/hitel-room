@@ -1,0 +1,49 @@
+name: HITEL Android requested from Railway website
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: hitel-web-android-session
+  cancel-in-progress: false
+jobs:
+  requested-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    env:
+      LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+      ANDROID_SESSION_SECONDS: 780
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/communication-sdk
+      - name: Pick up a website start request from Railway
+        id: claim
+        run: python3 mobile/tools/claim-ui-request.py
+      - name: Enable KVM for requested Android
+        if: steps.claim.outputs.claimed == 'true'
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Boot actual Google Play Android requested by Railway web UI
+        if: steps.claim.outputs.claimed == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash mobile/tests/interactive-android-session.sh
+      - name: Save Android screen images and session logs
+        if: always() && steps.claim.outputs.claimed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-web-android-screen
+          path: mobile-test-results/android-interactive/
+          if-no-files-found: warn
