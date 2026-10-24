@@ -1,0 +1,44 @@
+name: HITEL Persistent Android Windows Host Preflight
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - 'mobile/tools/start-persistent-windows.ps1'
+      - '.github/workflows/windows-host-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-bootstrap-validation:
+    runs-on: windows-2025
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Windows PowerShell bootstrap syntax
+        shell: pwsh
+        run: |
+          $inputFile = 'mobile/tools/start-persistent-windows.ps1'
+          $parseErrors = $null
+          $tokens = $null
+          $tree = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path $inputFile).Path,
+            [ref]$tokens,[ref]$parseErrors
+          )
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          if (!$tree.Find({param($item) $item -is [System.Management.Automation.Language.ParamBlockAst]},$true)) {
+            throw 'Windows launcher is missing its argument declaration'
+          }
+          Write-Host 'PASS: native Windows PowerShell script parses correctly'
+      - name: Verify installer respects interactive Google Play authentication
+        shell: pwsh
+        run: |
+          $source = Get-Content mobile/tools/start-persistent-windows.ps1 -Raw
+          if ($source -notmatch 'google_apis_playstore' -or
+              $source -notmatch 'ConvertFrom-SecureString' -or
+              $source -notmatch 'LAB_APK_AGENT_TOKEN') {
+            throw 'Google Play host / Windows DPAPI credential handling missing'
+          }
+          Write-Host 'PASS: persistent Google Play AVD and Windows protected credential settings present'
