@@ -107,6 +107,25 @@ const ask=()=>$("#ask").classList.add("open");$("#writeQuestion").onclick=ask;$(
 $("#askSubmit").onclick=()=>{let title=$("#askTitle").value.trim();if(!title){alert("질문 제목을 입력해 주세요.");return}const row={title,body:$("#askBody").value.trim(),category:$("#askCategory").value,answers:0,up:0,date:"방금",id:Math.max(...questions.map(x=>x.id))+1};questions.unshift(row);category=null;search="";answerOnly=false;page=1;$("#ask").classList.remove("open");$("#listSearch").value="";render()};
 $("#answerBtn").onclick=()=>{alert("답변 작성은 비교화면에서 지원하지 않습니다. 네이버 계정이 필요한 기능입니다.")};document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest(".modal").classList.remove("open"));document.querySelectorAll(".modal").forEach(el=>el.onclick=e=>{if(e.target===el)el.classList.remove("open")});
 const params=new URLSearchParams(location.search);if(params.has("dirId"))category=params.get("dirId");
-async function sync(){try{const r=await fetch('/artifacts/original.json',{cache:'no-store'});if(!r.ok)return;const obj=await r.json();const candidates=(obj?.snapshot?.controls||[]).filter(x=>x.href&&/\/qna\/detail\.naver/.test(x.href)&&x.text?.trim());const values=[];let seen=new Set();for(const x of candidates){const title=x.text.trim().replace(/\s+/g,' ');if(seen.has(title)||title.length<3)continue;seen.add(title);values.push({title,category:"Q&A",answers:0,up:0,date:"최신",id:values.length,href:x.href})}if(values.length>=10){questions=values;render()}}catch(e){console.warn("Original live list error:",e)}}
+async function sync(){try{
+  const r=await fetch('/artifacts/original.json',{cache:'no-store'});if(!r.ok)return;
+  const obj=await r.json();const raw=obj?.snapshot?.bodyText||'';
+  const after=raw.indexOf('제목\t분야\tUP\t답변\t작성');
+  if(after>=0){
+    const found=[];const source=raw.slice(after+18);
+    const rex=/([^\n\t]+)\t([^\n\t]+)\t\s*\nUP\n(\d+)\t(\d+)\t([^\n]+)/g;
+    for(const m of source.matchAll(rex)){
+       const title=m[1].trim(),group=m[2].trim();
+       if(!title||!group||m[5].length>30)continue;
+       found.push({title,category:group,up:+m[3],answers:+m[4],date:m[5].trim(),id:found.length});
+       if(found.length>=20)break;
+    }
+    if(found.length>=10){questions=found;render();}
+  }
+  const countText=raw.match(/오늘의 새 질문\s*([\d,]+)\s*모바일 질문\s*([\d,]+)\s*오늘의 답변\s*([\d,]+)/);
+  if(countText){document.querySelectorAll('.left .stats strong').forEach((el,i)=>el.textContent=countText[i+1]);}
+  const org=raw.match(/이달의 지식파트너[\s\S]{0,100}?더보기\s+([^\n]{2,35})\s+님\s+분야\s+([^\n]+)\s+답변수\s+([\d,]+)/);
+  if(org){const name=document.querySelector('.org p');if(name)name.innerHTML=esc(org[1])+'<br><small>분야　'+esc(org[2])+'<br>답변수　'+esc(org[3])+'</small>'}
+}catch(e){console.warn('Original source parsing:',String(e))}}
 render();sync();
 </script></body></html>
