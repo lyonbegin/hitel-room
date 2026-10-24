@@ -1,0 +1,25 @@
+name: Original Android native-only gateway contract
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - 'lab-server/original-native-host.mjs'
+      - 'lab-server/tests/original-native-host.test.mjs'
+      - '.github/workflows/android-native-host-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check original native redirect and Github identity
+        run: |
+          node --check lab-server/original-native-host.mjs
+          node --check lab-server/index.mjs
+          node --test lab-server/tests/original-native-host.test.mjs
+          test "$(git ls-files vendor/android-emulator-platform | wc -l | tr -d ' ')" = 53
