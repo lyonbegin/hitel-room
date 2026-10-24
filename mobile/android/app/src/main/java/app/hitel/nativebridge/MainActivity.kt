@@ -36,6 +36,57 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private val networkClient = OkHttpClient()
+    private var communicationSocket: WebSocket? = null
+    private var communicationToken: String? = null
+    /** Native app opens the signaling socket itself; this is NOT the WebView JS Bridge. */
+    private fun connectCommunicationNetwork(token: String) {
+        if (token.isBlank() || token == communicationToken || labDestroyed) return
+        communicationSocket?.close(1000, "Communication session replaced")
+        communicationToken = token
+        val uri = Uri.parse(RELAY_ORIGIN + "/comm-api/ws").buildUpon()
+            .appendQueryParameter("token", token).build().toString()
+        val request = Request.Builder().url(uri).build()
+        communicationSocket = networkClient.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i(LOG_TAG, "COMM_SOCKET_CONNECTED")
+                webSocket.send(JSONObject().put("type", "comm.ping").toString())
+            }
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                try {
+                    val event = JSONObject(text)
+                    when (event.optString("type")) {
+                        "comm.pong" -> Log.i(LOG_TAG, "COMM_SOCKET_PONG")
+                        "comm.snapshot" -> Log.i(LOG_TAG, "COMM_SNAPSHOT_OK")
+                        "comm.event" -> {
+                            val detail=JSONObject().put("type","communication.event")
+                                .put("event",event.optJSONObject("event"))
+                            runOnUiThread {
+                                if (!labDestroyed) webView.evaluateJavascript(
+                                    "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" +
+                                        detail.toString() + "}))", null
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception) { Log.w(LOG_TAG, "COMM_EVENT_ERROR " + e.message) }
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                Log.w(LOG_TAG, "COMM_SOCKET_FAILURE " + t.message)
+                reconnect(webSocket)
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                reconnect(webSocket)
+            }
+            private fun reconnect(socket: WebSocket) {
+                if (communicationSocket !== socket || labDestroyed) return
+                communicationToken = null
+                frameHandler.postDelayed({
+                    if (!labDestroyed && communicationToken == null) connectCommunicationNetwork(token)
+                }, 3000)
+            }
+        })
+    }
+
     private var labSocket: WebSocket? = null
     private var activeTicket: String? = null
     private var labDestroyed = false
@@ -272,6 +323,7 @@ class MainActivity : Activity() {
                 if (isTrusted(Uri.parse(url).host)) {
                     val paired = Uri.parse(url).getQueryParameter("pair")
                     if (!paired.isNullOrEmpty()) connectLabNetwork(paired)
+                    Uri.parse(url).getQueryParameter("callToken")?.let { connectCommunicationNetwork(it) }
                     view.evaluateJavascript(
                         """window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:{type:'app.ready',platform:'android'}}))""",
                         null
@@ -294,6 +346,7 @@ class MainActivity : Activity() {
             Uri.parse(labUrl).host == Uri.parse(LAB_ORIGIN).host) labUrl else HOME
         webView.loadUrl(launchUrl)
         intent.getStringExtra("hitel_ticket")?.let { connectLabNetwork(it) }
+        intent.getStringExtra("hitel_call_token")?.let { connectCommunicationNetwork(it) }
     }
 
     override fun onRequestPermissionsResult(
@@ -326,6 +379,7 @@ class MainActivity : Activity() {
         labDestroyed = true
         frameTask?.let { frameHandler.removeCallbacks(it) }
         labSocket?.close(1000, "Activity destroyed")
+        communicationSocket?.close(1000, "Activity destroyed")
         networkClient.dispatcher.executorService.shutdown()
         webView.destroy()
         super.onDestroy()
