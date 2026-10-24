@@ -230,6 +230,7 @@ export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
   const [view,setView]=useState<'preview'|'remote'>('remote');
   const [apkReady,setApkReady]=useState(false);
+  const [nativeAndroidOnline,setNativeAndroidOnline]=useState(false);
   const [apkDevice,setApkDevice]=useState('ci-playstore');
   const [apkHosts,setApkHosts]=useState<Host[]>([]);
   const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
@@ -281,6 +282,13 @@ export default function DeviceLab(){
       const data=await result.json() as StatusResult;
       setAgent(data.devices||{});
       setCi(data.ci||{});
+      try{
+        const nativeResponse=await fetch('/lab-api/android-native/status',{cache:'no-store'});
+        if(nativeResponse.ok){
+          const native=await nativeResponse.json() as {online?:boolean;transport?:string};
+          setNativeAndroidOnline(Boolean(native.online&&native.transport==='original-scrcpy-novnc'));
+        }
+      }catch{setNativeAndroidOnline(false)}
       if(!firstCapture.current && (data.devices?.android?.capture||data.devices?.ios?.capture)){
         firstCapture.current=true;
         setView('remote');
@@ -351,9 +359,9 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>실제 Android 홈 화면에서 Play Store를 클릭하고 앱을 설치·조작할 수 있습니다. 임시 테스트 종료 후 자동 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · scrcpy/noVNC 실시간 실행 환경입니다. 원본 앱 관리 화면에서 APK 설치와 기기 조작이 가능하며, 테스트 종료 후 가상기기가 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
-        <div><small>Android Emulator</small><strong>{agent.android?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WebView</span></div>
+        <div><small>Android Emulator</small><strong>{nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
         <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
         <div><small>SDK 웹 화면</small><strong>React H5</strong><span>네이티브 앱에서 로드</span></div>
         <div><small>개발 서버</small><strong>Railway</strong><span>웹 및 테스트 API</span></div>
@@ -389,7 +397,7 @@ export default function DeviceLab(){
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 Android 화면</button></div>
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
-              <strong>{apkReady?(apkOnline?'연결됨':'에뮬레이터 시작 대기'):'자동 연결 대기'}</strong>
+              <strong>{nativeAndroidOnline?'원본 scrcpy/noVNC 연결됨':apkReady?'원본 에뮬레이터 실행 대기':'원본 실행 대기'}</strong>
             </div></div>
             <AndroidSessionControls onNotice={message=>push('android',message)}/>
             <div className="dl-pair">
