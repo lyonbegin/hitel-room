@@ -23,6 +23,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/communication-sdk
+      - name: Verify Railway accepts this signed native MCP diagnostic runner
+        run: |
+          set -euo pipefail
+          python3 mobile/tools/original-native-url.py stop-requested
+          echo HITEL_NATIVE_MCP_SIGNED_CI_IDENTITY_ACCEPTED
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
