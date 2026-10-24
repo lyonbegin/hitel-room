@@ -111,7 +111,7 @@ function notifyDevices(){
   for(const ws of pairedConnections.values())if(ws.readyState===WebSocket.OPEN)
     ws.send(JSON.stringify({type:'ack',side:ws.labSide,time:Date.now()}));
 }
-const communication=createCommunicationService();
+const communication=createCommunicationService({storageDir:path.join(STORE,'communication-sessions')});
 const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url||'/', 'http://localhost');
   const route=url.pathname;
