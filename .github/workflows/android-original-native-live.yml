@@ -1,0 +1,33 @@
+name: HITEL Original Android Native Live Source Proof
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-native-live.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish-real-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+      ANDROID_SESSION_SECONDS: 480
+    steps:
+      - uses: actions/checkout@v4
+      - name: Give KVM access to original Android 11 container
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Boot original Android11 + native scrcpy/noVNC and publish temporary live URL
+        run: bash mobile/tests/original-native-live.sh
+      - name: Save original live native runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-original-native-live-proof
+          path: mobile-test-results/android-original-native-live/
+          if-no-files-found: warn
