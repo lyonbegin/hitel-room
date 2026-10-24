@@ -46,6 +46,9 @@ export class CommunicationSignalClient {
   private requestSequence=0;
   private opened=false;
   private connectionPromise?:Promise<void>;
+  private heartbeatTimer?:ReturnType<typeof setInterval>;
+  private lastHeartbeat=0;
+  private readonly heartbeatMs=10_000;
   state:CommunicationCallState='idle';
   callId='';
   scenarioId=0;
@@ -83,7 +86,16 @@ export class CommunicationSignalClient {
         if(this.stopped)return;
         const ws=new WebSocket(this.absoluteWsUrl());
         this.socket=ws;
-        ws.onopen=()=>{this.notify(true)};
+        ws.onopen=()=>{
+          this.lastHeartbeat=Date.now();
+          this.notify(true);
+          clearInterval(this.heartbeatTimer);
+          this.heartbeatTimer=setInterval(()=>{
+            if(this.socket!==ws||ws.readyState!==WebSocket.OPEN)return;
+            if(Date.now()-this.lastHeartbeat>this.heartbeatMs*3){ws.close(4002,'Heartbeat timeout');return}
+            ws.send(JSON.stringify({type:'comm.ping',time:Date.now()}));
+          },this.heartbeatMs);
+        };
         ws.onmessage=(e)=>{
           let msg:any;try{msg=JSON.parse(String(e.data))}catch{return}
           if(msg.type==='comm.snapshot'){
@@ -91,6 +103,7 @@ export class CommunicationSignalClient {
             if(initial){initial=false;resolve()}
             for(const event of (msg.events||[]) as CommunicationSignalEvent[])this.receiveEvent(event);
           }else if(msg.type==='comm.event'){this.receiveEvent(msg.event as CommunicationSignalEvent)}
+          else if(msg.type==='comm.pong'){this.lastHeartbeat=Date.now()}
           else if(msg.type==='comm.actionAck'){
             const p=this.pending.get(msg.requestId);
             if(p){clearTimeout(p.timer);this.pending.delete(msg.requestId);p.resolve({state:msg.state,sequence:msg.sequence})}
@@ -102,6 +115,8 @@ export class CommunicationSignalClient {
         ws.onerror=()=>{/* onclose handles retry */};
         ws.onclose=()=>{
           if(this.socket!==ws)return;
+          clearInterval(this.heartbeatTimer);
+          this.heartbeatTimer=undefined;
           this.notify(false);
           for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(new Error('Signaling socket closed'))}
           this.pending.clear();
@@ -131,6 +146,8 @@ export class CommunicationSignalClient {
   }
   close(){
     this.stopped=true;clearTimeout(this.reconnectTimer);
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer=undefined;
     this.socket?.close(1000,'Client closing');this.socket=undefined;
     this.notify(false);
     for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(new Error('Client closed'))}
