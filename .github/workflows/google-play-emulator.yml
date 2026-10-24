@@ -1,0 +1,39 @@
+name: HITEL Kakao T Google Play Emulator E2E
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - 'mobile/tests/playstore-smoke.sh'
+      - '.github/workflows/google-play-emulator.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  playstore-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          if [[ ! -e /dev/kvm ]]; then echo "::error::KVM is not available"; exit 1; fi
+          sudo chmod a+rw /dev/kvm
+      - name: Boot Google Play emulator and test Kakao T official listing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash mobile/tests/playstore-smoke.sh
+      - name: Upload actual Play Store screen, device and install logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-kakao-playstore-emulator
+          path: mobile-test-results/google-play/
+          if-no-files-found: warn
