@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import urllib.request
+import urllib.error
 
 BASE = os.getenv("HITEL_COMM_RELAY_URL", "https://hitel-device-relay-production.up.railway.app").rstrip("/")
 MODE = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -61,10 +62,22 @@ else:
     # as the callee. The lab socket is only an authenticated test input channel.
     controller = os.environ["HITEL_LAB_CONTROLLER"]
     def native_action(action):
-        _, queued = call("/lab-api/command", {
-            "device": PLATFORM, "action": "communication.action",
-            "data": {"callAction": action, "payload": {}}
-        }, token=controller)
+        # The management socket can reconnect independently from the real
+        # communication socket (e.g. after hosted runner proxy reconnect).
+        for attempt in range(16):
+            try:
+                _, queued = call("/lab-api/command", {
+                    "device": PLATFORM, "action": "communication.action",
+                    "data": {"callAction": action, "payload": {}}
+                }, token=controller)
+                break
+            except urllib.error.HTTPError as exc:
+                reason = exc.read(400).decode("utf-8", errors="replace")
+                if exc.code != 409:
+                    raise RuntimeError(f"Native action {action}: HTTP {exc.code}: {reason}") from exc
+                if attempt == 15:
+                    raise RuntimeError(f"Native management socket still offline: {reason}") from exc
+                time.sleep(2)
         request_id = queued["requestId"]
         for _ in range(35):
             code, response = call("/lab-api/result/" + request_id, token=controller)
