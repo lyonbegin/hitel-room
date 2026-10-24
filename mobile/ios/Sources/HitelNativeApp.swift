@@ -250,6 +250,16 @@ struct HitelWebView: UIViewRepresentable {
                             case "tts.stop":
                                 self.speaker.stopSpeaking(at: .immediate)
                                 reply["scope"] = "local-device-only"
+                            case "communication.action":
+                                let command = data["callAction"] as? String ?? ""
+                                let payload = data["payload"] as? [String: Any] ?? [:]
+                                let identifier = "lab-" + (obj["requestId"] as? String ?? "")
+                                if self.sendCommunicationAction(command, payload: payload, requestId: identifier) {
+                                    reply["scope"] = "native-signaling-pending-ack"
+                                } else {
+                                    reply["ok"] = false
+                                    reply["error"] = "Native signaling action unavailable"
+                                }
                             case "call.openDialer":
                                 let number = data["phone"] as? String ?? ""
                                 let chars = CharacterSet(charactersIn: "+0123456789*# -")
