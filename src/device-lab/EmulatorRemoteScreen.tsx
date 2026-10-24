@@ -1,10 +1,11 @@
 import {useEffect,useState,type MouseEvent} from 'react';
 
-type Command='tap'|'back'|'home'|'scroll';
+type Command='tap'|'back'|'home'|'scroll'|'playstore'|'type';
 export function EmulatorRemoteScreen({token,deviceId,online,onNotice,compact=false}:{
   token:string;deviceId:string;online:boolean;onNotice:(message:string)=>void;compact?:boolean
 }){
   const [source,setSource]=useState('');
+  const [search,setSearch]=useState('kakao');
   const [frameState,setFrameState]=useState('호스트의 전체 화면 캡처를 기다리는 중');
   useEffect(()=>{
     if(!token.trim())return;
@@ -72,11 +73,17 @@ export function EmulatorRemoteScreen({token,deviceId,online,onNotice,compact=fal
         </div>}
     </div>
     <div className="apk-remote-buttons">
+      <button type="button" disabled={!online} onClick={()=>void control('playstore')}>Play Store</button>
       <button type="button" disabled={!online} onClick={()=>void control('back')}>뒤로</button>
       <button type="button" disabled={!online} onClick={()=>void control('home')}>홈</button>
-      <button type="button" disabled={!online} onClick={()=>void control('scroll',{direction:'down'})}>아래로 스크롤</button>
-      <button type="button" disabled={!online} onClick={()=>void control('scroll',{direction:'up'})}>위로 스크롤</button>
+      <button type="button" disabled={!online} onClick={()=>void control('scroll',{direction:'down'})}>스크롤 ↓</button>
+      <button type="button" disabled={!online} onClick={()=>void control('scroll',{direction:'up'})}>스크롤 ↑</button>
     </div>
+    <form className="apk-remote-search" onSubmit={event=>{event.preventDefault();void control('type',{text:search})}}>
+      <input aria-label="Android 앱 검색어 입력" value={search} maxLength={70}
+        placeholder="앱 검색어 (영문)" onChange={event=>setSearch(event.target.value)}/>
+      <button type="submit" disabled={!online||!/^[A-Za-z0-9 ._-]{1,70}$/.test(search)}>입력</button>
+    </form>
     <p className="apk-caption" role="status">{online?'실제 Android · 터치 조작 가능': '세션 오프라인 · '+frameState}</p>
   </div>;
 }
