@@ -1,10 +1,12 @@
 export type NativeCapabilities = {
   nativeBridge: boolean; localTts: boolean; openSystemDialer: boolean;
   webrtcWebview: boolean; readCellularRemoteAudio: boolean; injectCellularAudio: boolean;
+  installedAppAutomation?: boolean; accessibilityEnabled?: boolean;
 };
 export type NativeReply = {
   requestId?: string; ok: boolean; platform?: string; bridgeVersion?: number;
   capabilities?: NativeCapabilities; scope?: string; error?: string;
+  result?: Record<string, unknown>;
 };
 type AndroidBridge = { postMessage: (data: string) => void; onmessage?: (event: { data: string }) => void };
 declare global {
