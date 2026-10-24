@@ -21,6 +21,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund --no-save --package-lock=false @modelcontextprotocol/sdk@^1.0.0
           npm install --no-audit --no-fund -g @playwright/mcp@latest chrome-devtools-mcp@latest
+          npx @playwright/mcp install-browser chrome-for-testing
           npx playwright install chromium
       - name: Check actual Playwright MCP and DevTools MCP on HITEL
         run: node mobile/tests/browser-mcp-e2e.mjs
