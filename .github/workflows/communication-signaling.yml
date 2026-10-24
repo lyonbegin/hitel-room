@@ -1,0 +1,32 @@
+name: Communication Signaling E2E
+
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - 'lab-server/**'
+      - 'src/communication-sdk/**'
+      - 'nginx.conf'
+      - '.github/workflows/communication-signaling.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signaling-real-ws:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install relay dependencies
+        run: npm install --prefix lab-server --no-audit --no-fund
+      - name: Test actual two-client WebSocket and all scenario IDs
+        run: node --test lab-server/tests/communication.test.mjs
+      - name: Syntax validation for relay
+        run: |
+          node --check lab-server/index.mjs
+          node --check lab-server/communication.mjs
