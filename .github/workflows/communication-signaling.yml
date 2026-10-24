@@ -26,8 +26,10 @@ jobs:
       - name: Install relay dependencies
         run: npm install --prefix lab-server --no-audit --no-fund
       - name: Test actual two-client WebSocket and all scenario IDs
-        run: node --test lab-server/tests/communication.test.mjs tests/device-relay-multi-device.test.mjs
+        run: node --test lab-server/tests/communication.test.mjs lab-server/tests/apk-manager.test.mjs tests/device-relay-multi-device.test.mjs
       - name: Syntax validation for relay
         run: |
           node --check lab-server/index.mjs
           node --check lab-server/communication.mjs
+          node --check lab-server/apk-manager.mjs
+          python3 -m py_compile mobile/tools/apk-emulator-agent.py
