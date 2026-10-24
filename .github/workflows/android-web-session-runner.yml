@@ -36,10 +36,19 @@ jobs:
         run: |
           test -c /dev/kvm
           sudo chmod a+rw /dev/kvm
+      # Production gate: a runner can report successful Docker startup while
+      # the actual customer browser receives no pixels. Playwright independently
+      # checks the real Railway iframe and incoming noVNC binary frames.
+      - name: Install Chromium for real screen verification
+        if: steps.claim.outputs.claimed == 'true'
+        run: |
+          python3 -m pip install --quiet --user playwright==1.56.0
+          python3 -m playwright install chromium
       - name: Launch unmodified original Android 11 and native scrcpy/noVNC on a KVM host
         if: steps.claim.outputs.claimed == 'true'
         env:
           HITEL_WEB_CLAIMED: 'true'
+          ANDROID_ONECLICK_VERIFY: '1'
         run: bash mobile/tests/original-native-live.sh
       - name: Save original native Android runtime diagnostics
         if: always() && steps.claim.outputs.claimed == 'true'
