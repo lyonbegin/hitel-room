@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/android-website-start-contract.yml'
       - 'lab-server/apk-manager.mjs'
+      - 'lab-server/github-dispatch.mjs'
+      - 'lab-server/tests/github-dispatch.test.mjs'
       - 'lab-server/tests/apk-manager.test.mjs'
   workflow_dispatch:
 permissions:
@@ -18,4 +20,5 @@ jobs:
         with:
           node-version: '22'
       - run: node --check lab-server/apk-manager.mjs
-      - run: node --test lab-server/tests/apk-manager.test.mjs
+      - run: node --check lab-server/github-dispatch.mjs
+      - run: node --test lab-server/tests/apk-manager.test.mjs lab-server/tests/github-dispatch.test.mjs
