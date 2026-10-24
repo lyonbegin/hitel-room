@@ -88,6 +88,33 @@ export default function CommunicationPortal(){
   const [providerDraft,setProviderDraft]=useState({title:'',category:'상담',description:''});
   const [capabilities,setCapabilities]=useState<NativeCapabilities|null>(null);
   const [selectRoom,setSelectRoom]=useState('team');
+  const [nativeIncoming,setNativeIncoming]=useState<{callId:string;scenarioId:number}|null>(null);
+  const [nativeCallStatus,setNativeCallStatus]=useState('');
+  useEffect(()=>communicationSdk.on(event=>{
+    if(event.type!=='native.event')return;
+    const value=event.detail as {type?:string;event?:{type?:string;callId?:string;scenarioId?:number};message?:{type?:string;state?:string;error?:string}}|undefined;
+    if(value?.type==='communication.event'){
+      const detail=value.event;
+      if(detail?.type==='call.invite'&&detail.callId){
+        setNativeIncoming({callId:detail.callId,scenarioId:detail.scenarioId||0});
+        setNativeCallStatus('실제 네트워크 수신 요청');
+      } else if(detail?.type==='call.accept'){
+        setNativeCallStatus('수락 처리 완료 · 미디어 연결 대기');
+        setNativeIncoming(null);
+      } else if(['call.reject','call.cancel','call.end','call.missed','call.failed'].includes(detail?.type||'')){
+        setNativeCallStatus('통화 요청 종료: '+detail?.type);
+        setNativeIncoming(null);
+      }
+    } else if(value?.type==='communication.error'){
+      setNativeCallStatus('서버 거절: '+(value.message?.error||'통화 상태 오류'));
+    }
+  }),[communicationSdk]);
+  async function decideNativeCall(action:'call.accept'|'call.reject'){
+    try{
+      await communicationSdk.sendNativeCallAction(action);
+      setNativeCallStatus('네이티브 WebSocket 명령 전송 · 서버 응답 대기');
+    }catch(e){setNativeCallStatus('명령 오류: '+String(e))}
+  }
   useEffect(()=>{let active=true;void communicationSdk.getCapabilities().then(v=>{if(active)setCapabilities(v.native)}).catch(()=>{});return ()=>{active=false;void communicationSdk.dispose()};},[communicationSdk]);
   useEffect(()=>{localStorage.setItem('hitel-ui-ai-settings',JSON.stringify(aiSettings));},[aiSettings]);
   useEffect(()=>{localStorage.setItem('hitel-ui-groups',JSON.stringify(joined));},[joined]);
@@ -111,6 +138,14 @@ export default function CommunicationPortal(){
       <header className="hc-header"><div className="hc-mobile-logo" onClick={()=>move('/portal')}><Logo/></div><div className="hc-header-search">{topSearch}</div><div className="hc-header-buttons"><button aria-label="알림" onClick={()=>notify('알림 서버 연동 전입니다.','warning')}><Icon name="bell" size={21}/></button><button className="hc-profile-bubble" aria-label="내 정보" onClick={()=>move('/portal/my')}>나</button></div></header>
       <div className="hc-mobile-search">{topSearch}</div>
       <div className="hc-body-grid"><main className="hc-main">
+        {nativeIncoming&&<section className="hc-work-card" aria-live="polite">
+          <h2>HITEL 인터넷통화 수신</h2>
+          <p>실제 네이티브 WebSocket 수신 · 시나리오 {nativeIncoming.scenarioId} · 세션 {nativeIncoming.callId.slice(0,8)}</p>
+          <p>{nativeCallStatus}</p>
+          <button type="button" className="hc-main-action" onClick={()=>void decideNativeCall('call.accept')}>통화 수락</button>
+          <button type="button" className="hc-secondary-action" onClick={()=>void decideNativeCall('call.reject')}>거절</button>
+        </section>}
+        {!nativeIncoming&&nativeCallStatus&&<p role="status">{nativeCallStatus}</p>}
         {(isDial||isPreview||isDemo||isRoom||path.startsWith('/portal/contact')||path.startsWith('/portal/provider'))?<></>:<div className="hc-page-intro"><div><p className="hc-eyebrow">HITEL · INTELLIGENT COMMUNICATION</p><h1>{TAB_META[tab].title}</h1><p>{TAB_META[tab].subtitle}</p></div>{tab==='phone'&&<button className="hc-quiet-link" onClick={()=>move('/portal/rooms')}>대화 공간 보기 <Icon name="arrow" size={17}/></button>}</div>}
         {tab==='phone'&&!isPreview&&!isDial&&!isDemo&&<>
           <section className="hc-hero"><div className="hc-hero-content"><span className="hc-hero-badge"><Icon name="sparkle" size={13}/> YOUR CALL, YOUR AI</span><h2>통화는 그대로.<br/><em>대화는 더 똑똑하게.</em></h2><p>일반전화부터 인터넷통화까지.<br/>모든 대화의 옆에 나만의 AI가 함께합니다.</p><button onClick={()=>move('/portal/call')} className="hc-hero-cta"><Icon name="phone" size={18}/> AI 통화 시작 <Icon name="arrow" size={19}/></button></div><div className="hc-hero-art" aria-hidden="true"><div className="hc-orbit hc-orbit-1"/><div className="hc-orbit hc-orbit-2"/><div className="hc-halo"><Icon name="phone" size={34}/></div><div className="hc-float hc-float-a"><Icon name="translate" size={16}/>실시간 통역</div><div className="hc-float hc-float-b"><Icon name="sparkle" size={16}/>AI 답변 보조</div></div></section>
