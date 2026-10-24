@@ -12,7 +12,7 @@ let browserProcess;
 const truncate=(s,n=5000)=>String(s??'').slice(0,n);
 const saveJSON=()=>fs.writeFileSync(ROOT+'/report.json',JSON.stringify(report,null,2));
 const step=(label,extra={})=>{report.steps.push({label,time:new Date().toISOString(),...extra});console.log('AUDIT_STEP '+label);saveJSON()};
-const attempt=async(label,fn)=>{try{const v=await fn();report.tools[label]={ok:true,result:v};saveJSON();return v}catch(e){report.tools[label]={ok:false,error:truncate((e?.stack||e)+' stderr: '+(e?.stderr||''),2000)};saveJSON();return null}};
+const attempt=async(label,fn)=>{try{const v=await fn();report.tools[label]={ok:true,result:v};saveJSON();return v}catch(e){report.tools[label]={ok:false,error:truncate((e?.stack||e)+' stderr: '+(e?.stderr||'')+' stdout: '+(e?.stdout||''),2000)};saveJSON();return null}};
 async function waitChrome(){for(let i=0;i<120;i++){try{const r=await fetch('http://127.0.0.1:9222/json/version');if(r.ok)return await r.json()}catch{}await new Promise(r=>setTimeout(r,500))}throw Error('CDP port not ready')}
 async function mcp(label,args,preferred,toolargs={}){
  const {Client}=await import('@modelcontextprotocol/sdk/client/index.js');
@@ -23,8 +23,9 @@ async function mcp(label,args,preferred,toolargs={}){
   await c.connect(t);
   const items=(await c.listTools()).tools.map(x=>x.name);
   const name=items.find(x=>x===preferred)||'';
+  const pages=label==='Chrome DevTools'&&items.includes('list_pages')?await c.callTool({name:'list_pages',arguments:{}},undefined,{timeout:20000}):null;
   const result=name?await c.callTool({name,arguments:toolargs},undefined,{timeout:20000}):null;
-  return {available:items,succeeded:!!name&&!result?.isError,response:truncate(JSON.stringify(result),6000),error:!name?'requested tool not registered':undefined}
+  return {available:items,succeeded:!!name&&!result?.isError,response:truncate(JSON.stringify({pages,result}),6000),error:!name?'requested tool not registered':undefined}
  } finally {await c.close().catch(()=>{})}
 }
 async function cli(name,args,timeout=18000){const executable=path.join(process.cwd(),'node_modules','.bin',name);const r=await run(executable,args,{timeout,maxBuffer:15000000,env:{...process.env,REA_BROWSER_OBSERVE_ENABLED:'true',REA_BROWSER_CDP_ENDPOINTS_JSON:'["http://127.0.0.1:9222"]',REA_BROWSER_ALLOWED_ORIGINS_JSON:'["https://www.daangn.com","https://hitel-fusion-web-production.up.railway.app"]'}});return truncate(r.stdout,12000)}
@@ -42,7 +43,7 @@ const summarize=async(page)=>{
 async function capture(name,page){await page.screenshot({path:ROOT+'/'+name+'.png',fullPage:false,timeout:16000});step('screenshot:'+name,{url:page.url()})}
 async function emitAuditEvidence(){
  const a=report.tools.original_capture?.result||{},b=report.tools.previous_navigation?.result||{};
- const brief={phase:report.phase,source:{title:a.title,url:a.url,viewport:a.viewport,headings:a.mainHeading?.slice(0,8),header:a.header?.slice(0,5),controls:a.controls?.slice(0,12),images:a.images?.slice(0,14)},previous:{status:b.status,title:b.dom?.title},toolStatus:Object.fromEntries(Object.entries(report.tools).map(([k,v])=>[k,{ok:v.ok,error:v.error?.slice(0,500),succeeded:v.result?.succeeded}])),diff:report.tools.screenshot_image_comparison?.result,replica:{status:report.tools.replica_navigation?.result?.status,title:report.tools.replica_navigation?.result?.dom?.title},diffReplica:report.tools.replica_screenshot_comparison?.result,errors:report.errors};
+ const brief={phase:report.phase,source:{title:a.title,url:a.url,viewport:a.viewport,headings:a.mainHeading?.slice(0,8),header:a.header?.slice(0,5),controls:a.controls?.slice(0,12),images:a.images?.slice(0,14)},previous:{status:b.status,title:b.dom?.title},toolStatus:Object.fromEntries(Object.entries(report.tools).map(([k,v])=>[k,{ok:v.ok,error:v.error?.slice(0,500),succeeded:v.result?.succeeded,detail:v.result?.response?.slice(0,1200),available:v.result?.available?.slice(0,15)}])),diff:report.tools.screenshot_image_comparison?.result,replica:{status:report.tools.replica_navigation?.result?.status,title:report.tools.replica_navigation?.result?.dom?.title},diffReplica:report.tools.replica_screenshot_comparison?.result,errors:report.errors};
  console.log('DAANGN_AUDIT_SUMMARY='+JSON.stringify(brief));
  for(const name of ['original','previous','replica']){try{const buf=await require('sharp')(ROOT+'/'+name+'.png').resize({width:1000,withoutEnlargement:true}).jpeg({quality:55}).toBuffer();const bs=buf.toString('base64');for(let i=0;i<bs.length;i+=1600)console.log('DAANGN_IMAGE_'+name+'_'+Math.floor(i/1600)+'='+bs.slice(i,i+1600));console.log('DAANGN_IMAGE_'+name+'_END='+Math.ceil(bs.length/1600));}catch(e){console.log('DAANGN_IMAGE_ERROR_'+name+'='+String(e))}}
 }
@@ -60,6 +61,7 @@ async function audit(){
  report.network=requests;saveJSON();
  await attempt('playwright_mcp',()=>mcp('Playwright', ['@playwright/mcp','--headless','--cdp-endpoint=http://127.0.0.1:9222'],'browser_snapshot'));
  await attempt('chrome_devtools_mcp',()=>mcp('Chrome DevTools',['chrome-devtools-mcp','--browserUrl=http://127.0.0.1:9222','--no-usage-statistics'],'take_snapshot'));
+ await attempt('rea_version',()=>cli('rea',['--version']));
  const targets=await attempt('rea_targets',()=>cli('rea',['list-browser-targets','http://127.0.0.1:9222','--approved','--json']));
  if(targets){try{const obj=JSON.parse(targets); const txt=JSON.stringify(obj); const target=/(?:\"target_id\"|\"id\")\s*:\s*\"([0-9A-Fa-f-]{16,})\"/.exec(txt)?.[1]; if(target)await attempt('rea_inspect',()=>cli('rea',['inspect-web-page','http://127.0.0.1:9222',target,'--observation-ms','1000','--approved','--json'],30000));else step('rea: target id not found',{output:truncate(targets,700)});}catch(e){step('rea parse failed',{error:String(e)})}}
  report.phase='checking_search_and_region';saveJSON();
@@ -71,7 +73,7 @@ async function audit(){
  await attempt('screenshot_image_comparison',async()=>{const sharp=require('sharp'),a=await sharp(ROOT+'/original.png').resize(1440,900).removeAlpha().raw().toBuffer(),b=await sharp(ROOT+'/previous.png').resize(1440,900).removeAlpha().raw().toBuffer();let diff=0,total=0;for(let i=0;i<a.length;i+=3){let d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);total+=d; if(d>60)diff++}return {width:1440,height:900,nonmatching_pixel_ratio:+(diff/(a.length/3)).toFixed(4),mean_absolute_channel_difference:+(total/a.length).toFixed(2),method:'pixel RGB absolute difference, threshold sum > 60'}});
 
  await attempt('replica_navigation',async()=>{const pg=await ctx.newPage();await pg.setViewportSize({width:1440,height:900});const rr=await pg.goto(URL2,{waitUntil:'domcontentloaded',timeout:20000});await pg.waitForTimeout(2800);await capture('replica',pg);return {status:rr?.status(),dom:await summarize(pg)}});
- await attempt('replica_screenshot_comparison',async()=>{const sharp=require('sharp'),a=await sharp(ROOT+'/original.png').resize(1440,900).removeAlpha().raw().toBuffer(),b=await sharp(ROOT+'/replica.png').resize(1440,900).removeAlpha().raw().toBuffer();let diff=0,total=0;for(let i=0;i<a.length;i+=3){let d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);total+=d;if(d>60)diff++}return {width:1440,height:900,nonmatching_pixel_ratio:+(diff/(a.length/3)).toFixed(4),mean_absolute_channel_difference:+(total/a.length).toFixed(2),method:'RGB abs sum > 60'}});
+ await attempt('replica_screenshot_comparison',async()=>{const sharp=require('sharp'),a=await sharp(ROOT+'/original.png').resize(1440,900).removeAlpha().raw().toBuffer(),b=await sharp(ROOT+'/replica.png').resize(1440,900).removeAlpha().raw().toBuffer();let diff=0,total=0;for(let i=0;i<a.length;i+=3){let d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);total+=d;if(d>60)diff++}const measure=(lo,hi)=>{let d=0,sum=0,n=0;for(let y=0;y<900;y++)for(let x=lo;x<hi;x++){let i=(y*1440+x)*3,v=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(v>60)d++;sum+=v;n++}return {nonmatching_pixel_ratio:+(d/n).toFixed(4),mean_absolute_channel_difference:+(sum/(n*3)).toFixed(2)}};return {width:1440,height:900,nonmatching_pixel_ratio:+(diff/(a.length/3)).toFixed(4),mean_absolute_channel_difference:+(total/a.length).toFixed(2),left_panel:measure(0,640),map_panel:measure(640,1440),method:'RGB abs sum > 60'}});
  await browser.close();
  report.phase='complete';report.finished_at=new Date().toISOString();saveJSON();await emitAuditEvidence();
 }
