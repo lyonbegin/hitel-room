@@ -228,7 +228,7 @@ export function DeviceLabPhone() {
 export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
   const [view,setView]=useState<'preview'|'remote'>('remote');
-  const [apkToken,setApkToken]=useState('');
+  const [apkReady,setApkReady]=useState(false);
   const [apkDevice,setApkDevice]=useState('ci-playstore');
   const [apkHosts,setApkHosts]=useState<Host[]>([]);
   const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
