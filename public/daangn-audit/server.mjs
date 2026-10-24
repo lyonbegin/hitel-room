@@ -9,14 +9,15 @@ const BASE='/tmp/hitel-daangn-audit';
 const TARGETS={
 original:'https://www.daangn.com/kr/search/local-profile/',
 search:'https://www.daangn.com/kr/search/local-profile/?q='+encodeURIComponent('입주청소'),
-clone:'https://hitel-fusion-web-production.up.railway.app/daangn.html'
+clone:'http://127.0.0.1:8080/clone',
+baseline:'https://hitel-fusion-web-production.up.railway.app/daangn.html'
 };
 const VIEW={width:1440,height:900};
 let state={status:'pending',startedAt:null,finishedAt:null,stages:{},toolStatus:{},difference:null,errors:[]};
 let running=false,lastStart=0;
 const limit=(s,n=200)=>String(s||'').slice(0,n);
 const asJson=o=>JSON.stringify(o,null,2);
-const fileMap=new Map([['original.png','image/png'],['search.png','image/png'],['clone.png','image/png'],['diff.png','image/png'],['original.json','application/json'],['search.json','application/json'],['clone.json','application/json'],['report.json','application/json']]);
+const fileMap=new Map([['original.png','image/png'],['search.png','image/png'],['clone.png','image/png'],['baseline.png','image/png'],['diff.png','image/png'],['original.json','application/json'],['search.json','application/json'],['clone.json','application/json'],['baseline.json','application/json'],['report.json','application/json']]);
 async function command(cmd,args,timeout=13000){return await new Promise(resolve=>{let stdout='',stderr='',done=false;const p=spawn(cmd,args,{cwd:'/app',env:{...process.env,NO_COLOR:'1'},stdio:['ignore','pipe','pipe']});const kill=setTimeout(()=>{if(!done){done=true;p.kill('SIGKILL');resolve({ok:false,reason:'timeout',stdout:stdout.slice(0,500),stderr:stderr.slice(0,500)})}},timeout);p.stdout.on('data',s=>stdout+=s.toString().slice(0,1500));p.stderr.on('data',s=>stderr+=s.toString().slice(0,1500));p.on('error',e=>{if(!done){done=true;clearTimeout(kill);resolve({ok:false,reason:e.message})}});p.on('close',c=>{if(!done){done=true;clearTimeout(kill);resolve({ok:c===0,exitCode:c,stdout:stdout.slice(0,1300),stderr:stderr.slice(0,1200)})}})})}
 async function toolChecks(){
 const tools=[['playwrightMCP','./node_modules/.bin/playwright-mcp',['--help']],['chromeDevToolsMCP','./node_modules/.bin/chrome-devtools-mcp',['--help']],['REA','./node_modules/.bin/rea',['--help']]];
@@ -65,6 +66,7 @@ return '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewpor
 const mime=(name)=>fileMap.get(name);
 const server=http.createServer(async(req,res)=>{
 try{const u=new URL(req.url,'http://localhost');res.setHeader('Cache-Control','no-store');if(u.pathname==='/health'){res.writeHead(200,{'Content-Type':'text/plain'});return res.end('ready')}
+if(u.pathname==='/clone'){const htmlData=await fs.readFile('/app/clone.html');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(htmlData)}
 if(u.pathname==='/run'){const accepted=await runAudit();res.writeHead(202,{'Content-Type':'application/json'});return res.end(asJson({accepted,state:state.status}))}
 if(u.pathname.startsWith('/image-base64/')){const name=u.pathname.slice('/image-base64/'.length);if(!['original.png','clone.png','diff.png','search.png'].includes(name)){res.writeHead(404);return res.end('Not allowed')}const data=await fs.readFile(path.join(BASE,name));res.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'});return res.end(data.toString('base64'))}
 if(u.pathname==='/report'){res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(asJson(state))}
