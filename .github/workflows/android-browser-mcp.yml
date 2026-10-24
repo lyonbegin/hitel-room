@@ -1,0 +1,54 @@
+name: HITEL Official Playwright MCP and Chrome DevTools MCP Real Browser
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-browser-mcp.yml'
+      - 'mobile/browser-mcp/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-mcp-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+          install-dependencies: true
+      - name: Install REAL original MCP packages + Chromium
+        working-directory: mobile/browser-mcp
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install chromium
+          npx --no-install @playwright/mcp --help > /tmp/hitel-playwright-mcp-help.txt
+          npx --no-install chrome-devtools-mcp --help > /tmp/hitel-chrome-devtools-mcp-help.txt
+          echo HITEL_OFFICIAL_BOTH_MCP_PACKAGES_INSTALLED
+      - name: Open Chrome remote debugging endpoint and call BOTH MCP servers
+        env:
+          CI: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chrome)"
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222 \
+            --remote-allow-origins='*' --user-data-dir=/tmp/hitel-devtools-debug about:blank \
+            > /tmp/hitel-mcp-chrome.log 2>&1 &
+          for i in $(seq 1 35); do
+            if curl -fsS http://127.0.0.1:9222/json/version > /tmp/hitel-mcp-chrome-version.json;then break;fi
+            sleep 1
+          done
+          grep -q webSocketDebuggerUrl /tmp/hitel-mcp-chrome-version.json
+          node mobile/browser-mcp/inspect.mjs
+      - name: Store real MCP tool calls and browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-official-playwright-and-chrome-devtools-mcp
+          path: mobile-test-results/android-browser-mcp/
+          if-no-files-found: warn
