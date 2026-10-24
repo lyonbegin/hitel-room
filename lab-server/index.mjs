@@ -85,7 +85,8 @@ async function verifyOIDC(req){
   const featureRunner=payload.ref==='refs/heads/feature/communication-sdk'&&[
     '/.github/workflows/mobile-emulator.yml@',
     '/.github/workflows/android-interactive-session.yml@',
-    '/.github/workflows/android-original-native-live.yml@'
+    '/.github/workflows/android-original-native-live.yml@',
+    '/.github/workflows/android-mcp-native-e2e.yml@'
   ].some(name=>workflowRef.includes(name));
   const scheduledRunner=payload.ref==='refs/heads/main'&&
     workflowRef.includes('/.github/workflows/android-web-session-runner.yml@refs/heads/main');
