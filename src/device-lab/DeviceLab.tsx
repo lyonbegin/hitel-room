@@ -397,7 +397,7 @@ export default function DeviceLab(){
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
-      <ApkInstaller ready={apkReady} onSessionExpired={()=>setApkReady(false)}
+      <ApkInstaller ready={apkReady} setReady={setApkReady}
         device={apkDevice} setDevice={setApkDevice} hosts={apkHosts} setHosts={setApkHosts}/>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
