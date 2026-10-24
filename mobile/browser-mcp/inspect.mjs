@@ -76,7 +76,7 @@ try{
  if(status.online)await run(chrome,'resize_page',{pageId,width:440,height:880},false);
  const evaluation=chrome.tools.find(t=>t.name==='evaluate_script');
  const evalField=evaluation.inputSchema?.properties?.function?'function':'script';
- const result=await run(chrome,'evaluate_script',{pageId,[evalField]:'() => {const e=document.querySelector("#screen"),c=document.querySelector("canvas");const rect=x=>x?{x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,width:x.getBoundingClientRect().width,height:x.getBoundingClientRect().height}:null;return {url:location.href,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},screen:rect(e),canvas:rect(c),canvases:document.querySelectorAll("canvas").length};}'});
+ const result=await run(chrome,'evaluate_script',{pageId,[evalField]:'async () => {await new Promise(r=>setTimeout(r,3500)); const e=document.querySelector("#screen"),c=document.querySelector("canvas"); const rect=x=>x?{x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,width:x.getBoundingClientRect().width,height:x.getBoundingClientRect().height,cssWidth:getComputedStyle(x).width,cssHeight:getComputedStyle(x).height,transform:getComputedStyle(x).transform,style:x.getAttribute("style")}:null; return {url:location.href,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},screen:rect(e),canvas:rect(c),canvasIntrinsic:c?{width:c.width,height:c.height}:null,canvases:document.querySelectorAll("canvas").length};}'});
  report.layout.chrome=content(result).slice(0,4500);
  const shot=await run(chrome,'take_screenshot',{pageId,format:'png'},false);
  report.layout.pixels=await analyze(await picture(shot,'chrome-native.png'));
