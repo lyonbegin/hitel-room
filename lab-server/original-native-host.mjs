@@ -98,6 +98,15 @@ export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheM
         res.writeHead(302,{location:current.url+'/', 'cache-control':'no-store'});
         return res.end();
       }
+      if(req.method==='GET'&&route==='/lab-api/android-native/view'){
+        const current=await read();
+        if(!(await live(current)))return json(res,503,{ok:false,
+          error:'ORIGINAL_ANDROID_NOT_RUNNING',
+          message:'실제 Android 호스트 또는 noVNC 터널이 실행 중이지 않습니다.'});
+        res.writeHead(302,{location:current.url+'/stream/1/phone.html',
+          'cache-control':'no-store'});
+        return res.end();
+      }
       if(req.method==='GET'&&route==='/lab-api/android-native/ci/stop-requested'){
         let identity;
         try{identity=await verifyCI(req)}catch{return json(res,403,{ok:false,error:'TRUSTED_GITHUB_RUNNER_ONLY'})}
