@@ -10,6 +10,10 @@ adb shell settings get global http_proxy | tee "$out/proxy-setting.txt"
 # ADB reverse maps guest loopback to the host proxy and does not depend on guest DNS.
 adb install -r mobile/android/app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c
+# Capture native logs continuously from before Activity creation. The emulator
+# ring buffer may roll over before the 35-second signaling test finishes.
+adb logcat -v time -s HITEL_E2E:I '*:S' > "$out/events-stream.log" 2>&1 &
+log_pid=$!
 adb shell am start -n app.hitel.nativebridge/.MainActivity \
   --es hitel_url "${HITEL_LAB_URL:-https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=android}" \
   --es hitel_ticket "${HITEL_LAB_TICKET:-}" \
@@ -20,7 +24,9 @@ adb shell screencap -p /sdcard/hitel-screen.png
 adb pull /sdcard/hitel-screen.png "$out/screen.png"
 adb shell uiautomator dump /sdcard/hitel-window.xml || true
 adb pull /sdcard/hitel-window.xml "$out/window.xml" || true
-adb logcat -d -s HITEL_E2E:I '*:S' > "$out/events.log"
+adb logcat -d -s HITEL_E2E:I '*:S' > "$out/events-tail.log"
+sleep 1
+cat "$out/events-stream.log" "$out/events-tail.log" > "$out/events.log"
 adb logcat -d -t 500 > "$out/logcat-tail.log"
 cat "$out/events.log"
 grep -q "APP_STARTED" "$out/events.log"
