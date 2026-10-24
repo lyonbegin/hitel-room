@@ -41,3 +41,11 @@
 .dl-phone-shell .apk-remote-buttons button{background:#253d4a;color:#f4fbff;border:0;border-radius:5px;padding:8px 2px;font-size:10px;flex:1;min-width:0}
 .dl-phone-shell .apk-remote-buttons button:disabled{opacity:.4}
 .dl-phone-shell .apk-caption{flex:0 0 auto;color:#a7c1ce;text-align:center;font-size:9px;margin:0;padding:5px 7px}
+
+.apk-remote-search{display:flex;gap:4px;padding:6px;align-items:center;margin:0;flex:0 0 auto;background:#0e1c25}
+.apk-remote-search input{width:100%;min-width:0;border:1px solid #45616d;border-radius:6px;background:#f6fbfd;color:#153041;padding:7px 8px;font-size:11px}
+.apk-remote-search button{border:0;border-radius:6px;background:#317c9d;color:#fff;padding:8px 9px;font-size:11px;flex:0 0 auto}
+.apk-remote-search button:disabled{opacity:.4}
+.apk-remote-placeholder{display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;font-size:12px}
+.apk-remote-placeholder p{padding:0;margin:0;font-size:12px}
+.apk-remote-placeholder a{color:#157baf;text-decoration:underline;font-size:12px}
