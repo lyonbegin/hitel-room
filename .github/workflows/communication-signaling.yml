@@ -5,6 +5,7 @@ on:
     branches: [feature/communication-sdk]
     paths:
       - 'lab-server/**'
+      - 'tests/device-relay-multi-device.test.mjs'
       - 'src/communication-sdk/**'
       - 'nginx.conf'
       - '.github/workflows/communication-signaling.yml'
