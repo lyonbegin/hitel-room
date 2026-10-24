@@ -1,11 +1,7 @@
 name: HITEL Original Android Native Live Source Proof
+# Dedicated manual proof only. Source edits must NOT boot parallel Android
+# devices and overwrite the production URL in the Railway native host registry.
 on:
-  push:
-    branches: [feature/communication-sdk]
-    paths:
-      - '.github/workflows/android-original-native-live.yml'
-      - 'lab-server/original-native-host.mjs'
-      - 'mobile/tests/original-native-live.sh'
   workflow_dispatch:
 permissions:
   contents: read
