@@ -70,12 +70,60 @@ export function createApkManager({
     const items=await Promise.all(files.map(x=>readRecord(dir,x.slice(0,-5))));
     return items.filter(Boolean).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   }
+  async function storeUpload(req,name,limit=maxBytes){
+    if(!name||!name.toLowerCase().endsWith('.apk'))throw Error('APK_FILENAME_REQUIRED');
+    const declared=Number(req.headers['content-length']||0);
+    if(declared>limit)throw Error('APK_TOO_LARGE');
+    const id=crypto.randomUUID();
+    const dest=path.join(filesDir,id+'.apk');
+    const hash=crypto.createHash('sha256');
+    let count=0,first=Buffer.alloc(0);
+    try{
+      const output=createWriteStream(dest,{flags:'wx',mode:0o600});
+      await pipeline(req,async function* (source){
+        for await(const chunk of source){
+          count+=chunk.length;
+          if(count>limit)throw Error('APK_TOO_LARGE');
+          if(first.length<4)first=Buffer.concat([first,chunk]).subarray(0,4);
+          hash.update(chunk);yield chunk;
+        }
+      },output);
+      if(count<100||first.toString('hex')!=='504b0304')throw Error('INVALID_APK_ZIP_HEADER');
+      const record={id,filename:name.slice(0,120),size:count,sha256:hash.digest('hex'),
+        createdAt:new Date().toISOString(),format:'apk'};
+      await saveRecord(filesDir,record);
+      return record;
+    }catch(e){await fs.rm(dest,{force:true});throw e}
+  }
+  async function queueInstall(apkId,deviceId,launchAfterInstall){
+    const file=await readRecord(filesDir,apkId);
+    if(!file)throw Error('UNKNOWN_APK');
+    const job={id:crypto.randomUUID(),apkId,filename:file.filename,deviceId,
+      launchAfterInstall:launchAfterInstall===true,
+      status:'pending',createdAt:new Date().toISOString(),error:null};
+    await saveRecord(jobsDir,job);
+    return job;
+  }
+
   async function handle(req,res,url){
     const route=url.pathname;
     await ready;
     try{
       if(req.method==='GET'&&route==='/lab-api/apk/health')
         return json(res,200,{ok:true,enabled:!!adminToken,mode:'APK queue + external emulator agent'});
+      if(req.method==='POST'&&route==='/lab-api/apk/ci/seed'){
+        try{await verifyCI(req)}catch{return unauthorized(res)}
+        // This endpoint is only for a disposable GitHub Actions CI emulator.
+        // A queued user APK is never replaced by the self-test sample.
+        const pending=(await allRecords(jobsDir)).some(j=>
+          j.deviceId==='ci-android'&&j.status==='pending');
+        if(pending)return json(res,200,{ok:true,seeded:false,reason:'USER_JOB_ALREADY_QUEUED'});
+        try{
+          const file=await storeUpload(req,'hitel-native-ci.apk',16*1024*1024);
+          const job=await queueInstall(file.id,'ci-android',true);
+          return json(res,201,{ok:true,seeded:true,jobId:job.id});
+        }catch(e){return bad(res,e.message,e.message==='APK_TOO_LARGE'?413:400)}
+      }
       if(route.startsWith('/lab-api/apk/agent/')){
         const device=String(req.headers['x-emulator-device']||'');
         let identity;
@@ -142,44 +190,18 @@ export function createApkManager({
         }))});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/upload'){
-        const name=decodeURIComponent(String(req.headers['x-apk-filename']||'uploaded.apk')).split(/[\\/]/).pop().slice(0,120);
-        if(!name.toLowerCase().endsWith('.apk')||!name.length)return bad(res,'APK_FILENAME_REQUIRED');
-        const declared=Number(req.headers['content-length']||0);
-        if(declared>maxBytes)return bad(res,'APK_TOO_LARGE',413);
-        const id=crypto.randomUUID();
-        const dest=path.join(filesDir,id+'.apk');
-        const hash=crypto.createHash('sha256');
-        let count=0,first=Buffer.alloc(0);
+        const name=decodeURIComponent(String(req.headers['x-apk-filename']||'uploaded.apk'))
+          .split(/[\\/]/).pop().slice(0,120);
         try{
-          const output=createWriteStream(dest,{flags:'wx',mode:0o600});
-          await pipeline(req,async function* (source){
-            for await(const chunk of source){
-              count+=chunk.length;
-              if(count>maxBytes)throw Error('APK_TOO_LARGE');
-              if(first.length<4)first=Buffer.concat([first,chunk]).subarray(0,4);
-              hash.update(chunk);yield chunk;
-            }
-          },output);
-          if(count<100||first.toString('hex')!=='504b0304')throw Error('INVALID_APK_ZIP_HEADER');
-          const record={id,filename:name,size:count,sha256:hash.digest('hex'),
-            createdAt:new Date().toISOString(),format:'apk'};
-          await saveRecord(filesDir,record);
-          return json(res,201,{ok:true,file:record});
-        }catch(e){
-          await fs.rm(dest,{force:true});
-          return bad(res,e.message,e.message==='APK_TOO_LARGE'?413:400);
-        }
+          const file=await storeUpload(req,name);
+          return json(res,201,{ok:true,file});
+        }catch(e){return bad(res,e.message,e.message==='APK_TOO_LARGE'?413:400)}
       }
       if(req.method==='POST'&&route==='/lab-api/apk/jobs'){
         const data=await readJson(req);
         const apkId=String(data.apkId||''),deviceId=String(data.deviceId||'');
         if(!validId.test(apkId)||!validDevice.test(deviceId))return bad(res,'INVALID_INSTALL_JOB');
-        const file=await readRecord(filesDir,apkId);
-        if(!file)return bad(res,'UNKNOWN_APK',404);
-        const job={id:crypto.randomUUID(),apkId,filename:file.filename,deviceId,
-          launchAfterInstall:data.launchAfterInstall===true,
-          status:'pending',createdAt:new Date().toISOString(),error:null};
-        await saveRecord(jobsDir,job);
+        const job=await queueInstall(apkId,deviceId,data.launchAfterInstall);
         return json(res,201,{ok:true,job});
       }
       return bad(res,'UNKNOWN_APK_ENDPOINT',404);
