@@ -133,8 +133,11 @@ export function createApkManager({
       // The website owns the start/stop controls; GitHub is a background worker.
       if(req.method==='POST'&&route==='/lab-api/apk/ui/start'){
         const current=await readUiRequest();
+        // On-demand KVM runners can disappear. Never hold the only device slot
+        // indefinitely for a request whose worker is already gone.
+        const activeAge=current?Date.now()-Date.parse(current.createdAt):Infinity;
         if(current&&['queued','starting','running','stopping'].includes(current.status)&&
-           Date.now()-Date.parse(current.createdAt)<40*60_000)
+           activeAge<27*60_000)
           return json(res,409,{ok:false,error:'EMULATOR_SESSION_ALREADY_ACTIVE'});
         const owner=crypto.randomBytes(24).toString('base64url');
         const request={id:crypto.randomUUID(),owner,status:'queued',
@@ -151,12 +154,15 @@ export function createApkManager({
         const current=await readUiRequest();
         if(!current)return json(res,200,{ok:true,status:'idle',online:false});
         const owner=cookieValue(req,'hitel_ui_owner');
-        if(owner!==current.owner)return json(res,200,{ok:true,
-          status:['queued','starting','running','stopping'].includes(current.status)?'busy':'idle',
-          online:false});
+        if(owner!==current.owner){
+          const stale=Date.now()-Date.parse(current.createdAt)>27*60_000;
+          return json(res,200,{ok:true,
+            status:!stale&&['queued','starting','running','stopping'].includes(current.status)?'busy':'idle',
+            online:false});
+        }
         const emulator=hosts.get(TEST_DEVICE);
         const online=!!emulator&&Date.now()-emulator.lastSeen<20_000;
-        const stale=Date.now()-Date.parse(current.createdAt)>35*60_000;
+        const stale=Date.now()-Date.parse(current.createdAt)>27*60_000;
         return json(res,200,{ok:true,
           status:stale&&current.status!=='completed'?'expired':current.status,
           requestId:current.id,online,
