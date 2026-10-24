@@ -10,7 +10,7 @@ const report={phase:'starting',created_at:new Date().toISOString(),source:URL0,p
 let browserProcess;
 const truncate=(s,n=5000)=>String(s??'').slice(0,n);
 const saveJSON=()=>fs.writeFileSync(ROOT+'/report.json',JSON.stringify(report,null,2));
-const step=(label,extra={})=>{report.steps.push({label,time:new Date().toISOString(),...extra});saveJSON()};
+const step=(label,extra={})=>{report.steps.push({label,time:new Date().toISOString(),...extra});console.log('AUDIT_STEP '+label);saveJSON()};
 const attempt=async(label,fn)=>{try{const v=await fn();report.tools[label]={ok:true,result:v};saveJSON();return v}catch(e){report.tools[label]={ok:false,error:truncate(e?.stack||e,2000)};saveJSON();return null}};
 async function waitChrome(){for(let i=0;i<120;i++){try{const r=await fetch('http://127.0.0.1:9222/json/version');if(r.ok)return await r.json()}catch{}await new Promise(r=>setTimeout(r,500))}throw Error('CDP port not ready')}
 async function mcp(label,args,preferred,toolargs={}){
@@ -79,4 +79,4 @@ http.createServer((req,res)=>{
  const file=ROOT+'/'+u.pathname.split('/').pop();if(fs.existsSync(file)){res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});return fs.createReadStream(file).pipe(res)}
  res.writeHead(404);return res.end('capture missing')}
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end('<html lang="ko"><meta charset="utf-8"><h1>HITEL 당근 단일 사이트 브라우저 감사</h1><p>상태: '+report.phase+'</p><p><a href="/report">검증 JSON</a> | <a href="/image/original.png">원본 캡처</a> | <a href="/image/previous.png">이전 시제품 캡처</a> | <a href="/image/region.png">지역 선택 캡처</a></p><p>Playwright MCP + Chrome DevTools MCP + REA 성공·실패 모두 기록합니다.</p></html>')
-}).listen(Number(process.env.PORT)||8080,'0.0.0.0',()=>{console.log('HITEL Daangn audit service started');audit().catch(e=>{report.phase='failed';report.errors.push(truncate(e?.stack||e));saveJSON();console.error(e);emitAuditEvidence().catch(console.error)})});
+}).listen(Number(process.env.PORT)||8080,'0.0.0.0',()=>{console.log('HITEL Daangn audit service started');setTimeout(()=>{console.log('AUDIT_WATCHDOG phase='+report.phase);emitAuditEvidence().catch(console.error)},95000).unref();audit().catch(e=>{report.phase='failed';report.errors.push(truncate(e?.stack||e));saveJSON();console.error(e);emitAuditEvidence().catch(console.error)})});
