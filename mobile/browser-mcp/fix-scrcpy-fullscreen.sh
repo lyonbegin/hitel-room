@@ -17,7 +17,10 @@ height="$(printf '%s\n' "$before" | sed -n 's/^HEIGHT=//p' | head -1)"
 echo "HITEL_SCRCPY_BEFORE=$width x $height"
 if (( width*100 >= fbw*85 && height*100 >= fbh*85 ));then
   echo HITEL_X11_WINDOW_ALREADY_FILLS_FRAME
-  exit 0
+  # The visual video occupies 47%-50% despite a full X11 window. Opt in
+  # to force SDL fullscreen and rebuild its GL viewport for an A/B test.
+  if [[ "$(printenv HITEL_FORCE_FULLSCREEN || echo 0)" != "1" ]];then exit 0;fi
+  echo HITEL_FORCED_RENDERER_FULLSCREEN_DIAGNOSTIC
 fi
 # Linux scrcpy Alt+f toggles native SDL fullscreen. noVNC pointer coordinates
 # remain correct; unlike a transform/zoom on the webpage.
