@@ -1,5 +1,9 @@
 name: HITEL Android requested from Railway website
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-web-session-runner.yml'
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
