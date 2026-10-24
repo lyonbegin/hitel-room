@@ -6,6 +6,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { createCommunicationService } from './communication.mjs';
 import { createApkManager } from './apk-manager.mjs';
+import { createAndroidOriginalAdapter } from './android-original-adapter.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const STORE = process.env.LAB_DATA_DIR || '/tmp/hitel-device-lab';
@@ -122,12 +123,16 @@ const apkManager=createApkManager({
   root:path.join(STORE,'apk-manager'),
   verifyCI:verifyOIDC,
 });
+// Compatibility API for the unchanged upstream Android Emulator Platform UI.
+const androidOriginal=createAndroidOriginalAdapter({root:path.join(STORE,'apk-manager')});
 const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url||'/', 'http://localhost');
   const route=url.pathname;
   try {
     if(route.startsWith('/comm-api/'))return await communication.http(req,res,route);
     if(route.startsWith('/lab-api/apk/'))return await apkManager.http(req,res,url);
+    if(route.startsWith('/api/emulator/')||route.startsWith('/api/upload/'))
+      return await androidOriginal.http(req,res,url);
     if(route==='/healthz'||route==='/lab-api/health'){
       return json(res,200,{ok:true,service:'device-relay'});
     }
