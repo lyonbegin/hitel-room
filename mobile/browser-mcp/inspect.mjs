@@ -71,6 +71,9 @@ try{
  const pageId=pageCandidates.length?Number(pageCandidates.at(-1)[1]):null;
  if(!pageId)throw Error('CHROME_DEVTOOLS_SELECTED_PAGE_ID_MISSING:'+content(created).slice(0,600));
  note('CHROME_PAGE_ID',pageId);
+ // Match the real portrait phone panel. A landscape browser viewport would
+ // create artificial black letterboxing and a false undersizing diagnosis.
+ if(status.online)await run(chrome,'resize_page',{pageId,width:440,height:880},false);
  const evaluation=chrome.tools.find(t=>t.name==='evaluate_script');
  const evalField=evaluation.inputSchema?.properties?.function?'function':'script';
  const result=await run(chrome,'evaluate_script',{pageId,[evalField]:'() => {const e=document.querySelector("#screen"),c=document.querySelector("canvas");const rect=x=>x?{x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,width:x.getBoundingClientRect().width,height:x.getBoundingClientRect().height}:null;return {url:location.href,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},screen:rect(e),canvas:rect(c),canvases:document.querySelectorAll("canvas").length};}'});
