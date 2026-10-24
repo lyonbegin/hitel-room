@@ -11,6 +11,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.provider.Settings
 import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -170,6 +171,57 @@ class MainActivity : Activity() {
     }
     private fun isTrusted(host: String?) = host == Uri.parse(ORIGIN).host || host == Uri.parse(LAB_ORIGIN).host
 
+    /** KtAuto-derived general device automation: selected installed apps, not carrier calls. */
+    private fun assistiveAction(action: String, data: JSONObject): JSONObject {
+        when (action) {
+            "app.accessibility.status" -> return AppAccessibilityService.status()
+            "app.accessibility.settings" -> {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                return JSONObject().put("settingsOpened", true)
+            }
+            "app.list" -> {
+                val intent=Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                val items=packageManager.queryIntentActivities(intent,0).take(100)
+                val apps=org.json.JSONArray()
+                for (item in items) apps.put(JSONObject().put("packageName",item.activityInfo.packageName)
+                    .put("name",item.loadLabel(packageManager).toString().take(120)))
+                return JSONObject().put("apps",apps).put("count",apps.length())
+            }
+            "app.open" -> {
+                val pkg=data.optString("packageName")
+                require(pkg.matches(Regex("[a-zA-Z][a-zA-Z0-9_.]{2,149}"))) { "INVALID_APP_PACKAGE" }
+                val launch=packageManager.getLaunchIntentForPackage(pkg)
+                    ?: if(pkg=="com.android.settings") Intent(Settings.ACTION_SETTINGS) else null
+                    ?: throw IllegalStateException("APP_NOT_INSTALLED_OR_NOT_VISIBLE")
+                AppAccessibilityService.selectedPackage=pkg
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(launch)
+                Log.i(LOG_TAG,"APP_AUTOMATION_OPEN "+pkg)
+                return JSONObject().put("launched",true).put("packageName",pkg)
+            }
+            "app.screen" -> return AppAccessibilityService.inspect()
+            "app.tap" -> {
+                val label=data.optString("text")
+                // Financial, booking and real-world service commitments need
+                // a separate direct user confirmation, not an AI decision.
+                if (Regex("결제|구매|주문|예약.?확정|호출하기|송금|송금하기|Pay|Purchase|Confirm booking",
+                          RegexOption.IGNORE_CASE).containsMatchIn(label))
+                    throw IllegalStateException("REQUIRES_USER_CONFIRMATION")
+                return AppAccessibilityService.tapText(label)
+            }
+            "app.type" -> return AppAccessibilityService.setText(data.optString("text"))
+            "app.scroll" -> return AppAccessibilityService.scroll(data.optString("direction","forward")!="backward")
+            "app.back" -> return AppAccessibilityService.back()
+            "web.open" -> {
+                val uri=Uri.parse(data.optString("url"))
+                require(uri.scheme=="https" && !uri.host.isNullOrBlank()) { "HTTPS_URL_REQUIRED" }
+                startActivity(Intent(Intent.ACTION_VIEW,uri))
+                return JSONObject().put("opened",true).put("url",uri.toString())
+            }
+            else -> throw IllegalArgumentException("UNSUPPORTED_ASSISTIVE_ACTION")
+        }
+    }
+
     private fun connectLabNetwork(ticket: String) {
         if (ticket.isBlank() || ticket == activeTicket) return
         labSocket?.close(1000, "Pairing replaced")
@@ -209,6 +261,8 @@ class MainActivity : Activity() {
                                 "getCapabilities" -> result.put("capabilities", JSONObject()
                                     .put("nativeBridge",true).put("localTts",true)
                                     .put("openSystemDialer",true).put("webrtcWebview",true)
+                                    .put("installedAppAutomation",true)
+                                    .put("accessibilityEnabled",AppAccessibilityService.instance!=null)
                                     .put("readCellularRemoteAudio",false).put("injectCellularAudio",false))
                                 "tts.speak" -> {
                                     val body=data.optString("text").take(1000)
@@ -218,6 +272,10 @@ class MainActivity : Activity() {
                                     result.put("scope","local-device-only")
                                 }
                                 "tts.stop" -> {speaker?.stop();result.put("scope","local-device-only")}
+                                "app.list", "app.open", "app.screen", "app.tap", "app.type",
+                                "app.scroll", "app.back", "app.accessibility.status",
+                                "app.accessibility.settings", "web.open" ->
+                                    result.put("result", assistiveAction(action,data))
                                 "communication.action" -> {
                                     val sent = sendCommunicationAction(data.optString("callAction"),
                                         data.optJSONObject("payload") ?: JSONObject(),
@@ -292,6 +350,8 @@ class MainActivity : Activity() {
                             .put("localTts", true)
                             .put("openSystemDialer", true)
                             .put("webrtcWebview", true)
+                            .put("installedAppAutomation", true)
+                            .put("accessibilityEnabled", AppAccessibilityService.instance != null)
                             .put("readCellularRemoteAudio", false)
                             .put("injectCellularAudio", false))
                         Log.i(LOG_TAG, "CAPABILITIES_OK")
@@ -309,6 +369,14 @@ class MainActivity : Activity() {
                     "tts.stop" -> {
                         speaker?.stop()
                         response.put("scope", "local-device-only")
+                    }
+                    "app.list", "app.open", "app.screen", "app.tap", "app.type",
+                    "app.scroll", "app.back", "app.accessibility.status",
+                    "app.accessibility.settings", "web.open" -> {
+                        try { response.put("result",assistiveAction(action,req)) }
+                        catch(e:Exception){
+                            response.put("ok",false).put("error",e.message ?: "APP_AUTOMATION_FAILED")
+                        }
                     }
                     "communication.action" -> {
                         val callAction = req.optString("callAction")
