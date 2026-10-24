@@ -17,7 +17,6 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
   const jobsDir=path.join(root,'jobs');
   const framesDir=path.join(root,'frames');
   const deviceId='ci-playstore';
-  const starterWindows=new Map();
   const OWNER='hitel_ui_owner';
   const VISITOR='hitel_android_original_guest';
   const HOST_ORIGIN='https://hitel-communication-web-production.up.railway.app';
@@ -40,7 +39,6 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
   const owns=(req,s)=>Boolean(s&&s.owner&&cookie(req)===s.owner);
   const fresh=(s)=>!!s&&Date.now()-Date.parse(s.createdAt)<18*60_000;
   const active=(s)=>fresh(s)&&['queued','starting','running','stopping'].includes(s.status);
-  const ipOf=(req)=>String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0].trim();
   const checkOrigin=(req)=>req.headers.origin===HOST_ORIGIN||req.headers.origin==='http://127.0.0.1';
   async function bodyJson(req){
     let count=0,parts=[];
@@ -136,10 +134,6 @@ export function createAndroidOriginalAdapter({root,maxUploadBytes=80*1024*1024}=
         return await serial(async()=>{
           const prev=await read();
           if(active(prev))return fail(res,409,'ANDROID_SESSION_ALREADY_ACTIVE');
-          const ip=ipOf(req),w=starterWindows.get(ip)||{since:Date.now(),count:0};
-          if(Date.now()-w.since>3600_000){w.since=Date.now();w.count=0}
-          if(w.count>=3)return fail(res,429,'ANDROID_START_RATE_LIMIT');
-          ++w.count;starterWindows.set(ip,w);
           const s={id:crypto.randomUUID(),owner:crypto.randomBytes(24).toString('base64url'),
             status:'queued',createdAt:new Date().toISOString(),endedAt:null};
           await write(s);
