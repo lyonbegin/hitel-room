@@ -1,0 +1,21 @@
+name: HITEL Android Website Start Contract
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-website-start-contract.yml'
+      - 'lab-server/apk-manager.mjs'
+      - 'lab-server/tests/apk-manager.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check lab-server/apk-manager.mjs
+      - run: node --test lab-server/tests/apk-manager.test.mjs
