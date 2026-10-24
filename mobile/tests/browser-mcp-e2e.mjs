@@ -64,9 +64,9 @@ try{
   dev=await setup('devtools',['chrome-devtools-mcp@latest','--headless','--isolated','--no-usage-statistics']);
   const pages=await dev.call('list_pages');
   check('CHROME_PAGES',pages);
-  const nav=await dev.call('navigate_page',{url:TARGET});
+  const nav=await dev.call('navigate_page',{pageId:1,url:TARGET});
   check('CHROME_NAVIGATION',nav);
-  const evalResult=await dev.call('evaluate_script',{function:`async () => {
+  const evalResult=await dev.call('evaluate_script',{pageId:1,function:`async () => {
     const names=['/lab-api/android-native/status','/lab-api/apk/ui/status'];
     const endpoints=await Promise.all(names.map(async endpoint=>{
       try{
@@ -85,7 +85,7 @@ try{
       viewport:{width:innerWidth,height:innerHeight}};
   }`});
   check('CHROME_LAYOUT_AND_LIVE_ENDPOINTS',evalResult);
-  await dev.call('take_screenshot',{fullPage:true});
+  await dev.call('take_screenshot',{pageId:1,fullPage:true});
   if(summary.images.length<1)throw Error('No actual browser screenshot from MCP tools');
   summary.result='MCP_SERVERS_EXECUTED_AND_BOTH_BROWSERS_VERIFIED';
 }catch(error){
