@@ -1,7 +1,14 @@
 name: HITEL Android requested from Railway website
 on:
+  # A source update activates and diagnoses the dispatcher immediately; all
+  # normal user requests are consumed by the scheduled runner.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-web-session-runner.yml'
+  # Offset the schedule from minutes 0,5,10... where GitHub's cron queue is busiest.
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2-57/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
