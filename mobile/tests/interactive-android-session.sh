@@ -18,6 +18,7 @@ s=p.read_bytes()
 assert s[:8]==bytes.fromhex("89504e470d0a1a0a") and len(s)>1000
 print("PASS: actual Google Play Android launcher captured")
 PY
+python3 mobile/tools/init-ui-test.py
 echo "HITEL_INTERACTIVE_SESSION_BEGIN ci-playstore"
 # Timeboxed, not persistent. Signed GitHub Actions OIDC authenticates screen
 # updates and remote taps. On expiration the emulator is destroyed by Actions.
