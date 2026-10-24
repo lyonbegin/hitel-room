@@ -175,6 +175,9 @@ def main():
                 except Exception as frame_exc:
                     print("EMULATOR_FRAME_ERROR",str(frame_exc)[:150],file=sys.stderr,flush=True)
             answer=send("/lab-api/apk/agent/next",args.device,{})
+            if answer.get("stop") is True:
+                print("ANDROID_TEST_STOP_REQUESTED",args.device,flush=True)
+                return
             job=answer.get("job")
             if job:
                 success=False;error=None;log="";package=None
