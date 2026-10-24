@@ -1,0 +1,96 @@
+name: HITEL Android upstream source copy and original build
+
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-clone.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hitel-android-original-copy
+  cancel-in-progress: false
+
+jobs:
+  copy-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out Communication SDK repository
+        uses: actions/checkout@v4
+        with:
+          ref: feature/communication-sdk
+          persist-credentials: true
+      - name: Fetch pinned original source, without rewriting files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 --branch main https://github.com/adit9852/android-emulator-platform.git /tmp/hitel-android-source
+          PINNED=86e776ad530c1eac8d69fbbeb57f9b4ae12e014f
+          ACTUAL="$(git -C /tmp/hitel-android-source rev-parse HEAD)"
+          echo "ANDROID_UPSTREAM_SOURCE_COMMIT=$ACTUAL"
+          test "$ACTUAL" = "$PINNED"
+          mkdir -p vendor/android-emulator-platform
+          rsync -a --delete --exclude=.git /tmp/hitel-android-source/ vendor/android-emulator-platform/
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          source=Path('/tmp/hitel-android-source')
+          copied=Path('vendor/android-emulator-platform')
+          tracked=subprocess.check_output(['git','-C',str(source),'ls-files','-z']).decode().split('\x00')
+          tracked=[s for s in tracked if s]
+          files=[p for p in copied.rglob('*') if p.is_file()]
+          actual={str(p.relative_to(copied)) for p in files}
+          assert set(tracked)==actual, (set(tracked)-actual,actual-set(tracked))
+          for f in tracked: assert (source/f).read_bytes()==(copied/f).read_bytes(),f
+          print('ANDROID_ORIGINAL_FILE_BY_FILE_IDENTICAL',len(tracked))
+          assert len(tracked)==53
+          PY
+      - name: Preserve complete unmodified upstream source in feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f vendor/android-emulator-platform/
+          if git diff --cached --quiet; then
+            echo 'ANDROID_ORIGINAL_ALREADY_COPIED'
+          else
+            git commit -m "vendor(android): copy all 53 original android-emulator-platform files unchanged"
+            git push origin HEAD:feature/communication-sdk
+          fi
+          test "$(git ls-files vendor/android-emulator-platform | wc -l | tr -d ' ')" = 53
+          git rev-parse HEAD
+      - name: Build exact original React dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd vendor/android-emulator-platform/frontend
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.html
+          echo ANDROID_ORIGINAL_FRONTEND_BUILD_OK
+      - name: Verify original frontend serves HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd vendor/android-emulator-platform/frontend
+          npm run dev -- --host 127.0.0.1 > /tmp/hitel-android-vite.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" || true' EXIT
+          for i in {1..25}; do
+            if curl -fsS http://127.0.0.1:5173/ -o /tmp/hitel-android-index.html; then break; fi
+            sleep 1
+          done
+          grep -q '<div id="root"></div>' /tmp/hitel-android-index.html
+          echo ANDROID_ORIGINAL_HTTP_SERVE_OK
+      - name: Save original frontend build for separate deployment
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android-original-frontend
+          path: vendor/android-emulator-platform/frontend/dist/
+          if-no-files-found: error
