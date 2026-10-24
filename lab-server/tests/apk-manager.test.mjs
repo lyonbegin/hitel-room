@@ -10,7 +10,8 @@ const ADMIN='test-admin-token-with-sufficient-entropy';
 const AGENT='test-agent-token-with-sufficient-entropy';
 async function fixture(){
   const store=await mkdtemp(join(tmpdir(),'hitel-apk-'));
-  const apk=createApkManager({root:store,adminToken:ADMIN,agentToken:AGENT,maxBytes:8192});
+  const apk=createApkManager({root:store,adminToken:ADMIN,agentToken:AGENT,
+    maxBytes:8192,verifyCI:async()=>({run_id:'40100123456'})});
   const server=http.createServer((req,res)=>apk.http(req,res,new URL(req.url,'http://localhost')));
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   return {store,server,url:'http://127.0.0.1:'+server.address().port,
