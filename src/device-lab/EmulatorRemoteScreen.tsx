@@ -43,8 +43,15 @@ export function EmulatorRemoteScreen({token,deviceId,online,onNotice}:{
   function tap(event:MouseEvent<HTMLImageElement>){
     if(!online)return;
     const image=event.currentTarget,rect=image.getBoundingClientRect();
-    const x=Math.floor((event.clientX-rect.left)/rect.width*image.naturalWidth);
-    const y=Math.floor((event.clientY-rect.top)/rect.height*image.naturalHeight);
+    // CSS object-fit:contain may letterbox tall Android screens. Translate
+    // mouse positions through the ACTUAL image content rectangle.
+    const nativeRatio=image.naturalWidth/image.naturalHeight;
+    const boxRatio=rect.width/rect.height;
+    const drawnWidth=boxRatio>nativeRatio?rect.height*nativeRatio:rect.width;
+    const drawnHeight=boxRatio>nativeRatio?rect.height:rect.width/nativeRatio;
+    const offsetX=(rect.width-drawnWidth)/2,offsetY=(rect.height-drawnHeight)/2;
+    const x=Math.floor((event.clientX-rect.left-offsetX)/drawnWidth*image.naturalWidth);
+    const y=Math.floor((event.clientY-rect.top-offsetY)/drawnHeight*image.naturalHeight);
     if(x<0||y<0||x>=image.naturalWidth||y>=image.naturalHeight)return;
     void control('tap',{x,y});
   }
