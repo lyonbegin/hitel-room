@@ -38,7 +38,28 @@ class MainActivity : Activity() {
     private val networkClient = OkHttpClient()
     private var communicationSocket: WebSocket? = null
     private var communicationToken: String? = null
+    @Volatile private var communicationConnected = false
     private var communicationLastSequence = 0L
+    private val allowedCommunicationActions = setOf(
+        "call.invite", "call.ringing", "call.accept", "call.reject", "call.cancel",
+        "call.end", "call.failed", "call.networkInterrupted", "call.recovered", "call.mediaChanged"
+    )
+    private fun sendCommunicationAction(action: String, payload: JSONObject, requestId: String): Boolean {
+        if (action !in allowedCommunicationActions || requestId.isBlank() || !communicationConnected) return false
+        val socket = communicationSocket ?: return false
+        val packet = JSONObject().put("type", "call.action").put("action", action)
+            .put("requestId", requestId).put("payload", payload)
+        return socket.send(packet.toString())
+    }
+    private fun dispatchCommunicationNativeEvent(message: JSONObject, name: String) {
+        val detail = JSONObject().put("type", name).put("message", message)
+        runOnUiThread {
+            if (!labDestroyed && ::webView.isInitialized) webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" +
+                    detail.toString() + "}))", null
+            )
+        }
+    }
     private fun receiveCommunicationEvent(socket: WebSocket, event: JSONObject) {
         val sequence = event.optLong("sequence", 0)
         if (sequence <= communicationLastSequence) return
@@ -58,6 +79,7 @@ class MainActivity : Activity() {
     private fun connectCommunicationNetwork(token: String) {
         if (token.isBlank() || token == communicationToken || labDestroyed) return
         if (communicationToken != null && communicationToken != token) communicationLastSequence = 0
+        communicationConnected = false
         communicationSocket?.close(1000, "Communication session replaced")
         communicationToken = token
         val uri = Uri.parse(RELAY_ORIGIN + "/comm-api/ws").buildUpon()
@@ -66,6 +88,7 @@ class MainActivity : Activity() {
         val request = Request.Builder().url(uri).build()
         communicationSocket = networkClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                communicationConnected = true
                 Log.i(LOG_TAG, "COMM_SOCKET_CONNECTED")
                 webSocket.send(JSONObject().put("type", "comm.ping").toString())
             }
@@ -83,15 +106,24 @@ class MainActivity : Activity() {
                         "comm.event" -> event.optJSONObject("event")?.let {
                             receiveCommunicationEvent(webSocket, it)
                         }
-                        "comm.actionAck" -> Log.i(LOG_TAG, "COMM_ACTION_ACK")
+                        "comm.actionAck" -> {
+                            Log.i(LOG_TAG, "COMM_ACTION_ACK")
+                            dispatchCommunicationNativeEvent(event, "communication.actionAck")
+                        }
+                        "comm.error" -> {
+                            Log.w(LOG_TAG, "COMM_ACTION_ERROR " + event.optString("error").take(160))
+                            dispatchCommunicationNativeEvent(event, "communication.error")
+                        }
                     }
                 } catch (e: Exception) { Log.w(LOG_TAG, "COMM_EVENT_ERROR " + e.message) }
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w(LOG_TAG, "COMM_SOCKET_FAILURE " + t.message)
+                if (communicationSocket === webSocket) communicationConnected = false
                 reconnect(webSocket)
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                if (communicationSocket === webSocket) communicationConnected = false
                 reconnect(webSocket)
             }
             private fun reconnect(socket: WebSocket) {
@@ -263,6 +295,13 @@ class MainActivity : Activity() {
                     "tts.stop" -> {
                         speaker?.stop()
                         response.put("scope", "local-device-only")
+                    }
+                    "communication.action" -> {
+                        val callAction = req.optString("callAction")
+                        val payload = req.optJSONObject("payload") ?: JSONObject()
+                        if (!sendCommunicationAction(callAction, payload, req.optString("requestId"))) {
+                            response.put("ok", false).put("error", "Signaling socket offline or invalid action")
+                        } else response.put("scope", "native-signaling-pending-ack")
                     }
                     "call.openDialer" -> {
                         val number = req.optString("phone")
