@@ -48,7 +48,7 @@ class GooglePlayHostTests(unittest.TestCase):
         })
         self.assertEqual(output, "playstore completed")
         self.assertIn("com.android.vending", self.recorded[-1][1])
-        self.assertIn("LAUNCHER", self.recorded[-1][1])
+        self.assertIn("android.intent.category.LAUNCHER", self.recorded[-1][1])
 
     def test_real_android_search_term_and_home(self):
         module.run_control("emulator-5554", {
