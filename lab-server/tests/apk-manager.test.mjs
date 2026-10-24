@@ -79,3 +79,27 @@ test('binary upload, SHA verification, real agent lease, download and report lif
     assert.equal(empty.body.job,null);
   }finally{await f.dispose()}
 });
+
+test('OIDC CI upload seeds a real install job restricted to disposable ci-android',async()=>{
+  const store=await mkdtemp(join(tmpdir(),'hitel-apk-ci-'));
+  const service=createApkManager({root:store,adminToken:ADMIN,agentToken:AGENT,
+    verifyCI:async()=>({run_id:'40000000000'}),maxBytes:8192});
+  const server=http.createServer((req,res)=>service.http(req,res,new URL(req.url,'http://localhost')));
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{
+    const base='http://127.0.0.1:'+server.address().port+'/lab-api/apk/';
+    const sample=Buffer.concat([Buffer.from('504b0304','hex'),Buffer.alloc(220)]);
+    const uploaded=await fetch(base+'ci/seed',{
+      method:'POST',body:sample,headers:{authorization:'Bearer CI_TEST_FAKE_OIDC'}});
+    assert.equal(uploaded.status,201);
+    assert.equal((await uploaded.json()).seeded,true);
+    const result=await fetch(base+'agent/next',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer '+AGENT,'x-emulator-device':'ci-android'}});
+    const job=(await result.json()).job;
+    assert.equal(job.filename,'hitel-native-ci.apk');
+    assert.equal(job.launchAfterInstall,true);
+    const no=await fetch(base+'agent/next',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_FAKE_OIDC','x-emulator-device':'android-lab-01'}});
+    assert.equal(no.status,401,'OIDC may control only disposable ci-android');
+  }finally{await new Promise(resolve=>server.close(resolve));await rm(store,{recursive:true,force:true})}
+});
