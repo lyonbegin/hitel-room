@@ -1,0 +1,29 @@
+name: HITEL Original Android Chrome HTTPS Onboarding Proof
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-chrome-proof.yml'
+      - 'mobile/tests/original-chrome-proof.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM for native original Android container
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Complete real Chrome first-run then load HTTPS
+        run: bash mobile/tests/original-chrome-proof.sh
+      - name: Store original Chrome onboarding and HTTPS evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-original-android-chrome-https
+          path: mobile-test-results/android-original-chrome/
+          if-no-files-found: warn
