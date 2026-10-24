@@ -21,6 +21,7 @@ export function createApkManager({
   const framesDir=path.join(root,'frames');
   const hosts=new Map();
   const uiTestSessions=new Map();
+  let pendingUiSession=null;
   const TEST_DEVICE='ci-playstore';
   const validId=/^[a-f0-9-]{36}$/i;
   const validDevice=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
@@ -121,9 +122,26 @@ export function createApkManager({
         const token=crypto.randomBytes(32).toString('base64url');
         for(const [key,value] of uiTestSessions)
           if(Date.now()>value.expiresAt)uiTestSessions.delete(key);
+        const expiresAt=Date.now()+18*60_000;
+        uiTestSessions.clear();
         uiTestSessions.set(token,{runId:String(identity.run_id||''),
-          expiresAt:Date.now()+18*60_000,deviceId:TEST_DEVICE});
-        return json(res,201,{ok:true,token,deviceId:TEST_DEVICE,expiresInSeconds:1080});
+          expiresAt,deviceId:TEST_DEVICE});
+        pendingUiSession={token,expiresAt,claimed:false};
+        return json(res,201,{ok:true,deviceId:TEST_DEVICE,expiresInSeconds:1080});
+      }
+      if(req.method==='POST'&&route==='/lab-api/apk/ui/connect'){
+        // One browser claims the short-lived disposable test session.
+        // No user-entered credential or workflow-log token is required.
+        const origin=String(req.headers.origin||'');
+        if(origin!=='https://hitel-communication-web-production.up.railway.app' &&
+           origin!=='http://127.0.0.1')return bad(res,'TEST_ORIGIN_REQUIRED',403);
+        const pending=pendingUiSession;
+        if(!pending||pending.expiresAt<=Date.now())
+          return json(res,202,{ok:true,ready:false});
+        if(pending.claimed)return json(res,202,{ok:true,ready:false});
+        pending.claimed=true;
+        return json(res,200,{ok:true,ready:true,token:pending.token,
+          deviceId:TEST_DEVICE,expiresInSeconds:Math.floor((pending.expiresAt-Date.now())/1000)});
       }
       const session=uiTestSessions.get(tokenOf(req));
       const isTest=!!session&&session.expiresAt>Date.now()&&session.deviceId===TEST_DEVICE;
