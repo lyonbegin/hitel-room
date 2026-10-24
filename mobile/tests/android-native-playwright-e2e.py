@@ -43,7 +43,11 @@ async def main():
    embedded=[f for f in page.frames if ".trycloudflare.com" in f.url]
    say("IFRAME_FOUND",len(embedded))
    nativePage=await ctx.new_page()
-   nativePage.on("websocket",lambda sock:sockets.append(sock.url))
+   frame_events=[]
+   def observe_socket(sock):
+    sockets.append(sock.url)
+    sock.on("framereceived",lambda data:frame_events.append(len(data) if isinstance(data,(str,bytes)) else 0))
+   nativePage.on("websocket",observe_socket)
    response=await nativePage.goto(native+"/",wait_until="domcontentloaded",timeout=45000)
    await nativePage.wait_for_timeout(4000)
    say("NATIVE_HTTP",response.status)
@@ -60,9 +64,17 @@ async def main():
     say("NATIVE_FRAMES",[f.url for f in nativePage.frames])
     await nativePage.screenshot(path=str(OUT/"original-live-phone.png"),full_page=True)
    say("WEBSOCKETS",sockets[:20])
+   say("RECEIVED_WEBSOCKET_FRAMES",len(frame_events))
    say("PAGE_ERRORS",errors[:30])
    if response.status!=200 or not embedded:raise RuntimeError("Original UI did not embed properly inside Railway")
-   say("RESULT","ORIGINAL_UI_EMBEDDED_AND_NATIVE_HTTP_PASS")
+   if os.environ.get("HITEL_REQUIRE_NATIVE_PHONE")=="1":
+    assert any("/stream/1/phone.html" in f.url for f in nativePage.frames),"Native Android phone.html iframe missing"
+    assert any("/stream/1/websockify" in w for w in sockets),"Native noVNC websocket not opened"
+    assert len(frame_events)>0,"No actual websocket frames from native Android display"
+    assert not errors,"Browser JS errors: "+str(errors)
+    say("RESULT","REAL_ANDROID_NATIVE_WEBSOCKET_AND_IFRAME_PASS")
+   else:
+    say("RESULT","ORIGINAL_UI_EMBEDDED_AND_NATIVE_HTTP_PASS")
   finally:
    await browser.close()
 if __name__=="__main__":asyncio.run(main())
