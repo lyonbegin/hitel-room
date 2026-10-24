@@ -1,8 +1,8 @@
 import {useEffect,useState} from 'react';
 import './AndroidSessionControls.css';
 
-type RunStatus='idle'|'queued'|'starting'|'running'|'stopping'|'completed'|'expired'|'busy';
-type StatusReply={ok:boolean;status?:RunStatus;online?:boolean;error?:string};
+type RunStatus='idle'|'queued'|'starting'|'running'|'stopping'|'completed'|'expired'|'busy'|'failed';
+type StatusReply={ok:boolean;status?:RunStatus;online?:boolean;error?:string;dispatchConfigured?:boolean};
 type NativeReply={ok:boolean;online?:boolean;url?:string;transport?:string};
 
 export function AndroidSessionControls({onNotice}:{
@@ -12,6 +12,8 @@ export function AndroidSessionControls({onNotice}:{
   const [online,setOnline]=useState(false);
   const [nativeOnline,setNativeOnline]=useState(false);
   const [busy,setBusy]=useState(false);
+  const [dispatchConfigured,setDispatchConfigured]=useState<boolean|null>(null);
+  const [dispatchError,setDispatchError]=useState('');
   const refresh=async()=>{
     try{
       const response=await fetch('/lab-api/apk/ui/status',{
@@ -21,6 +23,7 @@ export function AndroidSessionControls({onNotice}:{
       const info=await response.json() as StatusReply;
       setStatus(info.status||'idle');
       setOnline(Boolean(info.online));
+      if(typeof info.dispatchConfigured==='boolean')setDispatchConfigured(info.dispatchConfigured);
       const real=await fetch('/lab-api/android-native/status',{
         credentials:'same-origin',cache:'no-store'
       });
@@ -43,7 +46,8 @@ export function AndroidSessionControls({onNotice}:{
         headers:{'content-type':'application/json'},body:'{}'
       });
       const info=await response.json() as StatusReply;
-      if(!response.ok)throw Error(info.error||'Android 시작 오류');
+      if(!response.ok){setDispatchError(info.error||'ANDROID_START_FAILED');setStatus('failed');throw Error(info.error||'Android 시작 오류')}
+      setDispatchError('');
       setStatus('queued');
       onNotice('Android 요청만 서버에 등록되었습니다. 실제 GitHub 실행기 기동 및 실시간 화면 연결은 아직 완료되지 않았습니다.');
     }catch(e){onNotice('Android 시작 실패: '+String(e))}
@@ -72,6 +76,7 @@ export function AndroidSessionControls({onNotice}:{
     stopping:'Android 종료 중',
     completed:'테스트 종료 · 가상 기기 초기화됨',
     expired:'실행 만료 · 다시 시작할 수 있습니다',
+    failed:'Android 기동 요청 실패 · GitHub 실행기가 시작되지 않음',
     busy:nativeOnline?'원본 Android 이미 실행 중 · 새 세션 필요 없음':'다른 테스트가 진행 중'
   };
   return <div className="dl-android-session" aria-label="일회용 Android 실행 제어">
@@ -83,18 +88,18 @@ export function AndroidSessionControls({onNotice}:{
           ▶ 현재 Android 화면 열기 ↗
         </a>:
         <button type="button" className="dl-android-start"
-          disabled={busy||active||status==='busy'}
+          disabled={busy||active||status==='busy'||dispatchConfigured===false}
           onClick={()=>void start()}>Android 실행</button>}
       <button type="button" className="dl-android-stop" disabled={busy||!active}
         onClick={()=>void stop()}>Android 종료</button>
     </div>
     <p role="status" aria-live="polite" className={'dl-android-session-status '+(online?'connected':'')}>
-      {readable[status]}
+      {nativeOnline?readable[status]:dispatchConfigured===false?'GitHub Actions 즉시 실행 연결 미설정 · Android 실행 불가':dispatchError?'Android 기동 실패: '+dispatchError:readable[status]}
     </p>
     <p className="dl-android-session-hint">
       {nativeOnline?<a href="/lab-api/android-native/view" target="_blank" rel="noopener noreferrer">
         기존 세션 그대로 사용 · 실제 Android 홈/앱 설치 화면 ↗</a>:
-        '요청 등록(HTTP 202)은 실행 성공이 아닙니다. 원본 Android 화면이 연결되어야 실행 완료입니다.'}
+        dispatchConfigured===false?'GitHub Actions API의 서버 인증 연결이 아직 없습니다. 실행 성공으로 표시하지 않습니다.':'GitHub가 실행 요청을 수락해도 Android 화면·noVNC 연결을 확인해야 실행 완료입니다.'}
     </p>
   </div>;
 }
