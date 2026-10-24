@@ -3,12 +3,14 @@ import './AndroidSessionControls.css';
 
 type RunStatus='idle'|'queued'|'starting'|'running'|'stopping'|'completed'|'expired'|'busy';
 type StatusReply={ok:boolean;status?:RunStatus;online?:boolean;error?:string};
+type NativeReply={ok:boolean;online?:boolean;url?:string;transport?:string};
 
 export function AndroidSessionControls({onNotice}:{
   onNotice:(message:string)=>void
 }){
   const [status,setStatus]=useState<RunStatus>('idle');
   const [online,setOnline]=useState(false);
+  const [nativeOnline,setNativeOnline]=useState(false);
   const [busy,setBusy]=useState(false);
   const refresh=async()=>{
     try{
@@ -19,6 +21,13 @@ export function AndroidSessionControls({onNotice}:{
       const info=await response.json() as StatusReply;
       setStatus(info.status||'idle');
       setOnline(Boolean(info.online));
+      const real=await fetch('/lab-api/android-native/status',{
+        credentials:'same-origin',cache:'no-store'
+      });
+      if(real.ok){
+        const native=await real.json() as NativeReply;
+        setNativeOnline(Boolean(native.online&&native.transport==='original-scrcpy-novnc'));
+      }
     }catch{/* server booting */}
   };
   useEffect(()=>{
@@ -54,12 +63,12 @@ export function AndroidSessionControls({onNotice}:{
     }catch(e){onNotice('Android 종료 실패: '+String(e))}
     finally{setBusy(false);void refresh()}
   };
-  const active=['queued','starting','running','stopping'].includes(status);
+  const active=['queued','starting','running','stopping'].includes(status)||nativeOnline;
   const readable:Record<RunStatus,string>={
-    idle:'실행 대기',
-    queued:'실행 예약됨 · 내부 실행 서버가 순서대로 시작합니다',
-    starting:'실제 Android 부팅 중',
-    running:online?'실제 Android 실행 중 · 화면에서 조작하세요':'Android 부팅·화면 연결 중',
+    idle:nativeOnline?'원본 Android · scrcpy/noVNC 실행 중':'실행 대기',
+    queued:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'원본 Android 실행 요청 등록됨',
+    starting:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'원본 Android·scrcpy 부팅 중',
+    running:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'원본 Android 부팅·화면 연결 중',
     stopping:'Android 종료 중',
     completed:'테스트 종료 · 가상 기기 초기화됨',
     expired:'실행 만료 · 다시 시작할 수 있습니다',
@@ -75,6 +84,10 @@ export function AndroidSessionControls({onNotice}:{
     <p role="status" aria-live="polite" className={'dl-android-session-status '+(online?'connected':'')}>
       {readable[status]}
     </p>
-    <p className="dl-android-session-hint">이 화면에서 Android 실행·앱 설치·화면 조작·종료를 모두 처리합니다.</p>
+    <p className="dl-android-session-hint">
+      {nativeOnline?<a href="/android-original/" target="_blank" rel="noopener noreferrer">
+        원본 Android Emulator Platform 전체 화면에서 앱 설치·조작 ↗</a>:
+        '원본 서버가 기동되면 실제 scrcpy/noVNC 화면이 열립니다.'}
+    </p>
   </div>;
 }
