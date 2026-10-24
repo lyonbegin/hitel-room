@@ -45,7 +45,7 @@ export function AndroidSessionControls({onNotice}:{
       const info=await response.json() as StatusReply;
       if(!response.ok)throw Error(info.error||'Android 시작 오류');
       setStatus('queued');
-      onNotice('Android 실행 요청 등록 · 실행 서버가 요청을 가져오면 실제 화면이 열립니다.');
+      onNotice('Android 요청만 서버에 등록되었습니다. 실제 GitHub 실행기 기동 및 실시간 화면 연결은 아직 완료되지 않았습니다.');
     }catch(e){onNotice('Android 시작 실패: '+String(e))}
     finally{setBusy(false);void refresh()}
   };
@@ -66,8 +66,8 @@ export function AndroidSessionControls({onNotice}:{
   const active=['queued','starting','running','stopping'].includes(status)||nativeOnline;
   const readable:Record<RunStatus,string>={
     idle:nativeOnline?'원본 Android · scrcpy/noVNC 실행 중':'실행 대기',
-    queued:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'원본 Android 실행 요청 등록됨',
-    starting:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'원본 Android·scrcpy 부팅 중',
+    queued:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'실행 요청만 등록됨 · GitHub KVM 기동 대기',
+    starting:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'GitHub 실행기 요청 수락 · Android 부팅 결과 대기',
     running:nativeOnline?'원본 Android · scrcpy/noVNC 실시간 연결됨':'원본 Android 부팅·화면 연결 중',
     stopping:'Android 종료 중',
     completed:'테스트 종료 · 가상 기기 초기화됨',
@@ -94,7 +94,7 @@ export function AndroidSessionControls({onNotice}:{
     <p className="dl-android-session-hint">
       {nativeOnline?<a href="/lab-api/android-native/view" target="_blank" rel="noopener noreferrer">
         기존 세션 그대로 사용 · 실제 Android 홈/앱 설치 화면 ↗</a>:
-        '원본 서버가 기동되면 실제 scrcpy/noVNC 화면이 열립니다.'}
+        '요청 등록(HTTP 202)은 실행 성공이 아닙니다. 원본 Android 화면이 연결되어야 실행 완료입니다.'}
     </p>
   </div>;
 }
