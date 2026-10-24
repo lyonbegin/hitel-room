@@ -1,0 +1,77 @@
+name: HITEL original Android native scrcpy end-to-end
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-native-stack.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Allocate KVM for the unmodified original Android Docker stack
+        run: |
+          set -e
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          docker compose version
+      - name: Start original Docker images and scrcpy viewer (no source changes)
+        working-directory: vendor/android-emulator-platform
+        env:
+          DB_PASSWORD: original-test-not-persisted
+          PUBLIC_HOST: 127.0.0.1
+        run: |
+          set +e
+          echo 'ORIGINAL_DOCKER_BUILD_START'
+          docker compose -f docker-compose.yml build emulator-1 scrcpy-1 backend             > "$GITHUB_WORKSPACE/original-build.log" 2>&1
+          rc=$?
+          tail -n 140 "$GITHUB_WORKSPACE/original-build.log"
+          echo "ORIGINAL_DOCKER_BUILD_EXIT=$rc"
+          if test "$rc" -ne 0; then exit "$rc"; fi
+          echo 'ORIGINAL_DOCKER_BOOT_START'
+          docker compose -f docker-compose.yml up -d --no-build redis postgres emulator-1 scrcpy-1 backend
+          docker compose ps
+          for i in $(seq 1 24); do
+            if curl -fsS http://127.0.0.1:6090/phone.html -o /tmp/original-phone.html ; then
+              echo 'ORIGINAL_SCRCPY_NOVNC_HTTP_OK'
+              break
+            fi
+            sleep 5
+          done
+          grep -F 'import RFB' /tmp/original-phone.html
+          echo 'ORIGINAL_SCRCPY_NOVNC_PAGE_OK'
+          # Check emulator really starts; an HTTP placeholder alone is not a pass.
+          for i in $(seq 1 24); do
+            docker compose exec -T emulator-1 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' > /tmp/original-boot.txt
+            if grep -q '^1$' /tmp/original-boot.txt; then
+              echo 'ORIGINAL_ANDROID_GUEST_BOOT_COMPLETED'
+              break
+            fi
+            sleep 5
+          done
+          grep -q '^1$' /tmp/original-boot.txt || { echo 'ORIGINAL_ANDROID_GUEST_BOOT_FAILED'; exit 1; }
+          docker logs emulator-scrcpy-1 --tail 60
+          docker exec emulator-scrcpy-1 sh -c 'cat /var/log/scrcpy.log | tail -n 30'
+          docker exec emulator-scrcpy-1 sh -c 'pgrep -a scrcpy'
+          echo 'ORIGINAL_SCRCPY_PROCESS_RUNNING_OK'
+      - name: Collect full original Docker diagnostic logs
+        if: always()
+        working-directory: vendor/android-emulator-platform
+        env:
+          DB_PASSWORD: original-test-not-persisted
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/mobile-test-results/android-original-native"
+          docker compose -f docker-compose.yml ps > "$GITHUB_WORKSPACE/mobile-test-results/android-original-native/compose-ps.txt" 2>&1 || true
+          docker compose -f docker-compose.yml logs --no-color --tail 200 > "$GITHUB_WORKSPACE/mobile-test-results/android-original-native/docker-logs.txt" 2>&1 || true
+          docker info > "$GITHUB_WORKSPACE/mobile-test-results/android-original-native/docker-info.txt" 2>&1 || true
+          cp "$GITHUB_WORKSPACE/original-build.log" "$GITHUB_WORKSPACE/mobile-test-results/android-original-native/build.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-original-native-scrcpy-diagnostics
+          path: mobile-test-results/android-original-native/
+          if-no-files-found: warn
