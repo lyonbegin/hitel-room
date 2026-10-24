@@ -21,6 +21,23 @@ s=p.read_bytes()
 assert s[:8]==bytes.fromhex("89504e470d0a1a0a") and len(s)>1000
 print("PASS: actual Google Play Android launcher captured")
 PY
+# Verify that the real Google Play app can open the Kakao T listing before
+# handing the untouched launcher to the interactive HITEL browser session.
+echo "ANDROID_PLAY_STORE_KAKAOT_OPEN_ATTEMPT"
+adb shell am start -a android.intent.action.VIEW -d 'market://details?id=com.kakao.taxi' \
+  > "$out/kakaot-playstore-activity.txt" 2>&1 || true
+sleep 6
+adb exec-out screencap -p > "$out/kakaot-playstore-page.png"
+python3 - <<'PY'
+from pathlib import Path
+p=Path("mobile-test-results/android-interactive/kakaot-playstore-page.png")
+s=p.read_bytes()
+assert s.startswith(bytes.fromhex("89504e470d0a1a0a")) and len(s)>1000
+print("ANDROID_PLAY_STORE_KAKAOT_SCREEN_CAPTURED",len(s))
+PY
+adb shell dumpsys activity activities > "$out/kakaot-playstore-activities.txt" || true
+adb shell input keyevent KEYCODE_HOME
+sleep 1
 python3 mobile/tools/init-ui-test.py
 echo "HITEL_INTERACTIVE_SESSION_BEGIN ci-playstore"
 # Timeboxed, not persistent. Signed GitHub Actions OIDC authenticates screen
