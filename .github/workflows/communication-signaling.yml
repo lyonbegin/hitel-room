@@ -25,7 +25,7 @@ jobs:
       - name: Install relay dependencies
         run: npm install --prefix lab-server --no-audit --no-fund
       - name: Test actual two-client WebSocket and all scenario IDs
-        run: node --test lab-server/tests/communication.test.mjs
+        run: node --test lab-server/tests/communication.test.mjs tests/device-relay-multi-device.test.mjs
       - name: Syntax validation for relay
         run: |
           node --check lab-server/index.mjs
