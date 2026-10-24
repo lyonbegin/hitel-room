@@ -46,6 +46,10 @@ if (!(Test-Path $agent)) { throw "HITEL agent missing: $agent" }
 $sdk = $env:ANDROID_HOME
 if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
 if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA "Android\Sdk" }
+if (-not $env:JAVA_HOME) {
+    $bundledJava = "C:\Program Files\Android\Android Studio\jbr"
+    if (Test-Path (Join-Path $bundledJava "bin\java.exe")) { $env:JAVA_HOME = $bundledJava }
+}
 $adb = Join-Path $sdk "platform-tools\adb.exe"
 $emulator = Join-Path $sdk "emulator\emulator.exe"
 $sdkmanager = Join-Path $sdk "cmdline-tools\latest\bin\sdkmanager.bat"
@@ -78,8 +82,55 @@ if (-not ($running | Select-String -Pattern '^emulator-[0-9]+\s+device$')) {
     Start-Process -FilePath $emulator -ArgumentList @("-avd",$AvdName,"-gpu","swiftshader_indirect","-no-snapshot-load")
 }
 
-& $adb "wait-for-device"
-if ($LASTEXITCODE -ne 0) { throw "ADB could not connect to emulator" }
+$booted = $false
+for ($attempt = 0; $attempt -lt 120; $attempt++) {
+    Start-Sleep -Seconds 3
+    $emulatorList = @(& $adb "devices")
+    if ($emulatorList | Select-String -Pattern '^emulator-[0-9]+\s+device
+$serialLines = @(& $adb "devices")
+$serial = ($serialLines | Select-String -Pattern '^(emulator-[0-9]+)\s+device$' | Select-Object -First 1)
+if (!$serial) { throw "No live Android emulator found" }
+$serialValue = $serial.Matches[0].Groups[1].Value
+$play = @(& $adb "-s" $serialValue "shell" "pm" "path" "com.android.vending")
+if (-not ($play -match 'package:')) { throw "Selected Android image has no Google Play Store" }
+Write-Host "Verified Google Play Store on $serialValue"
+
+$pythonCommand = Get-Command "py" -ErrorAction SilentlyContinue
+if ($pythonCommand) {
+    $pythonBinary = $pythonCommand.Source
+    $pythonArgs = @("-3", $agent,"--device",$DeviceId,"--serial",$serialValue)
+} else {
+    $pythonCommand = Get-Command "python" -ErrorAction Stop
+    $pythonBinary = $pythonCommand.Source
+    $pythonArgs = @($agent,"--device",$DeviceId,"--serial",$serialValue)
+}
+
+# Windows DPAPI: only this Windows account can decrypt the credential file.
+$secure = (Get-Content -Raw $secretsFile).Trim() | ConvertTo-SecureString
+$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+try {
+    $env:LAB_APK_AGENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+}
+$env:LAB_RELAY_URL = "https://hitel-device-relay-production.up.railway.app"
+Write-Host "HITEL persistent Android: $DeviceId ($serialValue), host agent connected to Railway"
+Write-Host "Open /sdk-lab; the Android host will show online once screenshots arrive."
+try {
+    while ($true) {
+        & $pythonBinary @pythonArgs
+        Write-Warning "Android agent exited: restarting in 5 seconds..."
+        Start-Sleep -Seconds 5
+    }
+} finally {
+    Remove-Item Env:LAB_APK_AGENT_TOKEN -ErrorAction SilentlyContinue
+}
+) {
+        $bootFlag = @(& $adb "shell" "getprop" "sys.boot_completed")
+        if ($bootFlag -contains "1") { $booted = $true; break }
+    }
+}
+if (-not $booted) { throw "Android emulator boot did not complete within 6 minutes" }
 $serialLines = @(& $adb "devices")
 $serial = ($serialLines | Select-String -Pattern '^(emulator-[0-9]+)\s+device$' | Select-Object -First 1)
 if (!$serial) { throw "No live Android emulator found" }
