@@ -1,8 +1,8 @@
 import {useEffect,useState,type MouseEvent} from 'react';
 
 type Command='tap'|'back'|'home'|'scroll';
-export function EmulatorRemoteScreen({token,deviceId,online,onNotice}:{
-  token:string;deviceId:string;online:boolean;onNotice:(message:string)=>void
+export function EmulatorRemoteScreen({token,deviceId,online,onNotice,compact=false}:{
+  token:string;deviceId:string;online:boolean;onNotice:(message:string)=>void;compact?:boolean
 }){
   const [source,setSource]=useState('');
   const [frameState,setFrameState]=useState('호스트의 전체 화면 캡처를 기다리는 중');
@@ -55,16 +55,21 @@ export function EmulatorRemoteScreen({token,deviceId,online,onNotice}:{
     if(x<0||y<0||x>=image.naturalWidth||y>=image.naturalHeight)return;
     void control('tap',{x,y});
   }
-  return <div className="apk-panel">
-    <h3>5 · Android 전체 화면 실시간 보기·조작</h3>
-    <p className="apk-caption">HITEL WebView 화면이 아닌 에뮬레이터 OS 전체 화면입니다. 연결 중에는 화면을 클릭해 실제 터치할 수 있습니다.</p>
-    <p className={'apk-host '+(online?'online':'offline')}>
-      {online?'● 실제 Android 화면 제어 가능':'○ 호스트 오프라인 · 마지막 캡처만 조회 가능'}
-    </p>
+  return <div className={compact?'apk-remote-inline':'apk-panel'}>
+    {!compact&&<><h3>Android 전체 화면 직접 조작</h3>
+    <p className="apk-caption">HITEL의 웹 미리보기가 아닌 실제 에뮬레이터 전체 화면입니다. 화면에서 Play Store 아이콘을 클릭해 앱을 설치할 수 있습니다.</p></>}
+    {!compact&&<p className={'apk-host '+(online?'online':'offline')}>
+      {online?'● Android 원격 터치 연결':'○ 에뮬레이터 종료 · 이전 캡처는 클릭할 수 없습니다'}
+    </p>}
     <div className="apk-remote-screen">
-      {source?<img src={source} alt="실제 Android 에뮬레이터 전체 화면" onClick={tap}
-        style={{cursor:online?'crosshair':'default'}}/>:
-        <p>저장된 전체 화면이 없습니다. Android 에뮬레이터에서 설치 에이전트를 실행하면 나타납니다.</p>}
+      {source?<img src={source} alt="실제 Android 홈 화면 및 실행 중인 앱" onClick={tap}
+        style={{cursor:online?'crosshair':'default'}} draggable={false}/>:
+        <div className="apk-remote-placeholder">
+          <strong>실제 Android 화면 연결 대기</strong>
+          <p>{token.trim()?'일회용 Android 실행을 시작하면 실제 홈 화면이 이곳에 나타납니다.':'아래 APK 관리자에서 인증 토큰을 입력하세요.'}</p>
+          <a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml"
+            target="_blank" rel="noreferrer">Android 테스트 시작 · Run workflow ↗</a>
+        </div>}
     </div>
     <div className="apk-remote-buttons">
       <button type="button" disabled={!online} onClick={()=>void control('back')}>뒤로</button>
@@ -72,6 +77,6 @@ export function EmulatorRemoteScreen({token,deviceId,online,onNotice}:{
       <button type="button" disabled={!online} onClick={()=>void control('scroll',{direction:'down'})}>아래로 스크롤</button>
       <button type="button" disabled={!online} onClick={()=>void control('scroll',{direction:'up'})}>위로 스크롤</button>
     </div>
-    <p className="apk-caption" role="status">{frameState}</p>
+    <p className="apk-caption" role="status">{online?'실제 Android · 터치 조작 가능': '세션 오프라인 · '+frameState}</p>
   </div>;
 }
