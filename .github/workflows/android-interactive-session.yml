@@ -4,6 +4,7 @@ on:
     branches: [feature/communication-sdk]
     paths:
       - 'mobile/tests/interactive-android-session.sh'
+      - 'mobile/tools/init-ui-test.py'
       - '.github/workflows/android-interactive-session.yml'
   workflow_dispatch:
 permissions:
