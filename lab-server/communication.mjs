@@ -64,6 +64,16 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       if(state!=='active'&&state!=='connecting')throw Error('Connected call required');
       return publish(call,role,action,payload);
     }
+    // Both RTC participants must report a joined media session before ACTIVE.
+    if(action==='call.active'){
+      if(state!=='connecting'&&state!=='active')throw Error('Media cannot be activated in this state');
+      participant.mediaReady=true;
+      const bothReady=call.caller.mediaReady&&call.callee.mediaReady;
+      if(bothReady&&call.state!=='active')call.state='active';
+      return publish(call,role,bothReady?'call.active':'call.mediaReady',{...payload,mediaReady:true});
+    }
+    if(action==='call.connecting'&&state==='connecting')
+      return publish(call,role,'call.connecting',payload);
     const transitions={
       'call.invite':{role:'caller',from:['idle'],to:'inviting'},
       'call.ringing':{role:'callee',from:['inviting'],to:'ringing'},
@@ -71,7 +81,6 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       'call.reject':{role:'callee',from:['inviting','ringing'],to:'rejected'},
       'call.cancel':{role:'caller',from:['inviting','ringing'],to:'cancelled'},
       'call.connecting':{role:null,from:['accepted'],to:'connecting'},
-      'call.active':{role:null,from:['connecting'],to:'active'},
       'call.end':{role:null,from:['accepted','connecting','active'],to:'ended'},
       'call.failed':{role:null,from:['inviting','ringing','accepted','connecting','active'],to:'failed'}
     };
@@ -112,8 +121,8 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       if(from<0||to<0)return reply(res,400,{ok:false,error:'Invalid communication endpoints'});
       const id=crypto.randomUUID();
       const call={id,scenarioId:from*4+to+1,from:data.from,to:data.to,state:'idle',sequence:0,
-        expires:Date.now()+callTtlMs,events:[],caller:{role:'caller',token:secret(),sockets:new Set(),ack:0},
-        callee:{role:'callee',token:secret(),sockets:new Set(),ack:0},ringTimer:null};
+        expires:Date.now()+callTtlMs,events:[],caller:{role:'caller',token:secret(),sockets:new Set(),ack:0,mediaReady:false},
+        callee:{role:'callee',token:secret(),sockets:new Set(),ack:0,mediaReady:false},ringTimer:null};
       sessions.set(id,call);
       return reply(res,201,{ok:true,callId:id,scenarioId:call.scenarioId,
         callerToken:call.caller.token,calleeToken:call.callee.token,expiresInSeconds:Math.floor(callTtlMs/1000)});
