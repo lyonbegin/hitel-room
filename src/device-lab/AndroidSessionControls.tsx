@@ -57,7 +57,7 @@ export function AndroidSessionControls({onNotice}:{
   const active=['queued','starting','running','stopping'].includes(status);
   const readable:Record<RunStatus,string>={
     idle:'실행 대기',
-    queued:'실행 예약됨 · GitHub 실행 주기 최대 약 5분 대기',
+    queued:'실행 예약됨 · 내부 실행 서버가 순서대로 시작합니다',
     starting:'실제 Android 부팅 중',
     running:online?'실제 Android 실행 중 · 화면에서 조작하세요':'Android 부팅·화면 연결 중',
     stopping:'Android 종료 중',
@@ -75,6 +75,6 @@ export function AndroidSessionControls({onNotice}:{
     <p role="status" aria-live="polite" className={'dl-android-session-status '+(online?'connected':'')}>
       {readable[status]}
     </p>
-    <p className="dl-android-session-hint">우리 화면에서 실행·설치·조작·종료합니다. GitHub 페이지에 들어갈 필요가 없습니다.</p>
+    <p className="dl-android-session-hint">이 화면에서 Android 실행·앱 설치·화면 조작·종료를 모두 처리합니다.</p>
   </div>;
 }
