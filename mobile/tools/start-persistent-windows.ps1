@@ -114,7 +114,7 @@ try {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
 }
 $env:LAB_RELAY_URL = "https://hitel-device-relay-production.up.railway.app"
-Write-Host "HITEL Android host $DeviceId: connected to Railway management service."
+Write-Host "HITEL Android host ${DeviceId}: connected to Railway management service."
 try {
     while ($true) {
         & $pythonBinary @pythonArgs
