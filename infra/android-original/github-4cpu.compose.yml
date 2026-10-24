@@ -1,6 +1,9 @@
-# Hardware-only adapter for a free 4-vCPU GitHub Actions KVM machine.
-# No original source, image, Android version, streaming, or API is changed.
-# The upstream default of 8 CPUs per emulator cannot fit a 4-CPU runner.
+# Only hardware and pool sizing, no upstream source or native streaming changes.
 services:
   emulator-1:
     cpus: 4
+  backend:
+    environment:
+      EMULATOR_SLOTS: >-
+        [{"slotId":1,"device":"Samsung Galaxy S10","containerName":"android-emulator-1","vncPort":6090,"adbPort":5554}]
+      MAX_CONCURRENT_EMULATORS: 1
