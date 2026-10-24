@@ -202,6 +202,45 @@ export class CommunicationSDK {
     }
   }
 
+  /** User-authorized Android AccessibilityService, based on KtAuto's
+   * actionable-node model. Browser/iOS returns native-app-required.
+   * These methods do NOT install arbitrary APKs or bypass user consent. */
+  private async assistive(action: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    const reply = await this.bridge.request(action,payload);
+    return reply.result ?? {};
+  }
+
+  listInstalledApps(): Promise<Record<string, unknown>> {
+    return this.assistive('app.list');
+  }
+  getAppAccessibilityStatus(): Promise<Record<string, unknown>> {
+    return this.assistive('app.accessibility.status');
+  }
+  openAccessibilitySettings(): Promise<Record<string, unknown>> {
+    return this.assistive('app.accessibility.settings');
+  }
+  launchInstalledApp(packageName: string): Promise<Record<string, unknown>> {
+    return this.assistive('app.open',{packageName});
+  }
+  readCurrentAppScreen(): Promise<Record<string, unknown>> {
+    return this.assistive('app.screen');
+  }
+  tapAppLabel(text: string): Promise<Record<string, unknown>> {
+    return this.assistive('app.tap',{text});
+  }
+  enterAppText(text: string): Promise<Record<string, unknown>> {
+    return this.assistive('app.type',{text});
+  }
+  scrollApp(direction: 'forward'|'backward'='forward'): Promise<Record<string, unknown>> {
+    return this.assistive('app.scroll',{direction});
+  }
+  goBackInApp(): Promise<Record<string, unknown>> {
+    return this.assistive('app.back');
+  }
+  openExternalWebPage(url: string): Promise<Record<string, unknown>> {
+    return this.assistive('web.open',{url});
+  }
+
   async openSystemDialer(phone: string): Promise<void> {
     await this.bridge.request('call.openDialer', { phone });
   }
