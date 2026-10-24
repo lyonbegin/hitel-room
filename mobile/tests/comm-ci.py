@@ -25,24 +25,35 @@ def call(path, payload=None, token=None):
 
 if MODE == "session":
     _, response = call("/comm-api/session", {"from":"N","to":"N"})
-    token = response["callerToken"]
+    token = response["calleeToken"]
     print("::add-mask::" + token, flush=True)
     print("::add-mask::" + response["calleeToken"], flush=True)
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as out:
         out.write("HITEL_CALL_TOKEN=" + token + "\n")
+        out.write("HITEL_CALL_CALLER_TOKEN=" + response["callerToken"] + "\n")
         out.write("HITEL_CALL_ID=" + response["callId"] + "\n")
     print(f"Created native {PLATFORM} ephemeral Communication signaling session (token masked)")
 else:
     token = os.environ["HITEL_CALL_TOKEN"]
+    caller_token = os.environ["HITEL_CALL_CALLER_TOKEN"]
     call_id = os.environ["HITEL_CALL_ID"]
     for _ in range(35):
         _, state = call("/comm-api/session/" + call_id, token=token)
-        if state["participants"]["caller"]["online"]:
+        if state["participants"]["callee"]["online"]:
             break
         time.sleep(1)
     else:
         raise SystemExit(f"FAIL: native {PLATFORM} Communication socket never came online")
-    _, result = call("/comm-api/action", {"action":"call.invite"}, token=token)
+    _, result = call("/comm-api/action", {"action":"call.invite"}, token=caller_token)
     assert result["state"] == "inviting", result
-    time.sleep(2)
-    print(f"PASS: native {PLATFORM} WebSocket online, call.invite delivered, state=inviting")
+    target = result["event"]["sequence"]
+    for _ in range(35):
+        _, state = call("/comm-api/session/" + call_id, token=token)
+        if state["participants"]["callee"]["lastAck"] >= target:
+            break
+        time.sleep(1)
+    else:
+        raise SystemExit(f"FAIL: native {PLATFORM} never ACKed actual other-participant invite {target}")
+    assert state["participants"]["callee"]["online"] is True, state
+    assert state["participants"]["caller"]["online"] is False, state
+    print(f"PASS: Web caller -> native {PLATFORM} WebSocket invite -> native ACK to server; event={target}")
