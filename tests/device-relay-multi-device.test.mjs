@@ -77,10 +77,15 @@ test('simultaneous Android devices retain isolated controller sockets',async()=>
     assert.equal(firstReceived,firstCommand);
     assert.equal(secondReceived,secondCommand);
     for(const [pairData,id] of [[a,firstCommand],[b,secondCommand]]){
-      const res=await fetch(base+'/lab-api/result/'+id,{
-        headers:{authorization:'Bearer '+pairData.controller}});
-      assert.equal(res.status,200);
-      assert.equal((await res.json()).ok,true);
+      let reply;
+      for(let i=0;i<30;i++){
+        const res=await fetch(base+'/lab-api/result/'+id,{
+          headers:{authorization:'Bearer '+pairData.controller}});
+        if(res.status===200){reply=await res.json();break}
+        assert.equal(res.status,202);
+        await delay(50);
+      }
+      assert.equal(reply?.ok,true,'real native result returned to matching controller');
     }
     assert.equal(first.readyState,WebSocket.OPEN);
     assert.equal(second.readyState,WebSocket.OPEN);
