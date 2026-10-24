@@ -191,7 +191,9 @@ const server=http.createServer(async(req,res)=>{
       cleanExpired();
       const ticket=await findController(controller,body.device);
       if(!ticket)return error(res,401,'Pairing control token required');
-      if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate','getCapabilities','tts.speak','tts.stop','call.openDialer','communication.action'].includes(body.action))
+      if(!SIDES.has(body.device)||!['home','back','reload','ping','launch','navigate','getCapabilities','tts.speak','tts.stop','call.openDialer','communication.action',
+        'app.accessibility.status','app.accessibility.settings','app.list','app.open',
+        'app.screen','app.tap','app.type','app.scroll','app.back','web.open'].includes(body.action))
         return error(res,400,'Invalid device/action');
       const ws=pairedConnections.get(controller+':'+body.device);
       if(!ws||ws.readyState!==WebSocket.OPEN)return error(res,409,'Paired native device is offline');
