@@ -259,3 +259,20 @@ test('Android queued stop cancels without boot; no other browser can cancel sess
     assert.equal((await claim.json()).claim,false);
   }finally{await f.dispose()}
 });
+
+test('Android original web button supports repeated disposable test starts without hourly lockout',async()=>{
+  const f=await fixture();
+  try{
+    const base=f.url+'/lab-api/apk/';
+    for(let i=0;i<5;i++){
+      const start=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+      assert.equal(start.status,202,'Start should not impose a hidden 3-per-hour limit');
+      const created=await start.json();
+      assert.equal(created.status,'queued');
+      const cookie=start.headers.get('set-cookie').split(';')[0];
+      const stop=await fetch(base+'ui/stop',{method:'POST',body:'{}',headers:{cookie}});
+      assert.equal(stop.status,200);
+      assert.equal((await stop.json()).status,'completed');
+    }
+  }finally{await f.dispose()}
+});
