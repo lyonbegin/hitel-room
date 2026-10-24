@@ -10,6 +10,7 @@
     "@playwright/mcp": "latest",
     "chrome-devtools-mcp": "latest",
     "playwright-core": "latest",
-    "rea-agents": "latest"
+    "rea-agents": "latest",
+    "sharp": "^0.34.1"
   }
 }
