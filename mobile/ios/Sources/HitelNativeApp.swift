@@ -46,7 +46,36 @@ struct HitelWebView: UIViewRepresentable {
         private let speaker = AVSpeechSynthesizer()
         private var communicationSocket: URLSessionWebSocketTask?
         private var communicationToken: String?
+        private var communicationConnected = false
         private var communicationLastSequence = 0
+        private let allowedCommunicationActions: Set<String> = [
+            "call.invite", "call.ringing", "call.accept", "call.reject", "call.cancel",
+            "call.end", "call.failed", "call.networkInterrupted", "call.recovered", "call.mediaChanged"
+        ]
+        private func sendCommunicationAction(_ action: String, payload: [String: Any], requestId: String) -> Bool {
+            guard allowedCommunicationActions.contains(action), !requestId.isEmpty,
+                  communicationConnected, let socket = communicationSocket else { return false }
+            let message: [String: Any] = ["type": "call.action", "action": action,
+                                           "requestId": requestId, "payload": payload]
+            guard let data = try? JSONSerialization.data(withJSONObject: message),
+                  let text = String(data: data, encoding: .utf8) else { return false }
+            socket.send(.string(text)) { error in
+                if let error = error { NSLog("HITEL_E2E COMM_ACTION_SEND_ERROR %@", error.localizedDescription) }
+            }
+            return true
+        }
+        private func dispatchNativeCommunicationEvent(_ obj: [String: Any], type: String) {
+            let payload: [String: Any] = ["type": type, "message": obj]
+            if let data = try? JSONSerialization.data(withJSONObject: payload),
+               let text = String(data: data, encoding: .utf8) {
+                DispatchQueue.main.async { [weak self] in
+                    self?.attachedWebView?.evaluateJavaScript(
+                        "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" + text + "}))",
+                        completionHandler: nil
+                    )
+                }
+            }
+        }
         private func receiveCommunicationEvent(_ event: [String: Any], socket: URLSessionWebSocketTask) {
             let sequence = event["sequence"] as? Int ?? 0
             guard sequence > communicationLastSequence else { return }
@@ -93,13 +122,19 @@ struct HitelWebView: UIViewRepresentable {
                             if let event = obj["event"] as? [String: Any] {
                                 self.receiveCommunicationEvent(event, socket: socket)
                             }
-                        case "comm.actionAck": NSLog("HITEL_E2E COMM_ACTION_ACK")
+                        case "comm.actionAck":
+                            NSLog("HITEL_E2E COMM_ACTION_ACK")
+                            self.dispatchNativeCommunicationEvent(obj, type: "communication.actionAck")
+                        case "comm.error":
+                            NSLog("HITEL_E2E COMM_ACTION_ERROR %@", obj["error"] as? String ?? "")
+                            self.dispatchNativeCommunicationEvent(obj, type: "communication.error")
                         default: break
                         }
                     }
                     self.receiveCommunication(socket)
                 case .failure(let error):
                     NSLog("HITEL_E2E COMM_SOCKET_FAILURE %@", error.localizedDescription)
+                    self.communicationConnected = false
                     guard let token = self.communicationToken, let web = self.attachedWebView else { return }
                     self.communicationToken = nil
                     self.communicationSocket = nil
@@ -113,6 +148,7 @@ struct HitelWebView: UIViewRepresentable {
         func connectCommunicationNetwork(_ token: String, webView: WKWebView) {
             if token.isEmpty || token == communicationToken { return }
             if let oldToken = communicationToken, oldToken != token { communicationLastSequence = 0 }
+            communicationConnected = false
             communicationSocket?.cancel(with: .normalClosure, reason: nil)
             communicationToken = token
             attachedWebView = webView
@@ -131,6 +167,7 @@ struct HitelWebView: UIViewRepresentable {
                 if let error = error {
                     NSLog("HITEL_E2E COMM_SOCKET_SEND_ERROR %@", error.localizedDescription)
                 } else {
+                    self.communicationConnected = true
                     NSLog("HITEL_E2E COMM_SOCKET_CONNECTED")
                 }
             }
@@ -337,6 +374,15 @@ struct HitelWebView: UIViewRepresentable {
             case "tts.stop":
                 speaker.stopSpeaking(at: .immediate)
                 response["scope"] = "local-device-only"
+            case "communication.action":
+                let callAction = cmd["callAction"] as? String ?? ""
+                let payload = cmd["payload"] as? [String: Any] ?? [:]
+                if sendCommunicationAction(callAction, payload: payload, requestId: cmd["requestId"] as? String ?? "") {
+                    response["scope"] = "native-signaling-pending-ack"
+                } else {
+                    response["ok"] = false
+                    response["error"] = "Signaling socket offline or invalid action"
+                }
             case "call.openDialer":
                 let number = cmd["phone"] as? String ?? ""
                 let digits = CharacterSet(charactersIn: "+0123456789*# -")
