@@ -9,6 +9,7 @@ function scopeScript(js,id){
  let s=js.replace(/\bdocument\.querySelectorAll\s*\(/g,'shadow.querySelectorAll(')
  .replace(/\bdocument\.querySelector\.bind\s*\(\s*document\s*\)/g,'shadow.querySelector.bind(shadow)')
  .replace(/\bdocument\.querySelector\s*\(/g,'shadow.querySelector(')
+ .replace(/\bwindow\.history\.replaceState\s*\(/g,'bridge.replaceState(')
  .replace(/\bhistory\.replaceState\s*\(/g,'bridge.replaceState(')
  .replace(/\blocation\.search\b/g,'bridge.search')
  .replace(/\blocation\.href\s*=\s*['"]\/clone['"]/g,'bridge.focus("'+id+'")')
