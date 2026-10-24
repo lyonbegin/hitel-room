@@ -323,3 +323,8 @@ export function createCommunicationSDK(options: CommunicationOptions = {}) {
 
 export { CommunicationNetworkAdapter, createCommunicationNetworkBridge, createCommunicationNetworkPair } from './networkAdapter';
 export type { NetworkSide, NetworkPair, NetworkCommand } from './networkAdapter';
+
+// Persistent event signaling and call-state execution (separate from Native Bridge).
+export { CommunicationSignalClient, createCommunicationSession } from './signalClient';
+export type { CommunicationRole, CommunicationAction, CommunicationCallState, CommunicationSignalEvent, CommunicationSessionInfo, CommunicationSnapshot } from './signalClient';
+export { CommunicationCallSession, createCommunicationCallSession } from './callSession';
