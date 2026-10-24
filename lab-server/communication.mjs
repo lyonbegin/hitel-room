@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 
 /**
@@ -6,7 +8,7 @@ import { WebSocket, WebSocketServer } from 'ws';
  * callee secrets; this does NOT replace production identity verification.
  * Communication SDK uses this to validate event/call-state contracts end-to-end.
  */
-export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_600_000}={}) {
+export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_600_000,storageDir=null}={}) {
   const sessions=new Map(), rate=new Map();
   const wss=new WebSocketServer({noServer:true,maxPayload:16_384});
   const allowed=new Set(['call.invite','call.ringing','call.accept','call.reject','call.cancel',
@@ -14,6 +16,59 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
     'call.mediaChanged','ai.result']);
   const kinds=['P','P+','N','W'];
   const secret=()=>crypto.randomBytes(32).toString('base64url');
+  const tokenHash=token=>crypto.createHash('sha256').update(token).digest('hex');
+  const store=storageDir?path.resolve(storageDir):null;
+  if(store)fs.mkdirSync(store,{recursive:true,mode:0o700});
+  // Only short-lived hashed capability tokens are persisted, never raw tokens.
+  function saveCall(call){
+    if(!store)return;
+    const participant=p=>({role:p.role,tokenHash:p.tokenHash,ack:p.ack,mediaReady:p.mediaReady});
+    const data={version:1,id:call.id,scenarioId:call.scenarioId,from:call.from,to:call.to,
+      state:call.state,sequence:call.sequence,expires:call.expires,ringDeadline:call.ringDeadline,
+      events:call.events,caller:participant(call.caller),callee:participant(call.callee)};
+    const dest=path.join(store,call.id+'.json');
+    const tmp=dest+'.'+crypto.randomBytes(5).toString('hex')+'.tmp';
+    fs.writeFileSync(tmp,JSON.stringify(data),{mode:0o600});
+    fs.renameSync(tmp,dest);
+  }
+  function deleteCall(call){
+    if(!store)return;
+    try{fs.unlinkSync(path.join(store,call.id+'.json'))}catch(e){if(e.code!=='ENOENT')throw e}
+  }
+  function armRingTimer(call){
+    clearTimeout(call.ringTimer);
+    call.ringTimer=null;
+    if(!['inviting','ringing'].includes(call.state))return;
+    const remaining=Math.max(0,(call.ringDeadline||Date.now())-Date.now());
+    call.ringTimer=setTimeout(()=>{
+      if(call.state==='inviting'||call.state==='ringing'){
+        call.state='missed';publish(call,'server','call.missed',{reason:'ring_timeout'});
+      }
+    },remaining);
+    call.ringTimer.unref?.();
+  }
+  if(store){
+    let restored=0;
+    for(const name of fs.readdirSync(store)){
+      if(!/^[0-9a-f-]{36}\.json$/i.test(name))continue;
+      try{
+        const stored=JSON.parse(fs.readFileSync(path.join(store,name),'utf8'));
+        if(stored.version!==1||stored.id+'.json'!==name||stored.expires<=Date.now()){
+          if(stored.expires<=Date.now())fs.unlinkSync(path.join(store,name));
+          continue;
+        }
+        const role=(p,name)=>({
+          role:name,tokenHash:p.tokenHash,ack:p.ack||0,mediaReady:!!p.mediaReady,sockets:new Set()
+        });
+        if(!stored.caller?.tokenHash||!stored.callee?.tokenHash)continue;
+        const call={...stored,caller:role(stored.caller,'caller'),callee:role(stored.callee,'callee'),ringTimer:null};
+        sessions.set(call.id,call);
+        armRingTimer(call);
+        restored++;
+      }catch(e){console.error('COMM_RESTORE_SKIPPED',name,e.message)}
+    }
+    console.log('COMM_RESTORED_SESSIONS',restored);
+  }
   const send=(ws,msg)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(msg))};
   const reply=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(data))};
   const bearer=req=>(req.headers.authorization||'').match(/^Bearer (.+)$/i)?.[1];
@@ -27,8 +82,9 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
     if(!token)return null;
     for(const call of sessions.values()){
       if(call.expires<=Date.now())continue;
-      if(call.caller.token===token)return {call,participant:call.caller};
-      if(call.callee.token===token)return {call,participant:call.callee};
+      const hashed=tokenHash(token);
+      if(call.caller.tokenHash===hashed)return {call,participant:call.caller};
+      if(call.callee.tokenHash===hashed)return {call,participant:call.callee};
     }
     return null;
   }
@@ -46,6 +102,7 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       ...(type==='ai.result'?{privateTo:from}:{}),};
     call.events.push(event);
     if(call.events.length>200)call.events.shift();
+    saveCall(call);
     for(const participant of [call.caller,call.callee])
       for(const ws of participant.sockets)if(!event.privateTo||event.privateTo===participant.role)send(ws,{type:'comm.event',event});
     return event;
@@ -87,16 +144,10 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
     const t=transitions[action];
     if(!t||(t.role&&t.role!==role)||!t.from.includes(state))throw Error('Invalid role or call-state transition');
     call.state=t.to;
+    if(action==='call.invite')call.ringDeadline=Date.now()+ringTimeoutMs;
     const event=publish(call,role,action,payload);
     if(['ended','rejected','cancelled','failed'].includes(call.state))clearTimeout(call.ringTimer);
-    if(action==='call.invite') {
-      call.ringTimer=setTimeout(()=>{
-        if(call.state==='inviting'||call.state==='ringing'){
-          call.state='missed';publish(call,'server','call.missed',{reason:'ring_timeout'});
-        }
-      },ringTimeoutMs);
-      call.ringTimer.unref?.();
-    }
+    if(action==='call.invite')armRingTimer(call);
     return event;
   }
   const prune=setInterval(()=>{
@@ -105,6 +156,7 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       clearTimeout(call.ringTimer);
       for(const p of [call.caller,call.callee])for(const ws of p.sockets)ws.close(4000,'Call expired');
       sessions.delete(id);
+      deleteCall(call);
     }
     for(const [ip,r] of rate)if(now-r.since>120_000)rate.delete(ip);
   },30_000);
@@ -119,13 +171,15 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       if(sessions.size>1000)return reply(res,503,{ok:false,error:'Signaling lab capacity exceeded'});
       const data=await body(req),from=kinds.indexOf(data.from),to=kinds.indexOf(data.to);
       if(from<0||to<0)return reply(res,400,{ok:false,error:'Invalid communication endpoints'});
-      const id=crypto.randomUUID();
+      const id=crypto.randomUUID(),callerToken=secret(),calleeToken=secret();
       const call={id,scenarioId:from*4+to+1,from:data.from,to:data.to,state:'idle',sequence:0,
-        expires:Date.now()+callTtlMs,events:[],caller:{role:'caller',token:secret(),sockets:new Set(),ack:0,mediaReady:false},
-        callee:{role:'callee',token:secret(),sockets:new Set(),ack:0,mediaReady:false},ringTimer:null};
+        expires:Date.now()+callTtlMs,events:[],ringDeadline:null,
+        caller:{role:'caller',tokenHash:tokenHash(callerToken),sockets:new Set(),ack:0,mediaReady:false},
+        callee:{role:'callee',tokenHash:tokenHash(calleeToken),sockets:new Set(),ack:0,mediaReady:false},ringTimer:null};
       sessions.set(id,call);
+      saveCall(call);
       return reply(res,201,{ok:true,callId:id,scenarioId:call.scenarioId,
-        callerToken:call.caller.token,calleeToken:call.callee.token,expiresInSeconds:Math.floor(callTtlMs/1000)});
+        callerToken,calleeToken,expiresInSeconds:Math.floor(callTtlMs/1000)});
     }
     const auth=authorize(bearer(req));
     if(!auth)return reply(res,401,{ok:false,error:'Valid participant token required'});
@@ -163,6 +217,7 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
           if(Number.isSafeInteger(n)&&n>=0&&n<=call.sequence){
             ws.commAck=Math.max(ws.commAck||0,n);
             participant.ack=Math.max(participant.ack,n);
+            saveCall(call);
           }
           return;
         }
