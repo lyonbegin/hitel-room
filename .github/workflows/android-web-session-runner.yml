@@ -1,4 +1,4 @@
-name: HITEL Android requested from Railway website
+name: HITEL Original Android scrcpy requested from Railway website
 on:
   # A source update activates and diagnoses the dispatcher immediately; all
   # normal user requests are consumed by the scheduled runner.
@@ -35,22 +35,13 @@ jobs:
         run: |
           test -c /dev/kvm
           sudo chmod a+rw /dev/kvm
-      - name: Boot actual Google Play Android requested by Railway web UI
+      - name: Launch unmodified original Android 11 and native scrcpy/noVNC on a KVM host
         if: steps.claim.outputs.claimed == 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis_playstore
-          arch: x86_64
-          profile: pixel_6
-          emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          disable-animations: true
-          script: bash mobile/tests/interactive-android-session.sh
-      - name: Save Android screen images and session logs
+        run: bash mobile/tests/original-native-live.sh
+      - name: Save original native Android runtime diagnostics
         if: always() && steps.claim.outputs.claimed == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: hitel-web-android-screen
-          path: mobile-test-results/android-interactive/
+          name: hitel-web-android-original-scrcpy
+          path: mobile-test-results/android-original-native-live/
           if-no-files-found: warn
