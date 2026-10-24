@@ -37,7 +37,7 @@ export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheM
   // A saved online flag or a still-valid TTL does NOT prove that an ephemeral
   // GitHub/Cloudflare tunnel is alive. Probe the actual native backend /health.
   // Cache for the frontend 3-second poll cycle to avoid excess tunnel traffic.
-  const healthProbe=probeLiveUrl||async link=>{
+  const healthProbe=probeLiveUrl||(async link=>{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),2300);
     try{
@@ -48,7 +48,7 @@ export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheM
       return body&&body.status==='healthy';
     }catch{return false}
     finally{clearTimeout(timeout)}
-  };
+  });
   let lastCheck={key:'',at:0,online:false};
   async function live(current){
     if(!valid(current))return false;
