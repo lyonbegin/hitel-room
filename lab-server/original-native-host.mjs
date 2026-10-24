@@ -72,10 +72,14 @@ export function createOriginalNativeHost({root,verifyCI}={}) {
         return res.end();
       }
       if(req.method==='GET'&&route==='/lab-api/android-native/ci/stop-requested'){
-        try{await verifyCI(req)}catch{return json(res,403,{ok:false,error:'TRUSTED_GITHUB_RUNNER_ONLY'})}
+        let identity;
+        try{identity=await verifyCI(req)}catch{return json(res,403,{ok:false,error:'TRUSTED_GITHUB_RUNNER_ONLY'})}
         const file=path.join(root,'apk-manager','interactive-request.json');
         let cur=null;try{cur=JSON.parse(await fs.readFile(file,'utf8'))}catch{}
-        return json(res,200,{ok:true,stop:!!cur&&['stopping','completed'].includes(cur.status)});
+        // Do not stop a new native runner because an old test completed.
+        // A stop must belong to this precise GitHub Actions run.
+        return json(res,200,{ok:true,stop:!!cur&&cur.status==='stopping'&&
+          cur.claimRunId===String(identity.run_id||'')});
       }
       return json(res,404,{ok:false,error:'UNKNOWN_ORIGINAL_ANDROID_ENDPOINT'});
     }catch(e){
