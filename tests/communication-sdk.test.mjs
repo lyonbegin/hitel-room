@@ -121,3 +121,25 @@ test('actual AI Counselor import boundary is invoked, not a VideoCore copy', asy
   assert.equal(events.some(e=>e.type==='rtc.connected'),true);
   await sdk.dispose();
 });
+
+test('native call actions traverse native socket adapter and surface server events to SDK listeners',async()=>{
+  const requests=[];
+  const sdk=CommunicationSDK.create({nativeBridge:{
+    platform:()=> 'android',
+    request:async(action,data={})=>{requests.push({action,data});return {ok:true,scope:'native-signaling-pending-ack'}}
+  }});
+  const received=[];
+  sdk.on(event=>received.push(event));
+  await sdk.sendNativeCallAction('call.accept',{source:'incoming-call-ui'});
+  assert.deepEqual(requests,[{action:'communication.action',
+    data:{callAction:'call.accept',payload:{source:'incoming-call-ui'}}}]);
+  const evt=new Event('hitel-native-event');
+  Object.defineProperty(evt,'detail',{value:{
+    type:'communication.actionAck',message:{type:'comm.actionAck',requestId:'native-1',state:'accepted'}
+  }});
+  window.dispatchEvent(evt);
+  assert.equal(received.length,1);
+  assert.equal(received[0].type,'native.event');
+  assert.equal(received[0].detail.message.state,'accepted');
+  await sdk.dispose();
+});
