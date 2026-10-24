@@ -1,0 +1,14 @@
+{
+  "name": "hitel-device-lab-browser-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Actual Playwright MCP + Chrome DevTools MCP tool clients to inspect production HITEL Android UI",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "@playwright/mcp": "latest",
+    "chrome-devtools-mcp": "latest",
+    "playwright": "^1.56.0",
+    "pngjs": "^7.0.0"
+  }
+}
