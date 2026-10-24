@@ -40,4 +40,9 @@ if grep -E "WEB_ERROR|HTTP_ERROR" "$out/events.log"; then
   exit 1
 fi
 python3 mobile/tests/lab-ci.py probe android
-echo "PASS: app started, remote Vite page loaded, secure native bridge replied"
+echo "Enabling HITEL AccessibilityService on owned disposable CI emulator only"
+adb shell settings put secure enabled_accessibility_services app.hitel.nativebridge/.AppAccessibilityService
+adb shell settings put secure accessibility_enabled 1
+sleep 3
+python3 mobile/tests/app-automation-ci.py
+echo "PASS: app started, remote Vite page loaded, secure native bridge replied and Android app automation executed"
