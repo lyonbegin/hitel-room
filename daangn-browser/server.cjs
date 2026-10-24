@@ -39,6 +39,12 @@ const summarize=async(page)=>{
  })
 }
 async function capture(name,page){await page.screenshot({path:ROOT+'/'+name+'.png',fullPage:false,timeout:16000});step('screenshot:'+name,{url:page.url()})}
+async function emitAuditEvidence(){
+ const a=report.tools.original_capture?.result||{},b=report.tools.previous_navigation?.result||{};
+ const brief={phase:report.phase,source:{title:a.title,url:a.url,viewport:a.viewport,headings:a.mainHeading?.slice(0,8),header:a.header?.slice(0,5),controls:a.controls?.slice(0,12),images:a.images?.slice(0,14)},previous:{status:b.status,title:b.dom?.title},toolStatus:Object.fromEntries(Object.entries(report.tools).map(([k,v])=>[k,{ok:v.ok,error:v.error?.slice(0,500),succeeded:v.result?.succeeded}])),diff:report.tools.screenshot_image_comparison?.result,errors:report.errors};
+ console.log('DAANGN_AUDIT_SUMMARY='+JSON.stringify(brief));
+ for(const name of ['original','previous']){try{const buf=await require('sharp')(ROOT+'/'+name+'.png').resize({width:1000,withoutEnlargement:true}).jpeg({quality:55}).toBuffer();const bs=buf.toString('base64');for(let i=0;i<bs.length;i+=1600)console.log('DAANGN_IMAGE_'+name+'_'+Math.floor(i/1600)+'='+bs.slice(i,i+1600));console.log('DAANGN_IMAGE_'+name+'_END='+Math.ceil(bs.length/1600));}catch(e){console.log('DAANGN_IMAGE_ERROR_'+name+'='+String(e))}}
+}
 async function audit(){
  report.phase='opening_chromium';saveJSON();
  browserProcess=spawn('chromium',['--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--headless=new','--remote-debugging-port=9222','--remote-debugging-address=127.0.0.1','--remote-allow-origins=*','--user-data-dir=/tmp/daangn-source-profile','--window-size=1440,900','--password-store=basic','about:blank'],{stdio:'ignore'});
@@ -63,7 +69,7 @@ async function audit(){
  await attempt('previous_navigation',async()=>{const r=await old.goto(URL1,{waitUntil:'domcontentloaded',timeout:25000});await old.waitForTimeout(1800);await capture('previous',old);return {status:r?.status(),dom:await summarize(old)}});
  await attempt('screenshot_image_comparison',async()=>{const sharp=require('sharp'),a=await sharp(ROOT+'/original.png').resize(1440,900).removeAlpha().raw().toBuffer(),b=await sharp(ROOT+'/previous.png').resize(1440,900).removeAlpha().raw().toBuffer();let diff=0,total=0;for(let i=0;i<a.length;i+=3){let d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);total+=d; if(d>60)diff++}return {width:1440,height:900,nonmatching_pixel_ratio:+(diff/(a.length/3)).toFixed(4),mean_absolute_channel_difference:+(total/a.length).toFixed(2),method:'pixel RGB absolute difference, threshold sum > 60'}});
  await browser.close();
- report.phase='complete';report.finished_at=new Date().toISOString();saveJSON();
+ report.phase='complete';report.finished_at=new Date().toISOString();saveJSON();await emitAuditEvidence();
 }
 http.createServer((req,res)=>{
  const u=new URL(req.url,'http://localhost');
@@ -73,4 +79,4 @@ http.createServer((req,res)=>{
  const file=ROOT+'/'+u.pathname.split('/').pop();if(fs.existsSync(file)){res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});return fs.createReadStream(file).pipe(res)}
  res.writeHead(404);return res.end('capture missing')}
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end('<html lang="ko"><meta charset="utf-8"><h1>HITEL 당근 단일 사이트 브라우저 감사</h1><p>상태: '+report.phase+'</p><p><a href="/report">검증 JSON</a> | <a href="/image/original.png">원본 캡처</a> | <a href="/image/previous.png">이전 시제품 캡처</a> | <a href="/image/region.png">지역 선택 캡처</a></p><p>Playwright MCP + Chrome DevTools MCP + REA 성공·실패 모두 기록합니다.</p></html>')
-}).listen(Number(process.env.PORT)||8080,'0.0.0.0',()=>{console.log('HITEL Daangn audit service started');audit().catch(e=>{report.phase='failed';report.errors.push(truncate(e?.stack||e));saveJSON();console.error(e)})});
+}).listen(Number(process.env.PORT)||8080,'0.0.0.0',()=>{console.log('HITEL Daangn audit service started');audit().catch(e=>{report.phase='failed';report.errors.push(truncate(e?.stack||e));saveJSON();console.error(e);emitAuditEvidence().catch(console.error)})});
