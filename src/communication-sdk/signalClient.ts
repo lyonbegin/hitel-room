@@ -83,11 +83,12 @@ export class CommunicationSignalClient {
         if(this.stopped)return;
         const ws=new WebSocket(this.absoluteWsUrl());
         this.socket=ws;
-        ws.onopen=()=>{this.notify(true);if(initial){initial=false;resolve()}};
+        ws.onopen=()=>{this.notify(true)};
         ws.onmessage=(e)=>{
           let msg:any;try{msg=JSON.parse(String(e.data))}catch{return}
           if(msg.type==='comm.snapshot'){
             this.state=msg.state;this.callId=msg.callId;this.scenarioId=msg.scenarioId;this.role=msg.role;
+            if(initial){initial=false;resolve()}
             for(const event of (msg.events||[]) as CommunicationSignalEvent[])this.receiveEvent(event);
           }else if(msg.type==='comm.event'){this.receiveEvent(msg.event as CommunicationSignalEvent)}
           else if(msg.type==='comm.actionAck'){
