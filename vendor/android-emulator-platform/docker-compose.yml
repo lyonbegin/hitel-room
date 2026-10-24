@@ -1,0 +1,286 @@
+# Android Emulator Platform — pre-warmed pool architecture.
+# emulator-1 and emulator-2 boot once at server start and stay running.
+# Backend hands out a slot per session — no per-session boot wait.
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: emulator-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    networks:
+      - emulator-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: emulator-redis
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks:
+      - emulator-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: emulator-postgres
+    environment:
+      POSTGRES_DB: emulator_platform
+      POSTGRES_USER: emulator_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - emulator-network
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: emulator-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://emulator_admin:${DB_PASSWORD}@postgres:5432/emulator_platform
+      REDIS_URL: redis://redis:6379
+      # Multi-device pre-warmed pool. Each slot is bound to a specific emulator
+      # service in this file (matched on containerName + ports).
+      # vncPort points at the per-device scrcpy-display container (pure phone
+      # view over noVNC), NOT budtmo's own noVNC. adbPort is informational.
+      EMULATOR_SLOTS: >-
+        [
+          {"slotId":1,"device":"Samsung Galaxy S10","containerName":"android-emulator-1","vncPort":6090,"adbPort":5554},
+          {"slotId":2,"device":"Nexus 5","containerName":"android-emulator-2","vncPort":6091,"adbPort":5555},
+          {"slotId":3,"device":"Samsung Galaxy S6","containerName":"android-emulator-3","vncPort":6092,"adbPort":5556}
+        ]
+      MAX_CONCURRENT_EMULATORS: 3
+      VNC_PORT_START: 6080
+      ADB_PORT_START: 5554
+      SLOT_NAME_PREFIX: android-emulator-
+      SESSION_TIMEOUT_MINUTES: ${SESSION_TIMEOUT_MINUTES:-30}
+      PUBLIC_HOST: ${PUBLIC_HOST:-178.63.95.122}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./apks:/app/apks
+      - ./logs:/app/logs
+    networks:
+      - emulator-network
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # Pre-warmed Android emulator pool (always running, boot once at start).
+  # ------------------------------------------------------------------
+  emulator-1:
+    build:
+      context: ./emulator
+      dockerfile: Dockerfile
+    image: android-emulator-platform-emulator:latest
+    container_name: android-emulator-1
+    privileged: true
+    environment:
+      EMULATOR_DEVICE: "Samsung Galaxy S10"
+      WEB_VNC: "true"
+      APPIUM: "false"
+      EMULATOR_TIMEOUT: 0
+      EMULATOR_NO_BOOT_ANIM: "true"
+      # -gpu host uses the actual Intel iGPU via /dev/dri/renderD128
+      EMULATOR_ADDITIONAL_ARGS: "-cores 4 -memory 8192 -no-snapshot-save -gpu host"
+      # EMULATOR_NO_SKIN removed - scrcpy bypasses Xvfb entirely
+      # Xvfb at the known-good 1600x900x24+32. Vulkan WSI (-gpu host) needs
+      # full 24-bit + 32-bit alignment; 16-bit produced a black screen.
+      SCREEN_WIDTH: 1600
+      SCREEN_HEIGHT: 900
+      SCREEN_DEPTH: "24+32"
+    ports:
+      - "6080:6080"
+      - "5554:5554"
+    devices:
+      - /dev/kvm
+      - /dev/dri
+    group_add:
+      - "109"   # render group on host
+      - "44"    # video group on host
+    volumes:
+      # Backend writes uploaded APKs to ./apks; emulator reads them from /tmp/apks.
+      - ./apks:/tmp/apks
+    networks:
+      - emulator-network
+    restart: unless-stopped
+    cpus: 8
+    mem_limit: 10g
+    mem_reservation: 7g
+
+  emulator-2:
+    image: android-emulator-platform-emulator:latest
+    container_name: android-emulator-2
+    privileged: true
+    environment:
+      EMULATOR_DEVICE: "Nexus 5"
+      WEB_VNC: "true"
+      APPIUM: "false"
+      EMULATOR_TIMEOUT: 0
+      EMULATOR_NO_BOOT_ANIM: "true"
+      EMULATOR_ADDITIONAL_ARGS: "-cores 4 -memory 6144 -no-snapshot-save -gpu host"
+      # EMULATOR_NO_SKIN removed - scrcpy bypasses Xvfb entirely
+      SCREEN_WIDTH: 1600
+      SCREEN_HEIGHT: 900
+      SCREEN_DEPTH: "24+32"
+    ports:
+      - "6081:6080"
+      - "5555:5554"
+    devices:
+      - /dev/kvm
+      - /dev/dri
+    group_add:
+      - "109"
+      - "44"
+    volumes:
+      - ./apks:/tmp/apks
+    networks:
+      - emulator-network
+    restart: unless-stopped
+    cpus: 4
+    mem_limit: 7g
+    mem_reservation: 5g
+
+  emulator-3:
+    image: android-emulator-platform-emulator:latest
+    container_name: android-emulator-3
+    privileged: true
+    environment:
+      EMULATOR_DEVICE: "Samsung Galaxy S6"
+      WEB_VNC: "true"
+      APPIUM: "false"
+      EMULATOR_TIMEOUT: 0
+      EMULATOR_NO_BOOT_ANIM: "true"
+      EMULATOR_ADDITIONAL_ARGS: "-cores 4 -memory 6144 -no-snapshot-save -gpu host"
+      # EMULATOR_NO_SKIN removed - scrcpy bypasses Xvfb entirely
+      SCREEN_WIDTH: 1600
+      SCREEN_HEIGHT: 900
+      SCREEN_DEPTH: "24+32"
+    ports:
+      - "6082:6080"
+      - "5556:5554"
+    devices:
+      - /dev/kvm
+      - /dev/dri
+    group_add:
+      - "109"
+      - "44"
+    volumes:
+      - ./apks:/tmp/apks
+    networks:
+      - emulator-network
+    restart: unless-stopped
+    cpus: 4
+    mem_limit: 7g
+    mem_reservation: 5g
+
+  # scrcpy-display pool — one per emulator. Each renders ONLY the device
+  # screen (scrcpy --fullscreen, no skin/chrome) into an Xvfb and serves it
+  # over the proven x11vnc + noVNC pipeline. Browser input flows back natively
+  # (noVNC -> X -> scrcpy -> device). Host port 609N maps to the slot's vncPort.
+  scrcpy-1:
+    build:
+      context: ./scrcpy-display
+      dockerfile: Dockerfile
+    image: scrcpy-display:local
+    container_name: emulator-scrcpy-1
+    environment:
+      EMU: "android-emulator-1:5555"
+      MAX_SIZE: "1520"
+      XVFB_W: "720"
+      XVFB_H: "1520"
+    ports:
+      - "6090:6080"
+    depends_on:
+      - emulator-1
+    networks:
+      - emulator-network
+    restart: unless-stopped
+
+  scrcpy-2:
+    image: scrcpy-display:local
+    container_name: emulator-scrcpy-2
+    environment:
+      EMU: "android-emulator-2:5555"
+      MAX_SIZE: "1520"
+      XVFB_W: "720"
+      XVFB_H: "1520"
+    ports:
+      - "6091:6080"
+    depends_on:
+      - emulator-2
+    networks:
+      - emulator-network
+    restart: unless-stopped
+
+  scrcpy-3:
+    image: scrcpy-display:local
+    container_name: emulator-scrcpy-3
+    environment:
+      EMU: "android-emulator-3:5555"
+      MAX_SIZE: "1520"
+      XVFB_W: "720"
+      XVFB_H: "1520"
+    ports:
+      - "6092:6080"
+    depends_on:
+      - emulator-3
+    networks:
+      - emulator-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: emulator-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - emulator-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: emulator-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - emulator-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  emulator-network:
+    name: emulator-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.80.0.0/24
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:

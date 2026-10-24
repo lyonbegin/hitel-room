@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>device</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #screen { width: 100vw; height: 100vh; background: #000; }
+  </style>
+</head>
+<body>
+  <div id="screen"></div>
+  <script type="module">
+    import RFB from './core/rfb.js';
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    // Derive the websocket from THIS page's own path so it works both when
+    // served directly (…:6090/phone.html → /websockify) and when proxied behind
+    // TLS under a path prefix (…/stream/1/phone.html → /stream/1/websockify).
+    // window.location.host already includes a non-default port if present.
+    const base = window.location.pathname.replace(/[^/]*$/, '');
+    const url = `${proto}://${window.location.host}${base}websockify`;
+
+    function connect() {
+      const rfb = new RFB(document.getElementById('screen'), url, {});
+      // Scale the remote framebuffer to fit this page (keeps aspect, letterboxes
+      // on black). noVNC auto-maps pointer/keyboard coordinates through the
+      // scale, so input keeps working — no CSS transform needed.
+      rfb.scaleViewport = true;
+      rfb.clipViewport = false;
+      rfb.resizeSession = false;
+      rfb.background = '#000';
+      rfb.focusOnClick = true;
+      // Real-time input through scrcpy (low latency, native keyboard + gestures).
+      // scrcpy input is clean on a healthy device; the earlier "drag→tap" issue
+      // was a corrupted touch state, not scrcpy itself.
+      rfb.viewOnly = false;
+      // Favour frame rate over crispness for smooth motion (the source is
+      // already downscaled, so lower JPEG quality is barely visible).
+      rfb.qualityLevel = 5;
+      rfb.compressionLevel = 2;
+      rfb.addEventListener('disconnect', () => setTimeout(connect, 1500));
+    }
+    connect();
+  </script>
+</body>
+</html>
