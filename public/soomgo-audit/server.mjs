@@ -150,9 +150,72 @@ async function fetchCategories(group){
  }finally{await browser?.close().catch(()=>{})}
 }
 
+
+let fusionTestRunning=false;
+async function testFusionAssembly(){
+ if(fusionTestRunning)return;fusionTestRunning=true;
+ let browser;
+ const result={time:new Date().toISOString(),status:'running',checks:{},errors:[]};
+ try{
+  browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+  const page=await browser.newPage({viewport:{width:1640,height:960},locale:'ko-KR'});
+  page.on('pageerror',e=>result.errors.push(String(e).slice(0,400)));
+  page.on('console',m=>{if(m.type()==='error')result.errors.push('console: '+m.text().slice(0,400))});
+  const response=await page.goto('https://hitel-fusion-web-production.up.railway.app/',{waitUntil:'domcontentloaded',timeout:35000});
+  result.checks.http=response?.status();
+  try{await page.waitForFunction(()=>document.documentElement.dataset.assembled==='true',{timeout:25000})}catch(e){result.errors.push('assembly-timeout: '+e.message.slice(0,130))}
+  await page.waitForTimeout(1400);
+  result.checks.initial=await page.evaluate(()=>({
+   title:document.title,done:document.documentElement.dataset.assembled||'',
+   sourceParts:[...document.querySelectorAll('.clone-piece')].map(el=>({
+    name:el.dataset.part,
+    error:el.dataset.error||null,
+    shadow:!!el.shadowRoot,
+    elementCount:el.shadowRoot?.querySelectorAll('*').length||0,
+    cards:el.shadowRoot?.querySelectorAll('.pro-card,.card,.service-link,.group-tab,.biz').length||0
+   })),
+   frameWrappers:document.querySelectorAll('iframe').length,
+   serviceLinks:document.querySelector('[data-part=categories]')?.shadowRoot?.querySelectorAll('a.service-link').length||0,
+   groupTabs:document.querySelector('[data-part=categories]')?.shadowRoot?.querySelectorAll('button.group-tab').length||0,
+   promotionCards:document.querySelector('[data-part=events]')?.shadowRoot?.querySelectorAll('article.card').length||0
+  }));
+  await fs.mkdir(BASE,{recursive:true});
+  const image=await page.screenshot({type:'jpeg',quality:68,fullPage:false});
+  const b64=image.toString('base64'),n=Math.ceil(b64.length/9500);
+  for(let i=0;i<n;i++)console.log('HITEL_FUSION_JPEG|initial|'+i+'|'+n+'|'+b64.slice(i*9500,(i+1)*9500));
+  if(result.checks.initial.serviceLinks>0){
+   await page.locator('[data-part="categories"] a.service-link').first().click({timeout:6000});
+   result.checks.serviceSelection=await page.evaluate(()=>({
+    view:document.querySelector('#providerPanel')?.hidden?'categories':'providers',
+    selected:document.querySelector('#serviceCaption')?.textContent,
+    providerCount:document.querySelector('[data-part=providers]')?.shadowRoot?.querySelectorAll('.pro-card').length||0
+   }));
+  }
+  await page.locator('[data-view="local"]').first().click({timeout:5000});
+  result.checks.local=await page.evaluate(()=>({
+   visible:!document.querySelector('#localMode')?.hidden,
+   cards:document.querySelector('[data-part=local]')?.shadowRoot?.querySelectorAll('.biz').length||0,
+   map:!!document.querySelector('[data-part=local]')?.shadowRoot?.querySelector('.map')
+  }));
+  await page.locator('[data-view="compare"]').first().click({timeout:5000});
+  result.checks.compare=await page.evaluate(()=>({
+   visible:!document.querySelector('#compareMode')?.hidden,
+   cards:document.querySelector('[data-part=compare]')?.shadowRoot?.querySelectorAll('.card').length||0
+  }));
+  await page.locator('[data-view="events"]').first().click({timeout:5000});
+  result.checks.events=await page.evaluate(()=>({
+   visible:!document.querySelector('#eventsMode')?.hidden,
+   cards:document.querySelector('[data-part=events]')?.shadowRoot?.querySelectorAll('.card').length||0
+  }));
+  result.status='completed';
+ }catch(e){result.status='failed';result.errors.push(String(e).slice(0,1000))}
+ finally{await browser?.close().catch(()=>{});fusionTestRunning=false;console.log('HITEL_FUSION_TEST '+JSON.stringify(result))}
+}
+
 const mime=(name)=>fileMap.get(name);
 const server=http.createServer(async(req,res)=>{
 try{const u=new URL(req.url,'http://localhost');res.setHeader('Cache-Control','no-store');if(u.pathname==='/health'){res.writeHead(200,{'Content-Type':'text/plain'});return res.end('ready')}
+if(u.pathname==='/test-fusion'){res.writeHead(202,{'Content-Type':'application/json; charset=utf-8'});res.end('{"accepted":true}');testFusionAssembly().catch(e=>console.error('fusion_test',e));return}
 if(u.pathname==='/api/categories'){const group=u.searchParams.get('group')||'이사/청소';if(!GROUP_PATHS[group]){res.writeHead(400);return res.end('Invalid category')}const data=await fetchCategories(group);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(asJson(data))}
 if(u.pathname==='/categories'){const htmlData=await fs.readFile('/app/categories.html');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(htmlData)}
 if(u.pathname==='/clone'){const htmlData=await fs.readFile('/app/clone.html');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end(htmlData)}
