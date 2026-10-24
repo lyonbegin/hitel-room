@@ -19,11 +19,9 @@ jobs:
           node-version: '22'
       - name: Install the MCP client SDK and Chrome runtime
         run: |
-          mkdir -p /tmp/hitel-browser-mcp
-          npm install --no-audit --no-fund --prefix /tmp/hitel-browser-mcp @modelcontextprotocol/sdk@^1.0.0
+          npm install --no-audit --no-fund --no-save --package-lock=false @modelcontextprotocol/sdk@^1.0.0
           npm install --no-audit --no-fund -g @playwright/mcp@latest chrome-devtools-mcp@latest
           npx playwright install chromium
-          echo "NODE_PATH=/tmp/hitel-browser-mcp/node_modules" >> "$GITHUB_ENV"
       - name: Check actual Playwright MCP and DevTools MCP on HITEL
         run: node mobile/tests/browser-mcp-e2e.mjs
       - name: Save real MCP tool responses and browser screenshots
