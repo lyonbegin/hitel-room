@@ -1,0 +1,25 @@
+.apk-manager{margin:22px 0;padding:22px;background:#fff;border:1px solid #dce7ee;border-radius:16px;color:#173445}
+.apk-head{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid #e4edf2;margin-bottom:17px;padding-bottom:10px}
+.apk-head span{font-size:10px;letter-spacing:1.3px;font-weight:800;color:#6a8a9a}
+.apk-head h2{font-size:20px;margin:8px 0}
+.apk-head p{font-size:12px;color:#537081;line-height:1.7}
+.apk-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:14px}
+.apk-panel{border:1px solid #dbe6eb;border-radius:12px;padding:16px;background:#fcfefe;margin-top:10px}
+.apk-panel h3{font-size:14px;margin:0 0 12px}
+.apk-panel label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:650;margin:12px 0;color:#294b5b}
+.apk-panel input:not([type=checkbox]),.apk-panel select{background:#fff;border:1px solid #cedde5;padding:11px;border-radius:8px;color:#1d3a4a;width:100%;min-width:0;font-size:12px}
+.apk-panel button{padding:10px 13px;background:#225b78;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+.apk-panel button:disabled{opacity:.45;cursor:not-allowed}
+.apk-panel .apk-check{flex-direction:row;align-items:center}
+.apk-panel .apk-check input{accent-color:#225b78}
+.apk-caption{font-size:11px;color:#698392;line-height:1.6;margin:9px 0}
+.apk-host{border:1px solid #dce7ee;padding:9px 12px;border-radius:7px;font-size:12px}
+.apk-host.online{color:#0b785d;background:#effdf8}
+.apk-host.offline{color:#9c610d;background:#fffaf0}
+.apk-notice{border-radius:8px;background:#f3f8fb;padding:12px;font-size:12px;color:#245a78;overflow-wrap:anywhere}
+.apk-table-wrap{overflow-x:auto}
+.apk-table-wrap table{border-collapse:collapse;width:100%;min-width:550px;font-size:12px;text-align:left}
+.apk-table-wrap th,.apk-table-wrap td{padding:10px 9px;border-bottom:1px solid #e6edf0}
+.apk-table-wrap th{background:#f2f7fa;font-weight:800;color:#436172}
+.apk-table-wrap code{font-size:11px}
+@media(max-width:850px){.apk-layout{grid-template-columns:1fr}.apk-manager{padding:14px}}
