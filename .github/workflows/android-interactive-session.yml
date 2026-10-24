@@ -1,0 +1,39 @@
+name: HITEL Android Interactive Play Store Session
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: hitel-android-interactive-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  android-interactive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    env:
+      LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable emulator KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Boot REAL Google Play emulator and connect Android screen to Railway
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash mobile/tests/interactive-android-session.sh
+      - name: Save actual Android screenshots and ADB session report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android-interactive-screen
+          path: mobile-test-results/android-interactive/
+          if-no-files-found: warn
