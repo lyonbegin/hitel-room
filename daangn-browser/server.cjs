@@ -24,7 +24,7 @@ async function mcp(label,args,preferred,toolargs={}){
   const items=(await c.listTools()).tools.map(x=>x.name);
   const name=items.find(x=>x===preferred)||'';
   const pages=label==='Chrome DevTools'&&items.includes('list_pages')?await c.callTool({name:'list_pages',arguments:{}},undefined,{timeout:20000}):null;
-  const result=name?await c.callTool({name,arguments:toolargs},undefined,{timeout:20000}):null;
+  const result=name?await c.callTool({name,arguments:label==='Chrome DevTools'?{pageId:1}:toolargs},undefined,{timeout:20000}):null;
   return {available:items,succeeded:!!name&&!result?.isError,response:truncate(JSON.stringify({pages,result}),6000),error:!name?'requested tool not registered':undefined}
  } finally {await c.close().catch(()=>{})}
 }
@@ -43,7 +43,7 @@ const summarize=async(page)=>{
 async function capture(name,page){await page.screenshot({path:ROOT+'/'+name+'.png',fullPage:false,timeout:16000});step('screenshot:'+name,{url:page.url()})}
 async function emitAuditEvidence(){
  const a=report.tools.original_capture?.result||{},b=report.tools.previous_navigation?.result||{};
- const brief={phase:report.phase,source:{title:a.title,url:a.url,viewport:a.viewport,headings:a.mainHeading?.slice(0,8),header:a.header?.slice(0,5),controls:a.controls?.slice(0,12),images:a.images?.slice(0,14)},previous:{status:b.status,title:b.dom?.title},toolStatus:Object.fromEntries(Object.entries(report.tools).map(([k,v])=>[k,{ok:v.ok,error:v.error?.slice(0,500),succeeded:v.result?.succeeded,detail:v.result?.response?.slice(0,1200),available:Array.isArray(v.result?.available)?v.result.available.slice(0,15):null}])),diff:report.tools.screenshot_image_comparison?.result,replica:{status:report.tools.replica_navigation?.result?.status,title:report.tools.replica_navigation?.result?.dom?.title},diffReplica:report.tools.replica_screenshot_comparison?.result,errors:report.errors};
+ const brief={phase:report.phase,source:{title:a.title,url:a.url,viewport:a.viewport,headings:a.mainHeading?.slice(0,8),header:a.header?.slice(0,5),controls:a.controls?.slice(0,12),images:a.images?.slice(0,14)},previous:{status:b.status,title:b.dom?.title},toolStatus:Object.fromEntries(Object.entries(report.tools).map(([k,v])=>[k,{ok:v.ok,error:v.error?.slice(0,1600),succeeded:v.result?.succeeded,detail:v.result?.response?.slice(0,1200),available:Array.isArray(v.result?.available)?v.result.available.slice(0,15):null}])),diff:report.tools.screenshot_image_comparison?.result,replica:{status:report.tools.replica_navigation?.result?.status,title:report.tools.replica_navigation?.result?.dom?.title},diffReplica:report.tools.replica_screenshot_comparison?.result,functional:report.tools.replica_functional_checks?.result,errors:report.errors};
  console.log('DAANGN_AUDIT_SUMMARY='+JSON.stringify(brief));
  for(const name of ['original','previous','replica']){try{const buf=await require('sharp')(ROOT+'/'+name+'.png').resize({width:1000,withoutEnlargement:true}).jpeg({quality:55}).toBuffer();const bs=buf.toString('base64');for(let i=0;i<bs.length;i+=1600)console.log('DAANGN_IMAGE_'+name+'_'+Math.floor(i/1600)+'='+bs.slice(i,i+1600));console.log('DAANGN_IMAGE_'+name+'_END='+Math.ceil(bs.length/1600));}catch(e){console.log('DAANGN_IMAGE_ERROR_'+name+'='+String(e))}}
 }
@@ -74,6 +74,21 @@ async function audit(){
 
  await attempt('replica_navigation',async()=>{const pg=await ctx.newPage();await pg.setViewportSize({width:1440,height:900});const rr=await pg.goto(URL2,{waitUntil:'domcontentloaded',timeout:20000});await pg.waitForTimeout(2800);await capture('replica',pg);return {status:rr?.status(),dom:await summarize(pg)}});
  await attempt('replica_screenshot_comparison',async()=>{const sharp=require('sharp'),a=await sharp(ROOT+'/original.png').resize(1440,900).removeAlpha().raw().toBuffer(),b=await sharp(ROOT+'/replica.png').resize(1440,900).removeAlpha().raw().toBuffer();let diff=0,total=0;for(let i=0;i<a.length;i+=3){let d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);total+=d;if(d>60)diff++}const measure=(lo,hi)=>{let d=0,sum=0,n=0;for(let y=0;y<900;y++)for(let x=lo;x<hi;x++){let i=(y*1440+x)*3,v=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(v>60)d++;sum+=v;n++}return {nonmatching_pixel_ratio:+(d/n).toFixed(4),mean_absolute_channel_difference:+(sum/(n*3)).toFixed(2)}};return {width:1440,height:900,nonmatching_pixel_ratio:+(diff/(a.length/3)).toFixed(4),mean_absolute_channel_difference:+(total/a.length).toFixed(2),left_panel:measure(0,640),map_panel:measure(640,1440),method:'RGB abs sum > 60'}});
+
+ await attempt('replica_functional_checks',async()=>{
+   const p=await ctx.newPage();await p.setViewportSize({width:1440,height:900});await p.goto(URL2,{waitUntil:'domcontentloaded',timeout:20000});await p.waitForTimeout(700);
+   const initial=await p.locator('.card').count();
+   await p.locator('#regionButton').click();
+   const menuVisible=await p.locator('#regionMenu').evaluate(e=>e.classList.contains('open'));
+   await p.locator('[data-region="1"]').click();
+   const newRegion=await p.locator('#heading').innerText(),foreignCards=await p.locator('.card').count();
+   await p.locator('#resetLocation').click();
+   await p.locator('#query').fill('감동상회');await p.locator('#query').press('Enter');
+   const searchCards=await p.locator('.card').count(),searchName=await p.locator('.card h3').first().innerText();
+   const before=await p.locator('#tiles img').first().getAttribute('src');await p.locator('#zoomIn').click();
+   const after=await p.locator('#tiles img').first().getAttribute('src');
+   await p.close();return {initial_cards:initial,region_menu_opened:menuVisible,changed_region:newRegion,other_region_cards:foreignCards,query_result_count:searchCards,first_query_result:searchName,map_zoom_changed:before!==after}
+ });
  await browser.close();
  report.phase='complete';report.finished_at=new Date().toISOString();saveJSON();await emitAuditEvidence();
 }
