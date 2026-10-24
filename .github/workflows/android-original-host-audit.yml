@@ -1,0 +1,57 @@
+name: Android original source hardware and Docker audit
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-host-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-source-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect unmodified original Android requirements
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== ORIGINAL SOURCE ==="
+          test "$(git ls-files vendor/android-emulator-platform | wc -l | tr -d ' ')" = 53
+          sha256sum vendor/android-emulator-platform/docker-compose.yml
+          echo "=== HOST ==="
+          uname -a
+          nproc
+          free -h
+          df -h /
+          docker version --format '{{.Server.Version}}'
+          docker compose version
+          echo "=== HARDWARE ==="
+          for x in /dev/kvm /dev/dri /dev/dri/renderD128; do
+            if test -e "$x"; then ls -l "$x"; echo "AVAILABLE $x"
+            else echo "MISSING $x"; fi
+          done
+          if test -c /dev/kvm; then echo 'HITEL_KVM_AVAILABLE=true'
+            else echo 'HITEL_KVM_AVAILABLE=false'; fi
+          if test -d /dev/dri; then echo 'HITEL_ORIGINAL_GPU_AVAILABLE=true'
+            else echo 'HITEL_ORIGINAL_GPU_AVAILABLE=false'; fi
+      - name: Validate original unmodified Docker Compose
+        working-directory: vendor/android-emulator-platform
+        env:
+          DB_PASSWORD: native-original-ci-only-2012
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml config --services
+          echo 'HITEL_ORIGINAL_COMPOSE_VALID=true'
+      - name: Confirm literal original image, renderer, and stream settings
+        run: |
+          set -euo pipefail
+          grep -F 'budtmo/docker-android:emulator_11.0' vendor/android-emulator-platform/emulator/Dockerfile
+          grep -F 'scrcpy-display' vendor/android-emulator-platform/docker-compose.yml
+          grep -F '/dev/dri' vendor/android-emulator-platform/docker-compose.yml
+          grep -F 'location ~ ^/stream/([0-9]+)/(.*)$' vendor/android-emulator-platform/nginx/nginx.conf
+          echo 'HITEL_ORIGINAL_STREAM_IS_SCRCPY_NOVNC=true'
