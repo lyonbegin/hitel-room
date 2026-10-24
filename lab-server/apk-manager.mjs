@@ -173,7 +173,9 @@ export function createApkManager({
         if(!current||cookieValue(req,'hitel_ui_owner')!==current.owner)
           return bad(res,'NO_OWNED_ANDROID_SESSION',403);
         if(['queued','starting','running'].includes(current.status)){
-          current.status='stopping';current.stopAt=new Date().toISOString();
+          current.status=current.status==='queued'?'completed':'stopping';
+          current.stopAt=new Date().toISOString();
+          if(current.status==='completed')current.endedAt=current.stopAt;
           await writeUiRequest(current);
         }
         return json(res,200,{ok:true,status:current.status});
