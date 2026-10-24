@@ -19,6 +19,7 @@ import android.webkit.*
 import androidx.webkit.WebViewCompat
 import org.json.JSONObject
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -35,7 +36,7 @@ class MainActivity : Activity() {
     }
 
     private lateinit var webView: WebView
-    private val networkClient = OkHttpClient()
+    private val networkClient = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).build()
     private var communicationSocket: WebSocket? = null
     private var communicationToken: String? = null
     @Volatile private var communicationConnected = false
@@ -241,12 +242,18 @@ class MainActivity : Activity() {
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(LOG_TAG, "LAB_SOCKET_FAILURE " + t.message)
-                if (labSocket === webSocket) {
-                    activeTicket = null
-                    frameHandler.postDelayed({
-                        if (!labDestroyed && activeTicket == null) connectLabNetwork(ticket)
-                    },3000)
-                }
+                retryLab(webSocket)
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                Log.w(LOG_TAG, "LAB_SOCKET_CLOSED " + code)
+                retryLab(webSocket)
+            }
+            private fun retryLab(webSocket: WebSocket) {
+                if (labSocket !== webSocket || labDestroyed) return
+                activeTicket = null
+                frameHandler.postDelayed({
+                    if (!labDestroyed && activeTicket == null) connectLabNetwork(ticket)
+                },3000)
             }
         })
     }
