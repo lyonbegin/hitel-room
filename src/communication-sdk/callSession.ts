@@ -40,6 +40,12 @@ export class CommunicationCallSession {
   mediaChanged(data:Record<string,unknown>){return this.dispatch('call.mediaChanged',data)}
   networkInterrupted(){return this.dispatch('call.networkInterrupted')}
   recovered(){return this.dispatch('call.recovered')}
+  /** Replies remain local to this participant: they are never broadcast to the peer. */
+  async askAI(text:string,context:Record<string,unknown>={}):Promise<unknown>{
+    if(this.state!=='active')throw new Error('An active communication call is required for in-call AI');
+    return this.sdk.respondWithAI(text,{...context,callId:this.callId,role:this.signaling.role,
+      scenarioId:this.signaling.scenarioId});
+  }
   /** Transition to ACTIVE only when the injected real RTC adapter finished joining. */
   async connectMedia(roomId:string,stream:MediaStream,adapter:RoomAdapter):Promise<RoomSession>{
     await this.connecting();
