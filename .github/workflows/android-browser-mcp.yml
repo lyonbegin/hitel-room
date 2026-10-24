@@ -36,6 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chrome)"
+          export HITEL_CHROME_PATH="$chrome"
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9222 \
             --remote-allow-origins='*' --user-data-dir=/tmp/hitel-devtools-debug about:blank \
             > /tmp/hitel-mcp-chrome.log 2>&1 &
