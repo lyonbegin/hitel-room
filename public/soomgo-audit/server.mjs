@@ -47,6 +47,15 @@ const rect=e=>{const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Mat
 const style=e=>{const c=getComputedStyle(e);return {display:c.display,position:c.position,background:c.backgroundColor,font:c.fontFamily,fontSize:c.fontSize,color:c.color,padding:c.padding,margin:c.margin,border:c.border}};
 return{url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight},bodyText:document.body?.innerText.slice(0,25000),controls:[...document.querySelectorAll('input,button,select,a,[role="button"]')].slice(0,350).map(e=>({tag:e.tagName,text:(e.innerText||e.getAttribute('aria-label')||'').trim().slice(0,130),placeholder:e.getAttribute('placeholder'),href:e.getAttribute('href'),rect:rect(e)})),elements:[...document.querySelectorAll('header,main,aside,nav,section,article,[class*="card"],[class*="search"],[class*="region"],[class*="location"]')].slice(0,150).map(e=>({tag:e.tagName,cls:String(e.className).slice(0,150),rect:rect(e),style:style(e)})),images:[...document.images].slice(0,220).map(e=>({src:e.currentSrc||e.src,alt:e.alt,naturalWidth:e.naturalWidth,naturalHeight:e.naturalHeight,rect:rect(e)}))};
 });
+
+if(name==='categoriesOriginal'){
+try{result.snapshot.presetVisuals=await page.evaluate(()=>Array.from(document.querySelectorAll('a[href*="/requests/preset"]')).slice(0,4).map(a=>{
+ const all=[a,...a.querySelectorAll('*')];
+ const images=all.map(el=>{const st=getComputedStyle(el),bef=getComputedStyle(el,'::before'),aft=getComputedStyle(el,'::after');return{tag:el.tagName,background:st.backgroundImage,before:bef.backgroundImage,after:aft.backgroundImage,src:el.getAttribute('src'),style:el.getAttribute('style')?.slice(0,250)};}).filter(o=>[o.background,o.before,o.after].some(x=>x&&x!=='none')||o.src);
+ return{label:a.innerText.slice(0,120),images};
+}));console.log('HITEL_PRESET_MEDIA '+JSON.stringify(result.snapshot.presetVisuals))}
+catch(e){console.log('HITEL_PRESET_MEDIA_ERROR '+String(e))}
+}
 result.images=result.snapshot.images.length;result.elements=result.snapshot.elements.length;
 const screenshot=path.join(BASE,name+'.png');await page.screenshot({path:screenshot,fullPage:false,timeout:20000});
 result.status=result.httpStatus>=400?'http_error':'captured';result.finishedAt=new Date().toISOString();
