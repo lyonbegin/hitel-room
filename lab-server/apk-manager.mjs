@@ -188,15 +188,16 @@ export function createApkManager({
       }
       if(req.method==='GET'&&route==='/lab-api/apk/ui/status'){
         const current=await readUiRequest();
-        if(!current)return json(res,200,{ok:true,status:'idle',online:false});
+        if(!current)return json(res,200,{ok:true,status:'idle',online:false,dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)});
         const active=await requestActive(current);
         const owner=cookieValue(req,'hitel_ui_owner');
         if(owner!==current.owner)return json(res,200,{ok:true,
-          status:active?'busy':'idle',online:false});
+          status:active?'busy':'idle',online:false,dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)});
         return json(res,200,{ok:true,
           status:!active&&['queued','starting','running','stopping'].includes(current.status)?'expired':current.status,
           requestId:current.id,online:await originalHostLive(),
           error:current.error||null,dispatchedAt:current.dispatchedAt||null,
+          dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN),
           requestedAt:current.createdAt});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/ui/stop'){
