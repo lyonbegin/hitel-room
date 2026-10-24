@@ -1,0 +1,80 @@
+import {useEffect,useState} from 'react';
+import './AndroidSessionControls.css';
+
+type RunStatus='idle'|'queued'|'starting'|'running'|'stopping'|'completed'|'expired'|'busy';
+type StatusReply={ok:boolean;status?:RunStatus;online?:boolean;error?:string};
+
+export function AndroidSessionControls({onNotice}:{
+  onNotice:(message:string)=>void
+}){
+  const [status,setStatus]=useState<RunStatus>('idle');
+  const [online,setOnline]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const refresh=async()=>{
+    try{
+      const response=await fetch('/lab-api/apk/ui/status',{
+        credentials:'same-origin',cache:'no-store'
+      });
+      if(!response.ok)return;
+      const info=await response.json() as StatusReply;
+      setStatus(info.status||'idle');
+      setOnline(Boolean(info.online));
+    }catch{/* server booting */}
+  };
+  useEffect(()=>{
+    void refresh();
+    const interval=window.setInterval(()=>void refresh(),3000);
+    return ()=>window.clearInterval(interval);
+  },[]);
+  const start=async()=>{
+    setBusy(true);
+    try{
+      const response=await fetch('/lab-api/apk/ui/start',{
+        method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'content-type':'application/json'},body:'{}'
+      });
+      const info=await response.json() as StatusReply;
+      if(!response.ok)throw Error(info.error||'Android 시작 오류');
+      setStatus('queued');
+      onNotice('Android 실행 요청 등록 · 실행 서버가 요청을 가져오면 실제 화면이 열립니다.');
+    }catch(e){onNotice('Android 시작 실패: '+String(e))}
+    finally{setBusy(false);void refresh()}
+  };
+  const stop=async()=>{
+    setBusy(true);
+    try{
+      const response=await fetch('/lab-api/apk/ui/stop',{
+        method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'content-type':'application/json'},body:'{}'
+      });
+      const info=await response.json() as StatusReply;
+      if(!response.ok)throw Error(info.error||'Android 종료 오류');
+      setStatus(info.status||'stopping');
+      onNotice('Android 종료 요청 완료 · 테스트가 끝나면 가상 기기는 초기화됩니다.');
+    }catch(e){onNotice('Android 종료 실패: '+String(e))}
+    finally{setBusy(false);void refresh()}
+  };
+  const active=['queued','starting','running','stopping'].includes(status);
+  const readable:Record<RunStatus,string>={
+    idle:'실행 대기',
+    queued:'실행 예약됨 · GitHub 실행 주기 최대 약 5분 대기',
+    starting:'실제 Android 부팅 중',
+    running:online?'실제 Android 실행 중 · 화면에서 조작하세요':'Android 부팅·화면 연결 중',
+    stopping:'Android 종료 중',
+    completed:'테스트 종료 · 가상 기기 초기화됨',
+    expired:'실행 만료 · 다시 시작할 수 있습니다',
+    busy:'다른 테스트가 진행 중'
+  };
+  return <div className="dl-android-session" aria-label="일회용 Android 실행 제어">
+    <div className="dl-android-session-actions">
+      <button type="button" className="dl-android-start" disabled={busy||active||status==='busy'}
+        onClick={()=>void start()}>Android 실행</button>
+      <button type="button" className="dl-android-stop" disabled={busy||!active}
+        onClick={()=>void stop()}>Android 종료</button>
+    </div>
+    <p role="status" aria-live="polite" className={'dl-android-session-status '+(online?'connected':'')}>
+      {readable[status]}
+    </p>
+    <p className="dl-android-session-hint">우리 화면에서 실행·설치·조작·종료합니다. GitHub 페이지에 들어갈 필요가 없습니다.</p>
+  </div>;
+}
