@@ -154,6 +154,28 @@ if [[ "$(printenv HITEL_OFFICIAL_MCP_VERIFY || echo 0)" == "1" ]]; then
   bash "$ROOT/mobile/browser-mcp/native-geometry.sh"
   node "$ROOT/mobile/browser-mcp/inspect.mjs"
   echo HITEL_OFFICIAL_BOTH_BROWSER_MCP_NATIVE_VERIFIED
+  if [[ "$(printenv HITEL_SCRCPY_FULLSCREEN_AB || echo 0)" == "1" ]]; then
+    evidence="$ROOT/mobile-test-results/android-browser-mcp"
+    cp "$evidence/report.json" "$evidence/before-fullscreen-report.json"
+    cp "$evidence/chrome-native.png" "$evidence/before-fullscreen.png"
+    HITEL_FORCE_FULLSCREEN=1 bash "$ROOT/mobile/browser-mcp/fix-scrcpy-fullscreen.sh"
+    sleep 4
+    HITEL_MCP_TEST_INPUT=1 node "$ROOT/mobile/browser-mcp/inspect.mjs"
+    cp "$evidence/report.json" "$evidence/after-fullscreen-report.json"
+    cp "$evidence/chrome-native.png" "$evidence/after-fullscreen.png"
+    node - "$evidence" <<'JS'
+const fs=require('fs'),dir=process.argv[2];
+const before=JSON.parse(fs.readFileSync(dir+'/before-fullscreen-report.json'));
+const after=JSON.parse(fs.readFileSync(dir+'/after-fullscreen-report.json'));
+const a=before.layout?.pixels?.nonBlackWidthFraction||0;
+const b=after.layout?.pixels?.nonBlackWidthFraction||0;
+console.log('HITEL_NATIVE_FULLSCREEN_AB_COMPARISON',JSON.stringify({
+ before:a,after:b,improvement:+(b-a).toFixed(3),
+ input:after.layout?.nativeInput
+}));
+if(b<0.80) {console.error('HITEL_NATIVE_FULLSCREEN_STILL_UNDERSIZED');process.exitCode=2;}
+JS
+  fi
 fi
 
 # E2E gate: after real Docker/KVM boot and tunnel registration, the SAME
