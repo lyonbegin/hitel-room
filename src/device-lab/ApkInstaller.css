@@ -23,3 +23,8 @@
 .apk-table-wrap th{background:#f2f7fa;font-weight:800;color:#436172}
 .apk-table-wrap code{font-size:11px}
 @media(max-width:850px){.apk-layout{grid-template-columns:1fr}.apk-manager{padding:14px}}
+
+.apk-remote-screen{background:#e8eff2;border-radius:12px;min-height:300px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.apk-remote-screen img{display:block;width:100%;max-width:360px;max-height:650px;object-fit:contain;user-select:none}
+.apk-remote-screen p{font-size:12px;color:#668493;text-align:center;padding:36px}
+.apk-remote-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
