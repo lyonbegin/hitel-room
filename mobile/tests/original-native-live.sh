@@ -163,7 +163,7 @@ if [[ "$(printenv HITEL_OFFICIAL_MCP_VERIFY || echo 0)" == "1" ]]; then
     HITEL_MCP_TEST_INPUT=1 node "$ROOT/mobile/browser-mcp/inspect.mjs"
     cp "$evidence/report.json" "$evidence/after-fullscreen-report.json"
     cp "$evidence/chrome-native.png" "$evidence/after-fullscreen.png"
-    node - "$evidence" <<'JS'
+    node --input-type=commonjs - "$evidence" <<'JS'
 const fs=require('fs'),dir=process.argv[2];
 const before=JSON.parse(fs.readFileSync(dir+'/before-fullscreen-report.json'));
 const after=JSON.parse(fs.readFileSync(dir+'/after-fullscreen-report.json'));
