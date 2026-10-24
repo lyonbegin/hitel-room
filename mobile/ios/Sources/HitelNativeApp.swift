@@ -63,6 +63,8 @@ struct HitelWebView: UIViewRepresentable {
                         case "comm.pong": NSLog("HITEL_E2E COMM_SOCKET_PONG")
                         case "comm.snapshot": NSLog("HITEL_E2E COMM_SNAPSHOT_OK")
                         case "comm.event":
+                            let eventName = ((obj["event"] as? [String: Any])?["type"] as? String ?? "UNKNOWN").uppercased()
+                            NSLog("HITEL_E2E COMM_EVENT_%@", eventName)
                             let payload: [String: Any] = [
                                 "type": "communication.event",
                                 "event": obj["event"] ?? [:]
