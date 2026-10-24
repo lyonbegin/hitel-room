@@ -1,8 +1,9 @@
 import {useCallback,useEffect,useState} from 'react';
 import './ApkInstaller.css';
+import {EmulatorRemoteScreen} from './EmulatorRemoteScreen';
 
 type ApkFile={id:string;filename:string;size:number;sha256:string;createdAt:string};
-type InstallJob={id:string;apkId:string;filename:string;deviceId:string;status:'pending'|'installing'|'installed'|'failed';createdAt:string;finishedAt?:string;packageName?:string;error?:string;installLog?:string;launchAfterInstall?:boolean};
+type InstallJob={id:string;apkId:string;filename:string;deviceId:string;status:'pending'|'installing'|'installed'|'failed'|'completed';createdAt:string;finishedAt?:string;packageName?:string;error?:string;installLog?:string;launchAfterInstall?:boolean};
 type Host={deviceId:string;kind:string;online:boolean;lastSeen:string};
 type ApiReply={ok:boolean;error?:string;file?:ApkFile;job?:InstallJob;files?:ApkFile[];jobs?:InstallJob[];hosts?:Host[]};
 
@@ -127,9 +128,10 @@ export function ApkInstaller(){
         <th>APK</th><th>대상</th><th>상태</th><th>실행 결과</th>
       </tr></thead><tbody>{jobs.slice(0,25).map(j=><tr key={j.id}>
         <td>{j.filename}</td><td>{j.deviceId}</td>
-        <td><strong>{({pending:'설치 대기',installing:'ADB 실행 중',installed:'설치 확인',failed:'설치 실패'} as const)[j.status]}</strong></td>
+        <td><strong>{({pending:'설치 대기',installing:'ADB 실행 중',installed:'설치 확인',failed:'작업 실패',completed:'조작 완료'} as const)[j.status]}</strong></td>
         <td>{j.packageName||j.error|| (j.status==='pending'?'호스트 연결 대기':'')}</td>
       </tr>)}</tbody></table></div>}
     </div>
+    <EmulatorRemoteScreen token={token} deviceId={device} online={hostOnline} onNotice={setNotice}/>
   </section>;
 }
