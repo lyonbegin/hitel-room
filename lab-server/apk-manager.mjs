@@ -138,7 +138,13 @@ export function createApkManager({
         const pending=pendingUiSession;
         if(!pending||pending.expiresAt<=Date.now())
           return json(res,202,{ok:true,ready:false});
-        if(pending.claimed)return json(res,202,{ok:true,ready:false});
+        if(pending.claimed){
+          const existing=String(req.headers.cookie||'').split(';').map(x=>x.trim())
+            .find(x=>x.startsWith('hitel_apk_test='))?.slice('hitel_apk_test='.length);
+          if(existing&&existing===pending.token)return json(res,200,{ok:true,
+            ready:true,deviceId:TEST_DEVICE});
+          return json(res,202,{ok:true,ready:false});
+        }
         pending.claimed=true;
         res.setHeader('Set-Cookie','hitel_apk_test='+pending.token+
           '; HttpOnly; Secure; SameSite=Strict; Path=/lab-api/apk; Max-Age=1080');
