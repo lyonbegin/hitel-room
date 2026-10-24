@@ -38,7 +38,13 @@ test('original native host publishes ONLY registered real HTTPS scrcpy URL',asyn
    res=await call('/lab-api/android-native/ci/stop-requested',{auth:'signed-runner'});
    assert.equal((await res.json()).stop,false);
    await mkdir(path.join(root,'apk-manager'),{recursive:true});
-   await writeFile(path.join(root,'apk-manager','interactive-request.json'),JSON.stringify({status:'stopping'}));
+   await writeFile(path.join(root,'apk-manager','interactive-request.json'),JSON.stringify({status:'completed'}));
+   res=await call('/lab-api/android-native/ci/stop-requested',{auth:'signed-runner'});
+   assert.equal((await res.json()).stop,false,'old completed session must not stop new runner');
+   await writeFile(path.join(root,'apk-manager','interactive-request.json'),JSON.stringify({status:'stopping',claimRunId:'other-run'}));
+   res=await call('/lab-api/android-native/ci/stop-requested',{auth:'signed-runner'});
+   assert.equal((await res.json()).stop,false,'other run cannot stop current emulator');
+   await writeFile(path.join(root,'apk-manager','interactive-request.json'),JSON.stringify({status:'stopping',claimRunId:'400123'}));
    res=await call('/lab-api/android-native/ci/stop-requested',{auth:'signed-runner'});
    assert.equal((await res.json()).stop,true);
    res=await call('/lab-api/android-native/ci/finish',{method:'POST',body:{},auth:'signed-runner'});
