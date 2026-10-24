@@ -112,7 +112,7 @@ async function sync(){try{
   const obj=await r.json();const raw=obj?.snapshot?.bodyText||'';
   const after=raw.indexOf('제목\t분야\tUP\t답변\t작성');
   if(after>=0){
-    const found=[];const source=raw.slice(after+18);
+    const found=[];const source=raw.slice(after+'제목\t분야\tUP\t답변\t작성'.length);
     const rex=/([^\n\t]+)\t([^\n\t]+)\t\s*\nUP\n(\d+)\t(\d+)\t([^\n]+)/g;
     for(const m of source.matchAll(rex)){
        const title=m[1].trim(),group=m[2].trim();
