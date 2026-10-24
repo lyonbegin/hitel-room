@@ -8,6 +8,15 @@ RUN git clone --depth 1 https://github.com/lyonbegin/video-town-front.git /video
     && npm install --no-audit --no-fund \
     && npm run build:sdk
 
+# Build the original upstream Android Emulator Platform UI unmodified.
+# CLI --base determines only the mount path on the existing HITEL website.
+FROM node:22-alpine AS android-original-build
+WORKDIR /android-original
+COPY vendor/android-emulator-platform/frontend/package.json ./
+RUN npm install --no-audit --no-fund
+COPY vendor/android-emulator-platform/frontend ./
+RUN npm run build -- --base /android-original/ && test -s dist/index.html
+
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json ./
@@ -23,6 +32,7 @@ FROM nginx:1.27-alpine
 ENV TEST_LOGIN_KEY=""
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=android-original-build /android-original/dist /usr/share/nginx/html/android-original
 COPY --from=video-core-build /video-core/dist/sdk /usr/share/nginx/html/sdk/video-core
 COPY --from=video-core-build /video-core/public/sdk-playground.html /usr/share/nginx/html/sdk-playground.html
 EXPOSE 8080
