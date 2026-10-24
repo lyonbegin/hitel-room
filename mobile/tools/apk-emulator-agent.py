@@ -156,7 +156,9 @@ def main():
             if ready.returncode or "device" not in ready.stdout:
                 raise RuntimeError("ADB_DEVICE_NOT_ONLINE: "+ready.stdout[-200:])
             if not args.once:
-                try:capture_frame(args.device,args.serial)
+                try:
+                    if capture_frame(args.device,args.serial):
+                        print("EMULATOR_FRAME_PUBLISHED",args.device,flush=True)
                 except Exception as frame_exc:
                     print("EMULATOR_FRAME_ERROR",str(frame_exc)[:150],file=sys.stderr,flush=True)
             answer=send("/lab-api/apk/agent/next",args.device,{})
