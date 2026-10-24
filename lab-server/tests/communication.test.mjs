@@ -97,3 +97,58 @@ test('actual two WebSocket clients: call FSM, role policy, presence, reconnect r
     await new Promise(resolve=>server.close(resolve));
   }
 });
+
+test('two devices sharing callee identity keep independent replay despite one device ACK',async()=>{
+  const comm=createCommunicationService();
+  const server=createServer((req,res)=>void comm.http(req,res,new URL(req.url,'http://localhost').pathname));
+  server.on('upgrade',(req,socket,head)=>comm.upgrade(req,socket,head));
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port;
+  const wsbase='ws://127.0.0.1:'+server.address().port;
+  let first,second,restored;
+  try {
+    const created=await fetch(base+'/comm-api/session',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({from:'W',to:'N'})});
+    const {callerToken,calleeToken,callId}=await created.json();
+    first=await makeClient(wsbase,calleeToken);
+    second=await makeClient(wsbase,calleeToken);
+    const delivered1=waitFor(first,m=>m.type==='comm.event'&&m.event.type==='call.invite');
+    const delivered2=waitFor(second,m=>m.type==='comm.event'&&m.event.type==='call.invite');
+    const invited=await fetch(base+'/comm-api/action',{method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+callerToken},
+      body:JSON.stringify({action:'call.invite'})});
+    const msg=await invited.json();assert.equal(msg.state,'inviting');
+    const [event1,event2]=await Promise.all([delivered1,delivered2]);
+    assert.equal(event1.event.eventId,event2.event.eventId);
+    first.send(JSON.stringify({type:'comm.ack',sequence:event1.event.sequence}));
+    for(let i=0;i<30;i++){
+      const snap=await fetch(base+'/comm-api/session/'+callId,{
+        headers:{Authorization:'Bearer '+calleeToken}});
+      const state=await snap.json();
+      if(state.participants.callee.lastAck>=event1.event.sequence){
+        assert.equal(state.participants.callee.connectedDevices,2);break;
+      }
+      if(i===29)assert.fail('first device ACK not saved');
+      await new Promise(r=>setTimeout(r,30));
+    }
+    await new Promise(r=>{second.once('close',r);second.close()});
+    second=null;
+    // Attach listener BEFORE socket opens; reconnected device must not inherit first device ACK.
+    restored=await new Promise((resolve,reject)=>{
+      const ws=new WebSocket(wsbase+'/comm-api/ws?token='+encodeURIComponent(calleeToken));
+      const timeout=setTimeout(()=>reject(new Error('Missing replay snapshot')),3000);
+      ws.on('error',reject);
+      ws.on('message',raw=>{
+        const data=JSON.parse(String(raw));
+        if(data.type==='comm.snapshot'){
+          clearTimeout(timeout);
+          resolve({socket:ws,snapshot:data});
+        }
+      });
+    });
+    assert.ok(restored.snapshot.events.some(e=>e.type==='call.invite'));
+  } finally {
+    first?.close();second?.close();restored?.socket.close();
+    comm.close();await new Promise(r=>server.close(r));
+  }
+});
