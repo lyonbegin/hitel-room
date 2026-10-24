@@ -1,4 +1,5 @@
 import { nativeCall, platform, type NativeCapabilities, type NativeReply } from '../portal/nativeBridge';
+import type { CommunicationAction } from './signalClient';
 
 /**
  * Reuses HITEL's existing authenticated WebView Bridge.
@@ -211,6 +212,14 @@ export class CommunicationSDK {
 
   async stopLocalSpeech(): Promise<void> {
     await this.bridge.request('tts.stop');
+  }
+
+  /** A trusted in-app WebView asks its own native WebSocket transport to send a
+   * signaling action. The native ACK only means queued; the server responds
+   * asynchronously via native.event communication.actionAck / error.
+   * Ordinary browsers use CommunicationSignalClient directly instead. */
+  async sendNativeCallAction(action: CommunicationAction, payload: Record<string,unknown> = {}): Promise<void> {
+    await this.bridge.request('communication.action', {callAction:action, payload});
   }
 
   private async loadAICounselor(): Promise<AICounselorInstance> {
