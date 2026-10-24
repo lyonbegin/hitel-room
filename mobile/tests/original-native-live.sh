@@ -8,10 +8,14 @@ OVERRIDE="$ROOT/infra/android-original/github-4cpu.compose.yml"
 EDGE="$ROOT/infra/android-original/native-transport.nginx.conf"
 export DB_PASSWORD="original-github-temporary"
 export PUBLIC_HOST="127.0.0.1"
+HITEL_WEB_CLAIMED="$(printenv HITEL_WEB_CLAIMED || echo false)"
 cd "$UPSTREAM"
 com(){ docker compose -f docker-compose.yml -f "$OVERRIDE" "$@"; }
 cleanup(){
   python3 "$ROOT/mobile/tools/original-native-url.py" finish || true
+  if [[ "$HITEL_WEB_CLAIMED" == "true" ]]; then
+    python3 "$ROOT/mobile/tools/finish-ui-request.py" || true
+  fi
   docker rm -f hitel-original-native-edge >/dev/null 2>&1 || true
   com down --remove-orphans >/dev/null 2>&1 || true
 }
