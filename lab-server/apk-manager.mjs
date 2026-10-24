@@ -234,7 +234,8 @@ export function createApkManager({
             args.x<0||args.y<0||args.x>=host.width||args.y>=host.height)
             return bad(res,'INVALID_TOUCH_COORDINATE');
         }
-        if(action==='scroll')args.direction=body.direction==='up'?'up':'down';
+        if(action==='scroll'){args.direction=body.direction==='up'?'up':'down';
+          args.width=host.width;args.height=host.height;}
         const job={id:crypto.randomUUID(),deviceId:device,operation:'control',action,args,
           status:'pending',createdAt:new Date().toISOString(),error:null};
         await saveRecord(jobsDir,job);
