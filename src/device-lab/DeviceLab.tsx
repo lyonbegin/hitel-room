@@ -366,7 +366,13 @@ export default function DeviceLab(){
         <section className="dl-command-column">
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
-            <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 에뮬레이터</button></div>
+            <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 Android 화면</button></div>
+            <label className="dl-token-label">Android 실제 화면 접근 인증
+              <input type="password" autoComplete="off" value={apkToken} onChange={event=>setApkToken(event.target.value)} placeholder="Railway LAB_APK_ADMIN_TOKEN"/>
+            </label>
+            <div className="dl-pair"><a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml" target="_blank" rel="noreferrer">일회용 Android 실행 → GitHub Actions · Run workflow ↗</a>
+              <small>{apkOnline?'실제 Android 연결됨 · 화면에서 Play Store 아이콘을 누르세요':'Android 세션 미실행 · 실행하면 홈 화면이 자동 표시됩니다'}</small>
+            </div>
             <div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>void send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>
             <div className="dl-pair"><button onClick={()=>void createPair()}>Wi-Fi 기기 페어링 코드 발급</button>{pairTicket&&<><label>앱의 SDK Lab 화면에 아래 코드를 입력하세요.</label><input readOnly aria-label="기기 페어링 코드" value={pairTicket}/><button onClick={()=>void navigator.clipboard.writeText(pairTicket)}>코드 복사</button></>}</div>
             <label className="dl-token-label">네트워크 제어 토큰<input type="password" autoComplete="off" value={adminToken} onChange={e=>setAdminToken(e.target.value)} placeholder="페어링을 발급하면 자동 입력됩니다"/></label>
