@@ -7,7 +7,7 @@ import path from 'node:path';
  * Does not implement, modify, or emulate its React UI, Express API, or scrcpy.
  * A signed GitHub Actions KVM runner registers its temporary HTTPS ingress.
  */
-export function createOriginalNativeHost({root,verifyCI}={}) {
+export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheMs=3000}={}) {
   if(!root||typeof verifyCI!=='function')throw Error('NATIVE_ANDROID_HOST_SETUP_REQUIRED');
   const store=path.join(root,'original-native-endpoint.json');
   const safeUrl=/^https:\/\/[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com$/;
@@ -34,6 +34,31 @@ export function createOriginalNativeHost({root,verifyCI}={}) {
     return JSON.parse(Buffer.concat(bytes).toString('utf8')||'{}');
   }
   const valid=r=>!!r&&r.status==='online'&&Number(r.expiresAt)>Date.now()&&safeUrl.test(r.url);
+  // A saved online flag or a still-valid TTL does NOT prove that an ephemeral
+  // GitHub/Cloudflare tunnel is alive. Probe the actual native backend /health.
+  // Cache for the frontend 3-second poll cycle to avoid excess tunnel traffic.
+  const healthProbe=probeLiveUrl||async link=>{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),2300);
+    try{
+      const reply=await fetch(link+'/health',{
+        signal:controller.signal,headers:{accept:'application/json'},cache:'no-store'});
+      if(!reply.ok)return false;
+      const body=await reply.json();
+      return body&&body.status==='healthy';
+    }catch{return false}
+    finally{clearTimeout(timeout)}
+  };
+  let lastCheck={key:'',at:0,online:false};
+  async function live(current){
+    if(!valid(current))return false;
+    const key=current.runId+'|'+current.url;
+    if(lastCheck.key===key&&Date.now()-lastCheck.at<probeCacheMs)
+      return lastCheck.online;
+    const ok=Boolean(await healthProbe(current.url));
+    lastCheck={key,at:Date.now(),online:ok};
+    return ok;
+  }
   async function http(req,res,url){
     const route=url.pathname;
     try{
@@ -60,13 +85,15 @@ export function createOriginalNativeHost({root,verifyCI}={}) {
       }
       if(req.method==='GET'&&route==='/lab-api/android-native/status'){
         const current=await read();
-        return json(res,200,{ok:true,online:valid(current),transport:'original-scrcpy-novnc',
+        const online=await live(current);
+        return json(res,200,{ok:true,online,transport:'original-scrcpy-novnc',
           engine:'original-android-11-docker',
-          ...(valid(current)?{url:current.url,runId:current.runId,expiresAt:current.expiresAt}:{})});
+          ...(!online&&valid(current)?{error:'host_unreachable'}:{}),
+          ...(online?{url:current.url,runId:current.runId,expiresAt:current.expiresAt}:{})});
       }
       if(req.method==='GET'&&route==='/lab-api/android-native/open'){
         const current=await read();
-        if(!valid(current))return json(res,503,{ok:false,error:'ORIGINAL_ANDROID_NOT_RUNNING',
+        if(!(await live(current)))return json(res,503,{ok:false,error:'ORIGINAL_ANDROID_NOT_RUNNING',
           message:'원본 Android 11 + scrcpy/noVNC 서버가 실행되지 않았습니다.'});
         res.writeHead(302,{location:current.url+'/', 'cache-control':'no-store'});
         return res.end();
