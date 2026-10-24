@@ -35,7 +35,7 @@ async function rea(){
  const chrome=spawn(chromium.executablePath(),['--no-sandbox','--headless=new','--disable-dev-shm-usage','--remote-debugging-address=127.0.0.1','--remote-debugging-port='+port,'--user-data-dir='+profile,origin],{stdio:'ignore'});
  const env={...process.env,NO_COLOR:'1',REA_BROWSER_OBSERVE_ENABLED:'true',REA_BROWSER_CDP_ENDPOINTS_JSON:JSON.stringify([url]),REA_BROWSER_ALLOWED_ORIGINS_JSON:JSON.stringify(['https://www.daangn.com'])};
  try{await pause(6000);let listing=await proc('./node_modules/.bin/rea',['list-browser-targets',url,'--json'],env,30000);let result={status:listing.ok?'targets_listed':'failed',discovery:{ok:listing.ok,exitCode:listing.exitCode,out:short(listing.stdout),err:short(listing.stderr)}};
- if(!listing.ok)return result;let targetID=null;try{const x=JSON.parse(listing.stdout);const rows=x.targets||x.data?.targets||x.result?.targets||x.data?.pages||[];targetID=rows.find(t=>String(t.url||'').includes('daangn.com'))?.id||rows.find(t=>String(t.url||'').includes('daangn.com'))?.targetId||null;if(!targetID){const m=listing.stdout.match(/"id"\s*:\s*"([^"]+)"[\s\S]{0,200}daangn/);targetID=m?.[1]||null}}catch(e){result.parseError=String(e)}
+ if(!listing.ok)return result;let targetID=null;try{const x=JSON.parse(listing.stdout);const rows=x.normalized_result?.targets||x.targets||x.data?.targets||x.result?.targets||x.data?.pages||[];targetID=rows.find(t=>String(t.url||'').includes('daangn.com'))?.target_id||rows.find(t=>String(t.url||'').includes('daangn.com'))?.id||rows.find(t=>String(t.url||'').includes('daangn.com'))?.targetId||null;if(!targetID){const m=listing.stdout.match(/"id"\s*:\s*"([^"]+)"[\s\S]{0,200}daangn/);targetID=m?.[1]||null}}catch(e){result.parseError=String(e)}
  result.targetId=targetID;if(!targetID)return result;
  const inspected=await proc('./node_modules/.bin/rea',['inspect-web-page',url,targetID,'--observation-ms','0','--json'],env,35000);result.status=inspected.ok?'inspected':'inspect_failed';result.inspection={ok:inspected.ok,exitCode:inspected.exitCode,out:short(inspected.stdout),err:short(inspected.stderr)};return result;
  }finally{chrome.kill('SIGKILL');await fs.rm(profile,{recursive:true,force:true}).catch(()=>{})}
@@ -47,7 +47,7 @@ export async function auditTools(){
  await save();
  try{
  result.steps.playwrightMCP=await mcp('playwright','/app/node_modules/.bin/playwright-mcp',['--headless','--browser','chromium','--no-sandbox','--isolated','--executable-path',chromium.executablePath()]);await save();
- result.steps.chromeDevToolsMCP=await mcp('chrome','/app/node_modules/.bin/chrome-devtools-mcp',['--headless=true','--isolated=true','--executablePath',chromium.executablePath()]);await save();
+ result.steps.chromeDevToolsMCP=await mcp('chrome','/app/node_modules/.bin/chrome-devtools-mcp',['--headless=true','--isolated=true','--executablePath',chromium.executablePath(),'--chromeArg=--no-sandbox','--chromeArg=--disable-dev-shm-usage']);await save();
  result.steps.REA=await rea();await save();
  result.status='finished';
  }catch(e){result.status='failed';result.error=String(e.message||e)}
