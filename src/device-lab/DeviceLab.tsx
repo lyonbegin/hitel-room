@@ -3,7 +3,6 @@ import { CommunicationSDK, CommunicationNetworkAdapter, CommunicationCallSession
 import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
-import type {TestHost as Host} from './DisposableAndroidInstaller';
 import {OriginalAndroidEmbed} from './OriginalAndroidEmbed';
 import {AndroidSessionControls} from './AndroidSessionControls';
 
@@ -229,29 +228,7 @@ export function DeviceLabPhone() {
 export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
   const [view,setView]=useState<'preview'|'remote'>('remote');
-  const [apkReady,setApkReady]=useState(false);
   const [nativeAndroidOnline,setNativeAndroidOnline]=useState(false);
-  const [apkDevice,setApkDevice]=useState('ci-playstore');
-  const [apkHosts,setApkHosts]=useState<Host[]>([]);
-  const apkOnline=apkHosts.some(host=>host.deviceId===apkDevice&&host.online);
-  useEffect(()=>{
-    if(apkReady)return;
-    let inactive=false;
-    async function connectTest(){
-      try{
-        const response=await fetch('/lab-api/apk/ui/connect',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:'{}',credentials:'same-origin',cache:'no-store'
-        });
-        if(!response.ok)return;
-        const data=await response.json() as {ready?:boolean};
-        if(data.ready&&!inactive)setApkReady(true);
-      }catch{ /* runner has not started yet */ }
-    }
-    void connectTest();
-    const timer=window.setInterval(()=>void connectTest(),5000);
-    return ()=>{inactive=true;window.clearInterval(timer)};
-  },[apkReady]);
   const [deviceSize,setDeviceSize]=useState('390');
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
   const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
@@ -397,7 +374,7 @@ export default function DeviceLab(){
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 Android 화면</button></div>
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
-              <strong>{nativeAndroidOnline?'원본 scrcpy/noVNC 연결됨':apkReady?'원본 에뮬레이터 실행 대기':'원본 실행 대기'}</strong>
+              <strong>{nativeAndroidOnline?'원본 scrcpy/noVNC 연결됨':'원본 실행 대기'}</strong>
             </div></div>
             <AndroidSessionControls onNotice={message=>push('android',message)}/>
             <div className="dl-pair">
