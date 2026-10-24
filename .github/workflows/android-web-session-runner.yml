@@ -37,6 +37,8 @@ jobs:
           sudo chmod a+rw /dev/kvm
       - name: Launch unmodified original Android 11 and native scrcpy/noVNC on a KVM host
         if: steps.claim.outputs.claimed == 'true'
+        env:
+          HITEL_WEB_CLAIMED: 'true'
         run: bash mobile/tests/original-native-live.sh
       - name: Save original native Android runtime diagnostics
         if: always() && steps.claim.outputs.claimed == 'true'
