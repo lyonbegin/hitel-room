@@ -57,3 +57,29 @@ else:
     assert state["participants"]["callee"]["online"] is True, state
     assert state["participants"]["caller"]["online"] is False, state
     print(f"PASS: Web caller -> native {PLATFORM} WebSocket invite -> native ACK to server; event={target}")
+    # Now invoke the real app's communication.action handler over the existing
+    # OIDC-paired lab socket and verify its native WebSocket changed SERVER state.
+    controller = os.environ["HITEL_LAB_CONTROLLER"]
+    _, queued = call("/lab-api/command", {
+        "device": PLATFORM, "action": "communication.action",
+        "data": {"callAction": "call.ringing", "payload": {}}
+    }, token=controller)
+    request_id = queued["requestId"]
+    for _ in range(30):
+        code, response = call("/lab-api/result/" + request_id, token=controller)
+        if code == 200:
+            assert response.get("ok") is True, response
+            assert response.get("scope") == "native-signaling-pending-ack", response
+            break
+        time.sleep(0.25)
+    else:
+        raise SystemExit("FAIL: native Communication action command was not acknowledged")
+    for _ in range(35):
+        _, state = call("/comm-api/session/" + call_id, token=caller_token)
+        if state["state"] == "ringing" and any(e["type"] == "call.ringing"
+                  and e["from"] == "callee" for e in state["events"]):
+            break
+        time.sleep(0.25)
+    else:
+        raise SystemExit(f"FAIL: native {PLATFORM} did not emit call.ringing to real signaling server")
+    print(f"PASS: native {PLATFORM} -> WebSocket -> signaling server -> web caller; state=ringing")
