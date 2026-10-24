@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createCommunicationService } from './communication.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const STORE = process.env.LAB_DATA_DIR || '/tmp/hitel-device-lab';
@@ -108,10 +109,12 @@ function deviceState(side,report){
 function notifyDevices(){
   for(const [side,ws] of connections){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'ack',side,time:Date.now()}))}
 }
+const communication=createCommunicationService();
 const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url||'/', 'http://localhost');
   const route=url.pathname;
   try {
+    if(route.startsWith('/comm-api/'))return await communication.http(req,res,route);
     if(route==='/healthz'||route==='/lab-api/health'){
       return json(res,200,{ok:true,service:'device-relay'});
     }
@@ -215,6 +218,7 @@ const wss=new WebSocketServer({noServer:true,maxPayload:4*1024*1024});
 server.on('upgrade',async(req,socket,head)=>{
   try{
     const url=new URL(req.url||'/', 'http://localhost');
+    if(url.pathname==='/comm-api/ws')return communication.upgrade(req,socket,head);
     if(url.pathname!=='/lab-api/ws'||url.searchParams.get('role')!=='device')throw Error('Invalid WebSocket path');
     const ticket=url.searchParams.get('ticket'),side=url.searchParams.get('side');
     cleanExpired();
