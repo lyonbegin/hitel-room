@@ -66,6 +66,62 @@ assert d['devices'][0]['device']=='Samsung Galaxy S10',d
 print('ORIGINAL_NATIVE_API_AND_VIEWER_HTTP_OK',d,flush=True)
 PY
 
+# Validate the ORIGINAL Express /session API, not the former Railway API adapter.
+python3 - <<'PY'
+import json, urllib.request, urllib.error, time
+url="http://127.0.0.1:8081/api/emulator/session"
+request=urllib.request.Request(url,data=json.dumps({"device":"Samsung Galaxy S10","timeout":3}).encode(),
+ headers={"content-type":"application/json"},method="POST")
+start=time.monotonic()
+try:
+ with urllib.request.urlopen(request,timeout=90) as response:
+  result=json.load(response)
+  assert response.status==201,result
+except urllib.error.HTTPError as e:
+ print("ORIGINAL_REAL_SESSION_CREATE_FAILED",e.code,e.read().decode()[:600],flush=True)
+ raise
+print("ORIGINAL_REAL_SESSION_CREATED",result["sessionId"],"elapsed_seconds",round(time.monotonic()-start,1),flush=True)
+assert result.get("vncUrl")=="/stream/1/",result
+request=urllib.request.Request("http://127.0.0.1:8081/api/emulator/session/"+result["sessionId"],method="DELETE")
+with urllib.request.urlopen(request,timeout=30) as response:
+ assert response.status==200
+ print("ORIGINAL_REAL_SESSION_RELEASED",response.status,flush=True)
+PY
+
+# Native noVNC websocket upgrade is required for actual touch/drag input.
+# A websocket returns HTTP 101, and curl subsequently times out because it
+# keeps the socket open; checking only the initial status is intentional.
+curl -sS --http1.1 --max-time 4 -D /tmp/original-ws-headers -o /dev/null \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' \
+  -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  http://127.0.0.1:8081/stream/1/websockify || true
+head -n 6 /tmp/original-ws-headers
+grep -q '101 Switching Protocols' /tmp/original-ws-headers
+echo 'ORIGINAL_NOVNC_WEBSOCKET_HANDSHAKE_101_OK'
+
+# Diagnostics read real Android11 guest state, no replacement emulator behavior.
+echo 'ORIGINAL_ANDROID_NATIVE_GUEST_DIAGNOSTICS_BEGIN'
+docker exec android-emulator-1 adb shell getprop ro.build.version.release || true
+docker exec android-emulator-1 adb shell getprop sys.boot_completed || true
+if docker exec android-emulator-1 adb shell pm path com.android.vending | grep -q 'package:'; then
+  echo 'ORIGINAL_GOOGLE_PLAY_INSTALLED=YES'
+else
+  echo 'ORIGINAL_GOOGLE_PLAY_INSTALLED=NO'
+fi
+if docker exec android-emulator-1 timeout 15s adb shell ping -c 1 -W 5 1.1.1.1 >/tmp/native-internet-ip.txt 2>&1; then
+  echo 'ORIGINAL_ANDROID_INTERNET_IPV4_ICMP=OK'
+else
+  echo 'ORIGINAL_ANDROID_INTERNET_IPV4_ICMP=FAILED'
+fi
+if docker exec android-emulator-1 timeout 15s adb shell ping -c 1 -W 5 www.google.com >/tmp/native-internet-dns.txt 2>&1; then
+  echo 'ORIGINAL_ANDROID_INTERNET_DNS_ICMP=OK'
+else
+  echo 'ORIGINAL_ANDROID_INTERNET_DNS_ICMP=FAILED'
+fi
+head -n 8 /tmp/native-internet-ip.txt /tmp/native-internet-dns.txt 2>/dev/null || true
+echo 'ORIGINAL_ANDROID_NATIVE_GUEST_DIAGNOSTICS_END'
+
 # A disposable account-free outbound HTTPS route, no service API subscription.
 /usr/bin/curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
   -o /tmp/hitel-native-cloudflared
