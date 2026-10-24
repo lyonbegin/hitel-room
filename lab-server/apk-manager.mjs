@@ -182,12 +182,14 @@ export function createApkManager({
       }
       // Called by a scheduled runner using a signed GitHub Actions identity.
       if(req.method==='POST'&&route==='/lab-api/apk/ci/claim-start'){
-        try{await verifyCI(req)}catch{return unauthorized(res)}
+        let identity;
+        try{identity=await verifyCI(req)}catch{return unauthorized(res)}
         const current=await readUiRequest();
         if(!current||current.status!=='queued'||
            Date.now()-Date.parse(current.createdAt)>30*60_000)
           return json(res,200,{ok:true,claim:false});
         current.status='starting';current.claimedAt=new Date().toISOString();
+        current.claimRunId=String(identity.run_id||'');
         await writeUiRequest(current);
         return json(res,200,{ok:true,claim:true,requestId:current.id});
       }
