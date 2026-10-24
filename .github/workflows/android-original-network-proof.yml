@@ -1,0 +1,29 @@
+name: HITEL Original Android Internet and Kakao T Play Store Probe
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-original-network-proof.yml'
+      - 'mobile/tests/original-network-proof.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-guest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: KVM original unmodified Android 11 image
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Inspect in-Android internet validation, Play Store KakaoT and browser HTTPS
+        run: bash mobile/tests/original-network-proof.sh
+      - name: Save actual Android screenshots, accessibility UI, DNS and connectivity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android-original-internet-playstore
+          path: mobile-test-results/android-original-internet/
+          if-no-files-found: warn
