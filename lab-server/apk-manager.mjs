@@ -22,6 +22,21 @@ export function createApkManager({
   const hosts=new Map();
   const uiTestSessions=new Map();
   let pendingUiSession=null;
+  const uiStartFile=path.join(root,'interactive-request.json');
+  const starterWindows=new Map();
+  async function readUiRequest(){
+    try{return JSON.parse(await fs.readFile(uiStartFile,'utf8'))}
+    catch{return null}
+  }
+  async function writeUiRequest(value){
+    const tmp=uiStartFile+'.tmp';
+    await fs.writeFile(tmp,JSON.stringify(value),{mode:0o600});
+    await fs.rename(tmp,uiStartFile);
+  }
+  function cookieValue(req,name){
+    return String(req.headers.cookie||'').split(';').map(x=>x.trim())
+      .find(x=>x.startsWith(name+'='))?.slice(name.length+1)||'';
+  }
   const TEST_DEVICE='ci-playstore';
   const validId=/^[a-f0-9-]{36}$/i;
   const validDevice=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
@@ -116,6 +131,74 @@ export function createApkManager({
     try{
       // A signed GitHub Actions runner creates a short-lived test link.
       // The operator clicks the link; there is no token field in the browser.
+      // The website owns the start/stop controls; GitHub is a background worker.
+      if(req.method==='POST'&&route==='/lab-api/apk/ui/start'){
+        const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0];
+        const old=starterWindows.get(ip)||{from:Date.now(),count:0};
+        if(Date.now()-old.from>60*60_000){old.from=Date.now();old.count=0}
+        if(old.count>=3)return bad(res,'TEST_LAUNCH_RATE_LIMIT',429);
+        const current=await readUiRequest();
+        if(current&&['queued','starting','running','stopping'].includes(current.status)&&
+           Date.now()-Date.parse(current.createdAt)<40*60_000)
+          return json(res,409,{ok:false,error:'EMULATOR_SESSION_ALREADY_ACTIVE'});
+        old.count++;starterWindows.set(ip,old);
+        const owner=crypto.randomBytes(24).toString('base64url');
+        const request={id:crypto.randomUUID(),owner,status:'queued',
+          createdAt:new Date().toISOString(),endedAt:null};
+        await writeUiRequest(request);
+        pendingUiSession=null;
+        uiTestSessions.clear();
+        res.setHeader('Set-Cookie','hitel_ui_owner='+owner+
+          '; HttpOnly; Secure; SameSite=Strict; Path=/lab-api/apk; Max-Age=7200');
+        return json(res,202,{ok:true,status:'queued',requestId:request.id,
+          message:'ANDROID_LAUNCH_QUEUED'});
+      }
+      if(req.method==='GET'&&route==='/lab-api/apk/ui/status'){
+        const current=await readUiRequest();
+        if(!current)return json(res,200,{ok:true,status:'idle',online:false});
+        const owner=cookieValue(req,'hitel_ui_owner');
+        if(owner!==current.owner)return json(res,200,{ok:true,
+          status:['queued','starting','running','stopping'].includes(current.status)?'busy':'idle',
+          online:false});
+        const emulator=hosts.get(TEST_DEVICE);
+        const online=!!emulator&&Date.now()-emulator.lastSeen<20_000;
+        const stale=Date.now()-Date.parse(current.createdAt)>35*60_000;
+        return json(res,200,{ok:true,
+          status:stale&&current.status!=='completed'?'expired':current.status,
+          requestId:current.id,online,
+          requestedAt:current.createdAt});
+      }
+      if(req.method==='POST'&&route==='/lab-api/apk/ui/stop'){
+        const current=await readUiRequest();
+        if(!current||cookieValue(req,'hitel_ui_owner')!==current.owner)
+          return bad(res,'NO_OWNED_ANDROID_SESSION',403);
+        if(['queued','starting','running'].includes(current.status)){
+          current.status='stopping';current.stopAt=new Date().toISOString();
+          await writeUiRequest(current);
+        }
+        return json(res,200,{ok:true,status:current.status});
+      }
+      // Called by a scheduled runner using a signed GitHub Actions identity.
+      if(req.method==='POST'&&route==='/lab-api/apk/ci/claim-start'){
+        try{await verifyCI(req)}catch{return unauthorized(res)}
+        const current=await readUiRequest();
+        if(!current||current.status!=='queued'||
+           Date.now()-Date.parse(current.createdAt)>30*60_000)
+          return json(res,200,{ok:true,claim:false});
+        current.status='starting';current.claimedAt=new Date().toISOString();
+        await writeUiRequest(current);
+        return json(res,200,{ok:true,claim:true,requestId:current.id});
+      }
+      if(req.method==='POST'&&route==='/lab-api/apk/ci/finish'){
+        try{await verifyCI(req)}catch{return unauthorized(res)}
+        const current=await readUiRequest();
+        if(current&&['starting','running','stopping'].includes(current.status)){
+          current.status='completed';current.endedAt=new Date().toISOString();
+          await writeUiRequest(current);
+          uiTestSessions.clear();pendingUiSession=null;
+        }
+        return json(res,200,{ok:true});
+      }
       if(req.method==='POST'&&route==='/lab-api/apk/ci/ui-session'){
         let identity;
         try{identity=await verifyCI(req)}catch{return unauthorized(res)}
@@ -126,7 +209,12 @@ export function createApkManager({
         uiTestSessions.clear();
         uiTestSessions.set(token,{runId:String(identity.run_id||''),
           expiresAt,deviceId:TEST_DEVICE});
-        pendingUiSession={token,expiresAt,claimed:false};
+        const current=await readUiRequest();
+        if(current&&current.status==='starting'){
+          current.status='running';current.connectedAt=new Date().toISOString();
+          await writeUiRequest(current);
+        }
+        pendingUiSession={token,expiresAt,claimed:false,owner:current?.owner||null};
         return json(res,201,{ok:true,deviceId:TEST_DEVICE,expiresInSeconds:1080});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/ui/connect'){
@@ -136,6 +224,8 @@ export function createApkManager({
         if(origin!=='https://hitel-communication-web-production.up.railway.app' &&
            origin!=='http://127.0.0.1')return bad(res,'TEST_ORIGIN_REQUIRED',403);
         const pending=pendingUiSession;
+        if(pending?.owner&&cookieValue(req,'hitel_ui_owner')!==pending.owner)
+          return json(res,202,{ok:true,ready:false});
         if(!pending||pending.expiresAt<=Date.now())
           return json(res,202,{ok:true,ready:false});
         if(pending.claimed){
@@ -177,6 +267,10 @@ export function createApkManager({
         catch{return unauthorized(res)}
         hosts.set(device,{...hosts.get(device),deviceId:device,lastSeen:Date.now(),kind:identity.kind});
         if(req.method==='POST'&&route==='/lab-api/apk/agent/next'){
+          if(device===TEST_DEVICE){
+            const current=await readUiRequest();
+            if(current?.status==='stopping')return json(res,200,{ok:true,stop:true,job:null});
+          }
           // Choose oldest pending job. A lease prevents concurrent installers.
           const jobs=(await allRecords(jobsDir)).reverse();
           let job=jobs.find(j=>j.deviceId===device&&j.status==='pending');
