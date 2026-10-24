@@ -29,8 +29,10 @@ xcodebuild -project mobile/ios/HitelNative.xcodeproj \
 xcrun simctl install "$udid" /tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app
 SIMCTL_CHILD_HITEL_LAB_URL="${HITEL_LAB_URL:-https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=ios}" \
 SIMCTL_CHILD_HITEL_LAB_TICKET="${HITEL_LAB_TICKET:-}" \
+SIMCTL_CHILD_HITEL_CALL_TOKEN="${HITEL_CALL_TOKEN:-}" \
 xcrun simctl launch "$udid" app.hitel.native | tee "$out/launch.txt"
 sleep 40
+python3 mobile/tests/comm-ci.py probe ios
 xcrun simctl io "$udid" screenshot "$out/screen.png"
 xcrun simctl spawn "$udid" log show --last 5m --style compact \
     --predicate 'eventMessage CONTAINS "HITEL_E2E"' > "$out/events.log" || true
@@ -40,6 +42,8 @@ grep -q "WEB_LOADED" "$out/events.log"
 grep -q "BRIDGE_PING_OK" "$out/events.log"
 grep -q "LAB_SOCKET_CONNECTED" "$out/events.log"
 grep -q "CAPABILITIES_OK" "$out/events.log"
+grep -q "COMM_SOCKET_PONG" "$out/events.log"
+grep -q "COMM_EVENT_CALL.INVITE" "$out/events.log"
 grep -q "hitel-communication-web-production.up.railway.app/sdk-lab/device" "$out/events.log"
 if grep -q "WEB_ERROR" "$out/events.log"; then
     echo "FAIL: HITEL WKWebView navigation error"
