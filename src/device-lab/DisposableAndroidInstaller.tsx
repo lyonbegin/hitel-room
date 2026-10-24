@@ -102,8 +102,7 @@ export function DisposableAndroidInstaller({online,setHosts,onNotice}:{
         </p>
         <label className="apk-check"><input type="checkbox" checked={launch}
           onChange={e=>setLaunch(e.target.checked)}/>설치 후 앱 자동 실행</label>
-        <a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml"
-          target="_blank" rel="noreferrer">일회용 Android 실행 · Run workflow ↗</a>
+        <p className="apk-caption">위의 <strong>Android 실행</strong> 버튼으로 시작하고 <strong>Android 종료</strong> 버튼으로 끝냅니다.</p>
         <p className="apk-caption">테스트가 종료되면 설치된 앱과 데이터가 초기화됩니다.</p>
       </div>
     </div>
