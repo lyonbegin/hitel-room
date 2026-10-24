@@ -24,6 +24,8 @@ class GooglePlayHostTests(unittest.TestCase):
                 return SimpleNamespace(returncode=0, stdout="package:/data/app/com.kakao.taxi/base.apk")
             if list(argv[:3]) == ["shell", "am", "start"]:
                 return SimpleNamespace(returncode=0, stdout="Starting: Intent { act=android.intent.action.VIEW ... }")
+            if list(argv[:2]) == ["shell", "monkey"]:
+                return SimpleNamespace(returncode=0, stdout="Events injected: 1")
             return SimpleNamespace(returncode=0, stdout="Success")
         module.adb = fake_adb
 
@@ -39,6 +41,24 @@ class GooglePlayHostTests(unittest.TestCase):
         args = self.recorded[-1][1]
         self.assertIn("market://details?id=com.kakao.taxi", args)
         self.assertIn("com.android.vending", args)
+
+    def test_real_android_play_store_launcher_command_for_web_remote(self):
+        package, output = module.run_control("emulator-5554", {
+            "id": "test-job-1", "action": "playstore", "args": {}
+        })
+        self.assertEqual(output, "playstore completed")
+        self.assertIn("com.android.vending", self.recorded[-1][1])
+        self.assertIn("LAUNCHER", self.recorded[-1][1])
+
+    def test_real_android_search_term_and_home(self):
+        module.run_control("emulator-5554", {
+            "id": "test-job-2", "action": "type", "args": {"text": "kakao T"}
+        })
+        self.assertIn("kakao%sT", self.recorded[-1][1])
+        module.run_control("emulator-5554", {
+            "id": "test-job-3", "action": "home", "args": {}
+        })
+        self.assertEqual(self.recorded[-1][1], ["shell", "input", "keyevent", "3"])
 
     def test_verify_true_installation_is_a_separate_action(self):
         name, status = module.play_store_job("emulator-5554", {
