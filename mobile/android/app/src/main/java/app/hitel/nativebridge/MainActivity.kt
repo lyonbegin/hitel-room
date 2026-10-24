@@ -38,13 +38,31 @@ class MainActivity : Activity() {
     private val networkClient = OkHttpClient()
     private var communicationSocket: WebSocket? = null
     private var communicationToken: String? = null
+    private var communicationLastSequence = 0L
+    private fun receiveCommunicationEvent(socket: WebSocket, event: JSONObject) {
+        val sequence = event.optLong("sequence", 0)
+        if (sequence <= communicationLastSequence) return
+        communicationLastSequence = sequence
+        socket.send(JSONObject().put("type", "comm.ack").put("sequence", sequence).toString())
+        val eventName = event.optString("type", "UNKNOWN").uppercase(Locale.ROOT)
+        Log.i(LOG_TAG, "COMM_EVENT_" + eventName)
+        val detail = JSONObject().put("type", "communication.event").put("event", event)
+        runOnUiThread {
+            if (!labDestroyed && ::webView.isInitialized) webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" +
+                    detail.toString() + "}))", null
+            )
+        }
+    }
     /** Native app opens the signaling socket itself; this is NOT the WebView JS Bridge. */
     private fun connectCommunicationNetwork(token: String) {
         if (token.isBlank() || token == communicationToken || labDestroyed) return
+        if (communicationToken != null && communicationToken != token) communicationLastSequence = 0
         communicationSocket?.close(1000, "Communication session replaced")
         communicationToken = token
         val uri = Uri.parse(RELAY_ORIGIN + "/comm-api/ws").buildUpon()
-            .appendQueryParameter("token", token).build().toString()
+            .appendQueryParameter("token", token)
+            .appendQueryParameter("since", communicationLastSequence.toString()).build().toString()
         val request = Request.Builder().url(uri).build()
         communicationSocket = networkClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -56,18 +74,16 @@ class MainActivity : Activity() {
                     val event = JSONObject(text)
                     when (event.optString("type")) {
                         "comm.pong" -> Log.i(LOG_TAG, "COMM_SOCKET_PONG")
-                        "comm.snapshot" -> Log.i(LOG_TAG, "COMM_SNAPSHOT_OK")
-                        "comm.event" -> {
-                            Log.i(LOG_TAG, "COMM_EVENT_" + event.optJSONObject("event")?.optString("type", "UNKNOWN")?.uppercase(Locale.ROOT))
-                            val detail=JSONObject().put("type","communication.event")
-                                .put("event",event.optJSONObject("event"))
-                            runOnUiThread {
-                                if (!labDestroyed) webView.evaluateJavascript(
-                                    "window.dispatchEvent(new CustomEvent('hitel-native-event',{detail:" +
-                                        detail.toString() + "}))", null
-                                )
-                            }
+                        "comm.snapshot" -> {
+                            Log.i(LOG_TAG, "COMM_SNAPSHOT_OK")
+                            val missed = event.optJSONArray("events")
+                            if (missed != null) for (i in 0 until missed.length())
+                                missed.optJSONObject(i)?.let { receiveCommunicationEvent(webSocket, it) }
                         }
+                        "comm.event" -> event.optJSONObject("event")?.let {
+                            receiveCommunicationEvent(webSocket, it)
+                        }
+                        "comm.actionAck" -> Log.i(LOG_TAG, "COMM_ACTION_ACK")
                     }
                 } catch (e: Exception) { Log.w(LOG_TAG, "COMM_EVENT_ERROR " + e.message) }
             }
