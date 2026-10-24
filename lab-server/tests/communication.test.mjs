@@ -152,3 +152,41 @@ test('two devices sharing callee identity keep independent replay despite one de
     comm.close();await new Promise(r=>server.close(r));
   }
 });
+
+test('call cancellation, rejection, missed timeout and forbidden late acceptance are enforced',async()=>{
+  const comm=createCommunicationService({ringTimeoutMs:200});
+  const server=createServer((req,res)=>void comm.http(req,res,new URL(req.url,'http://localhost').pathname));
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const base='http://127.0.0.1:'+server.address().port+'/comm-api';
+  async function session(){
+    const r=await fetch(base+'/session',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from:'N',to:'W'})});
+    assert.equal(r.status,201);return r.json();
+  }
+  async function action(token,type){
+    const r=await fetch(base+'/action',{method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+      body:JSON.stringify({action:type})});
+    return {code:r.status,data:await r.json()};
+  }
+  try{
+    const cancelled=await session();
+    assert.equal((await action(cancelled.callerToken,'call.invite')).data.state,'inviting');
+    assert.equal((await action(cancelled.callerToken,'call.cancel')).data.state,'cancelled');
+    assert.equal((await action(cancelled.calleeToken,'call.accept')).code,409);
+    const rejected=await session();
+    assert.equal((await action(rejected.callerToken,'call.invite')).data.state,'inviting');
+    assert.equal((await action(rejected.calleeToken,'call.ringing')).data.state,'ringing');
+    assert.equal((await action(rejected.calleeToken,'call.reject')).data.state,'rejected');
+    assert.equal((await action(rejected.callerToken,'call.connecting')).code,409);
+    const missed=await session();
+    await action(missed.callerToken,'call.invite');
+    await new Promise(resolve=>setTimeout(resolve,380));
+    const r=await fetch(base+'/session/'+missed.callId,{
+      headers:{Authorization:'Bearer '+missed.calleeToken}});
+    const snapshot=await r.json();
+    assert.equal(snapshot.state,'missed');
+    assert.ok(snapshot.events.some(e=>e.type==='call.missed'));
+    assert.equal((await action(missed.calleeToken,'call.accept')).code,409);
+  }finally{comm.close();await new Promise(resolve=>server.close(resolve))}
+});
