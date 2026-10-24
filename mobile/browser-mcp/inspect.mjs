@@ -80,6 +80,18 @@ try{
  report.layout.chrome=content(result).slice(0,4500);
  const shot=await run(chrome,'take_screenshot',{pageId,format:'png'},false);
  report.layout.pixels=await analyze(await picture(shot,'chrome-native.png'));
+ if(status.online&&process.env.HITEL_MCP_TEST_INPUT==='1'){
+  // Real Chrome input, delivered through the original noVNC WebSocket to
+  // X11 -> scrcpy. A harmless status-bar click followed by Android Back.
+  // Never use a fabricated DOM event as proof of real touch.
+  const click=await run(chrome,'click_at',{pageId,x:25,y:25},false);
+  const back=await run(chrome,'press_key',{pageId,key:'Escape'},false);
+  results.layout.nativeInput={
+   clickMcpSuccess:!!click&&!click.isError,
+   keyboardMcpSuccess:!!back&&!back.isError
+  };
+  note('REAL_NOVNC_BROWSER_INPUT',results.layout.nativeInput);
+ }
  note('SCREEN_GEOMETRY',report.layout);
  await run(chrome,'list_console_messages',{pageId},false);
  await run(chrome,'list_network_requests',{pageId},false);
