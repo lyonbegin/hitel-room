@@ -37,11 +37,17 @@ test('original native host publishes ONLY registered real HTTPS scrcpy URL',asyn
    res=await call('/lab-api/android-native/open');
    assert.equal(res.status,302);
    assert.equal(res.headers.get('location'),'https://real-original-phone.trycloudflare.com/');
+   res=await call('/lab-api/android-native/view');
+   assert.equal(res.status,302);
+   assert.equal(res.headers.get('location'),
+      'https://real-original-phone.trycloudflare.com/stream/1/phone.html');
    // Expired external tunnel must NOT continue displaying "Android running".
    healthy=false;
    res=await call('/lab-api/android-native/status');info=await res.json();
    assert.equal(info.online,false);
    assert.equal(info.error,'host_unreachable');
+   res=await call('/lab-api/android-native/view');
+   assert.equal(res.status,503);
    assert.equal(info.url,undefined);
    res=await call('/lab-api/android-native/open');
    assert.equal(res.status,503);
