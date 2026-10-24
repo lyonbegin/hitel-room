@@ -1,0 +1,1 @@
+HITEL 4-source fusion isolated deploy build, 2026-10-24, must serve index.html and categories.json from /public/fusion
