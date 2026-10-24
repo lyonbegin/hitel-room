@@ -8,7 +8,9 @@ import {createOriginalNativeHost} from '../original-native-host.mjs';
 
 test('original native host publishes ONLY registered real HTTPS scrcpy URL',async()=>{
  const root=await mkdtemp(path.join(os.tmpdir(),'android-original-native-'));
- const service=createOriginalNativeHost({root,verifyCI:async req=>{
+ let healthy=true;
+ const service=createOriginalNativeHost({root,probeLiveUrl:async()=>healthy,
+   probeCacheMs:0,verifyCI:async req=>{
    if(req.headers.authorization!=='Bearer signed-runner')throw Error('UNTRUSTED');
    return {run_id:'400123'};
  }});
@@ -35,6 +37,17 @@ test('original native host publishes ONLY registered real HTTPS scrcpy URL',asyn
    res=await call('/lab-api/android-native/open');
    assert.equal(res.status,302);
    assert.equal(res.headers.get('location'),'https://real-original-phone.trycloudflare.com/');
+   // Expired external tunnel must NOT continue displaying "Android running".
+   healthy=false;
+   res=await call('/lab-api/android-native/status');info=await res.json();
+   assert.equal(info.online,false);
+   assert.equal(info.error,'host_unreachable');
+   assert.equal(info.url,undefined);
+   res=await call('/lab-api/android-native/open');
+   assert.equal(res.status,503);
+   healthy=true;
+   res=await call('/lab-api/android-native/status');
+   assert.equal((await res.json()).online,true);
    res=await call('/lab-api/android-native/ci/stop-requested',{auth:'signed-runner'});
    assert.equal((await res.json()).stop,false);
    await mkdir(path.join(root,'apk-manager'),{recursive:true});
