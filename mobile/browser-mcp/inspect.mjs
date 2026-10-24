@@ -55,7 +55,7 @@ async function analyze(filename){
 }
 let pw,chrome;
 try{
- pw=await start('playwright',['--no-install','@playwright/mcp','--headless','--no-sandbox','--browser','chromium']);
+ pw=await start('playwright',['--no-install','@playwright/mcp','--headless','--no-sandbox','--browser','chromium',...(process.env.HITEL_CHROME_PATH?['--executable-path',process.env.HITEL_CHROME_PATH]:[])]);
  chrome=await start('chrome-devtools',['--no-install','chrome-devtools-mcp','--browser-url=http://127.0.0.1:9222','--no-usage-statistics','--no-performance-crux']);
  await run(pw,'browser_navigate',{url:sdk});
  const layout=await run(pw,'browser_evaluate',{function:'() => ({title:document.title,frames:[...document.querySelectorAll("iframe")].map(f=>({src:f.src,width:f.getBoundingClientRect().width,height:f.getBoundingClientRect().height})),viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio}})'});
