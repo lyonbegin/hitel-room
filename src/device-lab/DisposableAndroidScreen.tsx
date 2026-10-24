@@ -67,8 +67,7 @@ export function DisposableAndroidScreen({online,onNotice}:{
         <div className="apk-remote-placeholder">
           <strong>Android 홈 화면</strong>
           <p>{online?'실제 Android 화면을 수신하고 있습니다.':'일회용 Android를 실행하면 여기에서 실제 화면을 조작합니다.'}</p>
-          <a href="https://github.com/lyonbegin/hitel-room/actions/workflows/android-interactive-session.yml"
-            target="_blank" rel="noreferrer">Android 테스트 실행 ↗</a>
+          <p>관리 화면에서 <strong>Android 실행</strong> 버튼을 누르세요.</p>
         </div>}
     </div>
     <div className="apk-remote-buttons">
