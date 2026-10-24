@@ -37,16 +37,17 @@ export function createCommunicationService({ringTimeoutMs=45_000, callTtlMs=3_60
       role:participant.role,state:call.state,sequence:call.sequence,
       expiresAt:new Date(call.expires).toISOString(),
       participants:{caller:{online:call.caller.sockets.size>0},callee:{online:call.callee.sockets.size>0}},
-      events:call.events.filter(e=>e.sequence>since)};
+      events:call.events.filter(e=>e.sequence>since&&(!e.privateTo||e.privateTo===participant.role))};
   }
   function publish(call,from,type,payload={}) {
     const event={type,eventId:secret(),callId:call.id,scenarioId:call.scenarioId,
       sequence:++call.sequence,from:from||'server',state:call.state,
-      timestamp:new Date().toISOString(),payload};
+      timestamp:new Date().toISOString(),payload,
+      ...(type==='ai.result'?{privateTo:from}:{}),};
     call.events.push(event);
     if(call.events.length>200)call.events.shift();
     for(const participant of [call.caller,call.callee])
-      for(const ws of participant.sockets)send(ws,{type:'comm.event',event});
+      for(const ws of participant.sockets)if(!event.privateTo||event.privateTo===participant.role)send(ws,{type:'comm.event',event});
     return event;
   }
   function transition(call,participant,action,payload={}) {
