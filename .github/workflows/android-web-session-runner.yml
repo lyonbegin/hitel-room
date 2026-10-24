@@ -1,9 +1,5 @@
 name: HITEL Android requested from Railway website
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/android-web-session-runner.yml'
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
@@ -19,24 +15,11 @@ jobs:
     timeout-minutes: 24
     env:
       LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
-      ANDROID_SESSION_SECONDS: ${{ github.event_name == 'push' && '45' || '780' }}
+      ANDROID_SESSION_SECONDS: 780
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feature/communication-sdk
-      - name: Smoke-test the real Railway start endpoint once on workflow update
-        if: github.event_name == 'push'
-        run: |
-          python3 - <<'PY'
-          import json, urllib.request
-          u='https://hitel-device-relay-production.up.railway.app/lab-api/apk/ui/start'
-          req=urllib.request.Request(u,method='POST',data=b'{}',
-              headers={'Content-Type':'application/json'})
-          with urllib.request.urlopen(req,timeout=30) as result:
-              body=json.load(result)
-          assert body['ok'] and body['status']=='queued'
-          print('PASS: actual Railway Android start request queued')
-          PY
       - name: Pick up a website start request from Railway
         id: claim
         run: python3 mobile/tools/claim-ui-request.py
