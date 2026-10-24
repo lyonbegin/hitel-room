@@ -17,7 +17,7 @@ interface VideoCoreModule {
 let loadPromise:Promise<VideoCoreModule>|null=null;
 async function loadSdk(){
  if(!loadPromise){
-  const url='/sdk/video-core.esm.js';
+  const url='/sdk/video-core/video-core.esm.js';
   loadPromise=(import(/* @vite-ignore */ url) as Promise<VideoCoreModule>).catch(error=>{loadPromise=null;throw error;});
  }
  return loadPromise;
