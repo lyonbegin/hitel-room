@@ -5,6 +5,7 @@ import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { createCommunicationService } from './communication.mjs';
+import { createApkManager } from './apk-manager.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const STORE = process.env.LAB_DATA_DIR || '/tmp/hitel-device-lab';
@@ -112,11 +113,16 @@ function notifyDevices(){
     ws.send(JSON.stringify({type:'ack',side:ws.labSide,time:Date.now()}));
 }
 const communication=createCommunicationService({storageDir:path.join(STORE,'communication-sessions')});
+const apkManager=createApkManager({
+  root:path.join(STORE,'apk-manager'),
+  verifyCI:verifyOIDC,
+});
 const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url||'/', 'http://localhost');
   const route=url.pathname;
   try {
     if(route.startsWith('/comm-api/'))return await communication.http(req,res,route);
+    if(route.startsWith('/lab-api/apk/'))return await apkManager.http(req,res,url);
     if(route==='/healthz'||route==='/lab-api/health'){
       return json(res,200,{ok:true,service:'device-relay'});
     }
