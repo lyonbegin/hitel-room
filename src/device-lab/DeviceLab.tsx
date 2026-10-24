@@ -3,6 +3,7 @@ import { CommunicationSDK, CommunicationNetworkAdapter, CommunicationCallSession
 import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
+import {ApkInstaller} from './ApkInstaller';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
@@ -366,6 +367,7 @@ export default function DeviceLab(){
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 설치된 앱의 캡처</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
+      <ApkInstaller/>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
         <div className="dl-ci-reports">{SIDES.map(side=><details key={side}><summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'검증 성공':'검증 결과 확인'):'아직 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId}</span>}</summary><pre>{ci?.[side]?.log||'GitHub Actions 실행 및 실제 앱 화면 캡처 대기'}</pre>{ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">해당 GitHub Actions 실행 열기 ↗</a>}</details>)}</div></section>
