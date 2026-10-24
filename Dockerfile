@@ -33,8 +33,6 @@ ENV TEST_LOGIN_KEY=""
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY --from=android-original-build /android-original/dist /usr/share/nginx/html/android-original
-# Only this frame adapter is new; the MIT-licensed Android upstream UI stays intact.
-COPY android-viewer/phone.html /usr/share/nginx/html/stream/ci-playstore/phone.html
 COPY --from=video-core-build /video-core/dist/sdk /usr/share/nginx/html/sdk/video-core
 COPY --from=video-core-build /video-core/public/sdk-playground.html /usr/share/nginx/html/sdk-playground.html
 EXPOSE 8080
