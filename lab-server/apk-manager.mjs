@@ -18,6 +18,7 @@ export function createApkManager({
   if(!root)throw Error('APK_STORAGE_ROOT_REQUIRED');
   const filesDir=path.join(root,'files');
   const jobsDir=path.join(root,'jobs');
+  const framesDir=path.join(root,'frames');
   const hosts=new Map();
   const validId=/^[a-f0-9-]{36}$/i;
   const validDevice=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
@@ -43,7 +44,8 @@ export function createApkManager({
     throw Error('AUTHORIZED_EMULATOR_AGENT_REQUIRED');
   }
   const ready=Promise.all([fs.mkdir(filesDir,{recursive:true,mode:0o700}),
-    fs.mkdir(jobsDir,{recursive:true,mode:0o700})]);
+    fs.mkdir(jobsDir,{recursive:true,mode:0o700}),
+    fs.mkdir(framesDir,{recursive:true,mode:0o700})]);
   async function readJson(req,max=4096){
     let size=0;
     const chunks=[];
@@ -137,11 +139,17 @@ export function createApkManager({
           if(!job)job=jobs.find(j=>j.deviceId===device&&j.status==='installing'&&
             Date.now()-(Date.parse(j.startedAt)||0)>15*60_000);
           if(!job)return json(res,200,{ok:true,job:null});
+          if(job.operation==='control'){
+            job.status='installing';job.startedAt=new Date().toISOString();job.leaseId=crypto.randomUUID();
+            job.agentKind=identity.kind;await saveRecord(jobsDir,job);
+            return json(res,200,{ok:true,job:{id:job.id,operation:'control',
+              action:job.action,args:job.args,leaseId:job.leaseId}});
+          }
           const file=await readRecord(filesDir,job.apkId);
           if(!file){job.status='failed';job.error='APK_NOT_FOUND';await saveRecord(jobsDir,job);return bad(res,'APK_NOT_FOUND',410)}
           job.status='installing';job.startedAt=new Date().toISOString();job.leaseId=crypto.randomUUID();
           job.agentKind=identity.kind;await saveRecord(jobsDir,job);
-          return json(res,200,{ok:true,job:{id:job.id,apkId:file.id,sha256:file.sha256,
+          return json(res,200,{ok:true,job:{id:job.id,operation:'install',apkId:file.id,sha256:file.sha256,
             size:file.size,filename:file.filename,leaseId:job.leaseId,
             launchAfterInstall:job.launchAfterInstall===true}});
         }
@@ -158,12 +166,31 @@ export function createApkManager({
             'x-content-type-options':'nosniff'});
           return res.end(bytes);
         }
+        if(req.method==='POST'&&route==='/lab-api/apk/agent/frame'){
+          const pieces=[];let size=0;
+          for await(const chunk of req){
+            size+=chunk.length;
+            if(size>3*1024*1024)return bad(res,'FRAME_TOO_LARGE',413);
+            pieces.push(chunk);
+          }
+          const png=Buffer.concat(pieces);
+          if(png.length<100||png.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')
+            return bad(res,'INVALID_PNG');
+          const width=png.readUInt32BE(16),height=png.readUInt32BE(20);
+          if(width<1||height<1||width>8000||height>8000)return bad(res,'INVALID_FRAME_SIZE');
+          const dest=path.join(framesDir,device+'.png');
+          const tmp=dest+'.'+crypto.randomBytes(4).toString('hex')+'.tmp';
+          await fs.writeFile(tmp,png,{mode:0o600});
+          await fs.rename(tmp,dest);
+          hosts.set(device,{deviceId:device,lastSeen:Date.now(),kind:identity.kind,width,height});
+          return json(res,200,{ok:true,width,height,bytes:size});
+        }
         if(req.method==='POST'&&route==='/lab-api/apk/agent/report'){
           const data=await readJson(req);
           const job=await readRecord(jobsDir,String(data.jobId));
           if(!job||job.deviceId!==device||job.status!=='installing'||
              job.leaseId!==data.leaseId)return bad(res,'JOB_LEASE_MISMATCH',409);
-          job.status=data.success===true?'installed':'failed';
+          job.status=data.success===true?(job.operation==='control'?'completed':'installed'):'failed';
           job.finishedAt=new Date().toISOString();
           job.packageName=String(data.packageName||'').slice(0,160);
           job.installLog=String(data.installLog||'').slice(-3000);
@@ -183,10 +210,40 @@ export function createApkManager({
         const jobs=await allRecords(jobsDir);
         return json(res,200,{ok:true,jobs});
       }
+      if(req.method==='GET'&&route.startsWith('/lab-api/apk/frame/')){
+        const device=route.split('/').at(-1);
+        if(!validDevice.test(device||''))return bad(res,'INVALID_DEVICE_ID');
+        try{
+          const png=await fs.readFile(path.join(framesDir,device+'.png'));
+          res.writeHead(200,{'content-type':'image/png','content-length':png.length,
+            'cache-control':'no-store','x-content-type-options':'nosniff'});
+          return res.end(png);
+        }catch{return bad(res,'NO_EMULATOR_FRAME',404)}
+      }
+      if(req.method==='POST'&&route==='/lab-api/apk/control'){
+        const body=await readJson(req);
+        const device=String(body.deviceId||''),action=String(body.action||'');
+        if(!validDevice.test(device)||!['tap','back','home','scroll'].includes(action))
+          return bad(res,'INVALID_CONTROL_ACTION');
+        const host=hosts.get(device);
+        if(!host||Date.now()-host.lastSeen>20_000)return bad(res,'EMULATOR_HOST_OFFLINE',409);
+        const args={};
+        if(action==='tap'){
+          args.x=Number(body.x);args.y=Number(body.y);
+          if(!Number.isInteger(args.x)||!Number.isInteger(args.y)||
+            args.x<0||args.y<0||args.x>=host.width||args.y>=host.height)
+            return bad(res,'INVALID_TOUCH_COORDINATE');
+        }
+        if(action==='scroll')args.direction=body.direction==='up'?'up':'down';
+        const job={id:crypto.randomUUID(),deviceId:device,operation:'control',action,args,
+          status:'pending',createdAt:new Date().toISOString(),error:null};
+        await saveRecord(jobsDir,job);
+        return json(res,201,{ok:true,job});
+      }
       if(req.method==='GET'&&route==='/lab-api/apk/hosts'){
         return json(res,200,{ok:true,hosts:[...hosts.values()].map(h=>({
           deviceId:h.deviceId,kind:h.kind,lastSeen:new Date(h.lastSeen).toISOString(),
-          online:Date.now()-h.lastSeen<60_000
+          width:h.width||null,height:h.height||null,online:Date.now()-h.lastSeen<20_000
         }))});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/upload'){
