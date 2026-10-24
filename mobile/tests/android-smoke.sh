@@ -51,4 +51,13 @@ adb shell settings put secure enabled_accessibility_services app.hitel.nativebri
 adb shell settings put secure accessibility_enabled 1
 sleep 3
 python3 mobile/tests/app-automation-ci.py
+# Real APK installation from a previously uploaded web job. Authenticated with
+# GitHub OIDC; no APK, runner token or ADB socket is exposed publicly.
+python3 mobile/tools/apk-emulator-agent.py --once --device ci-android --serial emulator-5554 \
+  2>&1 | tee "$out/apk-install.log"
+if grep -q 'APK_INSTALLED' "$out/apk-install.log"; then
+  adb exec-out screencap -p > "$out/screen.png"
+  cp "$out/screen.png" "$out/installed-app-screen.png"
+  echo "PASS: uploaded external APK installed and native screenshot captured"
+fi
 echo "PASS: app started, remote Vite page loaded, secure native bridge replied and Android app automation executed"
