@@ -148,6 +148,14 @@ grep -q 'import RFB' /tmp/original-native-public-phone
 echo 'ORIGINAL_NATIVE_PUBLIC_HTTPS_AND_NOVNC_OK'
 python3 "$ROOT/mobile/tools/original-native-url.py" register "$native_url"
 
+# Run BOTH official MCP servers against the real browser and the native video.
+# Failure is fatal; a blank remote screen must never be treated as success.
+if [[ "$(printenv HITEL_OFFICIAL_MCP_VERIFY || echo 0)" == "1" ]]; then
+  bash "$ROOT/mobile/browser-mcp/native-geometry.sh"
+  node "$ROOT/mobile/browser-mcp/inspect.mjs"
+  echo HITEL_OFFICIAL_BOTH_BROWSER_MCP_NATIVE_VERIFIED
+fi
+
 # E2E gate: after real Docker/KVM boot and tunnel registration, the SAME
 # Playwright Chromium process checks Railway's actual iframe and confirms
 # received native noVNC frames. A missing screen makes the job FAIL.
