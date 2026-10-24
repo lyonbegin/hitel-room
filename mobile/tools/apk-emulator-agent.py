@@ -74,6 +74,19 @@ def run_control(serial,job):
         result=adb(serial,"shell","input","keyevent","4",timeout=15)
     elif action=="home":
         result=adb(serial,"shell","input","keyevent","3",timeout=15)
+    elif action=="playstore":
+        installed=adb(serial,"shell","pm","path","com.android.vending",timeout=15)
+        if installed.returncode or "package:" not in installed.stdout:
+            raise RuntimeError("PLAY_STORE_NOT_INSTALLED")
+        result=adb(serial,"shell","monkey","-p","com.android.vending",
+                   "-c","android.intent.category.LAUNCHER","1",timeout=25)
+        if result.returncode or "Events injected: 1" not in result.stdout:
+            raise RuntimeError("PLAY_STORE_LAUNCH_FAILED")
+    elif action=="type":
+        term=str(args.get("text",""))
+        if not re.fullmatch(r"[A-Za-z0-9 ._-]{1,70}",term):
+            raise RuntimeError("ONLY_ASCII_SEARCH_TEXT_ALLOWED")
+        result=adb(serial,"shell","input","text",term.replace(" ","%s"),timeout=15)
     elif action=="scroll":
         width,height=int(args["width"]),int(args["height"])
         direction=args.get("direction","down")
