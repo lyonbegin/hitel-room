@@ -66,16 +66,20 @@ try{
  report.status={http:response.status,online:status.online,transport:status.transport};
  note('LIVE_RELAY',report.status);
  const target=status.online&&typeof status.url==='string'?status.url+'/stream/1/phone.html':sdk;
- await run(chrome,'new_page',{url:target});
+ const created=await run(chrome,'new_page',{url:target});
+ const pageCandidates=[...content(created).matchAll(/(?:^|\n)(\d+):[^\n]*\[selected\]/g)];
+ const pageId=pageCandidates.length?Number(pageCandidates.at(-1)[1]):null;
+ if(!pageId)throw Error('CHROME_DEVTOOLS_SELECTED_PAGE_ID_MISSING:'+content(created).slice(0,600));
+ note('CHROME_PAGE_ID',pageId);
  const evaluation=chrome.tools.find(t=>t.name==='evaluate_script');
  const evalField=evaluation.inputSchema?.properties?.function?'function':'script';
- const result=await run(chrome,'evaluate_script',{[evalField]:'() => {const e=document.querySelector("#screen"),c=document.querySelector("canvas");const rect=x=>x?{x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,width:x.getBoundingClientRect().width,height:x.getBoundingClientRect().height}:null;return {url:location.href,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},screen:rect(e),canvas:rect(c),canvases:document.querySelectorAll("canvas").length};}'});
+ const result=await run(chrome,'evaluate_script',{pageId,[evalField]:'() => {const e=document.querySelector("#screen"),c=document.querySelector("canvas");const rect=x=>x?{x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,width:x.getBoundingClientRect().width,height:x.getBoundingClientRect().height}:null;return {url:location.href,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},screen:rect(e),canvas:rect(c),canvases:document.querySelectorAll("canvas").length};}'});
  report.layout.chrome=content(result).slice(0,4500);
- const shot=await run(chrome,'take_screenshot',{format:'png'},false);
+ const shot=await run(chrome,'take_screenshot',{pageId,format:'png'},false);
  report.layout.pixels=await analyze(await picture(shot,'chrome-native.png'));
  note('SCREEN_GEOMETRY',report.layout);
- await run(chrome,'list_console_messages',{},false);
- await run(chrome,'list_network_requests',{},false);
+ await run(chrome,'list_console_messages',{pageId},false);
+ await run(chrome,'list_network_requests',{pageId},false);
  if(status.online&&report.layout.pixels.hasPixels&&report.layout.pixels.nonBlackWidthFraction<0.65){
   report.layout.problem='NATIVE_ANDROID_SCREEN_TOO_SMALL';
   note('ACTUAL_PROBLEM',report.layout.problem);
