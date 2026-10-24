@@ -168,3 +168,45 @@ test('Google Play external-app listing is distinct from actual installed package
     assert.equal((await call(f,'jobs',{token:ADMIN})).body.jobs.length,2);
   }finally{await f.dispose()}
 });
+
+test('automatic disposable browser session never asks operator for admin token',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'hitel-web-session-'));
+  const manager=createApkManager({root:dir,adminToken:ADMIN,agentToken:AGENT,
+    verifyCI:async()=>({run_id:'40100123456'}),maxBytes:8192});
+  const server=http.createServer((req,res)=>manager.http(req,res,new URL(req.url,'http://localhost')));
+  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+  try{
+    const root='http://127.0.0.1:'+server.address().port+'/lab-api/apk/';
+    const bootstrap=await fetch(root+'ci/ui-session',{
+      method:'POST',body:'{}',headers:{authorization:'Bearer CI_IDENTITY'}});
+    assert.equal(bootstrap.status,201);
+    assert.equal((await bootstrap.json()).deviceId,'ci-playstore');
+    const connection=await fetch(root+'ui/connect',{method:'POST',body:'{}',
+      headers:{origin:'https://hitel-communication-web-production.up.railway.app',
+        'content-type':'application/json'}});
+    const info=await connection.json();
+    assert.equal(info.ready,true);
+    const cookie=connection.headers.get('set-cookie').split(';')[0];
+    assert.match(cookie,/^hitel_apk_test=/);
+    assert.equal(info.token,undefined,'No test credential exposed in response body');
+    const listing=await fetch(root+'hosts',{headers:{cookie}});
+    assert.equal(listing.status,200);
+    assert.equal((await listing.json()).ok,true);
+    const absent=await fetch(root+'hosts');
+    assert.equal(absent.status,401,'No session has no access');
+    const unauthorizedDevice=await fetch(root+'control',{method:'POST',
+      headers:{cookie,'content-type':'application/json'},
+      body:JSON.stringify({deviceId:'android-lab-01',action:'home'})});
+    assert.equal(unauthorizedDevice.status,400);
+    const next=await fetch(root+'ui/connect',{method:'POST',body:'{}',
+      headers:{origin:'https://hitel-communication-web-production.up.railway.app',cookie}});
+    assert.equal(next.status,200,'Same browser reconnects without entering anything');
+    assert.equal((await next.json()).ready,true);
+    const stranger=await fetch(root+'ui/connect',{method:'POST',body:'{}',
+      headers:{origin:'https://hitel-communication-web-production.up.railway.app'}});
+    assert.equal(stranger.status,202,'Second browser cannot claim in-use session');
+  }finally{
+    await new Promise(ok=>server.close(ok));
+    await rm(dir,{recursive:true,force:true});
+  }
+});
