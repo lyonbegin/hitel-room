@@ -1,5 +1,10 @@
 name: HITEL Android Interactive Play Store Session
 on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - 'mobile/tests/interactive-android-session.sh'
+      - '.github/workflows/android-interactive-session.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,6 +18,7 @@ jobs:
     timeout-minutes: 24
     env:
       LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
+      ANDROID_SESSION_SECONDS: ${{ github.event_name == 'push' && '65' || '780' }}
     steps:
       - uses: actions/checkout@v4
       - name: Enable emulator KVM
