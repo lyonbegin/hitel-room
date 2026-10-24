@@ -55,3 +55,40 @@ test('untouched original UI API queues real runner request and never invents an 
     await rm(root,{recursive:true,force:true});
   }
 });
+
+
+test('original Apps UI supports isolated APK upload, listing and deletion before Android starts',async()=>{
+  const root=await mkdtemp(path.join(os.tmpdir(),'hitel-android-apk-original-'));
+  const adapter=createAndroidOriginalAdapter({root});
+  const server=http.createServer((req,res)=>adapter.http(req,res,new URL(req.url,ORIGIN)));
+  await new Promise(done=>server.listen(0,'127.0.0.1',done));
+  const base='http://127.0.0.1:'+server.address().port;
+  try{
+    const opening=await fetch(base+'/api/emulator/devices');
+    assert.equal(opening.status,200);
+    const guest=opening.headers.get('set-cookie').split(';')[0];
+    assert.match(guest,/hitel_android_original_guest=/);
+    const form=new FormData();
+    const bytes=Buffer.alloc(240,0x20);
+    Buffer.from([0x50,0x4b,0x03,0x04]).copy(bytes,0);
+    form.append('apk',new Blob([bytes],{type:'application/vnd.android.package-archive'}),'demo.apk');
+    const upload=await fetch(base+'/api/upload/apk',{method:'POST',
+      headers:{origin:ORIGIN,cookie:guest},body:form});
+    assert.equal(upload.status,201);
+    // First response body was consumed only if assertion failed.
+    const listed=await fetch(base+'/api/upload/apks',{headers:{cookie:guest}});
+    const list=await listed.json();
+    assert.equal(list.apks.length,1);
+    assert.equal(list.apks[0].original_name,'demo.apk');
+    const stranger=await fetch(base+'/api/upload/apks');
+    assert.equal((await stranger.json()).apks.length,0);
+    const deleted=await fetch(base+'/api/upload/apk/'+list.apks[0].id,{
+      method:'DELETE',headers:{cookie:guest,origin:ORIGIN}});
+    assert.equal(deleted.status,200);
+    const empty=await fetch(base+'/api/upload/apks',{headers:{cookie:guest}});
+    assert.equal((await empty.json()).apks.length,0);
+  }finally{
+    await new Promise(done=>server.close(done));
+    await rm(root,{recursive:true,force:true});
+  }
+});
