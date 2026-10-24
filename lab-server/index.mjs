@@ -80,9 +80,13 @@ async function verifyOIDC(req){
     audience:'hitel-device-lab',
     algorithms:['RS256']
   });
+  const allowedCIWorkflows=[
+    '/.github/workflows/mobile-emulator.yml@',
+    '/.github/workflows/android-interactive-session.yml@'
+  ];
   if(payload.repository!=='lyonbegin/hitel-room' ||
      payload.ref!=='refs/heads/feature/communication-sdk' ||
-     !String(payload.workflow_ref||'').includes('/.github/workflows/mobile-emulator.yml@')){
+     !allowedCIWorkflows.some(name=>String(payload.workflow_ref||'').includes(name))){
     throw Error('Untrusted workflow identity');
   }
   return payload;
