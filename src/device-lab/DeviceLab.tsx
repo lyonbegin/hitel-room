@@ -3,8 +3,8 @@ import { CommunicationSDK, CommunicationNetworkAdapter, CommunicationCallSession
 import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
-import {ApkInstaller, type Host} from './ApkInstaller';
-import {EmulatorRemoteScreen} from './EmulatorRemoteScreen';
+import {DisposableAndroidInstaller, type TestHost as Host} from './DisposableAndroidInstaller';
+import {DisposableAndroidScreen} from './DisposableAndroidScreen';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
