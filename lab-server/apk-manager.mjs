@@ -140,10 +140,14 @@ export function createApkManager({
           return json(res,202,{ok:true,ready:false});
         if(pending.claimed)return json(res,202,{ok:true,ready:false});
         pending.claimed=true;
-        return json(res,200,{ok:true,ready:true,token:pending.token,
-          deviceId:TEST_DEVICE,expiresInSeconds:Math.floor((pending.expiresAt-Date.now())/1000)});
+        res.setHeader('Set-Cookie','hitel_apk_test='+pending.token+
+          '; HttpOnly; Secure; SameSite=Strict; Path=/lab-api/apk; Max-Age=1080');
+        return json(res,200,{ok:true,ready:true,deviceId:TEST_DEVICE,
+          expiresInSeconds:Math.floor((pending.expiresAt-Date.now())/1000)});
       }
-      const session=uiTestSessions.get(tokenOf(req));
+      const cookie=String(req.headers.cookie||'').split(';').map(x=>x.trim())
+        .find(x=>x.startsWith('hitel_apk_test='))?.slice('hitel_apk_test='.length)||'';
+      const session=uiTestSessions.get(cookie);
       const isTest=!!session&&session.expiresAt>Date.now()&&session.deviceId===TEST_DEVICE;
       if(req.method==='GET'&&route==='/lab-api/apk/health')
         return json(res,200,{ok:true,enabled:!!adminToken,mode:'APK queue + external emulator agent'});
