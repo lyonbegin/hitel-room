@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HITEL 통합 UI · 복제 원형 부품 조립</title><link rel="stylesheet" href="./assembly.css"></head>
+<body>
+<header class="hitel-header"><div class="hitel-head-row">
+<a class="brand" href="./">HITEL</a>
+<form id="globalSearch" class="global-search"><span aria-hidden="true">⌕</span><input id="searchText" type="search" placeholder="분야 · 서비스 · 사람 · 업체 · 기관 · 전화번호" autocomplete="off" aria-label="통합 검색"><button type="submit">검색</button></form>
+<nav class="head-nav"><button type="button" data-view="categories" class="active">분야 찾기</button><button type="button" data-view="providers">제공자 찾기</button><button type="button" data-view="local">내 주변</button><button type="button" data-view="compare">상세 비교</button><button type="button" data-view="events">기획전</button><button type="button" data-view="call">전화·AI</button></nav>
+</div></header>
+<div class="context-bar"><div class="context-inner"><span class="status-dot"></span><span id="contextText">카테고리에서 분야를 선택하면 제공자 검색과 연결됩니다.</span><button type="button" id="resetContext">처음으로</button><span class="context-identity">HITEL UI 구성 검증 · 복제본 자산 재사용</span></div></div>
+<main>
+<section class="hitel-workspace" id="workspace">
+<div class="primary-lane">
+<div class="lane-intro"><span class="eyebrow">숨고 복제 UI · 원형 추출</span><div class="lane-tabs"><button type="button" id="categoryTab" class="active">분야·서비스 분류</button><button type="button" id="providerTab">선택 분야 제공자</button></div></div>
+<div class="source-mount" id="categoriesMount"></div>
+<div id="providerPanel" class="provider-panel" hidden><div class="panel-context"><b id="serviceCaption">이사/입주 청소업체</b><span id="providerWarning">고수찾기 복제본의 검색·필터·프로필 원형을 사용합니다.</span></div><div class="source-mount" id="providersMount"></div></div>
+</div>
+<aside class="secondary-lane"><div class="rail-intro"><b>관련 기획전 · 안내</b><span>네이버 예약 복제 UI · 이미지 카드 원형</span></div><div id="eventsMount" class="source-mount"></div></aside>
+</section>
+<section class="detail-mode" id="localMode" hidden><div class="mode-heading"><strong>지역 기반 업체 · 지도</strong><span>당근 복제 UI의 600px 업체 목록 + 지도 레이아웃을 원형대로 사용</span></div><div id="localMount" class="source-mount"></div></section>
+<section class="detail-mode" id="compareMode" hidden><div class="mode-heading"><strong>정보·혜택 상세 비교</strong><span>강남언니 복제 UI의 이미지 패널과 세로형 카드 목록 그대로 재사용</span></div><div id="compareMount" class="source-mount"></div></section>
+<section class="detail-mode event-full" id="eventsMode" hidden><div class="mode-heading"><strong>기획전 · 프로그램</strong><span>원본 600px 화면, 2열 카드·탭·정렬·상세 모달</span></div><div id="eventsFullMount"></div></section>
+<section class="detail-mode call-mode" id="callMode" hidden><div class="mode-heading"><strong>전화·AI 통신</strong><span>통신 기능은 복제 UI가 아닌 기존 HITEL 시스템의 영역입니다.</span></div><div class="call-info"><p>서비스·지역·상대방을 탐색한 결과와 실제 연결 가능한 전화·WebRTC 경로를 결합할 영역입니다.</p><p id="callSelection">선택한 통신 상대 없음</p><a href="./legacy.html" target="_blank" rel="noopener">기존 HITEL 연구 화면 열기 ↗</a><p class="notice">연결 가능한 실제 상대·전화번호 및 라우트가 없는 경우, 발신·예약 성공으로 표시하지 않습니다.</p></div></section>
+</main>
+<div class="ui-toast" id="uiToast" role="status" aria-live="polite"></div>
+<footer class="hitel-footer">당근·강남언니·숨고·네이버 예약의 공개 UI를 연구하여 만든 별도 복제본을 부품 단위로 재사용합니다. 공식 사이트 또는 해당 업체와 제휴한 서비스가 아닙니다. 화면의 업체·행사 데이터는 복제본 검증 자료이며 HITEL 실서비스 연결 대상이 아닙니다.</footer>
+<script src="./assembly.js" defer></script></body></html>
