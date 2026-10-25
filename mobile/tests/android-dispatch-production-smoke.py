@@ -92,8 +92,8 @@ async def main():
     if nbody.get('online') is True and nbody.get('transport')=='original-scrcpy-novnc':
       online=True
       break
-    if body.get('status') in ('failed','expired'):
-      raise AssertionError('Android request failed before original host came online: '+json.dumps(last,ensure_ascii=False))
+    if body.get('status') in ('failed','expired','completed'):
+      raise AssertionError('Android request ended before original host came online: '+json.dumps(last,ensure_ascii=False))
     await page.wait_for_timeout(10000)
    log('CLAIM_AND_NATIVE',{'claimed':claimed,'online':online,'last':last})
    assert claimed,'Scheduled/dispatch runner never claimed the website request'
