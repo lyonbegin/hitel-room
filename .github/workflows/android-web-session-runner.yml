@@ -45,6 +45,7 @@ jobs:
         env:
           HITEL_WEB_CLAIMED: 'true'
           ANDROID_ONECLICK_VERIFY: '1'
+          HITEL_VERIFY_NATIVE_INPUT: '1'
         run: bash mobile/tests/original-native-live.sh
       - name: Save original native Android runtime diagnostics
         if: always() && steps.claim.outputs.claimed == 'true'
