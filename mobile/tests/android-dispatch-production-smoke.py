@@ -31,6 +31,12 @@ async def main():
   ctx=await browser.new_context(viewport={'width':1450,'height':960},locale='ko-KR')
   page=await ctx.new_page()
   errors=[]
+  received_frames=[]
+  sockets=[]
+  def register_socket(socket):
+   sockets.append(socket.url)
+   socket.on('framereceived',lambda data:received_frames.append(len(data) if isinstance(data,(str,bytes)) else 0))
+  page.on('websocket',register_socket)
   page.on('pageerror',lambda e:errors.append(str(e)))
   try:
    # Railway may still be rolling the just-pushed backend/frontend commit.
@@ -105,6 +111,14 @@ async def main():
    log('IFRAMES',frame_urls)
    assert any('/stream/1/phone.html' in u for u in frame_urls),frame_urls
    await page.screenshot(path=str(ROOT/'railway-android-live-before-stop.png'),full_page=True)
+   phone=next(f for f in page.frames if '/stream/1/phone.html' in f.url)
+   canvas=phone.locator("canvas").first
+   await canvas.wait_for(state="visible",timeout=20000)
+   await canvas.screenshot(path=str(ROOT/'real-android-canvas-before-stop.png'))
+   await page.wait_for_timeout(8000)
+   log('SCREEN_WEBSOCKET',{'sockets':sockets,'frames':len(received_frames)})
+   assert any('/stream/1/websockify' in url for url in sockets),'noVNC WebSocket not connected in production browser'
+   assert received_frames,'Production browser did not receive real noVNC Android frames'
 
    # Give the Android runner's own native Playwright frame gate time to finish.
    # That runner fails unless a real /websockify WebSocket delivers frames.
