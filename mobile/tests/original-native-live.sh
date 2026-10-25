@@ -20,6 +20,10 @@ capture_runtime_diagnostics(){
   docker exec emulator-scrcpy-1 sh -c 'cat /var/log/websockify.log' >"$out/websockify.log" 2>&1 || true
   docker exec emulator-scrcpy-1 sh -c 'cat /var/log/mwm.log' >"$out/matchbox.log" 2>&1 || true
   docker inspect emulator-scrcpy-1 >"$out/scrcpy-container-inspect.json" 2>&1 || true
+  # The existing Actions artifact path must also contain actual Playwright evidence.
+  if [[ -d "$ROOT/mobile-test-results/android-native-browser-e2e" ]]; then
+    cp -a "$ROOT/mobile-test-results/android-native-browser-e2e/." "$out/" || true
+  fi
 }
 cleanup(){
   capture_runtime_diagnostics || true
