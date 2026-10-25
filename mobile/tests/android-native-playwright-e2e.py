@@ -121,33 +121,25 @@ async def verify_native_input(page,phone_frame):
     (OUT/"apps-before-drag.xml").write_text(before_drag,encoding="utf-8")
     await page.screenshot(path=str(OUT/"03-android-before-drag.png"),full_page=True)
     canvas,box=await canvas_geometry(phone_frame)
-    # noVNC translates its custom drag gesture to a held VNC pointer button:
-    # gesturestart -> button 1 down, gesturemove -> pointer motion,
-    # gestureend -> button release. Dispatch that exact public DOM event path
-    # inside the real phone iframe. This bypasses Chromium's synthetic-touch
-    # recognition while still exercising the real noVNC -> x11vnc -> scrcpy
-    # -> Android input transport.
-    rect=await canvas.evaluate("""el=>{
-      const r=el.getBoundingClientRect();
-      return {x:r.x,y:r.y,width:r.width,height:r.height};
-    }""")
-    start={"x":rect["x"]+rect["width"]*0.52,"y":rect["y"]+rect["height"]*0.78}
-    end={"x":rect["x"]+rect["width"]*0.52,"y":rect["y"]+rect["height"]*0.30}
-    async def gesture(kind,x,y):
-        await canvas.evaluate("""(el,p)=>{
-          el.dispatchEvent(new CustomEvent(p.kind,{
-            bubbles:true,cancelable:true,
-            detail:{type:'drag',clientX:p.x,clientY:p.y}
-          }));
-        }""",{"kind":kind,"x":x,"y":y})
-    await gesture("gesturestart",start["x"],start["y"])
-    for step in range(1,17):
-        t=step/16
-        await gesture("gesturemove",
-          start["x"]+(end["x"]-start["x"])*t,
-          start["y"]+(end["y"]-start["y"])*t)
-        await page.wait_for_timeout(24)
-    await gesture("gestureend",end["x"],end["y"])
+    # Use a REAL Chromium mouse press/move/release on the actual iframe
+    # canvas. No custom DOM events, no ADB scrolling, no mocked UI actions.
+    # Playwright's bounding_box is expressed in the main page viewport even
+    # for a cross-origin iframe. noVNC forwards the held RFB pointer.
+    canvas,box=await canvas_geometry(phone_frame)
+    start={"x":box["x"]+box["width"]*0.52,
+           "y":box["y"]+box["height"]*0.78}
+    end={"x":box["x"]+box["width"]*0.52,
+         "y":box["y"]+box["height"]*0.30}
+    await page.mouse.move(start["x"],start["y"])
+    await page.mouse.down()
+    for step in range(1,25):
+        t=step/24
+        await page.mouse.move(
+            start["x"]+(end["x"]-start["x"])*t,
+            start["y"]+(end["y"]-start["y"])*t,
+            steps=2)
+        await page.wait_for_timeout(20)
+    await page.mouse.up()
     await page.wait_for_timeout(1500)
     after_drag=ui_xml()
     (OUT/"apps-after-drag.xml").write_text(after_drag,encoding="utf-8")
@@ -163,7 +155,7 @@ async def verify_native_input(page,phone_frame):
     assert drag_diff>=2 or len(shifted)>=2,(
       "Browser drag did not scroll/change the Android Settings UI; "
       f"changedTexts={drag_diff} shifted={len(shifted)}")
-    say("INPUT_DRAG",{"method":"novnc-gesture-rfb","from":start,"to":end,"changedTexts":drag_diff,
+    say("INPUT_DRAG",{"method":"chromium-real-mouse-rfb","from":start,"to":end,"changedTexts":drag_diff,
       "shiftedRows":len(shifted),"sampleShifted":shifted[:5]})
 
     # Keyboard input goes through the focused noVNC canvas into Android Settings
