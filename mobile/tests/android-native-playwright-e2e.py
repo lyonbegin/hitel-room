@@ -93,6 +93,9 @@ async def verify_native_input(page,phone_frame):
     canvas,box=await canvas_geometry(phone_frame)
 
     before=ui_xml()
+    (OUT/"settings-before-tap.xml").write_text(before,encoding="utf-8")
+    await page.screenshot(path=str(OUT/"01-android-before-tap.png"),full_page=True)
+    await canvas.screenshot(path=str(OUT/"01-real-novnc-canvas-before-tap.png"))
     root=ET.fromstring(before)
     label,remote=node_bounds(root,[
       "Network & internet","Connected devices","Apps & notifications",
@@ -103,6 +106,9 @@ async def verify_native_input(page,phone_frame):
     await canvas.click(position=point)
     await page.wait_for_timeout(1600)
     after=ui_xml()
+    (OUT/"settings-after-tap.xml").write_text(after,encoding="utf-8")
+    await page.screenshot(path=str(OUT/"02-android-after-browser-tap.png"),full_page=True)
+    await canvas.screenshot(path=str(OUT/"02-real-novnc-canvas-after-tap.png"))
     diff=len(ui_texts(before).symmetric_difference(ui_texts(after)))
     assert diff>=3,"Browser tap did not materially change the Android UI tree"
     say("INPUT_TAP",{"target":label,"remote":remote,"canvasPoint":point,"changedTexts":diff})
@@ -112,6 +118,8 @@ async def verify_native_input(page,phone_frame):
     adb("shell","am","start","-W","-a","android.settings.MANAGE_ALL_APPLICATIONS_SETTINGS")
     await page.wait_for_timeout(1900)
     before_drag=ui_xml()
+    (OUT/"apps-before-drag.xml").write_text(before_drag,encoding="utf-8")
+    await page.screenshot(path=str(OUT/"03-android-before-drag.png"),full_page=True)
     canvas,box=await canvas_geometry(phone_frame)
     # noVNC translates its custom drag gesture to a held VNC pointer button:
     # gesturestart -> button 1 down, gesturemove -> pointer motion,
@@ -142,6 +150,8 @@ async def verify_native_input(page,phone_frame):
     await gesture("gestureend",end["x"],end["y"])
     await page.wait_for_timeout(1500)
     after_drag=ui_xml()
+    (OUT/"apps-after-drag.xml").write_text(after_drag,encoding="utf-8")
+    await page.screenshot(path=str(OUT/"04-android-after-browser-drag.png"),full_page=True)
     drag_diff=len(ui_texts(before_drag).symmetric_difference(ui_texts(after_drag)))
     before_geo=ui_geometry(before_drag)
     after_geo=ui_geometry(after_drag)
@@ -171,9 +181,12 @@ async def verify_native_input(page,phone_frame):
     await page.keyboard.type("hitel",delay=90)
     await page.wait_for_timeout(1100)
     typed_xml=ui_xml()
+    (OUT/"settings-after-keyboard.xml").write_text(typed_xml,encoding="utf-8")
+    await page.screenshot(path=str(OUT/"05-android-after-browser-keyboard.png"),full_page=True)
     typed=[n.attrib.get("text","") for n in ET.fromstring(typed_xml).iter("node")]
     assert any("hitel" in t.lower() for t in typed),"Browser keyboard text did not reach Android"
     say("INPUT_KEYBOARD",{"typed":"hitel","androidTextMatched":True})
+    (OUT/"proof.json").write_text(json.dumps({"source":"real Android 11 via original noVNC canvas","tap":{"target":label,"changedAndroidUiTexts":diff},"drag":{"changedTexts":drag_diff,"shiftedRows":len(shifted)},"keyboard":{"value":"hitel","verifiedInAndroidUiTree":True}},indent=2,ensure_ascii=False),encoding="utf-8")
 
     # Restore a neutral home state after the destructive-free interaction test.
     adb("shell","input","keyevent","KEYCODE_HOME")
