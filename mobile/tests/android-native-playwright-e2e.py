@@ -127,9 +127,9 @@ async def verify_native_input(page,phone_frame):
     # for a cross-origin iframe. noVNC forwards the held RFB pointer.
     canvas,box=await canvas_geometry(phone_frame)
     start={"x":box["x"]+box["width"]*0.52,
-           "y":box["y"]+box["height"]*0.78}
+           "y":box["y"]+box["height"]*0.43}
     end={"x":box["x"]+box["width"]*0.52,
-         "y":box["y"]+box["height"]*0.30}
+         "y":box["y"]+box["height"]*0.11}
     await page.mouse.move(start["x"],start["y"])
     await page.mouse.down()
     for step in range(1,25):
