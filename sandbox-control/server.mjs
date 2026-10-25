@@ -28,6 +28,29 @@ let latest = {status:'idle', reason:null, lastDestroyedAt:null};
 let checkpointCache = {expires:0,ready:false};
 let busyCleanup = false;
 let lastError = null;
+let lastViewerProbeAt = 0;
+let probingViewer = false;
+
+async function probeRealViewer(){
+  if(!active || !['starting','connecting','running'].includes(active.status))return;
+  if(probingViewer || Date.now()-lastViewerProbeAt<8_000)return;
+  lastViewerProbeAt=Date.now();
+  probingViewer=true;
+  try{
+    const sb=await Sandbox.connect(active.id);
+    await sb.refresh();
+    const domain=sb.domains?.find(d=>d.port===6080)?.domain;
+    if(!domain)return;
+    const url='https://'+domain+'/vnc.html';
+    const response=await fetch(url,{signal:AbortSignal.timeout(2500),redirect:'manual'});
+    if(response.ok){
+      active.viewerUrl=url+'?autoconnect=true&resize=scale';
+      active.status='running';
+    }
+  }catch(err){
+    if(active?.status==='running'){active.status='connecting';active.viewerUrl=null;}
+  }finally{probingViewer=false;}
+}
 
 // HTML browsers are not trusted to enforce time limits. No client-side timer
 // grants extra runtime, and request body never controls Sandbox creation args.
@@ -136,10 +159,10 @@ process.exit(2);
       'sh -c "nohup /opt/hitel/start-android.sh >/tmp/hitel-android.log 2>&1 </dev/null &"',
       {timeoutSec:15});
     if(launch.exitCode!==0)throw Error('ANDROID_LAUNCH_COMMAND_FAILED');
-    const domain=sandbox.domains?.find(d=>d.port===6080)?.domain;
-    // A Railway-hosted HTTPS route, not a temporary Cloudflare tunnel.
-    active.viewerUrl=domain?'https://'+domain+'/vnc.html?autoconnect=true&resize=scale':null;
-    active.status='running';
+    // Public display becomes ready ONLY after Railway answers the real
+    // noVNC HTTP request. Android is never simulated by optimistic status.
+    active.status='connecting';
+    await probeRealViewer();
     return {code:202,body:{ok:true,...publicStatus()}};
   }catch(err){
     console.error('HITEL_ANDROID_SANDBOX_START_FAILED',err);
@@ -161,6 +184,7 @@ async function handle(req,res){
   const path=new URL(req.url,'http://localhost').pathname;
   if(req.method==='GET'&&path==='/health')return json(res,200,{ok:true,service:'hitel-web-sandbox-control'});
   if(req.method==='GET'&&path==='/status'){
+    if(active && !busyCleanup)await probeRealViewer();
     if(!configured)return json(res,200,{ok:true,available:false,reason:'RAILWAY_API_TOKEN_NOT_CONFIGURED',...publicStatus()});
     let ready=false,checkError=null;
     try{ready=await readyCheckpoint()}catch(err){checkError=String(err.message||err).slice(0,140);}
