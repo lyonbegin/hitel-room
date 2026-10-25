@@ -11,7 +11,18 @@ export PUBLIC_HOST="127.0.0.1"
 HITEL_WEB_CLAIMED="$(printenv HITEL_WEB_CLAIMED || echo false)"
 cd "$UPSTREAM"
 com(){ docker compose -f docker-compose.yml -f "$OVERRIDE" "$@"; }
+capture_runtime_diagnostics(){
+  local out="$ROOT/mobile-test-results/android-original-native-live"
+  mkdir -p "$out"
+  docker logs emulator-scrcpy-1 >"$out/scrcpy-container.log" 2>&1 || true
+  docker exec emulator-scrcpy-1 sh -c 'cat /var/log/x11vnc.log' >"$out/x11vnc.log" 2>&1 || true
+  docker exec emulator-scrcpy-1 sh -c 'cat /var/log/scrcpy.log' >"$out/scrcpy.log" 2>&1 || true
+  docker exec emulator-scrcpy-1 sh -c 'cat /var/log/websockify.log' >"$out/websockify.log" 2>&1 || true
+  docker exec emulator-scrcpy-1 sh -c 'cat /var/log/mwm.log' >"$out/matchbox.log" 2>&1 || true
+  docker inspect emulator-scrcpy-1 >"$out/scrcpy-container-inspect.json" 2>&1 || true
+}
 cleanup(){
+  capture_runtime_diagnostics || true
   python3 "$ROOT/mobile/tools/original-native-url.py" finish || true
   if [[ "$HITEL_WEB_CLAIMED" == "true" ]]; then
     python3 "$ROOT/mobile/tools/finish-ui-request.py" || true
