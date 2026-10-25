@@ -8,10 +8,10 @@ import {createApkManager} from '../apk-manager.mjs';
 
 const ADMIN='test-admin-token-with-sufficient-entropy';
 const AGENT='test-agent-token-with-sufficient-entropy';
-async function fixture({dispatchAndroidRun=async()=>({ok:true,status:204})}={}){
+async function fixture({dispatchAndroidRun=async()=>({ok:true,status:204}),scheduledFallback=false}={}){
   const store=await mkdtemp(join(tmpdir(),'hitel-apk-'));
   const apk=createApkManager({root:store,adminToken:ADMIN,agentToken:AGENT,
-    maxBytes:8192,verifyCI:async()=>({run_id:'40100123456'}),dispatchAndroidRun});
+    maxBytes:8192,verifyCI:async()=>({run_id:'40100123456'}),dispatchAndroidRun,scheduledFallback});
   const server=http.createServer((req,res)=>apk.http(req,res,new URL(req.url,'http://localhost')));
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   return {store,server,url:'http://127.0.0.1:'+server.address().port,
@@ -319,6 +319,35 @@ test('Android start fails without GitHub dispatch and does NOT leave a queued wo
     assert.equal((await claim.json()).claim,false);
   }finally{await f.dispose()}
 });
+test('scheduled runner fallback keeps website Android start automatic without a GitHub token',async()=>{
+  const f=await fixture({
+    scheduledFallback:true,
+    dispatchAndroidRun:async()=>({ok:false,status:503,error:'GITHUB_DISPATCH_NOT_CONFIGURED'})
+  });
+  try{
+    const base=f.url+'/lab-api/apk/';
+    const requested=await fetch(base+'ui/start',{method:'POST',body:'{}'});
+    assert.equal(requested.status,202);
+    const queued=await requested.json();
+    assert.equal(queued.status,'queued');
+    assert.equal(queued.launchMode,'scheduled-fallback');
+    const cookie=requested.headers.get('set-cookie').split(';')[0];
+    const own=await fetch(base+'ui/status',{headers:{cookie}});
+    const ownStatus=await own.json();
+    assert.equal(ownStatus.status,'queued');
+    assert.equal(ownStatus.launchAvailable,true);
+    assert.equal(ownStatus.dispatchConfigured,false);
+    assert.equal(ownStatus.scheduledFallbackConfigured,true);
+    assert.equal(ownStatus.launchMode,'scheduled-fallback');
+    const claimed=await fetch(base+'ci/claim-start',{method:'POST',body:'{}',
+      headers:{authorization:'Bearer CI_TEST_IDENTITY'}});
+    const claimData=await claimed.json();
+    assert.equal(claimData.claim,true);
+    const starting=await fetch(base+'ui/status',{headers:{cookie}});
+    assert.equal((await starting.json()).status,'starting');
+  }finally{await f.dispose()}
+});
+
 test('Actual GitHub workflow dispatch is issued exactly once before returning queued',async()=>{
   let calls=0;
   const f=await fixture({dispatchAndroidRun:async()=>{
