@@ -1,0 +1,113 @@
+{
+  "createdAt": "2026-10-25T06:41:31.199Z",
+  "target": "https://hitel-fusion-web-production.up.railway.app/",
+  "journeys": [
+    {
+      "name": "390px 모바일 홈",
+      "status": "executed"
+    },
+    {
+      "name": "과외 사용자 역할 전환",
+      "status": "executed"
+    },
+    {
+      "name": "강사의 수업 제안 폼",
+      "status": "executed"
+    },
+    {
+      "name": "모임 게시글→가입 흐름",
+      "status": "executed"
+    },
+    {
+      "name": "전화번호 입력 발신 흐름",
+      "status": "executed"
+    },
+    {
+      "name": "빈 게시글 등록",
+      "status": "failed",
+      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '글쓰기' })\n"
+    },
+    {
+      "name": "검색 결과 없음",
+      "status": "executed"
+    },
+    {
+      "name": "191개 화면 목록",
+      "status": "executed"
+    },
+    {
+      "name": "12-tablet 홈",
+      "status": "executed"
+    },
+    {
+      "name": "13-desktop 홈",
+      "status": "executed"
+    }
+  ],
+  "findings": [
+    {
+      "id": "UX-01",
+      "severity": "critical",
+      "scenario": "과외 역할",
+      "actual": "선생님 찾기/학생 찾기 게시글이 동일함",
+      "expected": "역할별 검색 대상·게시글·행동 분리"
+    },
+    {
+      "id": "UX-02",
+      "severity": "critical",
+      "scenario": "강사 제안",
+      "actual": "강사가 수업 제안을 누르면 학부모 문의 폼이 나옴",
+      "expected": "강사 수업·가격·일정 제안 폼"
+    },
+    {
+      "id": "UX-03",
+      "severity": "critical",
+      "scenario": "모임 가입",
+      "actual": "모임 보기가 모임 상세 대신 신청·문의 폼으로 감",
+      "expected": "소속 그룹 상세와 가입 조건·신청 화면"
+    },
+    {
+      "id": "UX-04",
+      "severity": "critical",
+      "scenario": "개인 010 발신",
+      "actual": "번호를 입력해도 직접 발신 경로 없음",
+      "expected": "전화번호 입력→지원 판정→발신 또는 대안"
+    },
+    {
+      "id": "TEST-6",
+      "severity": "critical",
+      "scenario": "빈 게시글 등록",
+      "actual": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '글쓰기' })\n",
+      "expected": "화면 흐름 확인"
+    },
+    {
+      "id": "UX-06",
+      "severity": "major",
+      "scenario": "검색",
+      "actual": "결과 없음 안내나 대체 행동이 없음",
+      "expected": "빈 상태 및 추천 검색"
+    },
+    {
+      "id": "UX-07",
+      "severity": "major",
+      "scenario": "전체 메뉴",
+      "actual": "목록 행 195개 표시",
+      "expected": "191개 항목 표시 점검"
+    }
+  ],
+  "screenshots": [
+    "01-home-mobile.png",
+    "02-teacher-find.png",
+    "03-student-find.png",
+    "04-tutor-request.png",
+    "05-tutor-proposal.png",
+    "06-community-post.png",
+    "07-community-action.png",
+    "08-phone-number.png",
+    "10-search-empty.png",
+    "11-menu-191.png",
+    "12-tablet.png",
+    "13-desktop.png"
+  ],
+  "note": "실제 Chromium Playwright DOM·스크린샷 검사. 전화·메시지·결제 실전송 없음"
+}
