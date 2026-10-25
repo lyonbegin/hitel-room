@@ -15,6 +15,7 @@ export function createApkManager({
   agentToken=process.env.LAB_APK_AGENT_TOKEN||'',
   verifyCI=async()=>{throw Error('OIDC_NOT_CONFIGURED');},
   dispatchAndroidRun=dispatchGithubAndroidRun,
+  scheduledFallback=process.env.HITEL_GITHUB_SCHEDULE_FALLBACK==='1',
   maxBytes=80*1024*1024
 }={}){
   if(!root)throw Error('APK_STORAGE_ROOT_REQUIRED');
@@ -63,7 +64,7 @@ export function createApkManager({
     if(!Number.isFinite(age)||age<0)return false;
     // Inactive queued jobs should not freeze the only slot when Actions cron
     // fails to start. A claimed worker gets longer to boot original Docker.
-    const max=current.status==='queued'?8*60_000:15*60_000;
+    const max=current.status==='queued'?18*60_000:15*60_000;
     return age<max;
   }
   const validId=/^[a-f0-9-]{36}$/i;
@@ -175,7 +176,7 @@ export function createApkManager({
         try{dispatch=await dispatchAndroidRun()}catch{
           dispatch={ok:false,error:'GITHUB_DISPATCH_UNEXPECTED_ERROR',status:503};
         }
-        if(!dispatch?.ok){
+        if(!dispatch?.ok&&!scheduledFallback){
           request.status='failed';request.endedAt=new Date().toISOString();
           request.error=dispatch?.error||'GITHUB_DISPATCH_FAILED';
           await writeUiRequest(request);
@@ -184,32 +185,47 @@ export function createApkManager({
             message:'GitHub Actions did not accept the Android start request'});
         }
         request.status='queued';
-        request.dispatchedAt=new Date().toISOString();
-        request.dispatchMethod='workflow_dispatch';
-        request.workflowRunId=dispatch.runId||null;
-        request.workflowRunUrl=dispatch.runUrl||null;
+        request.dispatchMethod=dispatch?.ok?'workflow_dispatch':'scheduled-fallback';
+        request.queuedAt=new Date().toISOString();
+        request.dispatchedAt=dispatch?.ok?request.queuedAt:null;
+        request.dispatchError=dispatch?.ok?null:(dispatch?.error||'GITHUB_DISPATCH_FAILED');
+        request.workflowRunId=dispatch?.runId||null;
+        request.workflowRunUrl=dispatch?.runUrl||null;
         await writeUiRequest(request);
-        console.log('ANDROID_WORKFLOW_DISPATCH_ACCEPTED',request.id);
+        console.log(dispatch?.ok?'ANDROID_WORKFLOW_DISPATCH_ACCEPTED':'ANDROID_SCHEDULE_FALLBACK_QUEUED',
+          request.id,request.dispatchError||'');
         pendingUiSession=null;
         uiTestSessions.clear();
         res.setHeader('Set-Cookie','hitel_ui_owner='+owner+
           '; HttpOnly; Secure; SameSite=Strict; Path=/lab-api/apk; Max-Age=7200');
         return json(res,202,{ok:true,status:'queued',requestId:request.id,
-          message:'ANDROID_LAUNCH_QUEUED'});
+          launchMode:request.dispatchMethod,
+          message:request.dispatchMethod==='workflow_dispatch'?
+            'ANDROID_LAUNCH_QUEUED':'ANDROID_LAUNCH_QUEUED_FOR_SCHEDULE'});
       });
       if(req.method==='GET'&&route==='/lab-api/apk/ui/status'){
         const current=await readUiRequest();
-        if(!current)return json(res,200,{ok:true,status:'idle',online:false,dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)});
+        if(!current)return json(res,200,{ok:true,status:'idle',online:false,
+          dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN),
+          scheduledFallbackConfigured:Boolean(scheduledFallback),
+          launchAvailable:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)||Boolean(scheduledFallback)});
         const active=await requestActive(current);
         const owner=cookieValue(req,'hitel_ui_owner');
         if(owner!==current.owner)return json(res,200,{ok:true,
-          status:active?'busy':'idle',online:false,dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)});
+          status:active?'busy':'idle',online:false,
+          dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN),
+          scheduledFallbackConfigured:Boolean(scheduledFallback),
+          launchAvailable:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)||Boolean(scheduledFallback)});
         return json(res,200,{ok:true,
           status:!active&&['queued','starting','running','stopping'].includes(current.status)?'expired':current.status,
           requestId:current.id,online:await originalHostLive(),
           error:current.error||null,dispatchedAt:current.dispatchedAt||null,
           workflowRunUrl:current.workflowRunUrl||null,
           dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN),
+          scheduledFallbackConfigured:Boolean(scheduledFallback),
+          launchAvailable:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)||Boolean(scheduledFallback),
+          launchMode:current.dispatchMethod||null,
+          dispatchError:current.dispatchError||null,
           requestedAt:current.createdAt});
       }
       if(req.method==='POST'&&route==='/lab-api/apk/ui/stop'){
