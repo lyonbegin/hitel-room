@@ -36,3 +36,15 @@ test('network errors are not reported as running Android',async()=>{
   assert.equal(r.ok,false);
   assert.equal(r.error,'GITHUB_DISPATCH_NETWORK_ERROR');
 });
+
+test('GitHub current REST API returns 200 with a real workflow_run_id and URL',async()=>{
+  const result=await dispatchGithubAndroidRun({token:'server-credential',fetchImpl:async()=>({
+    status:200,
+    json:async()=>({workflow_run_id:40198765432,
+      html_url:'https://github.com/lyonbegin/hitel-room/actions/runs/40198765432'})
+  })});
+  assert.equal(result.ok,true);
+  assert.equal(result.status,200);
+  assert.equal(result.runId,40198765432);
+  assert.equal(result.runUrl,'https://github.com/lyonbegin/hitel-room/actions/runs/40198765432');
+});
