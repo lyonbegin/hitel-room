@@ -51,6 +51,8 @@ export function OriginalAndroidEmbed(){
   const base=valid?status?.url||'':'';
   const viewerUrl=base+'/stream/1/phone.html';
 
+  const fallback=run?.launchMode==='scheduled-fallback';
+  const dispatchFailure=Boolean(run?.dispatchError && !fallback && run.status==='failed');
   const phase=run?.status==='queued'?'실행 요청 등록됨 · GitHub KVM 실행기 수거 대기':
     run?.status==='starting'?'GitHub 실행기 요청 수거 · Android 부팅 및 실화면 검증 중':
     run?.status==='running'?'Android 실행 작업 확인됨 · 화면 호스트 연결 확인 중':
@@ -70,7 +72,8 @@ export function OriginalAndroidEmbed(){
       :run?.status==='queued'&&run?.launchMode==='scheduled-fallback'
         ?'예약 실행기에서 아직 이 요청을 수거하지 않았습니다. API 202는 부팅 성공이 아닙니다.'
         :run?.status==='starting'?'GitHub 실행기의 Android 11 기동 작업이 진행 중입니다. noVNC 연결이 검증되어야 화면이 표시됩니다.'
-        :run?.dispatchError?'GitHub 실행 오류: '+run.dispatchError
+        :dispatchFailure?'GitHub 즉시 실행 실패: '+run?.dispatchError
+        :fallback?'GitHub 즉시 실행 인증은 없지만 예약 실행 경로를 사용합니다. 현재 Android 호스트는 오프라인입니다.'
         :'실제 Android 11 호스트의 health 응답이 확인되어야 화면이 표시됩니다.'}</span>
     <span>원본 scrcpy/noVNC 실제 응답만 표시하며 저장된 캡처나 웹 미리보기로 대신하지 않습니다.</span>
   </div>;
