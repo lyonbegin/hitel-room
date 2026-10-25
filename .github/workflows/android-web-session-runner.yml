@@ -1,15 +1,7 @@
 name: HITEL Original Android scrcpy requested from Railway website
+# Started on demand by Railway's authenticated GitHub REST workflow_dispatch.
+# No polling, cron, push-triggered Android or manual user GitHub workflow clicks.
 on:
-  # Native Android recovery test: start the queued Railway web request on push; all
-  # normal user requests are consumed by the scheduled runner.
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/android-web-session-runner.yml'
-  # Idle poll only: the expensive original KVM/Docker stack runs solely when
-  # the Railway website has queued a request. Standard five-minute fallback.
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
