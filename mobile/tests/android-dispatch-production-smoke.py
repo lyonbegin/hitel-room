@@ -67,7 +67,7 @@ async def main():
 
    assert not errors,'Unexpected browser JS error before start: '+str(errors)
    log('READY',ready)
-   log('DRAG_PIXEL_CALIBRATION','verify real Android content region, not black noVNC canvas letterbox')
+   log('DRAG_PIXEL_CALIBRATION','iframe-local pixels converted to top-page Chromium pointer coordinates')
 
    start=page.get_by_role('button',name='Android 실행',exact=True)
    async with page.expect_response(lambda r:'/lab-api/apk/ui/start' in r.url,timeout=30000) as pending:
