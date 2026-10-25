@@ -1,0 +1,40 @@
+name: HITEL UX Playwright Audit
+on:
+  push:
+    branches:
+      - feature/hitel-vite-ui-flow-20261025
+    paths:
+      - '.github/workflows/hitel-ux-audit.yml'
+      - 'hitel-ui-flow/tests/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        working-directory: hitel-ui-flow
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run live UX scenarios
+        working-directory: hitel-ui-flow
+        env:
+          HITEL_URL: https://hitel-fusion-web-production.up.railway.app/
+        run: node tests/ux-audit.mjs
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-ux-real-browser
+          path: hitel-ui-flow/ux-audit-results/
+          retention-days: 14
