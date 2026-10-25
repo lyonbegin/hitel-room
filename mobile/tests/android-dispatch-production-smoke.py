@@ -123,7 +123,7 @@ async def main():
 
    # Give the Android runner's own native Playwright frame gate time to finish.
    # That runner fails unless a real /websockify WebSocket delivers frames.
-   await page.wait_for_timeout(35000)
+   await page.wait_for_timeout(90000)
    stop=page.get_by_role('button',name='Android 종료',exact=True)
    assert await stop.count()>0,'Android stop button missing while native host is online'
    assert not await stop.is_disabled(),'Android stop button disabled while native host is online'
