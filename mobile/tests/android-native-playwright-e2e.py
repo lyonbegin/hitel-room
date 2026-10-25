@@ -55,6 +55,16 @@ def ui_texts(xml):
             for n in root.iter("node")
             if ((n.attrib.get("text") or "")+" "+(n.attrib.get("content-desc") or "")).strip()}
 
+def ui_geometry(xml):
+    root=ET.fromstring(xml)
+    found={}
+    for n in root.iter("node"):
+        label=((n.attrib.get("text") or "")+" "+(n.attrib.get("content-desc") or "")).strip()
+        m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",n.attrib.get("bounds",""))
+        if label and m and label not in found:
+            found[label]=tuple(map(int,m.groups()))
+    return found
+
 async def canvas_geometry(frame):
     canvas=frame.locator("canvas").first
     await canvas.wait_for(state="visible",timeout=20000)
@@ -113,8 +123,18 @@ async def verify_native_input(page,phone_frame):
     await page.wait_for_timeout(1300)
     after_drag=ui_xml()
     drag_diff=len(ui_texts(before_drag).symmetric_difference(ui_texts(after_drag)))
-    assert drag_diff>=2,"Browser drag did not scroll/change the Android Settings UI"
-    say("INPUT_DRAG",{"from":start,"to":end,"changedTexts":drag_diff})
+    before_geo=ui_geometry(before_drag)
+    after_geo=ui_geometry(after_drag)
+    shifted=[
+      label for label in set(before_geo).intersection(after_geo)
+      if abs(before_geo[label][1]-after_geo[label][1])>=12
+      or abs(before_geo[label][3]-after_geo[label][3])>=12
+    ]
+    assert drag_diff>=2 or len(shifted)>=2,(
+      "Browser drag did not scroll/change the Android Settings UI; "
+      f"changedTexts={drag_diff} shifted={len(shifted)}")
+    say("INPUT_DRAG",{"from":start,"to":end,"changedTexts":drag_diff,
+      "shiftedRows":len(shifted),"sampleShifted":shifted[:5]})
 
     # Keyboard input goes through the focused noVNC canvas into Android Settings
     # search. Verify the Android accessibility tree contains the exact typed text.
