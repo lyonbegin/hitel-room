@@ -118,6 +118,7 @@ async def main():
    await canvas.screenshot(path=str(ROOT/'real-android-canvas-before-stop.png'))
    await page.wait_for_timeout(8000)
    log('SCREEN_WEBSOCKET',{'sockets':sockets,'frames':len(received_frames)})
+   (ROOT/'real-novnc-frame-count.json').write_text(json.dumps({'sockets':sockets,'frames':len(received_frames)},ensure_ascii=False,indent=2),encoding='utf-8')
    assert any('/stream/1/websockify' in url for url in sockets),'noVNC WebSocket not connected in production browser'
    assert received_frames,'Production browser did not receive real noVNC Android frames'
 
