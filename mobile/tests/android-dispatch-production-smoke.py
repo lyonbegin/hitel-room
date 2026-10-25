@@ -79,6 +79,7 @@ async def main():
    assert start_body.get('launchMode') in ('scheduled-fallback','workflow_dispatch'),start_body
    request_id=start_body.get('requestId')
    assert request_id,'Missing website request id'
+   (ROOT/'actual-browser-start-request.json').write_text(json.dumps({'requestId':request_id,'http':started.status,'launchMode':start_body.get('launchMode')},ensure_ascii=False,indent=2),encoding='utf-8')
 
    # The website's own browser cookie must keep seeing this exact request.
    claimed=False
