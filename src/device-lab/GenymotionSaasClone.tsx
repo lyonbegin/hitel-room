@@ -118,7 +118,7 @@ export default function GenymotionSaasClone(){
       <div className="gm-menu-brand"><span className="gm-hamburger">☰</span><div className="gm-hex">⬡</div>
         <div>Genymotion<small>SaaS</small></div></div>
       <div className="gm-top-right"><span className="gm-cloud-dot">●</span><span>Genymotion SaaS</span>
-        <button title="Refresh" onClick={()=>void refresh()}>↻</button><a href="/sdk-lab" title="Communication SDK 관리 화면">HITEL SDK ↗</a></div>
+        <button title="Refresh" onClick={()=>void refresh()}>↻</button><a href="/sdk-lab/dual" title="Communication SDK Android·iPhone 개발 화면">SDK Android·iPhone ↗</a></div>
     </header>
     <div className="gm-body">
       <aside className="gm-sidebar">
