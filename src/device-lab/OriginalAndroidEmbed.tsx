@@ -9,6 +9,7 @@ type NativeStatus={
   runId?:string;
   error?:string;
 };
+type RunStatus={status?:string;launchMode?:string;dispatchError?:string;launchAvailable?:boolean;requestedAt?:string};
 
 /**
  * Attach DIRECTLY to the original scrcpy/noVNC Android touchscreen.
@@ -22,6 +23,7 @@ type NativeStatus={
 export function OriginalAndroidEmbed(){
   const [status,setStatus]=useState<NativeStatus|null>(null);
   const [checking,setChecking]=useState(true);
+  const [run,setRun]=useState<RunStatus|null>(null);
 
   useEffect(()=>{
     let active=true;
@@ -31,6 +33,8 @@ export function OriginalAndroidEmbed(){
         if(!response.ok)throw new Error('HTTP '+response.status);
         const next=await response.json() as NativeStatus;
         if(active){setStatus(next);setChecking(false);}
+        const queued=await fetch('/lab-api/apk/ui/status',{cache:'no-store'});
+        if(queued.ok){const state=await queued.json() as RunStatus;if(active)setRun(state);}
       }catch{
         if(active){setStatus({ok:false,online:false,error:'relay_unavailable'});setChecking(false);}
       }
@@ -47,15 +51,27 @@ export function OriginalAndroidEmbed(){
   const base=valid?status?.url||'':'';
   const viewerUrl=base+'/stream/1/phone.html';
 
+  const phase=run?.status==='queued'?'실행 요청 등록됨 · GitHub KVM 실행기 수거 대기':
+    run?.status==='starting'?'GitHub 실행기 요청 수거 · Android 부팅 및 실화면 검증 중':
+    run?.status==='running'?'Android 실행 작업 확인됨 · 화면 호스트 연결 확인 중':
+    run?.status==='failed'?'Android 실행 실패':
+    run?.status==='expired'?'Android 실행 요청 만료 · 재실행 필요':
+    run?.status==='stopping'?'Android 종료 진행 중':
+    run?.launchAvailable===false?'Android 실행 경로 설정 필요':
+    'Android 원본 호스트가 실행되지 않았습니다';
   if(!valid)return <div style={{
     display:'grid',placeContent:'center',height:'100%',minHeight:480,
     padding:24,textAlign:'center',color:'#73848c',gap:10}}>
     <strong style={{color:'#193f51'}}>
-      {checking?'원본 Android 연결 검사 중':'원본 Android 실시간 화면 연결 대기'}
+      {checking?'원본 Android 연결 검사 중':phase}
     </strong>
     <span>{status?.error==='host_unreachable'
       ?'기존 임시 실행 호스트가 응답하지 않습니다. 이전 실행 표시를 사용하지 않습니다.'
-      :'Android 실행 버튼으로 실제 기기를 시작하면 이곳에 터치 가능한 원본 화면이 표시됩니다.'}</span>
+      :run?.status==='queued'&&run?.launchMode==='scheduled-fallback'
+        ?'예약 실행기에서 아직 이 요청을 수거하지 않았습니다. API 202는 부팅 성공이 아닙니다.'
+        :run?.status==='starting'?'GitHub 실행기의 Android 11 기동 작업이 진행 중입니다. noVNC 연결이 검증되어야 화면이 표시됩니다.'
+        :run?.dispatchError?'GitHub 실행 오류: '+run.dispatchError
+        :'실제 Android 11 호스트의 health 응답이 확인되어야 화면이 표시됩니다.'}</span>
     <span>원본 scrcpy/noVNC 실제 응답만 표시하며 저장된 캡처나 웹 미리보기로 대신하지 않습니다.</span>
   </div>;
 
