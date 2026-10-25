@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-10-25T06:41:31.199Z",
+  "createdAt": "2026-10-25T06:43:06.504Z",
   "target": "https://hitel-fusion-web-production.up.railway.app/",
   "journeys": [
     {
@@ -24,8 +24,7 @@
     },
     {
       "name": "빈 게시글 등록",
-      "status": "failed",
-      "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '글쓰기' })\n"
+      "status": "executed"
     },
     {
       "name": "검색 결과 없음",
@@ -74,11 +73,11 @@
       "expected": "전화번호 입력→지원 판정→발신 또는 대안"
     },
     {
-      "id": "TEST-6",
-      "severity": "critical",
-      "scenario": "빈 게시글 등록",
-      "actual": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '글쓰기' })\n",
-      "expected": "화면 흐름 확인"
+      "id": "UX-05",
+      "severity": "major",
+      "scenario": "글쓰기",
+      "actual": "빈 제목·설명으로도 미리보기 가능",
+      "expected": "필수 필드 및 역할별 입력폼 유효성 검증"
     },
     {
       "id": "UX-06",
@@ -86,13 +85,6 @@
       "scenario": "검색",
       "actual": "결과 없음 안내나 대체 행동이 없음",
       "expected": "빈 상태 및 추천 검색"
-    },
-    {
-      "id": "UX-07",
-      "severity": "major",
-      "scenario": "전체 메뉴",
-      "actual": "목록 행 195개 표시",
-      "expected": "191개 항목 표시 점검"
     }
   ],
   "screenshots": [
@@ -104,6 +96,7 @@
     "06-community-post.png",
     "07-community-action.png",
     "08-phone-number.png",
+    "09-empty-post.png",
     "10-search-empty.png",
     "11-menu-191.png",
     "12-tablet.png",
