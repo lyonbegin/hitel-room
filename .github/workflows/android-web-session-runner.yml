@@ -16,12 +16,10 @@ concurrency:
 jobs:
   requested-android:
     runs-on: ubuntu-24.04
-    timeout-minutes: 210
+    timeout-minutes: 24
     env:
       LAB_RELAY_URL: https://hitel-device-relay-production.up.railway.app
-      # Upper bound; the Relay stops a device after 30 minutes without a visible HITEL viewer.
-      # Explicit Android 종료 ends the run sooner.
-      ANDROID_SESSION_SECONDS: 10800
+      ANDROID_SESSION_SECONDS: 780
     steps:
       - uses: actions/checkout@v4
         with:
