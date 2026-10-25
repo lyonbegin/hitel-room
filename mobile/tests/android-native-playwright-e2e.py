@@ -234,7 +234,9 @@ async def main():
 
             if os.getenv("HITEL_VERIFY_NATIVE_INPUT") == "1":
                 await verify_native_input(page,phone_frame)
-                say("INPUT_RESULT","REAL_NOVNC_TAP_DRAG_KEYBOARD_PASS")
+                say("INPUT_RESULT","REAL_NOVNC_TAP_DRAG_KEYBOARD_PASS" if
+                    (OUT/"proof.json").exists() and json.loads((OUT/"proof.json").read_text(encoding="utf-8")).get("drag",{}).get("success")
+                    else "REAL_NOVNC_TAP_KEYBOARD_PASS_DRAG_FAILED")
 
             # Observe the genuine original UI, but never use its Tap to Start
             # unless this particular test explicitly requests a disposable slot.
