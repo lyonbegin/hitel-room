@@ -47,6 +47,19 @@ export function AndroidSessionControls({onNotice}:{onNotice:(message:string)=>vo
     }catch(e){onNotice((action==='start'?'실행':'삭제')+' 실패: '+String(e));}
     finally{setBusy(false);void refresh();}
   };
+  const probeKvm=async()=>{
+    setBusy(true);
+    try{
+      const response=await fetch('/lab-sandbox/probe-kvm',{
+        method:'POST',headers:{'content-type':'application/json'},body:'{}',credentials:'same-origin'
+      });
+      const result=await response.json() as {ok?:boolean;kvm?:boolean;result?:string;error?:string};
+      if(!response.ok)throw Error(result.error||'KVM 검사 실패');
+      onNotice(result.kvm?'Railway Sandbox KVM 지원 확인 · Android 체크포인트 준비 가능':
+        'Railway Sandbox KVM 미지원 · Google Android 에뮬레이터 실행 불가');
+    }catch(e){onNotice('KVM 검사 오류: '+String(e));}
+    finally{setBusy(false);void refresh();}
+  };
   const status=data?.status||'idle';
   const active=['starting','connecting','running','stopping'].includes(status);
   const available=Boolean(data?.available);
@@ -60,6 +73,9 @@ export function AndroidSessionControls({onNotice}:{onNotice:(message:string)=>vo
       </button>
       <button type="button" className="dl-android-stop"
         disabled={busy||!active} onClick={()=>void call('stop')}>VM 삭제</button>
+      {data?.reason==='ANDROID_CHECKPOINT_NOT_PREPARED'?
+        <button type="button" className="dl-android-stop" disabled={busy}
+          onClick={()=>void probeKvm()}>Railway KVM 실제 검사</button>:null}
       {status==='running'&&data?.viewerUrl?
         <a className="dl-android-start" href={data.viewerUrl} target="_blank" rel="noopener noreferrer"
           style={{textDecoration:'none'}}>실제 Android 화면 ↗</a>:null}
