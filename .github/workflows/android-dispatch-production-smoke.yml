@@ -1,4 +1,4 @@
-name: HITEL production Android dispatch truthful UI smoke
+name: HITEL production Android website-to-KVM E2E
 on:
   push:
     branches: [feature/communication-sdk]
@@ -11,7 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 11
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +20,7 @@ jobs:
       - run: |
           python -m pip install --quiet playwright==1.56.0
           python -m playwright install chromium
-      - name: Check real Railway UI, dispatch credential state and disabled false-success button
+      - name: Click real Railway Android start, wait for KVM/noVNC, then stop it
         run: python mobile/tests/android-dispatch-production-smoke.py
       - if: always()
         uses: actions/upload-artifact@v4
