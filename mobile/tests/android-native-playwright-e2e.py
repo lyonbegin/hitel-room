@@ -107,11 +107,10 @@ async def verify_native_input(page,phone_frame):
     assert diff>=3,"Browser tap did not materially change the Android UI tree"
     say("INPUT_TAP",{"target":label,"remote":remote,"canvasPoint":point,"changedTexts":diff})
 
-    # Browser drag/scroll. Reset to the top-level Settings list first.
-    adb("shell","am","start","-W","-a","android.settings.SETTINGS")
-    adb("shell","input","keyevent","KEYCODE_HOME")
-    adb("shell","am","start","-W","-a","android.settings.SETTINGS")
-    await page.wait_for_timeout(1400)
+    # Browser drag/scroll. Use Android's full installed-app list so the
+    # surface is guaranteed to be taller than the 2340px emulator display.
+    adb("shell","am","start","-W","-a","android.settings.MANAGE_ALL_APPLICATIONS_SETTINGS")
+    await page.wait_for_timeout(1900)
     before_drag=ui_xml()
     canvas,box=await canvas_geometry(phone_frame)
     start={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.78}
