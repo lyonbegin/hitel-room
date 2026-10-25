@@ -8,7 +8,10 @@ records its ID, and always releases that exact session in finally.
 import asyncio
 import json
 import os
+import re
+import subprocess
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from playwright.async_api import async_playwright
 
@@ -18,6 +21,123 @@ SITE = "https://hitel-communication-web-production.up.railway.app/sdk-lab"
 
 def say(k, v):
     print("HITEL_NATIVE_BROWSER_" + k + "=" + json.dumps(v, ensure_ascii=False, default=str), flush=True)
+
+def adb(*args):
+    command=["docker","exec","android-emulator-1","adb",*args]
+    return subprocess.check_output(command,text=True,stderr=subprocess.STDOUT,timeout=35).strip()
+
+def ui_xml():
+    adb("shell","uiautomator","dump","/sdcard/hitel-window.xml")
+    return adb("exec-out","cat","/sdcard/hitel-window.xml")
+
+def android_size():
+    value=adb("shell","wm","size")
+    match=re.search(r"(?:Physical|Override) size:\s*(\d+)x(\d+)",value)
+    if not match:
+        match=re.search(r"(\d+)x(\d+)",value)
+    assert match,"Cannot determine Android framebuffer size: "+value
+    return int(match.group(1)),int(match.group(2))
+
+def node_bounds(root, candidates):
+    lowered=[x.lower() for x in candidates]
+    for node in root.iter("node"):
+        label=((node.attrib.get("text") or "")+" "+(node.attrib.get("content-desc") or "")).strip()
+        if label and any(w in label.lower() for w in lowered):
+            m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",node.attrib.get("bounds",""))
+            if m:
+                x1,y1,x2,y2=map(int,m.groups())
+                return label,((x1+x2)/2,(y1+y2)/2)
+    return None,None
+
+def ui_texts(xml):
+    root=ET.fromstring(xml)
+    return {((n.attrib.get("text") or "")+" "+(n.attrib.get("content-desc") or "")).strip()
+            for n in root.iter("node")
+            if ((n.attrib.get("text") or "")+" "+(n.attrib.get("content-desc") or "")).strip()}
+
+async def canvas_geometry(frame):
+    canvas=frame.locator("canvas").first
+    await canvas.wait_for(state="visible",timeout=20000)
+    box=await canvas.bounding_box()
+    assert box and box["width"]>40 and box["height"]>80,"Native noVNC canvas has no usable geometry"
+    return canvas,box
+
+def scaled_point(box,remote,screen):
+    x,y=remote; w,h=screen
+    return {
+      "x":max(1,min(box["width"]-1,x/w*box["width"])),
+      "y":max(1,min(box["height"]-1,y/h*box["height"]))
+    }
+
+async def verify_native_input(page,phone_frame):
+    # Put Android in a deterministic Settings state using ADB only for setup and
+    # observation. The actions under test themselves are sent by the browser
+    # through the original noVNC RFB canvas.
+    adb("shell","input","keyevent","KEYCODE_WAKEUP")
+    try: adb("shell","wm","dismiss-keyguard")
+    except Exception: pass
+    adb("shell","am","start","-W","-a","android.settings.SETTINGS")
+    await page.wait_for_timeout(2200)
+
+    screen=android_size()
+    canvas,box=await canvas_geometry(phone_frame)
+
+    before=ui_xml()
+    root=ET.fromstring(before)
+    label,remote=node_bounds(root,[
+      "Network & internet","Connected devices","Apps & notifications",
+      "Battery","Display","Sound"
+    ])
+    assert remote,"Could not locate a stable clickable Settings row in the real Android UI"
+    point=scaled_point(box,remote,screen)
+    await canvas.click(position=point)
+    await page.wait_for_timeout(1600)
+    after=ui_xml()
+    diff=len(ui_texts(before).symmetric_difference(ui_texts(after)))
+    assert diff>=3,"Browser tap did not materially change the Android UI tree"
+    say("INPUT_TAP",{"target":label,"remote":remote,"canvasPoint":point,"changedTexts":diff})
+
+    # Browser drag/scroll. Reset to the top-level Settings list first.
+    adb("shell","am","start","-W","-a","android.settings.SETTINGS")
+    adb("shell","input","keyevent","KEYCODE_HOME")
+    adb("shell","am","start","-W","-a","android.settings.SETTINGS")
+    await page.wait_for_timeout(1400)
+    before_drag=ui_xml()
+    canvas,box=await canvas_geometry(phone_frame)
+    start={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.78}
+    end={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.30}
+    await page.mouse.move(start["x"],start["y"])
+    await page.mouse.down()
+    await page.mouse.move(end["x"],end["y"],steps=14)
+    await page.mouse.up()
+    await page.wait_for_timeout(1300)
+    after_drag=ui_xml()
+    drag_diff=len(ui_texts(before_drag).symmetric_difference(ui_texts(after_drag)))
+    assert drag_diff>=2,"Browser drag did not scroll/change the Android Settings UI"
+    say("INPUT_DRAG",{"from":start,"to":end,"changedTexts":drag_diff})
+
+    # Keyboard input goes through the focused noVNC canvas into Android Settings
+    # search. Verify the Android accessibility tree contains the exact typed text.
+    adb("shell","am","start","-W","-a","android.settings.SETTINGS")
+    await page.wait_for_timeout(1400)
+    search_xml=ui_xml()
+    search_root=ET.fromstring(search_xml)
+    search_label,search_remote=node_bounds(search_root,["Search settings","Search Settings"])
+    assert search_remote,"Android Settings search control not found"
+    canvas,box=await canvas_geometry(phone_frame)
+    await canvas.click(position=scaled_point(box,search_remote,screen))
+    await page.wait_for_timeout(1000)
+    # noVNC focusOnClick keeps RFB keyboard capture active.
+    await page.keyboard.type("hitel",delay=90)
+    await page.wait_for_timeout(1100)
+    typed_xml=ui_xml()
+    typed=[n.attrib.get("text","") for n in ET.fromstring(typed_xml).iter("node")]
+    assert any("hitel" in t.lower() for t in typed),"Browser keyboard text did not reach Android"
+    say("INPUT_KEYBOARD",{"typed":"hitel","androidTextMatched":True})
+
+    # Restore a neutral home state after the destructive-free interaction test.
+    adb("shell","input","keyevent","KEYCODE_HOME")
+    await page.wait_for_timeout(600)
 
 async def main():
     async with async_playwright() as p:
@@ -63,6 +183,11 @@ async def main():
             required = native + "/stream/1/phone.html"
             assert required in sdk_iframes, "Railway Android iframe is not the existing noVNC phone"
             await page.screenshot(path=str(OUT/"sdk-existing-android.png"), full_page=True)
+            phone_frame=next(f for f in page.frames if f.url==required)
+
+            if os.getenv("HITEL_VERIFY_NATIVE_INPUT") == "1":
+                await verify_native_input(page,phone_frame)
+                say("INPUT_RESULT","REAL_NOVNC_TAP_DRAG_KEYBOARD_PASS")
 
             # Observe the genuine original UI, but never use its Tap to Start
             # unless this particular test explicitly requests a disposable slot.
