@@ -25,6 +25,14 @@ export function createApkManager({
   const uiTestSessions=new Map();
   let pendingUiSession=null;
   const uiStartFile=path.join(root,'interactive-request.json');
+  // Atomically serialize starts in this single Railway replica: two
+  // simultaneous button clicks must never dispatch two KVM runners.
+  let startMutex=Promise.resolve();
+  function serialStart(task){
+    const result=startMutex.then(task,task);
+    startMutex=result.catch(()=>{});
+    return result;
+  }
   async function readUiRequest(){
     try{return JSON.parse(await fs.readFile(uiStartFile,'utf8'))}
     catch{return null}
@@ -49,7 +57,7 @@ export function createApkManager({
     }catch{return false}
   }
   async function requestActive(current){
-    if(!current||!['queued','starting','running','stopping'].includes(current.status))return false;
+    if(!current||!['dispatching','queued','starting','running','stopping'].includes(current.status))return false;
     if(await originalHostLive())return true;
     const age=Date.now()-Date.parse(current.createdAt||'');
     if(!Number.isFinite(age)||age<0)return false;
@@ -152,12 +160,12 @@ export function createApkManager({
       // A signed GitHub Actions runner creates a short-lived test link.
       // The operator clicks the link; there is no token field in the browser.
       // The website owns the start/stop controls; GitHub is a background worker.
-      if(req.method==='POST'&&route==='/lab-api/apk/ui/start'){
+      if(req.method==='POST'&&route==='/lab-api/apk/ui/start')return await serialStart(async()=>{
         const current=await readUiRequest();
-        if(await requestActive(current))
+        if(await originalHostLive()||await requestActive(current))
           return json(res,409,{ok:false,error:'EMULATOR_SESSION_ALREADY_ACTIVE'});
         const owner=crypto.randomBytes(24).toString('base64url');
-        const request={id:crypto.randomUUID(),owner,status:'queued',
+        const request={id:crypto.randomUUID(),owner,status:'dispatching',
           createdAt:new Date().toISOString(),endedAt:null};
         await writeUiRequest(request);
         // Critical: GitHub must actually ACK a workflow_dispatch before
@@ -175,6 +183,7 @@ export function createApkManager({
           return json(res,503,{ok:false,status:'failed',error:request.error,
             message:'GitHub Actions did not accept the Android start request'});
         }
+        request.status='queued';
         request.dispatchedAt=new Date().toISOString();
         request.dispatchMethod='workflow_dispatch';
         await writeUiRequest(request);
@@ -185,7 +194,7 @@ export function createApkManager({
           '; HttpOnly; Secure; SameSite=Strict; Path=/lab-api/apk; Max-Age=7200');
         return json(res,202,{ok:true,status:'queued',requestId:request.id,
           message:'ANDROID_LAUNCH_QUEUED'});
-      }
+      });
       if(req.method==='GET'&&route==='/lab-api/apk/ui/status'){
         const current=await readUiRequest();
         if(!current)return json(res,200,{ok:true,status:'idle',online:false,dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN)});
