@@ -198,6 +198,29 @@ async function handle(req,res){
         ready?null:'ANDROID_CHECKPOINT_NOT_PREPARED',
       ...publicStatus()});
   }
+  if(req.method==='POST'&&path==='/probe-kvm'){
+    // Operator-triggered, one-off verification. Always delete the probe VM.
+    if(!requireBrowserOrigin(req))return json(res,403,{ok:false,error:'INVALID_SITE_ORIGIN'});
+    if(!configured)return json(res,503,{ok:false,error:'RAILWAY_API_TOKEN_NOT_CONFIGURED'});
+    if(!armed)return json(res,503,{ok:false,error:'SANDBOX_LAUNCH_NOT_ENABLED'});
+    if(active||creating)return json(res,409,{ok:false,error:'ANDROID_SESSION_ALREADY_ACTIVE'});
+    creating=true;
+    let probe=null;
+    try{
+      if((await inventory()).length)return json(res,409,{ok:false,error:'RAILWAY_SANDBOX_ALREADY_RUNNING'});
+      probe=await Sandbox.create({networkIsolation:'PRIVATE',
+        idleTimeoutMinutes:1,resources:{cpu:2,memoryGB:2}});
+      const result=await probe.exec(
+        'sh -c "test -c /dev/kvm && test -r /dev/kvm && test -w /dev/kvm && echo KVM_READY || (echo KVM_UNAVAILABLE; exit 40)"',
+        {timeoutSec:20});
+      return json(res,200,{ok:true,kvm:result.exitCode===0,
+        result:(result.stdout||result.stderr||'').slice(0,250)});
+    }catch(err){return json(res,503,{ok:false,error:String(err.message||err).slice(0,180)})}
+    finally{
+      if(probe)await destroy(probe.id,'kvm-probe-completed');
+      creating=false;
+    }
+  }
   if(req.method==='POST'&&path==='/internal-expire'){
     // VM-internal expiration works even if the web server was redeployed.
     // The capability is bound to one Sandbox ID and one non-extendable expiry.
