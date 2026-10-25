@@ -76,6 +76,11 @@ export function OriginalAndroidEmbed(){
         :fallback?'GitHub 즉시 실행 인증은 없지만 예약 실행 경로를 사용합니다. 현재 Android 호스트는 오프라인입니다.'
         :'실제 Android 11 호스트의 health 응답이 확인되어야 화면이 표시됩니다.'}</span>
     <span>원본 scrcpy/noVNC 실제 응답만 표시하며 저장된 캡처나 웹 미리보기로 대신하지 않습니다.</span>
+    <span style={{fontSize:12}}>
+      <a href="/lab-api/apk/ui/status" target="_blank" rel="noopener noreferrer">실행 요청 상태 확인</a>
+      {' · '}
+      <a href="/lab-api/android-native/status" target="_blank" rel="noopener noreferrer">Android 원본 호스트 상태 확인</a>
+    </span>
   </div>;
 
   return <div style={{height:'100%',minHeight:570,display:'flex',
