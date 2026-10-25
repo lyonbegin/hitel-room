@@ -7,6 +7,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { createCommunicationService } from './communication.mjs';
 import { createApkManager } from './apk-manager.mjs';
 import { createOriginalNativeHost } from './original-native-host.mjs';
+import { createGenymotionSaasManager } from './genymotion-saas.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const STORE = process.env.LAB_DATA_DIR || '/tmp/hitel-device-lab';
@@ -127,11 +128,15 @@ const apkManager=createApkManager({
 });
 // Redirects to the real, untouched Android Emulator Platform running on a KVM host.
 const nativeOriginal=createOriginalNativeHost({root:STORE,verifyCI:verifyOIDC});
+// Primary Android device provider. Genymotion is server-managed; never fall back
+// silently to GitHub KVM when the SaaS account is not yet connected.
+const genymotion=createGenymotionSaasManager({root:path.join(STORE,'genymotion')});
 const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url||'/', 'http://localhost');
   const route=url.pathname;
   try {
     if(route.startsWith('/comm-api/'))return await communication.http(req,res,route);
+    if(route.startsWith('/lab-api/genymotion/'))return await genymotion.http(req,res,url);
     if(route.startsWith('/lab-api/apk/'))return await apkManager.http(req,res,url);
     if(route.startsWith('/lab-api/android-native/'))return await nativeOriginal.http(req,res,url);
     if(route==='/healthz'||route==='/lab-api/health'){
