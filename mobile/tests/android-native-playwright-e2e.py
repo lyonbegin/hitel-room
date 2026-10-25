@@ -115,11 +115,26 @@ async def verify_native_input(page,phone_frame):
     canvas,box=await canvas_geometry(phone_frame)
     start={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.78}
     end={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.30}
-    await page.mouse.move(start["x"],start["y"])
-    await page.mouse.down()
-    await page.mouse.move(end["x"],end["y"],steps=14)
-    await page.mouse.up()
-    await page.wait_for_timeout(1300)
+    # Use Chrome's native touch input path instead of page.mouse. noVNC has
+    # its own touch gesture handler and x11vnc/scrcpy then carries the drag to
+    # Android. This also matches a phone-like interaction more closely.
+    cdp=await page.context.new_cdp_session(page)
+    await cdp.send("Input.dispatchTouchEvent",{
+      "type":"touchStart","touchPoints":[{"x":start["x"],"y":start["y"],"radiusX":2,"radiusY":2,"force":1}]
+    })
+    for step in range(1,15):
+        t=step/14
+        await cdp.send("Input.dispatchTouchEvent",{
+          "type":"touchMove","touchPoints":[{
+            "x":start["x"]+(end["x"]-start["x"])*t,
+            "y":start["y"]+(end["y"]-start["y"])*t,
+            "radiusX":2,"radiusY":2,"force":1
+          }]
+        })
+        await page.wait_for_timeout(22)
+    await cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[]})
+    await cdp.detach()
+    await page.wait_for_timeout(1500)
     after_drag=ui_xml()
     drag_diff=len(ui_texts(before_drag).symmetric_difference(ui_texts(after_drag)))
     before_geo=ui_geometry(before_drag)
@@ -132,7 +147,7 @@ async def verify_native_input(page,phone_frame):
     assert drag_diff>=2 or len(shifted)>=2,(
       "Browser drag did not scroll/change the Android Settings UI; "
       f"changedTexts={drag_diff} shifted={len(shifted)}")
-    say("INPUT_DRAG",{"from":start,"to":end,"changedTexts":drag_diff,
+    say("INPUT_DRAG",{"method":"cdp-touch","from":start,"to":end,"changedTexts":drag_diff,
       "shiftedRows":len(shifted),"sampleShifted":shifted[:5]})
 
     # Keyboard input goes through the focused noVNC canvas into Android Settings
