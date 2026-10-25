@@ -186,6 +186,8 @@ export function createApkManager({
         request.status='queued';
         request.dispatchedAt=new Date().toISOString();
         request.dispatchMethod='workflow_dispatch';
+        request.workflowRunId=dispatch.runId||null;
+        request.workflowRunUrl=dispatch.runUrl||null;
         await writeUiRequest(request);
         console.log('ANDROID_WORKFLOW_DISPATCH_ACCEPTED',request.id);
         pendingUiSession=null;
@@ -206,6 +208,7 @@ export function createApkManager({
           status:!active&&['queued','starting','running','stopping'].includes(current.status)?'expired':current.status,
           requestId:current.id,online:await originalHostLive(),
           error:current.error||null,dispatchedAt:current.dispatchedAt||null,
+          workflowRunUrl:current.workflowRunUrl||null,
           dispatchConfigured:Boolean(process.env.HITEL_GITHUB_DISPATCH_TOKEN),
           requestedAt:current.createdAt});
       }
