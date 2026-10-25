@@ -8,7 +8,7 @@ on:
       - 'hitel-ui-flow/tests/**'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   audit:
     runs-on: ubuntu-latest
@@ -31,6 +31,17 @@ jobs:
         env:
           HITEL_URL: https://hitel-fusion-web-production.up.railway.app/
         run: node tests/ux-audit.mjs
+      - name: Publish latest text report
+        if: always()
+        shell: bash
+        run: |
+          if [ -f hitel-ui-flow/ux-audit-results/report.json ]; then
+            cp hitel-ui-flow/ux-audit-results/report.json hitel-ui-flow/ux-audit-latest.json
+            git config user.name 'HITEL UX Bot'
+            git config user.email 'actions@users.noreply.github.com'
+            git add hitel-ui-flow/ux-audit-latest.json
+            git diff --staged --quiet || (git commit -m 'test(ux): publish live audit report [skip ci]' && git push)
+          fi
       - name: Upload screenshots and report
         if: always()
         uses: actions/upload-artifact@v4
