@@ -113,27 +113,33 @@ async def verify_native_input(page,phone_frame):
     await page.wait_for_timeout(1900)
     before_drag=ui_xml()
     canvas,box=await canvas_geometry(phone_frame)
-    start={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.78}
-    end={"x":box["x"]+box["width"]*0.52,"y":box["y"]+box["height"]*0.30}
-    # Use Chrome's native touch input path instead of page.mouse. noVNC has
-    # its own touch gesture handler and x11vnc/scrcpy then carries the drag to
-    # Android. This also matches a phone-like interaction more closely.
-    cdp=await page.context.new_cdp_session(page)
-    await cdp.send("Input.dispatchTouchEvent",{
-      "type":"touchStart","touchPoints":[{"x":start["x"],"y":start["y"],"radiusX":2,"radiusY":2,"force":1}]
-    })
-    for step in range(1,15):
-        t=step/14
-        await cdp.send("Input.dispatchTouchEvent",{
-          "type":"touchMove","touchPoints":[{
-            "x":start["x"]+(end["x"]-start["x"])*t,
-            "y":start["y"]+(end["y"]-start["y"])*t,
-            "radiusX":2,"radiusY":2,"force":1
-          }]
-        })
-        await page.wait_for_timeout(22)
-    await cdp.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[]})
-    await cdp.detach()
+    # noVNC translates its custom drag gesture to a held VNC pointer button:
+    # gesturestart -> button 1 down, gesturemove -> pointer motion,
+    # gestureend -> button release. Dispatch that exact public DOM event path
+    # inside the real phone iframe. This bypasses Chromium's synthetic-touch
+    # recognition while still exercising the real noVNC -> x11vnc -> scrcpy
+    # -> Android input transport.
+    rect=await canvas.evaluate("""el=>{
+      const r=el.getBoundingClientRect();
+      return {x:r.x,y:r.y,width:r.width,height:r.height};
+    }""")
+    start={"x":rect["x"]+rect["width"]*0.52,"y":rect["y"]+rect["height"]*0.78}
+    end={"x":rect["x"]+rect["width"]*0.52,"y":rect["y"]+rect["height"]*0.30}
+    async def gesture(kind,x,y):
+        await canvas.evaluate("""(el,p)=>{
+          el.dispatchEvent(new CustomEvent(p.kind,{
+            bubbles:true,cancelable:true,
+            detail:{type:'drag',clientX:p.x,clientY:p.y}
+          }));
+        }""",{"kind":kind,"x":x,"y":y})
+    await gesture("gesturestart",start["x"],start["y"])
+    for step in range(1,17):
+        t=step/16
+        await gesture("gesturemove",
+          start["x"]+(end["x"]-start["x"])*t,
+          start["y"]+(end["y"]-start["y"])*t)
+        await page.wait_for_timeout(24)
+    await gesture("gestureend",end["x"],end["y"])
     await page.wait_for_timeout(1500)
     after_drag=ui_xml()
     drag_diff=len(ui_texts(before_drag).symmetric_difference(ui_texts(after_drag)))
@@ -147,7 +153,7 @@ async def verify_native_input(page,phone_frame):
     assert drag_diff>=2 or len(shifted)>=2,(
       "Browser drag did not scroll/change the Android Settings UI; "
       f"changedTexts={drag_diff} shifted={len(shifted)}")
-    say("INPUT_DRAG",{"method":"cdp-touch","from":start,"to":end,"changedTexts":drag_diff,
+    say("INPUT_DRAG",{"method":"novnc-gesture-rfb","from":start,"to":end,"changedTexts":drag_diff,
       "shiftedRows":len(shifted),"sampleShifted":shifted[:5]})
 
     # Keyboard input goes through the focused noVNC canvas into Android Settings
