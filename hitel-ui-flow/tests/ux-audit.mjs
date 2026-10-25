@@ -39,7 +39,7 @@ await test('전화번호 입력 발신 흐름',async()=>{
  if(!await page.getByRole('button',{name:/전화 걸기|발신|01012345678/}).count())add('UX-04','critical','개인 010 발신','번호를 입력해도 직접 발신 경로 없음','전화번호 입력→지원 판정→발신 또는 대안');
 });
 await test('빈 게시글 등록',async()=>{
- await page.getByRole('button',{name:'글쓰기'}).click();
+ await page.getByRole('button',{name:'새 활동 만들기'}).click();
  await page.getByRole('button',{name:/서비스 요청/}).click();
  await page.getByRole('button',{name:'등록 미리보기'}).click();await shot(page,'09-empty-post');
  if(await page.getByText('제목 미입력').count())add('UX-05','major','글쓰기','빈 제목·설명으로도 미리보기 가능','필수 필드 및 역할별 입력폼 유효성 검증');
@@ -51,7 +51,7 @@ await test('검색 결과 없음',async()=>{
 });
 await test('191개 화면 목록',async()=>{
  await page.locator('header button[title="전체 메뉴 · 191 화면"]').click();await shot(page,'11-menu-191');
- const n=await page.locator('.linkrow').count();
+ const n=await page.locator('.content > button.linkrow').count();
  if(n!==191)add('UX-07','major','전체 메뉴','목록 행 '+n+'개 표시','191개 항목 표시 점검');
 });
 for(const v of [{width:768,height:1024,id:'12-tablet'},{width:1440,height:900,id:'13-desktop'}]){
