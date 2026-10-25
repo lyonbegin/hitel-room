@@ -2,6 +2,10 @@
 services:
   emulator-1:
     cpus: 4
+  scrcpy-1:
+    entrypoint: ["/bin/bash", "/hitel-scrcpy-input-entrypoint.sh"]
+    volumes:
+      - ../../infra/android-original/scrcpy-input-entrypoint.sh:/hitel-scrcpy-input-entrypoint.sh:ro
   backend:
     environment:
       EMULATOR_SLOTS: >-
