@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {AndroidSessionControls} from './AndroidSessionControls';
 
 type NativeStatus={
   ok?:boolean;
@@ -47,6 +48,23 @@ export function OriginalAndroidEmbed(){
   const base=valid?status?.url||'':'';
   const viewerUrl=base+'/stream/1/phone.html';
 
+  // Presence is renewed only while this HITEL page is visibly open.
+  // Merely polling status must not keep a disposable KVM runner alive.
+  useEffect(()=>{
+    if(!base)return;
+    const ping=()=>{
+      if(document.visibilityState==='visible'){
+        void fetch('/lab-api/android-native/heartbeat',{
+          method:'POST',credentials:'same-origin',cache:'no-store'
+        }).catch(()=>{});
+      }
+    };
+    ping();
+    const timer=window.setInterval(ping,20000);
+    document.addEventListener('visibilitychange',ping);
+    return ()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',ping)};
+  },[base]);
+
   if(!valid)return <div style={{
     display:'grid',placeContent:'center',height:'100%',minHeight:480,
     padding:24,textAlign:'center',color:'#73848c',gap:10}}>
@@ -67,11 +85,10 @@ export function OriginalAndroidEmbed(){
       color:'#185777'}}>
       <strong>● 실제 Android 11 화면 연결됨 · 직접 터치/키보드 조작</strong>
       <span style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        <a href={viewerUrl} target="_blank" rel="noopener noreferrer"
+        <a href="/sdk-lab/android-view" target="_blank" rel="noopener noreferrer"
           style={{fontWeight:750}}>Android 전체 화면 ↗</a>
-        <a href={base+'/'} target="_blank" rel="noopener noreferrer"
-          title="원본 관리자에서는 단일 기기가 이미 사용 중으로 표시될 수 있습니다">
-          원본 관리 콘솔 ↗
+        <a href="/sdk-lab" target="_blank" rel="noopener noreferrer">
+          SDK 관리 화면 ↗
         </a>
       </span>
     </div>
@@ -80,4 +97,24 @@ export function OriginalAndroidEmbed(){
       allow="clipboard-read; clipboard-write"
       style={{width:'100%',flex:1,minHeight:530,border:0}}/>
   </div>;
+}
+
+/** Persistent same-origin page. Never navigate the top-level browser to a
+ * short-lived trycloudflare URL; unmount the iframe when the host disappears. */
+export function OriginalAndroidFullScreen(){
+  const [notice,setNotice]=useState('');
+  return <main style={{minHeight:'100vh',background:'#f4f7f9',color:'#193f51',padding:'12px clamp(8px, 2vw, 24px)'}}>
+    <header style={{display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:12}}>
+      <div><strong>HITEL · 실제 Android 11</strong><div style={{fontSize:12,color:'#687d89'}}>scrcpy/noVNC · 실행 중인 기기만 표시 · 테스트 종료 시 자동 복귀</div></div>
+      <a href="/sdk-lab" style={{fontSize:13,fontWeight:700,color:'#126987'}}>SDK 에뮬레이터 관리 ↗</a>
+    </header>
+    <div style={{background:'#fff',border:'1px solid #dce4e9',borderRadius:12,overflow:'hidden',minHeight:'76vh'}}>
+      <OriginalAndroidEmbed/>
+    </div>
+    <section style={{maxWidth:650,margin:'14px auto',padding:12,background:'#fff',borderRadius:12}}>
+      <AndroidSessionControls onNotice={setNotice}/>
+      {notice&&<p role="status" style={{fontSize:13}}>{notice}</p>}
+      <p style={{fontSize:12,color:'#687d89'}}>기기가 종료되거나 연결이 끊겨도 HITEL 화면은 유지됩니다. 실행 버튼으로 다시 시작할 수 있습니다.</p>
+    </section>
+  </main>;
 }
