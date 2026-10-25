@@ -258,7 +258,7 @@ const server=http.createServer((req,res)=>{
 });
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
-  chmodSync(SOCKET_PATH,0o660);
+  chmodSync(SOCKET_PATH,0o666);
   console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',SOCKET_PATH);
 });
 // In-process watchdog independent of browser tab and user clicks. The VM runs
