@@ -7,10 +7,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/5 * * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.github/hitel-android-runner-kick'
 permissions:
   contents: read
   id-token: write
