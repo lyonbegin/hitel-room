@@ -336,3 +336,24 @@ test('Actual GitHub workflow dispatch is issued exactly once before returning qu
     assert.ok(record.dispatchedAt);
   }finally{await f.dispose()}
 });
+
+test('two simultaneous real website clicks never dispatch more than one GitHub KVM runner',async()=>{
+  let dispatches=0;
+  const f=await fixture({dispatchAndroidRun:async()=>{
+    dispatches++;
+    await new Promise(done=>setTimeout(done,130));
+    return {ok:true,status:204,method:'workflow_dispatch'};
+  }});
+  try{
+    const url=f.url+'/lab-api/apk/ui/start';
+    const responses=await Promise.all([
+      fetch(url,{method:'POST',body:'{}'}),
+      fetch(url,{method:'POST',body:'{}'})
+    ]);
+    assert.deepEqual(responses.map(x=>x.status).sort((a,b)=>a-b),[202,409]);
+    assert.equal(dispatches,1,'Only one GitHub workflow may be triggered per real Android slot');
+    const file=JSON.parse(await readFile(join(f.store,'interactive-request.json'),'utf8'));
+    assert.equal(file.status,'queued');
+    assert.ok(file.dispatchedAt);
+  }finally{await f.dispose()}
+});
