@@ -1,0 +1,88 @@
+
+.gm-saas-root{min-height:100vh;background:#f6f7fa;color:#232834;font-family:Inter,Pretendard,-apple-system,BlinkMacSystemFont,"Noto Sans KR",Arial,sans-serif;font-size:13px}
+.gm-saas-root *{box-sizing:border-box}
+.gm-saas-root button,.gm-saas-root input,.gm-saas-root select{font:inherit}
+.gm-saas-root button{cursor:pointer}
+.gm-saas-root button:disabled{opacity:.45;cursor:not-allowed}
+.gm-saas-root a{color:inherit;text-decoration:none}
+.gm-top{height:66px;background:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 24px;border-bottom:1px solid #e7e9ee;gap:16px}
+.gm-menu-brand{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:750;color:#252a33}
+.gm-menu-brand small{font-size:10px;font-weight:700;display:block;color:#6d7280;letter-spacing:2px;text-transform:uppercase}
+.gm-hex,.gm-hex-small{color:#dc3044;font-size:28px}
+.gm-hamburger{font-size:17px;color:#7b8190;margin-right:6px}
+.gm-top-right{display:flex;gap:13px;align-items:center;color:#646b77;white-space:nowrap}
+.gm-top-right button{background:transparent;border:0;font-size:21px;color:#777e88}
+.gm-top-right a{background:#f2f3f5;border:1px solid #e0e3e7;border-radius:6px;padding:8px 11px;font-size:12px}
+.gm-cloud-dot,.gm-ok{color:#20ae76}
+.gm-body{display:grid;grid-template-columns:215px minmax(0,1fr);min-height:calc(100vh - 66px)}
+.gm-sidebar{background:#fff;border-right:1px solid #e6e9ed;padding:22px 0;display:flex;flex-direction:column;gap:4px}
+.gm-sidebar>a,.gm-sidebar>button{background:transparent;border:0;color:#626875;text-align:left;min-height:43px;padding:10px 24px;font-weight:550}
+.gm-sidebar>a span,.gm-sidebar>button span{margin-right:13px}
+.gm-sidebar>button.gm-active{background:#fff2f3;color:#c52c40;border-right:3px solid #d73548;font-weight:750}
+.gm-sidebar>a:hover,.gm-sidebar>button:hover{background:#f8f9fb}
+.gm-sidebar-separator{height:1px;background:#e8e9ee;margin:20px 18px}
+.gm-sidebar-bottom{margin:auto 22px 0;padding-top:24px;font-size:11px;color:#9297a0}
+.gm-sidebar-bottom span{display:block;font-size:12px;margin-top:6px}
+.gm-pending{color:#a96c19}
+.gm-content{padding:32px 36px;min-width:0}
+.gm-heading-row{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px}
+.gm-heading-row h2{font-size:24px;letter-spacing:-.5px;font-weight:740;margin:0}
+.gm-heading-actions{display:flex;gap:10px}
+.gm-icon-button{background:#fff;border:1px solid #dadee5;border-radius:6px;color:#676f7d;width:36px;height:36px;font-size:18px}
+.gm-start{background:#da3449;border:1px solid #d12e43;color:white;border-radius:6px;min-height:36px;padding:8px 17px;font-weight:750;letter-spacing:.25px}
+.gm-error,.gm-disconnected{margin-bottom:18px;border:1px solid #f1d8dc;background:#fff5f6;color:#912f3c;padding:13px 15px;border-radius:7px;line-height:1.5}
+.gm-disconnected{border-color:#e3e5e9;background:white;color:#6b7480}
+.gm-error button{float:right;border:0;background:none;font-size:17px;color:#912f3c}
+.gm-table-scroll{overflow:auto;background:#fff;border:1px solid #e2e5eb;border-radius:8px;box-shadow:0 2px 8px #23283409}
+.gm-table{width:100%;border-collapse:collapse;white-space:nowrap;text-align:left}
+.gm-table th{background:#f9fafb;font-size:11px;color:#808694;font-weight:700;letter-spacing:.3px}
+.gm-table th,.gm-table td{border-bottom:1px solid #e9ebef;padding:14px 16px}
+.gm-table td code{font-size:11px;color:#7c828c}
+.gm-table td button{border:1px solid #dadfe6;border-radius:4px;background:white;padding:5px 8px;margin-right:4px}
+.gm-table-status{color:#209870;font-weight:700}
+.gm-empty,.gm-empty-cards{color:#858b96;text-align:center;padding:50px 12px}
+.gm-pagination{text-align:right;color:#868c96;padding:12px 18px;font-size:11px}
+.gm-device-live{display:grid;grid-template-columns:195px minmax(0,1fr);min-height:580px;border:1px solid #e2e5eb;background:white;border-radius:8px;overflow:hidden}
+.gm-device-menu{padding:20px 12px;border-right:1px solid #e4e7eb;background:#fafbfc;display:flex;flex-direction:column;gap:8px}
+.gm-device-menu h3{font-size:13px;overflow-wrap:anywhere;padding:0 10px}
+.gm-device-menu button,.gm-device-menu a{background:transparent;border:0;text-align:left;padding:10px;border-radius:4px;font-size:12px}
+.gm-device-menu .gm-selected{background:#f6e7ea;color:#c83147}
+.gm-device-status{margin-top:auto;color:#209870;padding:10px}
+.gm-device-main{display:flex;flex-direction:column;min-width:0}
+.gm-device-title{padding:16px 20px;border-bottom:1px solid #eaedf0;font-weight:700}
+.gm-live-player,.gm-renderer{flex:1;min-height:510px;position:relative}
+.gm-player-message{padding:12px;color:#a83a43}
+.gm-awaiting{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#69707d}
+.gm-awaiting b{color:#333844;font-size:17px}
+.gm-spin{font-size:40px}
+.gm-recipes-header{display:flex;gap:12px;margin-bottom:20px}
+.gm-recipes-header input,.gm-recipes-header select,.gm-dialog input{border:1px solid #dce0e7;background:white;border-radius:6px;padding:10px 12px;min-height:40px}
+.gm-recipe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.gm-recipe-card{background:white;border:1px solid #e2e5eb;border-radius:8px;box-shadow:0 2px 8px #252a3208}
+.gm-recipe-card-main{padding:20px;display:flex;flex-direction:column;gap:13px;color:#626c77}
+.gm-recipe-title{display:flex;justify-content:space-between;align-items:center;color:#303744;font-weight:730;font-size:16px}
+.gm-recipe-title button{border:0;color:#cf3648;background:#fff1f3;border-radius:5px;padding:7px 10px}
+.gm-recipe-card code{font-size:10px;color:#9aa1a9;overflow-wrap:anywhere}
+.gm-recipe-card footer{padding:12px 20px;border-top:1px solid #e7e9ed;color:#838892}
+.gm-recipe-arch{color:#88909b}
+.gm-general{background:#fff;border:1px solid #e5e8ed;border-radius:8px;padding:25px;line-height:1.7}
+.gm-general h2{font-size:23px;margin:0 0 20px}
+.gm-general a{color:#c93448}
+.gm-admin-boxes{display:flex;flex-wrap:wrap;gap:16px;margin:20px 0}
+.gm-admin-boxes>div{min-width:220px;padding:18px;border:1px solid #e4e7eb;border-radius:6px}
+.gm-admin-boxes small,.gm-admin-boxes b{display:block}
+.gm-dialog-backdrop{position:fixed;inset:0;background:#111b29a6;z-index:100;display:flex;align-items:center;justify-content:center;padding:18px}
+.gm-dialog{background:#fff;border-radius:10px;width:min(100%,560px);max-height:90vh;overflow:auto;padding:22px;box-shadow:0 20px 80px #111a2850}
+.gm-dialog header,.gm-dialog footer{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.gm-dialog header h3{margin:0;font-size:20px}
+.gm-dialog header button{border:0;background:transparent;font-size:25px}
+.gm-dialog p{color:#727986}
+.gm-dialog input{width:100%}
+.gm-dialog-list{display:flex;flex-direction:column;gap:6px;max-height:290px;overflow-y:auto;padding:12px 0}
+.gm-dialog-list button{border:1px solid #e1e5eb;border-radius:6px;background:white;padding:13px;text-align:left}
+.gm-dialog-list button.selected{border-color:#cd3b4d;background:#fff0f2}
+.gm-dialog-list small{display:block;color:#858d96}
+.gm-dialog footer{border-top:1px solid #e6e8ed;padding-top:14px}
+.gm-dialog footer>button:not(.gm-start){border:1px solid #dfe3e8;background:#fff;border-radius:6px;padding:8px 14px}
+@media(max-width:800px){.gm-body{grid-template-columns:1fr}.gm-sidebar{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid #e7e9ed;padding:6px}.gm-sidebar>a,.gm-sidebar>button{white-space:nowrap;padding:10px}.gm-sidebar-separator,.gm-sidebar-bottom{display:none}.gm-content{padding:18px}.gm-top{padding:0 15px}.gm-top-right span:not(.gm-cloud-dot){display:none}.gm-device-live{grid-template-columns:1fr}.gm-device-menu{flex-direction:row;flex-wrap:wrap;align-items:center;border-right:0;border-bottom:1px solid #e4e7eb}.gm-device-menu h3{width:100%}.gm-device-status{margin-top:0}.gm-renderer{min-height:460px}}
+@media(max-width:480px){.gm-heading-row h2{font-size:20px}.gm-top{gap:8px}.gm-top-right{gap:6px}.gm-top-right a{padding:7px;font-size:10px}.gm-menu-brand{font-size:17px}.gm-content{padding:12px}.gm-recipe-grid{grid-template-columns:1fr}.gm-recipes-header{flex-direction:column}}
