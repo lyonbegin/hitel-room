@@ -1,0 +1,30 @@
+name: HITEL production Android dispatch truthful UI smoke
+on:
+  push:
+    branches: [feature/communication-sdk]
+    paths:
+      - '.github/workflows/android-dispatch-production-smoke.yml'
+      - 'mobile/tests/android-dispatch-production-smoke.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install --quiet playwright==1.56.0
+          python -m playwright install chromium
+      - name: Check real Railway UI, dispatch credential state and disabled false-success button
+        run: python mobile/tests/android-dispatch-production-smoke.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android-dispatch-real-chromium
+          path: mobile-test-results/production-dispatch/
+          if-no-files-found: error
