@@ -145,14 +145,17 @@ async def verify_native_input(page,phone_frame):
       if(x1-x0<40||y1-y0<80)throw Error('NO_VISIBLE_NATIVE_ANDROID_PIXELS');
       const r=el.getBoundingClientRect();
       return {canvas:{width:w,height:h},display:{
-        x:r.x+x0*r.width/w,y:r.y+y0*r.height/h,
+        x:x0*r.width/w,y:y0*r.height/h,
         width:(x1-x0+1)*r.width/w,height:(y1-y0+1)*r.height/h}};
     }""")
     live=rendered["display"]
-    start={"x":live["x"]+live["width"]*0.52,
-           "y":live["y"]+live["height"]*0.81}
-    end={"x":live["x"]+live["width"]*0.52,
-         "y":live["y"]+live["height"]*0.35}
+    # canvas.evaluate() returns FRAME-local coordinates, whereas Playwright
+    # page.mouse uses TOP-PAGE coordinates across the cross-origin iframe.
+    # bounding_box() already includes the iframe's global position.
+    start={"x":box["x"]+live["x"]+live["width"]*0.52,
+           "y":box["y"]+live["y"]+live["height"]*0.81}
+    end={"x":box["x"]+live["x"]+live["width"]*0.52,
+         "y":box["y"]+live["y"]+live["height"]*0.35}
     say("INPUT_DRAG_GEOMETRY",{"painted":rendered,"canvasBox":box,
                               "from":start,"to":end})
     await page.mouse.move(start["x"],start["y"])
