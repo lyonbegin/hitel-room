@@ -1,8 +1,12 @@
 name: HITEL Original Android scrcpy requested from Railway website
-# Started on demand by Railway's authenticated GitHub REST workflow_dispatch.
-# No polling, cron, push-triggered Android or manual user GitHub workflow clicks.
+# Preferred path: Railway's authenticated GitHub REST workflow_dispatch.
+# Credential-free fallback: every 5 minutes a lightweight runner checks whether
+# the HITEL website has a pending request. It exits before KVM/Android startup
+# when there is nothing to run. No manual GitHub workflow click is required.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
 permissions:
   contents: read
   id-token: write
