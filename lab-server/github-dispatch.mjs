@@ -29,8 +29,19 @@ export async function dispatchGithubAndroidRun({
       body:JSON.stringify({ref}),
       signal:controller.signal
     });
-    if(response.status===204)
-      return {ok:true,status:204,method:'workflow_dispatch',workflow,ref};
+    if(response.status===200||response.status===204){
+      let runId=null,runUrl=null;
+      if(response.status===200){
+        try{
+          const body=await response.json();
+          runId=Number.isSafeInteger(body?.workflow_run_id)?body.workflow_run_id:null;
+          const url=String(body?.html_url||'');
+          if(/^https:\/\/github\.com\/lyonbegin\/hitel-room\/actions\/runs\/[0-9]+$/.test(url))
+            runUrl=url;
+        }catch{ /* Older GitHub API versions return an empty body. */ }
+      }
+      return {ok:true,status:response.status,method:'workflow_dispatch',workflow,ref,runId,runUrl};
+    }
     // Do not expose GitHub response bodies or credentials to browsers.
     return {ok:false,status:response.status,
       error:response.status===401||response.status===403?
