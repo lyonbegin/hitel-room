@@ -208,6 +208,8 @@ async def verify_native_input(page,phone_frame):
     # Restore a neutral home state after the destructive-free interaction test.
     adb("shell","input","keyevent","KEYCODE_HOME")
     await page.wait_for_timeout(600)
+    # Do not allow an Android CI pass when the browser drag failed.
+    assert drag_ok, "Actual Chromium drag did not scroll the native Android list"
 
 async def main():
     async with async_playwright() as p:
