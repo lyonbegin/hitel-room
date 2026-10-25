@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 import './AndroidSessionControls.css';
 
 type RunStatus='idle'|'queued'|'starting'|'running'|'stopping'|'completed'|'expired'|'busy'|'failed';
-type StatusReply={ok:boolean;status?:RunStatus;online?:boolean;error?:string;dispatchConfigured?:boolean};
+type StatusReply={ok:boolean;status?:RunStatus;online?:boolean;error?:string;dispatchConfigured?:boolean;scheduledFallbackConfigured?:boolean;launchAvailable?:boolean;launchMode?:string;dispatchError?:string};
 type NativeReply={ok:boolean;online?:boolean;url?:string;transport?:string};
 
 export function AndroidSessionControls({onNotice}:{
@@ -13,6 +13,9 @@ export function AndroidSessionControls({onNotice}:{
   const [nativeOnline,setNativeOnline]=useState(false);
   const [busy,setBusy]=useState(false);
   const [dispatchConfigured,setDispatchConfigured]=useState<boolean|null>(null);
+  const [scheduledFallbackConfigured,setScheduledFallbackConfigured]=useState(false);
+  const [launchAvailable,setLaunchAvailable]=useState<boolean|null>(null);
+  const [launchMode,setLaunchMode]=useState('');
   const [dispatchError,setDispatchError]=useState('');
   const refresh=async()=>{
     try{
@@ -24,6 +27,9 @@ export function AndroidSessionControls({onNotice}:{
       setStatus(info.status||'idle');
       setOnline(Boolean(info.online));
       if(typeof info.dispatchConfigured==='boolean')setDispatchConfigured(info.dispatchConfigured);
+      if(typeof info.scheduledFallbackConfigured==='boolean')setScheduledFallbackConfigured(info.scheduledFallbackConfigured);
+      if(typeof info.launchAvailable==='boolean')setLaunchAvailable(info.launchAvailable);
+      if(typeof info.launchMode==='string')setLaunchMode(info.launchMode);
       const real=await fetch('/lab-api/android-native/status',{
         credentials:'same-origin',cache:'no-store'
       });
@@ -49,7 +55,10 @@ export function AndroidSessionControls({onNotice}:{
       if(!response.ok){setDispatchError(info.error||'ANDROID_START_FAILED');setStatus('failed');throw Error(info.error||'Android 시작 오류')}
       setDispatchError('');
       setStatus('queued');
-      onNotice('Android 요청만 서버에 등록되었습니다. 실제 GitHub 실행기 기동 및 실시간 화면 연결은 아직 완료되지 않았습니다.');
+      if(typeof info.launchMode==='string')setLaunchMode(info.launchMode);
+      onNotice(info.launchMode==='scheduled-fallback'?
+        'Android 요청이 등록되었습니다. 다음 GitHub 예약 실행 주기에서 KVM 실행기가 자동으로 요청을 가져갑니다.':
+        'Android 요청이 등록되었고 GitHub 즉시 실행이 수락되었습니다. 실제 화면 연결을 계속 확인합니다.');
     }catch(e){onNotice('Android 시작 실패: '+String(e))}
     finally{setBusy(false);void refresh()}
   };
@@ -88,18 +97,25 @@ export function AndroidSessionControls({onNotice}:{
           ▶ 현재 Android 화면 열기 ↗
         </a>:
         <button type="button" className="dl-android-start"
-          disabled={busy||active||status==='busy'||dispatchConfigured===false}
+          disabled={busy||active||status==='busy'||launchAvailable===false}
           onClick={()=>void start()}>Android 실행</button>}
       <button type="button" className="dl-android-stop" disabled={busy||!active}
         onClick={()=>void stop()}>Android 종료</button>
     </div>
     <p role="status" aria-live="polite" className={'dl-android-session-status '+(online?'connected':'')}>
-      {nativeOnline?readable[status]:dispatchConfigured===false?'GitHub Actions 즉시 실행 연결 미설정 · Android 실행 불가':dispatchError?'Android 기동 실패: '+dispatchError:readable[status]}
+      {nativeOnline?readable[status]:
+        launchAvailable===false?'Android 자동 실행 경로 미설정':
+        status==='queued'&&launchMode==='scheduled-fallback'?'실행 요청 등록됨 · GitHub 예약 실행기 자동 수거 대기':
+        dispatchError?'Android 기동 실패: '+dispatchError:readable[status]}
     </p>
     <p className="dl-android-session-hint">
       {nativeOnline?<a href="/lab-api/android-native/view" target="_blank" rel="noopener noreferrer">
         기존 세션 그대로 사용 · 실제 Android 홈/앱 설치 화면 ↗</a>:
-        dispatchConfigured===false?'GitHub Actions API의 서버 인증 연결이 아직 없습니다. 실행 성공으로 표시하지 않습니다.':'GitHub가 실행 요청을 수락해도 Android 화면·noVNC 연결을 확인해야 실행 완료입니다.'}
+        dispatchConfigured===false&&scheduledFallbackConfigured?
+          '직접 GitHub API 인증은 없지만 5분 간격 예약 실행기가 요청을 자동 확인합니다. GitHub 화면 조작은 필요 없습니다.':
+        launchAvailable===false?
+          'GitHub 즉시 실행 또는 예약 실행 경로가 설정되어야 합니다.':
+          'GitHub 실행이 시작되어도 Android 부팅·noVNC 실제 화면 연결을 확인한 뒤 실행 완료로 판정합니다.'}
     </p>
   </div>;
 }
