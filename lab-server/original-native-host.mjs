@@ -69,7 +69,7 @@ export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheM
         const link=String(data.url||'').replace(/\/$/,'');
         if(!safeUrl.test(link))return json(res,400,{ok:false,error:'INVALID_NATIVE_HTTPS_URL'});
         const info={url:link,status:'online',runId:String(identity.run_id||''),
-          registeredAt:new Date().toISOString(),expiresAt:Date.now()+19*60*1000,
+          registeredAt:new Date().toISOString(),lastActiveAt:Date.now(),expiresAt:Date.now()+4*60*60*1000,
           transport:'original-scrcpy-novnc',engine:'original-android-11-docker'};
         await save(info);
         return json(res,201,{ok:true,status:info.status,expiresAt:info.expiresAt});
@@ -82,6 +82,18 @@ export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheM
           current.status='stopped';current.finishedAt=new Date().toISOString();await save(current);
         }
         return json(res,200,{ok:true});
+      }
+      // Only a visibly open HITEL viewer keeps an actual disposable device alive.
+      // If the visitor closes the page, GitHub stops and resets the emulator after 30m.
+      if(req.method==='POST'&&route==='/lab-api/android-native/heartbeat'){
+        const origin=String(req.headers.origin||'');
+        if(origin!=='https://hitel-communication-web-production.up.railway.app')
+          return json(res,403,{ok:false,error:'HITEL_VIEWER_ORIGIN_REQUIRED'});
+        const current=await read();
+        if(!(await live(current)))return json(res,503,{ok:false,error:'ORIGINAL_ANDROID_NOT_RUNNING'});
+        current.lastActiveAt=Date.now();
+        await save(current);
+        return json(res,200,{ok:true,active:true});
       }
       if(req.method==='GET'&&route==='/lab-api/android-native/status'){
         const current=await read();
@@ -114,8 +126,11 @@ export function createOriginalNativeHost({root,verifyCI,probeLiveUrl,probeCacheM
         let cur=null;try{cur=JSON.parse(await fs.readFile(file,'utf8'))}catch{}
         // Do not stop a new native runner because an old test completed.
         // A stop must belong to this precise GitHub Actions run.
-        return json(res,200,{ok:true,stop:!!cur&&cur.status==='stopping'&&
-          cur.claimRunId===String(identity.run_id||'')});
+        const ownRun=!!current&&current.runId===String(identity.run_id||'');
+        const explicitStop=!!cur&&cur.status==='stopping'&&
+          cur.claimRunId===String(identity.run_id||'');
+        const idle=ownRun&&Date.now()-Number(current.lastActiveAt||Date.parse(current.registeredAt)||0)>30*60*1000;
+        return json(res,200,{ok:true,stop:Boolean(explicitStop||idle),reason:explicitStop?'user_stop':idle?'viewer_idle':null});
       }
       return json(res,404,{ok:false,error:'UNKNOWN_ORIGINAL_ANDROID_ENDPOINT'});
     }catch(e){
