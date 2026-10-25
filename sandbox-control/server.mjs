@@ -232,7 +232,7 @@ const server=http.createServer((req,res)=>{
     else res.end();
   });
 });
-server.listen(PORT,'0.0.0.0',()=>console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',PORT));
+server.listen(PORT,'127.0.0.1',()=>console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',PORT));
 // In-process watchdog independent of browser tab and user clicks. The VM runs
 // its own watchdog and Railway additionally enforces 1 minute of idleness.
 setInterval(async()=>{
