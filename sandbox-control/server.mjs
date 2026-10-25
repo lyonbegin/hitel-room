@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {chmodSync,unlinkSync} from 'node:fs';
 import {createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {Sandbox} from 'railway';
 
@@ -10,7 +11,7 @@ import {Sandbox} from 'railway';
  * The launch API stays closed until the Railway workspace credential and an
  * Android 11 checkpoint are actually present. We do not simulate a device.
  */
-const PORT = Number(process.env.SANDBOX_CONTROL_PORT || 8099);
+const SOCKET_PATH = '/tmp/hitel-sandbox.sock';
 const TTL_MS = 600_000;
 const CHECKPOINT = process.env.HITEL_ANDROID_CHECKPOINT || 'hitel-android11-ready';
 const SELF_EXPIRE_URL = process.env.HITEL_SANDBOX_SELF_EXPIRE_URL ||
@@ -255,7 +256,11 @@ const server=http.createServer((req,res)=>{
     else res.end();
   });
 });
-server.listen(PORT,'127.0.0.1',()=>console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',PORT));
+try{unlinkSync(SOCKET_PATH)}catch{}
+server.listen(SOCKET_PATH,()=>{
+  chmodSync(SOCKET_PATH,0o660);
+  console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',SOCKET_PATH);
+});
 // In-process watchdog independent of browser tab and user clicks. The VM runs
 // its own watchdog and Railway additionally enforces 1 minute of idleness.
 setInterval(async()=>{
