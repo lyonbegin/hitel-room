@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # HITEL GitHub-KVM input transport override.
 # The upstream vendor scrcpy-display files stay byte-for-byte unchanged.
-set -Eeuo pipefail
+set -uo pipefail
 
 EMU="${EMU:-android-emulator-1:5555}"
 XW="${XVFB_W:-720}"
