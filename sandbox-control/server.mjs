@@ -44,8 +44,13 @@ async function probeRealViewer(){
     const url='https://'+domain+'/vnc.html';
     const response=await fetch(url,{signal:AbortSignal.timeout(2500),redirect:'manual'});
     if(response.ok){
-      active.viewerUrl=url+'?autoconnect=true&resize=scale';
-      active.status='running';
+      const guest=await sb.exec(
+        'sh -c "test -x /opt/android/platform-tools/adb && /opt/android/platform-tools/adb shell getprop sys.boot_completed | grep -q 1 && pgrep -f \"[s]crcpy\" >/dev/null"',
+        {timeoutSec:5});
+      if(guest.exitCode===0){
+        active.viewerUrl=url+'?autoconnect=true&resize=scale';
+        active.status='running';
+      }
     }
   }catch(err){
     if(active?.status==='running'){active.status='connecting';active.viewerUrl=null;}
