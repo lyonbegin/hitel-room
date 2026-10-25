@@ -121,24 +121,47 @@ async def verify_native_input(page,phone_frame):
     (OUT/"apps-before-drag.xml").write_text(before_drag,encoding="utf-8")
     await page.screenshot(path=str(OUT/"03-android-before-drag.png"),full_page=True)
     canvas,box=await canvas_geometry(phone_frame)
-    # Use a REAL Chromium mouse press/move/release on the actual iframe
-    # canvas. No custom DOM events, no ADB scrolling, no mocked UI actions.
-    # Playwright's bounding_box is expressed in the main page viewport even
-    # for a cross-origin iframe. noVNC forwards the held RFB pointer.
+    # IMPORTANT: the original VNC desktop canvas is bigger than the actual
+    # Android picture. In the captured run the canvas was 289x607 but the
+    # screen was rendered only into its upper-left 144x304 pixels. Dragging
+    # at canvas.width*.52 targeted BLACK LETTERBOX pixels, not Android.
+    # Read the ACTUAL non-black picture bounds from the existing noVNC 2D
+    # canvas, then send genuine Chromium pointer events inside those bounds.
     canvas,box=await canvas_geometry(phone_frame)
-    start={"x":box["x"]+box["width"]*0.52,
-           "y":box["y"]+box["height"]*0.43}
-    end={"x":box["x"]+box["width"]*0.52,
-         "y":box["y"]+box["height"]*0.11}
+    rendered=await canvas.evaluate("""el=>{
+      const ctx=el.getContext('2d');
+      if(!ctx)throw Error('NO_NATIVE_NOVNC_2D_CONTEXT');
+      const w=el.width,h=el.height;
+      const rgba=ctx.getImageData(0,0,w,h).data;
+      let x0=w,y0=h,x1=-1,y1=-1;
+      for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){
+        const p=(y*w+x)*4;
+        if(rgba[p+3]>180 &&
+           Math.max(rgba[p],rgba[p+1],rgba[p+2])>48){
+           if(x<x0)x0=x;if(y<y0)y0=y;
+           if(x>x1)x1=x;if(y>y1)y1=y;
+        }
+      }
+      if(x1-x0<40||y1-y0<80)throw Error('NO_VISIBLE_NATIVE_ANDROID_PIXELS');
+      const r=el.getBoundingClientRect();
+      return {canvas:{width:w,height:h},display:{
+        x:r.x+x0*r.width/w,y:r.y+y0*r.height/h,
+        width:(x1-x0+1)*r.width/w,height:(y1-y0+1)*r.height/h}};
+    }""")
+    live=rendered["display"]
+    start={"x":live["x"]+live["width"]*0.52,
+           "y":live["y"]+live["height"]*0.81}
+    end={"x":live["x"]+live["width"]*0.52,
+         "y":live["y"]+live["height"]*0.35}
+    say("INPUT_DRAG_GEOMETRY",{"painted":rendered,"canvasBox":box,
+                              "from":start,"to":end})
     await page.mouse.move(start["x"],start["y"])
     await page.mouse.down()
-    for step in range(1,25):
-        t=step/24
-        await page.mouse.move(
-            start["x"]+(end["x"]-start["x"])*t,
-            start["y"]+(end["y"]-start["y"])*t,
-            steps=2)
-        await page.wait_for_timeout(20)
+    for step in range(1,29):
+        t=step/28
+        await page.mouse.move(start["x"]+(end["x"]-start["x"])*t,
+                              start["y"]+(end["y"]-start["y"])*t,steps=2)
+        await page.wait_for_timeout(28)
     await page.mouse.up()
     await page.wait_for_timeout(1500)
     after_drag=ui_xml()
