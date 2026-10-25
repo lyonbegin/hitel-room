@@ -52,5 +52,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hitel-web-android-original-scrcpy
-          path: mobile-test-results/android-original-native-live/
+          path: |
+            mobile-test-results/android-original-native-live/
+            mobile-test-results/android-native-browser-e2e/
           if-no-files-found: warn
