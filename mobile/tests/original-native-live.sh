@@ -198,7 +198,8 @@ fi
 # received native noVNC frames. A missing screen makes the job FAIL.
 if [[ "$(printenv ANDROID_ONECLICK_VERIFY || echo 0)" == "1" ]]; then
   echo 'ANDROID_ONECLICK_NATIVE_CHROMIUM_VERIFY_START'
-  HITEL_REQUIRE_NATIVE_PHONE=1 python3 "$ROOT/mobile/tests/android-native-playwright-e2e.py"
+  echo ANDROID_ONECLICK_REAL_INPUT_VERIFICATION_REQUIRED
+  HITEL_VERIFY_NATIVE_INPUT=1 HITEL_REQUIRE_NATIVE_PHONE=1 python3 "$ROOT/mobile/tests/android-native-playwright-e2e.py"
   echo 'ANDROID_ONECLICK_NATIVE_CHROMIUM_VERIFY_PASS'
 fi
 
