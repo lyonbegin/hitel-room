@@ -8,9 +8,9 @@ type SandboxState={
   error?:string;lastError?:string|null;
 };
 const messages:Record<string,string>={
-  RAILWAY_API_TOKEN_NOT_CONFIGURED:'Railway Sandbox 실행 권한이 서버에 연결되지 않았습니다.',
+  RAILWAY_API_TOKEN_NOT_CONFIGURED:'Android 실행 환경이 아직 준비되지 않았습니다.',
   ANDROID_CHECKPOINT_NOT_PREPARED:'Android 11 체크포인트가 아직 만들어지지 않았습니다.',
-  SANDBOX_LAUNCH_NOT_ENABLED:'Railway Sandbox 실행 설정이 비활성화되어 있습니다.',
+  SANDBOX_LAUNCH_NOT_ENABLED:'Android 실행 환경이 아직 준비되지 않았습니다.',
   RAILWAY_API_UNAVAILABLE:'Railway Sandbox 상태 조회에 실패했습니다.',
   KVM_OR_ANDROID_CHECKPOINT_UNAVAILABLE:'Sandbox에서 KVM 가속 또는 Android 실행 파일을 사용할 수 없습니다.',
   ANDROID_SESSION_ALREADY_ACTIVE:'이미 Android 실행 세션이 있습니다.',
