@@ -1,0 +1,69 @@
+name: HITEL Android 11 native SDK smoke (one-time)
+on:
+  push:
+    branches: [feature/railway-android-sandbox-10min-20261025]
+    paths: ['.github/workflows/hitel-android11-native-once.yml']
+permissions:
+  contents: read
+jobs:
+  android11:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      HITEL_LAB: https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify hosted runner KVM
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          echo "GITHUB_HOST_KVM_READY"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build real HITEL Android APK
+        run: gradle -p mobile/android --no-daemon :app:assembleDebug
+      - name: Prepare native Android HTTPS tunnel
+        run: |
+          mkdir -p mobile-test-results/android11
+          python3 -u mobile/tests/host-connect-proxy.py > mobile-test-results/android11/proxy.log 2>&1 &
+          sleep 2
+          curl -fsS --max-time 20 "$HITEL_LAB" -o /dev/null
+      - name: Launch actual Android 11, install HITEL APK, test WebView bridge
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            out=mobile-test-results/android11
+            adb reverse tcp:18888 tcp:18888
+            adb shell settings put global http_proxy 127.0.0.1:18888
+            adb install -r mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -n app.hitel.nativebridge/.MainActivity --es hitel_url "$HITEL_LAB"
+            sleep 45
+            adb logcat -d -s HITEL_E2E:I '*:S' | tee "$out/native.log"
+            adb exec-out screencap -p > "$out/real-android11.png"
+            adb shell getprop ro.build.version.release | tee "$out/version.txt"
+            adb shell dumpsys activity activities | grep -m1 'app.hitel.nativebridge' | tee "$out/foreground.txt" || true
+            grep -q APP_STARTED "$out/native.log"
+            grep -q WEB_LOADED "$out/native.log"
+            grep -q BRIDGE_PING_OK "$out/native.log"
+            echo 'ANDROID_11_NATIVE_WEBVIEW_BRIDGE_PASS'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-real-android11-native-test
+          path: mobile-test-results/android11/
+          if-no-files-found: warn
