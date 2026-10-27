@@ -29,15 +29,15 @@ if ! command -v docker >/dev/null 2>&1; then
   sudo apt-get install -y -qq docker.io >/tmp/hitel-docker-install.log 2>&1
 fi
 echo DOCKER_VERSION
-docker version || true
-if ! docker info >/dev/null 2>&1; then
+sudo docker version || true
+if ! sudo docker info >/dev/null 2>&1; then
   echo START_DOCKER_DAEMON
   sudo dockerd >/tmp/hitel-dockerd.log 2>&1 &
-  for n in $(seq 1 45);do docker info >/dev/null 2>&1 && break || sleep 1;done
+  for n in $(seq 1 45);do sudo docker info >/dev/null 2>&1 && break || sleep 1;done
 fi
-docker info >/dev/null 2>&1 || { echo DOCKER_DAEMON_UNAVAILABLE; exit 40; }
+sudo docker info >/dev/null 2>&1 || { echo DOCKER_DAEMON_UNAVAILABLE; exit 40; }
 echo REDROID_DOCKER_STARTING
-docker run --detach --rm --privileged --name hitel-redroid11 \
+sudo docker run --detach --rm --privileged --name hitel-redroid11 \
   --pull always -p 127.0.0.1:5555:5555 \
   redroid/redroid:11.0.0-latest \
   androidboot.redroid_gpu_mode=guest \
@@ -46,9 +46,9 @@ sudo apt-get install -y -qq adb >/tmp/hitel-adb-install.log 2>&1
 adb connect 127.0.0.1:5555 || true
 echo REDROID_ANDROID11_BOOTING
 for n in $(seq 1 180);do
-  if ! docker ps --format '{{.Names}}' | grep -qx hitel-redroid11; then
+  if ! sudo docker ps --format '{{.Names}}' | grep -qx hitel-redroid11; then
     echo REDROID_PROCESS_EXITED
-    docker logs hitel-redroid11 2>&1 | tail -n 70 || true
+    sudo docker logs hitel-redroid11 2>&1 | tail -n 70 || true
     exit 42
   fi
   version=$(adb -s 127.0.0.1:5555 shell getprop ro.build.version.release 2>/dev/null | tr -d '\r' || true)
@@ -61,6 +61,6 @@ for n in $(seq 1 180);do
   [[ $((n%30)) == 0 ]] && echo "REDROID_ANDROID11_BOOT_PENDING_$n" || true
   sleep 1
 done
-docker logs hitel-redroid11 2>&1 | tail -n 70 || true
+sudo docker logs hitel-redroid11 2>&1 | tail -n 70 || true
 echo REDROID_ANDROID11_BOOT_TIMED_OUT
 exit 43
