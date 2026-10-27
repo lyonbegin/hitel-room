@@ -9,7 +9,7 @@ type SandboxState={
 };
 const messages:Record<string,string>={
   RAILWAY_API_TOKEN_NOT_CONFIGURED:'Android 실행 환경이 아직 준비되지 않았습니다.',
-  ANDROID_CHECKPOINT_NOT_PREPARED:'Android 11 체크포인트가 아직 만들어지지 않았습니다.',
+  ANDROID_CHECKPOINT_NOT_PREPARED:'Android 11 실행 불가: Railway Sandbox KVM 실제 검사에서 미지원으로 확인되었습니다. 실행 호스트 변경이 필요합니다.',
   SANDBOX_LAUNCH_NOT_ENABLED:'Android 실행 환경이 아직 준비되지 않았습니다.',
   RAILWAY_API_UNAVAILABLE:'Railway Sandbox 상태 조회에 실패했습니다.',
   KVM_OR_ANDROID_CHECKPOINT_UNAVAILABLE:'Sandbox에서 KVM 가속 또는 Android 실행 파일을 사용할 수 없습니다.',
@@ -47,19 +47,6 @@ export function AndroidSessionControls({onNotice}:{onNotice:(message:string)=>vo
     }catch(e){onNotice((action==='start'?'실행':'삭제')+' 실패: '+String(e));}
     finally{setBusy(false);void refresh();}
   };
-  const probeKvm=async()=>{
-    setBusy(true);
-    try{
-      const response=await fetch('/lab-sandbox/probe-kvm',{
-        method:'POST',headers:{'content-type':'application/json'},body:'{}',credentials:'same-origin'
-      });
-      const result=await response.json() as {ok?:boolean;kvm?:boolean;result?:string;error?:string};
-      if(!response.ok)throw Error(result.error||'KVM 검사 실패');
-      onNotice(result.kvm?'Railway Sandbox KVM 지원 확인 · Android 체크포인트 준비 가능':
-        'Railway Sandbox KVM 미지원 · Google Android 에뮬레이터 실행 불가');
-    }catch(e){onNotice('KVM 검사 오류: '+String(e));}
-    finally{setBusy(false);void refresh();}
-  };
   const status=data?.status||'idle';
   const active=['starting','connecting','running','stopping'].includes(status);
   const available=Boolean(data?.available);
@@ -74,8 +61,8 @@ export function AndroidSessionControls({onNotice}:{onNotice:(message:string)=>vo
       <button type="button" className="dl-android-stop"
         disabled={busy||!active} onClick={()=>void call('stop')}>VM 삭제</button>
       {data?.reason==='ANDROID_CHECKPOINT_NOT_PREPARED'?
-        <button type="button" className="dl-android-stop" disabled={busy}
-          onClick={()=>void probeKvm()}>Railway KVM 실제 검사</button>:null}
+        <a href="https://github.com/lyonbegin/hitel-room/actions/runs/40535529395"
+           target="_blank" rel="noreferrer">Railway KVM 실제 검사 결과 ↗</a>:null}
       {status==='running'&&data?.viewerUrl?
         <a className="dl-android-start" href={data.viewerUrl} target="_blank" rel="noopener noreferrer"
           style={{textDecoration:'none'}}>실제 Android 화면 ↗</a>:null}
