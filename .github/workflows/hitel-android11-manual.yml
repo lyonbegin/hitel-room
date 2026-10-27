@@ -1,0 +1,56 @@
+name: HITEL Android 11 — start real VM from web
+run-name: HITEL Android 11 / 실제 일회용 VM 실행
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: hitel-browser-android11-ephemeral
+  cancel-in-progress: false
+jobs:
+  browser-android11-vm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    env:
+      HITEL_KVM_MANUAL_LAUNCH: '1'
+    steps:
+      - name: Checkout verified Communication SDK code
+        uses: actions/checkout@v4
+        with:
+          ref: feature/railway-android-sandbox-10min-20261025
+      - name: Confirm actual KVM device
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          echo 'REAL_ANDROID_KVM_READY'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build actual HITEL APK
+        run: gradle -p mobile/android --no-daemon :app:assembleDebug
+      - name: Start Android 11, claim queued browser session, stream actual noVNC
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_4
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash lab-kvm/run-live.sh
+      - name: Preserve real Android screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android11-browser-live-evidence
+          path: mobile-test-results/android-live/
+          if-no-files-found: warn
