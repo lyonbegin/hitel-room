@@ -252,7 +252,7 @@ export default function DeviceLab(){
     // The original Android viewer belongs to the ephemeral Sandbox, not the
     // removed permanent relay. Only a real viewer URL marks it as online.
     try {
-      const response=await fetch('/lab-sandbox/status',{cache:'no-store'});
+      const response=await fetch('/lab-kvm/status',{cache:'no-store',credentials:'same-origin'});
       if(!response.ok)throw new Error('HTTP '+response.status);
       const sandbox=await response.json() as {status?:string;viewerUrl?:string|null};
       setNativeAndroidOnline(sandbox.status==='running'&&Boolean(sandbox.viewerUrl));
@@ -313,7 +313,7 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · scrcpy/noVNC 실시간 실행 환경입니다. 원본 앱 관리 화면에서 APK 설치와 기기 조작이 가능하며, 테스트 종료 후 가상기기가 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · KVM 지원 일회용 호스트 · scrcpy/noVNC 실시간 실행 환경입니다. 원본 앱 관리 화면에서 APK 설치와 기기 조작이 가능하며, 테스트 종료 후 가상기기가 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android Emulator</small><strong>{nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
         <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
