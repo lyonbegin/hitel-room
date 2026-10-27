@@ -40,6 +40,7 @@ with socket.create_connection(('127.0.0.1',5900),timeout=10) as client:
     print('NATIVE_VNC_RFB_HANDSHAKE_PASS',banner.decode().strip())
 PY
   test -s "$out/first-real-screen.png"
+  node lab-kvm/test-vnc-binary.mjs
   echo 'ANDROID11_SCRCPY_NOVNC_SMOKE_PASS'
   exit 0
 fi
