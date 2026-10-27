@@ -18,7 +18,6 @@ const SELF_EXPIRE_URL = process.env.HITEL_SANDBOX_SELF_EXPIRE_URL ||
   'http://hitel-communication-web.railway.internal:8080/lab-sandbox/internal-expire';
 const apiToken = process.env.RAILWAY_API_TOKEN || '';
 const environmentId = process.env.RAILWAY_ENVIRONMENT_ID || '';
-const armed = process.env.HITEL_ANDROID_SANDBOX_ENABLED === '1';
 const configured = Boolean(apiToken && environmentId);
 const origin = process.env.HITEL_WEB_ORIGIN ||
   'https://hitel-communication-web-production.up.railway.app';
@@ -113,7 +112,6 @@ async function inventory(){
 }
 async function start(){
   if(!configured) return {code:503,body:{ok:false,error:'RAILWAY_API_TOKEN_NOT_CONFIGURED'}};
-  if(!armed) return {code:503,body:{ok:false,error:'SANDBOX_LAUNCH_NOT_ENABLED'}};
   if(creating||active) return {code:409,body:{ok:false,error:'ANDROID_SESSION_ALREADY_ACTIVE'}};
   creating=true;
   let sandbox=null;
@@ -194,8 +192,8 @@ async function handle(req,res){
     if(!configured)return json(res,200,{ok:true,available:false,reason:'RAILWAY_API_TOKEN_NOT_CONFIGURED',...publicStatus()});
     let ready=false,checkError=null;
     try{ready=await readyCheckpoint()}catch(err){checkError=String(err.message||err).slice(0,140);}
-    return json(res,200,{ok:true,available:armed&&ready,
-      reason:!armed?'SANDBOX_LAUNCH_NOT_ENABLED':checkError?'RAILWAY_API_UNAVAILABLE':
+    return json(res,200,{ok:true,available:ready,
+      reason:checkError?'RAILWAY_API_UNAVAILABLE':
         ready?null:'ANDROID_CHECKPOINT_NOT_PREPARED',
       ...publicStatus()});
   }
@@ -203,7 +201,6 @@ async function handle(req,res){
     // Operator-triggered, one-off verification. Always delete the probe VM.
     if(!requireBrowserOrigin(req))return json(res,403,{ok:false,error:'INVALID_SITE_ORIGIN'});
     if(!configured)return json(res,503,{ok:false,error:'RAILWAY_API_TOKEN_NOT_CONFIGURED'});
-    if(!armed)return json(res,503,{ok:false,error:'SANDBOX_LAUNCH_NOT_ENABLED'});
     if(active||creating)return json(res,409,{ok:false,error:'ANDROID_SESSION_ALREADY_ACTIVE'});
     creating=true;
     let probe=null;
