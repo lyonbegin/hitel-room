@@ -43,6 +43,7 @@ COPY --from=sandbox-sdk-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=sandbox-sdk-build /srv/hitel-sandbox/node_modules /srv/hitel-sandbox/node_modules
 COPY sandbox-control/server.mjs /srv/hitel-sandbox/server.mjs
 COPY sandbox-control/railway-tcg-probe.mjs /srv/hitel-sandbox/railway-tcg-probe.mjs
+COPY sandbox-control/railway-tcg-checkpoint-test.mjs /srv/hitel-sandbox/railway-tcg-checkpoint-test.mjs
 COPY sandbox-control/tcg-install.sh /srv/hitel-sandbox/tcg-install.sh
 COPY sandbox-control/tcg-boot.sh /srv/hitel-sandbox/tcg-boot.sh
 # Keep official nginx entrypoint intact so /etc/nginx/templates/*.template
