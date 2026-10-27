@@ -4,6 +4,7 @@ import {createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {Sandbox} from 'railway';
 import {launchTcgProbeWhenArmed,getTcgProbeStatus} from './railway-tcg-probe.mjs';
 import {startCheckpointTestOnce,checkpointTestStatus} from './railway-tcg-checkpoint-test.mjs';
+import {startRedroidTest,redroidStatus} from './railway-redroid11-probe.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
@@ -190,6 +191,7 @@ async function handle(req,res){
   const path=new URL(req.url,'http://localhost').pathname;
   if(req.method==='GET'&&path==='/tcg-status')return json(res,200,{ok:true,...getTcgProbeStatus()});
   if(req.method==='GET'&&path==='/checkpoint-test-status')return json(res,200,{ok:true,...checkpointTestStatus()});
+  if(req.method==='GET'&&path==='/redroid-status')return json(res,200,{ok:true,...redroidStatus()});
   if(req.method==='GET'&&path==='/health')return json(res,200,{ok:true,service:'hitel-web-sandbox-control'});
   if(req.method==='GET'&&path==='/status'){
     if(active && !busyCleanup)await probeRealViewer();
@@ -263,6 +265,7 @@ server.listen(SOCKET_PATH,()=>{
   console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',SOCKET_PATH);
   launchTcgProbeWhenArmed();
   startCheckpointTestOnce();
+  startRedroidTest();
 });
 // In-process watchdog independent of browser tab and user clicks. The VM runs
 // its own watchdog and Railway additionally enforces 1 minute of idleness.
