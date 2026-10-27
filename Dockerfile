@@ -41,6 +41,10 @@ RUN apk add --no-cache libstdc++
 COPY --from=sandbox-sdk-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=sandbox-sdk-build /srv/hitel-sandbox/node_modules /srv/hitel-sandbox/node_modules
 COPY sandbox-control/server.mjs /srv/hitel-sandbox/server.mjs
+# Keep official nginx entrypoint intact so /etc/nginx/templates/*.template
+# is rendered before nginx starts. The prior shell CMD bypassed this step.
+COPY sandbox-control/35-hitel-sandbox.sh /docker-entrypoint.d/35-hitel-sandbox.sh
+RUN chmod +x /docker-entrypoint.d/35-hitel-sandbox.sh
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
@@ -48,4 +52,4 @@ COPY --from=android-original-build /android-original/dist /usr/share/nginx/html/
 COPY --from=video-core-build /video-core/dist/sdk /usr/share/nginx/html/sdk/video-core
 COPY --from=video-core-build /video-core/public/sdk-playground.html /usr/share/nginx/html/sdk-playground.html
 EXPOSE 8080
-CMD ["sh", "-c", "node /srv/hitel-sandbox/server.mjs & exec nginx -g 'daemon off;'"]
+CMD ["nginx", "-g", "daemon off;"]
