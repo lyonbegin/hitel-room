@@ -71,13 +71,18 @@ async function route(req,res){
  if(path==='/kvm/start'&&req.method==='POST'){
    if(!fromPage(req))return send(res,403,{ok:false,error:'SITE_ORIGIN_REQUIRED'});
    if(dispatching||active)return send(res,409,{ok:false,error:'SESSION_ALREADY_ACTIVE'});
+   let startBody='';
+   for await(const chunk of req){startBody+=chunk;if(startBody.length>128)return send(res,413,{ok:false,error:'START_PAYLOAD_TOO_LARGE'});}
+   let options={};
+   try{options=startBody?JSON.parse(startBody):{}}catch{return send(res,400,{ok:false,error:'START_INVALID_JSON'})}
+   const testMode=options?.mode==='e2e';
    dispatching=true;
    const s={
     id:randomBytes(16).toString('hex'),owner:randomBytes(24).toString('hex'),
     runnerTicket:randomBytes(32).toString('hex'),
     status:DISPATCH_TOKEN?'starting':'queued',deadline:Date.now()+QUEUE_TTL,
     queuedUntil:Date.now()+QUEUE_TTL,runner:null,viewer:null,stream:null,stopReason:null,
-    viewerDiagnostic:null,viewerEvents:0
+    viewerDiagnostic:null,viewerEvents:0,testMode
    };
    active=s;
    try{
@@ -111,10 +116,13 @@ async function route(req,res){
    try{
      const {payload}=await jwtVerify(jwt,OIDC_JWKS,{issuer:'https://token.actions.githubusercontent.com',
         audience:OIDC_AUDIENCE,clockTolerance:'15s'});
-     if(payload.repository!==REPO||payload.ref!=='refs/heads/main'||
-        payload.event_name!=='workflow_dispatch'||
-        payload.workflow_ref!==REPO+'/.github/workflows/hitel-android11-manual.yml@refs/heads/main')
-       return send(res,403,{ok:false,error:'WRONG_GITHUB_WORKFLOW'});
+     const manual=payload.repository===REPO&&payload.ref==='refs/heads/main'&&
+       payload.event_name==='workflow_dispatch'&&
+       payload.workflow_ref===REPO+'/.github/workflows/hitel-android11-manual.yml@refs/heads/main';
+     const browserTest=Boolean(active.testMode)&&payload.repository===REPO&&
+       payload.ref==='refs/heads/'+REF&&payload.event_name==='push'&&
+       payload.workflow_ref===REPO+'/.github/workflows/hitel-kvm-endtoend-test.yml@refs/heads/'+REF;
+     if(!manual&&!browserTest)return send(res,403,{ok:false,error:'WRONG_GITHUB_WORKFLOW'});
    }catch(err){
      console.error('HITEL_KVM_OIDC_REJECTED',String(err).slice(0,200));
      return send(res,403,{ok:false,error:'GITHUB_WORKFLOW_VERIFICATION_FAILED'});
