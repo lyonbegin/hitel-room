@@ -32,5 +32,10 @@ for n in $(seq 1 100);do
 done
 if [[ "$ready" != 1 ]];then echo ANDROID_E2E_RUNNER_NOT_READY;tail -n 100 "$out/android-runner.log";exit 33;fi
 echo ACTUAL_ANDROID_11_RELAY_CONNECTED
+# Independent control: Chrome directly connects to the SAME local VNC server.
+# If direct succeeds and Railway fails, the relay is the fault.
+git clone --quiet --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git "$out/novnc"
+cp lab-kvm/direct-phone.html "$out/novnc/phone.html"
+python3 -m http.server 8099 --bind 127.0.0.1 --directory "$out/novnc" > "$out/local-web.log" 2>&1 &
 python3 lab-kvm/e2e-browser.py
 echo ANDROID_11_VNC_BROWSER_E2E_SUCCESS
