@@ -26,6 +26,15 @@ function report(event,reason=''){
     body:JSON.stringify({event,reason:String(reason).slice(0,140)}),keepalive:true}).catch(()=>{});
  }catch{}
 }
+const originalConsoleError=console.error.bind(console);
+console.error=(...args)=>{
+ const text=args.map(x=>String(x)).join(' ').slice(0,140);
+ if(/RFB|WebSocket|VNC|security|protocol|server/i.test(text)){
+   lastError=text;
+   report('rfb-client-error',text);
+ }
+ originalConsoleError(...args);
+};
 function stopRetry(message){
  clearTimeout(retryTimer);
  retry.style.display='block';
