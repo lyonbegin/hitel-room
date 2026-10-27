@@ -17,6 +17,19 @@ if ! ls /dev/binder >/dev/null 2>&1; then
   ls -al /dev/binderfs || true
   if test -e /dev/binderfs/binder-control; then
     echo BINDERFS_AVAILABLE
+    sudo python3 - <<'PY'
+import fcntl, os
+# Linux include/uapi/linux/android/binderfs.h: BINDER_CTL_ADD
+with open('/dev/binderfs/binder-control','rb+',buffering=0) as control:
+    for name in ('binder','hwbinder','vndbinder'):
+        target='/dev/binderfs/'+name
+        if os.path.exists(target):continue
+        dev=bytearray(264)
+        dev[:len(name)]=name.encode()
+        fcntl.ioctl(control,0xC1086201,dev,True)
+        os.chmod(target,0o666)
+        print('BINDERFS_DEVICE_CREATED',target)
+PY
   else
     echo REDROID_KERNEL_MISSING_BINDER_DRIVER
     cat /tmp/binder-modprobe.out /tmp/binder-mount.log 2>/dev/null || true
@@ -37,7 +50,13 @@ if ! sudo docker info >/dev/null 2>&1; then
 fi
 sudo docker info >/dev/null 2>&1 || { echo DOCKER_DAEMON_UNAVAILABLE; exit 40; }
 echo REDROID_DOCKER_STARTING
-sudo docker run --detach --rm --privileged --name hitel-redroid11 \
+BINDER_ARGS=()
+for kind in binder hwbinder vndbinder; do
+ if [[ -c "/dev/$kind" ]];then BINDER_ARGS+=(--device "/dev/$kind:/dev/$kind");
+ elif [[ -c "/dev/binderfs/$kind" ]];then BINDER_ARGS+=(--device "/dev/binderfs/$kind:/dev/$kind");
+ else echo "BINDER_DEVICE_MISSING_$kind"; exit 35;fi
+done
+sudo docker run --detach --rm --privileged "${BINDER_ARGS[@]}" --name hitel-redroid11 \
   --pull always -p 127.0.0.1:5555:5555 \
   redroid/redroid:11.0.0-latest \
   androidboot.redroid_gpu_mode=guest \
