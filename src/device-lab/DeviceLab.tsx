@@ -249,24 +249,26 @@ export default function DeviceLab(){
     return ()=>window.removeEventListener('message',receive);
   },[push]);
   const readStatus=useCallback(async()=>{
+    // The original Android viewer belongs to the ephemeral Sandbox, not the
+    // removed permanent relay. Only a real viewer URL marks it as online.
+    try {
+      const response=await fetch('/lab-sandbox/status',{cache:'no-store'});
+      if(!response.ok)throw new Error('HTTP '+response.status);
+      const sandbox=await response.json() as {status?:string;viewerUrl?:string|null};
+      setNativeAndroidOnline(sandbox.status==='running'&&Boolean(sandbox.viewerUrl));
+    } catch {setNativeAndroidOnline(false)}
+    // Legacy CI snapshot metadata is optional; it never controls live state.
     try {
       const result=await fetch('/lab-api/status',{cache:'no-store'});
       if(!result.ok)return;
       const data=await result.json() as StatusResult;
       setAgent(data.devices||{});
       setCi(data.ci||{});
-      try{
-        const nativeResponse=await fetch('/lab-api/android-native/status',{cache:'no-store'});
-        if(nativeResponse.ok){
-          const native=await nativeResponse.json() as {online?:boolean;transport?:string};
-          setNativeAndroidOnline(Boolean(native.online&&native.transport==='original-scrcpy-novnc'));
-        }
-      }catch{setNativeAndroidOnline(false)}
       if(!firstCapture.current && (data.devices?.android?.capture||data.devices?.ios?.capture)){
         firstCapture.current=true;
         setView('remote');
       }
-    } catch { /* server not yet deployed */ }
+    } catch { /* Legacy relay is not required for SDK testing */ }
   },[]);
   useEffect(()=>{void readStatus();const timer=window.setInterval(()=>void readStatus(),5000);return ()=>clearInterval(timer)},[readStatus]);
   const loadCapture=useCallback(async(side:Side)=>{
