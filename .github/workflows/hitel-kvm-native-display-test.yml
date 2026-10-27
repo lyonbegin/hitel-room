@@ -1,4 +1,4 @@
-name: HITEL real Android11 scrcpy and noVNC RFB verification
+name: HITEL Android11 noVNC binary WebSocket and RFB verification
 on:
   push:
     branches: [feature/railway-android-sandbox-10min-20261025]
