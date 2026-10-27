@@ -2,6 +2,7 @@ import http from 'node:http';
 import {chmodSync,unlinkSync} from 'node:fs';
 import {createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {Sandbox} from 'railway';
+import {kvm} from './kvm-control.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
@@ -186,6 +187,7 @@ function publicStatus(){
 }
 async function handle(req,res){
   const path=new URL(req.url,'http://localhost').pathname;
+  if(path.startsWith('/kvm/'))return kvm.route(req,res);
   if(req.method==='GET'&&path==='/health')return json(res,200,{ok:true,service:'hitel-web-sandbox-control'});
   if(req.method==='GET'&&path==='/status'){
     if(active && !busyCleanup)await probeRealViewer();
@@ -252,6 +254,10 @@ const server=http.createServer((req,res)=>{
     if(!res.headersSent)json(res,500,{ok:false,error:'SANDBOX_CONTROL_FAILED'});
     else res.end();
   });
+});
+server.on('upgrade',(req,socket,head)=>{
+  if(!new URL(req.url,'http://localhost').pathname.startsWith('/kvm/')){socket.destroy();return;}
+  try{kvm.upgrade(req,socket,head)}catch(err){console.error('HITEL_KVM_UPGRADE_ERROR',String(err));socket.destroy()}
 });
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
