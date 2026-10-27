@@ -32,7 +32,7 @@ export function OriginalAndroidEmbed(){
      <strong>● 일회용 KVM 호스트 · 원본 Android 11 · scrcpy/noVNC</strong>
      <a href={viewer} target="_blank" rel="noopener noreferrer">전체 화면 ↗</a>
    </div>
-   <iframe key={data.sessionId} title="원본 Android 11 실시간 noVNC 터치 화면" src={viewer}
+   <iframe key={data?.sessionId||'none'} title="원본 Android 11 실시간 noVNC 터치 화면" src={viewer}
      allow="clipboard-read; clipboard-write" style={{width:'100%',flex:1,minHeight:540,border:0}}/>
  </div>;
 }
