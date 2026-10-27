@@ -1,0 +1,46 @@
+name: HITEL real Android11 scrcpy and noVNC RFB verification
+on:
+  push:
+    branches: [feature/railway-android-sandbox-10min-20261025]
+    paths: [.github/workflows/hitel-kvm-native-display-test.yml]
+jobs:
+  display:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: KVM available
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build Android APK
+        run: gradle -p mobile/android --no-daemon :app:assembleDebug
+      - name: Boot Android11 and validate native scrcpy and VNC RFB
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          HITEL_KVM_SMOKE_ONLY: '1'
+        with:
+          api-level: 30
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_4
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash lab-kvm/run-live.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-android11-native-display-rfb-proof
+          path: mobile-test-results/android-live/
+          if-no-files-found: warn
