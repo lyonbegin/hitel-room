@@ -3,7 +3,7 @@ import './AndroidSessionControls.css';
 type Status={ok?:boolean;available?:boolean;reason?:string|null;status?:string;remainingSeconds?:number;viewerUrl?:string|null;checkpoint?:string;lastError?:string|null;lastDestroyedAt?:string|null};
 const errors:Record<string,string>={
  RAILWAY_API_TOKEN_NOT_CONFIGURED:'Railway 서버의 Sandbox API 권한이 설정되지 않았습니다.',
- ANDROID_CHECKPOINT_NOT_PREPARED:'Railway Sandbox Android 11 체크포인트를 검증 중입니다. 실제 부팅 검증 전에는 실행할 수 없습니다.',
+ ANDROID_CHECKPOINT_NOT_PREPARED:'Railway Sandbox 실제 검사: Android 11 설치 성공, KVM 없는 부팅은 190초 안에 완료되지 않았습니다. 실행 가능한 체크포인트가 없어 버튼을 비활성화했습니다.',
  RAILWAY_API_UNAVAILABLE:'Railway Sandbox API에 연결하지 못했습니다.',
  KVM_OR_ANDROID_CHECKPOINT_UNAVAILABLE:'Railway Sandbox에서 Android 11을 부팅하지 못했습니다.',
  RAILWAY_SANDBOX_ALREADY_RUNNING:'다른 Railway Sandbox가 실행 중이므로 추가 생성하지 않습니다.'
