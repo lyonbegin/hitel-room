@@ -63,6 +63,9 @@ export function startCheckpointTestOnce(){
    report('boot-vm-created',boot.id);
    // Make the first boot without any installation/setup delay.
    report('android11-software-boot-started');
+   // Cold boot needs more than the 160-second one-off probe, and never claims success without sys.boot_completed=1.
+   const patched=await boot.exec("python3 -c 'from pathlib import Path; p=Path(\"/opt/hitel/boot.sh\"); t=p.read_text(); t=t.replace(\"seq 1 160\",\"seq 1 500\"); p.write_text(t)'",{timeoutSec:15});
+   report('long-boot-window',short(patched));
    const result=await boot.exec('bash /opt/hitel/boot.sh',{timeoutSec:580});
    report('android11-software-boot-ended',short(result));
    if(result.exitCode===0){
