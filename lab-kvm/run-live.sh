@@ -30,4 +30,17 @@ adb shell am start -n app.hitel.nativebridge/.MainActivity \
   --es hitel_url 'https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=android' >"$out/native-launch.log"
 adb exec-out screencap -p >"$out/first-real-screen.png"
 echo ACTUAL_ANDROID11_SCRCPY_RUNNING
+# Real VNC RFB handshake and Android pixel buffer, no simulated frames.
+if [[ "${HITEL_KVM_SMOKE_ONLY:-0}" == 1 ]]; then
+  python3 - <<'PY'
+import socket
+with socket.create_connection(('127.0.0.1',5900),timeout=10) as client:
+    banner=client.recv(12)
+    assert banner.startswith(b'RFB 003.'),repr(banner)
+    print('NATIVE_VNC_RFB_HANDSHAKE_PASS',banner.decode().strip())
+PY
+  test -s "$out/first-real-screen.png"
+  echo 'ANDROID11_SCRCPY_NOVNC_SMOKE_PASS'
+  exit 0
+fi
 node lab-kvm/runner-bridge.mjs
