@@ -32,7 +32,7 @@ RUN npm run build && npx vite build --config vite.communication-sdk.config.ts
 # container. This does NOT provision a permanent relay or emulator.
 FROM node:22-alpine AS sandbox-sdk-build
 WORKDIR /srv/hitel-sandbox
-RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway ws@8.18.3
+RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway ws@8.18.3 jose@5.9.6
 
 # Host the real open-source noVNC frontend on the same Railway web origin.
 FROM alpine:3.20 AS novnc-build
