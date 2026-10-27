@@ -1,0 +1,56 @@
+name: HITEL NOW - REAL Android 11 disposable VM
+run-name: Android11 VM actual boot and 10-minute runtime
+on:
+  push:
+    branches:
+      - feature/railway-android-sandbox-10min-20261025
+    paths:
+      - .github/workflows/hitel-android11-vm-now.yml
+permissions:
+  contents: read
+concurrency:
+  group: hitel-single-real-android11-once
+  cancel-in-progress: false
+jobs:
+  actual-android11-vm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify this is a real KVM-enabled virtual machine
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          stat /dev/kvm
+          echo 'REAL_KVM_VM_HOST_READY'
+      - name: Set one-time automatic VM termination deadline
+        run: |
+          echo "HITEL_VM_DEADLINE_EPOCH=$(($(date +%s)+600))" >> "$GITHUB_ENV"
+          echo 'HITEL_KVM_STANDALONE=1' >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build actual HITEL APK
+        run: gradle -p mobile/android --no-daemon :app:assembleDebug
+      - name: BOOT actual Android 11, run scrcpy/noVNC, and destroy at deadline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_4
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash lab-kvm/run-live.sh
+      - name: Capture actual Android VM and scrcpy logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-real-android11-vm-now-evidence
+          path: mobile-test-results/android-live/
+          if-no-files-found: warn
