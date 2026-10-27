@@ -1,5 +1,8 @@
 name: HITEL real Android11 browser noVNC end-to-end proof
 on:
+  push:
+    branches: [feature/railway-android-sandbox-10min-20261025]
+    paths: [.github/workflows/hitel-kvm-endtoend-test.yml]
   workflow_dispatch:
 permissions:
   contents: read
