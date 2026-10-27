@@ -28,6 +28,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ARG VITE_HITEL_PLATFORM_API_URL=
 ENV VITE_HITEL_PLATFORM_API_URL=$VITE_HITEL_PLATFORM_API_URL
 RUN npm run build && npx vite build --config vite.communication-sdk.config.ts
+# Bundle corrected Android live RFB transport + bounded noVNC reconnect diagnostics.
 # Small Railway Sandbox control API runs in the ALREADY-EXISTING web
 # container. This does NOT provision a permanent relay or emulator.
 FROM node:22-alpine AS sandbox-sdk-build
