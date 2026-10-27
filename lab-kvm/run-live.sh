@@ -60,4 +60,13 @@ if [[ "${HITEL_KVM_STANDALONE:-0}" == 1 ]]; then
   echo "ANDROID_11_LIVE_VM_SHUTDOWN"
   exit 0
 fi
+if [[ "${HITEL_KVM_MANUAL_LAUNCH:-0}" == 1 ]]; then
+  # Browser created pending session; the runner proves its GitHub identity
+  # without any user-entered token. The 10-minute runtime starts now.
+  node lab-kvm/claim-oidc.mjs > /tmp/hitel-kvm-claim-env
+  # Shell file contains only constrained hex IDs and a numeric deadline.
+  source /tmp/hitel-kvm-claim-env
+  rm -f /tmp/hitel-kvm-claim-env
+  echo "ACTUAL_ANDROID_11_BROWSER_SESSION_CLAIMED"
+fi
 node lab-kvm/runner-bridge.mjs
