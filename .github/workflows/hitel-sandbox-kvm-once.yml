@@ -1,0 +1,33 @@
+name: HITEL one-time Sandbox KVM capability test
+on:
+  push:
+    branches:
+      - feature/railway-android-sandbox-10min-20261025
+    paths:
+      - .github/workflows/hitel-sandbox-kvm-once.yml
+jobs:
+  real-sandbox-kvm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe live Railway Sandbox and always destroy probe VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://hitel-communication-web-production.up.railway.app'
+          echo 'HEALTH:'
+          curl -fsS --max-time 15 "$base/lab-sandbox/health"
+          echo
+          echo 'PROBE:'
+          code=$(curl -sS --max-time 170 -o /tmp/hitel-kvm-result.json -w '%{http_code}' \
+            -X POST "$base/lab-sandbox/probe-kvm" \
+            -H "Origin: $base" \
+            -H 'Content-Type: application/json' \
+            --data '{}')
+          cat /tmp/hitel-kvm-result.json
+          echo
+          echo "HTTP_STATUS=$code"
+          echo 'AFTER_PROBE_STATUS:'
+          curl -fsS --max-time 15 "$base/lab-sandbox/status"
+          echo
+          test "$code" = '200'
