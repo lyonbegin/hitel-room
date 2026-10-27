@@ -32,7 +32,12 @@ RUN npm run build && npx vite build --config vite.communication-sdk.config.ts
 # container. This does NOT provision a permanent relay or emulator.
 FROM node:22-alpine AS sandbox-sdk-build
 WORKDIR /srv/hitel-sandbox
-RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway
+RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway ws@8.18.3
+
+# Host the real open-source noVNC frontend on the same Railway web origin.
+FROM alpine:3.20 AS novnc-build
+RUN apk add --no-cache git \
+ && git clone --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git /novnc
 
 FROM nginx:1.27-alpine
 ENV TEST_LOGIN_KEY=""
@@ -41,12 +46,15 @@ RUN apk add --no-cache libstdc++
 COPY --from=sandbox-sdk-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=sandbox-sdk-build /srv/hitel-sandbox/node_modules /srv/hitel-sandbox/node_modules
 COPY sandbox-control/server.mjs /srv/hitel-sandbox/server.mjs
+COPY sandbox-control/kvm-control.mjs /srv/hitel-sandbox/kvm-control.mjs
 # Keep official nginx entrypoint intact so /etc/nginx/templates/*.template
 # is rendered before nginx starts. The prior shell CMD bypassed this step.
 COPY sandbox-control/35-hitel-sandbox.sh /docker-entrypoint.d/35-hitel-sandbox.sh
 RUN chmod +x /docker-entrypoint.d/35-hitel-sandbox.sh
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY --from=novnc-build /novnc /usr/share/nginx/html/lab-kvm/novnc
+COPY lab-kvm/phone.html /usr/share/nginx/html/lab-kvm/novnc/phone.html
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY --from=android-original-build /android-original/dist /usr/share/nginx/html/android-original
 COPY --from=video-core-build /video-core/dist/sdk /usr/share/nginx/html/sdk/video-core
