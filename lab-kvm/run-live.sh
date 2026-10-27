@@ -43,4 +43,21 @@ PY
   echo 'ANDROID11_SCRCPY_NOVNC_SMOKE_PASS'
   exit 0
 fi
+if [[ "${HITEL_KVM_STANDALONE:-0}" == 1 ]]; then
+  echo "ANDROID_11_LIVE_VM_CREATED"
+  date -u +"VM_START_UTC=%Y-%m-%dT%H:%M:%SZ"
+  adb shell getprop ro.build.version.release
+  adb shell getprop sys.boot_completed
+  # One-off KVM VM: remain available for a maximum of 10 minutes after
+  # session request, independently from this ChatGPT/browser connection.
+  deadline="${HITEL_VM_DEADLINE_EPOCH:-0}"
+  if [[ "$deadline" -le 0 ]]; then deadline=$(($(date +%s)+600)); fi
+  while [[ $(date +%s) -lt "$deadline" ]]; do
+    if ! kill -0 "$SCRCPY_PID" 2>/dev/null; then echo "SCRCPY_EXITED";break;fi
+    sleep 3
+  done
+  adb exec-out screencap -p > "$out/final-real-screen.png" || true
+  echo "ANDROID_11_LIVE_VM_SHUTDOWN"
+  exit 0
+fi
 node lab-kvm/runner-bridge.mjs
