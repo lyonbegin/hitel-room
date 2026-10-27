@@ -29,7 +29,12 @@ export function launchTcgProbeWhenArmed(){
    const used=current.filter(s=>['CREATING','RUNNING','DESTROYING'].includes(s.status));
    if(used.length){state.result='skipped-sandbox-already-active';record('blocked-active-sandbox',used.length);return;}
    record('railway-sandbox-creating');
-   sb=await Sandbox.create({networkIsolation:'ISOLATED',idleTimeoutMinutes:2,resources:{cpu:4,memoryGB:6}});
+   try{
+    sb=await Sandbox.create({networkIsolation:'ISOLATED',idleTimeoutMinutes:2,resources:{cpu:4,memoryGB:6}});
+   }catch(sizeError){
+    record('sandbox-size-fallback',String(sizeError?.message||sizeError).slice(0,200));
+    sb=await Sandbox.create({networkIsolation:'ISOLATED',idleTimeoutMinutes:2,resources:{cpu:2,memoryGB:4}});
+   }
    state.vmId=sb.id;
    record('railway-sandbox-real-created',sb.id);
    const host=await sb.exec('sh -lc "uname -m; if test -c /dev/kvm; then echo KVM_AVAILABLE; else echo KVM_UNAVAILABLE; fi; free -h | head -n 2"',{timeoutSec:20});
