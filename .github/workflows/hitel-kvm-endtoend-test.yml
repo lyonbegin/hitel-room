@@ -1,4 +1,4 @@
-name: HITEL real Android11 browser noVNC end-to-end proof
+name: HITEL actual Android11 direct-vs-relay screen pixel verification
 on:
   push:
     branches: [feature/railway-android-sandbox-10min-20261025]
@@ -78,9 +78,11 @@ jobs:
         with:
           name: hitel-android11-browser-vnc-e2e
           path: |
-            mobile-test-results/android-live-e2e/chrome-real-android11.png
-            mobile-test-results/android-live-e2e/chrome-diagnostic.png
+            mobile-test-results/android-live-e2e/*.png
+            mobile-test-results/android-live-e2e/*.txt
             mobile-test-results/android-live-e2e/android-runner.log
-            mobile-test-results/android-live-e2e/chrome-console.json
             mobile-test-results/android-live-e2e/stop.json
+            mobile-test-results/android-live/scrcpy.log
+            mobile-test-results/android-live/x11vnc.log
+            mobile-test-results/android-live/first-real-screen.png
           if-no-files-found: warn
