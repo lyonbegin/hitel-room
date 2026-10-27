@@ -1,0 +1,62 @@
+name: HITEL Android browser start button API proof
+on:
+  push:
+    branches: [feature/railway-android-sandbox-10min-20261025]
+    paths: [.github/workflows/hitel-kvm-button-proof.yml]
+permissions:
+  contents: read
+jobs:
+  web-button-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Web Android start/stop real API (no VM or token needed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://hitel-communication-web-production.up.railway.app"
+          curl -fsS --max-time 12 "$base/lab-kvm/health"
+          curl -fsS --max-time 12 "$base/lab-kvm/status" > /tmp/hitel-before.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/hitel-before.json'))
+          assert j['ok'] and j['available'], j
+          if j['status']!='idle' and j['status']!='deleted':
+              print('USER_SESSION_ACTIVE_SO_SKIP_DESTRUCTIVE_TEST')
+              open('/tmp/hitel-skip','w').write('1')
+          else:
+              print('ANDROID_START_BUTTON_ENABLED')
+          PY
+          if test -f /tmp/hitel-skip; then exit 0; fi
+          code=$(curl -sS --max-time 18 -o /tmp/hitel-start.json -w '%{http_code}' \
+            -D /tmp/hitel-headers.txt -X POST "$base/lab-kvm/start" \
+            -H "Origin: $base" -H "Content-Type: application/json" \
+            -c /tmp/hitel-cookie.jar -d '{}')
+          if test "$code" != '202'; then
+            cat /tmp/hitel-start.json
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/hitel-start.json'))
+          assert j['ok'] and j['status']=='queued',j
+          assert j['manualLaunch'] and j['workflowUrl'],j
+          print('ANDROID_VM_START_REQUEST_QUEUED_PASS')
+          print('GITHUB_VM_MANUAL_ACTION_LINK_READY')
+          PY
+          curl -fsS --max-time 15 "$base/lab-kvm/status" -b /tmp/hitel-cookie.jar >/tmp/hitel-status.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/hitel-status.json'))
+          assert j['status']=='queued' and j['sessionId'],j
+          print('ANDROID_BROWSER_SESSION_COOKIE_PASS')
+          PY
+          curl -fsS --max-time 15 -X POST "$base/lab-kvm/stop" \
+            -b /tmp/hitel-cookie.jar -H "Origin: $base" \
+            -H "Content-Type: application/json" -d '{}' >/tmp/hitel-stop.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/hitel-stop.json'))
+          assert j['ok'] and j['status']=='deleted',j
+          print('ANDROID_QUEUED_SESSION_CANCEL_PASS_NO_VM_STARTED')
+          PY
