@@ -2,11 +2,11 @@ import http from 'node:http';
 import {chmodSync,unlinkSync} from 'node:fs';
 import {createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {Sandbox} from 'railway';
-import {kvm} from './kvm-control.mjs';
+import {launchTcgProbeWhenArmed,getTcgProbeStatus} from './railway-tcg-probe.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
- * There is NO separate always-on relay and NO GitHub Actions or Cloudflare path.
+ * There is NO separate always-on relay, GitHub Actions, or Cloudflare execution path.
  * IMPORTANT: expiry is measured from the launch request, not from Android boot.
  *
  * The launch API stays closed until the Railway workspace credential and an
@@ -187,7 +187,7 @@ function publicStatus(){
 }
 async function handle(req,res){
   const path=new URL(req.url,'http://localhost').pathname;
-  if(path.startsWith('/kvm/'))return kvm.route(req,res);
+  if(req.method==='GET'&&path==='/tcg-status')return json(res,200,{ok:true,...getTcgProbeStatus()});
   if(req.method==='GET'&&path==='/health')return json(res,200,{ok:true,service:'hitel-web-sandbox-control'});
   if(req.method==='GET'&&path==='/status'){
     if(active && !busyCleanup)await probeRealViewer();
@@ -255,14 +255,11 @@ const server=http.createServer((req,res)=>{
     else res.end();
   });
 });
-server.on('upgrade',(req,socket,head)=>{
-  if(!new URL(req.url,'http://localhost').pathname.startsWith('/kvm/')){socket.destroy();return;}
-  try{kvm.upgrade(req,socket,head)}catch(err){console.error('HITEL_KVM_UPGRADE_ERROR',String(err));socket.destroy()}
-});
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
   chmodSync(SOCKET_PATH,0o666);
   console.log('HITEL_ANDROID_SANDBOX_CONTROL_READY',SOCKET_PATH);
+  launchTcgProbeWhenArmed();
 });
 // In-process watchdog independent of browser tab and user clicks. The VM runs
 // its own watchdog and Railway additionally enforces 1 minute of idleness.
