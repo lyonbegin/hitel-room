@@ -9,7 +9,7 @@ export function OriginalAndroidManager(){
      <div>
        <strong style={{fontSize:20}}>HITEL · Android Emulator Platform</strong>
        <p style={{fontSize:12,color:'#68808b',margin:'6px 0'}}>
-         KVM 지원 일회용 실행 호스트 · Android 11 · 최대 10분 · 실행 호스트 종료
+         Railway Sandbox · Android 11 실제 실행 · 10분 후 자동 삭제
        </p>
      </div>
      <a href="/sdk-lab" style={{color:'#136487'}}>HITEL SDK Lab ↗</a>
