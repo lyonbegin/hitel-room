@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body,#screen{width:100%;height:100%;margin:0;background:#000;}#status{position:absolute;top:0;left:0;color:#fff;background:#111;padding:4px;font-size:12px}</style></head>
+<body><div id="screen"></div><div id="status">connecting to local websockify</div>
+<script type="module">
+import RFB from './core/rfb.js';
+const rfb=new RFB(document.querySelector('#screen'),'ws://127.0.0.1:6080/websockify');
+rfb.scaleViewport=true;rfb.viewOnly=true;rfb.qualityLevel=5;rfb.compressionLevel=2;
+rfb.addEventListener('connect',()=>document.querySelector('#status').textContent='');
+rfb.addEventListener('disconnect',e=>document.querySelector('#status').textContent='Disconnected: '+String(e.detail?.clean));
+</script></body></html>
