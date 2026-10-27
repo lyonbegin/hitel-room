@@ -32,6 +32,17 @@ for n in $(seq 1 100);do
 done
 if [[ "$ready" != 1 ]];then echo ANDROID_E2E_RUNNER_NOT_READY;tail -n 100 "$out/android-runner.log";exit 33;fi
 echo ACTUAL_ANDROID_11_RELAY_CONNECTED
+# Inspect the source X11 framebuffer to distinguish scrcpy failure from relay failure.
+DISPLAY=:99 xdotool search --class scrcpy > "$out/scrcpy-window-ids.txt" 2>&1 || true
+while read -r win; do DISPLAY=:99 xdotool getwindowgeometry "$win" >> "$out/scrcpy-window-geometry.txt" 2>&1 || true; done < "$out/scrcpy-window-ids.txt"
+python3 - <<'PY' || true
+from PIL import ImageGrab
+try:
+ im=ImageGrab.grab(xdisplay=':99')
+ im.save('mobile-test-results/android-live-e2e/direct-xvfb-source.png')
+ print('CAPTURED_REAL_XVFB_SOURCE',im.size)
+except Exception as err:print('XVFB_CAPTURE_ERROR',str(err)[:150])
+PY
 # Independent control: Chrome directly connects to the SAME local VNC server.
 # If direct succeeds and Railway fails, the relay is the fault.
 git clone --quiet --depth 1 --branch v1.6.0 https://github.com/novnc/noVNC.git "$out/novnc"
