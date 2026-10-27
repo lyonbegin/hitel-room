@@ -8,6 +8,7 @@ const DISPATCH_TOKEN=process.env.HITEL_GITHUB_WORKFLOW_TOKEN||'';
 const TTL=600000;
 const QUEUE_TTL=20*60_000;
 const WORKFLOW_LINK='https://github.com/lyonbegin/hitel-room/actions/workflows/hitel-android11-manual.yml';
+const DIAGNOSTIC_EVENTS=new Set(['rfb-connected','rfb-disconnected','rfb-security-error','rfb-client-error','rfb-reconnecting','rfb-stopped']);
 const OIDC_AUDIENCE='hitel-kvm-live';
 const OIDC_JWKS=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 const wss=new WebSocketServer({noServer:true,maxPayload:8*1024*1024});
@@ -46,7 +47,8 @@ function status(req){
    sessionId:mine?s.id:null,
    viewerUrl:mine&&s.status==='running'?'/lab-kvm/novnc/phone.html?sid='+s.id:null,
    remainingSeconds:mine?Math.max(0,Math.ceil(((s.status==='queued'?s.queuedUntil:s.deadline)-Date.now())/1000)):0,
-   lastDestroyedAt:lastEnd,lastReason};
+   lastDestroyedAt:lastEnd,lastReason,
+   viewerDiagnostic:mine?s.viewerDiagnostic||null:null};
 }
 async function githubDispatch(s){
  const controller=new AbortController();
@@ -74,7 +76,8 @@ async function route(req,res){
     id:randomBytes(16).toString('hex'),owner:randomBytes(24).toString('hex'),
     runnerTicket:randomBytes(32).toString('hex'),
     status:DISPATCH_TOKEN?'starting':'queued',deadline:Date.now()+QUEUE_TTL,
-    queuedUntil:Date.now()+QUEUE_TTL,runner:null,viewer:null,stream:null,stopReason:null
+    queuedUntil:Date.now()+QUEUE_TTL,runner:null,viewer:null,stream:null,stopReason:null,
+    viewerDiagnostic:null,viewerEvents:0
    };
    active=s;
    try{
@@ -87,6 +90,19 @@ async function route(req,res){
    }finally{dispatching=false}
  }
 
+ if(path==='/kvm/diagnostic'&&req.method==='POST'){
+   if(!fromPage(req)||!isOwner(req))return send(res,403,{ok:false,error:'UNAUTHORIZED_SESSION'});
+   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>512)return send(res,413,{ok:false})}
+   let data;try{data=JSON.parse(raw)}catch{return send(res,400,{ok:false})}
+   const event=String(data.event||''),reason=String(data.reason||'').slice(0,140);
+   if(!DIAGNOSTIC_EVENTS.has(event))return send(res,400,{ok:false,error:'INVALID_EVENT'});
+   if(active.viewerEvents<60){
+     ++active.viewerEvents;
+     active.viewerDiagnostic={event,reason,at:new Date().toISOString()};
+     console.log('HITEL_KVM_VIEWER_DIAGNOSTIC',active.id,event,reason);
+   }
+   return send(res,200,{ok:true});
+ }
  if(path==='/kvm/claim'&&req.method==='POST'){
    let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>10000)return send(res,413,{ok:false,error:'CLAIM_TOO_LARGE'});}
    let jwt;try{jwt=JSON.parse(raw).oidc}catch{return send(res,400,{ok:false,error:'CLAIM_INVALID_JSON'})}
