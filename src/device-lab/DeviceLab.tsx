@@ -252,7 +252,7 @@ export default function DeviceLab(){
     // The original Android viewer belongs to the ephemeral Sandbox, not the
     // removed permanent relay. Only a real viewer URL marks it as online.
     try {
-      const response=await fetch('/lab-kvm/status',{cache:'no-store',credentials:'same-origin'});
+      const response=await fetch('/lab-sandbox/status',{cache:'no-store',credentials:'same-origin'});
       if(!response.ok)throw new Error('HTTP '+response.status);
       const sandbox=await response.json() as {status?:string;viewerUrl?:string|null};
       setNativeAndroidOnline(sandbox.status==='running'&&Boolean(sandbox.viewerUrl));
