@@ -1,61 +1,53 @@
 import {useCallback,useEffect,useState} from 'react';
 import './AndroidSessionControls.css';
-type KvmState={ok:boolean;available?:boolean;reason?:string|null;status?:string;
- sessionId?:string|null;remainingSeconds?:number;viewerUrl?:string|null;error?:string;
- workflowUrl?:string|null;manualLaunch?:boolean;
- lastDestroyedAt?:string|null;lastReason?:string|null};
-const messages:Record<string,string>={
- KVM_DISPATCH_NOT_CONFIGURED:'GitHub 실행 연결을 확인해 주세요.',
- SESSION_ALREADY_ACTIVE:'이미 다른 Android 테스트가 실행 중입니다.',
- SESSION_NOT_OWNED:'현재 브라우저에서 시작한 세션이 아닙니다.',
- KVM_STATUS_UNAVAILABLE:'실행 호스트 상태를 확인할 수 없습니다.'
+type Status={ok?:boolean;available?:boolean;reason?:string|null;status?:string;remainingSeconds?:number;viewerUrl?:string|null;checkpoint?:string;lastError?:string|null;lastDestroyedAt?:string|null};
+const errors:Record<string,string>={
+ RAILWAY_API_TOKEN_NOT_CONFIGURED:'Railway 서버의 Sandbox API 권한이 설정되지 않았습니다.',
+ ANDROID_CHECKPOINT_NOT_PREPARED:'Railway Sandbox Android 11 체크포인트를 검증 중입니다. 실제 부팅 검증 전에는 실행할 수 없습니다.',
+ RAILWAY_API_UNAVAILABLE:'Railway Sandbox API에 연결하지 못했습니다.',
+ KVM_OR_ANDROID_CHECKPOINT_UNAVAILABLE:'Railway Sandbox에서 Android 11을 부팅하지 못했습니다.',
+ RAILWAY_SANDBOX_ALREADY_RUNNING:'다른 Railway Sandbox가 실행 중이므로 추가 생성하지 않습니다.'
 };
-export function AndroidSessionControls({onNotice}:{onNotice:(message:string)=>void}) {
- const [state,setState]=useState<KvmState|null>(null);
+export function AndroidSessionControls({onNotice}:{onNotice:(message:string)=>void}){
+ const [state,setState]=useState<Status|null>(null);
  const [busy,setBusy]=useState(false);
  const refresh=useCallback(async()=>{
-   try{
-     const r=await fetch('/lab-kvm/status',{cache:'no-store',credentials:'same-origin'});
-     if(!r.ok)throw new Error('HTTP '+r.status);
-     setState(await r.json() as KvmState);
-   }catch{setState({ok:false,available:false,reason:'KVM_STATUS_UNAVAILABLE'});}
+  try{
+   const r=await fetch('/lab-sandbox/status',{cache:'no-store',credentials:'same-origin'});
+   if(!r.ok)throw Error(String(r.status));
+   setState(await r.json() as Status);
+  }catch{setState({available:false,reason:'RAILWAY_API_UNAVAILABLE'})}
  },[]);
- useEffect(()=>{void refresh();const id=window.setInterval(()=>void refresh(),3000);
-   return ()=>window.clearInterval(id);},[refresh]);
- async function command(action:'start'|'stop') {
-   setBusy(true);
-   try{
-     const r=await fetch('/lab-kvm/'+action,{method:'POST',credentials:'same-origin',cache:'no-store',
-       headers:{'content-type':'application/json'},body:'{}'});
-     const result=await r.json() as KvmState;
-     if(!r.ok)throw Error(messages[result.error||'']||result.error||'HTTP '+r.status);
-     setState(result);
-     onNotice(action==='start'?result.status==='queued'?'웹 실행 요청을 만들었습니다. 아래 GitHub 실행 링크에서 Run workflow를 누르면 Android 11이 시작됩니다.':'Android 11 VM 실행 요청 완료. 실제 화면 연결을 확인하고 있습니다.':'Android 기기 종료를 요청했습니다.');
-   }catch(err){onNotice((action==='start'?'실행':'종료')+' 오류: '+String(err));}
-   finally{setBusy(false);void refresh();}
+ useEffect(()=>{void refresh();const t=window.setInterval(()=>void refresh(),3000);return ()=>window.clearInterval(t)},[refresh]);
+ async function command(action:'start'|'stop'){
+  setBusy(true);
+  try{
+   const r=await fetch('/lab-sandbox/'+action,{method:'POST',credentials:'same-origin',
+    headers:{'content-type':'application/json'},body:'{}'});
+   const data=await r.json() as Status&{error?:string};
+   if(!r.ok)throw Error(errors[data.error||'']||data.error||'HTTP '+r.status);
+   setState(data);
+   onNotice(action==='start'?'Railway Sandbox에 실제 Android 11 VM 생성 요청을 전달했습니다.':'Railway Sandbox 삭제 요청이 완료되었습니다.');
+  }catch(e){onNotice('Railway Sandbox '+(action==='start'?'실행':'종료')+' 실패: '+String(e));}
+  finally{setBusy(false);void refresh();}
  }
  const status=state?.status||'idle';
- const active=['queued','starting','running','stopping'].includes(status);
- const seconds=Math.max(0,state?.remainingSeconds||0);
- return <div className="dl-android-session" aria-label="Android 11 일회용 원본 기기 관리">
-   <div className="dl-android-session-actions">
-     <button type="button" className="dl-android-start" disabled={busy||active||!state?.available||status==='occupied'}
-       onClick={()=>void command('start')}>{busy?'처리 중…':'▶ Android 11 실행 요청'}</button>
-     <button type="button" className="dl-android-stop" disabled={busy||!active}
-       onClick={()=>void command('stop')}>기기 종료</button>
-     {status==='queued'&&state?.workflowUrl?<a className="dl-android-start" href={state.workflowUrl} target="_blank" rel="noopener noreferrer">GitHub에서 VM 시작 승인 ↗</a>:null}
-     {status==='running'&&state?.viewerUrl?<a href={state.viewerUrl} target="_blank" rel="noopener noreferrer">실제 Android 화면 ↗</a>:null}
-   </div>
-   <p className="dl-android-session-status" role="status" aria-live="polite">
-     {active?(status==='running'?'실제 Android 11 연결됨':status==='stopping'?'실행 종료 중':status==='queued'?'VM 실행 승인 대기 — 위 GitHub 링크에서 Run workflow를 누르세요':'실제 Android 기기 부팅 중')+
-       ' · 남은 시간 '+Math.floor(seconds/60)+'분 '+seconds%60+'초'
-       :status==='occupied'?'다른 브라우저에서 테스트가 진행 중입니다.'
-       :status==='deleted'?'마지막 테스트 종료 완료'
-       :messages[state?.reason||'']||'실행 대기'}
-   </p>
-   <p className="dl-android-session-hint">
-     KVM 가속 원본 Android 11 · 실제 scrcpy/noVNC · VM 가동 후 최대 10분 · 일회용 실행 호스트 자동 종료
-     {state?.lastReason?<span> · 마지막 종료 사유: {state.lastReason}</span>:null}
-   </p>
+ const active=['starting','connecting','running','stopping'].includes(status);
+ const rem=Math.max(0,state?.remainingSeconds||0);
+ return <div className="dl-android-session" aria-label="Railway Sandbox Android 11 실제 기기 관리">
+  <div className="dl-android-session-actions">
+   <button className="dl-android-start" type="button" disabled={busy||active||!state?.available}
+    onClick={()=>void command('start')}>{busy?'처리 중…':'▶ Railway Android 11 실행'}</button>
+   <button className="dl-android-stop" type="button" disabled={busy||!active}
+    onClick={()=>void command('stop')}>Sandbox 삭제</button>
+   {status==='running'&&state?.viewerUrl?<a href={state.viewerUrl} target="_blank" rel="noopener noreferrer">Android 실시간 화면 ↗</a>:null}
+  </div>
+  <p className="dl-android-session-status" role="status" aria-live="polite">
+   {active?(status==='running'?'Railway Android 11 실행 중':status==='stopping'?'Sandbox 삭제 중':'Railway Sandbox 부팅 확인 중')+
+   ' · 남은 시간 '+Math.floor(rem/60)+'분 '+rem%60+'초'
+   :errors[state?.reason||'']||'Railway Sandbox 실행 대기'}
+  </p>
+  {state?.lastError?<p role="alert" className="dl-android-session-status">{state.lastError}</p>:null}
+  <p className="dl-android-session-hint">Railway Sandbox 전용 · 실행 후 최대 10분 · 종료 시 실제 Sandbox 삭제 · GitHub Actions 실행 없음</p>
  </div>;
 }
