@@ -1,25 +1,94 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HITEL Android 11 실시간 화면</title>
-<style>html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family:system-ui;overflow:hidden}#screen{width:100%;height:100%}#status{position:absolute;top:0;left:0;right:0;text-align:center;font-size:12px;padding:6px;background:#121212a0}#status:empty{display:none}</style>
+<style>
+html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family:system-ui;overflow:hidden}
+#screen{width:100%;height:100%}
+#status{position:absolute;top:0;left:0;right:0;text-align:center;font-size:12px;padding:8px;background:#121212d9}
+#status:empty{display:none}
+#retry{position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);display:none;border:1px solid #4c6470;
+background:#1d3948;color:white;padding:12px 22px;border-radius:8px;cursor:pointer;font-size:14px}
+</style>
 </head><body><div id="screen"></div><div id="status">실제 Android 화면 연결 중</div>
+<button id="retry">연결 다시 시도</button>
 <script type="module">
 import RFB from './core/rfb.js';
 const sid=new URLSearchParams(location.search).get('sid');
 const status=document.getElementById('status');
-if(!sid||!/^[a-f0-9]{32}$/.test(sid))status.textContent='실행 세션이 없습니다.';
-else {
+const retry=document.getElementById('retry');
+let rfb=null,retryCount=0,connected=false,retryTimer=null,lastError='';
+const maxAutomaticRetries=3;
+const endpoint='/lab-kvm/diagnostic';
+function setStatus(s){status.textContent=s;}
+function report(event,reason=''){
+ try{
+   fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+    body:JSON.stringify({event,reason:String(reason).slice(0,140)}),keepalive:true}).catch(()=>{});
+ }catch{}
+}
+function stopRetry(message){
+ clearTimeout(retryTimer);
+ retry.style.display='block';
+ setStatus(message+' — 아래 버튼으로 다시 연결하세요.');
+ report('rfb-stopped',message);
+}
+function open(){
+ if(!sid||!/^[a-f0-9]{32}$/.test(sid)){setStatus('Android 실행 세션이 없습니다.');return;}
+ clearTimeout(retryTimer);
+ retry.style.display='none';
+ connected=false;
+ // Ensure exactly one noVNC RFB instance and WebSocket exists per page.
+ if(rfb){try{rfb.disconnect()}catch{}rfb=null}
  const proto=location.protocol==='https:'?'wss':'ws';
  const url=proto+'://'+location.host+'/lab-kvm/viewer?sid='+encodeURIComponent(sid);
- let rfb;
- function connect(){
-   rfb=new RFB(document.getElementById('screen'),url);
-   rfb.scaleViewport=true;rfb.resizeSession=false;rfb.clipViewport=false;
-   rfb.viewOnly=false;rfb.focusOnClick=true;rfb.qualityLevel=5;rfb.compressionLevel=2;
-   rfb.addEventListener('connect',()=>{status.textContent=''});
-   rfb.addEventListener('disconnect',()=>{status.textContent='화면 재연결 중';setTimeout(connect,1700)});
-   rfb.addEventListener('securityfailure',()=>{status.textContent='VNC 연결 검증 실패'});
+ try{rfb=new RFB(document.getElementById('screen'),url)}catch(err){
+   lastError=String(err).slice(0,140);
+   report('rfb-client-error',lastError);
+   return scheduleRetry();
  }
- connect();
+ const current=rfb;
+ current.scaleViewport=true;
+ current.resizeSession=false;
+ current.clipViewport=false;
+ current.viewOnly=false;
+ current.focusOnClick=true;
+ current.qualityLevel=5;
+ current.compressionLevel=2;
+ setStatus(retryCount?'화면 연결 재시도 '+retryCount+'회':'실제 Android 화면 연결 중');
+ current.addEventListener('connect',()=>{
+   if(current!==rfb)return;
+   connected=true;retryCount=0;lastError='';
+   setStatus('');
+   report('rfb-connected');
+ });
+ current.addEventListener('securityfailure',event=>{
+   if(current!==rfb)return;
+   lastError=String(event.detail?.reason||'보안 협상 실패').slice(0,140);
+   report('rfb-security-error',lastError);
+ });
+ current.addEventListener('disconnect',event=>{
+   if(current!==rfb)return;
+   const wasConnected=connected;
+   connected=false;
+   const clean=Boolean(event.detail?.clean);
+   report('rfb-disconnected',(clean?'clean':'abnormal')+';'+(wasConnected?'after-connect':'handshake')+
+     (lastError?';'+lastError:''));
+   scheduleRetry();
+ });
 }
+function scheduleRetry(){
+ if(retryCount>=maxAutomaticRetries){
+   stopRetry('화면 전송이 반복적으로 끊겼습니다');
+   return;
+ }
+ retryCount++;
+ setStatus('연결 불안정 — '+retryCount+'/'+maxAutomaticRetries+'회 재시도');
+ report('rfb-reconnecting',String(retryCount));
+ retryTimer=setTimeout(open,Math.min(1000*2**retryCount,6500));
+}
+retry.addEventListener('click',()=>{retryCount=0;lastError='';open()});
+window.addEventListener('error',event=>{
+ if(event.filename?.includes('/core/')){lastError=String(event.message).slice(0,140);report('rfb-client-error',lastError)}
+});
+open();
 </script></body></html>
