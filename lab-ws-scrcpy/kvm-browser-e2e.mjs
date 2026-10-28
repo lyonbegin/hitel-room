@@ -15,7 +15,7 @@ socket.searchParams.set('action','proxy-adb');
 socket.searchParams.set('remote','tcp:8886');
 socket.searchParams.set('udid','emulator-5554');
 const hash=new URLSearchParams({action:'stream',udid:'emulator-5554',player:'mse',ws:socket.toString(),captureKeyboard:'true',fitToScreen:'true'});
-const link=site+'/#!/'+hash.toString();
+const link=site+'/#!'+hash.toString();
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required','--use-gl=angle','--use-angle=swiftshader']});
 const page=await browser.newPage({viewport:{width:1080,height:980}});
 const events=[];let streamFrames=0;
