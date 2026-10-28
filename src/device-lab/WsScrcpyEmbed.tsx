@@ -27,6 +27,8 @@ export function WsScrcpyEmbed(){
  const [launchAvailable,setLaunchAvailable]=useState(false);
  const [starting,setStarting]=useState(false);
  const [stopping,setStopping]=useState(false);
+ const [apkStatus,setApkStatus]=useState('');
+ const [apkInstalling,setApkInstalling]=useState(false);
  const stop=async()=>{
   if(stopping)return;
   setStopping(true);
@@ -56,20 +58,22 @@ export function WsScrcpyEmbed(){
   finally{setStarting(false)}
  };
  const [player,setPlayer]=useState<'webcodecs'|'mse'>('mse');
- useEffect(()=>{
-  let alive=true;
-  const test=async()=>{
-   const Decoder=(window as unknown as {VideoDecoder?:{isConfigSupported:
-      (config:{codec:string;codedWidth:number;codedHeight:number})=>Promise<{supported:boolean}>}}).VideoDecoder;
-   if(!Decoder?.isConfigSupported)return;
-   try{
-    const result=await Decoder.isConfigSupported({codec:'avc1.42E01E',codedWidth:512,codedHeight:1088});
-    if(alive&&result.supported)setPlayer('webcodecs');
-   }catch{/* MSE remains the verified-compatible fallback */}
-  };
-  void test();
-  return()=>{alive=false};
- },[]);
+ const installApk=async(event:React.ChangeEvent<HTMLInputElement>)=>{
+  const file=event.target.files?.[0];
+  event.target.value='';
+  if(!file||!viewer)return;
+  if(!file.name.toLowerCase().endsWith('.apk')||file.size>60*1024*1024){setApkStatus('APK 파일만 설치할 수 있습니다(최대 60MB).');return;}
+  setApkInstalling(true);setApkStatus('실제 Android 11에 APK 설치 및 실행 중…');
+  try{
+   const host=new URL(viewer.url).origin;
+   const response=await fetch(host+'/__hitel_apk_install',{method:'POST',mode:'cors',
+    headers:{'Content-Type':'application/vnd.android.package-archive'},body:file});
+   const result=await response.json() as {ok?:boolean;installed?:boolean;launched?:boolean;packageName?:string;error?:string};
+   if(!response.ok||!result.ok||!result.installed||!result.launched)throw Error(result.error||'설치 또는 실행 확인 실패');
+   setApkStatus('실제 Android 앱 설치·실행 확인: '+result.packageName);
+  }catch(err){setApkStatus('APK 설치 실패: '+String(err))}finally{setApkInstalling(false)}
+ };
+
  useEffect(()=>{
   let mounted=true,checking=false;
   const tick=async()=>{
@@ -124,6 +128,10 @@ export function WsScrcpyEmbed(){
     </label>
    </span>
    <span style={{display:'flex',alignItems:'center',gap:10}}>
+    <label style={{cursor:apkInstalling?'wait':'pointer',background:'#fff',padding:'5px 8px',border:'1px solid #97aeb8',borderRadius:6}}>
+      {apkInstalling?'APK 설치 중…':'APK 설치·실행'}
+      <input aria-label="Android APK 파일 설치" type="file" accept=".apk,application/vnd.android.package-archive" disabled={apkInstalling} onChange={e=>void installApk(e)} style={{display:'none'}}/>
+    </label>
     <a href={viewer.url} target="_blank" rel="noopener noreferrer">실제 화면 새 창 ↗</a>
     <button type="button" onClick={()=>void stop()} disabled={stopping}
       style={{padding:'4px 9px',border:'1px solid #97aeb8',borderRadius:6,background:'white'}}>
@@ -131,6 +139,7 @@ export function WsScrcpyEmbed(){
     </button>
    </span>
   </div>
+  {apkStatus&&<div role="status" style={{padding:'5px 12px',fontSize:12,color:'#174f61'}}>{apkStatus}</div>}
   <iframe key={viewer.url} title="GitHub KVM 원본 Android 11 ws-scrcpy H264 터치 화면"
    src={viewer.url} allow="clipboard-read; clipboard-write" referrerPolicy="no-referrer"
    style={{width:'100%',flex:1,minHeight:530,border:0}}/>
