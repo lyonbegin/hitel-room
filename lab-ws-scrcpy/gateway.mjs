@@ -4,11 +4,16 @@
 // Do not serve file management or unauthenticated permanent Android endpoints.
 import http from 'node:http';
 import net from 'node:net';
+import {handleApk} from './apk-upload.mjs';
 const BIND='127.0.0.1',PORT=8081,UPSTREAM=8000;
 const ALLOWED_ORIGIN='https://hitel-communication-web-production.up.railway.app';
 const stopAfterMs=600000;
 let requests=0,websockets=0;
 const server=http.createServer((req,res)=>{
+ if(req.url?.split('?')[0]==='/__hitel_apk_install'){
+  void handleApk(req,res).catch(err=>{console.error('HITEL_APK_UPLOAD_FAILURE',String(err));if(!res.headersSent){res.writeHead(500);res.end('APK_INSTALL_FAILED')}});
+  return;
+ }
  if(req.url?.split('?')[0]==='/__hitel_ws_scrcpy'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store',
    'access-control-allow-origin':ALLOWED_ORIGIN});
