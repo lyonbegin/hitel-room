@@ -41,7 +41,7 @@ async function oidc(req){
  const {payload}=await jwtVerify(match[1],JWKS,{issuer:'https://token.actions.githubusercontent.com',
    audience:AUDIENCE,clockTolerance:'10s'});
  return payload.repository===REPO&&payload.ref==='refs/heads/'+BRANCH&&
-   payload.event_name==='push'&&
+   ['push','workflow_dispatch'].includes(payload.event_name)&&
    payload.workflow_ref===REPO+'/.github/workflows/'+WORKFLOW+'@refs/heads/'+BRANCH;
 }
 function canStop(req){
