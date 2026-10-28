@@ -219,16 +219,16 @@ export async function wsScrcpyRoute(req,res,path){
   if(!STAGES.has(stage))return json(res,400,{ok:false,error:'UNKNOWN_STAGE'});
   const runId=String(req.headers['x-github-run-id']||'');
   if(!/^[0-9]{1,20}$/.test(runId))return json(res,400,{ok:false,error:'RUN_ID_REQUIRED'});
-  queuedAt=0;claimedAt=0;
   // A late, previous runner must never overwrite a new session or a cancelled queue.
   if(progress.runId&&progress.runId!==runId)return json(res,409,{ok:false,error:'ANOTHER_RUN_IN_PROGRESS'});
   if(['stopped','failed'].includes(progress.stage))return json(res,409,{ok:false,error:'SESSION_ALREADY_TERMINATED'});
-  if(!live()&&!queuedAt&&!claimedAt){
+  if(!live()&&!queuedAt&&!claimedAt&&!desiredRunning){
    if(progress.stage!=='idle')return json(res,409,{ok:false,error:'SESSION_NOT_REQUESTED'});
    // Explicit push smoke tests can register a real runner without a browser start.
    const incoming=await oidc(req);
    if(!incoming)return json(res,403,{ok:false,error:'IDENTITY_INVALID'});
   }
+  queuedAt=0;claimedAt=0;
   updateProgress(stage,message,{runId});
   return json(res,200,{ok:true,stage:progress.stage,updatedAt:progress.updatedAt});
  }
