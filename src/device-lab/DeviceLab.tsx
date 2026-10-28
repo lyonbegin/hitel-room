@@ -313,7 +313,7 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · GitHub KVM 일회용 호스트 · ws-scrcpy H.264/WebCodecs 실시간 실행 환경입니다. Google Play Android 11의 실제 화면에서 앱 설치와 기기 조작을 테스트하며, 테스트 종료 후 해당 일회용 가상기기는 폐기됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>GitHub KVM의 실제 Google Play Android 11 화면을 ws-scrcpy H.264/WebCodecs로 연결합니다. 실행은 브라우저를 닫아도 유지되며, 실행기 종료 시 저장된 Android 이미지를 불러와 자동 복구합니다. Android 종료 버튼을 누르면 세션과 영상 호스트를 종료합니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android Emulator</small><strong>{nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
         <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
@@ -353,7 +353,7 @@ export default function DeviceLab(){
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
               <strong>{nativeAndroidOnline?'원본 ws-scrcpy H.264 연결됨':'원본 실행 대기'}</strong>
             </div></div>
-            <p className="dl-android-session-hint">실제 ws-scrcpy 호스트가 실행되면 아래 화면에 Android 11 영상이 자동 연결됩니다. 테스트 종료 시 실행 호스트가 삭제됩니다.</p>
+            <p className="dl-android-session-hint">페이지를 다시 열면 현재 Android 실행 상태와 화면에 자동으로 다시 연결됩니다. 실행은 Android 종료 버튼을 누를 때까지 유지됩니다.</p>
             <div className="dl-pair">
               <strong style={{fontSize:12,color:'#126987'}}>▣ ws-scrcpy · 실제 Android 11 화면</strong>
               <small>ws-scrcpy H.264 WebCodecs 실시간 화면과 터치 입력을 사용합니다.</small>
