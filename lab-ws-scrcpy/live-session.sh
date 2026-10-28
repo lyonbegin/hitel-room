@@ -18,9 +18,13 @@ TUNNEL_PID=0
 GATEWAY_PID=0
 cleanup(){
  node lab-ws-scrcpy/session.mjs finish || true
- if [[ "$TUNNEL_PID" -gt 0 ]];then kill "$TUNNEL_PID" 2>/dev/null || true;fi
- if [[ "$GATEWAY_PID" -gt 0 ]];then kill "$GATEWAY_PID" 2>/dev/null || true;fi
- kill "$SERVER_PID" 2>/dev/null || true
+ if [[ "$TUNNEL_PID" -gt 0 ]];then kill -TERM "$TUNNEL_PID" 2>/dev/null || true;fi
+ if [[ "$GATEWAY_PID" -gt 0 ]];then kill -TERM "$GATEWAY_PID" 2>/dev/null || true;fi
+ kill -TERM "$SERVER_PID" 2>/dev/null || true
+ sleep 1
+ [[ "$TUNNEL_PID" -gt 0 ]] && kill -KILL "$TUNNEL_PID" 2>/dev/null || true
+ [[ "$GATEWAY_PID" -gt 0 ]] && kill -KILL "$GATEWAY_PID" 2>/dev/null || true
+ kill -KILL "$SERVER_PID" 2>/dev/null || true
  wait "$SERVER_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
