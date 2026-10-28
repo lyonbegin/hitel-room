@@ -1,5 +1,5 @@
 name: HITEL real ws-scrcpy browser video E2E
-# Validate screenshot nonblack pixel fraction against restarted Android (host confirmed online).
+# Validate real MSE H264 video output, pixels, and browser input (MSE host online).
 # Strict rerun: require actual H264 frames, video rendering, and click Open on device stream.
 on:
   push:
