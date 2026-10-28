@@ -2,8 +2,13 @@ import {chromium} from 'playwright';
 import {mkdirSync,writeFileSync} from 'node:fs';
 const out='mobile-test-results/ws-scrcpy-preview';
 mkdirSync(out,{recursive:true});
-const status=await (await fetch('https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status')).json();
-if(!status.online)throw Error('HITEL_GUEST_NOT_ONLINE');
+let status=null;
+for(let i=0;i<45;i++){
+ status=await (await fetch('https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status',{cache:'no-store'})).json();
+ if(status.online)break;
+ await new Promise(resolve=>setTimeout(resolve,2000));
+}
+if(!status?.online)throw Error('HITEL_GUEST_NOT_ONLINE');
 const socket=new URL(status.url.replace('https://','wss://'));
 socket.searchParams.set('action','proxy-adb');
 socket.searchParams.set('remote','tcp:8886');
