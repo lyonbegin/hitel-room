@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react';
 type NativeStatus={ok?:boolean;online?:boolean;url?:string;transport?:string;runId?:string};
 type Viewer={url:string;player:'webcodecs'|'mse';host:string};
-const STATUS='/lab-api/android-native/status';
+const STATUS='/lab-sandbox/ws-scrcpy/status';
 const VERIFY_TIMEOUT=5500;
 function allowedHost(url:string):boolean{
  try{
