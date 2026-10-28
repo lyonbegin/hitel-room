@@ -4,7 +4,7 @@ import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCo
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
 import {WsScrcpyEmbed} from './WsScrcpyEmbed';
-import {AndroidSessionControls} from './AndroidSessionControls';
+
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
@@ -252,10 +252,10 @@ export default function DeviceLab(){
     // The original Android viewer belongs to the ephemeral Sandbox, not the
     // removed permanent relay. Only a real viewer URL marks it as online.
     try {
-      const response=await fetch('/lab-sandbox/status',{cache:'no-store',credentials:'same-origin'});
+      const response=await fetch('/lab-sandbox/ws-scrcpy/status',{cache:'no-store',credentials:'same-origin'});
       if(!response.ok)throw new Error('HTTP '+response.status);
-      const sandbox=await response.json() as {status?:string;viewerUrl?:string|null};
-      setNativeAndroidOnline(sandbox.status==='running'&&Boolean(sandbox.viewerUrl));
+      const sandbox=await response.json() as {online?:boolean;engine?:string;url?:string|null};
+      setNativeAndroidOnline(Boolean(sandbox.online&&sandbox.engine==='ws-scrcpy'&&sandbox.url));
     } catch {setNativeAndroidOnline(false)}
     // Legacy CI snapshot metadata is optional; it never controls live state.
     try {
@@ -313,7 +313,7 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · KVM 지원 일회용 호스트 · scrcpy/noVNC 실시간 실행 환경입니다. 원본 앱 관리 화면에서 APK 설치와 기기 조작이 가능하며, 테스트 종료 후 가상기기가 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · GitHub KVM 일회용 호스트 · ws-scrcpy H.264/WebCodecs 실시간 실행 환경입니다. 원본 앱 관리 화면에서 APK 설치와 기기 조작이 가능하며, 테스트 종료 후 가상기기가 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android Emulator</small><strong>{nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
         <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
@@ -353,13 +353,13 @@ export default function DeviceLab(){
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
               <strong>{nativeAndroidOnline?'원본 ws-scrcpy H.264 연결됨':'원본 실행 대기'}</strong>
             </div></div>
-            <AndroidSessionControls onNotice={message=>push('android',message)}/>
+            <p className="dl-android-session-hint">실제 ws-scrcpy 호스트가 실행되면 아래 화면에 Android 11 영상이 자동 연결됩니다. 테스트 종료 시 실행 호스트가 삭제됩니다.</p>
             <div className="dl-pair">
               <a href="/android-original/" style={{fontSize:12,fontWeight:750,color:'#126987'}}>▣ Android Emulator Platform 원본 관리 화면 열기 ↗</a>
               <small>ws-scrcpy H.264 WebCodecs 실시간 화면과 터치 입력을 사용합니다.</small>
             </div>
             {view==='preview'?<div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>:<p className="dl-android-session-hint">실제 Android 화면은 상단의 원본 화면에서 직접 터치하여 조작합니다. 제어용 로그인·인증코드를 요구하지 않습니다.</p>}
-            <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'scrcpy 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>네이티브 Bridge 검사</span><strong>기기 내부에서 검증</strong></div></div>
+            <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'ws-scrcpy H.264 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>네이티브 Bridge 검사</span><strong>기기 내부에서 검증</strong></div></div>
           </div>
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 원본 scrcpy/noVNC 화면</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
