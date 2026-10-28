@@ -32,9 +32,7 @@ function updateProgress(stage,message='',extra={}){
 }
 function publicProgress(){
  const now=Date.now();
- if(host&&now>=host.deadline&&!['failed','stopped'].includes(progress.stage)){
-  updateProgress('stopped','Android 사용 가능 시간이 만료되어 실행이 종료되었습니다.');
- }
+ expireHost();
  // Dispatch acceptance is not proof that GitHub assigned a runner.
  if(progress.stage==='queued' && queuedAt && now-queuedAt>=480000){
   queuedAt=0;updateProgress('failed','GitHub 실행기 배정 제한(8분)을 초과했습니다. 다시 실행을 요청해 주십시오.');
@@ -76,6 +74,15 @@ async function isValid(hostUrl){
  }catch{return false}
 }
 function live(){return host&&Date.now()<host.deadline;}
+function expireHost(){
+ if(host&&Date.now()>=host.deadline){
+  host=null;claimedAt=0;queuedAt=0;
+  if(!['failed','stopped'].includes(progress.stage))
+   updateProgress('stopped','Android 사용 가능 시간이 만료되어 실행이 종료되었습니다.');
+  return true;
+ }
+ return false;
+}
 async function oidc(req){
  const match=/^Bearer (.+)$/.exec(String(req.headers.authorization||''));
  if(!match)return false;
@@ -113,6 +120,7 @@ export async function wsScrcpyRoute(req,res,path){
  }
  if(path==='/ws-scrcpy/start'&&req.method==='POST'){
   if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
+  expireHost();
   const token=dispatchToken();
   if(!token)return json(res,503,{ok:false,error:'GITHUB_WORKFLOW_DISPATCH_NOT_CONFIGURED',
    message:'Railway에 HITEL_GITHUB_WORKFLOW_TOKEN이 설정되지 않아 즉시 실행할 수 없습니다.'});
@@ -174,6 +182,7 @@ export async function wsScrcpyRoute(req,res,path){
   return json(res,200,{ok:true,stage:progress.stage,updatedAt:progress.updatedAt});
  }
  if(path==='/ws-scrcpy/register'&&req.method==='POST'){
+  expireHost();
   try{if(!await oidc(req))return json(res,403,{ok:false,error:'GITHUB_IDENTITY_REJECTED'});}
   catch{return json(res,403,{ok:false,error:'GITHUB_IDENTITY_INVALID'});}
   let payload='';for await(const p of req){payload+=p;if(payload.length>800)return json(res,413,{ok:false})}
@@ -200,6 +209,7 @@ export async function wsScrcpyRoute(req,res,path){
  if(req.method==='POST'&&path==='/ws-scrcpy/stop'){
   if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
   if(!live()){
+   host=null;
    const hadRequest=Boolean(queuedAt||claimedAt);
    queuedAt=0;claimedAt=0;
    if(hadRequest)updateProgress('stopped','사용자 요청으로 Android 실행 대기를 취소했습니다.');
