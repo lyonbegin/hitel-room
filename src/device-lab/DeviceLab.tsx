@@ -344,7 +344,7 @@ export default function DeviceLab(){
             </div>
             {view==='remote'&&side==='ios'&&!agent[side]?.online&&<div className="dl-overlay-warning">{capture[side]?'GitHub Actions 마지막 실제 캡처 · 현재 실시간 연결 아님':'실제 에뮬레이터 실행 결과 대기'}</div>}
           </div>
-          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?'원본 Android · scrcpy/noVNC':deviceSize+' px'} · {view==='remote'&&side==='android'?'실제 원본 에뮬레이터':view==='remote'?(agent[side]?.online?'실제 화면 캡처':'마지막 저장 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
+          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?'원본 Android · ws-scrcpy H.264':deviceSize+' px'} · {view==='remote'&&side==='android'?'실제 원본 에뮬레이터':view==='remote'?(agent[side]?.online?'실제 화면 캡처':'마지막 저장 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
@@ -361,7 +361,7 @@ export default function DeviceLab(){
             {view==='preview'?<div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>:<p className="dl-android-session-hint">실제 Android 화면은 상단의 원본 화면에서 직접 터치하여 조작합니다. 제어용 로그인·인증코드를 요구하지 않습니다.</p>}
             <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'ws-scrcpy H.264 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>네이티브 Bridge 검사</span><strong>기기 내부에서 검증</strong></div></div>
           </div>
-          <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: 원본 scrcpy/noVNC 화면</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
+          <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: ws-scrcpy H.264 원본 영상</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
       </div>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
