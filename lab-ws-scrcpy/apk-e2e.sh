@@ -4,6 +4,7 @@ set -Eeuo pipefail
 OUT="$(pwd)/mobile-test-results/ws-scrcpy-live"
 WORK="$RUNNER_TEMP/hitel-apk-e2e"
 mkdir -p "$WORK/src/com/hitel/lab" "$WORK/dex" "$OUT"
+echo HITEL_TEST_APK_COMPILATION_START
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
 TOOLS="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
 ANDROID_JAR="$SDK/platforms/android-30/android.jar"
@@ -79,7 +80,7 @@ adb shell am force-stop com.hitel.lab || true
 adb shell am start -n com.hitel.lab/.MainActivity | tee "$OUT/apk-launch.log"
 sleep 2
 adb exec-out screencap -p > "$OUT/apk-running.png"
-adb shell uiautomator dump /sdcard/hitel-ui.xml >/dev/null
+timeout 40s adb shell uiautomator dump /sdcard/hitel-ui.xml >/dev/null
 adb shell cat /sdcard/hitel-ui.xml > "$OUT/apk-ui-before.xml"
 grep -q 'HITEL SDK ANDROID 11' "$OUT/apk-ui-before.xml"
 grep -q 'HITEL TAP TEST' "$OUT/apk-ui-before.xml"
