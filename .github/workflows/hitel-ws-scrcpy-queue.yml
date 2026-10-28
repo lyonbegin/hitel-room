@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .cache/hitel-ws-scrcpy
-          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-mse-v2
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-dual-v3
       - name: Build pinned upstream ws-scrcpy without VNC
         if: steps.claim.outputs.claimed == 'true'
         run: bash lab-ws-scrcpy/build.sh
@@ -61,7 +61,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .cache/hitel-ws-scrcpy
-          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-mse-v2
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-dual-v3
       - name: Restore prepared Android11 AVD Quick Boot
         if: steps.claim.outputs.claimed == 'true'
         id: avd-cache
@@ -94,6 +94,8 @@ jobs:
           key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
       - name: Start real Android11, temporary H264 browser tunnel and signed Railway status
         if: steps.claim.outputs.claimed == 'true'
+        env:
+          HITEL_WS_E2E: '1'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
