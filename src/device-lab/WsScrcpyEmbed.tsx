@@ -166,7 +166,7 @@ export function WsScrcpyEmbed(){
      style={{padding:'11px 18px',border:'1px solid #8daeb7',borderRadius:8,background:launchAvailable&&!active?'#115e72':'#d9e2e5',color:launchAvailable&&!active?'#fff':'#435d65',cursor:!launchAvailable||starting||active?'not-allowed':'pointer'}}>
      {starting?'Android 시작 요청 중…':active?'Android 실행 진행 중':'▶ Android 11 실제 실행'}
    </button>
-   {active&&<button type="button" onClick={()=>void stop()} disabled={stopping} style={{padding:'11px 18px',border:'1px solid #b5c0c6',borderRadius:8,background:'#fff',color:'#425966'}}>{stopping?'취소 요청 중…':'실행 대기 취소·종료'}</button>}
+   {(active||nativeStatus?.online)&&<button type="button" onClick={()=>void stop()} disabled={stopping} style={{padding:'11px 18px',border:'1px solid #b5c0c6',borderRadius:8,background:'#fff',color:'#425966'}}>{stopping?'종료 요청 중…':nativeStatus?.online?'Android 종료':'실행 대기 취소·종료'}</button>}
   </div>
   {!launchAvailable&&<small style={{color:'#6a7f88'}}>{nativeStatus?.dispatchConfigured===false
     ?'Railway 서비스에 HITEL_GITHUB_WORKFLOW_TOKEN을 등록해야 웹 버튼 즉시 실행을 사용할 수 있습니다.'
