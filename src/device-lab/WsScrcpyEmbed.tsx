@@ -133,16 +133,16 @@ export function WsScrcpyEmbed(){
  const progressView=<section aria-label="Android 11 실시간 실행 진행현황" style={{width:'100%',maxWidth:660,margin:'0 auto',border:'1px solid #d6e3e9',borderRadius:12,background:'#fff',padding:'16px 18px',boxSizing:'border-box',color:'#19394a',textAlign:'left'}}>
   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
    <strong style={{fontSize:17}}>Android 11 실행 진행현황</strong>
-   <span style={{fontSize:12,color:age===null||age>12?'#a15327':'#127359'}} aria-label="실시간 상태 조회">{age===null?'● 연결 확인 중':age>12?'● 상태 갱신 지연':'● 실시간 확인 중 · 3.5초마다 갱신'}</span>
+   <span style={{fontSize:12,color:age===null||age>12?'#a15327':'#127359'}} aria-label="실시간 상태 조회">{age===null?'● 연결 확인 중':age>12?'● 상태 갱신 지연':'● '+(progress?.receivedFromRunner?'GitHub 실행 기록 수신 중':'Railway 대기 상태 조회 중')+' · 3.5초마다 조회'}</span>
   </div>
   <p style={{fontSize:13,lineHeight:1.55,margin:'9px 0 8px'}}>{progress?.message||state}</p>
   <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:12,color:'#55707d'}}>
     <span>요청 후 경과: <strong>{duration(elapsed)}</strong></span>
     {progress?.updatedAt&&<span>마지막 실행 단계 갱신: {duration(lastUpdate)} 전</span>}
-    {stage==='queued'&&<span>GitHub 예약 확인 간격: 약 5분 (실행 지연 가능)</span>}
+    {stage==='queued'&&<span>GitHub 예약 실행: 약 5분 간격 (시작 보장 없음)</span>}
     {nativeStatus?.remainingSeconds!==undefined&&nativeStatus?.online&&<span>남은 사용 시간: {duration(nativeStatus.remainingSeconds)}</span>}
   </div>
-  {stage==='queued'&&<p style={{color:'#8a5d1e',background:'#fff8ec',borderRadius:6,padding:'8px 10px',fontSize:12}}>현재 Android가 부팅된 상태는 아닙니다. GitHub 실행기가 요청을 수락하면 아래 단계가 자동으로 갱신됩니다. 배정 지연 시 8분 후 오류가 표시됩니다.</p>}
+  {stage==='queued'&&<p style={{color:'#8a5d1e',background:'#fff8ec',borderRadius:6,padding:'8px 10px',fontSize:12}}>현재는 Railway에 실행 요청만 저장되어 있습니다. GitHub 실행기가 아직 배정되지 않았으며 실제 Android 부팅은 시작되지 않았습니다. GitHub 예약 실행은 지연되거나 누락될 수 있으며, 8분간 배정되지 않으면 실패로 표시됩니다.</p>}
   {stage==='failed'&&<p role="alert" style={{color:'#a12e33',background:'#fff1f1',padding:'10px',borderRadius:7,fontSize:13}}>{progress?.error||'실행에 실패했습니다. 다시 실행할 수 있습니다.'}</p>}
   {stage==='stopped'&&<p style={{fontSize:13,color:'#5e7082'}}>실행이 종료되었거나 사용자가 실행 대기를 취소했습니다.</p>}
   <ol style={{listStyle:'none',padding:0,margin:'14px 0 0',display:'grid',gap:5}}>
