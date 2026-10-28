@@ -1,4 +1,5 @@
 name: HITEL real ws-scrcpy browser video E2E
+# Validate screenshot nonblack pixel fraction against restarted Android.
 # Strict rerun: require actual H264 frames, video rendering, and click Open on device stream.
 on:
   push:
@@ -20,7 +21,7 @@ jobs:
           node-version: '22'
       - name: Install Chromium for live browser check
         run: |
-          npm install --no-save --ignore-scripts playwright@1.56.0
+          npm install --no-save --ignore-scripts playwright@1.56.0 pngjs@7.0.0
           npx playwright install --with-deps chromium
       - name: Verify remote H264 browser stream and send real input
         run: node lab-ws-scrcpy/browser-e2e.mjs
