@@ -26,11 +26,23 @@ try{
   buttons:[...document.querySelectorAll('button')].slice(0,40).map(e=>e.innerText||e.title||e.ariaLabel)
  }));
  events.push(['DOM',before]);
- const deviceText=page.getByText(/emulator-5554|Pixel_4|Pixel 4|Android 11/i).first();
+ const deviceText=page.getByText(/Google sdk_gphone_x86_64|emulator-5554|Pixel_4|Pixel 4|Android 11/i).first();
  if(await deviceText.count()){
   await deviceText.click({timeout:5000}).catch(e=>events.push(['device-click-error',String(e).slice(0,200)]));
  }
- await page.waitForTimeout(16000);
+ await page.waitForTimeout(2000);
+ const config=page.getByRole('button',{name:/Configure stream/i});
+ if(await config.count()){await config.first().click({timeout:5000}).catch(e=>events.push(['configure-click-error',String(e).slice(0,200)]));}
+ await page.waitForTimeout(1800);
+ const configured=await page.evaluate(()=>({text:document.body.innerText.slice(0,4500),buttons:[...document.querySelectorAll('button')].map(e=>e.innerText||e.title||e.ariaLabel)}));
+ events.push(['DOM_CONFIGURED',configured]);
+ for(const expression of [/^Start$/i,/Start stream/i,/Start scrcpy/i,/^Connect$/i,/^Apply$/i,/^Stream$/i]){
+  const candidate=page.getByRole('button',{name:expression}).first();
+  if(await candidate.count() && await candidate.isVisible()){
+    await candidate.click({timeout:5000}).catch(e=>events.push(['stream-click-error',String(e).slice(0,200)]));break;
+  }
+ }
+ await page.waitForTimeout(18000);
  await page.screenshot({path:out+'/viewer-after-device-select.png',fullPage:true});
  const after=await page.evaluate(()=>({
    text:document.body.innerText.slice(0,3000),
@@ -54,5 +66,6 @@ try{
  await page.screenshot({path:out+'/viewer-after-input.png',fullPage:true});
  writeFileSync(out+'/report.json',JSON.stringify({online:current.online,url:current.url,websocketFrames:received,before,after,events},null,2));
  console.log('HITEL_REAL_BROWSER_E2E',JSON.stringify({websocketFrames:received,before,after,events:events.slice(-12)}));
- if(received===0)throw Error('NO_LIVE_WEBSOCKET_FRAMES');
+ if(received<12)throw Error('NO_LIVE_H264_STREAM_FRAMES: only '+received+' websocket frames');
+ if(after.canvases.length===0 && after.videos.length===0 && after.images.length===0)throw Error('NO_REMOTE_ANDROID_SCREEN_RENDERED');
 }finally{await browser.close();}
