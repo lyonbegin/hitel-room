@@ -28,7 +28,7 @@ try{
  report.capabilities=capabilities;
  if(!capabilities.mseH264)throw Error('CHROME_MSE_H264_UNSUPPORTED');
  await page.goto(link,{waitUntil:'domcontentloaded',timeout:30000});
- await page.waitForFunction(()=>{const v=document.querySelector('video');return v&&v.videoWidth>0&&v.videoHeight>0&&v.readyState>=2;},{timeout:35000}).catch(async e=>{await page.screenshot({path:out+'/viewer-failed.png'});throw e;});
+ await page.waitForFunction(()=>{const v=document.querySelector('video');return v&&v.videoWidth>0&&v.videoHeight>0&&v.readyState>=2;},null,{timeout:55000}).catch(async e=>{await page.screenshot({path:out+'/viewer-failed.png'});throw e;});
  await page.waitForTimeout(3500);
  const frame=await page.evaluate(()=>{
   const v=document.querySelector('video');
