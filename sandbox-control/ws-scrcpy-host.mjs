@@ -8,6 +8,7 @@ const AUDIENCE='hitel-ws-scrcpy';
 const REPO='lyonbegin/hitel-room';
 const BRANCH='feature/ws-scrcpy-android11-20261028';
 const WORKFLOW='hitel-ws-scrcpy-live.yml';
+const SCHEDULE_WORKFLOW='hitel-ws-scrcpy-queue.yml';
 const JWKS=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 const TTL=600_000;
 const DISPATCH_TOKEN=process.env.HITEL_GITHUB_WORKFLOW_TOKEN||'';
@@ -42,9 +43,11 @@ async function oidc(req){
  if(!match)return false;
  const {payload}=await jwtVerify(match[1],JWKS,{issuer:'https://token.actions.githubusercontent.com',
    audience:AUDIENCE,clockTolerance:'10s'});
- return payload.repository===REPO&&payload.ref==='refs/heads/'+BRANCH&&
-   ['push','workflow_dispatch'].includes(payload.event_name)&&
+ const interactive=payload.ref==='refs/heads/'+BRANCH && payload.event_name==='workflow_dispatch' &&
    payload.workflow_ref===REPO+'/.github/workflows/'+WORKFLOW+'@refs/heads/'+BRANCH;
+ const scheduled=payload.ref==='refs/heads/main' && payload.event_name==='schedule' &&
+   payload.workflow_ref===REPO+'/.github/workflows/'+SCHEDULE_WORKFLOW+'@refs/heads/main';
+ return payload.repository===REPO && (interactive||scheduled);
 }
 function canStop(req){
  return req.headers.origin===ORIGIN && 
@@ -53,7 +56,7 @@ function canStop(req){
 export async function wsScrcpyRoute(req,res,path){
  if(req.method==='GET'&&path==='/ws-scrcpy/status'){
   if(!live())return json(res,200,{ok:true,online:false,engine:'ws-scrcpy',
-    launchAvailable:Boolean(DISPATCH_TOKEN),
+    launchAvailable:true,
     launchState:queuedAt&&Date.now()-queuedAt<480000?'queued':'idle',
     reason:host?'expired':'no-running-android11'});
   if(Date.now()-host.lastProbe>5000){
@@ -65,9 +68,9 @@ export async function wsScrcpyRoute(req,res,path){
  }
  if(path==='/ws-scrcpy/start'&&req.method==='POST'){
   if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
-  if(!DISPATCH_TOKEN)return json(res,503,{ok:false,error:'GITHUB_WORKFLOW_DISPATCH_NOT_CONFIGURED'});
   if(live()||(queuedAt&&Date.now()-queuedAt<480000))return json(res,409,{ok:false,error:'SESSION_ALREADY_ACTIVE_OR_QUEUED'});
   queuedAt=Date.now();
+  if(!DISPATCH_TOKEN)return json(res,202,{ok:true,launchState:'queued',requestedAt:queuedAt,mode:'scheduled-kvm-poll',message:'GitHub KVM scheduled worker will collect this request'});
   try{
    const r=await fetch('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches',{
     method:'POST',headers:{
@@ -87,6 +90,13 @@ export async function wsScrcpyRoute(req,res,path){
   }catch(e){queuedAt=0;console.error('WS_SCRCPY_DISPATCH_EXCEPTION',String(e));
    return json(res,502,{ok:false,error:'GITHUB_DISPATCH_NETWORK_ERROR'});
   }
+ }
+ if(path==='/ws-scrcpy/claim'&&req.method==='POST'){
+  try{if(!await oidc(req))return json(res,403,{ok:false,error:'GITHUB_IDENTITY_REJECTED'});}
+  catch{return json(res,403,{ok:false,error:'GITHUB_IDENTITY_INVALID'});}
+  if(live()||!queuedAt||Date.now()-queuedAt>=480000)return json(res,200,{ok:true,claim:false});
+  queuedAt=0;
+  return json(res,200,{ok:true,claim:true});
  }
  if(path==='/ws-scrcpy/register'&&req.method==='POST'){
   try{if(!await oidc(req))return json(res,403,{ok:false,error:'GITHUB_IDENTITY_REJECTED'});}
