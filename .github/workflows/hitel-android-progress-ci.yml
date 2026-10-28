@@ -1,4 +1,5 @@
 name: HITEL Android realtime progress CI
+# Verify signed KVM session re-registration helper after a Railway redeploy.
 on:
   push:
     branches: [main]
