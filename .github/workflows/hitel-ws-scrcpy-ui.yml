@@ -2,7 +2,11 @@ name: HITEL ws-scrcpy WebCodecs viewer launch and MSE build
 on:
   push:
     branches: [feature/ws-scrcpy-android11-20261028]
-    paths: [.github/workflows/hitel-ws-scrcpy-ui.yml]
+    paths:
+      - .github/workflows/hitel-ws-scrcpy-ui.yml
+      - src/device-lab/WsScrcpyEmbed.tsx
+      - src/device-lab/OriginalAndroidManager.tsx
+      - src/device-lab/DeviceLab.tsx
 permissions:
   contents: read
 jobs:
