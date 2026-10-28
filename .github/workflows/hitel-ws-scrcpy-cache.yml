@@ -1,0 +1,35 @@
+name: HITEL ws-scrcpy pinned H264 server build cache
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths: [.github/workflows/hitel-ws-scrcpy-cache.yml]
+permissions:
+  contents: read
+jobs:
+  build-and-cache:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore ws-scrcpy cache
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/hitel-ws-scrcpy
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-v1
+      - name: Build original pinned source once
+        run: bash lab-ws-scrcpy/build.sh
+      - name: Save verified compiled browser/Android server
+        if: steps.restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/hitel-ws-scrcpy
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-v1
+      - name: Confirm real original scrcpy files
+        run: |
+          test -s .cache/hitel-ws-scrcpy/dist/public/bundle.js
+          test -s .cache/hitel-ws-scrcpy/dist/vendor/Genymobile/scrcpy/scrcpy-server.jar
+          echo WS_SCRCPY_ORIGINAL_BUILD_CACHED_SUCCESS
