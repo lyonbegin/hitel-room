@@ -9,7 +9,8 @@ const tokenReply=await fetch(url+(url.includes('?')?'&':'?')+'audience=hitel-ws-
 if(!tokenReply.ok)throw new Error('OIDC_TOKEN_HTTP_'+tokenReply.status);
 const jwt=(await tokenReply.json()).value;
 const response=await fetch(api,{method:'POST',headers:{
- authorization:'Bearer '+jwt,'content-type':'application/json'
+ authorization:'Bearer '+jwt,'content-type':'application/json',
+ 'x-github-run-id':process.env.GITHUB_RUN_ID||''
 },body:'{}',signal:AbortSignal.timeout(20000)});
 if(!response.ok)throw new Error('CLAIM_HTTP_'+response.status);
 const data=await response.json();
