@@ -52,9 +52,9 @@ try{
    images:[...document.querySelectorAll('img')].map(e=>({width:e.naturalWidth,height:e.naturalHeight}))
  }));
  events.push(['DOM_AFTER',after]);
- const canvases=page.locator('canvas');
- if(await canvases.count()){
-   const rect=await canvases.first().boundingBox();
+ const controlSurface=page.locator('canvas, video');
+ if(await controlSurface.count()){
+   const rect=await controlSurface.first().boundingBox();
    if(rect&&rect.width>=50&&rect.height>=50){
     await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);
     await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
