@@ -36,7 +36,7 @@ try{
  await page.waitForTimeout(1800);
  const configured=await page.evaluate(()=>({text:document.body.innerText.slice(0,4500),buttons:[...document.querySelectorAll('button')].map(e=>e.innerText||e.title||e.ariaLabel)}));
  events.push(['DOM_CONFIGURED',configured]);
- for(const expression of [/^Start$/i,/Start stream/i,/Start scrcpy/i,/^Connect$/i,/^Apply$/i,/^Stream$/i]){
+ for(const expression of [/^Open$/i,/^Start$/i,/Start stream/i,/Start scrcpy/i,/^Connect$/i,/^Apply$/i,/^Stream$/i]){
   const candidate=page.getByRole('button',{name:expression}).first();
   if(await candidate.count() && await candidate.isVisible()){
     await candidate.click({timeout:5000}).catch(e=>events.push(['stream-click-error',String(e).slice(0,200)]));break;
