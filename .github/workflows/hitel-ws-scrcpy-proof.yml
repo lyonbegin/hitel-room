@@ -9,7 +9,7 @@ permissions:
 jobs:
   actual-android11-ws-scrcpy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 24
+    timeout-minutes: 13
     steps:
       - uses: actions/checkout@v4
       - name: Confirm real KVM device
@@ -28,7 +28,7 @@ jobs:
       - name: Install actual Chrome WebCodecs test dependencies
         run: |
           python3 -m pip install --quiet playwright==1.56.0 pillow
-          python3 -m playwright install chromium
+          python3 -m playwright install chrome
       - name: Fetch and build pinned original NetrisTV/ws-scrcpy
         run: bash lab-ws-scrcpy/build.sh
       - name: Run real Android11 with ws-scrcpy (NO VNC)
