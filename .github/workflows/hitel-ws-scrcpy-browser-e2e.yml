@@ -1,0 +1,32 @@
+name: HITEL real ws-scrcpy browser video E2E
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/hitel-ws-scrcpy-browser-e2e.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ws-scrcpy-android11-20261028
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium for live browser check
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Verify remote H264 browser stream and send real input
+        run: node lab-ws-scrcpy/browser-e2e.mjs
+      - name: Preserve actual viewer screenshots and socket logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-ws-scrcpy-real-browser-e2e
+          path: mobile-test-results/ws-scrcpy-browser/
+          if-no-files-found: warn
