@@ -26,6 +26,21 @@ export function WsScrcpyEmbed(){
  const [state,setState]=useState('실제 Android 11 ws-scrcpy 실행 대기');
  const [launchAvailable,setLaunchAvailable]=useState(false);
  const [starting,setStarting]=useState(false);
+ const [stopping,setStopping]=useState(false);
+ const stop=async()=>{
+  if(stopping)return;
+  setStopping(true);
+  try{
+   const response=await fetch('/lab-sandbox/ws-scrcpy/stop',{
+    method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:'{}'
+   });
+   const result=await response.json() as {ok?:boolean;error?:string};
+   if(!response.ok||!result.ok)throw Error(result.error||'실제 실행 종료 요청 실패');
+   setState(result.alreadyStopped?'Android가 이미 종료됨':'Android 실제 종료 요청 접수 · GitHub KVM 정리 대기');
+   if(result.alreadyStopped)setViewer(null);
+  }catch(err){setState('Android 종료 요청 실패: '+String(err))}
+  finally{setStopping(false)}
+ };
  const start=async()=>{
   if(starting||!launchAvailable)return;
   setStarting(true);
@@ -110,10 +125,10 @@ export function WsScrcpyEmbed(){
    </span>
    <span style={{display:'flex',alignItems:'center',gap:10}}>
     <a href={viewer.url} target="_blank" rel="noopener noreferrer">실제 화면 새 창 ↗</a>
-    <button type="button" onClick={()=>{void fetch('/lab-sandbox/ws-scrcpy/stop',{
-      method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:'{}'
-    }).then(()=>{setViewer(null);setState('일회용 Android 종료 요청됨');});}}
-      style={{padding:'4px 9px',border:'1px solid #97aeb8',borderRadius:6,background:'white'}}>Android 종료</button>
+    <button type="button" onClick={()=>void stop()} disabled={stopping}
+      style={{padding:'4px 9px',border:'1px solid #97aeb8',borderRadius:6,background:'white'}}>
+      {stopping?'Android 종료 요청 중…':'Android 종료'}
+    </button>
    </span>
   </div>
   <iframe key={viewer.url} title="GitHub KVM 원본 Android 11 ws-scrcpy H264 터치 화면"
