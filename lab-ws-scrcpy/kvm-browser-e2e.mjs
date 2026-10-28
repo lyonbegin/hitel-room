@@ -78,6 +78,15 @@ try{
  report.results.touch=after.includes('TOUCH_OK:HITEL123');
  await page.screenshot({path:out+'/browser-touch-keyboard.png'});
  if(!report.results.touch)throw Error('WEB_BROWSER_TOUCH_NOT_DELIVERED_TO_ANDROID');
+ const manager=await browser.newPage({viewport:{width:1280,height:850}});
+ await manager.goto('https://hitel-communication-web-production.up.railway.app/android-original/',{waitUntil:'domcontentloaded',timeout:25000});
+ const uploader=manager.locator('input[aria-label="Android APK 파일 설치"]');
+ await uploader.waitFor({state:'attached',timeout:35000});
+ await uploader.setInputFiles(out+'/hitel-test-app.apk');
+ await manager.getByRole('status').filter({hasText:'실제 Android 앱 설치·실행 확인: com.hitel.lab'}).waitFor({timeout:50000});
+ report.results.webApkInstall=true;
+ await manager.screenshot({path:out+'/website-apk-install.png'});
+ await manager.close();
  report.results.frames=streamFrames;
  console.log('HITEL_COMPLETE_REAL_ANDROID_E2E_PASS',JSON.stringify(report.results));
 }finally{
