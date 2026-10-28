@@ -1,4 +1,4 @@
-name: HITEL ws-scrcpy browser UI production build check
+name: HITEL ws-scrcpy WebCodecs viewer and signed session UI build
 on:
   push:
     branches: [feature/ws-scrcpy-android11-20261028]
