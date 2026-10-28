@@ -26,7 +26,7 @@
 - Run: https://github.com/lyonbegin/hitel-room/actions/runs/40645457914
 - 최종 결과: SUCCESS
 - 최초 빌드 캐시: `WS_SCRCPY_CACHED_UPSTREAM_BUILD_REUSED`
-- Google Play Android 11 Quick Boot 이미지 생성 성공, 캐시 키 `hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1`
+- Google Play Android 11 원본 AVD 이미지 생성 성공, 캐시 키 `hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1`
 - 새 VM에서 Android 기본 Quick Boot 스냅샷 로딩: 1846ms
 - 실제 ADB와 ws-scrcpy PID 확인: 성공
 - Cloudflare 임시 공개 HTTPS health 검증: `HITEL_WS_SCRCPY_PUBLIC_HOST_REAL_H264_READY`
@@ -50,3 +50,17 @@
 - 600초 만료 자동 종료 및 비용 확인.
 
 기술적으로 검증된 것과 아직 검증되지 않은 것 구분이 필요하다.
+
+## 추가 신뢰성/재실행 검증
+- 2차 캐시된 Quick Boot 실험: https://github.com/lyonbegin/hitel-room/actions/runs/40646076801 — **FAILED**. GitHub 새 호스트에서 GPU 컨텍스트 복원 실패. 스냅샷 디스크 자체는 복원됐지만 ADB 사용 불가.
+- 따라서 운영 기본값은 `-no-snapshot`으로 변경. 설치된 **깨끗한 AVD 디스크와 빌드된 ws-scrcpy**는 계속 캐시하지만, GPU Quick Boot 메모리/그래픽 상태는 재사용하지 않음.
+- 3차 실기: https://github.com/lyonbegin/hitel-room/actions/runs/40646399692 — **SUCCESS**.
+- 빌드 캐시 및 AVD 캐시 두 개 모두 cache hit: 06:51:26~06:51:48 UTC.
+- Android 11 실제 부팅 완료: 06:53:01 UTC.
+- Google Play AVD에서 scrcpy PID 확인: 06:53:11 UTC.
+- 외부 HTTPS 호스트 공개 및 Railway OIDC 서명등록: 06:53:23~06:53:24 UTC.
+- GitHub 작업 생성(06:51:19 UTC)부터 외부 호스트 등록까지 **약 125초**. 첫 체크포인트 준비를 포함한 성공한 1차 실험(06:42:10→06:44:50, 약 160초)보다 약 35초 단축.
+- TinyFish 외부 웹 확인: `https://exclusive-suffered-seeds-schedule.trycloudflare.com/`에서 `emulator-5554 (WebCodecs)` 및 제어 메뉴 표시; 임시 URL은 종료 후 더 이상 보증하지 않음.
+- 60초 제한 검증 세션 성공 종료: 06:54:28 UTC, `/finish` HTTP 200, Railway API `online:false` 확인.
+- GitHub workflow는 시험용 push trigger 제거, `workflow_dispatch` 단독. 온디맨드 600초 제한으로 복구됨.
+- **제한:** `HITEL_GITHUB_WORKFLOW_TOKEN`이 Railway에 없으므로 실제 웹 버튼에서 즉시 GitHub Actions를 dispatch하지는 못함. 이 단계가 완료되기 전에는 UI '실행' 버튼을 비활성화한 상태가 사실에 부합함. 브라우저/사용자에게 토큰을 입력시키는 구조는 설계하지 않음.
