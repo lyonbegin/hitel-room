@@ -1,4 +1,5 @@
 name: HITEL Android MSE video independent Chromium proof
+# Wait for the queued KVM guest to become online before checking decoded pixels.
 on:
   push:
     branches: [main]
