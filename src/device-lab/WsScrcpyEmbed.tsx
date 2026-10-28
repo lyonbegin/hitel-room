@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-type NativeStatus={ok?:boolean;online?:boolean;url?:string;transport?:string;runId?:string};
+type NativeStatus={ok?:boolean;online?:boolean;url?:string;launchAvailable?:boolean;launchState?:string;reason?:string};
 type Viewer={url:string;player:'webcodecs'|'mse';host:string};
 const STATUS='/lab-sandbox/ws-scrcpy/status';
 const VERIFY_TIMEOUT=5500;
@@ -24,6 +24,22 @@ async function verifyHost(base:string):Promise<boolean>{
 export function WsScrcpyEmbed(){
  const [viewer,setViewer]=useState<Viewer|null>(null);
  const [state,setState]=useState('실제 Android 11 ws-scrcpy 실행 대기');
+ const [launchAvailable,setLaunchAvailable]=useState(false);
+ const [starting,setStarting]=useState(false);
+ const start=async()=>{
+  if(starting||!launchAvailable)return;
+  setStarting(true);
+  try{
+   const response=await fetch('/lab-sandbox/ws-scrcpy/start',{
+    method:'POST',headers:{'content-type':'application/json'},
+    credentials:'same-origin',body:'{}'
+   });
+   const data=await response.json() as {ok?:boolean;error?:string};
+   if(!response.ok||!data.ok)throw Error(data.error||'실제 KVM 시작 실패');
+   setState('GitHub KVM 실행 요청 접수 · 실제 Android 부팅/영상 확인 전');
+  }catch(e){setState('실제 Android 실행 요청 실패: '+String(e));}
+  finally{setStarting(false)}
+ };
  const [player,setPlayer]=useState<'webcodecs'|'mse'>('mse');
  useEffect(()=>{
   let alive=true;
@@ -47,9 +63,10 @@ export function WsScrcpyEmbed(){
     const r=await fetch(STATUS,{cache:'no-store',credentials:'same-origin'});
     if(!r.ok)throw Error('native host status HTTP '+r.status);
     const info=await r.json() as NativeStatus;
+    if(mounted)setLaunchAvailable(Boolean(info.launchAvailable));
     const base=String(info.url||'').replace(/\/$/,'');
     if(!info.online||!allowedHost(base)||!(await verifyHost(base))){
-     if(mounted){setViewer(null);setState('실제 ws-scrcpy Android 11 호스트 연결 대기');}
+     if(mounted){setViewer(null);setState(info.launchState==='queued'?'GitHub KVM 요청 접수 · Android 11 기동 중':'실제 ws-scrcpy Android 11 호스트 연결 대기');}
      return;
     }
     const host=new URL(base).host;
@@ -70,6 +87,12 @@ export function WsScrcpyEmbed(){
   <strong>{state}</strong>
   <span>GitHub KVM에서 원본 Android 11과 ws-scrcpy가 실제 실행된 경우에만 영상이 표시됩니다.</span>
   <span>VNC·noVNC 또는 저장된 화면으로 대체하지 않습니다.</span>
+  <button type="button" onClick={()=>void start()} disabled={!launchAvailable||starting}
+    style={{maxWidth:220,margin:'8px auto',padding:10,border:'1px solid #8daeb7',
+     borderRadius:8,background:launchAvailable?'#115e72':'#ddd',color:launchAvailable?'white':'#555'}}>
+    {starting?'Android 시작 요청 중…':'▶ Android 11 실제 실행'}
+  </button>
+  {!launchAvailable&&<small>GitHub KVM 실행 API가 연결되면 이 버튼이 활성화됩니다. GitHub 화면으로 이동할 필요는 없습니다.</small>}
  </div>;
  return <div style={{display:'flex',height:'100%',minHeight:570,flexDirection:'column'}}>
   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
