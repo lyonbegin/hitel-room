@@ -76,6 +76,8 @@ jobs:
       - name: Report Android 11 boot starting
         run: node lab-ws-scrcpy/progress.mjs emulator '원본 Android 11 에뮬레이터 부팅을 시작했습니다.' || true
       - name: Start real Android11, temporary H264 browser tunnel and signed Railway status
+        env:
+          HITEL_WS_E2E: '1'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -98,4 +100,8 @@ jobs:
           path: |
             mobile-test-results/ws-scrcpy-live/*.log
             mobile-test-results/ws-scrcpy-live/*.json
+            mobile-test-results/ws-scrcpy-live/*.png
+            mobile-test-results/ws-scrcpy-live/*.xml
+            mobile-test-results/ws-scrcpy-browser/*.png
+            mobile-test-results/ws-scrcpy-browser/*.json
           if-no-files-found: warn
