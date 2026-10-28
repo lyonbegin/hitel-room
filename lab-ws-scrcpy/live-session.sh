@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Temporary GitHub KVM Android 11 -> ws-scrcpy -> browser.
+# On-demand GitHub KVM Android 11 -> ws-scrcpy -> browser session.
 # All video is H.264/WebSocket, not VNC, and never goes through Railway media relay.
 set -Eeuo pipefail
 ROOT="$(pwd)"
@@ -89,16 +89,21 @@ if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
   node lab-ws-scrcpy/kvm-browser-e2e.mjs
   adb shell input keyevent 3 || true
 fi
-SESSION_SECONDS="${HITEL_WS_SCRCPY_SESSION_SECONDS:-600}"
-[[ "$SESSION_SECONDS" =~ ^[0-9]+$ ]] || SESSION_SECONDS=600
-(( SESSION_SECONDS>=15 && SESSION_SECONDS<=600 )) || SESSION_SECONDS=600
-SESSION_ITERATIONS=$(( (SESSION_SECONDS+2)/3 ))
-for n in $(seq 1 "$SESSION_ITERATIONS");do
+SESSION_SECONDS="${HITEL_WS_SCRCPY_SESSION_SECONDS:-20400}"
+[[ "$SESSION_SECONDS" =~ ^[0-9]+$ ]] || SESSION_SECONDS=20400
+(( SESSION_SECONDS>=60 && SESSION_SECONDS<=20400 )) || SESSION_SECONDS=20400
+SESSION_STARTED=$SECONDS
+while true;do
  if ! kill -0 "$SERVER_PID" || ! kill -0 "$TUNNEL_PID";then
   echo WS_SCRCPY_LIVE_TRANSPORT_EXITED;break
  fi
  decision="$(node lab-ws-scrcpy/session.mjs check | tail -1)"
- [[ "$decision" == "stop" ]] && { echo WS_SCRCPY_USER_STOPPED_OR_EXPIRED;break; }
+ [[ "$decision" == "stop" ]] && { echo WS_SCRCPY_USER_STOPPED;break; }
+ if (( SECONDS-SESSION_STARTED>=SESSION_SECONDS ));then
+  node lab-ws-scrcpy/progress.mjs stopping 'GitHub 실행기 주기 교체를 위해 Android 이미지를 저장하고 자동 재기동합니다.' || true
+  echo WS_SCRCPY_RUNNER_ROTATION_REQUESTED
+  break
+ fi
  sleep 3
 done
-echo WS_SCRCPY_LIVE_10_MINUTE_SESSION_CLOSED
+echo WS_SCRCPY_LIVE_LOOP_FINISHED

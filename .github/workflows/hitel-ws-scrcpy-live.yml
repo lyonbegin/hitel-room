@@ -1,4 +1,4 @@
-name: HITEL ws-scrcpy original Android11 temporary live host
+name: HITEL ws-scrcpy Android11 persistent on-demand host
 # Production: on-demand only. No background KVM runner or automatic launch on source edits.
 on:
   workflow_dispatch:
@@ -11,7 +11,9 @@ concurrency:
 jobs:
   live-original-android11:
     runs-on: ubuntu-24.04
-    timeout-minutes: 22
+    # Rotate below GitHub's six-hour hosted-runner ceiling; Railway restores the
+    # desired-running flag and dispatches the next worker until the user stops it.
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - name: Enable actual GitHub KVM
@@ -51,7 +53,10 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
+          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v2-${{ github.run_id }}
+          restore-keys: |
+            hitel-ws-scrcpy-avd-android30-google-play-pixel4-v2-
+            hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
       - name: One-time prepare original Android11 fast boot image
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
@@ -72,7 +77,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
+          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v2-seed
       - name: Report Android 11 boot starting
         run: node lab-ws-scrcpy/progress.mjs emulator '원본 Android 11 에뮬레이터 부팅을 시작했습니다.' || true
       - name: Start real Android11, temporary H264 browser tunnel and signed Railway status
@@ -86,9 +91,18 @@ jobs:
           profile: pixel_4
           emulator-boot-timeout: 300
           force-avd-creation: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          # Quick Boot restores the cached Android user data / preinstalled apps.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: bash lab-ws-scrcpy/live-session.sh
+      - name: Save the latest Android 11 Quick Boot image for the next runner
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v2-${{ github.run_id }}
       - name: Report Android runner error
         if: failure()
         run: node lab-ws-scrcpy/progress.mjs failed 'GitHub 실행 작업 중 오류가 발생했습니다. 실행 로그를 확인해 주십시오.' || true

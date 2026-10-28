@@ -22,13 +22,13 @@ async function register(hostOverride){
   body:JSON.stringify({url:host}),signal:AbortSignal.timeout(15000)});
  const reply=await response.json();
  if(!response.ok||!reply.ok||reply.status!=='running')throw Error('HOST_REGISTER_FAILED '+JSON.stringify(reply));
- writeFileSync(SAVE,JSON.stringify({ticket:reply.ticket,deadline:reply.deadline,host,runId:process.env.GITHUB_RUN_ID||''}),{mode:0o600});
- console.log('HITEL_WS_SCRCPY_REGISTER_SUCCESS',reply.status,'expires',new Date(reply.deadline).toISOString());
+ writeFileSync(SAVE,JSON.stringify({ticket:reply.ticket,host,runId:process.env.GITHUB_RUN_ID||''}),{mode:0o600});
+ console.log('HITEL_WS_SCRCPY_REGISTER_SUCCESS',reply.status,'until user Stop');
 }
 async function check(){
  const state=JSON.parse(readFileSync(SAVE,'utf8'));
  let response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':state.ticket},signal:AbortSignal.timeout(8000)});
- if(response.status===403&&state.host&&Date.now()<state.deadline){
+ if(response.status===403&&state.host){
   // Railway redeploy clears process RAM, not the actual GitHub Android VM.
   // Restore host registration using our signed GitHub OIDC identity and the
   // original temporary HTTPS endpoint, never a stored screen or fake stream.
@@ -42,7 +42,7 @@ async function check(){
  }
  if(!response.ok){console.log('stop');return}
  const data=await response.json();
- console.log(data.stop||data.remainingSeconds<=0?'stop':'continue');
+ console.log(data.stop?'stop':'continue');
 }
 async function finish(){
  let state;

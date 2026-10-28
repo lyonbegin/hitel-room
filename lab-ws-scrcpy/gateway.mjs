@@ -1,5 +1,5 @@
 // Zero-reencode HTTP/WebSocket gateway for the original ws-scrcpy daemon.
-// The GitHub KVM runner runs it only during the disposable Android session.
+// The GitHub KVM runner runs it until the user presses Stop or the runner rotates.
 // Cloudflare Quick Tunnel (when explicitly enabled) points at localhost:8081.
 // Do not serve file management or unauthenticated permanent Android endpoints.
 import http from 'node:http';
@@ -7,7 +7,6 @@ import net from 'node:net';
 import {handleApk} from './apk-upload.mjs';
 const BIND='127.0.0.1',PORT=8081,UPSTREAM=8000;
 const ALLOWED_ORIGIN='https://hitel-communication-web-production.up.railway.app';
-const stopAfterMs=600000;
 let requests=0,websockets=0;
 const server=http.createServer((req,res)=>{
  if(req.url?.split('?')[0]==='/__hitel_apk_install'){
@@ -49,5 +48,3 @@ server.on('upgrade',(req,client,head)=>{
  upstream.on('error',close);client.on('error',close);
 });
 server.listen(PORT,BIND,()=>console.log('HITEL_WS_SCRCPY_GATEWAY_READY',PORT,'video=noVNC-free'));
-const timer=setTimeout(()=>{console.log('HITEL_WS_SCRCPY_GATEWAY_TTL_EXPIRED',requests,websockets);server.close();process.exit(0)},stopAfterMs);
-timer.unref();
