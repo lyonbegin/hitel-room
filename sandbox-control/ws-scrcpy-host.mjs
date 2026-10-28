@@ -10,7 +10,9 @@ const BRANCH='feature/ws-scrcpy-android11-20261028';
 const WORKFLOW='hitel-ws-scrcpy-live.yml';
 const JWKS=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 const TTL=600_000;
+const DISPATCH_TOKEN=process.env.HITEL_GITHUB_WORKFLOW_TOKEN||'';
 let host=null;
+let queuedAt=0;
 const json=(res,code,obj)=>{
  res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});
  res.end(JSON.stringify(obj));
@@ -51,6 +53,8 @@ function canStop(req){
 export async function wsScrcpyRoute(req,res,path){
  if(req.method==='GET'&&path==='/ws-scrcpy/status'){
   if(!live())return json(res,200,{ok:true,online:false,engine:'ws-scrcpy',
+    launchAvailable:Boolean(DISPATCH_TOKEN),
+    launchState:queuedAt&&Date.now()-queuedAt<480000?'queued':'idle',
     reason:host?'expired':'no-running-android11'});
   if(Date.now()-host.lastProbe>5000){
    host.lastProbe=Date.now();
@@ -58,6 +62,31 @@ export async function wsScrcpyRoute(req,res,path){
   }
   return json(res,200,{ok:true,online:host.reachable,engine:'ws-scrcpy',url:host.reachable?host.url:null,
     remainingSeconds:Math.max(0,Math.ceil((host.deadline-Date.now())/1000)),vnc:false});
+ }
+ if(path==='/ws-scrcpy/start'&&req.method==='POST'){
+  if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
+  if(!DISPATCH_TOKEN)return json(res,503,{ok:false,error:'GITHUB_WORKFLOW_DISPATCH_NOT_CONFIGURED'});
+  if(live()||(queuedAt&&Date.now()-queuedAt<480000))return json(res,409,{ok:false,error:'SESSION_ALREADY_ACTIVE_OR_QUEUED'});
+  queuedAt=Date.now();
+  try{
+   const r=await fetch('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches',{
+    method:'POST',headers:{
+     authorization:'Bearer '+DISPATCH_TOKEN,accept:'application/vnd.github+json',
+     'content-type':'application/json','x-github-api-version':'2022-11-28',
+     'user-agent':'hitel-ws-scrcpy-railway'
+    },
+    body:JSON.stringify({ref:BRANCH}),signal:AbortSignal.timeout(12000)
+   });
+   if(r.status!==204){
+    const body=await r.text();queuedAt=0;
+    console.error('WS_SCRCPY_DISPATCH_FAILURE',r.status,body.slice(0,250));
+    return json(res,502,{ok:false,error:'GITHUB_DISPATCH_FAILED',status:r.status});
+   }
+   return json(res,202,{ok:true,launchState:'queued',requestedAt:queuedAt,
+     message:'GitHub KVM start accepted, not yet Android booted'});
+  }catch(e){queuedAt=0;console.error('WS_SCRCPY_DISPATCH_EXCEPTION',String(e));
+   return json(res,502,{ok:false,error:'GITHUB_DISPATCH_NETWORK_ERROR'});
+  }
  }
  if(path==='/ws-scrcpy/register'&&req.method==='POST'){
   try{if(!await oidc(req))return json(res,403,{ok:false,error:'GITHUB_IDENTITY_REJECTED'});}
@@ -67,6 +96,7 @@ export async function wsScrcpyRoute(req,res,path){
   const url=String(data.url||'').replace(/\/$/,'');
   if(!approved(url)||!(await isValid(url)))return json(res,400,{ok:false,error:'INVALID_WS_SCRCPY_REAL_HOST'});
   if(live())return json(res,409,{ok:false,error:'ANOTHER_ANDROID11_RUNNING'});
+  queuedAt=0;
   host={url,deadline:Date.now()+TTL,lastProbe:Date.now(),reachable:true,stop:false,
     ticket:randomBytes(20).toString('hex')};
   console.log('HITEL_WS_SCRCPY_KVM_REGISTERED',url);
