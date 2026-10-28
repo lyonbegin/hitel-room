@@ -1,4 +1,5 @@
 name: HITEL ws-scrcpy manual-stop cleanup verification
+# Finalize live KVM E2E and collect definitive keyboard/touch/APK test artifacts.
 on:
   push:
     branches: [main]
