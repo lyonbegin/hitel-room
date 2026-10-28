@@ -1,0 +1,29 @@
+name: HITEL ws-scrcpy manual-stop cleanup verification
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/hitel-ws-scrcpy-stop-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  stop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Request manual Android session stop via Railway controller
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 15 \
+            -X POST \
+            -H 'Origin: https://hitel-communication-web-production.up.railway.app' \
+            -H 'Content-Type: application/json' \
+            --data '{}' \
+            https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/stop
+      - name: Confirm Android host leaves public online state
+        run: |
+          for i in $(seq 1 12); do
+            body=$(curl -fsS https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status)
+            echo "$body"
+            if echo "$body" | grep -q '"online":false'; then echo ANDROID_MANUAL_STOP_CONFIRMED;exit 0;fi
+            sleep 3
+          done
+          exit 1
