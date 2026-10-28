@@ -355,7 +355,7 @@ export default function DeviceLab(){
             </div></div>
             <p className="dl-android-session-hint">실제 ws-scrcpy 호스트가 실행되면 아래 화면에 Android 11 영상이 자동 연결됩니다. 테스트 종료 시 실행 호스트가 삭제됩니다.</p>
             <div className="dl-pair">
-              <a href="/android-original/" style={{fontSize:12,fontWeight:750,color:'#126987'}}>▣ Android Emulator Platform 원본 관리 화면 열기 ↗</a>
+              <strong style={{fontSize:12,color:'#126987'}}>▣ ws-scrcpy · 실제 Android 11 화면</strong>
               <small>ws-scrcpy H.264 WebCodecs 실시간 화면과 터치 입력을 사용합니다.</small>
             </div>
             {view==='preview'?<div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>:<p className="dl-android-session-hint">실제 Android 화면은 상단의 원본 화면에서 직접 터치하여 조작합니다. 제어용 로그인·인증코드를 요구하지 않습니다.</p>}
