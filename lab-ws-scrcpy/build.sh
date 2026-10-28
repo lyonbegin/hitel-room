@@ -11,6 +11,10 @@ fi
 git -C "$UPSTREAM" fetch --quiet --depth 1 origin "$PIN" || true
 git -C "$UPSTREAM" checkout --quiet "$PIN"
 [[ "$(git -C "$UPSTREAM" rev-parse HEAD)" == "$PIN" ]] || { echo WS_SCRCPY_PIN_MISMATCH; exit 31; }
+if [[ -s "$UPSTREAM/dist/public/bundle.js" && -s "$UPSTREAM/dist/index.js" && -s "$UPSTREAM/dist/vendor/Genymobile/scrcpy/scrcpy-server.jar" && -d "$UPSTREAM/dist/node_modules" ]]; then
+  echo WS_SCRCPY_CACHED_UPSTREAM_BUILD_REUSED
+  exit 0
+fi
 cat > "$UPSTREAM/build.config.override.json" <<'JSON'
 {
   "INCLUDE_APPL": false,
