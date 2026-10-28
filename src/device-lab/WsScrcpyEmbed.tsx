@@ -62,7 +62,13 @@ export function WsScrcpyEmbed(){
   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
    padding:'8px 12px',fontSize:12,color:'#174f61',background:'#edf9fa'}}>
    <strong>● 실제 Android 11 · ws-scrcpy H.264 · {viewer.player}</strong>
-   <a href={viewer.url} target="_blank" rel="noopener noreferrer">실제 화면 새 창 ↗</a>
+   <span style={{display:'flex',alignItems:'center',gap:10}}>
+    <a href={viewer.url} target="_blank" rel="noopener noreferrer">실제 화면 새 창 ↗</a>
+    <button type="button" onClick={()=>{void fetch('/lab-sandbox/ws-scrcpy/stop',{
+      method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:'{}'
+    }).then(()=>{setViewer(null);setState('일회용 Android 종료 요청됨');});}}
+      style={{padding:'4px 9px',border:'1px solid #97aeb8',borderRadius:6,background:'white'}}>Android 종료</button>
+   </span>
   </div>
   <iframe key={viewer.url} title="GitHub KVM 원본 Android 11 ws-scrcpy H264 터치 화면"
    src={viewer.url} allow="clipboard-read; clipboard-write" referrerPolicy="no-referrer"
