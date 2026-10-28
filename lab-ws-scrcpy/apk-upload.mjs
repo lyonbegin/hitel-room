@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {pipeline} from 'node:stream/promises';
+import {Transform} from 'node:stream';
 const exec=promisify(execFile);
 const ORIGIN='https://hitel-communication-web-production.up.railway.app';
 const MAX_APK=60*1024*1024;
@@ -20,8 +21,8 @@ export async function handleApk(req,res){
  if(req.method==='OPTIONS'){res.writeHead(204,cors);res.end();return true}
  if(req.method!=='POST'){reply(res,405,{ok:false,error:'POST_REQUIRED'});return true}
  if(uploading){reply(res,409,{ok:false,error:'INSTALL_ALREADY_RUNNING'});return true}
- const length=Number(req.headers['content-length']);
- if(!Number.isInteger(length)||length<512||length>MAX_APK){
+ const length=req.headers['content-length']===undefined?null:Number(req.headers['content-length']);
+ if(length!==null&&(!Number.isInteger(length)||length<512||length>MAX_APK)){
   reply(res,413,{ok:false,error:'APK_SIZE_INVALID_MAX_60MB'});return true;
  }
  if(!['application/vnd.android.package-archive','application/octet-stream'].includes(String(req.headers['content-type']||'').split(';')[0])){
@@ -31,7 +32,11 @@ export async function handleApk(req,res){
  try{
   folder=await mkdtemp(join(tmpdir(),'hitel-apk-'));
   const file=join(folder,'upload.apk');
-  await pipeline(req,createWriteStream(file));
+  let uploaded=0;
+  const limiter=new Transform({transform(chunk,encoding,callback){uploaded+=chunk.length;
+   callback(uploaded>MAX_APK?Error('APK_EXCEEDS_60MB'):null,chunk);}});
+  await pipeline(req,limiter,createWriteStream(file));
+  if(uploaded<512)throw Error('APK_TOO_SMALL');
   const magic=await readFile(file);
   if(magic[0]!==80||magic[1]!==75)throw Error('INVALID_APK_ZIP_SIGNATURE');
   const sdk=process.env.ANDROID_HOME||process.env.ANDROID_SDK_ROOT||'/usr/local/lib/android/sdk';
