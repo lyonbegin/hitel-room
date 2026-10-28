@@ -1,5 +1,6 @@
 import {chromium} from 'playwright';
-import {mkdirSync,writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
+import {PNG} from 'pngjs';
 const out='mobile-test-results/ws-scrcpy-browser';
 mkdirSync(out,{recursive:true});
 const statusUrl='https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status';
@@ -66,6 +67,11 @@ try{
  await page.screenshot({path:out+'/viewer-after-input.png',fullPage:true});
  writeFileSync(out+'/report.json',JSON.stringify({online:current.online,url:current.url,websocketFrames:received,before,after,events},null,2));
  console.log('HITEL_REAL_BROWSER_E2E',JSON.stringify({websocketFrames:received,before,after,events:events.slice(-12)}));
+ const screenshot=PNG.sync.read(readFileSync(out+'/viewer-after-input.png'));
+ let bright=0,total=0;
+ for(let y=50;y<Math.min(screenshot.height,800);y+=8)for(let x=50;x<Math.min(screenshot.width,1100);x+=8){const p=(y*screenshot.width+x)*4;total++;if(screenshot.data[p]+screenshot.data[p+1]+screenshot.data[p+2]>60)bright++;}
+ console.log('HITEL_ANDROID_VISIBLE_PIXEL_FRACTION',bright/total);
+ if(bright/total<0.03)throw Error('BLACK_ANDROID_SCREEN');
  if(received<12)throw Error('NO_LIVE_H264_STREAM_FRAMES: only '+received+' websocket frames');
  if(after.canvases.length===0 && after.videos.length===0 && after.images.length===0)throw Error('NO_REMOTE_ANDROID_SCREEN_RENDERED');
 }finally{await browser.close();}
