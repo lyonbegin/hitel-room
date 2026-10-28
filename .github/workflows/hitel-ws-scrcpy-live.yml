@@ -47,13 +47,13 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: hitel-ws-scrcpy-avd-android30-google-apis-pixel4-v1
+          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
       - name: One-time prepare original Android11 fast boot image
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: google_apis
+          target: google_apis_playstore
           arch: x86_64
           profile: pixel_4
           force-avd-creation: false
@@ -68,12 +68,12 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: hitel-ws-scrcpy-avd-android30-google-apis-pixel4-v1
+          key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
       - name: Start real Android11, temporary H264 browser tunnel and signed Railway status
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: google_apis
+          target: google_apis_playstore
           arch: x86_64
           profile: pixel_4
           emulator-boot-timeout: 300
