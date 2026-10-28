@@ -33,6 +33,9 @@ function updateProgress(stage,message='',extra={}){
 }
 function publicProgress(){
  const now=Date.now();
+ if(host&&now>=host.deadline&&!['failed','stopped'].includes(progress.stage)){
+  updateProgress('stopped','Android 사용 가능 시간이 만료되어 실행이 종료되었습니다.');
+ }
  // A scheduled worker can be delayed, and a build may fail before sending a stage update.
  if(progress.stage==='queued' && queuedAt && now-queuedAt>=480000){
   queuedAt=0;updateProgress('failed','예약 실행 확인 제한(8분)을 초과했습니다. 다시 실행을 요청해 주십시오.');
@@ -203,7 +206,8 @@ export async function wsScrcpyRoute(req,res,path){
  if(req.method==='POST'&&path==='/ws-scrcpy/finish'){
   if(!live()||!equal(req.headers['x-runner-ticket'],host.ticket))
    return json(res,403,{ok:false,error:'RUNNER_TICKET_REQUIRED'});
-  host=null;claimedAt=0;queuedAt=0;updateProgress('stopped','Android 11 실행기가 정상 종료되었습니다.');
+  host=null;claimedAt=0;queuedAt=0;
+  if(progress.stage!=='failed')updateProgress('stopped','Android 11 실행기가 종료되었습니다.');
   return json(res,200,{ok:true,status:'deleted'});
  }
  return json(res,404,{ok:false,error:'UNKNOWN_WS_SCRCPY_PATH'});
