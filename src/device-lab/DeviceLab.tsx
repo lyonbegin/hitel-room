@@ -313,7 +313,7 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · GitHub KVM 일회용 호스트 · ws-scrcpy H.264/WebCodecs 실시간 실행 환경입니다. 원본 앱 관리 화면에서 APK 설치와 기기 조작이 가능하며, 테스트 종료 후 가상기기가 초기화됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>원본 Android 11 · GitHub KVM 일회용 호스트 · ws-scrcpy H.264/WebCodecs 실시간 실행 환경입니다. Google Play Android 11의 실제 화면에서 앱 설치와 기기 조작을 테스트하며, 테스트 종료 후 해당 일회용 가상기기는 폐기됩니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android Emulator</small><strong>{nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
         <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
