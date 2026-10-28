@@ -64,3 +64,13 @@
 - 60초 제한 검증 세션 성공 종료: 06:54:28 UTC, `/finish` HTTP 200, Railway API `online:false` 확인.
 - GitHub workflow는 시험용 push trigger 제거, `workflow_dispatch` 단독. 온디맨드 600초 제한으로 복구됨.
 - **제한:** `HITEL_GITHUB_WORKFLOW_TOKEN`이 Railway에 없으므로 실제 웹 버튼에서 즉시 GitHub Actions를 dispatch하지는 못함. 이 단계가 완료되기 전에는 UI '실행' 버튼을 비활성화한 상태가 사실에 부합함. 브라우저/사용자에게 토큰을 입력시키는 구조는 설계하지 않음.
+
+## 2026-10-28 추가 통합 검증
+- Railway `hitel-communication-web` 최신 배포 `12b1e6c2690835cf42730759f2f24447454652dc` — **SUCCESS**.
+- 프런트엔드 최신 ws-scrcpy UI GitHub 빌드: https://github.com/lyonbegin/hitel-room/actions/runs/40649770148 — **SUCCESS**.
+- Railway 신규 오류 원인: `buildkitd.sock: use of closed network connection` — 일시적인 Railway 빌더 문제, 소스 런타임 오류와 구분.
+- 프런트 UI 정지 버튼: 응답 HTTP 상태와 `ok` 확인 후에만 성공 상태 전환, 실패 시 실제 오류 표시.
+- Railway 공개 URL `/android-original/`: 실제 ws-scrcpy 통합 Android 11 기기 페이지 배포 및 웹 접근 확인.
+- Railway `/lab-sandbox/ws-scrcpy/status`: 테스트 종료 후 `online:false`, 실행 서버/중계 상시 운용 없음.
+- `launchAvailable:false`: 해당 프로젝트에 `HITEL_GITHUB_WORKFLOW_TOKEN` 서버 자격증명 미설정. 이것은 화면 전송/터치 검증과 별개인 **웹에서 GitHub KVM 자동 시작** 기능의 마지막 미충족 요건이다. 단순히 GitHub 리포지토리 소스 연결만으로는 Actions workflow_dispatch 호출 권한이 생기지 않는다.
+- 사용자 브라우저에 PAT/토큰 입력 UI를 만들지 않았다. 서버에는 GitHub Actions 실행 권한을 직접 공급할 수 있는 신뢰 자격증명 연결이 필요하다.
