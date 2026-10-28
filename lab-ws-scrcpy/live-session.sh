@@ -28,6 +28,12 @@ cleanup(){
  wait "$SERVER_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
+fail_progress(){
+ local code="$1" line="$2"
+ node lab-ws-scrcpy/progress.mjs failed "Android 실행 스크립트 오류 (라인 $line, 종료 코드 $code). GitHub 로그를 확인해 주십시오." || true
+}
+trap 'fail_progress "$?" "$LINENO"' ERR
+node lab-ws-scrcpy/progress.mjs booted 'Android 11 부팅 및 ADB 연결을 확인했습니다.' || true
 for n in $(seq 1 75);do
  if ! kill -0 "$SERVER_PID" 2>/dev/null;then tail -n 100 "$OUT/ws-scrcpy.log";exit 31;fi
  curl -fsS --max-time 2 http://127.0.0.1:8000/ >/dev/null 2>&1 && break
@@ -35,6 +41,7 @@ for n in $(seq 1 75);do
 done
 node lab-ws-scrcpy/proof.mjs
 echo WS_SCRCPY_REAL_ANDROID11_KVM_STREAM_SERVER_READY
+node lab-ws-scrcpy/progress.mjs scrcpy '실제 Android 11 ws-scrcpy 서버가 실행되었습니다.' || true
 adb shell input keyevent 224 || true
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent 3 || true
@@ -47,6 +54,7 @@ for n in $(seq 1 15);do
  sleep 1
 done
 grep -q '"engine":"ws-scrcpy"' "$OUT/local-health.json"
+node lab-ws-scrcpy/progress.mjs tunnel '영상 프록시가 준비되어 공개 HTTPS 연결을 설정하고 있습니다.' || true
 curl -fsSL --retry 3 --max-time 100 \
  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
  -o /tmp/hitel-ws-cloudflared
@@ -70,6 +78,7 @@ grep -q '"engine":"ws-scrcpy"' "$OUT/public-health.json"
 echo HITEL_WS_SCRCPY_PUBLIC_HOST_REAL_H264_READY
 node lab-ws-scrcpy/session.mjs register "$TUNNEL"
 echo HITEL_WS_SCRCPY_RAILWAY_PUBLIC_VIEWER_REGISTERED
+node lab-ws-scrcpy/progress.mjs ready '실제 Android 화면을 웹에서 열 수 있습니다.' || true
 if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
   echo HITEL_APK_E2E_BEGIN
   timeout 120s bash lab-ws-scrcpy/apk-e2e.sh
