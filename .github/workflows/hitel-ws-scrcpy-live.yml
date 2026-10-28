@@ -40,6 +40,35 @@ jobs:
         with:
           path: .cache/hitel-ws-scrcpy
           key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-v1
+      - name: Restore prepared Android11 AVD Quick Boot
+        id: avd-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: hitel-ws-scrcpy-avd-android30-google-apis-pixel4-v1
+      - name: One-time prepare original Android11 fast boot image
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          force-avd-creation: false
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: false
+          script: echo HITEL_ANDROID11_SNAPSHOT_WARMUP_PASS
+      - name: Save prepared Android11 Quick Boot image
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: hitel-ws-scrcpy-avd-android30-google-apis-pixel4-v1
       - name: Start real Android11, temporary H264 browser tunnel and signed Railway status
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -48,7 +77,8 @@ jobs:
           arch: x86_64
           profile: pixel_4
           emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: bash lab-ws-scrcpy/live-session.sh
       - name: Preserve temporary native Android11 H264 diagnostics
