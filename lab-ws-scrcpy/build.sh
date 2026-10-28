@@ -27,7 +27,7 @@ cat > "$UPSTREAM/build.config.override.json" <<'JSON'
   "USE_BROADWAY": false,
   "USE_H264_CONVERTER": true,
   "USE_TINY_H264": false,
-  "USE_WEBCODECS": false,
+  "USE_WEBCODECS": true,
   "SCRCPY_LISTENS_ON_ALL_INTERFACES": false,
   "PATHNAME": "/"
 }
