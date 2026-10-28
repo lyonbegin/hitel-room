@@ -35,6 +35,8 @@ for n in $(seq 1 75);do
 done
 node lab-ws-scrcpy/proof.mjs
 echo WS_SCRCPY_REAL_ANDROID11_KVM_STREAM_SERVER_READY
+adb shell input keyevent 224 || true
+adb shell wm dismiss-keyguard || true
 adb shell input keyevent 3 || true
 node lab-ws-scrcpy/gateway.mjs > "$OUT/gateway.log" 2>&1 &
 GATEWAY_PID=$!
