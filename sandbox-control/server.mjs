@@ -4,6 +4,7 @@ import {createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {Sandbox} from 'railway';
 import {launchTcgProbeWhenArmed,getTcgProbeStatus} from './railway-tcg-probe.mjs';
 import {startCheckpointTestOnce,checkpointTestStatus} from './railway-tcg-checkpoint-test.mjs';
+import {wsScrcpyRoute} from './ws-scrcpy-host.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
@@ -188,6 +189,7 @@ function publicStatus(){
 }
 async function handle(req,res){
   const path=new URL(req.url,'http://localhost').pathname;
+  if(path.startsWith('/ws-scrcpy/'))return wsScrcpyRoute(req,res,path);
   if(req.method==='GET'&&path==='/tcg-status')return json(res,200,{ok:true,...getTcgProbeStatus()});
   if(req.method==='GET'&&path==='/checkpoint-test-status')return json(res,200,{ok:true,...checkpointTestStatus()});
   if(req.method==='GET'&&path==='/health')return json(res,200,{ok:true,service:'hitel-web-sandbox-control'});
