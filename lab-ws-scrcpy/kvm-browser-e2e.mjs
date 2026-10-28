@@ -60,7 +60,11 @@ try{
   return {x: (Number(coords[1])+Number(coords[3]))/2,y:(Number(coords[2])+Number(coords[4]))/2};
  };
  const appClick=async p=>{await page.mouse.click(box.x+box.width*(p.x/resolution.width),box.y+box.height*(p.y/resolution.height));};
- const input=locate(''); // Android EditText generally has empty text before typing
+ const inputNode=before.match(/<node[^>]*class="android.widget.EditText"[^>]*\/>/)?.[0];
+ if(!inputNode)throw Error('ANDROID_EDITTEXT_NOT_FOUND');
+ const matchInput=inputNode.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
+ if(!matchInput)throw Error('ANDROID_EDITTEXT_BOUNDS_NOT_FOUND');
+ const input={x:(Number(matchInput[1])+Number(matchInput[3]))/2,y:(Number(matchInput[2])+Number(matchInput[4]))/2};
  await appClick(input);
  await page.keyboard.type('HITEL123',{delay:65});
  await page.waitForTimeout(900);
