@@ -33,7 +33,7 @@ RUN npm run build && npx vite build --config vite.communication-sdk.config.ts
 # container. This does NOT provision a permanent relay or emulator.
 FROM node:22-alpine AS sandbox-sdk-build
 WORKDIR /srv/hitel-sandbox
-RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway
+RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway jose@5.9.6
 
 FROM nginx:1.27-alpine
 ENV TEST_LOGIN_KEY=""
@@ -44,6 +44,7 @@ COPY --from=sandbox-sdk-build /srv/hitel-sandbox/node_modules /srv/hitel-sandbox
 COPY sandbox-control/server.mjs /srv/hitel-sandbox/server.mjs
 COPY sandbox-control/railway-tcg-probe.mjs /srv/hitel-sandbox/railway-tcg-probe.mjs
 COPY sandbox-control/railway-tcg-checkpoint-test.mjs /srv/hitel-sandbox/railway-tcg-checkpoint-test.mjs
+COPY sandbox-control/ws-scrcpy-host.mjs /srv/hitel-sandbox/ws-scrcpy-host.mjs
 COPY sandbox-control/tcg-install.sh /srv/hitel-sandbox/tcg-install.sh
 COPY sandbox-control/tcg-boot.sh /srv/hitel-sandbox/tcg-boot.sh
 # Keep official nginx entrypoint intact so /etc/nginx/templates/*.template
