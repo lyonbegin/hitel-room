@@ -40,6 +40,9 @@ adb shell wm dismiss-keyguard || true
 adb shell input keyevent 3 || true
 sleep 2
 adb exec-out screencap -p > "$OUT/adb-native-screen.png" || true
+if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
+  bash lab-ws-scrcpy/apk-e2e.sh
+fi
 node lab-ws-scrcpy/gateway.mjs > "$OUT/gateway.log" 2>&1 &
 GATEWAY_PID=$!
 for n in $(seq 1 15);do
@@ -70,6 +73,13 @@ grep -q '"engine":"ws-scrcpy"' "$OUT/public-health.json"
 echo HITEL_WS_SCRCPY_PUBLIC_HOST_REAL_H264_READY
 node lab-ws-scrcpy/session.mjs register "$TUNNEL"
 echo HITEL_WS_SCRCPY_RAILWAY_PUBLIC_VIEWER_REGISTERED
+if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
+  command -v google-chrome
+  google-chrome --version
+  npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.56.0
+  node lab-ws-scrcpy/kvm-browser-e2e.mjs
+  adb shell input keyevent 3 || true
+fi
 SESSION_SECONDS="${HITEL_WS_SCRCPY_SESSION_SECONDS:-600}"
 [[ "$SESSION_SECONDS" =~ ^[0-9]+$ ]] || SESSION_SECONDS=600
 (( SESSION_SECONDS>=15 && SESSION_SECONDS<=600 )) || SESSION_SECONDS=600
