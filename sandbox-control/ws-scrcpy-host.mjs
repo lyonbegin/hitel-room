@@ -42,6 +42,7 @@ try{
   if(saved.progress&&STAGES.has(saved.progress.stage))progress={...progress,...saved.progress};
  }
 }catch{}
+if(desiredRunning&&progress.runId){queuedAt=0;claimedAt=0;}
 saveState();
 function updateProgress(stage,message='',extra={}){
  if(!STAGES.has(stage))return false;
@@ -117,24 +118,32 @@ async function superviseRunner(){
  if(recoveryInFlight||!desiredRunning||!dispatchToken())return;
  recoveryInFlight=true;
  try{
+  if(host&&Date.now()-(host.lastSupervisionProbe||0)>=20000){
+   host.lastSupervisionProbe=Date.now();
+   host.reachable=await isValid(host.url);
+   host.failedProbes=host.reachable?0:(Number(host.failedProbes)||0)+1;
+   if(host.failedProbes>=3){
+    host=null;
+    updateProgress('failed','실제 Android 영상 호스트가 응답하지 않아 자동 복구를 시작합니다.');
+   }else saveState();
+  }
   const runId=progress.runId;
+  let runCompleted=false;
   if(runId){
    const r=await fetch('https://api.github.com/repos/'+REPO+'/actions/runs/'+runId,{headers:{
     authorization:'Bearer '+dispatchToken(),accept:'application/vnd.github+json','x-github-api-version':'2022-11-28',
     'user-agent':'hitel-ws-scrcpy-railway'},signal:AbortSignal.timeout(8000)});
-   if(r.ok){
-    const run=await r.json();
-    if(run.status==='completed'&&!queuedAt&&!claimedAt){
-     host=null;
-     if(Date.now()-lastRecoveryAt>45000){
-      lastRecoveryAt=Date.now();saveState();
-      await dispatchWorkflow('GitHub 실행기가 종료되어 Android 11 세션을 자동으로 다시 시작합니다.');
-     }
-    }
+   if(r.ok){const run=await r.json();runCompleted=run.status==='completed';}
+   else console.error('WS_SCRCPY_RUN_STATUS_HTTP',r.status,runId);
+  }
+  const stale=progress.updatedAt?Date.now()-Date.parse(progress.updatedAt)>45000:false;
+  const stalled=!host&&!queuedAt&&!claimedAt&&stale&&progress.stage!=='idle';
+  if((runCompleted&&!queuedAt&&!claimedAt)||stalled){
+   host=null;
+   if(Date.now()-lastRecoveryAt>45000){
+    lastRecoveryAt=Date.now();saveState();
+    await dispatchWorkflow('Android 실행이 중단되어 저장된 이미지를 사용해 자동 복구를 시작합니다.');
    }
-  }else if(!live()&&!queuedAt&&!claimedAt&&Date.now()-lastRecoveryAt>45000){
-   lastRecoveryAt=Date.now();saveState();
-   await dispatchWorkflow('저장된 실행 상태를 복구해 Android 11 실행기를 다시 요청합니다.');
   }
  }catch(error){console.error('WS_SCRCPY_AUTO_RECOVERY_FAILED',String(error).slice(0,180));}
  finally{recoveryInFlight=false;}
@@ -210,6 +219,7 @@ export async function wsScrcpyRoute(req,res,path){
   if(!STAGES.has(stage))return json(res,400,{ok:false,error:'UNKNOWN_STAGE'});
   const runId=String(req.headers['x-github-run-id']||'');
   if(!/^[0-9]{1,20}$/.test(runId))return json(res,400,{ok:false,error:'RUN_ID_REQUIRED'});
+  queuedAt=0;claimedAt=0;
   // A late, previous runner must never overwrite a new session or a cancelled queue.
   if(progress.runId&&progress.runId!==runId)return json(res,409,{ok:false,error:'ANOTHER_RUN_IN_PROGRESS'});
   if(['stopped','failed'].includes(progress.stage))return json(res,409,{ok:false,error:'SESSION_ALREADY_TERMINATED'});
