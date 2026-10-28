@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .cache/hitel-ws-scrcpy
-          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-v1
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-mse-v2
       - name: Build pinned upstream ws-scrcpy without VNC
         run: bash lab-ws-scrcpy/build.sh
       - name: Save compiled ws-scrcpy after successful build
@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .cache/hitel-ws-scrcpy
-          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-v1
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-mse-v2
       - name: Restore prepared Android11 AVD Quick Boot
         id: avd-cache
         uses: actions/cache/restore@v4
