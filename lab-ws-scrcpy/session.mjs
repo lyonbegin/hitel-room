@@ -27,7 +27,14 @@ async function register(hostOverride){
 }
 async function check(){
  const state=JSON.parse(readFileSync(SAVE,'utf8'));
- let response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':state.ticket},signal:AbortSignal.timeout(8000)});
+ let response;
+ try{
+  response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':state.ticket},signal:AbortSignal.timeout(12000)});
+ }catch(error){
+  // A Railway rollout or transient network interruption must not be treated as Stop.
+  console.error('HITEL_RUNNER_STATUS_TRANSIENT_RETRY',String(error).slice(0,180));
+  console.log('continue');return;
+ }
  if(response.status===403&&state.host){
   // Railway redeploy clears process RAM, not the actual GitHub Android VM.
   // Restore host registration using our signed GitHub OIDC identity and the
@@ -36,12 +43,23 @@ async function check(){
    console.log('HITEL_RAILWAY_RESTART_DETECTED_REREGISTER_REAL_KVM');
    await register(state.host);
    const recovered=JSON.parse(readFileSync(SAVE,'utf8'));
-   response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':recovered.ticket},signal:AbortSignal.timeout(8000)});
+   response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':recovered.ticket},signal:AbortSignal.timeout(12000)});
    if(response.ok)console.log('HITEL_RAILWAY_REDEPLOY_SESSION_RECOVERED');
-  }catch(err){console.error('HITEL_REREGISTER_FAILED',String(err).slice(0,240))}
+  }catch(err){
+   console.error('HITEL_REREGISTER_TRANSIENT_RETRY',String(err).slice(0,240));
+   console.log('continue');return;
+  }
  }
- if(!response.ok){console.log('stop');return}
- const data=await response.json();
+ if(!response.ok){
+  console.error('HITEL_RUNNER_STATUS_HTTP_RETRY',response.status);
+  console.log('continue');return;
+ }
+ let data;
+ try{data=await response.json()}catch(error){
+  console.error('HITEL_RUNNER_STATUS_INVALID_JSON_RETRY',String(error).slice(0,160));
+  console.log('continue');return;
+ }
+ // Only the authenticated, explicit Stop state ends the Android runner.
  console.log(data.stop?'stop':'continue');
 }
 async function finish(){
