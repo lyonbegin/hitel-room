@@ -1,9 +1,6 @@
 name: HITEL ws-scrcpy original Android11 temporary live host
-# Third one-off KVM test: cached clean AVD, force cold boot to avoid host-incompatible GPU snapshots.
+# Production: on-demand only. No background KVM runner or automatic launch on source edits.
 on:
-  push:
-    branches: [feature/ws-scrcpy-android11-20261028]
-    paths: [.github/workflows/hitel-ws-scrcpy-live.yml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,8 +12,6 @@ jobs:
   live-original-android11:
     runs-on: ubuntu-24.04
     timeout-minutes: 22
-    env:
-      HITEL_WS_SCRCPY_SESSION_SECONDS: '60'
     steps:
       - uses: actions/checkout@v4
       - name: Enable actual GitHub KVM
