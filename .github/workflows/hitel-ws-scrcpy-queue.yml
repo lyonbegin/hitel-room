@@ -3,6 +3,9 @@ name: HITEL ws-scrcpy scheduled queue worker
 on:
   schedule:
     - cron: '*/5 * * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/hitel-ws-scrcpy-queue.yml']
 permissions:
   contents: read
   id-token: write
@@ -22,7 +25,13 @@ jobs:
           node-version: '22'
       - name: Claim queued website Android test via GitHub OIDC
         id: claim
-        run: node lab-ws-scrcpy/claim.mjs
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo 'claimed=true' >> "$GITHUB_OUTPUT"
+            echo ANDROID_KVM_EXPLICIT_SMOKE_RUN
+          else
+            node lab-ws-scrcpy/claim.mjs
+          fi
       - name: Enable actual GitHub KVM
         if: steps.claim.outputs.claimed == 'true'
         run: |
