@@ -1,5 +1,5 @@
 name: HITEL ws-scrcpy original Android11 temporary live host
-# Second one-off KVM test confirms cached Android11 Quick Boot and 60s lifecycle.
+# Third one-off KVM test: cached clean AVD, force cold boot to avoid host-incompatible GPU snapshots.
 on:
   push:
     branches: [feature/ws-scrcpy-android11-20261028]
@@ -83,7 +83,7 @@ jobs:
           profile: pixel_4
           emulator-boot-timeout: 300
           force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: bash lab-ws-scrcpy/live-session.sh
       - name: Preserve temporary native Android11 H264 diagnostics
