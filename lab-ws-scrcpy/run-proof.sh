@@ -17,7 +17,7 @@ SERVER_PID=$!
 cleanup() {
   kill "$SERVER_PID" 2>/dev/null || true
   wait "$SERVER_PID" 2>/dev/null || true
-  adb shell pkill -f com.genymobile.scrcpy.Server >/dev/null 2>&1 || true
+  timeout 5s adb disconnect emulator-5554 >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 for n in $(seq 1 65); do
@@ -33,5 +33,5 @@ done
 test -s "$OUT/bundle.js" || { echo WS_SCRCPY_CLIENT_UNAVAILABLE; tail -n 100 "$OUT/server.log"; exit 31; }
 echo WS_SCRCPY_HTTP_AND_CLIENT_PASS
 node lab-ws-scrcpy/proof.mjs
-python3 lab-ws-scrcpy/browser-proof.py
+timeout -k 8s 165s python3 lab-ws-scrcpy/browser-proof.py
 echo WS_SCRCPY_REAL_ANDROID11_NO_VNC_ALL_PASS
