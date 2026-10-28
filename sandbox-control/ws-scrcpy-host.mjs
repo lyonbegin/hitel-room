@@ -8,10 +8,9 @@ const AUDIENCE='hitel-ws-scrcpy';
 const REPO='lyonbegin/hitel-room';
 const BRANCH='feature/ws-scrcpy-android11-20261028';
 const WORKFLOW='hitel-ws-scrcpy-live.yml';
-const SCHEDULE_WORKFLOW='hitel-ws-scrcpy-queue.yml';
 const JWKS=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 const TTL=600_000;
-const DISPATCH_TOKEN=process.env.HITEL_GITHUB_WORKFLOW_TOKEN||'';
+const dispatchToken=()=>process.env.HITEL_GITHUB_WORKFLOW_TOKEN||'';
 let host=null;
 let queuedAt=0;
 let claimedAt=0;
@@ -36,9 +35,9 @@ function publicProgress(){
  if(host&&now>=host.deadline&&!['failed','stopped'].includes(progress.stage)){
   updateProgress('stopped','Android 사용 가능 시간이 만료되어 실행이 종료되었습니다.');
  }
- // A scheduled worker can be delayed, and a build may fail before sending a stage update.
+ // Dispatch acceptance is not proof that GitHub assigned a runner.
  if(progress.stage==='queued' && queuedAt && now-queuedAt>=480000){
-  queuedAt=0;updateProgress('failed','예약 실행 확인 제한(8분)을 초과했습니다. 다시 실행을 요청해 주십시오.');
+  queuedAt=0;updateProgress('failed','GitHub 실행기 배정 제한(8분)을 초과했습니다. 다시 실행을 요청해 주십시오.');
  }
  if(!live()&&claimedAt&&now-claimedAt>=600000){
   claimedAt=0;updateProgress('failed','Android 실행 확인 제한(10분)을 초과했습니다. 실행 로그를 확인해 주십시오.');
@@ -95,8 +94,13 @@ function canStop(req){
 export async function wsScrcpyRoute(req,res,path){
  if(req.method==='GET'&&path==='/ws-scrcpy/status'){
   const current=publicProgress();
+  const dispatchConfigured=Boolean(dispatchToken());
   if(!live())return json(res,200,{ok:true,online:false,engine:'ws-scrcpy',
-    launchAvailable:true,progress:current,
+    // A browser start is only offered when this server can immediately dispatch
+    // the workflow. Never present the periodic GitHub queue as a launch path.
+    launchAvailable:dispatchConfigured&&!queuedAt&&!claimedAt,
+    dispatchConfigured,
+    progress:current,
     launchState:claimedAt&&Date.now()-claimedAt<600000?'booting':queuedAt&&Date.now()-queuedAt<480000?'queued':current.stage==='failed'?'failed':'idle',
     reason:current.error|| (host?'expired':'no-running-android11')});
   if(Date.now()-host.lastProbe>5000){
@@ -109,16 +113,18 @@ export async function wsScrcpyRoute(req,res,path){
  }
  if(path==='/ws-scrcpy/start'&&req.method==='POST'){
   if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
+  const token=dispatchToken();
+  if(!token)return json(res,503,{ok:false,error:'GITHUB_WORKFLOW_DISPATCH_NOT_CONFIGURED',
+   message:'Railway에 HITEL_GITHUB_WORKFLOW_TOKEN이 설정되지 않아 즉시 실행할 수 없습니다.'});
   if(live()||(claimedAt&&Date.now()-claimedAt<600000)||(queuedAt&&Date.now()-queuedAt<480000))return json(res,409,{ok:false,error:'SESSION_ALREADY_ACTIVE_OR_QUEUED'});
   queuedAt=Date.now();
   claimedAt=0;
   progress={stage:'idle',message:'',updatedAt:null,startedAt:null,runId:null,history:[],error:null};
-  updateProgress('queued','GitHub 예약 실행기의 작업 수락을 기다리는 중입니다. 예약 실행은 약 5분 간격이며 지연될 수 있습니다.');
-  if(!DISPATCH_TOKEN)return json(res,202,{ok:true,launchState:'queued',requestedAt:queuedAt,mode:'scheduled-kvm-poll',message:'GitHub KVM scheduled worker will collect this request'});
+  updateProgress('queued','웹 버튼에서 GitHub KVM 실행을 즉시 요청했습니다. 실제 실행기 배정을 기다리는 중입니다.');
   try{
    const r=await fetch('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches',{
     method:'POST',headers:{
-     authorization:'Bearer '+DISPATCH_TOKEN,accept:'application/vnd.github+json',
+     authorization:'Bearer '+token,accept:'application/vnd.github+json',
      'content-type':'application/json','x-github-api-version':'2022-11-28',
      'user-agent':'hitel-ws-scrcpy-railway'
     },

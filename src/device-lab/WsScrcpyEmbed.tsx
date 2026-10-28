@@ -2,9 +2,9 @@ import {useEffect,useState} from 'react';
 type ProgressStage='idle'|'queued'|'claimed'|'kvm'|'sdk'|'emulator'|'booted'|'scrcpy'|'tunnel'|'ready'|'testing'|'stopping'|'stopped'|'failed';
 type ProgressEvent={stage:ProgressStage;time:string;message:string};
 type NativeProgress={stage:ProgressStage;message:string;updatedAt:string|null;startedAt:string|null;elapsedSeconds:number;runId:string|null;runUrl:string|null;error:string|null;history:ProgressEvent[];pollingSeconds?:number;receivedFromRunner?:boolean};
-type NativeStatus={ok?:boolean;online?:boolean;url?:string;launchAvailable?:boolean;launchState?:string;reason?:string;progress?:NativeProgress;remainingSeconds?:number};
+type NativeStatus={ok?:boolean;online?:boolean;url?:string;launchAvailable?:boolean;dispatchConfigured?:boolean;launchState?:string;reason?:string;progress?:NativeProgress;remainingSeconds?:number};
 const BOOT_STEPS:{stage:ProgressStage;label:string;detail:string}[]=[
- {stage:'queued',label:'실행 요청 접수',detail:'GitHub 예약 실행기에서 작업 수락 대기'},
+ {stage:'queued',label:'실행 요청 접수',detail:'웹 버튼이 GitHub KVM workflow_dispatch를 즉시 호출'},
  {stage:'claimed',label:'GitHub 실행기 배정',detail:'실행기에서 작업 수락 확인'},
  {stage:'kvm',label:'KVM 가속 확인',detail:'실제 /dev/kvm 가속 장치 점검'},
  {stage:'sdk',label:'영상 서버 준비',detail:'ws-scrcpy 빌드 및 실행 파일 점검'},
@@ -73,7 +73,7 @@ export function WsScrcpyEmbed(){
    });
    const data=await response.json() as {ok?:boolean;error?:string};
    if(!response.ok||!data.ok)throw Error(data.error||'실제 KVM 시작 실패');
-   setNativeStatus(old=>({...old,online:false,launchState:'queued',progress:{stage:'queued',message:'실행 요청 접수. GitHub 예약 실행기 배정을 기다리고 있습니다.',updatedAt:new Date().toISOString(),startedAt:new Date().toISOString(),elapsedSeconds:0,runId:null,runUrl:null,error:null,history:[{stage:'queued',time:new Date().toISOString(),message:'실행 요청 접수'}]}}));
+   setNativeStatus(old=>({...old,online:false,launchState:'queued',progress:{stage:'queued',message:'웹 버튼에서 즉시 실행 요청을 접수했습니다. GitHub 실행기 배정을 기다리고 있습니다.',updatedAt:new Date().toISOString(),startedAt:new Date().toISOString(),elapsedSeconds:0,runId:null,runUrl:null,error:null,history:[{stage:'queued',time:new Date().toISOString(),message:'즉시 실행 요청 접수'}]}}));
    setState('GitHub 실행기 배정 대기 중');
   }catch(e){setState('실제 Android 실행 요청 실패: '+String(e));}
   finally{setStarting(false)}
@@ -139,10 +139,9 @@ export function WsScrcpyEmbed(){
   <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:12,color:'#55707d'}}>
     <span>요청 후 경과: <strong>{duration(elapsed)}</strong></span>
     {progress?.updatedAt&&<span>마지막 실행 단계 갱신: {duration(lastUpdate)} 전</span>}
-    {stage==='queued'&&<span>GitHub 예약 실행: 약 5분 간격 (시작 보장 없음)</span>}
     {nativeStatus?.remainingSeconds!==undefined&&nativeStatus?.online&&<span>남은 사용 시간: {duration(nativeStatus.remainingSeconds)}</span>}
   </div>
-  {stage==='queued'&&<p style={{color:'#8a5d1e',background:'#fff8ec',borderRadius:6,padding:'8px 10px',fontSize:12}}>현재는 Railway에 실행 요청만 저장되어 있습니다. GitHub 실행기가 아직 배정되지 않았으며 실제 Android 부팅은 시작되지 않았습니다. GitHub 예약 실행은 지연되거나 누락될 수 있으며, 8분간 배정되지 않으면 실패로 표시됩니다.</p>}
+  {stage==='queued'&&<p style={{color:'#8a5d1e',background:'#fff8ec',borderRadius:6,padding:'8px 10px',fontSize:12}}>웹 버튼에서 즉시 실행 요청을 전송했습니다. GitHub가 실제 실행기를 배정하기 전까지 Android 부팅은 시작되지 않습니다.</p>}
   {stage==='failed'&&<p role="alert" style={{color:'#a12e33',background:'#fff1f1',padding:'10px',borderRadius:7,fontSize:13}}>{progress?.error||'실행에 실패했습니다. 다시 실행할 수 있습니다.'}</p>}
   {stage==='stopped'&&<p style={{fontSize:13,color:'#5e7082'}}>실행이 종료되었거나 사용자가 실행 대기를 취소했습니다.</p>}
   <ol style={{listStyle:'none',padding:0,margin:'14px 0 0',display:'grid',gap:5}}>
@@ -169,7 +168,9 @@ export function WsScrcpyEmbed(){
    </button>
    {active&&<button type="button" onClick={()=>void stop()} disabled={stopping} style={{padding:'11px 18px',border:'1px solid #b5c0c6',borderRadius:8,background:'#fff',color:'#425966'}}>{stopping?'취소 요청 중…':'실행 대기 취소·종료'}</button>}
   </div>
-  {!launchAvailable&&<small style={{color:'#6a7f88'}}>실행 API 확인 후 시작 버튼이 활성화됩니다.</small>}
+  {!launchAvailable&&<small style={{color:'#6a7f88'}}>{nativeStatus?.dispatchConfigured===false
+    ?'Railway 서비스에 HITEL_GITHUB_WORKFLOW_TOKEN을 등록해야 웹 버튼 즉시 실행을 사용할 수 있습니다.'
+    :'실행 API 확인 후 시작 버튼이 활성화됩니다.'}</small>}
   <small style={{textAlign:'center',color:'#677e8a'}}>저장된 화면을 표시하지 않습니다. 실제 Android 11이 준비되면 여기서 자동으로 전환됩니다.</small>
  </div>;
  return <div style={{display:'flex',height:'100%',minHeight:570,flexDirection:'column'}}>
