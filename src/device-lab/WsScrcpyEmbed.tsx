@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useState} from 'react';
 type NativeStatus={ok?:boolean;online?:boolean;url?:string;transport?:string;runId?:string};
 type Viewer={url:string;player:'webcodecs'|'mse';host:string};
 const STATUS='/lab-sandbox/ws-scrcpy/status';
@@ -24,7 +24,21 @@ async function verifyHost(base:string):Promise<boolean>{
 export function WsScrcpyEmbed(){
  const [viewer,setViewer]=useState<Viewer|null>(null);
  const [state,setState]=useState('실제 Android 11 ws-scrcpy 실행 대기');
- const webCodecs=useMemo(()=>typeof window!=='undefined'&&typeof (window as Window&{VideoDecoder?:unknown}).VideoDecoder!=='undefined',[]);
+ const [player,setPlayer]=useState<'webcodecs'|'mse'>('mse');
+ useEffect(()=>{
+  let alive=true;
+  const test=async()=>{
+   const Decoder=(window as unknown as {VideoDecoder?:{isConfigSupported:
+      (config:{codec:string;codedWidth:number;codedHeight:number})=>Promise<{supported:boolean}>}}).VideoDecoder;
+   if(!Decoder?.isConfigSupported)return;
+   try{
+    const result=await Decoder.isConfigSupported({codec:'avc1.42E01E',codedWidth:512,codedHeight:1088});
+    if(alive&&result.supported)setPlayer('webcodecs');
+   }catch{/* MSE remains the verified-compatible fallback */}
+  };
+  void test();
+  return()=>{alive=false};
+ },[]);
  useEffect(()=>{
   let mounted=true,checking=false;
   const tick=async()=>{
@@ -41,7 +55,6 @@ export function WsScrcpyEmbed(){
     const host=new URL(base).host;
     // ws-scrcpy's own adb-proxy WebSocket; this is H.264, NOT VNC.
     const ws='wss://'+host+'/?action=proxy-adb&udid=emulator-5554&remote=tcp%3A8886';
-    const player=webCodecs?'webcodecs':'mse';
     const hash=new URLSearchParams({action:'stream',udid:'emulator-5554',
       player,ws,fitToScreen:'1',captureKeyboard:'1'});
     if(mounted){setViewer({url:base+'/#!'+hash.toString(),player,host});setState('실제 Android 11 영상 연결됨');}
@@ -51,7 +64,7 @@ export function WsScrcpyEmbed(){
   };
   void tick();const interval=window.setInterval(()=>void tick(),3500);
   return()=>{mounted=false;window.clearInterval(interval);}
- },[webCodecs]);
+ },[player]);
  if(!viewer)return <div role="status" style={{minHeight:520,display:'grid',placeContent:'center',
   padding:20,textAlign:'center',gap:10,color:'#577281'}}>
   <strong>{state}</strong>
@@ -61,7 +74,17 @@ export function WsScrcpyEmbed(){
  return <div style={{display:'flex',height:'100%',minHeight:570,flexDirection:'column'}}>
   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
    padding:'8px 12px',fontSize:12,color:'#174f61',background:'#edf9fa'}}>
-   <strong>● 실제 Android 11 · ws-scrcpy H.264 · {viewer.player}</strong>
+   <span style={{display:'flex',gap:8,alignItems:'center'}}>
+    <strong>● Android 11 · ws-scrcpy H.264</strong>
+    <label style={{display:'flex',gap:4,alignItems:'center'}}>디코더
+      <select aria-label="Android 영상 디코더 선택" value={player}
+        onChange={e=>setPlayer(e.target.value as 'webcodecs'|'mse')}
+        style={{padding:'3px 5px',borderRadius:5}}>
+        <option value="webcodecs">WebCodecs</option>
+        <option value="mse">MSE (호환 모드)</option>
+      </select>
+    </label>
+   </span>
    <span style={{display:'flex',alignItems:'center',gap:10}}>
     <a href={viewer.url} target="_blank" rel="noopener noreferrer">실제 화면 새 창 ↗</a>
     <button type="button" onClick={()=>{void fetch('/lab-sandbox/ws-scrcpy/stop',{
