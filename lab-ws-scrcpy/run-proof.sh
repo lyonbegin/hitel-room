@@ -15,9 +15,10 @@ adb shell am start -a android.settings.SETTINGS >/dev/null 2>&1 || true
 ) >"$OUT/server.log" 2>&1 &
 SERVER_PID=$!
 cleanup() {
-  kill "$SERVER_PID" 2>/dev/null || true
+  kill -TERM "$SERVER_PID" 2>/dev/null || true
+  sleep 1
+  kill -KILL "$SERVER_PID" 2>/dev/null || true
   wait "$SERVER_PID" 2>/dev/null || true
-  timeout 5s adb disconnect emulator-5554 >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 for n in $(seq 1 65); do
