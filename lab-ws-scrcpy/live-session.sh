@@ -66,7 +66,11 @@ grep -q '"engine":"ws-scrcpy"' "$OUT/public-health.json"
 echo HITEL_WS_SCRCPY_PUBLIC_HOST_REAL_H264_READY
 node lab-ws-scrcpy/session.mjs register "$TUNNEL"
 echo HITEL_WS_SCRCPY_RAILWAY_PUBLIC_VIEWER_REGISTERED
-for n in $(seq 1 200);do
+SESSION_SECONDS="${HITEL_WS_SCRCPY_SESSION_SECONDS:-600}"
+[[ "$SESSION_SECONDS" =~ ^[0-9]+$ ]] || SESSION_SECONDS=600
+(( SESSION_SECONDS>=15 && SESSION_SECONDS<=600 )) || SESSION_SECONDS=600
+SESSION_ITERATIONS=$(( (SESSION_SECONDS+2)/3 ))
+for n in $(seq 1 "$SESSION_ITERATIONS");do
  if ! kill -0 "$SERVER_PID" || ! kill -0 "$TUNNEL_PID";then
   echo WS_SCRCPY_LIVE_TRANSPORT_EXITED;break
  fi
