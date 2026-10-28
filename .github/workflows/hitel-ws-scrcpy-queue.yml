@@ -1,4 +1,5 @@
 name: HITEL ws-scrcpy scheduled queue worker
+# Run second KVM proof: wake Android, capture raw ADB screenshot, verify browser pixels.
 # Production: on-demand only. No background KVM runner or automatic launch on source edits.
 on:
   schedule:
@@ -112,4 +113,5 @@ jobs:
           path: |
             mobile-test-results/ws-scrcpy-live/*.log
             mobile-test-results/ws-scrcpy-live/*.json
+            mobile-test-results/ws-scrcpy-live/*.png
           if-no-files-found: warn
