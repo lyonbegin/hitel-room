@@ -12,8 +12,8 @@ async function oidc(){
  if(!response.ok)throw Error('GITHUB_OIDC_HTTP_'+response.status);
  return (await response.json()).value;
 }
-async function register(){
- const host=process.argv[3];
+async function register(hostOverride){
+ const host=hostOverride||process.argv[3];
  if(!host)throw Error('WS_SCRCPY_TUNNEL_REQUIRED');
  const jwt=await oidc();
  const response=await fetch(API+'/register',{method:'POST',
@@ -22,12 +22,24 @@ async function register(){
   body:JSON.stringify({url:host}),signal:AbortSignal.timeout(15000)});
  const reply=await response.json();
  if(!response.ok||!reply.ok||reply.status!=='running')throw Error('HOST_REGISTER_FAILED '+JSON.stringify(reply));
- writeFileSync(SAVE,JSON.stringify({ticket:reply.ticket,deadline:reply.deadline}),{mode:0o600});
+ writeFileSync(SAVE,JSON.stringify({ticket:reply.ticket,deadline:reply.deadline,host,runId:process.env.GITHUB_RUN_ID||''}),{mode:0o600});
  console.log('HITEL_WS_SCRCPY_REGISTER_SUCCESS',reply.status,'expires',new Date(reply.deadline).toISOString());
 }
 async function check(){
  const state=JSON.parse(readFileSync(SAVE,'utf8'));
- const response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':state.ticket},signal:AbortSignal.timeout(8000)});
+ let response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':state.ticket},signal:AbortSignal.timeout(8000)});
+ if(response.status===403&&state.host&&Date.now()<state.deadline){
+  // Railway redeploy clears process RAM, not the actual GitHub Android VM.
+  // Restore host registration using our signed GitHub OIDC identity and the
+  // original temporary HTTPS endpoint, never a stored screen or fake stream.
+  try{
+   console.log('HITEL_RAILWAY_RESTART_DETECTED_REREGISTER_REAL_KVM');
+   await register(state.host);
+   const recovered=JSON.parse(readFileSync(SAVE,'utf8'));
+   response=await fetch(API+'/runner-status',{headers:{'x-runner-ticket':recovered.ticket},signal:AbortSignal.timeout(8000)});
+   if(response.ok)console.log('HITEL_RAILWAY_REDEPLOY_SESSION_RECOVERED');
+  }catch(err){console.error('HITEL_REREGISTER_FAILED',String(err).slice(0,240))}
+ }
  if(!response.ok){console.log('stop');return}
  const data=await response.json();
  console.log(data.stop||data.remainingSeconds<=0?'stop':'continue');
