@@ -34,7 +34,7 @@ export function WsScrcpyEmbed(){
    const response=await fetch('/lab-sandbox/ws-scrcpy/stop',{
     method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:'{}'
    });
-   const result=await response.json() as {ok?:boolean;error?:string};
+   const result=await response.json() as {ok?:boolean;error?:string;alreadyStopped?:boolean};
    if(!response.ok||!result.ok)throw Error(result.error||'실제 실행 종료 요청 실패');
    setState(result.alreadyStopped?'Android가 이미 종료됨':'Android 실제 종료 요청 접수 · GitHub KVM 정리 대기');
    if(result.alreadyStopped)setViewer(null);
