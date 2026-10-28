@@ -17,7 +17,8 @@ async function register(){
  if(!host)throw Error('WS_SCRCPY_TUNNEL_REQUIRED');
  const jwt=await oidc();
  const response=await fetch(API+'/register',{method:'POST',
-  headers:{'content-type':'application/json',authorization:'Bearer '+jwt},
+  headers:{'content-type':'application/json',authorization:'Bearer '+jwt,
+   'x-github-run-id':process.env.GITHUB_RUN_ID||''},
   body:JSON.stringify({url:host}),signal:AbortSignal.timeout(15000)});
  const reply=await response.json();
  if(!response.ok||!reply.ok||reply.status!=='running')throw Error('HOST_REGISTER_FAILED '+JSON.stringify(reply));
