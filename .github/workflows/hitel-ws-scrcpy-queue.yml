@@ -1,9 +1,12 @@
 name: HITEL ws-scrcpy scheduled queue worker
 # Full device input debugging: preserve XML focus, browser keyboard and control packets.
-# Production: on-demand only. No background KVM runner or automatic launch on source edits.
+# Temporary single-use push kick: claim ONLY an existing Railway website request; no KVM if queue is empty.
 on:
   schedule:
     - cron: '*/5 * * * *'
+  push:
+    branches: [main]
+    paths: ['.github/workflows/hitel-ws-scrcpy-queue.yml']
 permissions:
   contents: read
   id-token: write
