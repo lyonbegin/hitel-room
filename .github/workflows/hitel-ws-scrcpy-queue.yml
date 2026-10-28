@@ -4,9 +4,6 @@ name: HITEL ws-scrcpy scheduled queue worker
 on:
   schedule:
     - cron: '*/5 * * * *'
-  push:
-    branches: [main]
-    paths: ['.github/workflows/hitel-ws-scrcpy-queue.yml']
 permissions:
   contents: read
   id-token: write
@@ -27,18 +24,16 @@ jobs:
       - name: Claim queued website Android test via GitHub OIDC
         id: claim
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo 'claimed=true' >> "$GITHUB_OUTPUT"
-            echo ANDROID_KVM_EXPLICIT_SMOKE_RUN
-          else
-            node lab-ws-scrcpy/claim.mjs
-          fi
+          node lab-ws-scrcpy/claim.mjs
       - name: Enable actual GitHub KVM
         if: steps.claim.outputs.claimed == 'true'
         run: |
           set -euo pipefail
           test -c /dev/kvm
           sudo chmod a+rw /dev/kvm
+      - name: Confirm KVM enabled and send realtime stage
+        if: steps.claim.outputs.claimed == 'true'
+        run: node lab-ws-scrcpy/progress.mjs kvm 'GitHub KVM 가속 장치를 확인했습니다.' || true
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -56,6 +51,9 @@ jobs:
       - name: Build pinned upstream ws-scrcpy without VNC
         if: steps.claim.outputs.claimed == 'true'
         run: bash lab-ws-scrcpy/build.sh
+      - name: Report ws-scrcpy build successful
+        if: steps.claim.outputs.claimed == 'true'
+        run: node lab-ws-scrcpy/progress.mjs sdk 'ws-scrcpy 영상 서버 빌드를 확인했습니다.' || true
       - name: Save compiled ws-scrcpy after successful build
         if: steps.claim.outputs.claimed == 'true' && steps.ws-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -92,10 +90,13 @@ jobs:
             ~/.android/avd/*
             ~/.android/adb*
           key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v1
+      - name: Report Android emulator boot starting
+        if: steps.claim.outputs.claimed == 'true'
+        run: node lab-ws-scrcpy/progress.mjs emulator '원본 Android 11 에뮬레이터 부팅을 시작했습니다.' || true
       - name: Start real Android11, temporary H264 browser tunnel and signed Railway status
         if: steps.claim.outputs.claimed == 'true'
         env:
-          HITEL_WS_E2E: '1'
+          HITEL_WS_E2E: '0'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -107,6 +108,9 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: bash lab-ws-scrcpy/live-session.sh
+      - name: Report GitHub Android worker failure
+        if: failure() && steps.claim.outputs.claimed == 'true'
+        run: node lab-ws-scrcpy/progress.mjs failed 'GitHub 작업 중 오류가 발생했습니다. 실행 기록에서 원인을 확인해 주십시오.' || true
       - name: Preserve temporary native Android11 H264 diagnostics
         if: always() && steps.claim.outputs.claimed == 'true'
         uses: actions/upload-artifact@v4
