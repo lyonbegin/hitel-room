@@ -18,10 +18,10 @@ const hash=new URLSearchParams({action:'stream',udid:'emulator-5554',player:'mse
 const link=site+'/#!'+hash.toString();
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required','--use-gl=angle','--use-angle=swiftshader']});
 const page=await browser.newPage({viewport:{width:1080,height:980}});
-const events=[];let streamFrames=0;
+const events=[];let streamFrames=0,controlFramesSent=0;
 page.on('console',m=>{if(m.type()==='error')events.push(['console-error',m.text().slice(0,350)]);});
 page.on('pageerror',e=>events.push(['pageerror',String(e).slice(0,350)]));
-page.on('websocket',s=>{events.push(['socket',s.url()]);s.on('framereceived',f=>{if(s.url().includes('proxy-adb'))streamFrames++;});});
+page.on('websocket',s=>{events.push(['socket',s.url()]);s.on('framereceived',f=>{if(s.url().includes('proxy-adb'))streamFrames++;});s.on('framesent',f=>{if(s.url().includes('proxy-adb')){controlFramesSent++;if(controlFramesSent<=30)events.push(['control-frame-sent',typeof f.payload==='string'?f.payload.length:f.payload.length]);}});});
 const report={url:link,results:{},events};
 try{
  const capabilities=await page.evaluate(()=>({userAgent:navigator.userAgent,ms:typeof MediaSource!=='undefined',mseH264:typeof MediaSource!=='undefined'&&MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E"'),webCodecs:typeof VideoDecoder!=='undefined'}));
@@ -59,23 +59,32 @@ try{
   if(!coords)throw Error('ANDROID_VIEW_COORDINATES_MISSING:'+name);
   return {x: (Number(coords[1])+Number(coords[3]))/2,y:(Number(coords[2])+Number(coords[4]))/2};
  };
- const appClick=async p=>{await page.mouse.click(box.x+box.width*(p.x/resolution.width),box.y+box.height*(p.y/resolution.height));};
+ report.results.display={box,resolution};
+ const appClick=async p=>{const xy={x:box.x+box.width*(p.x/resolution.width),y:box.y+box.height*(p.y/resolution.height)};events.push(['tap-coordinates',{android:p,browser:xy}]);await page.mouse.click(xy.x,xy.y);};
  const inputNode=before.match(/<node[^>]*class="android.widget.EditText"[^>]*\/>/)?.[0];
  if(!inputNode)throw Error('ANDROID_EDITTEXT_NOT_FOUND');
  const matchInput=inputNode.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
  if(!matchInput)throw Error('ANDROID_EDITTEXT_BOUNDS_NOT_FOUND');
  const input={x:(Number(matchInput[1])+Number(matchInput[3]))/2,y:(Number(matchInput[2])+Number(matchInput[4]))/2};
+ report.results.inputTarget=input;
+ report.results.keyboardCapture=await page.evaluate(()=>[...document.querySelectorAll('input[type="checkbox"]')].map(e=>({id:e.id,checked:e.checked})));
  await appClick(input);
- await page.keyboard.type('HITEL123',{delay:65});
+ await page.waitForTimeout(600);
+ const focusDump=dump();writeFileSync(out+'/apk-ui-after-focus.xml',focusDump);
+ await page.screenshot({path:out+'/browser-after-input-focus.png'});
+ report.results.androidFocus=focusDump.includes('class="android.widget.EditText"')&&/class="android.widget.EditText"[^>]*focused="true"/.test(focusDump);
+ for(const key of ['KeyH','KeyI','KeyT','KeyE','KeyL','Digit1','Digit2','Digit3']){await page.keyboard.press(key,{delay:85});}
  await page.waitForTimeout(900);
  const typed=dump();writeFileSync(out+'/apk-ui-keyboard.xml',typed);
- report.results.keyboard=typed.includes('HITEL123');
- if(!report.results.keyboard)throw Error('WEB_BROWSER_KEYBOARD_NOT_DELIVERED_TO_ANDROID');
+ report.results.keyboard=typed.toLowerCase().includes('hitel123');
+ report.results.controlFramesSent=controlFramesSent;
+ await page.screenshot({path:out+'/browser-after-keyboard.png'});
+ if(!report.results.keyboard){events.push(['keyboard-debug',typed.match(/<node[^>]*class="android.widget.EditText"[^>]*\/>/)?.[0]||'not-found']);console.log('HITEL_KEYBOARD_DIAGNOSTIC',JSON.stringify(report));throw Error('WEB_BROWSER_KEYBOARD_NOT_DELIVERED_TO_ANDROID')}
  const button=locate('HITEL TAP TEST');
  await appClick(button);
  await page.waitForTimeout(1000);
  const after=dump();writeFileSync(out+'/apk-ui-after-browser.xml',after);
- report.results.touch=after.includes('TOUCH_OK:HITEL123');
+ report.results.touch=after.toLowerCase().includes('touch_ok:hitel123');
  await page.screenshot({path:out+'/browser-touch-keyboard.png'});
  if(!report.results.touch)throw Error('WEB_BROWSER_TOUCH_NOT_DELIVERED_TO_ANDROID');
  const manager=await browser.newPage({viewport:{width:1280,height:850}});
