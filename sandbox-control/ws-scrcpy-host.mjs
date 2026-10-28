@@ -14,6 +14,7 @@ const TTL=600_000;
 const DISPATCH_TOKEN=process.env.HITEL_GITHUB_WORKFLOW_TOKEN||'';
 let host=null;
 let queuedAt=0;
+let claimedAt=0;
 const json=(res,code,obj)=>{
  res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});
  res.end(JSON.stringify(obj));
@@ -57,7 +58,7 @@ export async function wsScrcpyRoute(req,res,path){
  if(req.method==='GET'&&path==='/ws-scrcpy/status'){
   if(!live())return json(res,200,{ok:true,online:false,engine:'ws-scrcpy',
     launchAvailable:true,
-    launchState:queuedAt&&Date.now()-queuedAt<480000?'queued':'idle',
+    launchState:claimedAt&&Date.now()-claimedAt<600000?'booting':queuedAt&&Date.now()-queuedAt<480000?'queued':'idle',
     reason:host?'expired':'no-running-android11'});
   if(Date.now()-host.lastProbe>5000){
    host.lastProbe=Date.now();
@@ -68,7 +69,7 @@ export async function wsScrcpyRoute(req,res,path){
  }
  if(path==='/ws-scrcpy/start'&&req.method==='POST'){
   if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
-  if(live()||(queuedAt&&Date.now()-queuedAt<480000))return json(res,409,{ok:false,error:'SESSION_ALREADY_ACTIVE_OR_QUEUED'});
+  if(live()||(claimedAt&&Date.now()-claimedAt<600000)||(queuedAt&&Date.now()-queuedAt<480000))return json(res,409,{ok:false,error:'SESSION_ALREADY_ACTIVE_OR_QUEUED'});
   queuedAt=Date.now();
   if(!DISPATCH_TOKEN)return json(res,202,{ok:true,launchState:'queued',requestedAt:queuedAt,mode:'scheduled-kvm-poll',message:'GitHub KVM scheduled worker will collect this request'});
   try{
@@ -94,8 +95,9 @@ export async function wsScrcpyRoute(req,res,path){
  if(path==='/ws-scrcpy/claim'&&req.method==='POST'){
   try{if(!await oidc(req))return json(res,403,{ok:false,error:'GITHUB_IDENTITY_REJECTED'});}
   catch{return json(res,403,{ok:false,error:'GITHUB_IDENTITY_INVALID'});}
-  if(live()||!queuedAt||Date.now()-queuedAt>=480000)return json(res,200,{ok:true,claim:false});
+  if(live()||(claimedAt&&Date.now()-claimedAt<600000)||!queuedAt||Date.now()-queuedAt>=480000)return json(res,200,{ok:true,claim:false});
   queuedAt=0;
+  claimedAt=Date.now();
   return json(res,200,{ok:true,claim:true});
  }
  if(path==='/ws-scrcpy/register'&&req.method==='POST'){
@@ -107,6 +109,7 @@ export async function wsScrcpyRoute(req,res,path){
   if(!approved(url)||!(await isValid(url)))return json(res,400,{ok:false,error:'INVALID_WS_SCRCPY_REAL_HOST'});
   if(live())return json(res,409,{ok:false,error:'ANOTHER_ANDROID11_RUNNING'});
   queuedAt=0;
+  claimedAt=0;
   host={url,deadline:Date.now()+TTL,lastProbe:Date.now(),reachable:true,stop:false,
     ticket:randomBytes(20).toString('hex')};
   console.log('HITEL_WS_SCRCPY_KVM_REGISTERED',url);
@@ -126,7 +129,7 @@ export async function wsScrcpyRoute(req,res,path){
  if(req.method==='POST'&&path==='/ws-scrcpy/finish'){
   if(!live()||!equal(req.headers['x-runner-ticket'],host.ticket))
    return json(res,403,{ok:false,error:'RUNNER_TICKET_REQUIRED'});
-  host=null;return json(res,200,{ok:true,status:'deleted'});
+  host=null;claimedAt=0;return json(res,200,{ok:true,status:'deleted'});
  }
  return json(res,404,{ok:false,error:'UNKNOWN_WS_SCRCPY_PATH'});
 }
