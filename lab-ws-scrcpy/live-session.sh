@@ -40,9 +40,6 @@ adb shell wm dismiss-keyguard || true
 adb shell input keyevent 3 || true
 sleep 2
 adb exec-out screencap -p > "$OUT/adb-native-screen.png" || true
-if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
-  bash lab-ws-scrcpy/apk-e2e.sh
-fi
 node lab-ws-scrcpy/gateway.mjs > "$OUT/gateway.log" 2>&1 &
 GATEWAY_PID=$!
 for n in $(seq 1 15);do
@@ -74,6 +71,9 @@ echo HITEL_WS_SCRCPY_PUBLIC_HOST_REAL_H264_READY
 node lab-ws-scrcpy/session.mjs register "$TUNNEL"
 echo HITEL_WS_SCRCPY_RAILWAY_PUBLIC_VIEWER_REGISTERED
 if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
+  echo HITEL_APK_E2E_BEGIN
+  timeout 120s bash lab-ws-scrcpy/apk-e2e.sh
+  echo HITEL_APK_E2E_FINISHED
   command -v google-chrome
   google-chrome --version
   npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.56.0
