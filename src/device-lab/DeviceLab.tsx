@@ -3,7 +3,7 @@ import { CommunicationSDK, CommunicationCallSession, createCommunicationSession,
 import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCore';
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
-import {OriginalAndroidEmbed} from './OriginalAndroidEmbed';
+import {WsScrcpyEmbed} from './WsScrcpyEmbed';
 import {AndroidSessionControls} from './AndroidSessionControls';
 
 type Side = 'android' | 'ios';
@@ -336,7 +336,7 @@ export default function DeviceLab(){
                 ...(view==='remote'&&side==='android'?{height:660,minHeight:660}: {})}}>
               {!(view==='remote'&&side==='android')&&<div className="dl-phone-notch"/>}
               {view==='remote' && side==='android'?(
-                <OriginalAndroidEmbed/>
+                <WsScrcpyEmbed/>
               ):view==='remote'?(
                 capture[side]?<img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 앱/시뮬레이터 화면'}/>:
                 <div className="dl-capture-empty"><b>실제 에뮬레이터 화면 대기</b><p>GitHub Actions에서 앱 설치 및 화면 캡처 후 표시됩니다.</p></div>
@@ -351,12 +351,12 @@ export default function DeviceLab(){
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 Android 화면</button></div>
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
-              <strong>{nativeAndroidOnline?'원본 scrcpy/noVNC 연결됨':'원본 실행 대기'}</strong>
+              <strong>{nativeAndroidOnline?'원본 ws-scrcpy H.264 연결됨':'원본 실행 대기'}</strong>
             </div></div>
             <AndroidSessionControls onNotice={message=>push('android',message)}/>
             <div className="dl-pair">
               <a href="/android-original/" style={{fontSize:12,fontWeight:750,color:'#126987'}}>▣ Android Emulator Platform 원본 관리 화면 열기 ↗</a>
-              <small>원본 Android를 실행하면 scrcpy/noVNC 실시간 화면이 직접 열립니다.</small>
+              <small>ws-scrcpy H.264 WebCodecs 실시간 화면과 터치 입력을 사용합니다.</small>
             </div>
             {view==='preview'?<div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>:<p className="dl-android-session-hint">실제 Android 화면은 상단의 원본 화면에서 직접 터치하여 조작합니다. 제어용 로그인·인증코드를 요구하지 않습니다.</p>}
             <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'scrcpy 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>네이티브 Bridge 검사</span><strong>기기 내부에서 검증</strong></div></div>
