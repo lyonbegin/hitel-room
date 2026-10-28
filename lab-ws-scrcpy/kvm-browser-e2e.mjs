@@ -61,6 +61,14 @@ try{
  };
  report.results.display={box,resolution};
  const appClick=async p=>{const xy={x:box.x+box.width*(p.x/resolution.width),y:box.y+box.height*(p.y/resolution.height)};events.push(['tap-coordinates',{android:p,browser:xy}]);await page.mouse.click(xy.x,xy.y);};
+ const button=locate('HITEL TAP TEST');
+ await appClick(button);
+ await page.waitForTimeout(800);
+ const tapOnly=dump();writeFileSync(out+'/apk-ui-after-touch.xml',tapOnly);
+ report.results.touchWithoutKeyboard=tapOnly.includes('TOUCH_OK:');
+ report.results.touchControlFrames=controlFramesSent;
+ await page.screenshot({path:out+'/browser-after-touch.png'});
+ if(!report.results.touchWithoutKeyboard){console.log('HITEL_TOUCH_DIAGNOSTIC',JSON.stringify(report));throw Error('WEB_BROWSER_TOUCH_NOT_DELIVERED_TO_ANDROID');}
  const inputNode=before.match(/<node[^>]*class="android.widget.EditText"[^>]*\/>/)?.[0];
  if(!inputNode)throw Error('ANDROID_EDITTEXT_NOT_FOUND');
  const matchInput=inputNode.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/);
@@ -80,7 +88,6 @@ try{
  report.results.controlFramesSent=controlFramesSent;
  await page.screenshot({path:out+'/browser-after-keyboard.png'});
  if(!report.results.keyboard){events.push(['keyboard-debug',typed.match(/<node[^>]*class="android.widget.EditText"[^>]*\/>/)?.[0]||'not-found']);console.log('HITEL_KEYBOARD_DIAGNOSTIC',JSON.stringify(report));throw Error('WEB_BROWSER_KEYBOARD_NOT_DELIVERED_TO_ANDROID')}
- const button=locate('HITEL TAP TEST');
  await appClick(button);
  await page.waitForTimeout(1000);
  const after=dump();writeFileSync(out+'/apk-ui-after-browser.xml',after);
