@@ -46,7 +46,7 @@ async function oidc(req){
    audience:AUDIENCE,clockTolerance:'10s'});
  const interactive=payload.ref==='refs/heads/'+BRANCH && payload.event_name==='workflow_dispatch' &&
    payload.workflow_ref===REPO+'/.github/workflows/'+WORKFLOW+'@refs/heads/'+BRANCH;
- const scheduled=payload.ref==='refs/heads/main' && payload.event_name==='schedule' &&
+ const scheduled=payload.ref==='refs/heads/main' && ['schedule','push'].includes(payload.event_name) &&
    payload.workflow_ref===REPO+'/.github/workflows/'+SCHEDULE_WORKFLOW+'@refs/heads/main';
  return payload.repository===REPO && (interactive||scheduled);
 }
