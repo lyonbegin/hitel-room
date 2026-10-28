@@ -9,7 +9,7 @@ permissions:
 jobs:
   actual-android11-ws-scrcpy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 13
+    timeout-minutes: 9
     steps:
       - uses: actions/checkout@v4
       - name: Confirm real KVM device
@@ -29,6 +29,11 @@ jobs:
         run: |
           python3 -m pip install --quiet playwright==1.56.0 pillow
           python3 -m playwright install chrome
+      - name: Restore already compiled original ws-scrcpy Android server
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/hitel-ws-scrcpy
+          key: hitel-ws-scrcpy-node22-cd6cea6ebde17af6-v1
       - name: Fetch and build pinned original NetrisTV/ws-scrcpy
         run: bash lab-ws-scrcpy/build.sh
       - name: Run real Android11 with ws-scrcpy (NO VNC)
