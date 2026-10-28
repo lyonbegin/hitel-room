@@ -27,6 +27,7 @@ async def main():
    w.on("framereceived",lambda _frame:d.__setitem__("framesReceived",d["framesReceived"]+1))
   page.on("websocket",on_ws)
   try:
+   start=time.monotonic()
    response=await page.goto(URL,wait_until="domcontentloaded",timeout=30000)
    assert response and response.status==200,"Web client HTTP fail"
    await page.wait_for_selector("canvas",timeout=65000)
@@ -57,6 +58,7 @@ async def main():
     print("WS_SCRCPY_PIXEL_LAST",json.dumps(v,ensure_ascii=False),flush=True)
     raise AssertionError("WEB_CODECS_REAL_CANVAS_FRAME_MISSING")
    print("WS_SCRCPY_REAL_H264_WEBCODECS_FRAME_PASS",json.dumps(proof),flush=True)
+   print("WS_SCRCPY_FIRST_REAL_FRAME_MS",round((time.monotonic()-start)*1000),flush=True)
    await page.screenshot(path=str(OUT/"real-android11-ws-scrcpy.png"))
    canvas=page.locator("canvas").first
    bounds=await canvas.bounding_box()
