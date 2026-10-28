@@ -1,5 +1,5 @@
 name: HITEL ws-scrcpy scheduled queue worker
-# KVM proof: corrected upstream hashbang deep link; real H264 pixels, APK, touch and keyboard.
+# Full device input debugging: preserve XML focus, browser keyboard and control packets.
 # Production: on-demand only. No background KVM runner or automatic launch on source edits.
 on:
   schedule:
@@ -116,4 +116,5 @@ jobs:
             mobile-test-results/ws-scrcpy-live/*.log
             mobile-test-results/ws-scrcpy-live/*.json
             mobile-test-results/ws-scrcpy-live/*.png
+            mobile-test-results/ws-scrcpy-live/*.xml
           if-no-files-found: warn
