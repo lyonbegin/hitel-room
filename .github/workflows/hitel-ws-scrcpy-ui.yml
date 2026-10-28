@@ -1,0 +1,22 @@
+name: HITEL ws-scrcpy browser UI production build check
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths: [.github/workflows/hitel-ws-scrcpy-ui.yml]
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Typecheck and build actual HITEL ws-scrcpy UI
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/index.html
+          echo HITEL_WS_SCRCPY_UI_TYPESCRIPT_AND_BUNDLE_PASS
