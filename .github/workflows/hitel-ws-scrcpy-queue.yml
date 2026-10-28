@@ -1,5 +1,5 @@
 name: HITEL ws-scrcpy scheduled queue worker
-# Live Android11 E2E: register host first, then verify compiled APK, decoded Chrome H264, touch and keyboard.
+# KVM proof: corrected upstream hashbang deep link; real H264 pixels, APK, touch and keyboard.
 # Production: on-demand only. No background KVM runner or automatic launch on source edits.
 on:
   schedule:
