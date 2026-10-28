@@ -74,6 +74,7 @@ javac -source 8 -target 8 -Xlint:none -cp "$ANDROID_JAR" -d "$WORK/classes" "$WO
 keytool -genkeypair -noprompt -keystore "$WORK/test.keystore" -alias hitel -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 2 -dname "CN=HITEL SDK TEST" >/dev/null 2>&1
 "$TOOLS/apksigner" sign --ks "$WORK/test.keystore" --ks-key-alias hitel --ks-pass pass:android --key-pass pass:android --out "$WORK/hitel-lab.apk" "$WORK/aligned.apk"
 "$TOOLS/apksigner" verify "$WORK/hitel-lab.apk"
+cp "$WORK/hitel-lab.apk" "$OUT/hitel-test-app.apk"
 adb install -r "$WORK/hitel-lab.apk" | tee "$OUT/apk-install.log"
 adb shell pm path com.hitel.lab | tee "$OUT/apk-package.log"
 adb shell am force-stop com.hitel.lab || true
