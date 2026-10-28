@@ -1,0 +1,29 @@
+name: HITEL Android MSE video independent Chromium proof
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/hitel-android-mse-preview.yml']
+permissions:
+  contents: read
+jobs:
+  chrome-video:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ws-scrcpy-android11-20261028
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright browser client
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.56.0
+      - name: Verify remote Android 11 screen renders in Chrome MSE
+        run: node lab-ws-scrcpy/preview-e2e.mjs
+      - name: Preserve screenshot and proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-android-chrome-mse-screen
+          path: mobile-test-results/ws-scrcpy-preview/
+          if-no-files-found: warn
