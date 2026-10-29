@@ -59,7 +59,7 @@ jobs:
               tail -100 mobile-test-results/ios/live-build.log;exit 1;
             }
           xcrun simctl install "$udid" /tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app
-          xcrun simctl launch "$udid" app.hitel.native
+          SIMCTL_CHILD_HITEL_LAB_URL="$HITEL_LAB_URL" xcrun simctl launch "$udid" app.hitel.native
           idb list-targets
       - name: Maintain actual iPhone stream and controls until operator stop
         run: /tmp/hitel-ios-venv/bin/python mobile/tests/ios-live-agent.py
