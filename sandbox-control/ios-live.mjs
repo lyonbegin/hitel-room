@@ -15,7 +15,7 @@ let runner = null;
 let frame = null;
 let lastFrameAt = 0;
 let pending = null;
-let state = {phase:'idle',runId:null,updatedAt:null,stopped:true,detail:null};
+let state = {phase:'idle',runId:null,updatedAt:null,stopped:true,detail:null,lastDispatchAt:0,lastLiveAt:0,retiredRunIds:[]};
 try {
   const saved=JSON.parse(await fs.readFile(STORE,'utf8'));
   if (saved?.phase && typeof saved.stopped==='boolean')
@@ -91,7 +91,7 @@ async function handle(req,res,path) {
     if(!allowBrowser(req))return send(res,403,{ok:false,error:'INVALID_ORIGIN'});
     if(!state.stopped && ['queued','booting','ready','streaming','reconnecting'].includes(state.phase))
       return send(res,200,publicStatus());
-    setState({phase:'queued',stopped:false,runId:null,detail:'GitHub macOS 실행기 요청'});
+    setState({phase:'queued',stopped:false,runId:null,lastDispatchAt:Date.now(),lastLiveAt:0,retiredRunIds:[],detail:'GitHub macOS 실행기 요청'});
     try {await dispatch();return send(res,202,publicStatus());}
     catch(e) {setState({phase:'failed',stopped:true,detail:String(e.message||e)});return send(res,503,{ok:false,error:String(e.message||e)});}
   }
@@ -108,6 +108,7 @@ async function handle(req,res,path) {
     catch(e){return send(res,403,{ok:false,error:'UNTRUSTED_RUNNER'});}
     if(state.stopped)return send(res,409,{ok:false,error:'SESSION_STOPPED'});
     const runId=String(identity.run_id||'');
+    if(state.retiredRunIds?.includes(runId))return send(res,409,{ok:false,error:'RETIRED_RUN'});
     if(state.runId && state.runId!==runId)return send(res,409,{ok:false,error:'OTHER_RUN_ACTIVE'});
     const ticket=crypto.randomBytes(32).toString('hex');
     jwts.set(ticket,{runId,until:Date.now()+90_000});
@@ -140,7 +141,7 @@ function upgrade(req,socket,head) {
           if(data.length<100||data.length>1_500_000||data[0]!==0xff||data[1]!==0xd8)return;
           frame=Buffer.from(data);
           lastFrameAt=Date.now();
-          if(state.phase!=='streaming')setState({phase:'streaming',detail:'원본 iPhone 실시간 영상'});
+          if(state.phase!=='streaming')setState({phase:'streaming',lastLiveAt:Date.now(),detail:'원본 iPhone 실시간 영상'});
           for(const v of viewers)if(v.readyState===WebSocket.OPEN&&v.bufferedAmount<2_000_000)v.send(frame,{binary:true});
         } else {
           let msg;try{msg=JSON.parse(String(data));}catch{return;}
@@ -177,4 +178,20 @@ function upgrade(req,socket,head) {
   });
   return true;
 }
+let repairing=false;
+// GitHub hosted macOS jobs expire. Replace ONLY a previously working, user-started
+// session after a disconnected run; a boot failure never causes a billing loop.
+setInterval(async()=>{
+  if(repairing||state.stopped||runner?.readyState===WebSocket.OPEN||!state.lastLiveAt)return;
+  if(Date.now()-Date.parse(state.updatedAt||0)<75_000)return;
+  if(Date.now()-Number(state.lastDispatchAt||0)<5*60*60*1000)return;
+  repairing=true;
+  const previous=state.runId;
+  setState({phase:'queued',runId:null,lastDispatchAt:Date.now(),
+    retiredRunIds:[...(state.retiredRunIds||[]),...(previous?[previous]:[])].slice(-20),
+    detail:'GitHub 실행 시간 종료 · 새 macOS 실행기로 복구'});
+  try{await dispatch();}
+  catch(e){setState({phase:'reconnecting',detail:'자동 복구 요청 실패: '+String(e.message||e).slice(0,110)});}
+  finally{repairing=false;}
+},60_000).unref();
 export function createIosLive() {return {handle,upgrade,publicStatus};}
