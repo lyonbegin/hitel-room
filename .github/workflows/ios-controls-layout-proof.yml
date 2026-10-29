@@ -35,6 +35,7 @@ jobs:
           await page.goto('https://hitel-communication-web-production.up.railway.app/sdk-lab',{waitUntil:'domcontentloaded',timeout:45000});
           await page.locator('.dl-phone-ios .ios-live-video').waitFor({timeout:25000});
           await page.locator('.dl-command-column .ios-live-actions').waitFor({timeout:25000});
+          await page.waitForFunction(()=>{const img=document.querySelector('.ios-live-video img');return img instanceof HTMLImageElement && img.naturalWidth>0;},{},{timeout:45000});
           const p=await page.locator('.dl-phone-ios').boundingBox();
           const stream=await page.locator('.dl-phone-ios .ios-live-video').boundingBox();
           if(!p||!stream)throw Error('iPhone device/video not rendered');
@@ -52,6 +53,7 @@ jobs:
           await mobile.goto('https://hitel-communication-web-production.up.railway.app/sdk-lab',{waitUntil:'domcontentloaded',timeout:45000});
           await mobile.locator('.dl-phone-ios .ios-live-video').waitFor({timeout:25000});
           await mobile.locator('.dl-command-column .ios-live-actions').waitFor({timeout:25000});
+          await mobile.waitForFunction(()=>{const img=document.querySelector('.ios-live-video img');return img instanceof HTMLImageElement && img.naturalWidth>0;},{},{timeout:45000});
           const phone=await mobile.locator('.dl-phone-ios').boundingBox();
           const video=await mobile.locator('.dl-phone-ios .ios-live-video').boundingBox();
           if(!phone||!video||video.height/phone.height<.92)throw Error('MOBILE_VIDEO_NOT_FULL_HEIGHT');
