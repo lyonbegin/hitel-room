@@ -23,19 +23,19 @@ const VERIFY_TIMEOUT=5500;
 function allowedHost(url:string):boolean{
  try{
   const u=new URL(url);
-  return u.protocol==='https:' && /^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname)
-   && (u.pathname==='/'||u.pathname==='') && !u.search && !u.hash;
+  return u.origin===window.location.origin && u.protocol==='https:'
+   && u.pathname==='/lab-sandbox/ws-scrcpy/proxy/' && !u.search && !u.hash;
  }catch{return false}
 }
 async function verifyHost(base:string):Promise<boolean>{
  const controller=new AbortController();
  const timer=window.setTimeout(()=>controller.abort(),VERIFY_TIMEOUT);
  try{
-  const r=await fetch(base+'/__hitel_ws_scrcpy',{cache:'no-store',
-   mode:'cors',credentials:'omit',signal:controller.signal});
+  const r=await fetch('/lab-sandbox/ws-scrcpy/health',{cache:'no-store',
+   credentials:'same-origin',signal:controller.signal});
   if(!r.ok)return false;
-  const value=await r.json() as {engine?:string;androidVersion?:string;vnc?:boolean};
-  return value.engine==='ws-scrcpy'&&value.androidVersion==='11'&&value.vnc===false;
+  const value=await r.json() as {online?:boolean;engine?:string;androidVersion?:string;vnc?:boolean};
+  return value.online===true&&value.engine==='ws-scrcpy'&&value.androidVersion==='11'&&value.vnc===false;
  }catch{return false}finally{window.clearTimeout(timer)}
 }
 export function WsScrcpyEmbed(){
@@ -87,8 +87,7 @@ export function WsScrcpyEmbed(){
   if(!file.name.toLowerCase().endsWith('.apk')||file.size>60*1024*1024){setApkStatus('APK 파일만 설치할 수 있습니다(최대 60MB).');return;}
   setApkInstalling(true);setApkStatus('실제 Android 11에 APK 설치 및 실행 중…');
   try{
-   const host=new URL(viewer.url).origin;
-   const response=await fetch(host+'/__hitel_apk_install',{method:'POST',mode:'cors',
+   const response=await fetch('/lab-sandbox/ws-scrcpy/proxy/__hitel_apk_install',{method:'POST',
     headers:{'Content-Type':'application/vnd.android.package-archive'},body:file});
    const result=await response.json() as {ok?:boolean;installed?:boolean;launched?:boolean;packageName?:string;error?:string};
    if(!response.ok||!result.ok||!result.installed||!result.launched)throw Error(result.error||'설치 또는 실행 확인 실패');
@@ -105,17 +104,16 @@ export function WsScrcpyEmbed(){
     if(!r.ok)throw Error('native host status HTTP '+r.status);
     const info=await r.json() as NativeStatus;
     if(mounted){setLaunchAvailable(Boolean(info.launchAvailable));setNativeStatus(info);setCheckedAt(Date.now());}
-    const base=String(info.url||'').replace(/\/$/,'');
+    const base=String(info.url||'');
     if(!info.online||!allowedHost(base)||!(await verifyHost(base))){
      if(mounted){setViewer(null);setState(info.progress?.message || (info.launchState==='queued'?'GitHub 실행기 배정 대기 중':info.launchState==='booting'?'Android 11 준비 진행 중':'실제 Android 11 실행 대기'));}
      return;
     }
-    const host=new URL(base).host;
-    // ws-scrcpy's own adb-proxy WebSocket; this is H.264, NOT VNC.
-    const ws='wss://'+host+'/?action=proxy-adb&udid=emulator-5554&remote=tcp%3A8886';
+    // The Railway same-origin reverse tunnel carries the original H.264 stream.
+    const ws=window.location.origin.replace(/^http/,'ws')+'/lab-sandbox/ws-scrcpy/device?action=proxy-adb&udid=emulator-5554&remote=tcp%3A8886';
     const hash=new URLSearchParams({action:'stream',udid:'emulator-5554',
       player,ws,fitToScreen:'1',captureKeyboard:'1'});
-    if(mounted){setViewer({url:base+'/#!'+hash.toString(),player,host});setState('실제 Android 11 영상 연결됨');}
+    if(mounted){setViewer({url:base+'#!'+hash.toString(),player,host:new URL(base).host});setState('실제 Android 11 영상 연결됨');}
    }catch(err){
     if(mounted){setState('실시간 진행상태 조회 오류: '+String(err));setCheckedAt(null);}
    }finally{checking=false;}

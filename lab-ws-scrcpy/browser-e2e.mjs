@@ -5,7 +5,7 @@ const out='mobile-test-results/ws-scrcpy-browser';
 mkdirSync(out,{recursive:true});
 const statusUrl='https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status';
 const current=await (await fetch(statusUrl,{signal:AbortSignal.timeout(12000)})).json();
-if(current.online!==true||!/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(current.url||''))throw Error('REAL_ANDROID_WS_SCRCPY_HOST_NOT_ONLINE');
+if(current.online!==true||!/^https:\/\/hitel-communication-web-production\.up\.railway\.app\/lab-sandbox\/ws-scrcpy\/proxy\/$/.test(current.url||''))throw Error('RAILWAY_ANDROID_REVERSE_RELAY_NOT_ONLINE');
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
 const page=await browser.newPage({viewport:{width:1280,height:850},ignoreHTTPSErrors:false});
 const events=[];

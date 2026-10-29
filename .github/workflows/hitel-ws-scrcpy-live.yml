@@ -91,9 +91,9 @@ jobs:
           key: hitel-ws-scrcpy-avd-android30-google-play-pixel4-v2-seed
       - name: Report Android 11 boot starting
         run: node lab-ws-scrcpy/progress.mjs emulator '원본 Android 11 에뮬레이터 부팅을 시작했습니다.' || true
-      - name: Start real Android11, persistent H264 browser tunnel and signed Railway status
+      - name: Start real Android11 through the Railway H264 reverse WebSocket
         env:
-          HITEL_WS_E2E: '0'
+          HITEL_WS_E2E: '1'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30

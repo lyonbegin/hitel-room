@@ -14,15 +14,15 @@ mkdir -p "$OUT"
  exec node index.js
 ) >"$OUT/ws-scrcpy.log" 2>&1 &
 SERVER_PID=$!
-TUNNEL_PID=0
+RELAY_PID=0
 GATEWAY_PID=0
 cleanup(){
  node lab-ws-scrcpy/session.mjs finish || true
- if [[ "$TUNNEL_PID" -gt 0 ]];then kill -TERM "$TUNNEL_PID" 2>/dev/null || true;fi
+ if [[ "$RELAY_PID" -gt 0 ]];then kill -TERM "$RELAY_PID" 2>/dev/null || true;fi
  if [[ "$GATEWAY_PID" -gt 0 ]];then kill -TERM "$GATEWAY_PID" 2>/dev/null || true;fi
  kill -TERM "$SERVER_PID" 2>/dev/null || true
  sleep 1
- [[ "$TUNNEL_PID" -gt 0 ]] && kill -KILL "$TUNNEL_PID" 2>/dev/null || true
+ [[ "$RELAY_PID" -gt 0 ]] && kill -KILL "$RELAY_PID" 2>/dev/null || true
  [[ "$GATEWAY_PID" -gt 0 ]] && kill -KILL "$GATEWAY_PID" 2>/dev/null || true
  kill -KILL "$SERVER_PID" 2>/dev/null || true
  wait "$SERVER_PID" 2>/dev/null || true
@@ -54,31 +54,18 @@ for n in $(seq 1 15);do
  sleep 1
 done
 grep -q '"engine":"ws-scrcpy"' "$OUT/local-health.json"
-node lab-ws-scrcpy/progress.mjs tunnel '영상 프록시가 준비되어 공개 HTTPS 연결을 설정하고 있습니다.' || true
-curl -fsSL --retry 3 --max-time 100 \
- https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
- -o /tmp/hitel-ws-cloudflared
-chmod +x /tmp/hitel-ws-cloudflared
-/tmp/hitel-ws-cloudflared tunnel --url http://127.0.0.1:8081 \
- --output json >"$OUT/cloudflared.log" 2>&1 &
-TUNNEL_PID=$!
-TUNNEL=''
+node lab-ws-scrcpy/progress.mjs tunnel 'Android 실행기에서 Railway 역방향 WebSocket 연결을 설정하고 있습니다.' || true
+node lab-ws-scrcpy/session.mjs register
+node lab-ws-scrcpy/session.mjs relay >"$OUT/railway-relay.log" 2>&1 &
+RELAY_PID=$!
 for n in $(seq 1 65);do
- TUNNEL="$(grep -Eo 'https://[a-z0-9]+(-[a-z0-9]+)*\.trycloudflare\.com' "$OUT/cloudflared.log" | head -1 || true)"
- [[ -n "$TUNNEL" ]] && break
- kill -0 "$TUNNEL_PID" || { echo WS_SCRCPY_TUNNEL_EXITED;exit 35; }
- sleep 1
+  curl -fsS --max-time 8 https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status > "$OUT/railway-status.json" && grep -q '"online":true' "$OUT/railway-status.json" && break
+  kill -0 "$RELAY_PID" || { cat "$OUT/railway-relay.log";exit 35; }
+  sleep 2
 done
-[[ -n "$TUNNEL" ]] || { echo WS_SCRCPY_TUNNEL_URL_FAILED;exit 36; }
-for n in $(seq 1 16);do
- curl -fsS --max-time 8 "$TUNNEL/__hitel_ws_scrcpy" > "$OUT/public-health.json" && break
- sleep 2
-done
-grep -q '"engine":"ws-scrcpy"' "$OUT/public-health.json"
-echo HITEL_WS_SCRCPY_PUBLIC_HOST_REAL_H264_READY
-node lab-ws-scrcpy/session.mjs register "$TUNNEL"
-echo HITEL_WS_SCRCPY_RAILWAY_PUBLIC_VIEWER_REGISTERED
-node lab-ws-scrcpy/progress.mjs ready '실제 Android 화면을 웹에서 열 수 있습니다.' || true
+grep -q '"online":true' "$OUT/railway-status.json" || { echo WS_SCRCPY_RAILWAY_RELAY_NOT_READY;cat "$OUT/railway-status.json";exit 36; }
+echo HITEL_WS_SCRCPY_RAILWAY_REVERSE_H264_READY
+node lab-ws-scrcpy/progress.mjs ready 'Railway 역방향 WebSocket으로 실제 Android 화면 연결을 확인했습니다.' || true
 if [[ "${HITEL_WS_E2E:-0}" == "1" ]]; then
   echo HITEL_APK_E2E_BEGIN
   timeout 120s bash lab-ws-scrcpy/apk-e2e.sh
@@ -94,7 +81,7 @@ SESSION_SECONDS="${HITEL_WS_SCRCPY_SESSION_SECONDS:-20400}"
 (( SESSION_SECONDS>=60 && SESSION_SECONDS<=20400 )) || SESSION_SECONDS=20400
 SESSION_STARTED=$SECONDS
 while true;do
- if ! kill -0 "$SERVER_PID" || ! kill -0 "$TUNNEL_PID";then
+ if ! kill -0 "$SERVER_PID" || ! kill -0 "$RELAY_PID";then
   echo WS_SCRCPY_LIVE_TRANSPORT_EXITED;break
  fi
  decision="$(node lab-ws-scrcpy/session.mjs check | tail -1)"

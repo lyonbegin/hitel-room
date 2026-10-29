@@ -4,6 +4,7 @@ import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {mkdirSync,readFileSync,renameSync,writeFileSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {createRemoteJWKSet,jwtVerify} from 'jose';
+import {wsScrcpyHttp,wsScrcpyOnline,wsScrcpyUpgrade as attachWsScrcpyUpgrade} from './ws-scrcpy-relay.mjs';
 const ORIGIN='https://hitel-communication-web-production.up.railway.app';
 const AUDIENCE='hitel-ws-scrcpy';
 const REPO='lyonbegin/hitel-room';
@@ -85,22 +86,7 @@ const equal=(a,b)=>{
  const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));
  return x.length===y.length&&x.length>0&&timingSafeEqual(x,y);
 };
-function approved(hostUrl){
- try{
-  const u=new URL(hostUrl);
-  return u.protocol==='https:' && /^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname)
-   && (u.pathname==='/'||u.pathname==='')&&!u.search&&!u.hash;
- }catch{return false}
-}
-async function isValid(hostUrl){
- try{
-  const response=await fetch(hostUrl+'/__hitel_ws_scrcpy',{signal:AbortSignal.timeout(5000)});
-  if(!response.ok)return false;
-  const j=await response.json();
-  return j.ok===true && j.engine==='ws-scrcpy'&&j.androidVersion==='11'&&j.vnc===false;
- }catch{return false}
-}
-function live(){return Boolean(host);}
+function live(){return Boolean(host&&wsScrcpyOnline());}
 async function dispatchWorkflow(message){
  const token=dispatchToken();
  if(!token)throw Error('GITHUB_WORKFLOW_TOKEN_NOT_CONFIGURED');
@@ -163,6 +149,20 @@ function canStop(req){
   /^application\/json(?:;|$)/.test(req.headers['content-type']||'');
 }
 export async function wsScrcpyRoute(req,res,path){
+ if(path==='/ws-scrcpy/proxy'||path.startsWith('/ws-scrcpy/proxy/')){
+  if(!['GET','HEAD','POST'].includes(req.method))return json(res,405,{ok:false,error:'METHOD_NOT_ALLOWED'});
+  const suffix=path.slice('/ws-scrcpy/proxy'.length)||'/';
+  const target=suffix+(new URL(req.url,'http://localhost').search||'');
+  const chunks=[];let size=0;
+  for await(const chunk of req){size+=chunk.length;if(size>64*1024*1024)return json(res,413,{ok:false,error:'REQUEST_TOO_LARGE'});chunks.push(chunk);}
+  try{
+   const result=await wsScrcpyHttp(req.method,target,{'content-type':req.headers['content-type']||''},Buffer.concat(chunks));
+   res.writeHead(result.status,{...result.headers,'cache-control':'no-store','x-content-type-options':'nosniff'});
+   if(req.method==='HEAD')res.end();else res.end(result.body);
+  }catch(error){json(res,502,{ok:false,error:String(error.message||error)});}
+  return;
+ }
+ if(path==='/ws-scrcpy/health')return json(res,200,{ok:true,online:live(),engine:'ws-scrcpy',androidVersion:'11',vnc:false});
  if(req.method==='GET'&&path==='/ws-scrcpy/status'){
   const current=publicProgress();
   const dispatchConfigured=Boolean(dispatchToken());
@@ -174,11 +174,7 @@ export async function wsScrcpyRoute(req,res,path){
     progress:current,
     launchState:claimedAt&&Date.now()-claimedAt<480000?'booting':queuedAt&&Date.now()-queuedAt<480000?'queued':current.stage==='failed'?'failed':desiredRunning?'recovering':'idle',
     reason:current.error|| (host?'expired':'no-running-android11')});
-  if(Date.now()-host.lastProbe>5000){
-   host.lastProbe=Date.now();
-   host.reachable=await isValid(host.url);
-  }
-  return json(res,200,{ok:true,online:host.reachable,engine:'ws-scrcpy',url:host.reachable?host.url:null,
+  return json(res,200,{ok:true,online:true,engine:'ws-scrcpy',url:'https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/proxy/',
     desiredRunning,statePersisted:statePersistenceAvailable,vnc:false,
     launchAvailable:false,launchState:host.stop?'stopping':'ready',progress:publicProgress()});
  }
@@ -237,23 +233,22 @@ export async function wsScrcpyRoute(req,res,path){
   catch{return json(res,403,{ok:false,error:'GITHUB_IDENTITY_INVALID'});}
   let payload='';for await(const p of req){payload+=p;if(payload.length>800)return json(res,413,{ok:false})}
   let data;try{data=JSON.parse(payload)}catch{return json(res,400,{ok:false})}
-  const url=String(data.url||'').replace(/\/$/,'');
-  if(!approved(url)||!(await isValid(url)))return json(res,400,{ok:false,error:'INVALID_WS_SCRCPY_REAL_HOST'});
-  if(live())return json(res,409,{ok:false,error:'ANOTHER_ANDROID11_RUNNING'});
+  if(data.transport!=='railway-websocket')return json(res,400,{ok:false,error:'INVALID_ANDROID_RELAY_TRANSPORT'});
   if(progress.stage==='stopped'||progress.stage==='failed')return json(res,409,{ok:false,error:'SESSION_CANCELLED'});
   const registerRunId=String(req.headers['x-github-run-id']||'');
   if(progress.runId&&registerRunId&&progress.runId!==registerRunId)return json(res,409,{ok:false,error:'RUN_MISMATCH'});
+  if(live()&&host.runId!==registerRunId)return json(res,409,{ok:false,error:'ANOTHER_ANDROID11_RUNNING'});
   queuedAt=0;
   claimedAt=0;
-  host={url,lastProbe:Date.now(),reachable:true,stop:false,
+  host={transport:'railway-websocket',runId:registerRunId,reachable:false,stop:false,
     ticket:randomBytes(20).toString('hex')};
   saveState();
-  updateProgress('ready','Android 11 영상 주소가 발급되었으며 실제 화면 연결이 준비되었습니다.',{runId:/^[0-9]{1,20}$/.test(registerRunId)?registerRunId:null});
-  console.log('HITEL_WS_SCRCPY_KVM_REGISTERED',url);
+  updateProgress('tunnel','Android 실행기에서 Railway 역방향 WebSocket 연결을 시작합니다.',{runId:/^[0-9]{1,20}$/.test(registerRunId)?registerRunId:null});
+  console.log('HITEL_WS_SCRCPY_RAILWAY_RELAY_REGISTERED',registerRunId);
   return json(res,200,{ok:true,status:'running',ticket:host.ticket});
  }
  if(req.method==='GET'&&path==='/ws-scrcpy/runner-status'){
-  if(!live()||!equal(req.headers['x-runner-ticket'],host.ticket))
+  if(!host||!equal(req.headers['x-runner-ticket'],host.ticket))
    return json(res,403,{ok:false,error:'RUNNER_TICKET_REQUIRED'});
   return json(res,200,{ok:true,stop:host.stop});
  }
@@ -282,4 +277,7 @@ export async function wsScrcpyRoute(req,res,path){
   return json(res,200,{ok:true,status:'deleted'});
  }
  return json(res,404,{ok:false,error:'UNKNOWN_WS_SCRCPY_PATH'});
+}
+export function wsScrcpyUpgrade(server,origin){
+ attachWsScrcpyUpgrade(server,{origin,allowedTicket:value=>Boolean(host&&equal(value,host.ticket))});
 }

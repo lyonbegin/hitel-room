@@ -33,7 +33,7 @@ RUN npm run build && npx vite build --config vite.communication-sdk.config.ts
 # container. This does NOT provision a permanent relay or emulator.
 FROM node:22-alpine AS sandbox-sdk-build
 WORKDIR /srv/hitel-sandbox
-RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway jose@5.9.6
+RUN npm init -y && npm install --omit=dev --no-audit --no-fund railway jose@5.9.6 ws@8.18.3
 
 FROM nginx:1.27-alpine
 ENV TEST_LOGIN_KEY=""

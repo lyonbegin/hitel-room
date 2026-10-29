@@ -10,12 +10,12 @@ const dump=()=>{adb(['shell','uiautomator','dump','/sdcard/hitel-ui.xml']);retur
 const status=(await (await fetch('https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/status')).json());
 if(status.online!==true)throw Error('RAILWAY_ANDROID_NOT_ONLINE');
 const site=status.url;
-const socket=new URL(site.replace(/^https/,'wss'));
+const socket=new URL('wss://'+new URL(site).host+'/lab-sandbox/ws-scrcpy/device');
 socket.searchParams.set('action','proxy-adb');
 socket.searchParams.set('remote','tcp:8886');
 socket.searchParams.set('udid','emulator-5554');
 const hash=new URLSearchParams({action:'stream',udid:'emulator-5554',player:'mse',ws:socket.toString(),captureKeyboard:'true',fitToScreen:'true'});
-const link=site+'/#!'+hash.toString();
+const link=site+'#!'+hash.toString();
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required','--use-gl=angle','--use-angle=swiftshader']});
 const page=await browser.newPage({viewport:{width:1080,height:980}});
 const events=[];let streamFrames=0,controlFramesSent=0;
@@ -95,7 +95,7 @@ try{
  await page.screenshot({path:out+'/browser-touch-keyboard.png'});
  if(!report.results.touch)throw Error('WEB_BROWSER_TOUCH_NOT_DELIVERED_TO_ANDROID');
  const manager=await browser.newPage({viewport:{width:1280,height:850}});
- await manager.goto('https://hitel-communication-web-production.up.railway.app/android-original/',{waitUntil:'domcontentloaded',timeout:25000});
+ await manager.goto('https://hitel-communication-web-production.up.railway.app/sdk-lab',{waitUntil:'domcontentloaded',timeout:25000});
  const uploader=manager.locator('input[aria-label="Android APK 파일 설치"]');
  await uploader.waitFor({state:'attached',timeout:35000});
  await uploader.setInputFiles(out+'/hitel-test-app.apk');

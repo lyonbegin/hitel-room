@@ -1,6 +1,6 @@
 // Zero-reencode HTTP/WebSocket gateway for the original ws-scrcpy daemon.
 // The GitHub KVM runner runs it until the user presses Stop or the runner rotates.
-// Cloudflare Quick Tunnel (when explicitly enabled) points at localhost:8081.
+// The authenticated Railway reverse WebSocket forwards browser requests here.
 // Do not serve file management or unauthenticated permanent Android endpoints.
 import http from 'node:http';
 import net from 'node:net';
@@ -30,7 +30,7 @@ const server=http.createServer((req,res)=>{
 });
 server.on('upgrade',(req,client,head)=>{
  const origin=req.headers.origin||'';
- // Web browser clients must be same-origin with the random Quick Tunnel host.
+ // Only the local runner-side relay opens this upstream WebSocket.
  if(origin){
   try{if(new URL(origin).host!==req.headers.host)throw Error('cross-origin')}
   catch{client.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return}

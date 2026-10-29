@@ -4,7 +4,7 @@ import {createHmac, randomBytes, timingSafeEqual} from 'node:crypto';
 import {Sandbox} from 'railway';
 import {launchTcgProbeWhenArmed,getTcgProbeStatus} from './railway-tcg-probe.mjs';
 import {startCheckpointTestOnce,checkpointTestStatus} from './railway-tcg-checkpoint-test.mjs';
-import {wsScrcpyRoute} from './ws-scrcpy-host.mjs';
+import {wsScrcpyRoute,wsScrcpyUpgrade} from './ws-scrcpy-host.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
@@ -259,6 +259,7 @@ const server=http.createServer((req,res)=>{
     else res.end();
   });
 });
+wsScrcpyUpgrade(server,origin);
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
   chmodSync(SOCKET_PATH,0o666);
