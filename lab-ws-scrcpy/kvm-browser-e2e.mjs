@@ -96,10 +96,18 @@ try{
  if(!report.results.touch)throw Error('WEB_BROWSER_TOUCH_NOT_DELIVERED_TO_ANDROID');
  const manager=await browser.newPage({viewport:{width:1280,height:850}});
  await manager.goto('https://hitel-communication-web-production.up.railway.app/sdk-lab',{waitUntil:'domcontentloaded',timeout:25000});
+ // Wait until the remote viewer has finished its async health check before selecting
+ // a file; installApk intentionally refuses to upload without an active viewer.
+ await manager.locator('iframe[title="GitHub KVM 원본 Android 11 ws-scrcpy H264 터치 화면"]')
+  .waitFor({state:'visible',timeout:30000});
  const uploader=manager.locator('input[aria-label="Android APK 파일 설치"]');
  await uploader.waitFor({state:'attached',timeout:35000});
  await uploader.setInputFiles(out+'/hitel-test-app.apk');
- await manager.getByRole('status').filter({hasText:'실제 Android 앱 설치·실행 확인: com.hitel.lab'}).waitFor({timeout:50000});
+ const installStatus=manager.getByRole('status').filter({hasText:/실제 Android 앱 설치·실행 확인:|APK 설치 실패:/});
+ await installStatus.waitFor({timeout:60000});
+ const installMessage=await installStatus.innerText();
+ if(!installMessage.includes('실제 Android 앱 설치·실행 확인: com.hitel.lab'))
+  throw Error('BROWSER_APK_INSTALL_FAILED:'+installMessage);
  report.results.webApkInstall=true;
  await manager.screenshot({path:out+'/website-apk-install.png'});
  await manager.close();
