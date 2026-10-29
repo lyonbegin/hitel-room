@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import './IosLivePanel.css';
 
 type Status={
@@ -12,8 +13,8 @@ const labels:Record<string,string>={
   reconnecting:'실행기 재연결 중',stopping:'기기 종료 중',failed:'실행 오류'
 };
 const API='/lab-sandbox/ios';
-type Props={onNotice?:(message:string)=>void};
-export default function IosLivePanel({onNotice}:Props){
+type Props={onNotice?:(message:string)=>void;controlsHost:HTMLDivElement|null};
+export default function IosLivePanel({onNotice,controlsHost}:Props){
   const [status,setStatus]=useState<Status>({phase:'idle'});
   const [error,setError]=useState('');
   const [image,setImage]=useState('');
@@ -23,7 +24,6 @@ export default function IosLivePanel({onNotice}:Props){
   const socket=useRef<WebSocket|null>(null);
   const mediaUrl=useRef('');
   const startPoint=useRef<{x:number;y:number}|null>(null);
-  const screen=useRef<HTMLImageElement>(null);
   const onNoticeRef=useRef(onNotice);
   onNoticeRef.current=onNotice;
   const refresh=useCallback(async()=>{
@@ -114,10 +114,11 @@ export default function IosLivePanel({onNotice}:Props){
     return {x:Math.round(px*logicalWidth),y:Math.round(py*logicalHeight)};
   }
   const active=status.online===true && status.videoLive===true;
-  return <div className="ios-live-root">
-    <div className="ios-live-video">
+  return <>
+    <div className="ios-live-root">
+      <div className="ios-live-video">
       {active&&image?
-        <img ref={screen} draggable={false} src={image} alt="iPhone 16 Pro 실제 시뮬레이터 영상"
+        <img draggable={false} src={image} alt="iPhone 16 Pro 실제 시뮬레이터 영상"
           onPointerDown={e=>{startPoint.current=mapPoint(e);e.currentTarget.setPointerCapture(e.pointerId)}}
           onPointerUp={e=>{
             const start=startPoint.current;startPoint.current=null;
@@ -133,8 +134,9 @@ export default function IosLivePanel({onNotice}:Props){
           <span>{labels[status.phase||'idle']||status.phase||'연결 대기'}</span>
           <small>{status.detail||'실제 영상이 도착할 때만 화면을 표시합니다.'}</small>
         </div>}
+      </div>
     </div>
-    <div className="ios-live-actions">
+    {controlsHost && createPortal(<div className="ios-live-actions">
       <div className="ios-live-state"><b>{labels[status.phase||'idle']||status.phase}</b>
         <span>{status.videoLive?'실시간 영상 수신 중':status.online?'호스트 연결 · 영상 대기':'실행기 미연결'}</span></div>
       <div className="ios-live-buttons">
@@ -153,6 +155,6 @@ export default function IosLivePanel({onNotice}:Props){
       <small>기기 화면을 클릭하면 터치, 끌면 스와이프가 전달됩니다. Android 연결과 독립적으로 작동합니다.</small>
       {status.runId&&<a href={'https://github.com/lyonbegin/hitel-room/actions/runs/'+encodeURIComponent(status.runId)}
         target="_blank" rel="noreferrer">macOS 실행 기록 #{status.runId}</a>}
-    </div>
-  </div>;
+    </div>,controlsHost)}
+  </>;
 }
