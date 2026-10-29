@@ -9,8 +9,6 @@ import IosLivePanel from './IosLivePanel';
 
 type Side = 'android' | 'ios';
 type LabAction = 'home' | 'sdk' | 'call' | 'ai' | 'capabilities' | 'media' | 'refresh' | 'back';
-type AgentState = { online: boolean; lastSeen?: string; app?: string; bridge?: string; sdk?: string; note?: string; capture?: boolean; screenMode?: string; runId?: string; ciPass?: boolean|null };
-type StatusResult = { devices?: Partial<Record<Side, AgentState>>; ci?: Partial<Record<Side,{runId:string;updatedAt:string;passed:boolean;log:string;url:string}>>; mode?: string };
 type LabNotice = { side: Side; message: string; time: string };
 const SIDES: Side[] = ['android','ios'];
 const LABELS: Record<Side,string> = {android:'Android Emulator',ios:'iPhone Simulator'};
@@ -231,12 +229,7 @@ export default function DeviceLab(){
   const [iosStatus,setIosStatus]=useState<{online?:boolean;videoLive?:boolean;phase?:string}>({});
   const [deviceSize,setDeviceSize]=useState('390');
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
-  const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
   const [notices,setNotices]=useState<LabNotice[]>([]);
-  const [ci,setCi]=useState<StatusResult['ci']>({});
-  const firstCapture=useRef(false);
-  const [capture,setCapture]=useState<Partial<Record<Side,string>>>({});
-  const urls=useRef<Partial<Record<Side,string>>>({});
   const ref=useRef<Partial<Record<Side,HTMLIFrameElement|null>>>({});
   const push=useCallback((side:Side,message:string)=>{
     setNotices(prev=>[{side,message,time:now()},...prev].slice(0,42));
@@ -259,18 +252,7 @@ export default function DeviceLab(){
       const sandbox=await response.json() as {online?:boolean;engine?:string;url?:string|null};
       setNativeAndroidOnline(Boolean(sandbox.online&&sandbox.engine==='ws-scrcpy'&&sandbox.url));
     } catch {setNativeAndroidOnline(false)}
-    // Legacy CI snapshot metadata is optional; it never controls live state.
-    try {
-      const result=await fetch('/lab-api/status',{cache:'no-store'});
-      if(!result.ok)return;
-      const data=await result.json() as StatusResult;
-      setAgent(data.devices||{});
-      setCi(data.ci||{});
-      if(!firstCapture.current && (data.devices?.android?.capture||data.devices?.ios?.capture)){
-        firstCapture.current=true;
-        setView('remote');
-      }
-    } catch { /* Legacy relay is not required for SDK testing */ }
+
   },[]);
   useEffect(()=>{void readStatus();const timer=window.setInterval(()=>void readStatus(),5000);return ()=>clearInterval(timer)},[readStatus]);
   useEffect(()=>{
@@ -282,22 +264,6 @@ export default function DeviceLab(){
     void readIos();const timer=window.setInterval(()=>void readIos(),3500);
     return ()=>{alive=false;window.clearInterval(timer)};
   },[]);
-  const loadCapture=useCallback(async(side:Side)=>{
-    try{
-      const response=await fetch('/lab-api/frame/'+side,{cache:'no-store'});
-      if(!response.ok)throw new Error('HTTP '+response.status);
-      const next=URL.createObjectURL(await response.blob());
-      const old=urls.current[side];urls.current[side]=next;setCapture(v=>({...v,[side]:next}));
-      if(old)URL.revokeObjectURL(old);
-    }catch{/* no frame available */ }
-  },[]);
-  useEffect(()=>{
-    if(view!=='remote')return;
-    SIDES.forEach(s=>void loadCapture(s));
-    const timer=window.setInterval(()=>SIDES.forEach(s=>void loadCapture(s)),3500);
-    return ()=>{clearInterval(timer)};
-  },[view,loadCapture]);
-  useEffect(()=>()=>{Object.values(urls.current).forEach(u=>{if(u)URL.revokeObjectURL(u)})},[]);
   const send=useCallback((action:LabAction)=>{
     const targets=selected==='both'?SIDES:[selected];
     for(const side of targets){
@@ -334,7 +300,7 @@ export default function DeviceLab(){
       <div className="dl-layout">
         {SIDES.map(side=><section key={side} className="dl-emulator-card">
           <header className="dl-card-top"><div className="dl-card-heading"><MiniIcon side={side}/><div><b>{LABELS[side]}</b><small>{side==='android'?'Android APK · WebView':'iOS App · WKWebView'}</small></div></div>
-          <span className={'dl-pill '+((side==='ios'?iosStatus.videoLive:agent[side]?.online)?'live':'waiting')}>{side==='ios'?(iosStatus.videoLive?'● 실제 iPhone 영상 연결':iosStatus.online?'● 시뮬레이터 연결 · 영상 대기':'● iPhone 대기'):agent[side]?.online?'● 앱 WebSocket 연결':agent[side]?.capture?'● CI 캡처 보관':'● 연결 대기'}</span></header>
+          <span className={'dl-pill '+((side==='ios'?iosStatus.videoLive:nativeAndroidOnline)?'live':'waiting')}>{side==='ios'?(iosStatus.videoLive?'● 실제 iPhone 영상 연결':iosStatus.online?'● 시뮬레이터 연결 · 영상 대기':'● iPhone 대기'):nativeAndroidOnline?'● 원본 ws-scrcpy 연결':'● Android 연결 대기'}</span></header>
           <div className="dl-emulator-toolbar"><select aria-label={LABELS[side]+' 디바이스 크기'} value={deviceSize} onChange={e=>setDeviceSize(e.target.value)}>
             <option value="390">iPhone 14 · 390</option><option value="360">Android · 360</option><option value="430">Large · 430</option></select>
             <div><button title="홈" onClick={()=>{setSelected(side);ref.current[side]?.contentWindow?.postMessage({source:'hitel-device-lab-control',side,action:'home'},window.location.origin)}}>⌂</button>
@@ -376,7 +342,7 @@ export default function DeviceLab(){
       </div>
       <section className="dl-bottom-log"><div><h3>실시간 명령·SDK 이벤트 로그</h3><button onClick={()=>setNotices([])}>로그 비우기</button></div>
         <div className="dl-logs">{notices.length?notices.slice(0,16).map((line,i)=><div key={i}><span>{line.time}</span><b>{line.side==='android'?'Android':'iPhone'}</b><span>{line.message}</span></div>):<p>양쪽 에뮬레이터에서 SDK 이벤트가 발생하면 이 영역에 표시됩니다.</p>}</div>
-        <div className="dl-ci-reports">{SIDES.map(side=><details key={side}><summary>{LABELS[side]} · {ci?.[side]?(ci[side]?.passed?'검증 성공':'검증 결과 확인'):'아직 결과 없음'} {ci?.[side]?.runId&&<span>Run #{ci[side]?.runId}</span>}</summary><pre>{ci?.[side]?.log||'GitHub Actions 실행 및 실제 앱 화면 캡처 대기'}</pre>{ci?.[side]?.url&&<a href={ci[side]?.url} target="_blank" rel="noreferrer">해당 GitHub Actions 실행 열기 ↗</a>}</details>)}</div></section>
+</div></section>
     </main>
   </div>;
 }
