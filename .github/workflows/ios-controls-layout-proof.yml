@@ -1,0 +1,71 @@
+name: HITEL Device Lab iPhone External Controls Layout Proof
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-controls-layout-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  layout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ws-scrcpy-android11-20261028
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install headless Chromium test dependencies
+        run: |
+          npm install --no-audit --no-fund --no-save playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Verify phone-only live stream viewport and controls outside device
+        run: |
+          mkdir -p layout-proof
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';
+          import fs from 'node:fs';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:1480,height:1000},deviceScaleFactor:1});
+          await page.goto('https://hitel-communication-web-production.up.railway.app/sdk-lab',{waitUntil:'domcontentloaded',timeout:45000});
+          await page.locator('.dl-phone-ios .ios-live-video').waitFor({timeout:25000});
+          await page.locator('.dl-command-column .ios-live-actions').waitFor({timeout:25000});
+          const p=await page.locator('.dl-phone-ios').boundingBox();
+          const stream=await page.locator('.dl-phone-ios .ios-live-video').boundingBox();
+          if(!p||!stream)throw Error('iPhone device/video not rendered');
+          if(stream.height<540||stream.height/p.height<.92)throw Error('STREAM_NOT_FULL_HEIGHT '+JSON.stringify({p,stream}));
+          const inside=await page.locator('.dl-phone-ios .ios-live-actions,.dl-phone-ios .ios-live-buttons,.dl-phone-ios .ios-live-text').count();
+          if(inside)throw Error('CONTROLS_STILL_INSIDE_IPHONE');
+          const controls=await page.locator('.dl-command-column .ios-live-actions').boundingBox();
+          if(!controls||controls.x<=p.x+p.width)throw Error('EXTERNAL_CONTROLS_NOT_IN_RIGHT_COLUMN');
+          const labels=await page.locator('.dl-command-column .ios-live-buttons button').allTextContents();
+          const required=['iPhone 실행','종료','홈','회전','HITEL 앱 설치','앱 실행','Safari 열기'];
+          if(required.some(label=>!labels.includes(label)))throw Error('MISSING_BUTTON '+JSON.stringify(labels));
+          if(await page.locator('.dl-original-native-host').count()!==1)throw Error('ANDROID_PANEL_MISSING');
+          await page.screenshot({path:'layout-proof/desktop.png',fullPage:true});
+          const mobile=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+          await mobile.goto('https://hitel-communication-web-production.up.railway.app/sdk-lab',{waitUntil:'domcontentloaded',timeout:45000});
+          await mobile.locator('.dl-phone-ios .ios-live-video').waitFor({timeout:25000});
+          await mobile.locator('.dl-command-column .ios-live-actions').waitFor({timeout:25000});
+          const phone=await mobile.locator('.dl-phone-ios').boundingBox();
+          const video=await mobile.locator('.dl-phone-ios .ios-live-video').boundingBox();
+          if(!phone||!video||video.height/phone.height<.92)throw Error('MOBILE_VIDEO_NOT_FULL_HEIGHT');
+          if(await mobile.locator('.dl-phone-ios .ios-live-buttons').count())throw Error('MOBILE_CONTROLS_IN_PHONE');
+          await mobile.screenshot({path:'layout-proof/mobile.png',fullPage:true});
+          const proof={desktop:{phone:p,video:stream,controls,labels},mobile:{phone,video},passed:true};
+          fs.writeFileSync('layout-proof/result.json',JSON.stringify(proof,null,2));
+          console.log('IPHONE_EXTERNAL_CONTROLS_LAYOUT_PASS',JSON.stringify(proof));
+          await browser.close();
+          JS
+      - name: Upload real browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-external-controls-layout
+          path: layout-proof/
+          if-no-files-found: ignore
