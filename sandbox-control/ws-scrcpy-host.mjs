@@ -122,6 +122,13 @@ async function superviseRunner(){
    if(r.ok){const run=await r.json();runCompleted=run.status==='completed';}
    else console.error('WS_SCRCPY_RUN_STATUS_HTTP',r.status,runId);
   }
+  // Runner milestones can pause while Android images are restored and booted.
+  // Do not dispatch a duplicate just because one stage takes longer than 45 seconds.
+  if(!live()&&claimedAt&&Date.now()-claimedAt>=480000){
+   claimedAt=0;
+   updateProgress('failed','Android 실행기가 8분 동안 상태를 갱신하지 않아 자동 복구합니다.');
+  }
+  if(runCompleted&&claimedAt){claimedAt=0;saveState();}
   const stale=progress.updatedAt?Date.now()-Date.parse(progress.updatedAt)>45000:false;
   const stalled=!host&&!queuedAt&&!claimedAt&&stale&&progress.stage!=='idle';
   if((runCompleted&&!queuedAt&&!claimedAt)||stalled){
@@ -224,7 +231,7 @@ export async function wsScrcpyRoute(req,res,path){
    const incoming=await oidc(req);
    if(!incoming)return json(res,403,{ok:false,error:'IDENTITY_INVALID'});
   }
-  queuedAt=0;claimedAt=0;
+  queuedAt=0;claimedAt=Date.now();
   updateProgress(stage,message,{runId});
   return json(res,200,{ok:true,stage:progress.stage,updatedAt:progress.updatedAt});
  }
@@ -239,7 +246,7 @@ export async function wsScrcpyRoute(req,res,path){
   if(progress.runId&&registerRunId&&progress.runId!==registerRunId)return json(res,409,{ok:false,error:'RUN_MISMATCH'});
   if(live()&&host.runId!==registerRunId)return json(res,409,{ok:false,error:'ANOTHER_ANDROID11_RUNNING'});
   queuedAt=0;
-  claimedAt=0;
+  claimedAt=Date.now();
   host={transport:'railway-websocket',runId:registerRunId,reachable:false,stop:false,
     ticket:randomBytes(20).toString('hex')};
   saveState();
