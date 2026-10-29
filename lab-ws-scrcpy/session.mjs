@@ -36,7 +36,7 @@ async function relay(){
  const devices=new Map();
  while(true){
   const state=load();
-  const ws=new WebSocket(API.replace(/^https:/,'wss')+'/tunnel',{headers:{'x-runner-ticket':state.ticket},perMessageDeflate:false,maxPayload:90*1024*1024});
+  const ws=new WebSocket(API.replace(/^https:/,'wss:')+'/tunnel',{headers:{'x-runner-ticket':state.ticket},perMessageDeflate:false,maxPayload:90*1024*1024});
   await new Promise(resolve=>{
    let connected=false;
    let statusTimer=null;
