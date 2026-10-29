@@ -43,6 +43,11 @@ jobs:
       - name: Prepare Meta idb and XcodeGen
         run: |
           set -euo pipefail
+          # macos-15 defaults to Xcode 16.4, but the current Meta idb requires Xcode 26+.
+          # Preserve the existing iPhone 16 Pro simulator provided by macos-15.
+          test -d /Applications/Xcode_26.3.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
           command -v xcodegen || brew install xcodegen
           brew tap facebook/fb
           brew trust facebook/fb
@@ -50,7 +55,8 @@ jobs:
           python3 -m venv /tmp/hitel-ios-venv
           /tmp/hitel-ios-venv/bin/pip install --disable-pip-version-check 'websockets==13.1'
           xcodebuild -version
-          idb --help | head -30
+          idb --help > /tmp/hitel-idb-help.txt
+          head -30 /tmp/hitel-idb-help.txt
       - name: Start actual iPhone 16 Pro and build existing HITEL iOS app
         run: |
           set -euo pipefail
