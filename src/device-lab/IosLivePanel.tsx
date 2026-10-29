@@ -102,14 +102,16 @@ export default function IosLivePanel({onNotice}:Props){
   }
   function mapPoint(e:React.PointerEvent<HTMLImageElement>){
     const rect=e.currentTarget.getBoundingClientRect();
-    const ratio=402/874;
+    const logicalWidth=rotation==='landscape'?874:402;
+    const logicalHeight=rotation==='landscape'?402:874;
+    const ratio=logicalWidth/logicalHeight;
     const dw=Math.min(rect.width,rect.height*ratio);
     const dh=dw/ratio;
     const left=rect.left+(rect.width-dw)/2;
     const top=rect.top+(rect.height-dh)/2;
     const px=(e.clientX-left)/dw,py=(e.clientY-top)/dh;
     if(px<0||px>1||py<0||py>1)return null;
-    return {x:Math.round(px*402),y:Math.round(py*874)};
+    return {x:Math.round(px*logicalWidth),y:Math.round(py*logicalHeight)};
   }
   const active=status.online===true && status.videoLive===true;
   return <div className="ios-live-root">
