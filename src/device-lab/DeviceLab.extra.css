@@ -11,3 +11,14 @@
 .dl-ci-reports pre{overflow:auto;max-height:250px;white-space:pre-wrap;font-size:10px;line-height:1.6}
 .dl-ci-reports a{font-size:10px;color:#2b8eb4}
 @media(max-width:650px){.dl-ci-reports{grid-template-columns:1fr}}
+
+/* Native iPhone: actual simulator stream fills the phone; all controls live in the separate right column. */
+.dl-emulator-display-ios{min-height:744px;padding:18px 10px}
+.dl-emulator-display-ios .dl-phone-ios{box-shadow:0 16px 30px #15314425,0 0 0 2px #6a818c}
+.dl-ios-stream-label{flex-wrap:wrap;min-height:43px}
+.dl-ios-stream-label span{font-size:11px;font-weight:750;color:#315e72}
+.dl-ios-stream-label small{font-size:10px;color:#7895a4}
+.dl-ios-controls-host{width:100%;min-width:0}
+.dl-ios-controls-outer{order:-1}
+@media(max-width:790px){.dl-emulator-display-ios{min-height:744px}}
+@media(max-width:535px){.dl-emulator-display-ios{min-height:735px}}
