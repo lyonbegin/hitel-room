@@ -136,6 +136,7 @@ async function handle(req,res,path) {
   }
   if(req.method==='POST'&&path==='/ios/start') {
     if(!allowBrowser(req))return send(res,403,{ok:false,error:'INVALID_ORIGIN'});
+    await refreshGithubRun(); // reconcile a failed/exited GitHub job before deduplicating a start
     if(!state.stopped && ['queued','booting','ready','streaming','reconnecting'].includes(state.phase))
       return send(res,200,publicStatus());
     setState({phase:'queued',stopped:false,runId:null,lastDispatchAt:Date.now(),lastLiveAt:0,retiredRunIds:[],detail:'GitHub macOS 실행기 요청'});
