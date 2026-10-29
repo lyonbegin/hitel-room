@@ -64,7 +64,13 @@ async def run_action(command):
         if not Path(APP).is_dir():raise FileNotFoundError('HITEL_SIMULATOR_APP_NOT_BUILT')
         return await asyncio.to_thread(call,['xcrun','simctl','install',UDID,APP],120)
     if action=='launch':
-        return await asyncio.to_thread(call,['xcrun','simctl','launch',UDID,BUNDLE])
+        def launch():
+            p=subprocess.run(['xcrun','simctl','launch',UDID,BUNDLE],
+                env={**os.environ,'SIMCTL_CHILD_HITEL_LAB_URL':BASE+'/sdk-lab/device?side=ios'},
+                text=True,capture_output=True,timeout=45)
+            if p.returncode!=0:raise RuntimeError((p.stderr or p.stdout)[-250:])
+            return p.stdout[-250:]
+        return await asyncio.to_thread(launch)
     if action=='safari':
         return await asyncio.to_thread(call,['xcrun','simctl','openurl',UDID,'https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=ios'])
     raise ValueError('UNSUPPORTED_ACTION')
