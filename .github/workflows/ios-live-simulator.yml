@@ -23,6 +23,8 @@ jobs:
       - name: Start newly repaired iPhone session through existing HITEL web API
         run: |
           set -euo pipefail
+          curl -fsS --max-time 30 https://hitel-communication-web-production.up.railway.app/lab-sandbox/ios/status
+          echo
           curl -fsS --retry 2 --max-time 30 \
             -H 'Origin: https://hitel-communication-web-production.up.railway.app' \
             -H 'Content-Type: application/json' \
