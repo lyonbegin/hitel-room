@@ -4,6 +4,7 @@ import { openVideoCoreCamera, type VideoCoreCameraSession } from '../lib/videoCo
 import './DeviceLab.css';
 import './DeviceLab.extra.css';
 import {WsScrcpyEmbed} from './WsScrcpyEmbed';
+import IosLivePanel from './IosLivePanel';
 
 
 type Side = 'android' | 'ios';
@@ -227,6 +228,7 @@ export default function DeviceLab(){
   const [selected,setSelected]=useState<'both'|Side>('both');
   const [view,setView]=useState<'preview'|'remote'>('remote');
   const [nativeAndroidOnline,setNativeAndroidOnline]=useState(false);
+  const [iosStatus,setIosStatus]=useState<{online?:boolean;videoLive?:boolean;phase?:string}>({});
   const [deviceSize,setDeviceSize]=useState('390');
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
   const [agent,setAgent]=useState<Partial<Record<Side,AgentState>>>({});
@@ -271,6 +273,15 @@ export default function DeviceLab(){
     } catch { /* Legacy relay is not required for SDK testing */ }
   },[]);
   useEffect(()=>{void readStatus();const timer=window.setInterval(()=>void readStatus(),5000);return ()=>clearInterval(timer)},[readStatus]);
+  useEffect(()=>{
+    let alive=true;
+    const readIos=async()=>{try{
+      const r=await fetch('/lab-sandbox/ios/status',{cache:'no-store'});
+      if(r.ok){const s=await r.json();if(alive)setIosStatus(s)}
+    }catch{if(alive)setIosStatus({online:false})}};
+    void readIos();const timer=window.setInterval(()=>void readIos(),3500);
+    return ()=>{alive=false;window.clearInterval(timer)};
+  },[]);
   const loadCapture=useCallback(async(side:Side)=>{
     try{
       const response=await fetch('/lab-api/frame/'+side,{cache:'no-store'});
@@ -316,14 +327,14 @@ export default function DeviceLab(){
       <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 에뮬레이터 관리</h1><p>GitHub KVM의 실제 Google Play Android 11 화면을 ws-scrcpy H.264/WebCodecs로 연결합니다. 실행은 브라우저를 닫아도 유지되며, 실행기 종료 시 저장된 Android 이미지를 불러와 자동 복구합니다. Android 종료 버튼을 누르면 세션과 영상 호스트를 종료합니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android Emulator</small><strong>{nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
-        <div><small>iPhone Simulator</small><strong>{agent.ios?.online?'호스트 연결':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
+        <div><small>iPhone Simulator</small><strong>{iosStatus.videoLive?'실제 화면 연결':iosStatus.online?'호스트 연결 · 영상 대기':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
         <div><small>SDK 웹 화면</small><strong>React H5</strong><span>네이티브 앱에서 로드</span></div>
         <div><small>개발 서버</small><strong>Railway</strong><span>웹 및 테스트 API</span></div>
       </div>
       <div className="dl-layout">
         {SIDES.map(side=><section key={side} className="dl-emulator-card">
           <header className="dl-card-top"><div className="dl-card-heading"><MiniIcon side={side}/><div><b>{LABELS[side]}</b><small>{side==='android'?'Android APK · WebView':'iOS App · WKWebView'}</small></div></div>
-          <span className={'dl-pill '+(agent[side]?.online?'live':'waiting')}>{agent[side]?.online?'● 앱 WebSocket 연결':agent[side]?.capture?'● CI 캡처 보관':'● 연결 대기'}</span></header>
+          <span className={'dl-pill '+((side==='ios'?iosStatus.videoLive:agent[side]?.online)?'live':'waiting')}>{side==='ios'?(iosStatus.videoLive?'● 실제 iPhone 영상 연결':iosStatus.online?'● 시뮬레이터 연결 · 영상 대기':'● iPhone 대기'):agent[side]?.online?'● 앱 WebSocket 연결':agent[side]?.capture?'● CI 캡처 보관':'● 연결 대기'}</span></header>
           <div className="dl-emulator-toolbar"><select aria-label={LABELS[side]+' 디바이스 크기'} value={deviceSize} onChange={e=>setDeviceSize(e.target.value)}>
             <option value="390">iPhone 14 · 390</option><option value="360">Android · 360</option><option value="430">Large · 430</option></select>
             <div><button title="홈" onClick={()=>{setSelected(side);ref.current[side]?.contentWindow?.postMessage({source:'hitel-device-lab-control',side,action:'home'},window.location.origin)}}>⌂</button>
@@ -338,18 +349,17 @@ export default function DeviceLab(){
               {view==='remote' && side==='android'?(
                 <WsScrcpyEmbed/>
               ):view==='remote'?(
-                capture[side]?<img className="dl-remote-screen" src={capture[side]} alt={LABELS[side]+' 실제 앱/시뮬레이터 화면'}/>:
-                <div className="dl-capture-empty"><b>실제 에뮬레이터 화면 대기</b><p>GitHub Actions에서 앱 설치 및 화면 캡처 후 표시됩니다.</p></div>
+                <IosLivePanel onNotice={message=>push('ios',message)}/>
                 ):<iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
             </div>
-            {view==='remote'&&side==='ios'&&!agent[side]?.online&&<div className="dl-overlay-warning">{capture[side]?'GitHub Actions 마지막 실제 캡처 · 현재 실시간 연결 아님':'실제 에뮬레이터 실행 결과 대기'}</div>}
+            
           </div>
-          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?'원본 Android · ws-scrcpy H.264':deviceSize+' px'} · {view==='remote'&&side==='android'?'실제 원본 에뮬레이터':view==='remote'?(agent[side]?.online?'실제 화면 캡처':'마지막 저장 캡처'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
+          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?'원본 Android · ws-scrcpy H.264':view==='remote'&&side==='ios'?'원본 iPhone · Meta idb MJPEG':deviceSize+' px'} · {view==='remote'&&side==='android'?'실제 원본 에뮬레이터':view==='remote'&&side==='ios'?(iosStatus.videoLive?'실시간 원본 영상':'실시간 영상 대기'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
-            <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 Android 화면</button></div>
+            <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 기기 화면</button></div>
             <div className="dl-status-list"><div><span>Android 테스트 연결</span>
               <strong>{nativeAndroidOnline?'원본 ws-scrcpy H.264 연결됨':'원본 실행 대기'}</strong>
             </div></div>
@@ -359,7 +369,7 @@ export default function DeviceLab(){
               <small>ws-scrcpy H.264 WebCodecs 실시간 화면과 터치 입력을 사용합니다.</small>
             </div>
             {view==='preview'?<div className="dl-command-grid">{shortcuts.map(item=><button key={item.id} onClick={()=>send(item.id)}><span>{item.icon}</span>{item.label}</button>)}</div>:<p className="dl-android-session-hint">실제 Android 화면은 상단의 원본 화면에서 직접 터치하여 조작합니다. 제어용 로그인·인증코드를 요구하지 않습니다.</p>}
-            <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'ws-scrcpy H.264 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{agent.ios?.online?'연결됨':'대기'}</strong></div><div><span>네이티브 Bridge 검사</span><strong>기기 내부에서 검증</strong></div></div>
+            <div className="dl-status-list"><b>연결 상태</b><div><span>Android 원본 에뮬레이터</span><strong>{nativeAndroidOnline?'ws-scrcpy H.264 연결됨':'실행 대기'}</strong></div><div><span>iPhone 호스트</span><strong>{iosStatus.videoLive?'실제 영상 연결':iosStatus.online?'영상 대기':'대기'}</strong></div><div><span>네이티브 Bridge 검사</span><strong>기기 내부에서 검증</strong></div></div>
           </div>
           <div className="dl-command-card"><h3>검증 원칙</h3><p>현재 화면의 실행 상태를 구분합니다.</p><div className="dl-legend"><span className="dl-dot blue"/>웹 미리보기: 브라우저 SDK 작동</div><div className="dl-legend"><span className="dl-dot green"/>실제 에뮬레이터: ws-scrcpy H.264 원본 영상</div><div className="dl-legend"><span className="dl-dot amber"/>네이티브 기능은 Bridge 실응답으로만 판정</div></div>
         </section>
