@@ -160,10 +160,15 @@ export async function wsScrcpyRoute(req,res,path){
   if(!['GET','HEAD','POST'].includes(req.method))return json(res,405,{ok:false,error:'METHOD_NOT_ALLOWED'});
   const suffix=path.slice('/ws-scrcpy/proxy'.length)||'/';
   const target=suffix+(new URL(req.url,'http://localhost').search||'');
+  const headers={'content-type':req.headers['content-type']||''};
+  if(suffix.split('?')[0]==='/__hitel_apk_install'){
+   if(req.headers.origin!==ORIGIN)return json(res,403,{ok:false,error:'SITE_ORIGIN_REQUIRED'});
+   headers.origin=ORIGIN;
+  }
   const chunks=[];let size=0;
   for await(const chunk of req){size+=chunk.length;if(size>64*1024*1024)return json(res,413,{ok:false,error:'REQUEST_TOO_LARGE'});chunks.push(chunk);}
   try{
-   const result=await wsScrcpyHttp(req.method,target,{'content-type':req.headers['content-type']||''},Buffer.concat(chunks));
+   const result=await wsScrcpyHttp(req.method,target,headers,Buffer.concat(chunks));
    res.writeHead(result.status,{...result.headers,'cache-control':'no-store','x-content-type-options':'nosniff'});
    if(req.method==='HEAD')res.end();else res.end(result.body);
   }catch(error){json(res,502,{ok:false,error:String(error.message||error)});}
