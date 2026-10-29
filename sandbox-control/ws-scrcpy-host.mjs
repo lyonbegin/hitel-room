@@ -130,7 +130,7 @@ async function superviseRunner(){
   }
   if(runCompleted&&claimedAt){claimedAt=0;saveState();}
   const stale=progress.updatedAt?Date.now()-Date.parse(progress.updatedAt)>45000:false;
-  const stalled=!host&&!queuedAt&&!claimedAt&&stale&&progress.stage!=='idle';
+  const stalled=!host&&!queuedAt&&!claimedAt&&stale&&progress.stage!=='idle'&&(!runId||runCompleted);
   if((runCompleted&&!queuedAt&&!claimedAt)||stalled){
    host=null;
    if(Date.now()-lastRecoveryAt>45000){
