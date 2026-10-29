@@ -106,7 +106,7 @@ async function superviseRunner(){
  try{
   if(host&&Date.now()-(host.lastSupervisionProbe||0)>=20000){
    host.lastSupervisionProbe=Date.now();
-   host.reachable=await isValid(host.url);
+   host.reachable=wsScrcpyOnline();
    host.failedProbes=host.reachable?0:(Number(host.failedProbes)||0)+1;
    if(host.failedProbes>=3){
     host=null;
@@ -269,11 +269,17 @@ export async function wsScrcpyRoute(req,res,path){
   return json(res,200,{ok:true,status:'stopping'});
  }
  if(req.method==='POST'&&path==='/ws-scrcpy/finish'){
-  if(!live()||!equal(req.headers['x-runner-ticket'],host.ticket))
+  // The runner may close its WebSocket before its EXIT trap reports completion.
+  // The persisted, unguessable ticket authorizes cleanup after transport loss.
+  if(!host||!equal(req.headers['x-runner-ticket'],host.ticket))
    return json(res,403,{ok:false,error:'RUNNER_TICKET_REQUIRED'});
+  const restart=desiredRunning&&!host.stop&&progress.stage!=='stopping';
   host=null;claimedAt=0;queuedAt=0;
   saveState();
-  if(progress.stage!=='failed')updateProgress('stopped','Android 11 실행기가 종료되었습니다.');
+  if(progress.stage!=='failed'){
+   if(restart)updateProgress('stopping','Android 실행기 연결이 끝나 저장된 이미지로 복구합니다.');
+   else updateProgress('stopped','Android 11 실행기가 종료되었습니다.');
+  }
   return json(res,200,{ok:true,status:'deleted'});
  }
  return json(res,404,{ok:false,error:'UNKNOWN_WS_SCRCPY_PATH'});
