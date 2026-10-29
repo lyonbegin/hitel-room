@@ -1,0 +1,72 @@
+name: HITEL iPhone Live Simulator
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: hitel-ios-live-single-run
+  cancel-in-progress: false
+
+jobs:
+  ios-live:
+    runs-on: macos-15
+    timeout-minutes: 340
+    env:
+      HITEL_IOS_BASE: https://hitel-communication-web-production.up.railway.app
+      HITEL_LAB_URL: https://hitel-communication-web-production.up.railway.app/sdk-lab/device?side=ios
+    steps:
+      - name: Reuse current HITEL Device Lab source
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ws-scrcpy-android11-20261028
+      - name: Prepare Meta idb and XcodeGen
+        run: |
+          set -euo pipefail
+          command -v xcodegen || brew install xcodegen
+          brew install facebook/fb/idb
+          python3 -m venv /tmp/hitel-ios-venv
+          /tmp/hitel-ios-venv/bin/pip install --disable-pip-version-check 'websockets==13.1'
+          xcodebuild -version
+          idb --help | head -30
+      - name: Start actual iPhone 16 Pro and build existing HITEL iOS app
+        run: |
+          set -euo pipefail
+          mkdir -p mobile-test-results/ios
+          xcrun simctl list -j devices available > mobile-test-results/ios/available-devices.json
+          udid="$(python3 - <<'PY'
+          import json
+          data=json.load(open('mobile-test-results/ios/available-devices.json'))
+          for runtime,devices in data['devices'].items():
+            if 'iOS' not in runtime:continue
+            for device in devices:
+              if device.get('isAvailable') and device.get('name')=='iPhone 16 Pro':
+                print(device['udid']);raise SystemExit(0)
+          raise SystemExit('iPhone 16 Pro unavailable in runner')
+          PY
+          )"
+          echo "HITEL_IOS_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcodegen generate --spec mobile/ios/project.yml --project mobile/ios
+          xcodebuild -project mobile/ios/HitelNative.xcodeproj \
+            -scheme HitelNative -configuration Debug -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$udid" \
+            -derivedDataPath /tmp/hitel-ios-build CODE_SIGNING_ALLOWED=NO \
+            build > mobile-test-results/ios/live-build.log 2>&1 || {
+              tail -100 mobile-test-results/ios/live-build.log;exit 1;
+            }
+          xcrun simctl install "$udid" /tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app
+          xcrun simctl launch "$udid" app.hitel.native
+          idb list-targets
+      - name: Maintain actual iPhone stream and controls until operator stop
+        run: /tmp/hitel-ios-venv/bin/python mobile/tests/ios-live-agent.py
+      - name: Save diagnostics without representing screenshots as live
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-live-diagnostics
+          path: mobile-test-results/ios/
+          if-no-files-found: ignore
