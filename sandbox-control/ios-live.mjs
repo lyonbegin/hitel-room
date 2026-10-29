@@ -85,8 +85,55 @@ async function dispatch() {
   });
   if(resp.status!==204)throw Error('GITHUB_DISPATCH_HTTP_'+resp.status);
 }
+let githubCheckAt=0;
+let githubChecking=false;
+async function refreshGithubRun() {
+  if(state.stopped||runner?.readyState===WebSocket.OPEN||!state.lastDispatchAt||githubChecking||
+    Date.now()-githubCheckAt<8000)return;
+  githubCheckAt=Date.now();githubChecking=true;
+  try {
+    const token=process.env.HITEL_GITHUB_WORKFLOW_TOKEN;
+    if(!token)return;
+    const headers={accept:'application/vnd.github+json',authorization:'Bearer '+token,
+      'user-agent':'hitel-ios-device-lab'};
+    const resp=await fetch('https://api.github.com/repos/lyonbegin/hitel-room/actions/workflows/'+workflow+
+      '/runs?event=workflow_dispatch&per_page=10',{headers,signal:AbortSignal.timeout(7000)});
+    if(!resp.ok)return;
+    const payload=await resp.json();
+    const run=(payload.workflow_runs||[]).find(x=>
+      Date.parse(x.created_at)>Number(state.lastDispatchAt)-30_000 &&
+      !(state.retiredRunIds||[]).includes(String(x.id)));
+    if(!run)return;
+    const runId=String(run.id);
+    if(state.runId && state.runId!==runId)return;
+    if(run.status==='completed') {
+      if(state.lastLiveAt){
+        if(state.detail!=='macOS 작업 종료 · 자동 교체 대기')
+          setState({phase:'reconnecting',detail:'macOS 작업 종료 · 자동 교체 대기',runId});
+      } else setState({phase:'failed',stopped:true,detail:'macOS 실행 실패: '+String(run.conclusion||'unknown'),runId});
+      return;
+    }
+    let detail=run.status==='queued'?'GitHub macOS 실행기 배정 대기':'GitHub macOS 실행 중';
+    if(run.status==='in_progress'){
+      const jobs=await fetch('https://api.github.com/repos/lyonbegin/hitel-room/actions/runs/'+runId+
+        '/jobs?per_page=5',{headers,signal:AbortSignal.timeout(7000)});
+      if(jobs.ok){
+        const j=await jobs.json();
+        const step=(j.jobs||[]).flatMap(job=>job.steps||[]).find(s=>s.status==='in_progress');
+        if(step)detail=step.name;
+      }
+    }
+    if(state.detail!==detail||state.runId!==runId)
+      setState({phase:run.status==='queued'?'queued':'booting',detail,runId});
+  }catch(e) {
+    console.error('IOS_GITHUB_STATUS',String(e.message||e).slice(0,110));
+  }finally{githubChecking=false;}
+}
 async function handle(req,res,path) {
-  if(req.method==='GET'&&path==='/ios/status') return send(res,200,publicStatus());
+  if(req.method==='GET'&&path==='/ios/status') {
+    await refreshGithubRun();
+    return send(res,200,publicStatus());
+  }
   if(req.method==='POST'&&path==='/ios/start') {
     if(!allowBrowser(req))return send(res,403,{ok:false,error:'INVALID_ORIGIN'});
     if(!state.stopped && ['queued','booting','ready','streaming','reconnecting'].includes(state.phase))
