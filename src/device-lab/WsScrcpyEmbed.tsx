@@ -83,7 +83,8 @@ export function WsScrcpyEmbed(){
  const installApk=async(event:React.ChangeEvent<HTMLInputElement>)=>{
   const file=event.target.files?.[0];
   event.target.value='';
-  if(!file||!viewer)return;
+  if(!file)return;
+  if(!viewer){setApkStatus('실제 Android 11 화면 연결 후 APK 파일을 선택해 주십시오.');return;}
   if(!file.name.toLowerCase().endsWith('.apk')||file.size>60*1024*1024){setApkStatus('APK 파일만 설치할 수 있습니다(최대 60MB).');return;}
   setApkInstalling(true);setApkStatus('실제 Android 11에 APK 설치 및 실행 중…');
   try{
