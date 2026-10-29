@@ -1,6 +1,10 @@
 name: HITEL iPhone Live Simulator
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-live-simulator.yml'
 
 permissions:
   contents: read
@@ -11,7 +15,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  bootstrap:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Start newly repaired iPhone session through existing HITEL web API
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 2 --max-time 30 \
+            -H 'Origin: https://hitel-communication-web-production.up.railway.app' \
+            -H 'Content-Type: application/json' \
+            -d '{}' \
+            https://hitel-communication-web-production.up.railway.app/lab-sandbox/ios/start
   ios-live:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 340
     env:
@@ -26,6 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           command -v xcodegen || brew install xcodegen
+          brew tap facebook/fb
+          brew trust --formula facebook/fb/idb-cli
           brew install facebook/fb/idb
           python3 -m venv /tmp/hitel-ios-venv
           /tmp/hitel-ios-venv/bin/pip install --disable-pip-version-check 'websockets==13.1'
