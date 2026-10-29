@@ -228,6 +228,7 @@ export default function DeviceLab(){
   const [nativeAndroidOnline,setNativeAndroidOnline]=useState(false);
   const [iosStatus,setIosStatus]=useState<{online?:boolean;videoLive?:boolean;phase?:string}>({});
   const [deviceSize,setDeviceSize]=useState('390');
+  const [iosControlsHost,setIosControlsHost]=useState<HTMLDivElement|null>(null);
   const [frameVersion,setFrameVersion]=useState<Record<Side,number>>({android:0,ios:0});
   const [notices,setNotices]=useState<LabNotice[]>([]);
   const ref=useRef<Partial<Record<Side,HTMLIFrameElement|null>>>({});
@@ -301,21 +302,34 @@ export default function DeviceLab(){
         {SIDES.map(side=><section key={side} className="dl-emulator-card">
           <header className="dl-card-top"><div className="dl-card-heading"><MiniIcon side={side}/><div><b>{LABELS[side]}</b><small>{side==='android'?'Android APK · WebView':'iOS App · WKWebView'}</small></div></div>
           <span className={'dl-pill '+((side==='ios'?iosStatus.videoLive:nativeAndroidOnline)?'live':'waiting')}>{side==='ios'?(iosStatus.videoLive?'● 실제 iPhone 영상 연결':iosStatus.online?'● 시뮬레이터 연결 · 영상 대기':'● iPhone 대기'):nativeAndroidOnline?'● 원본 ws-scrcpy 연결':'● Android 연결 대기'}</span></header>
-          <div className="dl-emulator-toolbar"><select aria-label={LABELS[side]+' 디바이스 크기'} value={deviceSize} onChange={e=>setDeviceSize(e.target.value)}>
-            <option value="390">iPhone 14 · 390</option><option value="360">Android · 360</option><option value="430">Large · 430</option></select>
-            <div><button title="홈" onClick={()=>{setSelected(side);ref.current[side]?.contentWindow?.postMessage({source:'hitel-device-lab-control',side,action:'home'},window.location.origin)}}>⌂</button>
-              <button title="새로고침" onClick={()=>setFrameVersion(v=>({...v,[side]:v[side]+1}))}>↻</button>
-              <button title="새 창에서 열기" onClick={()=>window.open(side==='android'?'/android-original/':labPath(side),'_blank','noopener')}>↗</button></div>
-          </div>
-          <div className="dl-emulator-display">
+          {view==='remote'&&side==='ios'?(
+            <div className="dl-emulator-toolbar dl-ios-stream-label">
+              <span>iPhone 16 Pro · 원본 스트리밍 화면</span>
+              <small>화면 터치·스와이프 가능 · 조작 버튼은 오른쪽 제어판</small>
+            </div>
+          ):(
+            <div className="dl-emulator-toolbar"><select aria-label={LABELS[side]+' 디바이스 크기'} value={deviceSize} onChange={e=>setDeviceSize(e.target.value)}>
+              <option value="390">iPhone 14 · 390</option><option value="360">Android · 360</option><option value="430">Large · 430</option>
+            </select>
+              <div>
+                <button title="홈" onClick={()=>{setSelected(side);ref.current[side]?.contentWindow?.postMessage({source:'hitel-device-lab-control',side,action:'home'},window.location.origin)}}>⌂</button>
+                <button title="새로고침" onClick={()=>setFrameVersion(v=>({...v,[side]:v[side]+1}))}>↻</button>
+                <button title="새 창에서 열기" onClick={()=>window.open(side==='android'?'/android-original/':labPath(side),'_blank','noopener')}>↗</button>
+              </div>
+            </div>
+          )}
+          <div className={'dl-emulator-display'+(view==='remote'&&side==='ios'?' dl-emulator-display-ios':'')}>
             <div className={view==='remote'&&side==='android'?'dl-original-native-host':'dl-phone-shell dl-phone-'+side}
-              style={{width:view==='remote'&&side==='android'?'min(100%, 920px)':'min(100%, '+deviceSize+'px)',
-                ...(view==='remote'&&side==='android'?{height:660,minHeight:660}: {})}}>
-              {!(view==='remote'&&side==='android')&&<div className="dl-phone-notch"/>}
+              style={view==='remote'&&side==='android'
+                ?{width:'min(100%, 920px)',height:660,minHeight:660}
+                :view==='remote'&&side==='ios'
+                  ?{width:'min(100%, 320px)',height:'auto',aspectRatio:'402 / 874'}
+                  :{width:'min(100%, '+deviceSize+'px)'}}>
+              {view==='preview'&&<div className="dl-phone-notch"/>}
               {view==='remote' && side==='android'?(
                 <WsScrcpyEmbed/>
               ):view==='remote'?(
-                <IosLivePanel onNotice={message=>push('ios',message)}/>
+                <IosLivePanel controlsHost={iosControlsHost} onNotice={message=>push('ios',message)}/>
                 ):<iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
             </div>
             
@@ -323,6 +337,11 @@ export default function DeviceLab(){
           <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?'원본 Android · ws-scrcpy H.264':view==='remote'&&side==='ios'?'원본 iPhone · Meta idb MJPEG':deviceSize+' px'} · {view==='remote'&&side==='android'?'실제 원본 에뮬레이터':view==='remote'&&side==='ios'?(iosStatus.videoLive?'실시간 원본 영상':'실시간 영상 대기'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
+          <div className="dl-command-card dl-ios-controls-outer">
+            <h3>iPhone 16 Pro 원격 제어</h3>
+            <p>조작 버튼은 기기 화면 밖에 있습니다. iPhone 화면 전체를 실시간 영상으로 표시합니다.</p>
+            <div ref={setIosControlsHost} className="dl-ios-controls-host"/>
+          </div>
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 기기 화면</button></div>
