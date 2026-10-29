@@ -5,6 +5,7 @@ import {Sandbox} from 'railway';
 import {launchTcgProbeWhenArmed,getTcgProbeStatus} from './railway-tcg-probe.mjs';
 import {startCheckpointTestOnce,checkpointTestStatus} from './railway-tcg-checkpoint-test.mjs';
 import {wsScrcpyRoute,wsScrcpyUpgrade} from './ws-scrcpy-host.mjs';
+import {createIosLive} from './ios-live.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
@@ -14,6 +15,7 @@ import {wsScrcpyRoute,wsScrcpyUpgrade} from './ws-scrcpy-host.mjs';
  * The launch API stays closed until the Railway workspace credential and an
  * Android 11 checkpoint are actually present. We do not simulate a device.
  */
+const iosLive=createIosLive();
 const SOCKET_PATH = '/tmp/hitel-sandbox.sock';
 const TTL_MS = 600_000;
 const CHECKPOINT = process.env.HITEL_ANDROID_CHECKPOINT || 'hitel-android11-ready';
@@ -189,6 +191,7 @@ function publicStatus(){
 }
 async function handle(req,res){
   const path=new URL(req.url,'http://localhost').pathname;
+  if(path.startsWith('/ios/'))return iosLive.handle(req,res,path);
   if(path.startsWith('/ws-scrcpy/'))return wsScrcpyRoute(req,res,path);
   if(req.method==='GET'&&path==='/tcg-status')return json(res,200,{ok:true,...getTcgProbeStatus()});
   if(req.method==='GET'&&path==='/checkpoint-test-status')return json(res,200,{ok:true,...checkpointTestStatus()});
@@ -260,6 +263,7 @@ const server=http.createServer((req,res)=>{
   });
 });
 wsScrcpyUpgrade(server,origin);
+server.on('upgrade',(req,socket,head)=>{ if(req.url?.startsWith('/ios/socket'))iosLive.upgrade(req,socket,head); });
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
   chmodSync(SOCKET_PATH,0o666);
