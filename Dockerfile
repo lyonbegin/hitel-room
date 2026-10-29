@@ -42,6 +42,7 @@ RUN apk add --no-cache libstdc++
 COPY --from=sandbox-sdk-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=sandbox-sdk-build /srv/hitel-sandbox/node_modules /srv/hitel-sandbox/node_modules
 COPY sandbox-control/server.mjs /srv/hitel-sandbox/server.mjs
+COPY sandbox-control/ios-live.mjs /srv/hitel-sandbox/ios-live.mjs
 COPY sandbox-control/railway-tcg-probe.mjs /srv/hitel-sandbox/railway-tcg-probe.mjs
 COPY sandbox-control/railway-tcg-checkpoint-test.mjs /srv/hitel-sandbox/railway-tcg-checkpoint-test.mjs
 COPY sandbox-control/ws-scrcpy-host.mjs /srv/hitel-sandbox/ws-scrcpy-host.mjs
