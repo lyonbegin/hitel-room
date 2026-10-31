@@ -7,6 +7,9 @@ on:
       - "mobile/ios/**"
       - ".github/workflows/ios-physical-screen-build.yml"
   workflow_dispatch:
+concurrency:
+  group: hitel-iphone-native-compile
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
