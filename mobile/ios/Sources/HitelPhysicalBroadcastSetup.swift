@@ -33,6 +33,11 @@ struct HitelPhysicalBroadcastSetup: View {
                         guard pin.count == 8 else { return }
                         UserDefaults(suiteName: screenGroup)?.set(pin, forKey: "broadcastCode")
                         UserDefaults(suiteName: screenGroup)?.removeObject(forKey: "broadcastDeviceKey")
+                        // Personal Team mode has no App Group entitlement. The user explicitly
+                        // copies the pairing code before initiating ReplayKit system broadcast.
+                        // The broadcast extension reads this short-lived marker from the system
+                        // pasteboard; it never reads clipboard data other than this prefix.
+                        UIPasteboard.general.string = "HITEL_SCREEN_PAIR:" + pin
                         saved = true
                     }
                     .buttonStyle(.borderedProminent)
@@ -43,7 +48,7 @@ struct HitelPhysicalBroadcastSetup: View {
                     }
                     VStack(alignment: .leading, spacing: 9) {
                         Text("iPhone 화면 방송 시작").font(.headline)
-                        Text("방송 대상을 'HitelScreenBroadcast'로 선택하고 '방송 시작'을 눌러 주십시오. 아이폰의 다른 앱과 홈 화면도 전송할 수 있습니다.")
+                        Text("방송 대상을 'HitelScreenBroadcast'로 선택하고 '방송 시작'을 눌러 주십시오. 무료 테스트 앱은 연결코드를 사용자가 승인한 클립보드를 통해 전달합니다. iOS가 붙여넣기 허용을 요청하면 승인하십시오.")
                             .font(.footnote)
                         HitelBroadcastPicker()
                             .frame(width: 70, height: 70)
