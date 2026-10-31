@@ -1,0 +1,23 @@
+name: HITEL Physical Android WSS transport smoke
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - 'tests/physical-android-transport-smoke.mjs'
+      - '.github/workflows/hitel-physical-transport-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-physical-phone-transport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated diagnostic WebSocket client
+        run: npm install --no-save --no-audit --no-fund ws@8.18.3
+      - name: Verify Railway private phone pairing and binary JPEG transport
+        run: node tests/physical-android-transport-smoke.mjs
