@@ -87,8 +87,8 @@ while true;do
  decision="$(node lab-ws-scrcpy/session.mjs check | tail -1)"
  [[ "$decision" == "stop" ]] && { echo WS_SCRCPY_USER_STOPPED;break; }
  if (( SECONDS-SESSION_STARTED>=SESSION_SECONDS ));then
-  node lab-ws-scrcpy/progress.mjs stopping 'GitHub 실행기 주기 교체를 위해 Android 이미지를 저장하고 자동 재기동합니다.' || true
-  echo WS_SCRCPY_RUNNER_ROTATION_REQUESTED
+  node lab-ws-scrcpy/progress.mjs stopping 'GitHub 실행기 제한 전에 Android 이미지를 저장하고 종료합니다. 계속하려면 웹의 재시작 버튼을 눌러 주십시오.' || true
+  echo WS_SCRCPY_RUNNER_STOPPED_MANUAL_RESTART_REQUIRED
   break
  fi
  sleep 3
