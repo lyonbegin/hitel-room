@@ -8,9 +8,8 @@ import UIKit
 /// Broadcast pixels are transmitted only after the user explicitly starts
 /// Apple's system broadcast picker. No touch/control messages are accepted.
 final class SampleHandler: RPBroadcastSampleHandler {
-    // The PIN is delivered directly through ReplayKit broadcast setupInfo,
-    // rather than through the clipboard or App Groups (unavailable for free ID).
-    private var pairingCode = ""
+    // App enters PIN on server, system broadcast extension awaits viewer approval.
+    // No pasteboard, unsupported App Groups, or deprecated setup UI are required.
     private var deviceKey = ""
     private let base = "wss://hitel-communication-web-production.up.railway.app/lab-sandbox/physical-iphone/socket"
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
@@ -24,17 +23,10 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var reconnectAttempts = 0
 
     override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
-        let code = (setupInfo?["hitelPairCode"] as? String) ?? ""
-        guard code.utf8.count == 8,
-              code.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) else {
-            finishBroadcastWithError(NSError(
-                domain: "HITEL.ReplayKit", code: 1001,
-                userInfo: [NSLocalizedDescriptionKey:
-                    "HITEL 방송 설정 화면에서 8자리 연결코드를 직접 입력해 주십시오."]))
-            return
-        }
-        pairingCode = code
-        deviceKey = ""
+        // The system picker (iOS 18+) normally supplies no setupInfo.
+        // The user registered an 8-digit code directly with the server first.
+        // This extension connects as a PENDING sender and only transmits
+        // frames AFTER the authorized viewer approves it in SDK Lab.
         active = true
         connect()
     }
@@ -52,15 +44,10 @@ final class SampleHandler: RPBroadcastSampleHandler {
 
     private func connect() {
         guard active else { return }
-        guard pairingCode.count == 8 || deviceKey.count == 64 else {
-            finishBroadcastWithError(NSError(domain: "HITEL.ReplayKit", code: 1002,
-                userInfo: [NSLocalizedDescriptionKey:
-                    "방송 설정의 연결코드가 만료되었습니다. 다시 8자리 코드를 입력하십시오."]))
-            return
-        }
-        let credential = deviceKey.count == 64
-            ? "deviceKey=" + deviceKey : "code=" + pairingCode
-        guard let url = URL(string: base+"?role=device&"+credential) else { return }
+        let target = deviceKey.count == 64
+            ? base + "?role=device&deviceKey=" + deviceKey
+            : base + "?role=trial"
+        guard let url = URL(string: target) else { return }
         session?.invalidateAndCancel()
         session = URLSession(configuration: .ephemeral)
         let ws = session!.webSocketTask(with: url)
