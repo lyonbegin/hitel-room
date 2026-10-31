@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 type ProgressStage='idle'|'queued'|'claimed'|'kvm'|'sdk'|'emulator'|'booted'|'scrcpy'|'tunnel'|'ready'|'testing'|'stopping'|'stopped'|'failed';
 type ProgressEvent={stage:ProgressStage;time:string;message:string};
 type NativeProgress={stage:ProgressStage;message:string;updatedAt:string|null;startedAt:string|null;elapsedSeconds:number;runId:string|null;runUrl:string|null;error:string|null;history:ProgressEvent[];pollingSeconds?:number;receivedFromRunner?:boolean};
-type NativeStatus={ok?:boolean;online?:boolean;url?:string;launchAvailable?:boolean;dispatchConfigured?:boolean;desiredRunning?:boolean;statePersisted?:boolean;launchState?:string;reason?:string;progress?:NativeProgress};
+type NativeStatus={ok?:boolean;online?:boolean;url?:string;launchAvailable?:boolean;restartAvailable?:boolean;dispatchConfigured?:boolean;desiredRunning?:boolean;statePersisted?:boolean;launchState?:string;reason?:string;progress?:NativeProgress};
 const BOOT_STEPS:{stage:ProgressStage;label:string;detail:string}[]=[
  {stage:'queued',label:'실행 요청 접수',detail:'웹 버튼이 GitHub KVM workflow_dispatch를 즉시 호출'},
  {stage:'claimed',label:'GitHub 실행기 배정',detail:'실행기에서 작업 수락 확인'},
@@ -127,7 +127,7 @@ export function WsScrcpyEmbed(){
  const active=ACTIVE_STAGES.has(stage);
  const requested=Boolean(nativeStatus?.desiredRunning);
  const currentIndex=BOOT_ORDER.indexOf(stage);
- const elapsed=progress?.startedAt?Math.floor((now-new Date(progress.startedAt).getTime())/1000):0;
+ const elapsed=progress?.startedAt?Math.floor(((requested||nativeStatus?.online?now:progress.updatedAt?new Date(progress.updatedAt).getTime():now)-new Date(progress.startedAt).getTime())/1000):0;
  const lastUpdate=progress?.updatedAt?Math.floor((now-new Date(progress.updatedAt).getTime())/1000):0;
  const age=checkedAt!==null?Math.floor((now-checkedAt)/1000):null;
  const progressView=<section aria-label="Android 11 실시간 실행 진행현황" style={{width:'100%',maxWidth:660,margin:'0 auto',border:'1px solid #d6e3e9',borderRadius:12,background:'#fff',padding:'16px 18px',boxSizing:'border-box',color:'#19394a',textAlign:'left'}}>
@@ -137,13 +137,13 @@ export function WsScrcpyEmbed(){
   </div>
   <p style={{fontSize:13,lineHeight:1.55,margin:'9px 0 8px'}}>{progress?.message||state}</p>
   <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:12,color:'#55707d'}}>
-    <span>요청 후 경과: <strong>{duration(elapsed)}</strong></span>
-    {progress?.updatedAt&&<span>마지막 실행 단계 갱신: {duration(lastUpdate)} 전</span>}
-    {requested&&<span><strong>종료 버튼을 누를 때까지 실행 유지 · 오류 시 자동 재시작</strong></span>}
+    <span>현재 실행 경과: <strong>{duration(elapsed)}</strong></span>
+    {requested&&progress?.updatedAt&&<span>마지막 실행 단계 갱신: {duration(lastUpdate)} 전</span>}
+    {requested&&<span><strong>최대 5시간 40분 실행 · 이후 재시작 버튼으로 수동 실행</strong></span>}
   </div>
   {stage==='queued'&&<p style={{color:'#8a5d1e',background:'#fff8ec',borderRadius:6,padding:'8px 10px',fontSize:12}}>웹 버튼에서 즉시 실행 요청을 전송했습니다. GitHub가 실제 실행기를 배정하기 전까지 Android 부팅은 시작되지 않습니다.</p>}
-  {stage==='failed'&&<p role="alert" style={{color:'#a12e33',background:'#fff1f1',padding:'10px',borderRadius:7,fontSize:13}}>{requested?'실행기에 문제가 생겨 자동 복구를 시도하고 있습니다. '+(progress?.error||''):progress?.error||'실행에 실패했습니다. 다시 실행할 수 있습니다.'}</p>}
-  {stage==='stopped'&&<p style={{fontSize:13,color:'#5e7082'}}>실행이 종료되었거나 사용자가 실행 대기를 취소했습니다.</p>}
+  {stage==='failed'&&<p role="alert" style={{color:'#a12e33',background:'#fff1f1',padding:'10px',borderRadius:7,fontSize:13}}>{progress?.error||'실행에 실패했습니다. 자동 재시작하지 않습니다. 재시작 버튼으로 다시 실행할 수 있습니다.'}</p>}
+  {stage==='stopped'&&<p style={{fontSize:13,color:'#5e7082'}}>Android 실행이 종료되었습니다. 다시 실행하시려면 아래 재시작 버튼을 눌러 주십시오.</p>}
   <ol style={{listStyle:'none',padding:0,margin:'14px 0 0',display:'grid',gap:5}}>
    {BOOT_STEPS.map((step,i)=>{
      const done=stage==='ready'||stage==='testing'?true:currentIndex>i;
@@ -157,14 +157,14 @@ export function WsScrcpyEmbed(){
    })}
   </ol>
   {progress?.runUrl&&<p style={{fontSize:12,margin:'12px 0 0'}}>GitHub 실행 번호: <a href={progress.runUrl} target="_blank" rel="noopener noreferrer" style={{color:'#136487'}}>#{progress.runId} 실행 로그 확인</a></p>}
-  {progress?.updatedAt&&lastUpdate>90&&active&&<p style={{fontSize:12,color:'#9b641b'}}>마지막 실행 단계 갱신 후 90초 이상 경과했습니다. 해당 단계가 오래 걸리거나 실행기에 문제가 있을 수 있습니다. 오류 또는 시간 초과가 확인되면 자동으로 표시됩니다.</p>}
+  {progress?.updatedAt&&lastUpdate>90&&active&&<p style={{fontSize:12,color:'#9b641b'}}>마지막 실행 단계 갱신 후 90초 이상 경과했습니다. GitHub 실행 로그를 확인해 주십시오. 오류 시 자동으로 다시 실행하지 않습니다.</p>}
  </section>;
  if(!viewer)return <div style={{minHeight:590,display:'flex',alignItems:'center',justifyContent:'flex-start',padding:'26px 14px',flexDirection:'column',gap:14,background:'#f7fafb'}}>
   {progressView}
   <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center'}}>
    <button type="button" onClick={()=>void start()} disabled={!launchAvailable||starting||requested||active}
      style={{padding:'11px 18px',border:'1px solid #8daeb7',borderRadius:8,background:launchAvailable&&!requested&&!active?'#115e72':'#d9e2e5',color:launchAvailable&&!requested&&!active?'#fff':'#435d65',cursor:!launchAvailable||starting||requested||active?'not-allowed':'pointer'}}>
-     {starting?'Android 시작 요청 중…':requested?'Android 세션 유지 중':'▶ Android 11 실제 실행'}
+     {starting?'Android 시작 요청 중…':requested?'Android 실행 중':nativeStatus?.restartAvailable?'↻ Android 11 재시작':'▶ Android 11 실제 실행'}
    </button>
    {requested&&<button type="button" onClick={()=>void stop()} disabled={stopping} style={{padding:'11px 18px',border:'1px solid #b5c0c6',borderRadius:8,background:'#fff',color:'#425966'}}>{stopping?'Android 종료 요청 중…':'Android 종료'}</button>}
   </div>
