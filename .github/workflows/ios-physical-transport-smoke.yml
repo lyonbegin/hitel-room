@@ -4,6 +4,7 @@ on:
     branches: [feature/ws-scrcpy-android11-20261028]
     paths:
       - "tests/physical-iphone-transport-smoke.mjs"
+      - "tests/physical-iphone-approval-smoke.mjs"
       - ".github/workflows/ios-physical-transport-smoke.yml"
   workflow_dispatch:
 permissions:
@@ -19,3 +20,4 @@ jobs:
           node-version: "22"
       - run: npm install --no-save --no-audit --no-fund ws@8.18.3
       - run: node tests/physical-iphone-transport-smoke.mjs
+      - run: node tests/physical-iphone-approval-smoke.mjs
