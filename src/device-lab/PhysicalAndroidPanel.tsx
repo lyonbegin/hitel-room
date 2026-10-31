@@ -78,6 +78,10 @@ export default function PhysicalAndroidPanel(){
    <b>삼성 갤럭시 노트9 · 실제 휴대전화 화면</b>
    <span style={{fontSize:12,color:connected?'#087651':'#6a7787'}}>{connected?'● 실제 화면 수신 중':status?.online?'● 휴대전화 연결 · 화면 대기':'● 실제 휴대전화 연결 대기'}</span>
   </div>
+  <div style={{background:'white',padding:'10px 12px',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+   <span style={{fontSize:12}}>노트9에 설치할 별도 화면 전송 앱</span>
+   <a href="https://github.com/lyonbegin/hitel-room/releases/download/hitel-screen-latest/HITEL-Screen-Note9.apk" target="_blank" rel="noopener noreferrer" style={{background:'#115e72',color:'#fff',padding:'9px 12px',borderRadius:7,textDecoration:'none',fontSize:13,fontWeight:700}}>HITEL Screen APK 설치</a>
+  </div>
   {!token&&<div style={{padding:12,background:'white',borderRadius:9}}>
    <p style={{fontSize:13}}>실제 휴대전화용 HITEL Screen 앱의 화면 공유 권한을 사용합니다. Android 11 에뮬레이터 화면과 무관합니다.</p>
    <button disabled={loading} onClick={()=>void openSession('')} style={{background:'#12647b',color:'white',border:0,borderRadius:7,padding:'12px 18px',fontWeight:700}}>실제 Android 연결 준비</button>
