@@ -328,7 +328,11 @@ export default function DeviceLab(){
           <div className={'dl-emulator-display'+(view==='remote'&&side==='ios'?' dl-emulator-display-ios':'')}>
             <div className={view==='remote'&&side==='android'?'dl-original-native-host':'dl-phone-shell dl-phone-'+side}
               style={view==='remote'&&side==='android'
-                ?{width:'min(100%, 920px)',height:660,minHeight:660}
+                ?androidSource==='physical'
+                  // A physical phone keeps its native portrait/landscape aspect ratio.
+                  // Never force the entire panel into the emulator's fixed 660px height.
+                  ?{width:'100%',height:'auto',minHeight:0,overflow:'visible'}
+                  :{width:'min(100%, 920px)',height:660,minHeight:660}
                 :view==='remote'&&side==='ios'
                   ?{width:'min(100%, 320px)',height:'auto',aspectRatio:'402 / 874'}
                   :{width:'min(100%, '+deviceSize+'px)'}}>
