@@ -12,6 +12,7 @@ struct HitelPhysicalBroadcastSetup: View {
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
     @State private var registered = false
+    @State private var previousConnection = false
     @State private var busy = false
     @State private var message = "관리 웹의 8자리 연결코드를 입력해 주십시오."
     private let endpoint = URL(string:
@@ -22,7 +23,9 @@ struct HitelPhysicalBroadcastSetup: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 17) {
                     Text("실제 iPhone 전체 화면 공유").font(.title2.bold())
-                    Text("① 관리 웹에서 실제 iPhone 연결 준비를 누르고 8자리 코드를 확인하십시오.")
+                    Text(registered && previousConnection
+                         ? "기존 HITEL 연결이 복구되었습니다. 8자리 코드를 다시 입력하실 필요가 없습니다."
+                         : "① 관리 웹에서 실제 iPhone 연결 준비를 누르고 8자리 코드를 확인하십시오.")
                     TextField("8자리 연결코드", text: $code)
                         .keyboardType(.numberPad)
                         .textContentType(.oneTimeCode)
@@ -32,6 +35,7 @@ struct HitelPhysicalBroadcastSetup: View {
                             let digits = next.filter { $0.isASCII && $0.isNumber }
                             if code != String(digits.prefix(8)) { code = String(digits.prefix(8)) }
                             registered = false
+                            previousConnection = false
                         }
                     Button(busy ? "서버 연결 중…" : "② 연결코드를 서버에 등록") {
                         registerCode()
@@ -44,7 +48,9 @@ struct HitelPhysicalBroadcastSetup: View {
                         HitelSystemBroadcastButton()
                             .frame(width: 70, height: 75)
                             .frame(maxWidth: .infinity)
-                        Text("④ Windows 관리 웹에서 '방송 연결 승인'을 눌러 주십시오. 승인하기 전에는 영상을 서버에서 전달하지 않습니다.")
+                        Text(previousConnection
+                             ? "④ 이전에 승인하신 웹 세션에 자동으로 복귀합니다. 웹에서 추가 승인 없이 영상 수신을 다시 시작합니다."
+                             : "④ 첫 연결에서는 Windows 관리 웹에서 '방송 연결 승인'을 눌러 주십시오.")
                             .font(.subheadline)
                     }
                     Text(message)
@@ -58,11 +64,33 @@ struct HitelPhysicalBroadcastSetup: View {
                 .padding(18)
             }
             .navigationTitle("HITEL Screen")
+            .onAppear { restoreSessionIfPresent() }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("닫기") { dismiss() }
                 }
             }
+        }
+    }
+
+    private func restoreSessionIfPresent() {
+        guard HitelIphoneResume.savedCredential() != nil else { return }
+        busy = true
+        message = "기존 연결정보로 관리 서버에 앱 재기동 신호를 전송하고 있습니다."
+        Task {
+            do {
+                if let state = try await HitelIphoneResume.notifyAwake() {
+                    registered = true
+                    previousConnection = state.paired
+                    message = state.online
+                        ? "이전 화면 방송이 연결되어 있습니다."
+                        : "이전 웹 연결을 복구했습니다. 아래 시스템 방송 버튼으로 영상을 다시 시작해 주십시오."
+                }
+            } catch {
+                registered = false
+                message = "기존 연결 복구 실패: " + error.localizedDescription
+            }
+            busy = false
         }
     }
 
@@ -85,8 +113,13 @@ struct HitelPhysicalBroadcastSetup: View {
                 let http = response as? HTTPURLResponse
                 let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
                 if http?.statusCode == 200 && (json?["ok"] as? Bool) == true {
+                    let secret = json?["resumeToken"] as? String ?? ""
+                    let saved = HitelIphoneResume.saveCredential(secret)
                     registered = true
-                    message = "서버가 연결코드를 확인했습니다. 3분 안에 방송을 시작하시고 관리 웹에서 승인하십시오."
+                    previousConnection = false
+                    message = saved
+                        ? "서버가 연결코드를 확인했습니다. 향후 앱 재기동 시 기존 연결정보로 자동 복구합니다. 첫 방송은 관리 웹에서 승인하십시오."
+                        : "서버 연결에는 성공했지만 재연결 인증정보를 아이폰에 저장하지 못했습니다. 방송은 시작할 수 있으나 자동 복구는 사용할 수 없습니다."
                 } else {
                     message = "코드 등록 실패: " + (json?["error"] as? String ?? "서버 응답 오류")
                 }
