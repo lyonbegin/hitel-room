@@ -2,7 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 
 type DeviceInfo={name:string;ios:string;width:number;height:number};
 type PhoneStatus={ok?:boolean;online?:boolean;paired?:boolean;pairCode?:string|null;pairExpiresAt?:string|null;
- deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string};
+ deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string;appPrepared?:boolean;approvalPending?:boolean};
 const root='/lab-sandbox/physical-iphone';
 const key='hitel-physical-iphone-viewer-v1';
 export default function PhysicalIphonePanel(){
@@ -64,6 +64,17 @@ export default function PhysicalIphonePanel(){
   }catch{}},5000);
   return()=>clearInterval(poll);
  },[token]);
+ const decide=async(action:'approve'|'reject')=>{
+  if(!token)return;
+  setBusy(true);setError('');
+  try{
+   const r=await fetch(root+'/'+action,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({viewerToken:token})});
+   const body=await r.json() as {ok?:boolean;error?:string};
+   if(!r.ok||!body.ok)throw Error(body.error||'연결 승인 요청 실패');
+   setStatus(old=>old?{...old,approvalPending:false}:old);
+  }catch(e){setError(String(e))}finally{setBusy(false)}
+ };
  const stop=async()=>{
   if(!token)return;setBusy(true);
   try{
@@ -98,9 +109,10 @@ export default function PhysicalIphonePanel(){
     <span style={{color:'#945d1a'}}>이 파일은 서명되지 않았습니다. 아이폰에서 직접 열어 설치할 수 없습니다.</span>
     <span>① Windows의 Sideloadly에 위 IPA를 넣으십시오.</span>
     <span>② 아이폰을 USB로 연결하고 무료 Apple ID로 서명·설치하십시오. Sideloadly의 고급 설정에서 <b>Dropping 0 of 2 plug-ins</b>를 유지하십시오.</span>
-    <span>③ 새 HITEL 앱에서 '화면 공유 → 화면 방송 연결 시작'을 누르십시오. ReplayKit 방송 설정 화면에서 8자리 코드를 <b>직접 입력</b>하고 방송을 시작하십시오.</span>
-    <span style={{color:'#805d2d'}}>이전 앱의 '연결코드 저장' 기능은 사용하지 않습니다. 연결코드가 전달되지 않는 문제를 수정한 새 IPA를 기존 설치본 위에 업데이트하십시오.</span>
-    <span>④ 무료 개발 앱은 7일 후 재서명이 필요합니다.</span>
+    <span>③ 새 HITEL 앱에서 '화면 공유 → 연결코드를 서버에 등록'을 누르십시오. 이어서 Apple <b>시스템 화면 방송 버튼</b>으로 방송을 시작하십시오.</span>
+    <span>④ 실제 iPhone 연결 요청이 나타나면 이 웹에서 <b>방송 연결 승인</b>을 누르십시오. 승인 전에는 화면이 전달되지 않습니다.</span>
+    <span style={{color:'#805d2d'}}>iOS 18에서 중단되는 구형 방송 설정 화면을 제거했습니다. 새 버전은 앱에서 서버에 8자리 코드를 직접 등록하므로 App Group이나 클립보드가 필요하지 않습니다.</span>
+    <span>⑤ 무료 개발 앱은 7일 후 재서명이 필요합니다.</span>
     <div style={{display:'flex',flexWrap:'wrap',gap:12}}>
      <a href="https://sideloadly.io/" target="_blank" rel="noopener noreferrer">Sideloadly 공식 설치 도구</a>
      <a href="https://github.com/lyonbegin/hitel-room/blob/feature/ws-scrcpy-android11-20261028/mobile/ios/PHYSICAL_IPHONE_FREE_7DAY.md"
@@ -114,6 +126,15 @@ export default function PhysicalIphonePanel(){
     <div style={{fontSize:32,fontWeight:800,letterSpacing:5,margin:'10px 0',fontVariantNumeric:'tabular-nums'}}>{status?.pairCode||'발급 중'}</div>
     <div style={{color:'#687d87'}}>연결코드는 10분 동안 유효합니다.</div>
     <button disabled={busy} type="button" onClick={()=>void session(token)} style={{marginTop:9,padding:'6px 10px'}}>코드 갱신</button>
+   </div>}
+   {token&&status?.appPrepared&&!status?.approvalPending&&!status?.paired&&<p role="status" style={{color:'#0b6660'}}>아이폰의 연결코드가 확인됐습니다. 아이폰에서 시스템 화면 방송을 시작하십시오.</p>}
+   {token&&status?.approvalPending&&<div role="region" aria-label="실제 iPhone 화면 방송 연결 승인" style={{background:'#fff7e6',border:'2px solid #d2982c',borderRadius:9,padding:12,display:'flex',flexDirection:'column',gap:9}}>
+    <strong>실제 iPhone에서 화면 방송 연결을 요청했습니다.</strong>
+    <span>직접 시작하신 화면 방송이 맞을 때만 승인하십시오. 승인 전에는 영상이 전달되지 않습니다.</span>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+     <button type="button" disabled={busy} onClick={()=>void decide('approve')} style={{padding:'10px 14px',border:0,borderRadius:8,background:'#146a52',color:'white',fontWeight:700}}>방송 연결 승인</button>
+     <button type="button" disabled={busy} onClick={()=>void decide('reject')} style={{padding:'10px 14px',border:'1px solid #d0a16a',borderRadius:8,background:'white'}}>연결 거절</button>
+    </div>
    </div>}
    {token&&status?.paired&&!online&&<p style={{margin:'7px 0 0'}}>기기 연결 정보가 저장되어 있습니다. 실제 아이폰에서 화면 방송을 다시 시작하십시오.</p>}
   </div>
