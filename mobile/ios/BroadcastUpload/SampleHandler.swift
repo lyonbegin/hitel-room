@@ -40,7 +40,17 @@ final class SampleHandler: RPBroadcastSampleHandler {
         guard active else { return }
         let settings = UserDefaults(suiteName: groupName)
         let key = settings?.string(forKey: "broadcastDeviceKey") ?? ""
-        let pin = settings?.string(forKey: "broadcastCode") ?? ""
+        let storedPin = settings?.string(forKey: "broadcastCode") ?? ""
+        // Free Apple ID: no App Groups entitlement is available in the
+        // Personal Team build. The user presses 'Save pairing code', which
+        // explicitly places a single, HITEL-prefixed code on the pasteboard.
+        // ReplayKit runs as a separate process, so standard app UserDefaults
+        // are not shared. Do not silently accept any other clipboard content.
+        let marker = UIPasteboard.general.string ?? ""
+        let clipboardPin = marker.hasPrefix("HITEL_SCREEN_PAIR:")
+            ? String(marker.dropFirst("HITEL_SCREEN_PAIR:".count)) : ""
+        let pin = clipboardPin.range(of: #"^\d{8}$"#, options: .regularExpression) != nil
+            ? clipboardPin : storedPin
         guard key.count == 64 || pin.range(of: #"^\d{8}$"#, options: .regularExpression) != nil else {
             finishBroadcastWithError(NSError(domain: "HitelScreen", code: 1,
                 userInfo: [NSLocalizedDescriptionKey:"HITEL 앱에서 8자리 연결코드를 먼저 저장해 주십시오."]))
