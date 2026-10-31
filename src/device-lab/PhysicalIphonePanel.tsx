@@ -1,0 +1,119 @@
+import {useCallback,useEffect,useRef,useState} from 'react';
+
+type DeviceInfo={name:string;ios:string;width:number;height:number};
+type PhoneStatus={ok?:boolean;online?:boolean;paired?:boolean;pairCode?:string|null;pairExpiresAt?:string|null;
+ deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string};
+const root='/lab-sandbox/physical-iphone';
+const key='hitel-physical-iphone-viewer-v1';
+export default function PhysicalIphonePanel(){
+ const [token,setToken]=useState(()=>{try{return localStorage.getItem(key)||''}catch{return ''}});
+ const [status,setStatus]=useState<PhoneStatus|null>(null);
+ const [image,setImage]=useState('');
+ const [frames,setFrames]=useState(0);
+ const [error,setError]=useState('');
+ const [busy,setBusy]=useState(false);
+ const socket=useRef<WebSocket|null>(null);
+ const imageURL=useRef('');
+ const cleanImage=useCallback((value:string)=>{
+  if(imageURL.current)URL.revokeObjectURL(imageURL.current);
+  imageURL.current=value;setImage(value);
+ },[]);
+ const session=useCallback(async(old:string)=>{
+  setBusy(true);setError('');
+  try{
+   const response=await fetch(root+'/session',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({viewerToken:old})});
+   const data=await response.json() as PhoneStatus;
+   if(!response.ok||!data.ok||!data.viewerToken)throw Error(data.error||'연결정보 생성 실패');
+   try{localStorage.setItem(key,data.viewerToken)}catch{}
+   setToken(data.viewerToken);setStatus(data);
+  }catch(e){setError(String(e))}finally{setBusy(false)}
+ },[]);
+ useEffect(()=>{if(token)void session(token)},[]);
+ useEffect(()=>{
+  if(!token)return;
+  let disposed=false, timer:number|undefined;
+  const connect=()=>{
+   if(disposed)return;
+   const url=window.location.origin.replace(/^http/,'ws')+root+'/socket?role=viewer&viewerToken='+encodeURIComponent(token);
+   const ws=new WebSocket(url);socket.current=ws;ws.binaryType='blob';
+   ws.onmessage=event=>{
+    if(disposed)return;
+    if(typeof event.data==='string'){
+     try{const msg=JSON.parse(event.data) as PhoneStatus&{type?:string};
+      if(msg.type==='status'){setStatus(old=>({...old,...msg}));if(!msg.online)cleanImage('')}
+     }catch{}
+    }else if(event.data instanceof Blob){
+     const file=event.data.type==='image/jpeg'?event.data:new Blob([event.data],{type:'image/jpeg'});
+     cleanImage(URL.createObjectURL(file));setFrames(n=>n+1);
+    }
+   };
+   ws.onclose=()=>{if(disposed)return;setStatus(old=>old?{...old,online:false}:old);
+    cleanImage('');timer=window.setTimeout(connect,3000);};
+   ws.onerror=()=>ws.close();
+  };
+  connect();
+  return()=>{disposed=true;if(timer!==undefined)clearTimeout(timer);socket.current?.close();cleanImage('')};
+ },[token,cleanImage]);
+ useEffect(()=>{
+  if(!token)return;
+  const poll=window.setInterval(async()=>{try{
+   const r=await fetch(root+'/status',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({viewerToken:token})});
+   if(r.ok){const value=await r.json() as PhoneStatus;setStatus(old=>({...old,...value}))}
+  }catch{}},5000);
+  return()=>clearInterval(poll);
+ },[token]);
+ const stop=async()=>{
+  if(!token)return;setBusy(true);
+  try{
+   const r=await fetch(root+'/stop',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({viewerToken:token})});
+   if(!r.ok)throw Error('연결 종료 실패');
+   try{localStorage.removeItem(key)}catch{}
+   socket.current?.close();cleanImage('');setToken('');setStatus(null);setFrames(0);
+  }catch(e){setError(String(e))}finally{setBusy(false)}
+ };
+ const online=Boolean(status?.online&&image);
+ return <div style={{width:'100%',minWidth:0,display:'flex',flexDirection:'column',gap:11,
+  padding:12,boxSizing:'border-box',background:'#f4f8fa',color:'#18384a'}}>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+   <b>실제 iPhone · 화면 스트리밍</b>
+   <span style={{fontSize:12,color:online?'#007a53':'#637482'}}>
+    {online?'● 실시간 영상 수신 중':status?.online?'● iPhone 방송 연결 · 첫 프레임 대기':'● 실제 iPhone 연결 대기'}
+   </span>
+  </div>
+  <div style={{background:'white',borderRadius:9,padding:12,fontSize:12}}>
+   <strong>HITEL iPhone 화면 공유</strong>
+   <p style={{margin:'7px 0'}}>실제 아이폰의 HITEL 앱에서 연결코드를 등록하고, ‘화면 방송 시작’을 선택하셔야 합니다.
+    화면 전송은 Apple ReplayKit 방송 확장으로만 수행하며 시뮬레이터 영상으로 대체하지 않습니다.</p>
+   <p style={{margin:'7px 0',color:'#805d2d'}}>실기기 설치에는 Apple 서명 및 기기 설치 또는 TestFlight 배포가 필요합니다. 웹 QR만으로 IPA를 설치할 수는 없습니다.</p>
+   {!token&&<button type="button" disabled={busy} onClick={()=>void session('')}
+    style={{padding:'9px 12px',background:'#145f77',color:'#fff',border:0,borderRadius:7}}>실제 iPhone 연결 준비</button>}
+   {token&&!status?.paired&&<div style={{textAlign:'center',marginTop:9}}>
+    <div>실제 아이폰 앱에 입력할 8자리 연결코드</div>
+    <div style={{fontSize:32,fontWeight:800,letterSpacing:5,margin:'10px 0',fontVariantNumeric:'tabular-nums'}}>{status?.pairCode||'발급 중'}</div>
+    <div style={{color:'#687d87'}}>연결코드는 10분 동안 유효합니다.</div>
+    <button disabled={busy} type="button" onClick={()=>void session(token)} style={{marginTop:9,padding:'6px 10px'}}>코드 갱신</button>
+   </div>}
+   {token&&status?.paired&&!online&&<p style={{margin:'7px 0 0'}}>기기 연결 정보가 저장되어 있습니다. 실제 아이폰에서 화면 방송을 다시 시작하십시오.</p>}
+  </div>
+  <div data-testid="physical-iphone-screen" style={{width:'100%',minHeight:online?0:340,display:'flex',alignItems:'center',
+   justifyContent:'center',background:'#18232a',borderRadius:10,boxSizing:'border-box',padding:online?'12px 8px':16}}>
+   {online?<img data-testid="physical-iphone-frame" draggable={false} src={image}
+    alt="실제 iPhone에서 전송한 전체 화면" style={{display:'block',width:'min(100%, 440px)',height:'auto',maxHeight:'none',
+     objectFit:'contain',aspectRatio:status?.deviceInfo?.width&&status?.deviceInfo?.height
+      ?status.deviceInfo.width+' / '+status.deviceInfo.height:undefined}}/>:
+    <div style={{textAlign:'center',color:'#deeaee',fontSize:13}}>
+     실제 iPhone 화면을 기다리고 있습니다.
+     <p style={{fontSize:11,color:'#92a9b6'}}>실제 기기에서 받은 영상만 표시합니다. 원격 터치·키보드 조작은 제공하지 않습니다.</p>
+    </div>}
+  </div>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:7,flexWrap:'wrap',fontSize:11}}>
+   <span>{status?.deviceInfo?status.deviceInfo.name+' · iOS '+status.deviceInfo.ios+' · '+status.deviceInfo.width+'×'+status.deviceInfo.height+' · ':''}
+    수신 프레임 {frames}개</span>
+   {token&&<button type="button" disabled={busy} onClick={()=>void stop()} style={{padding:'7px 11px'}}>연결 종료</button>}
+  </div>
+  {error&&<span role="alert" style={{color:'#b32638',fontSize:12}}>{error}</span>}
+ </div>;
+}
