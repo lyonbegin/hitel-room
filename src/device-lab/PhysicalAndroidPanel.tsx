@@ -154,7 +154,7 @@ export default function PhysicalAndroidPanel(){
    <span style={{fontSize:12,color:connected?'#087651':'#6a7787'}}>{connected?'● 실제 화면 수신 중':status?.online?'● 휴대전화 연결 · 화면 대기':'● 실제 휴대전화 연결 대기'}</span>
   </div>
   <section aria-label="실제 갤럭시 노트9 HITEL Screen 앱 QR 설치" style={{background:'#fff',padding:'16px 12px',borderRadius:10,display:'flex',flexDirection:'column',alignItems:'center',gap:9,textAlign:'center'}}>
-   <strong style={{fontSize:15,color:'#173e50'}}>{status?.paired?'노트9 앱 업데이트 QR코드 · v0.2.0':'노트9 앱 설치용 QR코드 · v0.2.0'}</strong>
+   <strong style={{fontSize:15,color:'#173e50'}}>{status?.paired?'노트9 앱 업데이트 QR코드 · v0.2.1':'노트9 앱 설치용 QR코드 · v0.2.1'}</strong>
    <span style={{fontSize:12,color:'#536b77'}}>갤럭시 노트9 카메라로 아래 QR코드를 스캔해 주십시오.</span>
    <img src={apkInstallQr} alt="HITEL Screen APK 직접 다운로드 주소가 담긴 QR코드" width={228} height={228}
     style={{display:'block',width:status?.paired?'min(100%, 140px)':'min(100%, 228px)',height:'auto',aspectRatio:'1',background:'#fff',imageRendering:'pixelated'}}/>
