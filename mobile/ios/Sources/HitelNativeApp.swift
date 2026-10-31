@@ -10,8 +10,28 @@ private let hitelURL = URL(string: "https://hitel-web-preview-production.up.rail
 
 @main
 struct HitelNativeApp: App {
+    @State private var showPhysicalBroadcast = false
+
     var body: some Scene {
-        WindowGroup { HitelWebView().ignoresSafeArea() }
+        WindowGroup {
+            ZStack(alignment: .topTrailing) {
+                HitelWebView().ignoresSafeArea()
+                Button {
+                    showPhysicalBroadcast = true
+                } label: {
+                    Label("화면 공유", systemImage: "rectangle.on.rectangle")
+                        .font(.caption.bold())
+                        .padding(9)
+                        .background(.regularMaterial, in: Capsule())
+                }
+                .padding(.top, 50)
+                .padding(.trailing, 12)
+                .accessibilityLabel("실제 iPhone 화면을 HITEL SDK Lab에 공유")
+            }
+            .sheet(isPresented: $showPhysicalBroadcast) {
+                HitelPhysicalBroadcastSetup()
+            }
+        }
     }
 }
 
