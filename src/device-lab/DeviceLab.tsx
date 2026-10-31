@@ -316,7 +316,12 @@ export default function DeviceLab(){
             <button type="button" onClick={()=>setIphoneSource('physical')} style={{padding:'7px 10px',background:iphoneSource==='physical'?'#145f77':'white',color:iphoneSource==='physical'?'white':'#315160',border:'1px solid #98bdcd',borderRadius:7}}>실제 iPhone</button>
             <button type="button" onClick={()=>setIphoneSource('simulator')} style={{padding:'7px 10px',background:iphoneSource==='simulator'?'#145f77':'white',color:iphoneSource==='simulator'?'white':'#315160',border:'1px solid #98bdcd',borderRadius:7}}>iPhone 시뮬레이터</button>
           </div>}
-          {view==='remote'&&side==='ios'&&iphoneSource==='simulator'?(
+          {view==='remote'&&side==='ios'&&iphoneSource==='physical'?(
+            <div className="dl-emulator-toolbar dl-ios-stream-label">
+              <span>실제 iPhone · ReplayKit 원본 화면 전송</span>
+              <small>화면 확인 전용 · 원격 터치와 키보드 입력 없음</small>
+            </div>
+          ):view==='remote'&&side==='ios'&&iphoneSource==='simulator'?(
             <div className="dl-emulator-toolbar dl-ios-stream-label">
               <span>iPhone 16 Pro · 원본 스트리밍 화면</span>
               <small>화면 터치·스와이프 가능 · 조작 버튼은 오른쪽 제어판</small>
