@@ -62,11 +62,14 @@ try{
  // A user still taps Apple's system broadcast picker. The new extension
  // automatically rejoins the previously approved viewer (no fresh PIN or
  // manual browser approval).
- const again=await open(wss+'?role=trial');
- const rePaired=await waitFor(again,(data,binary)=>!binary&&String(data).includes('"type":"paired"'));
+ const again=new WebSocket(wss+'?role=trial');
+ const rePairPromise=waitFor(again,(data,binary)=>!binary&&String(data).includes('"type":"paired"'));
+ await new Promise((resolve,reject)=>{again.once('open',resolve);again.once('error',reject)});
+ const rePaired=await rePairPromise;
  const key2=JSON.parse(String(rePaired)).deviceKey;
  check(key2===paired.deviceKey,'old stream authorization reused after unlock');
  const postRestartFrame=waitFor(viewer,(_data,binary)=>binary);
+ await new Promise(resolve=>setTimeout(resolve,325)); // server JPEG frame throttle
  again.send(Buffer.from([255,216,255,217]));
  await postRestartFrame;
  const recovered=await request('/status',{viewerToken:token});
