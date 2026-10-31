@@ -1,0 +1,21 @@
+name: HITEL physical iPhone receiver smoke
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - "tests/physical-iphone-transport-smoke.mjs"
+      - ".github/workflows/ios-physical-transport-smoke.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  iphone-private-stream:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-save --no-audit --no-fund ws@8.18.3
+      - run: node tests/physical-iphone-transport-smoke.mjs
