@@ -5,8 +5,19 @@ const root='https://hitel-communication-web-production.up.railway.app/lab-sandbo
 const origin='https://hitel-communication-web-production.up.railway.app';
 function assert(v,what){if(!v)throw Error('ASSERTION_FAILED: '+what)}
 async function post(path,value){
- const r=await fetch(root+path,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(value),signal:AbortSignal.timeout(12000)});
- const body=await r.json();if(!r.ok)throw Error(path+' HTTP '+r.status+' '+JSON.stringify(body));return body;
+ for(let attempt=1;attempt<=4;attempt++){
+  try{
+   const r=await fetch(root+path,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(value),signal:AbortSignal.timeout(12000)});
+   const body=await r.json();
+   if(!r.ok){
+    if(r.status===502||r.status===503){if(attempt<4){await new Promise(resolve=>setTimeout(resolve,1000*attempt));continue;}}
+    throw Error(path+' HTTP '+r.status+' '+JSON.stringify(body));
+   }
+   return body;
+  }catch(e){if(attempt===4||!/fetch failed|ECONNRESET|timeout/i.test(String(e)))throw e;
+   await new Promise(resolve=>setTimeout(resolve,1000*attempt));}
+ }
+ throw Error(path+' service unavailable');
 }
 function open(url,opts={}){
  return new Promise((resolve,reject)=>{
