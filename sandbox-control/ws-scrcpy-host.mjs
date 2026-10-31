@@ -21,6 +21,7 @@ let claimedAt=0;
 let desiredRunning=false;
 let recoveryInFlight=false;
 let lastRecoveryAt=0;
+let abandonedRunId=null;
 let statePersistenceAvailable=false;
 // Actual runner events only, never estimated boot percentages.
 const STAGES=new Set(['queued','claimed','kvm','sdk','emulator','booted','scrcpy','tunnel','ready','testing','stopping','stopped','failed']);
@@ -29,7 +30,7 @@ function saveState(){
  try{
   mkdirSync(dirname(STATE_FILE),{recursive:true,mode:0o700});
   const temporary=STATE_FILE+'.tmp';
-  writeFileSync(temporary,JSON.stringify({host,queuedAt,claimedAt,desiredRunning,lastRecoveryAt,progress}),{mode:0o600});
+  writeFileSync(temporary,JSON.stringify({host,queuedAt,claimedAt,desiredRunning,lastRecoveryAt,abandonedRunId,progress}),{mode:0o600});
   renameSync(temporary,STATE_FILE);
   statePersistenceAvailable=true;
  }catch(error){statePersistenceAvailable=false;console.error('WS_SCRCPY_STATE_SAVE_FAILED',String(error).slice(0,180));}
@@ -40,6 +41,7 @@ try{
   host=saved.host||null;queuedAt=Number(saved.queuedAt)||0;claimedAt=Number(saved.claimedAt)||0;
   desiredRunning=saved.desiredRunning===true;
   lastRecoveryAt=Number(saved.lastRecoveryAt)||0;
+  abandonedRunId=saved.abandonedRunId||null;
   if(saved.progress&&STAGES.has(saved.progress.stage))progress={...progress,...saved.progress};
  }
 }catch{}
@@ -176,12 +178,15 @@ export async function wsScrcpyRoute(req,res,path){
  if(path==='/ws-scrcpy/health')return json(res,200,{ok:true,online:live(),engine:'ws-scrcpy',androidVersion:'11',vnc:false});
  if(req.method==='GET'&&path==='/ws-scrcpy/status'){
   const current=publicProgress();
+  if(progress.stage==='failed'&&progress.message.includes('자동 복구')){
+   updateProgress('failed','이전 실행에 실패했습니다. 자동 재시작은 중단되었습니다. 재시작 버튼을 눌러 주십시오.');
+  }
   const dispatchConfigured=Boolean(dispatchToken());
   if(!live())return json(res,200,{ok:true,online:false,engine:'ws-scrcpy',
     // A browser start is only offered when this server can immediately dispatch
     // the workflow. Never present the periodic GitHub queue as a launch path.
     launchAvailable:dispatchConfigured&&statePersistenceAvailable&&!desiredRunning&&!queuedAt&&!claimedAt,
-    restartAvailable:Boolean(progress.startedAt)&&dispatchConfigured&&statePersistenceAvailable&&!desiredRunning&&!queuedAt&&!claimedAt,
+    restartAvailable:Boolean(progress.startedAt)&&['failed','stopped'].includes(progress.stage)&&dispatchConfigured&&statePersistenceAvailable&&!queuedAt&&!claimedAt,
     dispatchConfigured,desiredRunning,statePersisted:statePersistenceAvailable,
     progress:current,
     launchState:claimedAt&&Date.now()-claimedAt<480000?'booting':queuedAt&&Date.now()-queuedAt<480000?'queued':current.stage==='failed'?'failed':current.stage==='stopped'?'stopped':desiredRunning?'waiting':'idle',
@@ -189,6 +194,45 @@ export async function wsScrcpyRoute(req,res,path){
   return json(res,200,{ok:true,online:true,engine:'ws-scrcpy',url:'https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/proxy/',
     desiredRunning,statePersisted:statePersistenceAvailable,vnc:false,
     launchAvailable:false,launchState:host.stop?'stopping':'ready',progress:publicProgress()});
+ }
+ // User-directed recovery only: cancel the old GitHub workflow before dispatching a new one.
+ // Never restart from a timer, a status poll, or a browser page load.
+ if(path==='/ws-scrcpy/restart'&&req.method==='POST'){
+  if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
+  const token=dispatchToken();
+  if(!token)return json(res,503,{ok:false,error:'GITHUB_WORKFLOW_DISPATCH_NOT_CONFIGURED'});
+  if(!statePersistenceAvailable)return json(res,503,{ok:false,error:'SESSION_STATE_STORAGE_UNAVAILABLE'});
+  if(live()||!progress.startedAt||!['failed','stopped'].includes(progress.stage)||queuedAt||claimedAt)
+   return json(res,409,{ok:false,error:'MANUAL_RESTART_NOT_AVAILABLE'});
+  const previousRunId=progress.runId;
+  try{
+   if(previousRunId){
+    const base='https://api.github.com/repos/'+REPO+'/actions/runs/'+previousRunId;
+    const headers={authorization:'Bearer '+token,accept:'application/vnd.github+json',
+     'x-github-api-version':'2022-11-28','user-agent':'hitel-ws-scrcpy-railway'};
+    const state=await fetch(base,{headers,signal:AbortSignal.timeout(12000)});
+    if(!state.ok)return json(res,502,{ok:false,error:'OLD_RUN_STATUS_HTTP_'+state.status});
+    const result=await state.json();
+    if(result.status!=='completed'){
+     const cancelled=await fetch(base+'/cancel',{method:'POST',headers,signal:AbortSignal.timeout(12000)});
+     if(cancelled.status!==202&&cancelled.status!==409)
+      return json(res,502,{ok:false,error:'OLD_RUN_CANCEL_HTTP_'+cancelled.status,
+       message:'이전 GitHub 실행기를 중단하지 못해 중복 실행을 방지했습니다.'});
+    }
+   }
+   abandonedRunId=previousRunId||abandonedRunId;
+   host=null;queuedAt=0;claimedAt=0;
+   progress={stage:'idle',message:'',updatedAt:null,startedAt:null,runId:null,history:[],error:null};
+   desiredRunning=true;saveState();
+   const requestedAt=await dispatchWorkflow('사용자가 재시작 버튼을 눌러 새 Android 11 실행기를 요청했습니다.');
+   return json(res,202,{ok:true,launchState:'queued',requestedAt,
+    previousRunId:previousRunId||null,message:'Manual Android restart requested'});
+  }catch(error){
+   queuedAt=0;claimedAt=0;desiredRunning=false;
+   updateProgress('failed','재시작 요청에 실패했습니다. GitHub 실행 기록을 확인해 주십시오.');
+   console.error('WS_SCRCPY_MANUAL_RESTART_FAILED',String(error).slice(0,180));
+   return json(res,502,{ok:false,error:'MANUAL_RESTART_FAILED'});
+  }
  }
  if(path==='/ws-scrcpy/start'&&req.method==='POST'){
   if(!canStop(req))return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
@@ -215,6 +259,7 @@ export async function wsScrcpyRoute(req,res,path){
   queuedAt=0;
   claimedAt=Date.now();
   const runId=/^[0-9]{1,20}$/.test(String(req.headers['x-github-run-id']||''))?String(req.headers['x-github-run-id']):null;
+  if(runId===abandonedRunId)return json(res,409,{ok:false,error:'PREVIOUS_RUN_CANCELLED'});
   updateProgress('claimed','GitHub 실행기가 요청을 수락했습니다.',{runId});
   return json(res,200,{ok:true,claim:true,runId});
  }
@@ -227,6 +272,7 @@ export async function wsScrcpyRoute(req,res,path){
   if(!STAGES.has(stage))return json(res,400,{ok:false,error:'UNKNOWN_STAGE'});
   const runId=String(req.headers['x-github-run-id']||'');
   if(!/^[0-9]{1,20}$/.test(runId))return json(res,400,{ok:false,error:'RUN_ID_REQUIRED'});
+  if(runId===abandonedRunId)return json(res,409,{ok:false,error:'PREVIOUS_RUN_CANCELLED'});
   // A late, previous runner must never overwrite a new session or a cancelled queue.
   if(progress.runId&&progress.runId!==runId)return json(res,409,{ok:false,error:'ANOTHER_RUN_IN_PROGRESS'});
   if(['stopped','failed'].includes(progress.stage))return json(res,409,{ok:false,error:'SESSION_ALREADY_TERMINATED'});
@@ -248,6 +294,7 @@ export async function wsScrcpyRoute(req,res,path){
   if(data.transport!=='railway-websocket')return json(res,400,{ok:false,error:'INVALID_ANDROID_RELAY_TRANSPORT'});
   if(progress.stage==='stopped'||progress.stage==='failed')return json(res,409,{ok:false,error:'SESSION_CANCELLED'});
   const registerRunId=String(req.headers['x-github-run-id']||'');
+  if(registerRunId===abandonedRunId)return json(res,409,{ok:false,error:'PREVIOUS_RUN_CANCELLED'});
   if(progress.runId&&registerRunId&&progress.runId!==registerRunId)return json(res,409,{ok:false,error:'RUN_MISMATCH'});
   if(live()&&host.runId!==registerRunId)return json(res,409,{ok:false,error:'ANOTHER_ANDROID11_RUNNING'});
   queuedAt=0;
