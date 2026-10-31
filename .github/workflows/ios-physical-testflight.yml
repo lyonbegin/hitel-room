@@ -1,0 +1,99 @@
+name: HITEL real iPhone signed IPA and TestFlight
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: "Upload signed iPhone build to TestFlight"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: hitel-iphone-signing
+  cancel-in-progress: false
+jobs:
+  signed-ipa:
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required Apple Developer configuration
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          for name in IOS_TEAM_ID APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY_P8_BASE64; do
+            test -n "$(printenv "$name")" || { echo "::error::Missing GitHub Actions secret: $name"; exit 1; }
+          done
+          umask 077
+          mkdir -p "$RUNNER_TEMP/hitel-apple-key"
+          printf '%s' "$APP_STORE_CONNECT_KEY_P8_BASE64" | base64 -D > "$RUNNER_TEMP/hitel-apple-key/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8"
+          grep -q 'BEGIN PRIVATE KEY' "$RUNNER_TEMP/hitel-apple-key/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8"
+      - name: Generate Xcode project
+        working-directory: mobile/ios
+        run: |
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          xcodegen generate --spec project.yml
+      - name: Archive real-iPhone ReplayKit app with Apple signing
+        working-directory: mobile/ios
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelNative.xcodeproj -scheme HitelNative \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/HitelNative.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/hitel-apple-key/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Automatic archive
+          APP="$RUNNER_TEMP/HitelNative.xcarchive/Products/Applications/HitelNative.app"
+          EXT="$APP/PlugIns/HitelScreenBroadcast.appex"
+          test -d "$EXT"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist")" = 'com.apple.broadcast-services-upload'
+          codesign --verify --deep --strict "$APP"
+      - name: Export signed IPA or deliver to TestFlight
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          UPLOAD: ${{ inputs.upload_to_testflight }}
+        run: |
+          set -euo pipefail
+          DESTINATION=export
+          if [ "$UPLOAD" = true ]; then DESTINATION=upload; fi
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>method</key><string>app-store-connect</string>
+          <key>destination</key><string>$DESTINATION</string>
+          <key>signingStyle</key><string>automatic</string>
+          <key>teamID</key><string>$IOS_TEAM_ID</string>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/HitelNative.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/hitel-iphone-export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/hitel-apple-key/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+      - name: Archive signed IPA if not uploaded
+        if: ${{ !inputs.upload_to_testflight }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Apple-Signed-iPhone-IPA
+          path: ${{ runner.temp }}/hitel-iphone-export/*.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove temporary Apple private key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/hitel-apple-key" 2>/dev/null || true
