@@ -8,7 +8,10 @@ import UIKit
 /// Broadcast pixels are transmitted only after the user explicitly starts
 /// Apple's system broadcast picker. No touch/control messages are accepted.
 final class SampleHandler: RPBroadcastSampleHandler {
-    private let groupName = "group.app.hitel.native.screen"
+    // The PIN is delivered directly through ReplayKit broadcast setupInfo,
+    // rather than through the clipboard or App Groups (unavailable for free ID).
+    private var pairingCode = ""
+    private var deviceKey = ""
     private let base = "wss://hitel-communication-web-production.up.railway.app/lab-sandbox/physical-iphone/socket"
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private var session: URLSession?
@@ -21,6 +24,17 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var reconnectAttempts = 0
 
     override func broadcastStarted(withSetupInfo setupInfo: [String : NSObject]?) {
+        let code = (setupInfo?["hitelPairCode"] as? String) ?? ""
+        guard code.utf8.count == 8,
+              code.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) else {
+            finishBroadcastWithError(NSError(
+                domain: "HITEL.ReplayKit", code: 1001,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "HITEL 방송 설정 화면에서 8자리 연결코드를 직접 입력해 주십시오."]))
+            return
+        }
+        pairingCode = code
+        deviceKey = ""
         active = true
         connect()
     }
@@ -38,25 +52,14 @@ final class SampleHandler: RPBroadcastSampleHandler {
 
     private func connect() {
         guard active else { return }
-        let settings = UserDefaults(suiteName: groupName)
-        let key = settings?.string(forKey: "broadcastDeviceKey") ?? ""
-        let storedPin = settings?.string(forKey: "broadcastCode") ?? ""
-        // Free Apple ID: no App Groups entitlement is available in the
-        // Personal Team build. The user presses 'Save pairing code', which
-        // explicitly places a single, HITEL-prefixed code on the pasteboard.
-        // ReplayKit runs as a separate process, so standard app UserDefaults
-        // are not shared. Do not silently accept any other clipboard content.
-        let marker = UIPasteboard.general.string ?? ""
-        let clipboardPin = marker.hasPrefix("HITEL_SCREEN_PAIR:")
-            ? String(marker.dropFirst("HITEL_SCREEN_PAIR:".count)) : ""
-        let pin = clipboardPin.range(of: #"^\d{8}$"#, options: .regularExpression) != nil
-            ? clipboardPin : storedPin
-        guard key.count == 64 || pin.range(of: #"^\d{8}$"#, options: .regularExpression) != nil else {
-            finishBroadcastWithError(NSError(domain: "HitelScreen", code: 1,
-                userInfo: [NSLocalizedDescriptionKey:"HITEL 앱에서 8자리 연결코드를 먼저 저장해 주십시오."]))
+        guard pairingCode.count == 8 || deviceKey.count == 64 else {
+            finishBroadcastWithError(NSError(domain: "HITEL.ReplayKit", code: 1002,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "방송 설정의 연결코드가 만료되었습니다. 다시 8자리 코드를 입력하십시오."]))
             return
         }
-        let credential = key.count == 64 ? "deviceKey="+key : "code="+pin
+        let credential = deviceKey.count == 64
+            ? "deviceKey=" + deviceKey : "code=" + pairingCode
         guard let url = URL(string: base+"?role=device&"+credential) else { return }
         session?.invalidateAndCancel()
         session = URLSession(configuration: .ephemeral)
@@ -80,7 +83,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
                    object["type"] as? String == "paired" {
                     let value = object["deviceKey"] as? String ?? ""
                     if value.count == 64 {
-                        UserDefaults(suiteName: self.groupName)?.set(value, forKey: "broadcastDeviceKey")
+                        self.deviceKey = value
                         self.connected = true
                         self.reconnectAttempts = 0
                         self.hello()
