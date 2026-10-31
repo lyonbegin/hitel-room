@@ -10,7 +10,24 @@ private let hitelURL = URL(string: "https://hitel-web-preview-production.up.rail
 
 @main
 struct HitelNativeApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showPhysicalBroadcast = false
+
+    private func signalReactivation() {
+        // After user unlocks and brings HITEL to the foreground, notify the
+        // existing browser session using the same Keychain resume credential.
+        // This never attempts to bypass Apple's broadcast consent prompt.
+        Task {
+            do {
+                if let state = try await HitelIphoneResume.notifyAwake() {
+                    NSLog("HITEL_IPHONE_APP_AWAKE paired=%@ streaming=%@",
+                          String(state.paired), String(state.online))
+                }
+            } catch {
+                NSLog("HITEL_IPHONE_APP_AWAKE_FAILED %@", error.localizedDescription)
+            }
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -30,6 +47,10 @@ struct HitelNativeApp: App {
             }
             .sheet(isPresented: $showPhysicalBroadcast) {
                 HitelPhysicalBroadcastSetup()
+            }
+            .onAppear { signalReactivation() }
+            .onChange(of: scenePhase) { phase in
+                if phase == .active { signalReactivation() }
             }
         }
     }
