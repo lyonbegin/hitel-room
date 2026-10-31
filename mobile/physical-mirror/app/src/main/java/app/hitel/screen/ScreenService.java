@@ -56,6 +56,9 @@ public class ScreenService extends Service {
  @Override public int onStartCommand(Intent intent,int flags,int id){
   if(intent==null)return START_NOT_STICKY;
   if("STOP".equals(intent.getAction())){stopSelf();return START_NOT_STICKY;}
+  if("STATUS".equals(intent.getAction())){
+   sendAccessibilityStatus();return START_NOT_STICKY;
+  }
   if(!"START".equals(intent.getAction()))return START_NOT_STICKY;
   if(active){state="이미 화면을 전송하고 있습니다.";return START_NOT_STICKY;}
   active=true;
@@ -121,6 +124,7 @@ public class ScreenService extends Service {
      JSONObject hello=new JSONObject();hello.put("type","hello");
      hello.put("name",Build.MANUFACTURER+" "+Build.MODEL);
      hello.put("android",Build.VERSION.RELEASE);hello.put("width",width);hello.put("height",height);
+     hello.put("accessibilityEnabled",ScreenAccessibilityService.enabled());
      ws.send(hello.toString());
     }catch(Exception ignored){}
    }
@@ -132,6 +136,18 @@ public class ScreenService extends Service {
       if(key.matches("[a-f0-9]{64}"))
        getSharedPreferences("hitel-screen",MODE_PRIVATE).edit().putString("deviceKey",key).apply();
       state="화면 공유 연결 성공 · SDK Lab에서 실제 화면 확인";
+     }else if("control".equals(msg.optString("type"))){
+      if(ws!=socket||!active)return;
+      final int id=msg.optInt("id",0);
+      if(id<=0)return;
+      ScreenAccessibilityService.execute(msg,(ok,error)->{
+       try{
+        JSONObject ack=new JSONObject().put("type","controlAck").put("id",id)
+         .put("ok",ok).put("accessibilityEnabled",ScreenAccessibilityService.enabled());
+        if(!ok)ack.put("error",error);
+        if(active&&socket==ws)ws.send(ack.toString());
+       }catch(Exception ignored){}
+      });
      }else if("stop".equals(msg.optString("type"))){
       main.post(()->{state="웹에서 화면 공유가 종료되었습니다.";stopSelf();});
      }
@@ -150,6 +166,13 @@ public class ScreenService extends Service {
     main.postDelayed(()->{if(active&&socket==ws)connect();},3500);
    }
   });
+ }
+ private void sendAccessibilityStatus(){
+  WebSocket ws=socket;
+  if(ws==null||!online)return;
+  try{ws.send(new JSONObject().put("type","accessibilityStatus")
+    .put("enabled",ScreenAccessibilityService.enabled()).toString());}
+  catch(Exception ignored){}
  }
  private void onImage(ImageReader r){
   Image image=null;
