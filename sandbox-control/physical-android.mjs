@@ -143,7 +143,8 @@ export function physicalUpgrade(req,socket,head){
      if(msg.type==='hello'){
       s.accessibilityEnabled=msg.accessibilityEnabled===true;
       s.deviceInfo={name:String(msg.name||'Android').slice(0,60),android:String(msg.android||'').slice(0,20),
-       width:Math.max(1,Math.min(4096,Number(msg.width)||1)),height:Math.max(1,Math.min(4096,Number(msg.height)||1))};
+       width:Math.max(1,Math.min(4096,Number(msg.width)||1)),height:Math.max(1,Math.min(4096,Number(msg.height)||1)),
+       appVersion:String(msg.appVersion||'미확인').slice(0,25)};
       persist();notify(s);
      }else if(msg.type==='controlReceipt'&&Number.isSafeInteger(msg.id)&&msg.id>0){
       if(msg.stage==='device'){
