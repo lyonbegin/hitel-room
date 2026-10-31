@@ -51,6 +51,7 @@ public class ScreenService extends Service {
  private boolean active=false;
  private volatile boolean online=false;
  private volatile long lastFrame=0;
+ private volatile long lastPermissionReport=0;
  private int width=480,height=900;
  @Override public IBinder onBind(Intent i){return null;}
  @Override public int onStartCommand(Intent intent,int flags,int id){
@@ -125,6 +126,7 @@ public class ScreenService extends Service {
      hello.put("name",Build.MANUFACTURER+" "+Build.MODEL);
      hello.put("android",Build.VERSION.RELEASE);hello.put("width",width);hello.put("height",height);
      hello.put("accessibilityEnabled",ScreenAccessibilityService.enabled());
+     hello.put("appVersion",getPackageManager().getPackageInfo(getPackageName(),0).versionName);
      ws.send(hello.toString());
     }catch(Exception ignored){}
    }
@@ -140,6 +142,7 @@ public class ScreenService extends Service {
       if(ws!=socket||!active)return;
       final int id=msg.optInt("id",0);
       if(id<=0)return;
+      ws.send(new JSONObject().put("type","controlReceipt").put("id",id).put("stage","device").toString());
       ScreenAccessibilityService.execute(msg,(ok,error)->{
        try{
         JSONObject ack=new JSONObject().put("type","controlAck").put("id",id)
@@ -182,6 +185,7 @@ public class ScreenService extends Service {
    long now=android.os.SystemClock.elapsedRealtime();
    if(!active||!online||socket==null||now-lastFrame<500)return;
    lastFrame=now;
+   if(now-lastPermissionReport>=5000){lastPermissionReport=now;sendAccessibilityStatus();}
    Image.Plane plane=image.getPlanes()[0];
    ByteBuffer buffer=plane.getBuffer();
    int pixelStride=plane.getPixelStride(),rowStride=plane.getRowStride();
