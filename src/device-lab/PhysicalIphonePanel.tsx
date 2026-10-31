@@ -89,7 +89,7 @@ export default function PhysicalIphonePanel(){
     화면 전송은 Apple ReplayKit 방송 확장으로만 수행하며 시뮬레이터 영상으로 대체하지 않습니다.</p>
    <div style={{padding:12,border:'1px solid #d2e5ed',borderRadius:8,background:'#f4faff',display:'flex',flexDirection:'column',gap:8}}>
     <strong>무료 Apple ID · 7일 실기기 테스트 설치</strong>
-    <span>유료 개발자 계정이나 TestFlight 없이 Windows PC에서 설치할 수 있습니다.</span>
+    <span>유료 개발자 계정이나 TestFlight 없이 Windows PC에서 설치할 수 있습니다. 새 버전에는 화면 방송 시 8자리 코드를 직접 입력하는 설정 창이 포함됩니다.</span>
     <a href="https://github.com/lyonbegin/hitel-room/releases/download/hitel-iphone-free-7day-unsigned/HITEL-iPhone-Free-7day-unsigned.ipa"
      target="_blank" rel="noopener noreferrer"
      style={{padding:'10px 12px',background:'#145f77',color:'#fff',borderRadius:7,textDecoration:'none',fontWeight:700,textAlign:'center'}}>
@@ -98,7 +98,8 @@ export default function PhysicalIphonePanel(){
     <span style={{color:'#945d1a'}}>이 파일은 서명되지 않았습니다. 아이폰에서 직접 열어 설치할 수 없습니다.</span>
     <span>① Windows의 Sideloadly에 위 IPA를 넣으십시오.</span>
     <span>② 아이폰을 USB로 연결하고 무료 Apple ID로 서명·설치하십시오. 방송 확장 제거 옵션은 사용하지 마십시오.</span>
-    <span>③ 아이폰 HITEL 앱에서 연결코드를 저장한 뒤, 시스템 화면 방송에서 HitelScreenBroadcast를 선택하십시오.</span>
+    <span>③ 새 HITEL 앱에서 '화면 공유 → 화면 방송 연결 시작'을 누르십시오. ReplayKit 방송 설정 화면에서 8자리 코드를 <b>직접 입력</b>하고 방송을 시작하십시오.</span>
+    <span style={{color:'#805d2d'}}>이전 앱의 '연결코드 저장' 기능은 사용하지 않습니다. 연결코드가 전달되지 않는 문제를 수정한 새 IPA를 기존 설치본 위에 업데이트하십시오.</span>
     <span>④ 무료 개발 앱은 7일 후 재서명이 필요합니다.</span>
     <div style={{display:'flex',flexWrap:'wrap',gap:12}}>
      <a href="https://sideloadly.io/" target="_blank" rel="noopener noreferrer">Sideloadly 공식 설치 도구</a>
