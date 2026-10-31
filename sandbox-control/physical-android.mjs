@@ -10,11 +10,20 @@ const ORIGIN=process.env.HITEL_WEB_ORIGIN||'https://hitel-communication-web-prod
 const FILE=process.env.HITEL_PHYSICAL_STATE_FILE||join(process.env.RAILWAY_VOLUME_MOUNT_PATH||'/data/hitel-ws-scrcpy','physical-android.json');
 const sessions=new Map();
 const wss=new WebSocketServer({noServer:true,maxPayload:750000,perMessageDeflate:false});
+const CONTROL_ACTIONS=new Set(['tap','longPress','swipe','text','home','back','recents','notifications']);
+const unit=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1;
+function validControl(m){
+ if(!m||m.type!=='control'||!CONTROL_ACTIONS.has(m.action)||!Number.isSafeInteger(m.id)||m.id<1)return false;
+ if(m.action==='tap'||m.action==='longPress')return unit(m.x)&&unit(m.y);
+ if(m.action==='swipe')return unit(m.x)&&unit(m.y)&&unit(m.endX)&&unit(m.endY)&&Number.isFinite(m.duration)&&m.duration>=90&&m.duration<=2000;
+ if(m.action==='text')return typeof m.text==='string'&&m.text.length>0&&m.text.length<=4000;
+ return true;
+}
 const hex=()=>randomBytes(32).toString('hex');
 const code=()=>String(randomInt(0,100000000)).padStart(8,'0');
 const safeEq=(a,b)=>{const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&x.length>0&&timingSafeEqual(x,y)};
 const send=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(data))};
-const notify=s=>{const status=JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null});
+const notify=s=>{const status=JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null,accessibilityEnabled:s.accessibilityEnabled===true});
  for(const w of s.viewers)if(w.readyState===WebSocket.OPEN)w.send(status);
 };
 function persist(){
@@ -39,7 +48,7 @@ function openCode(){
 }
 function status(s){
  return {ok:true,online:Boolean(s.device?.readyState===WebSocket.OPEN),paired:Boolean(s.deviceKey),pairCode:s.deviceKey?null:s.code,
-  pairExpiresAt:s.deviceKey?null:new Date(s.expiry).toISOString(),deviceInfo:s.deviceInfo||null,lastFrameAt:s.lastFrameAt};
+  pairExpiresAt:s.deviceKey?null:new Date(s.expiry).toISOString(),deviceInfo:s.deviceInfo||null,lastFrameAt:s.lastFrameAt,accessibilityEnabled:s.accessibilityEnabled===true};
 }
 async function body(req){let value='';for await(const chunk of req){value+=chunk;if(value.length>2048)throw Error('BODY_TOO_LARGE')}return JSON.parse(value||'{}')}
 function authorizedBrowser(req){return req.headers.origin===ORIGIN&&String(req.headers['content-type']||'').startsWith('application/json')}
@@ -87,8 +96,19 @@ export function physicalUpgrade(req,socket,head){
  wss.handleUpgrade(req,socket,head,ws=>{
   if(role==='viewer'){
    if(s.viewers.size>=4){ws.close(1008,'too many viewers');return}
-   s.viewers.add(ws);
-   ws.send(JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null}));
+    s.viewers.add(ws);
+   ws.send(JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null,accessibilityEnabled:s.accessibilityEnabled===true}));
+   ws.on('message',(data,isBinary)=>{
+    if(isBinary||s.device?.readyState!==WebSocket.OPEN||data.length>8000)return;
+    let msg;try{msg=JSON.parse(String(data))}catch{return}
+    if(!validControl(msg)){ws.send(JSON.stringify({type:'controlAck',id:msg?.id||0,ok:false,error:'INVALID_CONTROL'}));return}
+    const now=Date.now();
+    if(now-(ws.lastCommandAt||0)<45)return;
+    ws.lastCommandAt=now;
+    // Pairing authorizes ONLY a small, validated set of accessibility actions.
+    s.device.send(JSON.stringify({type:'control',action:msg.action,id:msg.id,x:msg.x,y:msg.y,
+     endX:msg.endX,endY:msg.endY,duration:msg.duration,text:msg.text}));
+   });
    ws.on('close',()=>s.viewers.delete(ws));
   }else{
    if(s.device&&s.device.readyState===WebSocket.OPEN)s.device.close(1012,'replaced by phone reconnect');
@@ -108,9 +128,18 @@ export function physicalUpgrade(req,socket,head){
     }else{
      let msg;try{msg=JSON.parse(String(data))}catch{return}
      if(msg.type==='hello'){
+      s.accessibilityEnabled=msg.accessibilityEnabled===true;
       s.deviceInfo={name:String(msg.name||'Android').slice(0,60),android:String(msg.android||'').slice(0,20),
        width:Math.max(1,Math.min(4096,Number(msg.width)||1)),height:Math.max(1,Math.min(4096,Number(msg.height)||1))};
       persist();notify(s);
+     }else if(msg.type==='controlAck'&&Number.isSafeInteger(msg.id)&&msg.id>0){
+      const response={type:'controlAck',id:msg.id,ok:msg.ok===true,
+       error:typeof msg.error==='string'?msg.error.slice(0,90):undefined,
+       accessibilityEnabled:msg.accessibilityEnabled===true};
+      s.accessibilityEnabled=msg.accessibilityEnabled===true;
+      for(const viewer of s.viewers)if(viewer.readyState===WebSocket.OPEN)viewer.send(JSON.stringify(response));
+     }else if(msg.type==='accessibilityStatus'){
+      s.accessibilityEnabled=msg.enabled===true;notify(s);
      }
     }
    });
