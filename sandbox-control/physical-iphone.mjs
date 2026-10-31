@@ -25,14 +25,18 @@ function save(){
   mkdirSync(dirname(store),{recursive:true,mode:0o700});
   const temp=store+'.tmp';
   writeFileSync(temp,JSON.stringify([...sessions.values()].map(s=>({
-   token:s.token,key:s.key,code:s.code,expiry:s.expiry,info:s.info
+   token:s.token,key:s.key,code:s.code,expiry:s.expiry,info:s.info,
+   resumeToken:s.resumeToken||null,appAwakeAt:s.appAwakeAt||null,
+   lastDisconnectAt:s.lastDisconnectAt||null,lastFrameAt:s.lastFrameAt||null
   }))),{mode:0o600});renameSync(temp,store);
  }catch(e){console.error('PHYSICAL_IPHONE_SAVE_FAILED',String(e).slice(0,120))}
 }
 try{
  const raw=JSON.parse(readFileSync(store,'utf8'));
  if(Array.isArray(raw))for(const x of raw.slice(0,8))
-  if(/^[a-f0-9]{64}$/.test(x.token||''))sessions.set(x.token,{...x,device:null,viewers:new Set(),lastFrameAt:null,lastFrameMillis:0});
+  if(/^[a-f0-9]{64}$/.test(x.token||''))sessions.set(x.token,{...x,device:null,viewers:new Set(),lastFrameAt:x.lastFrameAt||null,
+   lastFrameMillis:0,prepared:null,resumeArmedAt:0,appAwakeAt:x.appAwakeAt||null,
+   lastDisconnectAt:x.lastDisconnectAt||null});
 }catch{}
 const getToken=t=>/^[a-f0-9]{64}$/.test(t||'')?[...sessions.values()].find(s=>eq(s.token,t)):null;
 function newCode(){
@@ -44,6 +48,8 @@ function status(s){
   paired:Boolean(s.key),pairCode:s.key?null:s.code,
   pairExpiresAt:s.key?null:new Date(s.expiry).toISOString(),
   deviceInfo:s.info||null,lastFrameAt:s.lastFrameAt,
+  appAwakeAt:s.appAwakeAt||null,lastDisconnectAt:s.lastDisconnectAt||null,
+  resumeReady:!!(s.resumeToken&&s.key),
   appPrepared:!!(s.prepared&&s.prepared.expires>Date.now()),
   approvalPending:!!(s.candidate&&s.candidate.readyState===WebSocket.OPEN)};
 }
@@ -58,13 +64,13 @@ async function body(req){
 export async function physicalIphoneRoute(req,res,path){
  if(path==='/physical-iphone/health'&&req.method==='GET')
   return reply(res,200,{ok:true,service:'physical-iphone-replaykit',sessions:sessions.size});
- if(!['/physical-iphone/session','/physical-iphone/status','/physical-iphone/stop','/physical-iphone/prepare','/physical-iphone/approve','/physical-iphone/reject'].includes(path)||req.method!=='POST')
+ if(!['/physical-iphone/session','/physical-iphone/status','/physical-iphone/stop','/physical-iphone/prepare','/physical-iphone/app-awake','/physical-iphone/approve','/physical-iphone/reject'].includes(path)||req.method!=='POST')
   return reply(res,404,{ok:false,error:'ROUTE_NOT_FOUND'});
  if(!String(req.headers['content-type']||'').startsWith('application/json'))
   return reply(res,403,{ok:false,error:'INVALID_CONTENT_TYPE'});
  // Native iPhone has no browser Origin; authenticate its prepare action by
  // the one-time 8-digit pairing code. All viewer actions still check Origin.
- if(path!=='/physical-iphone/prepare'&&req.headers.origin!==origin)
+ if(!['/physical-iphone/prepare','/physical-iphone/app-awake'].includes(path)&&req.headers.origin!==origin)
   return reply(res,403,{ok:false,error:'INVALID_ORIGIN'});
  let d;try{d=await body(req)}catch{return reply(res,400,{ok:false,error:'INVALID_BODY'})}
  if(path==='/physical-iphone/prepare'){
@@ -74,16 +80,36 @@ export async function physicalIphoneRoute(req,res,path){
   const ip=sourceIp(req);
   const count=[...sessions.values()].filter(t=>t!==s&&t.prepared?.ip===ip&&t.prepared.expires>Date.now()).length;
   if(count>0)return reply(res,409,{ok:false,error:'AMBIGUOUS_PREPARED_DEVICE'});
-  s.prepared={ip,expires:Date.now()+180000};
-  signal(s);
-  return reply(res,200,{ok:true,prepared:true,expiresInSeconds:180});
+  if(!s.resumeToken)s.resumeToken=randomToken();
+  s.prepared={ip,expires:Date.now()+180000,resume:false};
+  save();signal(s);
+  console.log('IPHONE_SESSION_EVENT',JSON.stringify({event:'pairing_prepared',paired:!!s.key}));
+  return reply(res,200,{ok:true,prepared:true,expiresInSeconds:180,resumeToken:s.resumeToken});
+ }
+ if(path==='/physical-iphone/app-awake'){
+  // The free-ID host app sends its own long-lived secret from Keychain whenever
+  // it is activated after unlock. This does not start OS screen capture.
+  const value=String(d.resumeToken||'');
+  const matches=/^[a-f0-9]{64}$/.test(value)?[...sessions.values()].filter(t=>t.resumeToken&&eq(t.resumeToken,value)):[];
+  if(matches.length!==1)return reply(res,404,{ok:false,error:'RESUME_TOKEN_NOT_FOUND'});
+  const s=matches[0],ip=sourceIp(req);
+  const ambiguous=[...sessions.values()].some(t=>t!==s&&t.prepared?.ip===ip&&t.prepared.expires>Date.now());
+  if(ambiguous)return reply(res,409,{ok:false,error:'AMBIGUOUS_DEVICE_NETWORK'});
+  s.appAwakeAt=new Date().toISOString();
+  s.resumeArmedAt=Date.now();
+  s.prepared={ip,expires:Date.now()+120000,resume:true};
+  save();signal(s);
+  console.log('IPHONE_SESSION_EVENT',JSON.stringify({event:'app_awake',paired:!!s.key,online:s.device?.readyState===WebSocket.OPEN}));
+  return reply(res,200,{ok:true,knownDevice:true,paired:!!s.key,
+   online:s.device?.readyState===WebSocket.OPEN,resumeArmed:true,expiresInSeconds:120});
  }
  if(path==='/physical-iphone/session'){
   let s=getToken(d.viewerToken);
   if(!s){
    if(sessions.size>=8)return reply(res,429,{ok:false,error:'SESSION_LIMIT'});
    s={token:randomToken(),key:null,code:newCode(),expiry:Date.now()+600000,
-    info:null,device:null,viewers:new Set(),lastFrameAt:null,lastFrameMillis:0};
+    info:null,device:null,viewers:new Set(),lastFrameAt:null,lastFrameMillis:0,
+    resumeToken:null,appAwakeAt:null,lastDisconnectAt:null,prepared:null,resumeArmedAt:0};
    sessions.set(s.token,s);save();
   }else if(!s.key&&s.expiry<Date.now()){
    s.code=newCode();s.expiry=Date.now()+600000;save();
@@ -102,7 +128,7 @@ export async function physicalIphoneRoute(req,res,path){
   if(s.device?.readyState===WebSocket.OPEN)s.device.close(1012,'replaced');
   s.device=ws;s.candidate=null;
   attachPhoneFrames(ws,s);
-  s.key=randomToken();s.code=null;s.expiry=0;s.prepared=null;
+  s.key=randomToken();s.code=null;s.expiry=0;s.prepared=null;s.resumeArmedAt=0;
   save();
   ws.send(JSON.stringify({type:'paired',deviceKey:s.key}));
   signal(s);
@@ -120,6 +146,7 @@ function attachPhoneFrames(ws,s){
      if(data.length<4||data.length>850000||data[0]!==0xff||data[1]!==0xd8)return;
      const now=Date.now();if(now-s.lastFrameMillis<250)return;
      s.lastFrameMillis=now;s.lastFrameAt=new Date(now).toISOString();
+     if(!s.lastFrameSavedAt||now-s.lastFrameSavedAt>15000){s.lastFrameSavedAt=now;save()}
      for(const v of s.viewers)if(v.readyState===WebSocket.OPEN&&v.bufferedAmount<1000000)v.send(data,{binary:true});
     }else{
      let msg;try{msg=JSON.parse(String(data))}catch{return}
@@ -132,7 +159,11 @@ function attachPhoneFrames(ws,s){
      }
     }
    });
- ws.on('close',()=>{if(ws===s.device){s.device=null;signal(s)}});
+ ws.on('close',(code)=>{if(ws===s.device){
+  s.device=null;s.lastDisconnectAt=new Date().toISOString();
+  save();signal(s);
+  console.log('IPHONE_SESSION_EVENT',JSON.stringify({event:'broadcast_socket_closed',closeCode:code,paired:!!s.key}));
+ }});
 }
 export function physicalIphoneUpgrade(req,socket,head){
  const url=new URL(req.url,'http://localhost');
@@ -143,7 +174,7 @@ export function physicalIphoneUpgrade(req,socket,head){
   if(req.headers.origin!==origin)return reject();
   s=getToken(url.searchParams.get('viewerToken'));
  }else if(role==='trial'){
-  const ip=sourceIp(req),matches=[...sessions.values()].filter(s=>s.prepared?.ip===ip&&s.prepared.expires>Date.now()&&!s.key);
+  const ip=sourceIp(req),matches=[...sessions.values()].filter(s=>s.prepared?.ip===ip&&s.prepared.expires>Date.now()&&(!s.key||s.prepared.resume===true&&s.resumeToken));
   if(matches.length===1)s=matches[0];
  }else if(role==='device'){
   const key=url.searchParams.get('deviceKey'),pin=url.searchParams.get('code');
@@ -158,6 +189,18 @@ export function physicalIphoneUpgrade(req,socket,head){
    s.viewers.add(ws);ws.send(JSON.stringify({type:'status',...status(s)}));
    ws.on('close',()=>s.viewers.delete(ws));
   }else if(role==='trial'){
+   if(s.key&&s.resumeToken&&s.prepared?.resume===true&&s.resumeArmedAt>Date.now()-120000){
+    // The user approved this exact session earlier; the main iOS app has
+    // authenticated its reactivation using its Keychain resume secret.
+    // ReplayKit still requires a fresh user-initiated broadcast start.
+    if(s.device?.readyState===WebSocket.OPEN)s.device.close(1012,'restored connection');
+    s.device=ws;s.prepared=null;s.resumeArmedAt=0;
+    attachPhoneFrames(ws,s);save();
+    ws.send(JSON.stringify({type:'paired',deviceKey:s.key}));
+    signal(s);
+    console.log('IPHONE_SESSION_EVENT',JSON.stringify({event:'broadcast_auto_reattached',paired:true}));
+    return;
+   }
    if(s.candidate?.readyState===WebSocket.OPEN){ws.close(1008,'pending broadcast already connected');return}
    s.candidate=ws;
    ws.send(JSON.stringify({type:'awaitingApproval'}));
