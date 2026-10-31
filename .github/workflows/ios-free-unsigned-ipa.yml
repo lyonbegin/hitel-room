@@ -36,6 +36,10 @@ jobs:
           APP="$RUNNER_TEMP/HITEL-FreeDerivedData/Build/Products/Release-iphoneos/HitelNative.app"
           EXT="$APP/PlugIns/HitelScreenBroadcast.appex"
           test -f "$APP/Info.plist" && test -f "$EXT/Info.plist"
+          SETUP="$APP/PlugIns/HitelBroadcastSetup.appex"
+          test -f "$SETUP/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$SETUP/Info.plist")" = 'com.apple.broadcast-services-setupui'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$SETUP/Info.plist")" = 'app.hitel.native.broadcastsetup'
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist")" = 'app.hitel.native.broadcast'
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist")" = 'com.apple.broadcast-services-upload'
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:RPBroadcastProcessMode' "$EXT/Info.plist")" = 'RPBroadcastProcessModeSampleBuffer'
@@ -54,6 +58,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           unzip -t out/HITEL-iPhone-Free-7day-unsigned.ipa | tail -2
           unzip -l out/HITEL-iPhone-Free-7day-unsigned.ipa | grep -E 'Payload/HitelNative.app/PlugIns/HitelScreenBroadcast.appex/Info.plist'
+          unzip -l out/HITEL-iPhone-Free-7day-unsigned.ipa | grep -E 'Payload/HitelNative.app/PlugIns/HitelBroadcastSetup.appex/Info.plist'
           shasum -a 256 out/HITEL-iPhone-Free-7day-unsigned.ipa > out/SHA256SUMS.txt
           echo 'UNSIGNED_IPA_WITH_BROADCAST_EXTENSION_READY'
       - uses: actions/upload-artifact@v4
