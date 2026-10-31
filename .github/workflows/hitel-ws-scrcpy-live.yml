@@ -11,8 +11,8 @@ concurrency:
 jobs:
   live-original-android11:
     runs-on: ubuntu-24.04
-    # Rotate below GitHub's six-hour hosted-runner ceiling; Railway restores the
-    # desired-running flag and dispatches the next worker until the user stops it.
+    # End the host below GitHub's six-hour limit. The user must click Restart
+    # in SDK Lab to launch a new runner; never dispatch a replacement automatically.
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +93,8 @@ jobs:
         run: node lab-ws-scrcpy/progress.mjs emulator '원본 Android 11 에뮬레이터 부팅을 시작했습니다.' || true
       - name: Start real Android11 through the Railway H264 reverse WebSocket
         env:
-          HITEL_WS_E2E: '1'
+          # E2E is explicitly opt-in. Never reinstall the test APK on a restored user image.
+          HITEL_WS_E2E: '0'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
