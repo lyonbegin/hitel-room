@@ -9,6 +9,16 @@
 - 보안 우회·탈옥·무단 서명은 하지 않습니다.
 - 유료 Apple 계정의 App Groups 기능은 **`project.free.yml`에서 제거**했습니다.
 
+## 잠금 해제 후 기존 연결 복구 (2026-11-01)
+
+- 첫 설치에서 Windows SDK Lab의 8자리 연결코드를 등록하면 서버가 64자리 `resumeToken`을 발급합니다. 아이폰 호스트 앱은 이 값을 **iOS Keychain**에 저장하며 앱을 종료해도 유지합니다.
+- 화면 잠금 등으로 ReplayKit 방송이 종료되더라도 Railway의 기기 등록 정보, 브라우저 viewerToken, 과거 승인 상태, 마지막 화면 수신 시각은 삭제하지 않습니다.
+- 아이폰 잠금 해제 후 **HITEL 앱이 다시 활성화**되면 `HitelNativeApp.swift`가 `POST /lab-sandbox/physical-iphone/app-awake`에 Keychain 인증값을 전달합니다. 서버는 기존 세션에 복귀 대기 상태를 생성하고 **기존 웹 브라우저 WebSocket에 appAwakeAt 상태 알림을 즉시 보냅니다.**
+- 사용자가 iPhone의 **Apple 시스템 화면 방송 버튼**을 눌러 방송을 다시 시작하면 업로드 확장이 `role=trial`로 접속합니다. **기존에 승인된 세션**이며 방금 Keychain으로 인증된 앱과 단일 네트워크 경로로 일치할 때는 서버가 기존 기기 연결을 자동 복구하여 새 PIN 및 웹 승인 없이 실제 영상 수신을 재개합니다.
+- 초기 연결은 여전히 기존 8자리 코드와 웹 승인이 필요합니다. 이전 버전의 앱에는 Keychain 토큰이 없으므로 **이번 복구 기능이 적용된 새 버전에서 최초 1회 등록해야** 이후 재기동 시 자동 복구할 수 있습니다.
+- **iOS 방송 권한 제한:** ReplayKit 방송이 잠금으로 완전히 종료된 경우, 앱 재기동 신호만으로 녹화를 몰래 자동 시작할 수 없습니다. 기존 연결·웹 상태를 자동 복구하되 Apple 시스템 방송의 재시작은 사용자의 동작이 필요합니다.
+- 검증: GitHub Actions `tests/physical-iphone-approval-smoke.mjs`에서 승인 → 잠금에 대응하는 소켓 중단 → `/app-awake` → 웹 소켓으로 이벤트 전송 → 기존 기기키로 방송 재연결 → 영상 프레임 수신을 검증합니다. 이는 **프로토콜 테스트**이며 실제 아이폰 잠금/해제 동작의 현장 검증은 별도로 필요합니다.
+
 ## iOS 18 화면 공유 수정 (ReplayKit -5801)
 
 구형 `RPBroadcastActivityViewController`는 iOS 18에서 `userDeclined`(-5801) 오류를 일으킬 수 있어 제거했습니다. 현재 실제 설치용 앱은 **Apple `RPSystemBroadcastPickerView`**로 방송을 시작합니다.
