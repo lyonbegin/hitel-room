@@ -1,0 +1,44 @@
+name: HITEL physical iPhone ReplayKit compile
+on:
+  push:
+    branches:
+      - feature/ws-scrcpy-android11-20261028
+    paths:
+      - "mobile/ios/**"
+      - ".github/workflows/ios-physical-screen-build.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unsigned-ios-build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Swift/Xcode tools
+        run: |
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+      - name: Generate HitelNative and ReplayKit extension
+        working-directory: mobile/ios
+        run: xcodegen generate --spec project.yml
+      - name: Compile app and extension without Apple signing
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild -project HitelNative.xcodeproj -scheme HitelNative \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug -derivedDataPath /tmp/hitel-ios-build \
+            CODE_SIGNING_ALLOWED=NO build > /tmp/hitel-ios-physical-build.log 2>&1 || {
+              tail -120 /tmp/hitel-ios-physical-build.log
+              exit 1
+            }
+          grep 'BUILD SUCCEEDED' /tmp/hitel-ios-physical-build.log
+          test -d /tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app/PlugIns/HitelScreenBroadcast.appex
+      - name: Preserve unsigned build verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-replaykit-compile-logs
+          path: /tmp/hitel-ios-physical-build.log
+          if-no-files-found: ignore
