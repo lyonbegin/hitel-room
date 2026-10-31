@@ -1,5 +1,10 @@
 name: HITEL real iPhone signed IPA and TestFlight
 on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - 'mobile/ios/**'
+      - '.github/workflows/ios-physical-testflight.yml'
   workflow_dispatch:
     inputs:
       upload_to_testflight:
@@ -13,6 +18,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   signed-ipa:
+    # Secrets and paid Apple Developer team are required. The disabled default
+    # avoids burning macOS runners or uploading builds before user setup.
+    if: ${{ vars.HITEL_IOS_SIGNING_ENABLED == 'true' }}
     runs-on: macos-15
     timeout-minutes: 50
     steps:
