@@ -75,6 +75,11 @@ keytool -genkeypair -noprompt -keystore "$WORK/test.keystore" -alias hitel -stor
 "$TOOLS/apksigner" sign --ks "$WORK/test.keystore" --ks-key-alias hitel --ks-pass pass:android --key-pass pass:android --out "$WORK/hitel-lab.apk" "$WORK/aligned.apk"
 "$TOOLS/apksigner" verify "$WORK/hitel-lab.apk"
 cp "$WORK/hitel-lab.apk" "$OUT/hitel-test-app.apk"
+# E2E-only fixture package: cached AVDs may contain the same package signed by
+# a different ephemeral test key. Remove ONLY this disposable fixture before reinstalling.
+if adb shell pm path com.hitel.lab 2>/dev/null | grep -q "^package:"; then
+  adb uninstall com.hitel.lab | tee "$OUT/apk-uninstall.log"
+fi
 adb install -r "$WORK/hitel-lab.apk" | tee "$OUT/apk-install.log"
 adb shell pm path com.hitel.lab | tee "$OUT/apk-package.log"
 adb shell am force-stop com.hitel.lab || true
