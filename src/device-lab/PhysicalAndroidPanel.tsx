@@ -49,7 +49,7 @@ export default function PhysicalAndroidPanel(){
    socket.onmessage=event=>{
     if(closed)return;
     if(typeof event.data==='string'){
-     try{const data=JSON.parse(event.data) as PhysicalStatus & {type?:string};
+     try{const data=JSON.parse(event.data) as PhysicalStatus & {type?:string;stage?:string;id?:number};
       if(data.type==='status'){setStatus(old=>({...old,...data}));if(!data.online)setImageSafe('')}
       if(data.type==='controlReceipt'){
        if(data.stage==='relay')setControlNotice('Railway 서버 수신 · 노트9로 명령 전달 중');
