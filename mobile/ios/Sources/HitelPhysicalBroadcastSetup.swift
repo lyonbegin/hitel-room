@@ -2,31 +2,58 @@ import SwiftUI
 import ReplayKit
 import UIKit
 
-// Free Apple ID: no App Group entitlement or pasteboard sharing is needed.
-// The ReplayKit setup extension requests the eight-digit code directly
-// and sends it to the broadcast upload extension in setupInfo.
+/// iOS 18+ screen sharing uses the system broadcast picker.
+/// The removed RPBroadcastActivityViewController is deprecated and can return
+/// ReplayKit userDeclined (-5801) even when the old setup UI cannot start.
+/// Free Apple ID builds cannot share App Groups with broadcast extensions:
+/// a one-time PIN prepares a short-lived server session, and the viewer must
+/// separately approve the arriving broadcast BEFORE any frames are forwarded.
 struct HitelPhysicalBroadcastSetup: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var code = ""
+    @State private var registered = false
+    @State private var busy = false
+    @State private var message = "관리 웹의 8자리 연결코드를 입력해 주십시오."
+    private let endpoint = URL(string:
+        "https://hitel-communication-web-production.up.railway.app/lab-sandbox/physical-iphone/prepare")!
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("실제 iPhone 전체 화면 방송").font(.title2.bold())
-                    Text("Windows의 HITEL SDK Lab에서 '실제 iPhone 연결 준비'를 누르신 후, 다음 단계의 방송 설정 창에서 연결코드를 직접 입력하십시오.")
-                        .font(.subheadline)
-                    Text("① 화면 방송 연결 시작 → ② HITEL 방송 설정 창에서 8자리 입력 → ③ 방송 시작")
-                        .font(.subheadline.bold())
-                        .padding(10)
-                        .background(Color(uiColor: .secondarySystemGroupedBackground))
-                        .cornerRadius(8)
-                    HitelBroadcastLaunchView()
-                        .frame(height: 165)
-                    Text("기존의 '연결코드 저장'은 필요하지 않습니다. 앱과 방송 확장 사이에서 클립보드를 읽지 않습니다.")
+                VStack(alignment: .leading, spacing: 17) {
+                    Text("실제 iPhone 전체 화면 공유").font(.title2.bold())
+                    Text("① 관리 웹에서 실제 iPhone 연결 준비를 누르고 8자리 코드를 확인하십시오.")
+                    TextField("8자리 연결코드", text: $code)
+                        .keyboardType(.numberPad)
+                        .textContentType(.oneTimeCode)
+                        .font(.title3.monospacedDigit())
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: code) { next in
+                            let digits = next.filter { $0.isASCII && $0.isNumber }
+                            if code != String(digits.prefix(8)) { code = String(digits.prefix(8)) }
+                            registered = false
+                        }
+                    Button(busy ? "서버 연결 중…" : "② 연결코드를 서버에 등록") {
+                        registerCode()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(code.count != 8 || busy)
+                    if registered {
+                        Text("③ 아래 Apple 시스템 방송 버튼을 누르신 뒤 HitelScreenBroadcast를 선택하고 '방송 시작'을 승인하십시오.")
+                            .font(.subheadline.bold())
+                        HitelSystemBroadcastButton()
+                            .frame(width: 70, height: 75)
+                            .frame(maxWidth: .infinity)
+                        Text("④ Windows 관리 웹에서 '방송 연결 승인'을 눌러 주십시오. 승인하기 전에는 영상을 서버에서 전달하지 않습니다.")
+                            .font(.subheadline)
+                    }
+                    Text(message)
                         .font(.footnote)
+                        .foregroundStyle(registered ? .green : .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("구형 ReplayKit 방송 설정 화면은 사용하지 않습니다. 무료 Apple ID 테스트용 앱은 승인된 기기의 화면만 전송하며, 웹 원격 조작은 제공하지 않습니다.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("본인의 무료 Apple ID로 설치한 앱에서도 이 방식은 공유 App Group 권한을 요구하지 않습니다. 화면은 원격 제어 없이 방송만 수행합니다.")
-                        .font(.footnote)
                 }
                 .padding(18)
             }
@@ -38,123 +65,51 @@ struct HitelPhysicalBroadcastSetup: View {
             }
         }
     }
+
+    private func registerCode() {
+        guard code.count == 8 && code.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) else {
+            message = "8자리 숫자를 입력해 주십시오."
+            return
+        }
+        let submitted = code
+        busy = true
+        registered = false
+        message = "연결코드를 관리 서버에서 확인하고 있습니다."
+        Task {
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["code": submitted])
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                let http = response as? HTTPURLResponse
+                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                if http?.statusCode == 200 && (json?["ok"] as? Bool) == true {
+                    registered = true
+                    message = "서버가 연결코드를 확인했습니다. 3분 안에 방송을 시작하시고 관리 웹에서 승인하십시오."
+                } else {
+                    message = "코드 등록 실패: " + (json?["error"] as? String ?? "서버 응답 오류")
+                }
+            } catch {
+                message = "연결 실패: " + error.localizedDescription
+            }
+            busy = false
+        }
+    }
 }
 
-private struct HitelBroadcastLaunchView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> HitelBroadcastLaunchController {
-        HitelBroadcastLaunchController()
-    }
-    func updateUIViewController(_ uiViewController: HitelBroadcastLaunchController, context: Context) {}
-}
-
-final class HitelBroadcastLaunchController: UIViewController,
-    RPBroadcastActivityViewControllerDelegate, RPBroadcastControllerDelegate {
-
-    private var controller: RPBroadcastController?
-    private let info = UILabel()
-    private let begin = UIButton(type: .system)
-    private let stop = UIButton(type: .system)
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .clear
-        begin.setTitle("화면 방송 연결 시작", for: .normal)
-        begin.titleLabel?.font = .preferredFont(forTextStyle: .headline)
-        begin.accessibilityIdentifier = "hitel-start-broadcast-setup"
-        begin.addTarget(self, action: #selector(openSetup), for: .touchUpInside)
-        begin.backgroundColor = .systemBlue
-        begin.setTitleColor(.white, for: .normal)
-        begin.layer.cornerRadius = 10
-        begin.heightAnchor.constraint(equalToConstant: 48).isActive = true
-
-        stop.setTitle("방송 중지", for: .normal)
-        stop.addTarget(self, action: #selector(stopBroadcast), for: .touchUpInside)
-        stop.isEnabled = false
-
-        info.text = "HITEL 방송 설정에서 8자리 코드를 입력하십시오."
-        info.numberOfLines = 0
-        info.textAlignment = .center
-        info.font = .preferredFont(forTextStyle: .footnote)
-
-        let stack = UIStackView(arrangedSubviews: [begin, stop, info])
-        stack.axis = .vertical
-        stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: view.topAnchor)
-        ])
-    }
-
-    @objc private func openSetup() {
-        info.text = "ReplayKit 방송 설정 화면을 여는 중입니다."
-        RPBroadcastActivityViewController.load(
-            withPreferredExtension: "app.hitel.native.broadcastsetup") { [weak self] activity, error in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if let error = error {
-                    self.info.text = "방송 설정 실패: " + error.localizedDescription
-                    return
-                }
-                guard let activity = activity else {
-                    self.info.text = "방송 설정 화면을 열 수 없습니다. 방송 확장이 설치되어 있는지 확인하십시오."
-                    return
-                }
-                activity.delegate = self
-                activity.modalPresentationStyle = .fullScreen
-                self.present(activity, animated: true)
-            }
+/// Apple-owned UI is directly tapped by the device user. Never programmatically
+/// click internal system picker subviews or bypass screen-capture consent.
+struct HitelSystemBroadcastButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
+        let view = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 70, height: 70))
+        let location = Bundle.main.builtInPlugInsURL?
+            .appendingPathComponent("HitelScreenBroadcast.appex")
+        if let url = location, let extBundle = Bundle(url: url) {
+            view.preferredExtension = extBundle.bundleIdentifier
         }
+        view.showsMicrophoneButton = false
+        return view
     }
-
-    func broadcastActivityViewController(_ activity: RPBroadcastActivityViewController,
-        didFinishWith broadcastController: RPBroadcastController?, error: Error?) {
-        activity.dismiss(animated: true) { [weak self] in
-            guard let self = self else { return }
-            if let error = error {
-                self.info.text = "방송 설정 오류: " + error.localizedDescription
-                return
-            }
-            guard let broadcast = broadcastController else {
-                self.info.text = "방송 시작이 취소되었습니다."
-                return
-            }
-            self.controller = broadcast
-            broadcast.delegate = self
-            broadcast.startBroadcast { [weak self] error in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        self?.info.text = "방송 시작 실패: " + error.localizedDescription
-                    } else {
-                        self?.info.text = "방송 시작 요청 성공 · SDK Lab 영상 수신을 확인하십시오."
-                        self?.stop.isEnabled = true
-                        self?.begin.isEnabled = false
-                    }
-                }
-            }
-        }
-    }
-
-    func broadcastController(_ broadcastController: RPBroadcastController,
-        didFinishWithError error: Error?) {
-        DispatchQueue.main.async {
-            self.controller = nil
-            self.stop.isEnabled = false
-            self.begin.isEnabled = true
-            self.info.text = error == nil ? "방송이 종료되었습니다." : "방송 오류: " + error!.localizedDescription
-        }
-    }
-
-    @objc private func stopBroadcast() {
-        controller?.finishBroadcast { [weak self] error in
-            DispatchQueue.main.async {
-                self?.stop.isEnabled = false
-                self?.begin.isEnabled = true
-                self?.info.text = error == nil ? "방송을 종료했습니다." : "방송 종료 오류: " + error!.localizedDescription
-                self?.controller = nil
-            }
-        }
-    }
+    func updateUIView(_ view: RPSystemBroadcastPickerView, context: Context) {}
 }
