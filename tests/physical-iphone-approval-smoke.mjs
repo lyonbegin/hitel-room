@@ -55,8 +55,12 @@ try{
  const before=await request('/status',{viewerToken:token});
  check(before.paired===true&&before.online===false,'lock preserves approved session but drops live broadcast');
  check(before.deviceInfo?.name==='TEST_ONLY','device details survive stopped broadcast');
+ const webAwakeEvent=waitFor(viewer,(data,binary)=>!binary&&String(data).includes('"appAwakeAt":"'));
  const woke=await request('/app-awake',{resumeToken:setup.resumeToken},true);
  check(woke.knownDevice===true&&woke.paired===true&&woke.resumeArmed===true,'app reactivation accepted with previous Keychain credential');
+ const appSignal=JSON.parse(String(await webAwakeEvent));
+ check(appSignal.type==='status'&&appSignal.paired===true&&appSignal.appAwakeAt,
+  'previous viewer websocket receives app restart signal without reloading');
  const waiting=await request('/status',{viewerToken:token});
  check(waiting.appAwakeAt&&waiting.paired&&waiting.appPrepared,'viewer notified and existing session remains paired');
  // A user still taps Apple's system broadcast picker. The new extension
