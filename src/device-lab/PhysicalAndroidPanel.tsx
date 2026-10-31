@@ -98,8 +98,33 @@ export default function PhysicalAndroidPanel(){
    <button disabled={loading} onClick={()=>void openSession(token)} style={{marginTop:10,padding:'6px 11px',borderRadius:6}}>연결코드 갱신</button>
   </div>}
   {token&&status?.paired&&!status.online&&<div style={{background:'white',padding:13,borderRadius:9,fontSize:13}}>휴대전화 연결 정보는 보관되어 있습니다. HITEL Screen 앱을 열어 ‘화면 공유 시작’을 누르면 같은 연결로 다시 수신합니다.</div>}
-  <div style={{flex:1,minHeight:340,display:'grid',placeItems:'center',border:'1px solid #d6e3e9',borderRadius:10,overflow:'hidden',background:'#18232a'}}>
-   {connected?<img src={image} alt="연결된 실제 Android 휴대전화 화면" style={{height:'100%',maxHeight:680,maxWidth:'100%',objectFit:'contain'}}/>:
+  <div data-testid="physical-android-screen" style={{
+    flex:'0 0 auto',
+    width:'100%',
+    minHeight:connected?0:340,
+    boxSizing:'border-box',
+    display:'flex',
+    flexDirection:'column',
+    alignItems:'center',
+    justifyContent:'center',
+    padding:connected?'12px 8px':16,
+    border:'1px solid #d6e3e9',
+    borderRadius:10,
+    background:'#18232a'
+   }}>
+   {connected?<img src={image} alt="연결된 실제 Android 휴대전화 전체 화면"
+     data-testid="physical-android-frame"
+     style={{
+       display:'block',
+       width:'min(100%, 440px)',
+       height:'auto',
+       maxWidth:'100%',
+       maxHeight:'none',
+       objectFit:'contain',
+       aspectRatio:status?.deviceInfo?.width&&status?.deviceInfo?.height
+         ?status.deviceInfo.width+' / '+status.deviceInfo.height
+         :undefined
+     }}/>:
     <div style={{color:'#deeaee',textAlign:'center',padding:20,fontSize:14}}>실제 휴대전화 화면을 기다리고 있습니다.
      <p style={{fontSize:12,color:'#92a9b6'}}>저장된 이미지나 에뮬레이터 화면으로 대체하지 않습니다.</p>
     </div>}
