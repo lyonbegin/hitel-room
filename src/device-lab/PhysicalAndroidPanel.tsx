@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
+import apkInstallQr from './hitel-screen-apk-qr.svg';
 
 type DeviceInfo={name:string;android:string;width:number;height:number};
 type PhysicalStatus={ok?:boolean;online?:boolean;paired?:boolean;pairCode?:string|null;pairExpiresAt?:string|null;deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string};
@@ -78,10 +79,14 @@ export default function PhysicalAndroidPanel(){
    <b>삼성 갤럭시 노트9 · 실제 휴대전화 화면</b>
    <span style={{fontSize:12,color:connected?'#087651':'#6a7787'}}>{connected?'● 실제 화면 수신 중':status?.online?'● 휴대전화 연결 · 화면 대기':'● 실제 휴대전화 연결 대기'}</span>
   </div>
-  <div style={{background:'white',padding:'10px 12px',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-   <span style={{fontSize:12}}>노트9에 설치할 별도 화면 전송 앱</span>
-   <a href="https://github.com/lyonbegin/hitel-room/releases/download/hitel-screen-latest/HITEL-Screen-Note9.apk" target="_blank" rel="noopener noreferrer" style={{background:'#115e72',color:'#fff',padding:'9px 12px',borderRadius:7,textDecoration:'none',fontSize:13,fontWeight:700}}>HITEL Screen APK 설치</a>
-  </div>
+  <section aria-label="실제 갤럭시 노트9 HITEL Screen 앱 QR 설치" style={{background:'#fff',padding:'16px 12px',borderRadius:10,display:'flex',flexDirection:'column',alignItems:'center',gap:9,textAlign:'center'}}>
+   <strong style={{fontSize:15,color:'#173e50'}}>노트9 앱 설치용 QR코드</strong>
+   <span style={{fontSize:12,color:'#536b77'}}>갤럭시 노트9 카메라로 아래 QR코드를 스캔해 주십시오.</span>
+   <img src={apkInstallQr} alt="HITEL Screen APK 직접 다운로드 주소가 담긴 QR코드" width={228} height={228}
+    style={{display:'block',width:'min(100%, 228px)',height:'auto',aspectRatio:'1',background:'#fff',imageRendering:'pixelated'}}/>
+   <span style={{fontSize:12,color:'#3c5a68',fontWeight:600}}>카메라 → QR 인식 → APK 다운로드 → 설치</span>
+   <span style={{fontSize:11,color:'#738997'}}>다운로드 파일: HITEL-Screen-Note9.apk · GitHub 공식 저장소</span>
+  </section>
   {!token&&<div style={{padding:12,background:'white',borderRadius:9}}>
    <p style={{fontSize:13}}>실제 휴대전화용 HITEL Screen 앱의 화면 공유 권한을 사용합니다. Android 11 에뮬레이터 화면과 무관합니다.</p>
    <button disabled={loading} onClick={()=>void openSession('')} style={{background:'#12647b',color:'white',border:0,borderRadius:7,padding:'12px 18px',fontWeight:700}}>실제 Android 연결 준비</button>
