@@ -42,11 +42,37 @@ try{
  device.send(Buffer.from([0xff,0xd8,0xff,0xd9]));
  const frame=await binaryPromise;
  assert(Buffer.from(frame)[0]===255&&Buffer.from(frame)[1]===216,'JPEG envelope forwarded');
+
+ // Use this isolated paired synthetic device ONLY to verify remote-control routing.
+ const commandPromise=waitFor(device,(bytes,binary)=>{
+  if(binary)return false;
+  try{const m=JSON.parse(String(bytes));return m.type==='control'&&m.action==='tap'&&m.id===91;}catch{return false}
+ });
+ viewer.send(JSON.stringify({type:'control',id:91,action:'tap',x:0.25,y:0.75}));
+ const command=JSON.parse(String(await commandPromise));
+ assert(command.x===0.25&&command.y===0.75,'tap normalized coordinates forwarded');
+ const ackPromise=waitFor(viewer,(bytes,binary)=>{
+  if(binary)return false;
+  try{const m=JSON.parse(String(bytes));return m.type==='controlAck'&&m.id===91;}catch{return false}
+ });
+ device.send(JSON.stringify({type:'controlAck',id:91,ok:true,accessibilityEnabled:true}));
+ const ack=JSON.parse(String(await ackPromise));
+ assert(ack.ok===true&&ack.accessibilityEnabled===true,'phone execution acknowledgement returned');
+ const statusNow=await post('/status',{viewerToken:token});
+ assert(statusNow.accessibilityEnabled===true,'accessibility status observable');
+ // Refuse arbitrary actions even for a paired viewer.
+ const deniedPromise=waitFor(viewer,(bytes,binary)=>{
+  if(binary)return false;
+  try{const m=JSON.parse(String(bytes));return m.type==='controlAck'&&m.id===92;}catch{return false}
+ });
+ viewer.send(JSON.stringify({type:'control',id:92,action:'shell',text:'untrusted-command'}));
+ const denied=JSON.parse(String(await deniedPromise));
+ assert(denied.ok===false&&denied.error==='INVALID_CONTROL','unrecognized command rejected');
  const state=await post('/status',{viewerToken:token});
  assert(state.online===true,'device socket online');
  assert(state.paired===true,'device pairing persisted');
  assert(state.deviceInfo?.name==='HITEL_PROTOCOL_TEST','device metadata forwarded');
- console.log('PHYSICAL_ANDROID_TRANSPORT_SMOKE_PASS',JSON.stringify({transport:'WSS',paired:state.paired,online:state.online,frameBytes:frame.length}));
+ console.log('PHYSICAL_ANDROID_TRANSPORT_SMOKE_PASS',JSON.stringify({transport:'WSS',paired:state.paired,online:state.online,frameBytes:frame.length,control:'tap',ack:true,rejectUntrustedAction:true}));
 }finally{
  if(token){try{await post('/stop',{viewerToken:token})}catch(e){console.error('TEST_CLEANUP_ERROR',String(e))}}
  if(device)device.close();if(viewer)viewer.close();
