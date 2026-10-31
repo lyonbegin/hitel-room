@@ -1,0 +1,22 @@
+name: HITEL physical iPhone web compile
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - "src/device-lab/PhysicalIphonePanel.tsx"
+      - "src/device-lab/DeviceLab.tsx"
+      - ".github/workflows/ios-physical-web-build.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
