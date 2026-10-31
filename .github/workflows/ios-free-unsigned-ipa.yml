@@ -6,6 +6,9 @@ on:
       - 'mobile/ios/**'
       - '.github/workflows/ios-free-unsigned-ipa.yml'
   workflow_dispatch:
+concurrency:
+  group: hitel-iphone-free-ipa
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
