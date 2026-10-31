@@ -334,7 +334,7 @@ export default function DeviceLab(){
                   :{width:'min(100%, '+deviceSize+'px)'}}>
               {view==='preview'&&<div className="dl-phone-notch"/>}
               {view==='remote' && side==='android'?(
-                {androidSource==='physical'?<PhysicalAndroidPanel/>:<WsScrcpyEmbed/>}
+                androidSource==='physical'?<PhysicalAndroidPanel/>:<WsScrcpyEmbed/>
               ):view==='remote'?(
                 <IosLivePanel controlsHost={iosControlsHost} onNotice={message=>push('ios',message)}/>
                 ):<iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
