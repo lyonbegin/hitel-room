@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.content.Context;
+import android.provider.Settings;
 import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
@@ -23,7 +24,7 @@ public class MainActivity extends Activity {
  private TextView state;
  private final Handler handler=new Handler(Looper.getMainLooper());
  private final Runnable poll=new Runnable(){@Override public void run(){
-  if(state!=null)state.setText(ScreenService.state);
+  if(state!=null)state.setText(ScreenService.state+"\n원격 터치 권한: "+(ScreenAccessibilityService.enabled()?"사용 중":"설정 필요"));
   handler.postDelayed(this,1200);
  }};
  @Override public void onCreate(Bundle saved){
@@ -35,7 +36,7 @@ public class MainActivity extends Activity {
   TextView heading=new TextView(this);heading.setText("HITEL Screen");heading.setTextSize(25);heading.setTextColor(Color.BLACK);
   root.addView(heading,new LinearLayout.LayoutParams(-1,85));
   TextView description=new TextView(this);
-  description.setText("실제 갤럭시 화면을 HITEL SDK Lab에 전송합니다.\nUSB는 필요하지 않습니다. 공유 시작 시 안드로이드의 화면 캡처 권한을 직접 승인하셔야 합니다.");
+  description.setText("실제 갤럭시 화면을 HITEL SDK Lab에 전송하며 웹에서 터치·스와이프·문자 입력도 할 수 있습니다.\nUSB는 필요하지 않습니다. 화면 공유와 원격 조작 권한은 각각 휴대전화에서 직접 승인해 주셔야 합니다.");
   description.setTextColor(Color.DKGRAY);description.setTextSize(15);
   root.addView(description,new LinearLayout.LayoutParams(-1,-2));
   pairingCode=new EditText(this);pairingCode.setHint("웹 화면의 8자리 연결코드");
@@ -43,6 +44,13 @@ public class MainActivity extends Activity {
   root.addView(pairingCode,new LinearLayout.LayoutParams(-1,110));
   Button start=new Button(this);start.setText("실제 화면 공유 시작");root.addView(start);
   start.setOnClickListener(v->requestScreen());
+  Button permission=new Button(this);
+  permission.setText("원격 터치·키보드 접근성 권한 설정");
+  root.addView(permission);
+  permission.setOnClickListener(v->{
+   Toast.makeText(this,"설치된 서비스 → HITEL Screen 원격 터치 → 사용을 켜 주십시오.",Toast.LENGTH_LONG).show();
+   startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+  });
   Button stop=new Button(this);stop.setText("화면 공유 종료");root.addView(stop);
   stop.setOnClickListener(v->{Intent i=new Intent(this,ScreenService.class);i.setAction("STOP");startService(i);});
   Button reset=new Button(this);reset.setText("다른 연결코드 사용 (기기 연결 초기화)");root.addView(reset);
@@ -75,6 +83,12 @@ public class MainActivity extends Activity {
   intent.putExtra("resultData",data);
   intent.putExtra("code",pairingCode.getText().toString().trim());
   if(Build.VERSION.SDK_INT>=26)startForegroundService(intent);else startService(intent);
+ }
+ @Override protected void onResume(){
+  super.onResume();
+  if(ScreenAccessibilityService.enabled()){
+   Intent i=new Intent(this,ScreenService.class);i.setAction("STATUS");startService(i);
+  }
  }
  @Override protected void onDestroy(){handler.removeCallbacks(poll);super.onDestroy();}
 }
