@@ -43,7 +43,7 @@ try{
   if(saved.progress&&STAGES.has(saved.progress.stage))progress={...progress,...saved.progress};
  }
 }catch{}
-if(desiredRunning&&progress.runId){queuedAt=0;claimedAt=0;}
+// Preserve queued/claimed timestamps across redeploys; never silently dispatch again.
 saveState();
 function updateProgress(stage,message='',extra={}){
  if(!STAGES.has(stage))return false;
@@ -63,10 +63,10 @@ function publicProgress(){
  const now=Date.now();
  // Dispatch acceptance is not proof that GitHub assigned a runner.
  if(progress.stage==='queued' && queuedAt && now-queuedAt>=480000){
-  queuedAt=0;updateProgress('failed','GitHub 실행기 배정 제한(8분)을 초과했습니다. 다시 실행을 요청해 주십시오.');
+  queuedAt=0;desiredRunning=false;updateProgress('failed','GitHub 실행기 배정 제한(8분)을 초과했습니다. 재시작 버튼으로 다시 요청해 주십시오.');
  }
  if(!live()&&claimedAt&&now-claimedAt>=480000){
-  claimedAt=0;updateProgress('failed','Android 실행기가 8분 안에 준비를 마치지 못했습니다. 자동 복구를 시도합니다.');
+  claimedAt=0;desiredRunning=false;updateProgress('failed','Android 실행기가 8분 안에 준비를 마치지 못했습니다. 원인을 확인한 후 재시작 버튼을 눌러 주십시오.');
  }
  return {
   stage:progress.stage,message:progress.message,updatedAt:progress.updatedAt,
@@ -100,8 +100,10 @@ async function dispatchWorkflow(message){
  updateProgress('queued',message);
  return queuedAt;
 }
+// Monitor the current worker only. NEVER dispatch a replacement automatically.
+// A fresh GitHub runner is created only by the browser /start action.
 async function superviseRunner(){
- if(recoveryInFlight||!desiredRunning||!dispatchToken())return;
+ if(recoveryInFlight||!desiredRunning)return;
  recoveryInFlight=true;
  try{
   if(host&&Date.now()-(host.lastSupervisionProbe||0)>=20000){
@@ -109,36 +111,33 @@ async function superviseRunner(){
    host.reachable=wsScrcpyOnline();
    host.failedProbes=host.reachable?0:(Number(host.failedProbes)||0)+1;
    if(host.failedProbes>=3){
-    host=null;
-    updateProgress('failed','실제 Android 영상 호스트가 응답하지 않아 자동 복구를 시작합니다.');
-   }else saveState();
+    host=null;claimedAt=0;queuedAt=0;desiredRunning=false;
+    updateProgress('failed','Android 영상 연결이 끊겼습니다. 자동 재시작하지 않습니다. 재시작 버튼을 눌러 주십시오.');
+    return;
+   }
+   saveState();
   }
   const runId=progress.runId;
   let runCompleted=false;
-  if(runId){
+  if(runId&&dispatchToken()){
    const r=await fetch('https://api.github.com/repos/'+REPO+'/actions/runs/'+runId,{headers:{
     authorization:'Bearer '+dispatchToken(),accept:'application/vnd.github+json','x-github-api-version':'2022-11-28',
     'user-agent':'hitel-ws-scrcpy-railway'},signal:AbortSignal.timeout(8000)});
    if(r.ok){const run=await r.json();runCompleted=run.status==='completed';}
    else console.error('WS_SCRCPY_RUN_STATUS_HTTP',r.status,runId);
   }
-  // Runner milestones can pause while Android images are restored and booted.
-  // Do not dispatch a duplicate just because one stage takes longer than 45 seconds.
+  if(runCompleted){
+   host=null;claimedAt=0;queuedAt=0;desiredRunning=false;
+   if(progress.stage!=='failed'&&progress.stage!=='stopped'){
+    updateProgress('stopped','GitHub 실행기가 종료되었습니다. 자동 실행 대신 재시작 버튼을 눌러 주십시오.');
+   }else saveState();
+   return;
+  }
   if(!live()&&claimedAt&&Date.now()-claimedAt>=480000){
-   claimedAt=0;
-   updateProgress('failed','Android 실행기가 8분 동안 상태를 갱신하지 않아 자동 복구합니다.');
+   claimedAt=0;queuedAt=0;desiredRunning=false;
+   updateProgress('failed','Android 실행기가 8분 동안 상태를 갱신하지 않았습니다. 자동 재시작하지 않습니다.');
   }
-  if(runCompleted&&claimedAt){claimedAt=0;saveState();}
-  const stale=progress.updatedAt?Date.now()-Date.parse(progress.updatedAt)>45000:false;
-  const stalled=!host&&!queuedAt&&!claimedAt&&stale&&progress.stage!=='idle'&&(!runId||runCompleted);
-  if((runCompleted&&!queuedAt&&!claimedAt)||stalled){
-   host=null;
-   if(Date.now()-lastRecoveryAt>45000){
-    lastRecoveryAt=Date.now();saveState();
-    await dispatchWorkflow('Android 실행이 중단되어 저장된 이미지를 사용해 자동 복구를 시작합니다.');
-   }
-  }
- }catch(error){console.error('WS_SCRCPY_AUTO_RECOVERY_FAILED',String(error).slice(0,180));}
+ }catch(error){console.error('WS_SCRCPY_SUPERVISION_FAILED',String(error).slice(0,180));}
  finally{recoveryInFlight=false;}
 }
 setInterval(()=>void superviseRunner(),20000).unref?.();
@@ -182,9 +181,10 @@ export async function wsScrcpyRoute(req,res,path){
     // A browser start is only offered when this server can immediately dispatch
     // the workflow. Never present the periodic GitHub queue as a launch path.
     launchAvailable:dispatchConfigured&&statePersistenceAvailable&&!desiredRunning&&!queuedAt&&!claimedAt,
+    restartAvailable:Boolean(progress.startedAt)&&dispatchConfigured&&statePersistenceAvailable&&!desiredRunning&&!queuedAt&&!claimedAt,
     dispatchConfigured,desiredRunning,statePersisted:statePersistenceAvailable,
     progress:current,
-    launchState:claimedAt&&Date.now()-claimedAt<480000?'booting':queuedAt&&Date.now()-queuedAt<480000?'queued':current.stage==='failed'?'failed':desiredRunning?'recovering':'idle',
+    launchState:claimedAt&&Date.now()-claimedAt<480000?'booting':queuedAt&&Date.now()-queuedAt<480000?'queued':current.stage==='failed'?'failed':current.stage==='stopped'?'stopped':desiredRunning?'waiting':'idle',
     reason:current.error|| (host?'expired':'no-running-android11')});
   return json(res,200,{ok:true,online:true,engine:'ws-scrcpy',url:'https://hitel-communication-web-production.up.railway.app/lab-sandbox/ws-scrcpy/proxy/',
     desiredRunning,statePersisted:statePersistenceAvailable,vnc:false,
@@ -285,12 +285,10 @@ export async function wsScrcpyRoute(req,res,path){
   // The persisted, unguessable ticket authorizes cleanup after transport loss.
   if(!host||!equal(req.headers['x-runner-ticket'],host.ticket))
    return json(res,403,{ok:false,error:'RUNNER_TICKET_REQUIRED'});
-  const restart=desiredRunning&&!host.stop&&progress.stage!=='stopping';
-  host=null;claimedAt=0;queuedAt=0;
+  host=null;claimedAt=0;queuedAt=0;desiredRunning=false;
   saveState();
   if(progress.stage!=='failed'){
-   if(restart)updateProgress('stopping','Android 실행기 연결이 끝나 저장된 이미지로 복구합니다.');
-   else updateProgress('stopped','Android 11 실행기가 종료되었습니다.');
+   updateProgress('stopped','Android 11 실행기가 종료되었습니다. 계속하려면 재시작 버튼을 눌러 주십시오.');
   }
   return json(res,200,{ok:true,status:'deleted'});
  }
