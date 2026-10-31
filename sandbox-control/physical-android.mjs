@@ -23,7 +23,7 @@ const hex=()=>randomBytes(32).toString('hex');
 const code=()=>String(randomInt(0,100000000)).padStart(8,'0');
 const safeEq=(a,b)=>{const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&x.length>0&&timingSafeEqual(x,y)};
 const send=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(data))};
-const notify=s=>{const status=JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null,accessibilityEnabled:s.accessibilityEnabled===true});
+const notify=s=>{const status=JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null,accessibilityEnabled:s.accessibilityEnabled===true,controlDebug:s.controlDebug||null});
  for(const w of s.viewers)if(w.readyState===WebSocket.OPEN)w.send(status);
 };
 function persist(){
@@ -48,7 +48,7 @@ function openCode(){
 }
 function status(s){
  return {ok:true,online:Boolean(s.device?.readyState===WebSocket.OPEN),paired:Boolean(s.deviceKey),pairCode:s.deviceKey?null:s.code,
-  pairExpiresAt:s.deviceKey?null:new Date(s.expiry).toISOString(),deviceInfo:s.deviceInfo||null,lastFrameAt:s.lastFrameAt,accessibilityEnabled:s.accessibilityEnabled===true};
+  pairExpiresAt:s.deviceKey?null:new Date(s.expiry).toISOString(),deviceInfo:s.deviceInfo||null,lastFrameAt:s.lastFrameAt,accessibilityEnabled:s.accessibilityEnabled===true,controlDebug:s.controlDebug||null};
 }
 async function body(req){let value='';for await(const chunk of req){value+=chunk;if(value.length>2048)throw Error('BODY_TOO_LARGE')}return JSON.parse(value||'{}')}
 function authorizedBrowser(req){return req.headers.origin===ORIGIN&&String(req.headers['content-type']||'').startsWith('application/json')}
@@ -97,17 +97,30 @@ export function physicalUpgrade(req,socket,head){
   if(role==='viewer'){
    if(s.viewers.size>=4){ws.close(1008,'too many viewers');return}
     s.viewers.add(ws);
-   ws.send(JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null,accessibilityEnabled:s.accessibilityEnabled===true}));
+   ws.send(JSON.stringify({type:'status',online:Boolean(s.device?.readyState===WebSocket.OPEN),lastFrameAt:s.lastFrameAt,deviceInfo:s.deviceInfo||null,accessibilityEnabled:s.accessibilityEnabled===true,controlDebug:s.controlDebug||null}));
    ws.on('message',(data,isBinary)=>{
-    if(isBinary||s.device?.readyState!==WebSocket.OPEN||data.length>8000)return;
+    if(isBinary||data.length>8000)return;
     let msg;try{msg=JSON.parse(String(data))}catch{return}
-    if(!validControl(msg)){ws.send(JSON.stringify({type:'controlAck',id:msg?.id||0,ok:false,error:'INVALID_CONTROL'}));return}
+    if(!validControl(msg)){
+     ws.send(JSON.stringify({type:'controlAck',id:msg?.id||0,ok:false,error:'INVALID_CONTROL'}));return;
+    }
+    if(s.device?.readyState!==WebSocket.OPEN){
+     ws.send(JSON.stringify({type:'controlAck',id:msg.id,ok:false,error:'DEVICE_OFFLINE'}));return;
+    }
     const now=Date.now();
-    if(now-(ws.lastCommandAt||0)<45)return;
+    if(now-(ws.lastCommandAt||0)<45){
+     ws.send(JSON.stringify({type:'controlAck',id:msg.id,ok:false,error:'RATE_LIMIT'}));return;
+    }
     ws.lastCommandAt=now;
-    // Pairing authorizes ONLY a small, validated set of accessibility actions.
+    s.controlDebug={id:msg.id,action:msg.action,stage:'relay',at:new Date(now).toISOString()};
+    ws.send(JSON.stringify({type:'controlReceipt',id:msg.id,stage:'relay'}));
     s.device.send(JSON.stringify({type:'control',action:msg.action,id:msg.id,x:msg.x,y:msg.y,
-     endX:msg.endX,endY:msg.endY,duration:msg.duration,text:msg.text}));
+     endX:msg.endX,endY:msg.endY,duration:msg.duration,text:msg.text}),error=>{
+      if(error&&ws.readyState===WebSocket.OPEN){
+       s.controlDebug={...s.controlDebug,stage:'send_failed',error:'RELAY_SEND_ERROR',at:new Date().toISOString()};
+       ws.send(JSON.stringify({type:'controlAck',id:msg.id,ok:false,error:'RELAY_SEND_ERROR'}));
+      }
+     });
    });
    ws.on('close',()=>s.viewers.delete(ws));
   }else{
@@ -132,11 +145,19 @@ export function physicalUpgrade(req,socket,head){
       s.deviceInfo={name:String(msg.name||'Android').slice(0,60),android:String(msg.android||'').slice(0,20),
        width:Math.max(1,Math.min(4096,Number(msg.width)||1)),height:Math.max(1,Math.min(4096,Number(msg.height)||1))};
       persist();notify(s);
+     }else if(msg.type==='controlReceipt'&&Number.isSafeInteger(msg.id)&&msg.id>0){
+      if(msg.stage==='device'){
+       s.controlDebug={id:msg.id,action:s.controlDebug?.action||'unknown',stage:'device',at:new Date().toISOString()};
+       for(const viewer of s.viewers)if(viewer.readyState===WebSocket.OPEN)
+        viewer.send(JSON.stringify({type:'controlReceipt',id:msg.id,stage:'device'}));
+      }
      }else if(msg.type==='controlAck'&&Number.isSafeInteger(msg.id)&&msg.id>0){
       const response={type:'controlAck',id:msg.id,ok:msg.ok===true,
        error:typeof msg.error==='string'?msg.error.slice(0,90):undefined,
        accessibilityEnabled:msg.accessibilityEnabled===true};
       s.accessibilityEnabled=msg.accessibilityEnabled===true;
+      s.controlDebug={id:msg.id,action:s.controlDebug?.action||'unknown',
+       stage:msg.ok===true?'executed':'failed',error:response.error||null,at:new Date().toISOString()};
       for(const viewer of s.viewers)if(viewer.readyState===WebSocket.OPEN)viewer.send(JSON.stringify(response));
      }else if(msg.type==='accessibilityStatus'){
       s.accessibilityEnabled=msg.enabled===true;notify(s);
