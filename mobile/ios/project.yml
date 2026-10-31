@@ -9,6 +9,11 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Sources
+    dependencies:
+      - target: HitelScreenBroadcast
+        embed: true
+    entitlements:
+      path: HitelNative.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.native
@@ -19,10 +24,31 @@ targets:
         INFOPLIST_KEY_NSCameraUsageDescription: "영상 통화를 위해 카메라를 사용합니다."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "음성 및 영상 통화를 위해 마이크를 사용합니다."
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+  HitelScreenBroadcast:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: BroadcastUpload
+        excludes:
+          - Info.plist
+          - BroadcastUpload.entitlements
+    info:
+      path: BroadcastUpload/Info.plist
+    entitlements:
+      path: BroadcastUpload/BroadcastUpload.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.native.broadcast
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
 schemes:
   HitelNative:
     build:
       targets:
         HitelNative: all
+        HitelScreenBroadcast: all
     run:
       config: Debug
