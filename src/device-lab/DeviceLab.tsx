@@ -5,6 +5,7 @@ import './DeviceLab.css';
 import './DeviceLab.extra.css';
 import {WsScrcpyEmbed} from './WsScrcpyEmbed';
 import PhysicalAndroidPanel from './PhysicalAndroidPanel';
+import PhysicalIphonePanel from './PhysicalIphonePanel';
 import IosLivePanel from './IosLivePanel';
 
 
@@ -228,6 +229,7 @@ export default function DeviceLab(){
   const [view,setView]=useState<'preview'|'remote'>('remote');
   const [nativeAndroidOnline,setNativeAndroidOnline]=useState(false);
   const [androidSource,setAndroidSource]=useState<'physical'|'emulator'>('physical');
+  const [iphoneSource,setIphoneSource]=useState<'physical'|'simulator'>('physical');
   const [iosStatus,setIosStatus]=useState<{online?:boolean;videoLive?:boolean;phase?:string}>({});
   const [deviceSize,setDeviceSize]=useState('390');
   const [iosControlsHost,setIosControlsHost]=useState<HTMLDivElement|null>(null);
@@ -293,23 +295,28 @@ export default function DeviceLab(){
       <div className="dl-sidebar-note">Android · iPhone 동시 개발 환경<br/>실제 기기 상태와 브라우저 미리보기를 분리합니다.</div>
     </aside>
     <main className="dl-main">
-      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 기기 관리</h1><p>실제 갤럭시 노트9 화면과 GitHub KVM Android 11 에뮬레이터를 별도 모드로 연결합니다. 실제 휴대전화는 HITEL Screen 앱에서 화면 공유를 승인해야 합니다. 에뮬레이터 실행은 브라우저를 닫아도 유지됩니다. GitHub 실행기 제한 전에 Android를 종료하며, 이후 웹의 재시작 버튼을 눌러 저장된 이미지를 다시 실행합니다. 오류 발생 시 자동으로 재시작하지 않습니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
+      <div className="dl-header"><div><span className="dl-breadcrumb">HITEL / DEVELOPERS / DEVICE LAB</span><h1>Communication SDK 기기 관리</h1><p>실제 갤럭시 노트9와 실제 iPhone의 화면을 나란히 표시하며, 기존 Android 11 및 iPhone 시뮬레이터는 별도 모드로 유지합니다. 실제 휴대전화는 HITEL Screen 앱에서 화면 공유를 승인해야 합니다. 에뮬레이터 실행은 브라우저를 닫아도 유지됩니다. GitHub 실행기 제한 전에 Android를 종료하며, 이후 웹의 재시작 버튼을 눌러 저장된 이미지를 다시 실행합니다. 오류 발생 시 자동으로 재시작하지 않습니다.</p></div><span className="dl-header-version">SDK v0.1.0 · 개발 환경</span></div>
       <div className="dl-counters">
         <div><small>Android</small><strong>{androidSource==='physical'?'실제 갤럭시 노트9 연결 화면':nativeAndroidOnline?'원본 Android 실행 중':'원본 Android 실행 대기'}</strong><span>실제 앱 / WebView</span></div>
-        <div><small>iPhone Simulator</small><strong>{iosStatus.videoLive?'실제 화면 연결':iosStatus.online?'호스트 연결 · 영상 대기':'호스트 미연결'}</strong><span>실제 앱 / WKWebView</span></div>
+        <div><small>iPhone</small><strong>{iphoneSource==='physical'?'실제 iPhone 화면 연결 대기':iosStatus.videoLive?'시뮬레이터 영상 연결':iosStatus.online?'시뮬레이터 호스트 연결':'시뮬레이터 대기'}</strong><span>{iphoneSource==='physical'?'ReplayKit 실기기 방송':'macOS iPhone 시뮬레이터'}</span></div>
         <div><small>SDK 웹 화면</small><strong>React H5</strong><span>네이티브 앱에서 로드</span></div>
         <div><small>개발 서버</small><strong>Railway</strong><span>웹 및 테스트 API</span></div>
       </div>
       <div className="dl-layout">
         {SIDES.map(side=><section key={side} className="dl-emulator-card">
-          <header className="dl-card-top"><div className="dl-card-heading"><MiniIcon side={side}/><div><b>{side==='android'&&androidSource==='physical'?'Galaxy Note9 · 실제 기기':LABELS[side]}</b><small>{side==='android'?(androidSource==='physical'?'실제 휴대전화 · 화면 공유':'Android APK · WebView'):'iOS App · WKWebView'}</small></div></div>
-          <span className={'dl-pill '+((side==='ios'?iosStatus.videoLive:nativeAndroidOnline)?'live':'waiting')}>{side==='ios'?(iosStatus.videoLive?'● 실제 iPhone 영상 연결':iosStatus.online?'● 시뮬레이터 연결 · 영상 대기':'● iPhone 대기'):androidSource==='physical'?'● 실제 기기 모드':nativeAndroidOnline?'● 원본 ws-scrcpy 연결':'● Android 연결 대기'}</span></header>
+          <header className="dl-card-top"><div className="dl-card-heading"><MiniIcon side={side}/><div><b>{side==='android'&&androidSource==='physical'?'Galaxy Note9 · 실제 기기':side==='ios'&&iphoneSource==='physical'?'iPhone · 실제 기기':LABELS[side]}</b><small>{side==='android'?(androidSource==='physical'?'실제 휴대전화 · 화면 공유':'Android APK · WebView'):(iphoneSource==='physical'?'ReplayKit · 실제 iPhone 화면':'iOS Simulator · WKWebView')}</small></div></div>
+          <span className={'dl-pill '+((side==='ios'?iosStatus.videoLive:nativeAndroidOnline)?'live':'waiting')}>{side==='ios'?(iphoneSource==='physical'?'● 실제 iPhone 모드':iosStatus.videoLive?'● 시뮬레이터 영상 연결':iosStatus.online?'● 시뮬레이터 연결 · 영상 대기':'● 시뮬레이터 대기'):androidSource==='physical'?'● 실제 기기 모드':nativeAndroidOnline?'● 원본 ws-scrcpy 연결':'● Android 연결 대기'}</span></header>
           {view==='remote'&&side==='android'&&<div style={{display:'flex',gap:7,padding:'8px 12px',background:'#edf6f9',alignItems:'center',flexWrap:'wrap'}}>
             <b style={{fontSize:12}}>Android 화면 선택</b>
             <button type="button" onClick={()=>setAndroidSource('physical')} style={{padding:'7px 10px',background:androidSource==='physical'?'#145f77':'white',color:androidSource==='physical'?'white':'#315160',border:'1px solid #98bdcd',borderRadius:7}}>실제 갤럭시 노트9</button>
             <button type="button" onClick={()=>setAndroidSource('emulator')} style={{padding:'7px 10px',background:androidSource==='emulator'?'#145f77':'white',color:androidSource==='emulator'?'white':'#315160',border:'1px solid #98bdcd',borderRadius:7}}>Android 11 에뮬레이터</button>
           </div>}
-          {view==='remote'&&side==='ios'?(
+          {view==='remote'&&side==='ios'&&<div style={{display:'flex',gap:7,padding:'8px 12px',background:'#edf6f9',alignItems:'center',flexWrap:'wrap'}}>
+            <b style={{fontSize:12}}>iPhone 화면 선택</b>
+            <button type="button" onClick={()=>setIphoneSource('physical')} style={{padding:'7px 10px',background:iphoneSource==='physical'?'#145f77':'white',color:iphoneSource==='physical'?'white':'#315160',border:'1px solid #98bdcd',borderRadius:7}}>실제 iPhone</button>
+            <button type="button" onClick={()=>setIphoneSource('simulator')} style={{padding:'7px 10px',background:iphoneSource==='simulator'?'#145f77':'white',color:iphoneSource==='simulator'?'white':'#315160',border:'1px solid #98bdcd',borderRadius:7}}>iPhone 시뮬레이터</button>
+          </div>}
+          {view==='remote'&&side==='ios'&&iphoneSource==='simulator'?(
             <div className="dl-emulator-toolbar dl-ios-stream-label">
               <span>iPhone 16 Pro · 원본 스트리밍 화면</span>
               <small>화면 터치·스와이프 가능 · 조작 버튼은 오른쪽 제어판</small>
@@ -325,34 +332,38 @@ export default function DeviceLab(){
               </div>
             </div>
           )}
-          <div className={'dl-emulator-display'+(view==='remote'&&side==='ios'?' dl-emulator-display-ios':'')}>
-            <div className={view==='remote'&&side==='android'?'dl-original-native-host':'dl-phone-shell dl-phone-'+side}
+          <div className={'dl-emulator-display'+(view==='remote'&&side==='ios'&&iphoneSource==='simulator'?' dl-emulator-display-ios':'')}>
+            <div className={view==='remote'&&(side==='android'||(side==='ios'&&iphoneSource==='physical'))?'dl-original-native-host':'dl-phone-shell dl-phone-'+side}
               style={view==='remote'&&side==='android'
                 ?androidSource==='physical'
                   // A physical phone keeps its native portrait/landscape aspect ratio.
                   // Never force the entire panel into the emulator's fixed 660px height.
                   ?{width:'100%',height:'auto',minHeight:0,overflow:'visible'}
                   :{width:'min(100%, 920px)',height:660,minHeight:660}
+                :view==='remote'&&side==='ios'&&iphoneSource==='physical'
+                  ?{width:'100%',height:'auto',minHeight:0,overflow:'visible'}
                 :view==='remote'&&side==='ios'
                   ?{width:'min(100%, 320px)',height:'auto',aspectRatio:'402 / 874'}
                   :{width:'min(100%, '+deviceSize+'px)'}}>
               {view==='preview'&&<div className="dl-phone-notch"/>}
               {view==='remote' && side==='android'?(
                 androidSource==='physical'?<PhysicalAndroidPanel/>:<WsScrcpyEmbed/>
+              ):view==='remote'&&iphoneSource==='physical'?(
+                <PhysicalIphonePanel/>
               ):view==='remote'?(
                 <IosLivePanel controlsHost={iosControlsHost} onNotice={message=>push('ios',message)}/>
                 ):<iframe key={side+frameVersion[side]} ref={el=>{ref.current[side]=el}} title={LABELS[side]+' SDK 웹 미리보기'} src={labPath(side)} allow="camera; microphone"/>}
             </div>
             
           </div>
-          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?(androidSource==='physical'?'실제 휴대전화 · 화면 공유':'원본 Android · ws-scrcpy H.264'):view==='remote'&&side==='ios'?'원본 iPhone · Meta idb MJPEG':deviceSize+' px'} · {view==='remote'&&side==='android'?(androidSource==='physical'?'실제 갤럭시 노트9':'실제 원본 에뮬레이터'):view==='remote'&&side==='ios'?(iosStatus.videoLive?'실시간 원본 영상':'실시간 영상 대기'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
+          <footer className="dl-card-footer"><span>{view==='remote'&&side==='android'?(androidSource==='physical'?'실제 휴대전화 · 화면 공유':'원본 Android · ws-scrcpy H.264'):view==='remote'&&side==='ios'?(iphoneSource==='physical'?'실제 iPhone · ReplayKit 방송':'iPhone 시뮬레이터 · idb MJPEG'):deviceSize+' px'} · {view==='remote'&&side==='android'?(androidSource==='physical'?'실제 갤럭시 노트9':'실제 원본 에뮬레이터'):view==='remote'&&side==='ios'?(iphoneSource==='physical'?'실제 기기 영상 수신 대기':iosStatus.videoLive?'시뮬레이터 영상 연결':'시뮬레이터 영상 대기'):'H5 웹 미리보기'}</span><b>{side==='android'?'Android':'iPhone'}</b><span>Communication SDK</span></footer>
         </section>)}
         <section className="dl-command-column">
-          <div className="dl-command-card dl-ios-controls-outer">
-            <h3>iPhone 16 Pro 원격 제어</h3>
+          {iphoneSource==='simulator'&&<div className="dl-command-card dl-ios-controls-outer">
+            <h3>iPhone 시뮬레이터 원격 제어</h3>
             <p>조작 버튼은 기기 화면 밖에 있습니다. iPhone 화면 전체를 실시간 영상으로 표시합니다.</p>
             <div ref={setIosControlsHost} className="dl-ios-controls-host"/>
-          </div>
+          </div>}
           <div className="dl-command-card"><h3>에뮬레이터 제어</h3><p>Android · iPhone을 각각 또는 동시에 조작합니다.</p>
             <div className="dl-switch"><button className={selected==='android'?'selected':''} onClick={()=>setSelected('android')}>Android</button><button className={selected==='ios'?'selected':''} onClick={()=>setSelected('ios')}>iPhone</button><button className={selected==='both'?'selected':''} onClick={()=>setSelected('both')}>둘 다</button></div>
             <div className="dl-mode"><button className={view==='preview'?'selected':''} onClick={()=>setView('preview')}>웹 미리보기</button><button className={view==='remote'?'selected':''} onClick={()=>setView('remote')}>실제 기기 화면</button></div>
