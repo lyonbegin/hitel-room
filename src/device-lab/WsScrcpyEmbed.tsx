@@ -64,10 +64,11 @@ export function WsScrcpyEmbed(){
   finally{setStopping(false)}
  };
  const start=async()=>{
-  if(starting||!launchAvailable)return;
+  if(starting||(!launchAvailable&&!nativeStatus?.restartAvailable))return;
   setStarting(true);
   try{
-   const response=await fetch('/lab-sandbox/ws-scrcpy/start',{
+   const endpoint=nativeStatus?.restartAvailable?'/lab-sandbox/ws-scrcpy/restart':'/lab-sandbox/ws-scrcpy/start';
+   const response=await fetch(endpoint,{
     method:'POST',headers:{'content-type':'application/json'},
     credentials:'same-origin',body:'{}'
    });
@@ -126,6 +127,8 @@ export function WsScrcpyEmbed(){
  const stage=progress?.stage||'idle';
  const active=ACTIVE_STAGES.has(stage);
  const requested=Boolean(nativeStatus?.desiredRunning);
+ const restartAvailable=Boolean(nativeStatus?.restartAvailable);
+ const canLaunch=launchAvailable||restartAvailable;
  const currentIndex=BOOT_ORDER.indexOf(stage);
  const elapsed=progress?.startedAt?Math.floor(((requested||nativeStatus?.online?now:progress.updatedAt?new Date(progress.updatedAt).getTime():now)-new Date(progress.startedAt).getTime())/1000):0;
  const lastUpdate=progress?.updatedAt?Math.floor((now-new Date(progress.updatedAt).getTime())/1000):0;
@@ -139,7 +142,7 @@ export function WsScrcpyEmbed(){
   <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:12,color:'#55707d'}}>
     <span>현재 실행 경과: <strong>{duration(elapsed)}</strong></span>
     {requested&&progress?.updatedAt&&<span>마지막 실행 단계 갱신: {duration(lastUpdate)} 전</span>}
-    {requested&&<span><strong>최대 5시간 40분 실행 · 이후 재시작 버튼으로 수동 실행</strong></span>}
+    {requested&&stage!=='failed'&&<span><strong>최대 5시간 40분 실행 · 이후 재시작 버튼으로 수동 실행</strong></span>}
   </div>
   {stage==='queued'&&<p style={{color:'#8a5d1e',background:'#fff8ec',borderRadius:6,padding:'8px 10px',fontSize:12}}>웹 버튼에서 즉시 실행 요청을 전송했습니다. GitHub가 실제 실행기를 배정하기 전까지 Android 부팅은 시작되지 않습니다.</p>}
   {stage==='failed'&&<p role="alert" style={{color:'#a12e33',background:'#fff1f1',padding:'10px',borderRadius:7,fontSize:13}}>{progress?.error||'실행에 실패했습니다. 자동 재시작하지 않습니다. 재시작 버튼으로 다시 실행할 수 있습니다.'}</p>}
@@ -160,15 +163,15 @@ export function WsScrcpyEmbed(){
   {progress?.updatedAt&&lastUpdate>90&&active&&<p style={{fontSize:12,color:'#9b641b'}}>마지막 실행 단계 갱신 후 90초 이상 경과했습니다. GitHub 실행 로그를 확인해 주십시오. 오류 시 자동으로 다시 실행하지 않습니다.</p>}
  </section>;
  if(!viewer)return <div style={{minHeight:590,display:'flex',alignItems:'center',justifyContent:'flex-start',padding:'26px 14px',flexDirection:'column',gap:14,background:'#f7fafb'}}>
-  {progressView}
   <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center'}}>
-   <button type="button" onClick={()=>void start()} disabled={!launchAvailable||starting||requested||active}
-     style={{padding:'11px 18px',border:'1px solid #8daeb7',borderRadius:8,background:launchAvailable&&!requested&&!active?'#115e72':'#d9e2e5',color:launchAvailable&&!requested&&!active?'#fff':'#435d65',cursor:!launchAvailable||starting||requested||active?'not-allowed':'pointer'}}>
-     {starting?'Android 시작 요청 중…':requested?'Android 실행 중':nativeStatus?.restartAvailable?'↻ Android 11 재시작':'▶ Android 11 실제 실행'}
+   <button type="button" onClick={()=>void start()} disabled={!canLaunch||starting||(requested&&!restartAvailable)||(active&&!restartAvailable)}
+     style={{padding:'11px 18px',border:'1px solid #8daeb7',borderRadius:8,background:canLaunch&&(restartAvailable||(!requested&&!active))?'#115e72':'#d9e2e5',color:canLaunch&&(restartAvailable||(!requested&&!active))?'#fff':'#435d65',cursor:!canLaunch||starting?'not-allowed':'pointer'}}>
+     {starting?'Android 시작 요청 중…':restartAvailable?'↻ Android 11 재시작':requested?'Android 실행 중':'▶ Android 11 실제 실행'}
    </button>
    {requested&&<button type="button" onClick={()=>void stop()} disabled={stopping} style={{padding:'11px 18px',border:'1px solid #b5c0c6',borderRadius:8,background:'#fff',color:'#425966'}}>{stopping?'Android 종료 요청 중…':'Android 종료'}</button>}
   </div>
-  {!launchAvailable&&<small style={{color:'#6a7f88'}}>{nativeStatus?.dispatchConfigured===false
+  {progressView}
+  {!canLaunch&&<small style={{color:'#6a7f88'}}>{nativeStatus?.dispatchConfigured===false
     ?'Railway 서비스에 HITEL_GITHUB_WORKFLOW_TOKEN을 등록해야 웹 버튼 즉시 실행을 사용할 수 있습니다.'
     :nativeStatus?.statePersisted===false
       ?'Railway 세션 영구 저장소를 쓸 수 없어 실행을 시작하지 않았습니다.'
