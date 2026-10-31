@@ -97,7 +97,7 @@ export default function PhysicalIphonePanel(){
     </a>
     <span style={{color:'#945d1a'}}>이 파일은 서명되지 않았습니다. 아이폰에서 직접 열어 설치할 수 없습니다.</span>
     <span>① Windows의 Sideloadly에 위 IPA를 넣으십시오.</span>
-    <span>② 아이폰을 USB로 연결하고 무료 Apple ID로 서명·설치하십시오. 방송 확장 제거 옵션은 사용하지 마십시오.</span>
+    <span>② 아이폰을 USB로 연결하고 무료 Apple ID로 서명·설치하십시오. Sideloadly의 고급 설정에서 <b>Dropping 0 of 2 plug-ins</b>를 유지하십시오.</span>
     <span>③ 새 HITEL 앱에서 '화면 공유 → 화면 방송 연결 시작'을 누르십시오. ReplayKit 방송 설정 화면에서 8자리 코드를 <b>직접 입력</b>하고 방송을 시작하십시오.</span>
     <span style={{color:'#805d2d'}}>이전 앱의 '연결코드 저장' 기능은 사용하지 않습니다. 연결코드가 전달되지 않는 문제를 수정한 새 IPA를 기존 설치본 위에 업데이트하십시오.</span>
     <span>④ 무료 개발 앱은 7일 후 재서명이 필요합니다.</span>
