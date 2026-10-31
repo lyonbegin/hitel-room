@@ -2,7 +2,8 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 
 type DeviceInfo={name:string;ios:string;width:number;height:number};
 type PhoneStatus={ok?:boolean;online?:boolean;paired?:boolean;pairCode?:string|null;pairExpiresAt?:string|null;
- deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string;appPrepared?:boolean;approvalPending?:boolean};
+ deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string;appPrepared?:boolean;approvalPending?:boolean;
+ appAwakeAt?:string|null;lastDisconnectAt?:string|null;resumeReady?:boolean};
 const root='/lab-sandbox/physical-iphone';
 const key='hitel-physical-iphone-viewer-v1';
 export default function PhysicalIphonePanel(){
@@ -61,9 +62,10 @@ export default function PhysicalIphonePanel(){
    const r=await fetch(root+'/status',{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({viewerToken:token})});
    if(r.ok){const value=await r.json() as PhoneStatus;setStatus(old=>({...old,...value}))}
+   else if(r.status===404){void session(token)}
   }catch{}},5000);
   return()=>clearInterval(poll);
- },[token]);
+ },[token,session]);
  const decide=async(action:'approve'|'reject')=>{
   if(!token)return;
   setBusy(true);setError('');
@@ -86,18 +88,23 @@ export default function PhysicalIphonePanel(){
   }catch(e){setError(String(e))}finally{setBusy(false)}
  };
  const online=Boolean(status?.online&&image);
+ const paired=Boolean(status?.paired);
+ const lastAwake=status?.appAwakeAt?new Date(status.appAwakeAt).getTime():0;
+ const lastDisconnect=status?.lastDisconnectAt?new Date(status.lastDisconnectAt).getTime():0;
+ const reactivated=paired&&!online&&lastAwake>0&&lastAwake>=lastDisconnect;
+ const formatTime=(value?:string|null)=>value?new Date(value).toLocaleString('ko-KR'):'정보 없음';
  return <div style={{width:'100%',minWidth:0,display:'flex',flexDirection:'column',gap:11,
   padding:12,boxSizing:'border-box',background:'#f4f8fa',color:'#18384a'}}>
   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,flexWrap:'wrap'}}>
    <b>실제 iPhone · 화면 스트리밍</b>
    <span style={{fontSize:12,color:online?'#007a53':'#637482'}}>
-    {online?'● 실시간 영상 수신 중':status?.online?'● iPhone 방송 연결 · 첫 프레임 대기':'● 실제 iPhone 연결 대기'}
+    {online?'● 실시간 영상 수신 중':status?.online?'● iPhone 방송 연결 · 첫 프레임 대기':reactivated?'● iPhone 앱 재기동 감지 · 방송 재개 대기':paired?'● 이전 iPhone 연결 유지 · 방송 중단':'● 실제 iPhone 연결 대기'}
    </span>
   </div>
   <div style={{background:'white',borderRadius:9,padding:12,fontSize:12}}>
    <strong>HITEL iPhone 화면 공유</strong>
-   <p style={{margin:'7px 0'}}>실제 아이폰의 HITEL 앱에서 연결코드를 등록하고, ‘화면 방송 시작’을 선택하셔야 합니다.
-    화면 전송은 Apple ReplayKit 방송 확장으로만 수행하며 시뮬레이터 영상으로 대체하지 않습니다.</p>
+   <p style={{margin:'7px 0'}}>실제 아이폰 화면은 Apple ReplayKit 방송 확장으로만 전송됩니다.
+    화면 잠금으로 방송이 종료되어도 연결 정보가 유지됩니다. HITEL 앱이 다시 실행되면 웹에 재기동 신호를 보내 기존 스트리밍 상태로 복귀합니다. iOS가 방송을 종료했다면 시스템 방송 버튼에서 시작을 다시 승인해야 합니다.</p>
    <div style={{padding:12,border:'1px solid #d2e5ed',borderRadius:8,background:'#f4faff',display:'flex',flexDirection:'column',gap:8}}>
     <strong>무료 Apple ID · 7일 실기기 테스트 설치</strong>
     <span>유료 개발자 계정이나 TestFlight 없이 Windows PC에서 설치할 수 있습니다. 새 버전은 8자리 코드를 앱에서 서버에 등록한 뒤 Apple 시스템 방송 버튼으로 시작합니다.</span>
@@ -110,7 +117,7 @@ export default function PhysicalIphonePanel(){
     <span>① Windows의 Sideloadly에 위 IPA를 넣으십시오.</span>
     <span>② 아이폰을 USB로 연결하고 무료 Apple ID로 서명·설치하십시오. Sideloadly의 고급 설정에서 <b>Dropping 0 of 1 plug-in</b>를 유지하십시오.</span>
     <span>③ 새 HITEL 앱에서 '화면 공유 → 연결코드를 서버에 등록'을 누르십시오. 이어서 Apple <b>시스템 화면 방송 버튼</b>으로 방송을 시작하십시오.</span>
-    <span>④ 실제 iPhone 연결 요청이 나타나면 이 웹에서 <b>방송 연결 승인</b>을 누르십시오. 승인 전에는 화면이 전달되지 않습니다.</span>
+    <span>④ 첫 연결에서만 이 웹의 <b>방송 연결 승인</b>을 누르십시오. 이후 잠금 해제 후 앱이 다시 실행되면 기존 승인정보를 사용하여 웹 상태를 자동 복구합니다. iOS가 방송을 종료한 경우에는 아이폰의 시스템 방송 버튼을 다시 눌러야 합니다.</span>
     <span style={{color:'#805d2d'}}>iOS 18에서 중단되는 구형 방송 설정 화면을 제거했습니다. 새 버전은 앱에서 서버에 8자리 코드를 직접 등록하므로 App Group이나 클립보드가 필요하지 않습니다.</span>
     <span>⑤ 무료 개발 앱은 7일 후 재서명이 필요합니다.</span>
     <div style={{display:'flex',flexWrap:'wrap',gap:12}}>
@@ -136,7 +143,11 @@ export default function PhysicalIphonePanel(){
      <button type="button" disabled={busy} onClick={()=>void decide('reject')} style={{padding:'10px 14px',border:'1px solid #d0a16a',borderRadius:8,background:'white'}}>연결 거절</button>
     </div>
    </div>}
-   {token&&status?.paired&&!online&&<p style={{margin:'7px 0 0'}}>기기 연결 정보가 저장되어 있습니다. 실제 아이폰에서 화면 방송을 다시 시작하십시오.</p>}
+   {token&&paired&&!online&&<div role="status" style={{margin:'10px 0 0',padding:12,borderRadius:8,background:'#edf5f9',border:'1px solid #b7d5e3'}}>
+    <strong>{reactivated?'아이폰 앱 재기동 확인 · 영상 재연결 준비':'기존 iPhone 연결 유지 · 방송 일시 중단'}</strong>
+    <p style={{margin:'7px 0'}}>8자리 코드를 다시 발급하거나 웹에서 새 기기를 등록하실 필요가 없습니다. 아이폰 HITEL 앱에서 시스템 방송 시작을 승인하시면 기존 연결로 화면이 복구됩니다.</p>
+    <span style={{fontSize:11,color:'#536c7c'}}>최근 앱 활성화: {formatTime(status?.appAwakeAt)} · 최종 영상: {formatTime(status?.lastFrameAt)}</span>
+   </div>}
   </div>
   <div data-testid="physical-iphone-screen" style={{width:'100%',minHeight:online?0:340,display:'flex',alignItems:'center',
    justifyContent:'center',background:'#18232a',borderRadius:10,boxSizing:'border-box',padding:online?'12px 8px':16}}>
@@ -145,8 +156,10 @@ export default function PhysicalIphonePanel(){
      objectFit:'contain',aspectRatio:status?.deviceInfo?.width&&status?.deviceInfo?.height
       ?status.deviceInfo.width+' / '+status.deviceInfo.height:undefined}}/>:
     <div style={{textAlign:'center',color:'#deeaee',fontSize:13}}>
-     실제 iPhone 화면을 기다리고 있습니다.
-     <p style={{fontSize:11,color:'#92a9b6'}}>실제 기기에서 받은 영상만 표시합니다. 원격 터치·키보드 조작은 제공하지 않습니다.</p>
+     {paired?'기존 iPhone 스트리밍 모드 유지':'실제 iPhone 화면을 기다리고 있습니다.'}
+     <p style={{fontSize:11,color:'#92a9b6'}}>{paired
+       ?reactivated?'아이폰 앱 재기동 신호 수신 · Apple 화면 방송 시작을 기다립니다.':'iPhone 방송이 중단되었습니다. 기존 연결정보를 보존하고 있습니다.'
+       :'실제 기기에서 받은 영상만 표시합니다. 원격 터치·키보드 조작은 제공하지 않습니다.'}</p>
     </div>}
   </div>
   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:7,flexWrap:'wrap',fontSize:11}}>
