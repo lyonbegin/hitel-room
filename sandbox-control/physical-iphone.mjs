@@ -101,6 +101,7 @@ export async function physicalIphoneRoute(req,res,path){
   }
   if(s.device?.readyState===WebSocket.OPEN)s.device.close(1012,'replaced');
   s.device=ws;s.candidate=null;
+  attachPhoneFrames(ws,s);
   s.key=randomToken();s.code=null;s.expiry=0;s.prepared=null;
   save();
   ws.send(JSON.stringify({type:'paired',deviceKey:s.key}));
@@ -111,6 +112,27 @@ export async function physicalIphoneRoute(req,res,path){
  for(const viewer of s.viewers)viewer.close(1000,'viewer session ended');
  if(s.device?.readyState===WebSocket.OPEN)s.device.close(1000,'session ended');
  sessions.delete(s.token);save();return reply(res,200,{ok:true,stopped:true});
+}
+function attachPhoneFrames(ws,s){
+ ws.on('message',(data,isBinary)=>{
+    if(ws!==s.device)return;
+    if(isBinary){
+     if(data.length<4||data.length>850000||data[0]!==0xff||data[1]!==0xd8)return;
+     const now=Date.now();if(now-s.lastFrameMillis<250)return;
+     s.lastFrameMillis=now;s.lastFrameAt=new Date(now).toISOString();
+     for(const v of s.viewers)if(v.readyState===WebSocket.OPEN&&v.bufferedAmount<1000000)v.send(data,{binary:true});
+    }else{
+     let msg;try{msg=JSON.parse(String(data))}catch{return}
+     if(msg.type==='hello'){
+      s.info={name:String(msg.name||'iPhone').slice(0,50),
+       ios:String(msg.ios||'').slice(0,15),
+       width:Math.max(1,Math.min(4096,Number(msg.width)||1)),
+       height:Math.max(1,Math.min(4096,Number(msg.height)||1))};
+      save();signal(s);
+     }
+    }
+   });
+ ws.on('close',()=>{if(ws===s.device){s.device=null;signal(s)}});
 }
 export function physicalIphoneUpgrade(req,socket,head){
  const url=new URL(req.url,'http://localhost');
@@ -140,7 +162,6 @@ export function physicalIphoneUpgrade(req,socket,head){
    s.candidate=ws;
    ws.send(JSON.stringify({type:'awaitingApproval'}));
    signal(s);
-   ws.on('message',(_data,_binary)=>{ /* pending senders cannot transmit frames */ });
    ws.on('close',()=>{if(s.candidate===ws){s.candidate=null;signal(s)}});
   }else{
    if(s.device?.readyState===WebSocket.OPEN)s.device.close(1012,'reconnected');
@@ -148,25 +169,7 @@ export function physicalIphoneUpgrade(req,socket,head){
    if(!s.key){s.key=randomToken();s.code=null;s.expiry=0;save()}
    ws.send(JSON.stringify({type:'paired',deviceKey:s.key}));
    signal(s);
-   ws.on('message',(data,isBinary)=>{
-    if(ws!==s.device)return;
-    if(isBinary){
-     if(data.length<4||data.length>850000||data[0]!==0xff||data[1]!==0xd8)return;
-     const now=Date.now();if(now-s.lastFrameMillis<250)return;
-     s.lastFrameMillis=now;s.lastFrameAt=new Date(now).toISOString();
-     for(const v of s.viewers)if(v.readyState===WebSocket.OPEN&&v.bufferedAmount<1000000)v.send(data,{binary:true});
-    }else{
-     let msg;try{msg=JSON.parse(String(data))}catch{return}
-     if(msg.type==='hello'){
-      s.info={name:String(msg.name||'iPhone').slice(0,50),
-       ios:String(msg.ios||'').slice(0,15),
-       width:Math.max(1,Math.min(4096,Number(msg.width)||1)),
-       height:Math.max(1,Math.min(4096,Number(msg.height)||1))};
-      save();signal(s);
-     }
-    }
-   });
-   ws.on('close',()=>{if(ws===s.device){s.device=null;signal(s)}});
+   attachPhoneFrames(ws,s);
   }
  });
  return true;
