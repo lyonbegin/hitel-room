@@ -1,9 +1,9 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import type {PointerEvent as ReactPointerEvent,FormEvent as ReactFormEvent} from 'react';
+import type {PointerEvent as ReactPointerEvent,FormEvent as ReactFormEvent,MouseEvent as ReactMouseEvent} from 'react';
 import apkInstallQr from './hitel-screen-apk-qr.svg';
 
-type DeviceInfo={name:string;android:string;width:number;height:number};
-type PhysicalStatus={ok?:boolean;online?:boolean;paired?:boolean;pairCode?:string|null;pairExpiresAt?:string|null;deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string;accessibilityEnabled?:boolean};
+type DeviceInfo={name:string;android:string;width:number;height:number;appVersion?:string};
+type PhysicalStatus={ok?:boolean;online?:boolean;paired?:boolean;pairCode?:string|null;pairExpiresAt?:string|null;deviceInfo?:DeviceInfo|null;lastFrameAt?:string|null;viewerToken?:string;error?:string;accessibilityEnabled?:boolean;controlDebug?:{id:number;action:string;stage:string;error?:string|null}|null};
 type ControlAction='tap'|'longPress'|'swipe'|'text'|'erase'|'enter'|'home'|'back'|'recents'|'notifications';
 const KEY='hitel-physical-android-viewer-v1';
 const ROOT='/lab-sandbox/physical';
@@ -17,6 +17,8 @@ export default function PhysicalAndroidPanel(){
  const [inputText,setInputText]=useState('');
  const [controlNotice,setControlNotice]=useState('');
  const commandId=useRef(0);
+ const pending=useRef<Map<number,number>>(new Map());
+ const lastPointerUp=useRef(0);
  const gestureStart=useRef<{id:number;x:number;y:number;at:number}|null>(null);
  const ws=useRef<WebSocket|null>(null);
  const retry=useRef<number|null>(null);
@@ -49,7 +51,13 @@ export default function PhysicalAndroidPanel(){
     if(typeof event.data==='string'){
      try{const data=JSON.parse(event.data) as PhysicalStatus & {type?:string};
       if(data.type==='status'){setStatus(old=>({...old,...data}));if(!data.online)setImageSafe('')}
+      if(data.type==='controlReceipt'){
+       if(data.stage==='relay')setControlNotice('Railway 서버 수신 · 노트9로 명령 전달 중');
+       if(data.stage==='device')setControlNotice('노트9 앱이 명령 수신 · 실행 결과 확인 중');
+      }
       if(data.type==='controlAck'){
+       const timer=pending.current.get(Number(data.id));
+       if(timer!==undefined){window.clearTimeout(timer);pending.current.delete(Number(data.id))}
        setStatus(old=>old?{...old,accessibilityEnabled:data.accessibilityEnabled}:old);
        setControlNotice(data.ok?'휴대전화에서 명령 실행 확인':data.error==='ACCESSIBILITY_PERMISSION_REQUIRED'?
         '휴대전화의 HITEL Screen 앱에서 접근성 권한을 켜 주십시오.':
@@ -66,7 +74,11 @@ export default function PhysicalAndroidPanel(){
    socket.onerror=()=>socket.close();
   }
   connect();
-  return()=>{closed=true;if(retry.current!==null)clearTimeout(retry.current);ws.current?.close();ws.current=null;setImageSafe('')};
+  return()=>{
+   closed=true;if(retry.current!==null)clearTimeout(retry.current);
+   pending.current.forEach(timer=>window.clearTimeout(timer));pending.current.clear();
+   ws.current?.close();ws.current=null;setImageSafe('');
+  };
  },[token,setImageSafe]);
  useEffect(()=>{
   if(!token)return;
@@ -94,7 +106,12 @@ export default function PhysicalAndroidPanel(){
   }
   const id=++commandId.current;
   socket.send(JSON.stringify({type:'control',id,action,...data}));
-  setControlNotice('휴대전화 응답 대기…');
+  setControlNotice('웹에서 명령 전송 · 서버 수신 확인 중');
+  const timer=window.setTimeout(()=>{
+   pending.current.delete(id);
+   setControlNotice('명령 응답 시간 초과 · 서버 또는 노트9 앱의 응답이 없습니다. 기기 연결 상태를 확인하십시오.');
+  },9000);
+  pending.current.set(id,timer);
  };
  const point=(event:ReactPointerEvent<HTMLImageElement>)=>{
   const rect=event.currentTarget.getBoundingClientRect();
@@ -106,18 +123,26 @@ export default function PhysicalAndroidPanel(){
   e.preventDefault();
   const p=point(e);
   gestureStart.current={id:e.pointerId,x:p.x,y:p.y,at:Date.now()};
-  e.currentTarget.setPointerCapture(e.pointerId);
+  try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}
  };
  const pointerUp=(e:ReactPointerEvent<HTMLImageElement>)=>{
   const start=gestureStart.current;
   if(!start||start.id!==e.pointerId)return;
   gestureStart.current=null;
-  if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  lastPointerUp.current=Date.now();
+  try{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)}catch{}
   e.preventDefault();
   const end=point(e),elapsed=Date.now()-start.at;
   const distance=Math.hypot(end.x-start.x,end.y-start.y);
   if(distance<0.018)sendControl(elapsed>=650?'longPress':'tap',{x:start.x,y:start.y});
   else sendControl('swipe',{x:start.x,y:start.y,endX:end.x,endY:end.y,duration:Math.max(120,Math.min(2000,elapsed))});
+ };
+ const imageClick=(e:ReactMouseEvent<HTMLImageElement>)=>{
+  if(!canControl||Date.now()-lastPointerUp.current<700)return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const x=Math.max(0,Math.min(1,(e.clientX-rect.left)/Math.max(1,rect.width)));
+  const y=Math.max(0,Math.min(1,(e.clientY-rect.top)/Math.max(1,rect.height)));
+  sendControl('tap',{x,y});
  };
  const inputSubmit=(e:ReactFormEvent<HTMLFormElement>)=>{
   e.preventDefault();
@@ -165,6 +190,7 @@ export default function PhysicalAndroidPanel(){
      data-testid="physical-android-frame"
      onPointerDown={pointerDown}
      onPointerUp={pointerUp}
+     onClick={imageClick}
      onPointerCancel={()=>{gestureStart.current=null}}
      onContextMenu={e=>{e.preventDefault();sendControl('back')}}
      draggable={false}
@@ -192,6 +218,8 @@ export default function PhysicalAndroidPanel(){
     접근성 권한: {status?.accessibilityEnabled?'사용 가능':'미승인 또는 확인 대기 · 노트9의 HITEL Screen 앱에서 원격 터치 접근성 권한을 승인하십시오.'}
    </span>
    <span style={{fontSize:12,color:'#526875'}}>위의 실제 화면을 누르면 터치, 길게 누르면 롱프레스, 끌면 스와이프가 전달됩니다.</span>
+   <span style={{fontSize:12,color:'#526875'}}>실제 노트9 앱 버전: <strong>{status?.deviceInfo?.appVersion||'미확인 · 화면 공유를 재시작하면 표시됩니다'}</strong></span>
+   {status?.controlDebug&&<span style={{fontSize:11,color:'#476477'}}>마지막 명령: {status.controlDebug.action} · {status.controlDebug.stage}{status.controlDebug.error?' · '+status.controlDebug.error:''}</span>}
    <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
     {(['home','back','recents','notifications','enter','erase'] as const).map(action=>
      <button key={action} type="button" disabled={!canControl} onClick={()=>sendControl(action)}
