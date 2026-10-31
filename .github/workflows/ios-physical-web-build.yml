@@ -5,6 +5,7 @@ on:
     paths:
       - "src/device-lab/PhysicalIphonePanel.tsx"
       - "src/device-lab/DeviceLab.tsx"
+      - "src/device-lab/PhysicalAndroidPanel.tsx"
       - ".github/workflows/ios-physical-web-build.yml"
   workflow_dispatch:
 permissions:
