@@ -35,10 +35,44 @@ jobs:
             }
           grep 'BUILD SUCCEEDED' /tmp/hitel-ios-physical-build.log
           test -d /tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app/PlugIns/HitelScreenBroadcast.appex
+          EXT=/tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app/PlugIns/HitelScreenBroadcast.appex/Info.plist
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT")" = 'com.apple.broadcast-services-upload'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:RPBroadcastProcessMode' "$EXT")" = 'RPBroadcastProcessModeSampleBuffer'
+          echo "REPLAYKIT_SIMULATOR_EXTENSION_PLIST_OK"
+      - name: Compile real-device iOS ARM64 app and ReplayKit extension without signing
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild -project HitelNative.xcodeproj -scheme HitelNative \
+            -destination 'generic/platform=iOS' \
+            -configuration Release -derivedDataPath /tmp/hitel-ios-device \
+            CODE_SIGNING_ALLOWED=NO build > /tmp/hitel-ios-device-build.log 2>&1 || {
+              tail -120 /tmp/hitel-ios-device-build.log
+              exit 1
+            }
+          grep 'BUILD SUCCEEDED' /tmp/hitel-ios-device-build.log
+          APP=/tmp/hitel-ios-device/Build/Products/Release-iphoneos/HitelNative.app
+          EXT="$APP/PlugIns/HitelScreenBroadcast.appex"
+          test -d "$EXT"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist")" = 'com.apple.broadcast-services-upload'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:RPBroadcastProcessMode' "$EXT/Info.plist")" = 'RPBroadcastProcessModeSampleBuffer'
+          echo 'REPLAYKIT_PHYSICAL_DEVICE_ARM64_COMPILE_OK'
+      - name: Archive unsigned device-build diagnostic artifact (NOT INSTALLABLE)
+        run: |
+          cd /tmp/hitel-ios-device/Build/Products/Release-iphoneos
+          ditto -c -k --sequesterRsrc --keepParent HitelNative.app /tmp/HitelNative-unsigned-iphoneos-build.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-iPhone-unsigned-ARM64-build-NOT-INSTALLABLE
+          path: /tmp/HitelNative-unsigned-iphoneos-build.zip
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve unsigned build verification logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: iphone-replaykit-compile-logs
-          path: /tmp/hitel-ios-physical-build.log
+          path: |
+            /tmp/hitel-ios-physical-build.log
+            /tmp/hitel-ios-device-build.log
           if-no-files-found: ignore
