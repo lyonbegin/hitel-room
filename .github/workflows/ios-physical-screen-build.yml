@@ -38,6 +38,7 @@ jobs:
           EXT=/tmp/hitel-ios-build/Build/Products/Debug-iphonesimulator/HitelNative.app/PlugIns/HitelScreenBroadcast.appex/Info.plist
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT")" = 'com.apple.broadcast-services-upload'
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:RPBroadcastProcessMode' "$EXT")" = 'RPBroadcastProcessModeSampleBuffer'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT")" = 'app.hitel.native.broadcast'
           echo "REPLAYKIT_SIMULATOR_EXTENSION_PLIST_OK"
       - name: Compile real-device iOS ARM64 app and ReplayKit extension without signing
         working-directory: mobile/ios
@@ -56,6 +57,7 @@ jobs:
           test -d "$EXT"
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist")" = 'com.apple.broadcast-services-upload'
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:RPBroadcastProcessMode' "$EXT/Info.plist")" = 'RPBroadcastProcessModeSampleBuffer'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist")" = 'app.hitel.native.broadcast'
           echo 'REPLAYKIT_PHYSICAL_DEVICE_ARM64_COMPILE_OK'
       - name: Archive unsigned device-build diagnostic artifact (NOT INSTALLABLE)
         run: |
