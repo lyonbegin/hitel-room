@@ -1,0 +1,78 @@
+name: HITEL iPhone FREE Apple ID unsigned IPA for Sideloadly
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - 'mobile/ios/**'
+      - '.github/workflows/ios-free-unsigned-ipa.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  unsigned-ipa:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Xcode and generate free-app project without App Groups
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          xcodegen generate --spec project.free.yml
+          test -d HitelNative.xcodeproj
+      - name: Compile real-device iPhone binary and ReplayKit upload extension
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelNative.xcodeproj -scheme HitelNative \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/HITEL-FreeDerivedData" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/hitel-free-iphone-build.log" 2>&1 || {
+              tail -100 "$RUNNER_TEMP/hitel-free-iphone-build.log"; exit 1;
+            }
+          grep 'BUILD SUCCEEDED' "$RUNNER_TEMP/hitel-free-iphone-build.log"
+          APP="$RUNNER_TEMP/HITEL-FreeDerivedData/Build/Products/Release-iphoneos/HitelNative.app"
+          EXT="$APP/PlugIns/HitelScreenBroadcast.appex"
+          test -f "$APP/Info.plist" && test -f "$EXT/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist")" = 'app.hitel.native.broadcast'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist")" = 'com.apple.broadcast-services-upload'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:RPBroadcastProcessMode' "$EXT/Info.plist")" = 'RPBroadcastProcessModeSampleBuffer'
+          if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups' "$APP/archived-expanded-entitlements.xcent" >/dev/null 2>&1; then
+            echo "::error::Free version must not depend on App Groups"; exit 1
+          fi
+          echo 'FREE_IPHONE_ARM64_REPLAYKIT_BUILD_PASS'
+      - name: Package actual iPhone unsigned IPA (do not call it installable)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/HITEL-Free-IPA/Payload" out
+          cp -R "$RUNNER_TEMP/HITEL-FreeDerivedData/Build/Products/Release-iphoneos/HitelNative.app" \
+            "$RUNNER_TEMP/HITEL-Free-IPA/Payload/"
+          cd "$RUNNER_TEMP/HITEL-Free-IPA"
+          /usr/bin/zip -q -r "$GITHUB_WORKSPACE/out/HITEL-iPhone-Free-7day-unsigned.ipa" Payload
+          cd "$GITHUB_WORKSPACE"
+          unzip -t out/HITEL-iPhone-Free-7day-unsigned.ipa | tail -2
+          unzip -l out/HITEL-iPhone-Free-7day-unsigned.ipa | grep -E 'Payload/HitelNative.app/PlugIns/HitelScreenBroadcast.appex/Info.plist'
+          shasum -a 256 out/HITEL-iPhone-Free-7day-unsigned.ipa > out/SHA256SUMS.txt
+          echo 'UNSIGNED_IPA_WITH_BROADCAST_EXTENSION_READY'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-iPhone-Free-7day-unsigned-IPA-for-Sideloadly
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish unsigned IPA for Windows Sideloadly on GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-iphone-free-7day-unsigned
+          NOTES="This is an UNSIGNED iOS IPA for local 7-day testing with Sideloadly and your own free Apple ID. Do not install directly on iPhone. App contains ReplayKit extension. No Apple ID/password is required on GitHub or Railway."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/HITEL-iPhone-Free-7day-unsigned.ipa out/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" out/HITEL-iPhone-Free-7day-unsigned.ipa out/SHA256SUMS.txt \
+              --title "HITEL iPhone · Free Apple ID 7-day test (unsigned)" \
+              --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+          fi
