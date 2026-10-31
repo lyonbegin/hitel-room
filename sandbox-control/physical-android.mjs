@@ -10,7 +10,7 @@ const ORIGIN=process.env.HITEL_WEB_ORIGIN||'https://hitel-communication-web-prod
 const FILE=process.env.HITEL_PHYSICAL_STATE_FILE||join(process.env.RAILWAY_VOLUME_MOUNT_PATH||'/data/hitel-ws-scrcpy','physical-android.json');
 const sessions=new Map();
 const wss=new WebSocketServer({noServer:true,maxPayload:750000,perMessageDeflate:false});
-const CONTROL_ACTIONS=new Set(['tap','longPress','swipe','text','home','back','recents','notifications']);
+const CONTROL_ACTIONS=new Set(['tap','longPress','swipe','text','erase','enter','home','back','recents','notifications']);
 const unit=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1;
 function validControl(m){
  if(!m||m.type!=='control'||!CONTROL_ACTIONS.has(m.action)||!Number.isSafeInteger(m.id)||m.id<1)return false;
