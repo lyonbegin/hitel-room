@@ -52,6 +52,28 @@ try{
   await page.getByText('N B JOIN CODE').waitFor({timeout:12_000});
   await page.screenshot({path:'playground-two-iphone-pairing-codes.png',fullPage:true});
  });
+ await step('RENDER_ALL_16_ROUTING_UI_VARIANTS',async()=>{
+  for(let id=1;id<=16;id++){
+   await page.locator('.hcp-matrix-row button').nth(id-1).click();
+   await page.getByText('SCENARIO '+String(id).padStart(2,'0')+' / 16').waitFor({timeout:12000});
+   await page.getByText('서버 세션 있음').waitFor({timeout:12000});
+   const from=['P','P+','N','W'][Math.floor((id-1)/4)];
+   const to=['P','P+','N','W'][(id-1)%4];
+   const expectCodes=Number(from==='N'||from==='P+')+Number(to==='N'||to==='P+');
+   const codes=await page.getByText(/JOIN CODE/).count();
+   if(codes!==expectCodes)throw Error('SC'+id+' expected '+expectCodes+' native/P+ codes but found '+codes);
+   if(from==='P+'||to==='P+'){
+    const count=await page.locator('.hcp-actor textarea').count();
+    if(count!==expectCodes)throw Error('SC'+id+' P+ note panes '+count);
+   }
+   console.log('PLAYGROUND_SCENARIO_'+String(id).padStart(2,'0')+'_UI_PASS',{from,to,joinCodes:codes});
+  }
+ });
+ await step('MOBILE_PLAYGROUND_LAYOUT',async()=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('.hcp-matrix-row button').first().waitFor();
+  await page.screenshot({path:'playground-mobile-390.png',fullPage:true});
+ });
  if(errors.length)throw Error('BROWSER_JS_ERRORS: '+errors.join(' | '));
  console.log('COMM_PLAYGROUND_REAL_CHROME_WEBRTC_MEDIA_PASS',{scenario:16,websocketPeers:2,
    sdp:true,ice:true,dtls:true,remoteAudioTracks:true,remoteVideoTracks:true,hardwareIphone:false});
