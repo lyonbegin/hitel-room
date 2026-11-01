@@ -1,0 +1,41 @@
+name: HITEL Communication Playground 16-route verification
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - 'src/communication-playground/**'
+      - 'sandbox-control/communication-playground.mjs'
+      - 'sandbox-control/server.mjs'
+      - 'tests/communication-playground-smoke.mjs'
+      - '.github/workflows/communication-playground-check.yml'
+  workflow_dispatch:
+concurrency:
+  group: hitel-communication-playground-tests
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: node --check sandbox-control/communication-playground.mjs
+      - run: npm run build
+      - name: Wait for actual Railway deployment of playground
+        run: |
+          set -eu
+          for i in $(seq 1 36); do
+            if curl --fail --silent --max-time 5 'https://hitel-communication-web-production.up.railway.app/lab-sandbox/playground/health' | grep -q '"routes":16'; then
+              echo "ACTUAL_PLAYGROUND_SERVER_READY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::PLAYGROUND_NOT_DEPLOYED"
+          exit 1
+      - run: node tests/communication-playground-smoke.mjs
