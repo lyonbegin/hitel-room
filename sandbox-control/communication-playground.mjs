@@ -140,7 +140,15 @@ export async function playgroundRoute(req,res,path){
  if(path==='/playground/device/status'){
   const device=deviceByPage(String(data.pageToken||''));
   if(!device)return json(res,404,{ok:false,error:'DEVICE_URL_INVALID'});
-  return json(res,200,{ok:true,device:devicePublic(device)});
+  // The 256-bit app-specific page token authorizes this control page.
+  // A browser opening that same URL in another tab gets the CURRENT
+  // session rather than silently creating a second unrelated call.
+  const assigned=device.assignment;
+  const session=assigned&&sessions.get(assigned.sessionId);
+  const activeSession=session&&session.expires>Date.now()&&['A','B'].includes(assigned.side)
+    ? {...sessionState(session),secret:session.secret,nativeCodes:null,side:assigned.side}
+    :null;
+  return json(res,200,{ok:true,device:devicePublic(device),activeSession});
  }
  if(path==='/playground/device/attach'){
   const device=deviceByPage(String(data.pageToken||''));
