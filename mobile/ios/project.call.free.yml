@@ -1,0 +1,35 @@
+name: HitelCall
+options:
+  minimumXcodeGenVersion: 2.38.0
+  bundleIdPrefix: app.hitel
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 156.0.0
+targets:
+  HitelCall:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: CallApp
+    dependencies:
+      - package: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.call
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "실제 HITEL 영상통화를 위해 카메라를 사용합니다."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "실제 HITEL 통화에 마이크를 사용합니다."
+        INFOPLIST_KEY_CFBundleDisplayName: "HITEL Call"
+schemes:
+  HitelCall:
+    build:
+      targets:
+        HitelCall: all
+    run:
+      config: Debug
