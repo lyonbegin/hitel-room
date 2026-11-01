@@ -20,9 +20,9 @@ test('P to P never produces a HITEL session record and no phone route advertises
  for(const [a,b] of [[0,1],[1,0],[1,1]]){const c=capability(a,b);assert.equal(c.sidecarOnly,true);assert.equal(c.canSharedAudio,false);}
 });
 test('Private materials are never exposed when the viewing role changes',()=>{
- const data=[{id:'private-a',owner:'個人',visibility:'개인'},{id:'private-b',owner:'담당자',visibility:'개인'},{id:'shared',owner:'담당자',visibility:'참여자'}];
+ const data=[{id:'private-a',owner:'개인',visibility:'개인'},{id:'private-b',owner:'담당자',visibility:'개인'},{id:'shared',owner:'담당자',visibility:'참여자'}];
  assert.deepEqual(materialsFor(data,'담당자').map(x=>x.id),['private-b','shared']);
- assert.deepEqual(materialsFor(data,'개인').map(x=>x.id),['shared']);
+ assert.deepEqual(materialsFor(data,'개인').map(x=>x.id),['private-a','shared']);
 });
 test('Booking creation and changes require time, preserve the old object and await confirmation',()=>{
  assert.throws(()=>saveBooking({date:'2026-11-05'}));

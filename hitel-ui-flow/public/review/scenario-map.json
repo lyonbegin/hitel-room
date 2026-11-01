@@ -7,7 +7,7 @@
     "priority": "적용 제외",
     "pages": [
       "entity",
-      "record"
+      "records"
     ],
     "validation": "UI mapping / actual external integration not verified"
   },
@@ -19,7 +19,7 @@
     "priority": "적용 제외",
     "pages": [
       "entity",
-      "record"
+      "records"
     ],
     "validation": "UI mapping / actual external integration not verified"
   },
@@ -31,7 +31,7 @@
     "priority": "적용 제외",
     "pages": [
       "entity",
-      "record"
+      "records"
     ],
     "validation": "UI mapping / actual external integration not verified"
   },
@@ -43,7 +43,7 @@
     "priority": "적용 제외",
     "pages": [
       "entity",
-      "record"
+      "records"
     ],
     "validation": "UI mapping / actual external integration not verified"
   },
@@ -55,7 +55,7 @@
     "priority": "적용 제외",
     "pages": [
       "entity",
-      "record"
+      "records"
     ],
     "validation": "UI mapping / actual external integration not verified"
   },
@@ -69,7 +69,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -86,7 +85,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -103,7 +101,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "workspace",
       "records",
       "permissions"
@@ -120,7 +117,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "tasks",
       "records",
       "permissions"
@@ -137,7 +133,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -324,7 +319,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -341,7 +335,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -358,7 +351,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "workspace",
       "records",
       "permissions"
@@ -375,7 +367,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "tasks",
       "records",
       "permissions"
@@ -392,7 +383,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -409,7 +399,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -426,7 +415,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -443,7 +431,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "workspace",
       "records",
       "permissions"
@@ -460,7 +447,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "tasks",
       "records",
       "permissions"
@@ -477,7 +463,6 @@
       "activity",
       "connect",
       "materials",
-      "call",
       "booking",
       "records",
       "permissions"
@@ -663,7 +648,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -680,7 +664,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -697,7 +680,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "workspace",
       "records",
@@ -714,7 +696,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "tasks",
       "records",
@@ -731,7 +712,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -748,7 +728,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -765,7 +744,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -782,7 +760,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "workspace",
       "records",
@@ -799,7 +776,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "tasks",
       "records",
@@ -816,7 +792,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -1003,7 +978,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -1020,7 +994,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -1037,7 +1010,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "workspace",
       "records",
@@ -1054,7 +1026,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "tasks",
       "records",
@@ -1071,7 +1042,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -1088,7 +1058,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -1105,7 +1074,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
@@ -1122,7 +1090,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "workspace",
       "records",
@@ -1139,7 +1106,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "tasks",
       "records",
@@ -1156,7 +1122,6 @@
     "pages": [
       "activity",
       "connect",
-      "incoming",
       "call",
       "booking",
       "records",
