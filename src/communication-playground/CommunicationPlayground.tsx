@@ -50,6 +50,7 @@ export default function CommunicationPlayground(){
  const [camOn,setCamOn]=useState<Record<Side,boolean>>({A:true,B:true});
  const [notice,setNotice]=useState('');
  const [busy,setBusy]=useState(false);
+ const [audit,setAudit]=useState<{running:boolean;passed:number;failed:number;done:number;details:string[]}>({running:false,passed:0,failed:0,done:0,details:[]});
  const [scenarioFilter,setScenarioFilter]=useState<'all'|'rtc'|'gateway'>('all');
  const [testNotes,setTestNotes]=useState<Record<number,string>>({});
  const [consultNotes,setConsultNotes]=useState<Record<Side,string>>({A:'',B:''});
@@ -91,6 +92,59 @@ export default function CommunicationPlayground(){
   const json=await res.json() as Record<string,unknown>;
   if(!res.ok||json.ok!==true)throw Error(String(json.error||'서버 응답 오류'));
   return json;
+ };
+ const verifyAllSignalRoutes=async()=>{
+  if(audit.running)return;
+  setAudit({running:true,passed:0,failed:0,done:0,details:[]});
+  const waitFor=(ws:WebSocket,condition:(msg:Signal)=>boolean,limit=9000)=>new Promise<Signal>((resolve,reject)=>{
+   const timer=window.setTimeout(()=>{ws.removeEventListener('message',onMessage);reject(Error('WS_EVENT_TIMEOUT'))},limit);
+   const onMessage=(event:MessageEvent)=>{
+    try{const msg=JSON.parse(String(event.data)) as Signal;
+     if(condition(msg)){clearTimeout(timer);ws.removeEventListener('message',onMessage);resolve(msg)}
+    }catch{}
+   };
+   ws.addEventListener('message',onMessage);
+  });
+  const open=async(s:PlaySession,side:Side)=>{
+   const url=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+ROOT+'/socket?id='+encodeURIComponent(s.id)+
+    '&side='+side+'&secret='+encodeURIComponent(s.secret);
+   const ws=new WebSocket(url);
+   await new Promise<void>((resolve,reject)=>{
+    const tm=window.setTimeout(()=>reject(Error('WS_OPEN_TIMEOUT')),10000);
+    ws.addEventListener('open',()=>{clearTimeout(tm);resolve()},{once:true});
+    ws.addEventListener('error',()=>{clearTimeout(tm);reject(Error('WS_CONNECTION_REJECTED'))},{once:true});
+   });
+   return ws;
+  };
+  const command=async(ws:WebSocket,type:string)=>{
+   const requestId=crypto.randomUUID();
+   const pending=waitFor(ws,x=>x.type==='ack'&&x.requestId===requestId);
+   ws.send(JSON.stringify({type,requestId}));
+   const ack=await pending;
+   if(!ack.ok)throw Error(type+': '+ack.reason);
+  };
+  let passed=0,failed=0;const details:string[]=[];
+  for(const route of ROUTES){
+   let session:PlaySession|null=null,A:WebSocket|null=null,B:WebSocket|null=null;
+   try{
+    session=await api('/session',{routeId:route.id}) as unknown as PlaySession;
+    A=await open(session,'A');B=await open(session,'B');
+    const ringing=waitFor(B,x=>x.type==='event'&&x.event?.type==='call.ringing');
+    await command(A,'call.invite');await ringing;
+    const accepted=waitFor(A,x=>x.type==='event'&&x.event?.type==='call.accept');
+    await command(B,'call.accept');await accepted;
+    await command(A,'call.end');
+    const state=await api('/status',{id:session.id,secret:session.secret}) as unknown as PlaySession;
+    if(state.phase!=='ended')throw Error('NOT_ENDED');
+    passed++;details.push('SC'+String(route.id).padStart(2,'0')+' '+label(route)+' · 제어 신호 통과');
+   }catch(e){failed++;details.push('SC'+String(route.id).padStart(2,'0')+' '+label(route)+' · 실패: '+textErr(e))}
+   finally{
+    A?.close();B?.close();
+    if(session)void api('/end',{id:session.id,secret:session.secret}).catch(()=>undefined);
+   }
+   setAudit({running:true,passed,failed,done:passed+failed,details:[...details]});
+  }
+  setAudit({running:false,passed,failed,done:passed+failed,details:[...details]});
  };
  useEffect(()=>{
   let cancelled=false;
@@ -322,7 +376,23 @@ export default function CommunicationPlayground(){
    <div className="hcp-brand"><span>ㅎ</span><div><strong>HITEL</strong><small>DEVELOPERS / COMMUNICATION SDK</small></div></div>
    <nav><a href="/sdk-lab">Device Lab</a><a href="/portal">HITEL Portal</a><a href="/" >HITEL Room</a></nav>
   </header>
-  <div className="hcp-heading"><div><span className="hcp-eyebrow">COMMUNICATION PLAYGROUND / 16 ENDPOINT COMBINATIONS</span><h1>16가지 통신 실험실</h1><p>발신자와 수신자를 나란히 조작하며 실제 WebSocket 메시지, 브라우저 WebRTC 미디어, 상태 전이를 시험합니다.</p></div><div className="hcp-heading-stats"><strong>16<span> / 16</span></strong><small>시나리오 구현 · 미지원 기능은 별도 표시</small></div></div>
+  <div className="hcp-heading"><div><span className="hcp-eyebrow">COMMUNICATION PLAYGROUND / 16 ENDPOINT COMBINATIONS</span><h1>16가지 통신 실험실</h1><p>발신자와 수신자를 나란히 조작하며 실제 WebSocket 메시지, 브라우저 WebRTC 미디어, 상태 전이를 시험합니다.</p></div><div className="hcp-heading-stats"><strong>16<span> / 16</span></strong><small>경로 선택 가능 · 실전화/AI 별도 검증</small></div></div>
+  <section style={{maxWidth:1600,margin:'0 auto 16px',padding:'0 40px'}}>
+   <div style={{background:'#fff',border:'1px solid #dbe5f2',borderRadius:12,padding:16,display:'flex',flexWrap:'wrap',alignItems:'center',gap:14}}>
+    <div style={{flex:'1 1 260px'}}>
+     <strong>16개 조합 · 실제 서버 WebSocket 일괄 검증</strong>
+     <p style={{fontSize:12,color:'#71809a',margin:'4px 0 0'}}>각 경로마다 양측 독립 WS 접속·벨·수락·종료를 검사합니다. 통신사 전화망, 실제 아이폰 영상·음성, AI 응답을 검사한 결과는 아닙니다.</p>
+    </div>
+    <span role="status" style={{fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{audit.running?'진행 '+audit.done+'/16':audit.done?'완료 '+audit.passed+'/16 통과, '+audit.failed+' 실패':'아직 실행하지 않음'}</span>
+    <button type="button" className="primary" disabled={audit.running} onClick={()=>void verifyAllSignalRoutes()}>{audit.running?'서버 검증 진행 중':'16개 WS 일괄 검증 실행'}</button>
+   </div>
+   {audit.details.length>0&&<details style={{background:'#fff',marginTop:5,borderRadius:8,padding:'10px 15px'}}>
+    <summary style={{cursor:'pointer',fontSize:12,fontWeight:700}}>조합별 검증 결과 {audit.passed} 통과 / {audit.failed} 실패</summary>
+    <div style={{marginTop:8,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:6}}>
+     {audit.details.map((line,i)=><span key={i} style={{fontSize:11,color:line.includes('실패')?'#ac293f':'#286848'}}>{line}</span>)}
+    </div>
+   </details>}
+  </section>
   <div className="hcp-layout">
    <aside className="hcp-sidebar">
     <div className="hcp-aside-head"><h2>통신 경로</h2><span>4 × 4 MATRIX</span></div>
