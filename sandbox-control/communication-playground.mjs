@@ -28,6 +28,7 @@ function broadcast(s,msg){
 }
 function sessionState(s){return {ok:true,id:s.id,route:s.route,phase:s.phase,callId:s.callId,
   peers:{A:s.peers.A?.readyState===WebSocket.OPEN,B:s.peers.B?.readyState===WebSocket.OPEN},
+  peerKinds:{A:s.peerKinds?.A||null,B:s.peerKinds?.B||null},
   expiresAt:new Date(s.expires).toISOString(),capabilities:capability(s.route),sequence:s.seq};}
 function emit(s,type,by,detail={}){
  s.seq++;const event={type,by,at:now(),seq:s.seq,callId:s.callId,...detail};
@@ -54,7 +55,7 @@ export async function playgroundRoute(req,res,path){
                 B:route.to==='N'?pin():null},
    nativeSecrets:{A:randomBytes(32).toString('hex'),B:randomBytes(32).toString('hex')},
    route,expires:Date.now()+LIFE,
-   phase:'idle',callId:null,peers:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
+   phase:'idle',callId:null,peers:{A:null,B:null},peerKinds:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
   sessions.set(s.id,s);
   return json(res,201,{...sessionState(s),secret:s.secret,
    nativeCode:s.nativeSide?s.nativeCodes[s.nativeSide]:null,nativeSide:s.nativeSide,nativeCodes:s.nativeCodes});
@@ -95,8 +96,9 @@ export function playgroundUpgrade(req,socket,head){
  wsServer.handleUpgrade(req,socket,head,ws=>{
   if(s.peers[actor]?.readyState===WebSocket.OPEN)s.peers[actor].close(1000,'Same player reconnected');
   s.peers[actor]=ws;
+  s.peerKinds[actor]=nativeAuth?'native-protocol':'browser';
   ws.send(JSON.stringify({type:'hello',state:sessionState(s),events:s.events.slice(-40)}));
-  broadcast(s,{type:'presence',peers:sessionState(s).peers,at:now()});
+  broadcast(s,{type:'presence',peers:sessionState(s).peers,peerKinds:sessionState(s).peerKinds,at:now()});
   ws.on('message',(raw,binary)=>{
    if(binary||ws!==s.peers[actor])return;
    const ts=Date.now(),hits=s.rate[actor].filter(x=>ts-x<10_000);hits.push(ts);s.rate[actor]=hits;
@@ -139,7 +141,8 @@ export function playgroundUpgrade(req,socket,head){
    }
    ack(false,'UNKNOWN_ACTION');
   });
-  ws.on('close',()=>{if(s.peers[actor]===ws){s.peers[actor]=null;broadcast(s,{type:'presence',peers:sessionState(s).peers,at:now()})}});
+  ws.on('close',()=>{if(s.peers[actor]===ws){s.peers[actor]=null;s.peerKinds[actor]=null;
+   broadcast(s,{type:'presence',peers:sessionState(s).peers,peerKinds:sessionState(s).peerKinds,at:now()})}});
  });
  return true;
 }
