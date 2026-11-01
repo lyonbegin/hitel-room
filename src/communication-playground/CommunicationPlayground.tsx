@@ -462,8 +462,8 @@ export default function CommunicationPlayground(){
      </div>
      <span style={{fontSize:11,color:'#687991'}}>이 주소는 앱 제어 권한이 있으므로 다른 사람에게 공개하지 마십시오.</span>
     </div>}
-    {devicePageToken&&current.from==='N'&&current.to==='N'&&<div style={{padding:12,background:'#fff',border:'1px solid #dbe5ee',borderRadius:10,margin:'10px 0'}}>
-      <strong>두 번째 iPhone 기능 앱 자동 연결</strong>
+    {devicePageToken&&['N','P+'].includes(current.from)&&['N','P+'].includes(current.to)&&<div style={{padding:12,background:'#fff',border:'1px solid #dbe5ee',borderRadius:10,margin:'10px 0'}}>
+      <strong>두 번째 iPhone 기능 앱(N 또는 P+) 자동 연결</strong>
       <p style={{fontSize:11,color:'#64748b'}}>두 번째 아이폰의 고유 웹 주소를 한 번 입력하면 B 역할로 연결됩니다. 숫자코드는 필요하지 않습니다.</p>
       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
        <input style={{flex:'1 1 310px',padding:8,border:'1px solid #d2dce8',borderRadius:7}} placeholder="두 번째 앱의 고유 웹 주소" value={otherDeviceUrl} onChange={e=>setOtherDeviceUrl(e.target.value)}/>
