@@ -139,7 +139,7 @@ final class HitelCallDeviceClient {
         if let bytes=try? JSONSerialization.data(withJSONObject:body),
            let text=String(data:bytes,encoding:.utf8){
             ws.send(.string(text)){[weak self] error in
-                if let error{self?.onStatus?("기기 인증 전송 오류: "+error.localizedDescription)}
+                if let error{DispatchQueue.main.async {self?.onStatus?("기기 인증 전송 오류: "+error.localizedDescription)}}
             }
         }
         receive(ws)
@@ -151,7 +151,7 @@ final class HitelCallDeviceClient {
             ws.sendPing{[weak self] error in
                 guard let self else{return}
                 if let error {
-                    self.onStatus?("통신 연결 재설정: "+error.localizedDescription)
+                    DispatchQueue.main.async {self.onStatus?("통신 연결 재설정: "+error.localizedDescription)}
                     if self.socket === ws {
                         self.socket=nil
                         ws.cancel(with:.goingAway,reason:nil)
