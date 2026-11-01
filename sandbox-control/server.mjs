@@ -273,7 +273,7 @@ server.on('upgrade',(req,socket,head)=>{
   if(req.url?.startsWith('/ios/socket'))iosLive.upgrade(req,socket,head);
   else if(req.url?.startsWith('/physical/socket'))physicalUpgrade(req,socket,head);
   else if(req.url?.startsWith('/physical-iphone/socket'))physicalIphoneUpgrade(req,socket,head);
-  else if(req.url?.startsWith('/playground/socket'))playgroundUpgrade(req,socket,head);
+  else if(req.url?.startsWith('/playground/socket')||req.url?.startsWith('/playground/device/socket'))playgroundUpgrade(req,socket,head);
 });
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
