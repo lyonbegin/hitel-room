@@ -27,5 +27,7 @@ jobs:
         if: always()
         with:
           name: HITEL-Playground-Browser-WebRTC-Final-Screenshot
-          path: playground-chromium-webrtc.png
+          path: |
+            playground-chromium-webrtc.png
+            playground-two-iphone-pairing-codes.png
           if-no-files-found: ignore
