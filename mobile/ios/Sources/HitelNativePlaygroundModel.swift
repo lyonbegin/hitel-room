@@ -144,6 +144,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
                 phase=state["phase"] as? String ?? phase
             }
             note("서버 HELLO 확인 · 네이티브 N "+side)
+            NSLog("HITEL_NATIVE_CALL_WSS_HELLO side=%@ route=%d",side,routeId)
         } else if type=="event",let event=json["event"] as? [String:Any] {
             let eventType=event["type"] as? String ?? ""
             let sender=event["by"] as? String ?? ""
@@ -154,7 +155,15 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
             switch eventType {
             case "call.ringing":
                 phase="ringing"
-                if side == "B" && sender != "B" { incomingCall() }
+                if side == "B" && sender != "B" {
+                    incomingCall()
+                    #if targetEnvironment(simulator)
+                    if ProcessInfo.processInfo.arguments.contains("-HITEL_NATIVE_AUTOANSWER") {
+                        note("SIMULATOR_TEST_AUTOANSWER_CALLKIT_EVENT")
+                        accept()
+                    }
+                    #endif
+                }
             case "call.accept":
                 phase="accepted"
                 inCall=true
