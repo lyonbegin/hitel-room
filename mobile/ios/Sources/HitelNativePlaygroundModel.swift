@@ -193,6 +193,16 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
         note("전송: "+type)
     }
 
+    func resumeAfterUnlock() {
+        // Restores native signaling only; system screen recording or a new
+        // incoming VoIP call cannot be started without platform authorization.
+        if shouldReconnect && !connected {
+            connection?.cancel(with:.goingAway,reason:nil)
+            connection=nil
+            openSocket()
+        }
+    }
+
     func dial() {send("call.invite")}
     func accept() {pendingIncoming=false;send("call.accept");phase="accepted"}
     func reject() {pendingIncoming=false;send("call.reject");stopCallKit()}
