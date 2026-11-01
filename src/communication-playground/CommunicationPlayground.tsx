@@ -5,7 +5,7 @@ type Kind='P'|'P+'|'N'|'W';
 type Side='A'|'B';
 type Phase='idle'|'ringing'|'accepted'|'rejected'|'media'|'ended';
 type Route={id:number;from:Kind;to:Kind};
-type CallEvent={type:string;by:Side;at:string;seq:number;callId:string|null;route?:Route;description?:string;connectionState?:string;note?:string};
+type CallEvent={type:string;by:Side;at:string;seq:number;callId:string|null;route?:Route;description?:string;connectionState?:string;note?:string;callState?:string};
 type PlaySession={ok:boolean;id:string;secret:string;route:Route;phase:Phase;callId:string|null;peers:{A:boolean;B:boolean};peerKinds?:Record<Side,string|null>;
  capabilities:{signaling:boolean;browserWebRTC:boolean;nativeIOS:boolean;pstnGateway:boolean;aiRuntime:boolean};expiresAt:string;sequence:number;nativeCode?:string|null;nativeSide?:Side|null;nativeCodes?:{A:string|null;B:string|null}};
 type Signal={type:string;from?:Side;payload?:{type?:string;sdp?:string;candidate?:string|null;sdpMid?:string|null;sdpMLineIndex?:number|null};state?:PlaySession;event?:CallEvent;events?:CallEvent[];peers?:{A:boolean;B:boolean};peerKinds?:Record<Side,string|null>;ok?:boolean;reason?:string;phase?:Phase;requestId?:string;callId?:string};
@@ -53,6 +53,7 @@ export default function CommunicationPlayground(){
  const [scenarioFilter,setScenarioFilter]=useState<'all'|'rtc'|'gateway'>('all');
  const [testNotes,setTestNotes]=useState<Record<number,string>>({});
  const [consultNotes,setConsultNotes]=useState<Record<Side,string>>({A:'',B:''});
+ const [observedCalls,setObservedCalls]=useState<Record<Side,string>>({A:'미수신',B:'미수신'});
  const sockets=useRef<Record<Side,WebSocket|null>>({A:null,B:null});
  const pcs=useRef<Record<Side,RTCPeerConnection|null>>({A:null,B:null});
  const pendingIce=useRef<Record<Side,RTCIceCandidateInit[]>>({A:[],B:[]});
@@ -83,7 +84,7 @@ export default function CommunicationPlayground(){
  };
  const disconnect=()=>{
   (['A','B'] as Side[]).forEach(side=>{sockets.current[side]?.close();sockets.current[side]=null});
-  setConn({A:false,B:false});setPeerKinds({A:null,B:null});stopMedia();
+  setConn({A:false,B:false});setPeerKinds({A:null,B:null});setObservedCalls({A:'미수신',B:'미수신'});stopMedia();
  };
  const api=async(path:string,body:object)=>{
   const res=await fetch(ROOT+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
@@ -136,6 +137,7 @@ export default function CommunicationPlayground(){
    seen.current.add(event.seq);
    log(event.by,'EVENT','#'+event.seq+' '+event.type+(event.note?' · '+event.note:''),'ok');
   }
+  if(event.type==='carrier.status'&&event.callState)setObservedCalls(o=>({...o,[event.by]:event.callState||'unknown'}));
   if(event.type==='call.ringing')setPhase('ringing');
   if(event.type==='call.accept')setPhase('accepted');
   if(event.type==='call.reject')setPhase('rejected');
@@ -295,6 +297,9 @@ export default function CommunicationPlayground(){
     <button onClick={()=>toggleMedia(side,'video')} disabled={!localReady[side]}>{camOn[side]?'영상 끄기':'영상 켜기'}</button>
    </div>
    {k==='P+'&&<div style={{padding:'0 13px 12px',display:'flex',flexDirection:'column',gap:7}}>
+     <div style={{fontSize:11,padding:8,background:'#f0f5fa',borderRadius:6}}>
+      iPhone CallKit 통화 상태: <strong>{observedCalls[side]}</strong> · 통신사 또는 VoIP 출처 구분 불가
+     </div>
      <label style={{fontSize:11,fontWeight:700}}>P+ 개인 상담 메모 · 통화 음성 자동 수집 없음</label>
      <textarea rows={2} value={consultNotes[side]} placeholder="전화 상대 음성이 아닌 직접 입력한 내용을 상대 테스트 플레이어와 공유합니다."
       onChange={e=>setConsultNotes(old=>({...old,[side]:e.target.value}))}
