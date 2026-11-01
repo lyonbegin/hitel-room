@@ -44,6 +44,66 @@ final class HitelCallDeviceClient {
         insert[kSecAttrAccessible as String]=kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(insert as CFDictionary,nil)
     }
+
+    // The Keychain can temporarily be unavailable on a freshly booted
+    // Simulator or before first unlock. Keep an app-sandboxed, protected,
+    // non-backed-up copy so a restart can NEVER silently rotate the public
+    // per-install control URL. This is not shared with the ReplayKit app.
+    private struct IdentityRecord: Codable {
+        let id: String
+        let secret: String
+    }
+    private func identityFile() -> URL? {
+        guard let dir = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first else { return nil }
+        do {
+            try FileManager.default.createDirectory(
+                at: dir, withIntermediateDirectories: true
+            )
+            return dir.appendingPathComponent("hitel-call-device-identity-v1.json")
+        } catch { return nil }
+    }
+    private func valid(_ record: IdentityRecord) -> Bool {
+        UUID(uuidString: record.id) != nil &&
+            record.secret.count == 64 &&
+            record.secret.allSatisfy { $0.isHexDigit }
+    }
+    private func persistedIdentity() -> IdentityRecord? {
+        if let url = identityFile(),
+           let data = try? Data(contentsOf: url),
+           let record = try? JSONDecoder().decode(IdentityRecord.self, from: data),
+           valid(record) {
+            return record
+        }
+        guard let id = load("id"), let secret = load("secret") else {
+            return nil
+        }
+        let record = IdentityRecord(id: id, secret: secret)
+        return valid(record) ? record : nil
+    }
+    @discardableResult
+    private func persistIdentity(_ record: IdentityRecord) -> Bool {
+        guard valid(record), let url = identityFile(),
+              let data = try? JSONEncoder().encode(record) else { return false }
+        do {
+            try data.write(to: url, options: [.atomic])
+            try FileManager.default.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: url.path
+            )
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try url.setResourceValues(values)
+        } catch { return false }
+        // The Keychain remains the primary native security store where
+        // available. A failed SecItemAdd must not lose identity on restart.
+        store("id", record.id)
+        store("secret", record.secret)
+        guard let reloaded = persistedIdentity() else { return false }
+        return reloaded.id == record.id && reloaded.secret == record.secret
+    }
+
     private func cryptoSecret()->String {
         var bytes=[UInt8](repeating:0,count:32)
         let ok=SecRandomCopyBytes(kSecRandomDefault,bytes.count,&bytes)
@@ -68,8 +128,9 @@ final class HitelCallDeviceClient {
         if socket==nil {beginRegistration()}
     }
     private func connectIdentity() async {
-        var id=load("id") ?? UUID().uuidString.lowercased()
-        var secret=load("secret") ?? cryptoSecret()
+        let previous = persistedIdentity()
+        var id = previous?.id ?? UUID().uuidString.lowercased()
+        var secret = previous?.secret ?? cryptoSecret()
         #if targetEnvironment(simulator)
         // Explicit simulation-only credentials permit GitHub's actual iOS
         // Simulator to prove Swift registration and native WebSocket traffic.
@@ -85,7 +146,12 @@ final class HitelCallDeviceClient {
         }
         #endif
         guard secret.count==64 else{onStatus?("보안 난수 생성 실패");return}
-        store("id",id);store("secret",secret)
+        guard persistIdentity(IdentityRecord(id: id, secret: secret)) else {
+            await MainActor.run {
+                self.onStatus?("기기 ID 영구 저장 실패 · 임시 주소로 등록하지 않습니다")
+            }
+            return
+        }
         #if targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-HITEL_CALL_SIMULATOR_VERIFY_KEYCHAIN"),
            let docs=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask).first {
