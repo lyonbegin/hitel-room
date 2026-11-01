@@ -224,8 +224,8 @@ export default function CommunicationPlayground(){
   return()=>{live=false;window.clearInterval(interval)}
  },[devicePageToken,sess?.id]);
  useEffect(()=>{
-  if(!devicePageToken)return;
-  if(sess)return;
+  if(!devicePageToken||sess)return;
+  if(sessionStorage.getItem('hitel.communication.device-session.'+devicePageToken))return;
   void create(12);
  },[devicePageToken]);
 
