@@ -190,9 +190,13 @@ export default function CommunicationPlayground(){
   }catch(e){log(side,'MEDIA',textErr(e),'error')}
  };
  const beginRtc=async()=>{
-  if(!liveRtc||phase!=='accepted'||!localReady.A||!localReady.B){log('RTC','BLOCKED','수락 후 양측 카메라·마이크를 준비해 주십시오.','warn');return}
+  if(!liveRtc||phase!=='accepted'||!localReady.A||(current.to==='W'&&!localReady.B)){
+   log('RTC','BLOCKED','수락 후 브라우저 참가자 카메라·마이크를 준비해 주십시오.','warn');return
+  }
+  if(current.from==='N'){log('RTC','BLOCKED','N 발신자는 아이폰에서 WebRTC Offer를 시작합니다.','warn');return}
   try{
-   makePeer('B');const a=makePeer('A');const offer=await a.createOffer();
+   if(current.to==='W')makePeer('B');
+   const a=makePeer('A');const offer=await a.createOffer();
    await a.setLocalDescription(offer);
    send('A','rtc.offer',{type:offer.type,sdp:offer.sdp});log('RTC','OFFER','실제 WebRTC Offer 전송','ok');
   }catch(e){log('RTC','ERROR',textErr(e),'error')}
@@ -219,6 +223,7 @@ export default function CommunicationPlayground(){
  const actor=(side:Side)=>{
   const k=side==='A'?current.from:current.to;
   const isWeb=k==='W',native=k==='N';
+  const nativeOnline=Boolean(native&&conn[side]&&!sockets.current[side]);
   return <section className="hcp-actor" aria-label={side==='A'?'발신자 플레이어':'수신자 플레이어'}>
    <header><div className="hcp-avatar">{side==='A'?'↗':'↙'}</div><div><small>{side==='A'?'PLAYER A · 발신자':'PLAYER B · 수신자'}</small><h3>{k} <span>{KINDS_LABEL[k]}</span></h3></div><span className={'hcp-status '+(conn[side]?'on':'off')}>{conn[side]?'WS 연결':'WS 미연결'}</span></header>
    <div className="hcp-screen">
@@ -226,11 +231,11 @@ export default function CommunicationPlayground(){
      <div><video ref={side==='A'?localA:localB} autoPlay muted playsInline/><span>로컬 실기기 미디어</span></div>
      <div><video ref={side==='A'?remoteA:remoteB} autoPlay playsInline/><span>상대 미디어</span></div>
     </div>
-    <div className="hcp-screen-caption">{native?'N 역할의 브라우저 시험 대역 — 실제 네이티브 앱 아님':isWeb?'W 실제 브라우저':k==='P+'?'P+ AI 보조·통신사 미연동':'P 통신사 미연동'}</div>
+    <div className="hcp-screen-caption">{native?nativeOnline?'실제 네이티브 iPhone N · 독립 WebSocket 접속 확인':'N 플레이어 대기 · 네이티브 iPhone 앱 코드 입력 필요':isWeb?'W 실제 브라우저':k==='P+'?'P+ AI 보조·통신사 미연동':'P 통신사 미연동'}</div>
     <div className="hcp-chip-line"><span>통화: {phase}</span><span>미디어: {remoteStatus[side]}</span></div>
    </div>
    <div className="hcp-actions">
-    <button onClick={()=>connect(side)} disabled={!sess||conn[side]}>WebSocket 연결</button>
+    <button onClick={()=>connect(side)} disabled={!sess||conn[side]||native}> {native?'iPhone N 코드 사용':'WebSocket 연결'}</button>
     {side==='A'?<button className="primary" onClick={()=>send('A','call.invite')} disabled={!conn.A||!conn.B||!['idle','ended','rejected'].includes(phase)}>발신</button>:
      <><button className="primary" onClick={()=>send('B','call.accept')} disabled={!conn.B||phase!=='ringing'}>수락</button><button onClick={()=>send('B','call.reject')} disabled={!conn.B||phase!=='ringing'}>거절</button></>}
     <button onClick={()=>send(side,'call.end')} disabled={!conn[side]||!['ringing','accepted','media'].includes(phase)}>종료</button>
@@ -273,7 +278,7 @@ export default function CommunicationPlayground(){
       <span>라우팅: {liveRtc?'브라우저 RTC 후보':'통화 신호 시험'}</span><span>실제 네이티브: 미연동</span><span>전화망: 미연동</span><span>AI: 미연동</span>
     </div>
     <div className="hcp-players">{actor('A')}<div className="hcp-between"><span>⇄</span><small>실제 WS<br/>서버</small></div>{actor('B')}</div>
-    <section className="hcp-rtc-cta"><div><strong>실제 브라우저 WebRTC 연결</strong><p>두 브라우저 피어 모두 마이크·카메라 허용 후, 발신과 수락을 완료해야 연결됩니다. W↔W만 완전한 웹 클라이언트 검증이며 N은 브라우저 대역입니다.</p></div><button className="primary" onClick={()=>void beginRtc()} disabled={!liveRtc||phase!=='accepted'||!localReady.A||!localReady.B}>WebRTC 연결 실행</button></section>
+    <section className="hcp-rtc-cta"><div><strong>실제 브라우저 WebRTC 연결</strong><p>W↔W는 양측 브라우저를 준비하십시오. W→N은 W 발신자가 Offer를 보내고 실제 아이폰이 Answer를 보냅니다. N→W는 아이폰이 수락 후 Offer를 전송하므로 W 수신자는 먼저 카메라·마이크를 준비해 주십시오.</p></div><button className="primary" onClick={()=>void beginRtc()} disabled={!liveRtc||current.from==='N'||phase!=='accepted'||!localReady.A||(current.to==='W'&&!localReady.B)}>WebRTC 연결 실행</button></section>
     <section className="hcp-panels">
      <div className="hcp-panel"><div className="hcp-panel-head"><h3>기능별 실시간 검증</h3><strong>{passed} / 7</strong></div>
       <div className="hcp-checks">{checklist.map(item=>{const c=statusChecks.find(x=>x.id===item.id)!;return <div key={item.id}><span className={'hcp-light '+(c.ok?'ok':item.id==='native'||item.id==='pstn'||item.id==='ai'?'unavailable':'pending')}>{c.ok?'✓':'—'}</span><div><strong>{item.title}</strong><p>{c.desc}</p></div></div>})}</div>
