@@ -141,6 +141,12 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
             }
             note("서버 HELLO 확인 · 네이티브 N "+side)
             NSLog("HITEL_NATIVE_CALL_WSS_HELLO side=%@ route=%d",side,routeId)
+            #if targetEnvironment(simulator)
+            if side == "A" && ProcessInfo.processInfo.arguments.contains("-HITEL_CALL_SIMULATOR_AUTODIAL") {
+                note("SIMULATOR_ACTUAL_SWIFT_AUTODIAL")
+                dial()
+            }
+            #endif
         } else if type=="event",let event=json["event"] as? [String:Any] {
             let eventType=event["type"] as? String ?? ""
             let sender=event["by"] as? String ?? ""
