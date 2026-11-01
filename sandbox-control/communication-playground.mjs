@@ -36,18 +36,30 @@ async function parseBody(req){let raw='';for await(const c of req){raw+=c;if(raw
 export async function playgroundRoute(req,res,path){
  expire();
  if(path==='/playground/health'&&req.method==='GET')return json(res,200,{ok:true,service:'hitel-communication-playground',routes:16,activeSessions:sessions.size});
- if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
- if(req.headers.origin!==WEB_ORIGIN||!String(req.headers['content-type']||'').startsWith('application/json'))
+ if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end','/playground/native-join'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
+ if(!String(req.headers['content-type']||'').startsWith('application/json')||
+    (path!=='/playground/native-join'&&req.headers.origin!==WEB_ORIGIN))
   return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
  let data;try{data=await parseBody(req)}catch{return json(res,400,{ok:false,error:'INVALID_JSON'})}
  if(path==='/playground/session'){
   const route=routes.find(r=>r.id===data.routeId);
   if(!route)return json(res,400,{ok:false,error:'INVALID_ROUTE'});
   if(sessions.size>=24)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
-  const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),route,expires:Date.now()+LIFE,
+  const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:String(Math.floor(Math.random()*100000000)).padStart(8,'0'),
+   nativeSecret:randomBytes(32).toString('hex'),nativeSide:route.from==='N'?'A':route.to==='N'?'B':null,
+   route,expires:Date.now()+LIFE,
    phase:'idle',callId:null,peers:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
   sessions.set(s.id,s);
-  return json(res,201,{...sessionState(s),secret:s.secret});
+  return json(res,201,{...sessionState(s),secret:s.secret,
+   nativeCode:s.nativeSide?s.nativeCode:null,nativeSide:s.nativeSide});
+ }
+ if(path==='/playground/native-join'){
+  const code=String(data.code||'');
+  if(!/^\d{8}$/.test(code))return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
+  const s=[...sessions.values()].find(s=>s.nativeSide&&s.nativeCode===code&&s.expires>Date.now());
+  if(!s)return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
+  return json(res,200,{ok:true,id:s.id,secret:s.nativeSecret,side:s.nativeSide,
+   route:s.route,phase:s.phase,expiresAt:new Date(s.expires).toISOString(),mediaEligible:capability(s.route).browserWebRTC});
  }
  const s=sessions.get(String(data.id||''));
  if(!s||!safeEq(s.secret,data.secret))return json(res,404,{ok:false,error:'SESSION_NOT_FOUND'});
@@ -61,7 +73,10 @@ export function playgroundUpgrade(req,socket,head){
  if(u.pathname!=='/playground/socket')return false;
  const s=sessions.get(u.searchParams.get('id')||'');
  const side=u.searchParams.get('side');
- if(req.headers.origin!==WEB_ORIGIN||!s||!['A','B'].includes(side)||!safeEq(s.secret,u.searchParams.get('secret'))){
+ const nativeAuth=req.headers.origin===undefined&&side===s?.nativeSide&&
+   !!s?.nativeSecret&&safeEq(s.nativeSecret,u.searchParams.get('secret'));
+ const browserAuth=req.headers.origin===WEB_ORIGIN&&!!s&&safeEq(s.secret,u.searchParams.get('secret'));
+ if(!s||!['A','B'].includes(side)||!(nativeAuth||browserAuth)){
   socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return true;
  }
  const actor=side,other=side==='A'?'B':'A';
