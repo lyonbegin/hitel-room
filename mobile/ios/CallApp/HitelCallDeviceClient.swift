@@ -59,8 +59,22 @@ final class HitelCallDeviceClient {
         if socket==nil {Task{await connectIdentity()}}
     }
     private func connectIdentity() async {
-        let id=load("id") ?? UUID().uuidString.lowercased()
-        let secret=load("secret") ?? cryptoSecret()
+        var id=load("id") ?? UUID().uuidString.lowercased()
+        var secret=load("secret") ?? cryptoSecret()
+        #if targetEnvironment(simulator)
+        // Explicit simulation-only credentials permit GitHub's actual iOS
+        // Simulator to prove Swift registration and native WebSocket traffic.
+        // Never enabled in physical device IPA.
+        let arguments=ProcessInfo.processInfo.arguments
+        if let i=arguments.firstIndex(of:"-HITEL_CALL_TEST_DEVICE_ID"),
+           let k=arguments.firstIndex(of:"-HITEL_CALL_TEST_DEVICE_SECRET"),
+           i+1<arguments.count,k+1<arguments.count,
+           UUID(uuidString:arguments[i+1]) != nil,
+           arguments[k+1].count == 64 {
+            id=arguments[i+1].lowercased()
+            secret=arguments[k+1]
+        }
+        #endif
         guard secret.count==64 else{onStatus?("보안 난수 생성 실패");return}
         store("id",id);store("secret",secret)
         registeredId=id;registeredSecret=secret
@@ -76,6 +90,9 @@ final class HitelCallDeviceClient {
                 throw NSError(domain:"HITEL.Call.Registration",code:1,
                      userInfo:[NSLocalizedDescriptionKey:"앱 고유 주소 등록 실패"])
             }
+            #if targetEnvironment(simulator)
+            NSLog("HITEL_CALL_SIMULATOR_REGISTERED_ID %@",id)
+            #endif
             await MainActor.run{
                 self.onPageURL?(pageURL)
                 self.onStatus?("고유 주소 등록됨 · 통화 서버 상시 연결 중")
