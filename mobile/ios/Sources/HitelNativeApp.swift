@@ -12,6 +12,7 @@ private let hitelURL = URL(string: "https://hitel-web-preview-production.up.rail
 struct HitelNativeApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPhysicalBroadcast = false
+    @StateObject private var nativeCall = HitelNativePlaygroundModel()
 
     private func signalReactivation() {
         // After user unlocks and brings HITEL to the foreground, notify the
@@ -32,7 +33,12 @@ struct HitelNativeApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack(alignment: .topTrailing) {
-                HitelWebView().ignoresSafeArea()
+                TabView {
+                    HitelNativePlaygroundScreen(model:nativeCall)
+                        .tabItem { Label("네이티브 통화",systemImage:"phone.arrow.up.right") }
+                    HitelWebView().ignoresSafeArea()
+                        .tabItem { Label("HITEL 포털",systemImage:"globe") }
+                }
                 Button {
                     showPhysicalBroadcast = true
                 } label: {
@@ -41,7 +47,7 @@ struct HitelNativeApp: App {
                         .padding(9)
                         .background(.regularMaterial, in: Capsule())
                 }
-                .padding(.top, 50)
+                .padding(.top, 55)
                 .padding(.trailing, 12)
                 .accessibilityLabel("실제 iPhone 화면을 HITEL SDK Lab에 공유")
             }
@@ -50,7 +56,7 @@ struct HitelNativeApp: App {
             }
             .onAppear { signalReactivation() }
             .onChange(of: scenePhase) { phase in
-                if phase == .active { signalReactivation() }
+                if phase == .active { signalReactivation();nativeCall.resumeAfterUnlock() }
             }
         }
     }
