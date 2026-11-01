@@ -11,6 +11,7 @@ on:
       - 'tests/communication-playground-80-flow.mjs'
       - 'tests/communication-pplus-native-smoke.mjs'
       - 'tests/communication-device-url-smoke.mjs'
+      - 'tests/communication-device-url-all-16.mjs'
       - '.github/workflows/communication-playground-check.yml'
   workflow_dispatch:
 concurrency:
@@ -47,3 +48,4 @@ jobs:
       - run: node tests/communication-playground-80-flow.mjs
       - run: node tests/communication-pplus-native-smoke.mjs
       - run: node tests/communication-device-url-smoke.mjs
+      - run: node tests/communication-device-url-all-16.mjs
