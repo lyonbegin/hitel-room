@@ -10,3 +10,4 @@ COPY --from=build /app/dist ./dist
 COPY server.mjs ./server.mjs
 EXPOSE 4173
 CMD ["node","server.mjs"]
+

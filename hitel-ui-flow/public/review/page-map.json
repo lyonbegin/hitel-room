@@ -1,0 +1,1441 @@
+[
+  {
+    "id": "APP-01",
+    "group": "앱 공통",
+    "title": "시작/스플래시",
+    "prefix": "APP",
+    "view": "welcome"
+  },
+  {
+    "id": "APP-02",
+    "group": "앱 공통",
+    "title": "온보딩·첫 지역 선택",
+    "prefix": "APP",
+    "view": "onboarding"
+  },
+  {
+    "id": "APP-03",
+    "group": "앱 공통",
+    "title": "로그인/전화번호 인증",
+    "prefix": "APP",
+    "view": "profile",
+    "tab": "identity"
+  },
+  {
+    "id": "APP-04",
+    "group": "앱 공통",
+    "title": "권한 요청",
+    "prefix": "APP",
+    "view": "devices",
+    "tab": "permissions"
+  },
+  {
+    "id": "APP-05",
+    "group": "앱 공통",
+    "title": "하단 5탭 앱셸",
+    "prefix": "APP",
+    "view": "home"
+  },
+  {
+    "id": "APP-06",
+    "group": "앱 공통",
+    "title": "전체 서비스 메뉴",
+    "prefix": "APP",
+    "view": "services"
+  },
+  {
+    "id": "APP-07",
+    "group": "앱 공통",
+    "title": "지역 선택/설정",
+    "prefix": "APP",
+    "view": "map",
+    "tab": "region"
+  },
+  {
+    "id": "APP-08",
+    "group": "앱 공통",
+    "title": "전역 알림센터",
+    "prefix": "APP",
+    "view": "notifications"
+  },
+  {
+    "id": "APP-09",
+    "group": "앱 공통",
+    "title": "딥링크·공유 유입",
+    "prefix": "APP",
+    "view": "share"
+  },
+  {
+    "id": "HOME-01",
+    "group": "홈 피드",
+    "title": "혼합 추천 홈",
+    "prefix": "HOME",
+    "view": "home"
+  },
+  {
+    "id": "HOME-02",
+    "group": "홈 피드",
+    "title": "카테고리 바로가기",
+    "prefix": "HOME",
+    "view": "services"
+  },
+  {
+    "id": "HOME-03",
+    "group": "홈 피드",
+    "title": "피드 세로 스크롤",
+    "prefix": "HOME",
+    "view": "activities"
+  },
+  {
+    "id": "HOME-04",
+    "group": "홈 피드",
+    "title": "피드 콘텐츠 상세 이동",
+    "prefix": "HOME",
+    "view": "activity"
+  },
+  {
+    "id": "HOME-05",
+    "group": "홈 피드",
+    "title": "피드 카드 더보기",
+    "prefix": "HOME",
+    "view": "activities"
+  },
+  {
+    "id": "HOME-06",
+    "group": "홈 피드",
+    "title": "사진 기반 검색/등록 진입",
+    "prefix": "HOME",
+    "view": "create",
+    "tab": "photo"
+  },
+  {
+    "id": "HOME-07",
+    "group": "홈 피드",
+    "title": "글쓰기 버튼/유형 선택",
+    "prefix": "HOME",
+    "view": "create"
+  },
+  {
+    "id": "HOME-08",
+    "group": "홈 피드",
+    "title": "홈 로딩/빈 피드/실패",
+    "prefix": "HOME",
+    "view": "error",
+    "tab": "feed"
+  },
+  {
+    "id": "SEARCH-01",
+    "group": "검색",
+    "title": "통합 검색 진입",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "통합 검색 진입"
+  },
+  {
+    "id": "SEARCH-02",
+    "group": "검색",
+    "title": "자동완성·추천",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "자동완성·추천"
+  },
+  {
+    "id": "SEARCH-03",
+    "group": "검색",
+    "title": "통합 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "통합 검색 결과"
+  },
+  {
+    "id": "SEARCH-04",
+    "group": "검색",
+    "title": "중고 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "중고 검색 결과"
+  },
+  {
+    "id": "SEARCH-05",
+    "group": "검색",
+    "title": "동네생활 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "동네생활 검색 결과"
+  },
+  {
+    "id": "SEARCH-06",
+    "group": "검색",
+    "title": "업체 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "업체 검색 결과"
+  },
+  {
+    "id": "SEARCH-07",
+    "group": "검색",
+    "title": "모임·카페 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "모임·카페 검색 결과"
+  },
+  {
+    "id": "SEARCH-08",
+    "group": "검색",
+    "title": "알바 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "알바 검색 결과"
+  },
+  {
+    "id": "SEARCH-09",
+    "group": "검색",
+    "title": "부동산·차량 검색 결과",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "부동산·차량 검색 결과"
+  },
+  {
+    "id": "SEARCH-10",
+    "group": "검색",
+    "title": "상세 검색 필터 시트",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "filter"
+  },
+  {
+    "id": "SEARCH-11",
+    "group": "검색",
+    "title": "정렬·지역 범위 전환",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "정렬·지역 범위 전환"
+  },
+  {
+    "id": "SEARCH-12",
+    "group": "검색",
+    "title": "검색 결과 없음",
+    "prefix": "SEARCH",
+    "view": "search",
+    "tab": "empty"
+  },
+  {
+    "id": "ITEM-01",
+    "group": "물품·거래",
+    "title": "중고 전체 목록",
+    "prefix": "ITEM",
+    "view": "activities"
+  },
+  {
+    "id": "ITEM-02",
+    "group": "물품·거래",
+    "title": "중고 분류/필터",
+    "prefix": "ITEM",
+    "view": "search",
+    "tab": "filter"
+  },
+  {
+    "id": "ITEM-03",
+    "group": "물품·거래",
+    "title": "상품 상세",
+    "prefix": "ITEM",
+    "view": "activity"
+  },
+  {
+    "id": "ITEM-04",
+    "group": "물품·거래",
+    "title": "판매글 작성",
+    "prefix": "ITEM",
+    "view": "create",
+    "tab": "sell"
+  },
+  {
+    "id": "ITEM-05",
+    "group": "물품·거래",
+    "title": "AI 판매글/가격 찾기",
+    "prefix": "ITEM",
+    "view": "assistant",
+    "tab": "listing"
+  },
+  {
+    "id": "ITEM-06",
+    "group": "물품·거래",
+    "title": "상품 가격/상태 수정",
+    "prefix": "ITEM",
+    "view": "edit"
+  },
+  {
+    "id": "ITEM-07",
+    "group": "물품·거래",
+    "title": "판매 중/예약 중/완료",
+    "prefix": "ITEM",
+    "view": "activity",
+    "tab": "status"
+  },
+  {
+    "id": "ITEM-08",
+    "group": "물품·거래",
+    "title": "바로구매·배송·결제",
+    "prefix": "ITEM",
+    "view": "commerce"
+  },
+  {
+    "id": "ITEM-09",
+    "group": "물품·거래",
+    "title": "관심/키워드 알림",
+    "prefix": "ITEM",
+    "view": "saved"
+  },
+  {
+    "id": "ITEM-10",
+    "group": "물품·거래",
+    "title": "구매자·판매자 평가",
+    "prefix": "ITEM",
+    "view": "reviews"
+  },
+  {
+    "id": "LIFE-01",
+    "group": "동네생활·정보",
+    "title": "동네생활 메인",
+    "prefix": "LIFE",
+    "view": "notice"
+  },
+  {
+    "id": "LIFE-02",
+    "group": "동네생활·정보",
+    "title": "인기글·주제별 목록",
+    "prefix": "LIFE",
+    "view": "notice",
+    "tab": "popular"
+  },
+  {
+    "id": "LIFE-03",
+    "group": "동네생활·정보",
+    "title": "이웃 질문/답변",
+    "prefix": "LIFE",
+    "view": "notice",
+    "tab": "questions"
+  },
+  {
+    "id": "LIFE-04",
+    "group": "동네생활·정보",
+    "title": "동네생활 글 상세",
+    "prefix": "LIFE",
+    "view": "notice",
+    "tab": "detail"
+  },
+  {
+    "id": "LIFE-05",
+    "group": "동네생활·정보",
+    "title": "동네생활 글 작성",
+    "prefix": "LIFE",
+    "view": "create",
+    "tab": "community"
+  },
+  {
+    "id": "LIFE-06",
+    "group": "동네생활·정보",
+    "title": "분실·찾기·공지",
+    "prefix": "LIFE",
+    "view": "notice",
+    "tab": "lost"
+  },
+  {
+    "id": "LIFE-07",
+    "group": "동네생활·정보",
+    "title": "아파트 커뮤니티",
+    "prefix": "LIFE",
+    "view": "members",
+    "tab": "apt"
+  },
+  {
+    "id": "LIFE-08",
+    "group": "동네생활·정보",
+    "title": "공공기관 프로필/소식",
+    "prefix": "LIFE",
+    "view": "entity"
+  },
+  {
+    "id": "MAP-01",
+    "group": "지도·전문가·업체",
+    "title": "동네지도 메인",
+    "prefix": "MAP",
+    "view": "map"
+  },
+  {
+    "id": "MAP-02",
+    "group": "지도·전문가·업체",
+    "title": "업종 선택/지도 검색",
+    "prefix": "MAP",
+    "view": "map",
+    "tab": "filter"
+  },
+  {
+    "id": "MAP-03",
+    "group": "지도·전문가·업체",
+    "title": "지도/목록 동기화",
+    "prefix": "MAP",
+    "view": "map",
+    "tab": "list"
+  },
+  {
+    "id": "MAP-04",
+    "group": "지도·전문가·업체",
+    "title": "업체 검색 목록",
+    "prefix": "MAP",
+    "view": "entities"
+  },
+  {
+    "id": "MAP-05",
+    "group": "지도·전문가·업체",
+    "title": "업체 상세 프로필",
+    "prefix": "MAP",
+    "view": "entity"
+  },
+  {
+    "id": "MAP-06",
+    "group": "지도·전문가·업체",
+    "title": "업체 후기·음성 후기",
+    "prefix": "MAP",
+    "view": "reviews"
+  },
+  {
+    "id": "MAP-07",
+    "group": "지도·전문가·업체",
+    "title": "단골/구독·쿠폰",
+    "prefix": "MAP",
+    "view": "subscription"
+  },
+  {
+    "id": "MAP-08",
+    "group": "지도·전문가·업체",
+    "title": "업체 소식/예약·문의",
+    "prefix": "MAP",
+    "view": "booking"
+  },
+  {
+    "id": "MAP-09",
+    "group": "지도·전문가·업체",
+    "title": "동네걷기/걸음수·보상",
+    "prefix": "MAP",
+    "view": "rewards"
+  },
+  {
+    "id": "MAP-10",
+    "group": "지도·전문가·업체",
+    "title": "생활서비스 견적 시작",
+    "prefix": "MAP",
+    "view": "create",
+    "tab": "need"
+  },
+  {
+    "id": "MAP-11",
+    "group": "지도·전문가·업체",
+    "title": "견적 질문 스테퍼",
+    "prefix": "MAP",
+    "view": "quote"
+  },
+  {
+    "id": "MAP-12",
+    "group": "지도·전문가·업체",
+    "title": "견적 목록·비교",
+    "prefix": "MAP",
+    "view": "quotes"
+  },
+  {
+    "id": "JOBS-01",
+    "group": "일자리·채용",
+    "title": "알바 목록",
+    "prefix": "JOBS",
+    "view": "activities"
+  },
+  {
+    "id": "JOBS-02",
+    "group": "일자리·채용",
+    "title": "알바 상세",
+    "prefix": "JOBS",
+    "view": "activity"
+  },
+  {
+    "id": "JOBS-03",
+    "group": "일자리·채용",
+    "title": "일자리 필터",
+    "prefix": "JOBS",
+    "view": "search",
+    "tab": "filter"
+  },
+  {
+    "id": "JOBS-04",
+    "group": "일자리·채용",
+    "title": "지원서/구직 등록",
+    "prefix": "JOBS",
+    "view": "create",
+    "tab": "inquiry"
+  },
+  {
+    "id": "JOBS-05",
+    "group": "일자리·채용",
+    "title": "채용공고 작성",
+    "prefix": "JOBS",
+    "view": "create",
+    "tab": "recruit"
+  },
+  {
+    "id": "JOBS-06",
+    "group": "일자리·채용",
+    "title": "지원자 목록/관리",
+    "prefix": "JOBS",
+    "view": "workspace",
+    "tab": "participants"
+  },
+  {
+    "id": "JOBS-07",
+    "group": "일자리·채용",
+    "title": "면접·지원 후속",
+    "prefix": "JOBS",
+    "view": "records"
+  },
+  {
+    "id": "REALTY-01",
+    "group": "부동산",
+    "title": "부동산 지도/목록",
+    "prefix": "REALTY",
+    "view": "map"
+  },
+  {
+    "id": "REALTY-02",
+    "group": "부동산",
+    "title": "부동산 상세 필터",
+    "prefix": "REALTY",
+    "view": "search",
+    "tab": "filter"
+  },
+  {
+    "id": "REALTY-03",
+    "group": "부동산",
+    "title": "매물 상세",
+    "prefix": "REALTY",
+    "view": "activity"
+  },
+  {
+    "id": "REALTY-04",
+    "group": "부동산",
+    "title": "방문 문의·예약",
+    "prefix": "REALTY",
+    "view": "booking"
+  },
+  {
+    "id": "REALTY-05",
+    "group": "부동산",
+    "title": "부동산 매물 작성/관리",
+    "prefix": "REALTY",
+    "view": "create",
+    "tab": "sell"
+  },
+  {
+    "id": "REALTY-06",
+    "group": "부동산",
+    "title": "살아본 후기 지도",
+    "prefix": "REALTY",
+    "view": "reviews"
+  },
+  {
+    "id": "CAR-01",
+    "group": "중고차",
+    "title": "차량 목록",
+    "prefix": "CAR",
+    "view": "activities"
+  },
+  {
+    "id": "CAR-02",
+    "group": "중고차",
+    "title": "차량 검색/필터",
+    "prefix": "CAR",
+    "view": "search",
+    "tab": "filter"
+  },
+  {
+    "id": "CAR-03",
+    "group": "중고차",
+    "title": "차량 상세",
+    "prefix": "CAR",
+    "view": "activity"
+  },
+  {
+    "id": "CAR-04",
+    "group": "중고차",
+    "title": "차량 등록/상태관리",
+    "prefix": "CAR",
+    "view": "create",
+    "tab": "sell"
+  },
+  {
+    "id": "GROUP-01",
+    "group": "모임·커뮤니티",
+    "title": "모임 탐색 목록",
+    "prefix": "GROUP",
+    "view": "entities"
+  },
+  {
+    "id": "GROUP-02",
+    "group": "모임·커뮤니티",
+    "title": "모임 상세",
+    "prefix": "GROUP",
+    "view": "entity"
+  },
+  {
+    "id": "GROUP-03",
+    "group": "모임·커뮤니티",
+    "title": "모임 개설",
+    "prefix": "GROUP",
+    "view": "create",
+    "tab": "community"
+  },
+  {
+    "id": "GROUP-04",
+    "group": "모임·커뮤니티",
+    "title": "모임 가입 승인/멤버",
+    "prefix": "GROUP",
+    "view": "members"
+  },
+  {
+    "id": "GROUP-05",
+    "group": "모임·커뮤니티",
+    "title": "모임 일정·반복 일정",
+    "prefix": "GROUP",
+    "view": "schedules"
+  },
+  {
+    "id": "GROUP-06",
+    "group": "모임·커뮤니티",
+    "title": "모임 대화방",
+    "prefix": "GROUP",
+    "view": "chat"
+  },
+  {
+    "id": "GROUP-07",
+    "group": "모임·커뮤니티",
+    "title": "모임 후기/인증글",
+    "prefix": "GROUP",
+    "view": "reviews"
+  },
+  {
+    "id": "CAFE-01",
+    "group": "카페·게시판",
+    "title": "카페 카테고리/탐색",
+    "prefix": "CAFE",
+    "view": "entities"
+  },
+  {
+    "id": "CAFE-02",
+    "group": "카페·게시판",
+    "title": "카페 상세/게시판",
+    "prefix": "CAFE",
+    "view": "notice"
+  },
+  {
+    "id": "CAFE-03",
+    "group": "카페·게시판",
+    "title": "카페 가입·운영",
+    "prefix": "CAFE",
+    "view": "members"
+  },
+  {
+    "id": "CAFE-04",
+    "group": "카페·게시판",
+    "title": "카페 글·댓글",
+    "prefix": "CAFE",
+    "view": "notice",
+    "tab": "detail"
+  },
+  {
+    "id": "CHAT-01",
+    "group": "대화·전화·AI",
+    "title": "채팅 목록",
+    "prefix": "CHAT",
+    "view": "messages"
+  },
+  {
+    "id": "CHAT-02",
+    "group": "대화·전화·AI",
+    "title": "1:1 채팅방",
+    "prefix": "CHAT",
+    "view": "chat"
+  },
+  {
+    "id": "CHAT-03",
+    "group": "대화·전화·AI",
+    "title": "채팅 내 컨텍스트 카드",
+    "prefix": "CHAT",
+    "view": "activity"
+  },
+  {
+    "id": "CHAT-04",
+    "group": "대화·전화·AI",
+    "title": "채팅 설정/차단/신고",
+    "prefix": "CHAT",
+    "view": "settings",
+    "tab": "conversation"
+  },
+  {
+    "id": "CHAT-05",
+    "group": "대화·전화·AI",
+    "title": "거래 약속/송금/택배 카드",
+    "prefix": "CHAT",
+    "view": "commerce"
+  },
+  {
+    "id": "CHAT-06",
+    "group": "대화·전화·AI",
+    "title": "전화 연결 경로 안내",
+    "prefix": "CHAT",
+    "view": "connect"
+  },
+  {
+    "id": "CHAT-07",
+    "group": "대화·전화·AI",
+    "title": "앱 음성 통화",
+    "prefix": "CHAT",
+    "view": "call",
+    "tab": "voice"
+  },
+  {
+    "id": "CHAT-08",
+    "group": "대화·전화·AI",
+    "title": "영상 통화/영상 면접",
+    "prefix": "CHAT",
+    "view": "call",
+    "tab": "video"
+  },
+  {
+    "id": "CHAT-09",
+    "group": "대화·전화·AI",
+    "title": "다자 영상/음성방",
+    "prefix": "CHAT",
+    "view": "call",
+    "tab": "group"
+  },
+  {
+    "id": "CHAT-10",
+    "group": "대화·전화·AI",
+    "title": "AI 실시간 보조 패널",
+    "prefix": "CHAT",
+    "view": "materials",
+    "tab": "ai"
+  },
+  {
+    "id": "CHAT-11",
+    "group": "대화·전화·AI",
+    "title": "통화 후 기록/후속작업",
+    "prefix": "CHAT",
+    "view": "records"
+  },
+  {
+    "id": "MY-01",
+    "group": "내 활동·설정",
+    "title": "나의 프로필/설정 메인",
+    "prefix": "MY",
+    "view": "profile"
+  },
+  {
+    "id": "MY-02",
+    "group": "내 활동·설정",
+    "title": "판매·구매내역",
+    "prefix": "MY",
+    "view": "workspace",
+    "tab": "commerce"
+  },
+  {
+    "id": "MY-03",
+    "group": "내 활동·설정",
+    "title": "관심목록·키워드알림",
+    "prefix": "MY",
+    "view": "saved"
+  },
+  {
+    "id": "MY-04",
+    "group": "내 활동·설정",
+    "title": "내 글·댓글·활동",
+    "prefix": "MY",
+    "view": "workspace",
+    "tab": "activities"
+  },
+  {
+    "id": "MY-05",
+    "group": "내 활동·설정",
+    "title": "내 채용/구직",
+    "prefix": "MY",
+    "view": "workspace",
+    "tab": "participants"
+  },
+  {
+    "id": "MY-06",
+    "group": "내 활동·설정",
+    "title": "내 예약·프로그램",
+    "prefix": "MY",
+    "view": "schedules"
+  },
+  {
+    "id": "MY-07",
+    "group": "내 활동·설정",
+    "title": "내 모임/카페",
+    "prefix": "MY",
+    "view": "members"
+  },
+  {
+    "id": "MY-08",
+    "group": "내 활동·설정",
+    "title": "동네 설정·동네 인증",
+    "prefix": "MY",
+    "view": "map",
+    "tab": "region"
+  },
+  {
+    "id": "MY-09",
+    "group": "내 활동·설정",
+    "title": "통화 설정·개인 AI",
+    "prefix": "MY",
+    "view": "settings",
+    "tab": "ai"
+  },
+  {
+    "id": "MY-10",
+    "group": "내 활동·설정",
+    "title": "결제/정산·영수증",
+    "prefix": "MY",
+    "view": "commerce"
+  },
+  {
+    "id": "MY-11",
+    "group": "내 활동·설정",
+    "title": "알림 환경설정",
+    "prefix": "MY",
+    "view": "settings",
+    "tab": "notifications"
+  },
+  {
+    "id": "MY-12",
+    "group": "내 활동·설정",
+    "title": "고객센터/정책·신고",
+    "prefix": "MY",
+    "view": "support"
+  },
+  {
+    "id": "MY-13",
+    "group": "내 활동·설정",
+    "title": "고객센터 AI 검색",
+    "prefix": "MY",
+    "view": "support",
+    "tab": "search"
+  },
+  {
+    "id": "BIZ-01",
+    "group": "업체·기관 관리",
+    "title": "업체·기관 계정 개설",
+    "prefix": "BIZ",
+    "view": "entityEdit"
+  },
+  {
+    "id": "BIZ-02",
+    "group": "업체·기관 관리",
+    "title": "업체 프로필 편집",
+    "prefix": "BIZ",
+    "view": "entityEdit"
+  },
+  {
+    "id": "BIZ-03",
+    "group": "업체·기관 관리",
+    "title": "비즈 관리자 대시보드",
+    "prefix": "BIZ",
+    "view": "workspace"
+  },
+  {
+    "id": "BIZ-04",
+    "group": "업체·기관 관리",
+    "title": "예약/견적/상담 관리",
+    "prefix": "BIZ",
+    "view": "workspace",
+    "tab": "reservations"
+  },
+  {
+    "id": "BIZ-05",
+    "group": "업체·기관 관리",
+    "title": "소식·쿠폰/프로모션 관리",
+    "prefix": "BIZ",
+    "view": "promotion"
+  },
+  {
+    "id": "BIZ-06",
+    "group": "업체·기관 관리",
+    "title": "사업자 권한/직원",
+    "prefix": "BIZ",
+    "view": "permissions"
+  },
+  {
+    "id": "COMMON-01",
+    "group": "공통 화면·예외",
+    "title": "공유시트/외부 링크",
+    "prefix": "COMMON",
+    "view": "share"
+  },
+  {
+    "id": "COMMON-02",
+    "group": "공통 화면·예외",
+    "title": "경고/확인/삭제 모달",
+    "prefix": "COMMON",
+    "view": "confirm"
+  },
+  {
+    "id": "COMMON-03",
+    "group": "공통 화면·예외",
+    "title": "네트워크/서버 오류",
+    "prefix": "COMMON",
+    "view": "error",
+    "tab": "network"
+  },
+  {
+    "id": "COMMON-04",
+    "group": "공통 화면·예외",
+    "title": "빈 목록/권한 부족",
+    "prefix": "COMMON",
+    "view": "error",
+    "tab": "permission"
+  },
+  {
+    "id": "COMMON-05",
+    "group": "공통 화면·예외",
+    "title": "접근성/큰글씨/다크모드",
+    "prefix": "COMMON",
+    "view": "settings",
+    "tab": "accessibility"
+  },
+  {
+    "id": "SVC-01",
+    "group": "독립 서비스 1계층",
+    "title": "교육·레슨·과외 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "교육·레슨·과외 홈"
+  },
+  {
+    "id": "SVC-02",
+    "group": "독립 서비스 1계층",
+    "title": "시험·학습 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "시험·학습 홈"
+  },
+  {
+    "id": "SVC-03",
+    "group": "독립 서비스 1계층",
+    "title": "의료·건강 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "의료·건강 홈"
+  },
+  {
+    "id": "SVC-04",
+    "group": "독립 서비스 1계층",
+    "title": "뷰티·미용 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "뷰티·미용 홈"
+  },
+  {
+    "id": "SVC-05",
+    "group": "독립 서비스 1계층",
+    "title": "돌봄·요양 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "돌봄·요양 홈"
+  },
+  {
+    "id": "SVC-06",
+    "group": "독립 서비스 1계층",
+    "title": "법률·세무·노무·금융 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "법률·세무·노무·금융 홈"
+  },
+  {
+    "id": "SVC-07",
+    "group": "독립 서비스 1계층",
+    "title": "심리·일반상담·운세 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "심리·일반상담·운세 홈"
+  },
+  {
+    "id": "SVC-08",
+    "group": "독립 서비스 1계층",
+    "title": "IT·AI·프로그램 개발 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "IT·AI·프로그램 개발 홈"
+  },
+  {
+    "id": "SVC-09",
+    "group": "독립 서비스 1계층",
+    "title": "디자인·콘텐츠·미디어 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "디자인·콘텐츠·미디어 홈"
+  },
+  {
+    "id": "SVC-10",
+    "group": "독립 서비스 1계층",
+    "title": "청소·미화·방역 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "청소·미화·방역 홈"
+  },
+  {
+    "id": "SVC-11",
+    "group": "독립 서비스 1계층",
+    "title": "수리·설치·인테리어 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "수리·설치·인테리어 홈"
+  },
+  {
+    "id": "SVC-12",
+    "group": "독립 서비스 1계층",
+    "title": "운송·이사·대여 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "운송·이사·대여 홈"
+  },
+  {
+    "id": "SVC-13",
+    "group": "독립 서비스 1계층",
+    "title": "숙박·여행·관광 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "숙박·여행·관광 홈"
+  },
+  {
+    "id": "SVC-14",
+    "group": "독립 서비스 1계층",
+    "title": "공연·행사·웨딩 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "공연·행사·웨딩 홈"
+  },
+  {
+    "id": "SVC-15",
+    "group": "독립 서비스 1계층",
+    "title": "마케팅·광고·영업 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "마케팅·광고·영업 홈"
+  },
+  {
+    "id": "SVC-16",
+    "group": "독립 서비스 1계층",
+    "title": "일자리·전문인력·프로젝트 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "일자리·전문인력·프로젝트 홈"
+  },
+  {
+    "id": "SVC-17",
+    "group": "독립 서비스 1계층",
+    "title": "공공기관·대표번호 연결 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "공공기관·대표번호 연결 홈"
+  },
+  {
+    "id": "SVC-18",
+    "group": "독립 서비스 1계층",
+    "title": "프로그램·예약 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "프로그램·예약 홈"
+  },
+  {
+    "id": "SVC-19",
+    "group": "독립 서비스 1계층",
+    "title": "실시간 통화·영상·온라인방 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "실시간 통화·영상·온라인방 홈"
+  },
+  {
+    "id": "SVC-20",
+    "group": "독립 서비스 1계층",
+    "title": "물품·중고거래 독립 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "물품·중고거래 독립 홈"
+  },
+  {
+    "id": "SVC-21",
+    "group": "독립 서비스 1계층",
+    "title": "부동산 독립 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "부동산 독립 홈"
+  },
+  {
+    "id": "SVC-22",
+    "group": "독립 서비스 1계층",
+    "title": "중고차 독립 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "중고차 독립 홈"
+  },
+  {
+    "id": "SVC-23",
+    "group": "독립 서비스 1계층",
+    "title": "모임·커뮤니티 독립 홈",
+    "prefix": "SVC",
+    "view": "service",
+    "tab": "모임·커뮤니티 독립 홈"
+  },
+  {
+    "id": "NEW-MAKE-01",
+    "group": "공통 만들기",
+    "title": "만들기 목적 선택",
+    "prefix": "NEW-MAKE",
+    "view": "create"
+  },
+  {
+    "id": "NEW-MAKE-02",
+    "group": "공통 만들기",
+    "title": "서비스 제공 등록",
+    "prefix": "NEW-MAKE",
+    "view": "create",
+    "tab": "offer"
+  },
+  {
+    "id": "NEW-MAKE-03",
+    "group": "공통 만들기",
+    "title": "서비스 요청 등록",
+    "prefix": "NEW-MAKE",
+    "view": "create",
+    "tab": "need"
+  },
+  {
+    "id": "NEW-MAKE-04",
+    "group": "공통 만들기",
+    "title": "모집 등록",
+    "prefix": "NEW-MAKE",
+    "view": "create",
+    "tab": "recruit"
+  },
+  {
+    "id": "NEW-MAKE-05",
+    "group": "공통 만들기",
+    "title": "판매·대여·매물 등록",
+    "prefix": "NEW-MAKE",
+    "view": "create",
+    "tab": "sell"
+  },
+  {
+    "id": "NEW-MAKE-06",
+    "group": "공통 만들기",
+    "title": "소속 공동체·방 만들기",
+    "prefix": "NEW-MAKE",
+    "view": "create",
+    "tab": "community"
+  },
+  {
+    "id": "NEW-MAKE-07",
+    "group": "공통 만들기",
+    "title": "프로그램·수업 개설",
+    "prefix": "NEW-MAKE",
+    "view": "create",
+    "tab": "program"
+  },
+  {
+    "id": "NEW-MAKE-08",
+    "group": "공통 만들기",
+    "title": "자연어→분야·폼 제안",
+    "prefix": "NEW-MAKE",
+    "view": "assistant"
+  },
+  {
+    "id": "NEW-MAKE-09",
+    "group": "공통 만들기",
+    "title": "공통 미리보기·상태관리",
+    "prefix": "NEW-MAKE",
+    "view": "draft"
+  },
+  {
+    "id": "NEW-REL-01",
+    "group": "커뮤니티·소속",
+    "title": "기존 관계망 찾기",
+    "prefix": "NEW-REL",
+    "view": "entities"
+  },
+  {
+    "id": "NEW-REL-02",
+    "group": "커뮤니티·소속",
+    "title": "기존 공동체 상세",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "기존 공동체 상세"
+  },
+  {
+    "id": "NEW-REL-03",
+    "group": "커뮤니티·소속",
+    "title": "학교 반·학년 모임",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "학교 반·학년 모임"
+  },
+  {
+    "id": "NEW-REL-04",
+    "group": "커뮤니티·소속",
+    "title": "종교 공동체 하위그룹",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "종교 공동체 하위그룹"
+  },
+  {
+    "id": "NEW-REL-05",
+    "group": "커뮤니티·소속",
+    "title": "직장·부서·프로젝트팀",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "직장·부서·프로젝트팀"
+  },
+  {
+    "id": "NEW-REL-06",
+    "group": "커뮤니티·소속",
+    "title": "아파트·주거단지 소속방",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "아파트·주거단지 소속방"
+  },
+  {
+    "id": "NEW-REL-07",
+    "group": "커뮤니티·소속",
+    "title": "동문·동창·군 전우·기수",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "동문·동창·군 전우·기수"
+  },
+  {
+    "id": "NEW-REL-08",
+    "group": "커뮤니티·소속",
+    "title": "운동팀·합창단·동아리",
+    "prefix": "NEW-REL",
+    "view": "entity",
+    "tab": "운동팀·합창단·동아리"
+  },
+  {
+    "id": "NEW-REL-09",
+    "group": "커뮤니티·소속",
+    "title": "구성원·운영자 확인",
+    "prefix": "NEW-REL",
+    "view": "members"
+  },
+  {
+    "id": "NEW-REL-10",
+    "group": "커뮤니티·소속",
+    "title": "공개 Q&A·관심사 포럼",
+    "prefix": "NEW-REL",
+    "view": "notice",
+    "tab": "questions"
+  },
+  {
+    "id": "NEW-COM-01",
+    "group": "HITEL 실시간 통신",
+    "title": "통합 다이얼러·연결 검색",
+    "prefix": "NEW-COM",
+    "view": "connect"
+  },
+  {
+    "id": "NEW-COM-02",
+    "group": "HITEL 실시간 통신",
+    "title": "통신 경로 능력·동의 선택",
+    "prefix": "NEW-COM",
+    "view": "connect",
+    "tab": "capabilities"
+  },
+  {
+    "id": "NEW-COM-03",
+    "group": "HITEL 실시간 통신",
+    "title": "앱 수신통화 팝업·부재중",
+    "prefix": "NEW-COM",
+    "view": "incoming"
+  },
+  {
+    "id": "NEW-COM-04",
+    "group": "HITEL 실시간 통신",
+    "title": "1:1 영상 통화 준비·대기",
+    "prefix": "NEW-COM",
+    "view": "waiting"
+  },
+  {
+    "id": "NEW-COM-05",
+    "group": "HITEL 실시간 통신",
+    "title": "다자 영상 회의실",
+    "prefix": "NEW-COM",
+    "view": "call",
+    "tab": "group"
+  },
+  {
+    "id": "NEW-COM-06",
+    "group": "HITEL 실시간 통신",
+    "title": "영상 중 역할별 자료패널",
+    "prefix": "NEW-COM",
+    "view": "materials"
+  },
+  {
+    "id": "NEW-COM-07",
+    "group": "HITEL 실시간 통신",
+    "title": "개인 AI 통신 보조 패널",
+    "prefix": "NEW-COM",
+    "view": "materials",
+    "tab": "ai"
+  },
+  {
+    "id": "NEW-COM-08",
+    "group": "HITEL 실시간 통신",
+    "title": "통화 품질·재연결·장치설정",
+    "prefix": "NEW-COM",
+    "view": "devices"
+  },
+  {
+    "id": "NEW-COM-09",
+    "group": "HITEL 실시간 통신",
+    "title": "통화/수업/면접 사후 처리",
+    "prefix": "NEW-COM",
+    "view": "records"
+  },
+  {
+    "id": "NEW-ACT-01",
+    "group": "실제 활동 실행",
+    "title": "1:1 과외 실시간 교실",
+    "prefix": "NEW-ACT",
+    "view": "activity",
+    "tab": "room"
+  },
+  {
+    "id": "NEW-ACT-02",
+    "group": "실제 활동 실행",
+    "title": "상담 접수·예약·영상룸",
+    "prefix": "NEW-ACT",
+    "view": "booking"
+  },
+  {
+    "id": "NEW-ACT-03",
+    "group": "실제 활동 실행",
+    "title": "면접 대기실·화상면접",
+    "prefix": "NEW-ACT",
+    "view": "waiting"
+  },
+  {
+    "id": "NEW-ACT-04",
+    "group": "실제 활동 실행",
+    "title": "프로젝트 협업·납품방",
+    "prefix": "NEW-ACT",
+    "view": "activity",
+    "tab": "delivery"
+  },
+  {
+    "id": "NEW-ACT-05",
+    "group": "실제 활동 실행",
+    "title": "서비스 현장작업 진행방",
+    "prefix": "NEW-ACT",
+    "view": "activity",
+    "tab": "work"
+  },
+  {
+    "id": "NEW-ACT-06",
+    "group": "실제 활동 실행",
+    "title": "프로그램 신청·회차별 예약",
+    "prefix": "NEW-ACT",
+    "view": "booking"
+  },
+  {
+    "id": "NEW-ACT-07",
+    "group": "실제 활동 실행",
+    "title": "그룹 모임·출석·투표",
+    "prefix": "NEW-ACT",
+    "view": "attendance"
+  },
+  {
+    "id": "NEW-ACT-08",
+    "group": "실제 활동 실행",
+    "title": "전문가 인증·신뢰 정보",
+    "prefix": "NEW-ACT",
+    "view": "entity",
+    "tab": "credentials"
+  },
+  {
+    "id": "NEW-ORG-01",
+    "group": "기관·기업",
+    "title": "공식 기관/기업 허브",
+    "prefix": "NEW-ORG",
+    "view": "entities"
+  },
+  {
+    "id": "NEW-ORG-02",
+    "group": "기관·기업",
+    "title": "부서별 상담·연결 상세",
+    "prefix": "NEW-ORG",
+    "view": "entity"
+  },
+  {
+    "id": "NEW-ORG-03",
+    "group": "기관·기업",
+    "title": "기관 문의 접수·상태조회",
+    "prefix": "NEW-ORG",
+    "view": "activity",
+    "tab": "request"
+  },
+  {
+    "id": "NEW-ORG-04",
+    "group": "기관·기업",
+    "title": "기관 프로그램/시설 예약",
+    "prefix": "NEW-ORG",
+    "view": "booking"
+  },
+  {
+    "id": "NEW-MY-01",
+    "group": "계정·통합 관리",
+    "title": "내 역할별 작업 현황",
+    "prefix": "NEW-MY",
+    "view": "workspace"
+  },
+  {
+    "id": "NEW-MY-02",
+    "group": "계정·통합 관리",
+    "title": "활동 통합 캘린더",
+    "prefix": "NEW-MY",
+    "view": "schedules"
+  },
+  {
+    "id": "NEW-MY-03",
+    "group": "계정·통합 관리",
+    "title": "내 소속·가입 승인·초대",
+    "prefix": "NEW-MY",
+    "view": "members"
+  },
+  {
+    "id": "NEW-MY-04",
+    "group": "계정·통합 관리",
+    "title": "내 서비스 제공자 관리",
+    "prefix": "NEW-MY",
+    "view": "workspace",
+    "tab": "services"
+  },
+  {
+    "id": "NEW-MY-05",
+    "group": "계정·통합 관리",
+    "title": "내 통신 기록·AI 역할",
+    "prefix": "NEW-MY",
+    "view": "records"
+  },
+  {
+    "id": "NEW-MY-06",
+    "group": "계정·통합 관리",
+    "title": "인증·권한·개인정보 관리",
+    "prefix": "NEW-MY",
+    "view": "permissions"
+  }
+]
