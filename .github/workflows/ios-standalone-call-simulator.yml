@@ -76,7 +76,8 @@ jobs:
           assert len(lines)>=2, "Keychain identity audit missing two native app launches"
           assert len(set(lines))==1, "The iPhone app changed identity and its URL after a restart"
           uuid.UUID(lines[0])
-          print("HITEL_CALL_REAL_SWIFT_KEYCHAIN_IDENTITY_RELAUNCH_PASS")
+          assert lines[0].lower()==__import__('os').environ['HITEL_CALL_SIM_ID'].lower(), 'Native app did not preserve its ORIGINAL registered device ID'
+          print("HITEL_CALL_REAL_SWIFT_PERSISTENT_IDENTITY_RELAUNCH_PASS")
           PY
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/hitel-call-page.png"
           test -s "$RUNNER_TEMP/hitel-call-page.png"
