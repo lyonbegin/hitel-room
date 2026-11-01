@@ -288,7 +288,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
         accept();action.fulfill()
     }
     func provider(_ provider:CXProvider,perform action:CXEndCallAction) {
-        if phase=="ringing"&&side=="B"{reject()}else{end()}
+        if phase == "ringing" && side == "B" { reject() } else { end() }
         action.fulfill()
     }
     func provider(_ provider:CXProvider,didActivate audioSession:AVAudioSession) {
