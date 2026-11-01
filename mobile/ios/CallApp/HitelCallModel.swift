@@ -69,6 +69,11 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
                   let secret=assignment["secret"] as? String,
                   let role=assignment["side"] as? String,
                   let route=assignment["route"] as? [String:Any] else{return}
+            if self.sessionId == id && self.side == role && self.connected {
+                self.note("기존 통화 세션 유지 · 중복 앱 배정 무시")
+                return
+            }
+            self.stopMedia()
             self.connection?.cancel(with:.normalClosure,reason:nil)
             self.connected=false
             self.sessionId=id;self.secret=secret;self.side=role
@@ -158,7 +163,9 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
             case "call.ringing":
                 phase="ringing"
                 if side == "B" && sender != "B" {
-                    incomingCall()
+                    // P+ observes the real iOS Phone call separately. A
+                    // Playground signal is NOT a carrier incoming call.
+                    if endpointType == "N" {incomingCall()}
                     #if targetEnvironment(simulator)
                     if ProcessInfo.processInfo.arguments.contains("-HITEL_NATIVE_AUTOANSWER") {
                         note("SIMULATOR_TEST_AUTOANSWER_CALLKIT_EVENT")
