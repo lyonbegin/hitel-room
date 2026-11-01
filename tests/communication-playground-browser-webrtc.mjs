@@ -45,12 +45,12 @@ try{
   await page.getByText('양측 ICE 연결 확인',{exact:false}).waitFor({timeout:20_000});
  });
  await step('END_CALL',async()=>{await caller.getByRole('button',{name:'종료'}).click()});
- await step('DISPLAY_TWO_REAL_IPHONE_PAIRING_CODES_FOR_N_TO_N',async()=>{
+ await step('NO_EIGHT_DIGIT_NATIVE_PAIRING_UI',async()=>{
   await page.locator('.hcp-route-list button').filter({hasText:'N → N'}).click();
-  await page.getByText('SCENARIO 11 / 16').waitFor({timeout:12_000});
-  await page.getByText('N A JOIN CODE').waitFor({timeout:12_000});
-  await page.getByText('N B JOIN CODE').waitFor({timeout:12_000});
-  await page.screenshot({path:'playground-two-iphone-pairing-codes.png',fullPage:true});
+  await page.getByText('SCENARIO 11 / 16').waitFor({timeout:12000});
+  if(await page.getByText(/JOIN CODE|PAIR CODE|8자리 참가코드/).count())
+   throw Error('Deprecated PIN pairing UI is still visible');
+  console.log('NO_NATIVE_PIN_PAIRING_UI_PASS');
  });
  await step('RENDER_ALL_16_ROUTING_UI_VARIANTS',async()=>{
   for(let id=1;id<=16;id++){
@@ -59,15 +59,14 @@ try{
    await page.getByText('서버 세션 있음').waitFor({timeout:12000});
    const from=['P','P+','N','W'][Math.floor((id-1)/4)];
    const to=['P','P+','N','W'][(id-1)%4];
-   const expectCodes=Number(from==='N'||from==='P+')+Number(to==='N'||to==='P+');
-   const codes=await page.getByText(/JOIN CODE/).count();
-   if(codes!==expectCodes)throw Error('SC'+id+' expected '+expectCodes+' native/P+ codes but found '+codes);
+   const codes=await page.getByText(/JOIN CODE|PAIR CODE|8자리 참가코드/).count();
+   if(codes!==0)throw Error('SC'+id+' still asks for a pairing PIN');
    if(from==='P+'||to==='P+'){
     const count=await page.locator('.hcp-actor textarea').count();
     const expectedPplus=Number(from==='P+')+Number(to==='P+');
     if(count!==expectedPplus)throw Error('SC'+id+' P+ note panes '+count+' (expected '+expectedPplus+')');
    }
-   console.log('PLAYGROUND_SCENARIO_'+String(id).padStart(2,'0')+'_UI_PASS',{from,to,joinCodes:codes});
+   console.log('PLAYGROUND_SCENARIO_'+String(id).padStart(2,'0')+'_UI_PASS',{from,to,deprecatedPinCount:codes});
   }
  });
  await step('MOBILE_PLAYGROUND_LAYOUT',async()=>{
