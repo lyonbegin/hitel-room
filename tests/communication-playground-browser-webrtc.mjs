@@ -75,6 +75,11 @@ try{
   await page.locator('.hcp-matrix-row button').first().waitFor();
   await page.screenshot({path:'playground-mobile-390.png',fullPage:true});
  });
+ await step('EXECUTE_ALL_16_INDEPENDENT_WEB_WS_TESTS_IN_REAL_UI',async()=>{
+  await page.getByRole('button',{name:'16개 WS 일괄 검증 실행'}).click();
+  await page.getByText('완료 16/16 통과, 0 실패').waitFor({timeout:115_000});
+  console.log('CHROMIUM_16_OF_16_LIVE_UI_AUTOVERIFICATION_PASS');
+ });
  if(errors.length)throw Error('BROWSER_JS_ERRORS: '+errors.join(' | '));
  console.log('COMM_PLAYGROUND_REAL_CHROME_WEBRTC_MEDIA_PASS',{scenario:16,websocketPeers:2,
    sdp:true,ice:true,dtls:true,remoteAudioTracks:true,remoteVideoTracks:true,hardwareIphone:false});
