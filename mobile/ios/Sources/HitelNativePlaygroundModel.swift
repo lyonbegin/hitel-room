@@ -214,6 +214,12 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
         }
     }
 
+    func reportSystemCallState(_ state:String) {
+        // This is a CXCallObserver event and may include other VoIP apps.
+        // It does NOT confirm a cellular origin or permit recording audio.
+        guard endpointType == "P+" else{return}
+        send("carrier.status",payload:["state":state])
+    }
     func sendAssistanceNote(_ note:String) {
         let trimmed=String(note.trimmingCharacters(in:.whitespacesAndNewlines).prefix(250))
         guard !trimmed.isEmpty else{return}
