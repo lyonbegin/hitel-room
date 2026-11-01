@@ -45,6 +45,7 @@ export default function CommunicationPlayground(){
  const [remoteStatus,setRemoteStatus]=useState<Record<Side,string>>({A:'연결 전',B:'연결 전'});
  const [localReady,setLocalReady]=useState<Record<Side,boolean>>({A:false,B:false});
  const [rtcReady,setRtcReady]=useState<Record<Side,boolean>>({A:false,B:false});
+ const [reportedIce,setReportedIce]=useState<Record<Side,boolean>>({A:false,B:false});
  const [micOn,setMicOn]=useState<Record<Side,boolean>>({A:true,B:true});
  const [camOn,setCamOn]=useState<Record<Side,boolean>>({A:true,B:true});
  const [notice,setNotice]=useState('');
@@ -77,7 +78,7 @@ export default function CommunicationPlayground(){
    streams.current[side]?.getTracks().forEach(t=>t.stop());streams.current[side]=null;
    const local=side==='A'?localA.current:localB.current,remote=side==='A'?remoteA.current:remoteB.current;
    if(local)local.srcObject=null;if(remote)remote.srcObject=null;
-  });setLocalReady({A:false,B:false});setRtcReady({A:false,B:false});
+  });setLocalReady({A:false,B:false});setRtcReady({A:false,B:false});setReportedIce({A:false,B:false});
   setRemoteStatus({A:'미디어 준비 전',B:'미디어 준비 전'});
  };
  const disconnect=()=>{
@@ -111,6 +112,8 @@ export default function CommunicationPlayground(){
   if(event.type==='call.reject')setPhase('rejected');
   if(event.type==='call.end'||event.type==='call.cancel'){setPhase('ended');stopMedia()}
   if(event.type==='rtc.answer')setPhase('media');
+  if(event.type==='call.mediaConnected'&&event.connectionState==='connected')
+   setReportedIce(old=>({...old,[event.by]:true}));
  };
  const makePeer=(side:Side)=>{
   const old=pcs.current[side];if(old)return old;
@@ -220,11 +223,17 @@ export default function CommunicationPlayground(){
  })}},[]);
  const verifiedNativeSignaling=((current.from==='N'&&conn.A&&peerKinds.A==='native-protocol')||
    (current.to==='N'&&conn.B&&peerKinds.B==='native-protocol'));
+ const mediaFrom=(side:Side)=>side==='A'
+   ?(current.from==='N'?reportedIce.A:rtcReady.A)
+   :(current.to==='N'?reportedIce.B:rtcReady.B);
+ const rtcOk=liveRtc&&mediaFrom('A')&&mediaFrom('B');
  const statusChecks=[
   {id:'ws',ok:conn.A&&conn.B,desc:conn.A&&conn.B?'양쪽 WS 실연결 성공':'양측 연결 필요'},
   {id:'invite',ok:seen.current.size>0&&logs.some(l=>l.text.includes('call.ringing')),desc:phase!=='idle'?'발신 이벤트 전달 확인':'아직 발신 전'},
   {id:'accept',ok:logs.some(l=>l.text.includes('call.accept')),desc:phase==='accepted'||phase==='media'||phase==='ended'?'서버 ACK / 수락 확인':'수락 대기'},
-  {id:'rtc',ok:rtcReady.A&&rtcReady.B&&current.from==='W'&&current.to==='W',desc:!liveRtc?'인터넷 피어 통화 조합이 아님':rtcReady.A&&rtcReady.B?current.from==='W'&&current.to==='W'?'실제 웹↔웹 RTC 연결':'브라우저 대역 RTC 성공 · 네이티브 N 미검증':'미디어 연결 전'},
+  {id:'rtc',ok:rtcOk,desc:!liveRtc?'인터넷 피어 통화 조합이 아님':rtcOk
+   ?'양측 ICE 연결 확인 · 실제 음성/영상 품질은 별도 실기기 확인'
+   :'상대·본인 모두 ICE connected 이벤트가 확인돼야 성공'},
   {id:'native',ok:verifiedNativeSignaling,desc:verifiedNativeSignaling?'네이티브 전용 인증으로 WebSocket 참가 확인 · 실제 iPhone 미디어 별도 검증':current.from==='N'||current.to==='N'?'네이티브 N 참가 대기':'해당 없음'},
   {id:'pstn',ok:false,desc:hasPstn?'외부 전화망 게이트웨이 미연동':'해당 없음'},
   {id:'ai',ok:false,desc:'실제 AI 런타임 미연동 (진단용 상태만)'},
