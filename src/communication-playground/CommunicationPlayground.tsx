@@ -91,13 +91,42 @@ export default function CommunicationPlayground(){
   if(!res.ok||json.ok!==true)throw Error(String(json.error||'서버 응답 오류'));
   return json;
  };
+ useEffect(()=>{
+  let cancelled=false;
+  const raw=sessionStorage.getItem('hitel.communication.playground.v1');
+  if(!raw)return;
+  try{
+   const saved=JSON.parse(raw) as {id:string;secret:string};
+   if(!saved.id||!saved.secret)throw Error('Invalid saved session');
+   void fetch(ROOT+'/status',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(saved)}).then(r=>{
+     if(!r.ok)throw Error('SESSION_EXPIRED');
+     return r.json() as Promise<PlaySession&{events?:CallEvent[]}>
+   }).then(state=>{
+     if(cancelled)return;
+     setSess({...state,secret:saved.secret});
+     setSelected(state.route.id);setPhase(state.phase);
+     for(const event of state.events||[])seen.current.add(event.seq);
+     const nativeA=state.events?.some(e=>e.by==='A'&&e.type==='call.mediaConnected')||false;
+     const nativeB=state.events?.some(e=>e.by==='B'&&e.type==='call.mediaConnected')||false;
+     setReportedIce({A:nativeA,B:nativeB});
+     log('RESTORE','SESSION','새로고침 후 기존 테스트 세션과 8자리 참가코드를 복구했습니다. 양측 WebSocket을 다시 연결하십시오.','ok');
+   }).catch(()=>{
+     if(!cancelled)sessionStorage.removeItem('hitel.communication.playground.v1');
+   });
+  }catch{sessionStorage.removeItem('hitel.communication.playground.v1')}
+  return()=>{cancelled=true}
+ },[]);
  const create=async(routeId:number)=>{
   setBusy(true);setNotice('');disconnect();setSess(null);setPhase('idle');setLogs([]);seen.current.clear();
+  if(sess){void api('/end',{id:sess.id,secret:sess.secret}).catch(()=>undefined)}
+  sessionStorage.removeItem('hitel.communication.playground.v1');
   try{
    const state=await api('/session',{routeId}) as unknown as PlaySession;
+   sessionStorage.setItem('hitel.communication.playground.v1',JSON.stringify({id:state.id,secret:state.secret}));
    setSess(state);log('SERVER','SESSION','서버에 실제 테스트 세션을 생성했습니다. '+label(state.route),'ok');
    if(routePstn(state.route))log('LIMIT','PSTN','P/P+의 실제 통신사 연결은 지원하지 않습니다. 신호 시험만 가능합니다.','warn');
-   else if(state.route.from==='N'||state.route.to==='N')log('LIMIT','NATIVE','N은 브라우저 대역입니다. 실제 iPhone 통화 엔진 테스트가 아닙니다.','warn');
+   else if(state.route.from==='N'||state.route.to==='N')log('NATIVE','JOIN','네이티브 N은 실제 iPhone의 참가코드로 별도 WS 접속하십시오.','info');
   }catch(e){setNotice('세션 생성 실패: '+textErr(e));log('SERVER','ERROR',textErr(e),'error')}
   finally{setBusy(false)}
  };
