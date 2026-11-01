@@ -21,7 +21,7 @@ const label=(r:Route)=>r.from+' → '+r.to;
 const taskMap:Record<Kind,string>={
  P:'통신사 번호 발신·수신은 연동되지 않았습니다. WebSocket 제어 신호만 시험합니다.',
  'P+':'통신사 오디오 접근 및 실제 AI 기능은 미연동입니다. 제어 흐름·상태만 시험합니다.',
- N:'독립 브라우저가 N 역할을 대신합니다. 실제 iPhone CallKit·네이티브 미디어 연결 성공을 뜻하지 않습니다.',
+ N:'HITEL Call 앱의 고유 웹 주소에서 직접 연결합니다. iOS 음성·영상 통화는 실기기에서 별도 검증해야 합니다.',
  W:'독립 웹 클라이언트입니다. 양측 W인 경우 브라우저 WebRTC로 실 미디어를 검증합니다.'
 };
 const checklist=[
@@ -29,7 +29,7 @@ const checklist=[
  {id:'invite',title:'발신 요청·수신 벨',description:'서버가 실제로 ringing 이벤트를 양측에 전달합니다.'},
  {id:'accept',title:'수락·종료 명령',description:'상태 전이와 서버 ACK를 확인합니다.'},
  {id:'rtc',title:'실제 WebRTC 미디어',description:'N/W 조합에서 브라우저간 미디어 전송을 시험합니다.'},
- {id:'native',title:'N 네이티브 직접 WebSocket 참가',description:'네이티브 전용 참가코드·WS 연결. 실제 미디어는 별도 확인'},
+ {id:'native',title:'N 네이티브 직접 WebSocket 참가',description:'앱별 고유 웹 주소·인증된 직접 WS 연결. 실제 미디어는 별도 확인'},
  {id:'pstn',title:'실제 일반전화망 연동',description:'P/P+ 통신사 연결 장치·권한 검증 필요'},
  {id:'ai',title:'실시간 AI 음성·자막',description:'AI 런타임 인증·실제 미디어 입력 연동 필요'},
 ];
@@ -305,7 +305,7 @@ export default function CommunicationPlayground(){
  const connect=(side:Side,state:PlaySession|null=sess)=>{
   if(!state)return;
   if((side==='A'&&state.route.from==='N')||(side==='B'&&state.route.to==='N')){
-   log(side,'NATIVE','N 플레이어는 실제 iPhone 앱의 참가코드를 이용해 직접 WSS 연결합니다.','warn');
+   log(side,'NATIVE','iPhone HITEL Call 앱에서 보이는 고유 웹 주소를 열어 연결해 주십시오.','warn');
    return;
   }
   const previous=sockets.current[side];
@@ -379,7 +379,7 @@ export default function CommunicationPlayground(){
      <div><video ref={side==='A'?localA:localB} autoPlay muted playsInline/><span>로컬 실기기 미디어</span></div>
      <div><video ref={side==='A'?remoteA:remoteB} autoPlay playsInline/><span>상대 미디어</span></div>
     </div>
-    <div className="hcp-screen-caption">{native?nativeOnline?'네이티브 iPhone N 직접 WebSocket 참가':'N 플레이어 대기 · iPhone의 8자리 코드 필요':isWeb?'W 실제 브라우저':k==='P+'?nativeOnline?'iPhone P+ 개인 보조 앱 참가 · 통신사 음성 별도':'P+ 웹 보조 · iPhone 앱 직접 참가 선택 가능': 'P 통신사 미연동'}</div>
+    <div className="hcp-screen-caption">{native?nativeOnline?'네이티브 iPhone N 직접 WebSocket 참가':'N 플레이어 대기 · 앱의 고유 웹 주소를 열어 주십시오.':isWeb?'W 실제 브라우저':k==='P+'?nativeOnline?'iPhone P+ 개인 보조 앱 참가 · 통신사 음성 별도':'P+ 웹 보조 · iPhone 앱 직접 참가 선택 가능': 'P 통신사 미연동'}</div>
     <div className="hcp-chip-line"><span>통화: {phase}</span><span>미디어: {remoteStatus[side]}</span></div>
    </div>
    <div className="hcp-actions">
