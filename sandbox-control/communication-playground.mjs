@@ -101,7 +101,7 @@ export async function playgroundRoute(req,res,path){
  expire();
  if(path==='/playground/health'&&req.method==='GET')return json(res,200,{ok:true,service:'hitel-communication-playground',routes:16,activeSessions:sessions.size});
  if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end','/playground/native-join',
- '/playground/device/register','/playground/device/unregister','/playground/device/status','/playground/device/attach'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
+ '/playground/device/register','/playground/device/verify','/playground/device/unregister','/playground/device/status','/playground/device/attach'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
  if(!String(req.headers['content-type']||'').startsWith('application/json')||
     (!['/playground/native-join','/playground/device/register','/playground/device/unregister'].includes(path)&&req.headers.origin!==WEB_ORIGIN))
   return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
@@ -118,6 +118,15 @@ export async function playgroundRoute(req,res,path){
   }
   return json(res,200,{ok:true,pageUrl:WEB_ORIGIN+'/communication-playground/app/'+device.pageToken,
    device:devicePublic(device)});
+ }
+ if(path==='/playground/device/verify'){
+  // Authentication verifies an existing iOS installation. Unlike register,
+  // this NEVER creates a fake device or labels a synthetic socket as Swift.
+  const d=devices.get(String(data.id||''));
+  if(!d||!validKey(data.key)||!safeEq(d.key,data.key))
+   return json(res,404,{ok:false,error:'REGISTERED_DEVICE_NOT_FOUND'});
+  return json(res,200,{ok:true,pageUrl:WEB_ORIGIN+'/communication-playground/app/'+d.pageToken,
+   device:devicePublic(d)});
  }
  if(path==='/playground/device/unregister'){
   const id=String(data.id||''),key=String(data.key||'');
