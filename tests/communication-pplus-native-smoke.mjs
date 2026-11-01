@@ -46,6 +46,14 @@ for(const routeId of routes){
   sender.send(JSON.stringify({type:'lab.note',requestId:'pplus'+routeId,payload:{note}}));
   const event=await received;
   must(event.event.note===note,'P+ note must reach other party');
+  const observed=until(recipient,x=>x.type==='event'&&x.event?.type==='carrier.status');
+  sender.send(JSON.stringify({type:'carrier.status',requestId:'pplus-state-'+routeId,payload:{state:'connected'}}));
+  const stateEvent=await observed;
+  must(stateEvent.event.callState==='connected'&&
+       stateEvent.event.source==='ios-callkit-unknown-provider','P+ source must remain unverified as carrier');
+  const blocked=until(sender,x=>x.type==='ack'&&x.requestId==='pplus-bad-'+routeId);
+  sender.send(JSON.stringify({type:'carrier.status',requestId:'pplus-bad-'+routeId,payload:{state:'audioCaptured'}}));
+  must((await blocked).ok===false,'forbid false audio capture status');
   console.log('PPLUS_NATIVE_SCENARIO_'+String(routeId).padStart(2,'0')+'_PASS');
  }finally{
   A?.close();B?.close();await api('/end',{id:s.id,secret:s.secret}).catch(()=>{})
