@@ -1,0 +1,31 @@
+name: HITEL Playground real Chromium WebRTC media
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - 'tests/communication-playground-browser-webrtc.mjs'
+      - '.github/workflows/communication-playground-browser-webrtc.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-rtc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright browser and system libraries
+        run: |
+          npm install --no-save --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Verify 2 actual browser WebRTC peers and media tracks
+        run: node tests/communication-playground-browser-webrtc.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HITEL-Playground-Browser-WebRTC-Final-Screenshot
+          path: playground-chromium-webrtc.png
+          if-no-files-found: ignore
