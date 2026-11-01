@@ -5,6 +5,7 @@ on:
     paths:
       - 'mobile/ios/CallApp/**'
       - 'mobile/ios/project.call.free.yml'
+      - 'tests/ios-call-app-real-swift-e2e.mjs'
       - '.github/workflows/ios-standalone-call-simulator.yml'
   workflow_dispatch:
 permissions:
@@ -18,6 +19,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Install genuine device WebSocket test dependencies
+        run: npm install --no-audit --no-fund
       - name: Generate independent HITEL Call iOS project
         working-directory: mobile/ios
         run: |
@@ -49,8 +52,17 @@ jobs:
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
           xcrun simctl install "$SIM" "$RUNNER_TEMP/HitelCallSim/Build/Products/Debug-iphonesimulator/HitelCall.app"
-          xcrun simctl launch "$SIM" app.hitel.call | tee "$RUNNER_TEMP/hitel-call-launch.txt"
-          sleep 9
+          node tests/ios-call-app-real-swift-e2e.mjs setup "$RUNNER_TEMP/hitel-call-test-id.env"
+          set -a
+          source "$RUNNER_TEMP/hitel-call-test-id.env"
+          set +a
+          xcrun simctl launch "$SIM" app.hitel.call \
+            -HITEL_CALL_TEST_DEVICE_ID "$HITEL_CALL_SIM_ID" \
+            -HITEL_CALL_TEST_DEVICE_SECRET "$HITEL_CALL_SIM_SECRET" \
+            -HITEL_CALL_SIMULATOR_AUTODIAL \
+            -HITEL_NATIVE_AUTOANSWER | tee "$RUNNER_TEMP/hitel-call-launch.txt"
+          node tests/ios-call-app-real-swift-e2e.mjs verify | tee "$RUNNER_TEMP/hitel-call-real-swift-e2e.txt"
+          sleep 3
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/hitel-call-page.png"
           test -s "$RUNNER_TEMP/hitel-call-page.png"
           echo HITEL_STANDALONE_CALL_SIMULATOR_LAUNCH_PASS
@@ -61,6 +73,7 @@ jobs:
           path: |
             ${{ runner.temp }}/hitel-call-page.png
             ${{ runner.temp }}/hitel-call-launch.txt
+            ${{ runner.temp }}/hitel-call-real-swift-e2e.txt
             ${{ runner.temp }}/hitel-call-simulator-build.log
           retention-days: 7
           if-no-files-found: ignore
