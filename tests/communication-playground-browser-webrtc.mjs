@@ -45,6 +45,13 @@ try{
   await page.getByText('실제 웹↔웹 RTC 연결').waitFor({timeout:20_000});
  });
  await step('END_CALL',async()=>{await caller.getByRole('button',{name:'종료'}).click()});
+ await step('DISPLAY_TWO_REAL_IPHONE_PAIRING_CODES_FOR_N_TO_N',async()=>{
+  await page.locator('.hcp-route-list button').filter({hasText:'N → N'}).click();
+  await page.getByText('SCENARIO 11 / 16').waitFor({timeout:12_000});
+  await page.getByText('NATIVE A PAIR CODE').waitFor({timeout:12_000});
+  await page.getByText('NATIVE B PAIR CODE').waitFor({timeout:12_000});
+  await page.screenshot({path:'playground-two-iphone-pairing-codes.png',fullPage:true});
+ });
  if(errors.length)throw Error('BROWSER_JS_ERRORS: '+errors.join(' | '));
  console.log('COMM_PLAYGROUND_REAL_CHROME_WEBRTC_MEDIA_PASS',{scenario:16,websocketPeers:2,
    sdp:true,ice:true,dtls:true,remoteAudioTracks:true,remoteVideoTracks:true,hardwareIphone:false});
