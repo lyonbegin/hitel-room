@@ -92,9 +92,7 @@ final class HitelCallDeviceClient {
                 [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
                 ofItemAtPath: url.path
             )
-            var values = URLResourceValues()
-            values.isExcludedFromBackup = true
-            try url.setResourceValues(values)
+            try (url as NSURL).setResourceValue(true, forKey: .isExcludedFromBackupKey)
         } catch { return false }
         // The Keychain remains the primary native security store where
         // available. A failed SecItemAdd must not lose identity on restart.
