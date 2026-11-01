@@ -64,7 +64,8 @@ try{
    if(codes!==expectCodes)throw Error('SC'+id+' expected '+expectCodes+' native/P+ codes but found '+codes);
    if(from==='P+'||to==='P+'){
     const count=await page.locator('.hcp-actor textarea').count();
-    if(count!==expectCodes)throw Error('SC'+id+' P+ note panes '+count);
+    const expectedPplus=Number(from==='P+')+Number(to==='P+');
+    if(count!==expectedPplus)throw Error('SC'+id+' P+ note panes '+count+' (expected '+expectedPplus+')');
    }
    console.log('PLAYGROUND_SCENARIO_'+String(id).padStart(2,'0')+'_UI_PASS',{from,to,joinCodes:codes});
   }
