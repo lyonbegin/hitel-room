@@ -61,6 +61,7 @@ jobs:
             -HITEL_CALL_TEST_DEVICE_SECRET "$HITEL_CALL_SIM_SECRET" \
             -HITEL_CALL_SIMULATOR_AUTODIAL \
             -HITEL_NATIVE_AUTOANSWER | tee "$RUNNER_TEMP/hitel-call-launch.txt"
+          trap 'node tests/ios-call-app-real-swift-e2e.mjs cleanup >/dev/null 2>&1 || true' EXIT
           node tests/ios-call-app-real-swift-e2e.mjs verify | tee "$RUNNER_TEMP/hitel-call-real-swift-e2e.txt"
           sleep 3
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/hitel-call-page.png"
