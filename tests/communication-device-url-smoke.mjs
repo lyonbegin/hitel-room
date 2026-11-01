@@ -71,4 +71,5 @@ try{
 }finally{
  peer?.close();nativeCall?.close();app?.close();
  if(session)await post('/end',{id:session.id,secret:session.secret}).catch(()=>{});
+ await post('/device/unregister',{id,key:secret},true).catch(()=>{});
 }
