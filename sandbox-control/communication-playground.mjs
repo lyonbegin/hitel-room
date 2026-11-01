@@ -154,8 +154,14 @@ export async function playgroundRoute(req,res,path){
   if(!['N','P+'].includes(endpoint))return json(res,409,{ok:false,error:'ROUTE_DOES_NOT_ACCEPT_APP'});
   if(device.socket?.readyState!==WebSocket.OPEN)
    return json(res,409,{ok:false,error:'IPHONE_APP_OFFLINE'});
-  if(session.peers[side]?.readyState===WebSocket.OPEN)
-   return json(res,409,{ok:false,error:'SIDE_ALREADY_CONNECTED'});
+  if(session.peers[side]?.readyState===WebSocket.OPEN){
+   const sameDevice=device.assignment?.sessionId===session.id&&device.assignment?.side===side;
+   if(!sameDevice||session.peerKinds?.[side]!=='native-protocol')
+    return json(res,409,{ok:false,error:'SIDE_ALREADY_CONNECTED'});
+   // The management page may reload while its native iPhone is STILL
+   // connected. It must restore the same session rather than claim failure.
+   return json(res,200,{ok:true,assigned:true,alreadyConnected:true,side,device:devicePublic(device)});
+  }
   // Assign only the native side-specific capability, never the browser owner key.
   device.assignment={sessionId:session.id,side};saveDevices();
   notifyDevice(device,{type:'device.assign',id:session.id,secret:session.nativeSecrets[side],
