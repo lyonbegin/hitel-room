@@ -47,18 +47,23 @@ export async function playgroundRoute(req,res,path){
   if(sessions.size>=24)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
   const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:String(Math.floor(Math.random()*100000000)).padStart(8,'0'),
    nativeSecret:randomBytes(32).toString('hex'),nativeSide:route.from==='N'?'A':route.to==='N'?'B':null,
+   nativeCodes:{A:route.from==='N'?String(Math.floor(Math.random()*100000000)).padStart(8,'0'):null,
+                B:route.to==='N'?String(Math.floor(Math.random()*100000000)).padStart(8,'0'):null},
+   nativeSecrets:{A:randomBytes(32).toString('hex'),B:randomBytes(32).toString('hex')},
    route,expires:Date.now()+LIFE,
    phase:'idle',callId:null,peers:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
   sessions.set(s.id,s);
   return json(res,201,{...sessionState(s),secret:s.secret,
-   nativeCode:s.nativeSide?s.nativeCode:null,nativeSide:s.nativeSide});
+   nativeCode:s.nativeSide?s.nativeCodes[s.nativeSide]:null,nativeSide:s.nativeSide,nativeCodes:s.nativeCodes});
  }
  if(path==='/playground/native-join'){
   const code=String(data.code||'');
   if(!/^\d{8}$/.test(code))return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
-  const s=[...sessions.values()].find(s=>s.nativeSide&&s.nativeCode===code&&s.expires>Date.now());
-  if(!s)return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
-  return json(res,200,{ok:true,id:s.id,secret:s.nativeSecret,side:s.nativeSide,
+  const found=[...sessions.values()].flatMap(s=>['A','B'].map(side=>({s,side})))
+   .find(x=>x.s.nativeCodes?.[x.side]===code&&x.s.expires>Date.now());
+  if(!found)return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
+  const {s,side}=found;
+  return json(res,200,{ok:true,id:s.id,secret:s.nativeSecrets[side],side,
    route:s.route,phase:s.phase,expiresAt:new Date(s.expires).toISOString(),mediaEligible:capability(s.route).browserWebRTC});
  }
  const s=sessions.get(String(data.id||''));
@@ -73,8 +78,8 @@ export function playgroundUpgrade(req,socket,head){
  if(u.pathname!=='/playground/socket')return false;
  const s=sessions.get(u.searchParams.get('id')||'');
  const side=u.searchParams.get('side');
- const nativeAuth=req.headers.origin===undefined&&side===s?.nativeSide&&
-   !!s?.nativeSecret&&safeEq(s.nativeSecret,u.searchParams.get('secret'));
+ const nativeAuth=req.headers.origin===undefined&&!!s?.nativeCodes?.[side]&&
+   !!s?.nativeSecrets?.[side]&&safeEq(s.nativeSecrets[side],u.searchParams.get('secret'));
  const browserAuth=req.headers.origin===WEB_ORIGIN&&!!s&&safeEq(s.secret,u.searchParams.get('secret'));
  if(!s||!['A','B'].includes(side)||!(nativeAuth||browserAuth)){
   socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return true;
