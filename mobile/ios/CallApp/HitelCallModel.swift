@@ -16,7 +16,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     @Published var routeId = 0
     @Published var endpointType = "N"
     @Published var phase = "미연결"
-    @Published var message = "웹 Playground의 N 코드 8자리를 입력하십시오."
+    @Published var message = "앱을 열면 고유 웹 주소를 발급하고 통화 서버에 자동 연결합니다."
     @Published var logs: [String] = []
     @Published var inCall = false
     @Published var muted = false
@@ -232,7 +232,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         connection=nil;connected=false
         secret=nil;sessionId=nil;phase="미연결";side=""
         stopMedia();stopCallKit()
-        message="연결 종료 · 새 8자리 코드를 입력하십시오."
+        message="통화 종료 · 고유 웹 주소의 다음 통화 연결 대기"
     }
 
     private func startMedia() {
