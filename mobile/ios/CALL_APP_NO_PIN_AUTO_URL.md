@@ -23,7 +23,7 @@ It does not depend on WKWebView communication bridges or the screen-streaming ap
 6. The iPhone independently connects to the existing `/playground/socket` as the correct N/P+ actor. Browser W connects as the other actor. For N→N, paste a second iPhone's **unique app URL** into the other-device field to assign B; no PIN.
 7. Subsequent browser reloads reuse the page token and valid session state. iOS foreground activation and WebSocket ping failure re-establish device control session without code entry.
 
-**There is no new eight-digit PIN or numeric pairing step for the standalone call app.** Obsolete older Playground `/native-join` stays server-side solely for compatibility with previous test code; the current app and current UI never call or display it.
+**There is no new eight-digit PIN or numeric pairing step for the standalone call app.** The obsolete numeric `/native-join` endpoint and generated eight-digit PINs have been removed server-side as well. Native N/P+ participation uses per-app device registration and temporary side-scoped WebSocket credentials.
 
 Security: the unique page URL is a bearer-control URL. Only share it with people authorized to access that app; do not post it publicly. Native device secret stays in iOS Keychain and is not part of the browser URL. Server issues time-limited side-scoped session credentials rather than the browser owner token.
 
