@@ -44,6 +44,18 @@ try{
  const status=await api('/status',{id:assigned.id,secret:(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('hitel.communication.device-session.'+location.pathname.split('/').at(-1))||'{}'))).secret});
  assert(status.peers.A&&status.peers.B,'both native and web independently connected');
  assert(status.peerKinds.A==='native-protocol'&&status.peerKinds.B==='browser','roles correct');
+ const priorSession=assigned.id;
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.getByText('양쪽 WS 실연결 성공').waitFor({timeout:18000});
+ const afterReload=await page.evaluate(()=>{
+  const token=location.pathname.split('/').at(-1);
+  return JSON.parse(sessionStorage.getItem('hitel.communication.device-session.'+token)||'{}');
+ });
+ assert(afterReload.id===priorSession,'browser reload must keep original session ID');
+ const still=await api('/status',{id:priorSession,secret:afterReload.secret});
+ assert(still.peers.A&&still.peers.B&&still.peerKinds.A==='native-protocol',
+  'web reload must not evict already connected native device');
+ console.log('HITEL_PER_APP_PAGE_RELOAD_SESSION_RETAINED_PASS');
  await page.screenshot({path:'hitel-call-device-url-autoconnect.png',fullPage:true});
  if(errors.length)throw Error('Browser JS errors: '+errors.join('; '));
  console.log('HITEL_CALL_APP_UNIQUE_URL_REAL_BROWSER_AUTOCONNECT_PASS',{automatic:true,noPin:true,actualDeviceSocket:true,scenario:12,realIphoneHardware:false});
