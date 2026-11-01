@@ -52,6 +52,7 @@ export default function CommunicationPlayground(){
  const [testNotes,setTestNotes]=useState<Record<number,string>>({});
  const sockets=useRef<Record<Side,WebSocket|null>>({A:null,B:null});
  const pcs=useRef<Record<Side,RTCPeerConnection|null>>({A:null,B:null});
+ const pendingIce=useRef<Record<Side,RTCIceCandidateInit[]>>({A:[],B:[]});
  const streams=useRef<Record<Side,MediaStream|null>>({A:null,B:null});
  const seen=useRef(new Set<number>());
  const localA=useRef<HTMLVideoElement|null>(null),localB=useRef<HTMLVideoElement|null>(null);
@@ -68,6 +69,7 @@ export default function CommunicationPlayground(){
   ws.send(JSON.stringify({type,payload,requestId:crypto.randomUUID()}));log(side,'TX',type,'info');return true;
  };
  const stopMedia=()=>{
+  pendingIce.current={A:[],B:[]};
   (['A','B'] as Side[]).forEach(side=>{
    pcs.current[side]?.close();pcs.current[side]=null;
    streams.current[side]?.getTracks().forEach(t=>t.stop());streams.current[side]=null;
@@ -146,16 +148,21 @@ export default function CommunicationPlayground(){
    if(msg.type==='rtc.offer'&&side==='B'&&msg.payload?.sdp){
     const pc=makePeer('B');
     await pc.setRemoteDescription({type:'offer',sdp:msg.payload.sdp});
+    for(const candidate of pendingIce.current.B.splice(0))await pc.addIceCandidate(candidate);
     const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
     send('B','rtc.answer',{type:answer.type,sdp:answer.sdp});return;
    }
    if(msg.type==='rtc.answer'&&side==='A'&&msg.payload?.sdp){
     const pc=pcs.current.A;if(!pc)throw Error('발신자 PeerConnection이 없습니다.');
-    await pc.setRemoteDescription({type:'answer',sdp:msg.payload.sdp});return;
+    await pc.setRemoteDescription({type:'answer',sdp:msg.payload.sdp});
+    for(const candidate of pendingIce.current.A.splice(0))await pc.addIceCandidate(candidate);
+    return;
    }
    if(msg.type==='rtc.ice'&&msg.payload){
     const pc=pcs.current[side];
-    if(pc)await pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
+    const candidate=msg.payload as RTCIceCandidateInit;
+    if(pc?.remoteDescription)await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    else pendingIce.current[side].push(candidate);
    }
   }catch(e){log(side,'WEBRTC ERROR',textErr(e),'error')}
  };
