@@ -1,0 +1,54 @@
+// Real Chromium ICE/DTLS media test. No simulated success badge.
+// Chrome provides synthetic camera/microphone tracks for CI; this proves
+// the deployed WEB W→W flow but not Apple hardware audio/video.
+import {chromium} from 'playwright';
+const url='https://hitel-communication-web-production.up.railway.app/communication-playground';
+const browser=await chromium.launch({headless:true,args:[
+  '--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream',
+  '--autoplay-policy=no-user-gesture-required','--no-sandbox']});
+const context=await browser.newContext({permissions:['camera','microphone'],viewport:{width:1500,height:1100}});
+const page=await context.newPage();
+const errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+const step=async(name,fn)=>{console.log('WEBRTC_BROWSER_STEP',name);await fn()};
+try{
+ await step('OPEN_REAL_DEPLOYED_UI',async()=>{await page.goto(url,{waitUntil:'networkidle',timeout:40_000});await page.getByRole('heading',{name:'16가지 통신 실험실'}).waitFor()});
+ await step('CREATE_SC16_SESSION',async()=>{
+  await page.getByRole('button',{name:'새 테스트 세션'}).click();
+  await page.getByText('서버 세션 있음').waitFor({timeout:10_000});
+ });
+ await step('OPEN_TWO_INDEPENDENT_WEBSOCKETS',async()=>{
+  await page.getByRole('button',{name:'양측 WS 연결'}).click();
+  await page.getByText('양쪽 WS 실연결 성공').waitFor({timeout:15_000});
+ });
+ const caller=page.getByRole('region',{name:'발신자 플레이어'});
+ const callee=page.getByRole('region',{name:'수신자 플레이어'});
+ await step('RING_ANSWER_REAL_WS',async()=>{
+  await caller.getByRole('button',{name:'발신',exact:true}).click();
+  await callee.getByRole('button',{name:'수락'}).click();
+  await page.getByText('수락·종료 명령').waitFor({timeout:8_000});
+ });
+ await step('GRANT_GENUINE_CHROME_TEST_CAMERA_AND_MIC',async()=>{
+  await caller.getByRole('button',{name:'카메라·마이크 허용'}).click();
+  await callee.getByRole('button',{name:'카메라·마이크 허용'}).click();
+  await page.getByText('✓ 카메라·마이크 준비됨').first().waitFor({timeout:15_000});
+ });
+ await step('NEGOTIATE_RTC_AND_RECEIVE_REMOTE_AUDIO_VIDEO',async()=>{
+  await page.getByRole('button',{name:'WebRTC 연결 실행'}).click();
+  await page.waitForFunction(()=>{
+   const videos=[...document.querySelectorAll('.hcp-video-grid video')];
+   // Remote video is the second video in each caller/callee card.
+   const remotes=[videos[1],videos[3]];
+   return remotes.every(v=>v&&v.srcObject&&v.srcObject.getVideoTracks().some(t=>t.readyState==='live')&&
+     v.srcObject.getAudioTracks().some(t=>t.readyState==='live'));
+  },{timeout:25000});
+  await page.getByText('실제 웹↔웹 RTC 연결').waitFor({timeout:20_000});
+ });
+ await step('END_CALL',async()=>{await caller.getByRole('button',{name:'종료'}).click()});
+ if(errors.length)throw Error('BROWSER_JS_ERRORS: '+errors.join(' | '));
+ console.log('COMM_PLAYGROUND_REAL_CHROME_WEBRTC_MEDIA_PASS',{scenario:16,websocketPeers:2,
+   sdp:true,ice:true,dtls:true,remoteAudioTracks:true,remoteVideoTracks:true,hardwareIphone:false});
+}finally{
+ await page.screenshot({path:'playground-chromium-webrtc.png',fullPage:true}).catch(()=>{});
+ await browser.close();
+}
