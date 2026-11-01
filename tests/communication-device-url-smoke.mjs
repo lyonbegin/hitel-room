@@ -57,6 +57,19 @@ try{
  const state=await post('/status',{id:session.id,secret:session.secret});
  check(state.peers.A===true&&state.peers.B===true,'phone and browser independently WS connected');
  check(state.peerKinds.A==='native-protocol'&&state.peerKinds.B==='browser','native peer accurately typed');
+ // Restart the separate iPhone app's device control socket, without any new
+ // pairing code, browser reapproval or fresh session.
+ nativeCall.close();app.close();
+ await new Promise(resolve=>app.once('close',resolve));
+ app=await open('/device/socket',true);
+ const restored=wait(app,m=>m.type==='device.assign'&&m.restored===true);
+ app.send(JSON.stringify({type:'device.auth',id,key:secret}));
+ const oldAssignment=await restored;
+ check(oldAssignment.id===session.id&&oldAssignment.secret===assigned.secret,
+   'existing session automatically reassigned on app restart');
+ nativeCall=await open('/socket?id='+session.id+'&side=A&secret='+oldAssignment.secret,true);
+ const statusRestart=await post('/status',{id:session.id,secret:session.secret});
+ check(statusRestart.peers.A&&statusRestart.peers.B,'web and app stream preserved after native app restart');
  const ringing=wait(peer,m=>m.type==='event'&&m.event?.type==='call.ringing');
  nativeCall.send(JSON.stringify({type:'call.invite',requestId:'callapp-invite'}));
  await ringing;
@@ -67,7 +80,7 @@ try{
  const state2=await post('/status',{id:session.id,secret:session.secret});
  check(state2.phase==='ended','call lifecycle without PIN');
  console.log('HITEL_UNIQUE_APP_URL_AUTO_CONNECT_PASS',{perAppUrl:true,
-  sameUrlAfterRestart:true,noPin:true,appWss:true,autoAttach:true,callLifecycle:true,hardwareIphone:false});
+  sameUrlAfterRestart:true,restoredAssignment:true,noPin:true,appWss:true,autoAttach:true,callLifecycle:true,hardwareIphone:false});
 }finally{
  peer?.close();nativeCall?.close();app?.close();
  if(session)await post('/end',{id:session.id,secret:session.secret}).catch(()=>{});
