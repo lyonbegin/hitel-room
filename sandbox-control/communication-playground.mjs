@@ -2,15 +2,12 @@
 // Two genuine browser WebSocket clients can exercise call events; browser
 // WebRTC is enabled only for N/W combinations and is never represented as
 // validated native N media or a carrier/PSTN telephone connection.
-import {randomBytes, randomInt, randomUUID, timingSafeEqual} from 'node:crypto';
+import {randomBytes, randomUUID, timingSafeEqual} from 'node:crypto';
 import {readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {WebSocket,WebSocketServer} from 'ws';
 const WEB_ORIGIN=process.env.HITEL_WEB_ORIGIN||'https://hitel-communication-web-production.up.railway.app';
 const LIFE=120*60_000;
-const nativeAttempts=new Map();
-function pin(){let code;do{code=String(randomInt(0,100000000)).padStart(8,'0')}
-  while([...sessions.values()].some(s=>s.nativeCodes?.A===code||s.nativeCodes?.B===code));return code}
 const sessions=new Map();
 const devices=new Map();
 const deviceSockets=new WebSocketServer({noServer:true,maxPayload:4096,perMessageDeflate:false});
@@ -47,7 +44,7 @@ function persist(){
  try{
   mkdirSync(dirname(STATE_FILE),{recursive:true,mode:0o700});
   const raw=[...sessions.values()].map(s=>({
-   id:s.id,secret:s.secret,nativeCodes:s.nativeCodes,nativeSecrets:s.nativeSecrets,
+   id:s.id,secret:s.secret,nativeSecrets:s.nativeSecrets,
    route:s.route,expires:s.expires,phase:s.phase,callId:s.callId,
    events:s.events.slice(-80),seq:s.seq
   }));
@@ -76,7 +73,7 @@ const capability=(r)=>({signaling:true,browserWebRTC:['N','W'].includes(r.from)&
 function expire(){
  let modified=false;
  const time=Date.now();
- for(const [ip,entries] of nativeAttempts)if(!entries.some(t=>time-t<600000))nativeAttempts.delete(ip);for(const [id,s] of sessions){if(s.expires<=time){
+ for(const [id,s] of sessions){if(s.expires<=time){
   // Do not silently disconnect an active native call or browser. Only
   // idle, unconnected test sessions are garbage-collected.
   if(Object.values(s.peers).some(w=>w?.readyState===WebSocket.OPEN)){
@@ -104,10 +101,10 @@ async function parseBody(req){let raw='';for await(const c of req){raw+=c;if(raw
 export async function playgroundRoute(req,res,path){
  expire();
  if(path==='/playground/health'&&req.method==='GET')return json(res,200,{ok:true,service:'hitel-communication-playground',routes:16,activeSessions:sessions.size});
- if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end','/playground/native-join',
+ if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end',
  '/playground/device/register','/playground/device/verify','/playground/device/unregister','/playground/device/status','/playground/device/attach'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
  if(!String(req.headers['content-type']||'').startsWith('application/json')||
-    (!['/playground/native-join','/playground/device/register','/playground/device/unregister'].includes(path)&&req.headers.origin!==WEB_ORIGIN))
+    (!['/playground/device/register','/playground/device/unregister'].includes(path)&&req.headers.origin!==WEB_ORIGIN))
   return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
  let data;try{data=await parseBody(req)}catch{return json(res,400,{ok:false,error:'INVALID_JSON'})}
  if(path==='/playground/device/register'){
@@ -150,7 +147,7 @@ export async function playgroundRoute(req,res,path){
   const assigned=device.assignment;
   const session=assigned&&sessions.get(assigned.sessionId);
   const activeSession=session&&session.expires>Date.now()&&['A','B'].includes(assigned.side)
-    ? {...sessionState(session),secret:session.secret,nativeCodes:null,side:assigned.side}
+    ? {...sessionState(session),secret:session.secret,side:assigned.side}
     :null;
   return json(res,200,{ok:true,device:devicePublic(device),activeSession});
  }
@@ -184,37 +181,17 @@ export async function playgroundRoute(req,res,path){
   const route=routes.find(r=>r.id===data.routeId);
   if(!route)return json(res,400,{ok:false,error:'INVALID_ROUTE'});
   if(sessions.size>=128)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
-  const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:pin(),
-   nativeSecret:randomBytes(32).toString('hex'),nativeSide:['N','P+'].includes(route.from)?'A':['N','P+'].includes(route.to)?'B':null,
-   nativeCodes:{A:['N','P+'].includes(route.from)?pin():null,
-                B:['N','P+'].includes(route.to)?pin():null},
+  const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),
    nativeSecrets:{A:randomBytes(32).toString('hex'),B:randomBytes(32).toString('hex')},
    route,expires:Date.now()+LIFE,
    phase:'idle',callId:null,peers:{A:null,B:null},peerKinds:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
-  if(s.nativeCodes.A&&s.nativeCodes.B&&s.nativeCodes.A===s.nativeCodes.B)
-    s.nativeCodes.B=pin();
   sessions.set(s.id,s);persist();
-  return json(res,201,{...sessionState(s),secret:s.secret,
-   nativeCode:s.nativeSide?s.nativeCodes[s.nativeSide]:null,nativeSide:s.nativeSide,nativeCodes:s.nativeCodes});
- }
- if(path==='/playground/native-join'){
-  const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown');
-  const attempts=(nativeAttempts.get(ip)||[]).filter(t=>Date.now()-t<600_000);
-  attempts.push(Date.now());nativeAttempts.set(ip,attempts);
-  if(attempts.length>40)return json(res,429,{ok:false,error:'JOIN_RATE_LIMIT'});
-  const code=String(data.code||'');
-  if(!/^\d{8}$/.test(code))return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
-  const found=[...sessions.values()].flatMap(s=>['A','B'].map(side=>({s,side})))
-   .find(x=>x.s.nativeCodes?.[x.side]===code&&x.s.expires>Date.now());
-  if(!found)return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
-  const {s,side}=found;
-  return json(res,200,{ok:true,id:s.id,secret:s.nativeSecrets[side],side,
-   route:s.route,phase:s.phase,expiresAt:new Date(s.expires).toISOString(),mediaEligible:capability(s.route).browserWebRTC});
+  return json(res,201,{...sessionState(s),secret:s.secret});
  }
  const s=sessions.get(String(data.id||''));
  if(!s||!safeEq(s.secret,data.secret))return json(res,404,{ok:false,error:'SESSION_NOT_FOUND'});
  if(path==='/playground/status')return json(res,200,{...sessionState(s),
-  nativeCodes:s.nativeCodes,events:s.events.slice(-40)});
+  events:s.events.slice(-40)});
  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1000,'Ended by browser user');
  sessions.delete(s.id);persist();
  let dirty=false;
@@ -270,7 +247,8 @@ export function playgroundUpgrade(req,socket,head){
  if(u.pathname!=='/playground/socket')return false;
  const s=sessions.get(u.searchParams.get('id')||'');
  const side=u.searchParams.get('side');
- const nativeAuth=req.headers.origin===undefined&&!!s?.nativeCodes?.[side]&&
+ const nativeEndpoint=side==='A'?s?.route?.from:side==='B'?s?.route?.to:null;
+ const nativeAuth=req.headers.origin===undefined&&['N','P+'].includes(nativeEndpoint)&&
    !!s?.nativeSecrets?.[side]&&safeEq(s.nativeSecrets[side],u.searchParams.get('secret'));
  const browserAuth=req.headers.origin===WEB_ORIGIN&&!!s&&safeEq(s.secret,u.searchParams.get('secret'));
  if(!s||!['A','B'].includes(side)||!(nativeAuth||browserAuth)){
