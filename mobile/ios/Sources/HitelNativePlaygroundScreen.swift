@@ -122,6 +122,9 @@ struct HitelNativePlaygroundScreen: View {
             }
             .navigationTitle("HITEL CALL")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of:model.routeId) { newValue in
+                if (1...16).contains(newValue) {selectedScenario=newValue}
+            }
         }
     }
     private func videoSurface(_ track: RTCVideoTrack?, title:String)->some View {
