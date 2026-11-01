@@ -4,6 +4,7 @@ on:
     branches: [feature/ws-scrcpy-android11-20261028]
     paths:
       - 'tests/communication-playground-browser-webrtc.mjs'
+      - 'tests/communication-device-page-browser.mjs'
       - '.github/workflows/communication-playground-browser-webrtc.yml'
   workflow_dispatch:
 permissions:
@@ -23,6 +24,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Verify 2 actual browser WebRTC peers and media tracks
         run: node tests/communication-playground-browser-webrtc.mjs
+      - name: Verify real webpage automatically attaches its own iPhone app without PIN
+        run: node tests/communication-device-page-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -31,4 +34,5 @@ jobs:
             playground-chromium-webrtc.png
             playground-two-iphone-pairing-codes.png
             playground-mobile-390.png
+            hitel-call-device-url-autoconnect.png
           if-no-files-found: ignore
