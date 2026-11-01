@@ -169,6 +169,15 @@ export function playgroundUpgrade(req,socket,head){
     if(!capability(s.route).browserWebRTC||s.phase!=='media'){ack(false,'NO_MEDIA_NEGOTIATION');return}
     emit(s,'call.mediaConnected',actor,{connectionState:String(msg.payload?.connectionState||'').slice(0,50)});ack(true);return;
    }
+   if(type==='carrier.status'){
+    const endpoint=actor==='A'?s.route.from:s.route.to;
+    const callState=String(msg.payload?.state||'');
+    if(endpoint!=='P+'||!['ringing','dialing','connected','ended','held','idle'].includes(callState)){
+     ack(false,'CARRIER_STATE_NOT_ALLOWED');return;
+    }
+    emit(s,'carrier.status',actor,{callState,source:'ios-callkit-unknown-provider'});
+    ack(true);return;
+   }
    if(type==='lab.note'){
     const note=String(msg.payload?.note||msg.note||'').slice(0,250);
     if(!note){ack(false,'EMPTY_NOTE');return}
