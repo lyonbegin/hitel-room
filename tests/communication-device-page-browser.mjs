@@ -56,6 +56,18 @@ try{
  assert(still.peers.A&&still.peers.B&&still.peerKinds.A==='native-protocol',
   'web reload must not evict already connected native device');
  console.log('HITEL_PER_APP_PAGE_RELOAD_SESSION_RETAINED_PASS');
+ // A NEW tab has no prior sessionStorage. It must discover the current
+ // session from the device-specific server URL, not create another session.
+ const newTab=await browser.newPage({viewport:{width:1280,height:900}});
+ await newTab.goto(registration.pageUrl,{waitUntil:'domcontentloaded'});
+ await newTab.getByText('양쪽 WS 실연결 성공').waitFor({timeout:18000});
+ const newTabSession=await newTab.evaluate(()=>{
+  const token=location.pathname.split('/').at(-1);
+  return JSON.parse(sessionStorage.getItem('hitel.communication.device-session.'+token)||'{}');
+ });
+ assert(newTabSession.id===priorSession,'new browser tab must reuse actual assigned call ID');
+ console.log('HITEL_PER_APP_URL_NEW_BROWSER_TAB_REUSED_SAME_SESSION_PASS');
+ await newTab.close();
  await page.screenshot({path:'hitel-call-device-url-autoconnect.png',fullPage:true});
  if(errors.length)throw Error('Browser JS errors: '+errors.join('; '));
  console.log('HITEL_CALL_APP_UNIQUE_URL_REAL_BROWSER_AUTOCONNECT_PASS',{automatic:true,noPin:true,actualDeviceSocket:true,scenario:12,realIphoneHardware:false});
