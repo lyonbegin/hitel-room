@@ -6,9 +6,9 @@ type Side='A'|'B';
 type Phase='idle'|'ringing'|'accepted'|'rejected'|'media'|'ended';
 type Route={id:number;from:Kind;to:Kind};
 type CallEvent={type:string;by:Side;at:string;seq:number;callId:string|null;route?:Route;description?:string;connectionState?:string;note?:string};
-type PlaySession={ok:boolean;id:string;secret:string;route:Route;phase:Phase;callId:string|null;peers:{A:boolean;B:boolean};
+type PlaySession={ok:boolean;id:string;secret:string;route:Route;phase:Phase;callId:string|null;peers:{A:boolean;B:boolean};peerKinds?:Record<Side,string|null>;
  capabilities:{signaling:boolean;browserWebRTC:boolean;nativeIOS:boolean;pstnGateway:boolean;aiRuntime:boolean};expiresAt:string;sequence:number;nativeCode?:string|null;nativeSide?:Side|null;nativeCodes?:{A:string|null;B:string|null}};
-type Signal={type:string;from?:Side;payload?:{type?:string;sdp?:string;candidate?:string|null;sdpMid?:string|null;sdpMLineIndex?:number|null};state?:PlaySession;event?:CallEvent;events?:CallEvent[];peers?:{A:boolean;B:boolean};ok?:boolean;reason?:string;phase?:Phase;requestId?:string;callId?:string};
+type Signal={type:string;from?:Side;payload?:{type?:string;sdp?:string;candidate?:string|null;sdpMid?:string|null;sdpMLineIndex?:number|null};state?:PlaySession;event?:CallEvent;events?:CallEvent[];peers?:{A:boolean;B:boolean};peerKinds?:Record<Side,string|null>;ok?:boolean;reason?:string;phase?:Phase;requestId?:string;callId?:string};
 type Line={id:number;at:string;side:string;kind:string;text:string;tone:'ok'|'error'|'info'|'warn'};
 const KINDS:Kind[]=['P','P+','N','W'];
 const ROUTES:Route[]=KINDS.flatMap((from,i)=>KINDS.map((to,j)=>({id:i*4+j+1,from,to})));
@@ -29,7 +29,7 @@ const checklist=[
  {id:'invite',title:'발신 요청·수신 벨',description:'서버가 실제로 ringing 이벤트를 양측에 전달합니다.'},
  {id:'accept',title:'수락·종료 명령',description:'상태 전이와 서버 ACK를 확인합니다.'},
  {id:'rtc',title:'실제 WebRTC 미디어',description:'N/W 조합에서 브라우저간 미디어 전송을 시험합니다.'},
- {id:'native',title:'실제 네이티브 N 연동',description:'iPhone/Android SDK 통화 엔진 별도 구현 필요'},
+ {id:'native',title:'N 네이티브 직접 WebSocket 참가',description:'네이티브 전용 참가코드·WS 연결. 실제 미디어는 별도 확인'},
  {id:'pstn',title:'실제 일반전화망 연동',description:'P/P+ 통신사 연결 장치·권한 검증 필요'},
  {id:'ai',title:'실시간 AI 음성·자막',description:'AI 런타임 인증·실제 미디어 입력 연동 필요'},
 ];
@@ -39,6 +39,7 @@ export default function CommunicationPlayground(){
  const [selected,setSelected]=useState(16);
  const [sess,setSess]=useState<PlaySession|null>(null);
  const [conn,setConn]=useState<Record<Side,boolean>>({A:false,B:false});
+ const [peerKinds,setPeerKinds]=useState<Record<Side,string|null>>({A:null,B:null});
  const [phase,setPhase]=useState<Phase>('idle');
  const [logs,setLogs]=useState<Line[]>([]);
  const [remoteStatus,setRemoteStatus]=useState<Record<Side,string>>({A:'연결 전',B:'연결 전'});
@@ -80,7 +81,7 @@ export default function CommunicationPlayground(){
  };
  const disconnect=()=>{
   (['A','B'] as Side[]).forEach(side=>{sockets.current[side]?.close();sockets.current[side]=null});
-  setConn({A:false,B:false});stopMedia();
+  setConn({A:false,B:false});setPeerKinds({A:null,B:null});stopMedia();
  };
  const api=async(path:string,body:object)=>{
   const res=await fetch(ROOT+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
@@ -140,8 +141,11 @@ export default function CommunicationPlayground(){
   return pc;
  };
  const onMessage=async(side:Side,msg:Signal)=>{
-  if(msg.type==='hello'){log(side,'WS','WebSocket 연결 승인 · 독립 웹 클라이언트','ok');return}
-  if(msg.type==='presence'){if(msg.peers)setConn(msg.peers);return}
+  if(msg.type==='hello'){
+   if(msg.state?.peerKinds)setPeerKinds(msg.state.peerKinds);
+   log(side,'WS','WebSocket 연결 승인 · 독립 웹 클라이언트','ok');return
+  }
+  if(msg.type==='presence'){if(msg.peers)setConn(msg.peers);if(msg.peerKinds)setPeerKinds(msg.peerKinds);return}
   if(msg.type==='ack'){if(!msg.ok)log(side,'ACK','거부: '+msg.reason,'error');else log(side,'ACK',msg.phase||'OK','ok');return}
   if(msg.type==='event'&&msg.event){acceptState(msg.event);return}
   try{
@@ -213,12 +217,14 @@ export default function CommunicationPlayground(){
  useEffect(()=>{return()=>{(['A','B'] as Side[]).forEach(side=>{
   sockets.current[side]?.close();pcs.current[side]?.close();streams.current[side]?.getTracks().forEach(t=>t.stop());
  })}},[]);
+ const verifiedNativeSignaling=((current.from==='N'&&conn.A&&peerKinds.A==='native-protocol')||
+   (current.to==='N'&&conn.B&&peerKinds.B==='native-protocol'));
  const statusChecks=[
   {id:'ws',ok:conn.A&&conn.B,desc:conn.A&&conn.B?'양쪽 WS 실연결 성공':'양측 연결 필요'},
   {id:'invite',ok:seen.current.size>0&&logs.some(l=>l.text.includes('call.ringing')),desc:phase!=='idle'?'발신 이벤트 전달 확인':'아직 발신 전'},
   {id:'accept',ok:logs.some(l=>l.text.includes('call.accept')),desc:phase==='accepted'||phase==='media'||phase==='ended'?'서버 ACK / 수락 확인':'수락 대기'},
   {id:'rtc',ok:rtcReady.A&&rtcReady.B&&current.from==='W'&&current.to==='W',desc:!liveRtc?'인터넷 피어 통화 조합이 아님':rtcReady.A&&rtcReady.B?current.from==='W'&&current.to==='W'?'실제 웹↔웹 RTC 연결':'브라우저 대역 RTC 성공 · 네이티브 N 미검증':'미디어 연결 전'},
-  {id:'native',ok:false,desc:current.from==='N'||current.to==='N'?'실제 iPhone 네이티브 통화 미연동':'해당 없음'},
+  {id:'native',ok:verifiedNativeSignaling,desc:verifiedNativeSignaling?'네이티브 전용 인증으로 WebSocket 참가 확인 · 실제 iPhone 미디어 별도 검증':current.from==='N'||current.to==='N'?'네이티브 N 참가 대기':'해당 없음'},
   {id:'pstn',ok:false,desc:hasPstn?'외부 전화망 게이트웨이 미연동':'해당 없음'},
   {id:'ai',ok:false,desc:'실제 AI 런타임 미연동 (진단용 상태만)'},
  ];
@@ -227,7 +233,7 @@ export default function CommunicationPlayground(){
  const actor=(side:Side)=>{
   const k=side==='A'?current.from:current.to;
   const isWeb=k==='W',native=k==='N';
-  const nativeOnline=Boolean(native&&conn[side]&&!sockets.current[side]);
+  const nativeOnline=Boolean(native&&conn[side]&&peerKinds[side]==='native-protocol');
   return <section className="hcp-actor" aria-label={side==='A'?'발신자 플레이어':'수신자 플레이어'}>
    <header><div className="hcp-avatar">{side==='A'?'↗':'↙'}</div><div><small>{side==='A'?'PLAYER A · 발신자':'PLAYER B · 수신자'}</small><h3>{k} <span>{KINDS_LABEL[k]}</span></h3></div><span className={'hcp-status '+(conn[side]?'on':'off')}>{conn[side]?'WS 연결':'WS 미연결'}</span></header>
    <div className="hcp-screen">
@@ -279,7 +285,7 @@ export default function CommunicationPlayground(){
      {(['A','B'] as Side[]).filter(side=>Boolean(sess?.nativeCodes?.[side])).map(side=><div key={side} style={{textAlign:'center',minWidth:174}}><small style={{fontSize:10,color:'#67839a'}}>NATIVE {side} PAIR CODE</small><div style={{fontSize:27,fontWeight:800,letterSpacing:4,fontVariantNumeric:'tabular-nums',color:'#1d558d'}}>{sess!.nativeCodes![side]}</div></div>)}
     </div>}
     <div className="hcp-safety"><span className={'hcp-mark '+(sess?'good':'idle')}>{sess?'서버 세션 있음':'테스트 세션 없음'}</span>
-      <span>라우팅: {liveRtc?'브라우저 RTC 후보':'통화 신호 시험'}</span><span>실제 네이티브: 미연동</span><span>전화망: 미연동</span><span>AI: 미연동</span>
+      <span>라우팅: {liveRtc?'브라우저 RTC 후보':'통화 신호 시험'}</span><span>네이티브 통신: {verifiedNativeSignaling?'N 프로토콜 연결':'참가 대기/해당 없음'}</span><span>전화망: 미연동</span><span>AI: 미연동</span>
     </div>
     <div className="hcp-players">{actor('A')}<div className="hcp-between"><span>⇄</span><small>실제 WS<br/>서버</small></div>{actor('B')}</div>
     <section className="hcp-rtc-cta"><div><strong>실제 브라우저 WebRTC 연결</strong><p>W↔W는 양측 브라우저를 준비하십시오. W→N은 W 발신자가 Offer를 보내고 실제 아이폰이 Answer를 보냅니다. N→W는 아이폰이 수락 후 Offer를 전송하므로 W 수신자는 먼저 카메라·마이크를 준비해 주십시오.</p></div><button className="primary" onClick={()=>void beginRtc()} disabled={!liveRtc||current.from==='N'||phase!=='accepted'||!localReady.A||(current.to==='W'&&!localReady.B)}>WebRTC 연결 실행</button></section>
