@@ -152,8 +152,9 @@ export default function CommunicationPlayground(){
   setAudit({running:false,passed,failed,done:passed+failed,details:[...details]});
  };
  useEffect(()=>{
+  if(devicePageToken)return; // app-page bootstrap uses server's current assignment
   let cancelled=false;
-  const raw=sessionStorage.getItem(devicePageToken?'hitel.communication.device-session.'+devicePageToken:'hitel.communication.playground.v1');
+  const raw=sessionStorage.getItem('hitel.communication.playground.v1');
   if(!raw)return;
   try{
    const saved=JSON.parse(raw) as {id:string;secret:string};
@@ -179,7 +180,7 @@ export default function CommunicationPlayground(){
  },[]);
  const create=async(routeId:number)=>{
   setBusy(true);setNotice('');disconnect();setSess(null);setPhase('idle');setLogs([]);seen.current.clear();
-  if(sess){void api('/end',{id:sess.id,secret:sess.secret}).catch(()=>undefined)}
+  if(sess)await api('/end',{id:sess.id,secret:sess.secret}).catch(()=>undefined);
   const storageKey=devicePageToken?'hitel.communication.device-session.'+devicePageToken:'hitel.communication.playground.v1';
   sessionStorage.removeItem(storageKey);
   assignment.current='';
@@ -224,9 +225,40 @@ export default function CommunicationPlayground(){
   return()=>{live=false;window.clearInterval(interval)}
  },[devicePageToken,sess?.id]);
  useEffect(()=>{
-  if(!devicePageToken||sess)return;
-  if(sessionStorage.getItem('hitel.communication.device-session.'+devicePageToken))return;
-  void create(12);
+  if(!devicePageToken)return;
+  let cancelled=false;
+  const bootstrap=async()=>{
+   const storageKey='hitel.communication.device-session.'+devicePageToken;
+   try{
+    const page=await api('/device/status',{pageToken:devicePageToken}) as {
+      ok:boolean;device:{id:string;online:boolean;lastSeen:string|null};
+      activeSession?: (PlaySession&{secret:string})|null;
+    };
+    if(cancelled)return;
+    setDeviceStatus(page.device);
+    let original=page.activeSession||null;
+    if(!original){
+     const cache=sessionStorage.getItem(storageKey);
+     if(cache){
+      try{
+       const previous=JSON.parse(cache) as {id:string;secret:string};
+       original=await api('/status',previous) as unknown as PlaySession&{secret:string};
+       original.secret=previous.secret;
+      }catch{sessionStorage.removeItem(storageKey)}
+     }
+    }
+    if(cancelled)return;
+    if(original){
+     sessionStorage.setItem(storageKey,JSON.stringify({id:original.id,secret:original.secret}));
+     setSess(original);setSelected(original.route.id);setPhase(original.phase);
+     log('RESTORE','DEVICE','이 앱의 기존 통화 세션을 복원했습니다. 새 세션을 만들지 않습니다.','ok');
+    }else{
+     await create(12);
+    }
+   }catch(e){if(!cancelled)setAutoAttachError('앱 고유 주소 확인 실패: '+textErr(e))}
+  };
+  void bootstrap();
+  return()=>{cancelled=true}
  },[devicePageToken]);
 
  const acceptState=(event:CallEvent)=>{
