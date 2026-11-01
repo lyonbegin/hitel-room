@@ -304,7 +304,8 @@ export default function CommunicationPlayground(){
  };
  const connect=(side:Side,state:PlaySession|null=sess)=>{
   if(!state)return;
-  if((side==='A'&&state.route.from==='N')||(side==='B'&&state.route.to==='N')){
+  const kind=side==='A'?state.route.from:state.route.to;
+  if(kind==='N'||(devicePageToken&&kind==='P+')){
    log(side,'NATIVE','iPhone HITEL Call 앱에서 보이는 고유 웹 주소를 열어 연결해 주십시오.','warn');
    return;
   }
@@ -371,6 +372,7 @@ export default function CommunicationPlayground(){
  const actor=(side:Side)=>{
   const k=side==='A'?current.from:current.to;
   const isWeb=k==='W',native=k==='N';
+  const autoNative=Boolean(devicePageToken&&(k==='N'||k==='P+'));
   const nativeOnline=Boolean((native||k==='P+')&&conn[side]&&peerKinds[side]==='native-protocol');
   return <section className="hcp-actor" aria-label={side==='A'?'발신자 플레이어':'수신자 플레이어'}>
    <header><div className="hcp-avatar">{side==='A'?'↗':'↙'}</div><div><small>{side==='A'?'PLAYER A · 발신자':'PLAYER B · 수신자'}</small><h3>{k} <span>{KINDS_LABEL[k]}</span></h3></div><span className={'hcp-status '+(conn[side]?'on':'off')}>{conn[side]?'WS 연결':'WS 미연결'}</span></header>
@@ -383,10 +385,10 @@ export default function CommunicationPlayground(){
     <div className="hcp-chip-line"><span>통화: {phase}</span><span>미디어: {remoteStatus[side]}</span></div>
    </div>
    <div className="hcp-actions">
-    <button onClick={()=>connect(side)} disabled={!sess||conn[side]||native}> {native?'iPhone N 코드 사용':'WebSocket 연결'}</button>
-    {side==='A'?<button className="primary" onClick={()=>send('A','call.invite')} disabled={native||!conn.A||!conn.B||!['idle','ended','rejected'].includes(phase)}>발신</button>:
-     <><button className="primary" onClick={()=>send('B','call.accept')} disabled={native||!conn.B||phase!=='ringing'}>수락</button><button onClick={()=>send('B','call.reject')} disabled={native||!conn.B||phase!=='ringing'}>거절</button></>}
-    <button onClick={()=>send(side,'call.end')} disabled={native||!conn[side]||!['ringing','accepted','media'].includes(phase)}>종료</button>
+    <button onClick={()=>connect(side)} disabled={!sess||conn[side]||autoNative||native}>{autoNative||native?'iPhone 앱 자동 연결':'WebSocket 연결'}</button>
+    {side==='A'?<button className="primary" onClick={()=>send('A','call.invite')} disabled={autoNative||native||!conn.A||!conn.B||!['idle','ended','rejected'].includes(phase)}>발신</button>:
+     <><button className="primary" onClick={()=>send('B','call.accept')} disabled={autoNative||native||!conn.B||phase!=='ringing'}>수락</button><button onClick={()=>send('B','call.reject')} disabled={autoNative||native||!conn.B||phase!=='ringing'}>거절</button></>}
+    <button onClick={()=>send(side,'call.end')} disabled={autoNative||native||!conn[side]||!['ringing','accepted','media'].includes(phase)}>종료</button>
    </div>
    <div className="hcp-actions secondary">
     <button onClick={()=>void prepare(side)} disabled={native||!liveRtc||!conn[side]||localReady[side]}>{localReady[side]?'✓ 카메라·마이크 준비됨':'카메라·마이크 허용'}</button>
