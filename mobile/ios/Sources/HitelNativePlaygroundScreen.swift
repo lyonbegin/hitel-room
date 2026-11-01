@@ -23,7 +23,7 @@ struct HitelNativePlaygroundScreen: View {
                     }
                     VStack(alignment:.leading,spacing:8) {
                         Text("16개 통신 조합").font(.headline)
-                        Text("P·P+는 통신사망 미연동입니다. 실제 네이티브 통화는 N이 포함된 경로에서 검사합니다.")
+                        Text("P는 일반 통신사 이용자, P+는 별도 개인 보조, N은 실제 인터넷 네이티브 통화입니다. 기존 통신사 음성은 직접 수집하지 않습니다.")
                             .font(.caption).foregroundStyle(.secondary)
                         LazyVGrid(columns:Array(repeating:GridItem(.flexible(),spacing:7),count:4),spacing:8) {
                             ForEach(1...16,id:\.self){id in
@@ -44,7 +44,7 @@ struct HitelNativePlaygroundScreen: View {
                     }.padding(14).background(Color(uiColor:.secondarySystemGroupedBackground)).clipShape(RoundedRectangle(cornerRadius:12))
                     VStack(alignment:.leading,spacing:12){
                         Text("Playground 네이티브 참가").font(.headline)
-                        Text("Windows 웹에서 해당 N 시나리오를 선택하고 '새 테스트 세션'을 누르시면 발신자 A·수신자 B에 대응하는 코드가 표시됩니다.")
+                        Text("Windows 웹에서 N 또는 P+가 포함된 시나리오를 선택하고 '새 테스트 세션'을 누르시면 해당 발신자 A·수신자 B의 코드가 표시됩니다.")
                             .font(.caption).foregroundStyle(.secondary)
                         HStack {
                             TextField("8자리 네이티브 참가코드",text:$model.pairingCode)
@@ -63,7 +63,7 @@ struct HitelNativePlaygroundScreen: View {
                         HStack {
                             Image(systemName:model.connected ? "checkmark.circle.fill":"wifi.slash")
                                 .foregroundColor(model.connected ? .green:.orange)
-                            Text(model.connected ? "서버 직접 접속 · "+model.side+" · "+model.route:"독립 네이티브 연결 대기")
+                            Text(model.connected ? "서버 직접 접속 · "+model.side+" / "+model.endpointType+" · "+model.route:"독립 네이티브 연결 대기")
                                 .font(.caption.bold())
                         }
                         Text(model.message).font(.caption).foregroundStyle(.secondary)
@@ -72,9 +72,12 @@ struct HitelNativePlaygroundScreen: View {
                                 .buttonStyle(.bordered).tint(.red)
                         }
                     }.padding(14).background(Color(uiColor:.secondarySystemGroupedBackground)).clipShape(RoundedRectangle(cornerRadius:12))
+                    if model.endpointType == "P+" {
+                        HitelCarrierAssistant(model:model)
+                    }
                     VStack(alignment:.leading,spacing:10){
                         HStack {
-                            Text("실제 통화").font(.headline)
+                            Text(model.endpointType == "P+" ? "Playground 제어 신호 (전화망 별도)" : "실제 통화").font(.headline)
                             Spacer()
                             Text(model.phase).font(.caption.bold()).foregroundStyle(model.inCall ? .green:.secondary)
                         }
@@ -101,7 +104,9 @@ struct HitelNativePlaygroundScreen: View {
                             Button(model.muted ? "마이크 켜기":"마이크 끄기") {model.toggleMute()}
                             Button(model.cameraEnabled ? "카메라 끄기":"카메라 켜기") {model.toggleCamera()}
                         }.buttonStyle(.bordered).disabled(!model.inCall)
-                        Text("실제 통화 여부는 원격 미디어·ICE 연결 상태가 connected가 되었을 때만 확정됩니다. PushKit을 통한 앱 종료 상태 수신은 아직 미지원입니다.")
+                        Text(model.endpointType == "P+"
+                         ? "P+에서는 네이티브 통신사 통화 오디오를 제어하지 않습니다. WS 제어 신호와 별도 전화 실행만 가능합니다."
+                         : "실제 통화 여부는 원격 미디어·ICE 연결 상태가 connected가 되었을 때만 확정됩니다. PushKit을 통한 앱 종료 상태 수신은 아직 미지원입니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }.padding(14).background(Color(uiColor:.secondarySystemGroupedBackground)).clipShape(RoundedRectangle(cornerRadius:12))
                     VStack(alignment:.leading,spacing:9){
