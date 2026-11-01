@@ -5,6 +5,11 @@ on:
     paths:
       - "src/device-lab/PhysicalIphonePanel.tsx"
       - "src/device-lab/DeviceLab.tsx"
+      - "src/communication-playground/**"
+      - "src/App.tsx"
+      - "sandbox-control/communication-playground.mjs"
+      - "sandbox-control/server.mjs"
+      - "Dockerfile"
       - "src/device-lab/PhysicalAndroidPanel.tsx"
       - ".github/workflows/ios-physical-web-build.yml"
   workflow_dispatch:
@@ -20,4 +25,5 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund
+      - run: node --check sandbox-control/communication-playground.mjs
       - run: npm run build
