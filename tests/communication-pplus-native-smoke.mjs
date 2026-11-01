@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import {randomUUID,randomBytes} from 'node:crypto';
 const base='https://hitel-communication-web-production.up.railway.app',root='/lab-sandbox/playground';
 const must=(v,m)=>{if(!v)throw Error('PPLUS_COMPANION_FAIL '+m)};
 async function api(uri,body,origin=true){
@@ -23,17 +24,33 @@ function until(w,p){
 const routes=[2,5,6,7,8,10,14];
 for(const routeId of routes){
  const s=await api('/session',{routeId});let A,B;
+ const deviceSockets=[],identities=[];
  try{
   const from=s.route.from,to=s.route.to;
   const tokens={};
   for(const side of ['A','B']){
    const kind=side==='A'?from:to;
    if(kind!=='P+')continue;
-   const code=s.nativeCodes[side];
-   must(/^\d{8}$/.test(code),'P+ PIN route '+routeId);
-   const join=await api('/native-join',{code},false);
-   must(join.side===side,'P+ native side '+routeId);
-   tokens[side]=join.secret;
+   const id=randomUUID(),key=randomBytes(32).toString('hex');
+   identities.push({id,key});
+   const registration=await api('/device/register',{id,key},false);
+   const pageToken=registration.pageUrl.split('/').at(-1);
+   must(/^[a-f0-9]{64}$/.test(pageToken),'P+ unique page token');
+   const device=new WebSocket(base.replace('https','wss')+root+'/device/socket');
+   deviceSockets.push(device);
+   await new Promise((resolve,reject)=>{
+    const t=setTimeout(()=>reject(Error('PPLUS_DEVICE_SOCKET_TIMEOUT')),10000);
+    device.once('open',()=>{clearTimeout(t);resolve()});
+    device.once('error',reject);
+   });
+   const ready=until(device,msg=>msg.type==='device.ready');
+   device.send(JSON.stringify({type:'device.auth',id,key}));
+   await ready;
+   const assigned=until(device,msg=>msg.type==='device.assign');
+   await api('/device/attach',{pageToken,sessionId:s.id,sessionSecret:s.secret,side});
+   const assignment=await assigned;
+   must(assignment.id===s.id&&assignment.side===side,'P+ app-specific assignment');
+   tokens[side]=assignment.secret;
   }
   A=await ws(s.id,tokens.A||s.secret,'A',!!tokens.A);
   B=await ws(s.id,tokens.B||s.secret,'B',!!tokens.B);
@@ -56,7 +73,9 @@ for(const routeId of routes){
   must((await blocked).ok===false,'forbid false audio capture status');
   console.log('PPLUS_NATIVE_SCENARIO_'+String(routeId).padStart(2,'0')+'_PASS');
  }finally{
-  A?.close();B?.close();await api('/end',{id:s.id,secret:s.secret}).catch(()=>{})
+  A?.close();B?.close();deviceSockets.forEach(d=>d.close());
+  await api('/end',{id:s.id,secret:s.secret}).catch(()=>{});
+  for(const ident of identities)await api('/device/unregister',ident,false).catch(()=>{});
  }
 }
 console.log('PPLUS_NATIVE_COMPANION_7_OF_7_SIGNALING_AND_NOTES_PASS; no PSTN audio or AI provider claimed');
