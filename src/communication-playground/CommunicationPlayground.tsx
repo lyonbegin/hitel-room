@@ -155,7 +155,7 @@ export default function CommunicationPlayground(){
    }
    if(msg.type==='rtc.ice'&&msg.payload){
     const pc=pcs.current[side];
-    if(pc)await pc.addIceCandidate(new RTCIceCandidate(msg.payload));
+    if(pc)await pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
    }
   }catch(e){log(side,'WEBRTC ERROR',textErr(e),'error')}
  };
