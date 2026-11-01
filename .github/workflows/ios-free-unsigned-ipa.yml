@@ -3,7 +3,9 @@ on:
   push:
     branches: [feature/ws-scrcpy-android11-20261028]
     paths:
-      - 'mobile/ios/**'
+      - 'mobile/ios/Sources/**'
+      - 'mobile/ios/BroadcastUpload/**'
+      - 'mobile/ios/project.free.yml'
       - '.github/workflows/ios-free-unsigned-ipa.yml'
   workflow_dispatch:
 concurrency:
