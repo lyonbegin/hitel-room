@@ -38,6 +38,9 @@ jobs:
           grep 'BUILD SUCCEEDED' "$RUNNER_TEMP/hitel-free-iphone-build.log"
           APP="$RUNNER_TEMP/HITEL-FreeDerivedData/Build/Products/Release-iphoneos/HitelNative.app"
           EXT="$APP/PlugIns/HitelScreenBroadcast.appex"
+          FRAMEWORK="$APP/Frameworks/WebRTC.framework"
+          test -s "$FRAMEWORK/WebRTC" || { echo "::error::Native WebRTC framework missing from IPA"; exit 1; }
+          file "$FRAMEWORK/WebRTC" | grep -q 'arm64'
           test -f "$APP/Info.plist" && test -f "$EXT/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXT/Info.plist")" = 'app.hitel.native.broadcast'
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$EXT/Info.plist")" = 'com.apple.broadcast-services-upload'
@@ -58,6 +61,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           unzip -t out/HITEL-iPhone-Free-7day-unsigned.ipa | tail -2
           unzip -l out/HITEL-iPhone-Free-7day-unsigned.ipa | grep -E 'Payload/HitelNative.app/PlugIns/HitelScreenBroadcast.appex/Info.plist'
+          unzip -l out/HITEL-iPhone-Free-7day-unsigned.ipa | grep -E 'Payload/HitelNative.app/Frameworks/WebRTC.framework/WebRTC'
           shasum -a 256 out/HITEL-iPhone-Free-7day-unsigned.ipa > out/SHA256SUMS.txt
           echo 'UNSIGNED_IPA_WITH_BROADCAST_EXTENSION_READY'
       - uses: actions/upload-artifact@v4
