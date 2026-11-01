@@ -7,7 +7,7 @@ type Phase='idle'|'ringing'|'accepted'|'rejected'|'media'|'ended';
 type Route={id:number;from:Kind;to:Kind};
 type CallEvent={type:string;by:Side;at:string;seq:number;callId:string|null;route?:Route;description?:string;connectionState?:string;note?:string};
 type PlaySession={ok:boolean;id:string;secret:string;route:Route;phase:Phase;callId:string|null;peers:{A:boolean;B:boolean};
- capabilities:{signaling:boolean;browserWebRTC:boolean;nativeIOS:boolean;pstnGateway:boolean;aiRuntime:boolean};expiresAt:string;sequence:number};
+ capabilities:{signaling:boolean;browserWebRTC:boolean;nativeIOS:boolean;pstnGateway:boolean;aiRuntime:boolean};expiresAt:string;sequence:number;nativeCode?:string|null;nativeSide?:Side|null};
 type Signal={type:string;from?:Side;payload?:{type?:string;sdp?:string;candidate?:string|null;sdpMid?:string|null;sdpMLineIndex?:number|null};state?:PlaySession;event?:CallEvent;events?:CallEvent[];peers?:{A:boolean;B:boolean};ok?:boolean;reason?:string;phase?:Phase;requestId?:string;callId?:string};
 type Line={id:number;at:string;side:string;kind:string;text:string;tone:'ok'|'error'|'info'|'warn'};
 const KINDS:Kind[]=['P','P+','N','W'];
@@ -264,6 +264,11 @@ export default function CommunicationPlayground(){
      <div className="hcp-scenario-controls"><button onClick={()=>void create(selected)} disabled={busy}>{busy?'생성 중…':'새 테스트 세션'}</button><button className="primary" onClick={()=>{connect('A');connect('B')}} disabled={!sess||conn.A&&conn.B}>양측 WS 연결</button></div>
     </section>
     {notice&&<div role="alert" className="hcp-error">{notice}</div>}
+    {sess?.nativeCode&&<div style={{background:'#edf6ff',border:'1px solid #abc9eb',borderRadius:12,padding:'16px 20px',margin:'12px 0',display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
+     <div style={{flex:1,minWidth:220}}><strong style={{display:'block',fontSize:15,color:'#174c83'}}>실제 iPhone N 플레이어 연결</strong>
+      <p style={{fontSize:12,color:'#516986',lineHeight:1.6,margin:'5px 0 0'}}>아이폰 HITEL 네이티브 앱 → 통화 실험실 → 아래 8자리 코드를 입력하여 {sess.nativeSide==='A'?'발신자 A':'수신자 B'}로 연결하십시오. 네이티브 앱은 웹 브리지를 사용하지 않고 직접 WebSocket에 접속합니다.</p></div>
+     <div style={{textAlign:'center',minWidth:174}}><small style={{fontSize:10,color:'#67839a'}}>NATIVE PAIR CODE</small><div style={{fontSize:29,fontWeight:800,letterSpacing:5,fontVariantNumeric:'tabular-nums',color:'#1d558d'}}>{sess.nativeCode}</div></div>
+    </div>}
     <div className="hcp-safety"><span className={'hcp-mark '+(sess?'good':'idle')}>{sess?'서버 세션 있음':'테스트 세션 없음'}</span>
       <span>라우팅: {liveRtc?'브라우저 RTC 후보':'통화 신호 시험'}</span><span>실제 네이티브: 미연동</span><span>전화망: 미연동</span><span>AI: 미연동</span>
     </div>
