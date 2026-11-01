@@ -154,7 +154,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
             switch eventType {
             case "call.ringing":
                 phase="ringing"
-                if side=="B"&&sender != "B" {incomingCall()}
+                if side == "B" && sender != "B" { incomingCall() }
             case "call.accept":
                 phase="accepted"
                 inCall=true
@@ -228,7 +228,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
             DispatchQueue.main.async {
                 guard let self else{return}
                 self.mediaState=result
-                if result.contains("connected")&& !result.contains("disconnected") {
+                if result.contains("connected") && !result.contains("disconnected") {
                     self.send("call.mediaConnected",payload:["connectionState":"connected"])
                 }
             }
