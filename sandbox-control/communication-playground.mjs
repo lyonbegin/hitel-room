@@ -12,6 +12,35 @@ const nativeAttempts=new Map();
 function pin(){let code;do{code=String(randomInt(0,100000000)).padStart(8,'0')}
   while([...sessions.values()].some(s=>s.nativeCodes?.A===code||s.nativeCodes?.B===code));return code}
 const sessions=new Map();
+const devices=new Map();
+const deviceSockets=new WebSocketServer({noServer:true,maxPayload:4096,perMessageDeflate:false});
+const DEVICE_FILE=process.env.HITEL_COMMUNICATION_DEVICE_FILE||
+ join(process.env.RAILWAY_VOLUME_MOUNT_PATH||'/data/hitel-ws-scrcpy','communication-devices.json');
+const validID=x=>/^[a-f0-9-]{36}$/.test(x||'');
+const validKey=x=>/^[a-f0-9]{64}$/.test(x||'');
+function saveDevices(){
+ try{
+  mkdirSync(dirname(DEVICE_FILE),{recursive:true,mode:0o700});
+  const temp=DEVICE_FILE+'.tmp';
+  writeFileSync(temp,JSON.stringify([...devices.values()].map(d=>({
+   id:d.id,key:d.key,pageToken:d.pageToken,createdAt:d.createdAt
+  }))),{mode:0o600});
+  renameSync(temp,DEVICE_FILE);
+ }catch(error){console.error('COMM_DEVICE_SAVE_FAILED',String(error).slice(0,140))}
+}
+try{
+ const raw=JSON.parse(readFileSync(DEVICE_FILE,'utf8'));
+ if(Array.isArray(raw))for(const d of raw.slice(0,200))
+  if(validID(d.id)&&validKey(d.key)&&validKey(d.pageToken))
+   devices.set(d.id,{...d,socket:null,lastSeen:null});
+}catch{}
+function devicePublic(d){return {id:d.id,online:d.socket?.readyState===WebSocket.OPEN,
+ lastSeen:d.lastSeen||null,createdAt:d.createdAt};}
+function deviceByPage(token){return validKey(token)?[...devices.values()].find(d=>safeEq(d.pageToken,token)):null}
+function notifyDevice(d,message){
+ if(d?.socket?.readyState===WebSocket.OPEN)d.socket.send(JSON.stringify(message))
+}
+
 const STATE_FILE=process.env.HITEL_PLAYGROUND_STATE_FILE||
   join(process.env.RAILWAY_VOLUME_MOUNT_PATH||'/data/hitel-ws-scrcpy','communication-playground.json');
 function persist(){
@@ -71,11 +100,49 @@ async function parseBody(req){let raw='';for await(const c of req){raw+=c;if(raw
 export async function playgroundRoute(req,res,path){
  expire();
  if(path==='/playground/health'&&req.method==='GET')return json(res,200,{ok:true,service:'hitel-communication-playground',routes:16,activeSessions:sessions.size});
- if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end','/playground/native-join'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
+ if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end','/playground/native-join',
+ '/playground/device/register','/playground/device/status','/playground/device/attach'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
  if(!String(req.headers['content-type']||'').startsWith('application/json')||
-    (path!=='/playground/native-join'&&req.headers.origin!==WEB_ORIGIN))
+    (!['/playground/native-join','/playground/device/register'].includes(path)&&req.headers.origin!==WEB_ORIGIN))
   return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
  let data;try{data=await parseBody(req)}catch{return json(res,400,{ok:false,error:'INVALID_JSON'})}
+ if(path==='/playground/device/register'){
+  const id=String(data.id||''),key=String(data.key||'');
+  if(!validID(id)||!validKey(key))return json(res,400,{ok:false,error:'INVALID_DEVICE_IDENTITY'});
+  let device=devices.get(id);
+  if(device&&!safeEq(device.key,key))return json(res,403,{ok:false,error:'DEVICE_SECRET_MISMATCH'});
+  if(!device){
+   if(devices.size>=200)return json(res,429,{ok:false,error:'DEVICE_LIMIT'});
+   device={id,key,pageToken:randomBytes(32).toString('hex'),createdAt:now(),socket:null,lastSeen:null};
+   devices.set(id,device);saveDevices();
+  }
+  return json(res,200,{ok:true,pageUrl:WEB_ORIGIN+'/communication-playground/app/'+device.pageToken,
+   device:devicePublic(device)});
+ }
+ if(path==='/playground/device/status'){
+  const device=deviceByPage(String(data.pageToken||''));
+  if(!device)return json(res,404,{ok:false,error:'DEVICE_URL_INVALID'});
+  return json(res,200,{ok:true,device:devicePublic(device)});
+ }
+ if(path==='/playground/device/attach'){
+  const device=deviceByPage(String(data.pageToken||''));
+  if(!device)return json(res,404,{ok:false,error:'DEVICE_URL_INVALID'});
+  const session=sessions.get(String(data.sessionId||''));
+  if(!session||!safeEq(session.secret,data.sessionSecret))
+   return json(res,404,{ok:false,error:'SESSION_NOT_FOUND'});
+  const side=String(data.side||'');
+  if(side!=='A'&&side!=='B')return json(res,400,{ok:false,error:'INVALID_SIDE'});
+  const endpoint=side==='A'?session.route.from:session.route.to;
+  if(!['N','P+'].includes(endpoint))return json(res,409,{ok:false,error:'ROUTE_DOES_NOT_ACCEPT_APP'});
+  if(device.socket?.readyState!==WebSocket.OPEN)
+   return json(res,409,{ok:false,error:'IPHONE_APP_OFFLINE'});
+  if(session.peers[side]?.readyState===WebSocket.OPEN)
+   return json(res,409,{ok:false,error:'SIDE_ALREADY_CONNECTED'});
+  // Assign only the native side-specific capability, never the browser owner key.
+  notifyDevice(device,{type:'device.assign',id:session.id,secret:session.nativeSecrets[side],
+   side,route:session.route,phase:session.phase,at:now()});
+  return json(res,200,{ok:true,assigned:true,side,device:devicePublic(device)});
+ }
  if(path==='/playground/session'){
   const route=routes.find(r=>r.id===data.routeId);
   if(!route)return json(res,400,{ok:false,error:'INVALID_ROUTE'});
@@ -118,6 +185,38 @@ export async function playgroundRoute(req,res,path){
 export function playgroundUpgrade(req,socket,head){
  expire();
  const u=new URL(req.url,'http://localhost');
+ if(u.pathname==='/playground/device/socket'){
+  if(req.headers.origin!==undefined){
+   socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return true;
+  }
+  deviceSockets.handleUpgrade(req,socket,head,ws=>{
+   let authenticated=null;
+   const timer=setTimeout(()=>{if(!authenticated)ws.close(1008,'device authentication required')},8000);
+   ws.on('message',raw=>{
+    let msg;try{msg=JSON.parse(String(raw))}catch{ws.close(1008,'invalid json');return}
+    if(!authenticated){
+     if(msg?.type!=='device.auth'||!validID(msg.id)||!validKey(msg.key)) {
+      ws.close(1008,'invalid credentials');return;
+     }
+     const d=devices.get(msg.id);
+     if(!d||!safeEq(d.key,msg.key)){ws.close(1008,'unauthorized device');return}
+     clearTimeout(timer);
+     if(d.socket?.readyState===WebSocket.OPEN)d.socket.close(1012,'new app connection');
+     authenticated=d;d.socket=ws;d.lastSeen=now();
+     ws.send(JSON.stringify({type:'device.ready',device:devicePublic(d),at:now()}));
+     console.log('COMM_NATIVE_DEVICE_ONLINE',d.id.slice(0,8));return;
+    }
+    if(msg?.type==='device.ping'){
+     authenticated.lastSeen=now();ws.send(JSON.stringify({type:'device.pong',at:now()}))
+    }
+   });
+   ws.on('close',()=>{clearTimeout(timer);if(authenticated?.socket===ws){
+     authenticated.socket=null;authenticated.lastSeen=now();
+     console.log('COMM_NATIVE_DEVICE_OFFLINE',authenticated.id.slice(0,8));
+   }});
+  });
+  return true;
+ }
  if(u.pathname!=='/playground/socket')return false;
  const s=sessions.get(u.searchParams.get('id')||'');
  const side=u.searchParams.get('side');
