@@ -10,6 +10,7 @@ final class HitelCallDeviceClient {
     private var socket: URLSessionWebSocketTask?
     private var active = false
     private var retry = false
+    private var registrationInProgress = false
     private var registeredId = ""
     private var registeredSecret = ""
 
@@ -49,14 +50,22 @@ final class HitelCallDeviceClient {
         guard ok==errSecSuccess else{return ""}
         return bytes.map{String(format:"%02x",$0)}.joined()
     }
+    private func beginRegistration() {
+        guard active && !registrationInProgress && socket == nil else{return}
+        registrationInProgress=true
+        Task{
+            await connectIdentity()
+            DispatchQueue.main.async {self.registrationInProgress=false}
+        }
+    }
     func start() {
         guard !active else{return}
         active=true
-        Task{await connectIdentity()}
+        beginRegistration()
     }
     func resume() {
         if !active {start();return}
-        if socket==nil {Task{await connectIdentity()}}
+        if socket==nil {beginRegistration()}
     }
     private func connectIdentity() async {
         var id=load("id") ?? UUID().uuidString.lowercased()
@@ -109,7 +118,7 @@ final class HitelCallDeviceClient {
         DispatchQueue.main.asyncAfter(deadline:.now()+4){[weak self] in
             guard let self else{return}
             self.retry=false
-            if self.socket==nil {Task{await self.connectIdentity()}}
+            if self.socket==nil {self.beginRegistration()}
         }
     }
     private func openDeviceSocket() {
