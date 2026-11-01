@@ -168,6 +168,10 @@ export default function CommunicationPlayground(){
  };
  const connect=(side:Side)=>{
   if(!sess)return;
+  if((side==='A'&&current.from==='N')||(side==='B'&&current.to==='N')){
+   log(side,'NATIVE','N 플레이어는 실제 iPhone 앱의 참가코드를 이용해 직접 WSS 연결합니다.','warn');
+   return;
+  }
   const previous=sockets.current[side];
   if(previous&&previous.readyState<=WebSocket.OPEN)return;
   const proto=location.protocol==='https:'?'wss:':'ws:';
@@ -236,12 +240,12 @@ export default function CommunicationPlayground(){
    </div>
    <div className="hcp-actions">
     <button onClick={()=>connect(side)} disabled={!sess||conn[side]||native}> {native?'iPhone N 코드 사용':'WebSocket 연결'}</button>
-    {side==='A'?<button className="primary" onClick={()=>send('A','call.invite')} disabled={!conn.A||!conn.B||!['idle','ended','rejected'].includes(phase)}>발신</button>:
-     <><button className="primary" onClick={()=>send('B','call.accept')} disabled={!conn.B||phase!=='ringing'}>수락</button><button onClick={()=>send('B','call.reject')} disabled={!conn.B||phase!=='ringing'}>거절</button></>}
-    <button onClick={()=>send(side,'call.end')} disabled={!conn[side]||!['ringing','accepted','media'].includes(phase)}>종료</button>
+    {side==='A'?<button className="primary" onClick={()=>send('A','call.invite')} disabled={native||!conn.A||!conn.B||!['idle','ended','rejected'].includes(phase)}>발신</button>:
+     <><button className="primary" onClick={()=>send('B','call.accept')} disabled={native||!conn.B||phase!=='ringing'}>수락</button><button onClick={()=>send('B','call.reject')} disabled={native||!conn.B||phase!=='ringing'}>거절</button></>}
+    <button onClick={()=>send(side,'call.end')} disabled={native||!conn[side]||!['ringing','accepted','media'].includes(phase)}>종료</button>
    </div>
    <div className="hcp-actions secondary">
-    <button onClick={()=>void prepare(side)} disabled={!liveRtc||!conn[side]||localReady[side]}>{localReady[side]?'✓ 카메라·마이크 준비됨':'카메라·마이크 허용'}</button>
+    <button onClick={()=>void prepare(side)} disabled={native||!liveRtc||!conn[side]||localReady[side]}>{localReady[side]?'✓ 카메라·마이크 준비됨':'카메라·마이크 허용'}</button>
     <button onClick={()=>toggleMedia(side,'audio')} disabled={!localReady[side]}>{micOn[side]?'마이크 끄기':'마이크 켜기'}</button>
     <button onClick={()=>toggleMedia(side,'video')} disabled={!localReady[side]}>{camOn[side]?'영상 끄기':'영상 켜기'}</button>
    </div>
