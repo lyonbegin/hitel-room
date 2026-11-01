@@ -228,7 +228,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
             DispatchQueue.main.async {
                 guard let self else{return}
                 self.mediaState=result
-                if result.contains("connected") && !result.contains("disconnected") {
+                if result.lowercased().contains("connected") && !result.lowercased().contains("disconnected") {
                     self.send("call.mediaConnected",payload:["connectionState":"connected"])
                 }
             }
