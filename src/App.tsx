@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Portal from './portal/Portal';
 import CommunicationPortal from './communication/CommunicationPortal';
+import CommunicationPlayground from './communication-playground/CommunicationPlayground';
 import DeviceLab, { DeviceLabPhone } from './device-lab/DeviceLab';
 import {OriginalAndroidManager} from './device-lab/OriginalAndroidManager';
 import FlowPlanner from './portal/FlowPlanner';
@@ -85,4 +86,4 @@ function Lobby({profile,onLogout,onOpen}:{profile:AuthProfile,onLogout:()=>void,
 }
 function LegacyApp(){const [profile,setProfile]=useState<AuthProfile|null>(getSaved),[session,setSession]=useState<ConsultationSession|null>(null);function logout(){sessionStorage.removeItem(PROFILE_KEY);setSession(null);setProfile(null)}return !profile?<Login onLogin={setProfile}/>:session?<Room key={session.id} profile={profile} initial={session} onClose={()=>setSession(null)}/>:<Lobby profile={profile} onLogout={logout} onOpen={setSession}/>;}
 
-export default function App(){return window.location.pathname.startsWith('/android-original')?<OriginalAndroidManager/>:window.location.pathname.startsWith('/sdk-lab/device')?<DeviceLabPhone/>:window.location.pathname.startsWith('/sdk-lab')?<DeviceLab/>:window.location.pathname.startsWith('/portal/flows')?<FlowPlanner/>:window.location.pathname.startsWith('/portal/legacy')?<Portal/>:window.location.pathname.startsWith('/portal')?<CommunicationPortal/>:<LegacyApp/>;}
+export default function App(){return window.location.pathname.startsWith('/communication-playground')?<CommunicationPlayground/>:window.location.pathname.startsWith('/android-original')?<OriginalAndroidManager/>:window.location.pathname.startsWith('/sdk-lab/device')?<DeviceLabPhone/>:window.location.pathname.startsWith('/sdk-lab')?<DeviceLab/>:window.location.pathname.startsWith('/portal/flows')?<FlowPlanner/>:window.location.pathname.startsWith('/portal/legacy')?<Portal/>:window.location.pathname.startsWith('/portal')?<CommunicationPortal/>:<LegacyApp/>;}
