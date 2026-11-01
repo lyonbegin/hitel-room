@@ -3,6 +3,8 @@
 // WebRTC is enabled only for N/W combinations and is never represented as
 // validated native N media or a carrier/PSTN telephone connection.
 import {randomBytes, randomInt, randomUUID, timingSafeEqual} from 'node:crypto';
+import {readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
+import {dirname,join} from 'node:path';
 import {WebSocket,WebSocketServer} from 'ws';
 const WEB_ORIGIN=process.env.HITEL_WEB_ORIGIN||'https://hitel-communication-web-production.up.railway.app';
 const LIFE=120*60_000;
@@ -10,6 +12,30 @@ const nativeAttempts=new Map();
 function pin(){let code;do{code=String(randomInt(0,100000000)).padStart(8,'0')}
   while([...sessions.values()].some(s=>s.nativeCodes?.A===code||s.nativeCodes?.B===code));return code}
 const sessions=new Map();
+const STATE_FILE=process.env.HITEL_PLAYGROUND_STATE_FILE||
+  join(process.env.RAILWAY_VOLUME_MOUNT_PATH||'/data/hitel-ws-scrcpy','communication-playground.json');
+function persist(){
+ try{
+  mkdirSync(dirname(STATE_FILE),{recursive:true,mode:0o700});
+  const raw=[...sessions.values()].map(s=>({
+   id:s.id,secret:s.secret,nativeCodes:s.nativeCodes,nativeSecrets:s.nativeSecrets,
+   route:s.route,expires:s.expires,phase:s.phase,callId:s.callId,
+   events:s.events.slice(-80),seq:s.seq
+  }));
+  const temp=STATE_FILE+'.tmp';
+  writeFileSync(temp,JSON.stringify(raw),{mode:0o600});
+  renameSync(temp,STATE_FILE);
+ }catch(error){console.error('HITEL_PLAYGROUND_STATE_SAVE_FAILED',String(error).slice(0,180))}
+}
+try{
+ const restored=JSON.parse(readFileSync(STATE_FILE,'utf8'));
+ if(Array.isArray(restored))for(const x of restored.slice(0,64)){
+  if(!x||typeof x.id!=='string'||!/^[a-f0-9]{64}$/.test(x.secret||'')||
+     !Array.isArray(x.events)||x.expires<=Date.now())continue;
+  sessions.set(x.id,{...x,peers:{A:null,B:null},peerKinds:{A:null,B:null},
+   rate:{A:[],B:[]},events:x.events.slice(-80),seq:x.seq||0});
+ }
+}catch{}
 const wsServer=new WebSocketServer({noServer:true,maxPayload:40_000,perMessageDeflate:false});
 const TYPES=['P','P+','N','W'];
 const routes=Array.from({length:16},(_,i)=>({id:i+1,from:TYPES[Math.floor(i/4)],to:TYPES[i%4]}));
@@ -19,10 +45,13 @@ const json=(res,code,data)=>{res.writeHead(code,{'content-type':'application/jso
 const capability=(r)=>({signaling:true,browserWebRTC:['N','W'].includes(r.from)&&['N','W'].includes(r.to),
   nativeIOS:false,pstnGateway:false,aiRuntime:false,carrierAudio:false,mode:'PLAYGROUND_PARTICIPANTS'});
 function expire(){
+ let modified=false;
  const time=Date.now();
  for(const [ip,entries] of nativeAttempts)if(!entries.some(t=>time-t<600000))nativeAttempts.delete(ip);for(const [id,s] of sessions){if(s.expires<=time){
-  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1001,'Playground session expired');sessions.delete(id)
+  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1001,'Playground session expired');
+  sessions.delete(id);modified=true;
  }}
+ if(modified)persist();
 }
 function broadcast(s,msg){
  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.send(JSON.stringify(msg));
@@ -33,7 +62,8 @@ function sessionState(s){return {ok:true,id:s.id,route:s.route,phase:s.phase,cal
   expiresAt:new Date(s.expires).toISOString(),capabilities:capability(s.route),sequence:s.seq};}
 function emit(s,type,by,detail={}){
  s.seq++;const event={type,by,at:now(),seq:s.seq,callId:s.callId,...detail};
- s.events.push(event);if(s.events.length>80)s.events.shift();broadcast(s,{type:'event',event});
+ s.events.push(event);if(s.events.length>80)s.events.shift();
+ persist();broadcast(s,{type:'event',event});
  console.log('HITEL_PLAYGROUND_EVENT',JSON.stringify({id:s.id.slice(0,8),route:s.route.id,type,by,seq:s.seq}));
  return event;
 }
@@ -59,7 +89,7 @@ export async function playgroundRoute(req,res,path){
    phase:'idle',callId:null,peers:{A:null,B:null},peerKinds:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
   if(s.nativeCodes.A&&s.nativeCodes.B&&s.nativeCodes.A===s.nativeCodes.B)
     s.nativeCodes.B=pin();
-  sessions.set(s.id,s);
+  sessions.set(s.id,s);persist();
   return json(res,201,{...sessionState(s),secret:s.secret,
    nativeCode:s.nativeSide?s.nativeCodes[s.nativeSide]:null,nativeSide:s.nativeSide,nativeCodes:s.nativeCodes});
  }
@@ -82,7 +112,8 @@ export async function playgroundRoute(req,res,path){
  if(path==='/playground/status')return json(res,200,{...sessionState(s),
   nativeCodes:s.nativeCodes,events:s.events.slice(-40)});
  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1000,'Ended by browser user');
- sessions.delete(s.id);return json(res,200,{ok:true,ended:true});
+ sessions.delete(s.id);persist();
+ return json(res,200,{ok:true,ended:true});
 }
 export function playgroundUpgrade(req,socket,head){
  expire();
