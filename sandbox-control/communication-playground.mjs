@@ -103,7 +103,7 @@ export function playgroundUpgrade(req,socket,head){
    }
    if(type==='call.mediaConnected'){
     if(!capability(s.route).browserWebRTC||s.phase!=='media'){ack(false,'NO_MEDIA_NEGOTIATION');return}
-    emit(s,'call.mediaConnected',actor,{connectionState:String(msg.connectionState||'').slice(0,50)});ack(true);return;
+    emit(s,'call.mediaConnected',actor,{connectionState:String(msg.payload?.connectionState||'').slice(0,50)});ack(true);return;
    }
    if(type==='lab.note'){
     const note=String(msg.note||'').slice(0,250);
