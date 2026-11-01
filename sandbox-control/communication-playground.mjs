@@ -101,9 +101,9 @@ export async function playgroundRoute(req,res,path){
  expire();
  if(path==='/playground/health'&&req.method==='GET')return json(res,200,{ok:true,service:'hitel-communication-playground',routes:16,activeSessions:sessions.size});
  if(req.method!=='POST'||!['/playground/session','/playground/status','/playground/end','/playground/native-join',
- '/playground/device/register','/playground/device/status','/playground/device/attach'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
+ '/playground/device/register','/playground/device/unregister','/playground/device/status','/playground/device/attach'].includes(path))return json(res,404,{ok:false,error:'NOT_FOUND'});
  if(!String(req.headers['content-type']||'').startsWith('application/json')||
-    (!['/playground/native-join','/playground/device/register'].includes(path)&&req.headers.origin!==WEB_ORIGIN))
+    (!['/playground/native-join','/playground/device/register','/playground/device/unregister'].includes(path)&&req.headers.origin!==WEB_ORIGIN))
   return json(res,403,{ok:false,error:'INVALID_ORIGIN'});
  let data;try{data=await parseBody(req)}catch{return json(res,400,{ok:false,error:'INVALID_JSON'})}
  if(path==='/playground/device/register'){
@@ -118,6 +118,15 @@ export async function playgroundRoute(req,res,path){
   }
   return json(res,200,{ok:true,pageUrl:WEB_ORIGIN+'/communication-playground/app/'+device.pageToken,
    device:devicePublic(device)});
+ }
+ if(path==='/playground/device/unregister'){
+  const id=String(data.id||''),key=String(data.key||'');
+  const device=devices.get(id);
+  if(!device||!validKey(key)||!safeEq(device.key,key))
+   return json(res,403,{ok:false,error:'UNAUTHORIZED_DEVICE'});
+  device.socket?.close(1000,'device unregistered');
+  devices.delete(id);saveDevices();
+  return json(res,200,{ok:true,unregistered:true});
  }
  if(path==='/playground/device/status'){
   const device=deviceByPage(String(data.pageToken||''));
