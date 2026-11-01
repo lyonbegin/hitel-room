@@ -77,7 +77,11 @@ function expire(){
  let modified=false;
  const time=Date.now();
  for(const [ip,entries] of nativeAttempts)if(!entries.some(t=>time-t<600000))nativeAttempts.delete(ip);for(const [id,s] of sessions){if(s.expires<=time){
-  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1001,'Playground session expired');
+  // Do not silently disconnect an active native call or browser. Only
+  // idle, unconnected test sessions are garbage-collected.
+  if(Object.values(s.peers).some(w=>w?.readyState===WebSocket.OPEN)){
+   s.expires=time+LIFE;modified=true;continue;
+  }
   sessions.delete(id);modified=true;
  }}
  if(modified)persist();
@@ -179,7 +183,7 @@ export async function playgroundRoute(req,res,path){
  if(path==='/playground/session'){
   const route=routes.find(r=>r.id===data.routeId);
   if(!route)return json(res,400,{ok:false,error:'INVALID_ROUTE'});
-  if(sessions.size>=24)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
+  if(sessions.size>=128)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
   const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:pin(),
    nativeSecret:randomBytes(32).toString('hex'),nativeSide:['N','P+'].includes(route.from)?'A':['N','P+'].includes(route.to)?'B':null,
    nativeCodes:{A:['N','P+'].includes(route.from)?pin():null,
