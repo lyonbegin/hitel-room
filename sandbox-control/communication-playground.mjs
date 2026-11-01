@@ -2,10 +2,13 @@
 // Two genuine browser WebSocket clients can exercise call events; browser
 // WebRTC is enabled only for N/W combinations and is never represented as
 // validated native N media or a carrier/PSTN telephone connection.
-import {randomBytes, randomUUID, timingSafeEqual} from 'node:crypto';
+import {randomBytes, randomInt, randomUUID, timingSafeEqual} from 'node:crypto';
 import {WebSocket,WebSocketServer} from 'ws';
 const WEB_ORIGIN=process.env.HITEL_WEB_ORIGIN||'https://hitel-communication-web-production.up.railway.app';
-const LIFE=30*60_000;
+const LIFE=120*60_000;
+const nativeAttempts=new Map();
+function pin(){let code;do{code=String(randomInt(0,100000000)).padStart(8,'0')}
+  while([...sessions.values()].some(s=>s.nativeCodes?.A===code||s.nativeCodes?.B===code));return code}
 const sessions=new Map();
 const wsServer=new WebSocketServer({noServer:true,maxPayload:40_000,perMessageDeflate:false});
 const TYPES=['P','P+','N','W'];
@@ -45,10 +48,10 @@ export async function playgroundRoute(req,res,path){
   const route=routes.find(r=>r.id===data.routeId);
   if(!route)return json(res,400,{ok:false,error:'INVALID_ROUTE'});
   if(sessions.size>=24)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
-  const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:String(Math.floor(Math.random()*100000000)).padStart(8,'0'),
+  const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:pin(),
    nativeSecret:randomBytes(32).toString('hex'),nativeSide:route.from==='N'?'A':route.to==='N'?'B':null,
-   nativeCodes:{A:route.from==='N'?String(Math.floor(Math.random()*100000000)).padStart(8,'0'):null,
-                B:route.to==='N'?String(Math.floor(Math.random()*100000000)).padStart(8,'0'):null},
+   nativeCodes:{A:route.from==='N'?pin():null,
+                B:route.to==='N'?pin():null},
    nativeSecrets:{A:randomBytes(32).toString('hex'),B:randomBytes(32).toString('hex')},
    route,expires:Date.now()+LIFE,
    phase:'idle',callId:null,peers:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
@@ -57,6 +60,10 @@ export async function playgroundRoute(req,res,path){
    nativeCode:s.nativeSide?s.nativeCodes[s.nativeSide]:null,nativeSide:s.nativeSide,nativeCodes:s.nativeCodes});
  }
  if(path==='/playground/native-join'){
+  const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown');
+  const attempts=(nativeAttempts.get(ip)||[]).filter(t=>Date.now()-t<600_000);
+  attempts.push(Date.now());nativeAttempts.set(ip,attempts);
+  if(attempts.length>40)return json(res,429,{ok:false,error:'JOIN_RATE_LIMIT'});
   const code=String(data.code||'');
   if(!/^\d{8}$/.test(code))return json(res,404,{ok:false,error:'NATIVE_CODE_NOT_FOUND'});
   const found=[...sessions.values()].flatMap(s=>['A','B'].map(side=>({s,side})))
