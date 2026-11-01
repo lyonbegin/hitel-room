@@ -79,7 +79,8 @@ export async function playgroundRoute(req,res,path){
  }
  const s=sessions.get(String(data.id||''));
  if(!s||!safeEq(s.secret,data.secret))return json(res,404,{ok:false,error:'SESSION_NOT_FOUND'});
- if(path==='/playground/status')return json(res,200,{...sessionState(s),events:s.events.slice(-40)});
+ if(path==='/playground/status')return json(res,200,{...sessionState(s),
+  nativeCodes:s.nativeCodes,events:s.events.slice(-40)});
  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1000,'Ended by browser user');
  sessions.delete(s.id);return json(res,200,{ok:true,ended:true});
 }
