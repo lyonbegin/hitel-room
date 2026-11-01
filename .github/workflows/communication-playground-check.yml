@@ -9,6 +9,7 @@ on:
       - 'tests/communication-playground-smoke.mjs'
       - 'tests/communication-native-join-smoke.mjs'
       - 'tests/communication-playground-80-flow.mjs'
+      - 'tests/communication-pplus-native-smoke.mjs'
       - '.github/workflows/communication-playground-check.yml'
   workflow_dispatch:
 concurrency:
@@ -43,3 +44,4 @@ jobs:
       - run: node tests/communication-playground-smoke.mjs
       - run: node tests/communication-native-join-smoke.mjs
       - run: node tests/communication-playground-80-flow.mjs
+      - run: node tests/communication-pplus-native-smoke.mjs
