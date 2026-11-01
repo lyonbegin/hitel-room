@@ -30,4 +30,5 @@ jobs:
           path: |
             playground-chromium-webrtc.png
             playground-two-iphone-pairing-codes.png
+            playground-mobile-390.png
           if-no-files-found: ignore
