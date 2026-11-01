@@ -7,6 +7,8 @@ import AVFoundation
 /// notes and local TTS are separate from system cellular/PSTN media.
 struct HitelCarrierAssistant: View {
     @ObservedObject var model:HitelNativePlaygroundModel
+    @StateObject private var systemCall=HitelCarrierCallObserver()
+    @State private var shareCallState=false
     @State private var phoneNumber=""
     @State private var note=""
     @State private var speechText=""
@@ -23,6 +25,18 @@ struct HitelCarrierAssistant: View {
                 Text("전화 음성 직접 접근 불가").font(.caption2).foregroundStyle(.orange)
             }
             Text("HITEL 전화망 게이트웨이가 연결되지 않았습니다. 통신사 전화 연결과 Playground 신호 시험은 별개입니다.")
+                .font(.caption).foregroundStyle(.secondary)
+            VStack(alignment:.leading,spacing:5) {
+                Text("실제 iOS 통화 상태 감지").font(.subheadline.bold())
+                Text(systemCall.summary).font(.caption)
+                Toggle("이 통화 상태를 Playground에 알림",isOn:$shareCallState)
+                    .font(.caption)
+                Text("CallKit은 통신사 통화와 다른 앱의 VoIP 통화를 구분하지 못하며, 전화 상대의 음성·번호는 제공하지 않습니다.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }.padding(10).background(Color(uiColor:.tertiarySystemFill)).clipShape(RoundedRectangle(cornerRadius:8))
+                .onChange(of:systemCall.state){newValue in
+                    if shareCallState {model.reportSystemCallState(newValue)}
+                }
                 .font(.caption).foregroundStyle(.secondary)
             HStack{
                 TextField("전화번호 (실제로 연결할 번호)",text:$phoneNumber)
