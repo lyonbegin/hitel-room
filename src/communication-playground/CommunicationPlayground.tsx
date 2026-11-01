@@ -36,7 +36,12 @@ const checklist=[
 const textErr=(e:unknown)=>e instanceof Error?e.message:String(e);
 let lastLogId=0;
 export default function CommunicationPlayground(){
- const [selected,setSelected]=useState(16);
+ const devicePageToken=window.location.pathname.match(/^\/communication-playground\/app\/([a-f0-9]{64})\/?$/)?.[1]||null;
+ const [selected,setSelected]=useState(devicePageToken?12:16);
+ const [deviceStatus,setDeviceStatus]=useState<{id:string;online:boolean;lastSeen:string|null}|null>(null);
+ const [otherDeviceUrl,setOtherDeviceUrl]=useState('');
+ const [autoAttachError,setAutoAttachError]=useState('');
+ const assignment=useRef<string>('');
  const [sess,setSess]=useState<PlaySession|null>(null);
  const [conn,setConn]=useState<Record<Side,boolean>>({A:false,B:false});
  const [peerKinds,setPeerKinds]=useState<Record<Side,string|null>>({A:null,B:null});
@@ -148,7 +153,7 @@ export default function CommunicationPlayground(){
  };
  useEffect(()=>{
   let cancelled=false;
-  const raw=sessionStorage.getItem('hitel.communication.playground.v1');
+  const raw=sessionStorage.getItem(devicePageToken?'hitel.communication.device-session.'+devicePageToken:'hitel.communication.playground.v1');
   if(!raw)return;
   try{
    const saved=JSON.parse(raw) as {id:string;secret:string};
@@ -165,27 +170,65 @@ export default function CommunicationPlayground(){
      const nativeA=state.events?.some(e=>e.by==='A'&&e.type==='call.mediaConnected')||false;
      const nativeB=state.events?.some(e=>e.by==='B'&&e.type==='call.mediaConnected')||false;
      setReportedIce({A:nativeA,B:nativeB});
-     log('RESTORE','SESSION','새로고침 후 기존 테스트 세션과 8자리 참가코드를 복구했습니다. 양측 WebSocket을 다시 연결하십시오.','ok');
+     log('RESTORE','SESSION','새로고침 후 기존 세션을 복구했습니다. 앱의 고유 주소로 자동 연결합니다.','ok');
    }).catch(()=>{
-     if(!cancelled)sessionStorage.removeItem('hitel.communication.playground.v1');
+     if(!cancelled)sessionStorage.removeItem(devicePageToken?'hitel.communication.device-session.'+devicePageToken:'hitel.communication.playground.v1');
    });
-  }catch{sessionStorage.removeItem('hitel.communication.playground.v1')}
+  }catch{sessionStorage.removeItem(devicePageToken?'hitel.communication.device-session.'+devicePageToken:'hitel.communication.playground.v1')}
   return()=>{cancelled=true}
  },[]);
  const create=async(routeId:number)=>{
   setBusy(true);setNotice('');disconnect();setSess(null);setPhase('idle');setLogs([]);seen.current.clear();
   if(sess){void api('/end',{id:sess.id,secret:sess.secret}).catch(()=>undefined)}
-  sessionStorage.removeItem('hitel.communication.playground.v1');
+  const storageKey=devicePageToken?'hitel.communication.device-session.'+devicePageToken:'hitel.communication.playground.v1';
+  sessionStorage.removeItem(storageKey);
+  assignment.current='';
   try{
    const state=await api('/session',{routeId}) as unknown as PlaySession;
-   sessionStorage.setItem('hitel.communication.playground.v1',JSON.stringify({id:state.id,secret:state.secret}));
+   sessionStorage.setItem(storageKey,JSON.stringify({id:state.id,secret:state.secret}));
    setSess(state);log('SERVER','SESSION','서버에 실제 테스트 세션을 생성했습니다. '+label(state.route),'ok');
    if(routePstn(state.route))log('LIMIT','PSTN','P/P+의 실제 통신사 연결은 지원하지 않습니다. 신호 시험만 가능합니다.','warn');
-   else if(state.route.from==='N'||state.route.to==='N')log('NATIVE','JOIN','네이티브 N은 실제 iPhone의 참가코드로 별도 WS 접속하십시오.','info');
+   else if(state.route.from==='N'||state.route.to==='N')log('NATIVE','JOIN','iPhone의 고유 웹 주소로 자동 연결합니다.','info');
+   if(devicePageToken)await autoConnect(state);
   }catch(e){setNotice('세션 생성 실패: '+textErr(e));log('SERVER','ERROR',textErr(e),'error')}
   finally{setBusy(false)}
  };
+ const autoConnect=async(state:PlaySession)=>{
+  const primarySide:Side=['N','P+'].includes(state.route.from)?'A':'B';
+  const endpoint=primarySide==='A'?state.route.from:state.route.to;
+  if(!['N','P+'].includes(endpoint))return;
+  const assignKey=state.id+'-'+primarySide;
+  if(assignment.current!==assignKey){
+   try{
+    const result=await api('/device/attach',{pageToken:devicePageToken,sessionId:state.id,sessionSecret:state.secret,side:primarySide}) as {ok:boolean;assigned:boolean};
+    if(result.assigned){assignment.current=assignKey;setAutoAttachError('');log('DEVICE','AUTO','iPhone 앱에 '+primarySide+' 역할 자동 연결 요청','ok')}
+   }catch(e){setAutoAttachError(textErr(e));log('DEVICE','OFFLINE','아이폰이 현재 오프라인이거나 연결 대기 중: '+textErr(e),'warn')}
+  }
+  const opposite:Side=primarySide==='A'?'B':'A';
+  if((opposite==='A'?state.route.from:state.route.to)==='W')connect(opposite,state);
+ };
  const select=(id:number)=>{setSelected(id);void create(id)};
+ useEffect(()=>{
+  if(!devicePageToken)return;
+  let live=true;
+  const check=async()=>{
+   try{
+    const status=await api('/device/status',{pageToken:devicePageToken}) as {ok:boolean;device:{id:string;online:boolean;lastSeen:string|null}};
+    if(!live)return;
+    setDeviceStatus(status.device);
+    if(status.device.online&&sess)await autoConnect(sess);
+   }catch(e){if(live)setAutoAttachError(textErr(e))}
+  };
+  void check();
+  const interval=window.setInterval(()=>void check(),2500);
+  return()=>{live=false;window.clearInterval(interval)}
+ },[devicePageToken,sess?.id]);
+ useEffect(()=>{
+  if(!devicePageToken)return;
+  if(sess)return;
+  void create(12);
+ },[devicePageToken]);
+
  const acceptState=(event:CallEvent)=>{
   if(!seen.current.has(event.seq)){
    seen.current.add(event.seq);
@@ -259,16 +302,16 @@ export default function CommunicationPlayground(){
    }
   }catch(e){log(side,'WEBRTC ERROR',textErr(e),'error')}
  };
- const connect=(side:Side)=>{
-  if(!sess)return;
-  if((side==='A'&&current.from==='N')||(side==='B'&&current.to==='N')){
+ const connect=(side:Side,state:PlaySession|null=sess)=>{
+  if(!state)return;
+  if((side==='A'&&state.route.from==='N')||(side==='B'&&state.route.to==='N')){
    log(side,'NATIVE','N 플레이어는 실제 iPhone 앱의 참가코드를 이용해 직접 WSS 연결합니다.','warn');
    return;
   }
   const previous=sockets.current[side];
   if(previous&&previous.readyState<=WebSocket.OPEN)return;
   const proto=location.protocol==='https:'?'wss:':'ws:';
-  const url=proto+'//'+location.host+ROOT+'/socket?id='+encodeURIComponent(sess.id)+'&side='+side+'&secret='+encodeURIComponent(sess.secret);
+  const url=proto+'//'+location.host+ROOT+'/socket?id='+encodeURIComponent(state.id)+'&side='+side+'&secret='+encodeURIComponent(state.secret);
   const ws=new WebSocket(url);sockets.current[side]=ws;
   ws.onopen=()=>{setConn(o=>({...o,[side]:true}));log(side,'WS','실제 서버 WebSocket 연결 성공','ok')};
   ws.onmessage=e=>{try{void onMessage(side,JSON.parse(String(e.data)) as Signal)}catch{log(side,'ERROR','서버 메시지 파싱 실패','error')}};
@@ -399,7 +442,7 @@ export default function CommunicationPlayground(){
     <div className="hcp-matrix"><span className="hcp-matrix-spacer">발신↓ 수신→</span>{KINDS.map(k=><b key={k}>{k}</b>)}{KINDS.map(k=><div className="hcp-matrix-row" key={k}><strong>{k}</strong>{ROUTES.filter(r=>r.from===k).map(r=><button key={r.id} title={label(r)} className={r.id===selected?'active':''} onClick={()=>select(r.id)}>{String(r.id).padStart(2,'0')}</button>)}</div>)}</div>
     <div className="hcp-filters">{(['all','rtc','gateway'] as const).map(x=><button key={x} className={scenarioFilter===x?'selected':''} onClick={()=>setScenarioFilter(x)}>{x==='all'?'전체 16':x==='rtc'?'N/W 통신':'전화망 혼합'}</button>)}</div>
     <div className="hcp-route-list">{filtered.map(r=><button key={r.id} className={selected===r.id?'current':''} onClick={()=>select(r.id)}><span>{String(r.id).padStart(2,'0')}</span><strong>{label(r)}</strong><small>{routeRtc(r)?'WebRTC 검증 대상':r.from==='P'&&r.to==='P'?'HITEL 비참여':'전화망 별도 필요'}</small></button>)}</div>
-    <p className="hcp-sidebar-note">모든 조합에서 실제 WebSocket 제어 흐름을 테스트합니다. P/P+의 통화망과 iPhone 네이티브 오디오가 연결되지 않은 점을 구분하십시오.</p>
+    <p className="hcp-sidebar-note">앱마다 고유 웹 주소로 연결합니다. 통신사 P/P+의 실제 전화망·AI 연결은 별도로 검증합니다.</p>
    </aside>
    <div className="hcp-main">
     <section className="hcp-scenario-head">
@@ -408,10 +451,31 @@ export default function CommunicationPlayground(){
      <div className="hcp-scenario-controls"><button onClick={()=>void create(selected)} disabled={busy}>{busy?'생성 중…':'새 테스트 세션'}</button><button className="primary" onClick={()=>{connect('A');connect('B')}} disabled={!sess||conn.A&&conn.B}>양측 WS 연결</button></div>
     </section>
     {notice&&<div role="alert" className="hcp-error">{notice}</div>}
-    {(sess?.nativeCodes?.A||sess?.nativeCodes?.B)&&<div style={{background:'#edf6ff',border:'1px solid #abc9eb',borderRadius:12,padding:'16px 20px',margin:'12px 0',display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
-     <div style={{flex:1,minWidth:220}}><strong style={{display:'block',fontSize:15,color:'#174c83'}}>iPhone 네이티브 N / 통신사 보조 P+ 참가</strong>
-      <p style={{fontSize:12,color:'#516986',lineHeight:1.6,margin:'5px 0 0'}}>아이폰 HITEL 네이티브 앱 → 통화 실험실 → 아래 A/B 참가코드를 각 기기에 입력하십시오. P+는 별도 통신사 통화 보조이며, N은 인터넷 통화입니다. 웹 브리지 없이 직접 WebSocket에 접속합니다.</p></div>
-     {(['A','B'] as Side[]).filter(side=>Boolean(sess?.nativeCodes?.[side])).map(side=><div key={side} style={{textAlign:'center',minWidth:174}}><small style={{fontSize:10,color:'#67839a'}}>{(side==='A'?current.from:current.to)} {side} JOIN CODE</small><div style={{fontSize:27,fontWeight:800,letterSpacing:4,fontVariantNumeric:'tabular-nums',color:'#1d558d'}}>{sess!.nativeCodes![side]}</div></div>)}
+    {devicePageToken&&<div style={{background:'#edf6ff',border:'1px solid #b6d4ee',borderRadius:12,padding:'14px 18px',margin:'12px 0',display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
+     <div style={{flex:'1 1 250px'}}>
+      <strong>이 iPhone 기능 앱 전용 관리 페이지</strong>
+      <p style={{fontSize:12,margin:'5px 0',color:'#416887'}}>8자리 코드 없이 앱의 고유 주소만으로 자동 연결합니다. 기존 화면 스트리밍 앱과 별도입니다.</p>
+      <span role="status" style={{fontSize:12,color:deviceStatus?.online?'#167447':'#ae6232'}}>
+       {deviceStatus?.online?'● iPhone 기능 앱 온라인 · 자동 연결됨':'● 앱 실행 대기 · iPhone에서 HITEL Call 앱을 여십시오.'}
+      </span>
+      {autoAttachError&&<p style={{fontSize:11,color:'#aa653a'}}>연결 상태: {autoAttachError}</p>}
+     </div>
+     <span style={{fontSize:11,color:'#687991'}}>이 주소는 앱 제어 권한이 있으므로 다른 사람에게 공개하지 마십시오.</span>
+    </div>}
+    {devicePageToken&&current.from==='N'&&current.to==='N'&&<div style={{padding:12,background:'#fff',border:'1px solid #dbe5ee',borderRadius:10,margin:'10px 0'}}>
+      <strong>두 번째 iPhone 기능 앱 자동 연결</strong>
+      <p style={{fontSize:11,color:'#64748b'}}>두 번째 아이폰의 고유 웹 주소를 한 번 입력하면 B 역할로 연결됩니다. 숫자코드는 필요하지 않습니다.</p>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+       <input style={{flex:'1 1 310px',padding:8,border:'1px solid #d2dce8',borderRadius:7}} placeholder="두 번째 앱의 고유 웹 주소" value={otherDeviceUrl} onChange={e=>setOtherDeviceUrl(e.target.value)}/>
+       <button onClick={async()=>{
+        try{
+         const other=new URL(otherDeviceUrl),token=other.pathname.match(/\/communication-playground\/app\/([a-f0-9]{64})$/)?.[1];
+         if(other.origin!==location.origin||!token||!sess)throw Error('올바른 HITEL 앱 고유 주소가 아닙니다.');
+         await api('/device/attach',{pageToken:token,sessionId:sess.id,sessionSecret:sess.secret,side:'B'});
+         log('DEVICE','AUTO','두 번째 실제 iPhone B 역할 연결 요청','ok');
+        }catch(e){setAutoAttachError(textErr(e))}
+       }}>두 번째 iPhone 연결</button>
+      </div>
     </div>}
     <div className="hcp-safety"><span className={'hcp-mark '+(sess?'good':'idle')}>{sess?'서버 세션 있음':'테스트 세션 없음'}</span>
       <span>라우팅: {liveRtc?'브라우저 RTC 후보':'통화 신호 시험'}</span><span>네이티브 통신: {verifiedNativeSignaling?'N 프로토콜 연결':'참가 대기/해당 없음'}</span><span>전화망: 미연동</span><span>AI: 미연동</span>
