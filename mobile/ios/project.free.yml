@@ -2,6 +2,10 @@ name: HitelNative
 options:
   minimumXcodeGenVersion: 2.38.0
   bundleIdPrefix: app.hitel
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 156.0.0
 targets:
   HitelNative:
     type: application
@@ -10,6 +14,7 @@ targets:
     sources:
       - path: Sources
     dependencies:
+      - package: WebRTC
       - target: HitelScreenBroadcast
         embed: true
     settings:
