@@ -3,7 +3,7 @@ export const VERSION='shared-ui-20261101-r2';
 export const channels=['일반전화','전화 + 개인 AI','HITEL 앱','HITEL 웹'];
 export const domainNames=['개인·가족','교육·전문상담','기업·채용','공공·기관','돌봄·공동체'];
 export const workflows={
-need:['과목·목적','희망 조건','예산'],offer:['전문 분야','제공 조건','이용료'],recruit:['모집 역할','참여 조건','보수·비용'],sell:['가격','물품·공간 상태','거래 방식'],community:['가입 조건','공개 범위','활동 주기'],program:['진행 내용','정원','회차·비용'],inquiry:['문의 목적','확인할 내용','희망 답변 방식']};
+need:['요청 목적','희망 조건','예산'],offer:['전문 분야','제공 조건','이용료'],recruit:['모집 역할','참여 조건','보수·비용'],sell:['가격','물품·공간 상태','거래 방식'],community:['가입 조건','공개 범위','활동 주기'],program:['진행 내용','정원','회차·비용'],inquiry:['문의 목적','확인할 내용','희망 답변 방식']};
 export const roles=['개인','요청자','제공자','담당자','운영자'];
 export const sharedViews={search:'찾기·목록',entities:'사람·기관·모임',entity:'대상 상세',activities:'활동 목록',activity:'활동 상세',create:'작성·수정',connect:'연결 준비',incoming:'수신·부재중',waiting:'참여 준비·대기',call:'대화·통화',messages:'대화 목록',chat:'대화방',materials:'자료·개인 AI',schedules:'일정·예약 목록',schedule:'일정 상세',booking:'일정 요청·변경',records:'기록·후속 작업',record:'기록 상세',tasks:'할 일',task:'작업 상세',workspace:'운영 관리',members:'구성원·소속',permissions:'역할·권한',profile:'내 정보',settings:'환경설정',notifications:'알림',catalog:'전체 화면',coverage:'80개 상황 검토',compare:'변경 전후 비교',commerce:'거래·결제',reviews:'후기',support:'도움말',devices:'장치·재연결',map:'지도·지역',notice:'게시판',error:'오류·예외'};
 const branch=(view,tab)=>({view,tab});
