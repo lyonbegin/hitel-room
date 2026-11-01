@@ -5,9 +5,21 @@ import WebSocket from 'ws';
 const base='https://hitel-communication-web-production.up.railway.app';
 const path='/lab-sandbox/playground';
 const assert=(x,msg)=>{if(!x)throw Error('COMM_PLAYGROUND_TEST_FAILED '+msg)};
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const transient=err=>/Unexpected server response: (502|503|504)|ECONNRESET|ETIMEDOUT|fetch failed|HTTP_(502|503|504)/.test(String(err));
 const api=async(route,data)=>{
- const r=await fetch(base+path+route,{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(12_000)});
- const payload=await r.json();if(!r.ok)throw Error(route+':'+r.status+':'+JSON.stringify(payload));return payload;
+ for(let attempt=0;attempt<7;attempt++){
+  try{
+   const r=await fetch(base+path+route,{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(12_000)});
+   if([502,503,504].includes(r.status))throw Error('HTTP_'+r.status);
+   const payload=await r.json();
+   if(!r.ok)throw Error(route+':'+r.status+':'+JSON.stringify(payload));
+   return payload;
+  }catch(e){
+   if(!transient(e)||attempt===6)throw e;
+   await pause(600+attempt*450);
+  }
+ }
 };
 const until=(ws,predicate,timeoutMs=7000)=>new Promise((resolve,reject)=>{
  const timer=setTimeout(()=>{ws.off('message',listen);reject(Error('EVENT_TIMEOUT'))},timeoutMs);
@@ -17,10 +29,21 @@ const until=(ws,predicate,timeoutMs=7000)=>new Promise((resolve,reject)=>{
 });
 const connect=async(id,secret,side)=>{
  const u=base.replace('https:','wss:')+path+'/socket?id='+encodeURIComponent(id)+'&secret='+encodeURIComponent(secret)+'&side='+side;
- const ws=new WebSocket(u,{headers:{origin:base}});
- await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('CONNECT_TIMEOUT')),8000);
-  ws.once('open',()=>{clearTimeout(t);resolve()});ws.once('error',e=>{clearTimeout(t);reject(e)})});
- return ws;
+ for(let attempt=0;attempt<7;attempt++){
+  const ws=new WebSocket(u,{headers:{origin:base}});
+  try{
+   await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(Error('CONNECT_TIMEOUT')),8000);
+    ws.once('open',()=>{clearTimeout(timer);resolve()});
+    ws.once('error',err=>{clearTimeout(timer);reject(err)});
+   });
+   return ws;
+  }catch(e){
+   ws.terminate();
+   if(!transient(e)||attempt===6)throw e;
+   await pause(600+attempt*450);
+  }
+ }
 };
 const action=async(ws,name,payload)=>{
  const requestId=Math.random().toString(16).slice(2);
