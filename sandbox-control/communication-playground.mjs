@@ -23,7 +23,7 @@ function saveDevices(){
   mkdirSync(dirname(DEVICE_FILE),{recursive:true,mode:0o700});
   const temp=DEVICE_FILE+'.tmp';
   writeFileSync(temp,JSON.stringify([...devices.values()].map(d=>({
-   id:d.id,key:d.key,pageToken:d.pageToken,createdAt:d.createdAt
+   id:d.id,key:d.key,pageToken:d.pageToken,createdAt:d.createdAt,assignment:d.assignment||null
   }))),{mode:0o600});
   renameSync(temp,DEVICE_FILE);
  }catch(error){console.error('COMM_DEVICE_SAVE_FAILED',String(error).slice(0,140))}
@@ -148,6 +148,7 @@ export async function playgroundRoute(req,res,path){
   if(session.peers[side]?.readyState===WebSocket.OPEN)
    return json(res,409,{ok:false,error:'SIDE_ALREADY_CONNECTED'});
   // Assign only the native side-specific capability, never the browser owner key.
+  device.assignment={sessionId:session.id,side};saveDevices();
   notifyDevice(device,{type:'device.assign',id:session.id,secret:session.nativeSecrets[side],
    side,route:session.route,phase:session.phase,at:now()});
   return json(res,200,{ok:true,assigned:true,side,device:devicePublic(device)});
@@ -189,6 +190,11 @@ export async function playgroundRoute(req,res,path){
   nativeCodes:s.nativeCodes,events:s.events.slice(-40)});
  for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1000,'Ended by browser user');
  sessions.delete(s.id);persist();
+ let dirty=false;
+ for(const device of devices.values())if(device.assignment?.sessionId===s.id){
+  device.assignment=null;dirty=true;
+ }
+ if(dirty)saveDevices();
  return json(res,200,{ok:true,ended:true});
 }
 export function playgroundUpgrade(req,socket,head){
@@ -213,6 +219,14 @@ export function playgroundUpgrade(req,socket,head){
      if(d.socket?.readyState===WebSocket.OPEN)d.socket.close(1012,'new app connection');
      authenticated=d;d.socket=ws;d.lastSeen=now();
      ws.send(JSON.stringify({type:'device.ready',device:devicePublic(d),at:now()}));
+     if(d.assignment){
+      const session=sessions.get(d.assignment.sessionId),side=d.assignment.side;
+      if(session&&session.expires>Date.now()&&['A','B'].includes(side)&&
+         ['N','P+'].includes(side==='A'?session.route.from:session.route.to)){
+       notifyDevice(d,{type:'device.assign',id:session.id,secret:session.nativeSecrets[side],
+        side,route:session.route,phase:session.phase,at:now(),restored:true});
+      }
+     }
      console.log('COMM_NATIVE_DEVICE_ONLINE',d.id.slice(0,8));return;
     }
     if(msg?.type==='device.ping'){
