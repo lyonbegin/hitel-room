@@ -86,6 +86,14 @@ final class HitelCallDeviceClient {
         #endif
         guard secret.count==64 else{onStatus?("보안 난수 생성 실패");return}
         store("id",id);store("secret",secret)
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-HITEL_CALL_SIMULATOR_VERIFY_KEYCHAIN"),
+           let docs=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask).first {
+            let audit=docs.appendingPathComponent("hitel-call-keychain-identity-audit.txt")
+            let previous=(try? String(contentsOf:audit,encoding:.utf8)) ?? ""
+            try? (previous+id+"\n").write(to:audit,atomically:true,encoding:.utf8)
+        }
+        #endif
         registeredId=id;registeredSecret=secret
         guard let url=URL(string:base+"/device/register") else{return}
         do{
