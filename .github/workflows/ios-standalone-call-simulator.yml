@@ -63,7 +63,21 @@ jobs:
             -HITEL_NATIVE_AUTOANSWER | tee "$RUNNER_TEMP/hitel-call-launch.txt"
           trap 'node tests/ios-call-app-real-swift-e2e.mjs cleanup >/dev/null 2>&1 || true' EXIT
           node tests/ios-call-app-real-swift-e2e.mjs verify | tee "$RUNNER_TEMP/hitel-call-real-swift-e2e.txt"
-          sleep 3
+          xcrun simctl terminate "$SIM" app.hitel.call || true
+          xcrun simctl launch "$SIM" app.hitel.call -HITEL_CALL_SIMULATOR_VERIFY_KEYCHAIN >/dev/null
+          sleep 6
+          xcrun simctl terminate "$SIM" app.hitel.call
+          xcrun simctl launch "$SIM" app.hitel.call -HITEL_CALL_SIMULATOR_VERIFY_KEYCHAIN >/dev/null
+          sleep 6
+          APP_DATA="$(xcrun simctl get_app_container "$SIM" app.hitel.call data)"
+          python3 - "$APP_DATA/Documents/hitel-call-keychain-identity-audit.txt" <<'PY'
+          import sys,uuid
+          lines=[v.strip() for v in open(sys.argv[1],encoding="utf-8") if v.strip()]
+          assert len(lines)>=2, "Keychain identity audit missing two native app launches"
+          assert len(set(lines))==1, "The iPhone app changed identity and its URL after a restart"
+          uuid.UUID(lines[0])
+          print("HITEL_CALL_REAL_SWIFT_KEYCHAIN_IDENTITY_RELAUNCH_PASS")
+          PY
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/hitel-call-page.png"
           test -s "$RUNNER_TEMP/hitel-call-page.png"
           echo HITEL_STANDALONE_CALL_SIMULATOR_LAUNCH_PASS
