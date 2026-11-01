@@ -109,6 +109,23 @@ final class HitelCallDeviceClient {
             }
         }
         receive(ws)
+        keepAlive(ws)
+    }
+    private func keepAlive(_ ws:URLSessionWebSocketTask) {
+        DispatchQueue.main.asyncAfter(deadline:.now()+20){[weak self] in
+            guard let self,self.active,self.socket === ws else{return}
+            ws.sendPing{[weak self] error in
+                guard let self else{return}
+                if let error {
+                    self.onStatus?("통신 연결 재설정: "+error.localizedDescription)
+                    if self.socket === ws {
+                        self.socket=nil
+                        ws.cancel(with:.goingAway,reason:nil)
+                        self.retryConnect()
+                    }
+                } else {self.keepAlive(ws)}
+            }
+        }
     }
     private func receive(_ ws:URLSessionWebSocketTask) {
         ws.receive{[weak self] outcome in
