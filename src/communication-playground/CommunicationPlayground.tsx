@@ -7,7 +7,7 @@ type Phase='idle'|'ringing'|'accepted'|'rejected'|'media'|'ended';
 type Route={id:number;from:Kind;to:Kind};
 type CallEvent={type:string;by:Side;at:string;seq:number;callId:string|null;route?:Route;description?:string;connectionState?:string;note?:string;callState?:string};
 type PlaySession={ok:boolean;id:string;secret:string;route:Route;phase:Phase;callId:string|null;peers:{A:boolean;B:boolean};peerKinds?:Record<Side,string|null>;
- capabilities:{signaling:boolean;browserWebRTC:boolean;nativeIOS:boolean;pstnGateway:boolean;aiRuntime:boolean};expiresAt:string;sequence:number;nativeCode?:string|null;nativeSide?:Side|null;nativeCodes?:{A:string|null;B:string|null}};
+ capabilities:{signaling:boolean;browserWebRTC:boolean;nativeIOS:boolean;pstnGateway:boolean;aiRuntime:boolean};expiresAt:string;sequence:number};
 type Signal={type:string;from?:Side;payload?:{type?:string;sdp?:string;candidate?:string|null;sdpMid?:string|null;sdpMLineIndex?:number|null};state?:PlaySession;event?:CallEvent;events?:CallEvent[];peers?:{A:boolean;B:boolean};peerKinds?:Record<Side,string|null>;ok?:boolean;reason?:string;phase?:Phase;requestId?:string;callId?:string};
 type Line={id:number;at:string;side:string;kind:string;text:string;tone:'ok'|'error'|'info'|'warn'};
 const KINDS:Kind[]=['P','P+','N','W'];
