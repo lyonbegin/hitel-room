@@ -13,6 +13,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
     @Published var side = ""
     @Published var route = ""
     @Published var routeId = 0
+    @Published var endpointType = "N"
     @Published var phase = "미연결"
     @Published var message = "웹 Playground의 N 코드 8자리를 입력하십시오."
     @Published var logs: [String] = []
@@ -75,6 +76,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
                     self.sessionId=session;self.secret=token;self.side=actor
                     self.routeId=route["id"] as? Int ?? 0
                     self.route=(route["from"] as? String ?? "?")+" → "+(route["to"] as? String ?? "?")
+                    self.endpointType = (actor == "A" ? route["from"] : route["to"]) as? String ?? "N"
                     self.message="기기 참가 정보 확인됨 · 독립 네이티브 WebSocket 접속 중"
                     self.phase=(json["phase"] as? String) ?? "idle"
                     self.shouldReconnect=true
@@ -212,6 +214,11 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
         }
     }
 
+    func sendAssistanceNote(_ note:String) {
+        let trimmed=String(note.trimmingCharacters(in:.whitespacesAndNewlines).prefix(250))
+        guard !trimmed.isEmpty else{return}
+        send("lab.note",payload:["note":trimmed])
+    }
     func dial() {send("call.invite")}
     func accept() {pendingIncoming=false;send("call.accept");phase="accepted"}
     func reject() {pendingIncoming=false;send("call.reject");stopCallKit()}
@@ -250,7 +257,7 @@ final class HitelNativePlaygroundModel: NSObject, ObservableObject, CXProviderDe
     }
 
     private func startOffer() {
-        guard routeId>0 else{return}
+        guard routeId>0, endpointType == "N" else{return}
         // Only N/W combinations have a real WebRTC negotiation path.
         let paths=["N → N","N → W","W → N","W → W"]
         guard paths.contains(route) else{mediaState="전화망 P/P+ 미연동";return}
