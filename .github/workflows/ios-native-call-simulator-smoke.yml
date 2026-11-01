@@ -6,6 +6,8 @@ on:
       - 'mobile/ios/Sources/HitelNativePlaygroundModel.swift'
       - 'mobile/ios/Sources/HitelNativePlaygroundScreen.swift'
       - 'mobile/ios/Sources/HitelNativeCallMedia.swift'
+      - 'mobile/ios/Sources/HitelNativeApp.swift'
+      - 'tests/ios-native-simulator-live-signal.mjs'
       - '.github/workflows/ios-native-call-simulator-smoke.yml'
   workflow_dispatch:
 concurrency:
@@ -19,6 +21,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Install Node dependencies for real Railway signaling validation
+        run: npm install --no-audit --no-fund
       - name: Generate iOS app with native WebRTC
         working-directory: mobile/ios
         run: |
@@ -52,7 +56,12 @@ jobs:
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
           xcrun simctl install "$SIM" "$RUNNER_TEMP/HITELSim/Build/Products/Debug-iphonesimulator/HitelNative.app"
-          xcrun simctl launch "$SIM" app.hitel.native | tee "$RUNNER_TEMP/native-simulator-launch.txt"
+          node tests/ios-native-simulator-live-signal.mjs create "$RUNNER_TEMP/hitel-native-session.env"
+          set -a
+          source "$RUNNER_TEMP/hitel-native-session.env"
+          set +a
+          xcrun simctl launch "$SIM" app.hitel.native -HITEL_NATIVE_PAIR_CODE "$HITEL_SIM_NATIVE_B_CODE" -HITEL_NATIVE_AUTOANSWER | tee "$RUNNER_TEMP/native-simulator-launch.txt"
+          node tests/ios-native-simulator-live-signal.mjs verify | tee "$RUNNER_TEMP/native-simulator-wss-test.txt"
           sleep 8
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/native-call-screen.png"
           test -s "$RUNNER_TEMP/native-call-screen.png"
@@ -65,5 +74,6 @@ jobs:
             ${{ runner.temp }}/native-call-screen.png
             ${{ runner.temp }}/native-simulator-launch.txt
             ${{ runner.temp }}/native-simulator-build.log
+            ${{ runner.temp }}/native-simulator-wss-test.txt
           if-no-files-found: ignore
           retention-days: 7
