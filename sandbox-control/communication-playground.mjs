@@ -17,9 +17,10 @@ const now=()=>new Date().toISOString();
 const safeEq=(a,b)=>{const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&x.length>0&&timingSafeEqual(x,y)};
 const json=(res,code,data)=>{res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(data))};
 const capability=(r)=>({signaling:true,browserWebRTC:['N','W'].includes(r.from)&&['N','W'].includes(r.to),
-  nativeIOS:false,pstnGateway:false,aiRuntime:false,mode:'PLAYGROUND_BROWSER_PEERS'});
+  nativeIOS:false,pstnGateway:false,aiRuntime:false,mode:'PLAYGROUND_PARTICIPANTS'});
 function expire(){
- const time=Date.now();for(const [id,s] of sessions){if(s.expires<=time){
+ const time=Date.now();
+ for(const [ip,entries] of nativeAttempts)if(!entries.some(t=>time-t<600000))nativeAttempts.delete(ip);for(const [id,s] of sessions){if(s.expires<=time){
   for(const w of Object.values(s.peers))if(w?.readyState===WebSocket.OPEN)w.close(1001,'Playground session expired');sessions.delete(id)
  }}
 }
@@ -50,9 +51,9 @@ export async function playgroundRoute(req,res,path){
   if(!route)return json(res,400,{ok:false,error:'INVALID_ROUTE'});
   if(sessions.size>=24)return json(res,429,{ok:false,error:'SESSION_LIMIT'});
   const s={id:randomUUID(),secret:randomBytes(32).toString('hex'),nativeCode:pin(),
-   nativeSecret:randomBytes(32).toString('hex'),nativeSide:route.from==='N'?'A':route.to==='N'?'B':null,
-   nativeCodes:{A:route.from==='N'?pin():null,
-                B:route.to==='N'?pin():null},
+   nativeSecret:randomBytes(32).toString('hex'),nativeSide:['N','P+'].includes(route.from)?'A':['N','P+'].includes(route.to)?'B':null,
+   nativeCodes:{A:['N','P+'].includes(route.from)?pin():null,
+                B:['N','P+'].includes(route.to)?pin():null},
    nativeSecrets:{A:randomBytes(32).toString('hex'),B:randomBytes(32).toString('hex')},
    route,expires:Date.now()+LIFE,
    phase:'idle',callId:null,peers:{A:null,B:null},peerKinds:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
