@@ -1,0 +1,69 @@
+name: HITEL iPhone native calling simulator boot smoke
+on:
+  push:
+    branches: [feature/ws-scrcpy-android11-20261028]
+    paths:
+      - 'mobile/ios/Sources/HitelNativePlaygroundModel.swift'
+      - 'mobile/ios/Sources/HitelNativePlaygroundScreen.swift'
+      - 'mobile/ios/Sources/HitelNativeCallMedia.swift'
+      - '.github/workflows/ios-native-call-simulator-smoke.yml'
+  workflow_dispatch:
+concurrency:
+  group: hitel-native-calling-simulator
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  boot-and-launch:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate iOS app with native WebRTC
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          xcodegen generate --spec project.free.yml
+      - name: Build real native call UI for iOS simulator
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelNative.xcodeproj -scheme HitelNative \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/HITELSim" CODE_SIGNING_ALLOWED=NO \
+            build > "$RUNNER_TEMP/native-simulator-build.log" 2>&1 || {
+              tail -120 "$RUNNER_TEMP/native-simulator-build.log"; exit 1;
+            }
+          test -s "$RUNNER_TEMP/HITELSim/Build/Products/Debug-iphonesimulator/HitelNative.app/Frameworks/WebRTC.framework/WebRTC"
+          echo NATIVE_SIMULATOR_APP_AND_WEBRTC_BUILT
+      - name: Install and launch complete HITEL app in real Apple iOS Simulator
+        run: |
+          set -euo pipefail
+          SIM="$(xcrun simctl list devices available -j | python3 -c '
+          import sys,json
+          data=json.load(sys.stdin)
+          candidates=[d for items in data["devices"].values() for d in items
+            if d.get("isAvailable") and d.get("name","").startswith("iPhone")]
+          if not candidates: sys.exit(4)
+          print(candidates[0]["udid"])
+          ')"
+          echo "Using iPhone simulator $SIM"
+          xcrun simctl boot "$SIM" || true
+          xcrun simctl bootstatus "$SIM" -b
+          xcrun simctl install "$SIM" "$RUNNER_TEMP/HITELSim/Build/Products/Debug-iphonesimulator/HitelNative.app"
+          xcrun simctl launch "$SIM" app.hitel.native | tee "$RUNNER_TEMP/native-simulator-launch.txt"
+          sleep 8
+          xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/native-call-screen.png"
+          test -s "$RUNNER_TEMP/native-call-screen.png"
+          echo IPHONE_NATIVE_CALL_APP_SIMULATOR_LAUNCH_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HITEL-native-call-simulator-screenshot-logs
+          path: |
+            ${{ runner.temp }}/native-call-screen.png
+            ${{ runner.temp }}/native-simulator-launch.txt
+            ${{ runner.temp }}/native-simulator-build.log
+          if-no-files-found: ignore
+          retention-days: 7
