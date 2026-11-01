@@ -49,3 +49,21 @@ P/P+ carrier voice and AI live audio processing require additional legal telepho
 - [Standalone iPhone Call IPA](https://github.com/lyonbegin/hitel-room/releases/download/hitel-call-iphone-free-7day-unsigned/HITEL-Call-iPhone-Free-7day-unsigned.ipa)
 
 The device URL itself is created **at first launch** and is intentionally not hardcoded into this document.
+
+## Verified 2026-11-01 (automated evidence, not physical iPhone sign-off)
+
+| Check | Evidence | Result |
+|---|---|---|
+| Device-specific random URL and direct WSS, no PIN | `tests/communication-device-url-smoke.mjs` | PASS |
+| All 16 combinations with independent device URLs for each native N/P+ endpoint | `tests/communication-device-url-all-16.mjs` | 16/16 PASS |
+| 80 route lifecycle / negative / reconnect checks | `tests/communication-playground-80-flow.mjs` | 80/80 PASS |
+| Browser page reload AND new tab restore existing device call session | `tests/communication-device-page-browser.mjs` | PASS |
+| Actual two Chromium WebRTC remote audio/video test tracks | `tests/communication-playground-browser-webrtc.mjs` | PASS |
+| Actual Swift `HitelCall.app` installed in Apple iOS Simulator and authenticating on Railway device WSS | `tests/ios-call-app-real-swift-e2e.mjs` | PASS |
+| Actual Swift iOS Simulator sends N→W `call.invite` and receives W→N `call.accept` | [Actions 41307673827](https://github.com/lyonbegin/hitel-room/actions/runs/41307673827) | PASS |
+| Real iPhone (physical hardware) bidirectional audio/video / camera permission | physical handset required | NOT VERIFIED |
+| iPhone Keychain identity survival between two independent process launches | `ios-standalone-call-simulator.yml` additional automated assertion | pending latest CI result |
+
+Web endpoint updates and device registry authentication remain on Railway. `app.hitel.call` has no ReplayKit broadcast extension; `app.hitel.native` original screen streamer remains separate and intact. A GitHub build result verifies unsigned IPA generation, not actual free Apple ID signing or physical iPhone install.
+
+**Do not ask the user for an 8-digit pairing number.** Show their own per-install URL from the Call app's SwiftUI first screen. The browser opens that URL and automatically attaches over WSS.
