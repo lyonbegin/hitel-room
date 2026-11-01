@@ -51,6 +51,7 @@ export default function CommunicationPlayground(){
  const [busy,setBusy]=useState(false);
  const [scenarioFilter,setScenarioFilter]=useState<'all'|'rtc'|'gateway'>('all');
  const [testNotes,setTestNotes]=useState<Record<number,string>>({});
+ const [consultNotes,setConsultNotes]=useState<Record<Side,string>>({A:'',B:''});
  const sockets=useRef<Record<Side,WebSocket|null>>({A:null,B:null});
  const pcs=useRef<Record<Side,RTCPeerConnection|null>>({A:null,B:null});
  const pendingIce=useRef<Record<Side,RTCIceCandidateInit[]>>({A:[],B:[]});
@@ -233,7 +234,7 @@ export default function CommunicationPlayground(){
  const actor=(side:Side)=>{
   const k=side==='A'?current.from:current.to;
   const isWeb=k==='W',native=k==='N';
-  const nativeOnline=Boolean(native&&conn[side]&&peerKinds[side]==='native-protocol');
+  const nativeOnline=Boolean((native||k==='P+')&&conn[side]&&peerKinds[side]==='native-protocol');
   return <section className="hcp-actor" aria-label={side==='A'?'발신자 플레이어':'수신자 플레이어'}>
    <header><div className="hcp-avatar">{side==='A'?'↗':'↙'}</div><div><small>{side==='A'?'PLAYER A · 발신자':'PLAYER B · 수신자'}</small><h3>{k} <span>{KINDS_LABEL[k]}</span></h3></div><span className={'hcp-status '+(conn[side]?'on':'off')}>{conn[side]?'WS 연결':'WS 미연결'}</span></header>
    <div className="hcp-screen">
@@ -241,7 +242,7 @@ export default function CommunicationPlayground(){
      <div><video ref={side==='A'?localA:localB} autoPlay muted playsInline/><span>로컬 실기기 미디어</span></div>
      <div><video ref={side==='A'?remoteA:remoteB} autoPlay playsInline/><span>상대 미디어</span></div>
     </div>
-    <div className="hcp-screen-caption">{native?nativeOnline?'실제 네이티브 iPhone N · 독립 WebSocket 접속 확인':'N 플레이어 대기 · 네이티브 iPhone 앱 코드 입력 필요':isWeb?'W 실제 브라우저':k==='P+'?'P+ AI 보조·통신사 미연동':'P 통신사 미연동'}</div>
+    <div className="hcp-screen-caption">{native?nativeOnline?'네이티브 iPhone N 직접 WebSocket 참가':'N 플레이어 대기 · iPhone의 8자리 코드 필요':isWeb?'W 실제 브라우저':k==='P+'?nativeOnline?'iPhone P+ 개인 보조 앱 참가 · 통신사 음성 별도':'P+ 웹 보조 · iPhone 앱 직접 참가 선택 가능': 'P 통신사 미연동'}</div>
     <div className="hcp-chip-line"><span>통화: {phase}</span><span>미디어: {remoteStatus[side]}</span></div>
    </div>
    <div className="hcp-actions">
@@ -255,6 +256,21 @@ export default function CommunicationPlayground(){
     <button onClick={()=>toggleMedia(side,'audio')} disabled={!localReady[side]}>{micOn[side]?'마이크 끄기':'마이크 켜기'}</button>
     <button onClick={()=>toggleMedia(side,'video')} disabled={!localReady[side]}>{camOn[side]?'영상 끄기':'영상 켜기'}</button>
    </div>
+   {k==='P+'&&<div style={{padding:'0 13px 12px',display:'flex',flexDirection:'column',gap:7}}>
+     <label style={{fontSize:11,fontWeight:700}}>P+ 개인 상담 메모 · 통화 음성 자동 수집 없음</label>
+     <textarea rows={2} value={consultNotes[side]} placeholder="전화 상대 음성이 아닌 직접 입력한 내용을 상대 테스트 플레이어와 공유합니다."
+      onChange={e=>setConsultNotes(old=>({...old,[side]:e.target.value}))}
+      style={{width:'100%',resize:'vertical',padding:9,border:'1px solid #d8e0ee',borderRadius:7}}/>
+     <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+      <button disabled={!conn[side]||!consultNotes[side].trim()} onClick={()=>send(side,'lab.note',{note:consultNotes[side].slice(0,250)})}>상담 메모 전송</button>
+      <button disabled={!consultNotes[side].trim()} onClick={()=>{
+       if(!('speechSynthesis' in window)){log(side,'TTS','브라우저 TTS 미지원','warn');return}
+       const speech=new SpeechSynthesisUtterance(consultNotes[side].slice(0,300));
+       speech.lang='ko-KR';speechSynthesis.cancel();speechSynthesis.speak(speech);
+       log(side,'TTS','로컬 스피커 안내만 출력 · 통신사 통화 삽입 아님','info');
+      }}>로컬 TTS</button>
+     </div>
+    </div>}
    <p className="hcp-actor-note">{taskMap[k]}</p>
   </section>;
  };
@@ -280,9 +296,9 @@ export default function CommunicationPlayground(){
     </section>
     {notice&&<div role="alert" className="hcp-error">{notice}</div>}
     {(sess?.nativeCodes?.A||sess?.nativeCodes?.B)&&<div style={{background:'#edf6ff',border:'1px solid #abc9eb',borderRadius:12,padding:'16px 20px',margin:'12px 0',display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
-     <div style={{flex:1,minWidth:220}}><strong style={{display:'block',fontSize:15,color:'#174c83'}}>실제 iPhone N 플레이어 연결</strong>
-      <p style={{fontSize:12,color:'#516986',lineHeight:1.6,margin:'5px 0 0'}}>아이폰 HITEL 네이티브 앱 → 통화 실험실 → 아래 8자리 코드를 입력하여 {sess.nativeSide==='A'?'발신자 A':'수신자 B'}로 연결하십시오. 네이티브 앱은 웹 브리지를 사용하지 않고 직접 WebSocket에 접속합니다.</p></div>
-     {(['A','B'] as Side[]).filter(side=>Boolean(sess?.nativeCodes?.[side])).map(side=><div key={side} style={{textAlign:'center',minWidth:174}}><small style={{fontSize:10,color:'#67839a'}}>NATIVE {side} PAIR CODE</small><div style={{fontSize:27,fontWeight:800,letterSpacing:4,fontVariantNumeric:'tabular-nums',color:'#1d558d'}}>{sess!.nativeCodes![side]}</div></div>)}
+     <div style={{flex:1,minWidth:220}}><strong style={{display:'block',fontSize:15,color:'#174c83'}}>iPhone 네이티브 N / 통신사 보조 P+ 참가</strong>
+      <p style={{fontSize:12,color:'#516986',lineHeight:1.6,margin:'5px 0 0'}}>아이폰 HITEL 네이티브 앱 → 통화 실험실 → 아래 A/B 참가코드를 각 기기에 입력하십시오. P+는 별도 통신사 통화 보조이며, N은 인터넷 통화입니다. 웹 브리지 없이 직접 WebSocket에 접속합니다.</p></div>
+     {(['A','B'] as Side[]).filter(side=>Boolean(sess?.nativeCodes?.[side])).map(side=><div key={side} style={{textAlign:'center',minWidth:174}}><small style={{fontSize:10,color:'#67839a'}}>{(side==='A'?current.from:current.to)} {side} JOIN CODE</small><div style={{fontSize:27,fontWeight:800,letterSpacing:4,fontVariantNumeric:'tabular-nums',color:'#1d558d'}}>{sess!.nativeCodes![side]}</div></div>)}
     </div>}
     <div className="hcp-safety"><span className={'hcp-mark '+(sess?'good':'idle')}>{sess?'서버 세션 있음':'테스트 세션 없음'}</span>
       <span>라우팅: {liveRtc?'브라우저 RTC 후보':'통화 신호 시험'}</span><span>네이티브 통신: {verifiedNativeSignaling?'N 프로토콜 연결':'참가 대기/해당 없음'}</span><span>전화망: 미연동</span><span>AI: 미연동</span>
