@@ -7,6 +7,7 @@ on:
       - 'sandbox-control/communication-playground.mjs'
       - 'sandbox-control/server.mjs'
       - 'tests/communication-playground-smoke.mjs'
+      - 'tests/communication-native-join-smoke.mjs'
       - '.github/workflows/communication-playground-check.yml'
   workflow_dispatch:
 concurrency:
@@ -39,3 +40,4 @@ jobs:
           echo "::error::PLAYGROUND_NOT_DEPLOYED"
           exit 1
       - run: node tests/communication-playground-smoke.mjs
+      - run: node tests/communication-native-join-smoke.mjs
