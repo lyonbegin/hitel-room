@@ -45,6 +45,7 @@ COPY sandbox-control/server.mjs /srv/hitel-sandbox/server.mjs
 COPY sandbox-control/ios-live.mjs /srv/hitel-sandbox/ios-live.mjs
 COPY sandbox-control/physical-android.mjs /srv/hitel-sandbox/physical-android.mjs
 COPY sandbox-control/physical-iphone.mjs /srv/hitel-sandbox/physical-iphone.mjs
+COPY sandbox-control/communication-playground.mjs /srv/hitel-sandbox/communication-playground.mjs
 COPY sandbox-control/railway-tcg-probe.mjs /srv/hitel-sandbox/railway-tcg-probe.mjs
 COPY sandbox-control/railway-tcg-checkpoint-test.mjs /srv/hitel-sandbox/railway-tcg-checkpoint-test.mjs
 COPY sandbox-control/ws-scrcpy-host.mjs /srv/hitel-sandbox/ws-scrcpy-host.mjs
