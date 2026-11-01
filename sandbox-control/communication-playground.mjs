@@ -17,7 +17,7 @@ const now=()=>new Date().toISOString();
 const safeEq=(a,b)=>{const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&x.length>0&&timingSafeEqual(x,y)};
 const json=(res,code,data)=>{res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(data))};
 const capability=(r)=>({signaling:true,browserWebRTC:['N','W'].includes(r.from)&&['N','W'].includes(r.to),
-  nativeIOS:false,pstnGateway:false,aiRuntime:false,mode:'PLAYGROUND_PARTICIPANTS'});
+  nativeIOS:false,pstnGateway:false,aiRuntime:false,carrierAudio:false,mode:'PLAYGROUND_PARTICIPANTS'});
 function expire(){
  const time=Date.now();
  for(const [ip,entries] of nativeAttempts)if(!entries.some(t=>time-t<600000))nativeAttempts.delete(ip);for(const [id,s] of sessions){if(s.expires<=time){
@@ -57,6 +57,8 @@ export async function playgroundRoute(req,res,path){
    nativeSecrets:{A:randomBytes(32).toString('hex'),B:randomBytes(32).toString('hex')},
    route,expires:Date.now()+LIFE,
    phase:'idle',callId:null,peers:{A:null,B:null},peerKinds:{A:null,B:null},events:[],seq:0,rate:{A:[],B:[]}};
+  if(s.nativeCodes.A&&s.nativeCodes.B&&s.nativeCodes.A===s.nativeCodes.B)
+    s.nativeCodes.B=pin();
   sessions.set(s.id,s);
   return json(res,201,{...sessionState(s),secret:s.secret,
    nativeCode:s.nativeSide?s.nativeCodes[s.nativeSide]:null,nativeSide:s.nativeSide,nativeCodes:s.nativeCodes});
@@ -136,7 +138,7 @@ export function playgroundUpgrade(req,socket,head){
     emit(s,'call.mediaConnected',actor,{connectionState:String(msg.payload?.connectionState||'').slice(0,50)});ack(true);return;
    }
    if(type==='lab.note'){
-    const note=String(msg.note||'').slice(0,250);
+    const note=String(msg.payload?.note||msg.note||'').slice(0,250);
     if(!note){ack(false,'EMPTY_NOTE');return}
     emit(s,'lab.note',actor,{note});ack(true);return;
    }
