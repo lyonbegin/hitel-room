@@ -57,6 +57,9 @@ try{
  const state=await post('/status',{id:session.id,secret:session.secret});
  check(state.peers.A===true&&state.peers.B===true,'phone and browser independently WS connected');
  check(state.peerKinds.A==='native-protocol'&&state.peerKinds.B==='browser','native peer accurately typed');
+ // Reloading the management page MUST NOT disconnect the existing iPhone.
+ const repeat=await post('/device/attach',{pageToken:token,sessionId:session.id,sessionSecret:session.secret,side:'A'});
+ check(repeat.alreadyConnected===true,'same native iPhone assignment remains valid on page reload');
  // Restart the separate iPhone app's device control socket, without any new
  // pairing code, browser reapproval or fresh session.
  nativeCall.close();app.close();
@@ -80,7 +83,7 @@ try{
  const state2=await post('/status',{id:session.id,secret:session.secret});
  check(state2.phase==='ended','call lifecycle without PIN');
  console.log('HITEL_UNIQUE_APP_URL_AUTO_CONNECT_PASS',{perAppUrl:true,
-  sameUrlAfterRestart:true,restoredAssignment:true,noPin:true,appWss:true,autoAttach:true,callLifecycle:true,hardwareIphone:false});
+  sameUrlAfterRestart:true,idempotentBrowserReload:true,restoredAssignment:true,noPin:true,appWss:true,autoAttach:true,callLifecycle:true,hardwareIphone:false});
 }finally{
  peer?.close();nativeCall?.close();app?.close();
  if(session)await post('/end',{id:session.id,secret:session.secret}).catch(()=>{});
