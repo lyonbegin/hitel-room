@@ -7,8 +7,20 @@ import {writeFileSync} from 'node:fs';
 const base='https://hitel-communication-web-production.up.railway.app',root='/lab-sandbox/playground';
 const check=(value,description)=>{if(!value)throw Error('HITEL_ACTUAL_SWIFT_NATIVE_E2E_FAILED '+description)};
 const post=async(path,data,timeout=12000)=>{
- const r=await fetch(base+root+path,{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(timeout)});
- const o=await r.json();if(!r.ok)throw Error('HTTP '+path+': '+r.status+' '+JSON.stringify(o));return o;
+ for(let attempt=0;attempt<8;attempt++){
+  try{
+   const r=await fetch(base+root+path,{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(timeout)});
+   const o=await r.json();
+   if(r.ok)return o;
+   if(![502,503,504].includes(r.status))throw Error('HTTP '+path+': '+r.status+' '+JSON.stringify(o));
+   if(attempt===7)throw Error('TRANSIENT_RAILWAY_UNAVAILABLE '+path+' '+r.status);
+  }catch(e){
+   if(!/fetch failed|NETWORK_UNAVAILABLE|TRANSIENT_RAILWAY_UNAVAILABLE/.test(String(e)))throw e;
+   if(attempt===7)throw e;
+  }
+  await new Promise(resolve=>setTimeout(resolve,950+attempt*650));
+ }
+ throw Error('RAILWAY_RETRY_EXHAUSTED '+path);
 };
 const pause=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
 const open=async(s,side)=>{
