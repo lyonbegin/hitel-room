@@ -8,6 +8,7 @@ import {wsScrcpyRoute,wsScrcpyUpgrade} from './ws-scrcpy-host.mjs';
 import {createIosLive} from './ios-live.mjs';
 import {physicalRoute,physicalUpgrade} from './physical-android.mjs';
 import {physicalIphoneRoute,physicalIphoneUpgrade} from './physical-iphone.mjs';
+import {playgroundRoute,playgroundUpgrade} from './communication-playground.mjs';
 
 /**
  * HITEL Android control plane, colocated with the existing HITEL web container.
@@ -196,6 +197,7 @@ async function handle(req,res){
   if(path.startsWith('/ios/'))return iosLive.handle(req,res,path);
   if(path.startsWith('/physical/'))return physicalRoute(req,res,path);
   if(path.startsWith('/physical-iphone/'))return physicalIphoneRoute(req,res,path);
+  if(path.startsWith('/playground/'))return playgroundRoute(req,res,path);
   if(path.startsWith('/ws-scrcpy/'))return wsScrcpyRoute(req,res,path);
   if(req.method==='GET'&&path==='/tcg-status')return json(res,200,{ok:true,...getTcgProbeStatus()});
   if(req.method==='GET'&&path==='/checkpoint-test-status')return json(res,200,{ok:true,...checkpointTestStatus()});
@@ -271,6 +273,7 @@ server.on('upgrade',(req,socket,head)=>{
   if(req.url?.startsWith('/ios/socket'))iosLive.upgrade(req,socket,head);
   else if(req.url?.startsWith('/physical/socket'))physicalUpgrade(req,socket,head);
   else if(req.url?.startsWith('/physical-iphone/socket'))physicalIphoneUpgrade(req,socket,head);
+  else if(req.url?.startsWith('/playground/socket'))playgroundUpgrade(req,socket,head);
 });
 try{unlinkSync(SOCKET_PATH)}catch{}
 server.listen(SOCKET_PATH,()=>{
