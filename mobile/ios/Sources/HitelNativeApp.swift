@@ -54,7 +54,18 @@ struct HitelNativeApp: App {
             .sheet(isPresented: $showPhysicalBroadcast) {
                 HitelPhysicalBroadcastSetup()
             }
-            .onAppear { signalReactivation() }
+            .onAppear {
+                signalReactivation()
+                #if targetEnvironment(simulator)
+                let arguments = ProcessInfo.processInfo.arguments
+                if let i = arguments.firstIndex(of: "-HITEL_NATIVE_PAIR_CODE"),
+                   i + 1 < arguments.count,
+                   arguments[i + 1].count == 8 {
+                    nativeCall.pairingCode = arguments[i + 1]
+                    nativeCall.join()
+                }
+                #endif
+            }
             .onChange(of: scenePhase) { phase in
                 if phase == .active { signalReactivation();nativeCall.resumeAfterUnlock() }
             }
