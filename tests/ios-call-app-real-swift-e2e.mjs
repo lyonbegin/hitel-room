@@ -41,6 +41,10 @@ if(process.argv[2]==='setup'){
  const id=randomUUID(),secret=randomBytes(32).toString('hex');
  writeFileSync(process.argv[3],['HITEL_CALL_SIM_ID='+id,'HITEL_CALL_SIM_SECRET='+secret].join('\n')+'\n',{mode:0o600});
  console.log('SIMULATOR_IDENTITY_PREPARED');
+}else if(process.argv[2]==='cleanup'){
+ const id=process.env.HITEL_CALL_SIM_ID,secret=process.env.HITEL_CALL_SIM_SECRET;
+ if(id&&secret)await post('/device/unregister',{id,key:secret}).catch(()=>{});
+ console.log('SWIFT_SIM_TEST_DEVICE_CLEANUP_DONE');
 }else if(process.argv[2]==='verify'){
  const id=process.env.HITEL_CALL_SIM_ID,secret=process.env.HITEL_CALL_SIM_SECRET;
  check(id&&secret,'missing identity');
@@ -91,7 +95,6 @@ if(process.argv[2]==='setup'){
    await post('/end',{id:session.id,secret:session.secret}).catch(()=>{});
   }
  }
- await post('/device/unregister',{id,key:secret}).catch(()=>{});
  console.log('HITEL_REAL_SWIFT_IOS_SIMULATOR_NO_PIN_E2E_PASS',{nativeSwift:true,registeredBySwift:true,
   persistentDeviceWSS:true,perAppUrl:true,NtoW:true,WtoN:true,numericPairing:false,
   realPhysicalIPhone:false,realMedia:false});
