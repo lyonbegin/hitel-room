@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {Socket} from 'socket.io-client';
-import {createRealtimeSocket,emitAck,waitForSocketReady} from './realtime/socket';
+// Public rooms signal through Railway WebSockets; legacy Fly signaling remains in the legacy client.
 import {API_BASE_URL} from './lib/api';
 import {openVideoCoreCamera,type CameraMode,type VideoCoreCameraSession} from './lib/videoCore';
 import VideoTile from './components/VideoTile';
@@ -17,9 +17,9 @@ type RoomSdk={
   dispose:()=>Promise<void>;
 };
 type Library={
-  createHitelPublicRooms:(options:{socket:Socket;accessToken:string;baseUrl?:string})=>unknown;
+  createHitelPublicRooms:(options:{accessToken:string;baseUrl?:string;transport:'mesh'})=>unknown;
   createCommunicationSDK:(options:Record<string,unknown>)=>RoomSdk;
-  createHitelRoomAdapter:(socket:Socket,onRemote:(t:RemoteTile[])=>void,onStatus:(s:string)=>void)=>unknown;
+  createPublicMeshRoomAdapter:(options:{publicRooms:unknown;onRemote:(t:RemoteTile[])=>void;onStatus:(s:string)=>void;onEnded:()=>void})=>unknown;
 };
 const SDK_BUNDLE='/sdk/communication.esm.js';
 const fail=(e:unknown)=>e instanceof Error?e.message:String(e);
@@ -55,16 +55,23 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
   finally{if(showLoading)setRefreshing(false);}
  }
  async function syncCurrent(){
-  const id=activeRef.current?.id,sock=socketRef.current;
-  if(!id||!sock?.connected)return;
+  const id=activeRef.current?.id,sdk=sdkRef.current;
+  if(!id||!sdk)return;
   try{
-   const value=await emitAck<{session:ConsultationSession}>(sock,'session:get-state',{sessionId:id},5000);
-   if(value.session.id===id){setActive(value.session);activeRef.current=value.session;}
+   const rooms=await sdk.listPublicRooms();
+   const found=rooms.find(x=>x.id===id);
+   if(found){setActive(found);activeRef.current=found;}
+   else {
+    setStatus('방이 종료되거나 목록에서 제거되었습니다.');
+    await sdk.leaveRoom().catch(()=>undefined);
+    cleanupCamera();setActive(null);activeRef.current=null;
+   }
   }catch(e){setStatus('방 상태 동기화 실패: '+fail(e));}
  }
  useEffect(()=>{
   let disposed=false;
-  const sock=createRealtimeSocket(API_BASE_URL,profile.token);socketRef.current=sock;
+  // Railway mesh uses HTTPS + WebSocket. Do not open legacy Fly mediasoup socket.
+  const sock:Socket|null=null;socketRef.current=null;
   let localSdk:RoomSdk|null=null;
   const endHandler=(payload:{session:ConsultationSession})=>{
    if(payload?.session.id!==activeRef.current?.id)return;
@@ -77,20 +84,25 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
    void refresh();
   };
   const disconnect=()=>setStatus('시그널링 연결 끊김 · 네트워크 확인 후 재접속하십시오.');
-  sock.on('session:ended',endHandler);
-  sock.on('session:participant-joined',updated);
-  sock.on('session:participant-left',updated);
-  sock.on('session:participant-disconnected',updated);
-  sock.on('disconnect',disconnect);
+  sock?.on('session:ended',endHandler);
+  sock?.on('session:participant-joined',updated);
+  sock?.on('session:participant-left',updated);
+  sock?.on('session:participant-disconnected',updated);
+  sock?.on('disconnect',disconnect);
   (async()=>{
    try{
-    await waitForSocketReady(sock);
     const module=await import(/* @vite-ignore */ SDK_BUNDLE) as Library;
     if(disposed)return;
     if(typeof module.createCommunicationSDK!=='function'||typeof module.createHitelPublicRooms!=='function'||
-       typeof module.createHitelRoomAdapter!=='function')throw new Error('배포된 SDK에서 공개 영상방 API를 찾지 못했습니다.');
-    const rooms=module.createHitelPublicRooms({socket:sock,accessToken:profile.token,baseUrl:API_BASE_URL});
-    const adapter=module.createHitelRoomAdapter(sock,setRemote,setStatus);
+       typeof module.createPublicMeshRoomAdapter!=='function')throw new Error('배포된 SDK에서 공개 영상방 API를 찾지 못했습니다.');
+    const rooms=module.createHitelPublicRooms({accessToken:profile.token,baseUrl:API_BASE_URL,transport:'mesh'});
+    const adapter=module.createPublicMeshRoomAdapter({
+      publicRooms:rooms,onRemote:setRemote,onStatus:setStatus,
+      onEnded:()=>{
+        void localSdk?.leaveRoom().catch(()=>undefined);
+        cleanupCamera();activeRef.current=null;setActive(null);void refresh();
+      }
+    });
     localSdk=module.createCommunicationSDK({publicRooms:rooms,roomAdapter:adapter});
     sdkRef.current=localSdk;setSdkReady(true);
     setStatus('Communication SDK 연결됨 · 공개방 목록');
@@ -100,12 +112,12 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
   const poll=window.setInterval(()=>{if(!disposed&&sdkRef.current)void refresh();},4000);
   return ()=>{
    disposed=true;window.clearInterval(poll);
-   sock.off('session:ended',endHandler);sock.off('session:participant-joined',updated);
-   sock.off('session:participant-left',updated);sock.off('session:participant-disconnected',updated);
-   sock.off('disconnect',disconnect);
+   sock?.off('session:ended',endHandler);sock?.off('session:participant-joined',updated);
+   sock?.off('session:participant-left',updated);sock?.off('session:participant-disconnected',updated);
+   sock?.off('disconnect',disconnect);
    cameraRef.current?.stop();cameraRef.current=null;
    void localSdk?.dispose().catch(()=>undefined);
-   sock.disconnect();sdkRef.current=null;socketRef.current=null;activeRef.current=null;
+   sock?.disconnect();sdkRef.current=null;socketRef.current=null;activeRef.current=null;
   };
  },[profile.token]);
 
@@ -234,7 +246,7 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
         <div className="room-card-bottom"><span>방장 {room.hostUserIds.join(', ')}</span><span>바로 입장 →</span></div>
        </button>)}</div>:
        <div className="empty"><div className="empty-art">◎</div><h3>현재 공개된 방이 없습니다.</h3><p>새 영상방을 개설하면 다른 사용자에게 즉시 표시됩니다.</p></div>}
-    <p className="hint">영상·음성은 기존 Fly.io mediasoup 서버에 연결되며 Communication SDK가 방 입장을 처리합니다.</p>
+    <p className="hint">공개 영상방은 Railway에서 목록과 입장을 관리하며 Communication SDK가 브라우저 간 WebRTC 연결을 처리합니다.</p>
    </div>}
   {createOpen&&!active&&<div className="modal-backdrop" onMouseDown={()=>setCreateOpen(false)}>
    <form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>void create(e)}>
