@@ -37,6 +37,17 @@ final class HitelNativeRoomStore:ObservableObject {
     private var peers:[String:HitelNativeMeshPeer]=[:]
     private var connectedPeerIDs=Set<String>()
     private var websocketReady=false
+    #if targetEnvironment(simulator)
+    private let nativeMediaTest = ProcessInfo.processInfo.arguments.contains("-HITEL_E2E_NATIVE_MEDIA")
+    private var nativeMediaObserved=false
+    private func persistNativeMediaEvidence(_ value:String) {
+        guard nativeMediaTest,
+              let folder=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask).first else{return}
+        let file=folder.appendingPathComponent("hitel-public-native-media-e2e.txt")
+        try? value.write(to:file,atomically:true,encoding:.utf8)
+        NSLog("HITEL_NATIVE_MEDIA_%@",value)
+    }
+    #endif
 
     var isHost:Bool {
         guard let room,let identity else{return false}
@@ -95,12 +106,26 @@ final class HitelNativeRoomStore:ObservableObject {
         var newCore:HitelNativeVideoCore?
         do {
             // Real hardware permissions, not simulated successful media.
+            #if targetEnvironment(simulator)
+            if !nativeMediaTest {
+                guard await AVCaptureDevice.requestAccess(for:.video),
+                      await AVCaptureDevice.requestAccess(for:.audio) else {
+                    throw HitelNativeAPIError(message:"카메라와 마이크 권한이 필요합니다.")
+                }
+            }
+            #else
             guard await AVCaptureDevice.requestAccess(for:.video),
                   await AVCaptureDevice.requestAccess(for:.audio) else {
                 throw HitelNativeAPIError(message:"카메라와 마이크 권한이 필요합니다.")
             }
+            #endif
             let core=HitelNativeVideoCore()
+            #if targetEnvironment(simulator)
+            if nativeMediaTest {core.startSyntheticForSimulator()}
+            else {try core.start()}
+            #else
             try core.start()
+            #endif
             newCore=core
             let admission=try await sdk.join(target.id,identity:identity)
             guard admission.session.type=="PUBLIC_ROOM",
@@ -206,6 +231,10 @@ final class HitelNativeRoomStore:ObservableObject {
                 }else{
                     self.remote.append(.init(id:id,userId:userId,name:name,track:track))
                 }
+                #if targetEnvironment(simulator)
+                self.nativeMediaObserved=true
+                self.persistNativeMediaEvidence("NATIVE_RECEIVED_BROWSER_VIDEO_TRACK_PASS")
+                #endif
             }
         }
         peer.onICEState={ [weak self] state in
@@ -213,6 +242,11 @@ final class HitelNativeRoomStore:ObservableObject {
                 if state.lowercased().contains("connected") || state.lowercased().contains("completed") {
                     self?.connectedPeerIDs.insert(id)
                     self?.status="상대방 영상·음성 WebRTC 연결됨"
+                    #if targetEnvironment(simulator)
+                    if self?.nativeMediaObserved == true {
+                        self?.persistNativeMediaEvidence("NATIVE_RECEIVED_BROWSER_VIDEO_TRACK_AND_ICE_CONNECTED_PASS")
+                    }
+                    #endif
                 }else if state.lowercased().contains("failed") {
                     self?.error="상대방 WebRTC 경로 연결 실패 · TURN 서버가 필요할 수 있습니다."
                 }
