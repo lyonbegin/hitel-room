@@ -106,3 +106,15 @@ test('RTC adapter failure releases existing session:join membership',async()=>{
   assert.deepEqual(events.map(e=>e.name),['session:join','session:leave']);
   await sdk.dispose();
 });
+
+test('host closes public room by existing session:end and notifies peers via original gateway',async()=>{
+  const {socket,events}=socketFor(open);
+  const client=new HitelPublicRooms({socket,accessToken:'host-token'});
+  // No HTTP call is required for closing; the original gateway broadcasts session:ended.
+  const previous=globalThis.fetch;
+  globalThis.fetch=async()=>{throw new Error('end must not call unsupported HTTP API')};
+  try {
+    await client.end(open.id);
+    assert.deepEqual(events.map(e=>e.name),['session:end']);
+  }finally{globalThis.fetch=previous}
+});
