@@ -8,7 +8,10 @@ on:
       - '.github/workflows/ios-native-public-room.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
+concurrency:
+  group: hitel-public-native-iphone-current
+  cancel-in-progress: true
 jobs:
   native-ios:
     runs-on: macos-15
@@ -55,6 +58,7 @@ jobs:
           cp -R "$RUNNER_TEMP/HitelPublicDevice/Build/Products/Release-iphoneos/HitelPublicRoom.app" "$RUNNER_TEMP/PublicPackage/Payload/"
           (cd "$RUNNER_TEMP/PublicPackage" && zip -qr "$GITHUB_WORKSPACE/out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa" Payload)
           unzip -t out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa | tail -2
+          shasum -a 256 out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa > out/HITEL-PublicRoom-Native-SHA256.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -121,3 +125,18 @@ jobs:
             ${{ runner.temp }}/hitel-public-device-build.log
           retention-days: 30
           if-no-files-found: ignore
+      - name: Publish only validated native iPhone IPA as separate prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-public-room-native-iphone-20261103
+          title="HITEL Public Room — Pure Native SwiftUI iPhone"
+          notes="Separate, unsigned ARM64 iPhone app. Original Communication SDK Railway room IDs/WSS; SwiftUI native VideoCore and AI counselor metadata. Verified web-created room on iOS simulator plus native-WebRTC-to-web test in this workflow. NOT Apple-signed or tested on physical iPhone. Install requires your own authorized code signing. Existing ReplayKit streamer, Fly.io and production web not modified."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa out/HITEL-PublicRoom-Native-SHA256.txt --clobber
+          else
+            gh release create "$TAG" out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa out/HITEL-PublicRoom-Native-SHA256.txt \
+              --title "$title" --notes "$notes" --prerelease --target "$GITHUB_SHA"
+          fi
+          echo "HITEL_NATIVE_IPHONE_VERIFIED_PRERELEASE_PUBLISHED"
