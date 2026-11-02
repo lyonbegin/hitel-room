@@ -3,7 +3,7 @@
 // Does not modify the Fly.io application or log bearer tokens.
 import assert from 'node:assert/strict';
 
-const ORIGIN='https://hitel-web-preview-production.up.railway.app';
+const ORIGIN=process.env.HITEL_ROOM_TEST_ORIGIN || 'https://hitel-web-preview-production.up.railway.app';
 const id='railway-public-'+Date.now();
 async function json(path,{method='GET',token,body}={}){
  const response=await fetch(ORIGIN+path,{
