@@ -55,6 +55,11 @@ jobs:
           cp -R "$RUNNER_TEMP/HitelPublicDevice/Build/Products/Release-iphoneos/HitelPublicRoom.app" "$RUNNER_TEMP/PublicPackage/Payload/"
           (cd "$RUNNER_TEMP/PublicPackage" && zip -qr "$GITHUB_WORKSPACE/out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa" Payload)
           unzip -t out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa | tail -2
+      - name: Set up actual shared room created by existing Web API
+        run: |
+          set -euo pipefail
+          echo "HITEL_E2E_ROOM_FILE=$RUNNER_TEMP/hitel-public-test-room.json" >> "$GITHUB_ENV"
+          HITEL_E2E_ROOM_FILE="$RUNNER_TEMP/hitel-public-test-room.json" node tests/ios-native-shared-railway-room-e2e.mjs create
       - name: Install and launch actual native SwiftUI app on available iOS Simulator
         run: |
           set -euo pipefail
@@ -68,11 +73,25 @@ jobs:
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
           xcrun simctl install "$SIM" "$RUNNER_TEMP/HitelPublicSim/Build/Products/Debug-iphonesimulator/HitelPublicRoom.app"
-          xcrun simctl launch "$SIM" app.hitel.publicroom
-          sleep 5
+          ROOM_ID="$(python3 -c 'import json,os;print(json.load(open(os.environ["HITEL_E2E_ROOM_FILE"]))["id"])')"
+          GUEST_ID="$(python3 -c 'import json,os;print(json.load(open(os.environ["HITEL_E2E_ROOM_FILE"]))["guest"])')"
+          xcrun simctl launch "$SIM" app.hitel.publicroom \
+            -HITEL_E2E_ROOM_ID "$ROOM_ID" -HITEL_E2E_USER "$GUEST_ID"
+          DATA="$(xcrun simctl get_app_container "$SIM" app.hitel.publicroom data)"
+          for _ in $(seq 1 45); do
+            if test -s "$DATA/Documents/hitel-public-common-room-e2e.txt"; then break; fi
+            sleep 1
+          done
+          test -s "$DATA/Documents/hitel-public-common-room-e2e.txt"
+          grep -qx 'SAME_RAILWAY_ROOM_PASS' "$DATA/Documents/hitel-public-common-room-e2e.txt"
+          echo "WEB_AND_NATIVE_IOS_SHARE_ACTUAL_RAILWAY_ROOM_PASS"
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/hitel-public-iphone-native.png"
           test -s "$RUNNER_TEMP/hitel-public-iphone-native.png"
           echo "NATIVE_PUBLIC_ROOM_SIMULATOR_LAUNCH_PASS"
+      - name: Close only the temporary web-created room
+        if: always()
+        run: |
+          if test -f "$HITEL_E2E_ROOM_FILE"; then node tests/ios-native-shared-railway-room-e2e.mjs cleanup; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
