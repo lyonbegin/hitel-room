@@ -12,12 +12,18 @@ import { emitAck, waitForSocketReady } from '../realtime/socket';
 export class HitelPublicRooms {
   private readonly baseUrl: string;
   private readonly accessToken: string;
-  private readonly socket: Socket;
+  private readonly socket?: Socket;
+  readonly transport: 'mediasoup' | 'mesh';
+  private readonly pendingTickets = new Map<string,string>();
 
-  constructor(options: { accessToken: string; socket: Socket; baseUrl?: string }) {
+  constructor(options: { accessToken: string; socket?: Socket; baseUrl?: string; transport?: 'mediasoup'|'mesh' }) {
     if (!options.accessToken) throw new Error('Authenticated HITEL access token is required');
     this.accessToken = options.accessToken;
     this.socket = options.socket;
+    this.transport = options.transport ?? 'mediasoup';
+    if (this.transport === 'mediasoup' && !this.socket) {
+      throw new Error('Original mediasoup signaling socket is required');
+    }
     this.baseUrl = (options.baseUrl ?? '/api').replace(/\/$/, '');
   }
 
@@ -61,9 +67,20 @@ export class HitelPublicRooms {
   /** The existing socket gateway grants GUEST membership when policy permits. */
   async enter(roomId: string): Promise<ConsultationSession> {
     if (!roomId.trim()) throw new Error('roomId is required');
-    await waitForSocketReady(this.socket);
-    const response = await emitAck<{session: ConsultationSession}>(this.socket, 'session:join', {sessionId: roomId});
-    const session = response.session;
+    let session: ConsultationSession;
+    if (this.transport === 'mesh') {
+      const result = await this.request<{session: ConsultationSession; ticket: string}>(
+        '/' + encodeURIComponent(roomId) + '/join', {method:'POST'},
+      );
+      if (!result.ticket) throw new Error('공개방 시그널링 접속권이 발급되지 않았습니다.');
+      this.pendingTickets.set(roomId, result.ticket);
+      session = result.session;
+    } else {
+      const socket = this.socket!;
+      await waitForSocketReady(socket);
+      const response = await emitAck<{session: ConsultationSession}>(socket, 'session:join', {sessionId: roomId});
+      session = response.session;
+    }
     if (session?.id !== roomId || session.type !== 'PUBLIC_ROOM' ||
         session.policy?.allowUnlistedParticipants !== true ||
         session.status !== 'LIVE') {
@@ -74,16 +91,41 @@ export class HitelPublicRooms {
   }
 
   async leave(roomId: string): Promise<void> {
-    if (!this.socket.connected) return;
-    await emitAck(this.socket, 'session:leave', {sessionId: roomId}, 4000);
+    this.pendingTickets.delete(roomId);
+    if (this.transport === 'mesh') return; // Mesh adapter closes peer WebSocket.
+    const socket = this.socket;
+    if (!socket?.connected) return;
+    await emitAck(socket, 'session:leave', {sessionId: roomId}, 4000);
   }
 
-  /** Use existing session:end gateway so all participants receive session:ended. */
+  /** WebSocket ticket is short-lived, one use and bound to this authenticated user. */
+  takeTicket(roomId: string): string {
+    const ticket = this.pendingTickets.get(roomId);
+    if (!ticket) throw new Error('공개방 입장권이 없습니다.');
+    this.pendingTickets.delete(roomId);
+    return ticket;
+  }
+
+  signalingUrl(roomId: string, ticket: string): string {
+    const relative = this.baseUrl + '/public-rooms/' + encodeURIComponent(roomId) +
+      '/signal?ticket=' + encodeURIComponent(ticket);
+    const url = new URL(relative, window.location.href);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return url.toString();
+  }
+
   async end(roomId: string): Promise<ConsultationSession> {
     if (!roomId.trim()) throw new Error('roomId is required');
-    await waitForSocketReady(this.socket);
+    if (this.transport === 'mesh') {
+      const response = await this.request<{session: ConsultationSession}>(
+        '/' + encodeURIComponent(roomId) + '/end', {method:'POST'},
+      );
+      return response.session;
+    }
+    const socket = this.socket!;
+    await waitForSocketReady(socket);
     const response = await emitAck<{session: ConsultationSession}>(
-      this.socket, 'session:end', {sessionId: roomId},
+      socket, 'session:end', {sessionId: roomId},
     );
     return response.session;
   }
