@@ -63,8 +63,8 @@ function Room({profile, initial, onClose}:{profile:AuthProfile,initial:Consultat
     releaseCamera();setConnection('대화 종료됨');return;
    }
    if(x.session.status==='LIVE'&&streamRef.current){
-    await joinRtc(streamRef.current);
-    if(!engine.current?.isStarted())throw new Error('방 재참가 후 영상 연결을 복원하지 못했습니다.');
+    const restored=await joinRtc(streamRef.current);
+    if(!restored)throw new Error('방 재참가 후 영상 연결을 복원하지 못했습니다.');
    }
    setConnection('실시간 연결 복원됨');
   }catch(e){if(!dead){setError('재연결 실패: '+errorText(e));rejoinNeeded=true;}}
@@ -128,18 +128,20 @@ useEffect(()=>{
  update();const timer=window.setInterval(update,500);
  return ()=>window.clearInterval(timer);
 },[cameraMode,stream]);
- async function joinRtc(s=streamRef.current??stream){
- if(!s||!socket.current?.connected||leaving.current||rtcJoining.current||engine.current?.isStarted())return;
+ async function joinRtc(s=streamRef.current??stream):Promise<boolean>{
+ if(!s||!socket.current?.connected||leaving.current||rtcJoining.current||engine.current?.isStarted())return false;
  rtcJoining.current=true;setBusy(true);setError('');
  const current=new MediasoupSession(socket.current,initial.id,setRemote,setConnection);engine.current=current;
  try{
   await current.start(s,false);
-  if(engine.current===current&&!leaving.current)setLive(true);
-  else await current.dispose(false);
+  if(engine.current===current&&!leaving.current){setLive(true);return true;}
+  await current.dispose(false);
+  return false;
  }catch(e){
   if(engine.current===current)engine.current=null;
   await current.dispose(socket.current?.connected??false).catch(()=>undefined);
   setLive(false);setError('영상 연결 실패: '+errorText(e));
+  return false;
  }finally{rtcJoining.current=false;setBusy(false);}
 }
  async function markReady(){if(!stream||!socket.current)return;setBusy(true);setError('');try{const x=await emitAck<{session:ConsultationSession}>(socket.current,'session:ready',{sessionId:session.id,ready:true});setSession(x.session);setReady(true);}catch(e){setError(errorText(e))}finally{setBusy(false)}}
