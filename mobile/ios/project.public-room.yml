@@ -1,0 +1,35 @@
+name: HitelPublicRoom
+options:
+  minimumXcodeGenVersion: 2.38.0
+  bundleIdPrefix: app.hitel
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 156.0.0
+targets:
+  HitelPublicRoom:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PublicRoomApp
+    dependencies:
+      - package: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.publicroom
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "공개 영상 대화방에서 iPhone 영상을 송신합니다."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "공개 영상 대화방에서 음성을 송신합니다."
+        INFOPLIST_KEY_CFBundleDisplayName: "HITEL 공개 영상방"
+schemes:
+  HitelPublicRoom:
+    build:
+      targets:
+        HitelPublicRoom: all
+    run:
+      config: Debug
