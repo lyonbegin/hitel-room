@@ -1,5 +1,4 @@
 import {useEffect,useRef,useState} from 'react';
-import type {Socket} from 'socket.io-client';
 // Public rooms signal through Railway WebSockets; legacy Fly signaling remains in the legacy client.
 import {API_BASE_URL} from './lib/api';
 import {openVideoCoreCamera,type CameraMode,type VideoCoreCameraSession} from './lib/videoCore';
@@ -34,7 +33,7 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
  const [stream,setStream]=useState<MediaStream|null>(null),[remote,setRemote]=useState<RemoteTile[]>([]);
  const [videoMode,setVideoMode]=useState<CameraMode>('original');
  const [mic,setMic]=useState(true),[camera,setCamera]=useState(true);
- const socketRef=useRef<Socket|null>(null),sdkRef=useRef<RoomSdk|null>(null);
+ const sdkRef=useRef<RoomSdk|null>(null);
  const cameraRef=useRef<VideoCoreCameraSession|null>(null),mediaRef=useRef<RoomSession|null>(null);
  const activeRef=useRef<ConsultationSession|null>(null),enteringRef=useRef(false);
  const [refreshing,setRefreshing]=useState(false);
@@ -70,25 +69,8 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
  }
  useEffect(()=>{
   let disposed=false;
-  // Railway mesh uses HTTPS + WebSocket. Do not open legacy Fly mediasoup socket.
-  const sock:Socket|null=null;socketRef.current=null;
+  // Only Railway's authenticated WebSocket is used for public rooms.
   let localSdk:RoomSdk|null=null;
-  const endHandler=(payload:{session:ConsultationSession})=>{
-   if(payload?.session.id!==activeRef.current?.id)return;
-   setStatus('방장이 대화방을 종료했습니다.');
-   void localSdk?.leaveRoom().catch(()=>undefined);
-   cleanupCamera();activeRef.current=null;setActive(null);void refresh();
-  };
-  const updated=(payload:{sessionId:string})=>{
-   if(payload?.sessionId===activeRef.current?.id)void syncCurrent();
-   void refresh();
-  };
-  const disconnect=()=>setStatus('시그널링 연결 끊김 · 네트워크 확인 후 재접속하십시오.');
-  sock?.on('session:ended',endHandler);
-  sock?.on('session:participant-joined',updated);
-  sock?.on('session:participant-left',updated);
-  sock?.on('session:participant-disconnected',updated);
-  sock?.on('disconnect',disconnect);
   (async()=>{
    try{
     const module=await import(/* @vite-ignore */ SDK_BUNDLE) as Library;
@@ -112,12 +94,9 @@ export default function PublicWebRtcApp({profile,onLogout}:{profile:AuthProfile,
   const poll=window.setInterval(()=>{if(!disposed&&sdkRef.current)void refresh();},4000);
   return ()=>{
    disposed=true;window.clearInterval(poll);
-   sock?.off('session:ended',endHandler);sock?.off('session:participant-joined',updated);
-   sock?.off('session:participant-left',updated);sock?.off('session:participant-disconnected',updated);
-   sock?.off('disconnect',disconnect);
    cameraRef.current?.stop();cameraRef.current=null;
    void localSdk?.dispose().catch(()=>undefined);
-   sock?.disconnect();sdkRef.current=null;socketRef.current=null;activeRef.current=null;
+   sdkRef.current=null;activeRef.current=null;
   };
  },[profile.token]);
 
