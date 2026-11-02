@@ -124,6 +124,9 @@ struct HitelNativePublicRoomScreen:View {
                 Button {Task {await store.refresh()}} label:{
                     Label("새로고침",systemImage:"arrow.clockwise")
                 }.buttonStyle(.bordered)
+                Button {aiPresented=true} label:{
+                    Label("AI 상담",systemImage:"brain.head.profile")
+                }.buttonStyle(.bordered)
             }
             HStack {
                 Text("참여 가능한 방").font(.title3.bold())
@@ -216,6 +219,9 @@ struct HitelNativePublicRoomScreen:View {
                     store.toggleCamera()
                 }.buttonStyle(.bordered)
             }
+            Button {aiPresented=true} label:{
+                Label("AI 상담 SDK",systemImage:"brain.head.profile")
+            }.buttonStyle(.bordered)
             HStack {
                 Button("참가자 새로고침"){Task{await store.refresh()}}
                     .buttonStyle(.bordered)
@@ -258,12 +264,13 @@ struct HitelNativePublicRoomScreen:View {
         NavigationStack{
             Form{
                 Picker("AI 상담 분야",selection:$store.aiProfile) {
-                    ForEach(HitelNativeAISDK.profiles){item in
+                    ForEach(store.aiProfiles){item in
                         Text(item.label).tag(item)
                     }
                 }
+                Text("AI Counselor SDK "+store.aiSdkVersion).font(.caption)
                 Text(store.aiStatus)
-                Text("AI 상담 기능은 별도의 기존 Railway 런타임을 이용합니다. 서버가 실제로 참여하지 않은 AI를 통화 참가자로 표시하지 않습니다.")
+                Text("AI 상담 기능은 별도의 기존 Railway 런타임을 이용합니다. 현재 방에 AI 상담사가 실제로 연결되지 않은 경우 참가자로 표시하지 않으며, 상담 시작을 성공한 것으로 처리하지 않습니다.")
                     .font(.footnote).foregroundStyle(.secondary)
             }.navigationTitle("AI 상담 SDK")
         }
