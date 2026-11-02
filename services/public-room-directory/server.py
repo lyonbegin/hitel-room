@@ -7,6 +7,7 @@ unlisted participants.
 """
 from __future__ import annotations
 import json
+import base64
 import os
 import re
 import sqlite3
@@ -57,6 +58,19 @@ def upstream_session(token, session_id):
     except (URLError, TimeoutError, ValueError):
         raise RoomError(502, "기존 WebRTC 서버의 응답을 확인할 수 없습니다.")
 
+def verified_actor(token):
+    # Upstream session lookup is always performed first, so the JWT has
+    # already been verified by the existing Fly authentication service.
+    try:
+        raw = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)))
+        actor = str(claims.get("sub") or claims.get("userId") or claims.get("user_id") or "")
+        if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", actor):
+            return actor
+    except (IndexError, ValueError, TypeError):
+        pass
+    raise RoomError(403, "기존 WebRTC 로그인 토큰에서 사용자 ID를 확인하지 못했습니다.")
+
 class RoomError(Exception):
     def __init__(self, status, message):
         self.status, self.message = status, message
@@ -82,8 +96,8 @@ def open_room(token, payload):
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", user):
         raise RoomError(400, "방장 ID가 올바르지 않습니다.")
     session = upstream_session(token, sid)
-    if user not in (session.get("hostUserIds") or []):
-        raise RoomError(403, "기존 WebRTC 서버에 등록된 방장만 방을 공개할 수 있습니다.")
+    if verified_actor(token) != user or user not in (session.get("hostUserIds") or []):
+        raise RoomError(403, "실제 WebRTC 방장만 방을 공개할 수 있습니다.")
     policy = session.get("policy") or {}
     if policy.get("allowUnlistedParticipants") is not True:
         raise RoomError(409, "원본 WebRTC 서버에서 초대 없는 공개 입장을 허용하지 않습니다. 서버 공개방 정책 구현이 필요합니다.")
@@ -120,7 +134,7 @@ def close_room(token, sid):
         if not row:
             raise RoomError(404, "등록된 방이 없습니다.")
         actual = upstream_session(token, sid)
-        if row["host_user_id"] not in (actual.get("hostUserIds") or []):
+        if verified_actor(token) != row["host_user_id"] or row["host_user_id"] not in (actual.get("hostUserIds") or []):
             raise RoomError(403, "방장만 종료할 수 있습니다.")
         db.execute("UPDATE rooms SET status='CLOSED' WHERE session_id=?", (sid,))
         db.commit()
