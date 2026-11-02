@@ -1,4 +1,5 @@
 name: Cancel obsolete queued native iOS verification runs
+# Preserve the latest production-test build after new signing/release workflow changes.
 on:
   push:
     branches: [feature/iphone-native-public-room-20261103]
