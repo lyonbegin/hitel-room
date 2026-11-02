@@ -20,6 +20,37 @@ struct HitelNativeAISDK {
     struct Status: Decodable {
         let participantEnabled: Bool
     }
+    struct RuntimeHealth: Decodable {
+        let ok: Bool
+        let sdkVersion: String
+        let participantEnabled: Bool
+        let openaiConfigured: Bool
+        let apiAuthConfigured: Bool
+    }
+    private struct Preset: Decodable {
+        let name: String
+        let role: String
+        let domain: String
+    }
+    func loadProfiles() async throws -> [HitelNativeCounselorProfile] {
+        let url=Self.runtime.appendingPathComponent("v1/presets")
+        let (data,response)=try await URLSession.shared.data(from:url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw HitelNativeAPIError(message:"AI 상담 분야 정보를 확인할 수 없습니다.")
+        }
+        let presets=try JSONDecoder().decode([String:Preset].self,from:data)
+        return presets.map { key,preset in
+            .init(id:key,label:preset.name,role:preset.role)
+        }.sorted { $0.id < $1.id }
+    }
+    func health() async throws -> RuntimeHealth {
+        let (data,response)=try await URLSession.shared.data(
+            from:Self.runtime.appendingPathComponent("health"))
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw HitelNativeAPIError(message:"AI 상담 런타임이 응답하지 않습니다.")
+        }
+        return try JSONDecoder().decode(RuntimeHealth.self,from:data)
+    }
     func participantStatus() async throws -> Status {
         let url = Self.runtime.appendingPathComponent("v1/rooms/status")
         let (data,response) = try await URLSession.shared.data(from:url)
