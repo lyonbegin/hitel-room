@@ -36,6 +36,13 @@ async function openSocket(token){
 try{
  const host=await request('/api/auth/dev-token',{method:'POST',body:{userId:id,name:'HITEL 자동 공개방 검증',platformRole:'doctor'}});
  result.login=host.status;
+ const previewAuth=await fetch('https://hitel-web-preview-production.up.railway.app/api/auth/dev-token',{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({userId:id+'-preview',name:'미리보기 로그인 검증',platformRole:'user'}),
+  signal:AbortSignal.timeout(15000)
+ }).catch(()=>null);
+ result.previewLogin=previewAuth?.status??null;
  if(host.status!==201 && host.status!==200)throw new Error('test host token rejected');
  hostToken=host.body.accessToken;
  const guest=await request('/api/auth/dev-token',{method:'POST',body:{userId:id+'-guest',name:'검증 참가자',platformRole:'user'}});
