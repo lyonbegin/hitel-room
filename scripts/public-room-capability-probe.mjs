@@ -47,11 +47,12 @@ try{
  hostToken=host.body.accessToken;
  const guest=await request('/api/auth/dev-token',{method:'POST',body:{userId:id+'-guest',name:'검증 참가자',platformRole:'user'}});
  if(guest.status===201||guest.status===200)guestToken=guest.body.accessToken;
+ const unlisted=await request('/api/auth/dev-token',{method:'POST',body:{userId:id+'-unlisted',name:'미초대 입장 검증자',platformRole:'user'}});
+ const unlistedToken=(unlisted.status===201||unlisted.status===200)?unlisted.body.accessToken:null;
  const created=await request('/api/telemedicine/consultations',{method:'POST',token:hostToken,body:{
   title:'자동 공개 입장 검증 임시방',
-  participants:[{userId:id,displayName:'검증 방장',role:'DOCTOR'}],
-  maxParticipants:3,
-  policy:{allowUnlistedParticipants:true,requireHostStart:false,waitingRoom:false,maxParticipants:3}
+  participants:[{userId:id,displayName:'검증 방장',role:'DOCTOR'},{userId:id+'-guest',displayName:'검증용 등록 참가자',role:'PATIENT'}],
+  maxParticipants:4
  }});
  result.create=created.status;
  if(created.status!==201&&created.status!==200){
@@ -59,11 +60,11 @@ try{
  }else{
   sessionId=created.body.id;
   result.publicPolicy=created.body.policy?.allowUnlistedParticipants??null;
-  if(guestToken && sessionId){
-   const publicRead=await request('/api/telemedicine/consultations/'+encodeURIComponent(sessionId),{token:guestToken});
+  if(unlistedToken && sessionId){
+   const publicRead=await request('/api/telemedicine/consultations/'+encodeURIComponent(sessionId),{token:unlistedToken});
    result.guestRead=publicRead.status;
    try{
-    const guestSocket=await openSocket(guestToken);
+    const guestSocket=await openSocket(unlistedToken);
     try{
      const joined=await ack(guestSocket,'session:join',{sessionId},7000);
      result.guestSignalingJoin={ok:joined?.ok===true,errorCode:joined?.error?.code||null};
