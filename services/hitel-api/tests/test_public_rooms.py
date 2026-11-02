@@ -57,10 +57,10 @@ def test_authenticated_two_socket_signaling_and_peer_lifecycle(client):
     room=create(client);id=room["id"]
     host=client.post(f"/v1/public-rooms/{id}/join",headers=headers("host")).json()["ticket"]
     guest=client.post(f"/v1/public-rooms/{id}/join",headers=headers("guest")).json()["ticket"]
-    with client.websocket_connect(f"/v1/public-rooms/{id}/signal?ticket={host}") as ws_host:
+    with client.websocket_connect(f"/v1/public-rooms/{id}/signal",subprotocols=["hitel-public","ticket."+host]) as ws_host:
         a=ws_host.receive_json()
         assert a["type"]=="welcome" and a["peers"]==[]
-        with client.websocket_connect(f"/v1/public-rooms/{id}/signal?ticket={guest}") as ws_guest:
+        with client.websocket_connect(f"/v1/public-rooms/{id}/signal",subprotocols=["hitel-public","ticket."+guest]) as ws_guest:
             b=ws_guest.receive_json()
             assert b["type"]=="welcome" and len(b["peers"])==1
             joined=ws_host.receive_json()
@@ -78,9 +78,9 @@ def test_authenticated_two_socket_signaling_and_peer_lifecycle(client):
 def test_ticket_cannot_be_reused(client):
     room=create(client);id=room["id"]
     token=client.post(f"/v1/public-rooms/{id}/join",headers=headers("guest")).json()["ticket"]
-    with client.websocket_connect(f"/v1/public-rooms/{id}/signal?ticket={token}") as ws:
+    with client.websocket_connect(f"/v1/public-rooms/{id}/signal",subprotocols=["hitel-public","ticket."+token]) as ws:
         assert ws.receive_json()["type"]=="welcome"
     from starlette.websockets import WebSocketDisconnect
     with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect(f"/v1/public-rooms/{id}/signal?ticket={token}") as ws:
+        with client.websocket_connect(f"/v1/public-rooms/{id}/signal",subprotocols=["hitel-public","ticket."+token]) as ws:
             ws.receive_json()
