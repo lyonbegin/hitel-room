@@ -182,7 +182,9 @@ def register_public_rooms(app,Base,SessionLocal):
             sockets.pop(room_id,None)
             for key,(rid,*_) in list(tickets.items()):
                 if rid==room_id:tickets.pop(key,None)
-            return {"ok":True}
+            result=as_session(row)
+            result["status"]="ENDED"
+            return {"ok":True,"session":result}
 
     @router.websocket("/{room_id}/signal")
     async def signaling(ws:WebSocket,room_id:str,ticket:str=""):
