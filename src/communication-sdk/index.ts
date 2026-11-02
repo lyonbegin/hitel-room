@@ -415,6 +415,8 @@ export { CommunicationSignalClient, createCommunicationSession } from './signalC
 export type { CommunicationRole, CommunicationAction, CommunicationCallState, CommunicationSignalEvent, CommunicationSessionInfo, CommunicationSnapshot } from './signalClient';
 export { CommunicationCallSession, createCommunicationCallSession } from './callSession';
 export { HitelPublicRooms, createHitelPublicRooms } from './publicRooms';
+export { createPublicMeshRoomAdapter } from './publicMeshAdapter';
+export type { PublicMeshOptions } from './publicMeshAdapter';
 export { createHitelRoomAdapter } from './hitelRoomAdapter';
 
 export { scenarioExecutors, executeCommunicationScenario } from './scenarios';
