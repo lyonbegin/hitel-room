@@ -186,7 +186,10 @@ def register_public_rooms(app,Base,SessionLocal):
             return {"ok":True,"session":result}
 
     @router.websocket("/{room_id}/signal")
-    async def signaling(ws:WebSocket,room_id:str,ticket:str=""):
+    async def signaling(ws:WebSocket,room_id:str):
+        # One-use access ticket is sent in Sec-WebSocket-Protocol, never URL logs.
+        offered=[p.strip() for p in ws.headers.get("sec-websocket-protocol","").split(",")]
+        ticket=next((p[7:] for p in offered if p.startswith("ticket.")),"")
         key=hashlib.sha256(ticket.encode()).hexdigest()
         peer_id=None
         async with lock:
@@ -200,7 +203,7 @@ def register_public_rooms(app,Base,SessionLocal):
                 await ws.close(code=1008);return
             peer_id=str(uuid.uuid4())
             prior=[{"peerId":pid,"userId":uid,"name":n} for pid,(_s,uid,n) in sockets[room_id].items()]
-            await ws.accept()
+            await ws.accept(subprotocol="hitel-public")
             sockets[room_id][peer_id]=(ws,user,name)
             await ws.send_json({"type":"welcome","peerId":peer_id,"peers":prior})
             for pid,(other,_u,_n) in list(sockets[room_id].items()):
