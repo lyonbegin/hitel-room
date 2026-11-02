@@ -274,12 +274,10 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
             DispatchQueue.main.async{self?.remoteTrack=track;self?.note("네이티브 원격 영상 트랙 수신")}
         }
         client.prepare()
-        let cameraSDK = HitelNativeVideoCore(media: client)
-        videoCore = cameraSDK
-        do {
-            localTrack = try cameraSDK.openCamera(mode: .original)
-        } catch {
-            mediaState = "VideoCore 실패: " + error.localizedDescription
+        videoCore = client.nativeVideoCore
+        localTrack = videoCore?.videoTrack
+        if videoCore?.cameraOpened != true {
+            mediaState = "VideoCore 원본 카메라를 시작하지 못했습니다."
             note(mediaState)
         }
     }
