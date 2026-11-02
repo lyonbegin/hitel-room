@@ -83,7 +83,7 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
             self.context.render(bg,to:buffer)
             let frame=RTCVideoFrame(buffer:RTCCVPixelBuffer(pixelBuffer:buffer),
                  rotation:RTCVideoRotation._0,timeStampNs:Int64(Date().timeIntervalSince1970*1_000_000_000))
-            self.capturer(self.capturer,didCapture:frame)
+            self.videoSource.capturer(self.capturer,didCapture:frame)
         }
         syntheticTimer=timer
         timer.resume()
