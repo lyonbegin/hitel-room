@@ -78,9 +78,14 @@ export class HitelPublicRooms {
     await emitAck(this.socket, 'session:leave', {sessionId: roomId}, 4000);
   }
 
+  /** Use existing session:end gateway so all participants receive session:ended. */
   async end(roomId: string): Promise<ConsultationSession> {
     if (!roomId.trim()) throw new Error('roomId is required');
-    return this.request<ConsultationSession>('/' + encodeURIComponent(roomId) + '/end', {method: 'POST'});
+    await waitForSocketReady(this.socket);
+    const response = await emitAck<{session: ConsultationSession}>(
+      this.socket, 'session:end', {sessionId: roomId},
+    );
+    return response.session;
   }
 }
 
