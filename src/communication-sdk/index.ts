@@ -1,5 +1,7 @@
 import { nativeCall, platform, type NativeCapabilities, type NativeReply } from '../portal/nativeBridge';
 import type { CommunicationAction } from './signalClient';
+import type { HitelPublicRooms } from './publicRooms';
+import type { ConsultationSession } from '../types';
 
 /**
  * Reuses HITEL's existing authenticated WebView Bridge.
@@ -131,12 +133,14 @@ export interface CommunicationOptions {
   profile?: AIProfile;
   roomAdapter?: RoomAdapter;
   sessionId?: string;
+  /** Opt-in manager for publicly discoverable Fly WebRTC rooms. */
+  publicRooms?: HitelPublicRooms;
 }
 
 type Listener = (event: CommunicationEvent) => void;
 
 /**
- * The host app owns identities, invitations and WebRTC room authorization.
+ * The host app owns authenticated identities; public sessions use the original\n * Fly server's open-admission policy rather than invitation lists.
  * The SDK coordinates native commands, room adapters and personal AI events.
  */
 export class CommunicationSDK {
@@ -323,6 +327,36 @@ export class CommunicationSDK {
     }
   }
 
+  /** Public rooms are shared on the ORIGINAL Fly server (not invite/callee sessions). */
+  listPublicRooms(): Promise<ConsultationSession[]> {
+    if (!this.options.publicRooms) throw new Error('HITEL public-room client is not configured');
+    return this.options.publicRooms.list();
+  }
+
+  createPublicRoom(input: {title: string; maxParticipants?: number}): Promise<ConsultationSession> {
+    if (!this.options.publicRooms) throw new Error('HITEL public-room client is not configured');
+    return this.options.publicRooms.create(input);
+  }
+
+  /** Only declares rtc.connected after both session:join and the REAL mediasoup adapter succeed. */
+  async joinPublicRoom(roomId: string, stream: MediaStream, adapter = this.options.roomAdapter): Promise<RoomSession> {
+    if (!this.options.publicRooms) throw new Error('HITEL public-room client is not configured');
+    if (!adapter) throw new Error('An actual WebRTC roomAdapter is required');
+    if (this.room) throw new Error('An active room already exists');
+    await this.options.publicRooms.enter(roomId);
+    try {
+      return await this.joinRoom(roomId, stream, adapter);
+    } catch (error) {
+      await this.options.publicRooms.leave(roomId).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  endPublicRoom(roomId: string): Promise<ConsultationSession> {
+    if (!this.options.publicRooms) throw new Error('HITEL public-room client is not configured');
+    return this.options.publicRooms.end(roomId);
+  }
+
   async joinAICounselorRoom(roomId: string, adapter = this.options.roomAdapter): Promise<RoomSession> {
     if (this.room) throw new Error('An active room already exists');
     if (!adapter) throw new Error('An actual WebRTC roomAdapter is required');
@@ -380,6 +414,7 @@ export type { NetworkSide, NetworkPair, NetworkCommand } from './networkAdapter'
 export { CommunicationSignalClient, createCommunicationSession } from './signalClient';
 export type { CommunicationRole, CommunicationAction, CommunicationCallState, CommunicationSignalEvent, CommunicationSessionInfo, CommunicationSnapshot } from './signalClient';
 export { CommunicationCallSession, createCommunicationCallSession } from './callSession';
+export { HitelPublicRooms, createHitelPublicRooms } from './publicRooms';
 
 export { scenarioExecutors, executeCommunicationScenario } from './scenarios';
 export type { ScenarioExecutionContext, ScenarioExecutionResult, ScenarioExecutionStatus, CarrierAppAdapter, PhoneGatewayAdapter } from './scenarios';
