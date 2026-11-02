@@ -16,8 +16,7 @@ final class HitelNativeCallMedia: NSObject, RTCPeerConnectionDelegate {
     var onError: ((String) -> Void)?
 
     private var peer: RTCPeerConnection?
-    private var capturer: RTCCameraVideoCapturer?
-    private var source: RTCVideoSource?
+    private(set) var nativeVideoCore: HitelNativeVideoCore?
     private var video: RTCVideoTrack?
     private var audio: RTCAudioTrack?
     private var queuedIce: [RTCIceCandidate] = []
@@ -42,13 +41,15 @@ final class HitelNativeCallMedia: NSObject, RTCPeerConnectionDelegate {
         let audioTrack = Self.factory.audioTrack(with: audioSource, trackId: "hitel-native-audio")
         audio = audioTrack
         newPeer.add(audioTrack, streamIds: ["hitel-stream"])
-        let videoSource = Self.factory.videoSource()
-        source = videoSource
-        let track = Self.factory.videoTrack(with: videoSource, trackId: "hitel-native-video")
-        video = track
-        newPeer.add(track, streamIds: ["hitel-stream"])
-        capturer = RTCCameraVideoCapturer(delegate: videoSource)
-        startCamera()
+        let core = HitelNativeVideoCore(factory: Self.factory)
+        nativeVideoCore = core
+        video = core.videoTrack
+        newPeer.add(core.videoTrack, streamIds: ["hitel-stream"])
+        do {
+            try core.openCamera(mode: .original)
+        } catch {
+            onError?("VideoCore camera: " + error.localizedDescription)
+        }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
@@ -56,22 +57,6 @@ final class HitelNativeCallMedia: NSObject, RTCPeerConnectionDelegate {
         } catch {
             onError?("오디오 세션: " + error.localizedDescription)
         }
-    }
-
-    private func startCamera() {
-        guard let capturer,
-              let device = RTCCameraVideoCapturer.captureDevices().first(where: { $0.position == .front }) ??
-                           RTCCameraVideoCapturer.captureDevices().first,
-              let format = RTCCameraVideoCapturer.supportedFormats(for: device)
-                .sorted(by: {
-                    let a = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
-                    let b = CMVideoFormatDescriptionGetDimensions($1.formatDescription)
-                    return abs(Int(a.width)-640) < abs(Int(b.width)-640)
-                }).first else {
-            onError?("사용 가능한 iPhone 카메라가 없습니다.")
-            return
-        }
-        capturer.startCapture(with: device, format: format, fps: 24)
     }
 
     func createOffer(_ send: @escaping ([String: Any]) -> Void) {
@@ -129,10 +114,11 @@ final class HitelNativeCallMedia: NSObject, RTCPeerConnectionDelegate {
         queuedIce.removeAll()
     }
     func mute(_ muted:Bool) {audio?.isEnabled = !muted}
-    func camera(_ enabled:Bool) {video?.isEnabled = enabled}
+    func camera(_ enabled:Bool) {nativeVideoCore?.setCameraEnabled(enabled)}
     func shutdown() {
-        capturer?.stopCapture()
-        peer?.close();peer=nil;capturer=nil;source=nil;video=nil;audio=nil
+        nativeVideoCore?.stop()
+        nativeVideoCore=nil
+        peer?.close();peer=nil;video=nil;audio=nil
         queuedIce=[];remoteDescriptionReady=false
         try? AVAudioSession.sharedInstance().setActive(false)
     }
