@@ -114,7 +114,10 @@ final class HitelNativeRoomStore:ObservableObject {
             websocketReady=false
             webSocket.resume()
             // Native URLSession WSS uses identical WebSocket messages as React.
-            receiver=Task { [weak self] in await self?.receiveLoop(webSocket) }
+            receiver=Task { [weak self] in
+                guard let self else{return}
+                await self.receiveLoop(webSocket)
+            }
             room=admission.session
             status="Railway 공개방 WebSocket 접속 중 · 상대방 영상 대기"
             busy=false
