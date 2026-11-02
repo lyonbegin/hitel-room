@@ -9,7 +9,7 @@ export interface PublicRoom {
   status: 'OPEN' | 'CLOSED' | 'EXPIRED';
 }
 
-const API = '/room-directory';
+const API = '/room-directory/rooms';
 
 async function request<T>(path:string, init:RequestInit={}, token?:string):Promise<T>{
   const headers = new Headers(init.headers);
@@ -29,12 +29,12 @@ async function request<T>(path:string, init:RequestInit={}, token?:string):Promi
 }
 
 export async function listPublicRooms():Promise<PublicRoom[]>{
-  const response=await request<{rooms:PublicRoom[]}>('/rooms');
+  const response=await request<{rooms:PublicRoom[]}>('');
   return response.rooms;
 }
 
 export async function publishPublicRoom(token:string, session:ConsultationSession, hostUserId:string):Promise<PublicRoom>{
-  const response=await request<{room:PublicRoom}>('/rooms',{
+  const response=await request<{room:PublicRoom}>('',{
     method:'POST',
     body:JSON.stringify({id:session.id, hostUserId})
   }, token);
@@ -42,12 +42,12 @@ export async function publishPublicRoom(token:string, session:ConsultationSessio
 }
 
 export async function enterPublicRoom(token:string, roomId:string):Promise<ConsultationSession>{
-  const response=await request<{session:ConsultationSession}>('/rooms/'+encodeURIComponent(roomId)+'/join',{
+  const response=await request<{session:ConsultationSession}>('/'+encodeURIComponent(roomId)+'/join',{
     method:'POST',body:'{}'
   },token);
   return response.session;
 }
 
 export async function closePublicRoom(token:string, roomId:string):Promise<void>{
-  await request('/rooms/'+encodeURIComponent(roomId)+'/close',{method:'POST',body:'{}'},token);
+  await request('/'+encodeURIComponent(roomId)+'/close',{method:'POST',body:'{}'},token);
 }
