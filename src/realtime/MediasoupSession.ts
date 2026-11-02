@@ -80,7 +80,7 @@ export class MediasoupSession {
       await this.syncRemoteProducers();
       await this.flushPendingProducers();
 
-      this.onStatus('연결됨');
+      this.onStatus(this.remoteTiles.size > 0 ? '상대방 미디어 트랙 수신됨' : '내 영상 송신 준비됨 · 상대방 미디어 대기 중');
     } catch (error) {
       this.started = false;
       throw error;
@@ -445,7 +445,13 @@ export class MediasoupSession {
   }
 
   private emitRemote() {
-    this.onRemote([...this.remoteTiles.values()]);
+    const tiles = [...this.remoteTiles.values()];
+    this.onRemote(tiles);
+    const video = tiles.some(tile => tile.stream.getVideoTracks().some(track => track.readyState === 'live'));
+    const audio = tiles.some(tile => tile.stream.getAudioTracks().some(track => track.readyState === 'live'));
+    if (video) this.onStatus('상대방 영상 트랙 수신됨');
+    else if (audio) this.onStatus('상대방 음성 트랙 수신됨 · 영상 대기 중');
+    else if (this.started && !this.disposed) this.onStatus('내 영상 송신 준비됨 · 상대방 미디어 대기 중');
   }
 
   private asError(error: unknown): Error {
