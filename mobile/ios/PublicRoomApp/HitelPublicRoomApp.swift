@@ -30,6 +30,11 @@ struct HitelPublicRoomApp: App {
                                         atomically:true,encoding:.utf8)
                     }
                     NSLog("HITEL_PUBLIC_NATIVE_%@",line)
+                    if matched && args.contains("-HITEL_E2E_NATIVE_MEDIA"),
+                       let target=store.rooms.first(where:{$0.id==expected}) {
+                        await store.enter(target)
+                        NSLog("HITEL_PUBLIC_NATIVE_MEDIA_JOIN_%@",store.error.isEmpty ? "REQUESTED" : store.error)
+                    }
                 }
                 #endif
         }
