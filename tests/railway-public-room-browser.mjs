@@ -39,7 +39,7 @@ try {
  await hp.getByRole('button',{name:/공개방 만들기/}).click();
  await hp.getByLabel('방 이름').fill(title);
  await hp.getByRole('button',{name:/방을 만들고 입장/}).click();
- await hp.getByText(title,{exact:true}).first().waitFor({timeout:35000});
+ await hp.locator('.video-grid video').first().waitFor({timeout:35000});
  assert.equal(await hp.locator('.video-grid video').count(),1);
  console.log('Browser host created and entered public room: PASS');
 
@@ -54,6 +54,8 @@ try {
  await gp.screenshot({path:'hitel-public-guest.png'});
 } catch(e){
  console.log('E2E browser diagnostics:',JSON.stringify(errors.slice(-9)));
+ console.log('Host page status:',(await hp.locator('body').innerText()).slice(-1400));
+ console.log('Guest page status:',(await gp.locator('body').innerText()).slice(-1000));
  await hp.screenshot({path:'hitel-public-host.png'}).catch(()=>{});
  await gp.screenshot({path:'hitel-public-guest.png'}).catch(()=>{});
  throw e;
