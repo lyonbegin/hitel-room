@@ -134,6 +134,9 @@ async def deliver_sms(phone: str, code: str) -> None:
         raise HTTPException(502, "SMS delivery failed") from exc
 
 app = FastAPI(title="HITEL Interaction API", version="0.1.0")
+
+from .public_rooms import register_public_rooms
+register_public_rooms(app, Base, SessionLocal)
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
 
 @app.on_event("startup")
