@@ -1,8 +1,11 @@
 import Foundation
+import AVFoundation
 import WebRTC
 
-/// Native VideoCore interface corresponding to video-town-front/src/sdk/VideoCore.ts.
-/// The native RTCVideoTrack remains entirely inside the iPhone; it is not serialized over WebSocket.
+/// Native VideoCore session corresponding to VideoCore 1.0.0.
+/// The camera and video track belong to VideoCore, NEVER to a particular
+/// P2P/SFU transport. Both transports can be supplied the same RTCVideoTrack
+/// without capturing twice. No WebView or browser media element is involved.
 enum HitelNativeCameraMode: String, Codable {
     case original
     case mask
@@ -13,47 +16,61 @@ struct HitelNativeTrackingStatus {
 }
 
 enum HitelVideoCoreError: LocalizedError {
-    case noVideoTrack
+    case noCamera
     case maskRendererNotInstalled
 
     var errorDescription: String? {
         switch self {
-        case .noVideoTrack: return "실제 네이티브 카메라 영상 트랙을 만들지 못했습니다."
+        case .noCamera: return "실제 iPhone 카메라를 시작할 수 없습니다."
         case .maskRendererNotInstalled:
-            return "VideoCore 원본의 얼굴 추적·가면 합성 이식이 완료되지 않았습니다. 가면 모드를 활성화하지 않습니다."
+            return "기존 VideoCore의 얼굴 추적·가면 합성 이식 전이므로 mask 모드를 실행하지 않습니다."
         }
     }
 }
 
-/// One camera owner per call. Reuses the current RTCVideoSource of HitelNativeCallMedia
-/// instead of opening the hardware camera a second time.
-/// IMPORTANT: Full MindAR/3D mask parity is not implemented. Requests fail explicitly.
+/// Platform-native camera owner. Its output track can be attached to a native
+/// WebRTC P2P peer now, and an actual mediasoup Producer after SFU integration.
 final class HitelNativeVideoCore {
     static let sdkVersion = "1.0.0"
-    private weak var media: HitelNativeCallMedia?
+
+    private let capturer: RTCCameraVideoCapturer
+    private let source: RTCVideoSource
+    let videoTrack: RTCVideoTrack
     private(set) var mode: HitelNativeCameraMode = .original
     private(set) var cameraOpened = false
 
-    init(media: HitelNativeCallMedia) {
-        self.media = media
+    init(factory: RTCPeerConnectionFactory) {
+        let source = factory.videoSource()
+        self.source = source
+        self.videoTrack = factory.videoTrack(with: source, trackId: "hitel-videocore-native")
+        self.capturer = RTCCameraVideoCapturer(delegate: source)
     }
 
     @discardableResult
     func openCamera(mode: HitelNativeCameraMode = .original) throws -> RTCVideoTrack {
         guard mode == .original else { throw HitelVideoCoreError.maskRendererNotInstalled }
-        guard let media else { throw HitelVideoCoreError.noVideoTrack }
-        media.prepare()
-        guard let video = media.localVideoTrack else { throw HitelVideoCoreError.noVideoTrack }
-        media.camera(true)
-        cameraOpened = true
+        if !cameraOpened {
+            guard let device =
+                RTCCameraVideoCapturer.captureDevices().first(where: { $0.position == .front }) ??
+                RTCCameraVideoCapturer.captureDevices().first,
+                let format = RTCCameraVideoCapturer.supportedFormats(for: device).sorted(by: {
+                    let a = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
+                    let b = CMVideoFormatDescriptionGetDimensions($1.formatDescription)
+                    return abs(Int(a.width) - 640) < abs(Int(b.width) - 640)
+                }).first else {
+                throw HitelVideoCoreError.noCamera
+            }
+            capturer.startCapture(with: device, format: format, fps: 24)
+            cameraOpened = true
+        }
+        videoTrack.isEnabled = true
         self.mode = mode
-        return video
+        return videoTrack
     }
 
     @discardableResult
     func setMode(_ next: HitelNativeCameraMode) throws -> RTCVideoTrack {
-        guard next == .original else { throw HitelVideoCoreError.maskRendererNotInstalled }
-        return try openCamera(mode: next)
+        try openCamera(mode: next)
     }
 
     @discardableResult
@@ -63,15 +80,19 @@ final class HitelNativeVideoCore {
 
     @discardableResult
     func disableMask() throws -> RTCVideoTrack {
-        try setMode(.original)
+        try openCamera(mode: .original)
     }
 
-    var videoTrack: RTCVideoTrack? { media?.localVideoTrack }
+    func setCameraEnabled(_ enabled: Bool) {
+        videoTrack.isEnabled = enabled
+    }
+
     func getTrackingStatus() -> HitelNativeTrackingStatus? { nil }
 
-    /// Stop only the camera. Audio and remote RTC media remain independently managed.
+    /// Does not close the call's microphone, remote receivers or RTC transport.
     func stop() {
-        media?.camera(false)
+        if cameraOpened { capturer.stopCapture() }
         cameraOpened = false
+        videoTrack.isEnabled = false
     }
 }
