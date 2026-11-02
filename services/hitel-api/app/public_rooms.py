@@ -70,7 +70,6 @@ def register_public_rooms(app,Base,SessionLocal):
         id: Mapped[str]=mapped_column(String(128),primary_key=True)
         title: Mapped[str]=mapped_column(String(100),nullable=False)
         host_user_id: Mapped[str]=mapped_column(String(128),nullable=False)
-        host_name: Mapped[str]=mapped_column(String(80),nullable=False)
         max_participants: Mapped[int]=mapped_column(Integer,nullable=False)
         status: Mapped[str]=mapped_column(String(20),default="OPEN",nullable=False)
         created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
@@ -86,7 +85,7 @@ def register_public_rooms(app,Base,SessionLocal):
             if row is None or row.status!="OPEN":
                 raise HTTPException(404,"공개 영상방이 없거나 종료되었습니다.")
             return {"id":row.id,"title":row.title,"host":row.host_user_id,
-                    "hostName":row.host_name,"capacity":row.max_participants,
+                    "hostName":row.host_user_id,"capacity":row.max_participants,
                     "created":row.created_at,"status":row.status}
 
     def as_session(row):
@@ -116,7 +115,7 @@ def register_public_rooms(app,Base,SessionLocal):
         cutoff=now()-timedelta(days=ROOM_TTL_DAYS)
         with SessionLocal() as db:
             return [{"id":r.id,"title":r.title,"host":r.host_user_id,
-                "hostName":r.host_name,"capacity":r.max_participants,
+                "hostName":r.host_user_id,"capacity":r.max_participants,
                 "created":r.created_at,"status":r.status}
               for r in db.scalars(select(PublicRoom).where(PublicRoom.status=="OPEN",
                 PublicRoom.created_at>=cutoff).order_by(PublicRoom.created_at.desc()).limit(100)).all()]
@@ -143,7 +142,7 @@ def register_public_rooms(app,Base,SessionLocal):
             if len(owned)>=5:
                 raise HTTPException(429,"동시에 개설할 수 있는 공개방은 5개입니다.")
             room=PublicRoom(id=str(uuid.uuid4()),title=title,host_user_id=user,
-                 host_name=name,max_participants=body.maxParticipants,created_at=now())
+                 max_participants=body.maxParticipants,created_at=now())
             db.add(room);db.commit()
             return as_session(room_row(room.id))
 
