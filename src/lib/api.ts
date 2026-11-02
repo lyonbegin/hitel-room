@@ -58,6 +58,12 @@ export async function createConsultation(
     scheduledAt?: string;
     maxParticipants?: number;
     participants: Array<{ userId: string; displayName?: string; role: TelemedicineRole }>;
+    policy?: {
+      allowUnlistedParticipants: boolean;
+      waitingRoom: boolean;
+      requireHostStart: boolean;
+      maxParticipants: number;
+    };
   },
 ): Promise<ConsultationSession> {
   return request<ConsultationSession>('/telemedicine/consultations', {
