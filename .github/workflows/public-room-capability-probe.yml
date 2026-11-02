@@ -1,0 +1,19 @@
+name: HITEL original WebRTC public-admission capability probe
+on:
+  push:
+    branches: [fix/webrtc-room-lifecycle-20261102]
+    paths: ['scripts/public-room-capability-probe.mjs','.github/workflows/public-room-capability-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check-public-room:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: node scripts/public-room-capability-probe.mjs
