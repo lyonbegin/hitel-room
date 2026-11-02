@@ -22,6 +22,9 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     @Published var muted = false
     @Published var cameraEnabled = true
     @Published var mediaState = "미디어 미연결"
+    @Published var aiBusy = false
+    @Published var aiResponse = ""
+    @Published var aiStatus = "AI Counselor 대기"
     @Published var localTrack: RTCVideoTrack?
     @Published var remoteTrack: RTCVideoTrack?
 
@@ -32,6 +35,8 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     private var shouldReconnect = false
     private var sequence = 0
     private var media: HitelNativeCallMedia?
+    private var videoCore: HitelNativeVideoCore?
+    private let communicationSDK = HitelNativeCommunicationSDK.create()
     private let deviceClient=HitelCallDeviceClient()
     private let provider: CXProvider
     private var callUuid: UUID?
@@ -269,7 +274,14 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
             DispatchQueue.main.async{self?.remoteTrack=track;self?.note("네이티브 원격 영상 트랙 수신")}
         }
         client.prepare()
-        localTrack=client.localVideoTrack
+        let cameraSDK = HitelNativeVideoCore(media: client)
+        videoCore = cameraSDK
+        do {
+            localTrack = try cameraSDK.openCamera(mode: .original)
+        } catch {
+            mediaState = "VideoCore 실패: " + error.localizedDescription
+            note(mediaState)
+        }
     }
 
     private func startOffer() {
@@ -281,6 +293,31 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         media?.createOffer { [weak self] payload in self?.send("rtc.offer",payload:payload) }
     }
 
+    /// AI Counselor runtime is called by native Swift. No WKWebView or JavaScript engine.
+    func askAI(_ text: String) {
+        guard !aiBusy else { return }
+        aiBusy = true
+        aiStatus = "기존 AI Counselor 서버에 응답 요청 중"
+        Task { @MainActor in
+            do {
+                let result = try await communicationSDK.respondWithAI(text)
+                if let value = result["reply"] as? String ?? result["text"] as? String ?? result["answer"] as? String {
+                    aiResponse = value
+                } else if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]),
+                          let value = String(data: data, encoding: .utf8) {
+                    aiResponse = value
+                } else {
+                    aiResponse = "응답 형식 확인 필요"
+                }
+                aiStatus = "AI Counselor 서버 응답 수신"
+            } catch {
+                aiResponse = error.localizedDescription
+                aiStatus = "AI Counselor 실행 실패"
+            }
+            aiBusy = false
+        }
+    }
+
     func toggleMute() {
         muted.toggle();media?.mute(muted)
     }
@@ -288,6 +325,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         cameraEnabled.toggle();media?.camera(cameraEnabled)
     }
     private func stopMedia() {
+        videoCore?.stop();videoCore=nil
         media?.shutdown();media=nil
         localTrack=nil;remoteTrack=nil
         inCall=false;mediaState="미디어 미연결"
