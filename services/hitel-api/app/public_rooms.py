@@ -197,6 +197,11 @@ def register_public_rooms(app,Base,SessionLocal):
             try:row=room_row(room_id)
             except HTTPException:row=None
             if not claim or not row or claim[0]!=room_id or claim[3]<time.time():
+                # Never log bearer credentials or one-time tickets.
+                print("public-room websocket rejected: protocolTicket=",bool(ticket),
+                      "recognized=",bool(claim),"room=",bool(row),
+                      "matches=",bool(claim and claim[0]==room_id),
+                      "unexpired=",bool(claim and claim[3]>=time.time()),flush=True)
                 await ws.close(code=1008);return
             user,name=claim[1],claim[2]
             if len(sockets[room_id])>=row["capacity"]:
