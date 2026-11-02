@@ -1,0 +1,39 @@
+name: Production HITEL two-user Railway WebRTC end-to-end
+on:
+  push:
+    branches: [feature/webrtc-room-sdk-public-20261103]
+    paths:
+      - .github/workflows/railway-public-room-production-e2e.yml
+      - tests/railway-public-room-live.mjs
+      - tests/railway-public-room-browser.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  HITEL_ROOM_TEST_ORIGIN: https://hitel-room-production-ecce.up.railway.app
+jobs:
+  signaling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node tests/railway-public-room-live.mjs
+  browsers:
+    needs: signaling
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund --no-save playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/railway-public-room-browser.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-hitel-webrtc-browser-e2e
+          path: hitel-public-*.png
+          if-no-files-found: ignore
