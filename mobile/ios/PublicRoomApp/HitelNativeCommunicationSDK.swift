@@ -40,6 +40,11 @@ struct HitelNativeAPIError: Error, LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
+private struct HitelHTTPErrorMessage: Decodable {
+    let detail: String?
+    let message: String?
+    let error: String?
+}
 
 struct HitelNativeCommunicationSDK {
     // This is the SAME production web origin, not a separate iPhone-only room API.
@@ -111,8 +116,7 @@ struct HitelNativeCommunicationSDK {
             throw HitelNativeAPIError(message:"서버 응답이 유효하지 않습니다.")
         }
         guard (200...299).contains(response.statusCode) else {
-            struct Message: Decodable { let detail: String?; let message: String?; let error: String? }
-            let problem = try? JSONDecoder().decode(Message.self,from:data)
+            let problem = try? JSONDecoder().decode(HitelHTTPErrorMessage.self,from:data)
             throw HitelNativeAPIError(message:problem?.detail ?? problem?.message ?? problem?.error ??
                                           "공개방 서버 HTTP \(response.statusCode)")
         }
