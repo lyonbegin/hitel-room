@@ -59,8 +59,14 @@ function Room({profile, initial, onClose}:{profile:AuthProfile,initial:Consultat
    const previous=engine.current;engine.current=null;
    await previous?.dispose(false);
    setLive(false);
-   if(x.session.status==='LIVE'&&streamRef.current)await joinRtc(streamRef.current);
-   setConnection(x.session.status==='ENDED'?'대화 종료됨':'실시간 연결 복원됨');
+   if(x.session.status==='ENDED'||x.session.status==='CANCELLED'){
+    releaseCamera();setConnection('대화 종료됨');return;
+   }
+   if(x.session.status==='LIVE'&&streamRef.current){
+    await joinRtc(streamRef.current);
+    if(!engine.current?.isStarted())throw new Error('방 재참가 후 영상 연결을 복원하지 못했습니다.');
+   }
+   setConnection('실시간 연결 복원됨');
   }catch(e){if(!dead){setError('재연결 실패: '+errorText(e));rejoinNeeded=true;}}
   finally{rejoining=false;}
  };
