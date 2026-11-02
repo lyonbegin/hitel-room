@@ -15,12 +15,14 @@ final class HitelNativeAICounselor {
 
     enum CounselorError: LocalizedError {
         case invalidText
+        case runtimeCredentialMissing
         case invalidEndpoint
         case invalidResponse
         case server(Int, String)
         var errorDescription: String? {
             switch self {
             case .invalidText: return "AI 상담 메시지가 비어 있습니다."
+            case .runtimeCredentialMissing: return "AI Counselor 서버의 사용자별 인증 연동이 필요합니다. 관리자 토큰을 iPhone 앱에 저장하지 않습니다."
             case .invalidEndpoint: return "AI Counselor 런타임 주소가 잘못되었습니다."
             case .invalidResponse: return "AI Counselor 응답 형식이 올바르지 않습니다."
             case .server(let status, let message): return "AI Counselor HTTP \(status): \(message)"
@@ -133,6 +135,7 @@ final class HitelNativeAICounselor {
     func respond(_ text: String, context: [String: Any] = [:]) async throws -> [String: Any] {
         let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { throw CounselorError.invalidText }
+        guard let accessToken, !accessToken.isEmpty else { throw CounselorError.runtimeCredentialMissing }
         return try await request(
             "/v1/respond",
             body: ["sessionId": sessionId, "profile": profile, "text": message, "context": context]
@@ -140,6 +143,7 @@ final class HitelNativeAICounselor {
     }
 
     func reset() async throws {
+        guard let accessToken, !accessToken.isEmpty else { throw CounselorError.runtimeCredentialMissing }
         _ = try await request("/v1/session/reset", body: ["sessionId": sessionId])
         sessionId = UUID().uuidString
     }
