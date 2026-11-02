@@ -23,9 +23,9 @@ async function login(user,role){
  assert.equal(typeof response.accessToken,'string');
  return response.accessToken;
 }
-function wsConnect(path){
+function wsConnect(path,ticket){
  return new Promise((resolve,reject)=>{
-  const w=new WebSocket(ORIGIN.replace('https:','wss:')+path);
+  const w=new WebSocket(ORIGIN.replace('https:','wss:')+path,['hitel-public','ticket.'+ticket]);
   const inbox=[],pending=[];
   const obj={
    w,
@@ -64,9 +64,9 @@ try{
  const h=await json('/api/public-rooms/'+room.id+'/join',{method:'POST',token:host});
  const g=await json('/api/public-rooms/'+room.id+'/join',{method:'POST',token:guest});
  assert.equal(h.session.id,room.id);assert.equal(g.session.id,room.id);
- a=await wsConnect('/api/public-rooms/'+room.id+'/signal?ticket='+encodeURIComponent(h.ticket));
+ a=await wsConnect('/api/public-rooms/'+room.id+'/signal',h.ticket);
  assert.equal((await a.recv()).type,'welcome');
- b=await wsConnect('/api/public-rooms/'+room.id+'/signal?ticket='+encodeURIComponent(g.ticket));
+ b=await wsConnect('/api/public-rooms/'+room.id+'/signal',g.ticket);
  const welcome=await b.recv();const joined=await a.recv();
  assert.equal(welcome.type,'welcome');assert.equal(joined.type,'peer-joined');
  assert.equal(joined.peerId,welcome.peerId);
