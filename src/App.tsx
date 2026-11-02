@@ -88,6 +88,9 @@ export default function App(){
  const [phoneNumber,setPhoneNumber]=useState('');
  const openSection=(tab:PortalSection,number='')=>{setSection(tab);setPhoneNumber(number);setView('service');};
  const back=()=>setView('portal');
+ // Direct entry to the ORIGINAL authenticated WebRTC room with VideoCore mask controls.
+ // This bypasses the portal screen only; it does NOT bypass server authentication.
+ if(['/webrtc-room','/webrtc-test','/room'].includes(window.location.pathname.replace(/\/$/, ''))) return <LegacyApp/>;
  if(view==='legacy') return <div><button style={{position:'fixed',right:14,bottom:14,zIndex:200,background:'#4264e9',color:'white',padding:'12px 17px',border:'none',borderRadius:12,boxShadow:'0 8px 25px #0003'}} onClick={back}>← HITEL 포털로</button><LegacyApp/></div>;
  if(view==='service') return <HitelHome key={section+phoneNumber} onLegacy={()=>setView('legacy')} onPortal={back} initialTab={section} initialNumber={phoneNumber}/>;
  return <HitelPortal onPhone={(number)=>openSection('전화',number)} onFind={()=>openSection('찾기')} onChat={()=>openSection('대화')} onAI={()=>openSection('내 AI')} onBusiness={()=>openSection('기관용')} onVideo={()=>setView('legacy')}/>;
