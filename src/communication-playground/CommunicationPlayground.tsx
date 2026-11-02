@@ -13,6 +13,56 @@ type Line={id:number;at:string;side:string;kind:string;text:string;tone:'ok'|'er
 const KINDS:Kind[]=['P','P+','N','W'];
 const ROUTES:Route[]=KINDS.flatMap((from,i)=>KINDS.map((to,j)=>({id:i*4+j+1,from,to})));
 const ROOT='/lab-sandbox/playground';
+const CALL_RELEASE_URL='https://github.com/lyonbegin/hitel-room/releases/tag/hitel-call-iphone-free-7day-unsigned';
+const CALL_IPA_URL='https://github.com/lyonbegin/hitel-room/releases/download/hitel-call-iphone-free-7day-unsigned/HITEL-Call-iPhone-Free-7day-unsigned.ipa';
+// Public release QR (EC-M); never include the app-specific secret page URL in a public QR.
+const CALL_QR_ROWS=[
+ '1fdd8c6747f',
+ '10474a10341',
+ '174e039b95d',
+ '1758bcf4b5d',
+ '175ad4ef45d',
+ '10591fc5a41',
+ '1fd5555557f',
+ '0013b9a0d00',
+ '117b4bd69f9',
+ '1c93443f45b',
+ '0dfaa87a1a1',
+ '168fbfb2b59',
+ '117798f19a3',
+ '0f304704c71',
+ '1bd7ad4edc5',
+ '0abcb8d7933',
+ '1e652af0f29',
+ '1db965afcf9',
+ '07705933569',
+ '0a9ecd770e9',
+ '1753b47c381',
+ '151a30a2d75',
+ '01702dbe819',
+ '100d7ff2d69',
+ '12d219d3989',
+ '06a4546f975',
+ '05c9f5b7543',
+ '09ad0f97f09',
+ '0c7c4de2981',
+ '18b16655c71',
+ '04ed4abdcad',
+ '042e7fa0fb8',
+ '1a5e39d39fb',
+ '00101937715',
+ '1fd0a5feb51',
+ '1048a1bbf18',
+ '175f431a7fa',
+ '174bbdef022',
+ '1744f9eac85',
+ '10401ab496b',
+ '1fdd03f29b2',
+];
+const CALL_QR_PATH=CALL_QR_ROWS.map((row,y)=>Array.from({length:41},(_,x)=>
+ (BigInt('0x'+row)&(1n<<BigInt(40-x)))!==0n?`M${x} ${y}h1v1h-1z`:''
+).join('')).join('');
+
 const KINDS_LABEL:Record<Kind,string>={P:'일반전화', 'P+':'통신사 + 개인 AI',N:'네이티브 앱',W:'웹브라우저'};
 const routeRtc=(r:Route)=>['N','W'].includes(r.from)&&['N','W'].includes(r.to);
 const routePstn=(r:Route)=>r.from==='P'||r.to==='P'||r.from==='P+'||r.to==='P+';
@@ -469,6 +519,27 @@ export default function CommunicationPlayground(){
      {audit.details.map((line,i)=><span key={i} style={{fontSize:11,color:line.includes('실패')?'#ac293f':'#286848'}}>{line}</span>)}
     </div>
    </details>}
+  </section>
+  <section aria-label="HITEL Call 실제 iPhone 설치 및 통화 테스트" style={{maxWidth:1600,margin:'0 auto 16px',padding:'0 40px'}}>
+   <div style={{display:'flex',gap:20,flexWrap:'wrap',alignItems:'center',background:'#fff',border:'1px solid #dbe5f2',borderRadius:12,padding:18}}>
+    <a href={CALL_RELEASE_URL} target="_blank" rel="noopener noreferrer" aria-label="HITEL Call iPhone 앱 배포 페이지 QR코드" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,flex:'0 0 178px',fontSize:11,color:'#35506e'}}>
+     <svg xmlns="http://www.w3.org/2000/svg" width="172" height="172" viewBox="-4 -4 49 49" role="img" aria-label="HITEL Call 배포 페이지 QR코드" shapeRendering="crispEdges">
+      <rect x="-4" y="-4" width="49" height="49" fill="#ffffff"/>
+      <path d={CALL_QR_PATH} fill="#15283e"/>
+     </svg>
+     <strong>HITEL Call 앱 받기 · QR</strong>
+    </a>
+    <div style={{flex:'1 1 310px',minWidth:0}}>
+     <strong style={{fontSize:16,color:'#223454'}}>실제 iPhone 통화 앱 설치 및 실기기 검증</strong>
+     <p style={{fontSize:12,color:'#586b86',lineHeight:1.7,margin:'8px 0'}}>기존 iPhone 화면 스트리밍 앱은 유지합니다. 별도 <b>HITEL Call (app.hitel.call)</b> 앱을 설치하여 앱마다 생성되는 고유 웹주소로 자동 연결합니다. 8자리 페어링 코드는 사용하지 않습니다.</p>
+     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      <a href={CALL_RELEASE_URL} target="_blank" rel="noopener noreferrer" style={{border:'1px solid #cbd9eb',padding:'8px 12px',borderRadius:8,fontWeight:700,fontSize:12}}>앱 배포 페이지</a>
+      <a href={CALL_IPA_URL} target="_blank" rel="noopener noreferrer" style={{border:'1px solid #cbd9eb',padding:'8px 12px',borderRadius:8,fontWeight:700,fontSize:12}}>HITEL Call IPA 다운로드</a>
+     </div>
+     <p style={{fontSize:11,color:'#71809a',lineHeight:1.6,margin:'9px 0 0'}}>QR은 공개 앱 배포 페이지로 연결됩니다. IPA는 서명되지 않았으므로 Windows에서 Sideloadly와 Apple ID를 이용해 서명·설치해야 합니다. QR 스캔만으로 iPhone에 직접 설치되지는 않습니다.</p>
+     <p style={{fontSize:12,color:'#586b86',lineHeight:1.7,margin:'10px 0 0'}}><b>실제 통화 시험:</b> ① iPhone에서 HITEL Call 실행 → 고유 웹주소를 PC에서 열어 자동 WS 연결 확인 ② SC-15(W → N): 웹 발신·iPhone 수락 ③ SC-12(N → W): iPhone 발신·웹 수락 ④ 카메라·마이크 권한, WebRTC ICE 연결, 실제 영상·음성, 음소거·종료·재연결 확인. P/P+ 통신사 음성과 AI 기능은 별도 검증 대상입니다.</p>
+    </div>
+   </div>
   </section>
   <div className="hcp-layout">
    <aside className="hcp-sidebar">
