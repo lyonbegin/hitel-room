@@ -106,9 +106,9 @@ export class HitelPublicRooms {
     return ticket;
   }
 
-  signalingUrl(roomId: string, ticket: string): string {
+  signalingUrl(roomId: string): string {
     const relative = this.baseUrl + '/public-rooms/' + encodeURIComponent(roomId) +
-      '/signal?ticket=' + encodeURIComponent(ticket);
+      '/signal';
     const url = new URL(relative, window.location.href);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     return url.toString();
