@@ -27,6 +27,8 @@ final class HitelNativeRoomStore:ObservableObject {
     @Published var cameraMode:HitelNativeVideoCore.Mode = .original
     @Published var aiStatus="AI 상담 서버 상태 미확인"
     @Published var aiProfile=HitelNativeAISDK.profiles[0]
+    @Published var aiProfiles=HitelNativeAISDK.profiles
+    @Published var aiSdkVersion="확인 전"
 
     private let sdk=HitelNativeCommunicationSDK()
     private let aiSDK=HitelNativeAISDK()
@@ -326,9 +328,22 @@ final class HitelNativeRoomStore:ObservableObject {
     }
     private func loadAIStatus() async {
         do {
-            let state=try await aiSDK.participantStatus()
-            aiStatus=state.participantEnabled ? "AI 상담 서버 사용 가능 (방 참여 여부는 별도)" :
-                "AI 상담 서버 참가자 미활성"
-        }catch{aiStatus="AI 상담 서버 연결 확인 실패"}
+            let health=try await aiSDK.health()
+            let profiles=try await aiSDK.loadProfiles()
+            if !profiles.isEmpty {
+                aiProfiles=profiles
+                if let selected=profiles.first(where:{$0.id==aiProfile.id}) {aiProfile=selected}
+                else if let first=profiles.first {aiProfile=first}
+            }
+            aiSdkVersion=health.sdkVersion
+            aiStatus=health.participantEnabled ?
+                "AI 참가 서버 사용 설정됨 · 실제 상담방 연결은 별도 검증 필요" :
+                "AI 상담 참가자 비활성 · 상담방 자동 참가 불가"
+            if !health.openaiConfigured {
+                aiStatus += " · AI 모델 설정 미확인"
+            }
+        }catch{
+            aiStatus="AI 상담 서버 연결 확인 실패: "+error.localizedDescription
+        }
     }
 }
