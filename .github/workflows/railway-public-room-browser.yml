@@ -1,0 +1,27 @@
+name: Railway public WebRTC two-browser media test
+on:
+  push:
+    branches: [feature/webrtc-room-sdk-public-20261103]
+    paths:
+      - 'tests/railway-public-room-browser.mjs'
+      - '.github/workflows/railway-public-room-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund --no-save playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/railway-public-room-browser.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: railway-public-webrtc-browser-screenshots
+          path: hitel-public-*.png
+          if-no-files-found: ignore
