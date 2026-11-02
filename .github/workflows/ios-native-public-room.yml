@@ -55,12 +55,19 @@ jobs:
           cp -R "$RUNNER_TEMP/HitelPublicDevice/Build/Products/Release-iphoneos/HitelPublicRoom.app" "$RUNNER_TEMP/PublicPackage/Payload/"
           (cd "$RUNNER_TEMP/PublicPackage" && zip -qr "$GITHUB_WORKSPACE/out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa" Payload)
           unzip -t out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa | tail -2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install real browser for cross-platform native media validation
+        run: |
+          npm install --no-audit --no-fund --no-save playwright@1.58.2
+          npx playwright install chromium
       - name: Set up actual shared room created by existing Web API
         run: |
           set -euo pipefail
           echo "HITEL_E2E_ROOM_FILE=$RUNNER_TEMP/hitel-public-test-room.json" >> "$GITHUB_ENV"
           HITEL_E2E_ROOM_FILE="$RUNNER_TEMP/hitel-public-test-room.json" node tests/ios-native-shared-railway-room-e2e.mjs create
-      - name: Install and launch actual native SwiftUI app on available iOS Simulator
+      - name: Cross-platform WebRTC video between native iOS Simulator and live Railway web browser
         run: |
           set -euo pipefail
           SIM="$(xcrun simctl list devices available -j | python3 -c '
@@ -76,7 +83,8 @@ jobs:
           ROOM_ID="$(python3 -c 'import json,os;print(json.load(open(os.environ["HITEL_E2E_ROOM_FILE"]))["id"])')"
           GUEST_ID="$(python3 -c 'import json,os;print(json.load(open(os.environ["HITEL_E2E_ROOM_FILE"]))["guest"])')"
           xcrun simctl launch "$SIM" app.hitel.publicroom \
-            -HITEL_E2E_ROOM_ID "$ROOM_ID" -HITEL_E2E_USER "$GUEST_ID"
+            -HITEL_E2E_ROOM_ID "$ROOM_ID" -HITEL_E2E_USER "$GUEST_ID" \
+            -HITEL_E2E_NATIVE_MEDIA
           DATA="$(xcrun simctl get_app_container "$SIM" app.hitel.publicroom data)"
           for _ in $(seq 1 45); do
             if test -s "$DATA/Documents/hitel-public-common-room-e2e.txt"; then break; fi
@@ -85,6 +93,15 @@ jobs:
           test -s "$DATA/Documents/hitel-public-common-room-e2e.txt"
           grep -qx 'SAME_RAILWAY_ROOM_PASS' "$DATA/Documents/hitel-public-common-room-e2e.txt"
           echo "WEB_AND_NATIVE_IOS_SHARE_ACTUAL_RAILWAY_ROOM_PASS"
+          # Native joins the real room and Chromium joins as web host.
+          node tests/ios-native-web-browser-media.mjs
+          for _ in $(seq 1 45); do
+            if test -s "$DATA/Documents/hitel-public-native-media-e2e.txt"; then break; fi
+            sleep 1
+          done
+          test -s "$DATA/Documents/hitel-public-native-media-e2e.txt"
+          grep -q 'NATIVE_RECEIVED_BROWSER_VIDEO_TRACK' "$DATA/Documents/hitel-public-native-media-e2e.txt"
+          echo "NATIVE_IOS_RECEIVED_BROWSER_WEBRTC_VIDEO_TRACK_PASS"
           xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/hitel-public-iphone-native.png"
           test -s "$RUNNER_TEMP/hitel-public-iphone-native.png"
           echo "NATIVE_PUBLIC_ROOM_SIMULATOR_LAUNCH_PASS"
@@ -99,6 +116,7 @@ jobs:
           path: |
             out/*.ipa
             ${{ runner.temp }}/hitel-public-iphone-native.png
+            hitel-ios-web-interoperability.png
             ${{ runner.temp }}/hitel-public-simulator-build.log
             ${{ runner.temp }}/hitel-public-device-build.log
           retention-days: 30
