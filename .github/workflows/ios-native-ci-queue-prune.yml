@@ -1,0 +1,27 @@
+name: Cancel obsolete queued native iOS verification runs
+on:
+  push:
+    branches: [feature/iphone-native-public-room-20261103]
+    paths: [.github/workflows/ios-native-ci-queue-prune.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  preserve-latest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Cancel obsolete builds from this iPhone branch only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -X GET "repos/$GH_REPO/actions/workflows/ios-native-public-room.yml/runs?branch=feature%2Fiphone-native-public-room-20261103&per_page=100" > /tmp/native-ios-runs.json
+          LATEST="$(jq -r '.workflow_runs | max_by(.id).id' /tmp/native-ios-runs.json)"
+          echo "Preserving latest native iOS test run $LATEST"
+          jq -r --argjson keep "$LATEST" '.workflow_runs[] | select(.id != $keep) | select(.status == "queued" or .status == "in_progress") | .id' /tmp/native-ios-runs.json | while read -r id; do
+            gh api -X POST "repos/$GH_REPO/actions/runs/$id/cancel" >/dev/null || :
+            echo "Cancelled obsolete queued native verification $id"
+          done
