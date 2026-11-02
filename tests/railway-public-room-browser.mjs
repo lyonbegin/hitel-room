@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
-const origin='https://hitel-web-preview-production.up.railway.app';
+const origin=process.env.HITEL_ROOM_TEST_ORIGIN || 'https://hitel-web-preview-production.up.railway.app';
 const testId='hitel-browser-'+Date.now();
 const title='공개 영상 테스트 '+testId;
 const browser=await chromium.launch({headless:true,args:[
@@ -50,6 +50,14 @@ try {
 
  await Promise.all([remoteReady(hp),remoteReady(gp)]);
  console.log('Two Chromium browsers received live remote video tracks: PASS');
+ for(const [label,page] of [['host',hp],['guest',gp]]){
+   const audio=await page.evaluate(()=>{
+     const videos=[...document.querySelectorAll('.video-grid video')];
+     return videos.some((v,i)=>i>0&&v.srcObject?.getAudioTracks().some(t=>t.readyState==='live'));
+   });
+   assert.ok(audio,label+' must receive a live remote audio track');
+ }
+ console.log('Two Chromium browsers received live remote audio tracks: PASS');
  await hp.screenshot({path:'hitel-public-host.png'});
  await gp.screenshot({path:'hitel-public-guest.png'});
 } catch(e){
