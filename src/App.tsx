@@ -105,9 +105,16 @@ function Room({profile, initial, onClose}:{profile:AuthProfile,initial:Consultat
   streamRef.current=sdkCamera.stream;
   setStream(sdkCamera.stream);setMic(true);setCamera(true);
   if(session.status==='LIVE')await joinRtc(sdkCamera.stream);
-  else if(!ready&&socket.current?.connected){
-   const updated=await emitAck<{session:ConsultationSession}>(socket.current,'session:ready',{sessionId:session.id,ready:true});
-   setSession(updated.session);setReady(true);
+  else if(socket.current?.connected){
+   if(!ready){
+    const updated=await emitAck<{session:ConsultationSession}>(socket.current,'session:ready',{sessionId:session.id,ready:true});
+    setSession(updated.session);setReady(true);
+   }
+   if(isHost){
+    const started=await emitAck<{session:ConsultationSession}>(socket.current,'session:start',{sessionId:session.id});
+    setSession(started.session);
+    await joinRtc(sdkCamera.stream);
+   }
   }
  }catch(e){setError(errorText(e));}finally{setBusy(false);}
 }
