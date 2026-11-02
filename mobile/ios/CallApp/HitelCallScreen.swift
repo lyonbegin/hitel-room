@@ -6,6 +6,7 @@ import UIKit
 struct HitelCallScreen: View {
     @ObservedObject var model:HitelCallModel
     @State private var selectedScenario = 11
+    @State private var aiPrompt = ""
     private let kinds=["P","P+","N","W"]
     private func name(_ id:Int)->String{
         let i=max(0,min(15,id-1))
@@ -107,6 +108,25 @@ struct HitelCallScreen: View {
                          : "실제 통화 여부는 원격 미디어·ICE 연결 상태가 connected가 되었을 때만 확정됩니다. PushKit을 통한 앱 종료 상태 수신은 아직 미지원입니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }.padding(14).background(Color(uiColor:.secondarySystemGroupedBackground)).clipShape(RoundedRectangle(cornerRadius:12))
+                    VStack(alignment:.leading,spacing:10) {
+                        Text("AI Counselor · 네이티브 연결").font(.headline)
+                        Text("기존 AI Counselor 1.1.0 서버를 Swift에서 직접 호출합니다. 실제 통화 음성의 자동 AI 처리는 아직 연결되지 않았습니다.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        TextField("AI 상담 메시지 입력", text:$aiPrompt, axis:.vertical)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            model.askAI(aiPrompt)
+                        } label: {
+                            Label(model.aiBusy ? "AI 응답 요청 중" : "AI Counselor 실행", systemImage:"sparkles")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(model.aiBusy || aiPrompt.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
+                        Text(model.aiStatus).font(.caption).foregroundStyle(.secondary)
+                        if !model.aiResponse.isEmpty {
+                            Text(model.aiResponse).font(.callout).textSelection(.enabled)
+                        }
+                    }.padding(14).background(Color(uiColor:.secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius:12))
                     VStack(alignment:.leading,spacing:9){
                         Text("실시간 네이티브 실행 로그").font(.headline)
                         if model.logs.isEmpty {
