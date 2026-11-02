@@ -21,9 +21,9 @@ The iPhone must interoperate with the **original HITEL Room web client**, not me
 ## Current branch deliverables, and what they actually do
 
 1. `HitelNativeAICounselor.swift`: Swift `respond`, `reset`, `configure`, `usePreset`, `getProfile` matching AI Counselor 1.1.0 REST fields and all five existing presets. **Server token is not present in this app**, so a backend-authorized proxy/session credential is required for real responses. Do not claim an HTTP 401 is success.
-2. `HitelNativeVideoCore.swift`: camera session façade reuses **the same** `HitelNativeCallMedia` owner and native RTCVideoTrack. Actual original camera is connected to the app model. `mask` requests explicitly throw until the complete native tracking/rendering implementation exists; no false-success mask toggle.
+2. `HitelNativeVideoCore.swift`: camera session owns its **own** native RTCCameraVideoCapturer, RTCVideoSource and RTCVideoTrack; the existing P2P media engine receives that same track. No second capture is started. Future SFU adapter can receive the native track directly. `mask` requests explicitly throw until the complete native tracking/rendering implementation exists; no false-success mask toggle.
 3. `HitelNativeCommunicationSDK.swift`: public native facades for 16 route IDs, AI response, `joinRoom`, `joinAICounselorRoom`, `leaveRoom`, with an explicit native SFU room adapter contract. The native SFU adapter is **not implemented**, so these methods must not be reported as having established HITEL web↔iPhone media.
-4. `HitelCallModel.swift`, `HitelCallScreen.swift`: integrates the native AI service into SwiftUI and routes native original camera initialization through the VideoCore façade; preserves current P2P playground and device URL flows until tested replacements are ready.
+4. `HitelNativeCallMedia.swift`, `HitelCallModel.swift`, `HitelCallScreen.swift`: integrates the native AI service into SwiftUI and routes native original camera initialization through the VideoCore façade; preserves current P2P playground and device URL flows until tested replacements are ready.
 
 These are **integration foundations, not the completed full port**.
 
