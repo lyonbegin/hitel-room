@@ -24,6 +24,10 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
     private let lock = NSLock()
     private var frameCounter = 0
     private var lastFaces:[CGRect] = []
+    #if targetEnvironment(simulator)
+    private var syntheticTimer:DispatchSourceTimer?
+    private var syntheticIndex=0
+    #endif
     var mode:Mode {
         get {lock.lock();defer{lock.unlock()};return modeValue}
         set {lock.lock();modeValue=newValue;lock.unlock()}
@@ -53,9 +57,45 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
         }
         capturer.startCapture(with:device,format:format,fps:24)
     }
+    #if targetEnvironment(simulator)
+    /// Opt-in CI test camera on iOS Simulator only. Never used by device build
+    /// or real end users. Produces real encoded WebRTC frames without camera.
+    func startSyntheticForSimulator() {
+        guard syntheticTimer == nil else{return}
+        let timer=DispatchSource.makeTimerSource(queue:DispatchQueue(label:"app.hitel.publicroom.synthetic-video"))
+        timer.schedule(deadline:.now(),repeating:.milliseconds(100))
+        timer.setEventHandler{[weak self] in
+            guard let self else{return}
+            self.syntheticIndex += 1
+            let width=320,height=240
+            var pixel:CVPixelBuffer?
+            let attrs:[CFString:Any]=[
+                kCVPixelBufferCGImageCompatibilityKey:true,
+                kCVPixelBufferCGBitmapContextCompatibilityKey:true,
+                kCVPixelBufferIOSurfacePropertiesKey:[:] as [String:String]
+            ]
+            guard CVPixelBufferCreate(kCFAllocatorDefault,width,height,
+                  kCVPixelFormatType_32BGRA,attrs as CFDictionary,&pixel)==kCVReturnSuccess,
+                  let buffer=pixel else{return}
+            let moving=CGFloat((self.syntheticIndex%100))/100.0
+            let bg=CIImage(color:CIColor(red:moving,green:0.20,blue:0.70,alpha:1))
+                .cropped(to:CGRect(x:0,y:0,width:width,height:height))
+            self.context.render(bg,to:buffer)
+            let frame=RTCVideoFrame(buffer:RTCCVPixelBuffer(pixelBuffer:buffer),
+                 rotation:RTCVideoRotation._0,timeStampNs:Int64(Date().timeIntervalSince1970*1_000_000_000))
+            self.capturer(self.capturer,didCapture:frame)
+        }
+        syntheticTimer=timer
+        timer.resume()
+    }
+    #endif
     func setMicrophoneEnabled(_ enabled:Bool) {audioTrack.isEnabled=enabled}
     func setCameraEnabled(_ enabled:Bool) {videoTrack.isEnabled=enabled}
     func stop() {
+        #if targetEnvironment(simulator)
+        syntheticTimer?.cancel()
+        syntheticTimer=nil
+        #endif
         capturer.stopCapture()
         audioTrack.isEnabled=false
         videoTrack.isEnabled=false
