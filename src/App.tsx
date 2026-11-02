@@ -6,6 +6,7 @@ import { API_BASE_URL, issueDevToken, listMyConsultations, createConsultation, g
 import { createRealtimeSocket, emitAck, waitForSocketReady } from './realtime/socket';
 import { MediasoupSession } from './realtime/MediasoupSession';
 import { openVideoCoreCamera, type CameraMode, type VideoCoreCameraSession } from './lib/videoCore';
+import { listPublicRooms, publishPublicRoom, enterPublicRoom, type PublicRoom } from './lib/publicRooms';
 import VideoTile from './components/VideoTile';
 import type { AuthProfile, ConsultationSession, RemoteTile, TelemedicineRole } from './types';
 import type { Socket } from 'socket.io-client';
@@ -161,13 +162,89 @@ useEffect(()=>{
  return <main className="room-layout"><header className="page-top"><Brand/><button className="outline" onClick={()=>void exit()}>← 목록으로</button></header><section className="room-head"><div><span className="kicker">영상 대화방</span><h1>{session.title||'대화방'}</h1><p>참여자 {session.participants.length}명 · {statusNames[session.status]||session.status} · {connection}</p></div><div className="room-participants">{session.participants.map(p=><span key={p.userId} title={p.userId}>{p.displayName||p.userId}</span>)}</div></section>{error&&<p className="error wide">{error}</p>}<section className="video-grid"><VideoTile stream={stream} label={profile.name+' (나)'} muted local/>{remote.map(t=><VideoTile key={t.key} stream={t.stream} label={session.participants.find(p=>p.userId===t.userId)?.displayName||t.userId} screen={t.source==='screen'}/>)}{!stream&&<div className="video-empty"><div>◎</div><h3>카메라를 준비해주세요</h3><p>버튼을 누르기 전에는 카메라나 마이크를 켜지 않습니다.</p></div>}</section><section className="controls"><button className={cameraMode==='mask'?'primary narrow':'outline'} disabled={busy} onClick={()=>void changeVideoMode('mask')}>🎭 가면 영상</button><button className={cameraMode==='original'?'primary narrow':'outline'} disabled={busy} onClick={()=>void changeVideoMode('original')}>📷 원본 영상</button><button className="outline" disabled={busy||live||session.status==='ENDED'||session.status==='CANCELLED'} onClick={()=>void devices()}>{stream?'카메라 다시 준비':'카메라·마이크 준비 (자동 준비 완료)'}</button><button className="outline" disabled={!stream||busy||ready||session.status==='ENDED'||session.status==='LIVE'} onClick={()=>void markReady()}>{ready?'✓ 준비 완료':'준비 완료'}</button>{isHost?<button className="primary narrow" disabled={!stream||busy||live||session.status==='LIVE'||session.status==='ENDED'||session.status==='CANCELLED'} onClick={()=>void start()}>{busy?'진행 중…':'대화 시작'}</button>:<button className="primary narrow" disabled={!stream||busy||session.status!=='LIVE'||live} onClick={()=>void joinRtc()}>영상 연결</button>}<button className="outline" disabled={!stream} onClick={()=>void toggleMic()}>{mic?'🎙 마이크 끄기':'마이크 켜기'}</button><button className="outline" disabled={!stream} onClick={()=>void toggleCamera()}>{camera?'📷 카메라 끄기':'카메라 켜기'}</button>{isHost&&<button className="danger" disabled={busy} onClick={()=>void end()}>방 종료</button>}</section><p className="hint">선택된 영상 모드: {cameraMode==='mask'?'🎭 가면':'📷 원본'}{trackingFps!==null&&cameraMode==='mask'?' · 얼굴 추적 '+trackingFps.toFixed(1)+' FPS':''} · <a href="/sdk-playground.html" target="_blank" rel="noopener noreferrer">VideoCore SDK 플레이그라운드 열기 ↗</a></p><p className="hint">참여자는 다른 브라우저에서 자기 사용자 ID로 로그인해 초대된 방을 열 수 있습니다. 서버가 지원하는 세션에만 연결합니다.</p></main>;
 }
 function Lobby({profile,onLogout,onOpen}:{profile:AuthProfile,onLogout:()=>void,onOpen:(s:ConsultationSession)=>void}){
- const [sessions,setSessions]=useState<ConsultationSession[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState(''),[open,setOpen]=useState(false),[title,setTitle]=useState('우리들의 이야기'),[ids,setIds]=useState('patient-1'),[kind,setKind]=useState<'group'|'one'>('group'),[saving,setSaving]=useState(false);
- async function refresh(){setLoading(true);setError('');try{setSessions(await listMyConsultations(profile.token));}catch(e){setError(errorText(e))}finally{setLoading(false)}}
- useEffect(()=>{void refresh();},[profile.token]);
- async function create(e:React.FormEvent){e.preventDefault();setSaving(true);setError('');try{const people=Array.from(new Set(ids.split(/[\s,]+/).map(v=>v.trim()).filter(v=>v&&v!==profile.userId)));if(kind==='one'&&people.length!==1)throw new Error('1:1 방은 상대방 ID를 한 개 입력해야 합니다.');if(!people.length)throw new Error('초대할 상대방 ID를 입력하십시오.');const participants:Array<{userId:string;displayName?:string;role:TelemedicineRole}>=[{userId:profile.userId,displayName:profile.name,role:'DOCTOR'},...people.map(id=>({userId:id,displayName:id,role:'PATIENT' as TelemedicineRole}))];const s=await createConsultation(profile.token,{title:title.trim()||'새 대화방',participants,maxParticipants:Math.max(4,participants.length)});setOpen(false);await refresh();onOpen(s);}catch(e){setError(errorText(e))}finally{setSaving(false)}}
- const active=sessions.filter(s=>s.status!=='ENDED'&&s.status!=='CANCELLED');
- return <main className="lobby"><header className="page-top"><Brand/><div className="user-area"><span>{profile.name} <small>@{profile.userId}</small></span><button className="outline" onClick={onLogout}>로그아웃</button></div></header><div className="page-body"><div className="hero-banner"><div><span className="eyebrow">YOUR CONVERSATION SPACE</span><h1>오늘은 어떤 이야기를<br/>나눠볼까요?</h1><p>친구와 단둘이, 여럿이 함께. 초대할 사람의 ID로 영상 대화방을 만들어 보세요.</p><div className="hero-actions"><button className="light-button" disabled={profile.platformRole!=='doctor'} onClick={()=>{setKind('group');setOpen(true)}}>＋ 새 대화방 만들기</button><button className="subtle-button" onClick={()=>void refresh()}>↻ 새로고침</button></div>{profile.platformRole!=='doctor'&&<p className="muted-text">현재 서버에서 방 개설은 방장 계정만 가능합니다.</p>}</div><div className="hero-decoration">ㅎ<span>ROOM</span></div></div><div className="section-head"><div><span className="kicker">MY ROOMS</span><h2>내가 참여하는 방 <strong>{active.length}</strong></h2></div><span className="small-note">초대 기반 영상·음성</span></div>{error&&<p className="error wide">{error}</p>}{loading?<p className="empty">방 목록을 불러오는 중입니다…</p>:active.length?<div className="room-cards">{active.map(s=><button className="room-card" onClick={()=>onOpen(s)} key={s.id}><div className="room-card-top"><span className="room-icon">{s.policy.topology==='ONE_TO_ONE'?'◉':'◎'}</span><span className="status">{statusNames[s.status]||s.status}</span></div><h3>{s.title||'대화방'}</h3><p>{s.participants.map(p=>p.displayName||p.userId).join(' · ')}</p><div className="room-card-bottom"><span>👥 {s.participants.length}명</span><span>입장하기 →</span></div></button>)}</div>:<div className="empty"><div className="empty-art">☏</div><h3>아직 참여 중인 방이 없습니다.</h3><p>방장이 새로운 방을 만들고 참여자의 사용자 ID를 초대하면 이곳에 표시됩니다.</p></div>}<div className="notice"><strong>현재 제공</strong> 기존 서버의 초대 기반 1:1·다자간 영상 및 음성 연결 <span>·</span> <strong>추후 서버 지원 필요</strong> 공개방, 자유 입장, 실시간 문자 채팅, 결제</div></div>{open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(false)}><form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>void create(e)}><div className="modal-top"><div><span className="kicker">NEW ROOM</span><h2>대화방 만들기</h2></div><button type="button" className="close" onClick={()=>setOpen(false)}>×</button></div><div className="tabs"><button className={kind==='group'?'chosen':''} type="button" onClick={()=>setKind('group')}>다자간 방</button><button className={kind==='one'?'chosen':''} type="button" onClick={()=>setKind('one')}>1:1 방</button></div><label>대화방 이름<input required value={title} onChange={e=>setTitle(e.target.value)} /></label><label>초대할 사람의 사용자 ID<input required value={ids} onChange={e=>setIds(e.target.value)} placeholder={kind==='one'?'patient-1':'patient-1, patient-2'}/><small>여러 명은 쉼표로 구분해 입력하십시오. 상대도 자신의 ID로 로그인해야 합니다.</small></label><button className="primary" type="submit" disabled={saving}>{saving?'생성 중…':'대화방 생성하고 입장 →'}</button></form></div>}</main>;
+ const [rooms,setRooms]=useState<PublicRoom[]>([]);
+ const [loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[joining,setJoining]=useState<string|null>(null);
+ const [error,setError]=useState(''),[open,setOpen]=useState(false);
+ const [title,setTitle]=useState('새 영상 대화방'),[maxPeople,setMaxPeople]=useState(8);
+ const active=rooms.filter(r=>r.status==='OPEN');
+ async function refresh(showLoader=false){
+  if(showLoader)setLoading(true);
+  try {setRooms(await listPublicRooms());setError('');}
+  catch(e){setError(errorText(e));}
+  finally{if(showLoader)setLoading(false);}
+ }
+ useEffect(()=>{
+  let active=true;
+  void listPublicRooms().then(data=>{if(active)setRooms(data);}).catch(e=>{if(active)setError(errorText(e));});
+  const timer=window.setInterval(()=>{void listPublicRooms().then(data=>{if(active)setRooms(data);}).catch(()=>undefined);},4000);
+  return ()=>{active=false;window.clearInterval(timer);};
+ },[]);
+ async function create(e:React.FormEvent){
+  e.preventDefault();if(saving)return;
+  setSaving(true);setError('');
+  try{
+   const name=title.trim();
+   if(!name)throw new Error('방 이름을 입력해 주십시오.');
+   const size=Math.max(2,Math.min(50,maxPeople));
+   const s=await createConsultation(profile.token,{
+     title:name,
+     participants:[{userId:profile.userId,displayName:profile.name,role:'DOCTOR'}],
+     maxParticipants:size,
+     policy:{allowUnlistedParticipants:true,waitingRoom:false,requireHostStart:false,maxParticipants:size}
+   });
+   if(s.policy?.allowUnlistedParticipants!==true){
+    throw new Error('방은 생성되었지만 기존 WebRTC 서버가 초대 없는 공개 입장을 허용하지 않아 목록에는 게시하지 않았습니다. 서버 공개방 정책 수정이 필요합니다.');
+   }
+   await publishPublicRoom(profile.token,s,profile.userId);
+   setOpen(false);await refresh();onOpen(s);
+  }catch(e){setError(errorText(e));}
+  finally{setSaving(false);}
+ }
+ async function joinPublic(room:PublicRoom){
+  if(joining)return;
+  setJoining(room.id);setError('');
+  try{
+   const s=await enterPublicRoom(profile.token,room.id);
+   onOpen(s);
+  }catch(e){setError(errorText(e));}
+  finally{setJoining(null);}
+ }
+ return <main className="lobby">
+   <header className="page-top"><Brand/><div className="user-area"><span>{profile.name} <small>@{profile.userId}</small></span><button className="outline" onClick={onLogout}>로그아웃</button></div></header>
+   <div className="page-body">
+    <div className="hero-banner">
+     <div>
+      <span className="eyebrow">HITEL · OPEN WEBRTC ROOMS</span>
+      <h1>영상 대화방</h1>
+      <p>방을 개설하면 누구나 목록에서 찾아 입장합니다. 상대방 ID 초대는 사용하지 않습니다.</p>
+      <div className="hero-actions"><button className="light-button" onClick={()=>setOpen(true)}>＋ 공개 대화방 만들기</button>
+      <button className="subtle-button" onClick={()=>void refresh(true)}>↻ 방 목록 새로고침</button></div>
+     </div>
+    </div>
+    <div className="section-head"><div><span className="kicker">PUBLIC WEBRTC ROOMS</span><h2>입장 가능한 대화방 <strong>{active.length}</strong></h2></div><span className="small-note">4초 간격 자동 갱신 · 초대 ID 불필요</span></div>
+    {error&&<p className="error wide" role="alert">{error}</p>}
+    {loading?<p className="empty">공개 대화방을 조회하는 중입니다…</p>:
+     active.length?<div className="room-cards">
+      {active.map(room=><button key={room.id} type="button" className="room-card" disabled={joining!==null} onClick={()=>void joinPublic(room)}>
+       <div className="room-card-top"><span className="room-icon">◎</span><span className="status">공개방</span></div>
+       <h3>{room.title}</h3><p>정원 {room.maxParticipants}명 · 방장 {room.hostUserId}</p>
+       <div className="room-card-bottom"><span>{new Date(room.createdAt*1000).toLocaleString('ko-KR')}</span><span>{joining===room.id?'입장 중…':'바로 입장 →'}</span></div>
+      </button>)}
+     </div>:<div className="empty"><div className="empty-art">☏</div><h3>현재 공개된 영상방이 없습니다.</h3><p>새 대화방을 개설하시면 모든 사용자의 목록에 나타납니다.</p></div>}
+    <div className="notice">공개 입장은 기존 WebRTC 서버의 참가자 인증 및 방 정책을 따릅니다. 서버가 공개 참가를 지원하지 않을 경우 오류를 명확하게 표시합니다.</div>
+   </div>
+   {open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(false)}>
+    <form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>void create(e)}>
+     <div className="modal-top"><div><span className="kicker">NEW PUBLIC ROOM</span><h2>공개 대화방 만들기</h2></div><button type="button" className="close" onClick={()=>setOpen(false)}>×</button></div>
+     <label>대화방 이름<input required maxLength={100} value={title} onChange={e=>setTitle(e.target.value)}/></label>
+     <label>최대 입장 인원<input type="number" min={2} max={50} required value={maxPeople} onChange={e=>setMaxPeople(Number(e.target.value))}/></label>
+     <p className="muted-text">상대방 ID를 입력하지 않습니다. 생성되면 공개 방 목록에 나타납니다.</p>
+     <button className="primary" type="submit" disabled={saving}>{saving?'대화방 개설 중…':'대화방 만들고 입장 →'}</button>
+    </form>
+   </div>}
+ </main>;
 }
+
 function LegacyApp(){const [profile,setProfile]=useState<AuthProfile|null>(getSaved),[session,setSession]=useState<ConsultationSession|null>(null);function logout(){sessionStorage.removeItem(PROFILE_KEY);setSession(null);setProfile(null)}return !profile?<Login onLogin={setProfile}/>:session?<Room key={session.id} profile={profile} initial={session} onClose={()=>setSession(null)}/>:<Lobby profile={profile} onLogout={logout} onOpen={setSession}/>;}
 
 type PortalSection = '전화' | '찾기' | '대화' | '내 AI' | 'MY' | '기관용';
