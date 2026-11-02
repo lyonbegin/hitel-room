@@ -39,7 +39,8 @@ export function createPublicMeshRoomAdapter(options:PublicMeshOptions):RoomAdapt
     async join({roomId,stream}):Promise<RoomSession> {
       const ticket=options.publicRooms.takeTicket(roomId);
       const peers=new Map<string,Peer>();
-      const ws=new WebSocket(options.publicRooms.signalingUrl(roomId,ticket));
+      const ws=new WebSocket(options.publicRooms.signalingUrl(roomId),
+        ['hitel-public','ticket.' + ticket]);
       let closed=false;
       let connected=false;
       let microphone=true,video=true;
