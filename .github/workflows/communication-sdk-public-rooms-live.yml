@@ -1,0 +1,31 @@
+name: Verify Communication SDK public rooms on live Railway branch
+on:
+  push:
+    branches:
+      - feature/ws-scrcpy-android11-20261028
+    paths:
+      - 'src/communication-sdk/**'
+      - 'tests/communication-sdk-public-rooms.test.mjs'
+      - '.github/workflows/communication-sdk-public-rooms-live.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npx vite build --config vite.communication-sdk.config.ts
+      - run: test -s dist/sdk/communication.esm.js
+      - run: node --test tests/communication-sdk.test.mjs tests/communication-sdk-public-rooms.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel-existing-railway-communication-sdk-public
+          path: dist/sdk/communication.esm.js
+          if-no-files-found: error
