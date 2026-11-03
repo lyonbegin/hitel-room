@@ -6,6 +6,8 @@ import SwiftUI
 struct HitelCallApp: App {
     @Environment(\.scenePhase) private var phase
     @StateObject private var model = HitelCallModel()
+    // Own BLE restoration at app launch, not only while the caption page is visible.
+    @StateObject private var carrierBLE = HitelCarrierBLEAudioBridge.shared
     var body: some Scene {
         WindowGroup {
             HitelCallScreen(model:model)
