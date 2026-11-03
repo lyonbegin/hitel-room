@@ -85,6 +85,8 @@ struct HitelCallScreen: View {
                             videoSurface(model.localTrack,title:"iPhone 로컬 영상")
                         }.frame(height:190)
                         Text("미디어 상태: "+model.mediaState).font(.caption).foregroundStyle(.secondary)
+                        Text("가면 합성 및 기존 HITEL 공개방 SFU 연결은 아직 구현되지 않았습니다.")
+                            .font(.caption2).foregroundStyle(.secondary)
                         HStack {
                             Button {model.dial()} label:{Label("발신",systemImage:"phone.arrow.up.right")}
                                 .buttonStyle(.borderedProminent)
@@ -153,7 +155,17 @@ struct HitelCallScreen: View {
     private func videoSurface(_ track: RTCVideoTrack?, title:String)->some View {
         ZStack(alignment:.bottomLeading){
             Color.black
-            HitelNativeRTCVideo(track:track)
+            if let track {
+                HitelNativeRTCVideo(track:track)
+            } else {
+                VStack(spacing:6) {
+                    Image(systemName:"video.slash").font(.title2)
+                    Text("영상 트랙 없음").font(.caption2)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth:.infinity,maxHeight:.infinity)
+                .accessibilityLabel(title + " 영상 미연결")
+            }
             Text(title).font(.caption2.bold())
                 .padding(5).background(.black.opacity(0.6)).foregroundColor(.white)
                 .padding(7)
