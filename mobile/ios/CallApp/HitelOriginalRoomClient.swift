@@ -40,6 +40,8 @@ final class HitelOriginalRoomClient: ObservableObject {
     private let origin = URL(string:"https://hitel-room-production-ecce.up.railway.app")!
     private let identityKey = "app.hitel.call.public-room-user-v1"
     private var token: String?
+    private var authenticatedUserID: String?
+    private var authenticatedDisplayName: String?
     private var media: HitelPublicMeshMedia?
 
     init() {
@@ -76,7 +78,8 @@ final class HitelOriginalRoomClient: ObservableObject {
 
     func refreshRooms() async {
         do {
-            if token == nil {
+            if token == nil || authenticatedUserID != userID ||
+                authenticatedDisplayName != displayName {
                 status="기존 HITEL 웹과 동일한 사용자 인증 중"
                 let data=try await request("/api/auth/dev-token",method:"POST",body:[
                     "userId":userID,"name":displayName,"platformRole":"user"])
@@ -86,15 +89,25 @@ final class HitelOriginalRoomClient: ObservableObject {
                         userInfo:[NSLocalizedDescriptionKey:"웹 공통 JWT 발급에 실패했습니다."])
                 }
                 token=access
+                authenticatedUserID=userID
+                authenticatedDisplayName=displayName
+                UserDefaults.standard.set(userID,forKey:identityKey)
             }
             guard let token else {return}
             let data=try await request("/api/public-rooms",bearer:token)
             rooms=try JSONDecoder().decode([HitelOriginalRoom].self,from:data)
                 .filter{$0.joinable}
-            status="Railway 공개 영상방 "+String(rooms.count)+"개 조회"
+            if let joinedRoomID, !rooms.contains(where: {$0.id == joinedRoomID}) {
+                leave()
+                status="서버에서 공개방이 종료되어 목록으로 돌아왔습니다."
+            } else if joinedRoomID == nil {
+                status="Railway 공개 영상방 "+String(rooms.count)+"개 조회"
+            }
         } catch {
+            let nsError=error as NSError
+            if nsError.code == 401 { token=nil }
             status="공개방 목록 조회 실패: "+error.localizedDescription
-            rooms=[]
+            if joinedRoomID == nil { rooms=[] }
         }
     }
 
