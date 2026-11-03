@@ -41,6 +41,7 @@ final class HitelNativeRoomStore:ObservableObject {
     private var websocketReady=false
     #if targetEnvironment(simulator)
     private let nativeMediaTest = ProcessInfo.processInfo.arguments.contains("-HITEL_E2E_NATIVE_MEDIA")
+    private let nativeMaskTest = ProcessInfo.processInfo.arguments.contains("-HITEL_E2E_NATIVE_MASK")
     private var nativeMediaObserved=false
     private func persistNativeMediaEvidence(_ value:String) {
         guard nativeMediaTest,
@@ -123,8 +124,13 @@ final class HitelNativeRoomStore:ObservableObject {
             #endif
             let core=HitelNativeVideoCore()
             #if targetEnvironment(simulator)
-            if nativeMediaTest {core.startSyntheticForSimulator()}
-            else {try core.start()}
+            if nativeMediaTest {
+                if nativeMaskTest {
+                    try core.enableOriginalFaceMask()
+                    cameraMode = .mask
+                }
+                core.startSyntheticForSimulator()
+            } else {try core.start()}
             #else
             try core.start()
             #endif
