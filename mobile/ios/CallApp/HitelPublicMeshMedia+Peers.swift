@@ -19,6 +19,23 @@ extension HitelPublicMeshMedia {
             }
         }
     }
+    func createAnswer(for peer:HitelMeshPeer) {
+        let pc=peer.connection
+        let constraints=RTCMediaConstraints(
+            mandatoryConstraints:["OfferToReceiveAudio":"true",
+                                   "OfferToReceiveVideo":"true"],optionalConstraints:nil)
+        pc.answer(for:constraints) {[weak self,weak peer] sdp,error in
+            guard let self,let peer,let sdp else {
+                self?.report("공개방 Answer 생성 실패: "+(error?.localizedDescription ?? ""))
+                return
+            }
+            pc.setLocalDescription(sdp) {[weak self] failure in
+                if let failure { self?.report(failure.localizedDescription);return }
+                self?.signal(to:peer.id,data:[
+                    "description":["type":"answer","sdp":sdp.sdp]])
+            }
+        }
+    }
     func ensurePeer(id:String,userID:String)->HitelMeshPeer? {
         if let current=peers[id] {return current}
         let config=RTCConfiguration()
