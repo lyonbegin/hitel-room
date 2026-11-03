@@ -81,10 +81,16 @@ struct HitelCallScreen: View {
                             Text(model.phase).font(.caption.bold()).foregroundStyle(model.inCall ? .green:.secondary)
                         }
                         HStack(spacing:9){
-                            videoSurface(model.remoteTrack,title:"상대 실제 영상")
-                            videoSurface(model.localTrack,title:"iPhone 로컬 영상")
+                            videoSurface(model.remoteTrack,title:"상대 실제 영상",frameHint:nil)
+                            videoSurface(model.localTrack,title:"iPhone 로컬 영상",
+                                         frameHint:!model.cameraEnabled ? "카메라 꺼짐"
+                                             : (model.localFrameReady ? nil : "실제 카메라 프레임 대기 중"))
                         }.frame(height:190)
                         Text("미디어 상태: "+model.mediaState).font(.caption).foregroundStyle(.secondary)
+                        if model.localFrameReady {
+                            Text(String(format:"실제 로컬 카메라 캡처: %.1f fps",model.localCaptureFPS))
+                                .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                        }
                         Text("가면 합성 및 기존 HITEL 공개방 SFU 연결은 아직 구현되지 않았습니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                         HStack {
@@ -152,7 +158,7 @@ struct HitelCallScreen: View {
             }
         }
     }
-    private func videoSurface(_ track: RTCVideoTrack?, title:String)->some View {
+    private func videoSurface(_ track: RTCVideoTrack?, title:String, frameHint:String?)->some View {
         ZStack(alignment:.bottomLeading){
             Color.black
             if let track {
@@ -165,6 +171,14 @@ struct HitelCallScreen: View {
                 .foregroundColor(.white)
                 .frame(maxWidth:.infinity,maxHeight:.infinity)
                 .accessibilityLabel(title + " 영상 미연결")
+            }
+            if let frameHint {
+                Text(frameHint)
+                    .font(.caption2)
+                    .foregroundColor(.white)
+                    .padding(7)
+                    .background(.black.opacity(0.8))
+                    .frame(maxWidth:.infinity,maxHeight:.infinity)
             }
             Text(title).font(.caption2.bold())
                 .padding(5).background(.black.opacity(0.6)).foregroundColor(.white)
