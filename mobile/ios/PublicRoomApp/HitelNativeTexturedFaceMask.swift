@@ -3,6 +3,7 @@ import Vision
 import CoreImage
 import CoreVideo
 import ImageIO
+import UIKit
 
 /// The native counterpart of video-town-front/src/mask/MaskedCamera.ts.
 ///
@@ -34,10 +35,11 @@ final class HitelNativeTexturedFaceMask {
 
     /// Same file as MindAR's THREE.TextureLoader(FACE_TEXTURE_URL).
     init(bundle: Bundle = .main) {
-        if let url = bundle.url(forResource:"face-mask",withExtension:"png"),
-           let image = CIImage(contentsOf:url),
-           image.extent.width == 1024, image.extent.height == 1024 {
-            asset = image
+        // Xcode may optimize bundled PNG bytes (CgBI) for iPhone.
+        // UIKit's image decoder preserves the exact visual RGBA/alpha texture.
+        if let image = UIImage(named:"face-mask",in:bundle,compatibleWith:nil)?.cgImage,
+           image.width == 1024, image.height == 1024 {
+            asset = CIImage(cgImage:image)
         } else {
             asset = nil
         }
