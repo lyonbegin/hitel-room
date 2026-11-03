@@ -30,20 +30,65 @@ enum HitelVideoCoreError: LocalizedError {
 
 /// Platform-native camera owner. Its output track can be attached to a native
 /// WebRTC P2P peer now, and an actual mediasoup Producer after SFU integration.
-final class HitelNativeVideoCore {
+final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
     static let sdkVersion = "1.0.0"
 
-    private let capturer: RTCCameraVideoCapturer
+    private lazy var capturer = RTCCameraVideoCapturer(delegate: self)
     private let source: RTCVideoSource
+    private let statsLock = NSLock()
+    private var frameCount: Int = 0
+    private var windowFrameCount: Int = 0
+    private var windowBeganAt: TimeInterval = 0
+    private var measuredCaptureFPS: Double = 0
+    var onFirstFrame: (() -> Void)?
+    var onCaptureFPS: ((Double) -> Void)?
     let videoTrack: RTCVideoTrack
     private(set) var mode: HitelNativeCameraMode = .original
     private(set) var cameraOpened = false
+    var hasReceivedFrame: Bool {
+        statsLock.lock()
+        defer { statsLock.unlock() }
+        return frameCount > 0
+    }
+    var captureFPS: Double {
+        statsLock.lock()
+        defer { statsLock.unlock() }
+        return measuredCaptureFPS
+    }
 
     init(factory: RTCPeerConnectionFactory) {
         let source = factory.videoSource()
         self.source = source
         self.videoTrack = factory.videoTrack(with: source, trackId: "hitel-videocore-native")
-        self.capturer = RTCCameraVideoCapturer(delegate: source)
+        super.init()
+    }
+
+    /// RTCVideoCapturerDelegate receives the actual camera frames. A track
+    /// object or a capture-start request alone cannot prove that frames exist.
+    func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
+        let now = Date().timeIntervalSince1970
+        var first = false
+        var updatedFPS: Double?
+        statsLock.lock()
+        if frameCount == 0 { first = true; windowBeganAt = now }
+        frameCount += 1
+        windowFrameCount += 1
+        let elapsed = now - windowBeganAt
+        if elapsed >= 1 {
+            measuredCaptureFPS = Double(windowFrameCount) / elapsed
+            windowFrameCount = 0
+            windowBeganAt = now
+            updatedFPS = measuredCaptureFPS
+        }
+        statsLock.unlock()
+
+        // Forward the unchanged frame into the ONE VideoCore-owned WebRTC
+        // source used by both native preview and the outgoing track.
+        source.capturer(capturer, didCapture: frame)
+        if first { DispatchQueue.main.async { [weak self] in self?.onFirstFrame?() } }
+        if let updatedFPS {
+            DispatchQueue.main.async { [weak self] in self?.onCaptureFPS?(updatedFPS) }
+        }
     }
 
     @discardableResult
@@ -93,6 +138,12 @@ final class HitelNativeVideoCore {
     func stop() {
         if cameraOpened { capturer.stopCapture() }
         cameraOpened = false
+        statsLock.lock()
+        frameCount = 0
+        windowFrameCount = 0
+        windowBeganAt = 0
+        measuredCaptureFPS = 0
+        statsLock.unlock()
         videoTrack.isEnabled = false
     }
 }
