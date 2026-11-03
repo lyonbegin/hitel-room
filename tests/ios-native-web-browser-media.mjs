@@ -34,6 +34,33 @@ try{
       v.srcObject?.getVideoTracks().some(t=>t.readyState==='live'));
   },null,{timeout:60000});
   console.log('REAL_RAILWAY_BROWSER_RECEIVED_NATIVE_IOS_SIMULATOR_WEBRTC_VIDEO_PASS');
+  // Assert actual rendered IMAGE colors, not a UI badge or an RTP-only state.
+  // The web VideoCore texture must contain visible blue AND white facial detail.
+  await page.waitForFunction(()=>{
+    const v=[...document.querySelectorAll('.video-grid video')][1];
+    if(!v || v.readyState<2 || v.videoWidth<120)return false;
+    const c=document.createElement('canvas');
+    c.width=320;c.height=240;
+    const context=c.getContext('2d',{willReadFrequently:true});
+    context.drawImage(v,0,0,320,240);
+    const pixels=context.getImageData(0,0,320,240).data;
+    let blue=0,white=0;
+    for(let i=0;i<pixels.length;i+=4*4){
+      const [r,g,b,a]=pixels.slice(i,i+4);
+      if(a<200)continue;
+      if(b>120&&b>g+32&&b>r+45)blue++;
+      if(r>170&&g>170&&b>170)white++;
+    }
+    return blue>80&&white>25;
+  },null,{timeout:45000,polling:600});
+  const photo=await page.evaluate(()=>{
+    const video=[...document.querySelectorAll('.video-grid video')][1];
+    const c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;
+    c.getContext('2d').drawImage(video,0,0);
+    return c.toDataURL('image/png');
+  });
+  fs.writeFileSync('hitel-ios-original-blue-mask-remote.png',Buffer.from(photo.split(',')[1],'base64'));
+  console.log('NATIVE_IOS_ORIGINAL_BLUE_WHITE_MINDAR_FACE_MASK_RENDERED_IN_BROWSER_PASS');
   await page.screenshot({path:'hitel-ios-web-interoperability.png'});
 }catch(e){
   console.log('Browser diagnostics:',JSON.stringify(failures.slice(-10)));

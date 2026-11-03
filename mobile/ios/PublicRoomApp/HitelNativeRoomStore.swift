@@ -41,6 +41,7 @@ final class HitelNativeRoomStore:ObservableObject {
     private var websocketReady=false
     #if targetEnvironment(simulator)
     private let nativeMediaTest = ProcessInfo.processInfo.arguments.contains("-HITEL_E2E_NATIVE_MEDIA")
+    private let nativeMaskTest = ProcessInfo.processInfo.arguments.contains("-HITEL_E2E_NATIVE_MASK")
     private var nativeMediaObserved=false
     private func persistNativeMediaEvidence(_ value:String) {
         guard nativeMediaTest,
@@ -123,8 +124,13 @@ final class HitelNativeRoomStore:ObservableObject {
             #endif
             let core=HitelNativeVideoCore()
             #if targetEnvironment(simulator)
-            if nativeMediaTest {core.startSyntheticForSimulator()}
-            else {try core.start()}
+            if nativeMediaTest {
+                if nativeMaskTest {
+                    try core.enableOriginalFaceMask()
+                    cameraMode = .mask
+                }
+                core.startSyntheticForSimulator()
+            } else {try core.start()}
             #else
             try core.start()
             #endif
@@ -279,10 +285,25 @@ final class HitelNativeRoomStore:ObservableObject {
         cameraEnabled.toggle()
         videoCore?.setCameraEnabled(cameraEnabled)
     }
-    func changeCameraMode(_ mode:HitelNativeVideoCore.Mode) {
-        cameraMode=mode
-        videoCore?.mode=mode
-        // Identical outbound track, transformed by native Vision before encoding.
+    func changeCameraMode(_ requested:HitelNativeVideoCore.Mode) {
+        guard let videoCore else {
+            error="카메라가 연결되어 있지 않습니다."
+            return
+        }
+        do {
+            if requested == .mask {
+                // Never claim mask mode unless the identical web texture is present.
+                try videoCore.enableOriginalFaceMask()
+                status="웹과 동일한 파란색 가면 텍스처 추적 중"
+            } else {
+                videoCore.mode = .original
+                status="원본 카메라 영상 송신 중"
+            }
+            cameraMode=requested
+            error=""
+        } catch {
+            self.error="가면 영상 전환 실패: "+error.localizedDescription
+        }
     }
 
     func leave() {

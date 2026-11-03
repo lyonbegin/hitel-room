@@ -1,0 +1,31 @@
+name: Vendor exact existing VideoCore face-mask.png into native SDK
+on:
+  push:
+    branches: [fix/ios-original-videocore-mask-20261103]
+    paths: [.github/workflows/vendor-original-videocore-mask.yml]
+permissions:
+  contents: write
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/checkout@v4
+        with:
+          repository: hiukim/mind-ar-js
+          ref: v1.2.5
+          path: _upstream_mindar
+      - name: Pin exact proven original texture and commit binary on feature branch
+        run: |
+          set -euo pipefail
+          mkdir -p mobile/ios/PublicRoomApp
+          cp _upstream_mindar/examples/face-tracking/assets/sparkar/face-mask.png mobile/ios/PublicRoomApp/face-mask.png
+          echo 'bce04e1c6a9e2e3158fbb81ceed25d6987b56c93253bc9895c8fc31a4299523e  mobile/ios/PublicRoomApp/face-mask.png' | sha256sum --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f mobile/ios/PublicRoomApp/face-mask.png
+          git commit -m 'asset(ios): bundle exact MIT MindAR v1.2.5 blue face-mask texture used by VideoCore'
+          git push origin HEAD:fix/ios-original-videocore-mask-20261103
