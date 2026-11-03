@@ -236,6 +236,7 @@ struct HitelCallScreen: View {
                          : "실제 통화 여부는 원격 미디어·ICE 연결 상태가 connected가 되었을 때만 확정됩니다. PushKit을 통한 앱 종료 상태 수신은 아직 미지원입니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }.padding(14).background(Color(uiColor:.secondarySystemGroupedBackground)).clipShape(RoundedRectangle(cornerRadius:12))
+                    HitelNativeAudioProcessingPanel()
                     VStack(alignment:.leading,spacing:10) {
                         Text("AI Counselor · 네이티브 연결").font(.headline)
                         Text("기존 AI Counselor 1.1.0 서버를 Swift에서 직접 호출합니다. 실제 통화 음성의 자동 AI 처리는 아직 연결되지 않았습니다.")
