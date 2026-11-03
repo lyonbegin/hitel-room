@@ -34,6 +34,7 @@ final class HitelOriginalRoomClient: ObservableObject {
     @Published private(set) var localTrack: RTCVideoTrack?
     @Published private(set) var maskView: UIView?
     @Published private(set) var isMaskMode = false
+    @Published private(set) var faceTracked = false
     @Published private(set) var localCaptureFPS: Double = 0
     @Published private(set) var localFirstFrame = false
     @Published private(set) var mediaConnected = false
@@ -225,6 +226,14 @@ final class HitelOriginalRoomClient: ObservableObject {
                 self?.mediaConnected = true
             }
             next.onFirstFrame={ [weak self] in self?.localFirstFrame=true }
+            next.onMaskTracking={ [weak self] tracked in
+                self?.faceTracked=tracked
+            }
+            next.onMaskFailure={ [weak self] error in
+                guard let self else{return}
+                if self.isMaskMode {self.chooseMask(false)}
+                self.status="ARKit 가면 영상 오류 · 원본 카메라 복귀: "+error
+            }
             next.onFPS={ [weak self] fps in self?.localCaptureFPS=fps }
             next.onEnded={ [weak self] in self?.leave() }
             status="네이티브 WebRTC 공개방에 접속 중"
@@ -246,7 +255,7 @@ final class HitelOriginalRoomClient: ObservableObject {
         isHost=false
         remoteVideos=[];localTrack=nil
         localFirstFrame=false;localCaptureFPS=0
-        maskView=nil;isMaskMode=false
+        maskView=nil;isMaskMode=false;faceTracked=false
         mediaConnected=false
         remoteFrameIDs=[];connectedPeerIDs=[]
         micEnabled=true;camEnabled=true
