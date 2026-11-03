@@ -11,7 +11,6 @@ export default function PhysicalIphonePanel(){
  const [status,setStatus]=useState<PhoneStatus|null>(null);
  const [image,setImage]=useState('');
  const [frames,setFrames]=useState(0);
- const [liveCaptions,setLiveCaptions]=useState<{text:string;at:string;sequence:number}[]>([]);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const socket=useRef<WebSocket|null>(null);
@@ -44,14 +43,6 @@ export default function PhysicalIphonePanel(){
     if(typeof event.data==='string'){
      try{const msg=JSON.parse(event.data) as PhoneStatus&{type?:string};
       if(msg.type==='status'){setStatus(old=>({...old,...msg}));if(!msg.online)cleanImage('')}
-      if(msg.type==='caption.ocr'){
-       const caption=msg as PhoneStatus&{type:string;text?:string;at?:string;sequence?:number};
-       const text=String(caption.text||'').trim().slice(0,1200);
-       if(text)setLiveCaptions(previous=>{
-        if(previous[previous.length-1]?.text===text)return previous;
-        return [...previous,{text,at:caption.at||new Date().toISOString(),sequence:caption.sequence||0}].slice(-60);
-       });
-      }
      }catch{}
     }else if(event.data instanceof Blob){
      const file=event.data.type==='image/jpeg'?event.data:new Blob([event.data],{type:'image/jpeg'});
@@ -93,7 +84,7 @@ export default function PhysicalIphonePanel(){
     body:JSON.stringify({viewerToken:token})});
    if(!r.ok)throw Error('연결 종료 실패');
    try{localStorage.removeItem(key)}catch{}
-   socket.current?.close();cleanImage('');setToken('');setStatus(null);setFrames(0);setLiveCaptions([]);
+   socket.current?.close();cleanImage('');setToken('');setStatus(null);setFrames(0);
   }catch(e){setError(String(e))}finally{setBusy(false)}
  };
  const online=Boolean(status?.online&&image);
@@ -176,25 +167,6 @@ export default function PhysicalIphonePanel(){
     수신 프레임 {frames}개</span>
    {token&&<button type="button" disabled={busy} onClick={()=>void stop()} style={{padding:'7px 11px'}}>연결 종료</button>}
   </div>
-  <section data-testid="hitel-iphone-live-caption-ocr" aria-label="iPhone 통화 자막 OCR 수신" style={{padding:12,border:'1px solid #d5dde2',borderRadius:10,background:'#fff'}}>
-   <b>일반전화 · Apple 실시간 자막 화면 OCR</b>
-   <p style={{fontSize:12,color:'#536c7c',margin:'8px 0'}}>iPhone 손쉬운 사용 → 실시간 자막 → 통화 자막 유지 「1시간 후」, 자막 창을 화면 하단으로 옮긴 뒤 HITEL 화면 방송을 시작해야 합니다. 실제 전화 음성이 아니라 iPhone이 화면에 표시한 자막을 인식합니다. 통화 중 화면 방송 유지 여부는 실기기 검증 대상입니다.</p>
-   <p style={{fontSize:12,color:'#536c7c'}}>인식된 화면 자막 {liveCaptions.length}건 · 마지막 수신: {liveCaptions[liveCaptions.length-1]?.at ? formatTime(liveCaptions[liveCaptions.length-1].at) : '없음'}</p>
-   {token&&paired&&<div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:9}}>
-    <a href={'hitelcall://captions?viewerToken='+encodeURIComponent(token)}
-      style={{padding:'8px 10px',borderRadius:7,border:'1px solid #bed2d9',background:'#fff',textDecoration:'none',fontSize:13}}>
-      iPhone HITEL Call에서 자막 열기
-    </a>
-    <button type="button" onClick={()=>{void navigator.clipboard.writeText(token).catch(()=>setError('클립보드 복사 실패'))}}
-      style={{padding:'8px 10px',borderRadius:7,border:'1px solid #bed2d9',background:'#fff'}}>
-      HITEL Call 자막 연결 정보 복사
-    </button>
-   </div>}
-   <div role="log" aria-live="polite" style={{maxHeight:220,overflowY:'auto',whiteSpace:'pre-wrap',fontSize:14,lineHeight:1.5,padding:10,borderRadius:8,background:'#f3f6f8'}}>
-    {liveCaptions.length ? liveCaptions.map((c,i)=><div key={c.sequence||i} style={{padding:'6px 0',borderBottom:'1px solid #d9e1e6'}}>{c.text}</div>) : '실시간 자막 OCR 데이터 대기 · 아직 전화 자막을 수신하지 못했습니다.'}
-   </div>
-   <button type="button" onClick={()=>setLiveCaptions([])} style={{marginTop:8,padding:'6px 10px'}}>표시된 자막 지우기</button>
-  </section>
   {error&&<span role="alert" style={{color:'#b32638',fontSize:12}}>{error}</span>}
  </div>;
 }
