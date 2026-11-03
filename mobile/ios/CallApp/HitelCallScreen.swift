@@ -42,15 +42,24 @@ struct HitelCallScreen: View {
                                         Text(room.status).font(.caption2).foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    Button("입장") { Task { await originalRoom.join(room) } }
+                                    Button("입장") {
+                                        Task {
+                                            guard model.suspendLegacyCameraForPublicRoom() else { return }
+                                            await originalRoom.join(room)
+                                            if originalRoom.joinedRoomID == nil {
+                                                model.resumeLegacyCameraAfterPublicRoom()
+                                            }
+                                        }
+                                    }
                                         .buttonStyle(.bordered)
+                                        .disabled(model.inCall)
                                 }
                             }
                         } else {
                             HStack {
                                 Text("공개방 참여 중").font(.subheadline.bold())
                                 Spacer()
-                                Button("방 목록으로") { originalRoom.leave() }
+                                Button("방 목록으로") { originalRoom.leave(); model.resumeLegacyCameraAfterPublicRoom() }
                                     .buttonStyle(.bordered)
                             }
                             videoSurface(originalRoom.localTrack,title:"내 영상",
@@ -217,6 +226,14 @@ struct HitelCallScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of:model.routeId) { newValue in
                 if (1...16).contains(newValue) {selectedScenario=newValue}
+            }
+            .onChange(of:originalRoom.joinedRoomID) { roomID in
+                if roomID == nil && model.publicRoomActive {
+                    model.resumeLegacyCameraAfterPublicRoom()
+                }
+            }
+            .onAppear {
+                Task { await originalRoom.refreshRooms() }
             }
         }
     }
