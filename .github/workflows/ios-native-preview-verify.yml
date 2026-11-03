@@ -7,6 +7,7 @@ on:
     paths:
       - 'mobile/ios/CallApp/**'
       - 'mobile/ios/project.call.free.yml'
+      - 'tests/ios-public-room-api-readonly-smoke.mjs'
       - '.github/workflows/ios-native-preview-verify.yml'
   workflow_dispatch:
 concurrency:
@@ -59,3 +60,10 @@ jobs:
             out/SHA256.txt
             ${{ runner.temp }}/hitel-call-build.log
           retention-days: 14
+  public-room-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify deployed HITEL web JWT and Railway public room list without mutations
+        run: node tests/ios-public-room-api-readonly-smoke.mjs
