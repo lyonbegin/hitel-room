@@ -105,8 +105,14 @@ struct HitelCallScreen: View {
                                     .frame(height:185)
                             }
                             if originalRoom.localFirstFrame {
-                                Text(String(format:"카메라 캡처 %.1f fps",originalRoom.localCaptureFPS))
+                                Text(String(format:"실제 카메라 캡처 %.1f fps",originalRoom.localCaptureFPS))
                                     .font(.caption2.monospacedDigit())
+                            }
+                            if originalRoom.isMaskMode {
+                                Text(originalRoom.faceTracked
+                                     ? "ARKit 얼굴 인식 · 3D 텍스처 추적 중"
+                                     : "ARKit 실행 중 · 얼굴 검출 대기")
+                                    .font(.caption2).foregroundStyle(.secondary)
                             }
                             ForEach(originalRoom.remoteVideos) { participant in
                                 videoSurface(participant.videoTrack,title:participant.userID,
