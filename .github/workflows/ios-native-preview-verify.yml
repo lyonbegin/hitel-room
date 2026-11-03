@@ -42,6 +42,13 @@ jobs:
           APP="$RUNNER_TEMP/HitelCallVerification/Build/Products/Release-iphoneos/HitelCall.app"
           test -f "$APP/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.call"
+          test -s "$APP/face-mask.png" || {
+            echo "Native AR face-mask texture missing from iPhone bundle"
+            find "$APP" -iname '*mask*' -print
+            exit 1
+          }
+          test "$(/usr/bin/stat -f%z "$APP/face-mask.png")" -gt 200000
+          echo HITEL_NATIVE_MASK_TEXTURE_BUNDLED_PASS
           echo HITEL_NATIVE_IOS_ARM64_BUILD_PASS
       - name: Package test artifact without modifying production releases
         run: |
