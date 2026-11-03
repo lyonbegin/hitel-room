@@ -1,0 +1,73 @@
+name: HITEL public-room iPhone simulator native UI smoke
+on:
+  push:
+    branches:
+      - feature/ios-native-original-room-signaling-20261103
+    paths:
+      - '.github/workflows/ios-public-room-simulator-smoke.yml'
+  workflow_dispatch:
+concurrency:
+  group: hitel-public-room-simulator
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate separate native iPhone app
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec project.call.free.yml
+      - name: Compile native public room screen for iPhone Simulator
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelCall.xcodeproj -scheme HitelCall \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/HitelPublicSim" \
+            CODE_SIGNING_ALLOWED=NO build \
+            > "$RUNNER_TEMP/hitel-public-simulator-build.log" 2>&1 || {
+              tail -140 "$RUNNER_TEMP/hitel-public-simulator-build.log"
+              exit 1
+            }
+          test -f "$RUNNER_TEMP/HitelPublicSim/Build/Products/Debug-iphonesimulator/HitelCall.app/Info.plist"
+          echo HITEL_PUBLIC_NATIVE_SIMULATOR_BUILD_PASS
+      - name: Boot Apple iPhone simulator and capture rendered SwiftUI
+        run: |
+          set -euo pipefail
+          SIM="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin)
+          devices=[d for group in data["devices"].values() for d in group
+              if d.get("isAvailable") and d.get("name","").startswith("iPhone")]
+          if not devices:sys.exit(4)
+          print(devices[0]["udid"])
+          ')"
+          echo "Using iPhone Simulator: $SIM"
+          xcrun simctl boot "$SIM" || true
+          xcrun simctl bootstatus "$SIM" -b
+          xcrun simctl install "$SIM" "$RUNNER_TEMP/HitelPublicSim/Build/Products/Debug-iphonesimulator/HitelCall.app"
+          xcrun simctl launch "$SIM" app.hitel.call > "$RUNNER_TEMP/public-simulator-launch.txt"
+          sleep 12
+          xcrun simctl io "$SIM" screenshot "$RUNNER_TEMP/public-room-native-screen.png"
+          test -s "$RUNNER_TEMP/public-room-native-screen.png"
+          xcrun simctl spawn "$SIM" log show --last 90s --style compact \
+            --predicate 'process == "HitelCall"' \
+            > "$RUNNER_TEMP/public-simulator-runtime.log" 2>&1 || true
+          echo HITEL_PUBLIC_NATIVE_SIMULATOR_SCREENSHOT_CAPTURED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HITEL-public-room-native-simulator-evidence
+          path: |
+            ${{ runner.temp }}/public-room-native-screen.png
+            ${{ runner.temp }}/public-simulator-launch.txt
+            ${{ runner.temp }}/public-simulator-runtime.log
+            ${{ runner.temp }}/hitel-public-simulator-build.log
+          if-no-files-found: ignore
+          retention-days: 14
