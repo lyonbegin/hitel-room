@@ -51,8 +51,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/AudioPayload/Payload" audio-release
           cp -R "$RUNNER_TEMP/HitelAudioRelease/Build/Products/Release-iphoneos/HitelCall.app" "$RUNNER_TEMP/AudioPayload/Payload/"
           (cd "$RUNNER_TEMP/AudioPayload" && zip -qry "$GITHUB_WORKSPACE/audio-release/HITEL-Call-Native-Carrier-Caption-UNSIGNED.ipa" Payload)
-          unzip -t audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa | tail -2
-          shasum -a 256 audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa > audio-release/HITEL-Call-Native-Carrier-Caption-SHA256.txt
+          unzip -t audio-release/HITEL-Call-Native-Carrier-Caption-UNSIGNED.ipa | tail -2
+          shasum -a 256 audio-release/HITEL-Call-Native-Carrier-Caption-UNSIGNED.ipa > audio-release/HITEL-Call-Native-Carrier-Caption-SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
           name: HITEL-native-carrier-caption-unsigned-IPA
