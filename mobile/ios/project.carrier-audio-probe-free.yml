@@ -1,0 +1,54 @@
+name: HitelAudioProbeFree
+options:
+  minimumXcodeGenVersion: 2.38.0
+  bundleIdPrefix: app.hitel
+targets:
+  HitelAudioProbe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: CarrierAudioProbe
+        excludes:
+          - CarrierAudioProbe.entitlements
+    dependencies:
+      - target: HitelAudioProbeBroadcast
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.carrieraudioprobe.free
+        SWIFT_VERSION: "5.0"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: HITEL_FREE_SIGNING
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "HITEL 무료 전화 검증"
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "사용자가 동의한 5초 음성 샘플의 온디바이스 한국어 전사를 검사합니다."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "ReplayKit 방송에서 마이크 오디오 수신 여부를 측정합니다."
+  HitelAudioProbeBroadcast:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: CarrierAudioProbeBroadcast
+        excludes:
+          - Info.plist
+          - CarrierAudioProbeBroadcast.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.carrieraudioprobe.free.broadcast
+        SWIFT_VERSION: "5.0"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: HITEL_FREE_SIGNING
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: CarrierAudioProbeBroadcast/Info.plist
+schemes:
+  HitelAudioProbe:
+    build:
+      targets:
+        HitelAudioProbe: all
+        HitelAudioProbeBroadcast: all
+    run:
+      config: Debug
