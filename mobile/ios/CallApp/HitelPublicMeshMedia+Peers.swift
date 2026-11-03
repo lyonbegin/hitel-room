@@ -36,6 +36,24 @@ extension HitelPublicMeshMedia {
             }
         }
     }
+    func acceptSignal(_ payload:[String:Any],from peer:HitelMeshPeer) {
+        if let description=payload["description"] as? [String:Any],
+           let kind=description["type"] as? String,
+           let sdp=description["sdp"] as? String {
+            guard kind == "offer" || kind == "answer" else{return}
+            let session=RTCSessionDescription(
+                type:kind=="offer" ? .offer : .answer,sdp:sdp)
+            peer.connection.setRemoteDescription(session) {[weak self,weak peer] error in
+                guard let self,let peer else{return}
+                if let error {self.report("Remote SDP 실패: "+error.localizedDescription);return}
+                peer.remoteDescriptionReady=true
+                peer.pending.forEach{peer.connection.add($0)}
+                peer.pending.removeAll()
+                if kind == "offer" {self.createAnswer(for:peer)}
+            }
+        }
+        receiveCandidate(payload,from:peer)
+    }
     func ensurePeer(id:String,userID:String)->HitelMeshPeer? {
         if let current=peers[id] {return current}
         let config=RTCConfiguration()
