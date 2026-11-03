@@ -1,0 +1,71 @@
+name: HITEL Call native public room AR face preview release
+on:
+  push:
+    branches:
+      - feature/ios-native-original-room-signaling-20261103
+    paths:
+      - '.github/workflows/ios-native-public-mask-preview-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel-ios-native-public-release
+  cancel-in-progress: true
+jobs:
+  unsigned-iphone-ipa:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate isolated app project
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec project.call.free.yml
+      - name: Build real ARM64 native app including mask texture
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelCall.xcodeproj -scheme HitelCall \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/HitelRelease" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/hitel-native-release.log" 2>&1 || {
+              tail -160 "$RUNNER_TEMP/hitel-native-release.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/HitelRelease/Build/Products/Release-iphoneos/HitelCall.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.call"
+          test -s "$APP/face-mask.png"
+          test -s "$APP/Frameworks/WebRTC.framework/WebRTC"
+          file "$APP/Frameworks/WebRTC.framework/WebRTC" | grep -q arm64
+          test ! -e "$APP/PlugIns/HitelScreenBroadcast.appex"
+          echo HITEL_PUBLIC_ARFACE_NATIVE_ARM64_RELEASE_BUILD_PASS
+      - name: Package independent unsigned test IPA
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ReleasePayload/Payload" release-out
+          cp -R "$RUNNER_TEMP/HitelRelease/Build/Products/Release-iphoneos/HitelCall.app" "$RUNNER_TEMP/ReleasePayload/Payload/"
+          (cd "$RUNNER_TEMP/ReleasePayload" && zip -qry "$GITHUB_WORKSPACE/release-out/HITEL-Call-Native-Public-ARFace-UNSIGNED.ipa" Payload)
+          unzip -t release-out/HITEL-Call-Native-Public-ARFace-UNSIGNED.ipa | tail -2
+          shasum -a 256 release-out/HITEL-Call-Native-Public-ARFace-UNSIGNED.ipa > release-out/HITEL-Call-Native-Public-ARFace-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-native-public-mask-unsigned-IPA
+          path: release-out/*
+          retention-days: 30
+      - name: Publish separate pre-release with direct download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-call-native-public-mask-preview-20261103
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-out/* --clobber
+          else
+            gh release create "$TAG" release-out/* \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "HITEL Call native public rooms and ARKit face-mask preview" \
+              --notes "Unsigned iPhone test IPA. Separate bundle app.hitel.call; preserves existing screen-sharing app. Includes native Railway public-room WebSocket/WebRTC and bundled MindAR sample face-mask texture rendered with ARKit. ARM64 build verified; physical iPhone camera/face tracking and browser-to-iPhone video remain unverified."
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
