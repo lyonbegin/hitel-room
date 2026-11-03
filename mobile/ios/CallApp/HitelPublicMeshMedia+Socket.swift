@@ -2,6 +2,19 @@ import Foundation
 import WebRTC
 
 extension HitelPublicMeshMedia {
+    func handleMessage(_ event:[String:Any]) {
+        let type=event["type"] as? String ?? ""
+        if type == "welcome" {
+            ready=true
+            for row in event["peers"] as? [[String:Any]] ?? [] {
+                if let id=row["peerId"] as? String {
+                    _ = ensurePeer(id:id,userID:row["userId"] as? String ?? id)
+                }
+            }
+            finishWelcome(.success(()))
+            report("공개방 입장 · 상대 영상 연결 대기")
+        }
+    }
     func listen(_ task:URLSessionWebSocketTask) {
         task.receive {[weak self,weak task] result in
             DispatchQueue.main.async {
