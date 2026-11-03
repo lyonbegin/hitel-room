@@ -24,40 +24,62 @@ struct HitelCallScreen: View {
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     VStack(alignment:.leading,spacing:10) {
-                        Text("기존 HITEL 공개 영상 대화방").font(.headline)
-                        Text("기존 웹과 같은 서버의 실제 방 데이터를 조회합니다. 별도의 Playground 통화와 분리되어 있습니다.")
+                        Text("HITEL 공개 영상 대화방").font(.headline)
+                        Text("웹과 동일한 Railway 공개방 · 네이티브 WebRTC")
                             .font(.caption).foregroundStyle(.secondary)
-                        TextField("원본 서버 사용자 ID", text:$originalRoom.userID)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("표시 이름", text:$originalRoom.displayName)
-                            .textFieldStyle(.roundedBorder)
-                        Button("기존 서버 방 목록 불러오기") {
-                            Task { await originalRoom.refreshRooms() }
-                        }.buttonStyle(.bordered)
-                        ForEach(originalRoom.rooms) { room in
-                            HStack {
-                                VStack(alignment:.leading,spacing:3) {
-                                    Text(room.title ?? room.id).font(.subheadline.bold())
-                                    Text(room.status + " · " + room.id)
-                                        .font(.caption2).foregroundStyle(.secondary)
+                        if originalRoom.joinedRoomID == nil {
+                            TextField("사용자 ID", text:$originalRoom.userID)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("표시 이름", text:$originalRoom.displayName)
+                                .textFieldStyle(.roundedBorder)
+                            Button("공개방 목록 새로고침") {
+                                Task { await originalRoom.refreshRooms() }
+                            }.buttonStyle(.bordered)
+                            ForEach(originalRoom.rooms) { room in
+                                HStack {
+                                    VStack(alignment:.leading,spacing:3) {
+                                        Text(room.title ?? "공개 영상방").font(.subheadline.bold())
+                                        Text(room.status).font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Button("입장") { Task { await originalRoom.join(room) } }
+                                        .buttonStyle(.bordered)
                                 }
-                                Spacer()
-                                Button("입장") { originalRoom.join(room) }
-                                    .buttonStyle(.bordered)
-                                    .disabled(!originalRoom.socketReady)
                             }
-                        }
-                        if originalRoom.joinedRoomID != nil {
+                        } else {
                             HStack {
-                                Button("준비") { originalRoom.markReady() }
-                                Button("SFU 확인") { originalRoom.verifySFURouter() }
-                                Button("나가기") { originalRoom.leave() }
+                                Text("공개방 참여 중").font(.subheadline.bold())
+                                Spacer()
+                                Button("방 목록으로") { originalRoom.leave() }
+                                    .buttonStyle(.bordered)
+                            }
+                            videoSurface(originalRoom.localTrack,title:"내 영상",
+                                         frameHint:originalRoom.localFirstFrame ? nil : "카메라 프레임 대기 중")
+                                .frame(height:185)
+                            if originalRoom.localFirstFrame {
+                                Text(String(format:"카메라 캡처 %.1f fps",originalRoom.localCaptureFPS))
+                                    .font(.caption2.monospacedDigit())
+                            }
+                            ForEach(originalRoom.remoteVideos) { participant in
+                                videoSurface(participant.videoTrack,title:participant.userID,
+                                             frameHint:nil)
+                                    .frame(height:185)
+                            }
+                            if originalRoom.remoteVideos.isEmpty {
+                                Text("다른 참가자의 영상 트랙을 기다리고 있습니다.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            HStack {
+                                Button(originalRoom.micEnabled ? "마이크 끄기":"마이크 켜기") {
+                                    originalRoom.toggleMicrophone()
+                                }
+                                Button(originalRoom.camEnabled ? "카메라 끄기":"카메라 켜기") {
+                                    originalRoom.toggleCamera()
+                                }
                             }.buttonStyle(.bordered)
                         }
                         Text(originalRoom.status).font(.caption).foregroundStyle(.secondary)
-                        Text(originalRoom.routerCapabilitiesReceived
-                             ? "SFU 라우터 응답 확인 · 영상 송수신은 아직 연결되지 않았습니다."
-                             : "웹과 iPhone 실제 영상 연결은 mediasoup 네이티브 전송 구현이 필요합니다.")
+                        Text("가면 영상은 네이티브 얼굴 메시 합성 구현 전까지 원본 영상만 지원합니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }.padding(14)
                         .background(Color(uiColor:.secondarySystemGroupedBackground))
