@@ -17,6 +17,20 @@ extension HitelPublicMeshMedia {
         }
     }
     func peerConnection(_ pc:RTCPeerConnection,didChange state:RTCIceGatheringState){}
+    func peerConnection(_ pc:RTCPeerConnection,didGenerate candidate:RTCIceCandidate) {
+        guard let peer=peers.values.first(where:{$0.connection === pc}) else{return}
+        signal(to:peer.id,data:["candidate":[
+            "candidate":candidate.sdp,
+            "sdpMid":candidate.sdpMid ?? "",
+            "sdpMLineIndex":Int(candidate.sdpMLineIndex)
+        ]])
+    }
+    func peerConnection(_ pc:RTCPeerConnection,
+                        didStartReceivingOn transceiver:RTCRtpTransceiver) {
+        if let track=transceiver.receiver.track as? RTCVideoTrack {
+            remember(track,in:pc)
+        }
+    }
     func peerConnection(_ pc:RTCPeerConnection,didRemove candidates:[RTCIceCandidate]){}
     func peerConnection(_ pc:RTCPeerConnection,didOpen channel:RTCDataChannel){}
 }
