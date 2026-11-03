@@ -131,12 +131,34 @@ final class HitelNativeTexturedFaceMask {
             // Face lost: do not show a stale floating mask or privacy rectangle.
             return CIImage(cvPixelBuffer:buffer)
         }
-        let raw=CIImage(cvPixelBuffer:buffer)
-        let transformed=asset.transformed(by:textureTransform(pose))
-        let composed=transformed.composited(over:raw)
-        // Web VideoCore mirrors camera + face mesh into the transmitted canvas.
-        let flipped=composed.transformed(by:CGAffineTransform(a:-1,b:0,c:0,d:1,
-                                                   tx:CGFloat(width),ty:0))
-        return flipped.cropped(to:CGRect(x:0,y:0,width:width,height:height))
+        return renderFace(CIImage(cvPixelBuffer:buffer),asset:asset,
+                          pose:pose,width:width,height:height)
     }
+
+    private func renderFace(_ raw:CIImage,asset:CIImage,pose:FacePose,
+                            width:Int,height:Int) -> CIImage {
+        let textured=asset.transformed(by:textureTransform(pose))
+        let composed=textured.composited(over:raw)
+        // Web VideoCore mirrors the full outbound canvas, not just the mask.
+        let reflected=composed.transformed(by:CGAffineTransform(a:-1,b:0,c:0,d:1,
+                                              tx:CGFloat(width),ty:0))
+        return reflected.cropped(to:CGRect(x:0,y:0,width:width,height:height))
+    }
+
+    #if targetEnvironment(simulator)
+    /// Deterministic colored-texture pipeline test for the iOS Simulator.
+    /// The real iPhone ALWAYS uses Vision-detected facial feature locations.
+    /// Only the CI layout/encoding test substitutes synthetic feature points.
+    func renderSimulatedFace(_ buffer:CVPixelBuffer,frameIndex:Int) -> CIImage? {
+        guard let asset else{return nil}
+        let w=CGFloat(CVPixelBufferGetWidth(buffer))
+        let h=CGFloat(CVPixelBufferGetHeight(buffer))
+        let offset=CGFloat(frameIndex%30-15)*0.35
+        let pose=FacePose(leftEye:CGPoint(x:w*0.35+offset,y:h*0.62),
+                          rightEye:CGPoint(x:w*0.65+offset,y:h*0.62),
+                          mouth:CGPoint(x:w*0.50+offset,y:h*0.34))
+        return renderFace(CIImage(cvPixelBuffer:buffer),asset:asset,
+                          pose:pose,width:Int(w),height:Int(h))
+    }
+    #endif
 }
