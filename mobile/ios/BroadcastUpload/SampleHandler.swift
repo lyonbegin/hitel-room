@@ -126,7 +126,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
         // in this area to avoid sending Phone UI, digits or contact data.
         request.regionOfInterest = CGRect(x: 0.03, y: 0.02, width: 0.94, height: 0.42)
         do {
-            try VNImageRequestHandler(cgImage: image).perform([request])
+            try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
             let text = (request.results ?? [])
                 .sorted { $0.boundingBox.midY > $1.boundingBox.midY }
                 .compactMap { $0.topCandidates(1).first }
