@@ -31,6 +31,8 @@ final class HitelOriginalRoomClient: ObservableObject {
     @Published private(set) var isHost = false
     @Published private(set) var remoteVideos: [HitelMeshRemoteVideo] = []
     @Published private(set) var localTrack: RTCVideoTrack?
+    @Published private(set) var maskView: UIView?
+    @Published private(set) var isMaskMode = false
     @Published private(set) var localCaptureFPS: Double = 0
     @Published private(set) var localFirstFrame = false
     @Published private(set) var mediaConnected = false
@@ -243,10 +245,23 @@ final class HitelOriginalRoomClient: ObservableObject {
         isHost=false
         remoteVideos=[];localTrack=nil
         localFirstFrame=false;localCaptureFPS=0
+        maskView=nil;isMaskMode=false
         mediaConnected=false
         remoteFrameIDs=[];connectedPeerIDs=[]
         micEnabled=true;camEnabled=true
         status="공개방 퇴장 · 고유 앱 관리 주소 유지"
+    }
+    func chooseMask(_ enabled:Bool) {
+        guard let media else {return}
+        do {
+            try media.setMask(enabled)
+            maskView=media.maskView
+            isMaskMode=enabled
+            localFirstFrame=false
+            localCaptureFPS=0
+        } catch {
+            status="가면 영상 전환 실패: "+error.localizedDescription
+        }
     }
     func toggleMicrophone(){ micEnabled.toggle();media?.microphone(micEnabled) }
     func toggleCamera(){ camEnabled.toggle();media?.camera(camEnabled) }
