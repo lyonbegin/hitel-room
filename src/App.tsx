@@ -126,6 +126,11 @@ export default function App(){
  const back=()=>setView('portal');
  // A marketplace link only identifies an INVITED private session. Auth is mandatory.
  if(window.location.pathname.replace(/\/$/,'')==='/private-consultation'){
+  // Fail closed until production member authentication, miniapp domain approval,
+  // and a two-device verification have been explicitly completed.
+  if(import.meta.env.VITE_PRIVATE_CONSULTATIONS_ENABLED!=='true'){
+   return <main className="lobby"><p className="error wide">비공개 영상 상담은 인증·플랫폼 승인 전까지 비활성화되어 있습니다.</p></main>;
+  }
   const id=new URLSearchParams(window.location.search).get('consultation')||'';
   if(!/^[0-9a-f-]{36}$/i.test(id))return <main className="lobby"><p className="error wide">올바른 상담방 정보가 없습니다.</p></main>;
   return <LegacyApp privateConsultationId={id}/>;
