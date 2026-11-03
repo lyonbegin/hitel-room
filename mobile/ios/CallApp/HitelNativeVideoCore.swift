@@ -182,18 +182,18 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
         videoTrack.isEnabled = enabled
     }
 
-    func getTrackingStatus() -> HitelNativeTrackingStatus? { nil }
+    func getTrackingStatus() -> HitelNativeTrackingStatus? {
+        guard nativeMask != nil,hasReceivedFrame else {return nil}
+        return HitelNativeTrackingStatus(fps:captureFPS)
+    }
 
     /// Does not close the call's microphone, remote receivers or RTC transport.
     func stop() {
         if cameraOpened { capturer.stopCapture() }
         cameraOpened = false
-        statsLock.lock()
-        frameCount = 0
-        windowFrameCount = 0
-        windowBeganAt = 0
-        measuredCaptureFPS = 0
-        statsLock.unlock()
+        nativeMask?.stop()
+        nativeMask=nil
+        clearFrameStats()
         videoTrack.isEnabled = false
     }
 }
