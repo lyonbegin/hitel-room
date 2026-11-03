@@ -1,0 +1,38 @@
+name: HitelCarrierPhone
+options:
+  minimumXcodeGenVersion: 2.38.0
+  bundleIdPrefix: app.hitel
+targets:
+  HitelCarrierPhone:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    info:
+      path: CarrierPhone/HitelCarrierPhoneInfo.generated.plist
+      properties:
+        CFBundleDisplayName: "HITEL 전화"
+        NSSpeechRecognitionUsageDescription: "사용자께서 선택한 통화 녹음 파일을 iPhone에서 음성 인식하기 위해 사용합니다."
+        NSMicrophoneUsageDescription: "사용자께서 요청한 네이티브 음성 기능을 위해 사용합니다."
+        NSMicrophoneInjectionUsageDescription: "허용된 경우 합성 음성을 일반전화에 추가하는 기능을 사용합니다."
+        UIRequiresFullScreen: false
+    sources:
+      - path: CarrierPhone
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.carrierphone
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "HITEL 전화"
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "사용자께서 선택한 녹음 파일의 텍스트 변환을 위해 사용합니다."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "사용자께서 요청한 음성 기능을 위해 사용합니다."
+        INFOPLIST_KEY_NSMicrophoneInjectionUsageDescription: "사용자 허락을 받아 합성 음성을 기존 일반전화에 추가합니다."
+schemes:
+  HitelCarrierPhone:
+    build:
+      targets:
+        HitelCarrierPhone: all
+    run:
+      config: Debug
