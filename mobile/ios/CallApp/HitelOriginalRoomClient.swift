@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import WebRTC
+import AVFoundation
 
 /// The deployed /webrtc-room uses Railway /api/public-rooms with WebRTC mesh,
 /// NOT the legacy /realtime Socket.IO mediasoup namespace.
@@ -95,11 +96,31 @@ final class HitelOriginalRoomClient: ObservableObject {
         }
     }
 
+    private func authorizeMedia() async throws {
+        for medium: AVMediaType in [.video, .audio] {
+            let current = AVCaptureDevice.authorizationStatus(for:medium)
+            let authorized:Bool
+            switch current {
+            case .authorized:authorized=true
+            case .notDetermined:authorized=await AVCaptureDevice.requestAccess(for:medium)
+            case .denied,.restricted:authorized=false
+            @unknown default:authorized=false
+            }
+            if !authorized {
+                let label = medium == .video ? "카메라" : "마이크"
+                throw NSError(domain:"HITELPermissions",code:403,userInfo:[
+                    NSLocalizedDescriptionKey:label+" 접근 권한이 필요합니다. iPhone 설정을 확인해 주십시오."])
+            }
+        }
+    }
+
     func join(_ room:HitelOriginalRoom) async {
         guard room.joinable else { status="참여 가능한 공개방이 아닙니다.";return }
         guard media == nil else {status="먼저 현재 방에서 나가주십시오.";return}
         guard let token else {status="먼저 공개방 목록을 불러와 주십시오.";return}
         do {
+            status="실제 iPhone 카메라·마이크 접근 허용 확인 중"
+            try await authorizeMedia()
             status="Railway 공개방 접속권 발급 중"
             let path="/api/public-rooms/"+room.id.addingPercentEncoding(
                 withAllowedCharacters:.urlPathAllowed)!+"/join"
