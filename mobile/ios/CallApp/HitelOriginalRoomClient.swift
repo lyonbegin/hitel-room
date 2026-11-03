@@ -39,6 +39,7 @@ final class HitelOriginalRoomClient: ObservableObject {
 
     private let origin = URL(string:"https://hitel-room-production-ecce.up.railway.app")!
     private let identityKey = "app.hitel.call.public-room-user-v1"
+    private var refreshing = false
     private var token: String?
     private var authenticatedUserID: String?
     private var authenticatedDisplayName: String?
@@ -77,6 +78,9 @@ final class HitelOriginalRoomClient: ObservableObject {
     }
 
     func refreshRooms() async {
+        guard !refreshing else {return}
+        refreshing=true
+        defer {refreshing=false}
         do {
             if token == nil || authenticatedUserID != userID ||
                 authenticatedDisplayName != displayName {
