@@ -1,0 +1,57 @@
+name: HITEL iPhone native preview compile verification
+on:
+  push:
+    branches:
+      - fix/ios-native-preview-black-screen-20261103
+    paths:
+      - 'mobile/ios/CallApp/**'
+      - 'mobile/ios/project.call.free.yml'
+      - '.github/workflows/ios-native-preview-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-native:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate iOS target using existing single WebRTC dependency
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec project.call.free.yml
+      - name: Compile unsigned native arm64 app and capture diagnostics
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelCall.xcodeproj -scheme HitelCall \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/HitelCallVerification" \
+            CODE_SIGNING_ALLOWED=NO build \
+            > "$RUNNER_TEMP/hitel-call-build.log" 2>&1 || {
+              tail -150 "$RUNNER_TEMP/hitel-call-build.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/HitelCallVerification/Build/Products/Release-iphoneos/HitelCall.app"
+          test -f "$APP/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.call"
+          echo HITEL_NATIVE_IOS_ARM64_BUILD_PASS
+      - name: Package test artifact without modifying production releases
+        run: |
+          set -euo pipefail
+          mkdir -p out/Payload
+          cp -R "$RUNNER_TEMP/HitelCallVerification/Build/Products/Release-iphoneos/HitelCall.app" out/Payload/
+          (cd out && zip -qry HITEL-Call-preview-unsigned.ipa Payload)
+          (cd out && unzip -t HITEL-Call-preview-unsigned.ipa | tail -2)
+          shasum -a 256 out/HITEL-Call-preview-unsigned.ipa > out/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HITEL-iOS-native-preview-verification
+          path: |
+            out/HITEL-Call-preview-unsigned.ipa
+            out/SHA256.txt
+            ${{ runner.temp }}/hitel-call-build.log
+          retention-days: 14
