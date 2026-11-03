@@ -1,6 +1,8 @@
 import Foundation
 import AVFoundation
 import WebRTC
+import UIKit
+import ARKit
 
 /// Native VideoCore session corresponding to VideoCore 1.0.0.
 /// The camera and video track belong to VideoCore, NEVER to a particular
@@ -18,10 +20,14 @@ struct HitelNativeTrackingStatus {
 enum HitelVideoCoreError: LocalizedError {
     case noCamera
     case maskRendererNotInstalled
+    case faceTrackingUnavailable
+    case maskTextureMissing
 
     var errorDescription: String? {
         switch self {
         case .noCamera: return "실제 iPhone 카메라를 시작할 수 없습니다."
+        case .faceTrackingUnavailable: return "이 iPhone에서는 ARKit 얼굴 추적을 사용할 수 없습니다."
+        case .maskTextureMissing: return "웹 원본 가면 텍스처를 iOS 앱 번들에서 찾을 수 없습니다."
         case .maskRendererNotInstalled:
             return "기존 VideoCore의 얼굴 추적·가면 합성 이식 전이므로 mask 모드를 실행하지 않습니다."
         }
