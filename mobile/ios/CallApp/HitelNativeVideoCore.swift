@@ -111,7 +111,12 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
 
     @discardableResult
     func openCamera(mode: HitelNativeCameraMode = .original) throws -> RTCVideoTrack {
-        guard mode == .original else { throw HitelVideoCoreError.maskRendererNotInstalled }
+        if mode == .mask { return try enableMask() }
+        if nativeMask != nil {
+            nativeMask?.stop()
+            nativeMask=nil
+            clearFrameStats()
+        }
         if !cameraOpened {
             guard let device =
                 RTCCameraVideoCapturer.captureDevices().first(where: { $0.position == .front }) ??
@@ -146,7 +151,26 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
 
     @discardableResult
     func enableMask() throws -> RTCVideoTrack {
-        throw HitelVideoCoreError.maskRendererNotInstalled
+        if nativeMask != nil { return videoTrack }
+        guard ARFaceTrackingConfiguration.isSupported else {
+            throw HitelVideoCoreError.faceTrackingUnavailable
+        }
+        guard let url=Bundle.main.url(forResource:"face-mask",withExtension:"png"),
+              let texture=UIImage(contentsOfFile:url.path) else {
+            throw HitelVideoCoreError.maskTextureMissing
+        }
+        if cameraOpened {
+            capturer.stopCapture()
+            cameraOpened=false
+        }
+        clearFrameStats()
+        let mask=HitelNativeARFaceMask(output:self,texture:texture)
+        mask.onError={[weak self] message in self?.onCameraError?(message)}
+        try mask.start()
+        nativeMask=mask
+        mode = .mask
+        videoTrack.isEnabled=true
+        return videoTrack
     }
 
     @discardableResult
