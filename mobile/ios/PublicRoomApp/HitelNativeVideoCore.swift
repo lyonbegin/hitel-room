@@ -23,7 +23,15 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
     private var modeValue = Mode.original
     private let lock = NSLock()
     private var frameCounter = 0
-    private var lastFaces:[CGRect] = []
+    private let originalMask = HitelNativeTexturedFaceMask()
+    var hasOriginalFaceMask: Bool { originalMask.hasOriginalTexture }
+    func enableOriginalFaceMask() throws {
+        guard originalMask.hasOriginalTexture else {
+            throw HitelNativeAPIError(message:"기존 웹 Video Core 가면 텍스처를 찾지 못했습니다. iOS 앱 리소스를 확인해 주십시오.")
+        }
+        mode = .mask
+        originalMask.reset()
+    }
     #if targetEnvironment(simulator)
     private var syntheticTimer:DispatchSourceTimer?
     private var syntheticIndex=0
@@ -103,52 +111,37 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
     }
     func capturer(_ capturer:RTCVideoCapturer,didCapture frame:RTCVideoFrame) {
         lock.lock()
-        let applyMask=modeValue == .mask
+        let applyMask = modeValue == .mask
         frameCounter += 1
-        let detectFaces=frameCounter%8 == 1
-        let cachedFaces=lastFaces
+        let index = frameCounter
         lock.unlock()
-        guard applyMask,let buffer=frame.buffer as? RTCCVPixelBuffer else {
+        guard applyMask,
+              let buffer=frame.buffer as? RTCCVPixelBuffer,
+              let image=originalMask.composite(buffer.pixelBuffer,frameIndex:index)
+        else {
             videoSource.capturer(capturer,didCapture:frame)
             return
         }
         let pixel=buffer.pixelBuffer
-        let raw=CIImage(cvPixelBuffer:pixel)
-        var faces=cachedFaces
-        if detectFaces {
-            let request=VNDetectFaceRectanglesRequest()
-            let handler=VNImageRequestHandler(ciImage:raw,options:[:])
-            if (try? handler.perform([request])) != nil {
-                faces=(request.results ?? []).map{$0.boundingBox}
-                lock.lock();lastFaces=faces;lock.unlock()
-            }
-        }
-        if faces.isEmpty {videoSource.capturer(capturer,didCapture:frame);return}
-        let w=CGFloat(CVPixelBufferGetWidth(pixel)),h=CGFloat(CVPixelBufferGetHeight(pixel))
-        var image=raw
-        for rect in faces {
-            let bounds=CGRect(x:rect.origin.x*w,y:rect.origin.y*h,
-                              width:rect.width*w,height:rect.height*h).integral
-            // Real outbound privacy mask, not a decorative UI-only overlay.
-            let mask=CIImage(color:CIColor(red:0.12,green:0.16,blue:0.20,alpha:1))
-                .cropped(to:bounds)
-            image=mask.composited(over:image)
-        }
+        let width=CVPixelBufferGetWidth(pixel),height=CVPixelBufferGetHeight(pixel)
         var output:CVPixelBuffer?
         let attributes:[CFString:Any]=[
             kCVPixelBufferCGImageCompatibilityKey:true,
             kCVPixelBufferCGBitmapContextCompatibilityKey:true,
             kCVPixelBufferIOSurfacePropertiesKey:[:] as [String:String]
         ]
-        guard CVPixelBufferCreate(kCFAllocatorDefault,Int(w),Int(h),
+        guard CVPixelBufferCreate(kCFAllocatorDefault,width,height,
                                   kCVPixelFormatType_32BGRA,attributes as CFDictionary,&output)==kCVReturnSuccess,
               let final=output else {
-            videoSource.capturer(capturer,didCapture:frame);return
+            videoSource.capturer(capturer,didCapture:frame)
+            return
         }
         context.render(image,to:final)
-        let next=RTCVideoFrame(buffer:RTCCVPixelBuffer(pixelBuffer:final),
-                               rotation:frame.rotation,timeStampNs:frame.timeStampNs)
-        videoSource.capturer(capturer,didCapture:next)
+        let outgoing=RTCVideoFrame(buffer:RTCCVPixelBuffer(pixelBuffer:final),
+                                   rotation:frame.rotation,timeStampNs:frame.timeStampNs)
+        // The fully textured, alpha-composited image is sent to the browser,
+        // rather than painting a black box in the local SwiftUI view.
+        videoSource.capturer(capturer,didCapture:outgoing)
     }
 }
 
