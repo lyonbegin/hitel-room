@@ -98,14 +98,22 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
             guard let device =
                 RTCCameraVideoCapturer.captureDevices().first(where: { $0.position == .front }) ??
                 RTCCameraVideoCapturer.captureDevices().first,
-                let format = RTCCameraVideoCapturer.supportedFormats(for: device).sorted(by: {
-                    let a = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
-                    let b = CMVideoFormatDescriptionGetDimensions($1.formatDescription)
-                    return abs(Int(a.width) - 640) < abs(Int(b.width) - 640)
-                }).first else {
+                let format = RTCCameraVideoCapturer.supportedFormats(for: device)
+                    .sorted(by: {
+                        let a = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
+                        let b = CMVideoFormatDescriptionGetDimensions($1.formatDescription)
+                        let aFPS = $0.videoSupportedFrameRateRanges.contains { $0.minFrameRate <= 24 && $0.maxFrameRate >= 24 }
+                        let bFPS = $1.videoSupportedFrameRateRanges.contains { $0.minFrameRate <= 24 && $0.maxFrameRate >= 24 }
+                        if aFPS != bFPS { return aFPS }
+                        return abs(Int(a.width) - 640) + abs(Int(a.height) - 480)
+                             < abs(Int(b.width) - 640) + abs(Int(b.height) - 480)
+                    }).first else {
                 throw HitelVideoCoreError.noCamera
             }
-            capturer.startCapture(with: device, format: format, fps: 24)
+            let maxFPS = format.videoSupportedFrameRateRanges.map { $0.maxFrameRate }.max() ?? 24
+            let minFPS = format.videoSupportedFrameRateRanges.map { $0.minFrameRate }.min() ?? 1
+            let fps = Int(max(minFPS, min(24, maxFPS)))
+            capturer.startCapture(with: device, format: format, fps: fps)
             cameraOpened = true
         }
         videoTrack.isEnabled = true
