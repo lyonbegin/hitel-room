@@ -70,8 +70,8 @@ jobs:
             "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
           echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$HOME/.ci-tools"
-          "$HOME/.ci-tools/bin/xcodegen" --version
-          echo "XCODEGEN=$HOME/.ci-tools/bin/xcodegen" >> "$GITHUB_ENV"
+          "$HOME/.ci-tools/xcodegen/bin/xcodegen" --version
+          echo "XCODEGEN=$HOME/.ci-tools/xcodegen/bin/xcodegen" >> "$GITHUB_ENV"
       - name: Run untouched upstream setup, DSP patches, generated models and XcodeGen
         working-directory: third_party/EffectDeck
         shell: bash
