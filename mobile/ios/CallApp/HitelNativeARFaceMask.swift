@@ -10,7 +10,7 @@ import QuartzCore
 /// while mask mode is active; frames are forwarded to the same RTCVideoSource
 /// as original mode, without any JavaScript/WebView or second capture process.
 final class HitelNativeARFaceMask: NSObject, ARSCNViewDelegate, ARSessionDelegate {
-    let view = ARSCNView(frame:CGRect(x:0,y:0,width:640,height:480))
+    let view = ARSCNView(frame:CGRect(x:0,y:0,width:640,height:360))
     private let texture: UIImage
     private let rtcCapturer: RTCVideoCapturer
     private weak var output: RTCVideoCapturerDelegate?
@@ -74,5 +74,41 @@ final class HitelNativeARFaceMask: NSObject, ARSCNViewDelegate, ARSessionDelegat
         DispatchQueue.main.async {[weak self] in
             self?.onError?("ARKit face-tracking failure: "+error.localizedDescription)
         }
+    }
+}
+
+// Snapshot the *actual* AR camera with its tracked 3D face texture, not a
+// black placeholder image. The snapshot is encoded into the same WebRTC track.
+extension HitelNativeARFaceMask {
+    @objc func captureRenderedFrame() {
+        guard running,view.window != nil,
+              let image=view.snapshot().cgImage else {return}
+        let width=640,height=360
+        let attrs:[CFString:Any]=[
+            kCVPixelBufferCGImageCompatibilityKey:true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey:true,
+            kCVPixelBufferIOSurfacePropertiesKey:[:]
+        ]
+        var buffer:CVPixelBuffer?
+        let result=CVPixelBufferCreate(kCFAllocatorDefault,width,height,
+                                       kCVPixelFormatType_32BGRA,attrs as CFDictionary,&buffer)
+        guard result == kCVReturnSuccess,let buffer else {return}
+        CVPixelBufferLockBaseAddress(buffer,[])
+        defer {CVPixelBufferUnlockBaseAddress(buffer,[])}
+        guard let base=CVPixelBufferGetBaseAddress(buffer),
+              let context=CGContext(data:base,width:width,height:height,
+                bitsPerComponent:8,
+                bytesPerRow:CVPixelBufferGetBytesPerRow(buffer),
+                space:CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo:CGImageAlphaInfo.premultipliedFirst.rawValue |
+                           CGBitmapInfo.byteOrder32Little.rawValue) else {return}
+        context.translateBy(x:0,y:CGFloat(height))
+        context.scaleBy(x:1,y:-1)
+        context.draw(image,in:CGRect(x:0,y:0,width:width,height:height))
+        let videoFrame=RTCVideoFrame(
+            buffer:RTCCVPixelBuffer(pixelBuffer:buffer),
+            rotation:RTCVideoRotation._0,
+            timeStampNs:Int64(CACurrentMediaTime()*1_000_000_000))
+        output?.capturer(rtcCapturer,didCapture:videoFrame)
     }
 }
