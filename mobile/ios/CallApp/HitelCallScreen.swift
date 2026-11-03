@@ -27,6 +27,24 @@ struct HitelCallScreen: View {
                         Text("Swift WebSocket · Native WebRTC · CallKit")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
+                    NavigationLink {
+                        HitelCarrierCaptionScreen()
+                    } label: {
+                        HStack {
+                            Image(systemName: "captions.bubble.fill")
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("일반전화 · 실시간 자막 시험").font(.headline)
+                                Text("전화번호 설정 · 통화 상태 · 자막 실험").font(.caption)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
                     VStack(alignment:.leading,spacing:10) {
                         Text("HITEL 공개 영상 대화방").font(.headline)
                         Text("웹과 동일한 Railway 공개방 · 네이티브 WebRTC")
