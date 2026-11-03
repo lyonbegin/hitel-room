@@ -1,0 +1,65 @@
+name: HITEL ESP32 native HFP BLE audio adapter compile
+on:
+  push:
+    branches:
+      - feature/ios-native-original-room-signaling-20261103
+    paths:
+      - 'hardware/hitel-hfp-ble/**'
+      - '.github/workflows/hitel-hfp-ble-esp32-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hitel-esp32-hfp-ble-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official Espressif toolchain
+        uses: espressif/install-esp-idf-action@v1
+        with:
+          version: 'v5.5.6'
+      - name: Overlay real HFP HF example and enable dual-mode Bluetooth
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a "$IDF_PATH/examples/bluetooth/bluedroid/classic_bt/hfp_hf" /tmp/hitel-hfp-hf
+          python3 hardware/hitel-hfp-ble/patch_reference_hfp.py /tmp/hitel-hfp-hf
+          cat >> /tmp/hitel-hfp-hf/sdkconfig.defaults <<'EOF'
+          CONFIG_BT_ENABLED=y
+          CONFIG_BT_BLUEDROID_ENABLED=y
+          CONFIG_BT_CLASSIC_ENABLED=y
+          CONFIG_BT_BLE_ENABLED=y
+          CONFIG_BTDM_CTRL_MODE_BTDM=y
+          CONFIG_BT_HFP_ENABLE=y
+          CONFIG_BT_HFP_CLIENT_ENABLE=y
+          CONFIG_BT_HFP_AUDIO_DATA_PATH_HCI=y
+          CONFIG_BT_BLE_SMP_ENABLE=y
+          CONFIG_BT_BLE_SMP_BOND_NVS_FLASH=y
+          # CONFIG_BT_HFP_USE_EXTERNAL_CODEC is not set
+          # CONFIG_BT_HFP_WBS_ENABLE is not set
+          EOF
+      - name: Build real ESP32 firmware
+        shell: bash
+        working-directory: /tmp/hitel-hfp-hf
+        run: |
+          set -euo pipefail
+          idf.py set-target esp32
+          idf.py build
+          test -s build/bootloader/bootloader.bin
+          test -s build/partition_table/partition-table.bin
+          find build -maxdepth 1 -type f -name '*.bin' -size +100k -print | grep -q bin
+          echo HITEL_ESP32_HFP_BLE_FIRMWARE_COMPILE_PASS
+      - name: Save compiled adapter binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-ESP32-HFP-BLE-prototype
+          path: |
+            /tmp/hitel-hfp-hf/build/*.bin
+            /tmp/hitel-hfp-hf/build/bootloader/bootloader.bin
+            /tmp/hitel-hfp-hf/build/partition_table/partition-table.bin
+            /tmp/hitel-hfp-hf/build/flash_args
+          retention-days: 14
