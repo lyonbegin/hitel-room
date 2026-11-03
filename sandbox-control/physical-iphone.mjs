@@ -156,6 +156,17 @@ function attachPhoneFrames(ws,s){
        width:Math.max(1,Math.min(4096,Number(msg.width)||1)),
        height:Math.max(1,Math.min(4096,Number(msg.height)||1))};
       save();signal(s);
+     }else if(msg.type==='caption.ocr'){
+      // Only approved sender frames reach here. Text comes from user-consented
+      // Apple Live Captions visual OCR, not cellular PCM.
+      const text=String(msg.text||'').trim();
+      if(!text||text.length>1200)return;
+      const at=new Date().toISOString();
+      s.lastCaptionAt=at;s.lastCaptionText=text;
+      s.captionFrames=(s.captionFrames||0)+1;
+      const event=JSON.stringify({type:'caption.ocr',source:'apple-live-captions-visual-ocr',
+       text,at,sequence:s.captionFrames});
+      for(const v of s.viewers)if(v.readyState===WebSocket.OPEN&&v.bufferedAmount<1000000)v.send(event);
      }
     }
    });
@@ -187,6 +198,11 @@ export function physicalIphoneUpgrade(req,socket,head){
   if(role==='viewer'){
    if(s.viewers.size>=4){ws.close(1008,'viewer limit');return}
    s.viewers.add(ws);ws.send(JSON.stringify({type:'status',...status(s)}));
+    if(s.device?.readyState===WebSocket.OPEN&&s.lastCaptionText&&s.lastCaptionAt&&
+       Date.now()-new Date(s.lastCaptionAt).getTime()<120000){
+      ws.send(JSON.stringify({type:'caption.ocr',source:'apple-live-captions-visual-ocr',
+       text:s.lastCaptionText,at:s.lastCaptionAt,sequence:s.captionFrames||0}));
+    }
    ws.on('close',()=>s.viewers.delete(ws));
   }else if(role==='trial'){
    if(s.key&&s.resumeToken&&s.prepared?.resume===true&&s.resumeArmedAt>Date.now()-120000){
