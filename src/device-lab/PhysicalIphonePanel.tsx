@@ -180,6 +180,16 @@ export default function PhysicalIphonePanel(){
    <b>일반전화 · Apple 실시간 자막 화면 OCR</b>
    <p style={{fontSize:12,color:'#536c7c',margin:'8px 0'}}>iPhone 손쉬운 사용 → 실시간 자막 → 통화 자막 유지 「1시간 후」, 자막 창을 화면 하단으로 옮긴 뒤 HITEL 화면 방송을 시작해야 합니다. 실제 전화 음성이 아니라 iPhone이 화면에 표시한 자막을 인식합니다. 통화 중 화면 방송 유지 여부는 실기기 검증 대상입니다.</p>
    <p style={{fontSize:12,color:'#536c7c'}}>인식된 화면 자막 {liveCaptions.length}건 · 마지막 수신: {liveCaptions[liveCaptions.length-1]?.at ? formatTime(liveCaptions[liveCaptions.length-1].at) : '없음'}</p>
+   {token&&paired&&<div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:9}}>
+    <a href={'hitelcall://captions?viewerToken='+encodeURIComponent(token)}
+      style={{padding:'8px 10px',borderRadius:7,border:'1px solid #bed2d9',background:'#fff',textDecoration:'none',fontSize:13}}>
+      iPhone HITEL Call에서 자막 열기
+    </a>
+    <button type="button" onClick={()=>{void navigator.clipboard.writeText(token).catch(()=>setError('클립보드 복사 실패'))}}
+      style={{padding:'8px 10px',borderRadius:7,border:'1px solid #bed2d9',background:'#fff'}}>
+      HITEL Call 자막 연결 정보 복사
+    </button>
+   </div>}
    <div role="log" aria-live="polite" style={{maxHeight:220,overflowY:'auto',whiteSpace:'pre-wrap',fontSize:14,lineHeight:1.5,padding:10,borderRadius:8,background:'#f3f6f8'}}>
     {liveCaptions.length ? liveCaptions.map((c,i)=><div key={c.sequence||i} style={{padding:'6px 0',borderBottom:'1px solid #d9e1e6'}}>{c.text}</div>) : '실시간 자막 OCR 데이터 대기 · 아직 전화 자막을 수신하지 못했습니다.'}
    </div>
