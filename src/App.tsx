@@ -3,7 +3,7 @@ import HitelHome from './HitelHome';
 import PublicWebRtcApp from './PublicWebRtcApp';
 
 import { useEffect, useRef, useState } from 'react';
-import { API_BASE_URL, issueDevToken, listMyConsultations, createConsultation, getHealth } from './lib/api';
+import { API_BASE_URL, issueDevToken, listMyConsultations, createConsultation, getHealth, getConsultation } from './lib/api';
 import { createRealtimeSocket, emitAck, waitForSocketReady } from './realtime/socket';
 import { MediasoupSession } from './realtime/MediasoupSession';
 import { openVideoCoreCamera, type CameraMode, type VideoCoreCameraSession } from './lib/videoCore';
@@ -80,7 +80,35 @@ function Lobby({profile,onLogout,onOpen}:{profile:AuthProfile,onLogout:()=>void,
  const active=sessions.filter(s=>s.status!=='ENDED'&&s.status!=='CANCELLED');
  return <main className="lobby"><header className="page-top"><Brand/><div className="user-area"><span>{profile.name} <small>@{profile.userId}</small></span><button className="outline" onClick={onLogout}>로그아웃</button></div></header><div className="page-body"><div className="hero-banner"><div><span className="eyebrow">YOUR CONVERSATION SPACE</span><h1>오늘은 어떤 이야기를<br/>나눠볼까요?</h1><p>친구와 단둘이, 여럿이 함께. 초대할 사람의 ID로 영상 대화방을 만들어 보세요.</p><div className="hero-actions"><button className="light-button" disabled={profile.platformRole!=='doctor'} onClick={()=>{setKind('group');setOpen(true)}}>＋ 새 대화방 만들기</button><button className="subtle-button" onClick={()=>void refresh()}>↻ 새로고침</button></div>{profile.platformRole!=='doctor'&&<p className="muted-text">현재 서버에서 방 개설은 방장 계정만 가능합니다.</p>}</div><div className="hero-decoration">ㅎ<span>ROOM</span></div></div><div className="section-head"><div><span className="kicker">MY ROOMS</span><h2>내가 참여하는 방 <strong>{active.length}</strong></h2></div><span className="small-note">초대 기반 영상·음성</span></div>{error&&<p className="error wide">{error}</p>}{loading?<p className="empty">방 목록을 불러오는 중입니다…</p>:active.length?<div className="room-cards">{active.map(s=><button className="room-card" onClick={()=>onOpen(s)} key={s.id}><div className="room-card-top"><span className="room-icon">{s.policy.topology==='ONE_TO_ONE'?'◉':'◎'}</span><span className="status">{statusNames[s.status]||s.status}</span></div><h3>{s.title||'대화방'}</h3><p>{s.participants.map(p=>p.displayName||p.userId).join(' · ')}</p><div className="room-card-bottom"><span>👥 {s.participants.length}명</span><span>입장하기 →</span></div></button>)}</div>:<div className="empty"><div className="empty-art">☏</div><h3>아직 참여 중인 방이 없습니다.</h3><p>방장이 새로운 방을 만들고 참여자의 사용자 ID를 초대하면 이곳에 표시됩니다.</p></div>}<div className="notice"><strong>현재 제공</strong> 기존 서버의 초대 기반 1:1·다자간 영상 및 음성 연결 <span>·</span> <strong>추후 서버 지원 필요</strong> 공개방, 자유 입장, 실시간 문자 채팅, 결제</div></div>{open&&<div className="modal-backdrop" onMouseDown={()=>setOpen(false)}><form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>void create(e)}><div className="modal-top"><div><span className="kicker">NEW ROOM</span><h2>대화방 만들기</h2></div><button type="button" className="close" onClick={()=>setOpen(false)}>×</button></div><div className="tabs"><button className={kind==='group'?'chosen':''} type="button" onClick={()=>setKind('group')}>다자간 방</button><button className={kind==='one'?'chosen':''} type="button" onClick={()=>setKind('one')}>1:1 방</button></div><label>대화방 이름<input required value={title} onChange={e=>setTitle(e.target.value)} /></label><label>초대할 사람의 사용자 ID<input required value={ids} onChange={e=>setIds(e.target.value)} placeholder={kind==='one'?'patient-1':'patient-1, patient-2'}/><small>여러 명은 쉼표로 구분해 입력하십시오. 상대도 자신의 ID로 로그인해야 합니다.</small></label><button className="primary" type="submit" disabled={saving}>{saving?'생성 중…':'대화방 생성하고 입장 →'}</button></form></div>}</main>;
 }
-function LegacyApp({publicMode=false}:{publicMode?:boolean}){const [profile,setProfile]=useState<AuthProfile|null>(getSaved),[session,setSession]=useState<ConsultationSession|null>(null);function logout(){sessionStorage.removeItem(PROFILE_KEY);setSession(null);setProfile(null)}return !profile?<Login onLogin={setProfile} publicMode={publicMode}/>:publicMode?<PublicWebRtcApp profile={profile} onLogout={logout}/>:session?<Room key={session.id} profile={profile} initial={session} onClose={()=>setSession(null)}/>:<Lobby profile={profile} onLogout={logout} onOpen={setSession}/>;}
+function LegacyApp({publicMode=false,privateConsultationId}:{publicMode?:boolean,privateConsultationId?:string}){
+ const [profile,setProfile]=useState<AuthProfile|null>(getSaved);
+ const [session,setSession]=useState<ConsultationSession|null>(null);
+ const [loading,setLoading]=useState(false),[lookupError,setLookupError]=useState('');
+ const [left,setLeft]=useState(false);
+ function logout(){sessionStorage.removeItem(PROFILE_KEY);setSession(null);setProfile(null);setLeft(false)}
+ useEffect(()=>{
+  if(!profile||!privateConsultationId||left)return;
+  let cancelled=false;
+  setLoading(true);setLookupError('');
+  // HITEL authenticates the user and verifies membership; a URL alone grants no access.
+  getConsultation(profile.token,privateConsultationId).then(found=>{
+   if(!cancelled)setSession(found);
+  }).catch(e=>{if(!cancelled)setLookupError('비공개 상담방 조회 실패: '+errorText(e))})
+    .finally(()=>{if(!cancelled)setLoading(false)});
+  return ()=>{cancelled=true};
+ },[profile?.token,privateConsultationId,left]);
+ if(!profile)return <Login onLogin={setProfile} publicMode={false}/>;
+ if(privateConsultationId){
+  if(loading)return <main className="lobby"><div className="empty">HITEL 비공개 상담방 참여 권한을 확인하고 있습니다.</div></main>;
+  if(lookupError)return <main className="lobby"><div className="empty"><p role="alert">{lookupError}</p><p>해당 상담방에 초대된 HITEL 계정으로 로그인해야 합니다.</p><button className="outline" onClick={logout}>다른 계정으로 로그인</button></div></main>;
+  if(left)return <main className="lobby"><div className="empty">상담방에서 퇴장하셨습니다.<button className="outline" onClick={()=>setLeft(false)}>다시 입장</button></div></main>;
+  if(session)return <Room key={session.id} profile={profile} initial={session} onClose={()=>{setSession(null);setLeft(true)}}/>;
+  return <main className="lobby"><div className="empty">비공개 상담방을 확인하고 있습니다.</div></main>;
+ }
+ return publicMode?<PublicWebRtcApp profile={profile} onLogout={logout}/>:
+   session?<Room key={session.id} profile={profile} initial={session} onClose={()=>setSession(null)}/>:
+    <Lobby profile={profile} onLogout={logout} onOpen={setSession}/>;
+}
 
 type PortalSection = '전화' | '찾기' | '대화' | '내 AI' | 'MY' | '기관용';
 export default function App(){
@@ -89,6 +117,12 @@ export default function App(){
  const [phoneNumber,setPhoneNumber]=useState('');
  const openSection=(tab:PortalSection,number='')=>{setSection(tab);setPhoneNumber(number);setView('service');};
  const back=()=>setView('portal');
+ // A marketplace link only identifies an INVITED private session. Auth is mandatory.
+ if(window.location.pathname.replace(/\/$/,'')==='/private-consultation'){
+  const id=new URLSearchParams(window.location.search).get('consultation')||'';
+  if(!/^[0-9a-f-]{36}$/i.test(id))return <main className="lobby"><p className="error wide">올바른 상담방 정보가 없습니다.</p></main>;
+  return <LegacyApp privateConsultationId={id}/>;
+ }
  // Direct entry to the ORIGINAL authenticated WebRTC room with VideoCore mask controls.
  // This bypasses the portal screen only; it does NOT bypass server authentication.
  if(['/webrtc-room','/webrtc-test','/room'].includes(window.location.pathname.replace(/\/$/, ''))) return <LegacyApp publicMode/>;
