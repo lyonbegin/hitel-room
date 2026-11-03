@@ -2,6 +2,7 @@ import Foundation
 import ReplayKit
 import CoreMedia
 import AudioToolbox
+import UserNotifications
 
 /// Independent offline diagnostic extension. No uploads, sockets, screen pixels or web dependencies.
 final class SampleHandler: RPBroadcastSampleHandler {
@@ -16,6 +17,9 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var videoFrames = 0
     private var appStats = Window()
     private var micStats = Window()
+    private var notifyApp = Window()
+    private var notifyMic = Window()
+    private var lastNotify = ProcessInfo.processInfo.systemUptime
     private var sampleData = Data()
     private var sampleRate: UInt32 = 0
     private var sampleComplete = false
@@ -46,6 +50,20 @@ final class SampleHandler: RPBroadcastSampleHandler {
             bigEndian = m.bigEndian
         }
         mutating func invalid() { invalidBuffers += 1 }
+        mutating func merge(_ other: Window) {
+            buffers += other.buffers
+            silentBuffers += other.silentBuffers
+            invalidBuffers += other.invalidBuffers
+            samples += other.samples
+            sumSquares += other.sumSquares
+            peak = max(peak, other.peak)
+            if other.rate > 0 {
+                rate = other.rate
+                channels = other.channels
+                bits = other.bits
+                bigEndian = other.bigEndian
+            }
+        }
         mutating func clear() { self = Window() }
     }
     private struct Metrics {
@@ -58,8 +76,12 @@ final class SampleHandler: RPBroadcastSampleHandler {
         let bigEndian: Bool
         let mono: [Int16]?
     }
+    private var sharedContainerAvailable: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) != nil
+    }
     private var directory: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
+        ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
     }
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
@@ -70,14 +92,28 @@ final class SampleHandler: RPBroadcastSampleHandler {
         lastFlush = startedAt
         let settings = UserDefaults(suiteName: groupID)
         runID = settings?.string(forKey: "probe.runID") ?? UUID().uuidString
+        #if HITEL_FREE_SIGNING
+        // In the explicitly opted-in free diagnostic build, the extension
+        // cannot read app settings without App Groups. The host UI displays
+        // its mandatory five-second sample policy before showing the picker.
+        sampleEnabled = true
+        sampleDelay = 30
+        #else
         sampleEnabled = settings?.bool(forKey: "probe.saveSample") ?? false
         sampleDelay = max(0, min(60, settings?.object(forKey: "probe.sampleDelay") == nil ? 15 : settings!.double(forKey: "probe.sampleDelay")))
+        #endif
         sampleData = Data()
         sampleRate = 0
         sampleComplete = false
         videoFrames = 0
         appStats.clear()
         micStats.clear()
+        notifyApp.clear()
+        notifyMic.clear()
+        lastNotify = startedAt
+        if !sharedContainerAvailable {
+            sendNotification(kind: "started")
+        }
         record(["type": "broadcast_started", "source": "broadcast",
                 "sampleOptIn": sampleEnabled, "sampleDelaySeconds": sampleDelay])
     }
@@ -98,6 +134,9 @@ final class SampleHandler: RPBroadcastSampleHandler {
         guard active else { return }
         flush()
         finishSample()
+        if !sharedContainerAvailable {
+            sendNotification(kind: "finished")
+        }
         record(["type": "broadcast_finished", "source": "broadcast"])
         active = false
     }
@@ -139,12 +178,22 @@ final class SampleHandler: RPBroadcastSampleHandler {
     }
 
     private func flush() {
-        if appStats.buffers + appStats.invalidBuffers > 0 { emit(appStats, source: "audioApp") }
-        if micStats.buffers + micStats.invalidBuffers > 0 { emit(micStats, source: "audioMic") }
+        if appStats.buffers + appStats.invalidBuffers > 0 {
+            emit(appStats, source: "audioApp")
+            notifyApp.merge(appStats)
+        }
+        if micStats.buffers + micStats.invalidBuffers > 0 {
+            emit(micStats, source: "audioMic")
+            notifyMic.merge(micStats)
+        }
         if videoFrames > 0 {
             record(["type": "video_count_only", "source": "video", "frames": videoFrames])
         }
-        lastFlush = ProcessInfo.processInfo.systemUptime
+        let current = ProcessInfo.processInfo.systemUptime
+        if !sharedContainerAvailable && current - lastNotify >= 10 {
+            sendNotification(kind: "window")
+        }
+        lastFlush = current
         appStats.clear()
         micStats.clear()
         videoFrames = 0
@@ -253,6 +302,9 @@ final class SampleHandler: RPBroadcastSampleHandler {
         wav.append(sampleData)
         do {
             try wav.write(to: directory.appendingPathComponent(sampleFile), options: [.atomic])
+            if !sharedContainerAvailable {
+                sendNotification(kind: "sample", attachmentURL: directory.appendingPathComponent(sampleFile))
+            }
             record(["type": "sample_saved", "source": "audioApp", "bytes": wav.count,
                     "durationSeconds": Double(sampleData.count / 2) / Double(sampleRate),
                     "sampleRate": sampleRate, "explicitConsent": true])
@@ -281,4 +333,57 @@ final class SampleHandler: RPBroadcastSampleHandler {
         _ = try? handle.seekToEnd()
         try? handle.write(contentsOf: row)
     }
+
+    /// App-Group-free fallback for Windows/free-Apple-ID signed builds.
+    /// The iOS notification center is shared with the containing app, and
+    /// notification attachments can transfer a user-approved short WAV.
+    /// Every notification remains on-device; there is no network request.
+    private func sendNotification(kind: String, attachmentURL: URL? = nil) {
+        let center = UNUserNotificationCenter.current()
+        let content = UNMutableNotificationContent()
+        content.title = "HITEL 전화 음성 검증"
+        content.body = kind == "sample" ? "동의하신 원음 샘플이 저장되었습니다."
+            : kind == "finished" ? "방송이 종료되었습니다. 측정 결과를 앱에서 확인하십시오."
+            : "오디오 수신 여부를 기록했습니다."
+        if #available(iOS 15.0, *) { content.interruptionLevel = .passive }
+        content.userInfo = [
+            "hitelProbe": true,
+            "kind": kind,
+            "at": ISO8601DateFormatter().string(from: Date()),
+            "appBuffers": notifyApp.buffers,
+            "appSilent": notifyApp.silentBuffers,
+            "appInvalid": notifyApp.invalidBuffers,
+            "appSamples": notifyApp.samples,
+            "appSquare": notifyApp.sumSquares,
+            "appPeak": notifyApp.peak,
+            "appRate": notifyApp.rate,
+            "appChannels": notifyApp.channels,
+            "appBits": notifyApp.bits,
+            "appEndian": notifyApp.bigEndian,
+            "micBuffers": notifyMic.buffers,
+            "micSilent": notifyMic.silentBuffers,
+            "micInvalid": notifyMic.invalidBuffers,
+            "micSamples": notifyMic.samples,
+            "micSquare": notifyMic.sumSquares,
+            "micPeak": notifyMic.peak,
+            "micRate": notifyMic.rate,
+            "micChannels": notifyMic.channels,
+            "micBits": notifyMic.bits,
+            "micEndian": notifyMic.bigEndian
+        ]
+        if let attachmentURL {
+            if let attachment = try? UNNotificationAttachment(
+                identifier: "hitel-probe-wav", url: attachmentURL, options: nil
+            ) { content.attachments = [attachment] }
+        }
+        let request = UNNotificationRequest(
+            identifier: "hitel-probe-" + kind + "-" + UUID().uuidString,
+            content: content, trigger: nil
+        )
+        center.add(request, withCompletionHandler: nil)
+        notifyApp.clear()
+        notifyMic.clear()
+        lastNotify = ProcessInfo.processInfo.systemUptime
+    }
+
 }
