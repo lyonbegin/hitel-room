@@ -89,9 +89,21 @@ struct HitelCallScreen: View {
                                     }.buttonStyle(.bordered)
                                 }
                             }
-                            videoSurface(originalRoom.localTrack,title:"내 영상",
-                                         frameHint:originalRoom.localFirstFrame ? nil : "카메라 프레임 대기 중")
+                            if originalRoom.isMaskMode,let arView=originalRoom.maskView {
+                                ZStack(alignment:.bottomLeading) {
+                                    HitelHostedNativeView(view:arView)
+                                    Text("iPhone ARKit 3D 가면 영상")
+                                        .font(.caption2.bold())
+                                        .padding(6)
+                                        .background(.black.opacity(0.6))
+                                        .foregroundStyle(.white)
+                                }
                                 .frame(height:185)
+                            } else {
+                                videoSurface(originalRoom.localTrack,title:"내 영상",
+                                             frameHint:originalRoom.localFirstFrame ? nil : "카메라 프레임 대기 중")
+                                    .frame(height:185)
+                            }
                             if originalRoom.localFirstFrame {
                                 Text(String(format:"카메라 캡처 %.1f fps",originalRoom.localCaptureFPS))
                                     .font(.caption2.monospacedDigit())
@@ -113,10 +125,13 @@ struct HitelCallScreen: View {
                                 Button(originalRoom.camEnabled ? "카메라 끄기":"카메라 켜기") {
                                     originalRoom.toggleCamera()
                                 }
+                                Button(originalRoom.isMaskMode ? "원본 영상":"가면 영상") {
+                                    originalRoom.chooseMask(!originalRoom.isMaskMode)
+                                }
                             }.buttonStyle(.bordered)
                         }
                         Text(originalRoom.status).font(.caption).foregroundStyle(.secondary)
-                        Text("가면 영상은 네이티브 얼굴 메시 합성 구현 전까지 원본 영상만 지원합니다.")
+                        Text("가면 영상은 실제 iPhone ARKit 3D Face Mesh를 사용합니다. 기기 지원·프레임·텍스처를 확인한 경우에만 출력됩니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }.padding(14)
                         .background(Color(uiColor:.secondarySystemGroupedBackground))
