@@ -62,7 +62,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
     }
 
-    override func broadcastStarted(withSetupInfo setupInfo: [String: NSCoding]?) {
+    override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         lock.lock()
         defer { lock.unlock() }
         active = true
@@ -71,7 +71,7 @@ final class SampleHandler: RPBroadcastSampleHandler {
         let settings = UserDefaults(suiteName: groupID)
         runID = settings?.string(forKey: "probe.runID") ?? UUID().uuidString
         sampleEnabled = settings?.bool(forKey: "probe.saveSample") ?? false
-        sampleDelay = max(0, min(60, settings?.double(forKey: "probe.sampleDelay") ?? 15))
+        sampleDelay = max(0, min(60, settings?.object(forKey: "probe.sampleDelay") == nil ? 15 : settings!.double(forKey: "probe.sampleDelay")))
         sampleData = Data()
         sampleRate = 0
         sampleComplete = false
