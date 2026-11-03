@@ -55,7 +55,7 @@ jobs:
           test -s "$APP/Frameworks/WebRTC.framework/WebRTC"
           # Fail build rather than silently reverting to black or no mask.
           test -s "$APP/face-mask.png"
-          cmp mobile/ios/PublicRoomApp/face-mask.png "$APP/face-mask.png"
+          cmp PublicRoomApp/face-mask.png "$APP/face-mask.png"
           echo "IOS_ORIGINAL_WEB_TEXTURE_BUNDLED_EXACTLY_PASS"
           test ! -e "$APP/PlugIns/HitelScreenBroadcast.appex"
           echo "NATIVE_PUBLIC_ROOM_DEVICE_ARM64_BUILD_PASS"
