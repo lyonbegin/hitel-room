@@ -186,7 +186,7 @@ static void gatts_event(esp_gatts_cb_event_t event,
         esp_attr_value_t val = {
             .attr_max_len = 185, .attr_len = 1, .attr_value = &initial_value
         };
-        esp_ble_gatts_add_char(service_handle, &uuid, ESP_GATT_PERM_READ,
+        esp_ble_gatts_add_char(service_handle, &uuid, ESP_GATT_PERM_READ_ENCRYPTED,
                                ESP_GATT_CHAR_PROP_BIT_NOTIFY | ESP_GATT_CHAR_PROP_BIT_READ,
                                &val, NULL);
         break;
@@ -200,7 +200,7 @@ static void gatts_event(esp_gatts_cb_event_t event,
             .attr_max_len = 2, .attr_len = 2, .attr_value = ccc_initial
         };
         esp_ble_gatts_add_char_descr(service_handle, &uuid,
-                                     ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+                                     ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED,
                                      &val, NULL);
         break;
     }
@@ -263,6 +263,14 @@ esp_err_t hitel_ble_init(void) {
         tx_queue = NULL;
         return ESP_ERR_NO_MEM;
     }
+    // Secure Connections bonding encrypts GATT audio notifications after
+    // a user-approved pairing. No unencrypted call audio GATT subscription.
+    esp_ble_auth_req_t auth = ESP_LE_AUTH_REQ_SC_BOND;
+    esp_ble_io_cap_t io_cap = ESP_IO_CAP_NONE;
+    uint8_t key_size = 16;
+    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth, sizeof(auth)));
+    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &io_cap, sizeof(io_cap)));
+    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof(key_size)));
     ESP_ERROR_CHECK(esp_ble_gatt_set_local_mtu(185));
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event));
     ESP_ERROR_CHECK(esp_ble_gatts_register_callback(gatts_event));
