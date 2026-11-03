@@ -15,6 +15,7 @@ struct HitelCallApp: App {
                 .onAppear {model.activate()}
                 .onChange(of:phase){ newPhase in
                     if newPhase == .active {model.activate();model.resumeAfterUnlock()}
+                    if newPhase == .background {model.releasePreviewForPhoneApp()}
                 }
         }
     }
