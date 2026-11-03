@@ -14,6 +14,8 @@ final class HitelPublicMeshMedia: NSObject, RTCPeerConnectionDelegate {
     var onRemoteFirstFrame: ((String) -> Void)?
     var onICEConnected: ((String) -> Void)?
     var onFirstFrame: (() -> Void)?
+    var onMaskTracking: ((Bool)->Void)?
+    var onMaskFailure: ((String)->Void)?
     var onFPS: ((Double) -> Void)?
     var onEnded: (() -> Void)?
     var localVideoTrack: RTCVideoTrack?
@@ -43,6 +45,8 @@ final class HitelPublicMeshMedia: NSObject, RTCPeerConnectionDelegate {
         let core=HitelNativeVideoCore(factory:Self.factory)
         core.onFirstFrame={[weak self] in self?.onFirstFrame?()}
         core.onCaptureFPS={[weak self] fps in self?.onFPS?(fps)}
+        core.onFaceTracked={[weak self] tracking in self?.onMaskTracking?(tracking)}
+        core.onCameraError={[weak self] error in self?.onMaskFailure?(error)}
         videoCore=core
         localVideoTrack=try core.openCamera(mode:.original)
         let source=Self.factory.audioSource(with:RTCMediaConstraints(
