@@ -267,8 +267,18 @@ final class HitelOriginalRoomClient: ObservableObject {
             try media.setMask(enabled)
             maskView=media.maskView
             isMaskMode=enabled
+            faceTracked=false
             localFirstFrame=false
             localCaptureFPS=0
+            if enabled {
+                DispatchQueue.main.asyncAfter(deadline:.now()+8) {[weak self] in
+                    guard let self,self.isMaskMode,!self.localFirstFrame else {return}
+                    self.chooseMask(false)
+                    self.status = self.isMaskMode
+                        ? "ARKit 첫 프레임 8초 미수신 · 원본 카메라 복구 실패"
+                        : "ARKit 가면 프레임 미수신으로 원본 카메라를 복구했습니다."
+                }
+            }
         } catch {
             status="가면 영상 전환 실패: "+error.localizedDescription
         }
