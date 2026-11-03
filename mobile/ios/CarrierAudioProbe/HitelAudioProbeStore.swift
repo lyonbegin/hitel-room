@@ -8,7 +8,7 @@ import UserNotifications
 /// Device-only evidence model. The app and ReplayKit extension communicate
 /// exclusively through an isolated App Group container, never a web service.
 @MainActor
-final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDelegate, AVAudioPlayerDelegate {
+final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDelegate, AVAudioPlayerDelegate, UNUserNotificationCenterDelegate {
     static let groupID = "group.app.hitel.carrieraudioprobe"
     static let eventsName = "hitel-probe-events.jsonl"
     static let sampleName = "hitel-probe-optional-5s.wav"
@@ -85,6 +85,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
             }
         }
         if runID.isEmpty { runID = UUID().uuidString }
+        UNUserNotificationCenter.current().delegate = self
         observer.setDelegate(self, queue: .main)
         refreshCall()
         refresh()
@@ -150,6 +151,13 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
         }
         recognizedText = ""
         transcriptionStatus = "새 측정 준비 완료"
+        UNUserNotificationCenter.current().getDeliveredNotifications { list in
+            let ids = list.filter { $0.request.identifier.hasPrefix("hitel-probe-") }
+                .map { $0.request.identifier }
+            if !ids.isEmpty {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
+            }
+        }
         appendMarker("새 실기기 검사 시작 · " + phase)
         refresh()
     }
@@ -399,6 +407,14 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
     /// Alternative to App Groups for Windows Sideloadly/free Apple ID.
     /// Receives diagnostic data as local notification payloads; an approved
     /// WAV is copied from a local notification attachment into app Documents.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            willPresent notification: UNNotification,
+                                            withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Keep diagnostic notifications in Notification Center even when
+        // the probe app is foregrounded for its 440 Hz reference tone.
+        completionHandler([.list])
+    }
+
     func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge]) { [weak self] granted, error in
             Task { @MainActor in
@@ -436,6 +452,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
                         let rms = samples > 0 ? sqrt(power / Double(samples)) : 0.0
                         self.appendLocalEvent([
                             "type": "audio_window", "source": source,
+                            "at": info["at"] as? String ?? ISO8601DateFormatter().string(from: Date()),
                             "buffers": buffers,
                             "silentBuffers": info[prefix + "Silent"] as? Int ?? 0,
                             "invalidBuffers": info[prefix + "Invalid"] as? Int ?? 0,
@@ -456,6 +473,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
                             try FileManager.default.copyItem(at: attachment.url, to: destination)
                             self.appendLocalEvent([
                                 "type": "sample_saved", "source": "audioApp",
+                                "at": info["at"] as? String ?? ISO8601DateFormatter().string(from: Date()),
                                 "durationSeconds": 5.0, "explicitConsent": true
                             ])
                         } catch {
@@ -482,7 +500,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
         guard let url = eventsURL else { return }
         var item = fields
         item["runID"] = runID
-        item["at"] = ISO8601DateFormatter().string(from: Date())
+        if item["at"] == nil { item["at"] = ISO8601DateFormatter().string(from: Date()) }
         guard var bytes = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys]) else { return }
         bytes.append(0x0A)
         if !FileManager.default.fileExists(atPath: url.path) {
