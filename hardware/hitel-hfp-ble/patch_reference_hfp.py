@@ -83,15 +83,21 @@ if outgoing_body not in text:
     text, count = outgoing.subn(outgoing_body, text)
     if count != 1:
         raise SystemExit("Expected exactly one decoded HFP uplink callback")
-incoming = re.compile(
-    r'(static void bt_app_hf_client_incoming_cb\(const uint8_t \*buf, uint32_t sz\)\s*\{)'
+incoming_pattern = re.compile(
+    r'static void bt_app_hf_client_incoming_cb\(const uint8_t \*buf, uint32_t sz\)\s*'
+    r'\{.*?\n\}',
+    re.S,
 )
-if 'hitel_ble_submit_pcm8k(buf, sz);' not in text:
-    text, count = incoming.subn(
-        r'\1\n    /* Actual remote HFP call audio from iPhone, not ambient mic. */\n'
-        r'    hitel_ble_submit_pcm8k(buf, sz);',
-        text
-    )
+incoming_body = (
+    "static void bt_app_hf_client_incoming_cb(const uint8_t *buf, uint32_t sz)\n"
+    "{\n"
+    "    /* Actual remote PCM downlink. Do not enqueue it as headset uplink. */\n"
+    "    hitel_ble_submit_pcm8k(buf, sz);\n"
+    "    esp_hf_client_outgoing_data_ready();\n"
+    "}\n"
+)
+if incoming_body.strip() not in text:
+    text, count = incoming_pattern.subn(lambda _: incoming_body.rstrip(), text)
     if count != 1:
         raise SystemExit("Expected exactly one decoded HFP incoming callback")
 hf_path.write_text(text)
