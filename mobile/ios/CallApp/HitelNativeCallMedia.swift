@@ -13,6 +13,8 @@ final class HitelNativeCallMedia: NSObject, RTCPeerConnectionDelegate {
     var onIce: (([String: Any]) -> Void)?
     var onConnection: ((String) -> Void)?
     var onTrack: ((RTCVideoTrack) -> Void)?
+    var onLocalFirstFrame: (() -> Void)?
+    var onLocalCaptureFPS: ((Double) -> Void)?
     var onError: ((String) -> Void)?
 
     private var peer: RTCPeerConnection?
@@ -42,6 +44,8 @@ final class HitelNativeCallMedia: NSObject, RTCPeerConnectionDelegate {
         audio = audioTrack
         newPeer.add(audioTrack, streamIds: ["hitel-stream"])
         let core = HitelNativeVideoCore(factory: Self.factory)
+        core.onFirstFrame = { [weak self] in self?.onLocalFirstFrame?() }
+        core.onCaptureFPS = { [weak self] fps in self?.onLocalCaptureFPS?(fps) }
         nativeVideoCore = core
         video = core.videoTrack
         newPeer.add(core.videoTrack, streamIds: ["hitel-stream"])
