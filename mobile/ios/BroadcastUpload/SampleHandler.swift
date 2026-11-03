@@ -2,6 +2,7 @@ import Foundation
 import ReplayKit
 import CoreMedia
 import CoreImage
+import Vision
 import UIKit
 
 /// ReplayKit broadcast upload extension for an actual iPhone.
@@ -19,6 +20,10 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var connected = false
     private var sending = false
     private var lastFrame = Date.distantPast
+    private var lastCaptionScan = Date.distantPast
+    private var lastCaptionText = ""
+    private var captionOCRBusy = false
+    private let captionOCRQueue = DispatchQueue(label: "app.hitel.broadcast.livecaption-ocr", qos: .userInitiated)
     private var lastDimensions = (width: 0, height: 0)
     private var reconnectAttempts = 0
 
@@ -107,6 +112,53 @@ final class SampleHandler: RPBroadcastSampleHandler {
         ws.send(.string(text)) { _ in }
     }
 
+    /// Recognizes only the lower-screen overlay area designated for Apple's
+    /// Live Captions. The user must move/expand the system caption window
+    /// into the bottom 42% of the screen. No invented text and no access to
+    /// protected call audio are claimed.
+    private func recognizeSystemCaption(in image: CGImage) {
+        defer { DispatchQueue.main.async { [weak self] in self?.captionOCRBusy = false } }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.recognitionLanguages = ["ko-KR", "en-US"]
+        // Vision coordinates begin at the bottom. Captions should be placed
+        // in this area to avoid sending Phone UI, digits or contact data.
+        request.regionOfInterest = CGRect(x: 0.03, y: 0.02, width: 0.94, height: 0.42)
+        do {
+            try VNImageRequestHandler(cgImage: image).perform([request])
+            let text = (request.results ?? [])
+                .sorted { $0.boundingBox.midY > $1.boundingBox.midY }
+                .compactMap { $0.topCandidates(1).first }
+                .filter { $0.confidence >= 0.35 }
+                .map { $0.string.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { $0.count >= 2 }
+                .joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            // Never persist or relay the unfiltered screen: transcripts
+            // require an explicit system broadcast and paired viewer.
+            // Do not interpret static call-control labels as a transcript.
+            guard !text.isEmpty, text != lastCaptionText else { return }
+            lastCaptionText = text
+            let message: [String: Any] = [
+                "type": "caption.ocr",
+                "text": String(text.prefix(1200)),
+                "source": "apple-live-captions-visual-ocr",
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ]
+            guard let data = try? JSONSerialization.data(withJSONObject: message),
+                  let value = String(data: data, encoding: .utf8) else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.connected, let socket = self.socket else { return }
+                socket.send(.string(value)) { error in
+                    if let error { NSLog("HITEL_CAPTION_OCR_SEND_ERROR %@", error.localizedDescription) }
+                }
+            }
+        } catch {
+            NSLog("HITEL_CAPTION_OCR_ERROR %@", error.localizedDescription)
+        }
+    }
+
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
         guard active, connected, sampleBufferType == .video, !sending,
               Date().timeIntervalSince(lastFrame) >= 0.5,
@@ -123,6 +175,21 @@ final class SampleHandler: RPBroadcastSampleHandler {
         if lastDimensions.width != w || lastDimensions.height != h {
             lastDimensions = (w,h)
             hello()
+        }
+        // Apple Live Captions is rendered by iOS itself when enabled. The
+        // user must opt into call-caption retention (1 hour) to permit
+        // screenshots/recordings. This is screen OCR, not a Phone audio tap.
+        if Date().timeIntervalSince(lastCaptionScan) >= 1.1 && !captionOCRBusy {
+            lastCaptionScan = Date()
+            captionOCRBusy = true
+            // Copy a downscaled frame before ReplayKit releases its buffer.
+            let ocrScale = min(1.0, 960.0 / max(input.extent.width, input.extent.height))
+            let ocrInput = input.transformed(by: CGAffineTransform(scaleX: ocrScale, y: ocrScale))
+            if let ocrFrame = ciContext.createCGImage(ocrInput, from: ocrInput.extent) {
+                captionOCRQueue.async { [weak self] in self?.recognizeSystemCaption(in: ocrFrame) }
+            } else {
+                captionOCRBusy = false
+            }
         }
         sending = true
         ws.send(.data(jpeg)) { [weak self] error in
