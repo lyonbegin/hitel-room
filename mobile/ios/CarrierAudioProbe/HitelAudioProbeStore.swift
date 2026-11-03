@@ -34,6 +34,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
     @Published private(set) var sampleSaved = false
     @Published private(set) var sampleDuration = 0.0
     @Published private(set) var notice = ""
+    @Published private(set) var dialStatus = ""
     @Published private(set) var notificationStatus = "알림 백업 경로 권한 미확인"
     @Published private(set) var recognizedText = ""
     @Published private(set) var transcriptionStatus = "오디오 샘플이 있으면 통화 후 온디바이스 전사를 검사할 수 있습니다."
@@ -89,6 +90,10 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
         observer.setDelegate(self, queue: .main)
         refreshCall()
         refresh()
+    }
+
+    func setDialStatus(_ value: String) {
+        dialStatus = value
     }
 
     func refreshCall() {
