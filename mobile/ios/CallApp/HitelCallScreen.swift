@@ -5,6 +5,7 @@ import UIKit
 /// SwiftUI native N endpoint, not WKWebView and not a JS/native bridge.
 struct HitelCallScreen: View {
     @ObservedObject var model:HitelCallModel
+    @StateObject private var originalRoom = HitelOriginalRoomClient()
     @State private var selectedScenario = 11
     @State private var aiPrompt = ""
     private let kinds=["P","P+","N","W"]
@@ -22,6 +23,45 @@ struct HitelCallScreen: View {
                         Text("Swift WebSocket · Native WebRTC · CallKit")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
+                    VStack(alignment:.leading,spacing:10) {
+                        Text("기존 HITEL 공개 영상 대화방").font(.headline)
+                        Text("기존 웹과 같은 서버의 실제 방 데이터를 조회합니다. 별도의 Playground 통화와 분리되어 있습니다.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        TextField("원본 서버 사용자 ID", text:$originalRoom.userID)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("표시 이름", text:$originalRoom.displayName)
+                            .textFieldStyle(.roundedBorder)
+                        Button("기존 서버 방 목록 불러오기") {
+                            Task { await originalRoom.refreshRooms() }
+                        }.buttonStyle(.bordered)
+                        ForEach(originalRoom.rooms) { room in
+                            HStack {
+                                VStack(alignment:.leading,spacing:3) {
+                                    Text(room.title ?? room.id).font(.subheadline.bold())
+                                    Text(room.status + " · " + room.id)
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button("입장") { originalRoom.join(room) }
+                                    .buttonStyle(.bordered)
+                                    .disabled(!originalRoom.socketReady)
+                            }
+                        }
+                        if originalRoom.joinedRoomID != nil {
+                            HStack {
+                                Button("준비") { originalRoom.markReady() }
+                                Button("SFU 확인") { originalRoom.verifySFURouter() }
+                                Button("나가기") { originalRoom.leave() }
+                            }.buttonStyle(.bordered)
+                        }
+                        Text(originalRoom.status).font(.caption).foregroundStyle(.secondary)
+                        Text(originalRoom.routerCapabilitiesReceived
+                             ? "SFU 라우터 응답 확인 · 영상 송수신은 아직 연결되지 않았습니다."
+                             : "웹과 iPhone 실제 영상 연결은 mediasoup 네이티브 전송 구현이 필요합니다.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }.padding(14)
+                        .background(Color(uiColor:.secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius:12))
                     VStack(alignment:.leading,spacing:8) {
                         Text("16개 통신 조합").font(.headline)
                         Text("P는 일반 통신사 이용자, P+는 별도 개인 보조, N은 실제 인터넷 네이티브 통화입니다. 기존 통신사 음성은 직접 수집하지 않습니다.")
