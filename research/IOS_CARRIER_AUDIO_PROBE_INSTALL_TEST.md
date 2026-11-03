@@ -10,8 +10,26 @@
 - 확장 ID: app.hitel.carrieraudioprobe.broadcast
 - App Group: group.app.hitel.carrieraudioprobe
 
-## 실제 iPhone 설치 및 서명
-GitHub Actions에서 생성한 UNSIGNED IPA는 그대로 iPhone에 설치할 수 없습니다. Apple 서명 및 Provisioning이 필요합니다.
+## Windows Sideloadly + 무료 Apple ID 설치 — 기존 성공 방식
+
+가장 먼저 **HITEL-Phone-Audio-Real-Device-PROBE-FREE-SIDELOADLY-UNSIGNED.ipa**를 선택하십시오.
+이 버전은 App Group entitlement가 없으므로 무료 Apple ID 서명에 유리하고, ReplayKit 확장 → 앱 간 결과 전달을 iOS **로컬 알림 payload + WAV 첨부파일**로 대체하는 시험판입니다. 알림 전달 및 첨부파일 전달이 iPhone에서 실제 동작하는지는 별도로 확인해야 합니다.
+
+1. Windows의 Sideloadly를 실행하고, 이전에 정상 사용하셨던 방식대로 iPhone을 USB로 연결·신뢰합니다.
+2. FREE-SIDELOADLY-UNSIGNED.ipa를 선택하고 Apple ID를 입력합니다.
+3. **Use automatic bundle ID**를 해제하여 원래 bundle ID를 유지하고, **Remove Extensions/Remove Plug-ins**를 끄십시오. 방송 확장 **1개가 반드시 포함**되어야 합니다. 설치 로그의 Dropping 0 of 1 plug-ins 등을 확인하십시오.
+4. Start를 눌러 앱과 방송 확장을 서명·설치합니다. 무료 Apple ID는 설치 가능한 앱 수 및 7일 제한이 있습니다.
+5. iPhone에서 개발자 모드(필요 시)와 개인 개발자 프로필 신뢰를 확인합니다.
+6. 앱을 열고 **측정 결과를 받기 위한 로컬 알림 허용**을 누릅니다.
+7. **5초 원음 샘플 저장** 스위치를 명시적으로 켜야 시스템 방송 버튼이 표시됩니다. FREE 판은 방송 시작 30초 후 audioApp 5초를 내부에 저장하려고 시도합니다. 상대방에게 녹음 고지·동의받으십시오.
+8. 방송 버튼 → HITEL Audio Probe Broadcast 선택 → 시작. 기존 영상통화 앱과는 별개입니다.
+9. 실제 전화 종료 후 앱으로 돌아와 **로컬 알림 결과**를 회수하고 JSONL과 WAV를 내보냅니다.
+10. 데이터가 0건이면 알림 허용 여부, 방송 확장 유지 여부, 통화 중 방송 중단 여부를 구분하여 검사하십시오.
+
+유의: 로컬 알림 방식은 현재 코드·ARM64 빌드를 검증한 **실기기 시험 경로**이며, 무료 서명된 iPhone에서 알림 공유와 WAV 첨부파일 수신은 아직 직접 검증되지 않았습니다. 알림 전달이 실패하면 원본 App Group 버전과 별도 서명 요건을 이용해야 합니다.
+
+## 정식 Apple Developer / Xcode 서명(App Group 기능 전체 사용)
+GitHub Actions에서 생성한 UNSIGNED IPA는 그대로 iPhone에 설치할 수 없습니다. Sideloadly의 Apple ID 재서명 또는 Xcode/Apple Developer 서명이 필요합니다. Apple 서명 및 Provisioning이 필요합니다.
 
 1. macOS Xcode 및 Apple Developer Team을 사용하십시오.
 2. Apple Developer에서 위의 앱·확장 Bundle ID 두 개를 등록합니다.
