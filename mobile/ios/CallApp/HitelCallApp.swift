@@ -11,6 +11,7 @@ struct HitelCallApp: App {
     var body: some Scene {
         WindowGroup {
             HitelCallScreen(model:model)
+                .environmentObject(carrierBLE)
                 .onAppear {model.activate()}
                 .onChange(of:phase){ newPhase in
                     if newPhase == .active {model.activate();model.resumeAfterUnlock()}
