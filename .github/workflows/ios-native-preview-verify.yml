@@ -9,6 +9,9 @@ on:
       - 'mobile/ios/project.call.free.yml'
       - '.github/workflows/ios-native-preview-verify.yml'
   workflow_dispatch:
+concurrency:
+  group: hitel-ios-native-public-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
