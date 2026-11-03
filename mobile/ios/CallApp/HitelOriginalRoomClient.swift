@@ -227,7 +227,11 @@ final class HitelOriginalRoomClient: ObservableObject {
             }
             next.onFirstFrame={ [weak self] in self?.localFirstFrame=true }
             next.onMaskTracking={ [weak self] tracked in
-                self?.faceTracked=tracked
+                guard let self,self.isMaskMode else {return}
+                self.faceTracked=tracked
+                self.status=tracked
+                    ? "ARKit 3D 얼굴 메시 추적 중 · 실제 전송 프레임 확인"
+                    : "ARKit 카메라 실행 중 · 얼굴 검출 대기"
             }
             next.onMaskFailure={ [weak self] error in
                 guard let self else{return}
