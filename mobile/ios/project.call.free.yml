@@ -24,7 +24,9 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "실제 HITEL 영상통화를 위해 카메라를 사용합니다."
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "실제 HITEL 통화에 마이크를 사용합니다."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "HITEL 통화와 사용자가 시작한 음성 인식에 마이크를 사용합니다."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "사용자가 선택한 마이크 또는 기존 녹음 파일을 텍스트로 변환합니다."
+        INFOPLIST_KEY_NSMicrophoneInjectionUsageDescription: "사용자 허락을 받아 HITEL의 합성 음성을 일반전화에 추가합니다."
         INFOPLIST_KEY_CFBundleDisplayName: "HITEL Call"
 schemes:
   HitelCall:
