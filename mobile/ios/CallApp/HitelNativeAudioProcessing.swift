@@ -382,6 +382,6 @@ struct HitelNativeAudioProcessingPanel: View {
                 audio.incomingStatus = "파일 선택 실패: \(error.localizedDescription)"
             }
         }
-        .onDisappear { audio.shutdown() }
+        .onDisappear { audio.stopDictation(); audio.stopSpeaking() }
     }
 }
