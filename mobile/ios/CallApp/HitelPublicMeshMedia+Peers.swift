@@ -54,6 +54,15 @@ extension HitelPublicMeshMedia {
         }
         receiveCandidate(payload,from:peer)
     }
+    func receiveCandidate(_ payload:[String:Any],from peer:HitelMeshPeer) {
+        guard let candidate=payload["candidate"] as? [String:Any],
+              let text=candidate["candidate"] as? String else{return}
+        let line=(candidate["sdpMLineIndex"] as? NSNumber)?.int32Value ?? 0
+        let ice=RTCIceCandidate(sdp:text,sdpMLineIndex:line,
+                               sdpMid:candidate["sdpMid"] as? String)
+        if peer.remoteDescriptionReady {peer.connection.add(ice)}
+        else {peer.pending.append(ice)}
+    }
     func ensurePeer(id:String,userID:String)->HitelMeshPeer? {
         if let current=peers[id] {return current}
         let config=RTCConfiguration()
