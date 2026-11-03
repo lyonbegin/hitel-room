@@ -1,4 +1,4 @@
-name: HITEL Call native RX TX audio preview release
+name: HITEL Call native carrier caption preview release
 on:
   push:
     branches:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: hitel-ios-rxtx-preview-release
+  group: hitel-ios-carrier-caption-release
   cancel-in-progress: true
 jobs:
   native-audio-unsigned-ipa:
@@ -50,12 +50,12 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/AudioPayload/Payload" audio-release
           cp -R "$RUNNER_TEMP/HitelAudioRelease/Build/Products/Release-iphoneos/HitelCall.app" "$RUNNER_TEMP/AudioPayload/Payload/"
-          (cd "$RUNNER_TEMP/AudioPayload" && zip -qry "$GITHUB_WORKSPACE/audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa" Payload)
+          (cd "$RUNNER_TEMP/AudioPayload" && zip -qry "$GITHUB_WORKSPACE/audio-release/HITEL-Call-Native-Carrier-Caption-UNSIGNED.ipa" Payload)
           unzip -t audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa | tail -2
-          shasum -a 256 audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa > audio-release/HITEL-Call-Native-RXTX-SHA256.txt
+          shasum -a 256 audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa > audio-release/HITEL-Call-Native-Carrier-Caption-SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: HITEL-native-RXTX-unsigned-IPA
+          name: HITEL-native-carrier-caption-unsigned-IPA
           path: audio-release/*
           retention-days: 30
       - name: Publish separate audio test preview release
@@ -63,13 +63,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=hitel-call-native-rxtx-preview-20261103
+          TAG=hitel-call-native-carrier-caption-preview-20261103
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" audio-release/* --clobber
           else
             gh release create "$TAG" audio-release/* \
               --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title "HITEL Call native RX/TX speech processing preview" \
-              --notes "Independent unsigned iPhone app.hitel.call test IPA. Adds native microphone STT, TTS, imported recording transcription, and iOS 18.2 opt-in Add Audio in Calls. IMPORTANT: Live third-party cellular RX PCM and suppressing/replacing raw cellular microphone audio are NOT supported; iOS microphone injection mixes speech with the microphone. Physical carrier-call testing and Apple signing remain outstanding. Existing screen streamer is untouched."
+              --title "HITEL Call · carrier call state and caption test preview" \
+              --notes "Independent unsigned app.hitel.call test IPA. New carrier-caption page stores one local target number, opens Phone for outgoing PSTN calls, observes CallKit direction/connection state, offers optional experimental ambient microphone STT, and documents Apple Live Captions. CRITICAL: CallKit does not expose counterparty phone number or cellular PCM; the app cannot guarantee direct remote-call transcripts or always-on background transcription. Original native video/WebRTC and screen streamer preserved. Requires Apple signing and physical iPhone tests."
           fi
           gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
