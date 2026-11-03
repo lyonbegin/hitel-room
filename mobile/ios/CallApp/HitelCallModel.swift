@@ -27,6 +27,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     @Published var aiStatus = "AI Counselor 대기"
     @Published var localTrack: RTCVideoTrack?
     @Published var remoteTrack: RTCVideoTrack?
+    @Published var publicRoomActive = false
     @Published var localFrameReady = false
     @Published var localCaptureFPS: Double = 0
 
@@ -260,7 +261,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
 
     /// Initialize the real native local camera before a remote call.
     private func prepareCameraPreview() {
-        guard media == nil, !cameraPermissionRequested else { return }
+        guard !publicRoomActive, media == nil, !cameraPermissionRequested else { return }
         cameraPermissionRequested = true
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -287,6 +288,21 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         @unknown default:
             mediaState = "카메라 권한 상태 확인 불가"
         }
+    }
+
+    /// Preserve the existing Playground device WebSocket, but release its
+    /// camera before joining the separate real public WebRTC room.
+    func suspendLegacyCameraForPublicRoom() -> Bool {
+        guard !inCall else { return false }
+        publicRoomActive = true
+        stopMedia()
+        note("PUBLIC_ROOM_CAMERA_OWNERSHIP_RELEASED")
+        return true
+    }
+
+    func resumeLegacyCameraAfterPublicRoom() {
+        publicRoomActive = false
+        prepareCameraPreview()
     }
 
     private func startMedia() {
