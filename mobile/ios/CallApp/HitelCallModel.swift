@@ -35,6 +35,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     private var shouldReconnect = false
     private var sequence = 0
     private var media: HitelNativeCallMedia?
+    private var cameraPermissionRequested = false
     private var videoCore: HitelNativeVideoCore?
     private let communicationSDK = HitelNativeCommunicationSDK.create()
     private let deviceClient=HitelCallDeviceClient()
@@ -60,6 +61,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     }
 
     func activate() {
+        prepareCameraPreview()
         deviceClient.onPageURL={ [weak self] value in
             self?.pageURL=value
             self?.note("앱 전용 웹 주소 생성 · 직접 연결 준비")
@@ -251,6 +253,36 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         secret=nil;sessionId=nil;phase="미연결";side=""
         stopMedia();stopCallKit()
         message="통화 종료 · 고유 웹 주소의 다음 통화 연결 대기"
+    }
+
+    /// Initialize the real native local camera before a remote call.
+    private func prepareCameraPreview() {
+        guard media == nil, !cameraPermissionRequested else { return }
+        cameraPermissionRequested = true
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            startMedia()
+            mediaState = videoCore?.cameraOpened == true
+                ? "로컬 카메라 시작 요청 · 첫 영상 프레임 확인 전"
+                : "로컬 카메라 실행 실패 · 로그 확인"
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.cameraPermissionRequested = false
+                    if granted { self.prepareCameraPreview() }
+                    else {
+                        self.mediaState = "카메라 접근 거부 · iOS 설정에서 권한을 허용해 주십시오."
+                        self.note(self.mediaState)
+                    }
+                }
+            }
+        case .denied, .restricted:
+            mediaState = "카메라 접근 불가 · iOS 설정에서 권한을 확인해 주십시오."
+            note(mediaState)
+        @unknown default:
+            mediaState = "카메라 권한 상태 확인 불가"
+        }
     }
 
     private func startMedia() {
