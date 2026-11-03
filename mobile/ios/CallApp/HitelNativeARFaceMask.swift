@@ -114,18 +114,21 @@ extension HitelNativeARFaceMask {
         let result=CVPixelBufferCreate(kCFAllocatorDefault,width,height,
                                        kCVPixelFormatType_32BGRA,attrs as CFDictionary,&buffer)
         guard result == kCVReturnSuccess,let buffer else {return}
-        CVPixelBufferLockBaseAddress(buffer,[])
-        defer {CVPixelBufferUnlockBaseAddress(buffer,[])}
+        guard CVPixelBufferLockBaseAddress(buffer,[]) == kCVReturnSuccess else {return}
         guard let base=CVPixelBufferGetBaseAddress(buffer),
               let context=CGContext(data:base,width:width,height:height,
                 bitsPerComponent:8,
                 bytesPerRow:CVPixelBufferGetBytesPerRow(buffer),
                 space:CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo:CGImageAlphaInfo.premultipliedFirst.rawValue |
-                           CGBitmapInfo.byteOrder32Little.rawValue) else {return}
+                           CGBitmapInfo.byteOrder32Little.rawValue) else {
+            CVPixelBufferUnlockBaseAddress(buffer,[])
+            return
+        }
         context.translateBy(x:0,y:CGFloat(height))
         context.scaleBy(x:1,y:-1)
         context.draw(image,in:CGRect(x:0,y:0,width:width,height:height))
+        CVPixelBufferUnlockBaseAddress(buffer,[])
         let videoFrame=RTCVideoFrame(
             buffer:RTCCVPixelBuffer(pixelBuffer:buffer),
             rotation:RTCVideoRotation._0,
