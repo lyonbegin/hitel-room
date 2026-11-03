@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import WebRTC
 import AVFoundation
+import UIKit
 
 /// The deployed /webrtc-room uses Railway /api/public-rooms with WebRTC mesh,
 /// NOT the legacy /realtime Socket.IO mediasoup namespace.
