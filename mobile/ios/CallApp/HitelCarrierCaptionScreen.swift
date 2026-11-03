@@ -165,7 +165,8 @@ struct HitelCarrierCaptionScreen: View {
     @AppStorage("hitel.carrier.caption.targetNumber")
     private var savedNumber = ""
     @StateObject private var call = HitelCarrierCallWatcher()
-    @ObservedObject private var accessory = HitelCarrierBLEAudioBridge.shared
+    @ObservedObject private var live = HitelLiveCaptionViewer.shared
+    @State private var captionViewerTokenInput = ""
     @Environment(\.scenePhase) private var scenePhase
     @State private var manuallyConfirmed = false
     @State private var dialingError = ""
@@ -253,48 +254,73 @@ struct HitelCarrierCaptionScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("③ 일반전화 상대 음성 → 실시간 HITEL 자막")
+                    Text("③ Apple 일반전화 자막 → HITEL")
                         .font(.headline)
-                    Text("실제 통화 수신 오디오 입력: Bluetooth HFP → HITEL BLE → 한국어 STT")
+                    Text("외부 전자장치 없이 iPhone의 기존 실시간 자막과 이미 설치하신 HITEL 화면 공유 기능을 연결합니다.")
                         .font(.caption).foregroundStyle(.secondary)
-                    HStack {
-                        Button(accessory.isRunning ? "외부 음성 수신 중지" : "외부 오디오 수신 시작") {
-                            if accessory.isRunning { accessory.stop() }
-                            else { accessory.start() }
-                        }.buttonStyle(.borderedProminent)
-                        Button("자막 지우기") { accessory.clearTranscript() }
-                            .buttonStyle(.bordered)
-                    }
-                    Text(accessory.status)
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text(accessory.captionStatus)
+                    Text("먼저 iPhone 설정 → 손쉬운 사용 → 실시간 자막 → 통화 자막 유지: 1시간 후로 설정하고, 자막 창을 화면 아래쪽에 두셔야 합니다.")
+                        .font(.caption)
+                    Text("기존 HITEL 화면 공유가 실행되어 실제 자막 글자가 캡처되면, 화면을 문자 인식하여 이곳에 전달합니다. 통화 중 방송 유지와 자막 캡처 가능 여부는 실기기 검증이 필요합니다.")
                         .font(.caption2).foregroundStyle(.secondary)
-                    HStack(spacing: 12) {
-                        Label(accessory.connected ? "BLE 연결됨" : "BLE 미연결",
-                              systemImage: accessory.connected ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
-                        Text("실수신 프레임: \(accessory.receivedFrames)")
-                            .monospacedDigit()
-                    }.font(.caption2)
-                    if accessory.actualRemoteAudioSeen {
-                        Text("마지막 음성 프레임 \(accessory.lastPacketTime) · 손실 \(accessory.droppedFrames)")
+
+                    if !live.viewerTokenPresent {
+                        SecureField("HITEL 화면 공유 웹의 자막 연결 정보", text: $captionViewerTokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .textContentType(.password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        HStack {
+                            Button("클립보드에서 연결") {
+                                if let value = UIPasteboard.general.string {
+                                    live.attach(value)
+                                }
+                            }.buttonStyle(.bordered)
+                            Button("직접 입력하여 연결") {
+                                live.attach(captionViewerTokenInput)
+                                captionViewerTokenInput = ""
+                            }.buttonStyle(.bordered)
+                        }
+                        Text("화면 공유를 관리하는 HITEL 웹페이지에서 'HITEL Call에서 자막 열기' 링크를 사용하거나 연결 정보를 복사해 주십시오. 임의의 전화번호로 다른 사용자의 자막을 조회할 수는 없습니다.")
                             .font(.caption2).foregroundStyle(.secondary)
+                    } else {
+                        HStack {
+                            Button("자막 서버 다시 연결") { live.start() }
+                                .buttonStyle(.bordered)
+                            Button("연결 해제") { live.removeConnection() }
+                                .buttonStyle(.bordered)
+                        }
                     }
+                    Text(live.status)
+                        .font(.caption2).foregroundStyle(.secondary)
+
                     ScrollView {
-                        Text(accessory.transcript.isEmpty
-                             ? "외부 HFP 오디오 장치에서 실제 음성 데이터가 도착하면 자막이 이곳에 표시됩니다."
-                             : accessory.transcript)
-                            .font(.title3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .foregroundStyle(accessory.transcript.isEmpty ? .secondary : .primary)
-                            .textSelection(.enabled)
-                            .padding(12)
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(live.captions) { caption in
+                                Text(caption.text)
+                                    .font(.body)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                                Divider()
+                            }
+                            if live.captions.isEmpty {
+                                Text("실제 화면 자막이 수신되기 전입니다. 화면 공유 또는 시스템 실시간 자막이 없으면 글자를 생성하지 않습니다.")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(10)
                     }
-                    .frame(minHeight: 130, maxHeight: 300)
+                    .frame(minHeight: 135, maxHeight: 280)
                     .background(Color(uiColor: .systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 9))
-                    Text("연결 조건: iPhone 일반전화의 HFP 출력 장치로 동작하면서, 수신 오디오를 HITEL BLE 규격으로 별도 전송하는 전용 어댑터가 필요합니다. 일반 블루투스 이어폰만 연결하면 이 화면으로 음성 데이터가 들어오지 않습니다.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    Text("앱이 전화 화면 뒤로 이동해도 BLE 연결·상태 복구를 요청합니다. iOS가 백그라운드 음성 인식을 계속 허용하는지와 실제 자막의 연속성은 실기기에서 검증해야 합니다. 강제 종료 후 자동 재시작은 보장하지 않습니다.")
+                    HStack {
+                        Text("화면 자막 OCR 수신: \(live.totalReceived)건")
+                            .font(.caption2).monospacedDigit()
+                        Spacer()
+                        Button("자막 표시 지우기") { live.clearCaptionDisplay() }
+                            .buttonStyle(.bordered)
+                    }
+                    Text("현재 구현은 시스템 자막의 '화면 글자'를 인식합니다. Apple 전화 녹음 내부 오디오에 직접 접근하지 않으며, 실제 일반전화 중 해당 방송이 종료되는 경우 OCR도 중단됩니다.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .padding(12)
@@ -305,7 +331,7 @@ struct HitelCarrierCaptionScreen: View {
                     Text("④ iPhone 시스템 통화 자막").font(.headline)
                     Text("iPhone 설정 → 손쉬운 사용 → 실시간 자막 → 켜기")
                         .font(.subheadline)
-                    Text("통화 중 iOS 실시간 자막 창을 열어 사용하십시오. Apple의 시스템 자막은 HITEL 앱 내부 텍스트로 자동 전달되지 않습니다. 일부 모델·언어·지역에서 지원되지 않을 수 있습니다.")
+                    Text("Apple 실시간 자막 유지 옵션을 1시간 후로 설정하면 통화 중 자막 복사·스크린샷·화면 기록이 허용됩니다. HITEL은 사용자가 시작한 화면 방송의 글자만 인식합니다. 상대방에게 통화 전사 안내가 재생될 수 있습니다.")
                         .font(.caption).foregroundStyle(.secondary)
                     Link("Apple 실시간 자막 공식 사용법",
                          destination: URL(string: "https://support.apple.com/ko-kr/guide/iphone/iphe0990f7bb/27/ios/27")!)
@@ -315,22 +341,23 @@ struct HitelCarrierCaptionScreen: View {
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                Text("시험 순서: 전용 HFP/BLE 오디오 장치 페어링 → HITEL에서 외부 오디오 수신 시작 → 번호 저장·일반전화 발신 또는 수신 → 전화 화면에서 통화 유지 → HITEL 자막 확인. 전용 장치가 없으면 실제 상대 음성 프레임을 수신하지 못합니다.")
+                Text("사용 경로: iPhone 실시간 자막 ‘통화 자막 유지: 1시간 후’ → HITEL 기존 화면 공유 방송 시작 → 일반전화 발신·수신 → 전화 앱에서 자막 확인 → HITEL Call에서 OCR 문자 수신 확인. 외부 하드웨어는 필요하지 않습니다. 통화 중 ReplayKit의 실제 동작은 검증 대상입니다.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding(16)
         }
         .navigationTitle("전화 자막 시험")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { call.refresh() }
+        .onAppear { call.refresh(); live.start() }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 call.refresh()
+                live.resume()
             } else if phase == .background {
-                // BLE audio acquisition remains owned by the app-level shared bridge.
+                // Screen broadcasting is separately owned by the ReplayKit extension.
             }
         }
         .onChange(of: call.callIdentifier) { _ in manuallyConfirmed = false }
-        // Do not stop the shared BLE bridge on navigation or background.
+        // The caption viewer keeps its secure token for reconnect after Phone use.
     }
 }
