@@ -6,9 +6,6 @@ packages:
   WebRTC:
     url: https://github.com/stasel/WebRTC.git
     exactVersion: 156.0.0
-  SocketIO:
-    url: https://github.com/socketio/socket.io-client-swift.git
-    exactVersion: 16.1.1
 targets:
   HitelCall:
     type: application
@@ -18,7 +15,6 @@ targets:
       - path: CallApp
     dependencies:
       - package: WebRTC
-      - package: SocketIO
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.call
