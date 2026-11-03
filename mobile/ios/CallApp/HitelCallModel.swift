@@ -90,6 +90,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
             self.sequence=0;self.phase=assignment["phase"] as? String ?? "idle"
             self.shouldReconnect=true
             self.openSocket()
+            self.prepareCameraPreview()
             self.note("고유 웹 주소에서 통화 세션 자동 연결: SC-"+String(self.routeId))
         }
         deviceClient.start()
@@ -261,6 +262,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         cameraPermissionRequested = true
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
+            cameraPermissionRequested = false
             startMedia()
             mediaState = videoCore?.cameraOpened == true
                 ? "로컬 카메라 시작 요청 · 첫 영상 프레임 확인 전"
