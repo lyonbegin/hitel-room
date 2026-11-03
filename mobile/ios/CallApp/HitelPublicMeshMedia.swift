@@ -7,4 +7,12 @@ struct HitelMeshRemoteVideo: Identifiable {
     let videoTrack: RTCVideoTrack
 }
 
-final class HitelPublicMeshMedia: NSObject { var ready = false }
+final class HitelPublicMeshMedia: NSObject {
+    var onStatus: ((String) -> Void)?
+    var onRemote: (([HitelMeshRemoteVideo]) -> Void)?
+    var onFirstFrame: (() -> Void)?
+    var onFPS: ((Double) -> Void)?
+    var onEnded: (() -> Void)?
+    var localVideoTrack: RTCVideoTrack?
+    var ready = false
+}
