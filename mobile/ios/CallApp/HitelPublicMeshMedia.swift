@@ -54,6 +54,16 @@ final class HitelPublicMeshMedia: NSObject, RTCPeerConnectionDelegate {
                                  options:[.allowBluetooth,.defaultToSpeaker])
         try session.setActive(true)
     }
+    var maskView: UIView? {videoCore?.maskView}
+    func setMask(_ enabled:Bool) throws {
+        guard let videoCore else {
+            throw HitelVideoCoreError.noCamera
+        }
+        _ = try videoCore.setMode(enabled ? .mask : .original)
+        report(enabled
+            ? "ARKit 원본 3D 얼굴 텍스처 합성 시작 · 첫 프레임 확인 중"
+            : "네이티브 원본 카메라 영상으로 전환")
+    }
     func microphone(_ enabled:Bool) { microphoneTrack?.isEnabled=enabled }
     func camera(_ enabled:Bool) { videoCore?.setCameraEnabled(enabled) }
     func finishWelcome(_ result:Result<Void,Error>) {
