@@ -11,6 +11,8 @@ struct HitelMeshRemoteVideo: Identifiable {
 final class HitelPublicMeshMedia: NSObject, RTCPeerConnectionDelegate {
     var onStatus: ((String) -> Void)?
     var onRemote: (([HitelMeshRemoteVideo]) -> Void)?
+    var onRemoteFirstFrame: ((String) -> Void)?
+    var onICEConnected: ((String) -> Void)?
     var onFirstFrame: (() -> Void)?
     var onFPS: ((Double) -> Void)?
     var onEnded: (() -> Void)?
@@ -63,7 +65,7 @@ final class HitelPublicMeshMedia: NSObject, RTCPeerConnectionDelegate {
         if stopped {return}
         stopped=true
         ws?.cancel(with:.normalClosure,reason:nil);ws=nil
-        peers.values.forEach {$0.connection.close()}
+        peers.values.forEach {$0.detachVideoProbe();$0.connection.close()}
         peers.removeAll()
         videoCore?.stop();videoCore=nil
         localVideoTrack=nil;microphoneTrack=nil
