@@ -67,6 +67,11 @@ final class HitelCarrierBLEAudioBridge: NSObject, ObservableObject,
                 CBCentralManagerOptionRestoreIdentifierKey: Self.restoreID,
                 CBCentralManagerOptionShowPowerAlertKey: true
             ])
+        if optedIn {
+            // Re-establish STT authorization as well as BLE subscriptions when
+            // iOS brings the app back after a qualifying background BLE event.
+            requestSpeechPermission()
+        }
     }
 
     func start() {
