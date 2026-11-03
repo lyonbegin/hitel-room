@@ -1,0 +1,113 @@
+name: HITEL iPhone real-device carrier audio probe
+on:
+  push:
+    branches:
+      - feature/ios-carrier-audio-real-device-probe-20261104
+    paths:
+      - 'mobile/ios/CarrierAudioProbe/**'
+      - 'mobile/ios/CarrierAudioProbeBroadcast/**'
+      - 'mobile/ios/project.carrier-audio-probe.yml'
+      - '.github/workflows/ios-carrier-audio-probe.yml'
+      - 'research/IOS_CARRIER_AUDIO_PROBE_INSTALL_TEST.md'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel-ios-carrier-audio-probe
+  cancel-in-progress: true
+jobs:
+  arm64-phone-audio-test:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify existing phone, video, web and Railway code untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feature/ios-native-carrier-phone-only-20261103
+          BASE="$(git merge-base HEAD origin/feature/ios-native-carrier-phone-only-20261103)"
+          git diff --name-only "$BASE" HEAD > /tmp/hitel_probe_changed_paths.txt
+          cat /tmp/hitel_probe_changed_paths.txt
+          if grep -vE '^(mobile/ios/CarrierAudioProbe/|mobile/ios/CarrierAudioProbeBroadcast/|mobile/ios/project[.]carrier-audio-probe[.]yml$|[.]github/workflows/ios-carrier-audio-probe[.]yml$|research/IOS_CARRIER_AUDIO_PROBE_INSTALL_TEST[.]md$)' /tmp/hitel_probe_changed_paths.txt; then
+            echo "::error::Non-probe sources changed!"
+            exit 1
+          fi
+          if grep -R -En '^\s*import (WebRTC|WebKit)|WKWebView|URLSessionWebSocket|hitel-communication-web|hitel-room-production' \
+             mobile/ios/CarrierAudioProbe mobile/ios/CarrierAudioProbeBroadcast; then
+            echo "::error::Unauthorized web/video dependency in phone audio probe!"
+            exit 1
+          fi
+          echo HITEL_EXISTING_VIDEO_AND_PHONE_SOURCES_UNTOUCHED_PASS
+      - name: Create isolated Xcode native probe + broadcast extension project
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec project.carrier-audio-probe.yml
+          test -d HitelAudioProbe.xcodeproj
+          grep -q HitelAudioProbeBroadcast HitelAudioProbe.xcodeproj/project.pbxproj
+          if grep -Eq 'HitelOriginalRoomClient|HitelPublicMeshMedia|WebRTC.framework|WKWebView|HitelCallScreen' \
+              HitelAudioProbe.xcodeproj/project.pbxproj; then
+            echo "::error::Video-call sources incorrectly embedded"
+            exit 1
+          fi
+      - name: Build actual iPhone ARM64 native app and ReplayKit extension
+        working-directory: mobile/ios
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelAudioProbe.xcodeproj -scheme HitelAudioProbe \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/HitelAudioProbeBuild" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/hitel-audio-probe-build.log" 2>&1 || {
+              tail -220 "$RUNNER_TEMP/hitel-audio-probe-build.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/HitelAudioProbeBuild/Build/Products/Release-iphoneos/HitelAudioProbe.app"
+          test -s "$APP/HitelAudioProbe"
+          test -s "$APP/PlugIns/HitelAudioProbeBroadcast.appex/HitelAudioProbeBroadcast"
+          file "$APP/HitelAudioProbe" | grep -q arm64
+          file "$APP/PlugIns/HitelAudioProbeBroadcast.appex/HitelAudioProbeBroadcast" | grep -q arm64
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.carrieraudioprobe"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/PlugIns/HitelAudioProbeBroadcast.appex/Info.plist")" = "app.hitel.carrieraudioprobe.broadcast"
+          echo HITEL_NATIVE_AUDIO_PROBE_AND_REPLAYKIT_ARM64_BUILD_PASS
+      - name: Prepare independent unsigned IPA, source files and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/PhoneProbePayload/Payload" probe-release
+          cp -R "$RUNNER_TEMP/HitelAudioProbeBuild/Build/Products/Release-iphoneos/HitelAudioProbe.app" \
+            "$RUNNER_TEMP/PhoneProbePayload/Payload/"
+          (cd "$RUNNER_TEMP/PhoneProbePayload" && zip -qry \
+            "$GITHUB_WORKSPACE/probe-release/HITEL-Phone-Audio-Real-Device-PROBE-UNSIGNED.ipa" Payload)
+          (cd mobile/ios && zip -qry "$GITHUB_WORKSPACE/probe-release/HITEL-Phone-Audio-Real-Device-PROBE-SOURCE.zip" \
+            CarrierAudioProbe CarrierAudioProbeBroadcast project.carrier-audio-probe.yml)
+          unzip -t probe-release/HITEL-Phone-Audio-Real-Device-PROBE-UNSIGNED.ipa | tail -2
+          unzip -l probe-release/HITEL-Phone-Audio-Real-Device-PROBE-UNSIGNED.ipa \
+            | grep -q 'PlugIns/HitelAudioProbeBroadcast.appex/Info.plist'
+          shasum -a 256 probe-release/*.ipa probe-release/*.zip > probe-release/SHA256.txt
+          echo HITEL_AUDIO_PROBE_IPA_CONTAINS_REAL_REPLAYKIT_EXTENSION_PASS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-iPhone-real-device-carrier-audio-probe-unsigned
+          path: probe-release/*
+          retention-days: 90
+      - name: Publish unsigned diagnostic iPhone bundle (no Railway deploy)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-ios-carrier-audio-probe-20261104
+          NOTES="Separate native SwiftUI real-device testing app with ReplayKit Broadcast Upload extension, audioApp/audioMic PCM measurements (RMS, peak, silence, format and byte-order), CallKit status, 440 Hz deterministic positive control, 11 test modes, explicit-consent 5-second WAV capture, offline speech recognition, and JSONL export. Video SDK/web/Railway unchanged. The IPA is UNSIGNED; installation needs Apple provisioning and an App Group assigned to both application targets. Actual cellular far-end audio receipt has NOT been verified."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" probe-release/* --clobber
+          else
+            gh release create "$TAG" probe-release/* \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "HITEL iPhone carrier audio real-device test" --notes "$NOTES"
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
