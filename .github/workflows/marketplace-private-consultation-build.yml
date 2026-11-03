@@ -4,6 +4,9 @@ on:
     branches:
       - feature/marketplace-private-consultation-20261103
 
+  pull_request:
+    branches: [main]
+
 jobs:
   build:
     runs-on: ubuntu-latest
