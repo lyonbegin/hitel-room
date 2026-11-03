@@ -1,0 +1,75 @@
+name: HITEL Call native RX TX audio preview release
+on:
+  push:
+    branches:
+      - feature/ios-native-original-room-signaling-20261103
+    paths:
+      - '.github/workflows/ios-native-audio-rxtx-preview-release.yml'
+      - 'mobile/ios/CallApp/**'
+      - 'mobile/ios/project.call.free.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel-ios-rxtx-preview-release
+  cancel-in-progress: true
+jobs:
+  native-audio-unsigned-ipa:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate separate iPhone app project
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec project.call.free.yml
+      - name: Compile native ARM64 RX/TX app
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelCall.xcodeproj -scheme HitelCall \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/HitelAudioRelease" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/hitel-audio-rxtx-build.log" 2>&1 || {
+              tail -150 "$RUNNER_TEMP/hitel-audio-rxtx-build.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/HitelAudioRelease/Build/Products/Release-iphoneos/HitelCall.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.call"
+          test -s "$APP/face-mask.png"
+          test -s "$APP/Frameworks/WebRTC.framework/WebRTC"
+          for KEY in NSSpeechRecognitionUsageDescription NSMicrophoneUsageDescription NSMicrophoneInjectionUsageDescription; do
+            /usr/libexec/PlistBuddy -c "Print :$KEY" "$APP/Info.plist"
+          done
+          test ! -e "$APP/PlugIns/HitelScreenBroadcast.appex"
+          echo HITEL_NATIVE_RXTX_ARM64_BUILD_AND_PLIST_PASS
+      - name: Create independent unsigned IPA and SHA256
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/AudioPayload/Payload" audio-release
+          cp -R "$RUNNER_TEMP/HitelAudioRelease/Build/Products/Release-iphoneos/HitelCall.app" "$RUNNER_TEMP/AudioPayload/Payload/"
+          (cd "$RUNNER_TEMP/AudioPayload" && zip -qry "$GITHUB_WORKSPACE/audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa" Payload)
+          unzip -t audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa | tail -2
+          shasum -a 256 audio-release/HITEL-Call-Native-RXTX-UNSIGNED.ipa > audio-release/HITEL-Call-Native-RXTX-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-native-RXTX-unsigned-IPA
+          path: audio-release/*
+          retention-days: 30
+      - name: Publish separate audio test preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-call-native-rxtx-preview-20261103
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" audio-release/* --clobber
+          else
+            gh release create "$TAG" audio-release/* \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "HITEL Call native RX/TX speech processing preview" \
+              --notes "Independent unsigned iPhone app.hitel.call test IPA. Adds native microphone STT, TTS, imported recording transcription, and iOS 18.2 opt-in Add Audio in Calls. IMPORTANT: Live third-party cellular RX PCM and suppressing/replacing raw cellular microphone audio are NOT supported; iOS microphone injection mixes speech with the microphone. Physical carrier-call testing and Apple signing remain outstanding. Existing screen streamer is untouched."
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
