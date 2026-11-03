@@ -86,9 +86,15 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
                   kCVPixelFormatType_32BGRA,attrs as CFDictionary,&pixel)==kCVReturnSuccess,
                   let buffer=pixel else{return}
             let moving=CGFloat((self.syntheticIndex%100))/100.0
-            let bg=CIImage(color:CIColor(red:moving,green:0.20,blue:0.70,alpha:1))
+            let bg=CIImage(color:CIColor(red:0.25 + moving*0.06,
+                                        green:0.26,blue:0.28,alpha:1))
                 .cropped(to:CGRect(x:0,y:0,width:width,height:height))
             self.context.render(bg,to:buffer)
+            if ProcessInfo.processInfo.arguments.contains("-HITEL_E2E_NATIVE_MASK"),
+               self.mode == .mask,
+               let blueMask=self.originalMask.renderSimulatedFace(buffer,frameIndex:self.syntheticIndex) {
+                self.context.render(blueMask,to:buffer)
+            }
             let frame=RTCVideoFrame(buffer:RTCCVPixelBuffer(pixelBuffer:buffer),
                  rotation:RTCVideoRotation._0,timeStampNs:Int64(Date().timeIntervalSince1970*1_000_000_000))
             self.videoSource.capturer(self.capturer,didCapture:frame)
