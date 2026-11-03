@@ -13,6 +13,16 @@ extension HitelPublicMeshMedia {
             }
             finishWelcome(.success(()))
             report("공개방 입장 · 상대 영상 연결 대기")
+        } else if type == "peer-joined" {
+            if let id=event["peerId"] as? String,
+               let peer=ensurePeer(id:id,userID:event["userId"] as? String ?? id) {
+                createOffer(for:peer)
+            }
+        } else if type == "peer-left" {
+            if let id=event["peerId"] as? String {
+                peers.removeValue(forKey:id)?.connection.close()
+                updateRemotes()
+            }
         }
     }
     func listen(_ task:URLSessionWebSocketTask) {
