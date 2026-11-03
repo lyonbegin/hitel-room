@@ -11,6 +11,7 @@ struct HitelOriginalRoom: Decodable, Identifiable {
     let status: String
     let type: String?
     let policy: RoomPolicy?
+    let hostUserIds: [String]?
     struct RoomPolicy: Decodable {
         let allowUnlistedParticipants: Bool?
     }
@@ -27,6 +28,7 @@ final class HitelOriginalRoomClient: ObservableObject {
     @Published private(set) var rooms: [HitelOriginalRoom] = []
     @Published private(set) var status = "공개방 서버 연결 대기"
     @Published private(set) var joinedRoomID: String?
+    @Published private(set) var isHost = false
     @Published private(set) var remoteVideos: [HitelMeshRemoteVideo] = []
     @Published private(set) var localTrack: RTCVideoTrack?
     @Published private(set) var localCaptureFPS: Double = 0
@@ -133,6 +135,47 @@ final class HitelOriginalRoomClient: ObservableObject {
         }
     }
 
+    func createPublicRoom(title:String,maxParticipants:Int) async -> HitelOriginalRoom? {
+        let cleanTitle=title.trimmingCharacters(in:.whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty,(2...32).contains(maxParticipants) else {
+            status="방 이름과 정원(2~32명)을 확인해 주십시오."
+            return nil
+        }
+        if token == nil { await refreshRooms() }
+        guard let token else {return nil}
+        do {
+            let data=try await request("/api/public-rooms",method:"POST",body:[
+                "title":cleanTitle,"maxParticipants":maxParticipants],bearer:token)
+            let room=try JSONDecoder().decode(HitelOriginalRoom.self,from:data)
+            guard room.joinable else {
+                status="서버에서 공개방 생성 결과를 확인할 수 없습니다."
+                return nil
+            }
+            status="공개 영상방 생성 완료 · 입장 준비"
+            return room
+        } catch {
+            status="공개방 생성 실패: "+error.localizedDescription
+            return nil
+        }
+    }
+
+    func endPublicRoom() async {
+        guard isHost,let id=joinedRoomID,let token else {
+            status="방장에게만 공개방 종료 권한이 있습니다."
+            return
+        }
+        do {
+            let escaped=id.addingPercentEncoding(withAllowedCharacters:.urlPathAllowed) ?? id
+            _ = try await request("/api/public-rooms/"+escaped+"/end",
+                                  method:"POST",bearer:token)
+            leave()
+            status="공개 영상방을 종료했습니다."
+            await refreshRooms()
+        } catch {
+            status="공개방 종료 실패: "+error.localizedDescription
+        }
+    }
+
     func join(_ room:HitelOriginalRoom) async {
         guard room.joinable else { status="참여 가능한 공개방이 아닙니다.";return }
         guard media == nil else {status="먼저 현재 방에서 나가주십시오.";return}
@@ -185,6 +228,7 @@ final class HitelOriginalRoomClient: ObservableObject {
             try await next.connect(to:address,using:ticket)
             localTrack=next.localVideoTrack
             joinedRoomID=room.id
+            isHost=room.hostUserIds?.contains(userID) == true
             mediaConnected=false
             status="공개방 신호 연결됨 · 실제 상대 영상 수신 여부 별도 확인"
         } catch {
@@ -196,6 +240,7 @@ final class HitelOriginalRoomClient: ObservableObject {
     func leave() {
         media?.stop();media=nil
         joinedRoomID=nil
+        isHost=false
         remoteVideos=[];localTrack=nil
         localFirstFrame=false;localCaptureFPS=0
         mediaConnected=false
