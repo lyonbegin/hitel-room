@@ -16,6 +16,9 @@ final class HitelNativeARFaceMask: NSObject, ARSCNViewDelegate, ARSessionDelegat
     private weak var output: RTCVideoCapturerDelegate?
     private var link: CADisplayLink?
     var onError: ((String)->Void)?
+    var onTracking: ((Bool)->Void)?
+    private let faceLock=NSLock()
+    private var trackingFace=false
     private(set) var running = false
 
     init(output:RTCVideoCapturerDelegate,texture:UIImage) {
@@ -50,6 +53,7 @@ final class HitelNativeARFaceMask: NSObject, ARSCNViewDelegate, ARSessionDelegat
         view.delegate=nil
         view.session.delegate=nil
         running=false
+        updateFaceTracking(false)
     }
 
     func renderer(_ renderer:SCNSceneRenderer,nodeFor anchor:ARAnchor)->SCNNode? {
@@ -61,6 +65,8 @@ final class HitelNativeARFaceMask: NSObject, ARSCNViewDelegate, ARSessionDelegat
         material?.lightingModel = .physicallyBased
         material?.isDoubleSided=true
         material?.transparencyMode = .aOne
+        material?.blendMode = .alpha
+        updateFaceTracking(true)
         return SCNNode(geometry:geometry)
     }
 
@@ -68,6 +74,21 @@ final class HitelNativeARFaceMask: NSObject, ARSCNViewDelegate, ARSessionDelegat
         guard let face=anchor as? ARFaceAnchor,
               let geometry=node.geometry as? ARSCNFaceGeometry else {return}
         geometry.update(from:face.geometry)
+        updateFaceTracking(face.isTracked)
+    }
+
+    func renderer(_ renderer:SCNSceneRenderer,didRemove node:SCNNode,for anchor:ARAnchor) {
+        if anchor is ARFaceAnchor { updateFaceTracking(false) }
+    }
+
+    private func updateFaceTracking(_ next:Bool) {
+        faceLock.lock()
+        let changed=trackingFace != next
+        trackingFace=next
+        faceLock.unlock()
+        if changed {
+            DispatchQueue.main.async {[weak self] in self?.onTracking?(next)}
+        }
     }
 
     func session(_ session:ARSession,didFailWithError error:Error) {
