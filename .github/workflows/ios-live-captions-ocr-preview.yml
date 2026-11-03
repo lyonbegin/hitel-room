@@ -1,0 +1,116 @@
+name: HITEL native iPhone Live Captions OCR verification and preview release
+on:
+  push:
+    branches:
+      - feature/ios-native-original-room-signaling-20261103
+    paths:
+      - 'mobile/ios/BroadcastUpload/**'
+      - 'mobile/ios/CallApp/**'
+      - 'mobile/ios/project.free.yml'
+      - 'mobile/ios/project.call.free.yml'
+      - 'sandbox-control/physical-iphone.mjs'
+      - 'src/device-lab/PhysicalIphonePanel.tsx'
+      - 'tests/ios-live-caption-ocr-local.test.mjs'
+      - '.github/workflows/ios-live-captions-ocr-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel-native-iphone-live-caption-ocr-preview
+  cancel-in-progress: true
+jobs:
+  web-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install web dependencies and protocol test dependency
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock --no-audit --no-fund
+          npm install --no-save --no-package-lock --no-audit --no-fund ws
+      - name: Validate server and web UI compile
+        run: |
+          set -euo pipefail
+          node --check sandbox-control/physical-iphone.mjs
+          npm run build
+      - name: Verify signed-in screen OCR relay locally without a real call
+        run: node tests/ios-live-caption-ocr-local.test.mjs
+  iphone-preview:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate legacy-free screen-share app with Vision OCR
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec project.free.yml
+      - name: Compile ARM64 iPhone screen-share extension with Live Caption OCR
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelNative.xcodeproj -scheme HitelNative \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/LiveCaptionScreen" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/hitel-livecaption-screen-build.log" 2>&1 || {
+              tail -160 "$RUNNER_TEMP/hitel-livecaption-screen-build.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/LiveCaptionScreen/Build/Products/Release-iphoneos/HitelNative.app"
+          test -s "$APP/Frameworks/WebRTC.framework/WebRTC"
+          test -f "$APP/PlugIns/HitelScreenBroadcast.appex/Info.plist"
+          echo HITEL_LIVE_CAPTIONS_SCREEN_BROADCAST_ARM64_BUILD_PASS
+      - name: Generate native HITEL Call app with secure caption viewer
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project.call.free.yml
+      - name: Compile ARM64 native Call viewer and deep link
+        working-directory: mobile/ios
+        run: |
+          set -euo pipefail
+          xcodebuild -project HitelCall.xcodeproj -scheme HitelCall \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/LiveCaptionCall" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/hitel-livecaption-call-build.log" 2>&1 || {
+              tail -170 "$RUNNER_TEMP/hitel-livecaption-call-build.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/LiveCaptionCall/Build/Products/Release-iphoneos/HitelCall.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = 'app.hitel.call'
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$APP/Info.plist")" = 'hitelcall'
+          echo HITEL_NATIVE_CALL_LIVE_CAPTION_OCR_VIEWER_ARM64_BUILD_PASS
+      - name: Package independent unsigned iPhone IPA previews
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/PayloadStream/Payload" "$RUNNER_TEMP/PayloadCall/Payload" previews
+          cp -R "$RUNNER_TEMP/LiveCaptionScreen/Build/Products/Release-iphoneos/HitelNative.app" "$RUNNER_TEMP/PayloadStream/Payload/"
+          cp -R "$RUNNER_TEMP/LiveCaptionCall/Build/Products/Release-iphoneos/HitelCall.app" "$RUNNER_TEMP/PayloadCall/Payload/"
+          (cd "$RUNNER_TEMP/PayloadStream" && zip -qry "$GITHUB_WORKSPACE/previews/HITEL-Screen-LiveCaption-OCR-UNSIGNED.ipa" Payload)
+          (cd "$RUNNER_TEMP/PayloadCall" && zip -qry "$GITHUB_WORKSPACE/previews/HITEL-Call-LiveCaption-Viewer-UNSIGNED.ipa" Payload)
+          unzip -t previews/HITEL-Screen-LiveCaption-OCR-UNSIGNED.ipa | tail -2
+          unzip -t previews/HITEL-Call-LiveCaption-Viewer-UNSIGNED.ipa | tail -2
+          shasum -a 256 previews/*.ipa > previews/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-live-call-caption-iPhone-apps-unsigned
+          path: previews/*
+          retention-days: 30
+      - name: Publish isolated pre-release without overwriting installed app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-iphone-live-captions-ocr-preview-20261103
+          NOTES="UNSIGNED PREVIEW: Existing screen-streaming iPhone app adds user-consented Apple Live Captions visual OCR through ReplayKit; separate HITEL Call app receives approved events using private viewer token/deep link. No ESP32 or PSTN gateway. IMPORTANT: this is screen OCR, not direct Phone PCM capture. iPhone Phone-call ReplayKit coexistence and background continuity are NOT physically verified; Apple can interrupt ReplayKit during calls. Both IPAs require Apple signing before installation."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" previews/* --clobber
+          else
+            gh release create "$TAG" previews/* \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "HITEL iPhone · native Live Captions OCR test" \
+              --notes "$NOTES"
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
