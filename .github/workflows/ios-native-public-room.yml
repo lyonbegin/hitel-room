@@ -8,7 +8,7 @@ on:
       - '.github/workflows/ios-native-public-room.yml'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: hitel-public-native-iphone-current
   cancel-in-progress: true
@@ -23,6 +23,8 @@ jobs:
         run: |
           set -euo pipefail
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          test -s PublicRoomApp/face-mask.png
+          echo 'bce04e1c6a9e2e3158fbb81ceed25d6987b56c93253bc9895c8fc31a4299523e  PublicRoomApp/face-mask.png' | shasum -a 256 --check
           xcodegen generate --spec project.public-room.yml
       - name: Compile complete Swift SDK and app on iOS Simulator
         working-directory: mobile/ios
@@ -49,6 +51,7 @@ jobs:
           APP="$RUNNER_TEMP/HitelPublicDevice/Build/Products/Release-iphoneos/HitelPublicRoom.app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.publicroom"
           test -s "$APP/Frameworks/WebRTC.framework/WebRTC"
+          test -s "$APP/face-mask.png"
           test ! -e "$APP/PlugIns/HitelScreenBroadcast.appex"
           echo "NATIVE_PUBLIC_ROOM_DEVICE_ARM64_BUILD_PASS"
       - name: Package separate unsigned IPA
@@ -88,7 +91,7 @@ jobs:
           GUEST_ID="$(python3 -c 'import json,os;print(json.load(open(os.environ["HITEL_E2E_ROOM_FILE"]))["guest"])')"
           xcrun simctl launch "$SIM" app.hitel.publicroom \
             -HITEL_E2E_ROOM_ID "$ROOM_ID" -HITEL_E2E_USER "$GUEST_ID" \
-            -HITEL_E2E_NATIVE_MEDIA
+            -HITEL_E2E_NATIVE_MEDIA -HITEL_E2E_NATIVE_MASK
           DATA="$(xcrun simctl get_app_container "$SIM" app.hitel.publicroom data)"
           for _ in $(seq 1 45); do
             if test -s "$DATA/Documents/hitel-public-common-room-e2e.txt"; then break; fi
@@ -116,27 +119,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: HITEL-iPhone-Native-Public-Room-SDK
+          name: HITEL-iPhone-Native-Original-Blue-FaceMask-SDK
           path: |
             out/*.ipa
             ${{ runner.temp }}/hitel-public-iphone-native.png
             hitel-ios-web-interoperability.png
+            hitel-ios-original-blue-mask-remote.png
             ${{ runner.temp }}/hitel-public-simulator-build.log
             ${{ runner.temp }}/hitel-public-device-build.log
           retention-days: 30
           if-no-files-found: ignore
-      - name: Publish only validated native iPhone IPA as separate prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TAG=hitel-public-room-native-iphone-20261103
-          title="HITEL Public Room — Pure Native SwiftUI iPhone"
-          notes="Separate, unsigned ARM64 iPhone app. Original Communication SDK Railway room IDs/WSS; SwiftUI native VideoCore and AI counselor metadata. Verified web-created room on iOS simulator plus native-WebRTC-to-web test in this workflow. NOT Apple-signed or tested on physical iPhone. Install requires your own authorized code signing. Existing ReplayKit streamer, Fly.io and production web not modified."
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa out/HITEL-PublicRoom-Native-SHA256.txt --clobber
-          else
-            gh release create "$TAG" out/HITEL-PublicRoom-Native-iPhone-unsigned.ipa out/HITEL-PublicRoom-Native-SHA256.txt \
-              --title "$title" --notes "$notes" --prerelease --target "$GITHUB_SHA"
-          fi
-          echo "HITEL_NATIVE_IPHONE_VERIFIED_PRERELEASE_PUBLISHED"
