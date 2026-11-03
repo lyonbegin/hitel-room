@@ -31,6 +31,16 @@ extension HitelPublicMeshMedia {
             remember(track,in:pc)
         }
     }
+    func remember(_ track:RTCVideoTrack,in pc:RTCPeerConnection) {
+        DispatchQueue.main.async {[weak self] in
+            guard let self,
+                  let peer=self.peers.values.first(where:{$0.connection === pc})
+                  else {return}
+            peer.video=track
+            self.updateRemotes()
+            self.onStatus?("상대 영상 트랙 연결됨 · 프레임 표시 검증 필요")
+        }
+    }
     func peerConnection(_ pc:RTCPeerConnection,didRemove candidates:[RTCIceCandidate]){}
     func peerConnection(_ pc:RTCPeerConnection,didOpen channel:RTCDataChannel){}
 }
