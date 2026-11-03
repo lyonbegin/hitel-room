@@ -334,3 +334,9 @@ private struct HitelNativeRTCVideo: UIViewRepresentable {
         coordinator.current?.remove(view)
     }
 }
+
+private struct HitelHostedNativeView: UIViewRepresentable {
+    let view: UIView
+    func makeUIView(context: Context) -> UIView { view }
+    func updateUIView(_ uiView:UIView, context:Context) {}
+}
