@@ -147,7 +147,12 @@ final class HitelLiveCaptionViewer: ObservableObject {
             URLQueryItem(name: "viewerToken", value: token)
         ]
         guard let target = url.url else { return }
-        let task = URLSession.shared.webSocketTask(with: target)
+        // The existing screen-broadcast viewer endpoint requires the same
+        // Origin header as its approved HTTPS management page in addition to
+        // the cryptographically random 64-character viewer token.
+        var request = URLRequest(url: target)
+        request.setValue("https://hitel-communication-web-production.up.railway.app", forHTTPHeaderField: "Origin")
+        let task = URLSession.shared.webSocketTask(with: request)
         socket = task
         status = "HITEL 기존 화면 방송 자막 서버 연결 중"
         task.resume()
