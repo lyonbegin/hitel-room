@@ -333,4 +333,56 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
             }
         }
     }
+
+    /// Deterministic positive control: a 440 Hz, 3 s mono WAV from this
+    /// application's own AVAudioPlayer; never run it during a carrier call.
+    func playReferenceTone() {
+        guard !activeCall else {
+            notice = "일반전화 통화 중에는 시험음을 재생하지 않습니다."
+            return
+        }
+        let rate = 44_100
+        let duration = 3
+        let frames = rate * duration
+        var pcm = Data()
+        for i in 0..<frames {
+            let time = Double(i) / Double(rate)
+            let value = Int16(sin(2 * .pi * 440 * time) * 9000)
+            let raw = UInt16(bitPattern: value)
+            pcm.append(UInt8(truncatingIfNeeded: raw))
+            pcm.append(UInt8(truncatingIfNeeded: raw >> 8))
+        }
+        var wav = Data()
+        func put16(_ value: UInt16) {
+            wav.append(UInt8(truncatingIfNeeded: value))
+            wav.append(UInt8(truncatingIfNeeded: value >> 8))
+        }
+        func put32(_ value: UInt32) {
+            wav.append(UInt8(truncatingIfNeeded: value))
+            wav.append(UInt8(truncatingIfNeeded: value >> 8))
+            wav.append(UInt8(truncatingIfNeeded: value >> 16))
+            wav.append(UInt8(truncatingIfNeeded: value >> 24))
+        }
+        wav.append(contentsOf: Array("RIFF".utf8))
+        put32(UInt32(pcm.count + 36))
+        wav.append(contentsOf: Array("WAVEfmt ".utf8))
+        put32(16); put16(1); put16(1); put32(UInt32(rate))
+        put32(UInt32(rate * 2)); put16(2); put16(16)
+        wav.append(contentsOf: Array("data".utf8))
+        put32(UInt32(pcm.count)); wav.append(pcm)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("hitel-440hz-positive-control.wav")
+        do {
+            try wav.write(to: url, options: [.atomic])
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            let player = try AVAudioPlayer(contentsOf: url)
+            self.player = player
+            player.delegate = self
+            isPlaying = player.play()
+            appendMarker("440Hz 양성 대조 시험음 3초 재생")
+            notice = isPlaying ? "440Hz 양성 대조 시험음 재생 중" : "시험음 재생을 시작하지 못했습니다."
+        } catch {
+            notice = "시험음 재생 실패: " + error.localizedDescription
+        }
+    }
+
 }
