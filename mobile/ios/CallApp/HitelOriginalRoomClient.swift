@@ -31,6 +31,8 @@ final class HitelOriginalRoomClient: ObservableObject {
     @Published private(set) var localCaptureFPS: Double = 0
     @Published private(set) var localFirstFrame = false
     @Published private(set) var mediaConnected = false
+    @Published private(set) var micEnabled = true
+    @Published private(set) var camEnabled = true
 
     private let origin = URL(string:"https://hitel-room-production-ecce.up.railway.app")!
     private let identityKey = "app.hitel.call.public-room-user-v1"
@@ -143,8 +145,9 @@ final class HitelOriginalRoomClient: ObservableObject {
         remoteVideos=[];localTrack=nil
         localFirstFrame=false;localCaptureFPS=0
         mediaConnected=false
+        micEnabled=true;camEnabled=true
         status="공개방 퇴장 · 고유 앱 관리 주소 유지"
     }
-    func microphone(_ enabled:Bool){media?.microphone(enabled)}
-    func camera(_ enabled:Bool){media?.camera(enabled)}
+    func toggleMicrophone(){ micEnabled.toggle();media?.microphone(micEnabled) }
+    func toggleCamera(){ camEnabled.toggle();media?.camera(camEnabled) }
 }
