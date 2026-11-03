@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - fix/ios-native-preview-black-screen-20261103
+      - feature/ios-native-original-room-signaling-20261103
     paths:
       - 'mobile/ios/CallApp/**'
       - 'mobile/ios/project.call.free.yml'
