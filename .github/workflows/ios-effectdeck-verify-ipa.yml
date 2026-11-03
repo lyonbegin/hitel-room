@@ -1,0 +1,54 @@
+name: Inspect generated EffectDeck iOS27 IPA extension payload
+on:
+  push:
+    branches: [feature/ios-effectdeck-original-20261104]
+    paths: [.github/workflows/ios-effectdeck-verify-ipa.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch original unsigned IPA from pinned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ed-inspect
+          gh release download hitel-effectdeck-original-ios27-20261104 \
+            --repo lyonbegin/hitel-room \
+            --pattern 'EffectDeck-ORIGINAL-iOS27-UNSIGNED.ipa' \
+            --dir /tmp/ed-inspect
+          test -s /tmp/ed-inspect/EffectDeck-ORIGINAL-iOS27-UNSIGNED.ipa
+      - name: Inspect real IPA app and original MediaDevice Extension payload
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile,plistlib,pathlib,sys
+          path=pathlib.Path('/tmp/ed-inspect/EffectDeck-ORIGINAL-iOS27-UNSIGNED.ipa')
+          with zipfile.ZipFile(path) as z:
+              names=z.namelist()
+              app='Payload/EffectDeck.app/'
+              info=plistlib.loads(z.read(app+'Info.plist'))
+              print('APP_ID',info.get('CFBundleIdentifier'))
+              print('APP_EXE',info.get('CFBundleExecutable'))
+              print('ARCHIVE_SIZE_BYTES',path.stat().st_size)
+              assert info.get('CFBundleIdentifier')=='ai.nemut.effetune'
+              assert app+'EffectDeck' in names
+              extension_infos=[s for s in names if s.startswith(app) and 'EffeTuneLiveExtension.appex/Info.plist' in s]
+              print('EXTENSION_INFO_FILES',extension_infos)
+              if len(extension_infos)!=1:
+                  raise RuntimeError('MEDIA DEVICE EXTENSION MISSING from original iOS app package')
+              extension=plistlib.loads(z.read(extension_infos[0]))
+              print('MEDIA_DEVICE_EXTENSION_BUNDLE_ID',extension.get('CFBundleIdentifier'))
+              print('MEDIA_DEVICE_EXTENSION_KEYS',sorted(extension.keys()))
+              folder=extension_infos[0].removesuffix('Info.plist')
+              executable=extension.get('CFBundleExecutable','EffeTuneLiveExtension')
+              assert folder+executable in names, f'Missing media device extension executable {folder+executable}'
+              share=[s for s in names if s.endswith('EffectDeckShare.appex/Info.plist')]
+              print('SHARE_EXTENSION_INFO_FILES',share)
+              assert len(share)==1
+              print('EFFECTDECK_ORIGINAL_IPA_EMBEDS_REAL_MEDIA_DEVICE_AND_SHARE_EXTENSION_PASS')
+          PY
