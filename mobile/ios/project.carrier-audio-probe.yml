@@ -1,0 +1,57 @@
+name: HitelAudioProbe
+options:
+  minimumXcodeGenVersion: 2.38.0
+  bundleIdPrefix: app.hitel
+targets:
+  HitelAudioProbe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: CarrierAudioProbe
+        excludes:
+          - CarrierAudioProbe.entitlements
+    dependencies:
+      - target: HitelAudioProbeBroadcast
+        embed: true
+    entitlements:
+      path: CarrierAudioProbe/CarrierAudioProbe.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.carrieraudioprobe
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "HITEL 전화 음성 검증"
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "사용자의 동의로 iPhone 내부에 저장한 5초 음성 샘플을 오프라인 한국어로 전사하여 테스트합니다."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "ReplayKit 방송 중 마이크 오디오 유입 여부를 사용자의 허락을 받아 측정합니다."
+        INFOPLIST_KEY_NSCameraUsageDescription: "이 진단 앱은 카메라를 사용하거나 화면 픽셀을 보관하지 않습니다."
+  HitelAudioProbeBroadcast:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: CarrierAudioProbeBroadcast
+        excludes:
+          - Info.plist
+          - CarrierAudioProbeBroadcast.entitlements
+    entitlements:
+      path: CarrierAudioProbeBroadcast/CarrierAudioProbeBroadcast.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.carrieraudioprobe.broadcast
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: CarrierAudioProbeBroadcast/Info.plist
+schemes:
+  HitelAudioProbe:
+    build:
+      targets:
+        HitelAudioProbe: all
+        HitelAudioProbeBroadcast: all
+    run:
+      config: Debug
