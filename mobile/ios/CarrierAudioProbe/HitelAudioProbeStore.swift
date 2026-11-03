@@ -3,6 +3,7 @@ import Combine
 import CallKit
 import AVFoundation
 import Speech
+import UserNotifications
 
 /// Device-only evidence model. The app and ReplayKit extension communicate
 /// exclusively through an isolated App Group container, never a web service.
@@ -33,6 +34,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
     @Published private(set) var sampleSaved = false
     @Published private(set) var sampleDuration = 0.0
     @Published private(set) var notice = ""
+    @Published private(set) var notificationStatus = "알림 백업 경로 권한 미확인"
     @Published private(set) var recognizedText = ""
     @Published private(set) var transcriptionStatus = "오디오 샘플이 있으면 통화 후 온디바이스 전사를 검사할 수 있습니다."
     @Published private(set) var isRecognizing = false
@@ -46,8 +48,15 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
     private var player: AVAudioPlayer?
     private var runID = ""
     private var lastLoggedCall = ""
+    private var importingNotifications = false
 
-    var containerURL: URL? { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.groupID) }
+    var containerURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.groupID)
+        ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+    }
+    private var groupGranted: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.groupID) != nil
+    }
     var eventsURL: URL? {
         containerURL?.appendingPathComponent(Self.eventsName)
     }
@@ -63,7 +72,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
 
     override init() {
         super.init()
-        hasSharedContainer = containerURL != nil
+        hasSharedContainer = groupGranted
         if let settings = UserDefaults(suiteName: Self.groupID) {
             saveSample = settings.bool(forKey: "probe.saveSample")
             sampleDelay = settings.object(forKey: "probe.sampleDelay") == nil
@@ -75,6 +84,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
                 settings.set(runID, forKey: "probe.runID")
             }
         }
+        if runID.isEmpty { runID = UUID().uuidString }
         observer.setDelegate(self, queue: .main)
         refreshCall()
         refresh()
@@ -163,7 +173,7 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
     }
 
     func refresh() {
-        hasSharedContainer = containerURL != nil
+        hasSharedContainer = groupGranted
         guard let url = eventsURL, let raw = try? String(contentsOf: url, encoding: .utf8) else {
             broadcastStatus = hasSharedContainer ? "시작 전 · 방송 기록 없음" : "App Groups 권한 없음"
             appBuffers = 0; micBuffers = 0
@@ -383,6 +393,105 @@ final class HitelAudioProbeStore: NSObject, ObservableObject, CXCallObserverDele
         } catch {
             notice = "시험음 재생 실패: " + error.localizedDescription
         }
+    }
+
+
+    /// Alternative to App Groups for Windows Sideloadly/free Apple ID.
+    /// Receives diagnostic data as local notification payloads; an approved
+    /// WAV is copied from a local notification attachment into app Documents.
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge]) { [weak self] granted, error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    self.notificationStatus = "로컬 알림 허용 오류: " + error.localizedDescription
+                } else {
+                    self.notificationStatus = granted
+                        ? "로컬 알림 허용 · 무료 서명 백업 계측 가능"
+                        : "로컬 알림 거부 · 무료 서명 결과 회수 불가"
+                }
+                if granted { self.importNotificationEvidence() }
+            }
+        }
+    }
+
+    func importNotificationEvidence() {
+        guard !importingNotifications else { return }
+        importingNotifications = true
+        UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] messages in
+            Task { @MainActor in
+                guard let self else { return }
+                var importedIDs: [String] = []
+                for message in messages.sorted(by: { $0.date < $1.date }) {
+                    guard message.request.identifier.hasPrefix("hitel-probe-"),
+                          message.request.content.userInfo["hitelProbe"] as? Bool == true else { continue }
+                    let info = message.request.content.userInfo
+                    let kind = info["kind"] as? String ?? "window"
+                    self.appendMarker("무료 서명 알림 수신: " + kind)
+                    for (source, prefix) in [("audioApp", "app"), ("audioMic", "mic")] {
+                        let buffers = info[prefix + "Buffers"] as? Int ?? 0
+                        guard buffers > 0 else { continue }
+                        let samples = info[prefix + "Samples"] as? Int ?? 0
+                        let power = info[prefix + "Square"] as? Double ?? 0
+                        let rms = samples > 0 ? sqrt(power / Double(samples)) : 0.0
+                        self.appendLocalEvent([
+                            "type": "audio_window", "source": source,
+                            "buffers": buffers,
+                            "silentBuffers": info[prefix + "Silent"] as? Int ?? 0,
+                            "invalidBuffers": info[prefix + "Invalid"] as? Int ?? 0,
+                            "samples": samples,
+                            "rms": rms,
+                            "peak": info[prefix + "Peak"] as? Double ?? 0,
+                            "sampleRate": info[prefix + "Rate"] as? Double ?? 0,
+                            "channels": info[prefix + "Channels"] as? Int ?? 0,
+                            "bits": info[prefix + "Bits"] as? Int ?? 0,
+                            "bigEndian": info[prefix + "Endian"] as? Bool ?? false
+                        ])
+                    }
+                    if kind == "sample",
+                       let attachment = message.request.content.attachments.first,
+                       let destination = self.containerURL?.appendingPathComponent(Self.sampleName) {
+                        do {
+                            try? FileManager.default.removeItem(at: destination)
+                            try FileManager.default.copyItem(at: attachment.url, to: destination)
+                            self.appendLocalEvent([
+                                "type": "sample_saved", "source": "audioApp",
+                                "durationSeconds": 5.0, "explicitConsent": true
+                            ])
+                        } catch {
+                            self.notice = "알림 WAV 파일 복사 실패: " + error.localizedDescription
+                            // Keep the notification so the user can retry.
+                            continue
+                        }
+                    }
+                    importedIDs.append(message.request.identifier)
+                }
+                if !importedIDs.isEmpty {
+                    UNUserNotificationCenter.current()
+                        .removeDeliveredNotifications(withIdentifiers: importedIDs)
+                    self.notificationStatus = "로컬 알림 계측 기록 " +
+                        String(importedIDs.count) + "건 회수 완료"
+                }
+                self.importingNotifications = false
+                self.refresh()
+            }
+        }
+    }
+
+    private func appendLocalEvent(_ fields: [String: Any]) {
+        guard let url = eventsURL else { return }
+        var item = fields
+        item["runID"] = runID
+        item["at"] = ISO8601DateFormatter().string(from: Date())
+        guard var bytes = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys]) else { return }
+        bytes.append(0x0A)
+        if !FileManager.default.fileExists(atPath: url.path) {
+            _ = FileManager.default.createFile(atPath: url.path, contents: nil)
+        }
+        guard let handle = try? FileHandle(forWritingTo: url) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: bytes)
     }
 
 }
