@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import WebRTC
 import UIKit
 
@@ -8,6 +9,7 @@ struct HitelCallScreen: View {
     @StateObject private var originalRoom = HitelOriginalRoomClient()
     @State private var selectedScenario = 11
     @State private var aiPrompt = ""
+    private let roomRefreshTimer = Timer.publish(every:4,on:.main,in:.common).autoconnect()
     private let kinds=["P","P+","N","W"]
     private func name(_ id:Int)->String{
         let i=max(0,min(15,id-1))
@@ -235,6 +237,11 @@ struct HitelCallScreen: View {
             }
             .onAppear {
                 Task { await originalRoom.refreshRooms() }
+            }
+            .onReceive(roomRefreshTimer) { _ in
+                if UIApplication.shared.applicationState == .active {
+                    Task { await originalRoom.refreshRooms() }
+                }
             }
         }
     }
