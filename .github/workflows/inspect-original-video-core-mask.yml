@@ -1,0 +1,40 @@
+name: Inspect exact existing web VideoCore face-mask asset
+on:
+  push:
+    branches: [feature/iphone-native-public-room-20261103]
+    paths: [.github/workflows/inspect-original-video-core-mask.yml]
+permissions:
+  contents: read
+jobs:
+  asset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout exact web VideoCore face-mask source
+        uses: actions/checkout@v4
+        with:
+          repository: hiukim/mind-ar-js
+          ref: v1.2.5
+          path: upstream-mindar
+      - name: Validate real texture and provenance
+        run: |
+          set -euo pipefail
+          ASSET=upstream-mindar/examples/face-tracking/assets/sparkar/face-mask.png
+          test -s "$ASSET"
+          file "$ASSET"
+          sha256sum "$ASSET"
+          python3 - <<'PY'
+          import struct, pathlib
+          p=pathlib.Path("upstream-mindar/examples/face-tracking/assets/sparkar/face-mask.png")
+          s=p.read_bytes()
+          assert s[:8]==bytes.fromhex("89504e470d0a1a0a"), "Not PNG"
+          print('original png dimensions', struct.unpack(">II",s[16:24]))
+          PY
+          mkdir -p out
+          cp "$ASSET" out/face-mask.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-web-videocore-mask-texture-v125
+          path: out/face-mask.png
+          retention-days: 30
