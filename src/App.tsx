@@ -92,6 +92,13 @@ function LegacyApp({publicMode=false,privateConsultationId}:{publicMode?:boolean
   setLoading(true);setLookupError('');
   // HITEL authenticates the user and verifies membership; a URL alone grants no access.
   getConsultation(profile.token,privateConsultationId).then(found=>{
+   const invited=Array.isArray(found.participants)&&
+     found.participants.some(p=>p.userId===profile.userId);
+   const isPrivate=found.policy?.allowUnlistedParticipants===false;
+   const active=found.status!=='ENDED'&&found.status!=='CANCELLED';
+   if(found.id!==privateConsultationId||!invited||!isPrivate||!active){
+     throw new Error('초대된 비공개 상담방이 아니거나 이미 종료되었습니다.');
+   }
    if(!cancelled)setSession(found);
   }).catch(e=>{if(!cancelled)setLookupError('비공개 상담방 조회 실패: '+errorText(e))})
     .finally(()=>{if(!cancelled)setLoading(false)});
