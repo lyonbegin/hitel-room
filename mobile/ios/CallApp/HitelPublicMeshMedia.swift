@@ -1,5 +1,6 @@
 import Foundation
 import WebRTC
+import AVFoundation
 
 struct HitelMeshRemoteVideo: Identifiable {
     let id: String
@@ -35,6 +36,21 @@ final class HitelPublicMeshMedia: NSObject {
             guard let track=peer.video else {return nil}
             return HitelMeshRemoteVideo(id:peer.id,userID:peer.userID,videoTrack:track)
         }.sorted {$0.id < $1.id})
+    }
+    func prepareTracks() throws {
+        let core=HitelNativeVideoCore(factory:Self.factory)
+        core.onFirstFrame={[weak self] in self?.onFirstFrame?()}
+        core.onCaptureFPS={[weak self] fps in self?.onFPS?(fps)}
+        videoCore=core
+        localVideoTrack=try core.openCamera(mode:.original)
+        let source=Self.factory.audioSource(with:RTCMediaConstraints(
+            mandatoryConstraints:nil,optionalConstraints:nil))
+        microphoneTrack=Self.factory.audioTrack(
+            with:source,trackId:"hitel-public-audio")
+        let session=AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord,mode:.videoChat,
+                                 options:[.allowBluetooth,.defaultToSpeaker])
+        try session.setActive(true)
     }
     func microphone(_ enabled:Bool) { microphoneTrack?.isEnabled=enabled }
     func camera(_ enabled:Bool) { videoCore?.setCameraEnabled(enabled) }
