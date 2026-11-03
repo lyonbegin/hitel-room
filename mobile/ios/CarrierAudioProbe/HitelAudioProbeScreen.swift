@@ -209,19 +209,30 @@ struct HitelAudioProbeScreen: View {
                                 .textContentType(.telephoneNumber)
                                 .textFieldStyle(.roundedBorder)
                             Button {
-                                probe.setPhase("일반전화 · 발신")
-                                let valid = String(telephoneNumber.unicodeScalars.filter {
-                                    CharacterSet(charactersIn: "+0123456789").contains($0)
-                                })
-                                if valid.count >= 3, valid.count <= 24,
-                                   let url = URL(string: "tel:" + valid) {
-                                    UIApplication.shared.open(url)
-                                } else {
-                                    probe.appendMarker("오류: 전화번호가 올바르지 않습니다.")
-                                }
+                                dialCarrierNumber(telephoneNumber)
                             } label: {
                                 Label("기본 전화 앱", systemImage: "phone.arrow.up.right")
                             }.buttonStyle(.borderedProminent)
+                        }
+                        HStack {
+                            Button {
+                                telephoneNumber = "100"
+                                dialCarrierNumber("100")
+                            } label: {
+                                Label("100 고객센터로 바로 발신", systemImage: "phone")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Button("번호 100 입력") {
+                                telephoneNumber = "100"
+                                probe.appendMarker("단축번호 100 직접 입력")
+                            }.buttonStyle(.bordered)
+                        }
+                        Text("100·112·119 등 단축번호를 허용합니다. 전화 앱이 열리는지까지 결과 기록에 남깁니다.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        if !probe.dialStatus.isEmpty {
+                            Text(probe.dialStatus)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         Text("방송이 켜진 상태에서 발신하십시오. 실제 회선 통화로 연결되어야 결과가 의미 있습니다. 통화 전·중·후에 음성 신호가 중단되는지도 기록합니다.")
                             .font(.caption).foregroundStyle(.secondary)
@@ -333,6 +344,29 @@ struct HitelAudioProbeScreen: View {
             .padding(16)
             .background(Color(uiColor: .secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func dialCarrierNumber(_ number: String) {
+        probe.setPhase("일반전화 · 발신")
+        guard let url = HitelCarrierDialURL.make(number) else {
+            probe.appendMarker("전화번호 정규화 실패 · 입력=" + number)
+            probe.setDialStatus("전화번호 형식 오류: " + number)
+            return
+        }
+        let display = url.absoluteString.replacingOccurrences(of: "tel:", with: "")
+        probe.appendMarker("전화 앱 실행 요청 · 번호=" + display)
+        UIApplication.shared.open(url, options: [:]) { didOpen in
+            DispatchQueue.main.async {
+                if didOpen {
+                    probe.setDialStatus("기본 전화 앱 열기 성공 · " + display + " (통화 연결은 별도 확인)")
+                    probe.appendMarker("기본 전화 앱 열기 성공 · " + display)
+                } else {
+                    probe.setDialStatus("iOS 기본 전화 앱 열기 실패 · " + display)
+                    probe.appendMarker("iOS 전화 URL 열기 실패 · " + display)
+                }
+                probe.refresh()
+            }
+        }
     }
 
     private func metric(_ title: String, buffers: Int, silent: Int, invalid: Int,
