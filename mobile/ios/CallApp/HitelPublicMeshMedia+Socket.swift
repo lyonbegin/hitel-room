@@ -23,6 +23,15 @@ extension HitelPublicMeshMedia {
                 peers.removeValue(forKey:id)?.connection.close()
                 updateRemotes()
             }
+        } else if type == "room-ended" {
+            report("공개방 종료 통지")
+            stop();onEnded?()
+        } else if type == "signal" {
+            if let id=event["from"] as? String,
+               let data=event["data"] as? [String:Any],
+               let peer=ensurePeer(id:id,userID:event["userId"] as? String ?? id) {
+                acceptSignal(data,from:peer)
+            }
         }
     }
     func listen(_ task:URLSessionWebSocketTask) {
