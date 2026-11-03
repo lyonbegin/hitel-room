@@ -44,6 +44,7 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
     private var nativeMask: HitelNativeARFaceMask?
     var maskView: UIView? { nativeMask?.view }
     var onCameraError: ((String)->Void)?
+    var onFaceTracked: ((Bool)->Void)?
     private let statsLock = NSLock()
     private var frameCount: Int = 0
     private var windowFrameCount: Int = 0
@@ -166,6 +167,7 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
         clearFrameStats()
         let mask=HitelNativeARFaceMask(output:self,texture:texture)
         mask.onError={[weak self] message in self?.onCameraError?(message)}
+        mask.onTracking={[weak self] tracked in self?.onFaceTracked?(tracked)}
         try mask.start()
         nativeMask=mask
         mode = .mask
