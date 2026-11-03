@@ -18,6 +18,10 @@ targets:
         NSMicrophoneUsageDescription: "HITEL 통화와 사용자가 시작한 음성 인식에 마이크를 사용합니다."
         NSSpeechRecognitionUsageDescription: "사용자가 선택한 마이크 또는 기존 녹음 파일을 텍스트로 변환합니다."
         NSMicrophoneInjectionUsageDescription: "사용자 허락을 받아 HITEL의 합성 음성을 일반전화에 추가합니다."
+        CFBundleURLTypes:
+          - CFBundleURLName: "app.hitel.call.captions"
+            CFBundleURLSchemes:
+              - hitelcall
         NSBluetoothAlwaysUsageDescription: "통화용 HITEL 외부 오디오 어댑터와 연결하여 상대방 음성을 자막으로 변환합니다."
         UIBackgroundModes:
           - bluetooth-central
