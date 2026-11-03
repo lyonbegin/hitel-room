@@ -41,6 +41,9 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
 
     private lazy var capturer = RTCCameraVideoCapturer(delegate: self)
     private let source: RTCVideoSource
+    private var nativeMask: HitelNativeARFaceMask?
+    var maskView: UIView? { nativeMask?.view }
+    var onCameraError: ((String)->Void)?
     private let statsLock = NSLock()
     private var frameCount: Int = 0
     private var windowFrameCount: Int = 0
@@ -60,6 +63,15 @@ final class HitelNativeVideoCore: NSObject, RTCVideoCapturerDelegate {
         statsLock.lock()
         defer { statsLock.unlock() }
         return measuredCaptureFPS
+    }
+
+    private func clearFrameStats() {
+        statsLock.lock()
+        frameCount=0
+        windowFrameCount=0
+        windowBeganAt=0
+        measuredCaptureFPS=0
+        statsLock.unlock()
     }
 
     init(factory: RTCPeerConnectionFactory) {
