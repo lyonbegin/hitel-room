@@ -19,6 +19,7 @@ const server=createServer((req,res)=>{
  void physicalIphoneRoute(req,res,pathname);
 });
 server.on("upgrade",(req,socket,head)=>{
+ req.url=req.url.replace(/^\/lab-sandbox/,"");
  if(!physicalIphoneUpgrade(req,socket,head))socket.destroy();
 });
 await new Promise(resolve=>server.listen(port,"127.0.0.1",resolve));
@@ -69,10 +70,12 @@ try{
  assert.equal(caption.text,"안녕하세요, 다음 주 수요일에 뵙겠습니다.");
  assert.equal(caption.source,"apple-live-captions-visual-ocr");
  assert.equal(caption.sequence,1);
- const repeatJoin=await connect(endpoint+"?role=viewer&viewerToken="+token,{origin});
+ const repeatJoin=new WebSocket(endpoint+"?role=viewer&viewerToken="+token,{headers:{origin}});
+ const latestPromise=onceJSON(repeatJoin,"caption.ocr");
+ await new Promise((resolve,reject)=>{repeatJoin.once("open",resolve);repeatJoin.once("error",reject)});
  // The server sends current status then recent caption so a foreground app
  // can catch up after Phone.app was in front.
- const latest=await onceJSON(repeatJoin,"caption.ocr");
+ const latest=await latestPromise;
  assert.equal(latest.text,caption.text);
  repeatJoin.close();
  console.log("HITEL_LIVE_CAPTION_OCR_AUTHORIZED_RELAY_PASS");
