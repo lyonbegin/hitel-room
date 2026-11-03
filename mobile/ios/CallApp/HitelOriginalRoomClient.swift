@@ -32,6 +32,8 @@ final class HitelOriginalRoomClient: ObservableObject {
     @Published private(set) var localCaptureFPS: Double = 0
     @Published private(set) var localFirstFrame = false
     @Published private(set) var mediaConnected = false
+    @Published private(set) var remoteFrameIDs: Set<String> = []
+    @Published private(set) var connectedPeerIDs: Set<String> = []
     @Published private(set) var micEnabled = true
     @Published private(set) var camEnabled = true
 
@@ -144,7 +146,21 @@ final class HitelOriginalRoomClient: ObservableObject {
             let next=HitelPublicMeshMedia()
             media=next
             next.onStatus={ [weak self] text in self?.status=text }
-            next.onRemote={ [weak self] tracks in self?.remoteVideos=tracks }
+            next.onRemote={ [weak self] tracks in
+                guard let self else{return}
+                self.remoteVideos=tracks
+                let ids=Set(tracks.map(\.id))
+                self.remoteFrameIDs.formIntersection(ids)
+                self.connectedPeerIDs.formIntersection(ids)
+                self.mediaConnected = !self.connectedPeerIDs.isEmpty
+            }
+            next.onRemoteFirstFrame={ [weak self] id in
+                self?.remoteFrameIDs.insert(id)
+            }
+            next.onICEConnected={ [weak self] id in
+                self?.connectedPeerIDs.insert(id)
+                self?.mediaConnected = true
+            }
             next.onFirstFrame={ [weak self] in self?.localFirstFrame=true }
             next.onFPS={ [weak self] fps in self?.localCaptureFPS=fps }
             next.onEnded={ [weak self] in self?.leave() }
@@ -152,7 +168,7 @@ final class HitelOriginalRoomClient: ObservableObject {
             try await next.connect(to:address,using:ticket)
             localTrack=next.localVideoTrack
             joinedRoomID=room.id
-            mediaConnected=true
+            mediaConnected=false
             status="공개방 신호 연결됨 · 실제 상대 영상 수신 여부 별도 확인"
         } catch {
             media?.stop();media=nil
@@ -166,6 +182,7 @@ final class HitelOriginalRoomClient: ObservableObject {
         remoteVideos=[];localTrack=nil
         localFirstFrame=false;localCaptureFPS=0
         mediaConnected=false
+        remoteFrameIDs=[];connectedPeerIDs=[]
         micEnabled=true;camEnabled=true
         status="공개방 퇴장 · 고유 앱 관리 주소 유지"
     }
