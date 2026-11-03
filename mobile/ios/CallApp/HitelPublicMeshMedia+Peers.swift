@@ -45,11 +45,16 @@ extension HitelPublicMeshMedia {
                 type:kind=="offer" ? .offer : .answer,sdp:sdp)
             peer.connection.setRemoteDescription(session) {[weak self,weak peer] error in
                 guard let self,let peer else{return}
-                if let error {self.report("Remote SDP 실패: "+error.localizedDescription);return}
-                peer.remoteDescriptionReady=true
-                peer.pendingICE.forEach{peer.connection.add($0)}
-                peer.pendingICE.removeAll()
-                if kind == "offer" {self.createAnswer(for:peer)}
+                DispatchQueue.main.async {
+                    if let error {
+                        self.report("Remote SDP 실패: "+error.localizedDescription)
+                        return
+                    }
+                    peer.remoteDescriptionReady=true
+                    peer.pendingICE.forEach { peer.connection.add($0) }
+                    peer.pendingICE.removeAll()
+                    if kind == "offer" { self.createAnswer(for:peer) }
+                }
             }
         }
         receiveCandidate(payload,from:peer)
