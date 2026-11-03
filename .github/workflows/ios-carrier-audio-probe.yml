@@ -55,6 +55,35 @@ jobs:
             echo "::error::Video-call sources incorrectly embedded"
             exit 1
           fi
+      - name: Unit test carrier short codes and tel URL normalization on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/HitelDialTests"
+          cat > "$RUNNER_TEMP/HitelDialTests/main.swift" <<'SWIFT'
+          import Foundation
+          let valid = [
+            ("100", "tel:100"),
+            ("112", "tel:112"),
+            ("119", "tel:119"),
+            ("114", "tel:114"),
+            ("010-1234-5678", "tel:01012345678"),
+            ("+82 10 1234 5678", "tel:+821012345678"),
+            ("１００", "tel:100")
+          ]
+          for (source, expected) in valid {
+            let actual = HitelCarrierDialURL.make(source)?.absoluteString
+            precondition(actual == expected, "DIAL FAILED: \(source) returned \(actual ?? "nil"), expected \(expected)")
+          }
+          for bad in ["", "1", "100abc", "foo", "++100", "100#"] {
+            precondition(HitelCarrierDialURL.make(bad) == nil, "Invalid tel number accepted: \(bad)")
+          }
+          precondition(HitelCarrierDialURL.isKnownShortCode("100"), "100 must be accepted as local customer-service shortcut")
+          print("HITEL_CARRIER_SHORT_CODES_100_112_119_114_TEST_PASS")
+          SWIFT
+          swiftc mobile/ios/CarrierAudioProbe/HitelCarrierDialURL.swift \
+            "$RUNNER_TEMP/HitelDialTests/main.swift" -o "$RUNNER_TEMP/HitelDialTests/verify"
+          "$RUNNER_TEMP/HitelDialTests/verify"
       - name: Build actual iPhone ARM64 native app and ReplayKit extension
         working-directory: mobile/ios
         shell: bash
