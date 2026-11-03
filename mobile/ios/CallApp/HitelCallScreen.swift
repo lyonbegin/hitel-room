@@ -71,7 +71,8 @@ struct HitelCallScreen: View {
                             }
                             ForEach(originalRoom.remoteVideos) { participant in
                                 videoSurface(participant.videoTrack,title:participant.userID,
-                                             frameHint:nil)
+                                             frameHint:originalRoom.remoteFrameIDs.contains(participant.id)
+                                                 ? nil : "상대 영상 실제 프레임 대기 중")
                                     .frame(height:185)
                             }
                             if originalRoom.remoteVideos.isEmpty {
@@ -162,7 +163,7 @@ struct HitelCallScreen: View {
                             Text(String(format:"실제 로컬 카메라 캡처: %.1f fps",model.localCaptureFPS))
                                 .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
                         }
-                        Text("가면 합성 및 기존 HITEL 공개방 SFU 연결은 아직 구현되지 않았습니다.")
+                        Text("가면 합성은 미구현이며, 위 공개방은 기존 웹과 같은 Railway P2P 연결을 사용합니다.")
                             .font(.caption2).foregroundStyle(.secondary)
                         HStack {
                             Button {model.dial()} label:{Label("발신",systemImage:"phone.arrow.up.right")}
