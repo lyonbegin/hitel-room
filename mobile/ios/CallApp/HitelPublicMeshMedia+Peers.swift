@@ -47,8 +47,8 @@ extension HitelPublicMeshMedia {
                 guard let self,let peer else{return}
                 if let error {self.report("Remote SDP 실패: "+error.localizedDescription);return}
                 peer.remoteDescriptionReady=true
-                peer.pending.forEach{peer.connection.add($0)}
-                peer.pending.removeAll()
+                peer.pendingICE.forEach{peer.connection.add($0)}
+                peer.pendingICE.removeAll()
                 if kind == "offer" {self.createAnswer(for:peer)}
             }
         }
@@ -61,7 +61,7 @@ extension HitelPublicMeshMedia {
         let ice=RTCIceCandidate(sdp:text,sdpMLineIndex:line,
                                sdpMid:candidate["sdpMid"] as? String)
         if peer.remoteDescriptionReady {peer.connection.add(ice)}
-        else {peer.pending.append(ice)}
+        else {peer.pendingICE.append(ice)}
     }
     func ensurePeer(id:String,userID:String)->HitelMeshPeer? {
         if let current=peers[id] {return current}
