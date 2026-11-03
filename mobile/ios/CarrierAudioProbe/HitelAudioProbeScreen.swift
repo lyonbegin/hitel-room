@@ -8,7 +8,11 @@ import UIKit
 private struct NativeReplayKitPicker: UIViewRepresentable {
     func makeUIView(context: Context) -> RPSystemBroadcastPickerView {
         let picker = RPSystemBroadcastPickerView(frame: CGRect(x: 0, y: 0, width: 54, height: 54))
+        #if HITEL_FREE_SIGNING
+        picker.preferredExtension = "app.hitel.carrieraudioprobe.free.broadcast"
+        #else
         picker.preferredExtension = "app.hitel.carrieraudioprobe.broadcast"
+        #endif
         picker.showsMicrophoneButton = true
         picker.tintColor = .label
         return picker
@@ -59,7 +63,7 @@ struct HitelAudioProbeScreen: View {
                                 .frame(width: 9, height: 9)
                             Text(probe.hasSharedContainer
                                  ? "App Group 저장소 연결됨"
-                                 : "App Group 저장소 없음 · 서명 권한 확인 필요")
+                                 : "무료 서명 · 로컬 알림 경로로 측정 결과를 회수합니다.")
                                 .font(.subheadline)
                         }
                         Divider()
@@ -98,6 +102,12 @@ struct HitelAudioProbeScreen: View {
                                     .font(.caption2).foregroundStyle(.secondary)
                             }
                         }
+                        #if HITEL_FREE_SIGNING
+                        if probe.saveSample {
+                            Text("무료 Apple ID용: 방송 시작 30초 후 audioApp 5초를 기기 내부에 저장하고, 알림 첨부파일로 앱에 전달합니다. 알림 권한을 허용해 주십시오.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        #else
                         if probe.saveSample {
                             Picker("방송 시작 후 원음 저장 대기시간", selection: Binding(
                                 get: { probe.sampleDelay },
@@ -112,6 +122,7 @@ struct HitelAudioProbeScreen: View {
                             Text("선택한 지연시간 후 5초 동안 audioApp만 저장합니다. 방송 시작 이후 통화 연결 시점을 고려해 설정하십시오.")
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
+                        #endif
                         HStack {
                             Button("새 검사 시작 · 기존 측정 지우기") { probe.startFreshRun() }
                                 .buttonStyle(.bordered)
@@ -124,10 +135,29 @@ struct HitelAudioProbeScreen: View {
                     section {
                         Label("2. ReplayKit 방송을 직접 시작", systemImage: "record.circle")
                             .font(.headline)
+                        #if HITEL_FREE_SIGNING
+                        Button("측정 결과를 받기 위한 로컬 알림 허용") {
+                            probe.requestNotificationPermission()
+                        }.buttonStyle(.borderedProminent)
+                        Text(probe.notificationStatus).font(.caption).foregroundStyle(.secondary)
+                        #endif
                         HStack(spacing: 15) {
+                            #if HITEL_FREE_SIGNING
+                            if probe.saveSample {
+                                NativeReplayKitPicker()
+                                    .frame(width: 54, height: 54)
+                                    .accessibilityLabel("원음 5초 저장에 동의하고 방송 시작")
+                            } else {
+                                Image(systemName: "lock.shield")
+                                    .font(.title2)
+                                    .frame(width: 54, height: 54)
+                                    .accessibilityLabel("원음 저장 동의 후 방송 활성")
+                            }
+                            #else
                             NativeReplayKitPicker()
                                 .frame(width: 54, height: 54)
                                 .accessibilityLabel("iPhone 시스템 방송 선택")
+                            #endif
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("시스템 방송 버튼을 누르십시오.").font(.subheadline.bold())
                                 Text("목록에서 HITEL Audio Probe Broadcast를 선택하고 방송을 시작합니다. 마이크를 켜면 audioMic도 별도 관찰할 수 있습니다.")
@@ -281,8 +311,19 @@ struct HitelAudioProbeScreen: View {
                     .toolbar { Button("닫기") { showHelp = false } }
                 }
             }
-            .onReceive(refreshTicker) { _ in probe.refresh() }
-            .onAppear { probe.refreshCall(); probe.refresh() }
+            .onReceive(refreshTicker) { _ in
+                #if HITEL_FREE_SIGNING
+                probe.importNotificationEvidence()
+                #endif
+                probe.refresh()
+            }
+            .onAppear {
+                probe.refreshCall()
+                probe.refresh()
+                #if HITEL_FREE_SIGNING
+                probe.importNotificationEvidence()
+                #endif
+            }
         }
     }
 
