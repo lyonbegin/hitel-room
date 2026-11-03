@@ -9,6 +9,8 @@ struct HitelCallScreen: View {
     @StateObject private var originalRoom = HitelOriginalRoomClient()
     @State private var selectedScenario = 11
     @State private var aiPrompt = ""
+    @State private var createRoomTitle = "새 영상 대화방"
+    @State private var createRoomCapacity = 8
     private let roomRefreshTimer = Timer.publish(every:4,on:.main,in:.common).autoconnect()
     private let kinds=["P","P+","N","W"]
     private func name(_ id:Int)->String{
@@ -34,6 +36,24 @@ struct HitelCallScreen: View {
                                 .textFieldStyle(.roundedBorder)
                             TextField("표시 이름", text:$originalRoom.displayName)
                                 .textFieldStyle(.roundedBorder)
+                            TextField("새 공개방 이름",text:$createRoomTitle)
+                                .textFieldStyle(.roundedBorder)
+                            Stepper("최대 참가 인원: \(createRoomCapacity)명",
+                                    value:$createRoomCapacity,in:2...32)
+                                .font(.caption)
+                            Button("＋ 공개방 만들고 입장") {
+                                Task {
+                                    guard model.suspendLegacyCameraForPublicRoom() else {return}
+                                    if let room=await originalRoom.createPublicRoom(
+                                        title:createRoomTitle,maxParticipants:createRoomCapacity) {
+                                        await originalRoom.join(room)
+                                    }
+                                    if originalRoom.joinedRoomID == nil {
+                                        model.resumeLegacyCameraAfterPublicRoom()
+                                    }
+                                }
+                            }.buttonStyle(.bordered)
+                                .disabled(model.inCall)
                             Button("공개방 목록 새로고침") {
                                 Task { await originalRoom.refreshRooms() }
                             }.buttonStyle(.bordered)
@@ -63,6 +83,11 @@ struct HitelCallScreen: View {
                                 Spacer()
                                 Button("방 목록으로") { originalRoom.leave(); model.resumeLegacyCameraAfterPublicRoom() }
                                     .buttonStyle(.bordered)
+                                if originalRoom.isHost {
+                                    Button("방 종료") {
+                                        Task { await originalRoom.endPublicRoom() }
+                                    }.buttonStyle(.bordered)
+                                }
                             }
                             videoSurface(originalRoom.localTrack,title:"내 영상",
                                          frameHint:originalRoom.localFirstFrame ? nil : "카메라 프레임 대기 중")
