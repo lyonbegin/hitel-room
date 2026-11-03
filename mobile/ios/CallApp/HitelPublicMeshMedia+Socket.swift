@@ -20,7 +20,10 @@ extension HitelPublicMeshMedia {
             }
         } else if type == "peer-left" {
             if let id=event["peerId"] as? String {
-                peers.removeValue(forKey:id)?.connection.close()
+                if let peer=peers.removeValue(forKey:id) {
+                    peer.detachVideoProbe()
+                    peer.connection.close()
+                }
                 updateRemotes()
             }
         } else if type == "room-ended" {
