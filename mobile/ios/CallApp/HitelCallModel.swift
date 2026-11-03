@@ -42,6 +42,8 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     private var videoCore: HitelNativeVideoCore?
     private let communicationSDK = HitelNativeCommunicationSDK.create()
     private let deviceClient=HitelCallDeviceClient()
+    // Detect an active system call before starting a competing WebRTC preview.
+    private let systemCallObserver = CXCallObserver()
     private let provider: CXProvider
     private var callUuid: UUID?
     private var pendingIncoming = false
@@ -222,6 +224,15 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         note("전송: "+type)
     }
 
+    /// Release a non-call preview on backgrounding so Phone owns call audio.
+    func releasePreviewForPhoneApp() {
+        guard !inCall && !publicRoomActive else { return }
+        if media != nil {
+            stopMedia()
+            mediaState = "전화 앱 전환 · HITEL 카메라/마이크 미리보기 해제"
+        }
+    }
+
     func resumeAfterUnlock() {
         deviceClient.resume()
         // Restores native signaling only; system screen recording or a new
@@ -259,9 +270,13 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         message="통화 종료 · 고유 웹 주소의 다음 통화 연결 대기"
     }
 
-    /// Initialize the real native local camera before a remote call.
+    /// Initialize the native preview only when it cannot disrupt a system Phone call.
     private func prepareCameraPreview() {
         guard !publicRoomActive, media == nil, !cameraPermissionRequested else { return }
+        if systemCallObserver.calls.contains(where: { !$0.hasEnded }) && !inCall {
+            mediaState = "시스템 통화 감지 · 전화 앱의 오디오를 보호하기 위해 WebRTC 미리보기 시작하지 않음"
+            return
+        }
         cameraPermissionRequested = true
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
