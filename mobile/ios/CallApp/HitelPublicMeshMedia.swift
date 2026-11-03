@@ -7,4 +7,4 @@ struct HitelMeshRemoteVideo: Identifiable {
     let videoTrack: RTCVideoTrack
 }
 
-final class HitelPublicMeshMedia: NSObject {}
+final class HitelPublicMeshMedia: NSObject { var ready = false }
