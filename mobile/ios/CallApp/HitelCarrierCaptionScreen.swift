@@ -165,7 +165,7 @@ struct HitelCarrierCaptionScreen: View {
     @AppStorage("hitel.carrier.caption.targetNumber")
     private var savedNumber = ""
     @StateObject private var call = HitelCarrierCallWatcher()
-    @StateObject private var ambient = HitelCarrierAmbientCaption()
+    @ObservedObject private var accessory = HitelCarrierBLEAudioBridge.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var manuallyConfirmed = false
     @State private var dialingError = ""
@@ -253,30 +253,48 @@ struct HitelCarrierCaptionScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("③ 실시간 자막").font(.headline)
-                    Text("HITEL 자막 입력")
-                        .font(.subheadline.bold())
+                    Text("③ 일반전화 상대 음성 → 실시간 HITEL 자막")
+                        .font(.headline)
+                    Text("실제 통화 수신 오디오 입력: Bluetooth HFP → HITEL BLE → 한국어 STT")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Button(accessory.isRunning ? "외부 음성 수신 중지" : "외부 오디오 수신 시작") {
+                            if accessory.isRunning { accessory.stop() }
+                            else { accessory.start() }
+                        }.buttonStyle(.borderedProminent)
+                        Button("자막 지우기") { accessory.clearTranscript() }
+                            .buttonStyle(.bordered)
+                    }
+                    Text(accessory.status)
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text(accessory.captionStatus)
+                        .font(.caption2).foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        Label(accessory.connected ? "BLE 연결됨" : "BLE 미연결",
+                              systemImage: accessory.connected ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
+                        Text("실수신 프레임: \(accessory.receivedFrames)")
+                            .monospacedDigit()
+                    }.font(.caption2)
+                    if accessory.actualRemoteAudioSeen {
+                        Text("마지막 음성 프레임 \(accessory.lastPacketTime) · 손실 \(accessory.droppedFrames)")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                     ScrollView {
-                        Text(ambient.transcript.isEmpty ? "음성 입력 대기 중입니다. 아직 인식된 자막이 없습니다." : ambient.transcript)
+                        Text(accessory.transcript.isEmpty
+                             ? "외부 HFP 오디오 장치에서 실제 음성 데이터가 도착하면 자막이 이곳에 표시됩니다."
+                             : accessory.transcript)
                             .font(.title3)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .foregroundStyle(ambient.transcript.isEmpty ? .secondary : .primary)
+                            .foregroundStyle(accessory.transcript.isEmpty ? .secondary : .primary)
                             .textSelection(.enabled)
                             .padding(12)
                     }
-                    .frame(minHeight: 125, maxHeight: 225)
+                    .frame(minHeight: 130, maxHeight: 300)
                     .background(Color(uiColor: .systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 9))
-                    HStack {
-                        Button(ambient.isRunning ? "주변 마이크 인식 중지" : "주변 마이크 자막 시험") {
-                            if ambient.isRunning { ambient.stop() }
-                            else { ambient.start(whileCallActive: call.hasActiveCall) }
-                        }.buttonStyle(.bordered)
-                        Button("자막 지우기") { ambient.clear() }.buttonStyle(.bordered)
-                    }
-                    Text(ambient.status)
+                    Text("연결 조건: iPhone 일반전화의 HFP 출력 장치로 동작하면서, 수신 오디오를 HITEL BLE 규격으로 별도 전송하는 전용 어댑터가 필요합니다. 일반 블루투스 이어폰만 연결하면 이 화면으로 음성 데이터가 들어오지 않습니다.")
                         .font(.caption2).foregroundStyle(.secondary)
-                    Text("이 시험은 기기 주변 마이크 소리만 인식합니다. 통화 중 스피커폰의 소리가 마이크에 실제 들어오고 iOS가 동시 입력을 허용할 때만 문자가 표시될 수 있으며, 본인 음성이나 주변 소음도 포함됩니다. 통화 음성 직접 수신 기능으로 간주하지 않습니다.")
+                    Text("앱이 전화 화면 뒤로 이동해도 BLE 연결·상태 복구를 요청합니다. iOS가 백그라운드 음성 인식을 계속 허용하는지와 실제 자막의 연속성은 실기기에서 검증해야 합니다. 강제 종료 후 자동 재시작은 보장하지 않습니다.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .padding(12)
@@ -297,7 +315,7 @@ struct HitelCarrierCaptionScreen: View {
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                Text("시험 순서: 번호 저장 → 일반전화 발신 또는 수신 → 통화 유지 → HITEL 다시 열기 → 통화 상태 확인 → 시스템 실시간 자막 또는 주변 마이크 실험. 이 앱이 백그라운드에서 지속적으로 통화 음성을 수집하거나, 전화를 받을 때 스스로 실행되지는 않습니다.")
+                Text("시험 순서: 전용 HFP/BLE 오디오 장치 페어링 → HITEL에서 외부 오디오 수신 시작 → 번호 저장·일반전화 발신 또는 수신 → 전화 화면에서 통화 유지 → HITEL 자막 확인. 전용 장치가 없으면 실제 상대 음성 프레임을 수신하지 못합니다.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding(16)
@@ -309,11 +327,10 @@ struct HitelCarrierCaptionScreen: View {
             if phase == .active {
                 call.refresh()
             } else if phase == .background {
-                // Active cellular calls must not be disrupted by a competing mic engine.
-                if ambient.isRunning { ambient.stop() }
+                // BLE audio acquisition remains owned by the app-level shared bridge.
             }
         }
         .onChange(of: call.callIdentifier) { _ in manuallyConfirmed = false }
-        .onDisappear { ambient.stop() }
+        // Do not stop the shared BLE bridge on navigation or background.
     }
 }
