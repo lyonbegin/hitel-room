@@ -8,7 +8,7 @@ struct HitelMeshRemoteVideo: Identifiable {
     let videoTrack: RTCVideoTrack
 }
 
-final class HitelPublicMeshMedia: NSObject {
+final class HitelPublicMeshMedia: NSObject, RTCPeerConnectionDelegate {
     var onStatus: ((String) -> Void)?
     var onRemote: (([HitelMeshRemoteVideo]) -> Void)?
     var onFirstFrame: (() -> Void)?
