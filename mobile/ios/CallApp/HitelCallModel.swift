@@ -27,6 +27,8 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
     @Published var aiStatus = "AI Counselor 대기"
     @Published var localTrack: RTCVideoTrack?
     @Published var remoteTrack: RTCVideoTrack?
+    @Published var localFrameReady = false
+    @Published var localCaptureFPS: Double = 0
 
     private let server = "https://hitel-communication-web-production.up.railway.app/lab-sandbox/playground"
     private var connection: URLSessionWebSocketTask?
@@ -305,7 +307,24 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
             }
         }
         client.onTrack={ [weak self] track in
-            DispatchQueue.main.async{self?.remoteTrack=track;self?.note("네이티브 원격 영상 트랙 수신")}
+            DispatchQueue.main.async {
+                self?.remoteTrack = track
+                self?.note("네이티브 원격 영상 트랙 수신 · 실제 프레임은 별도 검증 필요")
+            }
+        }
+        client.onLocalFirstFrame={ [weak self] in
+            DispatchQueue.main.async {
+                guard let self, self.media === client else { return }
+                self.localFrameReady = true
+                self.mediaState = "실제 iPhone 카메라 첫 프레임 수신"
+                self.note("VIDEOCORE_NATIVE_FIRST_FRAME")
+            }
+        }
+        client.onLocalCaptureFPS={ [weak self] fps in
+            DispatchQueue.main.async {
+                guard let self, self.media === client else { return }
+                self.localCaptureFPS = fps
+            }
         }
         client.prepare()
         videoCore = client.nativeVideoCore
@@ -360,6 +379,7 @@ final class HitelCallModel: NSObject, ObservableObject, CXProviderDelegate {
         videoCore?.stop();videoCore=nil
         media?.shutdown();media=nil
         localTrack=nil;remoteTrack=nil
+        localFrameReady=false;localCaptureFPS=0
         inCall=false;mediaState="미디어 미연결"
         stopCallKit()
     }
