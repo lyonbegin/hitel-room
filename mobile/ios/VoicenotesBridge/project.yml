@@ -12,7 +12,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: "HITEL 오디오 연동"
+        CFBundleDisplayName: "HITEL 메모 연결"
         UILaunchScreen: {}
         NSSpeechRecognitionUsageDescription: "가져온 통화 녹음을 기기 내에서 문자로 변환합니다."
         UIFileSharingEnabled: true
@@ -28,6 +28,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge
+        MARKETING_VERSION: "2.1.0"
+        CURRENT_PROJECT_VERSION: "2"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
@@ -41,7 +43,7 @@ targets:
     info:
       path: ShareExtension/Info.plist
       properties:
-        CFBundleDisplayName: "HITEL 오디오 가져오기"
+        CFBundleDisplayName: "HITEL 메모 오디오"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).HitelNotesShareController"
@@ -73,6 +75,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge.share
+        MARKETING_VERSION: "2.1.0"
+        CURRENT_PROJECT_VERSION: "2"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
