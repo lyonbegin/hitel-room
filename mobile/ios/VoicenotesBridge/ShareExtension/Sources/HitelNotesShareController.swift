@@ -46,14 +46,18 @@ final class HitelNotesShareController: UIViewController {
         let providers = ((extensionContext?.inputItems as? [NSExtensionItem]) ?? [])
             .flatMap { $0.attachments ?? [] }
 
+        // The supplied Voicenotes IPA uses NSItemProvider.loadItem and
+        // file URLs. Do not interpret a public.url Notes invitation as audio.
         let supported: [String] = [
-            UTType.audio.identifier,
-            UTType.mpeg4Audio.identifier,
-            UTType.mp3.identifier,
-            UTType.wav.identifier,
-            UTType.movie.identifier,
-            UTType.data.identifier,
-            UTType.fileURL.identifier
+            "public.file-url",
+            "com.apple.m4a-audio",
+            "public.mp3",
+            "com.microsoft.waveform-audio",
+            "com.apple.protected-mpeg-4-audio",
+            "public.aac-audio",
+            "org.xiph.flac",
+            "public.audio",
+            "public.movie"
         ]
         let matched = providers.compactMap { provider -> (NSItemProvider, String)? in
             guard let type = supported.first(where: { provider.hasItemConformingToTypeIdentifier($0) }) else {
@@ -74,35 +78,75 @@ final class HitelNotesShareController: UIViewController {
     }
 
     private func load(_ provider: NSItemProvider, type: String) {
-        provider.loadFileRepresentation(forTypeIdentifier: type) { [weak self] url, error in
+        // Voicenotes calls loadItemForTypeIdentifier first; do likewise.
+        // Some providers give a security-scoped file URL rather than an
+        // NSItemProvider file representation. Copy while in the callback.
+        provider.loadItem(forTypeIdentifier: type, options: nil) { [weak self] item, itemError in
             guard let self = self else { return }
-            if let url = url {
-                // The system deletes this representation after callback returns.
-                let result = Result { try AudioHandoff.transfer(file: url,
-                                    preferredName: provider.suggestedName.map { $0 + "." + url.pathExtension }) }
-                self.complete(result)
-            } else {
-                // Some providers implement loadItem but not loadFileRepresentation.
-                provider.loadItem(forTypeIdentifier: type, options: nil) { [weak self] item, fallbackError in
-                    guard let self = self else { return }
-                    let candidate = (item as? URL) ?? (item as? NSURL).map { $0 as URL }
-                    if let file = candidate, file.isFileURL {
-                        self.complete(Result { try AudioHandoff.transfer(file: file) })
-                    } else if let data = item as? Data {
-                        do {
-                            let temp = FileManager.default.temporaryDirectory
-                                .appendingPathComponent(UUID().uuidString + ".m4a")
-                            try data.write(to: temp, options: .atomic)
-                            defer { try? FileManager.default.removeItem(at: temp) }
-                            self.complete(Result { try AudioHandoff.transfer(file: temp,
-                                                               preferredName: provider.suggestedName ?? "shared.m4a") })
-                        } catch {
-                            self.complete(.failure(error))
-                        }
-                    } else {
-                        self.complete(.failure(fallbackError ?? error ?? AudioHandoff.BridgeError.noFile))
-                    }
+            if let url = (item as? URL) ?? (item as? NSURL).map({ $0 as URL }),
+               url.isFileURL {
+                let allowed = ["m4a", "mov", "mp4", "mp3", "wav",
+                               "aac", "flac", "caf", "aiff", "m4b"]
+                guard allowed.contains(url.pathExtension.lowercased()) ||
+                      type != "public.file-url" else {
+                    self.complete(.failure(ReceiveError.notAudio))
+                    return
                 }
+                let opened = url.startAccessingSecurityScopedResource()
+                let result = Result {
+                    try AudioHandoff.transfer(file: url,
+                        preferredName: provider.suggestedName.map {
+                            $0.contains(".") ? $0 : $0 + "." + url.pathExtension
+                        })
+                }
+                if opened { url.stopAccessingSecurityScopedResource() }
+                self.complete(result)
+                return
+            }
+            if let data = item as? Data, !data.isEmpty {
+                let ext = UTType(type)?.preferredFilenameExtension ?? "m4a"
+                let temp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString + "." + ext)
+                do {
+                    try data.write(to: temp, options: .atomic)
+                    defer { try? FileManager.default.removeItem(at: temp) }
+                    self.complete(Result {
+                        try AudioHandoff.transfer(file: temp,
+                            preferredName: provider.suggestedName ?? "NotesAudio." + ext)
+                    })
+                } catch {
+                    self.complete(.failure(error))
+                }
+                return
+            }
+            // A link (https://...) is not an audio file. Attempt an actual
+            // file representation, but never download private Notes links.
+            provider.loadFileRepresentation(forTypeIdentifier: type) { [weak self] url, error in
+                guard let self = self else { return }
+                guard let url = url, url.isFileURL else {
+                    self.complete(.failure(ReceiveError.noLocalFile))
+                    return
+                }
+                let result = Result {
+                    try AudioHandoff.transfer(file: url,
+                        preferredName: provider.suggestedName.map {
+                            $0.contains(".") ? $0 : $0 + "." + url.pathExtension
+                        })
+                }
+                self.complete(result)
+            }
+        }
+    }
+
+    private enum ReceiveError: LocalizedError {
+        case notAudio
+        case noLocalFile
+        var errorDescription: String? {
+            switch self {
+            case .notAudio:
+                return "공유된 URL이 오디오 파일이 아닙니다."
+            case .noLocalFile:
+                return "메모의 링크/텍스트가 전달됐으며 오디오 파일은 전달되지 않았습니다."
             }
         }
     }
