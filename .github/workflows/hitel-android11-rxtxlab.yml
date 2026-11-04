@@ -37,7 +37,12 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      # Runner includes Android SDK cmdline-tools; setup-android@v3 incorrectly installs retired 'tools'.
+      - name: Validate runner Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          test -x "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" || command -v sdkmanager
 
       - name: Install Android SDKs
         run: |
