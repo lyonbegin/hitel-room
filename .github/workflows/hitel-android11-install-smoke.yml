@@ -1,0 +1,48 @@
+name: HITEL Android 11 APK install real emulator smoke
+
+on:
+  push:
+    branches: [feature/hitel-android11-rxtxlab-20261105]
+    paths: [.github/workflows/hitel-android11-install-smoke.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install_android_11:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch release APK and check ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk"
+          gh release download hitel-android11-rxtx-lab-v0.1 --dir "$RUNNER_TEMP/apk" --pattern 'HITEL-Android11-RXTX-Lab-v0.1-debug.apk'
+          sha256sum "$RUNNER_TEMP/apk/HITEL-Android11-RXTX-Lab-v0.1-debug.apk"
+          unzip -t "$RUNNER_TEMP/apk/HITEL-Android11-RXTX-Lab-v0.1-debug.apk" | tail -1
+      - name: Install APK into real Android 11 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            adb wait-for-device
+            adb shell getprop ro.build.version.release
+            adb shell getprop ro.product.cpu.abi
+            adb install -r -t "$RUNNER_TEMP/apk/HITEL-Android11-RXTX-Lab-v0.1-debug.apk" | tee "$RUNNER_TEMP/install-result.txt"
+            adb shell pm path app.hitel.rxtxlab
+            adb shell monkey -p app.hitel.rxtxlab -c android.intent.category.LAUNCHER 1
+            sleep 8
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' || true
+            adb logcat -d -s PackageManager PackageInstaller AndroidRuntime | tail -80
