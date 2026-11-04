@@ -39,6 +39,19 @@ edit('app/src/main/java/com/jemcik/jemrec/ui/theme/Looks.kt', [
 edit('app/src/main/java/com/jemcik/jemrec/capture/RecordingStore.kt', [
     ('const val FOLDER = "JemRec"', 'const val FOLDER = "HITEL-RXTX-Lab"'),
 ])
+edit('app/src/main/java/com/jemcik/jemrec/capture/RecordingStore.kt', [
+    ('import android.content.Intent', 'import android.content.Intent\\nimport android.os.Build'),
+    ('private fun relativePath(): String = "${Environment.DIRECTORY_RECORDINGS}/$FOLDER"',
+     'fun relativePath(): String = "${if (Build.VERSION.SDK_INT >= 31) Environment.DIRECTORY_RECORDINGS else Environment.DIRECTORY_MUSIC}/$FOLDER"'),
+])
+edit('app/src/main/java/com/jemcik/jemrec/capture/Recording.kt', [
+    ('"%${Environment.DIRECTORY_RECORDINGS}/${RecordingStore.FOLDER}%"',
+     '"%${RecordingStore.relativePath()}%"'),
+])
+edit('app/src/main/java/com/jemcik/jemrec/capture/Trash.kt', [
+    ('"%${Environment.DIRECTORY_RECORDINGS}/${RecordingStore.FOLDER}%"',
+     '"%${RecordingStore.relativePath()}%"'),
+])
 edit('app/src/main/java/com/jemcik/jemrec/capture/CaptureDaemon.kt', [
     ('private const val DEVICE_PATH = "/data/local/tmp/jemrec-capture.jar"',
      'private const val DEVICE_PATH = "/data/local/tmp/hitel-rxtxlab-capture.jar"'),
@@ -83,7 +96,7 @@ This is an EXPERIMENTAL phone-audio test app, NOT a streaming AI phone caller.
 - TX: existing Answering machine > Checks > Test call for a recorded greeting.
 - The microphone is muted by the original answering-machine implementation during its greeting; not a universal interception mode.
 - Automatic recording defaults OFF; original JemRec 0.27 upstream defaults ON.
-- Recordings folder is Recordings/HITEL-RXTX-Lab; shell jar path is distinct.
+- Recordings folder is Music/HITEL-RXTX-Lab on Android 11, Recordings/HITEL-RXTX-Lab on Android 12+; shell jar path is distinct.
 - Android 11 availability of the RX and TX routes must be confirmed on an actual handset. A build or command acknowledgement is not proof.
 
 ### Test
