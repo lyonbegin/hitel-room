@@ -87,11 +87,25 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create hitel-android11-rxtx-lab-v0.1 \
-            release/HITEL-Android11-RXTX-Lab-v0.1-debug.apk \
-            release/SHA256SUMS.txt \
-            release/README.txt \
-            --target "$GITHUB_SHA" \
-            --title "HITEL Android 11 RX/TX Lab v0.1 (test)" \
-            --notes "JemRec 0.27 Apache-2.0 derivative. Android 11 minimum. Built and signature-checked. RX and TX carrier routes require an actual consenting handset test; no real-time AI/TTS yet." \
-            --prerelease
+          # Only latest branch revision is allowed to publish this mutable test asset.
+          CURRENT=$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)
+          if [ "$CURRENT" != "$GITHUB_SHA" ]; then
+            echo "Newer lab revision exists; skip publishing stale APK."
+            exit 0
+          fi
+          if gh release view hitel-android11-rxtx-lab-v0.1 >/dev/null 2>&1; then
+            gh release upload hitel-android11-rxtx-lab-v0.1 \
+              release/HITEL-Android11-RXTX-Lab-v0.1-debug.apk \
+              release/SHA256SUMS.txt release/README.txt --clobber
+            gh release edit hitel-android11-rxtx-lab-v0.1 \
+              --target "$GITHUB_SHA" \
+              --notes "Android 11 minimum. Actual RX/TX carrier routes require handset testing. Built from commit $GITHUB_SHA. JemRec 0.27 Apache-2.0 derivative; no streaming AI/TTS yet."
+          else
+            gh release create hitel-android11-rxtx-lab-v0.1 \
+              release/HITEL-Android11-RXTX-Lab-v0.1-debug.apk \
+              release/SHA256SUMS.txt release/README.txt \
+              --target "$GITHUB_SHA" \
+              --title "HITEL Android 11 RX/TX Lab v0.1 (test)" \
+              --notes "Android 11 minimum. Actual RX/TX carrier routes require handset testing. Built from commit $GITHUB_SHA. JemRec 0.27 Apache-2.0 derivative; no streaming AI/TTS yet." \
+              --prerelease
+          fi
