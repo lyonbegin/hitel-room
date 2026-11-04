@@ -42,6 +42,19 @@ struct ProbeHomeScreen: View {
                     Text("메모에서 오디오를 공유하거나 Files로 저장하면, 실제 음성 파일의 크기·SHA-256·오디오 트랙과 길이를 검사합니다.")
                         .font(.subheadline).foregroundStyle(.secondary)
 
+                    NavigationLink {
+                        NotesShareInboxScreen()
+                    } label: {
+                        Label("메모 통화 중 공유 검사 로그", systemImage: "waveform.badge.magnifyingglass")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Text("메모의 '오디오 공유' → 'HITEL 메모 공유 검사'를 실행하면 공유 항목과 0·15·30·60초 파일 변화를 확인할 수 있습니다.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+
                     GroupBox("통화 상태") {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
