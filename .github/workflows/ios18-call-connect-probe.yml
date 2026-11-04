@@ -70,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG=hitel-ios18-callconnect-voicecontrol-probe-20261104
-          NOTES="Independent iPhone XR iOS 18.7 CallKit connection observer + Shortcuts App Intents + manual Voice Control phrase sound test. Includes two Boolean App Intents (instant check, 15-second wait), state/log UI and native SwiftUI code. UNSIGNED IPA must be signed using Sideloadly/Apple ID; no special entitlements. Actual background connection observation, self-audio voice-command recognition, and automatic iPhone Phone call recording are NOT verified. Does not modify existing HITEL phone/video/SDK/Railway."
+          NOTES="Independent iPhone XR iOS 18.7 CallKit test with built-in Voice Control Show Grid, One, Tap N commands; three English WAV files generated and stored automatically, one-page UX, one App Intent waits for connected call then plays all three commands. No custom gesture setup. UNSIGNED IPA must be signed using Sideloadly/Apple ID; no special entitlements. Actual iPhone XR call screen grid position, background connection observation, self-audio Voice Control recognition, and automatic recording are NOT verified. Does not modify existing HITEL phone/video/SDK/Railway."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" probe-release/* --clobber
             gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
