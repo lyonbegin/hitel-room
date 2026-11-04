@@ -1,13 +1,13 @@
-name: Build HITEL iOS18 Apple Notes Audio Import probe
+name: HITEL iPhone XR - Notes Live Share Probe
 on:
   push:
-    branches: [feature/ios18-notes-recording-import-20261104]
+    branches: [feature/ios18-notes-live-share-probe-20261104]
     paths:
       - 'mobile/ios/CallConnectProbe/**'
       - '.github/workflows/ios18-call-connect-probe.yml'
   workflow_dispatch:
 concurrency:
-  group: hitel-ios18-notes-audio-import-publish
+  group: hitel-ios18-notes-live-share-publish
   cancel-in-progress: true
 permissions:
   contents: write
@@ -19,17 +19,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Ensure existing HITEL source and production routes are untouched
+      - name: Ensure changes are isolated to HITEL test app
         shell: bash
         run: |
           set -euo pipefail
           BASE="$(git merge-base HEAD origin/main)"
-          git diff --name-only "$BASE" HEAD | tee /tmp/ios18-probe-changes.txt
-          if grep -vE '^(mobile/ios/CallConnectProbe/|[.]github/workflows/ios18-call-connect-probe[.]yml$)' /tmp/ios18-probe-changes.txt; then
-            echo "::error::Non-probe file modified"; exit 1
+          git diff --name-only "$BASE" HEAD | tee /tmp/ios18-notes-file-changes.txt
+          if grep -vE '^(mobile/ios/CallConnectProbe/|[.]github/workflows/ios18-call-connect-probe[.]yml$)' /tmp/ios18-notes-file-changes.txt; then
+            echo "::error::Non-test-app file modified"; exit 1
           fi
           echo HITEL_PRODUCTION_UNCHANGED_PASS
-      - name: Build native iOS 17+ app for iPhone XR arm64
+      - name: Compile iOS arm64 native app and Share Extension
         shell: bash
         run: |
           set -euo pipefail
@@ -39,47 +39,48 @@ jobs:
           xcodebuild -project HitelCallConnectProbe.xcodeproj \
             -scheme HitelCallConnectProbe \
             -configuration Release -destination 'generic/platform=iOS' \
-            -derivedDataPath "$RUNNER_TEMP/CallConnectProbeBuild" \
-            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/ios18-probe-build.log" 2>&1 || {
-              grep -nE 'error:|BUILD FAILED|fatal error:' "$RUNNER_TEMP/ios18-probe-build.log" | tail -100 || true
-              tail -100 "$RUNNER_TEMP/ios18-probe-build.log"
+            -derivedDataPath "$RUNNER_TEMP/NotesShareBuild" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/notes-share-build.log" 2>&1 || {
+              grep -nE 'error:|BUILD FAILED|fatal error:' "$RUNNER_TEMP/notes-share-build.log" | tail -100 || true
+              tail -100 "$RUNNER_TEMP/notes-share-build.log"
               exit 1
             }
-          APP="$RUNNER_TEMP/CallConnectProbeBuild/Build/Products/Release-iphoneos/HitelCallConnectProbe.app"
+          APP="$RUNNER_TEMP/NotesShareBuild/Build/Products/Release-iphoneos/HitelCallConnectProbe.app"
+          APPEX="$APP/PlugIns/HitelNotesShareExtension.appex"
           test -s "$APP/HitelCallConnectProbe"
+          test -s "$APPEX/HitelNotesShareExtension"
           file "$APP/HitelCallConnectProbe" | grep -q arm64
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.callconnectprobe"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleDocumentTypes:0:LSItemContentTypes:0' "$APP/Info.plist" | grep -Fx public.audio
-          echo HITEL_NOTES_AUDIO_DOCUMENT_TYPE_PASS
-          echo HITEL_IOS18_CALLKIT_SHORTCUTS_ARM64_BUILD_PASS
-      - name: Package unsigned IPA and auditable source
+          file "$APPEX/HitelNotesShareExtension" | grep -q arm64
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APPEX/Info.plist" | grep -Fx com.apple.share-services
+          echo HITEL_NOTES_SHARE_EXTENSION_BUILD_PASS
+      - name: Package unsigned IPA
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/ProbePayload/Payload" probe-release
-          cp -R "$RUNNER_TEMP/CallConnectProbeBuild/Build/Products/Release-iphoneos/HitelCallConnectProbe.app" "$RUNNER_TEMP/ProbePayload/Payload/"
-          (cd "$RUNNER_TEMP/ProbePayload" && zip -qry "$GITHUB_WORKSPACE/probe-release/HITEL-iPhoneXR-NotesAudio-Import-UNSIGNED.ipa" Payload)
-          zip -qry probe-release/HITEL-iPhoneXR-NotesAudio-Import-SOURCE.zip mobile/ios/CallConnectProbe .github/workflows/ios18-call-connect-probe.yml -x '*\.xcodeproj/*'
-          unzip -t probe-release/HITEL-iPhoneXR-NotesAudio-Import-UNSIGNED.ipa | tail -2
+          cp -R "$RUNNER_TEMP/NotesShareBuild/Build/Products/Release-iphoneos/HitelCallConnectProbe.app" "$RUNNER_TEMP/ProbePayload/Payload/"
+          (cd "$RUNNER_TEMP/ProbePayload" && zip -qry "$GITHUB_WORKSPACE/probe-release/HITEL-iPhoneXR-NotesLiveShare-PROBE-UNSIGNED.ipa" Payload)
+          zip -qry probe-release/HITEL-iPhoneXR-NotesLiveShare-PROBE-SOURCE.zip mobile/ios/CallConnectProbe .github/workflows/ios18-call-connect-probe.yml -x '*.xcodeproj/*'
+          unzip -t probe-release/HITEL-iPhoneXR-NotesLiveShare-PROBE-UNSIGNED.ipa | tail -2
           shasum -a 256 probe-release/*.ipa probe-release/*.zip > probe-release/SHA256.txt
-          echo HITEL_PROBE_UNSIGNED_IPA_PACKAGE_PASS
+          echo HITEL_NOTES_SHARE_IPA_PACKAGE_PASS
       - uses: actions/upload-artifact@v4
         with:
-          name: HITEL-iPhone-XR-Notes-Audio-Import
+          name: HITEL-iPhoneXR-Notes-LiveShare
           path: probe-release/*
           retention-days: 90
-      - name: Publish independent test IPA without deployment
+      - name: Publish Notes Share Extension test release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-ios18-notes-audio-import-20261104
-          NOTES="iPhone XR iOS 18.7 independent native test. New: Apple Notes call recording import via explicit user-approved Files picker; app registers audio/movie document types to receive files from iOS document handoff when offered. Copies audio into HITEL own Documents, validates at least one audio track and reads file for SHA256, records bytes and duration in JSON report. Original OS path probe remains. No automated access to Notes private sandbox and no claim of live in-call recording reads or Notes share-sheet visibility. Unsigned IPA needs on-device signing. HITEL production and Railway unchanged."
+          TAG=hitel-ios18-notes-live-share-probe-20261104
+          NOTES='Native iPhone XR Share Extension diagnostic; Apple Notes audio share menu eligibility, NSItemProvider file representations at 0/15/30/60 seconds, in-place availability, size, delta and SHA256 logging. Paste diagnostics into HITEL app. No claim of live audio access until physical-device testing. IPA is unsigned and requires user-side signing with Sideloadly. Existing HITEL production untouched.'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" probe-release/* --clobber
             gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
           else
-            gh release create "$TAG" probe-release/* --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL iPhone XR Apple Notes Call Audio Import and Verification (unsigned)" --notes "$NOTES"
+            gh release create "$TAG" probe-release/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL iPhone XR Notes Live Share Probe (unsigned)' --notes "$NOTES"
           fi
           gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
