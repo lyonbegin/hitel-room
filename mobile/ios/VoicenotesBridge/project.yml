@@ -48,30 +48,7 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).HitelNotesShareController"
           NSExtensionAttributes:
-            NSExtensionActivationRule:
-              NSExtensionActivationDictionaryVersion: 2
-              NSExtensionActivationSupportsAttachmentsWithMinCount: 1
-              NSExtensionActivationSupportsAttachmentsWithMaxCount: 10
-              NSExtensionActivationSupportsFileWithMaxCount: 10
-              NSExtensionActivationSupportsImageWithMaxCount: 5
-              NSExtensionActivationSupportsMovieWithMaxCount: 5
-              NSExtensionActivationSupportsText: true
-              NSExtensionActivationSupportsWebURLWithMaxCount: 5
-              NSExtensionActivationSupportsFileWithTypes:
-                - public.audio
-                - public.mp3
-                - com.microsoft.waveform-audio
-                - com.apple.m4a-audio
-                - com.apple.protected-mpeg-4-audio
-                - public.aac-audio
-                - org.xiph.flac
-                - public.mpeg-4-audio
-                - public.movie
-                - public.data
-                - public.item
-                - public.image
-                - public.jpeg
-                - public.png
+            NSExtensionActivationRule: "TRUEPREDICATE"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge.share
