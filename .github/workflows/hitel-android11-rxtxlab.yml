@@ -1,0 +1,95 @@
+name: HITEL Android 11 RX TX lab APK
+
+on:
+  push:
+    branches:
+      - feature/hitel-android11-rxtxlab-20261105
+    paths:
+      - "hitel-android11-lab/**"
+      - ".github/workflows/hitel-android11-rxtxlab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout exact JemRec 0.27 source
+        run: |
+          git clone --depth 1 --branch 0.27 https://github.com/jemcik/JemRec.git upstream
+          test "$(grep -E '^jemrecVersionName=' upstream/gradle.properties | cut -d= -f2)" = "0.27"
+
+      - name: Patch Android 11 test app
+        run: |
+          python3 hitel-android11-lab/patch.py upstream
+          grep -q 'applicationId = "app.hitel.rxtxlab"' upstream/app/build.gradle.kts
+          grep -q 'minSdk = 30' upstream/app/build.gradle.kts
+          grep -q -- '--min-api 30' upstream/shellserver/build.sh
+          grep -q 'HITEL Android 11 - RX / TX test' upstream/app/src/main/java/com/jemcik/jemrec/ui/SettingsScreen.kt
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDKs
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platforms;android-37.0" || sdkmanager --install "platforms;android-37"
+          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-36.0"
+          sdkmanager --install "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/d8"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build signed debug APK with rebuilt shell capture DEX
+        working-directory: upstream
+        run: |
+          chmod +x gradlew shellserver/build.sh
+          ./gradlew --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Verify signature, Android 11 minimum, and shell daemon
+        run: |
+          set -euo pipefail
+          A=upstream/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$A"
+          unzip -t "$A" | tail -1
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$A"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$A" | tee /tmp/hitel-badging.txt
+          grep -q "package: name='app.hitel.rxtxlab'" /tmp/hitel-badging.txt
+          grep -q "sdkVersion:'30'" /tmp/hitel-badging.txt
+          unzip -p "$A" assets/jemrec-capture.jar >/tmp/hitel-rxtx-daemon.jar
+          unzip -t /tmp/hitel-rxtx-daemon.jar | tail -1
+          mkdir -p release
+          cp "$A" release/HITEL-Android11-RXTX-Lab-v0.1-debug.apk
+          sha256sum release/*.apk | tee release/SHA256SUMS.txt
+          cp upstream/HITEL_ANDROID11_TEST.md release/README.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Android11-RXTX-Lab-v0.1
+          path: release/
+          if-no-files-found: error
+
+      - name: Publish test prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create hitel-android11-rxtx-lab-v0.1 \
+            release/HITEL-Android11-RXTX-Lab-v0.1-debug.apk \
+            release/SHA256SUMS.txt \
+            release/README.txt \
+            --target "$GITHUB_SHA" \
+            --title "HITEL Android 11 RX/TX Lab v0.1 (test)" \
+            --notes "JemRec 0.27 Apache-2.0 derivative. Android 11 minimum. Built and signature-checked. RX and TX carrier routes require an actual consenting handset test; no real-time AI/TTS yet." \
+            --prerelease
