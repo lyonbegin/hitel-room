@@ -28,8 +28,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge
-        MARKETING_VERSION: "2.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "2.2.0"
+        CURRENT_PROJECT_VERSION: "3"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
@@ -48,12 +48,31 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).HitelNotesShareController"
           NSExtensionAttributes:
-            NSExtensionActivationRule: "TRUEPREDICATE"
+            NSExtensionActivationRule:
+              NSExtensionActivationDictionaryVersion: 2
+              NSExtensionActivationSupportsFileWithMaxCount: 5
+              NSExtensionActivationSupportsFileWithTypes:
+                - public.audio
+                - public.mp3
+                - com.microsoft.waveform-audio
+                - com.apple.m4a-audio
+                - com.apple.protected-mpeg-4-audio
+                - public.aac-audio
+                - org.xiph.flac
+                - com.adobe.pdf
+                - net.daringfireball.markdown
+                - public.image
+                - public.jpeg
+                - public.png
+                - com.compuserve.gif
+                - public.webp
+                - public.heic
+              NSExtensionActivationSupportsImageWithMaxCount: 2
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge.share
-        MARKETING_VERSION: "2.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "2.2.0"
+        CURRENT_PROJECT_VERSION: "3"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
