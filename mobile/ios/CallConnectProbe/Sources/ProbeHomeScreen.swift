@@ -24,11 +24,24 @@ struct ProbeHomeScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("통화 중 녹음 파일 접근 검사")
+                        Text("통화 녹음 실제 파일 및 시스템 경로 검사")
                             .font(.title2.bold())
                         Text("전화 앱은 그대로 표시됩니다. 통화 연결 후 iOS의 두 시스템 녹음 경로를 직접 열어 파일 존재·크기·읽기 권한을 조사합니다.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
+                    NavigationLink {
+                        NotesAudioImportScreen()
+                    } label: {
+                        Label("Apple 메모 통화 녹음 실제 파일 가져오기", systemImage: "waveform.badge.magnifyingglass")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Text("메모에서 오디오를 공유하거나 Files로 저장하면, 실제 음성 파일의 크기·SHA-256·오디오 트랙과 길이를 검사합니다.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+
                     GroupBox("통화 상태") {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
