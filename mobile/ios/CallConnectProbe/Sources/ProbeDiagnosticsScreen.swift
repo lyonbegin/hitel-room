@@ -28,7 +28,25 @@ struct ProbeDiagnosticsScreen: View {
                         if let s = snapshot {
                             LabeledContent("검사 시각", value: s.sampledAt)
                             LabeledContent("검사 경로", value: s.trigger)
-                            LabeledContent("Notes 앱 그룹", value: s.appleNotesGroup)
+                            ForEach(s.systemRecordingDirectories, id: \.path) { target in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(target.path)
+                                        .font(.system(size: 12, design: .monospaced).bold())
+                                        .textSelection(.enabled)
+                                    LabeledContent("속성", value: target.attributesStatus)
+                                    LabeledContent("열람", value: target.listingStatus)
+                                    LabeledContent("검사 파일", value: String(target.filesChecked))
+                                    LabeledContent("크기 증가", value: String(target.growingFiles))
+                                    LabeledContent("읽기 성공", value: String(target.readableFiles))
+                                    ForEach(target.fileDetails, id: \.self) { item in
+                                        Text(item)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .textSelection(.enabled)
+                                    }
+                                }
+                                Divider()
+                            }
+                            LabeledContent("Notes 앱 그룹 (별도)", value: s.appleNotesGroup)
                             LabeledContent("공유 앱 그룹 루트", value: s.sharedAppGroupsRoot)
                             LabeledContent("자체 저장소 검사", value: String(s.ownFilesExamined) + "개")
                             LabeledContent("자체 오디오 파일", value: String(s.ownAudioFiles) + "개")
@@ -85,7 +103,7 @@ struct ProbeDiagnosticsScreen: View {
                     }.padding(.vertical, 7)
                 }
 
-                Text("이 앱은 통화 녹음 파일을 열 수 있는지 검사할 뿐 시스템 전화 오디오를 녹음하거나 추출하지 않습니다. Notes 앱 그룹 컨테이너에 접근할 권한이 없으면 메타데이터도 확인할 수 없습니다. 전화 앱 백그라운드에서 반복 검사 지속은 보장되지 않습니다.")
+                Text("두 OS 경로의 파일 목록·크기·읽기 전용 시험 결과를 기록합니다. 파일 열기 실패는 파일 부존재를 의미하지 않습니다. 오디오 원본은 보관하지 않으며, iOS 백그라운드에서 반복 실행을 보장하지 않습니다.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             .padding()
