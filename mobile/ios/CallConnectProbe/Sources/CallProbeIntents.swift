@@ -44,19 +44,17 @@ struct WaitForConnectedSystemCallIntent: AppIntent {
 
 struct HitelProbeShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        [
-            AppShortcut(
+        AppShortcut(
                 intent: CheckSystemCallConnectedIntent(),
                 phrases: ["Check phone connection with \(.applicationName)"],
                 shortTitle: "통화 연결 확인",
                 systemImageName: "phone.connection"
-            ),
-            AppShortcut(
+        )
+        AppShortcut(
                 intent: WaitForConnectedSystemCallIntent(),
                 phrases: ["Wait for phone connection with \(.applicationName)"],
                 shortTitle: "통화 연결 대기",
                 systemImageName: "phone.arrow.up.right"
-            )
-        ]
+        )
     }
 }
