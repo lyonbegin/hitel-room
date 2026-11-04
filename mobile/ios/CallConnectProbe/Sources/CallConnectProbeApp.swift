@@ -9,6 +9,14 @@ struct HitelCallConnectProbeApp: App {
         WindowGroup {
             ProbeHomeScreen(monitor: monitor)
                 .onAppear { monitor.refresh(reason: "화면 열림") }
+                .onOpenURL { received in
+                    // Handle a document handed to HITEL by the iOS document
+                    // interaction mechanism. Direct Notes share presentation
+                    // remains a device-level test, not a guaranteed shortcut.
+                    Task {
+                        await NotesAudioImporter.shared.receive(received, source: "OpenURL")
+                    }
+                }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
                         monitor.refresh(reason: "앱 전면 복귀")
