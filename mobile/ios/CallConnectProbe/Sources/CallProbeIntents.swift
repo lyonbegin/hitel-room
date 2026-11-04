@@ -42,6 +42,38 @@ struct WaitForConnectedSystemCallIntent: AppIntent {
     }
 }
 
+/// One-action Shortcuts experiment: wait, then play the locally generated WAV.
+/// iOS may suspend a Shortcuts action while Phone is in front. No success claim.
+struct PlayWhenConnectedIntent: AppIntent {
+    static var title: LocalizedStringResource = "HITEL 연결되면 녹음 명령 재생"
+    static var description = IntentDescription("실제 시스템 통화 연결을 최대 15초 확인한 후 저장된 영어 명령 음성 파일을 재생합니다. 접근성 인식 및 녹음 시작은 별도로 시험해야 합니다.")
+
+    func perform() async throws -> some IntentResult & ReturnsValue<Bool> {
+        let observer = CXCallObserver()
+        ProbeEvidence.append("원클릭 자동화 시작: 연결 대기")
+        for _ in 0..<15 {
+            if Task.isCancelled {
+                ProbeEvidence.append("원클릭 자동화 취소")
+                return .result(value: false)
+            }
+            if let call = observer.calls.first(where: { $0.hasConnected && !$0.hasEnded && !$0.isOnHold }) {
+                let key = "hitel.callprobe.lastPlaybackCallUUID"
+                let uuid = call.uuid.uuidString
+                if UserDefaults.standard.string(forKey: key) == uuid {
+                    ProbeEvidence.append("해당 통화 중복 실행 차단")
+                    return .result(value: false)
+                }
+                let worked = await CallConnectedCommandPlayback.playSavedCommand()
+                if worked { UserDefaults.standard.set(uuid, forKey: key) }
+                return .result(value: worked)
+            }
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        ProbeEvidence.append("원클릭 자동화 종료: 15초 이내 통화 연결 미감지")
+        return .result(value: false)
+    }
+}
+
 struct HitelProbeShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -55,6 +87,12 @@ struct HitelProbeShortcuts: AppShortcutsProvider {
                 phrases: ["Wait for phone connection with \(.applicationName)"],
                 shortTitle: "통화 연결 대기",
                 systemImageName: "phone.arrow.up.right"
+        )
+        AppShortcut(
+                intent: PlayWhenConnectedIntent(),
+                phrases: ["Play call record command with \(.applicationName)"],
+                shortTitle: "연결되면 명령 재생",
+                systemImageName: "waveform.badge.mic"
         )
     }
 }
