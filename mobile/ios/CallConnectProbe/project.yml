@@ -11,30 +11,55 @@ targets:
     info:
       path: NotesProbeInfo.plist
       properties:
-        CFBundleDisplayName: HITEL 메모 녹음
+        CFBundleDisplayName: "HITEL 메모 녹음"
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         CFBundleDocumentTypes:
-          - CFBundleTypeName: HITEL 오디오
+          - CFBundleTypeName: "HITEL 오디오"
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes:
               - public.audio
               - public.movie
+    dependencies:
+      - target: HitelNotesShareExtension
+        embed: true
+        codeSign: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.callconnectprobe
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         CODE_SIGN_STYLE: Automatic
-        INFOPLIST_KEY_UIFileSharingEnabled: YES
-        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
+        GENERATE_INFOPLIST_FILE: NO
+  HitelNotesShareExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ShareExtension
+    info:
+      path: NotesShareExtensionInfo.plist
+      properties:
+        CFBundleDisplayName: "HITEL 메모 공유 검사"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).NotesShareViewController"
+          NSExtensionAttributes:
+            NSExtensionActivationRule: "TRUEPREDICATE"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.callconnectprobe.share
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: NO
 schemes:
   HitelCallConnectProbe:
     build:
       targets:
         HitelCallConnectProbe: all
+        HitelNotesShareExtension: all
     run:
       config: Debug
