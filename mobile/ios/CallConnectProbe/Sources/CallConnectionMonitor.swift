@@ -49,6 +49,7 @@ final class CallConnectionMonitor: NSObject, ObservableObject, CXCallObserverDel
     @Published private(set) var recentEvidence: [String] = []
     private let observer = CXCallObserver()
     private var previousState = "uninitialized"
+    private var filePollTimer: Timer?
 
     private override init() {
         super.init()
@@ -70,6 +71,29 @@ final class CallConnectionMonitor: NSObject, ObservableObject, CXCallObserverDel
         if next != previousState {
             ProbeEvidence.append("\(reason): \(previousState) → \(next), 연결=\(connected)")
             previousState = next
+        }
+        if connected {
+            if filePollTimer == nil {
+                _ = FileProbeEngine.sample(trigger: "CallKit_Connected", callState: "connected")
+                filePollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
+                    guard let self = self else {
+                        timer.invalidate()
+                        return
+                    }
+                    if ProbeCallState.connected(self.observer.calls) {
+                        _ = FileProbeEngine.sample(trigger: "CallKit_Timer", callState: "connected")
+                        self.recentEvidence = Array(ProbeEvidence.events().suffix(35).reversed())
+                    } else {
+                        timer.invalidate()
+                        self.filePollTimer = nil
+                        ProbeEvidence.append("FILE-PROBE CallKit 타이머 중단: 통화 종료/보류")
+                        self.refresh(reason: "통화 종료 확인")
+                    }
+                }
+            }
+        } else {
+            filePollTimer?.invalidate()
+            filePollTimer = nil
         }
         recentEvidence = Array(ProbeEvidence.events().suffix(35).reversed())
     }
