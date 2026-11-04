@@ -2,82 +2,101 @@ import SwiftUI
 
 struct ProbeDiagnosticsScreen: View {
     @ObservedObject var monitor: CallConnectionMonitor
-    @StateObject private var voice = VoiceCommandSpeaker()
-
-    private var stateText: String {
-        switch monitor.state {
-        case "connected": return "통화 연결 확인"
-        case "dialing": return "발신 중 — 연결 전"
-        case "ringing": return "전화 수신 중"
-        case "held": return "통화 보류 중"
-        default: return "현재 통화 없음"
-        }
-    }
+    @State private var snapshot = FileProbeEngine.latest()
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    GroupBox("iPhone XR · iOS 18.7 전용 통화 연결 시험") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(stateText)
-                                .font(.title3.bold())
-                                .foregroundStyle(monitor.connected ? .green : .primary)
-                            LabeledContent("CallKit", value: monitor.state)
-                            LabeledContent("연결된 통화", value: monitor.connected ? "TRUE" : "FALSE")
-                            LabeledContent("활성 통화 수", value: String(monitor.count))
-                            LabeledContent("마지막 조회", value: monitor.lastChecked)
-                            Button("현재 통화 상태 다시 읽기") { monitor.refresh() }
-                                .buttonStyle(.borderedProminent)
-                        }.padding(.vertical, 8)
-                    }
-                    GroupBox("음성 명령 재생 단독 시험") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("설정 > 손쉬운 사용 > 음성 명령에서 'Start Recording' 사용자 지정 제스처를 만든 다음 아래 버튼으로 재생을 시험하십시오.")
-                                .font(.subheadline)
-                            HStack {
-                                Button("Start Recording 재생") { voice.play() }
-                                    .buttonStyle(.borderedProminent)
-                                Button("중지") { voice.stop() }
-                                    .buttonStyle(.bordered)
-                            }
-                            Text(voice.status).font(.caption).foregroundStyle(.secondary)
-                            Text("이 버튼은 직접 통화 녹음을 시작하지 않습니다. iOS가 통화 중 합성음 재생을 중단할 수 있으며, 음성 명령 인식도 보장되지 않습니다.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }.padding(.vertical, 8)
-                    }
-                    GroupBox("단축어 연결 시험") {
-                        VStack(alignment: .leading, spacing: 9) {
-                            Text("단축어 앱에서 'HITEL 통화 연결 여부 확인' 또는 'HITEL 통화 연결 대기 (최대 15초)'를 검색하십시오.")
-                            Text("연결 대기의 결과가 TRUE일 때만 '텍스트 말하기'로 Start Recording을 출력하도록 설정하십시오.")
-                            Text("전화 앱 열림 자동화는 실제 통화 연결 트리거가 아닙니다. 잠금 화면·백그라운드·기본 전화 앱 실행 중에는 자동화가 중단될 수 있습니다.")
-                                .foregroundStyle(.secondary)
-                        }.font(.subheadline).padding(.vertical, 8)
-                    }
-                    GroupBox("측정 로그 — 실기기 증거") {
-                        VStack(alignment: .leading, spacing: 9) {
-                            HStack {
-                                Button("로그 갱신") { monitor.refresh(reason: "로그 수동 갱신") }
-                                Spacer()
-                                Button("초기화", role: .destructive) { monitor.clearEvents() }
-                            }.buttonStyle(.bordered)
-                            if monitor.recentEvidence.isEmpty {
-                                Text("기록 없음").foregroundStyle(.secondary)
-                            }
-                            ForEach(monitor.recentEvidence, id: \.self) { entry in
-                                Text(entry)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Divider()
-                            }
-                        }.padding(.vertical, 8)
-                    }
-                    Text("이 앱은 전화 상대방 음성을 녹음하지 않으며, 녹음 버튼을 직접 터치하지 않습니다. CallKit은 통신사 통화와 일부 VoIP 통화를 구분하지 못합니다. 실기기에서 성공 여부를 확인해야 합니다.")
-                        .font(.footnote).foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                GroupBox("iPhone XR · CallKit 실제 통화 상태") {
+                    VStack(alignment: .leading, spacing: 9) {
+                        LabeledContent("전화 연결", value: monitor.connected ? "YES" : "NO")
+                        LabeledContent("상태", value: monitor.state)
+                        LabeledContent("현재 통화 수", value: String(monitor.count))
+                        LabeledContent("상태 조회 시각", value: monitor.lastChecked)
+                        Button("CallKit 다시 확인") {
+                            monitor.refresh(reason: "진단 화면 수동 조회")
+                            snapshot = FileProbeEngine.latest()
+                        }
+                        .buttonStyle(.bordered)
+                    }.padding(.vertical, 7)
                 }
-                .padding()
+
+                GroupBox("파일 접근 증거") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("파일이 보이지 않는 것과 파일이 존재하지 않는 것은 다릅니다.")
+                            .font(.subheadline.bold())
+                        if let s = snapshot {
+                            LabeledContent("검사 시각", value: s.sampledAt)
+                            LabeledContent("검사 경로", value: s.trigger)
+                            LabeledContent("Notes 앱 그룹", value: s.appleNotesGroup)
+                            LabeledContent("공유 앱 그룹 루트", value: s.sharedAppGroupsRoot)
+                            LabeledContent("자체 저장소 검사", value: String(s.ownFilesExamined) + "개")
+                            LabeledContent("자체 오디오 파일", value: String(s.ownAudioFiles) + "개")
+                            LabeledContent("크기 증가 확인", value: String(s.ownAudioFilesGrowing) + "개")
+                        } else {
+                            Text("파일 검사 기록이 없습니다.")
+                        }
+                        Button("파일 접근 검사 1회 실행") {
+                            snapshot = FileProbeEngine.sample(
+                                trigger: "Diagnostics_Manual", callState: monitor.state
+                            )
+                            monitor.refresh(reason: "진단 파일 수동 검사")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }.padding(.vertical, 7)
+                }
+
+                GroupBox("검사 보고서") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("검사 때마다 하나의 JSON 객체를 줄 단위로 저장합니다. 전화번호 및 실제 통화 음성은 수집하지 않습니다.")
+                            .font(.subheadline)
+                        if FileManager.default.fileExists(atPath: FileProbeEngine.reportURL.path) {
+                            ShareLink(item: FileProbeEngine.reportURL) {
+                                Label("JSONL 검사 보고서 공유", systemImage: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        Button("검사 기록 초기화", role: .destructive) {
+                            FileProbeEngine.reset()
+                            monitor.clearEvents()
+                            snapshot = nil
+                        }
+                        .buttonStyle(.bordered)
+                    }.padding(.vertical, 7)
+                }
+
+                GroupBox("CallKit 및 파일 검사 이벤트") {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Button("로그 갱신") {
+                            monitor.refresh(reason: "로그 갱신")
+                            snapshot = FileProbeEngine.latest()
+                        }
+                        .buttonStyle(.bordered)
+                        if monitor.recentEvidence.isEmpty {
+                            Text("기록 없음").foregroundStyle(.secondary)
+                        }
+                        ForEach(Array(monitor.recentEvidence.enumerated()), id: \.offset) { item in
+                            Text(item.element)
+                                .font(.system(size: 11, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                            Divider()
+                        }
+                    }.padding(.vertical, 7)
+                }
+
+                Text("이 앱은 통화 녹음 파일을 열 수 있는지 검사할 뿐 시스템 전화 오디오를 녹음하거나 추출하지 않습니다. Notes 앱 그룹 컨테이너에 접근할 권한이 없으면 메타데이터도 확인할 수 없습니다. 전화 앱 백그라운드에서 반복 검사 지속은 보장되지 않습니다.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
-            .navigationTitle("HITEL 연결 검증")
+            .padding()
+        }
+        .navigationTitle("녹음 파일 검사 기록")
+        .onAppear {
+            monitor.refresh(reason: "진단 화면 열림")
+            snapshot = FileProbeEngine.latest()
+        }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+            snapshot = FileProbeEngine.latest()
         }
     }
 }
