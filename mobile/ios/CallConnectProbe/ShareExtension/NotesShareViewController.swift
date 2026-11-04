@@ -34,13 +34,13 @@ final class NotesShareViewController: UIViewController {
     private func buildUI() {
         view.backgroundColor = .systemBackground
         let header = UILabel()
-        header.text = "HITEL · Apple 메모 오디오 공유 검사"
+        header.text = "HITEL 메모 녹음 · 실제 공유 데이터 검사"
         header.font = .preferredFont(forTextStyle: .headline)
         header.numberOfLines = 0
 
         logView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         logView.isEditable = false
-        logView.text = "공유 창을 연 상태에서 0·15·30·60초에 같은 첨부를 다시 읽습니다.\n"
+        logView.text = "Apple 메모에서 전달한 형식(오디오·메모 링크·텍스트)을 먼저 구분하고, 0·15·30·60초에 다시 확인합니다.\n"
 
         let check = UIButton(type: .system)
         check.setTitle("지금 다시 검사", for: .normal)
@@ -103,6 +103,16 @@ final class NotesShareViewController: UIViewController {
             }
             for type in selected {
                 show("항목 \(index) · \(type)")
+                if let uti = UTType(type), uti.conforms(to: .url) || uti.conforms(to: .text) {
+                    provider.loadItem(forTypeIdentifier: type, options: nil) { [weak self] item, error in
+                        let details = Self.inspectSharedReference(item)
+                        DispatchQueue.main.async {
+                            self?.recordSharedReference(details, error: error,
+                                                        index: index, type: type, seconds: seconds)
+                        }
+                    }
+                    continue
+                }
                 provider.loadFileRepresentation(forTypeIdentifier: type) { [weak self] url, error in
                     // The provider's URL may be deleted when this callback exits.
                     let result = Self.inspect(url)
@@ -125,6 +135,55 @@ final class NotesShareViewController: UIViewController {
                     }
                 }
             }
+        }
+    }
+
+    private struct SharedReference {
+        let kind: String
+        let bytes: Int
+        let isNotesCollaborationLink: Bool
+    }
+
+    private static func inspectSharedReference(_ item: NSSecureCoding?) -> SharedReference {
+        if let url = item as? URL {
+            return SharedReference(
+                kind: url.isFileURL ? "file_url" : "url",
+                bytes: url.absoluteString.utf8.count,
+                isNotesCollaborationLink: url.absoluteString.contains("icloud.com/notes")
+            )
+        }
+        if let text = item as? String {
+            return SharedReference(
+                kind: "text",
+                bytes: text.utf8.count,
+                isNotesCollaborationLink: text.contains("icloud.com/notes")
+            )
+        }
+        if let data = item as? Data {
+            return SharedReference(kind: "raw_data", bytes: data.count,
+                                   isNotesCollaborationLink: false)
+        }
+        return SharedReference(kind: item == nil ? "nil" : "other_object",
+                               bytes: 0, isNotesCollaborationLink: false)
+    }
+
+    private func recordSharedReference(_ details: SharedReference, error: Error?,
+                                       index: Int, type: String, seconds: Int) {
+        let err = error.map { "\(($0 as NSError).domain):\(($0 as NSError).code)" } ?? "none"
+        event([
+            "kind": "shared_reference",
+            "index": index,
+            "type": type,
+            "elapsed": seconds,
+            "representation": details.kind,
+            "payloadBytes": details.bytes,
+            "notesCollaborationLink": details.isNotesCollaborationLink,
+            "error": err
+        ])
+        if details.isNotesCollaborationLink {
+            show("\(seconds)초: 메모 공동작업 초대 링크 감지 (오디오 원본 아님)")
+        } else {
+            show("\(seconds)초: \(details.kind), 데이터 \(details.bytes)바이트, 오류 \(err)")
         }
     }
 
