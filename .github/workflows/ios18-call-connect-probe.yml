@@ -1,0 +1,80 @@
+name: Build HITEL iOS18 CallKit VoiceControl probe
+on:
+  push:
+    branches: [feature/ios18-call-connect-voicecontrol-probe-20261104]
+    paths:
+      - 'mobile/ios/CallConnectProbe/**'
+      - '.github/workflows/ios18-call-connect-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  iphone-xr:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure existing HITEL source and production routes are untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(git merge-base HEAD origin/main)"
+          git diff --name-only "$BASE" HEAD | tee /tmp/ios18-probe-changes.txt
+          if grep -vE '^(mobile/ios/CallConnectProbe/|[.]github/workflows/ios18-call-connect-probe[.]yml$)' /tmp/ios18-probe-changes.txt; then
+            echo "::error::Non-probe file modified"; exit 1
+          fi
+          echo HITEL_PRODUCTION_UNCHANGED_PASS
+      - name: Build native iOS 17+ app for iPhone XR arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cd mobile/ios/CallConnectProbe
+          xcodegen generate --spec project.yml
+          xcodebuild -project HitelCallConnectProbe.xcodeproj \
+            -scheme HitelCallConnectProbe \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/CallConnectProbeBuild" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/ios18-probe-build.log" 2>&1 || {
+              grep -nE 'error:|BUILD FAILED|fatal error:' "$RUNNER_TEMP/ios18-probe-build.log" | tail -100 || true
+              tail -100 "$RUNNER_TEMP/ios18-probe-build.log"
+              exit 1
+            }
+          APP="$RUNNER_TEMP/CallConnectProbeBuild/Build/Products/Release-iphoneos/HitelCallConnectProbe.app"
+          test -s "$APP/HitelCallConnectProbe"
+          file "$APP/HitelCallConnectProbe" | grep -q arm64
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "app.hitel.callconnectprobe"
+          echo HITEL_IOS18_CALLKIT_SHORTCUTS_ARM64_BUILD_PASS
+      - name: Package unsigned IPA and auditable source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ProbePayload/Payload" probe-release
+          cp -R "$RUNNER_TEMP/CallConnectProbeBuild/Build/Products/Release-iphoneos/HitelCallConnectProbe.app" "$RUNNER_TEMP/ProbePayload/Payload/"
+          (cd "$RUNNER_TEMP/ProbePayload" && zip -qry "$GITHUB_WORKSPACE/probe-release/HITEL-Call-Connected-VoiceControl-Probe-iOS18-UNSIGNED.ipa" Payload)
+          zip -qry probe-release/HITEL-Call-Connected-VoiceControl-Probe-SOURCE.zip mobile/ios/CallConnectProbe .github/workflows/ios18-call-connect-probe.yml -x '*\.xcodeproj/*'
+          unzip -t probe-release/HITEL-Call-Connected-VoiceControl-Probe-iOS18-UNSIGNED.ipa | tail -2
+          shasum -a 256 probe-release/*.ipa probe-release/*.zip > probe-release/SHA256.txt
+          echo HITEL_PROBE_UNSIGNED_IPA_PACKAGE_PASS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-iPhone-XR-CallKit-VoiceControl-probe
+          path: probe-release/*
+          retention-days: 90
+      - name: Publish independent test IPA without deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-ios18-callconnect-voicecontrol-probe-20261104
+          NOTES="Independent iPhone XR iOS 18.7 CallKit connection observer + Shortcuts App Intents + manual Voice Control phrase sound test. Includes two Boolean App Intents (instant check, 15-second wait), state/log UI and native SwiftUI code. UNSIGNED IPA must be signed using Sideloadly/Apple ID; no special entitlements. Actual background connection observation, self-audio voice-command recognition, and automatic iPhone Phone call recording are NOT verified. Does not modify existing HITEL phone/video/SDK/Railway."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" probe-release/* --clobber
+            gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" probe-release/* --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL iPhone XR iOS18 CallKit VoiceControl test app (unsigned)" --notes "$NOTES"
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'

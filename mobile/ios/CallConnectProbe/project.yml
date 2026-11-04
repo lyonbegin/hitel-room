@@ -1,0 +1,27 @@
+name: HitelCallConnectProbe
+options:
+  createIntermediateGroups: true
+targets:
+  HitelCallConnectProbe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hitel.callconnectprobe
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "HITEL 연결 검증"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  HitelCallConnectProbe:
+    build:
+      targets:
+        HitelCallConnectProbe: all
+    run:
+      config: Debug
