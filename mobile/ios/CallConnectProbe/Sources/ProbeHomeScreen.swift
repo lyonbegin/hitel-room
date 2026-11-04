@@ -1,121 +1,123 @@
 import SwiftUI
+import UIKit
 
-/// One-screen iPhone XR trial. No custom Voice Control gesture registration.
+/// One page, metadata-only test of whether a running system phone-call
+/// recording is exposed as a readable, growing file to this app.
 struct ProbeHomeScreen: View {
     @ObservedObject var monitor: CallConnectionMonitor
-    @StateObject private var grid = GridCommandEngine.shared
+    @State private var snapshot = FileProbeEngine.latest()
     @State private var showDiagnostics = false
-    @State private var showAdvanced = false
-    @State private var directLinkStatus = ""
+
+    private var notesAccessText: String {
+        guard let snapshot = snapshot else { return "검사 전" }
+        if snapshot.appleNotesGroup.hasPrefix("unexpectedly_accessible") {
+            return "메모 앱 저장소 목록 접근 감지 — 상세 검증 필요"
+        }
+        if snapshot.appleNotesGroup.hasPrefix("container_found_but_not_readable") {
+            return "저장소 위치는 확인, 읽기 거부"
+        }
+        return "Apple 메모 앱 저장소 직접 접근 불가"
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment:.leading,spacing:18) {
-                    VStack(alignment:.leading,spacing:7) {
-                        Text("음성 명령으로 녹음 버튼 누르기").font(.title2.bold())
-                        Text("기본 음성 명령을 사용하므로 'Start Recording' 제스처를 새로 만들 필요가 없습니다.")
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("통화 중 녹음 파일 접근 검사")
+                            .font(.title2.bold())
+                        Text("기존 전화 앱은 그대로 표시됩니다. HITEL은 통화 연결을 감지하고 파일의 존재·크기·변경 시각·읽기 권한만 조사합니다.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    GroupBox("자동 준비") {
-                        VStack(alignment:.leading,spacing:11) {
-                            Label(grid.ready ? "명령 음성 저장 완료" : "명령 음성 만들기",systemImage:grid.ready ? "checkmark.circle.fill" : "waveform")
-                                .font(.headline)
-                            Text("Show Grid → One → Tap \(grid.tapCell)")
-                                .font(.system(.title3,design:.monospaced).bold())
-                            Text(grid.status).font(.footnote).foregroundStyle(.secondary)
-                            Button("음성 명령 3개 시험 재생") {
-                                Task { await grid.playSequence() }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(grid.busy)
-                            if !grid.ready {
-                                Button("음성 파일 다시 만들기") {
-                                    Task { await grid.prepare() }
-                                }.buttonStyle(.bordered)
-                            }
-                            if grid.ready {
-                                ShareLink(item: GridCommandEngine.files(cell:grid.tapCell)[0].1) {
-                                    Label("저장된 음성 파일 공유",systemImage:"square.and.arrow.up")
-                                }.font(.caption)
-                            }
-                        }.padding(.vertical,6)
-                    }
-                    GroupBox("처음 한 번만") {
-                        VStack(alignment:.leading,spacing:12) {
-                            Button {
-                                ProbeSystemNavigator.voiceControl { directLinkStatus = $0 }
-                            } label: {
-                                Label("① 음성 명령 설정 화면 바로 열기", systemImage: "gearshape.fill")
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.vertical, 9)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            Text("음성 명령을 켜고 영어(미국)를 선택해 주세요.")
-                                .font(.subheadline)
-                            Divider()
-                            Button {
-                                ProbeSystemNavigator.shortcutsAutomation { directLinkStatus = $0 }
-                            } label: {
-                                Label("② 단축어 새 자동화 화면 바로 열기", systemImage: "bolt.fill")
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.vertical, 9)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            Text("‘전화’ 앱이 열릴 때 → 즉시 실행 → ‘HITEL 연결되면 격자 명령 실행’을 추가해 주세요.")
-                                .font(.subheadline)
-                            if !directLinkStatus.isEmpty {
-                                Text(directLinkStatus)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text("음성 명령 및 자동화 생성 화면 링크는 비공식 주소여서 iOS가 앱 첫 화면으로 이동시킬 수 있습니다. 설정값 자체를 앱이 강제로 변경하지는 않습니다.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }.padding(.vertical,6)
-                    }
-                    GroupBox("전화 연결 상태") {
-                        VStack(alignment:.leading,spacing:10) {
+                    GroupBox("통화 상태") {
+                        VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Label(monitor.connected ? "현재 통화 연결됨" : "연결된 전화 없음",
-                                      systemImage: monitor.connected ? "checkmark.circle.fill" : "phone")
-                                    .foregroundStyle(monitor.connected ? .green : .primary)
+                                Image(systemName: monitor.connected ? "phone.fill" : "phone")
+                                    .foregroundStyle(monitor.connected ? .green : .secondary)
+                                Text(monitor.connected ? "통화 연결됨 · 파일 검사 중" : "통화 연결 대기")
+                                    .font(.headline)
                                 Spacer()
-                                Button("새로고침") { monitor.refresh(reason:"홈 화면 수동 조회") }
-                                    .buttonStyle(.bordered)
-                            }
-                            Text("통화가 연결되면 단축어에서 명령음 재생을 시도합니다. 실제 전화 화면의 녹음 시작 여부는 아이폰에서 확인해야 합니다.")
-                                .font(.footnote).foregroundStyle(.secondary)
-                        }.padding(.vertical,6)
-                    }
-                    DisclosureGroup("버튼 위치가 다를 때만 조정",isExpanded:$showAdvanced) {
-                        VStack(alignment:.leading,spacing:8) {
-                            Text("iOS 격자 번호는 화면과 설정에 따라 달라집니다. 기본값 4가 녹음 버튼을 누르지 않으면 번호를 바꿔 시험하십시오.")
-                                .font(.caption)
-                            Picker("격자 번호",selection:$grid.tapCell) {
-                                ForEach(1...9,id:\.self) { n in
-                                    Text(String(n)).tag(n)
+                                Button("새로고침") {
+                                    monitor.refresh(reason: "홈 화면 직접 갱신")
+                                    snapshot = FileProbeEngine.latest()
                                 }
-                            }.pickerStyle(.segmented)
-                            Button("선택 위치 명령 만들기") { Task { await grid.prepare() } }
                                 .buttonStyle(.bordered)
+                            }
+                            LabeledContent("CallKit 상태", value: monitor.state)
+                            Text("전화 앱 실행 → 기존 단축어 자동화 → 'HITEL 연결되면 녹음 파일 검사' 동작으로 실행됩니다.")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
+                        .padding(.vertical, 6)
                     }
-                    .padding(12)
-                    .background(Color(uiColor:.secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius:12))
-                    Button("연결 기록 및 오류 보기") {
-                        monitor.refresh()
-                        showDiagnostics = true
-                    }.font(.subheadline)
-                    Text("주의: iOS가 통화 중 자기 스피커의 명령을 인식하는지, 화면을 실제로 누르는지는 아직 실기기 검증되지 않았습니다. 자동 녹음 성공을 보장하지 않습니다.")
+
+                    GroupBox("실제 파일 접근 검사") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            LabeledContent("Apple 메모 앱 저장소", value: notesAccessText)
+                            LabeledContent("HITEL 앱 내부 오디오 파일",
+                                           value: String(snapshot?.ownAudioFiles ?? 0) + "개")
+                            LabeledContent("크기 증가가 확인된 파일",
+                                           value: String(snapshot?.ownAudioFilesGrowing ?? 0) + "개")
+                            if let snapshot = snapshot {
+                                LabeledContent("마지막 검사", value: snapshot.sampledAt)
+                                Text("접근 상태 원본: " + snapshot.appleNotesGroup)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                Text("공유 폴더 검사: " + snapshot.sharedAppGroupsRoot)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                ForEach(snapshot.ownAudioDescriptions, id: \.self) { entry in
+                                    Text(entry).font(.system(size: 11, design: .monospaced))
+                                        .textSelection(.enabled)
+                                }
+                            } else {
+                                Text("아직 파일 검사 기록이 없습니다.")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            Button("지금 파일 접근 직접 검사") {
+                                snapshot = FileProbeEngine.sample(
+                                    trigger: "Home_Manual", callState: monitor.state
+                                )
+                                monitor.refresh(reason: "파일 접근 직접 검사")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }.padding(.vertical, 7)
+                    }
+
+                    GroupBox("검증 결과 저장") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("각 검사 시점과 파일 크기 변화, 접근 실패 코드를 JSONL 보고서에 누적합니다. 통화 음성 자체는 복사하거나 녹음하지 않습니다.")
+                                .font(.subheadline)
+                            if FileManager.default.fileExists(atPath: FileProbeEngine.reportURL.path) {
+                                ShareLink(item: FileProbeEngine.reportURL) {
+                                    Label("검사 보고서 내보내기", systemImage: "square.and.arrow.up")
+                                }.buttonStyle(.borderedProminent)
+                            } else {
+                                Text("파일 검사 후 보고서를 내보낼 수 있습니다.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Button("상세 검사 로그 보기") {
+                                monitor.refresh(reason: "진단 화면 이동")
+                                showDiagnostics = true
+                            }.buttonStyle(.bordered)
+                        }.padding(.vertical, 7)
+                    }
+
+                    Text("중요: Apple 메모 앱 저장소가 읽기 불가인 경우 '녹음 파일이 없다'는 뜻이 아닙니다. iOS 샌드박스가 HITEL의 접근을 막았다는 뜻입니다. 전화 앱을 전면에 둔 상태에서 단축어의 실행 시간은 iOS에 의해 제한될 수 있습니다.")
                         .font(.footnote).foregroundStyle(.secondary)
-                }.padding()
+                }
+                .padding()
             }
-            .navigationTitle("HITEL 통화 녹음 실험")
-            .navigationDestination(isPresented:$showDiagnostics) {
-                ProbeDiagnosticsScreen(monitor:monitor)
+            .navigationTitle("HITEL 녹음 파일 검증")
+            .navigationDestination(isPresented: $showDiagnostics) {
+                ProbeDiagnosticsScreen(monitor: monitor)
             }
-            .task { _ = await grid.prepare() }
+            .onAppear {
+                monitor.refresh(reason: "녹음 파일 검증 화면 열림")
+                snapshot = FileProbeEngine.latest()
+            }
+            .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+                snapshot = FileProbeEngine.latest()
+            }
         }
     }
 }
