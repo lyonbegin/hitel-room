@@ -26,7 +26,7 @@ struct ProbeHomeScreen: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("통화 중 녹음 파일 접근 검사")
                             .font(.title2.bold())
-                        Text("기존 전화 앱은 그대로 표시됩니다. HITEL은 통화 연결을 감지하고 파일의 존재·크기·변경 시각·읽기 권한만 조사합니다.")
+                        Text("전화 앱은 그대로 표시됩니다. 통화 연결 후 iOS의 두 시스템 녹음 경로를 직접 열어 파일 존재·크기·읽기 권한을 조사합니다.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                     GroupBox("통화 상태") {
@@ -50,34 +50,46 @@ struct ProbeHomeScreen: View {
                         .padding(.vertical, 6)
                     }
 
-                    GroupBox("실제 파일 접근 검사") {
+                    GroupBox("iOS 시스템 녹음 경로 직접 검사") {
                         VStack(alignment: .leading, spacing: 12) {
-                            LabeledContent("Apple 메모 앱 저장소", value: notesAccessText)
-                            LabeledContent("HITEL 앱 내부 오디오 파일",
-                                           value: String(snapshot?.ownAudioFiles ?? 0) + "개")
-                            LabeledContent("크기 증가가 확인된 파일",
-                                           value: String(snapshot?.ownAudioFilesGrowing ?? 0) + "개")
                             if let snapshot = snapshot {
                                 LabeledContent("마지막 검사", value: snapshot.sampledAt)
-                                Text("접근 상태 원본: " + snapshot.appleNotesGroup)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                Text("공유 폴더 검사: " + snapshot.sharedAppGroupsRoot)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                ForEach(snapshot.ownAudioDescriptions, id: \.self) { entry in
-                                    Text(entry).font(.system(size: 11, design: .monospaced))
-                                        .textSelection(.enabled)
+                                ForEach(snapshot.systemRecordingDirectories, id: \.path) { result in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text(result.path)
+                                            .font(.system(size: 12, design: .monospaced).bold())
+                                            .textSelection(.enabled)
+                                        Label(result.canEnumerate ? "디렉터리 열람 성공" : "디렉터리 열람 실패 / 차단",
+                                              systemImage: result.canEnumerate ? "checkmark.circle" : "xmark.circle")
+                                            .foregroundStyle(result.canEnumerate ? .green : .red)
+                                        Text("경로 속성: " + result.attributesStatus)
+                                        Text("목록 조회: " + result.listingStatus)
+                                        LabeledContent("검사된 파일", value: String(result.filesChecked))
+                                        LabeledContent("크기가 증가한 파일", value: String(result.growingFiles))
+                                        LabeledContent("읽기 성공 파일", value: String(result.readableFiles))
+                                        ForEach(result.fileDetails, id: \.self) { line in
+                                            Text(line)
+                                                .font(.system(size: 11, design: .monospaced))
+                                                .textSelection(.enabled)
+                                        }
+                                    }
+                                    .font(.caption)
+                                    Divider()
                                 }
+                                Text("별도 참고: Apple Notes 앱 그룹=" + snapshot.appleNotesGroup)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Text("대조군: HITEL 앱 자체 폴더 오디오 " +
+                                    String(snapshot.ownAudioFiles) + "개")
+                                    .font(.caption).foregroundStyle(.secondary)
                             } else {
-                                Text("아직 파일 검사 기록이 없습니다.")
-                                    .font(.subheadline).foregroundStyle(.secondary)
+                                Text("아직 검사 결과가 없습니다.")
+                                    .foregroundStyle(.secondary)
                             }
-                            Button("지금 파일 접근 직접 검사") {
+                            Button("두 시스템 경로 지금 검사") {
                                 snapshot = FileProbeEngine.sample(
                                     trigger: "Home_Manual", callState: monitor.state
                                 )
-                                monitor.refresh(reason: "파일 접근 직접 검사")
+                                monitor.refresh(reason: "시스템 경로 직접 검사")
                             }
                             .buttonStyle(.borderedProminent)
                         }.padding(.vertical, 7)
@@ -85,7 +97,7 @@ struct ProbeHomeScreen: View {
 
                     GroupBox("검증 결과 저장") {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("각 검사 시점과 파일 크기 변화, 접근 실패 코드를 JSONL 보고서에 누적합니다. 통화 음성 자체는 복사하거나 녹음하지 않습니다.")
+                            Text("두 시스템 경로를 직접 검사한 시각, 파일별 크기 변화, 읽기 시험 및 실패 코드를 JSONL에 누적합니다. 읽기 시험에 사용한 데이터는 저장하지 않습니다.")
                                 .font(.subheadline)
                             if FileManager.default.fileExists(atPath: FileProbeEngine.reportURL.path) {
                                 ShareLink(item: FileProbeEngine.reportURL) {
@@ -102,7 +114,7 @@ struct ProbeHomeScreen: View {
                         }.padding(.vertical, 7)
                     }
 
-                    Text("중요: Apple 메모 앱 저장소가 읽기 불가인 경우 '녹음 파일이 없다'는 뜻이 아닙니다. iOS 샌드박스가 HITEL의 접근을 막았다는 뜻입니다. 전화 앱을 전면에 둔 상태에서 단축어의 실행 시간은 iOS에 의해 제한될 수 있습니다.")
+                    Text("중요: 디렉터리 접근 실패는 녹음 파일이 없다는 증거가 아닙니다. iOS 샌드박스에 의해 차단된 경우가 있습니다. 통화 중 전화 앱이 전면에 있으면 단축어 및 백그라운드 검사가 중단될 수 있습니다.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 .padding()
