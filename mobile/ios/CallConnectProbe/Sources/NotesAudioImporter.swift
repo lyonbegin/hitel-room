@@ -28,7 +28,7 @@ final class NotesAudioImporter: ObservableObject {
             items = restored
         }
     }
-    static var directory: URL {
+    nonisolated static var directory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("NotesCallAudio", isDirectory: true)
     }
