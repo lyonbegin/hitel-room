@@ -11,16 +11,9 @@ targets:
     info:
       path: NotesProbeInfo.plist
       properties:
-        CFBundleDisplayName: "HITEL 메모 녹음"
+        CFBundleDisplayName: "HITEL 공유진단"
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
-        CFBundleDocumentTypes:
-          - CFBundleTypeName: "HITEL 오디오"
-            CFBundleTypeRole: Viewer
-            LSHandlerRank: Alternate
-            LSItemContentTypes:
-              - public.audio
-              - public.movie
     dependencies:
       - target: HitelNotesShareExtension
         embed: true
@@ -41,7 +34,7 @@ targets:
     info:
       path: NotesShareExtensionInfo.plist
       properties:
-        CFBundleDisplayName: "HITEL 메모 공유 검사"
+        CFBundleDisplayName: "HITEL 메모 녹음"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).NotesShareViewController"
