@@ -28,8 +28,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge
-        MARKETING_VERSION: "2.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "2.2.0"
+        CURRENT_PROJECT_VERSION: "3"
         CODE_SIGN_ENTITLEMENTS: App/HITELGroup.entitlements
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
@@ -51,13 +51,7 @@ targets:
           NSExtensionAttributes:
             NSExtensionActivationRule:
               NSExtensionActivationDictionaryVersion: 2
-              NSExtensionActivationSupportsAttachmentsWithMinCount: 1
-              NSExtensionActivationSupportsAttachmentsWithMaxCount: 10
-              NSExtensionActivationSupportsFileWithMaxCount: 10
-              NSExtensionActivationSupportsImageWithMaxCount: 5
-              NSExtensionActivationSupportsMovieWithMaxCount: 5
-              NSExtensionActivationSupportsText: true
-              NSExtensionActivationSupportsWebURLWithMaxCount: 5
+              NSExtensionActivationSupportsFileWithMaxCount: 5
               NSExtensionActivationSupportsFileWithTypes:
                 - public.audio
                 - public.mp3
@@ -66,18 +60,20 @@ targets:
                 - com.apple.protected-mpeg-4-audio
                 - public.aac-audio
                 - org.xiph.flac
-                - public.mpeg-4-audio
-                - public.movie
-                - public.data
-                - public.item
+                - com.adobe.pdf
+                - net.daringfireball.markdown
                 - public.image
                 - public.jpeg
                 - public.png
+                - com.compuserve.gif
+                - public.webp
+                - public.heic
+              NSExtensionActivationSupportsImageWithMaxCount: 2
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.hitel.notesbridge.share
-        MARKETING_VERSION: "2.1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "2.2.0"
+        CURRENT_PROJECT_VERSION: "3"
         CODE_SIGN_ENTITLEMENTS: ShareExtension/HITELGroup.entitlements
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
