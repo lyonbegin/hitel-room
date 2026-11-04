@@ -56,16 +56,24 @@ jobs:
             file "$APPEX/HitelNotesImportExtension" | grep -q arm64
             /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" | grep -Fx app.hitel.notesbridge
             /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APPEX/Info.plist" | grep -Fx com.apple.share-services
-            /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APPEX/Info.plist" | grep -Fx 'HITEL 오디오 가져오기'
             /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionAttributes:NSExtensionActivationRule:NSExtensionActivationSupportsFileWithTypes:0' "$APPEX/Info.plist" | grep -Fx public.audio
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionAttributes:NSExtensionActivationRule:NSExtensionActivationSupportsFileWithMaxCount' "$APPEX/Info.plist" | grep -Fx 10
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionAttributes:NSExtensionActivationRule:NSExtensionActivationSupportsAttachmentsWithMaxCount' "$APPEX/Info.plist" | grep -Fx 10
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionAttributes:NSExtensionActivationRule:NSExtensionActivationSupportsWebURLWithMaxCount' "$APPEX/Info.plist" | grep -Fx 5
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPrincipalClass' "$APPEX/Info.plist" | grep -F HitelNotesShareController
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APPEX/Info.plist" | grep -Fx 'HITEL 메모 오디오'
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP/Info.plist" | grep -Fx 'HITEL 메모 연결'
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")" = "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APPEX/Info.plist")"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")" = "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APPEX/Info.plist")"
+            echo HITEL_SHARE_REGISTRATION_ACTIVATION_RULE_VALIDATED
             if [ "$variant" = "group" ]; then
               grep -q group.app.hitel.notesbridge App/HITELGroup.entitlements
               grep -q group.app.hitel.notesbridge ShareExtension/HITELGroup.entitlements
             fi
             mkdir -p "$RUNNER_TEMP/BridgePackage-$variant/Payload"
             cp -R "$APP" "$RUNNER_TEMP/BridgePackage-$variant/Payload/"
-            (cd "$RUNNER_TEMP/BridgePackage-$variant" && zip -qry "$GITHUB_WORKSPACE/voicenotes-bridge-release/HITEL-NotesBridge-$variant-UNSIGNED.ipa" Payload)
-            unzip -t "$GITHUB_WORKSPACE/voicenotes-bridge-release/HITEL-NotesBridge-$variant-UNSIGNED.ipa" | tail -2
+            (cd "$RUNNER_TEMP/BridgePackage-$variant" && zip -qry "$GITHUB_WORKSPACE/voicenotes-bridge-release/HITEL-NotesBridge-v2-$variant-UNSIGNED.ipa" Payload)
+            unzip -t "$GITHUB_WORKSPACE/voicenotes-bridge-release/HITEL-NotesBridge-v2-$variant-UNSIGNED.ipa" | tail -2
             echo "HITEL_NOTES_BRIDGE_ARM64_$variant"
           done
           cd "$GITHUB_WORKSPACE"
@@ -82,12 +90,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=hitel-voicenotes-sharebridge-20261104
-          NOTES='Clean-room implementation based on user-supplied Voicenotes 2.0.5 IPA observed share-interface architecture. Supports Apple Notes Share Extension audio handoff, App Group or local clipboard fallback, host app playback, SHA256 verification, optional on-device speech recognition. Both arm64 IPAs unsigned. Full group variant requires App Groups provisioning. No claim of live call audio interception or physical-device validation.'
+          TAG=hitel-voicenotes-sharebridge-v2-20261104
+          NOTES='V2: iOS Notes share sheet visibility: accepts mixed attachments, file data, public.audio and additional media types, text and URL; validates activation counts, principal class, extension Info.plist, and version match for host and appex. Original share app uses Apple supported max-count rules; signed app extension required at installation. Both arm64 IPAs unsigned; sideloader must preserve and sign extension. Real iPhone visibility not yet proven. No real-time audio interception claim.'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" voicenotes-bridge-release/* --clobber
             gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
           else
-            gh release create "$TAG" voicenotes-bridge-release/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Notes Share Bridge from Voicenotes IPA Analysis (unsigned)' --notes "$NOTES"
+            gh release create "$TAG" voicenotes-bridge-release/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Notes Share Bridge V2 - expanded share activation and metadata (unsigned)' --notes "$NOTES"
           fi
           gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
