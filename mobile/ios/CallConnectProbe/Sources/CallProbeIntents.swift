@@ -45,8 +45,8 @@ struct WaitForConnectedSystemCallIntent: AppIntent {
 /// One-action Shortcuts experiment: wait, then play the locally generated WAV.
 /// iOS may suspend a Shortcuts action while Phone is in front. No success claim.
 struct PlayWhenConnectedIntent: AppIntent {
-    static var title: LocalizedStringResource = "HITEL 연결되면 녹음 명령 재생"
-    static var description = IntentDescription("실제 시스템 통화 연결을 최대 15초 확인한 후 저장된 영어 명령 음성 파일을 재생합니다. 접근성 인식 및 녹음 시작은 별도로 시험해야 합니다.")
+    static var title: LocalizedStringResource = "HITEL 연결되면 격자 명령 실행"
+    static var description = IntentDescription("실제 시스템 통화 연결을 최대 15초 확인한 후 기본 음성 명령 Show Grid, One, Tap 번호를 차례로 재생합니다. 접근성 인식 및 녹음 시작은 별도로 시험해야 합니다.")
 
     func perform() async throws -> some IntentResult & ReturnsValue<Bool> {
         let observer = CXCallObserver()
@@ -63,7 +63,7 @@ struct PlayWhenConnectedIntent: AppIntent {
                     ProbeEvidence.append("해당 통화 중복 실행 차단")
                     return .result(value: false)
                 }
-                let worked = await CallConnectedCommandPlayback.playSavedCommand()
+                let worked = await GridCommandEngine.shared.playSequence()
                 if worked { UserDefaults.standard.set(uuid, forKey: key) }
                 return .result(value: worked)
             }
@@ -90,8 +90,8 @@ struct HitelProbeShortcuts: AppShortcutsProvider {
         )
         AppShortcut(
                 intent: PlayWhenConnectedIntent(),
-                phrases: ["Play call record command with \(.applicationName)"],
-                shortTitle: "연결되면 명령 재생",
+                phrases: ["Play grid voice command with \(.applicationName)"],
+                shortTitle: "연결되면 격자 명령",
                 systemImageName: "waveform.badge.mic"
         )
     }
