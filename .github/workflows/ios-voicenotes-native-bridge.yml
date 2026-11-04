@@ -1,0 +1,93 @@
+name: HITEL Voicenotes native share import
+on:
+  push:
+    branches: [feature/ios-voicenotes-native-share-import-20261104]
+    paths:
+      - 'mobile/ios/VoicenotesBridge/**'
+      - '.github/workflows/ios-voicenotes-native-bridge.yml'
+  workflow_dispatch:
+concurrency:
+  group: hitel-voicenotes-native-import-publish
+  cancel-in-progress: true
+permissions:
+  contents: write
+jobs:
+  compile-and-release:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Confirm main branch remains unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(git merge-base HEAD origin/main)"
+          git diff --name-only "$BASE" HEAD | tee /tmp/notesbridge-change-scope.txt
+          if grep -vE '^(mobile/ios/CallConnectProbe/|mobile/ios/VoicenotesBridge/|[.]github/workflows/ios18-call-connect-probe[.]yml$|[.]github/workflows/ios-voicenotes-native-bridge[.]yml$)' /tmp/notesbridge-change-scope.txt; then
+            echo "::error::unexpected production file"; exit 1
+          fi
+          echo HITEL_PRODUCTION_ISOLATION_PASS
+      - name: Build both local-transfer and App Group native IPA variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          mkdir -p "$GITHUB_WORKSPACE/voicenotes-bridge-release"
+          cd mobile/ios/VoicenotesBridge
+          for variant in free group; do
+            if [ "$variant" = "free" ]; then spec=project.yml; else spec=project.group.yml; fi
+            xcodegen generate --spec "$spec"
+            xcodebuild -project HitelNotesBridge.xcodeproj \
+              -scheme HitelNotesBridge -configuration Release \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath "$RUNNER_TEMP/Bridge-$variant" \
+              CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/bridge-$variant.log" 2>&1 || {
+                grep -nE 'error:|BUILD FAILED|fatal error:' "$RUNNER_TEMP/bridge-$variant.log" | tail -60 || true
+                tail -75 "$RUNNER_TEMP/bridge-$variant.log"
+                exit 1
+              }
+            APP="$RUNNER_TEMP/Bridge-$variant/Build/Products/Release-iphoneos/HitelNotesBridge.app"
+            APPEX="$APP/PlugIns/HitelNotesImportExtension.appex"
+            test -s "$APP/HitelNotesBridge"
+            test -s "$APPEX/HitelNotesImportExtension"
+            file "$APP/HitelNotesBridge" | grep -q arm64
+            file "$APPEX/HitelNotesImportExtension" | grep -q arm64
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" | grep -Fx app.hitel.notesbridge
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APPEX/Info.plist" | grep -Fx com.apple.share-services
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APPEX/Info.plist" | grep -Fx 'HITEL 오디오 가져오기'
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionAttributes:NSExtensionActivationRule:NSExtensionActivationSupportsFileWithTypes:0' "$APPEX/Info.plist" | grep -Fx public.audio
+            if [ "$variant" = "group" ]; then
+              grep -q group.app.hitel.notesbridge App/HITELGroup.entitlements
+              grep -q group.app.hitel.notesbridge ShareExtension/HITELGroup.entitlements
+            fi
+            mkdir -p "$RUNNER_TEMP/BridgePackage-$variant/Payload"
+            cp -R "$APP" "$RUNNER_TEMP/BridgePackage-$variant/Payload/"
+            (cd "$RUNNER_TEMP/BridgePackage-$variant" && zip -qry "$GITHUB_WORKSPACE/voicenotes-bridge-release/HITEL-NotesBridge-$variant-UNSIGNED.ipa" Payload)
+            unzip -t "$GITHUB_WORKSPACE/voicenotes-bridge-release/HITEL-NotesBridge-$variant-UNSIGNED.ipa" | tail -2
+            echo "HITEL_NOTES_BRIDGE_ARM64_$variant"
+          done
+          cd "$GITHUB_WORKSPACE"
+          zip -qry voicenotes-bridge-release/HITEL-NotesBridge-SOURCE.zip mobile/ios/VoicenotesBridge .github/workflows/ios-voicenotes-native-bridge.yml -x '*.xcodeproj/*'
+          shasum -a 256 voicenotes-bridge-release/*.ipa voicenotes-bridge-release/*.zip > voicenotes-bridge-release/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Voicenotes-ShareBridge-iOS
+          path: voicenotes-bridge-release/*
+          retention-days: 90
+      - name: Publish build outputs as independent GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-voicenotes-sharebridge-20261104
+          NOTES='Clean-room implementation based on user-supplied Voicenotes 2.0.5 IPA observed share-interface architecture. Supports Apple Notes Share Extension audio handoff, App Group or local clipboard fallback, host app playback, SHA256 verification, optional on-device speech recognition. Both arm64 IPAs unsigned. Full group variant requires App Groups provisioning. No claim of live call audio interception or physical-device validation.'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" voicenotes-bridge-release/* --clobber
+            gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" voicenotes-bridge-release/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Notes Share Bridge from Voicenotes IPA Analysis (unsigned)' --notes "$NOTES"
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[].name]}'
