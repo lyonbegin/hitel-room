@@ -40,7 +40,7 @@ edit('app/src/main/java/com/jemcik/jemrec/capture/RecordingStore.kt', [
     ('const val FOLDER = "JemRec"', 'const val FOLDER = "HITEL-RXTX-Lab"'),
 ])
 edit('app/src/main/java/com/jemcik/jemrec/capture/RecordingStore.kt', [
-    ('import android.content.Intent', 'import android.content.Intent\\nimport android.os.Build'),
+    ('import android.content.Intent', 'import android.content.Intent\nimport android.os.Build'),
     ('private fun relativePath(): String = "${Environment.DIRECTORY_RECORDINGS}/$FOLDER"',
      'fun relativePath(): String = "${if (Build.VERSION.SDK_INT >= 31) Environment.DIRECTORY_RECORDINGS else Environment.DIRECTORY_MUSIC}/$FOLDER"'),
 ])
