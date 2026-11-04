@@ -6,6 +6,7 @@ struct ProbeHomeScreen: View {
     @StateObject private var grid = GridCommandEngine.shared
     @State private var showDiagnostics = false
     @State private var showAdvanced = false
+    @State private var directLinkStatus = ""
 
     var body: some View {
         NavigationStack {
@@ -42,20 +43,33 @@ struct ProbeHomeScreen: View {
                     }
                     GroupBox("처음 한 번만") {
                         VStack(alignment:.leading,spacing:12) {
-                            Text("① 아이폰의 음성 명령을 켜주세요.")
-                                .font(.subheadline.bold())
-                            Text("설정 → 손쉬운 사용 → 음성 명령 → 켬 → 영어(미국)")
+                            Button {
+                                ProbeSystemNavigator.voiceControl { directLinkStatus = $0 }
+                            } label: {
+                                Label("① 음성 명령 설정 화면 바로 열기", systemImage: "gearshape.fill")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 9)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Text("음성 명령을 켜고 영어(미국)를 선택해 주세요.")
                                 .font(.subheadline)
-                            Button("아이폰 설정 열기") { ProbeSystemNavigator.voiceControl() }
-                                .buttonStyle(.bordered)
                             Divider()
-                            Text("② 전화 앱 열릴 때 실행할 HITEL 단축어를 등록하세요.")
-                                .font(.subheadline.bold())
-                            Text("단축어 → 자동화 → 앱 → 전화 → 열릴 때 → 즉시 실행 → ‘HITEL 연결되면 격자 명령 실행’ 추가")
+                            Button {
+                                ProbeSystemNavigator.shortcutsAutomation { directLinkStatus = $0 }
+                            } label: {
+                                Label("② 단축어 새 자동화 화면 바로 열기", systemImage: "bolt.fill")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 9)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Text("‘전화’ 앱이 열릴 때 → 즉시 실행 → ‘HITEL 연결되면 격자 명령 실행’을 추가해 주세요.")
                                 .font(.subheadline)
-                            Button("단축어 앱 열기") { ProbeSystemNavigator.shortcuts() }
-                                .buttonStyle(.bordered)
-                            Text("Apple은 일반 앱이 이 두 설정을 대신 등록하도록 허용하지 않습니다.")
+                            if !directLinkStatus.isEmpty {
+                                Text(directLinkStatus)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("음성 명령 및 자동화 생성 화면 링크는 비공식 주소여서 iOS가 앱 첫 화면으로 이동시킬 수 있습니다. 설정값 자체를 앱이 강제로 변경하지는 않습니다.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }.padding(.vertical,6)
                     }
