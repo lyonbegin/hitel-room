@@ -21,9 +21,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK Platform 35
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Install Android SDK Platform 35 from runner
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: State transition test
         run: bash HITEL_Call_Handoff_Lab/verification/run_state_tests.sh
       - name: Build Android APK
