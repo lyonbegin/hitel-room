@@ -8,7 +8,7 @@ on:
       - '.github/workflows/hitel-call-handoff-lab-build.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,3 +39,13 @@ jobs:
           name: HITEL-Call-Handoff-Lab-v0.2.0-debug-apk
           path: HITEL_Call_Handoff_Lab/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+      - name: Publish direct APK download for QR installation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create hitel-handoff-lab-v0.2.0-20261105 \
+            "HITEL_Call_Handoff_Lab/android/app/build/outputs/apk/debug/app-debug.apk#HITEL_Call_Handoff_Lab_v0.2.0.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "HITEL Call Handoff Lab v0.2.0 (diagnostic APK)" \
+            --notes "Installable diagnostic APK. Preserves Samsung default dialer. Requires manual confirmation of answered calls; no live audio capture or injection. For testing only."
