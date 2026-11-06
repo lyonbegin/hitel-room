@@ -193,6 +193,14 @@ def classify(xml, ns):
     if os_dialog_kind(xml):
         return 'SYSTEM_DIALOG'
     own = [n for n in ns if n['package'] == PKG]
+    labels = ' '.join(n['label'] for n in own)
+    # An app-owned security violation screen is not a usable application UI.
+    if any(flag in labels.lower() for flag in (
+        '보안 정책 위반', '보안상의 이유', '보안 위반',
+        'security policy violation', 'security violation',
+        'rooted device is not allowed', 'emulator is not allowed'
+    )):
+        return 'APP_BLOCKED'
     if any(n['label'] for n in own) or len([n for n in own if n['clickable']]) > 1:
         return 'APP_UI'
     return 'STARTUP_OR_UNKNOWN'
@@ -254,12 +262,15 @@ while queue and attempts < MAX_ATTEMPTS and len(STATE['screens']) < MAX_SCREENS 
 STATE['attempts'] = attempts
 STATE['unique_screens'] = len(STATE['screens'])
 STATE['app_ui_screens'] = sum(s['screen_type'] == 'APP_UI' for s in STATE['screens'])
+STATE['app_blocked_screens'] = sum(s['screen_type'] == 'APP_BLOCKED' for s in STATE['screens'])
 STATE['system_screens'] = sum(s['screen_type'] == 'SYSTEM_DIALOG' for s in STATE['screens'])
 STATE['unclassified_screens'] = sum(s['screen_type'] == 'STARTUP_OR_UNKNOWN' for s in STATE['screens'])
 STATE['remaining_paths'] = len(queue)
 STATE['elapsed_seconds'] = round(time.monotonic()-start, 2)
 if not STATE['screens']:
     STATE['blocked_reason'] = 'NO_REAL_SCREEN_CAPTURED'
+elif STATE['app_blocked_screens'] and not STATE['app_ui_screens']:
+    STATE['blocked_reason'] = 'APP_SECURITY_POLICY_BLOCKED_EMULATOR'
 elif not STATE['app_ui_screens']:
     STATE['blocked_reason'] = 'ONLY_SPLASH_OR_SYSTEM_CAPTURED'
 (BASE/'logcat-tail.txt').write_bytes(sh('logcat', '-d', '-t', '400', timeout=40).stdout[-150000:])
