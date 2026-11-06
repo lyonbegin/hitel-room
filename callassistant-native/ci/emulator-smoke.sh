@@ -136,8 +136,8 @@ if [ "$SDK" -le 30 ]; then
   adb shell input tap "$((WIDTH / 4))" "$((HEIGHT * 15 / 100))"
   log "TAPPED Android 11 incoming notification answer at calibrated display coordinates"
 else
-  python3 callassistant-native/ci/ui-assert.py wait-any "전화 받기|응답|Answer|Accept"
-  python3 callassistant-native/ci/ui-assert.py tap-any "전화 받기|응답|Answer|Accept"
+  python3 callassistant-native/ci/ui-assert.py wait-any "응답|Answer|Accept|전화 받기"
+  python3 callassistant-native/ci/ui-assert.py tap-any "응답|Answer|Accept|전화 받기"
 fi
 log "PASS real tap sent to incoming call Answer control (call state confirmation pending)"
 ANSWERED=0
