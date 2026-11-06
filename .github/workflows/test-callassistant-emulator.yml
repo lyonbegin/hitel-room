@@ -1,0 +1,64 @@
+name: Android Emulator Verify HITEL Native Dialer
+
+on:
+  push:
+    branches: [feature/samsung-callassistant-native-20261106]
+    paths:
+      - 'callassistant-native/**'
+      - '.github/workflows/test-callassistant-emulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [30, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Compile standalone APK
+        run: gradle -p callassistant-native --no-daemon :app:assembleDebug
+      - name: Boot Android AVD and execute ADB acceptance tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: bash callassistant-native/ci/emulator-smoke.sh
+      - name: Upload ADB evidence and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-evidence-api-${{ matrix.api-level }}
+          path: emulator-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload emulator-verified APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-dialer-verified-api-${{ matrix.api-level }}
+          path: callassistant-native/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
