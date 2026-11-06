@@ -99,10 +99,11 @@ public final class CallAudioProbeActivity extends Activity {
             long deadline = android.os.SystemClock.elapsedRealtime() + 1000;
             int positiveReads = 0, nonzeroSamples = 0, bytes = 0;
             while (android.os.SystemClock.elapsedRealtime() < deadline && positiveReads < 50) {
-                int n = record.read(frame, 0, frame.length, AudioRecord.READ_BLOCKING);
-                if (n <= 0) { append("AUDIO_READ error=" + n); break; }
+                int n = record.read(frame, 0, frame.length, AudioRecord.READ_NON_BLOCKING);
+                if (n < 0) { append("AUDIO_READ error=" + n); break; }
+                if (n == 0) { android.os.SystemClock.sleep(20); continue; }
                 positiveReads++; bytes += n;
-                for (int i = 0; i < n; i += 2) if ((frame[i] | frame[i + 1]) != 0) nonzeroSamples++;
+                for (int i = 0; i + 1 < n; i += 2) if ((frame[i] | frame[i + 1]) != 0) nonzeroSamples++;
             }
             // Must never conclude remote capture from local PCM alone.
             append("RESULT=PCM_UNATTRIBUTED source=" + name + " bytes=" + bytes
