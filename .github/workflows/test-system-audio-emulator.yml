@@ -48,6 +48,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -writable-system -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash callassistant-native/systemlab/ci-verify.sh
+      - name: Upload signed privileged test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Privileged-SystemAudio-APK
+          path: callassistant-native/systemlab/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve system permission and audio API evidence
         if: always()
         uses: actions/upload-artifact@v4
