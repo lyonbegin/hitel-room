@@ -32,7 +32,9 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build isolated system lab and test PCM processing
-        run: gradle -p callassistant-native/systemlab --no-daemon assembleDebug testDebugUnitTest
+        run: |
+          gradle -p callassistant-native --no-daemon :app:assembleDebug
+          gradle -p callassistant-native/systemlab --no-daemon assembleDebug testDebugUnitTest
       - name: Run on temporary writable Android 15 system image
         uses: reactivecircus/android-emulator-runner@v2
         with:
