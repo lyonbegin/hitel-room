@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
  <uses-permission android:name="android.permission.CALL_PHONE"/>
- <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
- <queries><package android:name="moe.shizuku.privileged.api"/></queries>
+
  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
@@ -17,7 +16,6 @@
   <activity android:name=".CallActivity" android:exported="false"
     android:showWhenLocked="true" android:turnScreenOn="true" android:launchMode="singleTop"/>
   <activity android:name=".VoiceLabActivity" android:exported="false"/>
-  <activity android:name=".AudioPathActivity" android:exported="false"/>
   <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
    <intent-filter><action android:name="android.intent.action.MAIN"/>
     <category android:name="android.intent.category.LAUNCHER"/></intent-filter>
@@ -34,10 +32,6 @@
    <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="true"/>
   </service>
   <receiver android:name=".CallActionReceiver" android:exported="false"/>
-  <provider android:name="rikka.shizuku.ShizukuProvider"
-    android:authorities="${applicationId}.shizuku" android:enabled="true"
-    android:exported="true" android:multiprocess="false"
-    android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
-  <meta-data android:name="moe.shizuku.client.V3_SUPPORT" android:value="true"/>
+
  </application>
 </manifest>

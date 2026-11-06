@@ -32,7 +32,7 @@ public class VoiceLabActivity extends Activity implements RecognitionListener {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         LinearLayout p = Screen.vertical(this);
-        Screen.title(this, p, "삼성 Call Assistant 기능 시험");
+        Screen.title(this, p, "Android 공통 음성 기능 시험");
         Screen.note(this,p,"01. 기기 마이크 음성 인식(STT) — 실제 통화 상대방 음성이 아닙니다.");
         result = Screen.note(this,p,"대기");
         Screen.button(this,p,"마이크에서 자막 받아오기").setOnClickListener(v -> listen());
@@ -46,7 +46,7 @@ public class VoiceLabActivity extends Activity implements RecognitionListener {
         Screen.button(this,p,"입력 문장 기기 스피커로 읽기").setOnClickListener(v -> speak());
         Screen.button(this,p,"읽기 중단").setOnClickListener(v -> { if(tts != null) tts.stop(); });
         Screen.note(this,p,"03. 번역 및 통화 내 송신은 미연결입니다. 언어 선택은 TTS 음색 언어를 바꿀 뿐 입력 문장을 자동 번역하지 않습니다.");
-        Screen.note(this,p,"삼성 독점 VOICE_TX/VOICE_RX 오디오 태그를 일반 APK에서 재현한 것으로 표시하지 않습니다.");
+        Screen.note(this,p,"기기 자체 음성인식 지원 시에만 동작합니다. 클라우드로 오디오를 전송하는 인식 엔진은 실행하지 않습니다.");
         setContentView(Screen.scroll(this,p));
         tts = new TextToSpeech(this, status -> {
             ttsReady = status == TextToSpeech.SUCCESS;
@@ -59,11 +59,11 @@ public class VoiceLabActivity extends Activity implements RecognitionListener {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, MIC_REQUEST); return;
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            result.setText("이 기기에 음성인식 서비스가 없습니다."); return;
+        if (android.os.Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            result.setText("오프라인 음성인식 엔진이 설치되지 않았습니다. 네트워크 인식으로 대체하지 않습니다."); return;
         }
         if (recognizer == null) {
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
             recognizer.setRecognitionListener(this);
         }
         Intent input = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -80,6 +80,10 @@ public class VoiceLabActivity extends Activity implements RecognitionListener {
         int lang = tts.setLanguage(Locale.forLanguageTag(tags[languages.getSelectedItemPosition()]));
         if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
             result.setText("선택한 언어의 TTS 음성이 기기에 없습니다."); return;
+        }
+        android.speech.tts.Voice voice = tts.getVoice();
+        if (voice == null || voice.isNetworkConnectionRequired()) {
+            result.setText("오프라인 TTS 음성 모델을 사용할 수 없습니다."); return;
         }
         tts.speak(words, TextToSpeech.QUEUE_FLUSH, null, "hitel-native-test");
         result.setText("기기 로컬 TTS 재생 요청됨 — 통화 상대방 송신 아님");

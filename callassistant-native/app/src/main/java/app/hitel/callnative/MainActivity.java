@@ -25,7 +25,7 @@ public class MainActivity extends Activity {
         LinearLayout root = Screen.vertical(this);
         Screen.title(this, root, "HITEL 통화 어시스트");
         status = Screen.note(this, root, "기본 전화 앱 상태 확인 중");
-        Screen.note(this, root, "삼성 원본과 분리된 독립 Android 전화 앱입니다.");
+        Screen.note(this, root, "Android 공통 Telecom API 기반의 독립 전화 앱입니다. 별도 권한 관리 앱과 통화 서버를 사용하지 않습니다.");
         Button role = Screen.button(this, root, "기본 전화 앱으로 지정");
         role.setOnClickListener(v -> requestDialerRole());
         number = new EditText(this);
@@ -50,13 +50,11 @@ public class MainActivity extends Activity {
         });
         Button call = Screen.button(this, root, "전화 걸기");
         call.setOnClickListener(v -> makeCall());
-        Screen.button(this, root, "① 삼성 / ② Android 음성 경로 개별 시험").setOnClickListener(v ->
-            startActivity(new Intent(this, AudioPathActivity.class)));
         Screen.button(this, root, "통화 화면 열기").setOnClickListener(v ->
             startActivity(new Intent(this, CallActivity.class)));
         Screen.button(this, root, "마이크 자막 / 기기 TTS 독립 시험").setOnClickListener(v ->
             startActivity(new Intent(this, VoiceLabActivity.class)));
-        Screen.note(this, root, "주의: 기존 SIM 상대 음성 캡처, 원음 차단, 통역 TTS 상대방 송신은 아직 불가합니다. 삼성 시스템 전용 권한이 필요합니다.");
+        Screen.note(this, root, "지원: 기본 전화 앱 설정·통화 제어·통화 화면·기기 내 음성인식/합성 시험. 제한: 일반 설치 앱은 SIM 상대방 통화 오디오 추출 및 번역 음성 주입 권한이 없습니다.");
         setContentView(Screen.scroll(this, root));
         applyDialIntent(getIntent());
     }
