@@ -151,10 +151,11 @@ python3 callassistant-native/ci/ui-assert.py tap "상대방 음성 추출 검증
 python3 callassistant-native/ci/ui-assert.py wait "실제 상대방 통화 음성 추출 검사"
 python3 callassistant-native/ci/ui-assert.py tap "VOICE_DOWNLINK 추출 시도"
 python3 callassistant-native/ci/ui-assert.py tap "VOICE_CALL 양방향 추출 시도"
+python3 callassistant-native/ci/ui-assert.py tap "AOSP 다운링크 추출 실제 호출"
 RESULTS=0
 for attempt in $(seq 1 25); do
   adb logcat -d -s HITEL_RX_PROBE:I '*:S' > emulator-evidence/remote-audio-probe.txt
-  if grep -q 'RESULT=.*source=VOICE_DOWNLINK' emulator-evidence/remote-audio-probe.txt && grep -q 'RESULT=.*source=VOICE_CALL' emulator-evidence/remote-audio-probe.txt; then RESULTS=1; break; fi
+  if grep -q 'RESULT=.*source=VOICE_DOWNLINK' emulator-evidence/remote-audio-probe.txt && grep -q 'RESULT=.*source=VOICE_CALL' emulator-evidence/remote-audio-probe.txt && grep -q 'RESULT=.*source=AOSP_DOWNLINK' emulator-evidence/remote-audio-probe.txt; then RESULTS=1; break; fi
   sleep 2
 done
 if [ "$RESULTS" -ne 1 ]; then
@@ -164,6 +165,7 @@ fi
 grep -q 'PERMISSION capture_audio_output=DENIED' emulator-evidence/remote-audio-probe.txt || { log "FAIL unexpected privileged permission state; review needed"; exit 22; }
 grep -q 'ATTEMPT source=VOICE_DOWNLINK' emulator-evidence/remote-audio-probe.txt || exit 23
 grep -q 'ATTEMPT source=VOICE_CALL' emulator-evidence/remote-audio-probe.txt || exit 24
+grep -q 'ATTEMPT source=AOSP_DOWNLINK' emulator-evidence/remote-audio-probe.txt || exit 25
 grep -E 'PERMISSION|ATTEMPT|RESULT=|RELEASED' emulator-evidence/remote-audio-probe.txt
 adb exec-out screencap -p > emulator-evidence/remote-audio-probe-screenshot.png
 log "PASS actual telephony AudioRecord attempts were executed, results logged. NOT proof of far-end audio."
