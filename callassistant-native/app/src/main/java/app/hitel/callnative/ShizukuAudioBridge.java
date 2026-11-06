@@ -45,6 +45,7 @@ final class ShizukuAudioBridge {
         main.post(() -> listener.received(text));
     }
     String getStatus() { return status + " | down=" + downFrames + " up=" + upFrames + " peak=" + downPeak; }
+    boolean isCapturing() { return capturing.get() && endpoint != null; }
 
     private final Shizuku.OnBinderReceivedListener binderReady = () -> report("Shizuku 실행 확인");
     private final Shizuku.OnRequestPermissionResultListener permissionResult = (code, grant) -> {
