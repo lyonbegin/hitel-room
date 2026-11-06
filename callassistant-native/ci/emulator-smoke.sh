@@ -124,21 +124,17 @@ adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
 python3 callassistant-native/ci/ui-assert.py wait "통화 화면 열기"
 python3 callassistant-native/ci/ui-assert.py tap "통화 화면 열기"
 adb exec-out screencap -p > emulator-evidence/incoming-screenshot.png
-SDK="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
-if [ "$SDK" -le 30 ]; then
-  # API 30 raises a real heads-up call notification above CallActivity, and
-  # uiautomator omits that overlay from its XML. Tap the observed physical
-  # "응답" notification button, then require Telecom ACTIVE as proof.
-  SIZE="$(adb shell wm size | sed -n 's/^Physical size: //p' | head -1)"
-  WIDTH="${SIZE%x*}"
-  HEIGHT="${SIZE#*x}"
-  test -n "$WIDTH" && test -n "$HEIGHT"
-  adb shell input tap "$((WIDTH / 4))" "$((HEIGHT * 15 / 100))"
-  log "TAPPED Android 11 incoming notification answer at calibrated display coordinates"
-else
-  python3 callassistant-native/ci/ui-assert.py wait-any "응답|Answer|Accept|전화 받기"
-  python3 callassistant-native/ci/ui-assert.py tap-any "응답|Answer|Accept|전화 받기"
-fi
+# Both Android 11 and 15 render the Android call heads-up notification
+# *over* the Activity. UIAutomator only exposes the underlying "전화 받기"
+# node on API 35, so trying that node clicks the foreground "거절" instead.
+# The real emulator screenshot confirmed Answer at x=26%, y=17%.
+SIZE="$(adb shell wm size | sed -n 's/^Physical size: //p' | head -1)"
+WIDTH="${SIZE%x*}"
+HEIGHT="${SIZE#*x}"
+test -n "$WIDTH" && test -n "$HEIGHT"
+adb exec-out screencap -p > emulator-evidence/before-answer-screenshot.png
+adb shell input tap "$((WIDTH * 26 / 100))" "$((HEIGHT * 17 / 100))"
+log "TAPPED actual topmost incoming call Answer (x=26%,y=17%); Telecom ACTIVE assertion follows"
 log "PASS real tap sent to incoming call Answer control (call state confirmation pending)"
 ANSWERED=0
 for attempt in $(seq 1 15); do
