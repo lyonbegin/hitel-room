@@ -6,7 +6,7 @@
   <application android:label="HITEL 음성 기록 시험" android:allowBackup="false"
     android:usesCleartextTraffic="false"
     android:theme="@android:style/Theme.Material.Light.NoActionBar">
-    <activity android:name=".MainActivity" android:exported="true">
+    <activity android:name=".CallAudioMonitorActivity" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
