@@ -33,7 +33,7 @@ import java.util.Locale;
  * NEVER presents a local microphone signal as actual PSTN remote audio.
  * No default dialer role, network relay, Shizuku or root required.
  */
-public final class CallAudioMonitorActivity extends Activity {
+public class CallAudioMonitorActivity extends Activity {
     private static final String TAG = "HITEL_RX_RECORD";
     private static final int RATE = 16000;
     private static final int FORMAT = AudioFormat.ENCODING_PCM_16BIT;
