@@ -25,13 +25,13 @@ try:
     # Match the XAPKJ/APKJ tagged links used by APKPure's own metadata.
     links=[]
     for m in re.finditer(r'(?:XAPKJ|APKJ).{0,14}?(https?://[^"\s\\]+)',body):
-      url=m.group(1).rstrip('},')
+      url=re.match(r'^[\x21-\x7e]+',m.group(1)).group(0).rstrip('},')
       segment=body[max(0,m.start()-12000):m.start()]
       if version in segment[-12000:]:links.append(url)
     # Other API revisions may encode a plain URL rather than the APKJ marker.
     if not links:
       for m in re.finditer(r'https?://[^"\s\\]+',body):
-        url=m.group(0).rstrip('},')
+        url=re.match(r'^[\x21-\x7e]+',m.group(0)).group(0).rstrip('},')
         context=body[max(0,m.start()-2000):min(len(body),m.end()+300)]
         if version in context and any(x in url.lower() for x in ['.xapk','.apk','download','winudf.com']):
           links.append(url)
