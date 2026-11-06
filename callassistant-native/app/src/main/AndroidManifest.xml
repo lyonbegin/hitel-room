@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
  <uses-permission android:name="android.permission.CALL_PHONE"/>
+ <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -32,6 +33,9 @@
    <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="true"/>
   </service>
   <receiver android:name=".CallActionReceiver" android:exported="false"/>
+  <receiver android:name=".PhoneStateReceiver" android:exported="true">
+    <intent-filter><action android:name="android.intent.action.PHONE_STATE"/></intent-filter>
+  </receiver>
 
  </application>
 </manifest>

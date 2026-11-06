@@ -19,6 +19,8 @@ public class MainActivity extends Activity {
     private TextView status;
     private static final int ROLE_REQUEST = 501;
     private static final int CALL_REQUEST = 502;
+    private static final int PHONE_STATE_REQUEST = 503;
+    private TextView passiveStatus;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -26,6 +28,8 @@ public class MainActivity extends Activity {
         Screen.title(this, root, "HITEL 통화 어시스트");
         status = Screen.note(this, root, "기본 전화 앱 상태 확인 중");
         Screen.note(this, root, "Android 공통 Telecom API 기반의 독립 전화 앱입니다. 별도 권한 관리 앱과 통화 서버를 사용하지 않습니다.");
+        passiveStatus = Screen.note(this, root, "기존 전화 앱의 통화 상태: 권한 확인 전");
+        Screen.button(this, root, "기존 전화 앱 유지하며 통화 상태 감지 허용").setOnClickListener(v -> requestPhoneState());
         Button role = Screen.button(this, root, "기본 전화 앱으로 지정");
         role.setOnClickListener(v -> requestDialerRole());
         number = new EditText(this);
@@ -63,7 +67,8 @@ public class MainActivity extends Activity {
         super.onResume();
         RoleManager manager = getSystemService(RoleManager.class);
         boolean held = manager != null && manager.isRoleHeld(RoleManager.ROLE_DIALER);
-        status.setText(held ? "기본 전화 앱: HITEL 지정됨" : "기본 전화 앱: 다른 앱 사용 중");
+        status.setText(held ? "기본 전화 앱: HITEL 지정됨" : "기본 전화 앱: 기존 전화 앱 유지");
+        updatePhoneState();
     }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -79,6 +84,23 @@ public class MainActivity extends Activity {
         if (manager != null && manager.isRoleAvailable(RoleManager.ROLE_DIALER))
             startActivityForResult(manager.createRequestRoleIntent(RoleManager.ROLE_DIALER), ROLE_REQUEST);
         else status.setText("이 기기에서 기본 전화 앱 변경을 지원하지 않습니다.");
+    }
+    private void requestPhoneState() {
+        if (android.os.Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+            updatePhoneState(); return;
+        }
+        requestPermissions(new String[]{Manifest.permission.READ_PHONE_STATE}, PHONE_STATE_REQUEST);
+    }
+    private void updatePhoneState() {
+        if (passiveStatus == null) return;
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            passiveStatus.setText("기존 전화 상태: 전화 상태 권한이 필요합니다."); return;
+        }
+        try {
+            android.telephony.TelephonyManager t = getSystemService(android.telephony.TelephonyManager.class);
+            int state = t.getCallState();
+            passiveStatus.setText("기존 전화 상태: " + (state == android.telephony.TelephonyManager.CALL_STATE_IDLE ? "대기" : state == android.telephony.TelephonyManager.CALL_STATE_RINGING ? "수신 중" : "통화 중") + " (기존 전화앱 변경 없음)");
+        } catch (Exception e) { passiveStatus.setText("전화 상태 조회 실패: " + e.getClass().getSimpleName()); }
     }
     private void makeCall() {
         String digits = number.getText().toString().trim();
@@ -98,5 +120,6 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(code, permissions, results);
         if (code == CALL_REQUEST && results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) makeCall();
+        if (code == PHONE_STATE_REQUEST) updatePhoneState();
     }
 }
