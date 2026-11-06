@@ -61,11 +61,32 @@ adb shell pm grant "$PKG" android.permission.RECORD_AUDIO
 adb shell pm grant "$PKG" android.permission.READ_PHONE_STATE
 echo "[SYS-LAB] Privileged package and permissions verified"
 
-echo "[SYS-LAB] Virtual GSM call (has no real SIM caller audio)"
+echo "[SYS-LAB] Establish truly ACTIVE virtual GSM call with previously validated HITEL InCallService"
+DIALER_APK="callassistant-native/app/build/outputs/apk/debug/app-debug.apk"
+test -s "$DIALER_APK"
+adb install -r -g "$DIALER_APK"
+adb shell cmd role add-role-holder --user 0 android.app.role.DIALER app.hitel.callnative
+sleep 12
+adb shell am start -W -n app.hitel.callnative/.MainActivity >/dev/null
+adb logcat -c
 adb emu gsm call 5551234
-sleep 3
-adb emu gsm accept 5551234
-sleep 3
+sleep 4
+adb shell am start -W -f 0x04000000 -n app.hitel.callnative/.MainActivity >/dev/null
+python3 callassistant-native/ci/ui-assert.py wait "통화 화면 열기"
+python3 callassistant-native/ci/ui-assert.py tap "통화 화면 열기"
+adb exec-out screencap -p > "$OUT/before-answer.png"
+SIZE="$(adb shell wm size | sed -n 's/^Physical size: //p' | head -1)"
+WIDTH="${SIZE%x*}"
+HEIGHT="${SIZE#*x}"
+adb shell input tap "$((WIDTH * 26 / 100))" "$((HEIGHT * 17 / 100))"
+ACTIVE=0
+for i in $(seq 1 20); do
+  adb shell dumpsys telecom > "$OUT/telecom-active-check.txt"
+  if grep -q 'state=ACTIVE' "$OUT/telecom-active-check.txt"; then ACTIVE=1; break; fi
+  sleep 2
+done
+test "$ACTIVE" -eq 1 || { echo "[SYS-LAB] FAIL virtual GSM has not transitioned to ACTIVE"; exit 38; }
+echo "[SYS-LAB] PASS virtual GSM Telecom ACTIVE, now running privileged API probes"
 adb logcat -c
 adb shell am start -W -n "$PKG/.SystemAudioLabActivity" --ez run_all true | tee "$OUT/launch.txt"
 FINISHED=0
