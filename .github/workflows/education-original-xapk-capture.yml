@@ -1,1 +1,87 @@
-The requested file reference is not currently visible. Use files.search or files.list to rediscover the file, then retry with a returned ref_id or file_id.
+name: HITEL Education Original XAPK Emulator Screenshots
+on:
+  push:
+    branches: [feature/education-8-ui-live-20261106]
+    paths:
+      - .github/workflows/education-original-xapk-capture.yml
+      - scripts/education/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-original:
+    name: Original ${{ matrix.app }} / Android emulator
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {app: ypt, package: com.pallo.passiontimerscoped, version: '810.1.05', sha256: '837c7dcc876838fb3ea755178cc93d71b1cf77ddff59ce2073f1d826d4dab388'}
+          - {app: jokbo, package: com.eduzone.eduzoneviewer, version: '4.3.11(2)', sha256: 'd45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5'}
+          - {app: qanda, package: com.mathpresso.qanda, version: '7.4.82', sha256: '215ede314ae6feaabe2fcd609fa3e92ea7b236c38e6126873c17a357ce8217e6'}
+          - {app: kim, package: com.place5.gawekim, version: '71.2', sha256: 'db8b00acabbdf8f1065962bd2b81bd8d7fe8ea5802e414f69c0b4da7f575d768'}
+          - {app: vflat, package: com.voyagerx.scanner, version: '1.16.10.261030.08403c21a', sha256: '1f6962d81499e0d27a36896e21706a9d213c67cf49ac785877bdfaaa4c18e3d4'}
+          - {app: notion, package: notion.id, version: '0.6.4280', sha256: 'e80ee5b8fbdfe0de906772e48498d8370a63b599c9ef5e950cbfd2aa673c6ab8'}
+          - {app: gooroomee, package: com.gooroomee.meet, version: '2.16.1', sha256: '2dfe5a3c3bc36d970888e4db1d974f5cf3a2001e72b774e6b3370f3845dea698'}
+          - {app: learns, package: kr.minglelab.wismap, version: '1.55.0', sha256: 'bc5ec535d5dc30d6aba33d3994fc637b3004e4193a699f6096bf51401b63705a'}
+    env:
+      APP_ID: ${{ matrix.app }}
+      APP_PACKAGE: ${{ matrix.package }}
+      APP_VERSION: ${{ matrix.version }}
+      APP_SHA256: ${{ matrix.sha256 }}
+    steps:
+      - name: Checkout screenshot scripts
+        uses: actions/checkout@v4
+      - name: Verify exact original XAPK SHA-256 before installing
+        id: verify
+        continue-on-error: true
+        run: python3 scripts/education/download_verified_xapk.py source
+      - name: Show source verification report
+        if: always()
+        run: cat source/source_verification.json || true
+      - name: Allow Android emulator to use KVM
+        if: steps.verify.outcome == 'success'
+        run: |
+          sudo usermod -a -G kvm $USER
+          sudo chmod a+rw /dev/kvm
+      - name: Start Android emulator and capture real screens
+        id: emulator
+        if: steps.verify.outcome == 'success'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 3072M
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            bash scripts/education/install_xapk.sh "$APP_ID" "$APP_PACKAGE"
+            python3 scripts/education/capture_ui.py
+      - name: Upload genuine screenshots, XML and errors (never mock UI)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-education-${{ matrix.app }}-${{ github.run_number }}
+          path: |
+            source/source_verification.json
+            evidence/${{ matrix.app }}/
+          if-no-files-found: warn
+          retention-days: 21
+      - name: Fail rather than claim unverified originals
+        if: always()
+        run: |
+          if [[ '${{ steps.verify.outcome }}' != 'success' ]]; then
+            echo 'BLOCKED: original XAPK not fetched with matching SHA256'
+            exit 1
+          fi
+          if [[ '${{ steps.emulator.outcome }}' != 'success' ]]; then
+            echo 'FAILED: app install, startup, screenshot capture or emulator failed'
+            exit 1
+          fi
+          echo 'PASS: real screenshots exist in the artifact, inspect per-screen evidence before claiming coverage'
