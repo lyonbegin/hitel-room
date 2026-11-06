@@ -1,0 +1,67 @@
+name: HITEL Education Original ARM APK Emulator Probe
+on:
+  push:
+    branches: [feature/education-8-ui-live-20261106]
+    paths:
+      - .github/workflows/education-arm-native-translation-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  arm-compatibility:
+    name: ARM-only ${{ matrix.app }} native bridge test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {app: kim, package: com.place5.gawekim, version: '71.2', sha256: 'db8b00acabbdf8f1065962bd2b81bd8d7fe8ea5802e414f69c0b4da7f575d768'}
+          - {app: vflat, package: com.voyagerx.scanner, version: '1.16.10.261030.08403c21a', sha256: '1f6962d81499e0d27a36896e21706a9d213c67cf49ac785877bdfaaa4c18e3d4'}
+    env:
+      APP_ID: ${{ matrix.app }}
+      APP_PACKAGE: ${{ matrix.package }}
+      APP_VERSION: ${{ matrix.version }}
+      APP_SHA256: ${{ matrix.sha256 }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify exact user-original XAPK
+        run: python3 scripts/education/download_verified_xapk.py source
+      - name: Enable KVM
+        run: |
+          sudo usermod -a -G kvm $USER
+          sudo chmod a+rw /dev/kvm
+      - name: Boot Google Play x86_64 image and probe ARM compatibility
+        id: emulator
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_5
+          force-avd-creation: false
+          ram-size: 3072M
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            mkdir -p evidence/$APP_ID/installed
+            adb shell getprop ro.product.cpu.abilist > evidence/$APP_ID/installed/abis.txt
+            adb shell getprop ro.dalvik.vm.native.bridge > evidence/$APP_ID/installed/native-bridge.txt
+            bash scripts/education/install_xapk.sh "$APP_ID" "$APP_PACKAGE"
+            python3 scripts/education/capture_ui.py
+      - name: Preserve genuine screenshot files and install diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm-native-probe-${{ matrix.app }}-${{ github.run_number }}
+          path: |
+            source/source_verification.json
+            evidence/${{ matrix.app }}/
+          retention-days: 21
+          if-no-files-found: warn
+      - name: Fail when installation or genuine UI capture fails
+        if: steps.emulator.outcome != 'success'
+        run: exit 1
