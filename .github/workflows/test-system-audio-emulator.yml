@@ -1,0 +1,56 @@
+name: HITEL Privileged Audio System Test
+
+on:
+  push:
+    branches:
+      - feature/samsung-callassistant-native-20261106
+    paths:
+      - 'callassistant-native/systemlab/**'
+      - '.github/workflows/test-system-audio-emulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  system-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build isolated system lab and test PCM processing
+        run: gradle -p callassistant-native/systemlab --no-daemon assembleDebug testDebugUnitTest
+      - name: Run on temporary writable Android 15 system image
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -writable-system -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash callassistant-native/systemlab/ci-verify.sh
+      - name: Preserve system permission and audio API evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-SystemAudioLab-Evidence
+          path: system-audio-evidence/
+          retention-days: 14
+          if-no-files-found: warn
