@@ -78,7 +78,8 @@ public final class AudioPathActivity extends Activity {
         begin.setOnClickListener(v -> startRoute());
         tone = Screen.button(this, pane, "800Hz 음성 주입 PCM 테스트 (상대방 청취 확인)");
         tone.setOnClickListener(v -> {
-            if (!started) { log("먼저 음성 경로를 시작하십시오."); return; }
+            if (selected == Method.ANDROID && !android.isCapturing()) { log("Android PCM 경로가 열린 뒤에 시험할 수 있습니다."); return; }
+            if (selected == Method.SAMSUNG && !started) { log("삼성 경로가 아직 열리지 않았습니다."); return; }
             if (selected == Method.SAMSUNG) log(samsung.playTone());
             else if (selected == Method.ANDROID) android.sendTone();
         });
@@ -124,7 +125,8 @@ public final class AudioPathActivity extends Activity {
 
     private void startRoute() {
         if (selected == Method.NONE) { log("두 경로 중 하나를 선택하십시오."); return; }
-        if (started) { log("이미 시작 요청하셨습니다. 종료 후 다시 시도하십시오."); return; }
+        if (selected == Method.ANDROID && android.isCapturing()) { log("Android 경로가 이미 실행 중입니다."); return; }
+        if (selected == Method.SAMSUNG && started) { log("삼성 경로가 이미 실행 중입니다."); return; }
         if (selected == Method.SAMSUNG) {
             String answer = samsung.start();
             started = answer.startsWith("삼성 제어값 요청");
@@ -132,8 +134,8 @@ public final class AudioPathActivity extends Activity {
         } else {
             // Asynchronous result from Shizuku shell; log success/failure in real time.
             android.start(androidBackend);
-            started = true;
-            log("Android PCM 경로 시작 요청; Shizuku 로그를 확인하십시오.");
+            started = false; // Only isCapturing() confirms a shell PCM socket was opened.
+            log("Android PCM 경로 시작 요청; 연결 여부는 Shizuku 로그로 확인합니다.");
         }
         updateControls();
     }
