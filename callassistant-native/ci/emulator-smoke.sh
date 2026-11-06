@@ -185,4 +185,27 @@ log "PASS simulated GSM call disconnected in app"
 if adb logcat -d -v brief | grep -E "FATAL EXCEPTION" | grep -q "$PKG"; then
   log "FAIL AndroidRuntime fatal app crash"; exit 14
 fi
+
+log "Step 8: WAV recorder screen and local file recording"
+adb shell am start -W -n "$PKG/.CallAudioMonitorActivity" >/dev/null
+python3 callassistant-native/ci/ui-assert.py wait "HITEL 통화 음성 검증"
+python3 callassistant-native/ci/ui-assert.py tap "기기 마이크 참고 녹음 시작"
+sleep 4
+adb exec-out screencap -p > emulator-evidence/wav-recording-screen.png
+python3 callassistant-native/ci/ui-assert.py tap "녹음 종료·WAV 저장 완료"
+WAV=0
+for i in $(seq 1 20); do
+  if adb logcat -d -s HITEL_RX_RECORD:I '*:S' | grep -q 'FINALIZED bytes='; then WAV=1; break; fi
+  sleep 1
+done
+adb logcat -d -s HITEL_RX_RECORD:V '*:S' > emulator-evidence/wav-recorder-log.txt
+test "$WAV" = 1 || { log "FAIL WAV did not finalize"; exit 46; }
+adb shell content query --uri content://media/external/audio/media > emulator-evidence/wav-media-store.txt
+grep -q 'HITEL_Call_Test' emulator-evidence/wav-media-store.txt || { log "FAIL WAV not found"; exit 47; }
+python3 callassistant-native/ci/ui-assert.py tap "완료된 녹음 재생"
+sleep 2
+adb logcat -d -s HITEL_RX_RECORD:I '*:S' > emulator-evidence/wav-playback-log.txt
+grep -q 'PLAYBACK_START' emulator-evidence/wav-playback-log.txt || { log "FAIL WAV playback did not start"; exit 48; }
+log "PASS local WAV recorded, finalized, present in Music and played"
+
 log "PASS emulator smoke test: install, launch, dial role, UI, GSM call lifecycle"
