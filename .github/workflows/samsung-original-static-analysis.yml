@@ -1,0 +1,57 @@
+name: Samsung InCallUI Dialer original static reverse analysis
+on:
+  push:
+    branches: ['test/samsung-call-bridge-probe-20261107']
+    paths:
+      - 'samsung-research/**'
+      - '.github/workflows/samsung-original-static-analysis.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch exact APK variants for static analysis
+        run: |
+          python -m pip install requests beautifulsoup4 --quiet
+          python samsung-research/fetch_apks.py | tee samsung-research/download-result.txt
+          ls -lh samsung-research/
+      - name: Verify package/version and decompile available originals
+        run: |
+          mkdir -p samsung-research/results
+          sudo apt-get -qq update
+          sudo apt-get install -qq -y aapt unzip ripgrep >/dev/null
+          curl -fLsS --retry 2 --max-time 90 \
+            https://github.com/skylot/jadx/releases/download/v1.5.2/jadx-1.5.2.zip \
+            -o /tmp/jadx.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx-bin
+          for pack in incallui dialer; do
+            if [ ! -s "samsung-research/$pack.apk" ]; then
+              echo "$pack: original APK not acquired" >> samsung-research/results/summary.txt
+              continue
+            fi
+            aapt dump badging "samsung-research/$pack.apk" | head -n 4 >> samsung-research/results/summary.txt
+            /tmp/jadx-bin/bin/jadx -j 4 --no-res -d "samsung-research/$pack-decompiled" \
+              "samsung-research/$pack.apk" || true
+            rg -n -i --max-columns 250 --max-columns-preview \
+              'callassistant|TEXT_CALL|VoipTranslator|CallAssistViewer|AiTextCall|TRANSLATION_MODE|l_voice_tx_control_mode|bindService\(' \
+              "samsung-research/$pack-decompiled/sources" \
+              | head -n 2500 > "samsung-research/results/$pack-matches.txt" || true
+            wc -l "samsung-research/results/$pack-matches.txt" >> samsung-research/results/summary.txt
+          done
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: samsung-original-static-derivatives
+          path: |
+            samsung-research/download-result.txt
+            samsung-research/results/
+          if-no-files-found: warn
