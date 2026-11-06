@@ -50,6 +50,16 @@ jobs:
             mkdir -p evidence/$APP_ID/installed
             adb shell getprop ro.product.cpu.abilist > evidence/$APP_ID/installed/abis.txt
             adb shell getprop ro.dalvik.vm.native.bridge > evidence/$APP_ID/installed/native-bridge.txt
+            mkdir -p "source/unpacked/$APP_ID"
+            unzip -oq "source/$APP_ID.xapk" -d "source/unpacked/$APP_ID"
+            find "source/unpacked/$APP_ID" -name '*.apk' -print | sort > "evidence/$APP_ID/installed/apk-paths.txt"
+            while IFS= read -r apk; do
+              echo "==== $apk ===="
+              unzip -Z1 "$apk" | grep -E '^(lib/|.*\.so$)' | head -35 || true
+            done < "evidence/$APP_ID/installed/apk-paths.txt" > "evidence/$APP_ID/installed/native-libraries.txt"
+            echo "Package native ABI splits:"
+            cat "evidence/$APP_ID/installed/apk-paths.txt"
+            cat "evidence/$APP_ID/installed/native-libraries.txt" | head -80
             bash scripts/education/install_xapk.sh "$APP_ID" "$APP_PACKAGE"
             python3 scripts/education/capture_ui.py
       - name: Preserve genuine screenshot files and install diagnostics
