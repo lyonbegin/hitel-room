@@ -40,7 +40,7 @@ def recover_external_anr(root):
             raise RuntimeError("Our own HITEL app is not responding")
         if "Pixel Launcher isn't responding" in text:
             button = target(root, "Close app")
-            if button:
+            if button is not None:
                 click(button)
                 time.sleep(2)
                 return True
@@ -53,7 +53,7 @@ def perform(action, label):
             if recover_external_anr(root):
                 continue
             button = target(root, label)
-            if button:
+            if button is not None:
                 if action == "tap":
                     click(button)
                 print("[HITEL-UI] PASS", action, label, "after", attempt, "retries")
