@@ -2,15 +2,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+  <uses-permission android:name="com.samsung.android.callassistant.permission.TEXT_CALL"/>
+  <uses-permission android:name="com.samsung.android.callassistant.permission.VOIP_TRANSLATOR"/>
+  <uses-permission android:name="com.samsung.android.incall.permission.READ_CALL_CONTENT_PROVIDER"/>
+  <uses-permission android:name="com.samsung.android.incall.permission.WRITE_CALL_CONTENT_PROVIDER"/>
+  <queries>
+    <package android:name="com.samsung.android.callassistant"/>
+    <package android:name="com.samsung.android.incallui"/>
+    <package android:name="com.samsung.android.dialer"/>
+  </queries>
   <uses-feature android:name="android.hardware.telephony" android:required="false"/>
   <application android:label="HITEL 음성 기록 시험" android:allowBackup="false"
     android:usesCleartextTraffic="false"
     android:theme="@android:style/Theme.Material.Light.NoActionBar">
-    <activity android:name=".CallAudioMonitorActivity" android:exported="true">
+    <activity android:name=".SamsungBridgeProbeActivity" android:exported="true" android:label="HITEL 삼성 연동 시험">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <activity android:name=".CallAudioMonitorActivity" android:exported="false"/>
   </application>
 </manifest>
