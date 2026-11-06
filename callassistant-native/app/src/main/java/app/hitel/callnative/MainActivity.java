@@ -36,6 +36,8 @@ public class MainActivity extends Activity {
         Screen.note(this, root, "Android 공통 Telecom API 기반의 독립 전화 앱입니다. 별도 권한 관리 앱과 통화 서버를 사용하지 않습니다.");
         passiveStatus = Screen.note(this, root, "기존 전화 앱의 통화 상태: 권한 확인 전");
         Screen.button(this, root, "기존 전화 앱 유지하며 통화 상태 감지 허용").setOnClickListener(v -> requestPhoneState());
+        Screen.button(this, root, "상대방 음성 추출 검증").setOnClickListener(v ->
+            startActivity(new Intent(this, CallAudioProbeActivity.class)));
         Button role = Screen.button(this, root, "기본 전화 앱으로 지정");
         role.setOnClickListener(v -> requestDialerRole());
         number = new EditText(this);
