@@ -39,6 +39,7 @@ public final class CallAudioProbeActivity extends Activity {
         Screen.button(this, p, "VOICE_DOWNLINK 추출 시도").setOnClickListener(v -> runProbe(MediaRecorder.AudioSource.VOICE_DOWNLINK));
         Screen.button(this, p, "VOICE_CALL 양방향 추출 시도").setOnClickListener(v -> runProbe(MediaRecorder.AudioSource.VOICE_CALL));
         Screen.button(this, p, "AOSP 시스템 통화 음성 API 확인").setOnClickListener(v -> checkSystemApi());
+        Screen.button(this, p, "AOSP 다운링크 추출 실제 호출").setOnClickListener(v -> trySystemExtraction());
         Screen.note(this, p, "합격 기준: 실제 상대방이 말하는 기준 음원을 확보하여 통화 수신 PCM과 일치하는지 확인해야 합니다. 단순 통화 연결·오디오 객체 초기화·마이크 음성은 합격 처리하지 않습니다.");
         setContentView(Screen.scroll(this, p));
         checkSystemApi();
@@ -64,6 +65,36 @@ public final class CallAudioProbeActivity extends Activity {
                 append("SYSTEM_API present=getCallDownlinkExtractionAudioRecord, access still requires CALL_AUDIO_INTERCEPTION");
             } catch (Throwable e) {
                 append("SYSTEM_API unavailable=" + e.getClass().getSimpleName() + " (not a public third-party interface)");
+            }
+        });
+    }
+    private void trySystemExtraction() {
+        executor.execute(() -> {
+            AudioRecord record = null;
+            append("ATTEMPT source=AOSP_DOWNLINK mode=" + getSystemService(AudioManager.class).getMode()
+                    + " call_audio_interception_permission="
+                    + (checkSelfPermission("android.permission.CALL_AUDIO_INTERCEPTION") == PackageManager.PERMISSION_GRANTED
+                        ? "GRANTED" : "DENIED"));
+            try {
+                Method method = AudioManager.class.getMethod("getCallDownlinkExtractionAudioRecord", AudioFormat.class);
+                AudioFormat format = new AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(16000).setChannelMask(AudioFormat.CHANNEL_IN_MONO).build();
+                record = (AudioRecord) method.invoke(getSystemService(AudioManager.class), format);
+                if (record == null || record.getState() != AudioRecord.STATE_INITIALIZED) {
+                    append("RESULT=UNAVAILABLE source=AOSP_DOWNLINK status=not_initialized");
+                } else {
+                    append("RESULT=PCM_UNATTRIBUTED source=AOSP_DOWNLINK status=initialized REMOTE_VOICE_VERIFIED=false");
+                }
+            } catch (InvocationTargetException e) {
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                append("RESULT=DENIED_OR_UNAVAILABLE source=AOSP_DOWNLINK exception="
+                        + cause.getClass().getSimpleName() + " message=" + safe(cause.getMessage()));
+            } catch (Throwable e) {
+                append("RESULT=DENIED_OR_UNAVAILABLE source=AOSP_DOWNLINK exception="
+                        + e.getClass().getSimpleName() + " message=" + safe(e.getMessage()));
+            } finally {
+                if (record != null) try { record.release(); } catch (Throwable ignored) {}
+                append("RELEASED source=AOSP_DOWNLINK");
             }
         });
     }
