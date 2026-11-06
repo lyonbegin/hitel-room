@@ -126,7 +126,7 @@ public class MainActivity extends Activity {
             Method sem=builder.getClass().getMethod("semAddAudioTag",String.class);
             sem.invoke(builder,"VOICE_TX");
             AudioAttributes attrs=builder.build();
-            line("VOICE_TX 태그 적용 호출 성공; tags="+attrs.getTags());
+            line("VOICE_TX 태그 적용 호출 성공 (삼성 오디오 라우팅 반영 여부는 실기기 확인 필요)");
             AudioFormat format=new AudioFormat.Builder()
                 .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                 .setSampleRate(16000)
