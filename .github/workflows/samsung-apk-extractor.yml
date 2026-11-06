@@ -1,0 +1,36 @@
+name: Samsung Original APK Extractor
+on:
+  push:
+    branches: ['test/samsung-call-bridge-probe-20261107']
+    paths:
+      - 'samsung-extractor/**'
+      - '.github/workflows/samsung-apk-extractor.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0"'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build APK
+        run: gradle -p samsung-extractor :app:assembleDebug --no-daemon
+      - name: Verify APK
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging samsung-extractor/app/build/outputs/apk/debug/app-debug.apk | head -n 8
+          sha256sum samsung-extractor/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Samsung-Original-APK-Extractor
+          path: samsung-extractor/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
