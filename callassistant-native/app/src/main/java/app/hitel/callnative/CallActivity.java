@@ -62,6 +62,8 @@ public class CallActivity extends Activity {
             Call c = NativeCallService.current;
             if (c != null) { c.playDtmfTone('1'); c.stopDtmfTone(); }
         });
+        Screen.button(this, pane, "삼성 / Android 음성 경로 선택 및 시험").setOnClickListener(v ->
+            startActivity(new Intent(this, AudioPathActivity.class)));
         Screen.button(this, pane, "마이크 자막 / TTS 시험").setOnClickListener(v ->
             startActivity(new Intent(this, VoiceLabActivity.class)));
         Screen.note(this, pane, "음소거는 일반 마이크 음소거만 제어합니다. AI 원음 차단과 번역 TTS의 통화 송신 경로는 구현되지 않았습니다.");
