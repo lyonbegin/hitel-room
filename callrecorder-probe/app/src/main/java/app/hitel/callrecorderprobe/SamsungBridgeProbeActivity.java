@@ -40,7 +40,7 @@ public final class SamsungBridgeProbeActivity extends Activity {
     private final ServiceConnection sc = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder service) {
             add("통역 Service onServiceConnected: " + name.flattenToShortString() +
-                    " / Binder=" + (service != null ? service.getInterfaceDescriptor() : "null"));
+                    " / Binder=" + (service != null ? service.getClass().getSimpleName() : "null"));
         }
         @Override public void onServiceDisconnected(ComponentName name) { add("통역 Service 연결 해제"); }
     };
