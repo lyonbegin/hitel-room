@@ -1,0 +1,62 @@
+name: HITEL Education Original Android 11 Compatibility Capture
+on:
+  push:
+    branches: [feature/education-8-ui-live-20261106]
+    paths:
+      - .github/workflows/education-android11-compatibility.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-android11:
+    name: Android 11 original ${{ matrix.app }} UI capture
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {app: ypt, package: com.pallo.passiontimerscoped, version: '810.1.05', sha256: '837c7dcc876838fb3ea755178cc93d71b1cf77ddff59ce2073f1d826d4dab388'}
+          - {app: jokbo, package: com.eduzone.eduzoneviewer, version: '4.3.11(2)', sha256: 'd45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5'}
+    env:
+      APP_ID: ${{ matrix.app }}
+      APP_PACKAGE: ${{ matrix.package }}
+      APP_VERSION: ${{ matrix.version }}
+      APP_SHA256: ${{ matrix.sha256 }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact uploaded original hash against source
+        run: python3 scripts/education/download_verified_xapk.py source
+      - name: Enable KVM
+        run: |
+          sudo usermod -a -G kvm $USER
+          sudo chmod a+rw /dev/kvm
+      - name: Boot Android 11 and capture original pixels
+        id: emulator
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          ram-size: 3072M
+          disk-size: 8192M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            bash scripts/education/install_xapk.sh "$APP_ID" "$APP_PACKAGE"
+            python3 scripts/education/capture_ui.py
+      - name: Upload real screenshot and install diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: education-android11-original-${{ matrix.app }}-${{ github.run_number }}
+          path: |
+            source/source_verification.json
+            evidence/${{ matrix.app }}/
+          if-no-files-found: warn
+          retention-days: 21
+      - name: Reject incomplete app UI capture
+        if: steps.emulator.outcome != 'success'
+        run: exit 1
