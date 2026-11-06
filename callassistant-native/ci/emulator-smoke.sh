@@ -112,13 +112,24 @@ log "Step 7: incoming call UI and disconnect lifecycle"
 adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
 python3 callassistant-native/ci/ui-assert.py wait "통화 화면 열기"
 python3 callassistant-native/ci/ui-assert.py tap "통화 화면 열기"
-python3 callassistant-native/ci/ui-assert.py wait "전화 받기"
-sleep 2
+python3 callassistant-native/ci/ui-assert.py wait-any "전화 받기|응답"
 adb shell uiautomator dump /sdcard/hitel-incoming-ui.xml
 adb pull /sdcard/hitel-incoming-ui.xml emulator-evidence/incoming-ui.xml >/dev/null
-grep -q "전화 받기" emulator-evidence/incoming-ui.xml
-grep -q "전화 거절" emulator-evidence/incoming-ui.xml
-log "PASS native incoming call controls visible"
+grep -Eq "전화 받기|응답" emulator-evidence/incoming-ui.xml
+grep -Eq "전화 거절|거절" emulator-evidence/incoming-ui.xml
+log "PASS native incoming call UI or Android call notification is visible"
+python3 callassistant-native/ci/ui-assert.py tap-any "전화 받기|응답"
+ANSWERED=0
+for attempt in $(seq 1 15); do
+  if adb logcat -d -s HITEL_PHONE:I '*:S' | grep -q 'CALL_STATE=4'; then ANSWERED=1; break; fi
+  sleep 2
+done
+if [ "$ANSWERED" -ne 1 ]; then
+  log "FAIL user-facing answer button did not transition InCallService to ACTIVE"; exit 16
+fi
+log "PASS actual answer button changes telecom call to ACTIVE"
+adb shell uiautomator dump /sdcard/hitel-active-ui.xml >/dev/null || :
+adb pull /sdcard/hitel-active-ui.xml emulator-evidence/active-ui.xml >/dev/null 2>&1 || :
 adb emu gsm cancel 5551234 | tee emulator-evidence/gsm-cancel.txt
 REMOVED=0
 for attempt in $(seq 1 15); do

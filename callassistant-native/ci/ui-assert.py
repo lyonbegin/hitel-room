@@ -47,18 +47,19 @@ def recover_external_anr(root):
     return False
 
 def perform(action, label):
+    labels = label.split("|") if action.endswith("-any") else [label]
     for attempt in range(15):
         try:
             root = dump()
             if recover_external_anr(root):
                 continue
-            button = target(root, label)
+            button = next((b for key in labels if (b := target(root, key)) is not None), None)
             if button is not None:
-                if action == "tap":
+                if action.startswith("tap"):
                     click(button)
                 print("[HITEL-UI] PASS", action, label, "after", attempt, "retries")
                 return
-            if action == "tap" and attempt in (3, 7, 11):
+            if action.startswith("tap") and attempt in (3, 7, 11):
                 adb("shell", "input", "swipe", "520", "1650", "520", "480", "280")
         except (subprocess.CalledProcessError, ET.ParseError, subprocess.TimeoutExpired) as exc:
             print("[HITEL-UI] transient ADB/UI dump problem", type(exc).__name__, file=sys.stderr)
@@ -66,6 +67,6 @@ def perform(action, label):
     raise RuntimeError(f"UI '{label}' unavailable after 15 attempts")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3 or sys.argv[1] not in ("wait", "tap"):
-        raise SystemExit("Usage: ui-assert.py (wait|tap) 'visible text'")
+    if len(sys.argv) != 3 or sys.argv[1] not in ("wait", "tap", "wait-any", "tap-any"):
+        raise SystemExit("Usage: ui-assert.py (wait|tap|wait-any|tap-any) 'visible text'")
     perform(sys.argv[1], sys.argv[2])
