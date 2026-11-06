@@ -17,6 +17,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+import android.os.Looper;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -50,7 +52,7 @@ public class MainActivity extends Activity {
         add(layout,"7. 삼성 semIsScreenCallEnabled 조회",v->screenCallRead());
         add(layout,"8. 삼성 semSetScreenCallEnabled(true) 요청",v->screenCallSet(true));
         add(layout,"9. 삼성 semSetScreenCallEnabled(false) 요청",v->screenCallSet(false));
-        add(layout,"10. VOICE_TX 태그 AudioTrack 0.3초 톤 시험",v->voiceTx());
+        add(layout,"10. VOICE_TX 태그 AudioTrack 2초 톤 시험",v->voiceTx());
         add(layout,"원상복구 (송신 NORMAL / 통역 OFF / ScreenCall OFF)",v->resetAll());
         add(layout,"검사 로그 복사",v->copy());
         output=new TextView(this);
@@ -60,6 +62,8 @@ public class MainActivity extends Activity {
         setContentView(scroll);
         line("Model="+Build.MANUFACTURER+" "+Build.MODEL+" Android="+Build.VERSION.RELEASE);
         line("원본 근거: Li5/c; setParameters + Li5/k; VOICE_TX + Li5/d; semAddAudioTag");
+        line("MODIFY_AUDIO_SETTINGS="+(checkSelfPermission("android.permission.MODIFY_AUDIO_SETTINGS")==android.content.pm.PackageManager.PERMISSION_GRANTED?"GRANTED":"DENIED"));
+        line("AudioManager mode="+audio.getMode()+" (2=IN_CALL, 0=NORMAL)");
         readParams();
     }
     private void add(LinearLayout col,String label,View.OnClickListener callback){
@@ -69,10 +73,13 @@ public class MainActivity extends Activity {
         b.setOnClickListener(callback);
         col.addView(b);
     }
-    private void line(String str){
+    private synchronized void line(String str){
         String t=new SimpleDateFormat("HH:mm:ss",Locale.US).format(new Date());
         logs.append('[').append(t).append("] ").append(str).append('\n');
-        if(output!=null)output.setText(logs.toString());
+        if(output!=null){
+            if(Looper.myLooper()==Looper.getMainLooper())output.setText(logs.toString());
+            else runOnUiThread(()->{ if(output!=null) output.setText(logs.toString()); });
+        }
     }
     private void read(String key){
         try{
@@ -82,11 +89,12 @@ public class MainActivity extends Activity {
     }
     private void readParams(){
         line("=== 시스템 파라미터 조회 ===");
+        line("AudioManager mode="+audio.getMode()+" micMute="+audio.isMicrophoneMute());
         read("l_call_translation_mode");
         read("l_voice_tx_control_mode");
     }
     private void setParam(String key,String val){
-        line("=== 삼성 원본과 같은 setParameters 호출 ===");
+        line("=== 삼성 원본과 같은 setParameters 호출 === mode="+audio.getMode());
         try {
             String pair=key+"="+val;
             audio.setParameters(pair);
@@ -113,11 +121,15 @@ public class MainActivity extends Activity {
             changed=true;
             line("semSetScreenCallEnabled("+enabled+") return="+result);
             screenCallRead();
-        }catch(Throwable t){line("semSetScreenCallEnabled FAILED: "+t);}
+        }catch(Throwable t){
+            Throwable cause=t instanceof InvocationTargetException && t.getCause()!=null ? t.getCause():t;
+            line("semSetScreenCallEnabled FAILED: "+cause.getClass().getName()+": "+cause.getMessage());
+        }
     }
-    private void voiceTx(){
-        line("=== VOICE_TX AudioTrack.write 직접 시험 ===");
-        line("수신 기기로 0.3초 톤이 실제 도착하는지는 별도 통화로 확인해야 합니다.");
+    private void voiceTx(){new Thread(this::voiceTxWorker,"VoiceTxProbe").start();}
+    private void voiceTxWorker(){
+        line("=== VOICE_TX AudioTrack.write 직접 시험 === mode="+audio.getMode());
+        line("상대방의 동의하에 연결된 통화 중 실행하여 2초 톤 수신 여부를 확인하십시오.");
         AudioTrack track=null;
         try{
             AudioAttributes.Builder builder=new AudioAttributes.Builder()
@@ -142,9 +154,9 @@ public class MainActivity extends Activity {
                 .build();
             if(track.getState()!=AudioTrack.STATE_INITIALIZED)
                 throw new IllegalStateException("AudioTrack STATE_UNINITIALIZED");
-            byte[] pcm=new byte[9600]; // 0.3 seconds, 16000 Hz, 16-bit mono
-            for(int i=0;i<4800;i++){
-                double edge=Math.min(1,Math.min(i/250.0,(4799-i)/250.0));
+            byte[] pcm=new byte[64000]; // 2 seconds, 16000 Hz, 16-bit mono
+            for(int i=0;i<32000;i++){
+                double edge=Math.min(1,Math.min(i/250.0,(31999-i)/250.0));
                 short sample=(short)(Math.sin(2.0*Math.PI*440*i/16000.0)*1800*edge);
                 pcm[2*i]=(byte)(sample&255);
                 pcm[2*i+1]=(byte)((sample>>8)&255);
@@ -152,6 +164,7 @@ public class MainActivity extends Activity {
             track.play();
             int written=track.write(pcm,0,pcm.length);
             line("AudioTrack.write="+written+" / "+pcm.length+" bytes");
+            try{Thread.sleep(350);}catch(InterruptedException ignored){}
             line("이 값은 PCM을 AudioTrack에 썼다는 뜻이며 상대 통화 송출의 증거는 아닙니다.");
         }catch(Throwable t){line("VOICE_TX FAILED: "+t.getClass().getName()+" "+t.getMessage());}
         finally{
