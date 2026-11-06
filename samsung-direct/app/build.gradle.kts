@@ -3,7 +3,7 @@ android {
     namespace = "app.hitel.samsungdirect"
     compileSdk = 35
     defaultConfig {
-        applicationId = "app.hitel.samsungdirect"
+        applicationId = "app.hitel.samsungdirect.v2"
         minSdk = 33
         targetSdk = 34
         versionCode = 2
