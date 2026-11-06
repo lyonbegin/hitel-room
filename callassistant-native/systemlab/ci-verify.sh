@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-APK="callassistant-native/systemlab/build/outputs/apk/debug/systemlab-debug.apk"
+APK="$(find callassistant-native/systemlab/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
 PKG="app.hitel.systemlab"
 OUT="system-audio-evidence"
 mkdir -p "$OUT"
@@ -18,10 +18,14 @@ trap finish EXIT
 
 adb wait-for-device
 adb shell getprop ro.build.fingerprint | tee "$OUT/fingerprint.txt"
-test "$(adb shell getprop ro.debuggable | tr -d '\r')" = "1" || {
-  echo "AVD is not a debuggable image"; exit 21;
-}
-test -s "$APK"
+DEBUGGABLE="$(adb shell getprop ro.debuggable | tr -d '\r')"
+echo "ro.debuggable=$DEBUGGABLE"
+echo "APK=$APK"
+ls -lh callassistant-native/systemlab/build/outputs/apk/debug || true
+test -s "$APK" || { echo "APK not found at output path"; exit 20; }
+if [ "$DEBUGGABLE" != "1" ]; then
+  echo "AVD system does not advertise debuggable; try adb root and retain the actual error"
+fi
 echo "[SYS-LAB] Configure writable temporary emulator system"
 adb root
 adb wait-for-device
