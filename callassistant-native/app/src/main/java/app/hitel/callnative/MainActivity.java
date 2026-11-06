@@ -21,6 +21,12 @@ public class MainActivity extends Activity {
     private static final int CALL_REQUEST = 502;
     private static final int PHONE_STATE_REQUEST = 503;
     private TextView passiveStatus;
+    private final android.content.BroadcastReceiver passiveReceiver = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(android.content.Context context, Intent intent) {
+            if ("app.hitel.callnative.CALL_STATE_CHANGED".equals(intent.getAction())) updatePhoneState();
+        }
+    };
+    private boolean passiveRegistered = false;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,6 +71,17 @@ public class MainActivity extends Activity {
         applyDialIntent(getIntent());
     }
 
+    @Override protected void onStart() {
+        super.onStart();
+        android.content.IntentFilter filter = new android.content.IntentFilter("app.hitel.callnative.CALL_STATE_CHANGED");
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(passiveReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(passiveReceiver, filter);
+        passiveRegistered = true;
+    }
+    @Override protected void onStop() {
+        if (passiveRegistered) { unregisterReceiver(passiveReceiver); passiveRegistered = false; }
+        super.onStop();
+    }
     @Override protected void onResume() {
         super.onResume();
         RoleManager manager = getSystemService(RoleManager.class);
