@@ -145,6 +145,29 @@ if [ "$ANSWERED" -ne 1 ]; then
   log "FAIL user-facing answer button did not transition InCallService to ACTIVE"; exit 16
 fi
 log "PASS actual answer button changes telecom call to ACTIVE"
+log "Step 8: attempt actual VOICE_DOWNLINK / VOICE_CALL AudioRecord sources during ACTIVE call"
+adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
+python3 callassistant-native/ci/ui-assert.py tap "상대방 음성 추출 검증"
+python3 callassistant-native/ci/ui-assert.py wait "실제 상대방 통화 음성 추출 검사"
+python3 callassistant-native/ci/ui-assert.py tap "VOICE_DOWNLINK 추출 시도"
+python3 callassistant-native/ci/ui-assert.py tap "VOICE_CALL 양방향 추출 시도"
+RESULTS=0
+for attempt in $(seq 1 25); do
+  adb logcat -d -s HITEL_RX_PROBE:I '*:S' > emulator-evidence/remote-audio-probe.txt
+  if grep -q 'RESULT=.*source=VOICE_DOWNLINK' emulator-evidence/remote-audio-probe.txt && grep -q 'RESULT=.*source=VOICE_CALL' emulator-evidence/remote-audio-probe.txt; then RESULTS=1; break; fi
+  sleep 2
+done
+if [ "$RESULTS" -ne 1 ]; then
+  log "FAIL missing probe result for one or more actual AudioRecord telephony sources"
+  exit 21
+fi
+grep -q 'PERMISSION capture_audio_output=DENIED' emulator-evidence/remote-audio-probe.txt || { log "FAIL unexpected privileged permission state; review needed"; exit 22; }
+grep -q 'ATTEMPT source=VOICE_DOWNLINK' emulator-evidence/remote-audio-probe.txt || exit 23
+grep -q 'ATTEMPT source=VOICE_CALL' emulator-evidence/remote-audio-probe.txt || exit 24
+grep -E 'PERMISSION|ATTEMPT|RESULT=|RELEASED' emulator-evidence/remote-audio-probe.txt
+adb exec-out screencap -p > emulator-evidence/remote-audio-probe-screenshot.png
+log "PASS actual telephony AudioRecord attempts were executed, results logged. NOT proof of far-end audio."
+log "Emulator GSM has no call audio and remote voice extraction remains unverified."
 adb shell uiautomator dump /sdcard/hitel-active-ui.xml >/dev/null || :
 adb pull /sdcard/hitel-active-ui.xml emulator-evidence/active-ui.xml >/dev/null 2>&1 || :
 adb emu gsm cancel 5551234 | tee emulator-evidence/gsm-cancel.txt
