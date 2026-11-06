@@ -18,6 +18,7 @@
     android:showWhenLocked="true" android:turnScreenOn="true" android:launchMode="singleTop"/>
   <activity android:name=".VoiceLabActivity" android:exported="false"/>
   <activity android:name=".AudioDiagnosticsActivity" android:exported="false"/>
+  <activity android:name=".CallAudioMonitorActivity" android:exported="false"/>
   <activity android:name=".CallAudioProbeActivity" android:exported="false"/>
   <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
    <intent-filter><action android:name="android.intent.action.MAIN"/>
