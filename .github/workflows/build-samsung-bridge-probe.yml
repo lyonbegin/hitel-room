@@ -1,0 +1,43 @@
+name: Build HITEL Samsung Call Assistant IPC Probe
+
+on:
+  push:
+    branches:
+      - feature/samsung-callassistant-native-20261106
+    paths:
+      - 'callrecorder-probe/**'
+      - '.github/workflows/build-samsung-bridge-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Assemble Samsung bridge test APK
+        run: gradle -p callrecorder-probe --no-daemon --stacktrace :app:assembleDebug
+      - name: Validate APK signature and independent package
+        run: |
+          APK=callrecorder-probe/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "${ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='app.hitel.callrecorderprobe'"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify "$APK"
+          sha256sum "$APK"
+      - name: Upload Samsung integration test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Samsung-CallAssistant-IPC-Test-APK
+          path: callrecorder-probe/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
