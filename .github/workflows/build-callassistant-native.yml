@@ -40,6 +40,22 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='app.hitel.callnative'"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
           sha256sum "$APK"
+      - name: Compile standalone Samsung IPC test APK
+        run: gradle -p callrecorder-probe --no-daemon --stacktrace :app:assembleDebug
+      - name: Validate Samsung IPC probe APK
+        run: |
+          APK=callrecorder-probe/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='app.hitel.callrecorderprobe'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          sha256sum "$APK"
+      - name: Upload standalone Samsung IPC probe APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Samsung-IPC-Standalone-APK
+          path: callrecorder-probe/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
