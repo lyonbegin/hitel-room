@@ -9,7 +9,7 @@ finish() {
   local original=$?
   set +e
   adb logcat -d -v threadtime > emulator-evidence/full-logcat.txt 2>&1
-  grep -E "HITEL_PHONE|AndroidRuntime|FATAL EXCEPTION|ActivityTaskManager|RoleManager|Telecom" emulator-evidence/full-logcat.txt > emulator-evidence/telephony-logcat.txt || :
+  grep -E "HITEL_MONITOR|HITEL_PHONE|AndroidRuntime|FATAL EXCEPTION|ActivityTaskManager|RoleManager|Telecom" emulator-evidence/full-logcat.txt > emulator-evidence/telephony-logcat.txt || :
   adb shell dumpsys telecom > emulator-evidence/dumpsys-telecom.txt 2>&1
   adb shell dumpsys role > emulator-evidence/dumpsys-role.txt 2>&1
   adb shell dumpsys activity activities > emulator-evidence/dumpsys-activity.txt 2>&1
@@ -18,6 +18,7 @@ finish() {
   adb exec-out screencap -p > emulator-evidence/final-screenshot.png 2>/dev/null
   printf 'exit_code=%s\nandroid_sdk=%s\n' "$original" "$(adb shell getprop ro.build.version.sdk 2>/dev/null)" > emulator-evidence/summary.txt
   adb emu gsm cancel 5551234 >/dev/null 2>&1 || :
+  adb emu gsm cancel 5559876 >/dev/null 2>&1 || :
   log "Evidence collected (exit_code=$original)"
 }
 trap finish EXIT
@@ -38,6 +39,8 @@ log "PASS no Shizuku permission"
 log "Step 2: launcher UI and activities"
 adb shell am start -W -n "$PKG/.MainActivity" | tee emulator-evidence/launch.txt
 sleep 4
+python3 callassistant-native/ci/ui-assert.py wait "기본 전화 앱으로 지정"
+adb exec-out screencap -p > emulator-evidence/launcher-screenshot.png
 adb shell uiautomator dump /sdcard/hitel-launch-ui.xml
 adb pull /sdcard/hitel-launch-ui.xml emulator-evidence/launch-ui.xml >/dev/null
 grep -q "기본 전화 앱으로 지정" emulator-evidence/launch-ui.xml
@@ -56,13 +59,32 @@ grep -q "5550099" emulator-evidence/dial-ui.xml
 log "PASS tel URI applied to native keypad"
 
 log "Step 4: offline speech screen (not call audio)"
-adb shell am start -W -n "$PKG/.VoiceLabActivity" | tee emulator-evidence/voice-lab-launch.txt
+adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+python3 callassistant-native/ci/ui-assert.py tap "마이크 자막 / 기기 TTS 독립 시험"
+python3 callassistant-native/ci/ui-assert.py wait "Android 공통 음성 기능 시험"
 sleep 2
 adb shell uiautomator dump /sdcard/hitel-voice-ui.xml
 adb pull /sdcard/hitel-voice-ui.xml emulator-evidence/voice-ui.xml >/dev/null
 grep -q "Android 공통 음성 기능 시험" emulator-evidence/voice-ui.xml
 grep -q "TTS" emulator-evidence/voice-ui.xml
 log "PASS offline voice lab screen"
+
+log "Step 4b: non-default existing phone app integration"
+adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+adb shell pm grant "$PKG" android.permission.READ_PHONE_STATE
+adb logcat -c
+adb emu gsm call 5559876 | tee emulator-evidence/gsm-existing-dialer.txt
+FOUND_PASSIVE=0
+for attempt in $(seq 1 25); do
+  if adb logcat -d -s HITEL_MONITOR:I '*:S' | grep -q 'CALL_STATE='; then FOUND_PASSIVE=1; break; fi
+  sleep 2
+done
+adb logcat -d -s HITEL_MONITOR:I '*:S' > emulator-evidence/existing-dialer-state-log.txt
+adb emu gsm cancel 5559876 >/dev/null || :
+if [ "$FOUND_PASSIVE" -ne 1 ]; then
+  log "FAIL PHONE_STATE broadcast not observed without replacing dialer"; exit 15
+fi
+log "PASS existing default dialer retained; HITEL received Android PHONE_STATE event"
 
 log "Step 5: default dialer role"
 adb shell cmd role add-role-holder --user 0 android.app.role.DIALER "$PKG" | tee emulator-evidence/role-grant.txt
@@ -87,7 +109,9 @@ fi
 log "PASS virtual GSM incoming call reached InCallService"
 
 log "Step 7: incoming call UI and disconnect lifecycle"
-adb shell am start -W -n "$PKG/.CallActivity" | tee emulator-evidence/in-call-launch.txt
+adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+python3 callassistant-native/ci/ui-assert.py tap "통화 화면 열기"
+python3 callassistant-native/ci/ui-assert.py wait "전화 받기"
 sleep 2
 adb shell uiautomator dump /sdcard/hitel-incoming-ui.xml
 adb pull /sdcard/hitel-incoming-ui.xml emulator-evidence/incoming-ui.xml >/dev/null
