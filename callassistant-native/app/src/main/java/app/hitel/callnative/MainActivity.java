@@ -54,6 +54,8 @@ public class MainActivity extends Activity {
         });
         Button call = Screen.button(this, root, "전화 걸기");
         call.setOnClickListener(v -> makeCall());
+        Screen.button(this, root, "Android 공통 통화·오디오 상태 점검").setOnClickListener(v ->
+            startActivity(new Intent(this, AudioDiagnosticsActivity.class)));
         Screen.button(this, root, "통화 화면 열기").setOnClickListener(v ->
             startActivity(new Intent(this, CallActivity.class)));
         Screen.button(this, root, "마이크 자막 / 기기 TTS 독립 시험").setOnClickListener(v ->
