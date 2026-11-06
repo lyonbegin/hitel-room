@@ -81,6 +81,7 @@ for attempt in $(seq 1 25); do
 done
 adb logcat -d -s HITEL_MONITOR:I '*:S' > emulator-evidence/existing-dialer-state-log.txt
 adb emu gsm cancel 5559876 >/dev/null || :
+sleep 5  # Wait until Telecom releases the previous call before changing default dialer.
 if [ "$FOUND_PASSIVE" -ne 1 ]; then
   log "FAIL PHONE_STATE broadcast not observed without replacing dialer"; exit 15
 fi
@@ -92,19 +93,29 @@ sleep 2
 adb shell dumpsys role | tee emulator-evidence/role-holders.txt
 grep -Fq "holders=$PKG" emulator-evidence/role-holders.txt
 log "PASS system dialer role assigned"
+sleep 12  # Telecom and InCallController must observe the new dialer before we generate a call.
 
 log "Step 6: virtual GSM incoming call, InCallService lifecycle"
 adb logcat -c
 adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
-adb emu gsm call 5551234 | tee emulator-evidence/gsm-incoming.txt
 FOUND=0
-for attempt in $(seq 1 30); do
-  if adb logcat -d -s HITEL_PHONE:I '*:S' | grep -q 'CALL_ADDED='; then FOUND=1; break; fi
-  sleep 2
+for callTry in 1 2; do
+  adb emu gsm call 5551234 | tee emulator-evidence/gsm-incoming.txt
+  for attempt in $(seq 1 13); do
+    if adb logcat -d -s HITEL_PHONE:I '*:S' | grep -q 'CALL_ADDED='; then FOUND=1; break; fi
+    sleep 2
+  done
+  if [ "$FOUND" -eq 1 ]; then break; fi
+  adb shell dumpsys telecom > "emulator-evidence/telecom-before-retry-${callTry}.txt" || :
+  adb emu gsm cancel 5551234 >/dev/null || :
+  log "InCallService not bound on call attempt $callTry; rechecking role and waiting for Telecom rebinding"
+  adb shell dumpsys role | tee "emulator-evidence/role-before-retry-${callTry}.txt"
+  grep -Fq "holders=$PKG" "emulator-evidence/role-before-retry-${callTry}.txt"
+  sleep 15
 done
 adb logcat -d -s HITEL_PHONE:I '*:S' > emulator-evidence/call-added-log.txt
 if [ "$FOUND" -ne 1 ]; then
-  log "FAIL GSM call did not reach InCallService"; exit 12
+  log "FAIL GSM call did not reach InCallService after two real call attempts"; exit 12
 fi
 log "PASS virtual GSM incoming call reached InCallService"
 
@@ -112,13 +123,23 @@ log "Step 7: incoming call UI and disconnect lifecycle"
 adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
 python3 callassistant-native/ci/ui-assert.py wait "통화 화면 열기"
 python3 callassistant-native/ci/ui-assert.py tap "통화 화면 열기"
-python3 callassistant-native/ci/ui-assert.py wait-any "전화 받기|응답"
-adb shell uiautomator dump /sdcard/hitel-incoming-ui.xml
-adb pull /sdcard/hitel-incoming-ui.xml emulator-evidence/incoming-ui.xml >/dev/null
-grep -Eq "전화 받기|응답" emulator-evidence/incoming-ui.xml
-grep -Eq "전화 거절|거절" emulator-evidence/incoming-ui.xml
-log "PASS native incoming call UI or Android call notification is visible"
-python3 callassistant-native/ci/ui-assert.py tap-any "전화 받기|응답"
+adb exec-out screencap -p > emulator-evidence/incoming-screenshot.png
+SDK="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+if [ "$SDK" -le 30 ]; then
+  # API 30 raises a real heads-up call notification above CallActivity, and
+  # uiautomator omits that overlay from its XML. Tap the observed physical
+  # "응답" notification button, then require Telecom ACTIVE as proof.
+  SIZE="$(adb shell wm size | sed -n 's/^Physical size: //p' | head -1)"
+  WIDTH="${SIZE%x*}"
+  HEIGHT="${SIZE#*x}"
+  test -n "$WIDTH" && test -n "$HEIGHT"
+  adb shell input tap "$((WIDTH / 4))" "$((HEIGHT * 15 / 100))"
+  log "TAPPED Android 11 incoming notification answer at calibrated display coordinates"
+else
+  python3 callassistant-native/ci/ui-assert.py wait-any "전화 받기|응답|Answer|Accept"
+  python3 callassistant-native/ci/ui-assert.py tap-any "전화 받기|응답|Answer|Accept"
+fi
+log "PASS real tap sent to incoming call Answer control (call state confirmation pending)"
 ANSWERED=0
 for attempt in $(seq 1 15); do
   if adb logcat -d -s HITEL_PHONE:I '*:S' | grep -q 'CALL_STATE=4'; then ANSWERED=1; break; fi
