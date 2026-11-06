@@ -59,7 +59,7 @@ grep -q "5550099" emulator-evidence/dial-ui.xml
 log "PASS tel URI applied to native keypad"
 
 log "Step 4: offline speech screen (not call audio)"
-adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
 python3 callassistant-native/ci/ui-assert.py tap "마이크 자막 / 기기 TTS 독립 시험"
 python3 callassistant-native/ci/ui-assert.py wait "Android 공통 음성 기능 시험"
 sleep 2
@@ -70,7 +70,7 @@ grep -q "TTS" emulator-evidence/voice-ui.xml
 log "PASS offline voice lab screen"
 
 log "Step 4b: non-default existing phone app integration"
-adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
 adb shell pm grant "$PKG" android.permission.READ_PHONE_STATE
 adb logcat -c
 adb emu gsm call 5559876 | tee emulator-evidence/gsm-existing-dialer.txt
@@ -89,13 +89,13 @@ log "PASS existing default dialer retained; HITEL received Android PHONE_STATE e
 log "Step 5: default dialer role"
 adb shell cmd role add-role-holder --user 0 android.app.role.DIALER "$PKG" | tee emulator-evidence/role-grant.txt
 sleep 2
-adb shell cmd role get-role-holders --user 0 android.app.role.DIALER | tee emulator-evidence/role-holders.txt
-grep -Fq "$PKG" emulator-evidence/role-holders.txt
+adb shell dumpsys role | tee emulator-evidence/role-holders.txt
+grep -Fq "holders=$PKG" emulator-evidence/role-holders.txt
 log "PASS system dialer role assigned"
 
 log "Step 6: virtual GSM incoming call, InCallService lifecycle"
 adb logcat -c
-adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
 adb emu gsm call 5551234 | tee emulator-evidence/gsm-incoming.txt
 FOUND=0
 for attempt in $(seq 1 30); do
@@ -109,7 +109,8 @@ fi
 log "PASS virtual GSM incoming call reached InCallService"
 
 log "Step 7: incoming call UI and disconnect lifecycle"
-adb shell am start -W -n "$PKG/.MainActivity" >/dev/null
+adb shell am start -W -f 0x04000000 -n "$PKG/.MainActivity" >/dev/null
+python3 callassistant-native/ci/ui-assert.py wait "통화 화면 열기"
 python3 callassistant-native/ci/ui-assert.py tap "통화 화면 열기"
 python3 callassistant-native/ci/ui-assert.py wait "전화 받기"
 sleep 2
