@@ -1,0 +1,46 @@
+name: Build HITEL Call Assistant Native APK
+
+on:
+  push:
+    branches:
+      - feature/samsung-callassistant-native-20261106
+    paths:
+      - 'callassistant-native/**'
+      - '.github/workflows/build-callassistant-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android API 35
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Compile native APK
+        run: gradle -p callassistant-native --no-daemon --stacktrace :app:assembleDebug
+      - name: Validate APK package and signature
+        run: |
+          APK=callassistant-native/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='app.hitel.callnative'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          sha256sum "$APK"
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-CallAssistant-Native-APK
+          path: callassistant-native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
