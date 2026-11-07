@@ -1,0 +1,24 @@
+{
+  "verified_asset_navigation": [
+    "bottom_home_fill.svg",
+    "bottom_group_fill.svg",
+    "bottom_todo.svg",
+    "bottom_calendar.svg",
+    "add_todo.svg",
+    "add_event.svg",
+    "view_day.svg",
+    "view_week.svg",
+    "view_month.svg"
+  ],
+  "screen_count": 65,
+  "by_group": {
+    "할 일 세부": 7,
+    "그룹 세부": 13,
+    "기록 / 분석": 17,
+    "캘린더 / 시간표": 6,
+    "하단 메뉴": 4,
+    "설정 / 더보기": 8,
+    "홈 / 공부": 10
+  },
+  "missing_literal_keys": {}
+}
