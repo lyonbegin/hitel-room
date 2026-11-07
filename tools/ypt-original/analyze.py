@@ -4,6 +4,7 @@ import json, pathlib, re, subprocess, sys, zipfile, collections, xml.etree.Eleme
 
 root=pathlib.Path(sys.argv[1]); out=pathlib.Path(sys.argv[2]); out.mkdir(parents=True,exist_ok=True)
 xapk=root/"ypt.xapk"
+if not xapk.exists():xapk=root.parent/"source"/"ypt.xapk"
 with zipfile.ZipFile(xapk) as z:
     package=[dict(name=i.filename,bytes=i.file_size) for i in z.infolist() if i.filename.lower().endswith(".apk")]
     other=[dict(name=i.filename,bytes=i.file_size) for i in z.infolist() if not i.filename.lower().endswith(".apk")]
