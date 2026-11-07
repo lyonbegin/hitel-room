@@ -1,0 +1,42 @@
+name: Samsung Call AutoProbe APK
+on:
+  push:
+    branches:
+      - test/samsung-call-autoprobe-20261108
+    paths:
+      - 'samsung-call-autoprobe/**'
+      - '.github/workflows/build-samsung-call-autoprobe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Extract source
+        run: |
+          cat samsung-call-autoprobe/chunks/0.part samsung-call-autoprobe/chunks/1.part samsung-call-autoprobe/chunks/2.part samsung-call-autoprobe/chunks/3.part > /tmp/samsung-probe.tar.xz
+          mkdir -p samsung-call-autoprobe
+          tar -xJf /tmp/samsung-probe.tar.xz -C samsung-call-autoprobe
+          find samsung-call-autoprobe/app/src/main -type f | sort
+      - name: Build Android app
+        run: gradle -p samsung-call-autoprobe :app:assembleDebug --no-daemon --stacktrace
+      - name: Check APK
+        run: |
+          ls -lh samsung-call-autoprobe/app/build/outputs/apk/debug/*.apk
+          sha256sum samsung-call-autoprobe/app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Samsung-Call-AutoProbe-APK
+          path: samsung-call-autoprobe/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
