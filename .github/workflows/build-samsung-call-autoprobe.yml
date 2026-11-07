@@ -33,6 +33,9 @@ jobs:
           cat samsung-call-autoprobe/chunks/0.part samsung-call-autoprobe/chunks/1.part samsung-call-autoprobe/chunks/2.part samsung-call-autoprobe/chunks/3.part > /tmp/samsung-probe.tar.xz
           mkdir -p samsung-call-autoprobe
           tar -xJf /tmp/samsung-probe.tar.xz -C samsung-call-autoprobe
+          xz -dk samsung-call-autoprobe/patch_v02.py.xz
+          python3 samsung-call-autoprobe/patch_v02.py
+          grep -E 'applicationId|versionName' samsung-call-autoprobe/app/build.gradle.kts
           find samsung-call-autoprobe/app/src/main -type f | sort
       - name: Build Android app
         run: gradle -p samsung-call-autoprobe :app:assembleDebug --no-daemon --stacktrace
