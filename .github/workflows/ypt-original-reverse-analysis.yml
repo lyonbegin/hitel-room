@@ -1,0 +1,76 @@
+name: HITEL YPT ORIGINAL XAPK Reverse Engineering
+on:
+  push:
+    branches: [feature/ypt-original-reverse-mock-20261108]
+    paths:
+      - .github/workflows/ypt-original-reverse-analysis.yml
+      - tools/ypt-original/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-reverse-analysis:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    env:
+      APP_ID: ypt
+      APP_PACKAGE: com.pallo.passiontimerscoped
+      APP_VERSION: '810.1.05'
+      APP_SHA256: '837c7dcc876838fb3ea755178cc93d71b1cf77ddff59ce2073f1d826d4dab388'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download exact original XAPK and verify SHA256
+        run: |
+          python3 scripts/education/download_verified_xapk.py source
+          sha256sum source/ypt.xapk
+      - name: Extract all split APKs and list bundled files
+        run: |
+          mkdir -p unpacked report
+          unzip -q source/ypt.xapk -d unpacked
+          find unpacked -type f -name '*.apk' -printf '%s %p\n' | sort -nr | tee report/apk-size-manifest.txt
+          find unpacked -type f -name '*.apk' -printf '%s %p\n' | sort -nr | head -1 | cut -d' ' -f2- > report/base-apk-path.txt
+      - name: Decode original Android resources and XML via apktool
+        continue-on-error: true
+        run: |
+          curl -fLsS --retry 3 https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o /tmp/apktool.jar
+          test -s /tmp/apktool.jar
+          base="$(cat report/base-apk-path.txt)"
+          java -Xmx3g -jar /tmp/apktool.jar d -f -s "$base" -o unpacked/decoded >report/apktool.log 2>&1
+          cat report/apktool.log | tail -25
+      - name: Decompile Java and Kotlin class structure with JADX
+        continue-on-error: true
+        run: |
+          curl -fLsS --retry 3 https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip -o /tmp/jadx.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          chmod +x /tmp/jadx/bin/jadx
+          base="$(cat report/base-apk-path.txt)"
+          timeout 480 /tmp/jadx/bin/jadx --no-res -j 3 --show-bad-code -d unpacked/jadx "$base" >report/jadx.log 2>&1 || true
+          tail -30 report/jadx.log || true
+      - name: Extract original screen/navigation names without guessing
+        run: |
+          python3 tools/ypt-original/analyze.py unpacked report
+          for apk in $(find unpacked -maxdepth 3 -type f -name '*.apk' | head -3); do
+            echo "APK $apk" >> report/manifest-and-assets.txt
+            unzip -Z1 "$apk" | grep -E '(^assets/|^res/)' | head -3500 >> report/manifest-and-assets.txt || true
+          done
+          if [ -d unpacked/jadx/sources ]; then
+            find unpacked/jadx/sources -iname '*Navigation*' -o -iname '*Screen*' -o -iname '*Route*' -o -iname '*Activity*' | head -1200 >report/navigator-source-paths.txt
+            grep -RniE --include='*.java' '(BottomNavigationView|NavigationBarView|NavHost|NavController|setOnItemSelectedListener|createBottomTabNavigator|StudyRoom|StudyGroup|TimeTable|SubjectScreen|RankingScreen)' unpacked/jadx/sources | head -n 1500 >report/navigation-source-references.txt || true
+          fi
+      - name: Upload original-APK-derived menu/layout resource evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ypt-original-static-analysis
+          path: |
+            source/source_verification.json
+            report/
+          retention-days: 21
+          if-no-files-found: error
