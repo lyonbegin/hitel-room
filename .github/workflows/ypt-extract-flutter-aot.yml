@@ -1,0 +1,58 @@
+name: YPT Original Flutter AOT Snapshot Evidence
+on:
+  push:
+    branches: [feature/ypt-original-reverse-mock-20261108]
+    paths:
+      - .github/workflows/ypt-extract-flutter-aot.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  analyze-flutter:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      APP_ID: ypt
+      APP_PACKAGE: com.pallo.passiontimerscoped
+      APP_VERSION: '810.1.05'
+      APP_SHA256: '837c7dcc876838fb3ea755178cc93d71b1cf77ddff59ce2073f1d826d4dab388'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact user original XAPK
+        run: python3 scripts/education/download_verified_xapk.py source
+      - name: Extract compiled Flutter Dart AOT without launching app
+        run: |
+          mkdir -p unpacked snapshot report
+          unzip -q source/ypt.xapk -d unpacked
+          for apk in unpacked/*.apk; do
+            echo "$apk" >> report/apk-list.txt
+            if unzip -Z1 "$apk" | grep -q 'lib/arm64-v8a/libapp.so'; then
+              unzip -p "$apk" 'lib/arm64-v8a/libapp.so' > snapshot/libapp.so
+            fi
+            if unzip -Z1 "$apk" | grep -q 'lib/arm64-v8a/libflutter.so'; then
+              unzip -p "$apk" 'lib/arm64-v8a/libflutter.so' > snapshot/libflutter.so
+            fi
+          done
+          ls -lh snapshot | tee report/native-libs.txt
+          test -s snapshot/libapp.so
+          strings -a -n 4 snapshot/libapp.so > report/libapp-strings-full.txt
+          strings -a -n 5 snapshot/libflutter.so | grep -iE 'Dart VM|Flutter|stable|snapshot' | head -150 > report/flutter-engine-strings.txt || true
+          readelf -S snapshot/libapp.so > report/libapp-sections.txt
+          grep -iE '(screen|page|route|menu|navigation|bottom|tab|login|signup|timer|subject|study|group|ranking|stats|calendar|planner|timetable|profile|settings|friend|mission|focus|todo|history|통계|그룹|공부|친구|타이머|시간표|랭킹|프로필)' report/libapp-strings-full.txt | head -25000 > report/possible-app-navigation-strings.txt || true
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          strings=Path('report/libapp-strings-full.txt').read_text(errors='replace').splitlines()
+          print(json.dumps({'string_count':len(strings),'possible_app_navigation_lines':len(Path('report/possible-app-navigation-strings.txt').read_text(errors='replace').splitlines()),'libapp_bytes':Path('snapshot/libapp.so').stat().st_size}))
+          PY
+      - name: Upload static original AOT binary and all recovered strings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ypt-original-flutter-aot
+          path: |
+            source/source_verification.json
+            snapshot/libapp.so
+            report/
+          retention-days: 21
+          if-no-files-found: error
