@@ -1,0 +1,44 @@
+name: YPT Place Genuine Emulator Screens In Mock
+on:
+  push:
+    branches: [feature/ypt-original-reverse-mock-20261108]
+    paths:
+      - .github/workflows/ypt-copy-real-screens.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  copy-original-captures:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Fetch actual screenshot artifact from existing hash-verified original XAPK run
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          gh run download 42193733698 -R "$GITHUB_REPOSITORY" --name original-education-ypt-8 -D /tmp/ypt-real
+          test -f /tmp/ypt-real/evidence/ypt/screenshots/000.png
+          test -f /tmp/ypt-real/evidence/ypt/screenshots/001.png
+          test -f /tmp/ypt-real/evidence/ypt/screenshots/002.png
+          mkdir -p public/assets evidence/ypt
+          cp /tmp/ypt-real/evidence/ypt/screenshots/00{0,1,2}.png public/assets/
+          cp /tmp/ypt-real/evidence/ypt/screenshots/00{0,1,2}.xml evidence/ypt/
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          for i in range(3):
+              p=Path(f'public/assets/{i:03}.png')
+              data=p.read_bytes()
+              assert data.startswith(b'\x89PNG\r\n\x1a\n')
+              print(p, len(data), hashlib.sha256(data).hexdigest())
+          PY
+      - name: Commit only genuine screenshots and UiAutomator XMLs
+        run: |
+          git config user.name 'hitel-ypt-evidence[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/assets/000.png public/assets/001.png public/assets/002.png evidence/ypt/000.xml evidence/ypt/001.xml evidence/ypt/002.xml
+          git diff --cached --quiet || git commit -m "assets(ypt): add genuine original app screenshots and UiAutomator control evidence"
+          git push origin HEAD:feature/ypt-original-reverse-mock-20261108
