@@ -1,0 +1,1000 @@
+{
+  "home": {
+    "title": "홈 / 공부 타이머",
+    "desc": "앱 내부의 홈·공부 타이머·과목 키를 기준으로 구성한 메뉴 구조입니다. 실제 로그인 이후 화면 배치는 확인 전입니다.",
+    "evidence": [
+      "tab_home",
+      "home_tab_timer",
+      "home_study_time_label",
+      "home_calendar_open"
+    ],
+    "actions": [
+      {
+        "text": "공부 타이머",
+        "go": "timer"
+      },
+      {
+        "text": "과목 관리",
+        "go": "subjects"
+      },
+      {
+        "text": "플래너",
+        "go": "planner"
+      },
+      {
+        "text": "할 일",
+        "go": "todo"
+      },
+      {
+        "text": "캘린더",
+        "go": "calendar"
+      },
+      {
+        "text": "통계",
+        "go": "statistics"
+      },
+      {
+        "text": "설정",
+        "go": "settings"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "하단 메뉴"
+  },
+  "groups": {
+    "title": "스터디 그룹",
+    "desc": "그룹 검색, 그룹 만들기, 참가 요청, 멤버와 랭킹 관련 키가 원본에 있습니다.",
+    "evidence": [
+      "tab_group",
+      "group_search",
+      "group_create_goals",
+      "group_join_private_msg"
+    ],
+    "actions": [
+      {
+        "text": "그룹 검색",
+        "go": "groupSearch"
+      },
+      {
+        "text": "그룹 만들기",
+        "go": "groupCreate"
+      },
+      {
+        "text": "그룹 상세 구성",
+        "go": "groupDetail"
+      },
+      {
+        "text": "그룹 멤버",
+        "go": "groupMembers"
+      },
+      {
+        "text": "그룹 미션",
+        "go": "groupMissions"
+      },
+      {
+        "text": "그룹 랭킹",
+        "go": "groupRanking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "하단 메뉴"
+  },
+  "todo": {
+    "title": "할 일",
+    "desc": "할 일 추가·반복·색상·통계·이동 관련 키를 기준으로 구성했습니다. 개인 할 일 데이터는 연결하지 않았습니다.",
+    "evidence": [
+      "tab_todo",
+      "todo_add",
+      "todo_statistics_title",
+      "todo_dialog_repeat"
+    ],
+    "actions": [
+      {
+        "text": "할 일 추가",
+        "go": "todoAdd"
+      },
+      {
+        "text": "일별 보기",
+        "go": "todoDay"
+      },
+      {
+        "text": "주간 보기",
+        "go": "todoWeek"
+      },
+      {
+        "text": "월간 보기",
+        "go": "todoMonth"
+      },
+      {
+        "text": "할 일 통계",
+        "go": "todoStats"
+      },
+      {
+        "text": "할 일 이동",
+        "go": "todoMove"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "하단 메뉴"
+  },
+  "calendar": {
+    "title": "캘린더",
+    "desc": "캘린더 일정 추가와 연결 설정, 일정 등록의 문자열을 기준으로 구성했습니다.",
+    "evidence": [
+      "tab_calendar",
+      "calendar_make_info",
+      "calendar_setting",
+      "schedule_dialog_add_schedule"
+    ],
+    "actions": [
+      {
+        "text": "일정 추가",
+        "go": "calendarAdd"
+      },
+      {
+        "text": "Day off 설정",
+        "go": "calendarDayoff"
+      },
+      {
+        "text": "캘린더 설정",
+        "go": "calendarSettings"
+      },
+      {
+        "text": "시간표",
+        "go": "timetable"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "하단 메뉴"
+  },
+  "timer": {
+    "title": "공부 타이머",
+    "desc": "타이머, 사전, 허용 앱으로 구분된 공부 화면의 탭 이름을 확인했습니다.",
+    "evidence": [
+      "study_tab_timer_title",
+      "study_tab_dictionary_title",
+      "study_tab_apps_title",
+      "study_start_enter"
+    ],
+    "actions": [
+      {
+        "text": "과목 선택",
+        "go": "subjects"
+      },
+      {
+        "text": "공부 시작",
+        "go": "timerRunning"
+      },
+      {
+        "text": "사전",
+        "go": "timerDictionary"
+      },
+      {
+        "text": "허용 앱",
+        "go": "timerApps"
+      },
+      {
+        "text": "공부 화면 설정",
+        "go": "timerSettings"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "timerRunning": {
+    "title": "공부 중",
+    "desc": "공부 시작·중지·휴식·기록 관련 문자열을 확인했습니다. 실제 시간 측정과 앱 차단 기능은 목업에 포함되지 않습니다.",
+    "evidence": [
+      "study_start_enter",
+      "study_rest_label",
+      "study_timer_dialog_title",
+      "study_app_aos_guide_msg"
+    ],
+    "actions": [
+      {
+        "text": "공부 기록",
+        "go": "plannerLog"
+      },
+      {
+        "text": "휴식 태그",
+        "go": "timerRest"
+      },
+      {
+        "text": "공부 종료",
+        "go": "timer"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "timerDictionary": {
+    "title": "공부 중 사전",
+    "desc": "공부 화면의 사전 탭과 즐겨찾기·전체 메뉴 키가 확인됐습니다.",
+    "evidence": [
+      "study_tab_dictionary_title",
+      "study_dictionary_all",
+      "study_dictionary_favorite"
+    ],
+    "actions": [
+      {
+        "text": "전체",
+        "go": "timerDictionary"
+      },
+      {
+        "text": "즐겨찾기",
+        "go": "timerDictionary"
+      },
+      {
+        "text": "타이머 돌아가기",
+        "go": "timer"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "timerApps": {
+    "title": "공부 중 허용 앱",
+    "desc": "허용 앱 설정·모니터링과 연결된 화면입니다.",
+    "evidence": [
+      "study_tab_apps_title",
+      "study_app_ios_help_desc1",
+      "drawer_settings_menu_white_apps"
+    ],
+    "actions": [
+      {
+        "text": "허용 앱 설정",
+        "go": "settingsAllowed"
+      },
+      {
+        "text": "타이머 돌아가기",
+        "go": "timer"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "timerSettings": {
+    "title": "공부 화면 설정",
+    "desc": "항상 켜기·다크/라이트 테마·화이트 노이즈·그룹 숨기기 관련 메뉴 키입니다.",
+    "evidence": [
+      "study_setting_menu_keep_screen_on_title",
+      "study_setting_menu_white_noise_title",
+      "study_setting_menu_light_theme_title"
+    ],
+    "actions": [
+      {
+        "text": "허용 앱",
+        "go": "settingsAllowed"
+      },
+      {
+        "text": "화이트 노이즈",
+        "go": "timerNoise"
+      },
+      {
+        "text": "타이머",
+        "go": "timer"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "timerNoise": {
+    "title": "화이트 노이즈",
+    "desc": "공부 중 소리 설정 키에 기반한 화면 목업입니다.",
+    "evidence": [
+      "study_white_noise_title",
+      "study_setting_menu_white_noise_title"
+    ],
+    "actions": [
+      {
+        "text": "타이머 설정",
+        "go": "timerSettings"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "timerRest": {
+    "title": "휴식 태그",
+    "desc": "휴식 선택·설명·기록 관련 키를 확인했습니다.",
+    "evidence": [
+      "study_break_tag_selection",
+      "study_rest_tag_desc",
+      "study_rest_label"
+    ],
+    "actions": [
+      {
+        "text": "공부 중 화면",
+        "go": "timerRunning"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "subjects": {
+    "title": "과목 관리",
+    "desc": "과목 선택·과목 추가·과목 수정·삭제가 확인됩니다.",
+    "evidence": [
+      "subject_selection",
+      "subject_add_dialog_title",
+      "subject_edit_dialog_title",
+      "subject_delete_dialog_title"
+    ],
+    "actions": [
+      {
+        "text": "과목 추가",
+        "go": "subjectAdd"
+      },
+      {
+        "text": "과목 편집",
+        "go": "subjectEdit"
+      },
+      {
+        "text": "공부 타이머",
+        "go": "timer"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "홈 / 공부"
+  },
+  "subjectAdd": {
+    "title": "과목 추가",
+    "desc": "과목명과 과목 색상 입력 항목이 앱에 있습니다.",
+    "evidence": [
+      "subject_add_subject_name_hint",
+      "subject_add_subject_color",
+      "subject_add_dialog_error_duplicate"
+    ],
+    "actions": [
+      {
+        "text": "저장(목업)",
+        "go": "subjects"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [
+      "과목명",
+      "색상"
+    ],
+    "group": "홈 / 공부"
+  },
+  "subjectEdit": {
+    "title": "과목 편집",
+    "desc": "과목 수정·삭제 확인 대화상자의 문자열을 확인했습니다.",
+    "evidence": [
+      "subject_edit_dialog_title",
+      "subject_delete_dialog_title",
+      "subject_edit"
+    ],
+    "actions": [
+      {
+        "text": "과목 관리",
+        "go": "subjects"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [
+      "과목명"
+    ],
+    "group": "홈 / 공부"
+  },
+  "planner": {
+    "title": "플래너",
+    "desc": "공부 기록, 인사이트, 캡처 및 공유 기능 키를 확인했습니다.",
+    "evidence": [
+      "tab_planner",
+      "planner_main_title",
+      "planner_menu_study_log",
+      "planner_menu_capture"
+    ],
+    "actions": [
+      {
+        "text": "공부 기록",
+        "go": "plannerLog"
+      },
+      {
+        "text": "플래너 캡처",
+        "go": "plannerCapture"
+      },
+      {
+        "text": "플래너 인사이트",
+        "go": "plannerInsight"
+      },
+      {
+        "text": "통계",
+        "go": "statistics"
+      },
+      {
+        "text": "할 일",
+        "go": "todo"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "plannerLog": {
+    "title": "공부 기록 편집",
+    "desc": "공부 기록 추가·수정·삭제와 메모 관련 키를 확인했습니다.",
+    "evidence": [
+      "planner_menu_study_log",
+      "planner_dialog_add_log_title",
+      "planner_dialog_edit_record_title",
+      "planner_comment"
+    ],
+    "actions": [
+      {
+        "text": "기록 추가",
+        "go": "plannerLogAdd"
+      },
+      {
+        "text": "플래너로 돌아가기",
+        "go": "planner"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "plannerLogAdd": {
+    "title": "공부 기록 추가",
+    "desc": "원본 키에 확인되는 공부 기록과 메모 입력 항목입니다.",
+    "evidence": [
+      "planner_dialog_add_log_title",
+      "planner_comment",
+      "planner_study_log_editor_invalid_msg2"
+    ],
+    "actions": [
+      {
+        "text": "저장(목업)",
+        "go": "plannerLog"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [
+      "기록 제목",
+      "공부 시간",
+      "메모"
+    ],
+    "group": "기록 / 분석"
+  },
+  "plannerCapture": {
+    "title": "플래너 캡처",
+    "desc": "저장·갤러리·공유·테마 관련 키가 있습니다. 실제 이미지를 생성하지 않습니다.",
+    "evidence": [
+      "planner_capture_save",
+      "planner_capture_menu_share",
+      "planner_capture_theme_apply"
+    ],
+    "actions": [
+      {
+        "text": "캡처 테마",
+        "go": "plannerTheme"
+      },
+      {
+        "text": "플래너",
+        "go": "planner"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "plannerTheme": {
+    "title": "플래너 캡처 테마",
+    "desc": "캡처 테마·색상·그림자 관련 리소스 키입니다.",
+    "evidence": [
+      "planner_capture_theme_color_store",
+      "planner_capture_theme_item_type_shadow",
+      "planner_capture_theme_apply"
+    ],
+    "actions": [
+      {
+        "text": "캡처 화면",
+        "go": "plannerCapture"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "plannerInsight": {
+    "title": "플래너 인사이트",
+    "desc": "공부·할 일·캘린더 인사이트 진입 키를 확인했습니다.",
+    "evidence": [
+      "planner_insight_bottom_sheet_study",
+      "planner_insight_bottom_sheet_todo",
+      "planner_insight_bottom_sheet_calendar"
+    ],
+    "actions": [
+      {
+        "text": "공부 통계",
+        "go": "statistics"
+      },
+      {
+        "text": "할 일 통계",
+        "go": "todoStats"
+      },
+      {
+        "text": "캘린더",
+        "go": "calendar"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "statistics": {
+    "title": "통계",
+    "desc": "총 공부시간, 과목별 집계, 주간/월간, Excel 내려받기 키가 있습니다.",
+    "evidence": [
+      "tab_statistics",
+      "statistics_report_total_study_time",
+      "statistics_each_subject",
+      "statistics_download_excel"
+    ],
+    "actions": [
+      {
+        "text": "과목별 통계",
+        "go": "statisticsSubjects"
+      },
+      {
+        "text": "주간 통계",
+        "go": "statisticsWeek"
+      },
+      {
+        "text": "월간 통계",
+        "go": "statisticsMonth"
+      },
+      {
+        "text": "Excel 내보내기 항목",
+        "go": "statisticsExport"
+      },
+      {
+        "text": "랭킹",
+        "go": "ranking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "statisticsSubjects": {
+    "title": "과목별 통계",
+    "desc": "과목별 공부시간 관련 키를 확인했습니다.",
+    "evidence": [
+      "statistics_each_subject",
+      "statistics_each_subject_time",
+      "statistics_report_total_study_time"
+    ],
+    "actions": [
+      {
+        "text": "통계",
+        "go": "statistics"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "statisticsWeek": {
+    "title": "주간 통계",
+    "desc": "주별 과목 공부시간 키를 확인했습니다.",
+    "evidence": [
+      "statistics_week_each_subject",
+      "statistics_study_days"
+    ],
+    "actions": [
+      {
+        "text": "통계",
+        "go": "statistics"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "statisticsMonth": {
+    "title": "월간 통계",
+    "desc": "월별 과목 공부시간 키를 확인했습니다.",
+    "evidence": [
+      "statistics_month_each_subject",
+      "statistics_average_time_label"
+    ],
+    "actions": [
+      {
+        "text": "통계",
+        "go": "statistics"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "statisticsExport": {
+    "title": "통계 Excel 내보내기",
+    "desc": "원본 키에 파일 내보내기 다이얼로그가 존재하지만 목업에서는 파일을 생성하지 않습니다.",
+    "evidence": [
+      "statistics_download_excel",
+      "statistics_excel_export_dialog_title",
+      "statistics_excel_header_date"
+    ],
+    "actions": [
+      {
+        "text": "통계",
+        "go": "statistics"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "ranking": {
+    "title": "랭킹",
+    "desc": "일·주·월·년 랭킹 탭이 원본에 있습니다. 순위 데이터는 임의로 만들지 않았습니다.",
+    "evidence": [
+      "tab_ranking",
+      "rank_tab_day_title",
+      "rank_tab_week_title",
+      "rank_tab_month_title",
+      "rank_tab_year_title"
+    ],
+    "actions": [
+      {
+        "text": "일간 랭킹",
+        "go": "rankDay"
+      },
+      {
+        "text": "주간 랭킹",
+        "go": "rankWeek"
+      },
+      {
+        "text": "월간 랭킹",
+        "go": "rankMonth"
+      },
+      {
+        "text": "연간 랭킹",
+        "go": "rankYear"
+      },
+      {
+        "text": "랭킹 카테고리",
+        "go": "rankCategory"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "rankDay": {
+    "title": "일간 랭킹",
+    "desc": "일간 랭킹 탭의 원본 키가 확인됩니다.",
+    "evidence": [
+      "rank_tab_day_title",
+      "rank_daily_top3"
+    ],
+    "actions": [
+      {
+        "text": "랭킹",
+        "go": "ranking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "rankWeek": {
+    "title": "주간 랭킹",
+    "desc": "주간 랭킹 탭의 원본 키가 확인됩니다.",
+    "evidence": [
+      "rank_tab_week_title",
+      "rank_weekly_top3"
+    ],
+    "actions": [
+      {
+        "text": "랭킹",
+        "go": "ranking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "rankMonth": {
+    "title": "월간 랭킹",
+    "desc": "월간 랭킹 탭의 원본 키가 확인됩니다.",
+    "evidence": [
+      "rank_tab_month_title",
+      "rank_monthly_top3"
+    ],
+    "actions": [
+      {
+        "text": "랭킹",
+        "go": "ranking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "rankYear": {
+    "title": "연간 랭킹",
+    "desc": "연간 랭킹 탭의 원본 키가 확인됩니다.",
+    "evidence": [
+      "rank_tab_year_title",
+      "rank_all"
+    ],
+    "actions": [
+      {
+        "text": "랭킹",
+        "go": "ranking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "rankCategory": {
+    "title": "랭킹 카테고리",
+    "desc": "랭킹 카테고리와 전체 보기 관련 키를 확인했습니다.",
+    "evidence": [
+      "rank_category",
+      "rank_option_all"
+    ],
+    "actions": [
+      {
+        "text": "랭킹",
+        "go": "ranking"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "기록 / 분석"
+  },
+  "groupSearch": {
+    "title": "그룹 검색",
+    "desc": "그룹명 검색·공개 그룹 필터 키를 확인했습니다.",
+    "evidence": [
+      "group_search",
+      "group_filter_public",
+      "group_sort_study_desc"
+    ],
+    "actions": [
+      {
+        "text": "그룹 만들기",
+        "go": "groupCreate"
+      },
+      {
+        "text": "그룹 상세 구조",
+        "go": "groupDetail"
+      },
+      {
+        "text": "그룹",
+        "go": "groups"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [
+      "그룹명 검색"
+    ],
+    "group": "그룹 세부"
+  },
+  "groupCreate": {
+    "title": "그룹 만들기",
+    "desc": "이름·범주·인원·공부 목표 관련 설정 키를 확인했습니다. 실제 생성 요청은 하지 않습니다.",
+    "evidence": [
+      "group_create_name_hint",
+      "group_create_category_hint",
+      "group_create_personnel_hint",
+      "group_create_goals"
+    ],
+    "actions": [
+      {
+        "text": "참가 방식 설정",
+        "go": "groupJoin"
+      },
+      {
+        "text": "그룹 목록",
+        "go": "groups"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [
+      "그룹 이름",
+      "그룹 카테고리",
+      "최대 인원",
+      "공부 목표"
+    ],
+    "group": "그룹 세부"
+  },
+  "groupJoin": {
+    "title": "그룹 가입 요청",
+    "desc": "비공개 그룹 가입 요청 및 비밀번호 관련 키를 확인했습니다.",
+    "evidence": [
+      "group_join_private_msg",
+      "group_join_request_dialog_content",
+      "group_join_reject_button_text"
+    ],
+    "actions": [
+      {
+        "text": "그룹 상세 구조",
+        "go": "groupDetail"
+      },
+      {
+        "text": "그룹 검색",
+        "go": "groupSearch"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [
+      "그룹 비밀번호(해당 시)"
+    ],
+    "group": "그룹 세부"
+  },
+  "groupDetail": {
+    "title": "그룹 상세",
+    "desc": "그룹 정보·인원·공지·메시지·미션과 관련된 키가 있습니다.",
+    "evidence": [
+      "group_info",
+      "group_setting_menu_personnel",
+      "group_message_no_limit",
+      "group_mission_info_rule_title"
+    ],
+    "actions": [
+      {
+        "text": "멤버",
+        "go": "groupMembers"
+      },
+      {
+        "text": "공지",
+        "go": "groupNotice"
+      },
+      {
+        "text": "채팅/메시지",
+        "go": "groupMessages"
+      },
+      {
+        "text": "그룹 미션",
+        "go": "groupMissions"
+      },
+      {
+        "text": "그룹 랭킹",
+        "go": "groupRanking"
+      },
+      {
+        "text": "그룹 설정",
+        "go": "groupSettings"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "그룹 세부"
+  },
+  "groupMembers": {
+    "title": "그룹 멤버",
+    "desc": "인원·멤버 관리·가입 승인/거절의 리소스 키가 있습니다.",
+    "evidence": [
+      "group_tile_personnel",
+      "group_member_settings_header",
+      "group_setting_menu_personnel"
+    ],
+    "actions": [
+      {
+        "text": "멤버 관리",
+        "go": "groupMemberSettings"
+      },
+      {
+        "text": "그룹 상세",
+        "go": "groupDetail"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "그룹 세부"
+  },
+  "groupMemberSettings": {
+    "title": "그룹 멤버 관리",
+    "desc": "관리 권한 및 대기 멤버 관련 문자열이 있습니다.",
+    "evidence": [
+      "group_member_delegate_dialog_content",
+      "group_setting_waiting_member_list_tile_text"
+    ],
+    "actions": [
+      {
+        "text": "멤버",
+        "go": "groupMembers"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "그룹 세부"
+  },
+  "groupNotice": {
+    "title": "그룹 공지",
+    "desc": "그룹 공지와 알림 키가 있습니다.",
+    "evidence": [
+      "group_message_alert_legacy_title",
+      "group_setting_menu_personnel"
+    ],
+    "actions": [
+      {
+        "text": "그룹 상세",
+        "go": "groupDetail"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "그룹 세부"
+  },
+  "groupMessages": {
+    "title": "그룹 메시지",
+    "desc": "그룹 메시지 전송·허용 유저 관련 키를 확인했습니다.",
+    "evidence": [
+      "group_message_send_fail",
+      "group_message_allowed_user",
+      "group_message_no_limit"
+    ],
+    "actions": [
+      {
+        "text": "그룹 상세",
+        "go": "groupDetail"
+      }
+    ],
+    "kind": "APK 내부 문자열 기반 목업",
+    "layout": "module",
+    "fields": [],
+    "group": "그룹 세부"
+  },
+  "groupMissions": {
+    "title": "그룹 미션",
+    "desc": "미션 생성, 인증, 날짜 설정, 진행/지난 미션의 문자열이 존재합니다.",
+    "evidence": [
