@@ -33,6 +33,7 @@ try {
  check(await downloadLink.count()>=1,'Download opens exact official event page');
  await page.screenshot({path:'zocbo-qa/bank-paper-detail.png'});
  await page.locator('#phone [data-action="zbViewOfficial"]').first().click();
+ check((await page.locator('#stageTitle').textContent())==='족보닷컴 원본 화면','Original document viewer route registered and reached');
  const iframe=page.locator('#phone iframe');
  check((await iframe.getAttribute('src'))==='https://m.zocbo.com/event/pre-test2026d/','Real official document page embedded for browsing');
  check(await page.locator('#phone a[target="_self"][href="https://m.zocbo.com/event/pre-test2026d/"]').count()>=1,'Full-page original document fallback available');
