@@ -10,17 +10,24 @@ const yptVisualHtml=readFileSync('./public/ypt-rebuild.html');
 const yptVisualJs=readFileSync('./public/ypt-rebuild.js');
 const yptVisualCss=readFileSync('./public/ypt-rebuild.css');
 const yptVisualGraph=readFileSync('./public/ypt-graph.js');
+const zocboIntegrationJs=readFileSync('./public/zocbo-integration.js');
+const zocboIntegrationCss=readFileSync('./public/zocbo-integration.css');
+const zocboCatalogJs=readFileSync('./public/zocbo-catalog.js');
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
- if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,assetsDir:'ypt-assets'}));return}
+ if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,officialZocboPublicDocuments:35,zocboLiveLinks:true,assetsDir:'ypt-assets'}));return}
  if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-rebuild.html'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
  if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
  if(url.pathname==='/ypt-rebuild.css'){send(200,'text/css; charset=utf-8',yptVisualCss);return}
  if(url.pathname==='/ypt-graph.js'){send(200,'application/javascript; charset=utf-8',yptVisualGraph);return}
+ if(url.pathname==='/zocbo-integration.js'){send(200,'application/javascript; charset=utf-8',zocboIntegrationJs);return}
+ if(url.pathname==='/zocbo-integration.css'){send(200,'text/css; charset=utf-8',zocboIntegrationCss);return}
+ if(url.pathname==='/zocbo-catalog.js'){send(200,'application/javascript; charset=utf-8',zocboCatalogJs);return}
+ if(url.pathname==='/zocbo-assets/app-icon.png'){const p='./public/zocbo-assets/app-icon.png';if(existsSync(p)){send(200,'image/png',readFileSync(p));return}}
  if(url.pathname.startsWith('/ypt-assets/')){
    const relative=url.pathname.slice('/ypt-assets/'.length);
    if(!relative || !/^[a-zA-Z0-9._\/-]+$/.test(relative) || relative.split('/').includes('..')){send(400,'text/plain','invalid path');return}
