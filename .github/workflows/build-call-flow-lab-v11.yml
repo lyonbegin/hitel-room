@@ -7,7 +7,7 @@ on:
       - ".github/workflows/build-call-flow-lab-v11.yml"
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   android:
     runs-on: ubuntu-24.04
@@ -67,3 +67,17 @@ jobs:
             AndroidProject/app/src/main
             AndroidProject/app/build.gradle.kts
           if-no-files-found: warn
+
+      - name: Publish directly downloadable APK in public repository
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL11.apk
+          (cd downloads && sha256sum HITEL11.apk > HITEL11.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL11.apk downloads/HITEL11.sha256
+          git commit -m "build: publish HITEL11 directly installable APK [skip ci]"
+          git push origin HEAD:refs/heads/test/call-flow-lab-v11-20261108
