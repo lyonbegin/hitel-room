@@ -115,7 +115,9 @@ class AppAccessibilityService : AccessibilityService() {
     }
 
     override fun onServiceConnected() { super.onServiceConnected(); instance = this }
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) { /* on-demand inspection */ }
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        SamsungCallRecordingController.onEvent(this, event)
+    }
     override fun onInterrupt() {}
     override fun onDestroy() { instance = null; super.onDestroy() }
 }
