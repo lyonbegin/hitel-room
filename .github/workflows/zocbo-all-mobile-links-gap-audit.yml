@@ -1,0 +1,33 @@
+name: Zocbo Original Mobile 15 Pages vs HITEL 12 Routes Gap Audit
+on:
+  push:
+    branches: [audit/zocbo-original-mobile-full-gap-20261108]
+    paths:
+      - tools/zocbo/audit_all_mobile_links.py
+      - .github/workflows/zocbo-all-mobile-links-gap-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare-public-original-vs-hitel:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install public mobile browser runtime
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Run original mobile pages and compare actual HITEL functionality
+        run: python tools/zocbo/audit_all_mobile_links.py
+      - name: Store individual evidence, page errors, audit table, and source screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-mobile-full-functional-gaps
+          path: zocbo-full-mobile-gaps/
+          retention-days: 14
+          if-no-files-found: warn
