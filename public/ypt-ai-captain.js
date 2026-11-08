@@ -11,10 +11,10 @@ const today=(d=new Date())=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'
 const uid=prefix=>prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
 const when=()=>new Date().toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 function read(k,fallback){try{const x=JSON.parse(localStorage.getItem(k)||'null');return x&&typeof x==='object'?x:fallback;}catch(_){return fallback;}}
-function wp(){return read(WK,{groups:[],tasks:[],exams:[],materials:{},chats:{},sessions:[],activeGroupId:''});}
+function wp(){return window.HITEL_WORKPLACE_BRIDGE?.getModel?.()||read(WK,{groups:[],tasks:[],exams:[],materials:{},chats:{},sessions:[],activeGroupId:''});}
 function db(){const x=read(AK,{version:2,groups:{}});if(!x.groups||typeof x.groups!=='object')x.groups={};return x;}
 function saveDB(d){try{localStorage.setItem(AK,JSON.stringify(d));}catch(err){console.warn('AI captain local storage not available',err);}}
-function saveWP(w){try{localStorage.setItem(WK,JSON.stringify(w));}catch(err){console.warn('Group local storage not available',err);}}
+function saveWP(w){try{if(window.HITEL_WORKPLACE_BRIDGE?.saveModel)window.HITEL_WORKPLACE_BRIDGE.saveModel();else localStorage.setItem(WK,JSON.stringify(w));}catch(err){console.warn('Group local storage not available',err);}}
 function groupData(){
  const w=wp(),g=w.groups.find(x=>x.id===w.activeGroupId)||w.groups[0];
  return {w,g};
