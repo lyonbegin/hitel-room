@@ -37,6 +37,7 @@ try{
 
  await goto('bankHome');
  check(await count('#phone .zb-grid button')===4,'Main paperbank core functions');
+ check((await page.locator('#phone .zb-search-launch').textContent()).includes('학년·과목별'),'Search label accurately describes supported local filters');
  check(await count('#phone [data-go="bankSaved"]')>0,'Bookmarks entry visible');
  await safeShot('02-bank-home.png');
  await page.locator('#phone nav.bottomnav [data-go="bankSearch"]').first().count().then(async n=>{
@@ -94,6 +95,7 @@ try{
  check(await count('#phone a[href="https://m.zocbo.com/Member/login.asp"][target="_blank"]')>0,'Official login new-tab option retains HITEL');
  check(await count('#phone a[href="https://m.zocbo.com/Member/login.asp"][target="_self"]')>0,'Official login same-tab option exists');
  check((await page.locator('#phone .zb-live-iframe').getAttribute('src'))==='https://m.zocbo.com/Member/login.asp','Official native login webpage configured');
+ check((await page.locator('#phone .zb-iframe-fallback').textContent()).includes('공식 사이트 새 탭으로 열기'),'Viewer fallback points to the exact visible action label');
  await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').first().waitFor({timeout:16000});
  check(await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').count()>0,'Real original login password field actually rendered inside embedded page');
  await safeShot('06-login.png');
