@@ -97,7 +97,7 @@ try{
  check(await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').count()>0,'Real original login password field actually rendered inside embedded page');
  await page.screenshot({path:'audit-v2/06-login.png'});
  await goto('bankDownload');check((await page.locator('#phone .zb-live-iframe').getAttribute('src'))==='https://m.zocbo.com/event/pre-test2026d/','Download uses actual public event page');
- await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').first().waitFor({timeout:16000});
+ await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').first().waitFor({state:'attached',timeout:16000});
  check(await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').count()===35,'Embedded official event page truly includes all 35 original sampleDown controls');
  await goto('bankCategory');check(await count('#phone .zb-feature-row')>=10,'All direct original service sections retained');
  
