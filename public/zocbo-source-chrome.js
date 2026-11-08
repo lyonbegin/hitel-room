@@ -4,7 +4,7 @@
 (function(){
 'use strict';
 const params=new URLSearchParams(location.search);
-if(params.get('chrome')==='0')return;
+if(params.get('chrome')==='0'||params.get('original')!=='1')return;
 const fullOriginal=params.get('original')==='1';
 document.body.classList.add(fullOriginal?'zb-original-site':'zb-original-sector');
 const cache=new Map();
@@ -137,7 +137,7 @@ function decorate(host,doc){
  const below=document.createElement('div');below.className='zb-original-after-filters';attachPromo(below,doc);
  const content=host.querySelector(':scope > .zb-f-content');
  if(content)content.before(below);else host.appendChild(below);
- if(fullOriginal)sourceFooter(host.closest('.app'));
+ // The host application owns the only bottom navigation; never mount a second footer.
 }
 function check(){
  pending=false;
