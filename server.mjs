@@ -126,6 +126,32 @@ async function serveZocboPublicCatalog(url,req,send){
  }
 }
 
+
+const zocboSchoolCache=new Map();
+async function serveZocboPublicSchoolOptions(url,send){
+ const region=String(url.searchParams.get('si')||'').trim();
+ const district=String(url.searchParams.get('gu')||'').trim();
+ const gradeSite=String(url.searchParams.get('site')||'M');
+ if(!/^[가-힣\s]{1,12}$/.test(region)||!/^[가-힣\s]{0,16}$/.test(district)||!['M','H'].includes(gradeSite)){
+  send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_SCHOOL_FILTER'}));return
+ }
+ const k=[gradeSite,region,district].join('|');
+ const c=zocboSchoolCache.get(k);
+ if(c&&Date.now()-c.at<600000){send(200,'application/json; charset=utf-8',c.json);return}
+ try{
+  const ref='https://m.zocbo.com/'+gradeSite+'/expected.asp';
+  const form=district?{cmd:'GET_SCHOOL_LIST',site_id:gradeSite,si:region,region:district}:{cmd:'GET_REGION_LIST',si:region};
+  const result=await zocboReadPublic('/_api/community.api.asp',form,ref);
+  const rows=Array.isArray(result.list)?result.list:[];
+  const list=rows.slice(0,350).map(x=>district?
+    ({name:safeString(x.Scl_Name||x.Name,90),id:safeString(x.Scl_ID||'',32)}):
+    ({name:safeString(x.rg_District||x.Name,60)})).filter(x=>x.name);
+  const json=JSON.stringify({ok:true,source:'anonymous-original-school-api',site:gradeSite,si:region,gu:district,kind:district?'school':'district',count:list.length,list});
+  zocboSchoolCache.set(k,{at:Date.now(),json});
+  if(zocboSchoolCache.size>120)zocboSchoolCache.delete(zocboSchoolCache.keys().next().value);
+  send(200,'application/json; charset=utf-8',json);
+ }catch(e){send(502,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_SCHOOL_OPTIONS_UNAVAILABLE',reason:safeString(e.message,120)}))}
+}
 const originalMenuSlugs=new Set([
  'concept_complete','concept_calculation','unit_level','unit_master',
  'practice_essay','practice_frequent','practice_wrong','practice_top',
@@ -143,6 +169,7 @@ createServer(async (req,res)=>{
  const url=new URL(req.url,'http://localhost');
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
  if(url.pathname==='/api/zocbo/public-catalog'&&req.method==='GET'){await serveZocboPublicCatalog(url,req,send);return}
+ if(url.pathname==='/api/zocbo/public-school-options'&&req.method==='GET'){await serveZocboPublicSchoolOptions(url,send);return}
  if(url.pathname==='/api/zocbo/menu-data'&&req.method==='GET'){
   const slug=String(url.searchParams.get('slug')||'');
   if(!originalMenuSlugs.has(slug)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MENU'}));return}
