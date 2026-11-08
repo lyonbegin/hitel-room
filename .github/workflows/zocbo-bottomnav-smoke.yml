@@ -1,0 +1,37 @@
+name: HITEL Bottom Problem Bank Direct Navigation Smoke
+on:
+  push:
+    branches: [feature/zocbo-page-audit-bottomnav-fix-20261108]
+    paths:
+      - tools/zocbo/bottomnav_smoke.py
+      - .github/workflows/zocbo-bottomnav-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bottom-bank:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Start exact branch server
+        run: |
+          node server.mjs > bottomnav-server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: Click actual phone bottom tabs
+        run: python tools/zocbo/bottomnav_smoke.py
+      - name: Save screenshot and comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-bottomnav-click-evidence
+          path: zocbo-bottomnav-evidence/
+          retention-days: 7
+          if-no-files-found: warn

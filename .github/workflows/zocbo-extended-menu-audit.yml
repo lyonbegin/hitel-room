@@ -1,0 +1,37 @@
+name: Zocbo Additional Original Mobile Menu Pages Audit
+on:
+  push:
+    branches: [feature/zocbo-page-audit-bottomnav-fix-20261108]
+    paths:
+      - tools/zocbo/extended_menu_audit.py
+      - .github/workflows/zocbo-extended-menu-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-mobile-menu:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        segment: [A, B]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Inspect each genuine public mobile page without login or downloads
+        run: python tools/zocbo/extended_menu_audit.py ${{ matrix.segment }}
+      - name: Upload direct URL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-additional-original-pages-${{ matrix.segment }}
+          path: zocbo-extended-evidence/
+          retention-days: 7
+          if-no-files-found: warn

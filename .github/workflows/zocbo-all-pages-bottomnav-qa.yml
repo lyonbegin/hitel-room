@@ -1,0 +1,45 @@
+name: Zocbo all known mobile pages and HITEL bottom navigation audit
+on:
+  push:
+    branches:
+      - feature/zocbo-page-audit-bottomnav-fix-20261108
+    paths:
+      - tools/zocbo/site_full_audit.py
+      - .github/workflows/zocbo-all-pages-bottomnav-qa.yml
+      - public/ypt-rebuild.js
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-covered-route-audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check browser and Node syntax
+        run: |
+          node --check public/ypt-rebuild.js
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Start HITEL integration instance from exact feature branch
+        run: |
+          node server.mjs > zocbo-full-audit-server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: Audit official mobile pages, HITEL views and actual bottom bank click
+        env:
+          HITEL_BASE_URL: http://127.0.0.1:3000
+        run: python tools/zocbo/site_full_audit.py
+      - name: Preserve server log
+        if: always()
+        run: cp zocbo-full-audit-server.log zocbo-coverage-evidence/server.log || true
+      - name: Upload real browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-mobile-route-coverage-and-bottom-navigation
+          path: zocbo-coverage-evidence/
+          retention-days: 7
+          if-no-files-found: warn

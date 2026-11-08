@@ -148,9 +148,9 @@ function settingsPage(id){
 }
 const applicableBottom=['home','groups','todo','calendar'];
 function bottomFor(id){if(['welcome','signin','signup'].includes(id)||id.startsWith('external_'))return '';
- const active=id.startsWith('bank')?'bankHome':id.startsWith('group')?'groups':id.startsWith('todo')?'todo':id.startsWith('calendar')||id.startsWith('timetable')?'calendar':id==='groups'||id==='home'||id==='todo'||id==='calendar'?id:'home';
+ const active=id.startsWith('bank')?'bankSearch':id.startsWith('group')?'groups':id.startsWith('todo')?'todo':id.startsWith('calendar')||id.startsWith('timetable')?'calendar':id==='groups'||id==='home'||id==='todo'||id==='calendar'?id:'home';
  return `<nav class="bottomnav zb-five" aria-label="하단 내비게이션">${[
- ['home','홈','navigation/bottom_home_fill.svg'],['groups','그룹','navigation/bottom_group_fill.svg'],['todo','할 일','navigation/bottom_todo_fill.svg'],['calendar','캘린더','navigation/bottom_calendar.svg'],['bankHome','문제은행',null]
+ ['home','홈','navigation/bottom_home_fill.svg'],['groups','그룹','navigation/bottom_group_fill.svg'],['todo','할 일','navigation/bottom_todo_fill.svg'],['calendar','캘린더','navigation/bottom_calendar.svg'],['bankSearch','문제은행',null]
  ].map(([k,t,p])=>`<button class="${active===k?'selected':''}" data-go="${k}">${p?image(p):'<span class="zb-bank-icon">▦</span>'}<span>${t}</span></button>`).join('')}</nav>`;
 }
 function makeBody(id){
@@ -191,7 +191,7 @@ function renderInspector(){const id=state.screen;const p=GRAPH[id]||VERIFIED[id]
  document.getElementById('stageStatus').textContent=verified?'원본 APK 실화면 PNG · 원본 캡처 확인':'원본 리소스 적용 · 화면별 본문 시제품 / 배치 미검증';
  document.getElementById('stageBack').disabled=state.history.length===0;}
 function render(){renderPhone();renderMap();renderInspector()}
-function go(id){if(!GRAPH[id]&&!VERIFIED[id]&&!['external_google','external_apple','email_entry','more_options','privacy','terms'].includes(id))return;state.history.push(state.screen);state.screen=id;state.modal=null;for(const [g,ids] of Object.entries(GROUPS))if(ids.includes(id))state.menuOpen=g;const url=new URLSearchParams({screen:id});if(id==='bankPaper'&&state.zocbo?.paperId)url.set('paper',state.zocbo.paperId);history.replaceState(null,'','?'+url.toString());render();}
+function go(id){if(id==='bankHome'&&document.activeElement?.closest?.('.bottomnav'))id='bankSearch';if(!GRAPH[id]&&!VERIFIED[id]&&!['external_google','external_apple','email_entry','more_options','privacy','terms'].includes(id))return;state.history.push(state.screen);state.screen=id;state.modal=null;for(const [g,ids] of Object.entries(GROUPS))if(ids.includes(id))state.menuOpen=g;const url=new URLSearchParams({screen:id});if(id==='bankPaper'&&state.zocbo?.paperId)url.set('paper',state.zocbo.paperId);history.replaceState(null,'','?'+url.toString());render();}
 function back(){if(state.history.length){state.screen=state.history.pop();state.modal=null;history.replaceState(null,'','?screen='+encodeURIComponent(state.screen));render()}else go('home')}
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>el.classList.remove('show'),2200)}
 function downloadCSV(){const rows=[['날짜','과목','공부시간(분)'],['2026-11-08','국어','73'],['2026-11-08','수학','45'],['2026-11-08','영어','36']];const blob=new Blob(['\ufeff'+rows.map(x=>x.join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ypt_sample_study_log.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
