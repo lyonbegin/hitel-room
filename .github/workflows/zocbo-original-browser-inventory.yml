@@ -1,0 +1,34 @@
+name: Original Zocbo mobile REAL source inventory — discover before implementation
+on:
+  push:
+    branches: [audit/zocbo-complete-mobile-source-inventory-20261108]
+    paths:
+      - tools/zocbo/full_original_browser_inventory.py
+      - .github/workflows/zocbo-original-browser-inventory.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real Chromium
+        run: |
+          python -m py_compile tools/zocbo/full_original_browser_inventory.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Click original site 6 top menus, school grade subject and nested filters; save complete rendered source evidence
+        run: python tools/zocbo/full_original_browser_inventory.py --phase discovery
+      - name: Upload screenshots, original rendered DOM, original public JS CSS and sanitized AJAX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-mobile-complete-discovery
+          path: zocbo-original-inventory/discovery/
+          retention-days: 15
+          if-no-files-found: warn
