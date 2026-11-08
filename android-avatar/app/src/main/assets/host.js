@@ -4,6 +4,18 @@
  */
 'use strict';
 
+// qtLoad overrides Emscripten locateFile, therefore make the WASM URL explicit.
+// Keep upstream JS/WASM files untouched; this is an Android integration shim.
+const originalQtLoad = window.qtLoad;
+if (typeof originalQtLoad === 'function') {
+  window.qtLoad = function patchedQtLoad(config) {
+    const originalLocate = config.locateFile;
+    config.locateFile = filename => filename === 'DHLiveMini.wasm'
+      ? '/assets/vendor/js/DHLiveMini.wasm'
+      : originalLocate ? originalLocate(filename) : filename;
+    return originalQtLoad(config);
+  };
+}
 const el = id => document.getElementById(id);
 let ownAvatar = false;
 let engineReady = false;
@@ -35,10 +47,11 @@ try {
   console.warn('Native avatar bridge unavailable:', e);
 }
 CONFIG.chromaKeyEnabled = false;
+CONFIG.dataSrc = 'assets/combined_data.bin';
 CONFIG.showFPS = true;
 if (ownAvatar) {
   CONFIG.videoSrc = '/avatar/01.mp4';
-  CONFIG.dataSrc = '/avatar/combined_data.json.gz';
+  CONFIG.dataSrc = '/avatar/combined_data.bin';
 }
 status(ownAvatar ? '개인 아바타 자료를 불러오는 중입니다.' : '샘플 아바타 엔진을 불러오는 중입니다.');
 
@@ -48,7 +61,7 @@ const readinessCheck = setInterval(() => {
   try {
     if (engineReady) { clearInterval(readinessCheck); return; }
     const ok = typeof Module !== 'undefined' &&
-      typeof Module._processImage === 'function' &&
+      typeof Module._processImage === 'function' && !!Module.asm &&
       typeof Module._setAudioBuffer === 'function' &&
       typeof videoProcessor !== 'undefined' &&
       videoProcessor.video?.readyState >= 2 &&

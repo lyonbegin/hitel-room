@@ -78,7 +78,7 @@ const diagnostics=[
  '}) )()'
 ].join('');
 async function pathStatuses(){
-  return await evaluate('(async()=>{const paths=["vendor/js/DHLiveMini.wasm","assets/01.mp4","assets/combined_data.json.gz"];return await Promise.all(paths.map(async p=>{try{const r=await fetch(p,{method:"HEAD"});return {p,status:r.status,type:r.headers.get("Content-Type"),len:r.headers.get("Content-Length")}}catch(e){return {p,error:String(e)}}}))})()');
+  return await evaluate('(async()=>{const paths=["vendor/js/DHLiveMini.wasm","assets/01.mp4","assets/combined_data.bin"];return await Promise.all(paths.map(async p=>{try{const r=await fetch(p,{method:"HEAD"});return {p,status:r.status,type:r.headers.get("Content-Type"),len:r.headers.get("Content-Length")}}catch(e){return {p,error:String(e)}}}))})()');
 }
 const results=[];
 let p;

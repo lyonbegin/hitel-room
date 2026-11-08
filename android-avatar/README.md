@@ -46,3 +46,6 @@ On this feature branch, the Android APK GitHub Actions workflow stores app-debug
 - No remote user connection, external signaling, interview recorder, production authentication, TTS text service, or real-time microphone-to-WASM adapter in this first stage.
 - Audio file playback uses WAV bytes directly; additional formats may be rejected by the vendor WASM.
 - Browser and Android WebView must expose captureStream and RTCPeerConnection. The UI shows a clear error when they are absent.
+
+## Android asset routing correction (2026-11-08)
+Upstream Qt loader overrides Emscripten locateFile, so the embedded WASM needs an absolute `/assets/vendor/js/DHLiveMini.wasm` path. Android APK assets also serve the original gzip JSON under a neutral `.bin` filename to avoid `.gz` path failures. The ZIP input retains the original upstream `combined_data.json.gz` name and maps it to `.bin` internally; bytes remain gzip-compressed.

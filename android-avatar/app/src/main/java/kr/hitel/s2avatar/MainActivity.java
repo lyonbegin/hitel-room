@@ -140,7 +140,7 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             public boolean hasAvatar() {
                 return new File(avatarDir, "01.mp4").isFile() &&
-                    new File(avatarDir, "combined_data.json.gz").isFile();
+                    new File(avatarDir, "combined_data.bin").isFile();
             }
         }, "HitelAndroid");
 
@@ -204,7 +204,7 @@ public class MainActivity extends Activity {
                     if (!entry.isDirectory() && ("01.mp4".equals(path) || "combined_data.json.gz".equals(path))) {
                         if (!found.add(path)) throw new IOException("중복된 아바타 파일: " + path);
                         long fileSize = 0L;
-                        try (FileOutputStream output = new FileOutputStream(new File(staging, path))) {
+                        try (FileOutputStream output = new FileOutputStream(new File(staging, "combined_data.json.gz".equals(path) ? "combined_data.bin" : path))) {
                             int count;
                             while ((count = zip.read(buffer)) != -1) {
                                 fileSize += count;
@@ -220,7 +220,7 @@ public class MainActivity extends Activity {
             }
             if (!(found.contains("01.mp4") && found.contains("combined_data.json.gz")) ||
                 new File(staging, "01.mp4").length() == 0L ||
-                new File(staging, "combined_data.json.gz").length() == 0L) {
+                new File(staging, "combined_data.bin").length() == 0L) {
                 throw new IOException("ZIP 최상위에 01.mp4 및 combined_data.json.gz 파일이 모두 필요합니다.");
             }
             File previous = new File(getFilesDir(), "avatar/previous");

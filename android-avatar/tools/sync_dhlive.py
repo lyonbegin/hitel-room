@@ -21,7 +21,7 @@ FILES = {
     "common/bs_texture_halfFace.png": ("common/bs_texture_halfFace.png", "f28a247372d66d4ffc6e7e48aadd7c469d4665f7"),
     "common/test.wav": ("common/test.wav", "c5003c395c4d2c2a77ea90e0cd34d71b4041d70f"),
     "assets/01.mp4": ("assets/01.mp4", "2a458ad01ffbf255e11022369c54075ecf748634"),
-    "assets/combined_data.json.gz": ("assets/combined_data.json.gz", "26efd6037aca59eb01d8c03d8bbca5662f37b5f7"),
+    "assets/combined_data.bin": ("assets/combined_data.json.gz", "26efd6037aca59eb01d8c03d8bbca5662f37b5f7"),
 }
 DEST = pathlib.Path(__file__).resolve().parents[1] / "app/src/main/assets"
 
