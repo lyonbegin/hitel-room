@@ -30,11 +30,13 @@ with sync_playwright() as p:
     return
    record={"method":r.request.method,"path":u.path,"status":r.status,"responseType":r.headers.get("content-type","").split(";")[0]}
    try:
-    if r.ok and "json" in record["responseType"]:
+    if r.ok and r.request.method=="POST":
      o=r.json()
      if isinstance(o,dict):
       record["json_keys"]=list(o)[:25]
       record["array_sizes"]={k:len(v) for k,v in o.items() if isinstance(v,list)}
+      record["first_item_keys"]={k:list(v[0])[:30] for k,v in o.items() if isinstance(v,list) and v and isinstance(v[0],dict)}
+      record["first_title_fields"]={k:{a:str(b)[:85] for a,b in v[0].items() if "NAME" in a or "TITLE" in a or "NM" in a} for k,v in o.items() if isinstance(v,list) and v and isinstance(v[0],dict)}
       record["result"]=str(o.get("RESULT",""))[:40]
    except Exception as ex: record["parse_error"]=type(ex).__name__
    requests.append(record)
