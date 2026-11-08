@@ -3,8 +3,10 @@
 No fabricated responses; original data must have been captured by Actions.
 """
 import json
+import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+BASE=os.environ.get("HITEL_BASE_URL","http://127.0.0.1:3000").rstrip("/")
 OUT=Path("zocbo-six-menu-e2e")
 OUT.mkdir(exist_ok=True)
 expected={
@@ -24,7 +26,7 @@ with sync_playwright() as p:
   page=ctx.new_page()
   page.set_default_timeout(22000)
   page.on("pageerror",lambda err:errors.append(str(err)[:250]))
-  page.goto("http://127.0.0.1:3000/?screen=bankSearch",wait_until="domcontentloaded",timeout=35000)
+  page.goto(BASE+"/?screen=bankSearch",wait_until="domcontentloaded",timeout=35000)
   page.wait_for_function("()=>document.querySelector('#phone .zb-native-summary')?.innerText.includes('411')",timeout=45000)
   assert page.locator('#phone .zb-all-tabs button').count()==6
   results[f"{width}"]=dict(qa={},firstCount=page.locator(".zb-native-summary").inner_text())
