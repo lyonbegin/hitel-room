@@ -1,0 +1,52 @@
+name: Zocbo ORIGINAL HTML DOM fidelity chrome real browser QA
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - public/zocbo-source-chrome.js
+      - public/zocbo-source-chrome.css
+      - public/ypt-rebuild.html
+      - server.mjs
+      - tools/zocbo/test_original_source_chrome.py
+      - .github/workflows/zocbo-original-source-chrome-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-chrome-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check all source-based JS/CSS dependencies and install browser
+        run: |
+          node --check public/zocbo-source-chrome.js
+          node --check public/zocbo-faithful-ui.js
+          node --check server.mjs
+          python -m py_compile tools/zocbo/test_original_source_chrome.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Launch exact source-integrated HITEL server
+        run: |
+          node server.mjs > original-chrome-server.log 2>&1 &
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: ACTUAL original mobile source DOM click verification
+        run: python tools/zocbo/test_original_source_chrome.py
+      - name: Preserve mobile screenshot + functionality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-original-mobile-chrome-390-360
+          path: zocbo-original-chrome-evidence/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Preserve server output on failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-chrome-error-log
+          path: original-chrome-server.log
+          retention-days: 3
