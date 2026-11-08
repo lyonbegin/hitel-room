@@ -6,11 +6,11 @@ android {
     namespace = "app.hitel.nativebridge"
     compileSdk = 35
     defaultConfig {
-        applicationId = "app.hitel.nativebridge"
+        applicationId = "app.hitel.callrecordprobe"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.2.0-probe"
     }
     buildTypes { getByName("release") { isMinifyEnabled = false } }
     compileOptions {
