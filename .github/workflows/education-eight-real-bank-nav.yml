@@ -1,0 +1,39 @@
+name: Legacy Education Eight Apps Bank Tab Real Live Route E2E
+on:
+  push:
+    branches: [feature/education-8-bank-live-route-fix-20261108]
+    paths:
+      - public/education.js
+      - tools/zocbo/education_eight_live_bank_test.py
+      - .github/workflows/education-eight-real-bank-nav.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-bank-tab:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Playwright Chromium
+        run: |
+          node --check public/education.js
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Serve actual legacy education eight app
+        run: |
+          node server.mjs > education-eight.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: Open original eight-app bottom bank and assert live original data
+        run: python tools/zocbo/education_eight_live_bank_test.py
+      - name: Upload screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-eight-app-bottom-real-bank-screenshot
+          path: education-eight-bank-test/
+          retention-days: 7
+          if-no-files-found: warn
