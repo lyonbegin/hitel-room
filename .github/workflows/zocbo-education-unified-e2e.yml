@@ -1,0 +1,52 @@
+name: HITEL unified education Zocbo actual deployed browser
+on:
+  push:
+    branches:
+      - feature/education-zocbo-unified-20261108
+    paths:
+      - public/**
+      - server.mjs
+      - tools/zocbo/test_education_unified.py
+      - .github/workflows/zocbo-education-unified-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-deployed-browser:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install headless Chromium
+        run: |
+          python -m py_compile tools/zocbo/test_education_unified.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Wait for live unified Railway service API
+        env:
+          HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+        run: |
+          set -e
+          for i in $(seq 1 36); do
+            if curl -fsS --max-time 16 "$HITEL_BASE_URL/api/zocbo/faithful-index" | jq -e '.byView | type == "object"' >/dev/null; then
+              echo LIVE_UNIFIED_INDEX_READY
+              break
+            fi
+            sleep 8
+          done
+          curl -fsS --max-time 16 "$HITEL_BASE_URL/8-apps?app=jokbo&page=bank" | grep -q 'id="bottomnav"'
+      - name: Validate original mobile menu + all Gangnam districts on real deployed site
+        env:
+          HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+        run: python tools/zocbo/test_education_unified.py
+      - name: Upload actual mobile screenshots and JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: education-zocbo-unified-mobile-browser-evidence
+          path: education-zocbo-unified-evidence/
+          retention-days: 7
+          if-no-files-found: warn
