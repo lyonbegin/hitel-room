@@ -174,6 +174,16 @@ class MainActivity : Activity() {
     /** KtAuto-derived general device automation: selected installed apps, not carrier calls. */
     private fun assistiveAction(action: String, data: JSONObject): JSONObject {
         when (action) {
+            "call.recordings.status" -> return SamsungCallRecordingController.status()
+            "call.recordings.list" -> return CallRecordingFileLocator.recent(this)
+            "call.recordings.requestPermission" -> {
+                val permission = if (android.os.Build.VERSION.SDK_INT >= 33)
+                    Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+                val granted = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+                if (!granted) requestPermissions(arrayOf(permission), 5309)
+                return JSONObject().put("alreadyGranted", granted)
+                    .put("permission", permission).put("requested", !granted)
+            }
             "app.accessibility.status" -> return AppAccessibilityService.status()
             "app.accessibility.settings" -> {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -280,7 +290,8 @@ class MainActivity : Activity() {
                                 "tts.stop" -> {speaker?.stop();result.put("scope","local-device-only")}
                                 "app.list", "app.open", "app.screen", "app.tap", "app.type",
                                 "app.scroll", "app.back", "app.accessibility.status",
-                                "app.accessibility.settings", "web.open" ->
+                                "app.accessibility.settings", "web.open", "call.recordings.status",
+                                "call.recordings.list", "call.recordings.requestPermission" ->
                                     result.put("result", assistiveAction(action,data))
                                 "communication.action" -> {
                                     val sent = sendCommunicationAction(data.optString("callAction"),
