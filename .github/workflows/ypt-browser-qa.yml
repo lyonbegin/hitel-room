@@ -1,0 +1,38 @@
+name: YPT Original Resource Rebuild Browser QA
+on:
+  push:
+    branches: [feature/ypt-resource-visual-rebuild-20261108]
+    paths:
+      - .github/workflows/ypt-browser-qa.yml
+      - tools/ypt-original/qa-visual-rebuild.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-qa:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test-only Playwright
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install chromium
+      - name: Start independent YPT resource UI server
+        run: |
+          mkdir -p qa
+          cp analysis/ypt-derived-screen-graph.json qa/graph.json
+          PORT=3000 node server.mjs > qa/server.log 2>&1 &
+          sleep 3
+          curl -f http://127.0.0.1:3000/health
+      - name: Test original asset rendering, buttons, data and all 65 page bodies
+        run: node tools/ypt-original/qa-visual-rebuild.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ypt-ui-rebuild-actual-browser-screenshots-and-qa
+          path: qa/
+          retention-days: 15
