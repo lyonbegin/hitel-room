@@ -28,7 +28,7 @@ with sync_playwright() as p:
   # Official PNG bytes are served locally because hotlinking the original background
   # produced an empty black rectangle even when text/menu interactions passed.
   banner=page.request.get(BASE+'/zocbo-source-assets/banner-learning3Q-public.png',timeout=12000)
-  assert banner.status==200 and banner.body().startswith(b'\\x89PNG\\r\\n\\x1a\\n'),('original banner missing',banner.status)
+  assert banner.status==200 and banner.body().startswith(bytes([137,80,78,71,13,10,26,10])),('original banner missing',banner.status)
   for svg in ('img_logoTop.svg','ico_coupon.svg'):
    asset=page.request.get(BASE+'/zocbo-source-assets/'+svg,timeout=12000)
    assert asset.status==200 and b'<svg' in asset.body()[:500],('original SVG missing',svg,asset.status)
