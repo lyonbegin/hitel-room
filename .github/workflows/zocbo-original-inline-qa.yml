@@ -1,0 +1,39 @@
+name: Zocbo Original HTML Inline Mobile QA
+on:
+  push:
+    branches: [feature/zocbo-dom-inline-source-audit-20261108]
+    paths:
+      - tools/zocbo/qa-inline-original.mjs
+      - .github/workflows/zocbo-original-inline-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install chromium browser and Korean typeface for screenshots
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-nanum
+          npm install --no-save playwright@1.56.1
+          npx playwright install chromium
+      - name: Boot complete original DOM/UI integration
+        run: |
+          PORT=3000 node server.mjs >zocbo-server.log 2>&1 &
+          sleep 3
+          curl -f http://127.0.0.1:3000/health
+      - name: Verify all 35 controls, 390px layout, no iframe and original links
+        run: node tools/zocbo/qa-inline-original.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-iframe-free-original-mobile-screens-and-results
+          path: |
+            zocbo-inline-qa/
+            zocbo-server.log
+          retention-days: 15
