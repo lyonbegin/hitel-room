@@ -17,13 +17,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout original VoxSherpa source (pinned, unchanged)
-        uses: actions/checkout@v4
-        with:
-          repository: CodeBySonu95/VoxSherpa-TTS
-          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
-          path: voxsherpa-upstream
-          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,6 +27,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
+      - name: Checkout original VoxSherpa source (pinned, unchanged)
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
       - name: Rebuild existing source and apply Samsung v0.14 detection patch
         run: |
           tar -xJf flow-lab/v07_source.tar.xz
