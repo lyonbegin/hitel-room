@@ -126,6 +126,10 @@ function filterOptions(z,key,meta){
  if(key==='SEARCH_SUBJECT_CD')return sourceSubjectOptions(z);
  if(key==='SEARCH_TX_CD')return [{name:arr(meta?.filters).find(f=>filterKey(f)===key)?.name||'공통'}];
  if(key==='filter_si')return ['서울','세종','대구','대전','부산','인천','울산','경기','강원','충남','충북','경남','경북','전남광주','전북','제주','기타'].map(name=>({name}));
+ if(key==='filter_grade')return (z.fSite==='M'?['1학년','2학년','3학년']:['1학년','2학년','3학년']).map(name=>({name}));
+ if(key==='filter_subject')return sourceSubjectOptions(z);
+ if(key==='filter_type')return [{name:'학교별 예상족보'}];
+ if(key==='filter_Chapter')return [{name:'원본 학교·과목·학년·시험 범위를 모두 지정해야 선택할 수 있습니다.',disabled:true}];
  return [];
 }
 function selectedFilterLabel(z,f){
@@ -205,7 +209,7 @@ function optionSheet(z,meta){
  +'<div class="zb-f-choices">'+arr(opts).map((o,i)=>{
   const name=o.name||o.label||String(o);
   const current=(z.fDisplay[key]||arr(meta?.filters).find(f=>filterKey(f)===key)?.name||'');
-  return '<button type="button" data-action="zbFChoose" data-value="'+i+'" data-key="'+attr(key)+'" class="'+(current===name?'is-active':'')+'"><span>'+esc(name)+'</span><span class="zb-f-choice-check">'+(current===name?'✓':'')+'</span></button>';
+  return '<button type="button" data-action="zbFChoose" data-value="'+i+'" data-key="'+attr(key)+'" '+(o.disabled?'disabled':'')+' class="'+(current===name?'is-active':'')+'"><span>'+esc(name)+'</span><span class="zb-f-choice-check">'+(current===name?'✓':'')+'</span></button>';
  }).join('')+'</div></section>';
 }
 function sourcePage(s){
@@ -245,7 +249,7 @@ function gradeFromName(z,name){
 function pickFromOptions(z,meta,key,value,toast,render){
  const opts=z.fOptionsOverride&&z.fOptionsOverride[key]||filterOptions(z,key,meta);
  const opt=opts[Number(value)];
- if(!opt)return;
+ if(!opt||opt.disabled)return;
  const name=opt.name||opt.label||String(opt);
  if(key==='SEARCH_GRADE'||key==='filter_grade'){
   gradeFromName(z,name);
