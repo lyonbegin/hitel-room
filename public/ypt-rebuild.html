@@ -3,8 +3,9 @@
 <head>
  <meta charset="utf-8" />
  <meta name="viewport" content="width=device-width,initial-scale=1" />
- <title>열품타 | APK 역공학 기반 UI 재구성</title>
+ <title>HITEL 학습관리 · 열품타 + 족보닷컴 실제 자료 연결</title>
  <link rel="stylesheet" href="/ypt-rebuild.css?v=3" />
+ <link rel="stylesheet" href="/zocbo-integration.css?v=1" />
 </head>
 <body>
 <div class="workspace">
@@ -12,11 +13,11 @@
     <div class="map-head">
       <div class="map-brand"><span class="brand-mark"><img src="/ypt-assets/icon/icon.png" alt="" /></span><span><b>열품타 UI 구조</b><small>810.1.05 / 원본 XAPK 분석</small></span></div>
       <h2>화면 탐색</h2>
-      <p>화면을 선택하여 본문·입력·탭·이동 동작을 확인하십시오. 원본에 근거한 항목과 재구성한 화면은 오른쪽에서 구분합니다.</p>
+      <p>열품타 학습관리 화면에서 족보닷컴의 실제 학교별 자료·검색·공식 로그인·다운로드를 연결한 통합 테스트입니다.</p>
     </div>
     <div class="map-search-wrap"><input id="screenSearch" type="search" placeholder="화면 이름 검색" aria-label="화면 검색" /></div>
     <div class="screen-map" id="screenMap"></div>
-    <footer class="map-foot">원본 실기기 캡처 3장 · 원본 리소스 적용<br />서버 연동 없이 실행되는 UI 시제품입니다.</footer>
+    <footer class="map-foot">열품타 원본 화면 3장 · 족보닷컴 XAPK 분석<br />공개자료 목록 35개 / 실제 로그인·다운로드는 공식 족보닷컴으로 연결</footer>
   </aside>
   <main class="stage">
     <div class="stage-top">
@@ -36,6 +37,8 @@
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="/ypt-graph.js?v=3"></script>
-<script src="/ypt-rebuild.js?v=3"></script>
+<script src="/zocbo-catalog.js?v=1"></script>
+<script src="/zocbo-integration.js?v=1"></script>
+<script src="/ypt-rebuild.js?v=4"></script>
 </body>
 </html>
