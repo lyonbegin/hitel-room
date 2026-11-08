@@ -82,7 +82,7 @@ jobs:
           du -sh AndroidProject/voxsherpa/src/main/assets
       - name: Route verified upstream Gradle 8.13 wrapper to official direct distribution CDN
         run: |
-          sed -i 's#services.gradle.org/distributions/#downloads.gradle.org/distributions/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
           grep 'distributionUrl=' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
           grep 'distributionSha256Sum=' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
       - name: Build Android installation APK
