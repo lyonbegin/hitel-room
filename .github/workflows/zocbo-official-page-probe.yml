@@ -1,0 +1,57 @@
+name: ZOCBO Official Public Site Search View Download Link Probe
+on:
+  push:
+    branches: [feature/ypt-zocbo-live-integration-20261108]
+    paths: [.github/workflows/zocbo-official-page-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests beautifulsoup4
+      - name: Inspect public HTML routes only without downloading or chargeable calls
+        run: |
+          python3 - <<'PY'
+          import requests,json,re,bs4,pathlib
+          pages={
+            'main':'https://m.zocbo.com/',
+            'final2026':'https://m.zocbo.com/event/pre-test2026d/',
+            'free':'https://m.zocbo.com/M/?menu=2&type=4',
+            'diagnosis':'https://m.zocbo.com/Freetrial/learningtest.asp',
+          }
+          out=pathlib.Path('zocbo-web-probe');out.mkdir(exist_ok=True)
+          report={}
+          for name,url in pages.items():
+            try:
+              r=requests.get(url,timeout=20,headers={'User-Agent':'Mozilla/5.0'},allow_redirects=True)
+              r.encoding=r.apparent_encoding if r.encoding and r.encoding.lower()=='iso-8859-1' else r.encoding
+              html=r.text
+              soup=bs4.BeautifulSoup(html,'html.parser')
+              arr=[]
+              for tag in soup.find_all(['a','button','input'],limit=8000):
+                label=tag.get_text(' ',strip=True) if tag.name!='input' else tag.get('value','')
+                if re.search('다운로드|기출|중1|중2|중3|고1|고2|시험|열람|수학|문제',label,re.I):
+                  arr.append({k:tag.get(k) for k in ('href','id','class','onclick','data-url','data-href','type') if tag.has_attr(k)}|{'tag':tag.name,'text':label[:90]})
+                if len(arr)>=400:break
+              scripts=[]
+              for s in soup.find_all('script'):
+                if s.has_attr('src'):scripts.append(s.get('src'))
+              report[name]={'url':url,'final':r.url,'http':r.status_code,'ctype':r.headers.get('Content-Type'),'bytes':len(r.content),'title':soup.title.get_text(' ',strip=True)[:160] if soup.title else '', 'download_context':arr,'scripts':scripts[:80],'html_paths':list(set(re.findall(r'(?i)(?:href|src)=[\\"\\']([^\\"\\']+)',html)))[:100]}
+              (out/(name+'.html')).write_text(html,encoding='utf-8')
+            except Exception as e:report[name]={'error':str(e)}
+          (out/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps({k:{x:v for x,v in d.items() if x not in ('download_context','html_paths','scripts')}|{'matching_controls':len(d.get('download_context',[]))} for k,d in report.items()},ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-official-public-route-inspection
+          path: zocbo-web-probe/
+          retention-days: 15
