@@ -6,7 +6,7 @@ All observed responses are summarized to metadata; no bodies or secrets archived
 import json
 import time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl
 from playwright.sync_api import sync_playwright
 
 OUT=Path("zocbo-browser-evidence")
@@ -29,6 +29,8 @@ with sync_playwright() as p:
    if u.hostname not in ("m.zocbo.com","www.zocbo.com") or not u.path.lower().startswith("/exam/ajax/"):
     return
    record={"method":r.request.method,"path":u.path,"status":r.status,"responseType":r.headers.get("content-type","").split(";")[0]}
+   allowed={"menuCD","siteID","menu_cd","siteid","grade","subject_cd","expapr_coretype_cd","expapr_group_cd","expapr_servicetype","is_part","is_scroll","subject_detail_cd","tx_cd","root_part_cd","level_cd","work_author","work_title","text_book_nm","year_cd","vod_type","expapr_no_array","korean_part_work_list"}
+   record["request_fields"]={k:v[:120] for k,v in parse_qsl(r.request.post_data or "") if k in allowed}
    try:
     if r.ok and r.request.method=="POST":
      o=r.json()
