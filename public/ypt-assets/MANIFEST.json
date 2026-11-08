@@ -1,0 +1,1742 @@
+[
+  {
+    "source": "assets/flutter_assets/assets/ad/adgebra.png",
+    "output": "public/ypt-assets/ad/adgebra.png",
+    "sha256": "67acd18370d0c7d0c60cf62d7206640833fff824c1a30da0fd8767dc10495032",
+    "size": 2609
+  },
+  {
+    "source": "assets/flutter_assets/assets/btn_nav_back.png",
+    "output": "public/ypt-assets/btn_nav_back.png",
+    "sha256": "d9397d3321d0a089a024a27a7a41d7bb72b05cd252d16a01d1a194859079587a",
+    "size": 780
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image1.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image1.png",
+    "sha256": "637a77433a6a54d672851deda2c706e0e64abe5996e8f598d4076e9e242774c0",
+    "size": 130748
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image10.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image10.png",
+    "sha256": "e406179c0c8e107b3a10c0221e51b66e1a68e70f720a636653342e2995f9fb70",
+    "size": 100865
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image10_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image10_en.png",
+    "sha256": "28d6f0f09467c57b3515bae672a2cd7f3aa22026836eb5ee78f6817192d4e4a8",
+    "size": 106623
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image1_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image1_en.png",
+    "sha256": "712c2d763a59d4f586bfdc53a3526c772e130750dcc754adfab8bd6820b070a1",
+    "size": 129913
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image2.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image2.png",
+    "sha256": "33d854c0304877d1581e44cfac0b29e8292fee4f6ae7b181ddfbde3d18bb1c6d",
+    "size": 179402
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image2_1.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image2_1.png",
+    "sha256": "71a0daa120bd7d6d2d6c143a9320ff34fd7a83085e7175a73354add5f07b8e79",
+    "size": 41573
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image2_1_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image2_1_en.png",
+    "sha256": "52e5a6787d0c3e3f8b1ee7574aa62b4945ffd474b01a3002a111652bb31f2ac3",
+    "size": 53617
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image2_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image2_en.png",
+    "sha256": "ecbf71737a9cf49e3a15bbdd5f68611070fe0eb4de827612c24362e264a62f04",
+    "size": 180348
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image3.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image3.png",
+    "sha256": "e92c76ff2491589a07b9b0f513d3801073856d55e837f51d03379e09e21855d8",
+    "size": 120329
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image3_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image3_en.png",
+    "sha256": "6a32359394a8a5824cbbad5892ae41ae57e52ab2de88eda363f986fbf79c3e8c",
+    "size": 119728
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image4.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image4.png",
+    "sha256": "795f67328985c691fc5ef638795fc1cce3a051c8aca77c17577df034dc3a9d6d",
+    "size": 126544
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image4_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image4_en.png",
+    "sha256": "2d4ebc9d9015b5baa0c3eb12d686b52c5f6e958e0d775ab32647f4297282203f",
+    "size": 134698
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image5.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image5.png",
+    "sha256": "d2ee3875679bf9fd97ca213d93f1a53d57a648901835250f1137e4a7a1a174e6",
+    "size": 75553
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image5_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image5_en.png",
+    "sha256": "115d71b27c74c9d42982771ee790562d664b676f1f4883f9605754890821d831",
+    "size": 66361
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image6-1.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image6-1.png",
+    "sha256": "30634b3f931ac54ee40504927703075b248f560d698507e774ef1e7015024d09",
+    "size": 35947
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image6-1_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image6-1_en.png",
+    "sha256": "c35f9f034bbcaa33bd1e9c281f5a6f8bbd555462afdab203055705b3b3029b7e",
+    "size": 36230
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image6.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image6.png",
+    "sha256": "59f4c51717c78df3b56c373ae52c705395ca0710c925951e6181c00b5affa182",
+    "size": 61189
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image6_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image6_en.png",
+    "sha256": "ca64b26b3ae824efda152e2fb2eedae88ddb8aa85efb8e9c1593c2648f231e35",
+    "size": 84295
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image7.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image7.png",
+    "sha256": "a93f1e43e53c7f15cf48f52bb1bbb165b285dbd4202c38f31aa90d87ffcb927e",
+    "size": 87241
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image7_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image7_en.png",
+    "sha256": "3a660f12d1a67b117fe61785efe3f3755bc630e0e1a35104d93d799d961489a9",
+    "size": 91683
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image8.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image8.png",
+    "sha256": "a496b8626f03b20ece3e165749665ce5cfaec367d77ac10df38ce2bb90eb09fc",
+    "size": 117740
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image8_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image8_en.png",
+    "sha256": "8a4e8d0da956357ac71f1ed8348897a88da29fc01cb59586cd364aa4fbabd6c5",
+    "size": 123613
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image9.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image9.png",
+    "sha256": "a436b0849c26b02885a006dd0b936868802c3335163fe95efca84fb1f8409552",
+    "size": 112662
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/group_challenge_help_image9_en.png",
+    "output": "public/ypt-assets/challenge/group_challenge_help_image9_en.png",
+    "sha256": "e3fcd71b33f01a3a5887e869825190fd43b636e8f9578804a284f05c4ec7d2c4",
+    "size": 114317
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sit_challenge_example1.png",
+    "output": "public/ypt-assets/challenge/sit_challenge_example1.png",
+    "sha256": "34ed59fbc8461b8ebd63eeb8fc15b5866829c46b22083358ccc111a09bb3f3fc",
+    "size": 162764
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sit_challenge_example2.png",
+    "output": "public/ypt-assets/challenge/sit_challenge_example2.png",
+    "sha256": "60a25b599bd967792c40e3f20a8106067e788eddc1e587382c139254e6ac1a28",
+    "size": 219416
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sit_challenge_example3.png",
+    "output": "public/ypt-assets/challenge/sit_challenge_example3.png",
+    "sha256": "fe9bcd26ef852637838da062cb5f10fb9c32d6f6e7074bd9f892292b4e82f29b",
+    "size": 136007
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sit_challenge_example4.png",
+    "output": "public/ypt-assets/challenge/sit_challenge_example4.png",
+    "sha256": "233103e78de11ef4551dd072231d29608e3d5db5628f7c2af6819853aa52630d",
+    "size": 158246
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sit_challenge_example5.png",
+    "output": "public/ypt-assets/challenge/sit_challenge_example5.png",
+    "sha256": "a664dae4ae2feae598c2ddd10a956d3b1fc6c82039d3a4f7db6fbd8c47ef911d",
+    "size": 116827
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sit_challenge_example6.png",
+    "output": "public/ypt-assets/challenge/sit_challenge_example6.png",
+    "sha256": "1e11a022f34d70e8094f2fdb20e4ca8af73ef782b0b57c093ec039e75df664e7",
+    "size": 54134
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/sleep.png",
+    "output": "public/ypt-assets/challenge/sleep.png",
+    "sha256": "46698d508cf3bab200f4d5e73ae71c2831867ac9951e1f7c6caea694778be6e5",
+    "size": 11984
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/wake_challenge_example1.png",
+    "output": "public/ypt-assets/challenge/wake_challenge_example1.png",
+    "sha256": "cfc07ccf3d4cf2f1b459e7001c5bbcca61784859801a2d6e306c5a6da5857a90",
+    "size": 192495
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/wake_challenge_example2.png",
+    "output": "public/ypt-assets/challenge/wake_challenge_example2.png",
+    "sha256": "05e8f742ef8ee90f2d60d0bf0e973d1dd4b04ef1e5588229e394e43dab45ad2f",
+    "size": 161467
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/wake_challenge_example3.png",
+    "output": "public/ypt-assets/challenge/wake_challenge_example3.png",
+    "sha256": "49f08dfffecf733c816ca3d15f5e7f744b112a41a5ad0885750938411559aae7",
+    "size": 141565
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/wake_challenge_example4.png",
+    "output": "public/ypt-assets/challenge/wake_challenge_example4.png",
+    "sha256": "36f3dd12837017f4683e3cad1715c73540e21d5636701c830da11657e3dd7925",
+    "size": 204528
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/wake_challenge_example5.png",
+    "output": "public/ypt-assets/challenge/wake_challenge_example5.png",
+    "sha256": "fa3b194a81ccf70902cac1efd43ea0f06f78cc0487ee02a48706b7b084e741a6",
+    "size": 109510
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/wake_challenge_example6.png",
+    "output": "public/ypt-assets/challenge/wake_challenge_example6.png",
+    "sha256": "cae5380ad90e42eacc730bbe7c5449d61e19ed7ab96672c3cb0a320a60a5ea9a",
+    "size": 143755
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_01.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_01.png",
+    "sha256": "24ce63d17873745d1d8109dcde6366d7b27247d32357986c9b9ee581a9f4d634",
+    "size": 90895
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_01_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_01_en.png",
+    "sha256": "e69d4959e5ea816e9bd8df6eac4f4a98ab2d0a3ef90cb4a93c12d7bd00132cbe",
+    "size": 95367
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_02.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_02.png",
+    "sha256": "b637d121a62457aac14b24bcc7814ffa053ff6d70dea3fca60b3dfe3488962ff",
+    "size": 47952
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_02_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_02_en.png",
+    "sha256": "bae7e786c3a3c4e138955173e8265bd2d7d904be69133c13f3af50263f885faf",
+    "size": 50350
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_03.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_03.png",
+    "sha256": "f15906362eea371662410cb84d9348860dddc8ed93c0f7322e93eb10a24a26f4",
+    "size": 117122
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_03_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_03_en.png",
+    "sha256": "1bdd689b120582c3cf5d4f8824a97e5913aa88b0e4889e593eab972998606d7e",
+    "size": 68564
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_04.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_04.png",
+    "sha256": "2a44f425f9ddab7c7efa1edcf514661fef85e6cb9b4ee430fcfdd0be31e062ea",
+    "size": 42101
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_04_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_04_en.png",
+    "sha256": "9969a9e17f408eb11f359c66d05b07eefc99b3cdd3d27cb94ba881addc735dff",
+    "size": 43821
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_05.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_05.png",
+    "sha256": "3b7195b076266684bc9f45354f62623eff994ce42efa4a7da45479972cba2f65",
+    "size": 68735
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_05_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_05_en.png",
+    "sha256": "fc70523c5543d4dded9378f497105e1554f1f1016beebbc7142703496395a7fa",
+    "size": 73382
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_06.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_06.png",
+    "sha256": "908a255530af01f2f8c357090af566d836019b983820ed01e6d8efee2c6e9530",
+    "size": 68478
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_06_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_06_en.png",
+    "sha256": "e31d7ee052c4dd51876e611bb7812d40811981fa4609992727d5af5378f7bd71",
+    "size": 53649
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_07.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_07.png",
+    "sha256": "a92d007f4b2fab930dc850032bd543c924ad0091ea81730cd0fb02585e303223",
+    "size": 44460
+  },
+  {
+    "source": "assets/flutter_assets/assets/challenge/ypt_challenge_help_07_en.png",
+    "output": "public/ypt-assets/challenge/ypt_challenge_help_07_en.png",
+    "sha256": "1f0561d1d80fc6b8dcf90af25e604acee08f7716584e66ba71f8c98ae6af6ed1",
+    "size": 49658
+  },
+  {
+    "source": "assets/flutter_assets/assets/exam/eraser.png",
+    "output": "public/ypt-assets/exam/eraser.png",
+    "sha256": "64fff0f1b85014641cfe37b8c18e1b4704e4bcff1728dc99152887a6620c0c79",
+    "size": 679
+  },
+  {
+    "source": "assets/flutter_assets/assets/exam/highlighter.png",
+    "output": "public/ypt-assets/exam/highlighter.png",
+    "sha256": "4add2ae88e00b86fcf6343b3f0125740f6c253062d5c2cc9643ee90f61e6258a",
+    "size": 493
+  },
+  {
+    "source": "assets/flutter_assets/assets/exam/pallet_opacity.png",
+    "output": "public/ypt-assets/exam/pallet_opacity.png",
+    "sha256": "64e1f33e7226a7d16a9f69561ce24ce66efe6da57cebe632c19946556ef755e5",
+    "size": 805
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flash_card_cover_icon.png",
+    "output": "public/ypt-assets/flash_card/flash_card_cover_icon.png",
+    "sha256": "808a533d44984cadadd7d42b4a03dfb534d6b10f3e607b0d732e1184505ba097",
+    "size": 1110
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flash_card_icon.png",
+    "output": "public/ypt-assets/flash_card/flash_card_icon.png",
+    "sha256": "e9b802b98470dd503cd026f3ba79a8b1d7f91c0ee111b0969f9ac37f60071cbb",
+    "size": 985
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flash_card_learn_help_image.png",
+    "output": "public/ypt-assets/flash_card/flash_card_learn_help_image.png",
+    "sha256": "8057b9686d10bc270a27eb5d00fe0bcd87cdb225a43b4a969e0bbeb159653bf6",
+    "size": 53136
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flash_card_quiz_help_image1.png",
+    "output": "public/ypt-assets/flash_card/flash_card_quiz_help_image1.png",
+    "sha256": "b0d09307d708aea519e0ccde5db5438c03d0f4e98d9d44e11140ec82e716e418",
+    "size": 67731
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flash_card_quiz_help_image2.png",
+    "output": "public/ypt-assets/flash_card/flash_card_quiz_help_image2.png",
+    "sha256": "2ca73926da987919fae47459236813d8d3998f321ac44825ac8eef6d7810b781",
+    "size": 33369
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image1.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image1.png",
+    "sha256": "a55683aa501a8988f819893efd9abdbe1159efc1d2836de7d5d322a9f6191b37",
+    "size": 83114
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image2.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image2.png",
+    "sha256": "61db4962a401c9e61774c9dc06549987ccb513b010cef09ef85de9c8f473532e",
+    "size": 324588
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image3.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image3.png",
+    "sha256": "7c3021970543efb0baf5baba978ee762f10c054920ec801a0730d6a8849275d0",
+    "size": 360324
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image4.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image4.png",
+    "sha256": "ae2c1c40a3f814b91fd5234624ef8fe82cedb3448affa47fc9d64f82efc42c6d",
+    "size": 346912
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image5.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image5.png",
+    "sha256": "46dec63b1288677172628e4996f3000e08c683fc8fbdfbbb7d6e285674ecc1a0",
+    "size": 446240
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image6.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image6.png",
+    "sha256": "76a5deeb642d69917e7a3f52d72330e11e2923808d1a8234c6b75a0c0c777e59",
+    "size": 225207
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/flashcard_ai_example_image7.png",
+    "output": "public/ypt-assets/flash_card/flashcard_ai_example_image7.png",
+    "sha256": "cd8e7b28b69ffc03bf4f1dbcad4d46e818afa6094baa9da7f0755a6dec65e370",
+    "size": 267856
+  },
+  {
+    "source": "assets/flutter_assets/assets/flash_card/forgetting_curve_image.png",
+    "output": "public/ypt-assets/flash_card/forgetting_curve_image.png",
+    "sha256": "cfa9f8e7992606f8d300ca98ba7df4469cb1cddad2b91650a0c1413a65530515",
+    "size": 266298
+  },
+  {
+    "source": "assets/flutter_assets/assets/group/member/ic_user_fire.png",
+    "output": "public/ypt-assets/group/member/ic_user_fire.png",
+    "sha256": "a752aa47676b4c7e399e230c102b8b53e1ba33029c48751573714a75bbc4775d",
+    "size": 5759
+  },
+  {
+    "source": "assets/flutter_assets/assets/group/member/ic_user_off.png",
+    "output": "public/ypt-assets/group/member/ic_user_off.png",
+    "sha256": "fdfd631ff25b2234c54f327e93000d1e1716180ce4c564624a1b55cab5007161",
+    "size": 4798
+  },
+  {
+    "source": "assets/flutter_assets/assets/group/member/ic_user_on.png",
+    "output": "public/ypt-assets/group/member/ic_user_on.png",
+    "sha256": "f473e80794f05696e87011b72a30bea0626d3938b1ed22d83515f8c97b9206c6",
+    "size": 4797
+  },
+  {
+    "source": "assets/flutter_assets/assets/group/member/ic_user_out.png",
+    "output": "public/ypt-assets/group/member/ic_user_out.png",
+    "sha256": "03d23286c0effa92933497a6fe023a2cf58d8f8f2e2b4c8e2b8a3b8a33a2a0de",
+    "size": 2005
+  },
+  {
+    "source": "assets/flutter_assets/assets/group/member/ic_user_smoke.png",
+    "output": "public/ypt-assets/group/member/ic_user_smoke.png",
+    "sha256": "b086c720bc1c9a043c282fdc49552cc6b024eda83dcd7ef5beb2edf67e6b8a29",
+    "size": 4512
+  },
+  {
+    "source": "assets/flutter_assets/assets/group/member/ic_user_sweat.png",
+    "output": "public/ypt-assets/group/member/ic_user_sweat.png",
+    "sha256": "240d5a1f0c585bb66b9d7a0516d396418fcb96f48cc17ca9f365b9d655fe4316",
+    "size": 5962
+  },
+  {
+    "source": "assets/flutter_assets/assets/guide/ai_connect_step_gpt.png",
+    "output": "public/ypt-assets/guide/ai_connect_step_gpt.png",
+    "sha256": "9275d6b195a6381988d97ad7bd955dbac3efc4e281d29e21ec71639cec7e4410",
+    "size": 64324
+  },
+  {
+    "source": "assets/flutter_assets/assets/guide/ai_connect_steps_1_claude.png",
+    "output": "public/ypt-assets/guide/ai_connect_steps_1_claude.png",
+    "sha256": "91637c79fd3a2ae745257c9f3b0b3817806c2c82d24398cb04597187206a62bb",
+    "size": 90031
+  },
+  {
+    "source": "assets/flutter_assets/assets/guide/ai_connect_steps_2_claude.png",
+    "output": "public/ypt-assets/guide/ai_connect_steps_2_claude.png",
+    "sha256": "23b41669dffb2d04bd001ee42000ad57a69080c3138c8282d38ffa44f197a8ad",
+    "size": 89762
+  },
+  {
+    "source": "assets/flutter_assets/assets/guide/ai_connect_steps_3_claude.png",
+    "output": "public/ypt-assets/guide/ai_connect_steps_3_claude.png",
+    "sha256": "843f9e81b6e434ead33e7b535abffd104c5e414794a39f4abaec20ce7ee4b224",
+    "size": 181242
+  },
+  {
+    "source": "assets/flutter_assets/assets/guide/edit_log_guide.png",
+    "output": "public/ypt-assets/guide/edit_log_guide.png",
+    "sha256": "5ef579acc0cb50b949bb10b0a71e2ab5004f0af00c87f2c8b7f57c8812f18213",
+    "size": 11935
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image1.png",
+    "output": "public/ypt-assets/help/cam_help_image1.png",
+    "sha256": "5c4336b9b7af95ccc3c8d0c848d2168f279de8cf1d1df9539a8a9cde0247a56f",
+    "size": 30344
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image2.png",
+    "output": "public/ypt-assets/help/cam_help_image2.png",
+    "sha256": "2468090e83e3a29d8dd4a839ab8d953bfb14ebcc14b9c85eacca451a79d585aa",
+    "size": 34551
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image3.png",
+    "output": "public/ypt-assets/help/cam_help_image3.png",
+    "sha256": "e389663d08756388ae366af202f913518de5b598a83fdc7d11d0dc6d336a13bf",
+    "size": 33323
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image4.png",
+    "output": "public/ypt-assets/help/cam_help_image4.png",
+    "sha256": "7813d56d594e1c6d938bf383c813683b9ad816366452a782146ed2dc5feac8c1",
+    "size": 32603
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image5.png",
+    "output": "public/ypt-assets/help/cam_help_image5.png",
+    "sha256": "1ef2b60cd4e278625c3eff672846108b32462165afaff40d4d5e1c38991c2417",
+    "size": 29277
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image6.png",
+    "output": "public/ypt-assets/help/cam_help_image6.png",
+    "sha256": "e2f34eb2c1642593f342419284d27a98002f8c4af350985244b7d1f6f8fe7eb5",
+    "size": 28676
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image7.png",
+    "output": "public/ypt-assets/help/cam_help_image7.png",
+    "sha256": "4c8076f3c5be19ad66d4f7e2a679eea707035909650e4881ec1aa23a82586520",
+    "size": 27124
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/cam_help_image8.png",
+    "output": "public/ypt-assets/help/cam_help_image8.png",
+    "sha256": "fe64ec2f4ee41571d882427078ee3e20343cfae19080b16956d68a8fff5a9d77",
+    "size": 33045
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/day_off_guide_en.png",
+    "output": "public/ypt-assets/help/day_off_guide_en.png",
+    "sha256": "c23b3e702561fa86df22e4a558ae34f05eb427e8637e118e6ebfc012f33f3f75",
+    "size": 121413
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/day_off_guide_kr.png",
+    "output": "public/ypt-assets/help/day_off_guide_kr.png",
+    "sha256": "29b45f6913dc30087b7150d314a8f8e734a81521df275bfd299fdec2543d5b72",
+    "size": 121861
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/dark/month_en.png",
+    "output": "public/ypt-assets/help/routine/dark/month_en.png",
+    "sha256": "269b7acba78720ad6e01aa5226a05fe5b92ee272895ed5b50070142ec7cc9014",
+    "size": 149162
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/dark/month_ko.png",
+    "output": "public/ypt-assets/help/routine/dark/month_ko.png",
+    "sha256": "8a75fb92cec4218691d6aef12829813007f5cbdab4877d84481d9a4a12e87646",
+    "size": 135272
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/dark/year_en.png",
+    "output": "public/ypt-assets/help/routine/dark/year_en.png",
+    "sha256": "43623414c32685440af5a624b9c4d0bff6721067718fd707a2cae39a64aa4355",
+    "size": 182501
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/dark/year_ko.png",
+    "output": "public/ypt-assets/help/routine/dark/year_ko.png",
+    "sha256": "e002be86c098cb2f119cea69f089f230b96a975027f716d042a19aa1c267fe99",
+    "size": 165767
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/light/month_en.png",
+    "output": "public/ypt-assets/help/routine/light/month_en.png",
+    "sha256": "7111f3232eba02e8ba950fa2143e784a7134ac497c6df434523f6bb0d5aef4d9",
+    "size": 136173
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/light/month_ko.png",
+    "output": "public/ypt-assets/help/routine/light/month_ko.png",
+    "sha256": "067482659a99a13479ef32039b02f7909fc6fb233a610cdfa48aeaeac56b4dda",
+    "size": 123637
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/light/year_en.png",
+    "output": "public/ypt-assets/help/routine/light/year_en.png",
+    "sha256": "fc58d31daa349d7ca25143bc4ea4fbe5dab1a4d29a8c957e6a709f33fd6c0063",
+    "size": 180370
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/routine/light/year_ko.png",
+    "output": "public/ypt-assets/help/routine/light/year_ko.png",
+    "sha256": "6dbcd01c9084fafd615d30fd5c3f7a58b5cd22d5885553deb2db931e43eaa480",
+    "size": 165169
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/timelapse_help_image1.png",
+    "output": "public/ypt-assets/help/timelapse_help_image1.png",
+    "sha256": "48305947fe7ad2ce31fc4bf3975bd6ee797e2a4bb43d2efb4ace039730e1dcf9",
+    "size": 97521
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/timelapse_help_image2.png",
+    "output": "public/ypt-assets/help/timelapse_help_image2.png",
+    "sha256": "aa6359cc2af0783757ca10acdce78ae4d00c7e039055f750c376417231229caf",
+    "size": 101486
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/timelapse_help_image3.png",
+    "output": "public/ypt-assets/help/timelapse_help_image3.png",
+    "sha256": "3479c1076b2580e734d0cbe259394e7be02e315feaefaa5d0cac39cd27de8f19",
+    "size": 109522
+  },
+  {
+    "source": "assets/flutter_assets/assets/help/timelapse_help_image4.png",
+    "output": "public/ypt-assets/help/timelapse_help_image4.png",
+    "sha256": "5a4ebf4b34713bc5beca4961e976fe746744554ddc153bed7f21c69d470f5d18",
+    "size": 99083
+  },
+  {
+    "source": "assets/flutter_assets/assets/home/home_new_01.png",
+    "output": "public/ypt-assets/home/home_new_01.png",
+    "sha256": "bc7c738b84fb80124745db553156f2b54419826297fd0a6007338e30e2113c7a",
+    "size": 145823
+  },
+  {
+    "source": "assets/flutter_assets/assets/home/home_new_02.png",
+    "output": "public/ypt-assets/home/home_new_02.png",
+    "sha256": "78c43708a6931ea42363c996ddeef66907f5e12f079daf771df2d9e4db075467",
+    "size": 36380
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/acute_icon.png",
+    "output": "public/ypt-assets/icon/acute_icon.png",
+    "sha256": "f8c45df542bcd3c7631a0c15e490289cfa07d55209399717a105e9557a6dde00",
+    "size": 288
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/ai_icon.png",
+    "output": "public/ypt-assets/icon/ai_icon.png",
+    "sha256": "5a660df40fef44a46d5300ca8e849ec7288c372f23debdcc239fcd1dad9a442e",
+    "size": 1471
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/apple_icon.svg",
+    "output": "public/ypt-assets/icon/apple_icon.svg",
+    "sha256": "b19cf397638f204bae8ad5481bf47f372ab724fd2ecf4bb54865494d1db778ae",
+    "size": 1859
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/arrow_solid_left.svg",
+    "output": "public/ypt-assets/icon/arrow_solid_left.svg",
+    "sha256": "33e2bbc41f65f3fbc802672df16b15fe1e4e0454b130b3cd94e918573c34d610",
+    "size": 383
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/arrow_solid_right.svg",
+    "output": "public/ypt-assets/icon/arrow_solid_right.svg",
+    "sha256": "27ffa47748691fc7cc49bd9e83e20d96769b3737155eccea8c0c8cffdacd5fc7",
+    "size": 376
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/check_icon.png",
+    "output": "public/ypt-assets/icon/check_icon.png",
+    "sha256": "214cbdbc22201ba5e8f088e43e1b5cce4d0c2939d4caf0d6759f858692b56e62",
+    "size": 281
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/close_icon.png",
+    "output": "public/ypt-assets/icon/close_icon.png",
+    "sha256": "1a37d962d6a1cc39aa45dfba977e5cd1305efbe8978ae69092d429c2dbe97346",
+    "size": 2223
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/excel_icon.png",
+    "output": "public/ypt-assets/icon/excel_icon.png",
+    "sha256": "563cf775256de28a515853275faa1c18ebfc23b17912969101467b0d2de04a04",
+    "size": 1874
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/facebook_icon.png",
+    "output": "public/ypt-assets/icon/facebook_icon.png",
+    "sha256": "6e4aebe01b2ebde21b0f39ba70473d8b28cc7dad0b1a7e2ab312c06a9eafda73",
+    "size": 2424
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/flash_card_add_icon.png",
+    "output": "public/ypt-assets/icon/flash_card_add_icon.png",
+    "sha256": "b239649c6dfb3558dfd418e5e13c73a6acc21a081e8291b7e170a96276ab639b",
+    "size": 4405
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/flash_card_icon.png",
+    "output": "public/ypt-assets/icon/flash_card_icon.png",
+    "sha256": "bf9f61b4e3a7f14874f60b51c2cf131b301b183c070233633470a08d649e6f2e",
+    "size": 3476
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/google_icon.png",
+    "output": "public/ypt-assets/icon/google_icon.png",
+    "sha256": "8ceeae9bc1fa7aa940003d2cc82ed24e262132efa950c6416ec96c1d124f362b",
+    "size": 2563
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/icon.png",
+    "output": "public/ypt-assets/icon/icon.png",
+    "sha256": "6f86db63c319e81bec98323f75c06e36c30212efb9691a5c125d4f69340204bb",
+    "size": 129991
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/icon_flame.png",
+    "output": "public/ypt-assets/icon/icon_flame.png",
+    "sha256": "9f8267fa86b17507d290b60657b3fceba58a1cd4ceb72937daecfe1fbf511ea8",
+    "size": 2931
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/image_icon.png",
+    "output": "public/ypt-assets/icon/image_icon.png",
+    "sha256": "879d4cc7cc9e0bf429386abc4222482c5c5b63ed67a59eb81b82e41d244179fd",
+    "size": 9203
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/kakao_icon.png",
+    "output": "public/ypt-assets/icon/kakao_icon.png",
+    "sha256": "6a9fee647d435416e46c139fbb8207dcf7d819e61f7ec367db8ace76b0a7d903",
+    "size": 5965
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/moon_icon.png",
+    "output": "public/ypt-assets/icon/moon_icon.png",
+    "sha256": "4a71d2cd8282d1490cad40f210ff818f97db827b70fde4a4468b7aba0fe83b98",
+    "size": 339
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/naver_icon.png",
+    "output": "public/ypt-assets/icon/naver_icon.png",
+    "sha256": "dbcfec953e8bc9b686f680788e816e34763b50a35f1dd071f0b120eb890d57e4",
+    "size": 2249
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/no_icon.png",
+    "output": "public/ypt-assets/icon/no_icon.png",
+    "sha256": "15c6a7c324ee15798da0d92ed821238a8eed063eb4a29ee30eec87b98fb6b8f1",
+    "size": 912
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/permissions/calendar.png",
+    "output": "public/ypt-assets/icon/permissions/calendar.png",
+    "sha256": "2bc8092769858b596ef5a28fed4460a4a282f18147e0fbb94be6c41871f62a81",
+    "size": 1595
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/permissions/camera.png",
+    "output": "public/ypt-assets/icon/permissions/camera.png",
+    "sha256": "5ee3295f165419e567d4171a733faefbb5206367c273f9cb4bc75b051ec93faf",
+    "size": 1939
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/permissions/draw.png",
+    "output": "public/ypt-assets/icon/permissions/draw.png",
+    "sha256": "6900cf12ee0c0e60bb3140869cc4811b624b2ea0c530df5eb960b3f0076bfd30",
+    "size": 1937
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/permissions/notifications.png",
+    "output": "public/ypt-assets/icon/permissions/notifications.png",
+    "sha256": "5cd631f77274f4eafbc51ce748a02484f70054281996a150a0a12ccefd626ed7",
+    "size": 1437
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/permissions/screentime.png",
+    "output": "public/ypt-assets/icon/permissions/screentime.png",
+    "sha256": "c828257def80e4b1ae60760e6d1052cc56142994bf957e74602f43d34eafb1f9",
+    "size": 2093
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/permissions/usage.png",
+    "output": "public/ypt-assets/icon/permissions/usage.png",
+    "sha256": "e4f795ed404bb0b3a3d2f85521471a0c8110b92718d831b7bdc1ce6d71138400",
+    "size": 1765
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/quote_icon.png",
+    "output": "public/ypt-assets/icon/quote_icon.png",
+    "sha256": "6cc13c721c74b5ff159d145f44f0662e00f1ac13aca97c231b1d6855c2b0c58d",
+    "size": 376
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/splash_logo.png",
+    "output": "public/ypt-assets/icon/splash_logo.png",
+    "sha256": "6598de018bbab052af0e9b46b03164b0a776a7a2a61d71411bd082ad3dd8e676",
+    "size": 46856
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/target_icon.png",
+    "output": "public/ypt-assets/icon/target_icon.png",
+    "sha256": "c40bfb119f7d6c27a295dcb3a8f02a47934b65e60bb5ac1c3c8d2a06bde15723",
+    "size": 595
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/thumbnail_bar_FILL0_wght400_GRAD0_opsz48.png",
+    "output": "public/ypt-assets/icon/thumbnail_bar_FILL0_wght400_GRAD0_opsz48.png",
+    "sha256": "ce369f2c8ae9a3c308c6070ead149080d595c24b8181e6e4fd6818b20d886932",
+    "size": 308
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/todo_arrow.png",
+    "output": "public/ypt-assets/icon/todo_arrow.png",
+    "sha256": "3955096d835f28e6191715762f12e2e37f2c092c60bab506c406a258c68d8894",
+    "size": 540
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/todo_o.png",
+    "output": "public/ypt-assets/icon/todo_o.png",
+    "sha256": "733e6b15b6d712e4bc949eff3de7e2a18899fe9c28c3ee21a5a048e7219e678d",
+    "size": 809
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/todo_statistics_completed.svg",
+    "output": "public/ypt-assets/icon/todo_statistics_completed.svg",
+    "sha256": "9a9b9cd8509e8e93ab0546aa1397a6e60d034da37696941e57878405bf893159",
+    "size": 4850
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/todo_statistics_partial.svg",
+    "output": "public/ypt-assets/icon/todo_statistics_partial.svg",
+    "sha256": "13599b41dc4bb629e11665fe20e4b97d1ed8dd86594f162ffb357908e3e9f6e7",
+    "size": 1533
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/todo_tri.png",
+    "output": "public/ypt-assets/icon/todo_tri.png",
+    "sha256": "b194fd3e962c884e7ea1eee35ae184dedab20e243b30144b156c9df2a3efdf22",
+    "size": 897
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/todo_x.png",
+    "output": "public/ypt-assets/icon/todo_x.png",
+    "sha256": "9c7c1ee5e0b743849a463b1975090315feb9ce33f5183816ea36e3ed72195ab0",
+    "size": 644
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/view_column_2.png",
+    "output": "public/ypt-assets/icon/view_column_2.png",
+    "sha256": "28ae2b2d14b0850a8266e77a05ceef9cfd391c20e558d0c89e00cba80f2f48a3",
+    "size": 351
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/waiting_member_icon.png",
+    "output": "public/ypt-assets/icon/waiting_member_icon.png",
+    "sha256": "07a8712ba0f14a6869a01f87640d303b42eba5d0b2e8ae0fbbbbfc8897990bc0",
+    "size": 596
+  },
+  {
+    "source": "assets/flutter_assets/assets/icon/x_icon.png",
+    "output": "public/ypt-assets/icon/x_icon.png",
+    "sha256": "3216048ef09ba9175d2ac4e6f284854a696dd2bf15f52287ef88759aec386a5e",
+    "size": 220
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cacti/cacti_group.png",
+    "output": "public/ypt-assets/images/cacti/cacti_group.png",
+    "sha256": "8f7ceac72fd5e433d0d8cb27f322643a221469cb793dbf5918ad49b2079a7ab6",
+    "size": 1146
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cacti/cacti_large_1.png",
+    "output": "public/ypt-assets/images/cacti/cacti_large_1.png",
+    "sha256": "2ffa2d3d0be817e22191199b371ff34b40340982e870babdff5ac037169237df",
+    "size": 4321
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cacti/cacti_large_2.png",
+    "output": "public/ypt-assets/images/cacti/cacti_large_2.png",
+    "sha256": "9563e9be0abf6faa0ee0e2eb98f605b72dfbc747656ded775debd4d0396f87fe",
+    "size": 6455
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cacti/cacti_small_1.png",
+    "output": "public/ypt-assets/images/cacti/cacti_small_1.png",
+    "sha256": "d6f9547632c995cc87d39a0262e424a52509d9c62de70b1ebb92d047df002b73",
+    "size": 3023
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cacti/cacti_small_2.png",
+    "output": "public/ypt-assets/images/cacti/cacti_small_2.png",
+    "sha256": "26a11efb13980d9a47a1b9740c2c0201d16acc763d52db88cb31f3a20a2c3666",
+    "size": 4881
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cacti/cacti_small_3.png",
+    "output": "public/ypt-assets/images/cacti/cacti_small_3.png",
+    "sha256": "7815e9ba3b426469777965fc264f37f6b663610428aad39257e0ae4fb537e877",
+    "size": 5926
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/cloud.png",
+    "output": "public/ypt-assets/images/cloud.png",
+    "sha256": "53f7fc0c4c10a386f81323f23bfd492748c0d0176ee641d57e7a617e931ea4d9",
+    "size": 761
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/dino/dino_1.png",
+    "output": "public/ypt-assets/images/dino/dino_1.png",
+    "sha256": "997a5dc656115cbe74f442fb0d48383b09126a053356556f1f7b5b568bc15ee2",
+    "size": 4979
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/dino/dino_2.png",
+    "output": "public/ypt-assets/images/dino/dino_2.png",
+    "sha256": "2ec76ababdcbaeb0b9e52653d56b4af66f4889c96a1c31bef1f0ca03072ec2e2",
+    "size": 4879
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/dino/dino_3.png",
+    "output": "public/ypt-assets/images/dino/dino_3.png",
+    "sha256": "f662d4c4fdb6daf5561173dcb141245d48260cd9533e927ff960f38517ad199c",
+    "size": 4899
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/dino/dino_4.png",
+    "output": "public/ypt-assets/images/dino/dino_4.png",
+    "sha256": "88ce35c597c5f60a97e92a83dd0ac27185ae21e3f9b35a89d63efc5a9720ea26",
+    "size": 4943
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/dino/dino_5.png",
+    "output": "public/ypt-assets/images/dino/dino_5.png",
+    "sha256": "46c995ddf2dcf2214d0ffe0aebc4451d7a8347b249e111f93f30d4f7b6a39663",
+    "size": 5188
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/dino/dino_6.png",
+    "output": "public/ypt-assets/images/dino/dino_6.png",
+    "sha256": "306968d323cc763fb1be8d8c04e682bbdf4bfe5f0e47598a99c82c3963a02202",
+    "size": 5135
+  },
+  {
+    "source": "assets/flutter_assets/assets/images/ground.png",
+    "output": "public/ypt-assets/images/ground.png",
+    "sha256": "59a43988efd8a9decc20b30986a6c34a13f90c0aab5a502eaca865b9b52aa734",
+    "size": 1209
+  },
+  {
+    "source": "assets/flutter_assets/assets/lottie/like_heart.json",
+    "output": "public/ypt-assets/lottie/like_heart.json",
+    "sha256": "6fc85702796dfd985f8e630e531e787ac6d7dbeb2532b61ee617e60e26d581e5",
+    "size": 10346
+  },
+  {
+    "source": "assets/flutter_assets/assets/lottie/ncoin_flip_particle.json",
+    "output": "public/ypt-assets/lottie/ncoin_flip_particle.json",
+    "sha256": "5767b47a9a9dbd58be0b8d7038aa12a29f65aab0b4ee28c13d1a17c2f7e1f028",
+    "size": 186351
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/action/add_event.svg",
+    "output": "public/ypt-assets/navigation/action/add_event.svg",
+    "sha256": "4526ccb4a6c7739239b80138a4fdc1ff659cc87df3d0b6b3d3f2b4d4d16187af",
+    "size": 1925
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/action/add_todo.svg",
+    "output": "public/ypt-assets/navigation/action/add_todo.svg",
+    "sha256": "de010cb21076e9c0ff5600d0d3a46944bf135b219fddb0618fffeba166ad111f",
+    "size": 343
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_calendar.svg",
+    "output": "public/ypt-assets/navigation/bottom_calendar.svg",
+    "sha256": "5a102275f7345cceee2c52086dad902d79c368793a7d6dbbe27d6e96abd1b2a4",
+    "size": 428
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_group_add.svg",
+    "output": "public/ypt-assets/navigation/bottom_group_add.svg",
+    "sha256": "91438517f942409f480f2a42747af29f9a855e70b817bbb51c42826696a33379",
+    "size": 2051
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_group_fill.svg",
+    "output": "public/ypt-assets/navigation/bottom_group_fill.svg",
+    "sha256": "9086064c3a536076da74d00dae0bf3235a1a60e48e68916c9c0f7c5df93e577c",
+    "size": 1111
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_home_fill.svg",
+    "output": "public/ypt-assets/navigation/bottom_home_fill.svg",
+    "sha256": "7dc4a0a57f8cc13a70cee90008a2526548bb00b2b41cd4e152bab89227b94238",
+    "size": 399
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_todo.svg",
+    "output": "public/ypt-assets/navigation/bottom_todo.svg",
+    "sha256": "9862e19ae1acab72f3074d94fb2fa0732c427cb125883a51a3af9808aa4c09bb",
+    "size": 303
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_todo_fill.svg",
+    "output": "public/ypt-assets/navigation/bottom_todo_fill.svg",
+    "sha256": "57c3001dd13416492af6c3b04ffbe065b3f58572268ddcc1519946e0a809a132",
+    "size": 588
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_todo_number.svg",
+    "output": "public/ypt-assets/navigation/bottom_todo_number.svg",
+    "sha256": "8746791351a61b0d03094be5032579c8ec4df65f391839a5ca12254dc96fad62",
+    "size": 207
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/bottom_todo_number_fill.svg",
+    "output": "public/ypt-assets/navigation/bottom_todo_number_fill.svg",
+    "sha256": "00f731914f1ce5ece7ef7316ec94ac98ec61afc6ba080facb523cf48e36a9b29",
+    "size": 269
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/task/view_day.svg",
+    "output": "public/ypt-assets/navigation/task/view_day.svg",
+    "sha256": "75761d5948fb3a3cdb32678f136b0929b88b231bc077bcf1da37c7aad7e4e0e5",
+    "size": 627
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/task/view_month.svg",
+    "output": "public/ypt-assets/navigation/task/view_month.svg",
+    "sha256": "0daded135763bee970105170ffc454e80360d783c764306ce19c7b63149a4da3",
+    "size": 1922
+  },
+  {
+    "source": "assets/flutter_assets/assets/navigation/task/view_week.svg",
+    "output": "public/ypt-assets/navigation/task/view_week.svg",
+    "sha256": "66d884a2d3acc56fac0907207b64a2d18cbb12bdfe069bc0802efca05c4b50e4",
+    "size": 1004
+  },
+  {
+    "source": "assets/flutter_assets/assets/planner/icon/rotate-left.png",
+    "output": "public/ypt-assets/planner/icon/rotate-left.png",
+    "sha256": "60c261715c92328f362f33fcd27acc1aea2d5f2f3968ffe2502faf0ee3e3ce9c",
+    "size": 16223
+  },
+  {
+    "source": "assets/flutter_assets/assets/planner/icon/rotate-right.png",
+    "output": "public/ypt-assets/planner/icon/rotate-right.png",
+    "sha256": "27f3e2ec8ee0de4ea48ddb620c9a0717c98a3968bfefe84233edd2860e6ac8e0",
+    "size": 16141
+  },
+  {
+    "source": "assets/flutter_assets/assets/planner/insight_capture_background.jpg",
+    "output": "public/ypt-assets/planner/insight_capture_background.jpg",
+    "sha256": "ee9adfb230be85bc7dcdfeadd6125b2c46c5058c74f38f2dcad87601d9e686a4",
+    "size": 432949
+  },
+  {
+    "source": "assets/flutter_assets/assets/planner/planner_store_color.png",
+    "output": "public/ypt-assets/planner/planner_store_color.png",
+    "sha256": "7d809911019c3ae10c7fc7765ca8089e559ceb5affc6adfb693aae24dadf9577",
+    "size": 280451
+  },
+  {
+    "source": "assets/flutter_assets/assets/planner/premium/pause.svg",
+    "output": "public/ypt-assets/planner/premium/pause.svg",
+    "sha256": "c57722934696f5d1e150c25cfcbcc5a56dec3f64649475789ade07a5babb9905",
+    "size": 471
+  },
+  {
+    "source": "assets/flutter_assets/assets/planner/premium/plane.svg",
+    "output": "public/ypt-assets/planner/premium/plane.svg",
+    "sha256": "93286d8bb9c736b9ba3300ee2ab41164616a5cf854978869882242577f6e30ad",
+    "size": 675
+  },
+  {
+    "source": "assets/flutter_assets/assets/pomodoro/clock-black.png",
+    "output": "public/ypt-assets/pomodoro/clock-black.png",
+    "sha256": "e94dab214df5b97bcb86b0436e9b1bf54ec69594dc7287497eb28e7bcf0d4bf6",
+    "size": 12342
+  },
+  {
+    "source": "assets/flutter_assets/assets/pomodoro/clock-white.png",
+    "output": "public/ypt-assets/pomodoro/clock-white.png",
+    "sha256": "2bf90802098a695d14555580143a6a15b4c58ae22b9beb3889a0f92c07635147",
+    "size": 11344
+  },
+  {
+    "source": "assets/flutter_assets/assets/pomodoro/pin.png",
+    "output": "public/ypt-assets/pomodoro/pin.png",
+    "sha256": "ae5e8ad2ceaabc1a42a4fd3eb1d07d29966c7b31c4656c317caef4d70295739f",
+    "size": 3441
+  },
+  {
+    "source": "assets/flutter_assets/assets/rank/ic_bronze.png",
+    "output": "public/ypt-assets/rank/ic_bronze.png",
+    "sha256": "4ed6ccbd99e5bd7e32736082968dc5a1c1b3786474d400343e6af86e9101efcc",
+    "size": 6051
+  },
+  {
+    "source": "assets/flutter_assets/assets/rank/ic_crown.png",
+    "output": "public/ypt-assets/rank/ic_crown.png",
+    "sha256": "749595425b05157658c8290cf8bbfca1652649c050e41d6926d4720818d264c3",
+    "size": 2971
+  },
+  {
+    "source": "assets/flutter_assets/assets/rank/ic_gold.png",
+    "output": "public/ypt-assets/rank/ic_gold.png",
+    "sha256": "20a2b77bc0348bcef9ccdd828f415c18aae5a7fffb23f28afb429fffe66f46e5",
+    "size": 5472
+  },
+  {
+    "source": "assets/flutter_assets/assets/rank/ic_necklace.png",
+    "output": "public/ypt-assets/rank/ic_necklace.png",
+    "sha256": "e1e1cb286ea0d97d7c1df7c333beb52652d869abd31ec9e3d07bf33602b4ba7d",
+    "size": 2475
+  },
+  {
+    "source": "assets/flutter_assets/assets/rank/ic_silver.png",
+    "output": "public/ypt-assets/rank/ic_silver.png",
+    "sha256": "6a0c4d255bb2435bc773a19e67da7de4ec4cced34ee66777ee56fce3c7124ed4",
+    "size": 5405
+  },
+  {
+    "source": "assets/flutter_assets/assets/report/report_term1.png",
+    "output": "public/ypt-assets/report/report_term1.png",
+    "sha256": "8b32b460f9b3e959fb3189764ea4ec33ecd0f4f459fc8c6c3e2bbe5920572730",
+    "size": 12876
+  },
+  {
+    "source": "assets/flutter_assets/assets/report/report_term2.png",
+    "output": "public/ypt-assets/report/report_term2.png",
+    "sha256": "0336b34422f78e031a11139c8535f08a0729d6d8c33bc4c5e176753b8ecd6c5e",
+    "size": 12581
+  },
+  {
+    "source": "assets/flutter_assets/assets/smartbook/iCloudSettingExplanation.png",
+    "output": "public/ypt-assets/smartbook/iCloudSettingExplanation.png",
+    "sha256": "b15f2744e45aba2ce01902c0fd13c1074bebb79591d5db73741f296c09d82ded",
+    "size": 72492
+  },
+  {
+    "source": "assets/flutter_assets/assets/statistics/btn_prev.png",
+    "output": "public/ypt-assets/statistics/btn_prev.png",
+    "sha256": "bea6e2a63d9d4144fbe475f093f1d5bea58d5909f6b7d73890bb455bc96caa0d",
+    "size": 1140
+  },
+  {
+    "source": "assets/flutter_assets/assets/study/allowed_apps_en.png",
+    "output": "public/ypt-assets/study/allowed_apps_en.png",
+    "sha256": "e088899a986b8c2508ff967834e547bc81531b9e9935e568617f9deb3be33977",
+    "size": 429344
+  },
+  {
+    "source": "assets/flutter_assets/assets/study/allowed_apps_kr.png",
+    "output": "public/ypt-assets/study/allowed_apps_kr.png",
+    "sha256": "c7c6b49568a6518b590d3294820ea5e165ee5cf73e77c45021d8dd5e8a6917db",
+    "size": 371595
+  },
+  {
+    "source": "assets/flutter_assets/assets/study/day_off.png",
+    "output": "public/ypt-assets/study/day_off.png",
+    "sha256": "e47bb625e09a7c96ba554d69938272d34a5cd40971f85683e934e47ac094640d",
+    "size": 1294
+  },
+  {
+    "source": "assets/flutter_assets/assets/study/ic_empty_fire.png",
+    "output": "public/ypt-assets/study/ic_empty_fire.png",
+    "sha256": "0c24d4d8a557992b19fd63bf469113b4e596d7a73e5d0c25b02b589fa8b40045",
+    "size": 4878
+  },
+  {
+    "source": "assets/flutter_assets/assets/study/ic_phone_2.png",
+    "output": "public/ypt-assets/study/ic_phone_2.png",
+    "sha256": "798284e617f9f3d23f77329d29e4819849b2540d9cdcdacf3e201b993d4723cb",
+    "size": 10433
+  },
+  {
+    "source": "assets/flutter_assets/assets/study/warning.png",
+    "output": "public/ypt-assets/study/warning.png",
+    "sha256": "6aff69c4f0be92e4c9da1dbfb134888321225bddba9d46fb5e435babed568caa",
+    "size": 882
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/calendar_body.svg",
+    "output": "public/ypt-assets/tablet/calendar_body.svg",
+    "sha256": "25d1ff2ad738cec986ce4465545b44f010f37321a605e702ca2f96b393f2a394",
+    "size": 389
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/calendar_ring.svg",
+    "output": "public/ypt-assets/tablet/calendar_ring.svg",
+    "sha256": "c43f916defde0f3e319deaf85925f2b72cf9026d14b169cb606d739ceb236573",
+    "size": 281
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_header_union.svg",
+    "output": "public/ypt-assets/tablet/cat_header_union.svg",
+    "sha256": "95b15276a16f0cb4daa8199ac18ae9853bbe5c561d81fece49142ee427236f39",
+    "size": 12328
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_header_vector.svg",
+    "output": "public/ypt-assets/tablet/cat_header_vector.svg",
+    "sha256": "ac2a9ce6a159d0f5dc4d3b7740e6cb60b095ff072b9f38e6140b86b1aba0019e",
+    "size": 36527
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_lie_union.svg",
+    "output": "public/ypt-assets/tablet/cat_lie_union.svg",
+    "sha256": "65a7f0d01b7330d72e7db7166125403f62ec6721dfed43d44e5e767acb14681e",
+    "size": 50751
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_lie_vector.svg",
+    "output": "public/ypt-assets/tablet/cat_lie_vector.svg",
+    "sha256": "1f8171cb6f8b7b2cb9635b1ea545ba16f95db764b7141f2d76303088d61802b6",
+    "size": 1435
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_monthly_mug_ellipse_large.svg",
+    "output": "public/ypt-assets/tablet/cat_monthly_mug_ellipse_large.svg",
+    "sha256": "a8b8013e39ba7198d88eeb40809853b687888f11a0747143a68f0067f05bb063",
+    "size": 41284
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_monthly_mug_ellipse_small.svg",
+    "output": "public/ypt-assets/tablet/cat_monthly_mug_ellipse_small.svg",
+    "sha256": "f862ed543cc36a55af189b61b4d57d13961f524be911dca605cc81851a4da503",
+    "size": 19498
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_monthly_mug_union.svg",
+    "output": "public/ypt-assets/tablet/cat_monthly_mug_union.svg",
+    "sha256": "0865105cd42fd29278883a376c761b8cd29c419dad7a8c4cebfbe17b30a0071a",
+    "size": 91097
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_monthly_mug_vector.svg",
+    "output": "public/ypt-assets/tablet/cat_monthly_mug_vector.svg",
+    "sha256": "d48913a0d7daa5901ac9f5960c2d253125df20058a9a973216c31561b8de48f9",
+    "size": 644
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_peek.svg",
+    "output": "public/ypt-assets/tablet/cat_peek.svg",
+    "sha256": "553efee94d9d29d491fcfdbc98cf343b8f123e4a3d80008a17623a9077a95e03",
+    "size": 142163
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_review.svg",
+    "output": "public/ypt-assets/tablet/cat_review.svg",
+    "sha256": "85a7c0e476c46316be06c6117e9cd2ed07fc14dbce1ea05dab58e7791007b5f8",
+    "size": 344412
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_review_selected.svg",
+    "output": "public/ypt-assets/tablet/cat_review_selected.svg",
+    "sha256": "7d9c36c38b0efda52fa934d4ca0510fe5c719228c4d222e834fc2b41b7d69cbc",
+    "size": 347778
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_walk_detail_large.svg",
+    "output": "public/ypt-assets/tablet/cat_walk_detail_large.svg",
+    "sha256": "fa71b1284ea9af40e1e866ef8fbab54406a28a292ad80fbd8b21b2c1ae999ac9",
+    "size": 924
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_walk_detail_small.svg",
+    "output": "public/ypt-assets/tablet/cat_walk_detail_small.svg",
+    "sha256": "f0a6a33d070a0a5c55aa557cc87daa88f49ab0b73b6320d5b76fd8fdbb5e7583",
+    "size": 375
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_walk_union_body.svg",
+    "output": "public/ypt-assets/tablet/cat_walk_union_body.svg",
+    "sha256": "264d3df8ea8394ab75db839372261a3362d815bea89e65005ba54e1c846777f9",
+    "size": 89369
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_walk_union_left.svg",
+    "output": "public/ypt-assets/tablet/cat_walk_union_left.svg",
+    "sha256": "a3358a47d159ea58e10a1b7a82b41bc3bcb30b3d726d3762f9234c4921266303",
+    "size": 1775
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cat_walk_union_right.svg",
+    "output": "public/ypt-assets/tablet/cat_walk_union_right.svg",
+    "sha256": "818ebf7459f51676df8b3655862fb0c4176374f2f6b7c608c0b70f23e32c860f",
+    "size": 1773
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_lock.svg",
+    "output": "public/ypt-assets/tablet/catalog_lock.svg",
+    "sha256": "97717626c21056ff6dc94132223e1df6a013f1a5f6fab7df5cc36fdad2ceda09",
+    "size": 598
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_daily_landscape.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_daily_landscape.png",
+    "sha256": "745d1f0710ca2d068f2b1ae9b8ce49c151cae5751b9655347a3ac35cb7d312c3",
+    "size": 18373
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_daily_portrait.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_daily_portrait.png",
+    "sha256": "1a532dc1a1247bf21fd73f12275e16735f1badf4ffcc0332b088ae016dc4dc9e",
+    "size": 20516
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_habit_monthly_landscape.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_habit_monthly_landscape.png",
+    "sha256": "04667dcdfe366b3ac7b36cccf7f590de713e83e410bc9d59d694550be2a15096",
+    "size": 27951
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_habit_monthly_portrait.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_habit_monthly_portrait.png",
+    "sha256": "fe01b023706f424071fe29c9b90b69c709b6377e85ad7a67e1f95fde207fe671",
+    "size": 30003
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_habit_weekly_landscape.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_habit_weekly_landscape.png",
+    "sha256": "6576878423fd8dda72dafb38d5c1a66938cd4a9e8a32ff2b76dde4bc011f1ebe",
+    "size": 18445
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_habit_weekly_portrait.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_habit_weekly_portrait.png",
+    "sha256": "b5065e69c0ebb2d7312784678385f95f68fd131fb78b4a287d7095b56f8de651",
+    "size": 18777
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_monthly_landscape.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_monthly_landscape.png",
+    "sha256": "db227932416572435a2746c1aefb2351ffa093fd13ea9b1ff59d019595aea4d0",
+    "size": 29629
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_monthly_portrait.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_monthly_portrait.png",
+    "sha256": "c3dcaafc42176d6444660f2a7dd772df6fb50e7eade4a352f35747c96be052f5",
+    "size": 23666
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/catalog_skeleton_weekly_landscape.png",
+    "output": "public/ypt-assets/tablet/catalog_skeleton_weekly_landscape.png",
+    "sha256": "e45d9023f0b3c2b9edab20175bfc528834aecfd7cf11e14cc6c7501a2dfa3c9c",
+    "size": 32810
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/cover_presets.svg",
+    "output": "public/ypt-assets/tablet/cover_presets.svg",
+    "sha256": "5701bbc10c6b7a92143567ec85b03339b457ef872712498e225abef26f7fb037",
+    "size": 406
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_color_menu.svg",
+    "output": "public/ypt-assets/tablet/ink_color_menu.svg",
+    "sha256": "47f386a0c01363fe742a8f8c634ea3ab4537eb6ce331c7db43ee5a5a71298ef9",
+    "size": 237
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_eraser.svg",
+    "output": "public/ypt-assets/tablet/ink_eraser.svg",
+    "sha256": "3cae107e14cf1f1d26ca04a29dd1c4567ed220a26b41da6771aeda2aa33a1f84",
+    "size": 792
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_highlighter.svg",
+    "output": "public/ypt-assets/tablet/ink_highlighter.svg",
+    "sha256": "4ad72ee336139f4f0bf6de9554435db1102cd1b2aa035ae4085961a045561fb6",
+    "size": 466
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_image.svg",
+    "output": "public/ypt-assets/tablet/ink_image.svg",
+    "sha256": "af58c6867b6ae0a37ebf7cbb6248c6950b78a33b4f7bdca9eb21693a27e81e96",
+    "size": 572
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_lasso.svg",
+    "output": "public/ypt-assets/tablet/ink_lasso.svg",
+    "sha256": "9ca42a49a60f5e4c09c5e3ac9d5461457a8e6ff00ac07304c3430544e95e6793",
+    "size": 743
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_pen.svg",
+    "output": "public/ypt-assets/tablet/ink_pen.svg",
+    "sha256": "f7b01960c9ee3a66d8f737268716df3ac6efe4d5c12c62f0be581ca1bdc9cb1e",
+    "size": 776
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/ink_sticker.svg",
+    "output": "public/ypt-assets/tablet/ink_sticker.svg",
+    "sha256": "6cb21daaf011fdc6df291ef42053998b94d913f8a95427db5b0341639a60e6d8",
+    "size": 393
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_cover.svg",
+    "output": "public/ypt-assets/tablet/note_cover.svg",
+    "sha256": "2a792fea25f9730c11a16189033ab24c16850057f09bcd586a973d308945019d",
+    "size": 1164
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_cover_remove.svg",
+    "output": "public/ypt-assets/tablet/note_cover_remove.svg",
+    "sha256": "42d0a7cbb4dea43660d3442013cfe253f86cd40b91728edb7c616c9da79e7662",
+    "size": 853
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_delete.svg",
+    "output": "public/ypt-assets/tablet/note_delete.svg",
+    "sha256": "f41d10d54b273f05435c41d24d8c1bdb1ab57075607fe7cba2b3fa2f11fe7bc0",
+    "size": 797
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_move.svg",
+    "output": "public/ypt-assets/tablet/note_move.svg",
+    "sha256": "e45217daec0f2b92fec9181e3191b22233338a5cadda59e0b371f43f2736b9d0",
+    "size": 565
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_pen.svg",
+    "output": "public/ypt-assets/tablet/note_pen.svg",
+    "sha256": "b3286a9a11069047718ea9e00e62b48cd4edd60f70a6a5e4a7c1290775550425",
+    "size": 888
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_pen_selected.svg",
+    "output": "public/ypt-assets/tablet/note_pen_selected.svg",
+    "sha256": "7d44e82c1b285e21cf187490cbf24e5fae56b7c906f7679b743ad274732ec217",
+    "size": 964
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/note_rename.svg",
+    "output": "public/ypt-assets/tablet/note_rename.svg",
+    "sha256": "daa488dd41ca115b2e108ac861c87ee22a5e95e8e09da6560a8d92bf8b5cb144",
+    "size": 1022
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/page_files.svg",
+    "output": "public/ypt-assets/tablet/page_files.svg",
+    "sha256": "57d92761f92183cfa52673803ad8fa13bd3ef95c9a60e955782872b1ba4db9e7",
+    "size": 653
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/page_settings.svg",
+    "output": "public/ypt-assets/tablet/page_settings.svg",
+    "sha256": "853accb63b66c85cecc2abde486e58c1912ccbd030130364e76ec085ae9dcc1a",
+    "size": 903
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/page_sidebar.svg",
+    "output": "public/ypt-assets/tablet/page_sidebar.svg",
+    "sha256": "cb6816f23419e1e0a60762eb30177378d282d5009ab723397b05e43e6f14c5c3",
+    "size": 462
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/puppy_lie.png",
+    "output": "public/ypt-assets/tablet/puppy_lie.png",
+    "sha256": "01d7cc20402e90099d8b7be0c339ea426caccdb25c893489d1616fffa778e2d5",
+    "size": 3318051
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/puppy_review.svg",
+    "output": "public/ypt-assets/tablet/puppy_review.svg",
+    "sha256": "4302f7b70f1cc263364487fc0cf596cae8df67c244b446543718951f411e914b",
+    "size": 1477
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/puppy_stretch.png",
+    "output": "public/ypt-assets/tablet/puppy_stretch.png",
+    "sha256": "e0d7ee2d0e2e38e4b14c55351f2b516db1dabdf06b0702c7ab7865b3f755b1bc",
+    "size": 3148867
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/review_face_1.svg",
+    "output": "public/ypt-assets/tablet/review_face_1.svg",
+    "sha256": "a0e186fae08292e1b17e6fd0952b8b055a28a069da2a094c295d1b69df97b8a3",
+    "size": 867
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/review_face_2.svg",
+    "output": "public/ypt-assets/tablet/review_face_2.svg",
+    "sha256": "f1cb619528e090973d97819a35f67df49f34421c90fcbdbfc2ee2f589946119c",
+    "size": 867
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/review_face_3.svg",
+    "output": "public/ypt-assets/tablet/review_face_3.svg",
+    "sha256": "8574abe651ea952f22a20de26eb8f95addaaf2057001d2f166a9ffa9acb167a2",
+    "size": 826
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/review_face_4.svg",
+    "output": "public/ypt-assets/tablet/review_face_4.svg",
+    "sha256": "80ae7ef0c2ba5a9960cadbc03fb45f77f878431ff3d30fcbd8b1a25a4e6e6fa8",
+    "size": 867
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/review_face_5.svg",
+    "output": "public/ypt-assets/tablet/review_face_5.svg",
+    "sha256": "66e762b76e7c15f03de9dbcd305d042949296a84f062a332d2728a60a4db826f",
+    "size": 867
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/study_pause.svg",
+    "output": "public/ypt-assets/tablet/study_pause.svg",
+    "sha256": "eee49ebfaeb2fecb4acf30bf374627f827cce955a524f61ce3af9188ddb74c8f",
+    "size": 460
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/tab_edge_shadow.svg",
+    "output": "public/ypt-assets/tablet/tab_edge_shadow.svg",
+    "sha256": "449daa41e3ebc0bd7664274af2d16d6896d963e3f92ae02e20b904810b5dea0a",
+    "size": 577
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/tablet_home_add_folder.svg",
+    "output": "public/ypt-assets/tablet/tablet_home_add_folder.svg",
+    "sha256": "74abe9b6f7fd647aaf6e01bdff970d8e98121caf57464f59e79789e27fdd07af",
+    "size": 921
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/tablet_home_add_import.svg",
+    "output": "public/ypt-assets/tablet/tablet_home_add_import.svg",
+    "sha256": "2f9125e28a013268f1a58b740cf48d99e534b64ba254c282a825f99ac10921d5",
+    "size": 579
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/tablet_home_add_note.svg",
+    "output": "public/ypt-assets/tablet/tablet_home_add_note.svg",
+    "sha256": "83ab0a15886c1c8d1d5bd245c177e90b7d958f468bff4b643d7af272f3a6cacb",
+    "size": 859
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/tablet_home_empty_folder.svg",
+    "output": "public/ypt-assets/tablet/tablet_home_empty_folder.svg",
+    "sha256": "8ded37ba5846f47b13fab774558b3ecf16981c2b9da9247db3591e8b3b6d7462",
+    "size": 444
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/tablet_home_empty_note.png",
+    "output": "public/ypt-assets/tablet/tablet_home_empty_note.png",
+    "sha256": "1085aa06a85efb4855fd896c1368f1dfdf0b3e15f32d5e714feec25c28dac845",
+    "size": 1062
+  },
+  {
+    "source": "assets/flutter_assets/assets/tablet/todo_icon.svg",
+    "output": "public/ypt-assets/tablet/todo_icon.svg",
+    "sha256": "b9ae2ad0703abffe98f2a14d931d8fa8275b8238a9d6f806afe7ca018f07d1b8",
+    "size": 484
+  },
+  {
+    "source": "assets/flutter_assets/assets/timelapse/timelapse_example_01.png",
+    "output": "public/ypt-assets/timelapse/timelapse_example_01.png",
+    "sha256": "c4bdd20679f39d222d0dc474af76e8b6ee544dddef6e0601af8ec770bd484bb6",
+    "size": 662541
+  },
+  {
+    "source": "assets/flutter_assets/assets/tutorial/allowed_help_img.jpg",
+    "output": "public/ypt-assets/tutorial/allowed_help_img.jpg",
+    "sha256": "f36924db5907d4f0bee8995d4b19fe1effd1b89c02bb5511f88a44246d5e3c16",
+    "size": 45030
+  },
+  {
+    "source": "assets/flutter_assets/assets/tutorial/allowed_help_img_ko.jpg",
+    "output": "public/ypt-assets/tutorial/allowed_help_img_ko.jpg",
+    "sha256": "a58ae176afd7702543c8312bc1ffa9f057ce0c9e5b944aa0b66e9f7daa23e177",
+    "size": 38569
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/agreement.jpg",
+    "output": "public/ypt-assets/webtoon/agreement.jpg",
+    "sha256": "43b3cf5b7041182b03db8f519e1c8c3cfa2b9508cf45d55bd2505c1fdf8ca0e7",
+    "size": 92551
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/cover_square.jpg",
+    "output": "public/ypt-assets/webtoon/cover_square.jpg",
+    "sha256": "fd94ef6d90eef7c2674be56d3f788bf006eba187a90dfa18e8d847a33d29e783",
+    "size": 74513
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_1.png",
+    "output": "public/ypt-assets/webtoon/death_1.png",
+    "sha256": "938be1a4fd925bc4db841b2e450eaed03ca1499e227a1334dc0172b231e2f51e",
+    "size": 29307
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_2.png",
+    "output": "public/ypt-assets/webtoon/death_2.png",
+    "sha256": "5e4c675ae7d89d8b8a4a4cb582d685d2e8b33ef5b6b2b0b2e258b6ae9b803dca",
+    "size": 49459
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_3.png",
+    "output": "public/ypt-assets/webtoon/death_3.png",
+    "sha256": "9748b0d73d7fdc546aeaae91712876063dd8461e71f09e92279137bb483a4534",
+    "size": 49333
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_4.png",
+    "output": "public/ypt-assets/webtoon/death_4.png",
+    "sha256": "938be1a4fd925bc4db841b2e450eaed03ca1499e227a1334dc0172b231e2f51e",
+    "size": 29307
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_5.png",
+    "output": "public/ypt-assets/webtoon/death_5.png",
+    "sha256": "ae77c0da32074c5ea54192113ef9a612913d6aa16ab12ead340a5e7ffb499845",
+    "size": 66370
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_6.png",
+    "output": "public/ypt-assets/webtoon/death_6.png",
+    "sha256": "938be1a4fd925bc4db841b2e450eaed03ca1499e227a1334dc0172b231e2f51e",
+    "size": 29307
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/death_7.png",
+    "output": "public/ypt-assets/webtoon/death_7.png",
+    "sha256": "9748b0d73d7fdc546aeaae91712876063dd8461e71f09e92279137bb483a4534",
+    "size": 49333
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/end.png",
+    "output": "public/ypt-assets/webtoon/end.png",
+    "sha256": "c8fccf559b48225e24ea41d60d807265c9d7c882a7457569199d0e6ec06da561",
+    "size": 73330
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/groupList.jpg",
+    "output": "public/ypt-assets/webtoon/groupList.jpg",
+    "sha256": "df35238b9bd18408aef43d7ae50e090e9e7c99a2882b2551b2449b7f2b5912fe",
+    "size": 109302
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/laed.webp",
+    "output": "public/ypt-assets/webtoon/laed.webp",
+    "sha256": "c71a0e9fb29a34cdd83a096bfea64e338aac6f2c5c15d0d8f6fde52cebf0ccf1",
+    "size": 35214
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/naver_cookie.jpg",
+    "output": "public/ypt-assets/webtoon/naver_cookie.jpg",
+    "sha256": "3d27cfd7698969bb14f37559393a1309bac9295c5de7c3f559ce722be3676692",
+    "size": 302409
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_1.png",
+    "output": "public/ypt-assets/webtoon/profile_1.png",
+    "sha256": "9d9f0fdf51ed2f1bc95f6b72da10b6b0c9ca977139d205035c422fdf58fdf9e2",
+    "size": 48255
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_10.png",
+    "output": "public/ypt-assets/webtoon/profile_10.png",
+    "sha256": "daca08e7a26c49b47cc8cdcf9e5eceff79588e739910535e4096e549263ed18e",
+    "size": 48154
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_11.png",
+    "output": "public/ypt-assets/webtoon/profile_11.png",
+    "sha256": "188b9ce2621945f244247e4919221231da80d011ac6e78c7be5f1e0956a81a4f",
+    "size": 48517
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_12.png",
+    "output": "public/ypt-assets/webtoon/profile_12.png",
+    "sha256": "48db625de305cac8796e100065f4dc45c7502a015e5ec48748d5d1a674123cec",
+    "size": 47719
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_13.png",
+    "output": "public/ypt-assets/webtoon/profile_13.png",
+    "sha256": "9d26c6f55ba230faf2cf39c74295bd61a0400629257b3e68b72cab07d9b70f40",
+    "size": 45723
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_14.png",
+    "output": "public/ypt-assets/webtoon/profile_14.png",
+    "sha256": "3ed9bf32a0a4ee76160c0f4db9b3c2b81fc912feb15925bd52bb01826a75a93d",
+    "size": 50494
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_15.png",
+    "output": "public/ypt-assets/webtoon/profile_15.png",
+    "sha256": "cabcceff09ef0d4cfa9171ebe07070d4e27b1e79217a54aafc31fe8640d30b9f",
+    "size": 46191
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_16.png",
+    "output": "public/ypt-assets/webtoon/profile_16.png",
+    "sha256": "4c391e1577cf04ac7d1ba1b3a5f7845eb747c3b9eae7b9522a831dc68c5a05fa",
+    "size": 50685
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_2.png",
+    "output": "public/ypt-assets/webtoon/profile_2.png",
+    "sha256": "a922fb3a427cc7fbcad17ca6d0c91cd862c069d013c1d315a03834a28d2d7fe5",
+    "size": 48390
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_3.png",
+    "output": "public/ypt-assets/webtoon/profile_3.png",
+    "sha256": "ae6ad42dcb68a84f71b55197cf886d058a4eba778ef77084c643006eeb8db6cb",
+    "size": 56542
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_4.png",
+    "output": "public/ypt-assets/webtoon/profile_4.png",
+    "sha256": "bf359511669660cf9bdf5f13b23f41725a9b7b74d00882de1e8c23b4ab28ae9d",
+    "size": 47027
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_5.png",
+    "output": "public/ypt-assets/webtoon/profile_5.png",
+    "sha256": "c26393592717b1a05aee098582afce64b5e2cb7efd03dfd86b1523017cb1f97f",
+    "size": 49798
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_6.png",
+    "output": "public/ypt-assets/webtoon/profile_6.png",
+    "sha256": "334e5a5a973d20e869029b2abdc87867f5d8128fa3601925ab27c3bc25e4a32e",
+    "size": 49676
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_7.png",
+    "output": "public/ypt-assets/webtoon/profile_7.png",
+    "sha256": "9675b5b376fd5285d16b1e9da8ada2f8f604091abea1e3a8ab6798df443dd725",
+    "size": 50948
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_8.png",
+    "output": "public/ypt-assets/webtoon/profile_8.png",
+    "sha256": "5ee6aebbda6a0ad0ee6d62711cf6c12acbf60610977f18557716108abdc07d05",
+    "size": 43842
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/profile_9.png",
+    "output": "public/ypt-assets/webtoon/profile_9.png",
+    "sha256": "3e317acde5288aeaa2f8a4c2d40b4bd2a5e6667bbc6372dff03cc033c0988cec",
+    "size": 42446
+  },
+  {
+    "source": "assets/flutter_assets/assets/webtoon/webtoon_logo.png",
+    "output": "public/ypt-assets/webtoon/webtoon_logo.png",
+    "sha256": "8b3e545d99ebe00d391d23bc68ed115b779d06004156c6e93e41aa16eadeb19b",
+    "size": 8244
+  }
+]
