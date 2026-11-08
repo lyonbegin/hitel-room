@@ -284,7 +284,8 @@ createServer(async (req,res)=>{
  if(url.pathname==='/zocbo-all-menus.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-all-menus.js'));return}
  if(url.pathname==='/zocbo-all-menus.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-all-menus.css'));return}
  if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,officialZocboPublicDocuments:35,zocboLiveLinks:true,zocboOriginalInline:true,zocboIframeCount:0,originalSourceCount:35,assetsDir:'ypt-assets'}));return}
- if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-rebuild.html'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
+ if(url.pathname==='/'||url.pathname==='/index.html'){send(200,'text/html; charset=utf-8',educationHtml);return}
+ if(url.pathname==='/ypt-rebuild.html'||url.pathname==='/ypt'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
  if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
  if(url.pathname==='/ypt-rebuild.css'){send(200,'text/css; charset=utf-8',yptVisualCss);return}
