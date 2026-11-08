@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.MediaStore
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.FileInputStream
 
 /**
@@ -96,6 +97,61 @@ internal object CallRecordingFileProbe {
         }
         return JSONObject().put("status", "QUERY_COMPLETE")
             .put("files", files)
+            .put("filesystemFiles", directPathSamples(startedAtEpochMs))
             .put("note", "No row while recording may be IS_PENDING/private storage, not an audio capture failure.")
     }
+    /**
+     * Separate physical-path experiment. A normal user-space app cannot read
+     * Samsung's private /data/data directory. File API access can also be
+     * denied by FUSE; permission errors are recorded, not treated as silence.
+     */
+    private fun directPathSamples(startedAtEpochMs: Long): JSONArray {
+        val output = JSONArray()
+        val root = android.os.Environment.getExternalStorageDirectory()
+        val dirs = listOf(
+            File(root, "Recordings/Call"),
+            File(root, "Recordings/Call recordings"),
+            File(root, "Sounds/Call")
+        )
+        for (dir in dirs) {
+            val entries = try { dir.listFiles() } catch (_: SecurityException) { null }
+            val candidates = (entries ?: emptyArray()).filter { it.isFile }
+                .sortedByDescending { it.lastModified() }.take(8)
+            if (entries == null || candidates.isEmpty()) {
+                output.put(JSONObject()
+                    .put("source", "DIRECT_FILE_PATH")
+                    .put("uri", dir.absolutePath)
+                    .put("folder", dir.absolutePath)
+                    .put("readStatus", if (!dir.exists()) "DIR_NOT_VISIBLE" else "DIR_EMPTY_OR_RESTRICTED")
+                    .put("sizeBytes", 0L)
+                    .put("modifiedAfterTestStart", false))
+            }
+            for (file in candidates) {
+                val record = JSONObject()
+                    .put("source", "DIRECT_FILE_PATH")
+                    .put("uri", file.absolutePath)
+                    .put("folder", dir.absolutePath)
+                    .put("name", file.name)
+                    .put("sizeBytes", file.length())
+                    .put("lastModifiedMillis", file.lastModified())
+                    .put("modifiedAfterTestStart", file.lastModified() >= startedAtEpochMs - 5_000L)
+                if (file.length() == 0L) {
+                    record.put("readStatus", "EMPTY_SIZE")
+                } else {
+                    try {
+                        val buffer = ByteArray(64)
+                        val read = FileInputStream(file).use { it.read(buffer) }
+                        record.put("readStatus", if (read > 0) "READ_OK" else "READ_EOF")
+                            .put("readBytes", if (read > 0) read else 0)
+                    } catch (e: Exception) {
+                        record.put("readStatus", "READ_FAILED")
+                            .put("readError", e.javaClass.simpleName)
+                    }
+                }
+                output.put(record)
+            }
+        }
+        return output
+    }
+
 }
