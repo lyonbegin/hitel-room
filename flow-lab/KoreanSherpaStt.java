@@ -59,9 +59,18 @@ public final class KoreanSherpaStt {
     private volatile boolean stopRequested;
     private volatile AudioRecord recorder;
     private volatile KoreanSttTrace diagnostics;
+    private volatile VoiceAccessAudioTrial audioTrial;
+    private volatile int trialMode=0;
     private Thread worker;
     public KoreanSherpaStt(Context c,Listener l){context=c.getApplicationContext();listener=l;}
     public synchronized boolean isRunning(){return running;}
+    public synchronized boolean setTrialMode(int mode){
+        if(running)return false;
+        trialMode=Math.max(0,Math.min(VoiceAccessAudioTrial.MODES.length-1,mode));
+        LabStore.log("VA_AB_PRESET_SELECTED","mode="+trialMode+
+            "; label="+VoiceAccessAudioTrial.name(trialMode));
+        return true;
+    }
     public synchronized void start(){
         if(running)return;
         if(!ACTIVE.compareAndSet(false,true)){
@@ -141,7 +150,12 @@ public final class KoreanSherpaStt {
             recorder=audio;
             if(audio.getState()!=AudioRecord.STATE_INITIALIZED)
                 throw new IllegalStateException("AudioRecord not initialized");
+            // Real Voice Access API hypotheses are opt-in per microphone session.
+            // The same AudioRecord is used; no duplicate microphone is opened.
+            audioTrial=new VoiceAccessAudioTrial(context,audio,trialMode);
+            audioTrial.configureBeforeStart();
             audio.startRecording();
+            audioTrial.afterRecordingStarted();
             if(audio.getRecordingState()!=AudioRecord.RECORDSTATE_RECORDING)
                 throw new IllegalStateException("Microphone did not enter recording state");
             state("LISTENING","HITEL 한국어 STT 마이크 시작. 말씀해 주십시오. 실시간 PCM과 인식 결과를 기록합니다.");
@@ -247,6 +261,11 @@ public final class KoreanSherpaStt {
             diagnostics=null;
             if(trace!=null)try{trace.finish();}catch(Throwable error){
                 LabStore.log("SHERPA_DIAG_FINALIZE_ERROR",error.toString());
+            }
+            VoiceAccessAudioTrial finishedTrial=audioTrial;
+            audioTrial=null;
+            if(finishedTrial!=null)try{finishedTrial.close();}catch(Throwable error){
+                LabStore.log("VA_AB_CLOSE_ERROR",error.toString());
             }
             if(audio!=null){
                 try{if(audio.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING)audio.stop();}catch(Exception ignored){}
