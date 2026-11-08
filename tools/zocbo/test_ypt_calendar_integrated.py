@@ -14,12 +14,12 @@ with sync_playwright() as p:
   page=context.new_page();page.set_default_timeout(40000)
   page.on('pageerror',lambda e:REPORT['pageErrors'].append(str(e)))
   page.goto(BASE+'/?screen=calendar',wait_until='domcontentloaded',timeout=60000)
-  page.locator('#phone .bottomnav button').filter(has_text='문제은행').wait_for()
+  page.locator('#phone .bottomnav button').filter(has_text='족보').wait_for()
   assert page.locator('#phone .bottomnav').count()==1
   assert page.locator('#phone .zb-faithful').count()==0,'Calendar must not render bank content'
-  assert page.locator('#phone .bottomnav button').count()==5,'Existing YPT bottom nav must be preserved'
+  assert page.locator('#phone .bottomnav button').count()==5,'Five HITEL study-group tabs must be preserved'
   page.screenshot(path=str(OUT/f'{width}-calendar-before.png'),full_page=False)
-  page.locator('#phone .bottomnav button').filter(has_text='문제은행').click()
+  page.locator('#phone .bottomnav button').filter(has_text='족보').click()
   page.locator('#phone .zb-faithful .zb-f-main-tabs button').first.wait_for(timeout=50000)
   assert page.locator('#phone .bottomnav').count()==1,'Exactly one existing YPT nav'
   assert page.locator('#phone .zb-original-footer').count()==0,'No Zocbo standalone bottom nav'
@@ -45,7 +45,8 @@ with sync_playwright() as p:
   assert page.locator('#phone .zb-f-gangnam-detail').count()==1
   page.locator('#phone [data-action="zbFGangnamClose"]').click()
   assert page.locator('#phone .zb-f-gangnam-detail').count()==0
-  page.locator('#phone .bottomnav button').filter(has_text='캘린더').click()
+  page.locator('#phone .bottomnav button').filter(has_text='내 학습').click()
+  page.locator('#phone [data-go="calendar"]').first.click()
   assert page.locator('#phone .zb-faithful').count()==0
   assert page.locator('#phone .bottomnav button').count()==5
   assert 'screen=calendar' in page.url
