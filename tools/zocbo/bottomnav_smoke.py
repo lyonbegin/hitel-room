@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Focused regression for both HITEL phone-shell bottom tab and eight-app preview."""
 import json
+import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+BASE=os.environ.get("HITEL_BASE_URL","http://127.0.0.1:3000").rstrip("/")
 out=Path("zocbo-bottomnav-evidence");out.mkdir(exist_ok=True)
 data={}
 with sync_playwright() as p:
@@ -11,7 +13,7 @@ with sync_playwright() as p:
  page=context.new_page()
  errors=[]
  page.on("pageerror",lambda e:errors.append(str(e)[:300]))
- page.goto("http://127.0.0.1:3000/?screen=home",wait_until="domcontentloaded",timeout=30000)
+ page.goto(BASE+"/?screen=home",wait_until="domcontentloaded",timeout=30000)
  before=page.url
  btn=page.locator('#phone .bottomnav button').filter(has_text="문제은행")
  data["ypt"]={"buttonCount":btn.count(),"target":btn.first.get_attribute("data-go") if btn.count() else None}
@@ -25,7 +27,7 @@ with sync_playwright() as p:
  assert data["ypt"]["bodyLoaded"]>=5
  assert "문제은행" in data["ypt"]["bottomActive"]
  # Audit separately: eight apps has its own independent bank, currently only four examples.
- page.goto("http://127.0.0.1:3000/8-apps?app=jokbo&page=home",wait_until="domcontentloaded",timeout=30000)
+ page.goto(BASE+"/8-apps?app=jokbo&page=home",wait_until="domcontentloaded",timeout=30000)
  other=page.locator('#bottomnav button').filter(has_text="문제은행")
  data["eightApp"]={"buttonCount":other.count(),"beforeText":page.locator("#appcontent").inner_text()[:150]}
  if other.count():
