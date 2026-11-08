@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 base=Path("AndroidProject/app/src/main")
 src=base/"java/app/hitel/samsungprobe"
 w=src/"W03ConsoleActivity.java"
@@ -101,6 +102,7 @@ sub('''        ui.removeCallbacks(poll);destroyRecognizer();io.shutdown();''',
 sub('''        sttButton.setEnabled(recordStarted);''',
 '''        sttButton.setEnabled(recordStarted);''')
 w.write_text(s,encoding="utf-8")
+shutil.copyfile("flow-lab/KoreanSherpaStt.java",str(src/"KoreanSherpaStt.java"))
 grad=g.read_text(encoding="utf-8")
 assert 'plugins { id("com.android.application") }' in grad
 grad=grad.replace('plugins { id("com.android.application") }',
