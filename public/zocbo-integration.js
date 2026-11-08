@@ -88,16 +88,25 @@ function detail(s){const z=stateOf(s),r=(window.ZOCBO_CATALOG||[]).find(x=>x.id=
  <div class="zb-detail-actions"><button data-action="zbRemember" data-id="${esc(r.id)}">내 학습자료에 표시</button><button data-go="bankResults">자료 목록</button></div>${embeddedOfficial(r.source,'족보닷컴 공식 자료 보기·다운로드')}`;
 }
 function embeddedOfficial(url,description='족보닷컴 공식 화면'){
- if(!isOfficial(url))return '<p>확인된 족보닷컴 주소가 아닙니다.</p>';
- // Official mobile site is the primary iframe content, not a link-only placeholder.
- return `<section class="zb-embedded-page" aria-label="${esc(description)}">
-   <div class="zb-webview-toolbar">
-      <span class="zb-site-origin"><span class="zb-site-lock" aria-hidden="true">▣</span>m.zocbo.com</span>
-      <button type="button" data-action="zbReloadWebview" title="새로고침" aria-label="족보닷컴 화면 새로고침">⟳</button>
-      ${link(url,'전체 화면 열기','zb-open-full',true)}
-   </div>
-   <div class="zb-iframe-wrap"><iframe class="zb-live-iframe" title="${esc(description)}" src="${esc(url)}" loading="eager" referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen"></iframe></div>
-   <div class="zb-iframe-fallback" role="note">화면이 비어 있으면 족보닷컴 서버의 외부 iframe 차단 설정일 수 있습니다. 위 '전체 화면 열기'는 동일한 원본 주소를 엽니다.</div>
+ if(!isOfficial(url))return '<p>확인된 공식 주소가 아닙니다.</p>';
+ // Original examMain is empty in anonymous static HTML; do not claim that a server result is embedded.
+ const entries=[
+ ['문제은행·중등',PATHS.middle,'중학교 학년·과목·단원별 원본 검색'],
+ ['문제은행·고등',PATHS.high,'고등학교 학년·과목·단원별 원본 검색'],
+ ['학교별·중등',PATHS.middleExpected,'학교별 예상문제 원본 조회'],
+ ['학교별·고등',PATHS.highExpected,'학교별 예상문제 원본 조회'],
+ ['기말고사 공개자료',PATHS.finals,'35개 공개자료를 HITEL 목록에서 확인'],
+ ['무료 열람실',PATHS.freeReading,'원본 앱 전용 뷰어가 필요할 수 있음'],
+ ['로그인',PATHS.login,'계정 인증은 족보닷컴에서만 실행']
+ ];
+ const match=entries.find(x=>x[1]===url);
+ const heading=match?match[0]:description;
+ const detail=match?match[2]:'원본 기능은 족보닷컴 서버에서 실행됩니다.';
+ return `<section class="zb-native-official" aria-label="${esc(description)}">
+ <div class="zb-native-heading"><small>족보닷컴 모바일 기능</small><h3>${esc(heading)}</h3><p>${esc(detail)}</p></div>
+ <div class="zb-native-function"><b>서비스 연결 상태</b><p>원본 HTML·JavaScript 분석은 완료되었습니다. 익명 HTML의 문제 결과 영역(#examMain)은 비어 있어 동적 자료 및 로그인 이후 결과는 HITEL 내부에서 재현·검증하지 않았습니다.</p>
+ ${link(url,'족보닷컴에서 해당 기능 실행','zb-primary-link',true)}</div>
+ <div class="zb-native-links">${entries.filter(x=>x[1]!==url).map(x=>link(x[1],x[0],'zb-link',true)).join('')}</div>
  </section>`;
 }
 function original(s){return embeddedOfficial(pageUrl(s),'족보닷컴 원본 모바일 WebView');}
