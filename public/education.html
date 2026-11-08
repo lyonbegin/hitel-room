@@ -29,8 +29,23 @@
 .toast{position:fixed;bottom:27px;left:50%;transform:translateX(-50%);background:#17212a;color:#fff;border-radius:11px;padding:12px 19px;box-shadow:0 10px 25px #0004;font-size:13px;z-index:100}
 @media(max-width:1000px){.workspace{grid-template-columns:205px minmax(330px,520px);gap:14px;padding:12px}.aside{display:none}}
 @media(max-width:690px){:root{background:#fff}.workspace{display:block;padding:0}.sidebar{position:static;padding:9px 10px;border-bottom:1px solid #ececec}.sidebar h1,.sidebar .subtitle,.sidebar .logo{display:none}.menu{display:flex;gap:7px;overflow:auto;scrollbar-width:none}.app-link{width:auto;white-space:nowrap;flex:none;padding:8px 10px;gap:7px;border-radius:10px}.app-icon{width:28px;height:28px;border-radius:8px;font-size:12px}.app-link small{display:none}.app-link strong{font-size:12px}.preview{width:100%;border:0;border-radius:0;box-shadow:none;min-height:100vh}.preview-head{display:none}.mobile{min-height:100vh}.content{padding:18px 17px 26px}.bottom{position:fixed;box-shadow:0 -2px 12px #13202e06}.brand-head{padding:0 18px}}
+</style>
+<link rel="stylesheet" href="/zocbo-captured-original.css?v=2" />
+<link rel="stylesheet" href="/zocbo-faithful-ui.css?v=2" />
+<style>
+.edu-embedded-host{min-width:0;max-width:100%;overflow:hidden}
+.edu-embedded-host:has(.zb-faithful) .content{padding:0;min-width:0;overflow:visible;max-width:100%;min-height:490px}
+.edu-embedded-host .zb-faithful{box-sizing:border-box;width:100%;max-width:100%;min-width:0}
+.edu-embedded-host .zb-faithful *{box-sizing:border-box}
+.mobile:has(.zb-faithful){padding-bottom:83px}
+.mobile:has(.zb-faithful) .bottom{z-index:20}
+@media(max-width:690px){.edu-embedded-host:has(.zb-faithful) .content{padding:0}}
 </style></head><body>
 <div class="workspace"><aside class="sidebar"><div class="logo">HITEL EDUCATION / 8 APPS</div><h1>교육 앱 화면 검증</h1><p class="subtitle">8개 원본 앱을 각각 분리하여 모바일 화면·화면 전환을 구현했습니다.</p><nav class="menu" id="appmenu"></nav></aside>
-<div class="preview"><div class="preview-head"><span>●●●● 5G</span><span>9:41 ▰</span></div><div class="mobile" id="mobile"><header class="brand-head" id="brandhead"></header><main class="content" id="appcontent"><p>화면을 불러오는 중입니다.</p></main><nav id="bottomnav" class="bottom"></nav></div></div>
+<div class="preview"><div class="preview-head"><span>●●●● 5G</span><span>9:41 ▰</span></div><div class="mobile" id="mobile"><header class="brand-head" id="brandhead"></header><div id="phone" class="edu-embedded-host"><main class="content" id="appcontent"><p>화면을 불러오는 중입니다.</p></main></div><nav id="bottomnav" class="bottom"></nav></div></div>
 <aside class="aside"><h3>화면별 실행 검증</h3><p>앱을 선택하시면 홈·목록·상세·입력 화면을 각각 확인하실 수 있습니다. 클릭, 검색, 입력, 타이머, 즐겨찾기 및 저장은 웹에서 동작하도록 구현합니다.</p><div class="fact"><strong id="asideapp">선택한 앱</strong><span id="asidefeatures">앱을 선택하여 화면을 확인하십시오.</span></div><p>원본과 동일함을 입증한 복제본은 아닙니다. 확인 가능한 서비스 기능을 참고하여 화면 구성 및 흐름을 추정 복원한 테스트 웹입니다. 예시 항목은 실제 학원·강사·사용자 데이터가 아닙니다.</p></aside></div>
-<script src="/education.js" defer></script></body></html>
+<script>
+window.ZOCBOUI={page:function(){return '';},onAction:function(){}};
+</script>
+<script src="/zocbo-faithful-ui.js?v=2" defer></script>
+<script src="/education.js?v=2" defer></script></body></html>
