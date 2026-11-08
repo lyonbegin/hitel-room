@@ -32,17 +32,11 @@ import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
  * Model: k2-fsa streaming Korean Zipformer 2024-06-16 INT8.
  */
 public final class KoreanSherpaStt {
-    // Retain model weights across microphone sessions in this process.
-    private static OnlineRecognizer sharedRecognizer;
-    private static synchronized OnlineRecognizer getSharedRecognizer(OnlineRecognizerConfig config) {
-        if(sharedRecognizer==null) {
-            sharedRecognizer=new OnlineRecognizer(null,config);
-            LabStore.log("SHERPA_KO_MODEL_INITIALIZED","Native Korean Zipformer loaded once per process");
-        } else {
-            LabStore.log("SHERPA_KO_MODEL_REUSED","Reusing process-cached native Korean Zipformer");
-        }
-        return sharedRecognizer;
-    }
+    // One active native STT session per process. Never retain ONNX weights
+    // after the user stops the microphone, and never start a second worker
+    // until the previous worker has released its native resources.
+    private static final java.util.concurrent.atomic.AtomicBoolean ACTIVE=
+        new java.util.concurrent.atomic.AtomicBoolean(false);
     public interface Listener {
         void onState(String phase,String message);
         void onPartial(String text);
@@ -69,9 +63,17 @@ public final class KoreanSherpaStt {
     public synchronized boolean isRunning(){return running;}
     public synchronized void start(){
         if(running)return;
+        if(!ACTIVE.compareAndSet(false,true)){
+            state("BUSY","이전 한국어 음성인식 종료 및 메모리 해제 중입니다. 완료 후 다시 시작해 주십시오.");
+            return;
+        }
         running=true;stopRequested=false;
-        worker=new Thread(this::run,"HITEL-KO-Sherpa-STT");
-        worker.start();
+        try{
+            worker=new Thread(this::run,"HITEL-KO-Sherpa-STT");
+            worker.start();
+        }catch(RuntimeException error){
+            running=false;worker=null;ACTIVE.set(false);throw error;
+        }
     }
     public void stop(){
         stopRequested=true;
@@ -109,7 +111,10 @@ public final class KoreanSherpaStt {
             OnlineRecognizerConfig config=new OnlineRecognizerConfig();
             config.setModelConfig(model);
             config.setEnableEndpoint(true);
-            recognizer=getSharedRecognizer(config);
+            recognizer=new OnlineRecognizer(null,config);
+            LabStore.log("SHERPA_KO_MODEL_LOADED",
+                "new native model session, nativeHeapKB="+
+                (android.os.Debug.getNativeHeapAllocatedSize()/1024L));
             stream=recognizer.createStream("");
             if(stopRequested)return;
             final int min=AudioRecord.getMinBufferSize(RATE,
@@ -202,18 +207,36 @@ public final class KoreanSherpaStt {
                 listener.onFinal(tail);
             state("STOP","한국어 STT 마이크가 중지되었습니다. 결과를 확인하고 삼성 TTS 전송을 선택하십시오.");
         }catch(Throwable error){
-            LabStore.log("SHERPA_KO_FAILURE",error.toString());
-            state("ERROR","한국어 STT 실행 실패: "+error.getClass().getSimpleName()+": "+error.getMessage());
+            if(stopRequested){
+                LabStore.log("SHERPA_KO_EXPECTED_STOP",error.toString());
+            }else{
+                LabStore.log("SHERPA_KO_FAILURE",error.toString());
+                state("ERROR","한국어 STT 실행 실패: "+error.getClass().getSimpleName()+": "+error.getMessage());
+            }
         }finally{
             recorder=null;
             if(audio!=null){
                 try{if(audio.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING)audio.stop();}catch(Exception ignored){}
                 try{audio.release();}catch(Exception ignored){}
             }
-            if(stream!=null)try{stream.release();}catch(Throwable ignored){}
-            // Process-scope native model stays resident for the next microphone tap.
+            // Release stream before its parent native recognizer, exactly once.
+            long nativeHeapBeforeRelease=android.os.Debug.getNativeHeapAllocatedSize()/1024L;
+            if(stream!=null)try{stream.release();}catch(Throwable error){
+                LabStore.log("SHERPA_KO_STREAM_RELEASE_FAILED",error.toString());
+            }
+            if(recognizer!=null)try{recognizer.release();}catch(Throwable error){
+                LabStore.log("SHERPA_KO_MODEL_RELEASE_FAILED",error.toString());
+            }
+            long nativeHeapAfterRelease=android.os.Debug.getNativeHeapAllocatedSize()/1024L;
+            LabStore.log("SHERPA_KO_MODEL_RELEASED",
+                "nativeHeapBeforeKB="+nativeHeapBeforeRelease+
+                "; nativeHeapAfterKB="+nativeHeapAfterRelease+
+                "; decreaseKB="+(nativeHeapBeforeRelease-nativeHeapAfterRelease));
+            // The downloaded model files remain on disk for subsequent starts;
+            // ONNX weights, audio capture and online stream are no longer live.
             synchronized(this){running=false;worker=null;}
-            if(stopRequested)state("STOP","한국어 음성인식 종료");
+            ACTIVE.set(false);
+            if(stopRequested)state("STOP","한국어 마이크 종료 · ONNX 모델 메모리 해제 완료");
         }
     }
     private void ensureModel(File folder)throws Exception{
