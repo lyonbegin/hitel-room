@@ -1,0 +1,34 @@
+name: HITEL deployed Railway bottom bank button click verification
+on:
+  push:
+    branches: [feature/zocbo-page-audit-bottomnav-fix-20261108]
+    paths:
+      - .github/workflows/zocbo-live-bottomnav.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deployed-bottom-tab:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Click bottom button on ACTUAL deployed service
+        env:
+          HITEL_BASE_URL: https://hitel-zocbo-native-hierarchy-production.up.railway.app
+        run: python tools/zocbo/bottomnav_smoke.py
+      - name: Preserve actual user-visible screen after click
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-deployed-bottomnav-click-evidence
+          path: zocbo-bottomnav-evidence/
+          retention-days: 7
+          if-no-files-found: warn
