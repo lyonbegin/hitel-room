@@ -1,0 +1,287 @@
+{
+  "summary": {
+    "cases": 38,
+    "filters": 125,
+    "clicked": 123,
+    "disabledOrMissing": 2,
+    "failed": 0,
+    "uniqueFilterTypes": [
+      "SEARCH_GRADE",
+      "SEARCH_LEVEL_CD",
+      "SEARCH_STEP_CD",
+      "SEARCH_SUBJECT_CD",
+      "SEARCH_TX_CD",
+      "select-btn",
+      "select-btn fL",
+      "select-btn fR"
+    ]
+  },
+  "cases": [
+    {
+      "case": "M_2_KR_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_KR_unit",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_KR_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_KR_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_EG_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_EG_unit",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_EG_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_EG_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_MT_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_MT_unit",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_MT_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_MT_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_SC_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_SC_unit",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_SC_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_SC_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_LS_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_LS_unit",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_LS_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_LS_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_HI_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_HI_unit",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_HI_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_HI_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_ET_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_ET_unit",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_ET_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_ET_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_TH_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_TH_unit",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_TH_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_TH_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_CH_concept",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_CH_unit",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_CH_practice",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_CH_revision",
+      "filterCount": 3,
+      "clicked": 3,
+      "disabled": 0,
+      "errors": 0
+    },
+    {
+      "case": "M_2_KR_school",
+      "filterCount": 7,
+      "clicked": 5,
+      "disabled": 2,
+      "errors": 0
+    },
+    {
+      "case": "M_2_KR_gangnam",
+      "filterCount": 4,
+      "clicked": 4,
+      "disabled": 0,
+      "errors": 0
+    }
+  ]
+}

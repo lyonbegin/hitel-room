@@ -1,0 +1,294 @@
+{
+  "case": "M_2_CH_unit",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200003&siteid=M&subject_cd=CH&grade=2",
+  "filters": [
+    {
+      "name": "중2",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중2",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '중2');\">\n        <span class=\"check__text\">중2</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '3', '중3');\">\n        <span class=\"check__text\">중3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "한자\n01회\n3.생활 속 한자 어휘\n3-1.가족을 소개해요\n🔥1학기 기말\n3-1. 가족을 소개해요\n01회\n02회\n03회\n04회\n3-2.학교에 가면\n🔥1학기 기말\n3-2. 학교에 가면\n01회\n02회\n03회\n04회\n3-3.진로를 찾아서\n🔥1학기 기말\n3-3. 진로를 찾아서\n01회\n02회\n03회\n4.이야기와 성어\n4-1.친구와 함께\n🔥1학기 기말\n4-1. 친구와 함께\n01회\n02회\n03회\n04회\n4-2.공부야 놀자\n🔥1학기 기말\n4-2. 공부야 놀자\n01회\n02회\n03회\n4-3.역사 속으로\n🔥1학기 기말\n4-3. 역사 속으로\n01회\n02회\n03회\n5.지혜가 담긴 말\n5-1.속담 한마디\n🔥2학기 중간\n5-1. 속담 한마디\n01회\n02회\n03회\n04회\n5-2.마음에 새기는 글\n🔥2학기 중간\n5-2. 마음에 새기는 글\n01회\n02회\n03회\n5-3.옛사람의 지혜\n🔥2학기 중간\n5-3. 옛사람의 지혜\n01회\n02회\n6.전통문화의 향기\n6-1.천간과 지지\n🔥2학기 중간\n6-1. 천간과 지지\n01회\n02회\n03회\n04회\n6-2.명절 이야기\n🔥2학기 중간\n6-2. 명절 이야기\n01회\n02회\n03회\n6-3.독도는 우리 땅\n🔥2학기 중간\n6-3. 독도는 우리 땅\n01회\n02회\n03회\n6-4.노래와 그림\n🔥2학기 중간\n6-4. 노래와 그림\n01회\n02회\n03회\n7.짧은 글, 깊은 뜻\n2학기 기말 🔥\n7-1.나를 돌아보며\n2학기 기말 🔥\n🔥2학기 기말\n7-1. 나를 돌아보며\n01회\n02회\n03회\n7-2.소중한 부모님\n2학기 기말 🔥\n🔥2학기 기말\n7-2. 소중한 부모님\n01회\n02회\n03회\n7-3.남을 생각하는 마음\n2학기 기말 🔥\n🔥2학기 기말\n7-3. 남을 생각하는 마음\n01회\n02회\n03회\n04회\n7-4.의로움이란 무엇인가\n2학기 기말 🔥\n🔥2학기 기말\n7-4. 의로움이란 무엇인가\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n중2\n중3"
+    },
+    {
+      "name": "한문",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한문",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한문",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '역사');\">\n        <span class=\"check__text\">역사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'ET', '도덕');\">\n        <span class=\"check__text\">도덕</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'CH', '한문');\">\n        <span class=\"check__text\">한문</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": ".가족을 소개해요\n🔥1학기 기말\n3-1. 가족을 소개해요\n01회\n02회\n03회\n04회\n3-2.학교에 가면\n🔥1학기 기말\n3-2. 학교에 가면\n01회\n02회\n03회\n04회\n3-3.진로를 찾아서\n🔥1학기 기말\n3-3. 진로를 찾아서\n01회\n02회\n03회\n4.이야기와 성어\n4-1.친구와 함께\n🔥1학기 기말\n4-1. 친구와 함께\n01회\n02회\n03회\n04회\n4-2.공부야 놀자\n🔥1학기 기말\n4-2. 공부야 놀자\n01회\n02회\n03회\n4-3.역사 속으로\n🔥1학기 기말\n4-3. 역사 속으로\n01회\n02회\n03회\n5.지혜가 담긴 말\n5-1.속담 한마디\n🔥2학기 중간\n5-1. 속담 한마디\n01회\n02회\n03회\n04회\n5-2.마음에 새기는 글\n🔥2학기 중간\n5-2. 마음에 새기는 글\n01회\n02회\n03회\n5-3.옛사람의 지혜\n🔥2학기 중간\n5-3. 옛사람의 지혜\n01회\n02회\n6.전통문화의 향기\n6-1.천간과 지지\n🔥2학기 중간\n6-1. 천간과 지지\n01회\n02회\n03회\n04회\n6-2.명절 이야기\n🔥2학기 중간\n6-2. 명절 이야기\n01회\n02회\n03회\n6-3.독도는 우리 땅\n🔥2학기 중간\n6-3. 독도는 우리 땅\n01회\n02회\n03회\n6-4.노래와 그림\n🔥2학기 중간\n6-4. 노래와 그림\n01회\n02회\n03회\n7.짧은 글, 깊은 뜻\n2학기 기말 🔥\n7-1.나를 돌아보며\n2학기 기말 🔥\n🔥2학기 기말\n7-1. 나를 돌아보며\n01회\n02회\n03회\n7-2.소중한 부모님\n2학기 기말 🔥\n🔥2학기 기말\n7-2. 소중한 부모님\n01회\n02회\n03회\n7-3.남을 생각하는 마음\n2학기 기말 🔥\n🔥2학기 기말\n7-3. 남을 생각하는 마음\n01회\n02회\n03회\n04회\n7-4.의로움이란 무엇인가\n2학기 기말 🔥\n🔥2학기 기말\n7-4. 의로움이란 무엇인가\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n국어\n영어\n수학\n과학\n사회\n역사\n도덕\n기술가정\n한문"
+    },
+    {
+      "name": "미래엔(송혁기)",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "미래엔(송혁기)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "미래엔(송혁기)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(이동재)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(이동재)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(안대회)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(안대회)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MACHCHA0005', '미래엔(송혁기)');\">\n        <span class=\"check__text\">미래엔(송혁기)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MACHCHA0006', '비상(이동재)');\">\n        <span class=\"check__text\">비상(이동재)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MACHCHA0007', '천재(안대회)');\">\n        <span class=\"check__text\">천재(안대회)</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "3-1.가족을 소개해요\n🔥1학기 기말\n3-1. 가족을 소개해요\n01회\n02회\n03회\n04회\n3-2.학교에 가면\n🔥1학기 기말\n3-2. 학교에 가면\n01회\n02회\n03회\n04회\n3-3.진로를 찾아서\n🔥1학기 기말\n3-3. 진로를 찾아서\n01회\n02회\n03회\n4.이야기와 성어\n4-1.친구와 함께\n🔥1학기 기말\n4-1. 친구와 함께\n01회\n02회\n03회\n04회\n4-2.공부야 놀자\n🔥1학기 기말\n4-2. 공부야 놀자\n01회\n02회\n03회\n4-3.역사 속으로\n🔥1학기 기말\n4-3. 역사 속으로\n01회\n02회\n03회\n5.지혜가 담긴 말\n5-1.속담 한마디\n🔥2학기 중간\n5-1. 속담 한마디\n01회\n02회\n03회\n04회\n5-2.마음에 새기는 글\n🔥2학기 중간\n5-2. 마음에 새기는 글\n01회\n02회\n03회\n5-3.옛사람의 지혜\n🔥2학기 중간\n5-3. 옛사람의 지혜\n01회\n02회\n6.전통문화의 향기\n6-1.천간과 지지\n🔥2학기 중간\n6-1. 천간과 지지\n01회\n02회\n03회\n04회\n6-2.명절 이야기\n🔥2학기 중간\n6-2. 명절 이야기\n01회\n02회\n03회\n6-3.독도는 우리 땅\n🔥2학기 중간\n6-3. 독도는 우리 땅\n01회\n02회\n03회\n6-4.노래와 그림\n🔥2학기 중간\n6-4. 노래와 그림\n01회\n02회\n03회\n7.짧은 글, 깊은 뜻\n2학기 기말 🔥\n7-1.나를 돌아보며\n2학기 기말 🔥\n🔥2학기 기말\n7-1. 나를 돌아보며\n01회\n02회\n03회\n7-2.소중한 부모님\n2학기 기말 🔥\n🔥2학기 기말\n7-2. 소중한 부모님\n01회\n02회\n03회\n7-3.남을 생각하는 마음\n2학기 기말 🔥\n🔥2학기 기말\n7-3. 남을 생각하는 마음\n01회\n02회\n03회\n04회\n7-4.의로움이란 무엇인가\n2학기 기말 🔥\n🔥2학기 기말\n7-4. 의로움이란 무엇인가\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n미래엔(송혁기)\n비상(이동재)\n천재(안대회)"
+    }
+  ]
+}
