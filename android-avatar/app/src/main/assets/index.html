@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>HITEL S2 아바타 · Android WebRTC 루프백</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header><span class="brand">HITEL <strong>S2</strong></span><small>ON-DEVICE AVATAR · ANDROID</small></header>
+  <main>
+    <h1>영상 이력서 기반<br>내 아바타 미리보기</h1>
+    <p class="intro">기준 영상에서 입 주변만 합성하는 DH_live mini 2.0 엔진을 휴대전화 안에서 실행합니다. 외부 서버로 영상을 전송하지 않습니다.</p>
+
+    <section class="view">
+      <canvas id="canvas_video" aria-label="아바타 렌더링"></canvas>
+      <video id="rtc-preview" autoplay playsinline muted aria-label="WebRTC로 다시 수신한 내 아바타" hidden></video>
+      <div class="indicator" id="indicator">아바타 엔진 준비 중</div>
+    </section>
+    <div id="status" class="status" role="status">엔진을 초기화합니다.</div>
+
+    <section class="panel">
+      <h2>1. 아바타 자료</h2>
+      <div class="buttons">
+        <button id="import">내 아바타 ZIP 가져오기</button>
+        <button id="reset" class="plain" disabled>아바타 다시 읽기</button>
+      </div>
+      <p class="help">영상 이력서에서 생성한 <code>01.mp4</code> + <code>combined_data.json.gz</code>를 ZIP 최상위에 넣으세요. 처음에는 공개 예제 아바타가 표시됩니다.</p>
+    </section>
+
+    <section class="panel">
+      <h2>2. 입술 움직임 시험</h2>
+      <div class="buttons">
+        <button id="test-audio" disabled>테스트 음성 실행</button>
+        <label class="file">WAV 파일 선택<input id="wav" type="file" accept=".wav,audio/wav,audio/x-wav,audio/wave" disabled></label>
+      </div>
+      <p class="help">실제 WAV 음성을 DH_live WASM에 전달하여 입 주변을 합성합니다. 음성 파일은 PCM WAV 권장입니다.</p>
+    </section>
+
+    <section class="panel">
+      <h2>3. 내 기기 안에서 WebRTC 수신</h2>
+      <div class="buttons">
+        <button id="start-loopback" disabled>WebRTC 자체 스트리밍 시작</button>
+        <button id="stop-loopback" class="plain" disabled>중지</button>
+      </div>
+      <p id="rtc-status" class="help">아직 연결되지 않았습니다.</p>
+      <p class="help">두 RTCPeerConnection을 이 기기 안에서 연결합니다. 외부 참가자·시그널링 서버는 사용하지 않습니다.</p>
+    </section>
+
+    <!-- DH_live mini vendor loader needs these elements. Keep WebGL surface rendered. -->
+    <canvas id="canvas_gl" width="184" height="184" class="offscreen"></canvas>
+    <canvas id="canvasEl" class="offscreen"></canvas>
+    <video id="background_video" class="offscreen" playsinline muted></video>
+    <div id="screen" class="offscreen"></div>
+    <div id="screen2" class="offscreen"></div>
+    <div id="loadingSpinner" class="offscreen"></div>
+    <div id="startMessage" class="offscreen"></div>
+  </main>
+  <footer>개발용 로컬 검증 · 개인 아바타 사용 동의 및 라이선스 확인 후 상용화</footer>
+  <script src="vendor/js/pako.min.js"></script>
+  <script src="vendor/js/DHLiveMini.js"></script>
+  <script src="vendor/js/MiniMateLoader.js"></script>
+  <script src="vendor/js/MiniLive2.js"></script>
+  <script src="host.js"></script>
+</body>
+</html>
