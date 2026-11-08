@@ -46,7 +46,7 @@ function pageUrl(s,fallback='app'){
 function link(url,label,cl='zb-link',same=false){if(!isOfficial(url))return '';
  return `<a class="${cl}" href="${esc(url)}" target="${same?'_self':'_blank'}" rel="noopener noreferrer">${esc(label)} <span aria-hidden="true">↗</span></a>`;}
 function switcher(){return `<div class="zb-shortcuts"><button data-go="bankHome">문제은행 홈</button><button data-go="bankSearch">자료 검색</button><button data-go="bankSchool">학교별</button><button data-go="bankFree">무료 열람</button><button data-go="bankDownload">다운로드</button></div>`;}
-function subtitle(s){const z=stateOf(s);return `<div class="zb-subtitle">원본 족보닷컴 4.3.11(2) WebView 경로 · 실제 공식 자료와 연결</div>`;}
+function subtitle(s){return '';}
 function segment(s){const z=stateOf(s);return `<div class="zb-grades">${['전체','중1','중2','중3','고1','고2'].map(g=>`<button type="button" data-action="zbGrade" data-value="${g}" class="${z.grade===g?'on':''}">${g}</button>`).join('')}</div>`}
 function catalog(s){
  const z=stateOf(s),list=window.ZOCBO_CATALOG||[];
