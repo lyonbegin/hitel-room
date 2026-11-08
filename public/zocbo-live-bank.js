@@ -54,9 +54,9 @@ function treeOf(data){
  }
  for(const e of arrays(data.exams)){
   const names=partNames.get([e.rootPart,e.subPart,e.detailPart].join('/'));
-  const r=ensureRoot(e.rootPart,names?.root||e.rootName);
-  const sub=ensureSub(r,e.subPart,names?.sub||e.subName);
-  const detail=ensureDetail(sub,e.detailPart,names?.detail||e.detailName);
+  const r=ensureRoot(e.rootPart,e.rootName||names?.root);
+  const sub=ensureSub(r,e.subPart,e.subName||names?.sub);
+  const detail=ensureDetail(sub,e.detailPart,e.detailName||names?.detail);
   detail.exams.push(e);r.count++;sub.count++;
  }
  return rootOrder.map(k=>roots.get(k)).filter(r=>r.count>0||r.subs.size>0);
