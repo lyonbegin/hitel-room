@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Live-route smoke for original 8-app preview's native bottom tab."""
+import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+BASE=os.environ.get("EDU8_BASE_URL","http://127.0.0.1:3000").rstrip("/")
 OUT=Path("education-eight-bank-test");OUT.mkdir(exist_ok=True)
 with sync_playwright() as p:
  b=p.chromium.launch(headless=True,args=["--no-sandbox"])
@@ -9,7 +11,7 @@ with sync_playwright() as p:
  page=c.new_page()
  errors=[]
  page.on("pageerror",lambda e:errors.append(str(e)))
- page.goto("http://127.0.0.1:3000/?app=jokbo",wait_until="domcontentloaded",timeout=35000)
+ page.goto(BASE+"/?app=jokbo",wait_until="domcontentloaded",timeout=35000)
  btn=page.locator("#bottomnav button").filter(has_text="문제은행")
  assert btn.count()==1,"legacy bank tab missing"
  btn.click()
