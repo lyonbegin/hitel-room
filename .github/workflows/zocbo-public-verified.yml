@@ -1,0 +1,28 @@
+name: ZOCBO Official Page & Download Controls Evidence
+on:
+  push:
+    branches: [feature/ypt-zocbo-live-integration-20261108]
+    paths:
+      - tools/zocbo/probe_public.py
+      - .github/workflows/zocbo-public-verified.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests beautifulsoup4 charset_normalizer
+      - name: Inspect public HTML, search filters, list links, download buttons
+        run: python tools/zocbo/probe_public.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-public-search-view-download-evidence
+          path: zocbo-public/
+          retention-days: 14
