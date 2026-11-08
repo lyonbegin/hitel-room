@@ -1,0 +1,57 @@
+name: YPT Group Workplace Original Integration E2E
+on:
+  push:
+    branches:
+      - feature/ypt-workplace-ui-integrated-20261108
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate original and addon JS syntax
+        run: |
+          node --check public/ypt-rebuild.js
+          node --check public/ypt-workplace-ui.js
+          node --check public/zocbo-faithful-ui.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chromium Playwright
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Wait for staging deployment to include workplace module
+        run: |
+          python - <<'PY'
+          import time,urllib.request
+          url='https://hitel-education-zocbo-unified-production.up.railway.app/ypt-workplace-ui.js'
+          for attempt in range(75):
+              try:
+                  with urllib.request.urlopen(url,timeout=12) as r:
+                      body=r.read().decode('utf-8','replace')
+                      if r.status==200 and 'HITEL_WORKPLACE_INSPECT' in body:
+                          print('Workplace staging ready',len(body));break
+              except Exception as exc:
+                  print('Staging pending',attempt,str(exc)[:150])
+              time.sleep(8)
+          else:raise SystemExit('Staging not serving workplace UI')
+          PY
+      - name: Run true mobile browser interaction regression
+        run: python tools/zocbo/test_ypt_workplace_integrated.py
+      - name: Upload interaction screenshots and JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ypt-workplace-mobile-e2e-evidence
+          path: ypt-workplace-e2e-evidence/
+          if-no-files-found: warn
+          retention-days: 21
