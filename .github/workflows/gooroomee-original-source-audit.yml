@@ -1,0 +1,31 @@
+name: Audit public Gooroomee original HTML JS CSS DOM network
+on:
+  push:
+    branches:
+      - research/gooroomee-original-source-audit-20261108
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install reproducible Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Crawl actual public originals and capture source evidence
+        run: python tools/research/gooroomee_original_audit.py
+      - name: Upload unmodified source snapshots HTML screenshot network and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gooroomee-original-unauthenticated-source-audit
+          path: gooroomee-public-audit-evidence/
+          if-no-files-found: warn
+          retention-days: 14
