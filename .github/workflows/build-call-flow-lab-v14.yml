@@ -74,7 +74,7 @@ jobs:
           test -s AndroidProject/voxsherpa/src/main/assets/tts_frontend.zip
           grep -F 'VOX_UPSTREAM_OPEN' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'screen.addView(micBar,3' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
-          grep -F 'screen.addView(voxSettings,5' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'screen.addView(voxSettings,6' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'pinnedMicState.setText(message)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'screen.addView(pinnedLiveCaption,5' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'sherpaCommittedText+System.lineSeparator()+text' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
