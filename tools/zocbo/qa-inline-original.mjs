@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import fs from 'node:fs';
 fs.mkdirSync('zocbo-inline-qa',{recursive:true});
-// Regression: YPT shell padding must not force 410px original DOM width on a 390px viewport.
+// Regression: after removing YPT shell padding, original DOM must subtract its 10px side margins from 100% width to avoid 410px scrollWidth.
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
 const page=await context.newPage();
