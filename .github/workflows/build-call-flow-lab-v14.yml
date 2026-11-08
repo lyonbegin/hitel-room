@@ -24,12 +24,6 @@ jobs:
       - name: Prepare Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
-          cache-disabled: true
-          dependency-graph: disabled
-          validate-wrappers: false
       - name: Checkout original VoxSherpa source (pinned, unchanged)
         uses: actions/checkout@v4
         with:
@@ -87,7 +81,7 @@ jobs:
           find AndroidProject/voxsherpa/src/main/res -type f | wc -l
           du -sh AndroidProject/voxsherpa/src/main/assets
       - name: Build Android installation APK
-        run: gradle -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+        run: bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
       - name: Validate APK content, signature and application ID
         run: |
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
