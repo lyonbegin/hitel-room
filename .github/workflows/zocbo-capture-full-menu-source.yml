@@ -1,0 +1,41 @@
+name: Capture All Real Zocbo Mobile Menu Submodes
+on:
+  push:
+    branches: [feature/zocbo-all-six-menus-source-20261108]
+    paths:
+      - tools/zocbo/capture_all_original_menus.py
+      - .github/workflows/zocbo-capture-full-menu-source.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  source-actual-dom:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright and HTML parser
+        run: |
+          pip install playwright==1.56.0 beautifulsoup4==4.12.3
+          python -m playwright install --with-deps chromium
+      - name: Capture each public source mode including original document IDs
+        run: python tools/zocbo/capture_all_original_menus.py
+      - name: Upload original evidence (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-actual-six-top-menu-eleven-submode-metadata
+          path: public/zocbo-original-data/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Commit captured source metadata to this feature branch
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add public/zocbo-original-data/*.json
+          if git diff --cached --quiet; then echo 'No changed source metadata'; else git commit -m 'Import verified public original mobile menu IDs and chapters'; git fetch origin feature/zocbo-all-six-menus-source-20261108; git rebase FETCH_HEAD; git push origin HEAD:feature/zocbo-all-six-menus-source-20261108; fi

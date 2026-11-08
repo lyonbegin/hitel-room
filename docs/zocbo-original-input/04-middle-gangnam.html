@@ -1,0 +1,539 @@
+<div id="section">
+			<div id="contents" class="padBot95">
+				<!-- contents -->
+				<form action="">
+					<input type="hidden" name="season_State" id="season_State" value="Y">
+					<input type="hidden" name="season_Val" id="season_Val" value="2E">
+					<input type="hidden" name="season_FreeState" id="season_FreeState" value="Y">
+					<input type="hidden" name="block_Chk" id="block_Chk" value="N">
+					<input type="hidden" name="donga_show_member_yn" id="donga_show_member_yn" value="Y">
+					<input type="hidden" name="k3_show_target" id="k3_show_target" value="">
+
+					<div class="productSelect">
+						<!-- Top Menu -->
+						<ul class="tabLine-round_M tabLineRound clearfix" style="justify-content:start;">
+	<li data-src="main" data-mn="1">
+		<a href="/exam/examListWeb.asp?menu_cd=000010000100001&amp;siteid=M&amp;subject_cd=MT" data-step="step 1">개념학습</a>
+	</li>
+	<li data-src="main" data-mn="4" data-step="step 1">
+		<a href="/exam/examListWeb.asp?menu_cd=000010000200003&amp;siteid=M&amp;subject_cd=MT" data-step="step 2">
+			단원별 학습
+			<span class="mo-label grade15 new" style="display:none;">신규 오픈</span>
+		</a>
+	</li>
+	<li data-src="main" data-mn="5"><a href="/exam/examListWeb.asp?menu_cd=000010000300001&amp;siteid=M&amp;subject_cd=MT" data-step="step 3">실전대비</a></li>
+	<li data-src="main" data-mn="6">
+		<a href="/exam/examListWeb.asp?menu_cd=000010000400001&amp;siteid=M&amp;subject_cd=MT" data-step="step 4">
+			직전대비
+			
+			<span class="mo-label grade15 mid" style="display:none;">2학기 기말고사</span>
+			
+		</a>
+	</li>
+	<li data-src="main" data-mn="2" class="">
+		<a href="/M/expected.asp"> 
+			<!--<span class="mo-label grade15 ai mid" style="display:none;">시험 완벽 대비</span>-->
+			학교별 맞춤학습
+		</a>
+	</li>
+	<li data-src="main" data-mn="8" class="active">
+		<a href="/M/?menu=2&amp;type=4">
+			<em class="icon-new">강남 3구 유형공략</em>
+		</a>
+	</li>
+</ul>
+						<!-- //Top Menu -->
+
+						<div id="filter_1" class="row" style="display: none;">
+							<div class="ui-text-wrap sub-title" id="basicTxt" style="display:none;">
+								<p class="ui-text-alert">해당 콘텐츠는 (구)PRO이용권 전용 콘텐츠로 보유중이신 BASIC 이용권은 다운로드가 가능하지 않습니다.</p>
+							</div>
+							<input type="hidden" id="basicTxtVal" value="0">
+							<div class="clearfix mT5">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter_grade" style="width: 47%; height: 48px;" value="2">2학년</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter_subject" style="width: 47%; height: 48px;" value="MT">수학</button>
+							</div>
+
+							<div class="clearfix mT5">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter_group" style="width: 47%; height: 48px;">구분 선택</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter_tx" style="width: 47%; height: 48px;">교과서 선택</button>
+							</div>
+
+							<div class="clearfix mT5" id="filter1_pnl3">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter_year" style="width: 47%; height: 48px;">년도 선택</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter_term" style="width: 47%; height: 48px;">학기 선택</button>
+							</div>
+
+							<div class="clearfix mT5" style="display: none;">
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter_chapter" style="width: 100%; height: 48px;">전체 대단원</button>
+							</div>
+
+							<div class="clearfix mT5" style="display: none;">
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter_level" style="width: 100%; height: 48px;">난이도 선택</button>
+							</div>
+
+							<div class="productInput">
+								<input type="text" name="qry">
+								<button type="reset"><img src="../img/ico_inputDelect.png" width="21" alt="초기화"></button>
+								<button type="button" data-src="main" data-act="search"><img src="../img/ico_search.png" width="17" alt="검색"></button>
+								<script>
+									$(document).ready(function()
+									{
+										$('.productInput input[type=text]').on('propertychange change keyup paste input',function()
+										{
+											$('.productInput button[type=reset]').show();
+										})
+										$('.productInput button[type=reset]').on('click',function()
+										{
+											$(this).hide();
+										})
+									})
+								</script>
+							</div>
+
+							<!-- 이전 개정자료 보기 -->
+							<p class="dataView" id="oldData" style="display:none;">
+								<a href="#" data-src="main" data-act="oldData"><span class="is-bedge">15개정</span>이전 개정자료 보기</a>
+							</p>
+							<!-- //이전 개정자료 보기 -->
+						</div>
+
+						<div id="filter_2" class="row" style="">
+							<div class="clearfix mT5">
+								<button type="button" class="select-btn" data-src="main" data-act="filter2_type">강남 3구 유형공략</button>
+							</div>
+
+							<div class="clearfix mT5" style="display: none;">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter2_si" style="width: 47%; height: 48px;">지역</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter2_gu" style="width: 47%; height: 48px;">구/군</button>
+							</div>
+
+							<div class="mT5" style="display: none;">
+								<button type="button" class="select-btn" data-src="main" data-act="filter2_sch">학교</button>
+							</div>
+
+							<div class="clearfix mT5" style="display:none;">
+								<select name="" id="" class="select fL" style="width: 47%; height: 48px;">
+									<option value="">전체 지역</option>
+								</select>
+
+								<select name="" id="" class="select fR" style="width: 47%; height: 48px;">
+									<option value="">전체 구</option>
+								</select>
+							</div>
+
+							<div class="mT5" style="display:none;">
+								<select name="" id="" class="select" style="height: 48px;">
+									<option value="">전체 학교</option>
+									<option value="">개원중학교</option>
+								</select>
+							</div>
+
+							<div class="clearfix mT5" id="grade_area">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter2_grade" style="width: 47%; height: 48px;" value="2">1학년</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter2_subject" style="width: 47%; height: 48px;" value="MT">수학</button>
+							</div><div class="clearfix mT5" id="period_area" style="display: none;">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter2_year" style="width: 47%; height: 48px;">전체 년도</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter2_term" style="width: 47%; height: 48px;">전체 학기</button>
+							</div>
+
+							<div class="clearfix mT5" style="">
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter2_pub">공통</button>
+							</div>
+
+							
+
+							<div class="clearfix mT5" style="display: none;">
+								<button type="button" class="select-btn" data-src="main" data-act="filter2_fileType">원본형 + 편집용</button>
+							</div>
+
+							<div class="clearfix mT5" style="display: none;">
+								<button type="button" class="select-btn" id="filter2_Chapter" data-src="main" data-act="filter2_Chapter">범위 선택</button>
+							</div>
+
+							<div class="productInput" style="display: none;">
+								<input type="text" id="qry" name="qry">
+								<button type="reset" style="display: none;"><img src="../img/ico_inputDelect.png" width="21" alt="초기화"></button>
+								<button type="button" data-src="main" data-act="search"><img src="../img/ico_search.png" width="17" alt="검색"></button>
+							</div>
+						</div>
+						<!-- 안내영역 0716 -->
+						<div class="txtNotice0716" style="display:none;">
+							<p>고득점마스터는 2021년 7월 22일자로 운영 종료됩니다.<br>과목별/단원별 콘텐츠 및 대단원평가 콘텐츠는<br>학교별맞춤 서비스에서 이용 가능합니다.
+							</p>
+						</div>
+						<!-- // 안내영역 0716 -->
+						<div id="filter_3" class="row" style="display:none;">
+							<div class="clearfix mT5">
+								<button type="button" class="select-btn fL" data-src="main" data-act="filter3_grade" style="width: 47%; height: 48px;" value="2">2학년</button>
+								<button type="button" class="select-btn fR" data-src="main" data-act="filter3_subject" style="width: 47%; height: 48px;" value="MT">수학</button>
+							</div>
+
+							<div class="clearfix mT5">
+								<button type="button" class="select-btn" data-src="main" data-act="filter3_tx">교과서 선택</button>
+							</div>
+
+							<div class="clearfix mT5">
+								<button type="button" class="select-btn" data-src="main" data-act="filter3_chapter">대단원 선택</button>
+							</div>
+
+							<div class="clearfix mT5" style="display:;">
+								<button type="button" class="select-btn" data-src="main" data-act="filter3_sub">상세 컨텐츠 선택</button>
+							</div>
+
+							<div class="productInput" style="display:none;">
+								<input type="text" name="qry" id="qry">
+								<button type="reset"><img src="../img/ico_inputDelect.png" width="21" alt="초기화"></button>
+								<button type="button" data-src="main" data-act="search"><img src="../img/ico_search.png" width="17" alt="검색"></button>
+							</div>
+						</div>
+					</div>
+				</form>
+
+				<!-- 띠배너 추가 -->
+				
+
+<!-- 상단 띠배너 -->
+
+<section class="section-topbanner mtb0" style="background-color: #1c1c1c;display:none;" id="banner_join">
+    <span class="TRACK_TRG" track_cd="8IO5RDJHEFLEK99QNJER5O1CX20250530">
+        <a href="https://sign.zocbo.com/account/default.asp" class="top-ad-golink" data-src="common">
+            <img src="/cloudfront/images/mo/banner/intro_top_join_2507.png" alt="">
+        </a>
+    </span>
+</section>
+
+
+<!-- 5/1 원복 소스코드
+
+<section class="section-topbanner mtb0" >
+    <span class="TRACK_TRG" track_cd="XGLYQVS9H1UBGS86UOCU6CN1J20241113">
+        <a href="#;" class="top-ad-golink" data-src="common" data-act="community_banner"><img src="/cloudfront/images/mo/banner/intro_top_skytabmento_mo.png" alt=""></a>
+    </span>
+</section>
+ -->
+<!--// 상단 띠배너 -->
+				<!-- //띠배너 추가 -->
+
+				<div id="goPnl" style="display:none;">
+					<img id="pnlImg" src="" style="width:100%;display:none;">
+
+					<ul class="tabLine clearfix">
+						<li class="active"><a href="#" data-src="main" data-act="basic">기본학습</a></li>
+						<li><a href="#" data-src="main" data-act="actual">실전적용</a></li>
+					</ul>
+				</div>
+
+				<div class="row" id="row_A">
+					<!-- 학교별 기출족보 안내문구
+					<div class="zocboinfoBox" id="zocboinfoBox">
+						<strong>[학교별 기출족보] 2020 1학기 중간고사 미실시 관련 안내</strong>
+						<p>
+							2020 1학기 중간고사 미실시 학교의 경우, <strong style="text-decoration: underline;">1학기 기말고사 범위에
+							<span>I, II 단원 문제가 포함</span></strong>되어 있습니다. 우리학교 중간고사 기출족보
+							시험지가 검색되지 않을 때는 기말고사 시험지를 확인해 주세요.
+						</p>
+						<div style="margin-top:10px;"></div>
+						<p>* 시험지에 포함된 범위 정보는 PC웹페이지에서만 확인 가능하며 <span style="text-decoration: underline; font-weight: 600;">중2, 중3 국/영/수 일부 파일에 한하여 제공</span>
+						</p>
+					</div>
+					학교별 기출족보 안내문구 -->
+					
+					<!-- 이용권 구매유도팝업 - fix -->
+					<style>		
+						.q_infobox {margin-left:0; position: relative;}
+						.q_infobox .q_infoboxCnt {position:absolute; right:0%; top:10px; z-index:999;}
+						.q_infobox .q_infoboxCnt a {display: block;}
+					</style>
+					<div id="productBuyEventTargetBanner" class="q_infobox" style="display:none;"> 
+						<div class="q_infoboxCnt">
+							<a href="/event/detailpage/default.asp?utm_source=zocbo&amp;utm_medium=MO&amp;utm_campaign=detailpage&amp;utm_content=B">
+								<!-- 랜덤이미지 -->
+								
+								<img src="/cloudfront/images/event/detailpage/pc/rnpay_fixbanner02.png" alt="" style="width: 71px;">
+								
+								<!--// 랜덤이미지 -->
+							</a>
+						</div>
+					</div>
+					<!-- // 이용권 구매유도팝업 -->
+
+					<a class="zocboInfo_FreeReading" id="zocboInfo_FreeReading" href="javascript:;" style="display: none;">학교별 기출 무료 열람실 이용안내</a>
+					<!--<a class="zocboInfo_expectedquestion" id="zocboInfo_expectedquestion" href="javascript:;">학교별 Ai기출유사 서비스 이용안내</a>-->
+					<a class="zocboInfo_W" id="zocboInfo_W" href="javascript:;" style="display: none;">학교별 AI기출변형 이용안내</a>
+					<a class="zocboInfo_V" id="zocboInfo_V" href="javascript:;" style="display: none;">학교별 예상족보 이용안내</a>
+					<a class="zocboInfo_I" id="zocboInfo_I" href="javascript:;" style="display: none;">지역별문제 이용안내</a>
+					<a class="zocboInfo_K3" id="zocboInfo_K3" href="javascript:;">강남 3구 유형공략 이용안내</a>
+
+					<div class="listTop clearfix">
+						<!--<ul class="viewSelect expectedquestion-nav-top clearfix" style="display:none;"> 
+							<li class="active"><a href="#" data-src="main" data-act="listFilter" data-value="A">우리학교<span class="listMnumb" id="ACnt"></span></a></li>
+							<li><a href="#" data-src="main" data-act="listFilter" data-value="B">주변학교<span class="listMnumb" id="BCnt"></span></a></li>
+							<li><a href="#" data-src="main" data-act="listFilter" data-value="C">교육특구<span class="listMnumb" id="CCnt"></span></a></li>
+							<li><a href="#" data-src="main" data-act="listFilter" data-value="D">전국학교<span class="listMnumb" id="DCnt"></span></a></li>
+						</ul>-->
+
+						<ul class="new-tab-freereading" style="display:none;">
+							<li class="active"><a href="#;" data-src="main" data-act="listFilter" data-value="A" style="padding:10% 0 5% 0;">우리학교<span class="listMnumb" id="ACnt"></span></a></li>
+							<!--<li class=""><a href="#;" data-src="main" data-act="listFilter" data-value="B">주변학교<span class="listMnumb" id="BCnt"></span></a></li>
+							<li class=""><a href="#;" data-src="main" data-act="listFilter" data-value="C">교육특구<span class="listMnumb" id="CCnt"></span></a></li>-->
+							<li class=""><a href="#;" data-src="main" data-act="listFilter" data-value="D" style="padding:10% 0 5% 0;">전국학교<span class="listMnumb" id="DCnt"></span></a></li>
+						</ul>
+
+						<div class="new-tab-title" style="display:none;">
+							<span id="top_txt_area"></span>
+						</div>
+
+						<a class="zocboInfo" id="zocboInfo" href="javascript:;" style="display: none;">학교별 기출족보 이용안내</a>
+						<!--AI_250808-->
+						<!--<a class="zocboInfo" id="zocboInfo_expect" href="javascript:;">학교별 Ai기출유사 서비스 이용안내 </a>-->
+						<a class="zocboInfo" id="zocboInfo_expect" href="javascript:;" style="display: none;">학교별 기출유사 서비스 이용안내 </a>
+
+						<p class="bbsNumber mT25 floatnone">총 <b id="recordCount">67</b> 개</p>
+
+						<ul class="bbsList fullTitle mB20" id="div_Img" style="margin-top:30px;text-align:center;display:none;">
+							<input type="hidden" name="part_ID" id="part_ID">
+
+							<li>
+								<div id="div_V" style="padding:5% 0%;max-width:100%;">
+									<img src="/img/ico_schimg_V_V2.png" class="list-sch-go" alt="미리보는 우리학교 시험문제 지금바로 검색해 보세요!">
+								</div>
+
+								<div id="div_FreeReading" class="aiGichool-wrap" style="display:none;">
+									<img src="/cloudfront/images/mo/ico_freereading.png" alt="검색 전 화면" style="width:89px;">
+									<h4>
+										다양한 과목의<br>
+										문제들을 <span>무료로 확인</span>해 보세요!
+									</h4>
+								</div>
+
+								<div id="div_W" class="aiGichool-wrap" style="display:none;">
+									<img src="/cloudfront/images/mo/ico_AIschimg.png" alt="검색 전 화면" style="width:89px;">
+									<h4>
+										똑똑한 AI가 찾아주는<br>
+										<span>학교별 기출 변형문제!</span><br>
+										지금 검색해 보세요.
+									</h4>
+								</div>
+
+								<div id="div_W_Nodata" class="ai-none-result" style="display:none;">
+									<div class="ai-top">
+										<h4>해당 학교는 기출 변형문제를 제공하지 않습니다.</h4>
+									</div>
+									<div class="ai-contents-box">
+										<h4>시험 직전 최종 점검을 위한<br> <strong>직전대비 콘텐츠</strong></h4>
+										<div class="ai-step">
+											<div class="wrap">
+												<div class="box">
+													직전 요약<br>노트
+												</div>
+												<div class="box">
+													시험에 꼭<br>나오는 문제
+												</div>
+												<div class="box">
+													FINAL<br>모의고사
+												</div>
+											</div>
+										</div>
+
+										<div class="ai-contents-btn">
+											<a href="javascript:location.href='/M/?menu=6';" class="btnCom">
+												<span>최종 점검 하러 가기</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</li>
+						</ul>
+
+						<!-- 기출유사 No List -->
+						<ul class="pvmsec fullTitle mB20" style="display:none;">
+							<!-- 우리학교 탭 활성화 시 -->
+							<li class="expect_info" id="info_expect_a" style="display: none;">
+								<div class="nologin-toptxt">
+									<!--AI_250808-->
+									<!--<span id="expect_scl_nameXX">##고등학교</span>의 Ai기출유사 콘텐츠를 준비 중 입니다.-->
+									<span id="expect_scl_nameXX">##고등학교</span>의 기출유사 콘텐츠를 준비 중 입니다.
+								</div>
+
+								<div class="nologin-subtxt">
+									시험 기간 족보닷컴 회원들이<br>
+									<span>가장 많이 이용한  콘텐츠</span>
+								</div>
+								<ul class="nologin-linkgo">
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="expectation">
+											<img src="/img/nologin-expectedquestionimg1.png" alt="학교별 예상 족보">
+										</a>
+									</li>
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="frequent">
+											<img src="/img/nologin-expectedquestionimg2.png" alt="최다 빈출·오답 문제">
+										</a>
+									</li>
+								</ul>
+							</li>
+							<!-- //우리학교 탭 활성화 시 -->
+
+							<!-- 주변학교 탭 활성화 시 -->
+							<li class="expect_info" id="info_expect_b" style="display: none;">
+								<div class="nologin-toptxt">
+									동일 출판사 교과서를 사용하는<br>
+									<span>주변학교</span>의 콘텐츠를 준비 중 입니다.
+								</div>
+
+								<div class="nologin-subtxt">
+									시험 기간 족보닷컴 회원들이<br>
+									<span>가장 많이 이용한  콘텐츠</span>
+								</div>
+								<ul class="nologin-linkgo">
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="expectation">
+											<img src="/img/nologin-expectedquestionimg1.png" alt="학교별 예상 족보">
+										</a>
+									</li>
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="frequent">
+											<img src="/img/nologin-expectedquestionimg2.png" alt="최다 빈출·오답 문제">
+										</a>
+									</li>
+								</ul>
+							</li>
+							<!-- //주변학교 탭 활성화 시 -->
+
+							<!-- 교육특구 탭 활성화 시 -->
+							<li class="expect_info" id="info_expect_c" style="display: none;">
+								<div class="nologin-toptxt">
+									동일 출판사 교과서를 사용하는<br>
+									<span>교육특구</span>의 콘텐츠를 준비 중 입니다.
+								</div>
+
+								<div class="nologin-subtxt">
+									시험 기간 족보닷컴 회원들이<br>
+									<span>가장 많이 이용한  콘텐츠</span>
+								</div>
+								<ul class="nologin-linkgo">
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="expectation">
+											<img src="/img/nologin-expectedquestionimg1.png" alt="학교별 예상 족보">
+										</a>
+									</li>
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="frequent">
+											<img src="/img/nologin-expectedquestionimg2.png" alt="최다 빈출·오답 문제">
+										</a>
+									</li>
+								</ul>
+							</li>
+							<!-- //교육특구 탭 활성화 시 -->
+
+							<!-- 전국학교 탭 활성화 시 -->
+							<li class="expect_info" id="info_expect_d" style="display: none;">
+								<div class="nologin-toptxt">
+									동일 출판사 교과서를 사용하는<br>
+									<span>전국학교</span>의 콘텐츠를 준비 중 입니다.
+								</div>
+
+								<div class="nologin-subtxt">
+									시험 기간 족보닷컴 회원들이<br>
+									<span>가장 많이 이용한  콘텐츠</span>
+								</div>
+								<ul class="nologin-linkgo">
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="expectation">
+											<img src="/img/nologin-expectedquestionimg1.png" alt="학교별 예상 족보">
+										</a>
+									</li>
+									<li>
+										<a href="#;" data-src="main" data-act="banner_click" data-value="frequent">
+											<img src="/img/nologin-expectedquestionimg2.png" alt="최다 빈출·오답 문제">
+										</a>
+									</li>
+								</ul>
+							</li>
+							<!-- //전국학교 탭 활성화 시 -->
+						</ul>
+						<!-- // 기출유사 No List -->
+					</div>
+
+					<ul id="list_A" class="bbsList fullTitle mB20"><li data-no="16021799" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 7-1.자료의 정리와 해석(05) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 기말</span></p><p class="title"><span>[강남 3구 유형공략] 7-1.자료의 정리와 해석(05) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="16021798" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 7-1.자료의 정리와 해석(04) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 기말</span></p><p class="title"><span>[강남 3구 유형공략] 7-1.자료의 정리와 해석(04) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="16021797" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 7-1.자료의 정리와 해석(03) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 기말</span></p><p class="title"><span>[강남 3구 유형공략] 7-1.자료의 정리와 해석(03) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="16021796" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 7-1.자료의 정리와 해석(02) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 기말</span></p><p class="title"><span>[강남 3구 유형공략] 7-1.자료의 정리와 해석(02) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="16021795" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 7-1.자료의 정리와 해석(01) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 기말</span></p><p class="title"><span>[강남 3구 유형공략] 7-1.자료의 정리와 해석(01) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705870" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-2.입체도형의 성질(05) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-2.입체도형의 성질(05) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705869" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-2.입체도형의 성질(04) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-2.입체도형의 성질(04) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705868" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-2.입체도형의 성질(03) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-2.입체도형의 성질(03) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705867" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-2.입체도형의 성질(02) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-2.입체도형의 성질(02) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705866" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-2.입체도형의 성질(01) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-2.입체도형의 성질(01) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705865" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-1.평면도형의 성질(05) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-1.평면도형의 성질(05) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705864" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-1.평면도형의 성질(04) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-1.평면도형의 성질(04) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705863" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-1.평면도형의 성질(03) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-1.평면도형의 성질(03) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705862" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-1.평면도형의 성질(02) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-1.평면도형의 성질(02) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705861" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 6-1.평면도형의 성질(01) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 6-1.평면도형의 성질(01) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705860" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 5-2.작도와 합동(02) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 5-2.작도와 합동(02) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705859" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 5-2.작도와 합동(01) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 5-2.작도와 합동(01) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705821" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 5-1.기본도형(03) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 5-1.기본도형(03) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705820" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 5-1.기본도형(02) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 5-1.기본도형(02) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li><li data-no="15705819" data-siteid="M" data-group="K" data-grade="1" data-subjcode="MT" data-coretype="D" data-tx="MAMTCHA1001" data-year="2026" data-formats="2" data-title="[강남 3구 유형공략] 5-1.기본도형(01) [25문제]"><p class="tag"><span>2026년 대비</span><span>2학기 중간</span></p><p class="title"><span>[강남 3구 유형공략] 5-1.기본도형(01) [25문제]</span></p><p class="hash"><span>#중1</span><span>#수학</span><span>#기타</span></p><p class="downLink"><a href="#" data-src="main" data-act="item_down"><em>다운로드</em><em>닫기</em><span class="down"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="7" viewBox="0 0 9 7"><path id="triangle" data-name="triangle" d="M3.659,1.308a1,1,0,0,1,1.682,0L8.01,5.459A1,1,0,0,1,7.168,7H1.832A1,1,0,0,1,.99,5.459Z"></path></svg></span></a></p><p class="listMenu"><button type="button" data-src="main" data-act="errorPopup"><img src="/img/ico_menu.png" width="34"></button></p></li></ul>
+
+					<div class="nologin-view" style="display:none;">
+						<div class="toptxt">
+							<span id="expect_scl_name"></span>
+						</div>
+
+						<div class="nologin-linkgo-area">
+							<div class="item">
+								<a href="#;" data-src="main" data-act="banner_click" data-value="exam_V">
+									<img src="/cloudfront/images/mo/freetrial/nologin-viewimg1.png" alt="학교별 예상 족보">
+								</a>
+							</div>
+
+							<div class="item">
+								<a href="#;" data-src="main" data-act="banner_click" data-value="exam_HD">
+									<img src="/cloudfront/images/mo/freetrial/nologin-viewimg2.png" alt="실전대비">
+								</a>
+							</div>
+
+							<div class="item">
+								<a href="#;" data-src="main" data-act="banner_click" data-value="exam_C">
+									<img src="/cloudfront/images/mo/freetrial/nologin-viewimg3.png" alt="수준별 학습">
+								</a>
+							</div>
+						</div>
+					</div>	
+				<!-- //contents -->
+				</div>
+				
+				<div class="row2" id="row_B" style="display:none;">
+					<a class="zocboInfo_HD" id="zocboInfo_HD" href="javascript:;" style="display: none;">최다빈출문제 이용안내</a>
+					<a class="zocboInfo_HE" id="zocboInfo_HE" href="javascript:;" style="display: none;">최다오답문제 이용안내</a>
+
+					<div class="listTop bg-white B20 clearfix">
+						 <div class="row">
+							 <p class="bbsNumber">총 <b>0</b> 개</p>
+							 <p class="fR arcodian">
+								 <!-- data-src="main" data-act="fold_top" -->
+								 <input type="radio" name="fold" id="fold1" class="check" checked="" onclick="return false"><label data-src="main" data-act="fold_top" for="fold1">전체펼치기</label>
+								 <input type="radio" name="fold" id="fold2" class="check" onclick="return false"><label data-src="main" data-act="fold_top" for="fold2" class="mL20">전체접기</label>
+							 </p>
+						 </div>
+					 </div>
+
+					 <a class="zocboInfo_B" id="zocboInfo_B" href="javascript:;" style="display: none;">FINAL 모의고사 이용안내</a>
+				</div>
+
+				<div class="row2" id="row_C" style="display:none;">
+					<div class="listTop bg-white B20 clearfix">
+						 <div class="row">
+							 <p class="bbsNumber">총 <b>0</b> 개</p>
+							 <p class="fR arcodian">
+								 <input type="radio" name="fold2" id="fold3" class="check" checked="" onclick="return false;"><label for="fold3" data-src="main" data-act="fold_top">전체펼치기</label>
+								 <input type="radio" name="fold2" id="fold4" class="check" onclick="return false;"><label for="fold4" class="mL20" data-src="main" data-act="fold_top">전체접기</label>
+							 </p>
+						 </div>
+					 </div>
+
+					 <div class="block_list ">
+						 <p class="titleLine">1.표현의 즐거움 <button type="button" class="toggle">접기/펼치기</button></p>
+						 <div class="productBlock row" style="display: none;">
+						 </div>
+					 </div>
+				</div>
+			</div>
+
+			<!-- 직전대비 페이지 dim 처리 -->
+			<!--<div class="prepdim" style="display:none;z-index:50;height:79%;" id="pre_Area">-->
+			<div class="prepdim" style="display:none;z-index:50;height:84.5%;" id="pre_Area">
+				<div class="prep-dimtxt">
+					<p>곧 다시 만나요😍</p>
+					<p class="prepdim-desc">
+						<span id="exam_midend">2026년 1학기 기말고사</span><br>
+						<span id="exam_type">직전대비는</span><br>
+						<span id="exam_date">6월 4일</span> 오픈 예정입니다.
+					</p>
+				</div>
+			</div>
+			<!-- //직전대비 페이지 dim 처리 -->	
+		</div>

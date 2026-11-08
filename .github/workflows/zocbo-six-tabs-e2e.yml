@@ -1,0 +1,48 @@
+name: HITEL six original mobile tabs and thirteen submode browser E2E
+on:
+  push:
+    branches: [feature/zocbo-all-six-menus-source-20261108]
+    paths:
+      - public/zocbo-original-data/**
+      - public/zocbo-all-menus.js
+      - tools/zocbo/test_all_six_menus.py
+      - .github/workflows/zocbo-six-tabs-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-mobile-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check JS and install Playwright
+        run: |
+          node --check server.mjs
+          node --check public/zocbo-all-menus.js
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Start source-backed integrated HITEL
+        run: |
+          node server.mjs > zocbo-six-tab-server.log 2>&1 &
+          for i in $(seq 1 35); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: Assert source counts, tabs, submodes, actual original exam IDs and mobile navigation
+        run: python tools/zocbo/test_all_six_menus.py
+      - name: Upload real user-visible screenshots and JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-six-original-menu-mobile-qa
+          path: zocbo-six-menu-e2e/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Upload server error log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: six-tabs-debug-log
+          path: zocbo-six-tab-server.log
+          retention-days: 3
