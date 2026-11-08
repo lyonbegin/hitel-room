@@ -185,6 +185,19 @@ async function serveZocboOriginalFiltered(url,send,isDefault=false){
  if(cached&&Date.now()-cached.at<120000){send(200,'application/json; charset=utf-8',cached.json);return}
  const requests=(captured.originalPublicRequests||[]).filter(x=>x&&x.form&&
   ['/exam/ajax/getMenuByExamSearchAjax.asp','/exam/ajax/getMenuByExamPartAjax.asp'].includes(x.path));
+ // Source capture can finish before the second asynchronous original AJAX runs.
+ // The complementary search request is the same verified mobile filter form
+ // with the original public search-specific fields, never invented exam rows.
+ if(!requests.some(r=>r.path.includes('getMenuByExamSearchAjax'))){
+  const part=requests.find(r=>r.path.includes('getMenuByExamPartAjax'));
+  if(part){
+   const form=new URLSearchParams(part.form);
+   form.delete('is_scroll');
+   form.set('is_part','1');form.set('expapr_servicetype','2');
+   if(!form.has('step_cd'))form.set('step_cd','');
+   requests.push({path:'/exam/ajax/getMenuByExamSearchAjax.asp',form:form.toString()});
+  }
+ }
  if(!requests.length){send(422,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_REQUEST_TEMPLATE_MISSING'}));return}
  const field=key==='SEARCH_TX_CD'?'tx_cd':key==='SEARCH_LEVEL_CD'?'level_cd':'step_cd';
  try{
