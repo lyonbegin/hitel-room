@@ -13,6 +13,10 @@
     groupTaskDetail:'그룹 과제'
   };
   const clone=x=>JSON.parse(JSON.stringify(x));
+  const instituteTypeName=type=>type==='academy'?'학원':'학교';
+  const institutionName=g=>g.institutionName||g.school||'';
+  const institutionLine=g=>instituteTypeName(g.institutionType)+' · '+(institutionName(g)||'기관 미지정')+' · '+(g.grade||'학년 미지정');
+  const subjectsLabel=g=>[g.subject||'과목 자유 선택',g.topics||''].filter(Boolean).join(' · ');
   const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dateStr=(d=new Date())=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
   const newId=(p)=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
@@ -33,8 +37,8 @@
     return {
       version:1,
       groups:[
-        {id:'demo-five',name:'집중 공부방 (예시)',school:'',subject:'수학',members:['나','학습자 2','학습자 3','학습자 4','학습자 5'],example:true},
-        {id:'my-study',name:'내 스터디',school:'',subject:'자율 학습',members:['나'],example:false}
+        {id:'demo-five',name:'집중 공부방 (예시)',school:'',institutionType:'school',institutionName:'',grade:'',subject:'수학',topics:'',members:['나','학습자 2','학습자 3','학습자 4','학습자 5'],example:true},
+        {id:'my-study',name:'내 스터디',school:'',institutionType:'school',institutionName:'',grade:'',subject:'자율 학습',topics:'',members:['나'],example:false}
       ],
       activeGroupId:'demo-five',activeSessionId:'session-example',activePaperId:'',
       sessions:[{id:'session-example',groupId:'demo-five',title:'수학 공동학습 (예시)',date:day,start:'19:00',end:'20:30',repeat:'매주',attendees:['나','학습자 2','학습자 3','학습자 4'],paperIds:[],example:true}],
@@ -49,6 +53,13 @@
     return fresh();
   }
   let model=getModel();
+  // Previous groups remain intact; missing institution metadata stays explicitly unset.
+  model.groups.forEach(g=>{
+    if(!['school','academy'].includes(g.institutionType))g.institutionType='school';
+    if(!g.institutionName)g.institutionName=g.school||'';
+    if(typeof g.grade!=='string')g.grade='';
+    if(typeof g.topics!=='string')g.topics='';
+  });
   function save(){try{localStorage.setItem(KEY,JSON.stringify(model));}catch(err){console.warn('HITEL browser-only storage unavailable',err);}}
   function getGroup(id=model.activeGroupId){return model.groups.find(x=>x.id===id)||model.groups[0];}
   function getSession(id=model.activeSessionId){return model.sessions.find(x=>x.id===id)||null;}
@@ -74,8 +85,8 @@
   }
   function groupCard(g){
     const sessions=sessionsFor(g.id);
-    return '<div class="wp-group-card"><div class="wp-line"><div>'+
-      '<strong>'+esc(g.name)+'</strong><small>'+esc(g.subject||'자율 학습')+' · '+g.members.length+'/5명'+(g.example?' · 예시 그룹':'')+'</small>'+
+    return '<div class="wp-group-card" data-group-id="'+esc(g.id)+'"><div class="wp-line"><div>'+
+      '<strong>'+esc(g.name)+'</strong><small>'+esc(institutionLine(g))+' · '+g.members.length+'/5명'+(g.example?' · 예시 그룹':'')+'</small><small>'+esc(subjectsLabel(g))+'</small>'+
       '</div>'+act('선택','chooseGroup',g.id,(g.id===model.activeGroupId?'wp-primary':''))+'</div>'+
       (sessions.length?'<small class="wp-muted">예정된 일정: '+esc(sessions[0].title)+' · '+esc(sessions[0].date)+'</small>':'<small class="wp-muted">아직 등록된 일정이 없습니다.</small>')+
       '</div>';
@@ -85,27 +96,71 @@
     const next=upcoming(g.id);
     return block(groupChoice()+
       '<div class="wp-featured"><div class="wp-feature-top"><strong>'+esc(g.name)+'</strong>'+chip(g.members.length+'/5명')+'</div>'+
-      '<div class="wp-muted">'+esc(g.subject||'자율 학습')+' · '+(g.example?'구성 예시':'내 그룹')+'</div>'+
+      '<div class="wp-muted">'+esc(institutionLine(g))+' · '+esc(subjectsLabel(g))+' · '+(g.example?'구성 예시':'내 그룹')+'</div>'+
       (next?'<div class="wp-next"><strong>다음 공동학습</strong><span>'+esc(next.date)+' '+esc(next.start)+' · '+esc(next.title)+'</span></div>':muted('그룹 일정이 없습니다.'))+
       rowbuttons([navi('그룹 상세','groupDetail'),next?act('공부방','enterSession',next.id,'wp-primary'):navi('일정 만들기','calendarAdd','wp-primary')])+
       '</div>','wp-overview');
   }
+  function institutionFields(g){
+    const type=g?.institutionType||'school';
+    return options('institutionType','기관 유형',[['school','학교'],['academy','학원']],type)+
+      input('institutionName','학교·학원 이름','text',institutionName(g||{}),'예: 등촌고등학교 또는 ○○학원')+
+      input('grade','학년','text',g?.grade||'','예: 초5, 중2, 고2, 2학년')+
+      input('subject','학습 과목 (여러 과목 가능)','text',g?.subject||'','예: 국어, 영어, 수학')+
+      input('topics','특정 단원·학습 범위 (선택)','text',g?.topics||'','예: 미적분, 수열, 기말고사 범위');
+  }
   function groupsPage(){
-    return groupChoice()+title('참여 그룹','1명도 정상적인 스터디그룹으로 운영합니다.')+
-      model.groups.map(groupCard).join('')+
-      rowbuttons([navi('그룹 만들기','groupCreate','wp-primary'),navi('선택 그룹 보기','groupDetail')])+
-      title('그룹별 공유 범위')+
-      block(muted('그룹 자료·할 일·일정은 선택한 그룹을 기준으로 표시됩니다. 개인 비공개 일정과 자료는 그룹원에게 자동으로 공개되지 않습니다.'))+
+    const type=state.wpInstitutionFilterType||'all';
+    return groupChoice()+title('스터디그룹 찾기','학교·학년 또는 학원·학년으로 구분합니다.')+
+      '<div class="wp-panel wp-institution-filter" aria-label="스터디그룹 기관별 검색">'+
+      '<div class="wp-fields-two">'+
+      options('wpTypeFilter','기관 유형',[['all','학교 + 학원'],['school','학교'],['academy','학원']],type)+
+      options('wpGradeFilter','학년',[['all','전체'],['초1','초1'],['초2','초2'],['초3','초3'],['초4','초4'],['초5','초5'],['초6','초6'],['중1','중1'],['중2','중2'],['중3','중3'],['고1','고1'],['고2','고2'],['고3','고3'],['2학년','2학년']],state.wpInstitutionFilterGrade||'all')+
+      '</div>'+input('wpNameFilter','학교·학원 이름 검색','text',state.wpInstitutionFilterName||'','학교명 또는 학원명')+
+      '</div>'+
+      title('참여 중인 스터디그룹','같은 기관·학년에 여러 개 생성할 수 있습니다.')+
+      '<div id="wp-filtered-groups">'+model.groups.map(groupCard).join('')+'</div>'+
+      '<p id="wp-empty-groups" class="wp-muted" hidden>조건에 맞는 스터디그룹이 없습니다.</p>'+
+      rowbuttons([navi('스터디그룹 만들기','groupCreate','wp-primary'),navi('선택 그룹 보기','groupDetail')])+
+      title('그룹별 학습 범위')+
+      block(muted('학교·학년 또는 학원·학년은 그룹의 기준입니다. 과목은 한 가지·여러 가지·특정 단원으로 자유롭게 정하고 운영 중 수정할 수 있습니다.'))+
       localHint;
   }
   function groupCreatePage(){
-    return title('새 그룹 만들기','그룹원 1명으로 시작할 수 있습니다.')+
+    return title('새 스터디그룹 만들기','학교·학년 / 학원·학년 중 선택하여 만듭니다.')+
       '<form id="wp-create-group" class="wp-panel wp-form">'+
-      input('name','그룹 이름','text','','예: 1학년 수학 스터디')+
-      input('school','학교','text','','선택 입력')+
-      input('subject','과목·학습 주제','text','','예: 영어')+
-      '<div class="wp-field"><span>최대 구성원</span><div>5명 · 최초 구성원은 나 1명</div></div>'+
-      '<button type="submit" class="wp-btn wp-primary">그룹 생성</button></form>'+localHint;
+      institutionFields(null)+
+      input('name','스터디그룹 이름','text','','예: 미적분 집중 스터디')+
+      '<div class="wp-field"><span>최대 구성원</span><div>최대 5명 · 최초 구성원은 나 1명</div></div>'+
+      '<button type="submit" class="wp-btn wp-primary">스터디그룹 생성</button></form>'+
+      muted('동일한 기관·학년에 여러 스터디그룹을 만들 수 있습니다.')+localHint;
+  }
+  function groupSettingsPage(){
+    const g=getGroup();
+    return groupChoice()+title('스터디그룹 설정','학교·학원·학년 및 과목·범위 수정')+
+      '<form id="wp-edit-group" class="wp-panel wp-form">'+
+      institutionFields(g)+input('name','스터디그룹 이름','text',g.name)+
+      '<div class="wp-actions"><button class="wp-btn wp-primary" type="submit">변경 내용 저장</button>'+navi('취소','groupDetail')+'</div></form>'+
+      title('기존 스터디그룹 기능')+
+      rowbuttons([navi('구성원 관리','groupMembers'),navi('그룹 공지','groupNotice')])+
+      muted('기관 또는 과목을 변경해도 기존 그룹 ID와 자료·미션·일정·할 일·대화 기록은 그대로 유지됩니다.')+
+      localHint;
+  }
+  function applyInstitutionFilter(){
+    const root=document.querySelector('#phone #wp-filtered-groups');if(!root)return;
+    const kind=state.wpInstitutionFilterType||'all';
+    const grade=(state.wpInstitutionFilterGrade||'all').trim();
+    const name=(state.wpInstitutionFilterName||'').trim().toLowerCase();
+    let visible=0;
+    root.querySelectorAll('.wp-group-card').forEach(el=>{
+      const g=model.groups.find(x=>x.id===el.dataset.groupId);
+      const show=!!g && (kind==='all'||g.institutionType===kind) &&
+        (grade==='all'||(g.grade||'').trim()===grade) &&
+        (!name||institutionName(g).toLowerCase().includes(name));
+      el.hidden=!show;if(show)visible++;
+    });
+    const empty=document.querySelector('#phone #wp-empty-groups');
+    if(empty)empty.hidden=visible>0;
   }
   function groupDetailPage(){
     const g=getGroup();if(!g)return groupsPage();
@@ -141,7 +196,7 @@
         rowbuttons([navi('구성원 관리','groupMembers','wp-primary'),navi('그룹 메시지','groupMessages')]);
     }
     return groupChoice()+
-      '<section class="wp-group-hero"><strong>'+esc(g.name)+'</strong><p>'+esc(g.school||'학교 미지정')+' · '+esc(g.subject||'자율 학습')+' · '+g.members.length+'/5명</p>'+
+      '<section class="wp-group-hero"><strong>'+esc(g.name)+'</strong><p>'+esc(institutionLine(g))+' · '+g.members.length+'/5명</p><p>'+esc(subjectsLabel(g))+'</p>'+
       '<div class="wp-mini-metrics"><span>참여 '+g.members.length+'명</span><span>일정 '+sessionsFor(g.id).length+'개</span><span>할 일 '+tasksFor(g.id).length+'개</span></div></section>'+
       '<nav class="wp-tabs" aria-label="그룹 내부 메뉴">'+tabs.map(([id,label])=>act(label,'groupTab',id,id===tab?'wp-active':'')).join('')+'</nav>'+
       '<section class="wp-tab-content">'+body+'</section>'+
@@ -325,6 +380,7 @@
     if(id==='groups'||id==='groupSearch')return groupsPage();
     if(id==='groupCreate')return groupCreatePage();
     if(id==='groupDetail')return groupDetailPage();
+    if(id==='groupSettings')return groupSettingsPage();
     if(id==='groupMembers'||id==='groupMemberSettings')return membersPage();
     if(id==='groupMessages')return messagesPage();
     if(id==='groupMaterials')return materialsPage();
@@ -359,7 +415,7 @@
   }
   go=function(id){priorGo(id);contextUrl();};
   back=function(){priorBack();contextUrl();};
-  render=function(){priorRender();decorateBank();prepareCanvas();};
+  render=function(){priorRender();decorateBank();prepareCanvas();applyInstitutionFilter();};
   const args=new URLSearchParams(location.search);
   if(args.get('group')&&getGroup(args.get('group')))model.activeGroupId=args.get('group');
   if(args.get('session')&&getSession(args.get('session')))model.activeSessionId=args.get('session');
@@ -503,7 +559,15 @@
     const el=ev.target.closest('button[data-wp]');if(!el)return;
     ev.preventDefault();ev.stopPropagation();handle(el.dataset.wp,el.dataset.value||'',el);
   },true);
+  document.addEventListener('input',ev=>{
+    if(ev.target.matches('#phone #wp-filtered-groups'))return;
+    if(ev.target.name==='wpNameFilter'){
+      state.wpInstitutionFilterName=ev.target.value;applyInstitutionFilter();
+    }
+  });
   document.addEventListener('change',ev=>{
+    if(ev.target.name==='wpTypeFilter'){state.wpInstitutionFilterType=ev.target.value;applyInstitutionFilter();return;}
+    if(ev.target.name==='wpGradeFilter'){state.wpInstitutionFilterGrade=ev.target.value;applyInstitutionFilter();return;}
     if(ev.target.id==='wp-group-switch'){
       const val=ev.target.value;if(!getGroup(val))return;
       model.activeGroupId=val;save();state.wpGroupTab='schedule';contextUrl();render();return;
@@ -513,12 +577,23 @@
     const form=ev.target;if(!form.id?.startsWith('wp-'))return;
     ev.preventDefault();
     const d=Object.fromEntries(new FormData(form).entries());
-    if(form.id==='wp-create-group'){
-      const name=(d.name||'').trim();
-      if(!name){toastWp('그룹 이름을 입력해 주세요.');return;}
-      const id=newId('group');
-      model.groups.push({id,name,school:(d.school||'').trim(),subject:(d.subject||'자율 학습').trim(),members:['나'],example:false});
-      model.activeGroupId=id;save();state.wpGroupTab='schedule';go('groupDetail');return;
+    if(form.id==='wp-create-group'||form.id==='wp-edit-group'){
+      const name=(d.name||'').trim(),institute=(d.institutionName||'').trim(),grade=(d.grade||'').trim();
+      const type=d.institutionType==='academy'?'academy':'school';
+      if(!institute){toastWp(instituteTypeName(type)+' 이름을 입력해 주십시오.');return;}
+      if(!grade){toastWp('학년을 입력해 주십시오.');return;}
+      if(!name){toastWp('스터디그룹 이름을 입력해 주십시오.');return;}
+      if(form.id==='wp-create-group'){
+        const id=newId('group');
+        model.groups.push({id,name,institutionType:type,institutionName:institute,school:type==='school'?institute:'',
+          grade,subject:(d.subject||'').trim(),topics:(d.topics||'').trim(),members:['나'],example:false});
+        model.activeGroupId=id;
+      }else{
+        const group=getGroup();if(!group)return;
+        Object.assign(group,{name,institutionType:type,institutionName:institute,school:type==='school'?institute:'',
+          grade,subject:(d.subject||'').trim(),topics:(d.topics||'').trim()});
+      }
+      save();state.wpGroupTab='schedule';go('groupDetail');return;
     }
     if(form.id==='wp-session-form'){
       const title=(d.title||'').trim();
