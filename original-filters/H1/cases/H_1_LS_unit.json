@@ -1,0 +1,270 @@
+{
+  "case": "H_1_LS_unit",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=LS&grade=1",
+  "filters": [
+    {
+      "name": "고1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '고2·3');\">\n        <span class=\"check__text\">고2·3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": " 중간\n기본\n3-2. 합리적 선택과 시장 참여자의 역할과 책임\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n3-3.자산 관리와 의사 결정\n🔥2학기 중간\n기본\n3-3. 자산 관리와 의사 결정\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n15회\n16회\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\n기본\n3-4. 국제 무역과 지속가능발전\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-1. 세계화의 다양한 양상과 문제\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n4-2.평화 실현을 위한 국제 사회의 노력\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-2. 평화 실현을 위한 국제 사회의 노력\n01회\n02회\n03회\n04회\n05회\n06회\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-3. 남북 분단 및 동아시아의 역사 갈등과 세계 평화\n01회\n02회\n03회\n04회\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-1. 세계의 인구 문제와 해결 방안\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n5-2.에너지 자원과 지속가능한 발전\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-2. 에너지 자원과 지속가능한 발전\n01회\n02회\n03회\n04회\n05회\n06회\n5-3.미래 사회와 세계시민으로서 나의 삶\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-3. 미래 사회와 세계시민으로서 나의 삶\n01회\n02회\n03회\n04회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1\n고2·3"
+    },
+    {
+      "name": "통합사회",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '공통국어');\">\n        <span class=\"check__text\">공통국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '공통영어');\">\n        <span class=\"check__text\">공통영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '공통수학');\">\n        <span class=\"check__text\">공통수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '통합과학');\">\n        <span class=\"check__text\">통합과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '통합사회');\">\n        <span class=\"check__text\">통합사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "의 역할과 책임\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n3-3.자산 관리와 의사 결정\n🔥2학기 중간\n기본\n3-3. 자산 관리와 의사 결정\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n15회\n16회\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\n기본\n3-4. 국제 무역과 지속가능발전\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-1. 세계화의 다양한 양상과 문제\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n4-2.평화 실현을 위한 국제 사회의 노력\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-2. 평화 실현을 위한 국제 사회의 노력\n01회\n02회\n03회\n04회\n05회\n06회\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-3. 남북 분단 및 동아시아의 역사 갈등과 세계 평화\n01회\n02회\n03회\n04회\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-1. 세계의 인구 문제와 해결 방안\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n5-2.에너지 자원과 지속가능한 발전\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-2. 에너지 자원과 지속가능한 발전\n01회\n02회\n03회\n04회\n05회\n06회\n5-3.미래 사회와 세계시민으로서 나의 삶\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-3. 미래 사회와 세계시민으로서 나의 삶\n01회\n02회\n03회\n04회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n공통국어\n공통영어\n공통수학\n통합과학\n통합사회\n한국사\n기술가정"
+    },
+    {
+      "name": "공통",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA1001', '공통');\">\n        <span class=\"check__text\">공통</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "�2학기 중간\n기본\n3-2. 합리적 선택과 시장 참여자의 역할과 책임\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n3-3.자산 관리와 의사 결정\n🔥2학기 중간\n기본\n3-3. 자산 관리와 의사 결정\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n15회\n16회\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\n기본\n3-4. 국제 무역과 지속가능발전\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-1. 세계화의 다양한 양상과 문제\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n4-2.평화 실현을 위한 국제 사회의 노력\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-2. 평화 실현을 위한 국제 사회의 노력\n01회\n02회\n03회\n04회\n05회\n06회\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-3. 남북 분단 및 동아시아의 역사 갈등과 세계 평화\n01회\n02회\n03회\n04회\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-1. 세계의 인구 문제와 해결 방안\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n5-2.에너지 자원과 지속가능한 발전\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-2. 에너지 자원과 지속가능한 발전\n01회\n02회\n03회\n04회\n05회\n06회\n5-3.미래 사회와 세계시민으로서 나의 삶\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-3. 미래 사회와 세계시민으로서 나의 삶\n01회\n02회\n03회\n04회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n공통"
+    },
+    {
+      "name": "기본",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_LEVEL_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_LEVEL_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "기본",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기본",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "발전",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "발전",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">난이도</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_LEVEL_CD', '2', '기본');\">\n        <span class=\"check__text\">기본</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_LEVEL_CD', '3', '발전');\">\n        <span class=\"check__text\">발전</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "기 중간\n기본\n3-2. 합리적 선택과 시장 참여자의 역할과 책임\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n3-3.자산 관리와 의사 결정\n🔥2학기 중간\n기본\n3-3. 자산 관리와 의사 결정\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n14회\n15회\n16회\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\n기본\n3-4. 국제 무역과 지속가능발전\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-1. 세계화의 다양한 양상과 문제\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n4-2.평화 실현을 위한 국제 사회의 노력\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-2. 평화 실현을 위한 국제 사회의 노력\n01회\n02회\n03회\n04회\n05회\n06회\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n2학기 기말 🔥\n🔥2학기 기말\n기본\n4-3. 남북 분단 및 동아시아의 역사 갈등과 세계 평화\n01회\n02회\n03회\n04회\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-1. 세계의 인구 문제와 해결 방안\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n5-2.에너지 자원과 지속가능한 발전\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-2. 에너지 자원과 지속가능한 발전\n01회\n02회\n03회\n04회\n05회\n06회\n5-3.미래 사회와 세계시민으로서 나의 삶\n2학기 기말 🔥\n🔥2학기 기말\n기본\n5-3. 미래 사회와 세계시민으로서 나의 삶\n01회\n02회\n03회\n04회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n난이도\n기본\n발전"
+    }
+  ]
+}

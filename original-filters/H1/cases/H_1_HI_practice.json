@@ -1,0 +1,222 @@
+{
+  "case": "H_1_HI_practice",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=HI&grade=1",
+  "filters": [
+    {
+      "name": "고1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '고2·3');\">\n        <span class=\"check__text\">고2·3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "회\n03회\n1.일제 식민 통치와 민족 운동\n1-1.제국주의 질서와 일제의 식민 통치 정책\n🔥2학기 중간\n1-1. 제국주의 질서와 일제의 식민 통치 정책\n01회\n02회\n03회\n1-2.3`1운동과 대한민국 임시 정부\n🔥2학기 중간\n1-2. 3`1운동과 대한민국 임시 정부\n01회\n02회\n03회\n1-3.민족 운동의 전개와 분화\n🔥2학기 중간\n1-3. 민족 운동의 전개와 분화\n01회\n02회\n03회\n1-4.사회·문화의 변화와 대중 운동\n🔥2학기 중간\n1-4. 사회·문화의 변화와 대중 운동\n01회\n02회\n03회\n1-5.독립 국가 건설 노력\n🔥2학기 중간\n1-5. 독립 국가 건설 노력\n01회\n02회\n03회\n2.대한민국의 발전\n2학기 기말 🔥\n2-1.냉전 체제와 대한민국 정부 수립\n2학기 기말 🔥\n🔥2학기 중간\n2-1. 냉전 체제와 대한민국 정부 수립\n01회\n02회\n03회\n2-2.6·25 전쟁과 남북 분단의 고착화\n2학기 기말 🔥\n🔥2학기 중간\n2-2. 6·25 전쟁과 남북 분단의 고착화\n01회\n02회\n03회\n2-3.민주화를 위한 노력\n2학기 기말 🔥\n🔥2학기 중간\n2-3. 민주화를 위한 노력\n01회\n02회\n03회\n2-4.산업화의 성과와 사회·문화의 변화\n2학기 기말 🔥\n🔥2학기 중간\n2-4. 산업화의 성과와 사회·문화의 변화\n01회\n02회\n03회\n3.오늘날의 대한민국\n2학기 기말 🔥\n3-1.6월 민주 항쟁 이후 민주화 과정\n2학기 기말 🔥\n🔥2학기 기말\n3-1. 6월 민주 항쟁 이후 민주화 과정\n01회\n02회\n3-2.외환 위기 극복과 사회·문화 변동\n2학기 기말 🔥\n🔥2학기 기말\n3-2. 외환 위기 극복과 사회·문화 변동\n01회\n02회\n3-3.한반도 분단 극복과 동아시아 평화를 위한 노력\n2학기 기말 🔥\n🔥2학기 기말\n3-3. 한반도 분단 극복과 동아시아 평화를 위한 노력\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1\n고2·3"
+    },
+    {
+      "name": "한국사",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '공통국어');\">\n        <span class=\"check__text\">공통국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '공통영어');\">\n        <span class=\"check__text\">공통영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '공통수학');\">\n        <span class=\"check__text\">공통수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '통합과학');\">\n        <span class=\"check__text\">통합과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '통합사회');\">\n        <span class=\"check__text\">통합사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "1.제국주의 질서와 일제의 식민 통치 정책\n🔥2학기 중간\n1-1. 제국주의 질서와 일제의 식민 통치 정책\n01회\n02회\n03회\n1-2.3`1운동과 대한민국 임시 정부\n🔥2학기 중간\n1-2. 3`1운동과 대한민국 임시 정부\n01회\n02회\n03회\n1-3.민족 운동의 전개와 분화\n🔥2학기 중간\n1-3. 민족 운동의 전개와 분화\n01회\n02회\n03회\n1-4.사회·문화의 변화와 대중 운동\n🔥2학기 중간\n1-4. 사회·문화의 변화와 대중 운동\n01회\n02회\n03회\n1-5.독립 국가 건설 노력\n🔥2학기 중간\n1-5. 독립 국가 건설 노력\n01회\n02회\n03회\n2.대한민국의 발전\n2학기 기말 🔥\n2-1.냉전 체제와 대한민국 정부 수립\n2학기 기말 🔥\n🔥2학기 중간\n2-1. 냉전 체제와 대한민국 정부 수립\n01회\n02회\n03회\n2-2.6·25 전쟁과 남북 분단의 고착화\n2학기 기말 🔥\n🔥2학기 중간\n2-2. 6·25 전쟁과 남북 분단의 고착화\n01회\n02회\n03회\n2-3.민주화를 위한 노력\n2학기 기말 🔥\n🔥2학기 중간\n2-3. 민주화를 위한 노력\n01회\n02회\n03회\n2-4.산업화의 성과와 사회·문화의 변화\n2학기 기말 🔥\n🔥2학기 중간\n2-4. 산업화의 성과와 사회·문화의 변화\n01회\n02회\n03회\n3.오늘날의 대한민국\n2학기 기말 🔥\n3-1.6월 민주 항쟁 이후 민주화 과정\n2학기 기말 🔥\n🔥2학기 기말\n3-1. 6월 민주 항쟁 이후 민주화 과정\n01회\n02회\n3-2.외환 위기 극복과 사회·문화 변동\n2학기 기말 🔥\n🔥2학기 기말\n3-2. 외환 위기 극복과 사회·문화 변동\n01회\n02회\n3-3.한반도 분단 극복과 동아시아 평화를 위한 노력\n2학기 기말 🔥\n🔥2학기 기말\n3-3. 한반도 분단 극복과 동아시아 평화를 위한 노력\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n공통국어\n공통영어\n공통수학\n통합과학\n통합사회\n한국사\n기술가정"
+    },
+    {
+      "name": "공통",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA0001', '공통');\">\n        <span class=\"check__text\">공통</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "회\n02회\n03회\n1.일제 식민 통치와 민족 운동\n1-1.제국주의 질서와 일제의 식민 통치 정책\n🔥2학기 중간\n1-1. 제국주의 질서와 일제의 식민 통치 정책\n01회\n02회\n03회\n1-2.3`1운동과 대한민국 임시 정부\n🔥2학기 중간\n1-2. 3`1운동과 대한민국 임시 정부\n01회\n02회\n03회\n1-3.민족 운동의 전개와 분화\n🔥2학기 중간\n1-3. 민족 운동의 전개와 분화\n01회\n02회\n03회\n1-4.사회·문화의 변화와 대중 운동\n🔥2학기 중간\n1-4. 사회·문화의 변화와 대중 운동\n01회\n02회\n03회\n1-5.독립 국가 건설 노력\n🔥2학기 중간\n1-5. 독립 국가 건설 노력\n01회\n02회\n03회\n2.대한민국의 발전\n2학기 기말 🔥\n2-1.냉전 체제와 대한민국 정부 수립\n2학기 기말 🔥\n🔥2학기 중간\n2-1. 냉전 체제와 대한민국 정부 수립\n01회\n02회\n03회\n2-2.6·25 전쟁과 남북 분단의 고착화\n2학기 기말 🔥\n🔥2학기 중간\n2-2. 6·25 전쟁과 남북 분단의 고착화\n01회\n02회\n03회\n2-3.민주화를 위한 노력\n2학기 기말 🔥\n🔥2학기 중간\n2-3. 민주화를 위한 노력\n01회\n02회\n03회\n2-4.산업화의 성과와 사회·문화의 변화\n2학기 기말 🔥\n🔥2학기 중간\n2-4. 산업화의 성과와 사회·문화의 변화\n01회\n02회\n03회\n3.오늘날의 대한민국\n2학기 기말 🔥\n3-1.6월 민주 항쟁 이후 민주화 과정\n2학기 기말 🔥\n🔥2학기 기말\n3-1. 6월 민주 항쟁 이후 민주화 과정\n01회\n02회\n3-2.외환 위기 극복과 사회·문화 변동\n2학기 기말 🔥\n🔥2학기 기말\n3-2. 외환 위기 극복과 사회·문화 변동\n01회\n02회\n3-3.한반도 분단 극복과 동아시아 평화를 위한 노력\n2학기 기말 🔥\n🔥2학기 기말\n3-3. 한반도 분단 극복과 동아시아 평화를 위한 노력\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n공통"
+    }
+  ]
+}

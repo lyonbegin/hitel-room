@@ -1,0 +1,342 @@
+{
+  "case": "H_1_KR_unit",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=KR&grade=1",
+  "filters": [
+    {
+      "name": "고1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '고2·3');\">\n        <span class=\"check__text\">고2·3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "학습\n1-1. 옛 노래 감상하기\n01회\n02회\n03회\n04회\n05회\n1-2.고전 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-2. 고전 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n1-3.현대 시 감상하기\n🔥2학기 중간\n중단원 학습\n1-3. 현대 시 감상하기\n01회\n02회\n03회\n04회\n05회\n1-4.현대 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-4. 현대 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n2.문제 해결의 지혜\n2-1.논증하는 글 쓰기\n🔥2학기 중간\n중단원 학습\n2-1. 논증하는 글 쓰기\n01회\n02회\n03회\n04회\n05회\n2-2.지혜롭게 협상하기\n🔥2학기 중간\n중단원 학습\n2-2. 지혜롭게 협상하기\n01회\n02회\n03회\n04회\n05회\n3.국어의 어제와 오늘\n3-1.변화하는 국어의 모습\n🔥2학기 중간\n중단원 학습\n3-1. 변화하는 국어의 모습\n01회\n02회\n03회\n04회\n05회\n3-2.한글 맞춤법과 오늘날의 국어생활\n🔥2학기 중간\n중단원 학습\n3-2. 한글 맞춤법과 오늘날의 국어생활\n01회\n02회\n03회\n04회\n05회\n4.세상을 보는 눈\n2학기 기말 🔥\n4-1.비판적으로 매체 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-1. 비판적으로 매체 읽기\n01회\n02회\n03회\n04회\n05회\n4-2.주제 통합적 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-2. 주제 통합적 읽기\n01회\n02회\n03회\n04회\n05회\n5.소통하고 참여하라\n2학기 기말 🔥\n5-1.매체 소통 문화와 공동 보고서 쓰기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-1. 매체 소통 문화와 공동 보고서 쓰기\n01회\n02회\n03회\n04회\n05회\n5-2.사회적 독서 활동 발표하기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-2. 사회적 독서 활동 발표하기\n01회\n02회\n03회\n04회\n05회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1\n고2·3"
+    },
+    {
+      "name": "공통국어",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '공통국어');\">\n        <span class=\"check__text\">공통국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '공통영어');\">\n        <span class=\"check__text\">공통영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '공통수학');\">\n        <span class=\"check__text\">공통수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '통합과학');\">\n        <span class=\"check__text\">통합과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '통합사회');\">\n        <span class=\"check__text\">통합사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "03회\n04회\n05회\n1-2.고전 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-2. 고전 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n1-3.현대 시 감상하기\n🔥2학기 중간\n중단원 학습\n1-3. 현대 시 감상하기\n01회\n02회\n03회\n04회\n05회\n1-4.현대 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-4. 현대 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n2.문제 해결의 지혜\n2-1.논증하는 글 쓰기\n🔥2학기 중간\n중단원 학습\n2-1. 논증하는 글 쓰기\n01회\n02회\n03회\n04회\n05회\n2-2.지혜롭게 협상하기\n🔥2학기 중간\n중단원 학습\n2-2. 지혜롭게 협상하기\n01회\n02회\n03회\n04회\n05회\n3.국어의 어제와 오늘\n3-1.변화하는 국어의 모습\n🔥2학기 중간\n중단원 학습\n3-1. 변화하는 국어의 모습\n01회\n02회\n03회\n04회\n05회\n3-2.한글 맞춤법과 오늘날의 국어생활\n🔥2학기 중간\n중단원 학습\n3-2. 한글 맞춤법과 오늘날의 국어생활\n01회\n02회\n03회\n04회\n05회\n4.세상을 보는 눈\n2학기 기말 🔥\n4-1.비판적으로 매체 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-1. 비판적으로 매체 읽기\n01회\n02회\n03회\n04회\n05회\n4-2.주제 통합적 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-2. 주제 통합적 읽기\n01회\n02회\n03회\n04회\n05회\n5.소통하고 참여하라\n2학기 기말 🔥\n5-1.매체 소통 문화와 공동 보고서 쓰기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-1. 매체 소통 문화와 공동 보고서 쓰기\n01회\n02회\n03회\n04회\n05회\n5-2.사회적 독서 활동 발표하기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-2. 사회적 독서 활동 발표하기\n01회\n02회\n03회\n04회\n05회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n공통국어\n공통영어\n공통수학\n통합과학\n통합사회\n한국사\n기술가정"
+    },
+    {
+      "name": "미래엔(신유식)",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "미래엔(신유식)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "미래엔(신유식)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(강호영)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(강호영)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(박영민)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(박영민)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(김수학)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(김수학)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "창비(최원식)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "창비(최원식)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA1001', '미래엔(신유식)');\">\n        <span class=\"check__text\">미래엔(신유식)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA1002', '비상(강호영)');\">\n        <span class=\"check__text\">비상(강호영)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA1003', '비상(박영민)');\">\n        <span class=\"check__text\">비상(박영민)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA1004', '천재(김수학)');\">\n        <span class=\"check__text\">천재(김수학)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA1005', '창비(최원식)');\">\n        <span class=\"check__text\">창비(최원식)</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "05회\n1-2.고전 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-2. 고전 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n1-3.현대 시 감상하기\n🔥2학기 중간\n중단원 학습\n1-3. 현대 시 감상하기\n01회\n02회\n03회\n04회\n05회\n1-4.현대 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-4. 현대 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n2.문제 해결의 지혜\n2-1.논증하는 글 쓰기\n🔥2학기 중간\n중단원 학습\n2-1. 논증하는 글 쓰기\n01회\n02회\n03회\n04회\n05회\n2-2.지혜롭게 협상하기\n🔥2학기 중간\n중단원 학습\n2-2. 지혜롭게 협상하기\n01회\n02회\n03회\n04회\n05회\n3.국어의 어제와 오늘\n3-1.변화하는 국어의 모습\n🔥2학기 중간\n중단원 학습\n3-1. 변화하는 국어의 모습\n01회\n02회\n03회\n04회\n05회\n3-2.한글 맞춤법과 오늘날의 국어생활\n🔥2학기 중간\n중단원 학습\n3-2. 한글 맞춤법과 오늘날의 국어생활\n01회\n02회\n03회\n04회\n05회\n4.세상을 보는 눈\n2학기 기말 🔥\n4-1.비판적으로 매체 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-1. 비판적으로 매체 읽기\n01회\n02회\n03회\n04회\n05회\n4-2.주제 통합적 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-2. 주제 통합적 읽기\n01회\n02회\n03회\n04회\n05회\n5.소통하고 참여하라\n2학기 기말 🔥\n5-1.매체 소통 문화와 공동 보고서 쓰기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-1. 매체 소통 문화와 공동 보고서 쓰기\n01회\n02회\n03회\n04회\n05회\n5-2.사회적 독서 활동 발표하기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-2. 사회적 독서 활동 발표하기\n01회\n02회\n03회\n04회\n05회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n미래엔(신유식)\n비상(강호영)\n비상(박영민)\n천재(김수학)\n창비(최원식)"
+    },
+    {
+      "name": "중단원 학습",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_STEP_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_STEP_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중단원 학습",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중단원 학습",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "대단원 학습",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "대단원 학습",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학습 단계</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_STEP_CD', '1', '중단원 학습');\">\n        <span class=\"check__text\">중단원 학습</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_STEP_CD', '2', '대단원 학습');\">\n        <span class=\"check__text\">대단원 학습</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": " 노래 감상하기\n01회\n02회\n03회\n04회\n05회\n1-2.고전 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-2. 고전 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n1-3.현대 시 감상하기\n🔥2학기 중간\n중단원 학습\n1-3. 현대 시 감상하기\n01회\n02회\n03회\n04회\n05회\n1-4.현대 소설 감상하기\n🔥2학기 중간\n중단원 학습\n1-4. 현대 소설 감상하기\n01회\n02회\n03회\n04회\n05회\n2.문제 해결의 지혜\n2-1.논증하는 글 쓰기\n🔥2학기 중간\n중단원 학습\n2-1. 논증하는 글 쓰기\n01회\n02회\n03회\n04회\n05회\n2-2.지혜롭게 협상하기\n🔥2학기 중간\n중단원 학습\n2-2. 지혜롭게 협상하기\n01회\n02회\n03회\n04회\n05회\n3.국어의 어제와 오늘\n3-1.변화하는 국어의 모습\n🔥2학기 중간\n중단원 학습\n3-1. 변화하는 국어의 모습\n01회\n02회\n03회\n04회\n05회\n3-2.한글 맞춤법과 오늘날의 국어생활\n🔥2학기 중간\n중단원 학습\n3-2. 한글 맞춤법과 오늘날의 국어생활\n01회\n02회\n03회\n04회\n05회\n4.세상을 보는 눈\n2학기 기말 🔥\n4-1.비판적으로 매체 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-1. 비판적으로 매체 읽기\n01회\n02회\n03회\n04회\n05회\n4-2.주제 통합적 읽기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n4-2. 주제 통합적 읽기\n01회\n02회\n03회\n04회\n05회\n5.소통하고 참여하라\n2학기 기말 🔥\n5-1.매체 소통 문화와 공동 보고서 쓰기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-1. 매체 소통 문화와 공동 보고서 쓰기\n01회\n02회\n03회\n04회\n05회\n5-2.사회적 독서 활동 발표하기\n2학기 기말 🔥\n🔥2학기 기말\n중단원 학습\n5-2. 사회적 독서 활동 발표하기\n01회\n02회\n03회\n04회\n05회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학습 단계\n중단원 학습\n대단원 학습"
+    }
+  ]
+}

@@ -1,0 +1,204 @@
+{
+  "case": "H_1_LS_revision",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=LS&grade=1",
+  "filters": [
+    {
+      "name": "고1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '고2·3');\">\n        <span class=\"check__text\">고2·3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "이 TIP\n🔥1학기 기말\nSTEP 2\n5. 생활공간과 사회\n시험에 꼭나오는 문제\n1.인권 보장과 헌법\n1-1.인권의 의미와 발전 과정\n1-2.인권 보장을 위한 헌법의 역할과 시민 참여\n1-3.인권 문제의 양상과 해결을 위한 노력\n🔥2학기 중간\nSTEP 1\n1. 인권 보장과 헌법\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n1. 인권 보장과 헌법\n시험에 꼭나오는 문제\n2.사회 정의와 불평등\n2-1.정의의 의미와 실질적 기준\n2-2.다양한 정의관의 특징 및 적용\n2-3.불평등 현상의 해결과 정의의 실현\n🔥2학기 중간\nSTEP 1\n2. 사회 정의와 불평등\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n2. 사회 정의와 불평등\n시험에 꼭나오는 문제\n3.시장경제와 지속가능발전\n3-1.자본주의의 역사적 전개와 경제 체제\n3-2.합리적 선택과 시장 참여자의 역할과 책임\n3-3.자산 관리와 의사 결정\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\nSTEP 1\n3. 시장경제와 지속가능발전\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n3. 시장경제와 지속가능발전\n시험에 꼭나오는 문제\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n4-2.평화 실현을 위한 국제 사회의 노력\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n🔥2학기 기말\nSTEP 1\n4. 세계화와 평화\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n4. 세계화와 평화\n시험에 꼭나오는 문제\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n5-2.에너지 자원과 지속가능한 발전\n5-3.미래 사회와 세계시민으로서 나의 삶\n🔥2학기 기말\nSTEP 1\n5. 미래와 지속가능한 삶\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n5. 미래와 지속가능한 삶\n시험에 꼭나오는 문제\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1\n고2·3"
+    },
+    {
+      "name": "통합사회",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '공통국어');\">\n        <span class=\"check__text\">공통국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '공통영어');\">\n        <span class=\"check__text\">공통영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '공통수학');\">\n        <span class=\"check__text\">공통수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '통합과학');\">\n        <span class=\"check__text\">통합과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '통합사회');\">\n        <span class=\"check__text\">통합사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n5. 생활공간과 사회\n시험에 꼭나오는 문제\n1.인권 보장과 헌법\n1-1.인권의 의미와 발전 과정\n1-2.인권 보장을 위한 헌법의 역할과 시민 참여\n1-3.인권 문제의 양상과 해결을 위한 노력\n🔥2학기 중간\nSTEP 1\n1. 인권 보장과 헌법\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n1. 인권 보장과 헌법\n시험에 꼭나오는 문제\n2.사회 정의와 불평등\n2-1.정의의 의미와 실질적 기준\n2-2.다양한 정의관의 특징 및 적용\n2-3.불평등 현상의 해결과 정의의 실현\n🔥2학기 중간\nSTEP 1\n2. 사회 정의와 불평등\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n2. 사회 정의와 불평등\n시험에 꼭나오는 문제\n3.시장경제와 지속가능발전\n3-1.자본주의의 역사적 전개와 경제 체제\n3-2.합리적 선택과 시장 참여자의 역할과 책임\n3-3.자산 관리와 의사 결정\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\nSTEP 1\n3. 시장경제와 지속가능발전\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n3. 시장경제와 지속가능발전\n시험에 꼭나오는 문제\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n4-2.평화 실현을 위한 국제 사회의 노력\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n🔥2학기 기말\nSTEP 1\n4. 세계화와 평화\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n4. 세계화와 평화\n시험에 꼭나오는 문제\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n5-2.에너지 자원과 지속가능한 발전\n5-3.미래 사회와 세계시민으로서 나의 삶\n🔥2학기 기말\nSTEP 1\n5. 미래와 지속가능한 삶\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n5. 미래와 지속가능한 삶\n시험에 꼭나오는 문제\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n공통국어\n공통영어\n공통수학\n통합과학\n통합사회\n한국사"
+    },
+    {
+      "name": "공통",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA1001', '공통');\">\n        <span class=\"check__text\">공통</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "노트\n풀이 TIP\n🔥1학기 기말\nSTEP 2\n5. 생활공간과 사회\n시험에 꼭나오는 문제\n1.인권 보장과 헌법\n1-1.인권의 의미와 발전 과정\n1-2.인권 보장을 위한 헌법의 역할과 시민 참여\n1-3.인권 문제의 양상과 해결을 위한 노력\n🔥2학기 중간\nSTEP 1\n1. 인권 보장과 헌법\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n1. 인권 보장과 헌법\n시험에 꼭나오는 문제\n2.사회 정의와 불평등\n2-1.정의의 의미와 실질적 기준\n2-2.다양한 정의관의 특징 및 적용\n2-3.불평등 현상의 해결과 정의의 실현\n🔥2학기 중간\nSTEP 1\n2. 사회 정의와 불평등\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n2. 사회 정의와 불평등\n시험에 꼭나오는 문제\n3.시장경제와 지속가능발전\n3-1.자본주의의 역사적 전개와 경제 체제\n3-2.합리적 선택과 시장 참여자의 역할과 책임\n3-3.자산 관리와 의사 결정\n3-4.국제 무역과 지속가능발전\n🔥2학기 중간\nSTEP 1\n3. 시장경제와 지속가능발전\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n3. 시장경제와 지속가능발전\n시험에 꼭나오는 문제\n4.세계화와 평화\n2학기 기말 🔥\n4-1.세계화의 다양한 양상과 문제\n4-2.평화 실현을 위한 국제 사회의 노력\n4-3.남북 분단 및 동아시아의 역사 갈등과 세계 평화\n🔥2학기 기말\nSTEP 1\n4. 세계화와 평화\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n4. 세계화와 평화\n시험에 꼭나오는 문제\n5.미래와 지속가능한 삶\n2학기 기말 🔥\n5-1.세계의 인구 문제와 해결 방안\n5-2.에너지 자원과 지속가능한 발전\n5-3.미래 사회와 세계시민으로서 나의 삶\n🔥2학기 기말\nSTEP 1\n5. 미래와 지속가능한 삶\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n5. 미래와 지속가능한 삶\n시험에 꼭나오는 문제\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n공통"
+    }
+  ]
+}

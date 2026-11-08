@@ -1,0 +1,204 @@
+{
+  "case": "H_1_TH_concept",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=TH&grade=1",
+  "filters": [
+    {
+      "name": "고1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": ". 미래의 의식주 생활 문화\n암기노트\n2.소비자의 생활 복지\n2-1.경제적 자립과 소비자 시민성\n🔥1학기 기말\n2-1. 경제적 자립과 소비자 시민성\n요점정리\n🔥1학기 기말\n2-1. 경제적 자립과 소비자 시민성\n암기노트\n2-2.빅데이터와 맞춤형 스마트 복지\n🔥1학기 기말\n2-2. 빅데이터와 맞춤형 스마트 복지\n요점정리\n🔥1학기 기말\n2-2. 빅데이터와 맞춤형 스마트 복지\n암기노트\n3.인간과 성장하는 관계\n3-1.건강하고 친밀한 관계 맺기\n🔥2학기 중간\n3-1. 건강하고 친밀한 관계 맺기\n요점정리\n🔥2학기 중간\n3-1. 건강하고 친밀한 관계 맺기\n암기노트\n3-2.가족의 이해와 소통\n🔥2학기 중간\n3-2. 가족의 이해와 소통\n요점정리\n🔥2학기 중간\n3-2. 가족의 이해와 소통\n암기노트\n4.공학의 기초\n4-1.공학과 융합\n🔥1학기 중간\n4-1. 공학과 융합\n요점정리\n🔥1학기 중간\n4-1. 공학과 융합\n암기노트\n4-2.공학자의 소양과 진로 설계\n🔥1학기 중간\n4-2. 공학자의 소양과 진로 설계\n요점정리\n🔥1학기 중간\n4-2. 공학자의 소양과 진로 설계\n암기노트\n5.미래를 여는 공학 혁신\n5-1.디지털 기반 설계와 로봇 공학\n🔥1학기 기말\n5-1. 디지털 기반 설계와 로봇 공학\n요점정리\n🔥1학기 기말\n5-1. 디지털 기반 설계와 로봇 공학\n암기노트\n5-2.친환경 에너지와 첨단 수송 기술\n🔥1학기 기말\n5-2. 친환경 에너지와 첨단 수송 기술\n요점정리\n🔥1학기 기말\n5-2. 친환경 에너지와 첨단 수송 기술\n암기노트\n6.지속 가능한 융합 공학\n6-1.정보 통신과 건설 공학\n🔥2학기 중간\n6-1. 정보 통신과 건설 공학\n요점정리\n🔥2학기 중간\n6-1. 정보 통신과 건설 공학\n암기노트\n6-2.생명과 융합 공학\n🔥2학기 중간\n6-2. 생명과 융합 공학\n요점정리\n🔥2학기 중간\n6-2. 생명과 융합 공학\n암기노트\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1"
+    },
+    {
+      "name": "기술가정",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "통합사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '공통국어');\">\n        <span class=\"check__text\">공통국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '공통영어');\">\n        <span class=\"check__text\">공통영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '공통수학');\">\n        <span class=\"check__text\">공통수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '통합과학');\">\n        <span class=\"check__text\">통합과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '통합사회');\">\n        <span class=\"check__text\">통합사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "복지\n2-1.경제적 자립과 소비자 시민성\n🔥1학기 기말\n2-1. 경제적 자립과 소비자 시민성\n요점정리\n🔥1학기 기말\n2-1. 경제적 자립과 소비자 시민성\n암기노트\n2-2.빅데이터와 맞춤형 스마트 복지\n🔥1학기 기말\n2-2. 빅데이터와 맞춤형 스마트 복지\n요점정리\n🔥1학기 기말\n2-2. 빅데이터와 맞춤형 스마트 복지\n암기노트\n3.인간과 성장하는 관계\n3-1.건강하고 친밀한 관계 맺기\n🔥2학기 중간\n3-1. 건강하고 친밀한 관계 맺기\n요점정리\n🔥2학기 중간\n3-1. 건강하고 친밀한 관계 맺기\n암기노트\n3-2.가족의 이해와 소통\n🔥2학기 중간\n3-2. 가족의 이해와 소통\n요점정리\n🔥2학기 중간\n3-2. 가족의 이해와 소통\n암기노트\n4.공학의 기초\n4-1.공학과 융합\n🔥1학기 중간\n4-1. 공학과 융합\n요점정리\n🔥1학기 중간\n4-1. 공학과 융합\n암기노트\n4-2.공학자의 소양과 진로 설계\n🔥1학기 중간\n4-2. 공학자의 소양과 진로 설계\n요점정리\n🔥1학기 중간\n4-2. 공학자의 소양과 진로 설계\n암기노트\n5.미래를 여는 공학 혁신\n5-1.디지털 기반 설계와 로봇 공학\n🔥1학기 기말\n5-1. 디지털 기반 설계와 로봇 공학\n요점정리\n🔥1학기 기말\n5-1. 디지털 기반 설계와 로봇 공학\n암기노트\n5-2.친환경 에너지와 첨단 수송 기술\n🔥1학기 기말\n5-2. 친환경 에너지와 첨단 수송 기술\n요점정리\n🔥1학기 기말\n5-2. 친환경 에너지와 첨단 수송 기술\n암기노트\n6.지속 가능한 융합 공학\n6-1.정보 통신과 건설 공학\n🔥2학기 중간\n6-1. 정보 통신과 건설 공학\n요점정리\n🔥2학기 중간\n6-1. 정보 통신과 건설 공학\n암기노트\n6-2.생명과 융합 공학\n🔥2학기 중간\n6-2. 생명과 융합 공학\n요점정리\n🔥2학기 중간\n6-2. 생명과 융합 공학\n암기노트\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n공통국어\n공통영어\n공통수학\n통합과학\n통합사회\n한국사\n기술가정"
+    },
+    {
+      "name": "공통",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HATHCHA0001', '공통');\">\n        <span class=\"check__text\">공통</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": " 미래의 의식주 생활 문화\n암기노트\n2.소비자의 생활 복지\n2-1.경제적 자립과 소비자 시민성\n🔥1학기 기말\n2-1. 경제적 자립과 소비자 시민성\n요점정리\n🔥1학기 기말\n2-1. 경제적 자립과 소비자 시민성\n암기노트\n2-2.빅데이터와 맞춤형 스마트 복지\n🔥1학기 기말\n2-2. 빅데이터와 맞춤형 스마트 복지\n요점정리\n🔥1학기 기말\n2-2. 빅데이터와 맞춤형 스마트 복지\n암기노트\n3.인간과 성장하는 관계\n3-1.건강하고 친밀한 관계 맺기\n🔥2학기 중간\n3-1. 건강하고 친밀한 관계 맺기\n요점정리\n🔥2학기 중간\n3-1. 건강하고 친밀한 관계 맺기\n암기노트\n3-2.가족의 이해와 소통\n🔥2학기 중간\n3-2. 가족의 이해와 소통\n요점정리\n🔥2학기 중간\n3-2. 가족의 이해와 소통\n암기노트\n4.공학의 기초\n4-1.공학과 융합\n🔥1학기 중간\n4-1. 공학과 융합\n요점정리\n🔥1학기 중간\n4-1. 공학과 융합\n암기노트\n4-2.공학자의 소양과 진로 설계\n🔥1학기 중간\n4-2. 공학자의 소양과 진로 설계\n요점정리\n🔥1학기 중간\n4-2. 공학자의 소양과 진로 설계\n암기노트\n5.미래를 여는 공학 혁신\n5-1.디지털 기반 설계와 로봇 공학\n🔥1학기 기말\n5-1. 디지털 기반 설계와 로봇 공학\n요점정리\n🔥1학기 기말\n5-1. 디지털 기반 설계와 로봇 공학\n암기노트\n5-2.친환경 에너지와 첨단 수송 기술\n🔥1학기 기말\n5-2. 친환경 에너지와 첨단 수송 기술\n요점정리\n🔥1학기 기말\n5-2. 친환경 에너지와 첨단 수송 기술\n암기노트\n6.지속 가능한 융합 공학\n6-1.정보 통신과 건설 공학\n🔥2학기 중간\n6-1. 정보 통신과 건설 공학\n요점정리\n🔥2학기 중간\n6-1. 정보 통신과 건설 공학\n암기노트\n6-2.생명과 융합 공학\n🔥2학기 중간\n6-2. 생명과 융합 공학\n요점정리\n🔥2학기 중간\n6-2. 생명과 융합 공학\n암기노트\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n공통"
+    }
+  ]
+}
