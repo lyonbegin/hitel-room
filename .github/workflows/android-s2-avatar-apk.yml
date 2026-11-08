@@ -31,9 +31,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.1.0'
+      - name: Install Gradle 9.1.0 from direct CDN with retries
+        run: |
+          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 --max-time 180 \
+            'https://downloads.gradle.org/distributions/gradle-9.1.0-bin.zip' \
+            -o "$RUNNER_TEMP/gradle-9.1.0-bin.zip"
+          unzip -q "$RUNNER_TEMP/gradle-9.1.0-bin.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-9.1.0/bin" >> "$GITHUB_PATH"
       - name: Install Android SDK 36 using the preinstalled SDK manager
         run: |
           printf 'y\n%.0s' {1..100} | sdkmanager --licenses > /dev/null
