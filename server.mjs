@@ -125,12 +125,42 @@ async function serveZocboPublicCatalog(url,req,send){
   send(502,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'UPSTREAM_UNAVAILABLE',reason:safeString(e.message,80)}));
  }
 }
+
+const originalMenuSlugs=new Set([
+ 'concept_complete','concept_calculation','unit_level','unit_master',
+ 'practice_essay','practice_frequent','practice_wrong','practice_top',
+ 'practice_performance','practice_textbook','final_main','school_expected','gangnam_list'
+]);
+const originalRawModes={
+ concept:'docs/zocbo-original-input/01-middle-concept.html',
+ unit:'docs/zocbo-original-input/02-middle-unit.html',
+ practice:'docs/zocbo-original-input/03-middle-practice.html',
+ gangnam:'docs/zocbo-original-input/04-middle-gangnam.html'
+};
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 createServer(async (req,res)=>{
  const url=new URL(req.url,'http://localhost');
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
  if(url.pathname==='/api/zocbo/public-catalog'&&req.method==='GET'){await serveZocboPublicCatalog(url,req,send);return}
+ if(url.pathname==='/api/zocbo/menu-data'&&req.method==='GET'){
+  const slug=String(url.searchParams.get('slug')||'');
+  if(!originalMenuSlugs.has(slug)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MENU'}));return}
+  const fn='./public/zocbo-original-data/'+slug+'.json';
+  if(!existsSync(fn)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'SNAPSHOT_NOT_CAPTURED'}));return}
+  send(200,'application/json; charset=utf-8',readFileSync(fn));return
+ }
+ if(url.pathname==='/api/zocbo/original-html'&&req.method==='GET'){
+  const mode=String(url.searchParams.get('mode')||'');
+  if(!Object.hasOwn(originalRawModes,mode)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MODE'}));return}
+  const fn='./'+originalRawModes[mode];
+  if(!existsSync(fn)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_SOURCE_NOT_PRESENT'}));return}
+  // Renderable user-supplied DOM reference, never executed as a same-origin HTML document.
+  // The client only fetches it and DOMParses it inertly.
+  send(200,'text/plain; charset=utf-8',readFileSync(fn));return
+ }
+ if(url.pathname==='/zocbo-all-menus.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-all-menus.js'));return}
+ if(url.pathname==='/zocbo-all-menus.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-all-menus.css'));return}
  if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,officialZocboPublicDocuments:35,zocboLiveLinks:true,zocboOriginalInline:true,zocboIframeCount:0,originalSourceCount:35,assetsDir:'ypt-assets'}));return}
  if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-rebuild.html'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
  if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
