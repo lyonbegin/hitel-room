@@ -1,0 +1,48 @@
+name: HITEL S2 Android On-device Avatar APK
+on:
+  push:
+    branches:
+      - feature/s2-android-avatar-webrtc-20261108
+    paths:
+      - 'android-avatar/**'
+      - '.github/workflows/android-s2-avatar-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-avatar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static checks
+        run: |
+          node --check android-avatar/app/src/main/assets/host.js
+          python -m py_compile android-avatar/tools/sync_dhlive.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+      - name: Install Android SDK 36
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Verify upstream source and assemble APK
+        working-directory: android-avatar
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-s2-android-avatar-debug
+          path: android-avatar/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

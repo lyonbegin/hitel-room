@@ -20,3 +20,15 @@ android {
 dependencies {
     implementation("androidx.webkit:webkit:1.18.0")
 }
+val hostPython = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+    listOf("py", "-3")
+} else {
+    listOf("python3")
+}
+val syncDhLive = tasks.register<Exec>("syncDhLiveAssets") {
+    workingDir = rootProject.projectDir
+    commandLine(hostPython + listOf("tools/sync_dhlive.py"))
+}
+tasks.named("preBuild") {
+    dependsOn(syncDhLive)
+}
