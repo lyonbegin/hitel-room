@@ -31,7 +31,7 @@ with sync_playwright() as p:
  page.wait_for_function("()=>document.querySelector('#phone .zb-faithful')!==null",timeout=25000)
  result['bottomProblemBankClick']='opens-original-native-source-sector'
  for site,grade,subject,active,filters,originalCount in CASES:
-  url=BASE+f'/?screen=bankSearch&mobile=1&site={site}&grade={grade}&subject={subject}'
+  url=BASE+f'/?screen=bankSearch&chrome=0&mobile=1&site={site}&grade={grade}&subject={subject}'
   page.goto(url,wait_until='domcontentloaded',timeout=35000)
   expected=f'{site}_{grade}_{subject}_unit'
   page.wait_for_function("(name)=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase===name",arg=expected,timeout=40000)
@@ -51,7 +51,7 @@ with sync_playwright() as p:
   result['cases'].append({'case':expected,'active':sub,'filters':vals,'papers':total,
     'matchedOriginalCount':originalCount,'standaloneWidth':box['width']})
  # Check main-tab interactions and original source fragment change, not static tab labels.
- page.goto(BASE+'/?screen=bankSearch&mobile=1&site=M&grade=3&subject=EG',wait_until='domcontentloaded',timeout=35000)
+ page.goto(BASE+'/?screen=bankSearch&chrome=0&mobile=1&site=M&grade=3&subject=EG',wait_until='domcontentloaded',timeout=35000)
  page.wait_for_function("()=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase==='M_3_EG_unit'",timeout=35000)
  expectedMeta={'concept':'M_3_EG_concept','practice':'M_3_EG_practice',
                'revision':'M_3_EG_revision','school':'M_3_EG_school','gangnam':'M_3_EG_gangnam'}
