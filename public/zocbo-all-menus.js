@@ -178,7 +178,7 @@ function infoSheet(z,data){
 }
 function schoolPanel(z,data){
  const src=arr(data?.filters);
- const sourceValue=(act,def)=>src.find(x=>x.action===act)?.name||def;
+ const sourceValue=(act,def)=>{const label=src.find(x=>x.action===act)?.name;return !label||['지역','구/군','학교'].includes(label)?def:label;};
  const controls=[
   ['filter_type','학교별 예상족보','종류'],
   ['filter_si',sourceValue('filter_si','서울'),'시·도'],
