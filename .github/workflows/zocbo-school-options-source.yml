@@ -1,0 +1,42 @@
+name: Inspect real Zocbo school filter option drawers
+on:
+  push:
+    branches: [feature/zocbo-all-six-menus-source-20261108]
+    paths:
+      - tools/zocbo/capture_school_filter_options.py
+      - .github/workflows/zocbo-school-options-source.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  capture-school-filter-drawers:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Inspect actual mobile school option drawers
+        run: python tools/zocbo/capture_school_filter_options.py
+      - name: Upload source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-school-filter-drawer-choices
+          path: public/zocbo-original-data/school_filter_drawers.json
+          retention-days: 7
+      - name: Commit actual public dropdown options
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add public/zocbo-original-data/school_filter_drawers.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Capture real public school filter drawer options'
+          git fetch origin feature/zocbo-all-six-menus-source-20261108
+          git rebase FETCH_HEAD
+          git push origin HEAD:feature/zocbo-all-six-menus-source-20261108
