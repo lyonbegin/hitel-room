@@ -5,6 +5,8 @@ mkdir -p test-results
 collect() {
   adb exec-out screencap -p > test-results/real-android-screen.png 2>/dev/null || true
   adb logcat -d -v time > test-results/logcat.txt 2>&1 || true
+  echo '=== WebView / app logcat ==='
+  grep -E 'HITEL-AVATAR|HITEL|chromium|WASM|Uncaught|Web Console|net::ERR_|not found' test-results/logcat.txt | tail -n 80 || true
   adb shell dumpsys activity activities > test-results/activities.txt 2>&1 || true
   adb shell uiautomator dump /sdcard/window.xml >/dev/null 2>&1 || true
   adb exec-out cat /sdcard/window.xml > test-results/ui.xml 2>/dev/null || true

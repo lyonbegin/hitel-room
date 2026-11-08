@@ -48,6 +48,7 @@ await send('Runtime.enable');
 const probe=[
  '(() => {',
  'const v=document.getElementById("rtc-preview"), c=document.getElementById("canvas_video");',
+ 'if(!v||!c)return {documentReady:document.readyState,domLoaded:false,status:document.body?.textContent?.slice(0,250)||"no body"};',
  'return {status:document.getElementById("status")?.textContent,',
  'rtcStatus:document.getElementById("rtc-status")?.textContent,',
  'indicator:document.getElementById("indicator")?.textContent,',
