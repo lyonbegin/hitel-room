@@ -16,6 +16,7 @@ const PATHS={
  middleExpected:'https://m.zocbo.com/M/expected.asp',
  highExpected:'https://m.zocbo.com/H/expected.asp',
  freeReading:'https://m.zocbo.com/Freetrial/FreeReading.asp',
+ freeReadingWeb:'https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y',
  finals:'https://m.zocbo.com/event/pre-test2026d/',
  diagnostic:'https://m.zocbo.com/Freetrial/learningtest.asp',
  revision:'https://m.zocbo.com/guide/revision/default_M.asp',
@@ -29,7 +30,8 @@ const ROADMAP={bankHome:{title:'문제은행',route:'app',label:'족보닷컴 �
  bankLogin:{title:'족보닷컴 로그인',route:'login',label:'공식 계정 로그인'},
  bankSchool:{title:'학교별 시험 자료',route:'middleExpected',label:'학교별 맞춤학습'},
  bankFree:{title:'기출 무료열람실',route:'freeReading',label:'공식 학교별 기출 뷰어'},
- bankDownload:{title:'다운로드·이용 내역',route:'finals',label:'실제 자료 원본 사이트'},
+ bankDownload:{title:'공식 자료 다운로드',route:'finals',label:'실제 자료 원본 사이트'},
+ bankSaved:{title:'내 자료 책갈피',route:'finals',label:'브라우저에 저장된 자료 제목'},
  bankDiagnostic:{title:'성적 진단평가',route:'diagnostic',label:'공식 진단평가'},
  bankCategory:{title:'문제 유형별 학습',route:'middle',label:'공식 학습 유형 선택'}
 };
@@ -37,7 +39,11 @@ for(const [id,meta] of Object.entries(ROADMAP)){
  window.YPT_GRAPH[id]={title:meta.title,evidence:[],officialUrl:PATHS[meta.route],actions:[{text:'문제은행 홈',go:'bankHome'},{text:'실제 자료 검색',go:'bankSearch'},{text:'공식 로그인',go:'bankLogin'}]};
 }
 const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-function stateOf(s){return s.zocbo||(s.zocbo={grade:'중2',query:'',subject:'전체',paperId:null,viewUrl:PATHS.app,sourceKey:'app'});}
+function stateOf(s){return s.zocbo||(s.zocbo={grade:'전체',query:'',subject:'전체',paperId:null,viewUrl:PATHS.app,sourceKey:'app',saved:readSaved()});}
+function readSaved(){try{const data=JSON.parse(localStorage.getItem('hitel.zocbo.saved.v1')||'[]');return Array.isArray(data)?data.filter(id=>typeof id==='string'&&(window.ZOCBO_CATALOG||[]).some(r=>r.id===id)).slice(0,200):[]}catch{return []}}
+function writeSaved(saved){try{localStorage.setItem('hitel.zocbo.saved.v1',JSON.stringify(saved))}catch{}}
+function subjectListUrl(r){if(!r||!['M','H'].includes(r.siteid)||!/^[A-Z0-9]{2,5}$/.test(r.subject_cd))return PATHS.home;const u=new URL(r.siteid==='H'?PATHS.high:PATHS.middle);u.searchParams.set('subject_cd',r.subject_cd);return u.href}
+function chosenOriginalSearch(s){const z=stateOf(s),all=window.ZOCBO_CATALOG||[];if(z.grade==='전체'&&z.subject==='전체')return PATHS.home;const r=all.find(x=>(z.grade==='전체'||x.grade===z.grade)&&(z.subject==='전체'||x.subject===z.subject));return r?subjectListUrl(r):PATHS.home;}
 function isOfficial(url){try{const x=new URL(url);return x.protocol==='https:'&&(x.hostname==='m.zocbo.com'||x.hostname==='sign.zocbo.com'||x.hostname==='zocbo.com');}catch{return false}}
 function pageUrl(s,fallback='app'){
  const z=stateOf(s),raw=z.viewUrl;
@@ -47,11 +53,11 @@ function link(url,label,cl='zb-link',same=false){if(!isOfficial(url))return '';
  return `<a class="${cl}" href="${esc(url)}" target="${same?'_self':'_blank'}" rel="noopener noreferrer">${esc(label)} <span aria-hidden="true">↗</span></a>`;}
 function switcher(){return `<div class="zb-shortcuts"><button data-go="bankHome">문제은행 홈</button><button data-go="bankSearch">자료 검색</button><button data-go="bankSchool">학교별</button><button data-go="bankFree">무료 열람</button><button data-go="bankDownload">다운로드</button></div>`;}
 function subtitle(s){return '';}
-function segment(s){const z=stateOf(s);return `<div class="zb-grades">${['전체','중1','중2','중3','고1','고2'].map(g=>`<button type="button" data-action="zbGrade" data-value="${g}" class="${z.grade===g?'on':''}">${g}</button>`).join('')}</div>`}
+function segment(s){const z=stateOf(s),items=(window.ZOCBO_CATALOG||[]).filter(x=>z.grade==='전체'||x.grade===z.grade),subjects=[...new Set(items.map(x=>x.subject))];return `<div class="zb-grades">${['전체','중1','중2','중3','고1','고2'].map(g=>`<button type="button" data-action="zbGrade" data-value="${g}" class="${z.grade===g?'on':''}">${g}</button>`).join('')}</div><div class="zb-subject-choices" aria-label="과목 선택">${['전체',...subjects].map(sub=>`<button type="button" data-action="zbSubject" data-value="${esc(sub)}" class="${z.subject===sub?'on':''}">${esc(sub)}</button>`).join('')}</div>`}
 function catalog(s){
  const z=stateOf(s),list=window.ZOCBO_CATALOG||[];
  let q=z.query.trim().toLocaleLowerCase('ko-KR');
- return list.filter(x=>((z.grade==='전체')||x.grade===z.grade)&&(!q||[x.title,x.grade,x.subject,x.siteid].join(' ').toLocaleLowerCase('ko-KR').includes(q)));
+ return list.filter(x=>(z.grade==='전체'||x.grade===z.grade)&&(z.subject==='전체'||x.subject===z.subject)&&(!q||[x.title,x.grade,x.subject,x.siteid].join(' ').toLocaleLowerCase('ko-KR').includes(q)));
 }
 function results(s,limit=100){const list=catalog(s).slice(0,limit);const total=window.ZOCBO_CATALOG?.length||0;
  return `<div class="zb-list-head"><b>공식 공개자료 ${list.length}건</b><small>확보한 2026 기말고사 목록 ${total}건 중</small></div>
@@ -64,7 +70,7 @@ function searched(s){const z=stateOf(s);return `${subtitle(s)}${switcher()}
  ${segment(s)}<p class="zb-meta">족보닷컴 홈페이지에 공개된 자료명만 검색합니다. 원본 전체 학습자료 검색은 아래 공식 화면에서 이어집니다.</p>
  ${results(s)}
  <div class="zb-external-bar"><strong>전체 문제·단원별 학습</strong><p>원본 서비스의 학년·과목·단원 선택을 그대로 사용합니다.</p>
- ${link(z.grade.startsWith('고')?PATHS.high:PATHS.middle,'실제 족보닷컴 검색 열기','zb-primary-link',true)}</div>`;}
+ ${link(chosenOriginalSearch(s),'선택한 과목의 원본 문제 목록 열기','zb-primary-link',false)}${link(chosenOriginalSearch(s),'같은 창에서 열기','zb-link',true)}</div>`;}
 function home(s){return `${subtitle(s)}
  <div class="zb-banner"><img src="/zocbo-assets/app-icon.png" alt="족보닷컴 원본 앱 아이콘" onerror="this.style.display='none'"><div><small>족보닷컴과 연결된 시험 대비</small><h2>문제은행</h2><p>학교·학년·과목 선택부터 자료 열람·다운로드까지</p></div></div>
  <div class="zb-search-launch" data-go="bankSearch" role="button" tabindex="0">⌕ &nbsp;과목·학교별 기출·예상 문제 검색 <span>›</span></div>
@@ -106,7 +112,7 @@ function categories(s){return `${subtitle(s)}${switcher()}<div class="zb-section
  ['중등 개념학습',PATHS.middleConcept],['중등 단원별 문제',PATHS.middle],['고등 개념학습',PATHS.highConcept],['고등 단원별 문제',PATHS.high],['학교별 예상족보 · 중등',PATHS.middleExpected],['학교별 예상족보 · 고등',PATHS.highExpected],['학교별 기출 무료 열람',PATHS.freeReading],['2026 기말고사 무료 자료',PATHS.finals],['성적 진단평가',PATHS.diagnostic],['직전 대비',PATHS.revision]
  ].map(([label,url])=>`<div class="zb-feature-row"><span>▣</span><b>${esc(label)}</b>${link(url,'실제 화면','zb-action-link')}</div>`).join('')}`}
 function page(id,s){switch(id){case 'bankHome':return home(s);case 'bankSearch':case 'bankResults':return searched(s);case 'bankPaper':return detail(s);case 'bankOriginal':return original(s);case 'bankSchool':return officialShortcut('학교별 맞춤학습','학교·학년·과목·시험 단원 선택 후 실제 예상족보를 열람합니다.',stateOf(s).grade.startsWith('고')?PATHS.highExpected:PATHS.middleExpected,s);case 'bankFree':return officialShortcut('무료 기출 열람실','족보닷컴 앱 전용 뷰어가 실행될 수 있습니다. 학교 선택 후 기출을 열람합니다.',PATHS.freeReading,s);case 'bankDownload':return officialShortcut('다운로드 · 시험자료','실제 공식 사이트에서 원본 다운로드·다운로드 내역 확인 기능을 사용합니다.',PATHS.finals,s);case 'bankLogin':return officialShortcut('족보닷컴 로그인','원본 로그인 화면에서 로그인하여 회원·이용권 기능을 확인합니다.',PATHS.login,s);case 'bankDiagnostic':return officialShortcut('성적진단평가','학년·과목·출판사 선택 후 공식 서비스에서 응시합니다.',PATHS.diagnostic,s);case 'bankCategory':return categories(s);default:return ''}}
-function onAction(act,el,s,go,render,toast){let z=stateOf(s);if(act==='zbGrade'){z.grade=el.dataset.value||'전체';render();return}if(act==='zbReset'){z.query='';render();return}if(act==='zbPick'){z.paperId=el.dataset.id;go('bankPaper');return}if(act==='zbViewOfficial'){let u=el.dataset.urlkey?PATHS[el.dataset.urlkey]:el.dataset.url;if(u&&isOfficial(u)){z.viewUrl=u;go('bankOriginal');return}toast('공식 주소를 확인할 수 없습니다.');return}if(act==='zbReloadWebview'){const iframe=document.querySelector('#phone .zb-live-iframe');if(iframe){const src=iframe.getAttribute('src');iframe.setAttribute('src',src);}return}if(act==='zbRemember'){z.paperId=el.dataset.id;z.saved=z.saved||[];if(!z.saved.includes(z.paperId))z.saved.push(z.paperId);toast('자료 제목을 내 목록에 표시했습니다. 실제 원본 파일을 저장한 것은 아닙니다.');return}}
+function onAction(act,el,s,go,render,toast){let z=stateOf(s);if(act==='zbGrade'){z.grade=el.dataset.value||'전체';z.subject='전체';render();return}if(act==='zbSubject'){z.subject=el.dataset.value||'전체';render();return}if(act==='zbReset'){z.query='';render();return}if(act==='zbPick'){z.paperId=el.dataset.id;go('bankPaper');return}if(act==='zbViewOfficial'){let u=el.dataset.urlkey?PATHS[el.dataset.urlkey]:el.dataset.url;if(u&&isOfficial(u)){z.viewUrl=u;go('bankOriginal');return}toast('공식 주소를 확인할 수 없습니다.');return}if(act==='zbReloadWebview'){const iframe=document.querySelector('#phone .zb-live-iframe');if(iframe){const src=iframe.getAttribute('src');iframe.setAttribute('src',src);}return}if(act==='zbRemember'){z.paperId=el.dataset.id;z.saved=z.saved||[];if(!z.saved.includes(z.paperId))z.saved.push(z.paperId);toast('자료 제목을 내 목록에 표시했습니다. 실제 원본 파일을 저장한 것은 아닙니다.');return}}
 function onInput(evt,s){const el=evt.target;if(el.dataset.zbInput!=='query')return;stateOf(s).query=el.value;const all=window.ZOCBO_CATALOG||[],z=stateOf(s),q=z.query.toLocaleLowerCase('ko-KR');let count=0;document.querySelectorAll('#phone .zb-paper-card').forEach(div=>{const id=div.querySelector('button[data-id]')?.dataset.id;const row=all.find(r=>r.id===id);const ok=!!row&&(!q||[row.title,row.grade,row.subject].join(' ').toLocaleLowerCase('ko-KR').includes(q));div.hidden=!ok;if(ok)count++});const elCount=document.querySelector('#phone .zb-list-head b');if(elCount)elCount.textContent='공식 공개자료 '+count+'건';}
-window.ZOCBOUI={PATHS,ROADMAP,page,onAction,onInput,isOfficial};
+window.ZOCBOUI={PATHS,ROADMAP,page,onAction,onInput,isOfficial,subjectListUrl,chosenOriginalSearch};
 })();
