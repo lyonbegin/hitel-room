@@ -1,0 +1,58 @@
+name: YPT Commit Original Visual Resources
+on:
+  push:
+    branches: [feature/ypt-resource-visual-rebuild-20261108]
+    paths:
+      - .github/workflows/ypt-commit-assets.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  commit-original-assets:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      APP_ID: ypt
+      APP_PACKAGE: com.pallo.passiontimerscoped
+      APP_VERSION: '810.1.05'
+      APP_SHA256: '837c7dcc876838fb3ea755178cc93d71b1cf77ddff59ce2073f1d826d4dab388'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Download exact verified XAPK and extract visual resources
+        run: |
+          python3 scripts/education/download_verified_xapk.py source
+          mkdir -p public/ypt-assets
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          import json, hashlib
+          z=ZipFile('source/ypt.xapk')
+          name=[x for x in z.namelist() if x.endswith('com.pallo.passiontimerscoped.apk')][0]
+          Path('/tmp/ypt_base.apk').write_bytes(z.read(name))
+          base=ZipFile('/tmp/ypt_base.apk')
+          prefix='assets/flutter_assets/assets/'
+          manifest=[]
+          for path in base.namelist():
+              if path.startswith(prefix) and path.endswith(('.png','.jpg','.jpeg','.webp','.svg','.json','.avif')):
+                  if path.endswith('.json') and not path.startswith(prefix+'lottie/'):continue
+                  if len(base.read(path))>5000000:continue
+                  dst=Path('public/ypt-assets')/path[len(prefix):]
+                  dst.parent.mkdir(parents=True,exist_ok=True)
+                  dst.write_bytes(base.read(path))
+                  manifest.append({'source':path,'output':str(dst),'sha256':hashlib.sha256(dst.read_bytes()).hexdigest(),'size':dst.stat().st_size})
+          Path('public/ypt-assets/MANIFEST.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False))
+          print('Extracted original app visual assets',len(manifest))
+          PY
+          du -sh public/ypt-assets
+      - name: Commit asset files to isolated visual rebuild branch
+        run: |
+          git config user.name 'hitel-original-assets[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/ypt-assets
+          if ! git diff --cached --quiet; then
+            git commit -m "assets(ypt): original extracted image and SVG resources with SHA256 manifest"
+            git push origin HEAD:feature/ypt-resource-visual-rebuild-20261108
+          fi
