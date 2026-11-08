@@ -1,0 +1,55 @@
+name: HITEL Call FlowLab v0.6 foreground W03
+on:
+  push:
+    branches: ["test/call-flow-lab-v06-20261108"]
+    paths:
+      - "flow-lab/v06_source.tar.xz"
+      - ".github/workflows/build-call-flow-lab-v06.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK dependencies
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Restore W03 foreground console and verify actual files
+        run: |
+          tar -xJf flow-lab/v06_source.tar.xz
+          python3 - <<'PY'
+          import pathlib,json
+          root=pathlib.Path("AndroidProject/app/src/main")
+          a=json.loads((root/"assets/flow_catalog_v4.json").read_text())
+          assert len(a["flow_tests"])==8 and len(a["isolated_tests"])==6
+          w03=(root/"java/app/hitel/samsungprobe/W03ConsoleActivity.java").read_text()
+          assert "ACTION_CALL" in w03 and "putAndSend" in w03 and "SpeechRecognizer" in w03
+          access=(root/"java/app/hitel/samsungprobe/CallAccessibilityService.java").read_text()
+          assert "TYPE_ACCESSIBILITY_OVERLAY" in access and "HITEL로 돌아오기" in access
+          assert 'app.hitel.callflowlab.v6' in pathlib.Path("AndroidProject/app/build.gradle.kts").read_text()
+          print("VALIDATED 14 test items; W03 single foreground cockpit; OEM return overlay")
+          PY
+      - name: Build signed debug APK
+        run: gradle -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Validate APK archive and signature
+        run: |
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.6-APK
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
