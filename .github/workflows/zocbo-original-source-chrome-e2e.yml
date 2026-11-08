@@ -9,6 +9,7 @@ on:
       - server.mjs
       - tools/zocbo/test_original_source_chrome.py
       - tools/zocbo/test_original_school_filters.py
+      - tools/zocbo/test_default_original_bank.py
       - .github/workflows/zocbo-original-source-chrome-e2e.yml
   workflow_dispatch:
 permissions:
@@ -38,6 +39,8 @@ jobs:
         run: python tools/zocbo/test_original_source_chrome.py
       - name: Verify original school-region and school list filters
         run: python tools/zocbo/test_original_school_filters.py
+      - name: Test default HITEL bottom problem bank opens original source sector
+        run: python tools/zocbo/test_default_original_bank.py
       - name: Preserve mobile screenshot + functionality evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -46,6 +49,7 @@ jobs:
           path: |
             zocbo-original-chrome-evidence/
             zocbo-school-original-evidence/
+            zocbo-default-bank-original-evidence/
           retention-days: 7
           if-no-files-found: warn
       - name: Preserve server output on failures
