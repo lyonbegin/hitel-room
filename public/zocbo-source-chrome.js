@@ -18,8 +18,8 @@ function template(html,selector){
  return selector?tpl.content.querySelector(selector):tpl.content.firstElementChild;
 }
 function srcHead(doc){
- const logo=escape(doc.logoSrc||'https://m.zocbo.com/cloudfront/images/mo/img_logoTop.svg');
- const coupon=escape(doc.couponSrc||'https://m.zocbo.com/cloudfront/images/mo/ico_coupon.svg');
+ const logo=escape('/zocbo-source-assets/img_logoTop.svg');
+ const coupon=escape('/zocbo-source-assets/ico_coupon.svg');
  const header=document.createElement('div');
  header.className='zb-original-head';
  header.innerHTML='<button type="button" class="zb-original-menu-button" data-zb-menu aria-label="전체 메뉴">☰</button>'
