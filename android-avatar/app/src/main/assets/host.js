@@ -55,7 +55,8 @@ const readinessCheck = setInterval(() => {
     el('wav').disabled = false;
     el('reset').disabled = false;
     indicator(ownAvatar ? '내 아바타 · 엔진 실행 중' : '데모 아바타 · 엔진 실행 중');
-    status('실제 DH_live mini 아바타 엔진 초기화 완료. WebRTC 루프백을 시작할 수 있습니다.');
+    status('실제 DH_live mini 아바타 엔진 초기화 완료. 내부 WebRTC 연결을 자동 시작합니다.');
+    void startLoopback().catch(e => rtcStatus('WebRTC 자동 시작 실패: ' + e.message + ' · 다시 시작 버튼을 누를 수 있습니다.'));
   } catch (e) {
     clearInterval(readinessCheck);
     status('아바타 엔진 초기화 실패: ' + e.message);
@@ -174,10 +175,12 @@ window.hitelAvatarImported = async (success, message) => {
   await stopLoopback();
   try {
     isPaused = true;
+    await new Promise(resolve => requestAnimationFrame(resolve)); // stop the old render loop
     CONFIG.videoSrc = '/avatar/01.mp4';
     CONFIG.dataSrc = '/avatar/combined_data.json.gz';
-    await newVideoTask();
     isPaused = false;
+    await newVideoTask();
+    await startLoopback();
     indicator('내 아바타 · 엔진 실행 중');
     status('개인 아바타 설치 및 렌더링 시작. 직접 스트리밍을 시작하세요.');
   } catch (e) {
@@ -197,9 +200,11 @@ el('reset').addEventListener('click', async () => {
   try {
     await stopLoopback();
     isPaused = true;
-    await newVideoTask();
+    await new Promise(resolve => requestAnimationFrame(resolve));
     isPaused = false;
-    status('아바타 자료를 다시 읽었습니다.');
+    await newVideoTask();
+    await startLoopback();
+    status('아바타 자료를 다시 읽고 WebRTC 내부 스트리밍을 시작했습니다.');
   } catch (e) {
     isPaused = false;
     status('아바타 다시 읽기 실패: ' + e.message);
