@@ -84,14 +84,17 @@ function attachPromo(host,doc){
 }
 function sourceFooter(app){
  if(!app||app.querySelector(':scope > .zb-original-footer'))return;
+ // The five original labels, CSS classes and official link targets come from
+ // the original Chromium-captured .fixedMenu #fixMenu05/#fixMenu01/02/03/06.
  const footer=document.createElement('nav');
+ const originalSite=window.ZOCBO_FAITHFUL_INSPECT?.().current?.fSite||'M';
  footer.className='zb-original-footer';
  footer.setAttribute('aria-label','족보닷컴 원본 모바일 하단 메뉴');
- footer.innerHTML='<a href="https://m.zocbo.com/" target="_blank" rel="noopener noreferrer"><b>⌂</b><small>홈</small></a>'
-  +'<button data-zb-site="M" type="button"><b>Ⓜ</b><small>중등</small></button>'
-  +'<button data-zb-site="H" type="button"><b>Ⓗ</b><small>고등</small></button>'
-  +'<a href="https://m.zocbo.com/H/" target="_blank" rel="noopener noreferrer"><b>▤</b><small>고등 문제제</small></a>'
-  +'<a href="https://m.zocbo.com/freetrial/freereading.asp" target="_blank" rel="noopener noreferrer"><b>▣</b><small>기출열람실</small></a>';
+ footer.innerHTML='<a class="fnb-home" href="https://m.zocbo.com/" target="_blank" rel="noopener noreferrer"><small>홈</small></a>'
+  +'<button class="fnb-mid '+(originalSite==='M'?'is-active':'')+'" data-zb-site="M" type="button"><small>중등</small></button>'
+  +'<button class="fnb-high '+(originalSite==='H'?'is-active':'')+'" data-zb-site="H" type="button"><small>고등</small></button>'
+  +'<a class="fnb-soopring" href="https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000600001&amp;siteid=H&amp;subject_cd=EG" target="_blank" rel="noopener noreferrer"><small>고등 부교재</small></a>'
+  +'<a class="fnb-freetrialNew" href="https://sign.zocbo.com" target="_blank" rel="noopener noreferrer"><small>기출열람실</small></a>';
  const scroll=app.querySelector(':scope > .appscroll');
  if(scroll)scroll.insertAdjacentElement('afterend',footer);
 }
