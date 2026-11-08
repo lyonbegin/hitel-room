@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-android-avatar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -31,17 +31,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install Gradle 9.1.0 from direct CDN with retries
+      - name: Check preinstalled Gradle and Android SDK
         run: |
-          curl -fL --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 --max-time 180 \
-            'https://downloads.gradle.org/distributions/gradle-9.1.0-bin.zip' \
-            -o "$RUNNER_TEMP/gradle-9.1.0-bin.zip"
-          unzip -q "$RUNNER_TEMP/gradle-9.1.0-bin.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/gradle-9.1.0/bin" >> "$GITHUB_PATH"
-      - name: Install Android SDK 36 using the preinstalled SDK manager
-        run: |
-          printf 'y\n%.0s' {1..100} | sdkmanager --licenses > /dev/null
-          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+          gradle --version
+          test -d "$ANDROID_HOME/platforms/android-36"
+          test -d "$ANDROID_HOME/build-tools/36.0.0"
       - name: Verify upstream source and assemble APK
         working-directory: android-avatar
         run: gradle :app:assembleDebug --no-daemon --stacktrace
