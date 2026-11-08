@@ -31,6 +31,58 @@
     "bytes": 0,
     "error": "INVALID_SOURCE_IMAGE"
   },
+  "/images/mo/ico_fixedMen_home.svg": {
+    "ok": true,
+    "bytes": 563,
+    "sha256": "e249a84d23a235995bec3a7aa7433bc71638745e62e86488c8c113a91e029c76",
+    "filename": "ico_fixedMen_home.svg",
+    "method": "captured-original-browser-network"
+  },
+  "/images/mo/ico_fixedMen_home_on.svg": {
+    "ok": false,
+    "bytes": 0,
+    "error": "INVALID_SOURCE_IMAGE"
+  },
+  "/images/mo/ico_fixedMen_mid.svg": {
+    "ok": true,
+    "bytes": 1312,
+    "sha256": "fbb279a0712719094c3312dcc93ce27e4e4aa53c62bd5b6b5a3705f5e6c1b35e",
+    "filename": "ico_fixedMen_mid.svg",
+    "method": "captured-original-browser-network"
+  },
+  "/images/mo/ico_fixedMen_mid_on.svg": {
+    "ok": true,
+    "bytes": 1312,
+    "sha256": "8581990ee38f4cc800ef419df93ac1e66bfbee1dd2e779c982b009f6bb9e9103",
+    "filename": "ico_fixedMen_mid_on.svg",
+    "method": "captured-original-browser-network"
+  },
+  "/images/mo/ico_fixedMen_high.svg": {
+    "ok": true,
+    "bytes": 405,
+    "sha256": "3cc38ad587b42567417013429d4c481ee5f427e22e3aa99c874b2d512979151f",
+    "filename": "ico_fixedMen_high.svg",
+    "method": "captured-original-browser-network"
+  },
+  "/images/mo/ico_fixedMen_high_on.svg": {
+    "ok": true,
+    "bytes": 405,
+    "sha256": "3a8ac68c8a34fd9b964e62edf33be35a9ba0b9ec9b4335b35a212a2271b8cb7e",
+    "filename": "ico_fixedMen_high_on.svg",
+    "method": "captured-original-browser-network"
+  },
+  "/images/mo/ico_fixedMen_soopring.svg": {
+    "ok": true,
+    "bytes": 1302,
+    "sha256": "0adb23092d436be5c359437189351e3f118129513442510960ed7e2e71cbcf33",
+    "filename": "ico_fixedMen_soopring.svg",
+    "method": "captured-original-browser-network"
+  },
+  "/images/mo/ico_fixedMen_soopring_on.svg": {
+    "ok": false,
+    "bytes": 0,
+    "error": "INVALID_SOURCE_IMAGE"
+  },
   "/cloudfront/images/mo/img_logoTop.svg": {
     "ok": true,
     "bytes": 11039,
