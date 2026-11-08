@@ -31,12 +31,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.1.0'
-      - name: Install Android SDK 36
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Install Android SDK 36 using the preinstalled SDK manager
+        run: |
+          printf 'y\n%.0s' {1..100} | sdkmanager --licenses > /dev/null
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
       - name: Verify upstream source and assemble APK
         working-directory: android-avatar
         run: gradle :app:assembleDebug --no-daemon --stacktrace
