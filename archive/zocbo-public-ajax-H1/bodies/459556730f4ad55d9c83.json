@@ -1,0 +1,47 @@
+{
+    "RESULT": "true",
+    "MENU_BY_FILTER": [
+        {
+            "FILTER_CD": "FILTER_1",
+            "FILTER_NM": "학년",
+            "MENU_CD": "000020000300006",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 1
+        },
+        {
+            "FILTER_CD": "FILTER_11",
+            "FILTER_NM": "과목",
+            "MENU_CD": "000020000300006",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 2
+        }
+    ],
+    "MENU_BY_EXAM": [
+        {
+            "SEQ": "EXAM_0",
+            "MENU_CD": "000020000300006",
+            "SUB_MENU_CD": null,
+            "EXPAPR_GROUP_CD": "P",
+            "EXPAPR_CORETYPE_CD": "A1|A2|A3|A4",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "GRADE_NM": "공통",
+            "SUBJECT_CD": "KR",
+            "SUBJECT_NM": "국어",
+            "SUBJECT_DETAIL_CD": null,
+            "SUBJECT_DETAIL_NM": null,
+            "TX_CD": "H8KRCHA0002",
+            "TX_NM": "공통",
+            "IS_DEFAULT": 1,
+            "IS_DEFAULT_SUBJECT": 1,
+            "TEXT_BOOK_CD": null,
+            "TEXT_BOOK_NM": null,
+            "YEAR_CD": null,
+            "YEAR_NM": null
+        }
+    ]
+}
