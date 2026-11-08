@@ -33,7 +33,8 @@ const item=(name,description,icon,fn,right)=>E("div",{cls:"listline",onclick:fn}
 const filter=(options,callback)=>D("chips",...options.map(s=>B(s,()=>{S.filter=s;callback();draw()}, "chip"+(s===S.filter?" on":""))));
 const visible=(...xs)=>!S.query||xs.join(" ").toLowerCase().includes(S.query.toLowerCase());
 function toast(s){document.querySelector(".toast")?.remove();const x=T(s,"toast");document.body.appendChild(x);setTimeout(()=>x.remove(),2400)}
-function jump(page,detail){S.page=page;S.detail=detail??null;draw();scrollTo(0,0)}
+const REAL_ZOCBO_BANK='https://hitel-zocbo-native-hierarchy-production.up.railway.app/?screen=bankSearch';
+function jump(page,detail){if(S.app==='jokbo'&&page==='bank'){window.location.assign(REAL_ZOCBO_BANK);return}S.page=page;S.detail=detail??null;draw();scrollTo(0,0)}
 function choose(id){try{history.replaceState(null,"","?app="+encodeURIComponent(id))}catch(e){}S.app=id;S.page="home";S.detail=null;S.filter="전체";S.query="";store("app",id);draw();scrollTo(0,0)}
 function isSaved(id){return S.saved.includes(id)}
 function bookmark(id){S.saved=isSaved(id)?S.saved.filter(x=>x!==id):S.saved.concat(id);store("saved",S.saved);draw()}
