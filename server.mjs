@@ -246,6 +246,7 @@ createServer(async (req,res)=>{
  }
  if(url.pathname==='/api/zocbo/faithful-page'&&req.method==='GET'){serveZocboOriginalSource(url,send);return}
  if(url.pathname==='/zocbo-faithful-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.js'));return}
+ if(url.pathname==='/zocbo-captured-original.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-captured-original.css'));return}
  if(url.pathname==='/zocbo-faithful-ui.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.css'));return}
  if(url.pathname==='/api/zocbo/menu-data'&&req.method==='GET'){
   const slug=String(url.searchParams.get('slug')||'');
