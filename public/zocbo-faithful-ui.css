@@ -73,3 +73,7 @@
 #phone .zb-f-choice-check{font-weight:700}
 #phone .zb-f-picker{padding-bottom:25px}
 @media(max-width:350px){#phone .zb-f-main-tabs>button{padding:15px 9px;font-size:11px}#phone .zb-f-subtabs{gap:13px;padding-left:11px}#phone .zb-f-filter{padding:10px}}
+
+#phone .zb-f-sitebar{display:flex;justify-content:flex-start;align-items:center;gap:6px;padding:9px 12px 7px;background:#fff;border-bottom:1px solid #eee}
+#phone .zb-f-sitebar button{background:#fff;color:#555;border:1px solid #dedede;border-radius:18px;font-size:11px;padding:7px 12px;cursor:pointer}
+#phone .zb-f-sitebar button.is-active{background:#272727;color:#fff;border-color:#272727;font-weight:700}
