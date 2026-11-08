@@ -255,6 +255,14 @@ createServer(async (req,res)=>{
  if(url.pathname==='/zocbo-faithful-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.js'));return}
  if(url.pathname==='/zocbo-source-chrome.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-source-chrome.js'));return}
  if(url.pathname==='/zocbo-source-chrome.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-source-chrome.css'));return}
+ if(url.pathname.startsWith('/zocbo-source-assets/')){
+   const name=url.pathname.slice('/zocbo-source-assets/'.length);
+   if(!/^[a-zA-Z0-9._-]{1,90}$/.test(name)||name==='.'||name==='..'){send(400,'text/plain','invalid asset');return}
+   const fn='./public/zocbo-source-assets/'+name;
+   if(!existsSync(fn)){send(404,'text/plain','original public asset not captured');return}
+   const type=name.endsWith('.svg')?'image/svg+xml':name.endsWith('.png')?'image/png':'application/octet-stream';
+   send(200,type,readFileSync(fn));return
+ }
  if(url.pathname==='/zocbo-captured-original.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-captured-original.css'));return}
  if(url.pathname==='/zocbo-faithful-ui.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.css'));return}
  if(url.pathname==='/api/zocbo/menu-data'&&req.method==='GET'){
