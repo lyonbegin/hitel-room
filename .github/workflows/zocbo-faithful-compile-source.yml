@@ -1,0 +1,57 @@
+name: Compile 700 actual original mobile views into HITEL source-backed DOM sectors
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - tools/zocbo/compile_faithful_source_ui.py
+      - .github/workflows/zocbo-faithful-compile-source.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  compile-original-browser-evidence:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install DOM parser and syntax-check source compiler
+        run: |
+          python -m py_compile tools/zocbo/compile_faithful_source_ui.py
+          pip install beautifulsoup4==4.12.3
+      - name: Import verified browser source archive (separate immutable branch)
+        run: |
+          git fetch origin archive/zocbo-original-browser-sources-20261108
+          git worktree add --detach /tmp/zocbo-source FETCH_HEAD
+          test -s /tmp/zocbo-source/archive/zocbo-original-sources-20261108/M3/manifest.json
+      - name: Import original mobile filter drawer choice evidence
+        run: |
+          mkdir -p /tmp/zocbo-filters
+          for key in M1 M2 M3 H1 H2; do
+            git fetch origin archive/zocbo-public-filters-${key}-20261108
+            ( cd /tmp/zocbo-filters && git -C "$GITHUB_WORKSPACE" archive FETCH_HEAD original-filters/${key} | tar -xf - )
+            test -s /tmp/zocbo-filters/original-filters/${key}/report.json
+          done
+      - name: Compile sanitized original DOM, menu navigation, subject filters and 700 original cases
+        run: python tools/zocbo/compile_faithful_source_ui.py /tmp/zocbo-source /tmp/zocbo-filters
+      - name: Publish all original mobile source case snapshots to working branch
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add public/zocbo-faithful-index.json public/zocbo-faithful-pages/
+          git commit -m 'Import 700 observed original mobile DOM screen states and actual menu/filter choice metadata'
+          git fetch origin feature/zocbo-faithful-all-sources-20261108
+          git rebase FETCH_HEAD
+          git push origin HEAD:feature/zocbo-faithful-all-sources-20261108
+      - name: Keep original index and output count in build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-faithful-700-source-pages-manifest
+          path: public/zocbo-faithful-index.json
+          retention-days: 7
+          if-no-files-found: warn
