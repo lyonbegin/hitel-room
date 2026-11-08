@@ -1,0 +1,50 @@
+name: Verify YPT calendar and embedded Zocbo mobile regression
+on:
+  push:
+    branches: [feature/zocbo-ypt-integrated-fix-20261108]
+    paths:
+      - public/**
+      - tools/zocbo/test_ypt_calendar_integrated.py
+      - .github/workflows/ypt-zocbo-integrated-calendar-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-calendar-and-gangnam:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chromium
+        run: |
+          python -m py_compile tools/zocbo/test_ypt_calendar_integrated.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Verify temporary Railway staging matches original YPT server
+        env:
+          HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+        run: |
+          set -e
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 15 "$HITEL_BASE_URL/?screen=calendar" | grep -q "id=\"phone\""; then
+              echo YPT_CALENDAR_ORIGINAL_SHELL_READY
+              break
+            fi
+            sleep 8
+          done
+          curl -fsS --max-time 15 "$HITEL_BASE_URL/?screen=calendar" | grep -q "ypt-rebuild.js"
+      - name: Run actual mobile Chromium calendar to Gangnam to calendar flow
+        env:
+          HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+        run: python tools/zocbo/test_ypt_calendar_integrated.py
+      - name: Save screenshots and JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ypt-calendar-zocbo-integrated-browser-screenshots
+          path: ypt-zocbo-integration-evidence/
+          retention-days: 7
+          if-no-files-found: warn
