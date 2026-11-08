@@ -1,0 +1,342 @@
+{
+  "case": "H_2_KR_practice",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=KR&grade=2",
+  "filters": [
+    {
+      "name": "고2·3",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '고2·3');\">\n        <span class=\"check__text\">고2·3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "혜택받기\n서비스 안내\n예비중1\n예비중1 필독\n예비중1 맞춤 족보\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n시대별 문학\n국어문법\n고2·3\n국어\n문학\n비상(강호영)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.나를 깨우는, 문학\n1-1.문학의 본질과 미적 기능\n1-2.문학의 인식적·윤리적 기능\n🔥1학기 중간\n1. 나를 깨우는, 문학\n01회\n02회\n03회\n2.다양한 빛깔로 만나는, 문학\n2-1.서정 갈래의 이해\n2-2.서사 갈래의 이해\n2-3.극, 교술 갈래의 이해\n2-4.문학 작품의 재구성과 창작\n2-5.문학과 매체\n🔥1학기 중간\n2. 다양한 빛깔로 만나는, 문학\n01회\n02회\n03회\n3.역사와 함께 흐르는, 문학\n3-1.한국 문학의 성격\n3-2.상고 시대~고려 시대 문학\n3-3.조선 시대 문학\n3-4.개화기~일제 강점기 문학\n3-5.광복 이후 문학\n🔥1학기 기말\n3. 역사와 함께 흐르는, 문학\n01회(144~193p)\n02회(144~193p)\n01회(194~285p)\n02회(194~285p)\n4.삶과 함께하는, 문학\n4-1.자아 성찰과 타자 이해\n4-2.공동체 참여와 문학의 생활화\n🔥1학기 기말\n4. 삶과 함께하는, 문학\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1\n고2·3"
+    },
+    {
+      "name": "국어",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n예비중1\n예비중1 필독\n예비중1 맞춤 족보\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n시대별 문학\n국어문법\n고2·3\n국어\n문학\n비상(강호영)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.나를 깨우는, 문학\n1-1.문학의 본질과 미적 기능\n1-2.문학의 인식적·윤리적 기능\n🔥1학기 중간\n1. 나를 깨우는, 문학\n01회\n02회\n03회\n2.다양한 빛깔로 만나는, 문학\n2-1.서정 갈래의 이해\n2-2.서사 갈래의 이해\n2-3.극, 교술 갈래의 이해\n2-4.문학 작품의 재구성과 창작\n2-5.문학과 매체\n🔥1학기 중간\n2. 다양한 빛깔로 만나는, 문학\n01회\n02회\n03회\n3.역사와 함께 흐르는, 문학\n3-1.한국 문학의 성격\n3-2.상고 시대~고려 시대 문학\n3-3.조선 시대 문학\n3-4.개화기~일제 강점기 문학\n3-5.광복 이후 문학\n🔥1학기 기말\n3. 역사와 함께 흐르는, 문학\n01회(144~193p)\n02회(144~193p)\n01회(194~285p)\n02회(194~285p)\n4.삶과 함께하는, 문학\n4-1.자아 성찰과 타자 이해\n4-2.공동체 참여와 문학의 생활화\n🔥1학기 기말\n4. 삶과 함께하는, 문학\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n국어\n영어\n수학\n과학\n사회\n한국사"
+    },
+    {
+      "name": "문학",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_DETAIL_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_DETAIL_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "문학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "문학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "독서와 작문",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "독서와 작문",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "화법과 언어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "화법과 언어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">상세과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_DETAIL_CD', '1', '문학');\">\n        <span class=\"check__text\">문학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_DETAIL_CD', '2', '독서와 작문');\">\n        <span class=\"check__text\">독서와 작문</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_DETAIL_CD', '3', '화법과 언어');\">\n        <span class=\"check__text\">화법과 언어</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n예비중1\n예비중1 필독\n예비중1 맞춤 족보\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n시대별 문학\n국어문법\n고2·3\n국어\n문학\n비상(강호영)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.나를 깨우는, 문학\n1-1.문학의 본질과 미적 기능\n1-2.문학의 인식적·윤리적 기능\n🔥1학기 중간\n1. 나를 깨우는, 문학\n01회\n02회\n03회\n2.다양한 빛깔로 만나는, 문학\n2-1.서정 갈래의 이해\n2-2.서사 갈래의 이해\n2-3.극, 교술 갈래의 이해\n2-4.문학 작품의 재구성과 창작\n2-5.문학과 매체\n🔥1학기 중간\n2. 다양한 빛깔로 만나는, 문학\n01회\n02회\n03회\n3.역사와 함께 흐르는, 문학\n3-1.한국 문학의 성격\n3-2.상고 시대~고려 시대 문학\n3-3.조선 시대 문학\n3-4.개화기~일제 강점기 문학\n3-5.광복 이후 문학\n🔥1학기 기말\n3. 역사와 함께 흐르는, 문학\n01회(144~193p)\n02회(144~193p)\n01회(194~285p)\n02회(194~285p)\n4.삶과 함께하는, 문학\n4-1.자아 성찰과 타자 이해\n4-2.공동체 참여와 문학의 생활화\n🔥1학기 기말\n4. 삶과 함께하는, 문학\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n상세과목\n문학\n독서와 작문\n화법과 언어"
+    },
+    {
+      "name": "비상(강호영)",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "비상(강호영)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(강호영)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "미래엔(방민호)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "미래엔(방민호)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(정호웅)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(정호웅)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "창비(최원식)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "창비(최원식)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "지학사(정재찬)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "지학사(정재찬)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA2001', '비상(강호영)');\">\n        <span class=\"check__text\">비상(강호영)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA2002', '미래엔(방민호)');\">\n        <span class=\"check__text\">미래엔(방민호)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA2003', '천재(정호웅)');\">\n        <span class=\"check__text\">천재(정호웅)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA2004', '창비(최원식)');\">\n        <span class=\"check__text\">창비(최원식)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HAKRCHA2005', '지학사(정재찬)');\">\n        <span class=\"check__text\">지학사(정재찬)</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n시대별 문학\n국어문법\n고2·3\n국어\n문학\n비상(강호영)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.나를 깨우는, 문학\n1-1.문학의 본질과 미적 기능\n1-2.문학의 인식적·윤리적 기능\n🔥1학기 중간\n1. 나를 깨우는, 문학\n01회\n02회\n03회\n2.다양한 빛깔로 만나는, 문학\n2-1.서정 갈래의 이해\n2-2.서사 갈래의 이해\n2-3.극, 교술 갈래의 이해\n2-4.문학 작품의 재구성과 창작\n2-5.문학과 매체\n🔥1학기 중간\n2. 다양한 빛깔로 만나는, 문학\n01회\n02회\n03회\n3.역사와 함께 흐르는, 문학\n3-1.한국 문학의 성격\n3-2.상고 시대~고려 시대 문학\n3-3.조선 시대 문학\n3-4.개화기~일제 강점기 문학\n3-5.광복 이후 문학\n🔥1학기 기말\n3. 역사와 함께 흐르는, 문학\n01회(144~193p)\n02회(144~193p)\n01회(194~285p)\n02회(194~285p)\n4.삶과 함께하는, 문학\n4-1.자아 성찰과 타자 이해\n4-2.공동체 참여와 문학의 생활화\n🔥1학기 기말\n4. 삶과 함께하는, 문학\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n비상(강호영)\n미래엔(방민호)\n천재(정호웅)\n창비(최원식)\n지학사(정재찬)"
+    }
+  ]
+}

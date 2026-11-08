@@ -1,0 +1,348 @@
+{
+  "case": "H_2_LS_concept",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=LS&grade=2",
+  "filters": [
+    {
+      "name": "고2·3",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "고1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "고2·3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '고1');\">\n        <span class=\"check__text\">고1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '고2·3');\">\n        <span class=\"check__text\">고2·3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "간\n2-4. 사회 변동과 사회 운동\n요점정리\n🔥1학기 중간\n2-4. 사회 변동과 사회 운동\n암기노트\n🔥1학기 중간\n2-4. 사회 변동과 사회 운동\n대표유형\n3.일상 문화와 문화 변동\n3-1.대중문화의 이해\n🔥1학기 기말\n3-1. 대중문화의 이해\n요점정리\n🔥1학기 기말\n3-1. 대중문화의 이해\n암기노트\n🔥1학기 기말\n3-1. 대중문화의 이해\n대표유형\n3-2.미디어의 이해\n🔥1학기 기말\n3-2. 미디어의 이해\n요점정리\n🔥1학기 기말\n3-2. 미디어의 이해\n암기노트\n🔥1학기 기말\n3-2. 미디어의 이해\n대표유형\n3-3.하위문화와 문화 다양성\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n요점정리\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n암기노트\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n대표유형\n3-4.문화 변동과 문화의 세계화\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n요점정리\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n암기노트\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n대표유형\n4.사회 불평등과 사회 복지\n4-1.사회 불평등 현상과 사회 계층\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n요점정리\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n암기노트\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n대표유형\n4-2.다양한 사회 불평등 양상\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n요점정리\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n암기노트\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n대표유형\n4-3.사회 복지와 복지 제도\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n요점정리\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n암기노트\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n대표유형\n15개정\n고3 수업자료 보기\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n고1\n고2·3"
+    },
+    {
+      "name": "사회",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '한국사');\">\n        <span class=\"check__text\">한국사</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "동과 사회 운동\n요점정리\n🔥1학기 중간\n2-4. 사회 변동과 사회 운동\n암기노트\n🔥1학기 중간\n2-4. 사회 변동과 사회 운동\n대표유형\n3.일상 문화와 문화 변동\n3-1.대중문화의 이해\n🔥1학기 기말\n3-1. 대중문화의 이해\n요점정리\n🔥1학기 기말\n3-1. 대중문화의 이해\n암기노트\n🔥1학기 기말\n3-1. 대중문화의 이해\n대표유형\n3-2.미디어의 이해\n🔥1학기 기말\n3-2. 미디어의 이해\n요점정리\n🔥1학기 기말\n3-2. 미디어의 이해\n암기노트\n🔥1학기 기말\n3-2. 미디어의 이해\n대표유형\n3-3.하위문화와 문화 다양성\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n요점정리\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n암기노트\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n대표유형\n3-4.문화 변동과 문화의 세계화\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n요점정리\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n암기노트\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n대표유형\n4.사회 불평등과 사회 복지\n4-1.사회 불평등 현상과 사회 계층\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n요점정리\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n암기노트\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n대표유형\n4-2.다양한 사회 불평등 양상\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n요점정리\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n암기노트\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n대표유형\n4-3.사회 복지와 복지 제도\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n요점정리\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n암기노트\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n대표유형\n15개정\n고3 수업자료 보기\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n국어\n영어\n수학\n과학\n사회\n한국사"
+    },
+    {
+      "name": "사회와 문화",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "사회와 문화",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회와 문화",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "현대사회와 윤리",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "현대사회와 윤리",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "세계시민과 지리",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "세계시민과 지리",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "세계사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "세계사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "윤리와 사상",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "윤리와 사상",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "법과 사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "법과 사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "정치",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "정치",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "경제",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "경제",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국지리 탐구",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "한국지리 탐구",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2001', '사회와 문화');\">\n        <span class=\"check__text\">사회와 문화</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2002', '현대사회와 윤리');\">\n        <span class=\"check__text\">현대사회와 윤리</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2003', '세계시민과 지리');\">\n        <span class=\"check__text\">세계시민과 지리</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2004', '세계사');\">\n        <span class=\"check__text\">세계사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2005', '윤리와 사상');\">\n        <span class=\"check__text\">윤리와 사상</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2006', '법과 사회');\">\n        <span class=\"check__text\">법과 사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2007', '정치');\">\n        <span class=\"check__text\">정치</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2008', '경제');\">\n        <span class=\"check__text\">경제</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'HALSCHA2009', '한국지리 탐구');\">\n        <span class=\"check__text\">한국지리 탐구</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "운동\n암기노트\n🔥1학기 중간\n2-4. 사회 변동과 사회 운동\n대표유형\n3.일상 문화와 문화 변동\n3-1.대중문화의 이해\n🔥1학기 기말\n3-1. 대중문화의 이해\n요점정리\n🔥1학기 기말\n3-1. 대중문화의 이해\n암기노트\n🔥1학기 기말\n3-1. 대중문화의 이해\n대표유형\n3-2.미디어의 이해\n🔥1학기 기말\n3-2. 미디어의 이해\n요점정리\n🔥1학기 기말\n3-2. 미디어의 이해\n암기노트\n🔥1학기 기말\n3-2. 미디어의 이해\n대표유형\n3-3.하위문화와 문화 다양성\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n요점정리\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n암기노트\n🔥1학기 기말\n3-3. 하위문화와 문화 다양성\n대표유형\n3-4.문화 변동과 문화의 세계화\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n요점정리\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n암기노트\n🔥1학기 기말\n3-4. 문화 변동과 문화의 세계화\n대표유형\n4.사회 불평등과 사회 복지\n4-1.사회 불평등 현상과 사회 계층\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n요점정리\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n암기노트\n🔥1학기 기말\n4-1. 사회 불평등 현상과 사회 계층\n대표유형\n4-2.다양한 사회 불평등 양상\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n요점정리\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n암기노트\n🔥1학기 기말\n4-2. 다양한 사회 불평등 양상\n대표유형\n4-3.사회 복지와 복지 제도\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n요점정리\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n암기노트\n🔥1학기 기말\n4-3. 사회 복지와 복지 제도\n대표유형\n15개정\n고3 수업자료 보기\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n사회와 문화\n현대사회와 윤리\n세계시민과 지리\n세계사\n윤리와 사상\n법과 사회\n정치\n경제\n한국지리 탐구"
+    }
+  ]
+}
