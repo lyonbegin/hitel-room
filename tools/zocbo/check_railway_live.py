@@ -18,6 +18,8 @@ code,html=get("/")
 assert code==200 and b"zocbo-live-bank.js" in html,("wrong deployment branch",code,len(html))
 code,js=get("/zocbo-live-bank.js")
 assert code==200 and b"zbLiveSubject" in js,("live module missing",code,len(js))
+assert b"slice(0,200)" not in js,("old 200 item cap is still deployed")
+assert b"gradeSubjects" in js,("official subject filters not deployed")
 for name,filters,expected in [
  ("high",{"site":"H","grade":"1","subject":"MT"},411),
  ("middle",{"site":"M","grade":"2","subject":"MT"},383),
@@ -25,6 +27,9 @@ for name,filters,expected in [
  code,raw=get("/api/zocbo/public-catalog?"+urlencode(filters))
  data=json.loads(raw)
  n=len(data.get("exams",[]))
- print(json.dumps({"case":name,"http":code,"ok":data.get("ok"),"examCount":n,"partRows":len(data.get("parts",[])),"firstTitle":data.get("exams",[{}])[0].get("title")},ensure_ascii=False))
+ original_subjects=data.get("subjects",[])
+ assert isinstance(original_subjects,list) and len(original_subjects)>=4,(name,"source subjects missing",original_subjects)
+ assert any(s.get("code")=="MT" for s in original_subjects),(name,"MT missing",original_subjects)
+ print(json.dumps({"case":name,"http":code,"ok":data.get("ok"),"examCount":n,"partRows":len(data.get("parts",[])),"subjectCount":len(original_subjects),"sampleSubjects":original_subjects[:7],"firstTitle":data.get("exams",[{}])[0].get("title")},ensure_ascii=False))
  assert code==200 and data.get("ok")==True and n==expected,(name,n,raw[:200])
 print("RAILWAY_LIVE_API_SUCCESS",BASE)
