@@ -40,6 +40,7 @@ with sync_playwright() as p:
   assert page.locator('#phone .appbar:visible').count()==0
   assert page.locator('#phone .bottomnav:visible').count()==0
   page.wait_for_function("()=>document.querySelectorAll('#phone [data-zb-paper-id]').length===80",timeout=40000)
+  page.screenshot(path=str(OUT/f'actual-original-middle3-english-initial-{width}.png'),full_page=False)
   # Real original guide utility responds, does not contain a dead button.
   page.locator('#phone .zb-original-utility #MenuDescription button').click()
   page.get_by_role('dialog',name='이용 안내').wait_for(timeout=10000)
