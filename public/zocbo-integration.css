@@ -27,3 +27,17 @@
 .zb-iframe-fallback{flex:none;font-size:10px;line-height:1.45;color:#858c96;padding:6px 11px;background:#f7f8f9;border-top:1px solid #edf0f2}
 .zb-detail-head~.zb-embedded-page{min-height:620px;margin:12px -20px -25px;width:calc(100% + 40px)}
 @media(max-width:500px){.zb-iframe-fallback{font-size:9px}}
+/* Native mobile source-aligned links, without nested iframe */
+.zb-native-official{width:100%;padding:8px 0 18px;display:block;background:#fff;color:#262a30}
+.zb-native-heading{border-bottom:1px solid #e8eaed;padding:12px 0 19px}
+.zb-native-heading small{font-size:11px;color:#777}
+.zb-native-heading h3{font-size:19px;font-weight:750;margin:10px 0}
+.zb-native-heading p{font-size:12px;line-height:1.65;color:#676d74;margin:0}
+.zb-native-function{padding:16px 0 20px;border-bottom:1px solid #eee}
+.zb-native-function>b{font-size:13px}
+.zb-native-function p{font-size:12px;line-height:1.8;color:#737780;margin:10px 0 18px}
+.zb-native-function .zb-primary-link{width:100%}
+.zb-native-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:18px 0}
+.zb-native-links .zb-link{min-width:0;padding:12px 5px;font-size:11px;overflow-wrap:anywhere}
+.appscroll:has(> .zb-native-official){padding:15px 18px;overflow-y:auto;display:block}
+@media(max-width:360px){.zb-native-links{grid-template-columns:1fr}}
