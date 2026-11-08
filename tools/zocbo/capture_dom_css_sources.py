@@ -88,7 +88,8 @@ for typ in ('css','js'):
   u=a['url']
   try:
    r=sess.get(u,timeout=18)
-   if r.status_code!=200 or len(r.content)>1_600_000:raise ValueError(f'not a small public asset: {r.status_code}/{len(r.content)}')
+   limit=7_500_000 if typ=='css' else 1_600_000
+   if r.status_code!=200 or len(r.content)>limit:raise ValueError(f'asset unavailable/above size limit: {r.status_code}/{len(r.content)}')
    contenttype=r.headers.get('Content-Type','')
    name=f'{typ}/{j:03d}.'+('css' if typ=='css' else 'js')
    fp=ROOT/name;fp.parent.mkdir(parents=True,exist_ok=True);fp.write_bytes(r.content)
