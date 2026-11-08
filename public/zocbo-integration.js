@@ -33,6 +33,9 @@ const ROADMAP={bankHome:{title:'문제은행',route:'app',label:'족보닷컴 �
  bankDiagnostic:{title:'성적 진단평가',route:'diagnostic',label:'공식 진단평가'},
  bankCategory:{title:'문제 유형별 학습',route:'middle',label:'공식 학습 유형 선택'}
 };
+for(const [id,meta] of Object.entries(ROADMAP)){
+ window.YPT_GRAPH[id]={title:meta.title,evidence:[],officialUrl:PATHS[meta.route],actions:[{text:'문제은행 홈',go:'bankHome'},{text:'실제 자료 검색',go:'bankSearch'},{text:'공식 로그인',go:'bankLogin'}]};
+}
 const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 function stateOf(s){return s.zocbo||(s.zocbo={grade:'중2',query:'',subject:'전체',paperId:null,viewUrl:PATHS.app,sourceKey:'app'});}
 function isOfficial(url){try{const x=new URL(url);return x.protocol==='https:'&&(x.hostname==='m.zocbo.com'||x.hostname==='sign.zocbo.com'||x.hostname==='zocbo.com');}catch{return false}}
