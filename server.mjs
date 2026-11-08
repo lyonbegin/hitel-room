@@ -101,6 +101,7 @@ async function serveZocboPublicCatalog(url,req,send){
   const result={
    ok:true,source:'anonymous-official-mobile',filter:q,
    officialUrl:referrer,examCount:Number(exams.EXAM_COUNT)||0,
+   subjects:[...new Map(choices.filter(x=>String(x.SITE_ID)===q.site&&String(x.GRADE)===q.grade&&/^[A-Z0-9]{2,5}$/.test(String(x.SUBJECT_CD||''))).map(x=>[String(x.SUBJECT_CD),{code:safeString(x.SUBJECT_CD,5),name:safeString(x.SUBJECT_NM||x.SUBJECT_CD,40)}])).values()],
    exams:(Array.isArray(exams.MENU_BY_EXAM)?exams.MENU_BY_EXAM:[]).slice(0,500).map(v=>sourceInfoRow(v,'exam')).filter(v=>v&&v.id&&v.title),
    parts:(Array.isArray(parts.MENU_BY_PART)?parts.MENU_BY_PART:[]).slice(0,600).map(v=>sourceInfoRow(v,'part')).filter(Boolean)
   };
