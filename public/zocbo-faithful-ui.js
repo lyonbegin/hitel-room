@@ -5,6 +5,7 @@
  */
 (function(){
 'use strict';
+if(new URLSearchParams(location.search).get('mobile')==='1')document.body.classList.add('zb-standalone');
 const UI=window.ZOCBOUI;
 if(!UI)throw Error('ZOCBOUI missing');
 const priorPage=UI.page,priorAction=UI.onAction;
