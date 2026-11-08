@@ -1,30 +1,68 @@
-/* Actual dynamic Zocbo public metadata, constrained to the existing phone area */
-.zb-live-bank{width:100%;min-width:0;background:#fff;color:#202329;padding-bottom:24px}
-.zb-live-top{padding:15px 0 10px;border-bottom:1px solid #edf0f2}
-.zb-live-top h3{font-size:18px;line-height:1.4;font-weight:800;margin:0 0 7px}
-.zb-live-top p{font-size:11px;color:#6e7480;line-height:1.65;margin:0}
-.zb-live-chooser{padding:12px 0 9px}
-.zb-live-options{display:flex;gap:6px;overflow:auto;padding:5px 0;scrollbar-width:none}
-.zb-live-options button{flex:none;border:1px solid #dfe2e6;border-radius:11px;min-height:35px;padding:7px 11px;font-size:12px;background:white;color:#4f555e;cursor:pointer}
-.zb-live-options button.on{background:#30343b;color:white;border-color:#30343b;font-weight:700}
-.zb-live-search{margin-top:11px;padding:12px;width:100%;border:1px solid #e2e6ea;border-radius:10px;font-size:13px;outline-offset:3px}
-.zb-live-state{min-height:100px;padding:26px 10px;font-size:12px;line-height:1.75;color:#727984}
-.zb-live-count{display:flex;gap:8px;justify-content:space-between;align-items:center;border-bottom:1px solid #ebedf0;padding:13px 0}
-.zb-live-count b{font-size:13px}
-.zb-live-count small{font-size:10px;color:#9098a0;text-align:right}
-.zb-live-panel h4{font-size:14px;margin:18px 0 10px}
-.zb-live-units details{border:1px solid #e5e8ea;border-radius:9px;margin-bottom:7px;overflow:hidden}
-.zb-live-units summary{cursor:pointer;padding:15px 12px;font-size:12px;font-weight:700;list-style-position:inside}
-.zb-live-units details>div{border-top:1px solid #eff0f2;padding:0 12px}
-.zb-live-units details p{border-bottom:1px solid #f2f3f4;margin:0;padding:10px 3px;font-size:12px;color:#555c66}
-.zb-live-units details p:last-child{border:0}
-.zb-live-exam{padding:13px 2px;border-bottom:1px solid #eceef0;display:flex;gap:12px;align-items:center;justify-content:space-between}
-.zb-live-exam div{min-width:0;flex:1}
-.zb-live-exam strong{font-size:12px;font-weight:650;display:block;line-height:1.5;overflow-wrap:anywhere}
-.zb-live-exam small{display:block;color:#9ba0a8;font-size:10px;margin-top:4px}
-.zb-live-exam a{font-size:11px;text-decoration:underline;white-space:nowrap;color:#515969}
-.zb-live-empty{font-size:12px;color:#858b96;line-height:1.7}
-.zb-live-bottom{display:grid;gap:8px;margin-top:18px}
-.zb-live-bottom button{min-height:40px;border:1px solid #d9dde2;border-radius:9px;background:white;color:#3a424c;font-size:12px}
-#phone .appscroll:has(> .zb-live-bank){overflow-x:hidden}
-@media(max-width:390px){.zb-live-options button{padding-inline:9px;font-size:11px}.zb-live-count{flex-wrap:wrap}}
+/* Native mobile problem-bank hierarchy: original navigation concepts, source-backed data.
+   Neutral tones, no iframe, no nested scrolling or extra marketing components. */
+#phone .zb-native-bank{background:#f7f7f7;color:#232323;min-height:400px;width:100%;overflow-x:clip;padding-bottom:14px}
+#phone .zb-native-head{background:#fff;padding:17px 14px 12px;border-bottom:1px solid #eee}
+#phone .zb-native-head h3{font-size:17px;line-height:1.4;font-weight:750;margin:0;color:#202020}
+#phone .zb-native-selects{padding:14px 12px 8px;background:#fff}
+#phone .zb-native-select-row{display:flex;gap:7px;max-width:100%;overflow-x:auto;padding:3px 0 7px;scrollbar-width:none}
+#phone .zb-native-select-row button{white-space:nowrap;flex:none;border:1px solid #e5e5e5;background:#fff;color:#484848;border-radius:19px;padding:9px 13px;font-size:12px;line-height:1.35;cursor:pointer}
+#phone .zb-native-select-row button.is-on{border-color:#292929;background:#292929;color:#fff;font-weight:700}
+#phone .zb-native-static-filter{background:#fff;display:flex;gap:9px;padding:0 14px 12px}
+#phone .zb-native-static-filter span{display:inline-block;background:#f4f4f4;padding:8px 12px;font-size:11px;color:#555;border-radius:12px}
+#phone .zb-native-search-wrap{display:flex;align-items:center;gap:10px;margin:12px 13px 8px;border:1px solid #dedede;border-radius:11px;padding:9px 11px;background:#fff}
+#phone .zb-native-search-wrap span{font-size:11px;color:#666;white-space:nowrap}
+#phone .zb-native-search-wrap input{width:100%;min-width:0;background:transparent;border:0;outline:none;font-size:13px;color:#202020;padding:5px 0}
+#phone .zb-native-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px 4px}
+#phone .zb-native-summary b{font-size:13px;font-weight:700}
+#phone .zb-native-summary small{font-size:11px;color:#737373}
+#phone .zb-native-tabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:9px 14px 12px;border-bottom:1px solid #d9d9d9}
+#phone .zb-native-tabs button{background:transparent;color:#7c7c7c;border:0;border-bottom:2px solid transparent;padding:12px 4px;font-size:12px;cursor:pointer}
+#phone .zb-native-tabs button.is-on{color:#181818;border-bottom-color:#292929;font-weight:700}
+#phone .zb-native-chapters{display:grid;gap:10px;padding:0 12px 12px}
+#phone .zb-native-root{background:#fff;border:1px solid #e6e6e6;border-radius:8px;overflow:hidden}
+#phone .zb-native-root-head{display:flex;align-items:center;gap:6px;min-height:59px;padding:12px 14px;width:100%;background:#fff;border:0;text-align:left;color:#1d1d1d;font-weight:650;font-size:13px;cursor:pointer}
+#phone .zb-native-root-head span{flex:1;min-width:0;overflow-wrap:anywhere}
+#phone .zb-native-root-head small{font-size:10px;color:#959595;font-weight:500}
+#phone .zb-native-root-head b{font-size:16px;color:#9f9f9f;font-weight:400;margin-left:5px}
+#phone .zb-native-root-body{border-top:1px solid #e9e9e9;background:#fafafa;padding:8px}
+#phone .zb-native-sub{border:1px solid #eeeeee;border-radius:7px;background:#fff;margin-bottom:7px;overflow:hidden}
+#phone .zb-native-sub:last-child{margin-bottom:0}
+#phone .zb-native-sub-head{width:100%;display:flex;align-items:center;gap:9px;padding:12px 11px;min-height:46px;border:0;background:#fff;text-align:left;color:#313131;font-size:12px;cursor:pointer}
+#phone .zb-native-sub-head span{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
+#phone .zb-native-sub-head small{font-size:10px;color:#8a8a8a}
+#phone .zb-native-sub-head b{font-size:16px;color:#aaa}
+#phone .zb-native-sub-body{padding:7px 10px 11px;border-top:1px solid #eee}
+#phone .zb-native-detail{border-bottom:1px solid #ececec;padding:10px 1px}
+#phone .zb-native-detail:last-child{border-bottom:0}
+#phone .zb-native-detail-name{font-size:12px;font-weight:600;line-height:1.5;margin:0 0 9px}
+#phone .zb-native-level{display:flex;gap:10px;align-items:flex-start;margin-bottom:5px}
+#phone .zb-native-level-label{display:inline-flex;justify-content:center;align-items:center;flex:0 0 auto;min-width:32px;padding-top:7px;font-size:11px;color:#6b6b6b}
+#phone .zb-native-episodes{display:flex;flex:1;gap:5px;flex-wrap:wrap;min-width:0}
+#phone .zb-native-episode{border:1px solid #dedede;background:#fff;color:#333;min-width:43px;padding:8px 5px;line-height:1.2;font-size:11px;border-radius:7px;cursor:pointer}
+#phone .zb-native-episode:focus-visible,#phone .zb-native-title-item:focus-visible{outline:2px solid #666;outline-offset:1px}
+#phone .zb-native-episode.is-current{background:#222;color:#fff}
+#phone .zb-native-loading,#phone .zb-native-error,#phone .zb-native-empty{margin:12px;padding:25px 12px;text-align:center;color:#797979;font-size:12px;line-height:1.7;background:#fff;border-radius:9px}
+#phone .zb-native-match-count{padding:0 14px 11px;font-size:12px;color:#595959}
+#phone .zb-native-titles{padding:0 12px 12px;display:grid;gap:6px}
+#phone .zb-native-title-item{display:flex;align-items:center;justify-content:space-between;gap:9px;text-align:left;width:100%;border:1px solid #e7e7e7;border-radius:8px;background:#fff;padding:12px;font-size:12px;color:#232323;cursor:pointer}
+#phone .zb-native-title-item span{flex:1;min-width:0}
+#phone .zb-native-title-item b{display:block;line-height:1.55;overflow-wrap:anywhere;font-weight:650}
+#phone .zb-native-title-item small{display:block;color:#8a8a8a;line-height:1.45;margin-top:5px}
+#phone .zb-native-title-item em{font-size:17px;font-style:normal;color:#a1a1a1}
+#phone .zb-native-footer{display:flex;gap:7px;padding:8px 12px 15px;background:#f7f7f7}
+#phone .zb-native-footer>*{flex:1;min-width:0;min-height:40px;display:grid;place-items:center;text-align:center;background:#fff;border:1px solid #ddd;border-radius:8px;font-size:11px;color:#454545;text-decoration:none;padding:7px;cursor:pointer}
+#phone .zb-native-sheet-mask{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.42)}
+#phone .zb-native-sheet{position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:1201;width:min(100vw,440px);max-height:80vh;overflow-y:auto;border-radius:18px 18px 0 0;background:#fff;padding:16px 18px 24px;box-shadow:0 -7px 24px #0002;color:#252525}
+#phone .zb-native-sheet-top{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #eee;padding-bottom:11px}
+#phone .zb-native-sheet-top h3{font-size:15px;font-weight:700;margin:0}
+#phone .zb-native-sheet-top button{border:0;background:#f1f1f1;border-radius:50%;width:32px;height:32px;font-size:19px;cursor:pointer}
+#phone .zb-native-sheet h4{font-size:15px;line-height:1.5;margin:17px 0;overflow-wrap:anywhere}
+#phone .zb-native-sheet dl{display:grid;grid-template-columns:65px 1fr;gap:12px 10px;padding:12px;background:#f7f7f7;border-radius:8px;font-size:12px;margin-bottom:12px}
+#phone .zb-native-sheet dt{color:#777}
+#phone .zb-native-sheet dd{margin:0;overflow-wrap:anywhere}
+#phone .zb-native-sheet p{font-size:12px;line-height:1.7;color:#6a6a6a;margin:14px 0}
+#phone .zb-native-official-link,#phone .zb-native-sheet-copy{display:block;text-align:center;padding:13px;border-radius:8px;font-size:12px;text-decoration:none;font-weight:650;width:100%}
+#phone .zb-native-official-link{background:#222;color:#fff;border:1px solid #222}
+#phone .zb-native-sheet-copy{background:#fff;color:#444;border:1px solid #dedede;margin-top:8px}
+#phone .appscroll:has(> .zb-native-bank){padding:0!important;overflow-x:hidden!important}
+@media(max-width:390px){#phone .zb-native-select-row button{padding-inline:11px}#phone .zb-native-chapters{padding-inline:10px}}
