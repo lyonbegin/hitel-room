@@ -1,0 +1,44 @@
+name: Original Zocbo original source — exhaustive grade × subject × menu browser inventory
+on:
+  push:
+    branches: [audit/zocbo-complete-mobile-source-inventory-20261108]
+    paths:
+      - .github/workflows/zocbo-original-full-subject-matrix.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-source-matrix:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {site: M, grade: '1'}
+          - {site: M, grade: '2'}
+          - {site: M, grade: '3'}
+          - {site: H, grade: '1'}
+          - {site: H, grade: '2'}
+          - {site: H, grade: '3'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install browser
+        run: |
+          python -m py_compile tools/zocbo/full_original_browser_inventory.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Enumerate ALL actual original subject codes for this grade then visit 6 top tabs and source-provided sub-tabs
+        run: python tools/zocbo/full_original_browser_inventory.py --phase matrix --site ${{ matrix.site }} --grade ${{ matrix.grade }}
+      - name: Keep original HTML DOM, all public JS CSS source, public AJAX and failure records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-source-${{ matrix.site }}-grade-${{ matrix.grade }}-all-subjects
+          path: zocbo-original-inventory/matrix/
+          retention-days: 15
+          if-no-files-found: warn
