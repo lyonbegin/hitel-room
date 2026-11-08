@@ -21,7 +21,7 @@ try{
  check(await count('#phone .zb-inline-root .ui-tab.is-secondary .ui-tab-content[data-active="1"] .data__item')===6,'High school grade 1 six original subjects');
  check(await count('#phone .appbar')===1,'Only one HITEL top bar');
  check(await count('#phone nav.bottomnav')===1,'Only one bottom navigation bar');
- const dm=await dimensions();check(dm.scrollWidth<=dm.clientWidth+3,'No horizontal overflow at 390 px');
+ const dm=await dimensions();const overflowDiag=await page.locator('#phone .appscroll').evaluate(el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('*')].map(n=>({tag:n.tagName,cl:n.className?.baseVal||n.className,right:Math.round(n.getBoundingClientRect().right-r.right),width:Math.round(n.getBoundingClientRect().width)})).filter(x=>x.right>2).sort((a,b)=>b.right-a.right).slice(0,9)});console.log('LAYOUT_DIMENSIONS',JSON.stringify({dm,overflowDiag}));check(dm.scrollWidth<=dm.clientWidth+3,'No horizontal overflow at 390 px');
  check(dm.scrollHeight>dm.clientHeight,'One independent HITEL scrolling content');
  check(await count('#phone .zb-iframe-wrap')===0,'Old double-scrolling iframe container removed');
  const origStyle=await page.locator('#phone .data__subject strong').first().evaluate(el=>getComputedStyle(el).fontSize);
