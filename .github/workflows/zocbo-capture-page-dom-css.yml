@@ -1,0 +1,31 @@
+name: Zocbo Original DOM CSS JS Source Capture (read-only)
+on:
+  push:
+    branches: [feature/zocbo-dom-inline-source-audit-20261108]
+    paths:
+      - .github/workflows/zocbo-capture-page-dom-css.yml
+      - tools/zocbo/capture_dom_css_sources.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-public-source:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install original public HTML and stylesheet inspection dependencies
+        run: pip install --quiet requests beautifulsoup4
+      - name: Capture anonymous original page HTML, CSS, JavaScript inventory, controls and layout
+        run: python tools/zocbo/capture_dom_css_sources.py
+      - name: Archive original public source evidence privately; never expose via production service
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-anonymous-dom-css-js-source-evidence
+          path: zocbo-inline-evidence/
+          retention-days: 7
+          if-no-files-found: warn
