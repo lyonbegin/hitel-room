@@ -15,6 +15,10 @@ try {
  await page.locator('#phone nav.bottomnav [data-go="bankHome"]').click();
  check((await page.locator('#stageTitle').textContent())==='문제은행','Bank navigable from bottom tab');
  check((await page.locator('#phone .zb-grid button').count())===4,'Bank home shows actual search/view/download sections');
+ check((await page.locator('#phone .zb-subtitle').count())===0,'No reverse engineering developer text inside mobile UI');
+ await page.locator('#phone .appbar [data-go="bankCategory"]').click();
+ check((await page.locator('#stageTitle').textContent())==='문제 유형별 학습','Problem bank overflow menu navigates correctly');
+ await page.locator('#phone nav.bottomnav [data-go="bankHome"]').click();
  const icon=await page.request.get('http://127.0.0.1:3000/zocbo-assets/app-icon.png');
  check(icon.ok()&&icon.headers()['content-type'].includes('image/png'),'Original Zocbo APK icon served');
  await page.screenshot({path:'zocbo-qa/bank-home.png'});
