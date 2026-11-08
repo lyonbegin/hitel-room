@@ -1,10 +1,11 @@
-name: HITEL Call FlowLab v0.14 Korean sherpa-onnx STT - current test
+name: HITEL W03 current test - original VoxSherpa TTS + Korean sherpa STT
 on:
   push:
     branches: ["test/call-flow-lab-v14-20261108"]
     paths:
       - "flow-lab/v14_log_tab_samsung_dictation.py"
       - "flow-lab/v14_sherpa_ko_integration.py"
+      - "flow-lab/v14_voxsherpa_upstream_import.py"
       - "flow-lab/KoreanSherpaStt.java"
       - ".github/workflows/build-call-flow-lab-v14.yml"
   workflow_dispatch:
@@ -16,6 +17,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout original VoxSherpa source (pinned, unchanged)
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -41,10 +49,11 @@ jobs:
           python3 flow-lab/v13_accessibility_onboarding.py
           python3 flow-lab/v14_log_tab_samsung_dictation.py
           python3 flow-lab/v14_sherpa_ko_integration.py
+          python3 flow-lab/v14_voxsherpa_upstream_import.py
       - name: Confirm answered-call evidence and distinct application identity
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
-          grep -F 'versionCode = 15' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 16' AndroidProject/app/build.gradle.kts
           grep -F 'W11_CONNECTED_TIMER_ADVANCING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_TEXT_CALL_BUTTON_VISIBLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_ACCESSIBILITY_NOT_CONNECTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -57,6 +66,66 @@ jobs:
           grep -F 'VOICE_RECOGNITION' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           grep -F 'com.github.k2-fsa:sherpa-onnx:1.12.26' AndroidProject/app/build.gradle.kts
           grep -F 'jitpack.io' AndroidProject/settings.gradle.kts
+          test -s AndroidProject/voxsherpa/src/main/java/com/CodeBySonu/VoxSherpa/ModelsFragmentActivity.java
+          test -s AndroidProject/voxsherpa/src/main/java/com/CodeBySonu/VoxSherpa/SettingFragmentActivity.java
+          test -s AndroidProject/voxsherpa/src/main/java/com/CodeBySonu/VoxSherpa/system/VoxSherpaTtsService.java
+          test -s AndroidProject/voxsherpa/src/main/assets/espeak-ng-data.zip
+          test -s AndroidProject/voxsherpa/src/main/assets/tts_frontend.zip
+          grep -F 'VOX_UPSTREAM_OPEN' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          git -C voxsherpa-upstream rev-parse HEAD | grep '^7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          grep -F 'versionCode = 15' AndroidProject/app/build.gradle.kts
+          if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
+          grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
+          if grep -F 'updateOverlay' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
+      - name: Show original VoxSherpa source retention
+        run: |
+          find AndroidProject/voxsherpa/src/main/java -name '*.java' | wc -l
+          find AndroidProject/voxsherpa/src/main/res -type f | wc -l
+          du -sh AndroidProject/voxsherpa/src/main/assets
+      - name: Build Android installation APK
+        run: gradle -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Validate APK content, signature and application ID
+        run: |
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -3
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.14-APK
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Retain auditable Android sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.14-source
+          path: |
+            AndroidProject/app/src/main
+            AndroidProject/app/build.gradle.kts
+            AndroidProject/voxsherpa/build.gradle.kts
+            AndroidProject/voxsherpa/src/main/AndroidManifest.xml
+            AndroidProject/voxsherpa/UPSTREAM-COMMIT.txt
+          if-no-files-found: warn
+
+      - name: Publish directly downloadable APK in public repository
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14.apk
+          (cd downloads && sha256sum HITEL14.apk > HITEL14.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14.apk downloads/HITEL14.sha256
+          git commit -m "build: publish HITEL14 directly installable APK [skip ci]"
+          git push origin HEAD:refs/heads/test/call-flow-lab-v14-20261108
+
           grep -F 'versionCode = 15' AndroidProject/app/build.gradle.kts
           if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
           grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
