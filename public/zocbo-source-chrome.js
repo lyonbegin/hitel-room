@@ -55,6 +55,8 @@ function augmentTabs(host,doc){
    const match=(f.onclick||'').match(/getBottomSheetLayer\('([A-Z_]+)'/);
    const key=match?.[1]||f.action;
    if(key)button.dataset.zbFilter=key;
+   const choice=window.ZOCBO_FAITHFUL_INSPECT?.().current?.fDisplay?.[key];
+   if(choice)button.textContent=choice;
    // The original school dropdown enables downstream fields after selection.
    if(key==='filter_gu'&&window.ZOCBO_FAITHFUL_INSPECT?.().current?.fDisplay?.filter_si)button.disabled=false;
    if(key==='filter_sch'&&window.ZOCBO_FAITHFUL_INSPECT?.().current?.fDisplay?.filter_gu)button.disabled=false;
