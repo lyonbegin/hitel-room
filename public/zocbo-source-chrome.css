@@ -91,3 +91,9 @@ body.zb-original-site #phone .zb-f-filter{display:none!important}
  background-repeat:no-repeat!important;background-size:cover!important;background-position:right center!important;
  background-color:#000c09!important;
 }
+
+/* Source-faithful chrome is also the default embedded bank sector. */
+body.zb-original-sector #phone .zb-faithful .zb-f-sitebar,body.zb-original-sector #phone .zb-faithful .zb-f-main-tabs,body.zb-original-sector #phone .zb-faithful .zb-f-subtabs,body.zb-original-sector #phone .zb-faithful .zb-f-filter{display:none!important}
+body.zb-original-sector #phone:has(.zb-faithful) .osbar,body.zb-original-sector #phone:has(.zb-faithful) .appbar{display:none!important}
+body.zb-original-sector #phone .zb-faithful{background:#f8f8f8;padding:0!important}
+body.zb-original-sector #phone:has(.zb-faithful) .appscroll{padding:0!important}
