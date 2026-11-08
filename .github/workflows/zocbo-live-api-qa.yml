@@ -1,7 +1,7 @@
 name: Zocbo Live Metadata API and Mobile UI End To End QA
 on:
   push:
-    branches: [feature/zocbo-dynamic-browser-audit-20261108]
+    branches: [feature/zocbo-dynamic-browser-audit-20261108, feature/zocbo-native-hierarchy-rebuild-20261108]
     paths:
       - public/zocbo-live-bank.js
       - public/zocbo-live-bank.css
