@@ -1,0 +1,545 @@
+{
+  "recordedCases": 700,
+  "distinctFinalURLs": 325,
+  "failedCases": 0,
+  "distinctJSandCss": 56,
+  "subjectsFromOriginal": {
+    "M1": {
+      "http": 200,
+      "actualSubjects": [
+        {
+          "code": "KR",
+          "name": "국어"
+        },
+        {
+          "code": "EG",
+          "name": "영어"
+        },
+        {
+          "code": "MT",
+          "name": "수학"
+        },
+        {
+          "code": "SC",
+          "name": "과학"
+        },
+        {
+          "code": "LS",
+          "name": "사회"
+        },
+        {
+          "code": "HI",
+          "name": "역사"
+        },
+        {
+          "code": "ET",
+          "name": "도덕"
+        },
+        {
+          "code": "TH",
+          "name": "기술가정"
+        }
+      ],
+      "optionsSeen": 77
+    },
+    "M2": {
+      "http": 200,
+      "actualSubjects": [
+        {
+          "code": "KR",
+          "name": "국어"
+        },
+        {
+          "code": "EG",
+          "name": "영어"
+        },
+        {
+          "code": "MT",
+          "name": "수학"
+        },
+        {
+          "code": "SC",
+          "name": "과학"
+        },
+        {
+          "code": "LS",
+          "name": "사회"
+        },
+        {
+          "code": "HI",
+          "name": "역사"
+        },
+        {
+          "code": "ET",
+          "name": "도덕"
+        },
+        {
+          "code": "TH",
+          "name": "기술가정"
+        },
+        {
+          "code": "CH",
+          "name": "한문"
+        }
+      ],
+      "optionsSeen": 77
+    },
+    "M3": {
+      "http": 200,
+      "actualSubjects": [
+        {
+          "code": "KR",
+          "name": "국어"
+        },
+        {
+          "code": "EG",
+          "name": "영어"
+        },
+        {
+          "code": "MT",
+          "name": "수학"
+        },
+        {
+          "code": "SC",
+          "name": "과학"
+        },
+        {
+          "code": "LS",
+          "name": "사회"
+        },
+        {
+          "code": "HI",
+          "name": "역사"
+        },
+        {
+          "code": "CH",
+          "name": "한문"
+        },
+        {
+          "code": "TH",
+          "name": "기술가정"
+        },
+        {
+          "code": "ET",
+          "name": "도덕"
+        }
+      ],
+      "optionsSeen": 77
+    },
+    "H1": {
+      "http": 200,
+      "actualSubjects": [
+        {
+          "code": "KR",
+          "name": "공통국어"
+        },
+        {
+          "code": "EG",
+          "name": "공통영어"
+        },
+        {
+          "code": "MT",
+          "name": "공통수학"
+        },
+        {
+          "code": "SC",
+          "name": "통합과학"
+        },
+        {
+          "code": "LS",
+          "name": "통합사회"
+        },
+        {
+          "code": "HI",
+          "name": "한국사"
+        },
+        {
+          "code": "TH",
+          "name": "기술가정"
+        }
+      ],
+      "optionsSeen": 63
+    },
+    "H2": {
+      "http": 200,
+      "actualSubjects": [
+        {
+          "code": "KR",
+          "name": "국어"
+        },
+        {
+          "code": "EG",
+          "name": "영어"
+        },
+        {
+          "code": "MT",
+          "name": "수학"
+        },
+        {
+          "code": "SC",
+          "name": "과학"
+        },
+        {
+          "code": "LS",
+          "name": "사회"
+        },
+        {
+          "code": "HI",
+          "name": "한국사"
+        }
+      ],
+      "optionsSeen": 63
+    },
+    "H3": {
+      "http": 200,
+      "actualSubjects": [],
+      "optionsSeen": 63
+    }
+  },
+  "errors": [],
+  "nonMathWithMathMenuEvidence": [
+    {
+      "site": "M",
+      "grade": "1",
+      "subject": "KR",
+      "case": "M_1_KR_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=KR&grade=1",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중1 | 수학 | Step1~3",
+      "episodeButtons": 177,
+      "listRecords": 0,
+      "textChars": 4699,
+      "domFile": "M1/dom/M_1_KR_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "1",
+      "subject": "EG",
+      "case": "M_1_EG_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=EG&grade=1",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중1 | 수학 | Step1~3",
+      "episodeButtons": 177,
+      "listRecords": 0,
+      "textChars": 4699,
+      "domFile": "M1/dom/M_1_EG_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "1",
+      "subject": "SC",
+      "case": "M_1_SC_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=SC&grade=1",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중1 | 수학 | Step1~3",
+      "episodeButtons": 177,
+      "listRecords": 0,
+      "textChars": 4699,
+      "domFile": "M1/dom/M_1_SC_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "2",
+      "subject": "KR",
+      "case": "M_2_KR_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=KR&grade=2",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=2",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중2 | 수학 | Step1~3",
+      "episodeButtons": 168,
+      "listRecords": 0,
+      "textChars": 5377,
+      "domFile": "M2/dom/M_2_KR_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "2",
+      "subject": "EG",
+      "case": "M_2_EG_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=EG&grade=2",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=2",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중2 | 수학 | Step1~3",
+      "episodeButtons": 168,
+      "listRecords": 0,
+      "textChars": 5377,
+      "domFile": "M2/dom/M_2_EG_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "2",
+      "subject": "SC",
+      "case": "M_2_SC_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=SC&grade=2",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=2",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중2 | 수학 | Step1~3",
+      "episodeButtons": 168,
+      "listRecords": 0,
+      "textChars": 5377,
+      "domFile": "M2/dom/M_2_SC_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "3",
+      "subject": "KR",
+      "case": "M_3_KR_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=KR&grade=3",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=3",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중3 | 수학 | Step1~3",
+      "episodeButtons": 0,
+      "listRecords": 0,
+      "textChars": 809,
+      "domFile": "M3/dom/M_3_KR_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "3",
+      "subject": "EG",
+      "case": "M_3_EG_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=EG&grade=3",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=3",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중3 | 수학 | Step1~3",
+      "episodeButtons": 0,
+      "listRecords": 0,
+      "textChars": 809,
+      "domFile": "M3/dom/M_3_EG_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "M",
+      "grade": "3",
+      "subject": "SC",
+      "case": "M_3_SC_unit_000010000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=SC&grade=3",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200002&siteid=M&subject_cd=MT&grade=3",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "중3 | 수학 | Step1~3",
+      "episodeButtons": 167,
+      "listRecords": 0,
+      "textChars": 4853,
+      "domFile": "M3/dom/M_3_SC_unit_000010000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "1",
+      "subject": "KR",
+      "case": "H_1_KR_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=KR&grade=1",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고1 | 수학 | 공통 | Step1~3",
+      "episodeButtons": 0,
+      "listRecords": 0,
+      "textChars": 789,
+      "domFile": "H1/dom/H_1_KR_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "1",
+      "subject": "EG",
+      "case": "H_1_EG_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=EG&grade=1",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고1 | 수학 | 공통 | Step1~3",
+      "episodeButtons": 0,
+      "listRecords": 0,
+      "textChars": 789,
+      "domFile": "H1/dom/H_1_EG_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "1",
+      "subject": "SC",
+      "case": "H_1_SC_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=SC&grade=1",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고1 | 수학 | 공통 | Step1~3",
+      "episodeButtons": 161,
+      "listRecords": 0,
+      "textChars": 4908,
+      "domFile": "H1/dom/H_1_SC_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "2",
+      "subject": "KR",
+      "case": "H_2_KR_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=KR&grade=2",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고2·3 | 수학 | 대수 | Step1~3",
+      "episodeButtons": 101,
+      "listRecords": 0,
+      "textChars": 3626,
+      "domFile": "H2/dom/H_2_KR_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "2",
+      "subject": "EG",
+      "case": "H_2_EG_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=EG&grade=2",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고2·3 | 수학 | 대수 | Step1~3",
+      "episodeButtons": 101,
+      "listRecords": 0,
+      "textChars": 3626,
+      "domFile": "H2/dom/H_2_EG_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "2",
+      "subject": "SC",
+      "case": "H_2_SC_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=SC&grade=2",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고2·3 | 수학 | 대수 | Step1~3",
+      "episodeButtons": 101,
+      "listRecords": 0,
+      "textChars": 3626,
+      "domFile": "H2/dom/H_2_SC_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "3",
+      "subject": "EG",
+      "case": "H_3_EG_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=EG&grade=3",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고1 | 수학 | 공통 | Step1~3",
+      "episodeButtons": 161,
+      "listRecords": 0,
+      "textChars": 4908,
+      "domFile": "H3/dom/H_3_EG_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "3",
+      "subject": "KR",
+      "case": "H_3_KR_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=KR&grade=3",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고1 | 수학 | 공통 | Step1~3",
+      "episodeButtons": 161,
+      "listRecords": 0,
+      "textChars": 4908,
+      "domFile": "H3/dom/H_3_KR_unit_000020000200002.html",
+      "error": ""
+    },
+    {
+      "site": "H",
+      "grade": "3",
+      "subject": "SC",
+      "case": "H_3_SC_unit_000020000200002",
+      "http": 200,
+      "requested": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=SC&grade=3",
+      "actual": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=1",
+      "activeTop": "단원별 학습",
+      "topMenus": "개념학습 | 단원별 학습 | 실전대비 | 직전대비 | 학교별 맞춤학습 | 강남 3구 유형공략",
+      "activeSub": "수학 MASTER",
+      "subMenus": "수준별 학습 | 수학 MASTER",
+      "filters": "고1 | 수학 | 공통 | Step1~3",
+      "episodeButtons": 0,
+      "listRecords": 0,
+      "textChars": 789,
+      "domFile": "H3/dom/H_3_SC_unit_000020000200002.html",
+      "error": ""
+    }
+  ],
+  "limitations": "Public anonymous DOM/UI; does not verify paid study files or account functions."
+}

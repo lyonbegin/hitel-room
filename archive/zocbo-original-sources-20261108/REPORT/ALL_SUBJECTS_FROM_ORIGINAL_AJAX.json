@@ -1,0 +1,193 @@
+{
+  "M1": {
+    "http": 200,
+    "actualSubjects": [
+      {
+        "code": "KR",
+        "name": "국어"
+      },
+      {
+        "code": "EG",
+        "name": "영어"
+      },
+      {
+        "code": "MT",
+        "name": "수학"
+      },
+      {
+        "code": "SC",
+        "name": "과학"
+      },
+      {
+        "code": "LS",
+        "name": "사회"
+      },
+      {
+        "code": "HI",
+        "name": "역사"
+      },
+      {
+        "code": "ET",
+        "name": "도덕"
+      },
+      {
+        "code": "TH",
+        "name": "기술가정"
+      }
+    ],
+    "optionsSeen": 77
+  },
+  "M2": {
+    "http": 200,
+    "actualSubjects": [
+      {
+        "code": "KR",
+        "name": "국어"
+      },
+      {
+        "code": "EG",
+        "name": "영어"
+      },
+      {
+        "code": "MT",
+        "name": "수학"
+      },
+      {
+        "code": "SC",
+        "name": "과학"
+      },
+      {
+        "code": "LS",
+        "name": "사회"
+      },
+      {
+        "code": "HI",
+        "name": "역사"
+      },
+      {
+        "code": "ET",
+        "name": "도덕"
+      },
+      {
+        "code": "TH",
+        "name": "기술가정"
+      },
+      {
+        "code": "CH",
+        "name": "한문"
+      }
+    ],
+    "optionsSeen": 77
+  },
+  "M3": {
+    "http": 200,
+    "actualSubjects": [
+      {
+        "code": "KR",
+        "name": "국어"
+      },
+      {
+        "code": "EG",
+        "name": "영어"
+      },
+      {
+        "code": "MT",
+        "name": "수학"
+      },
+      {
+        "code": "SC",
+        "name": "과학"
+      },
+      {
+        "code": "LS",
+        "name": "사회"
+      },
+      {
+        "code": "HI",
+        "name": "역사"
+      },
+      {
+        "code": "CH",
+        "name": "한문"
+      },
+      {
+        "code": "TH",
+        "name": "기술가정"
+      },
+      {
+        "code": "ET",
+        "name": "도덕"
+      }
+    ],
+    "optionsSeen": 77
+  },
+  "H1": {
+    "http": 200,
+    "actualSubjects": [
+      {
+        "code": "KR",
+        "name": "공통국어"
+      },
+      {
+        "code": "EG",
+        "name": "공통영어"
+      },
+      {
+        "code": "MT",
+        "name": "공통수학"
+      },
+      {
+        "code": "SC",
+        "name": "통합과학"
+      },
+      {
+        "code": "LS",
+        "name": "통합사회"
+      },
+      {
+        "code": "HI",
+        "name": "한국사"
+      },
+      {
+        "code": "TH",
+        "name": "기술가정"
+      }
+    ],
+    "optionsSeen": 63
+  },
+  "H2": {
+    "http": 200,
+    "actualSubjects": [
+      {
+        "code": "KR",
+        "name": "국어"
+      },
+      {
+        "code": "EG",
+        "name": "영어"
+      },
+      {
+        "code": "MT",
+        "name": "수학"
+      },
+      {
+        "code": "SC",
+        "name": "과학"
+      },
+      {
+        "code": "LS",
+        "name": "사회"
+      },
+      {
+        "code": "HI",
+        "name": "한국사"
+      }
+    ],
+    "optionsSeen": 63
+  },
+  "H3": {
+    "http": 200,
+    "actualSubjects": [],
+    "optionsSeen": 63
+  }
+}
