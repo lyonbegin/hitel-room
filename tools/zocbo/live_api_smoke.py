@@ -3,6 +3,7 @@
 import json
 import sys
 import urllib.request
+import urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 BASE="http://127.0.0.1:3000"
@@ -10,7 +11,11 @@ out=Path("zocbo-live-smoke-evidence")
 out.mkdir(exist_ok=True)
 results={}
 def get(url):
- with urllib.request.urlopen(BASE+url,timeout=30) as r:return r.status,json.load(r)
+ try:
+  with urllib.request.urlopen(BASE+url,timeout=30) as r:return r.status,json.load(r)
+ except urllib.error.HTTPError as e:
+  print('LIVE_API_ERROR',e.code,e.read().decode('utf-8',errors='replace')[:1200],flush=True)
+  raise
 status,data=get("/api/zocbo/public-catalog?site=H&grade=1&subject=MT")
 results["high_api"]={"http":status,"ok":data.get("ok"),"examCount":len(data.get("exams",[])),"unitRows":len(data.get("parts",[])),"firstTitle":data.get("exams",[{}])[0].get("title")}
 assert status==200 and data["ok"] and len(data.get("exams",[]))>=20,results["high_api"]
