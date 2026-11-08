@@ -25,6 +25,15 @@ with sync_playwright() as p:
   assert page.locator('#phone .zb-original-sub-tabs .lnb__button').count()==2
   assert page.locator('#phone .zb-original-filters .zbFilter__button').count()==3
   assert page.locator('#phone .zb-original-banner .hijeckingBanner').count()==1
+  # Official PNG bytes are served locally because hotlinking the original background
+  # produced an empty black rectangle even when text/menu interactions passed.
+  banner=page.request.get(BASE+'/zocbo-source-assets/banner-learning3Q-public.png',timeout=12000)
+  assert banner.status==200 and banner.body().startswith(b'\\x89PNG\\r\\n\\x1a\\n'),('original banner missing',banner.status)
+  for svg in ('img_logoTop.svg','ico_coupon.svg'):
+   asset=page.request.get(BASE+'/zocbo-source-assets/'+svg,timeout=12000)
+   assert asset.status==200 and b'<svg' in asset.body()[:500],('original SVG missing',svg,asset.status)
+  page.wait_for_function("()=>getComputedStyle(document.querySelector('#phone .zb-original-banner .hijeckingBanner a')).backgroundImage.includes('zocbo-source-assets/banner-learning3Q-public.png')",timeout=14000)
+  assert page.locator('#phone .zb-original-head .zb-original-logo img').get_attribute('src')=='/zocbo-source-assets/img_logoTop.svg'
   assert page.locator('#phone .zb-original-utility #MenuDescription button').count()==1
   assert page.locator('#phone .zb-original-footer >*').count()==5
   assert page.locator('#phone .osbar:visible').count()==0
