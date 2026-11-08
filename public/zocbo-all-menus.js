@@ -187,6 +187,24 @@ function infoSheet(z,data){
  +'<a class="zb-native-official-link" href="'+attr(itemHref(z))+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본 메뉴 열기</a>'
  +'<button class="zb-native-sheet-copy" data-action="zbAllCopy" data-value="'+attr(item.id)+'">자료번호 복사</button></section>';
 }
+function schoolChoices(z){
+ const action=z.allSchoolOpen;
+ if(action==='filter_gu'||action==='filter_sch')return arr(z.schoolDropdownOptions);
+ if(action==='filter_Chapter')return arr(sourceCache.get('unit_level')?.data?.chapters).map(x=>({name:x.name}));
+ return arr(verifiedSchoolOptions[action]).map(name=>({name}));
+}
+function fetchSchoolChoices(z,s,action,render){
+ if(!['filter_gu','filter_sch'].includes(action))return;
+ const city=z.schoolValues?.filter_si||'서울',gu=z.schoolValues?.filter_gu||'';
+ if(action==='filter_sch'&&!gu){z.schoolDropdownError='먼저 구·군을 선택하십시오.';return}
+ z.schoolDropdownLoading=true;z.schoolDropdownError='';z.schoolDropdownOptions=[];
+ const params=new URLSearchParams({site:'M',si:city});
+ if(action==='filter_sch')params.set('gu',gu);
+ fetch('/api/zocbo/public-school-options?'+params,{credentials:'omit'})
+  .then(async r=>{const x=await r.json();if(!r.ok||!x.ok)throw Error(x.reason||x.error||'학교 자료 조회 실패');return x;})
+  .then(x=>{if(z.allSchoolOpen===action){z.schoolDropdownOptions=x.list;z.schoolDropdownLoading=false;render()}})
+  .catch(e=>{if(z.allSchoolOpen===action){z.schoolDropdownError=String(e.message||e).slice(0,100);z.schoolDropdownLoading=false;render()}});
+}
 function schoolPanel(z,data){
  const src=arr(data?.filters),provided={
   filter_type:'학교별 예상족보',filter_si:'서울',filter_gu:'강남구',
@@ -195,6 +213,7 @@ function schoolPanel(z,data){
  };
  const defaults=Object.fromEntries(Object.keys(provided).map(k=>[k,provided[k]]));
  const selected=z.schoolValues||(z.schoolValues=defaults);
+ if(!z.schoolSclId&&selected.filter_sch==='숙명여자중학교')z.schoolSclId='6357';
  const sourceValue=(act,def)=>{
    const official=src.find(x=>x.action===act)?.name;
    return ['지역','구/군','학교'].includes(official)?def:(official||def);
@@ -210,14 +229,16 @@ function schoolPanel(z,data){
  ];
  return '<div class="zb-all-school"><p class="zb-all-school-intro">학교별 예상족보</p>'
   +'<div class="zb-all-school-controls">'+controls.map(([a,v,n])=>
-    '<button type="button" data-action="zbAllSchoolFilter" data-value="'+attr(a)+'" aria-label="'+esc(n)+' 선택"><small>'+esc(n)+'</small><span>'+esc(selected[a]||v)+'</span><b>⌄</b></button>'
+    '<button type="button" data-action="zbAllSchoolFilter" data-value="'+attr(a)+'" aria-label="'+esc(n)+' 선택"><small>'+esc(n)+'</small><span>'+esc(Object.hasOwn(selected,a)?(selected[a]||'선택'):v)+'</span><b>⌄</b></button>'
    ).join('')+'</div>'
   +'<div class="zb-all-school-zero"><b>총 '+esc(data?.total||'0')+'개</b><p>원본 HTML에는 해당 선택 상태의 검색 결과가 0건입니다. 선택값은 앱 내에서 변경할 수 있지만, 실제 학교별 자료 검색은 원본 서비스의 검색 시스템이 필요합니다.</p></div>'
   +(z.allSchoolOpen?'<div class="zb-native-sheet-mask" data-action="zbAllSchoolClose"></div>'
     +'<section class="zb-native-sheet zb-all-school-sheet" role="dialog" aria-modal="true" aria-label="학교별 필터 선택">'
     +'<div class="zb-native-sheet-top"><h3>'+esc((controls.find(x=>x[0]===z.allSchoolOpen)||[])[2]||'선택')+'</h3><button data-action="zbAllSchoolClose">×</button></div>'
-    +'<div class="zb-all-school-choices">'+arr(verifiedSchoolOptions[z.allSchoolOpen]).map(v=>
-      '<button data-action="zbAllSchoolChoose" data-value="'+attr(v)+'">'+esc(v)+'</button>').join('')+'</div></section>':'')
+    +'<div class="zb-all-school-choices">'+(z.schoolDropdownLoading?'<p>원본 지역·학교 목록을 조회하고 있습니다.</p>':'')
+     +(z.schoolDropdownError?'<p role="alert">'+esc(z.schoolDropdownError)+'</p>':'')
+     +schoolChoices(z).map(v=>'<button data-action="zbAllSchoolChoose" data-value="'+attr(v.name)+'">'+esc(v.name)+'</button>').join('')
+     +'</div></section>':'')
   +'</div>';
 }
 function content(z){
@@ -280,14 +301,20 @@ UI.onAction=function(act,el,s,go,render,toast){
   render();return;
  }else if(act==='zbAllSchoolFilter'){
   z.allSchoolOpen=value;
+  z.schoolDropdownOptions=[];z.schoolDropdownLoading=false;z.schoolDropdownError='';
+  fetchSchoolChoices(z,s,value,render);
  }else if(act==='zbAllSchoolClose'){
   z.allSchoolOpen='';
  }else if(act==='zbAllSchoolChoose'){
   const a=z.allSchoolOpen;
-  if(!verifiedSchoolOptions[a]?.includes(value))return;
+  const found=schoolChoices(z).find(x=>x.name===value);
+  if(!found)return;
   z.schoolValues=z.schoolValues||{};
   z.schoolValues[a]=value;
-  z.allSchoolOpen='';
+  if(a==='filter_si'){z.schoolValues.filter_gu='';z.schoolValues.filter_sch='';z.schoolSclId='';}
+  if(a==='filter_gu'){z.schoolValues.filter_sch='';z.schoolSclId='';}
+  if(a==='filter_sch')z.schoolSclId=String(found.id||'');
+  z.allSchoolOpen='';z.schoolDropdownOptions=[];
  }else if(act==='zbAllCopy'){
   navigator.clipboard?.writeText(value).then(()=>toast('원본 자료번호를 복사했습니다.')).catch(()=>toast('복사가 제한되었습니다.'));
   return;
