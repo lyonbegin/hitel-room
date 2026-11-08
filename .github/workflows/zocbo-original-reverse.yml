@@ -1,0 +1,75 @@
+name: ZOCBO Original XAPK Reverse Engineering
+on:
+  push:
+    branches: [feature/ypt-zocbo-live-integration-20261108]
+    paths:
+      - .github/workflows/zocbo-original-reverse.yml
+      - tools/zocbo/inspect_xapk.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  decompile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: 'd45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download XAPK identical to user-provided original
+        run: |
+          python scripts/education/download_verified_xapk.py source
+          sha256sum source/jokbo.xapk
+      - name: Extract original packaged assets, code clues, URLs
+        run: |
+          python tools/zocbo/inspect_xapk.py
+          ls -l zocbo-apks
+      - name: Decode Android XML, styles, navigation and webview
+        continue-on-error: true
+        run: |
+          curl -fLsS --retry 3 https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar -o /tmp/apktool.jar
+          for apk in zocbo-apks/*.apk; do
+            base="$(basename "$apk" .apk)"
+            java -Xmx2g -jar /tmp/apktool.jar d -f -s "$apk" -o "zocbo-decoded/$base" >"/tmp/apktool-$base.log" 2>&1 || true
+          done
+          mkdir -p zocbo-audit/decoded
+          find zocbo-decoded -name '*.xml' -type f | head -3000 > zocbo-audit/decoded/all-xml-files.txt
+          find zocbo-decoded -type f | grep -E '(navigation|layout|menu|values)/' | head -3000 > zocbo-audit/decoded/navigation-layout-index.txt
+          find zocbo-decoded -type f | grep -E '/(layout|menu|navigation)/.*.xml' | head -80 | while read f; do
+            mkdir -p "zocbo-audit/decoded/examples/$(dirname "$f")"
+            cp "$f" "zocbo-audit/decoded/examples/$f"
+          done
+          find zocbo-decoded -type f -name 'strings.xml' | head -8 | while read f; do
+            mkdir -p "zocbo-audit/decoded/examples/$(dirname "$f")"; cp "$f" "zocbo-audit/decoded/examples/$f"
+          done
+          find zocbo-decoded -type f -name 'AndroidManifest.xml' -exec sh -c 'cat "$1" >> zocbo-audit/decoded/manifests.txt' _ {} \;
+          grep -RniE 'https?://|zocbo.com|eduzone.co|WebView|DOWNLOAD|ACTION_VIEW|school|subject|exam|search' zocbo-decoded/*/res/values* 2>/dev/null | head -1000 >zocbo-audit/decoded/res-web-references.txt || true
+      - name: Decompile Java with JADX and collect actual URL and navigation call sites
+        continue-on-error: true
+        run: |
+          curl -fLsS --retry 3 https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip -o /tmp/jadx.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx; chmod +x /tmp/jadx/bin/jadx
+          mkdir -p zocbo-audit/java
+          base="$(find zocbo-apks -type f -name '*eduzoneviewer*.apk' | head -1)"
+          test -n "$base" || base="$(find zocbo-apks -type f -name '*.apk' | head -1)"
+          timeout 480 /tmp/jadx/bin/jadx --no-res -j 3 --show-bad-code -d /tmp/zocbo-jadx "$base" >/tmp/zocbo-jadx.log 2>&1 || true
+          find /tmp/zocbo-jadx/sources -name '*.java' 2>/dev/null | grep -Ei '(zocbo|eduzone|MainActivity|WebActivity|WebView|Download|Search|Home|School|Content|Exam|Api)' | head -250 >zocbo-audit/java/app-class-index.txt || true
+          grep -RniE --include='*.java' 'zocbo\.com|eduzone\.co|loadUrl\(|setDownloadListener|DownloadManager|ACTION_VIEW|onCreateWindow|shouldOverrideUrlLoading|JavascriptInterface|openPdf|downloadUrl|downloadFile' /tmp/zocbo-jadx/sources 2>/dev/null | head -2000 >zocbo-audit/java/webview-and-download-call-sites.txt || true
+          grep -RohE --include='*.java' 'https?://[^" ]{8,180}' /tmp/zocbo-jadx/sources 2>/dev/null | sort -u | head -300 >zocbo-audit/java/urls-extracted.txt || true
+          cp /tmp/zocbo-jadx.log zocbo-audit/java/decompile-log.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-original-4.3.11-verified-reverse-evidence
+          path: zocbo-audit/
+          retention-days: 21
