@@ -30,6 +30,17 @@ const subtabs={
  gangnam:[['gangnam_list','강남 3구 유형공략','']]
 };
 const rawFallback={concept:'concept',practice:'practice',gangnam:'gangnam',unit:'unit'};
+
+const verifiedSchoolOptions={
+ filter_type:['학교별 예상족보'],
+ filter_si:['서울','세종','대구','대전','부산','인천','울산','경기','강원','충남','충북','경남','경북','전남광주','전북','제주','기타'],
+ filter_gu:['강남구'],
+ filter_sch:['숙명여자중학교'],
+ filter_grade:['1학년','2학년','3학년'],
+ filter_subject:['국어','영어','수학','과학','사회①','사회②','도덕①','도덕②','기술가정①','역사'],
+ filter_Chapter:['범위 선택']
+};
+
 const sourceCache=new Map(),loading=new Set();
 const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const arr=x=>Array.isArray(x)?x:[];
@@ -177,10 +188,19 @@ function infoSheet(z,data){
  +'<button class="zb-native-sheet-copy" data-action="zbAllCopy" data-value="'+attr(item.id)+'">자료번호 복사</button></section>';
 }
 function schoolPanel(z,data){
- const src=arr(data?.filters);
- const sourceValue=(act,def)=>{const label=src.find(x=>x.action===act)?.name;return !label||['지역','구/군','학교'].includes(label)?def:label;};
+ const src=arr(data?.filters),provided={
+  filter_type:'학교별 예상족보',filter_si:'서울',filter_gu:'강남구',
+  filter_sch:'숙명여자중학교',filter_grade:'2학년',filter_subject:'수학',
+  filter_Chapter:'범위 선택'
+ };
+ const defaults=Object.fromEntries(Object.keys(provided).map(k=>[k,provided[k]]));
+ const selected=z.schoolValues||(z.schoolValues=defaults);
+ const sourceValue=(act,def)=>{
+   const official=src.find(x=>x.action===act)?.name;
+   return ['지역','구/군','학교'].includes(official)?def:(official||def);
+ };
  const controls=[
-  ['filter_type','학교별 예상족보','종류'],
+  ['filter_type',sourceValue('filter_type','학교별 예상족보'),'종류'],
   ['filter_si',sourceValue('filter_si','서울'),'시·도'],
   ['filter_gu',sourceValue('filter_gu','강남구'),'시·군·구'],
   ['filter_sch',sourceValue('filter_sch','숙명여자중학교'),'학교'],
@@ -190,9 +210,14 @@ function schoolPanel(z,data){
  ];
  return '<div class="zb-all-school"><p class="zb-all-school-intro">학교별 예상족보</p>'
   +'<div class="zb-all-school-controls">'+controls.map(([a,v,n])=>
-    '<button type="button" data-action="zbAllSchoolFilter" data-value="'+attr(a)+'" aria-label="'+esc(n)+' 선택"><small>'+esc(n)+'</small><span>'+esc(v)+'</span><b>⌄</b></button>'
+    '<button type="button" data-action="zbAllSchoolFilter" data-value="'+attr(a)+'" aria-label="'+esc(n)+' 선택"><small>'+esc(n)+'</small><span>'+esc(selected[a]||v)+'</span><b>⌄</b></button>'
    ).join('')+'</div>'
-  +'<div class="zb-all-school-zero"><b>총 '+esc(data?.total||'0')+'개</b><p>선택 학교의 원본 결과는 계정 및 학교·범위 검색 상태에 따라 달라집니다. 현재 확보된 원본 HTML에는 검색 결과가 없습니다.</p></div>'
+  +'<div class="zb-all-school-zero"><b>총 '+esc(data?.total||'0')+'개</b><p>원본 HTML에는 해당 선택 상태의 검색 결과가 0건입니다. 선택값은 앱 내에서 변경할 수 있지만, 실제 학교별 자료 검색은 원본 서비스의 검색 시스템이 필요합니다.</p></div>'
+  +(z.allSchoolOpen?'<div class="zb-native-sheet-mask" data-action="zbAllSchoolClose"></div>'
+    +'<section class="zb-native-sheet zb-all-school-sheet" role="dialog" aria-modal="true" aria-label="학교별 필터 선택">'
+    +'<div class="zb-native-sheet-top"><h3>'+esc((controls.find(x=>x[0]===z.allSchoolOpen)||[])[2]||'선택')+'</h3><button data-action="zbAllSchoolClose">×</button></div>'
+    +'<div class="zb-all-school-choices">'+arr(verifiedSchoolOptions[z.allSchoolOpen]).map(v=>
+      '<button data-action="zbAllSchoolChoose" data-value="'+attr(v)+'">'+esc(v)+'</button>').join('')+'</div></section>':'')
   +'</div>';
 }
 function content(z){
@@ -254,12 +279,15 @@ UI.onAction=function(act,el,s,go,render,toast){
   z.allMenu='unit';z.allSub='unit_level';z.allSelected='';
   render();return;
  }else if(act==='zbAllSchoolFilter'){
-  // Original dropdown contents are not in the supplied HTML. Do not invent school options.
-  const src=sourceCache.get('school_expected')?.data;
-  const f=arr(src?.filters).find(x=>x.action===value);
-  const label=f?.name||value;
-  toast(label+' — 다른 선택지는 족보닷컴 원본에서 확인합니다.');
-  return;
+  z.allSchoolOpen=value;
+ }else if(act==='zbAllSchoolClose'){
+  z.allSchoolOpen='';
+ }else if(act==='zbAllSchoolChoose'){
+  const a=z.allSchoolOpen;
+  if(!verifiedSchoolOptions[a]?.includes(value))return;
+  z.schoolValues=z.schoolValues||{};
+  z.schoolValues[a]=value;
+  z.allSchoolOpen='';
  }else if(act==='zbAllCopy'){
   navigator.clipboard?.writeText(value).then(()=>toast('원본 자료번호를 복사했습니다.')).catch(()=>toast('복사가 제한되었습니다.'));
   return;
