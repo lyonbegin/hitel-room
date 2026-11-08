@@ -159,7 +159,6 @@ with sync_playwright() as p:
     check("screen=bankSearch" in page.url,"Jokbo is independent bottom tab "+str(width))
     check(page.locator('#phone .zb-f-main-tabs button').count()==6,"six original Jokbo menus remain "+str(width))
     nav(page,"스터디그룹")
-    wp(page,"chooseGroup","my-study")
     # Reclassify an existing school group as an academy group. Group ID, members and records must remain intact.
     record_before=page.evaluate("JSON.parse(localStorage.getItem('hitel.ypt.group-workplace.v1'))")
     existing_id=record_before["activeGroupId"]
