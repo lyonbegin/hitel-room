@@ -99,7 +99,7 @@ function load(slug,category){
    const res=await fetch('/api/zocbo/menu-data?'+new URLSearchParams({slug}),{credentials:'omit'});
    if(res.ok){data=await res.json();}
    const incomplete=!data||(!arr(data.chapters).length&&!arr(data.records).length&&slug!=='school_expected');
-   if(incomplete&&rawFallback[category]){
+   if(incomplete&&rawFallback[category]&&['concept_complete','unit_level','practice_essay','gangnam_list'].includes(slug)){
     const fallback=await fetch('/api/zocbo/original-html?'+new URLSearchParams({mode:rawFallback[category]}),{credentials:'omit'});
     if(fallback.ok)data=parseSnapshot(rawFallback[category],await fallback.text());
    }
