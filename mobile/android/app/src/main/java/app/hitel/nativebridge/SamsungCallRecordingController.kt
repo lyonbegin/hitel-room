@@ -9,22 +9,41 @@ import org.json.JSONObject
 import java.util.ArrayDeque
 
 /**
- * Operates Samsung's existing, visible in-call recording button through a
- * user-enabled AccessibilityService. It does not capture phone audio itself.
- * ACTION_CLICK accepted != recording confirmed: require the STOP label.
+ * User-armed experiment: click the existing Samsung call recording START control
+ * ONCE; never press STOP. Click success is not recording confirmation.
  */
 internal object SamsungCallRecordingController {
     private val phoneUis = setOf("com.samsung.android.incallui", "com.android.incallui")
-    private var lastAttemptMillis = 0L
-    private var attemptsWithoutConfirmation = 0
-    private var state = "NOT_OBSERVED"
-    private var lastAction = "NONE"
-    private var phoneWindow = ""
+    @Volatile private var armedUntilUptime = 0L
+    @Volatile private var state = "NOT_OBSERVED"
+    @Volatile private var lastAction = "NONE"
+    @Volatile private var phoneWindow = ""
+    @Volatile private var lastObservedEpochMs = 0L
+    @Volatile private var lastRecordingConfirmedEpochMs = 0L
+    @Volatile private var attempted = false
+    @Volatile private var lastViewId = ""
+
+    fun armForNextCall() {
+        armedUntilUptime = SystemClock.elapsedRealtime() + 20L * 60_000L
+        attempted = false
+        lastAction = "USER_ARMED_ONE_CLICK"
+    }
+
+    fun disarm() {
+        armedUntilUptime = 0L
+        lastAction = "USER_DISARMED"
+    }
 
     fun status(): JSONObject = JSONObject()
-        .put("state", state).put("lastAction", lastAction)
+        .put("state", state)
+        .put("lastAction", lastAction)
         .put("phoneWindow", phoneWindow)
-        .put("attemptsWithoutConfirmation", attemptsWithoutConfirmation)
+        .put("lastObservedEpochMs", lastObservedEpochMs)
+        .put("lastRecordingConfirmedEpochMs", lastRecordingConfirmedEpochMs)
+        .put("lastViewId", lastViewId)
+        .put("armed", !attempted && SystemClock.elapsedRealtime() < armedUntilUptime)
+        .put("clickAttempted", attempted)
+        .put("evidence", "ACCESSIBILITY_NODE_ONLY")
 
     private fun labels(node: AccessibilityNodeInfo): List<String> = listOfNotNull(
         node.text?.toString(), node.contentDescription?.toString()
@@ -46,46 +65,48 @@ internal object SamsungCallRecordingController {
     private fun clickable(start: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         var current: AccessibilityNodeInfo? = start
         repeat(7) {
-            val n = current ?: return null
-            if (n.isClickable && n.isEnabled && n.isVisibleToUser) return n
-            current = n.parent
+            val node = current ?: return null
+            if (node.isClickable && node.isEnabled && node.isVisibleToUser) return node
+            current = node.parent
         }
         return null
     }
 
-    /** Call only from AccessibilityService.onAccessibilityEvent (main thread). */
+    /** Called by AccessibilityService on its main thread, never by a background worker. */
     fun onEvent(service: AccessibilityService, event: AccessibilityEvent?) {
         if (event == null || event.eventType !in setOf(
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
-            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
-        )) return
-        val eventPackage = event.packageName?.toString() ?: return
-        if (eventPackage !in phoneUis) return
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+            )) return
+        if (event.packageName?.toString() !in phoneUis) return
         val root = service.rootInActiveWindow ?: return
         val rootPackage = root.packageName?.toString() ?: return
         if (rootPackage !in phoneUis) return
         phoneWindow = rootPackage
+        lastObservedEpochMs = System.currentTimeMillis()
         val nodes = scan(root)
         state = CallRecordingLabels.classify(nodes.flatMap(::labels))
         if (state == "RECORDING_ACTIVE") {
-            attemptsWithoutConfirmation = 0
-            lastAction = "ALREADY_RECORDING_NO_CLICK"
+            lastRecordingConfirmedEpochMs = System.currentTimeMillis()
+            armedUntilUptime = 0L
+            lastAction = "STOP_LABEL_CONFIRMED_NO_CLICK"
             return
         }
         if (state != "RECORDING_START_AVAILABLE") return
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastAttemptMillis < 5_000L || attemptsWithoutConfirmation >= 2) return
-        val target = nodes.firstOrNull { n -> labels(n).any(CallRecordingLabels::isStart) }
-            ?.let(::clickable)
-        if (target == null) {
-            lastAction = "NO_CLICKABLE_RECORDING_BUTTON"
+        if (attempted || SystemClock.elapsedRealtime() >= armedUntilUptime) return
+        val start = nodes.firstOrNull { n -> labels(n).any(CallRecordingLabels::isStart) }
+            ?: return
+        val target = clickable(start) ?: run {
+            lastAction = "START_CONTROL_NOT_CLICKABLE"
             return
         }
-        lastAttemptMillis = now
-        attemptsWithoutConfirmation++
-        val clicked = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        lastAction = if (clicked) "CLICK_ACCEPTED_AWAITING_STOP_LABEL" else "CLICK_REJECTED"
-        Log.i("HITEL_CALL_RECORD", "$lastAction package=$phoneWindow")
+        // The explicit user authorization applies to one click, never retries silently.
+        attempted = true
+        armedUntilUptime = 0L
+        lastViewId = start.viewIdResourceName ?: ""
+        val accepted = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        lastAction = if (accepted) "START_CLICK_ACCEPTED_NOT_CONFIRMED" else "START_CLICK_REJECTED"
+        Log.i("HITEL_CALL_REC", "$lastAction package=$phoneWindow viewId=$lastViewId")
     }
 }
