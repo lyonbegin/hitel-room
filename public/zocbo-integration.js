@@ -39,7 +39,7 @@ for(const [id,meta] of Object.entries(ROADMAP)){
  window.YPT_GRAPH[id]={title:meta.title,evidence:[],officialUrl:PATHS[meta.route],actions:[{text:'문제은행 홈',go:'bankHome'},{text:'실제 자료 검색',go:'bankSearch'},{text:'공식 로그인',go:'bankLogin'}]};
 }
 const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-function stateOf(s){return s.zocbo||(s.zocbo={grade:'전체',query:'',subject:'전체',paperId:null,viewUrl:PATHS.app,sourceKey:'app',saved:readSaved()});}
+function stateOf(s){const raw=new URLSearchParams(location.search).get('paper');const id=(window.ZOCBO_CATALOG||[]).some(r=>r.id===raw)?raw:null;return s.zocbo||(s.zocbo={grade:'전체',query:'',subject:'전체',paperId:id,viewUrl:PATHS.app,sourceKey:'app',saved:readSaved()});}
 function readSaved(){try{const data=JSON.parse(localStorage.getItem('hitel.zocbo.saved.v1')||'[]');return Array.isArray(data)?data.filter(id=>typeof id==='string'&&(window.ZOCBO_CATALOG||[]).some(r=>r.id===id)).slice(0,200):[]}catch{return []}}
 function writeSaved(saved){try{localStorage.setItem('hitel.zocbo.saved.v1',JSON.stringify(saved))}catch{}}
 function subjectListUrl(r){if(!r||!['M','H'].includes(r.siteid)||!/^[A-Z0-9]{2,5}$/.test(r.subject_cd))return PATHS.home;const u=new URL(r.siteid==='H'?PATHS.high:PATHS.middle);u.searchParams.set('subject_cd',r.subject_cd);return u.href}
