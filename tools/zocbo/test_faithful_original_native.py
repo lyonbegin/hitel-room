@@ -24,9 +24,15 @@ with sync_playwright() as p:
   # Original six top categories, not a partial hardcoded 4-category demo.
   assert page.locator('#phone .zb-f-main-tabs button').count()==6
   assert page.locator('#phone iframe').count()==0
+  # Missing original async DOM payload must be recovered from real public search AJAX.
+  page.wait_for_function("()=>document.querySelectorAll('#phone [data-zb-paper-id]').length>=400",timeout=45000)
+  original_high_papers=page.locator('#phone [data-zb-paper-id]').count()
+  assert original_high_papers>=400,original_high_papers
   # Switch high to middle, grade to year three, then subject English using ORIGINAL choice sheet.
   page.locator('#phone [data-action="zbFSite"][data-value="M"]').click()
   page.wait_for_function("()=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase==='M_2_MT_unit'",timeout=25000)
+  page.wait_for_function("()=>document.querySelectorAll('#phone [data-zb-paper-id]').length>=380",timeout=45000)
+  assert page.locator('#phone [data-zb-paper-id]').count()>=383
   page.locator('#phone [data-action="zbFFilter"][data-value="SEARCH_GRADE"]').click()
   page.get_by_role('dialog',name='학년 선택').wait_for()
   page.get_by_role('dialog',name='학년 선택').get_by_role('button',name='중3').click()
