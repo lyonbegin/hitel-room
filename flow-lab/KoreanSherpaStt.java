@@ -32,6 +32,17 @@ import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
  * Model: k2-fsa streaming Korean Zipformer 2024-06-16 INT8.
  */
 public final class KoreanSherpaStt {
+    // Retain model weights across microphone sessions in this process.
+    private static OnlineRecognizer sharedRecognizer;
+    private static synchronized OnlineRecognizer getSharedRecognizer(OnlineRecognizerConfig config) {
+        if(sharedRecognizer==null) {
+            sharedRecognizer=new OnlineRecognizer(null,config);
+            LabStore.log("SHERPA_KO_MODEL_INITIALIZED","Native Korean Zipformer loaded once per process");
+        } else {
+            LabStore.log("SHERPA_KO_MODEL_REUSED","Reusing process-cached native Korean Zipformer");
+        }
+        return sharedRecognizer;
+    }
     public interface Listener {
         void onState(String phase,String message);
         void onPartial(String text);
@@ -98,7 +109,7 @@ public final class KoreanSherpaStt {
             OnlineRecognizerConfig config=new OnlineRecognizerConfig();
             config.setModelConfig(model);
             config.setEnableEndpoint(true);
-            recognizer=new OnlineRecognizer(null,config);
+            recognizer=getSharedRecognizer(config);
             stream=recognizer.createStream("");
             if(stopRequested)return;
             final int min=AudioRecord.getMinBufferSize(RATE,
@@ -121,6 +132,7 @@ public final class KoreanSherpaStt {
             state("LISTENING","HITEL 한국어 STT 마이크 시작. 말씀해 주십시오. 실시간 PCM과 인식 결과를 기록합니다.");
             final short[] pcm=new short[1600];
             long totalSamples=0L, nonZero=0L,lastDiag=System.currentTimeMillis();
+            long decodeMs=0L, firstAudioAt=android.os.SystemClock.elapsedRealtime(), lastPartialAt=0L;
             String lastPartial="",lastFinal="";
             while(!stopRequested){
                 int n=audio.read(pcm,0,pcm.length,AudioRecord.READ_BLOCKING);
@@ -133,9 +145,19 @@ public final class KoreanSherpaStt {
                 }
                 totalSamples+=n;
                 stream.acceptWaveform(samples,RATE);
+                long decodeStarted=android.os.SystemClock.elapsedRealtime();
                 while(recognizer.isReady(stream))recognizer.decode(stream);
+                decodeMs+=android.os.SystemClock.elapsedRealtime()-decodeStarted;
                 String partial=recognizer.getResult(stream).getText();
-                if(partial!=null&&!partial.isBlank()&&!partial.equals(lastPartial)){
+                long now=android.os.SystemClock.elapsedRealtime();
+                // Do not wait for an endpoint: publish first partial immediately.
+                // Throttle ONLY the UI updates, not neural inference.
+                if(partial!=null&&!partial.isBlank()&&!partial.equals(lastPartial)
+                      &&(lastPartialAt==0L||now-lastPartialAt>=120L)){
+                    if(lastPartialAt==0L)
+                        LabStore.log("SHERPA_KO_FIRST_PARTIAL_MS",
+                            "latencyAfterMicStartMs="+(now-firstAudioAt));
+                    lastPartialAt=now;
                     lastPartial=partial;
                     listener.onPartial(partial);
                 }
@@ -163,13 +185,14 @@ public final class KoreanSherpaStt {
                     String diag="seconds="+Math.round(elapsed)+
                         "; amplitudeAbove250="+nonZero+
                         "; audioSession="+audio.getAudioSessionId()+
-                        "; configFound="+found+"; policySilenced="+silenced;
+                        "; configFound="+found+"; policySilenced="+silenced+
+                        "; decodeMsLastWindow="+decodeMs;
                     LabStore.log("SHERPA_KO_PCM_EVIDENCE",diag);
                     if(silenced)state("LISTENING",
                         "Android가 HITEL 마이크를 무음 처리 중입니다. "+diag);
                     else if(nonZero==0)state("LISTENING",
                         "마이크 PCM의 유효 진폭이 아직 없습니다. 실제 무음과 통화 차단은 구분 필요. "+diag);
-                    totalSamples=0;nonZero=0;lastDiag=System.currentTimeMillis();
+                    totalSamples=0;nonZero=0;decodeMs=0;lastDiag=System.currentTimeMillis();
                 }
             }
             stream.inputFinished();
@@ -188,7 +211,7 @@ public final class KoreanSherpaStt {
                 try{audio.release();}catch(Exception ignored){}
             }
             if(stream!=null)try{stream.release();}catch(Throwable ignored){}
-            if(recognizer!=null)try{recognizer.release();}catch(Throwable ignored){}
+            // Process-scope native model stays resident for the next microphone tap.
             synchronized(this){running=false;worker=null;}
             if(stopRequested)state("STOP","한국어 음성인식 종료");
         }
