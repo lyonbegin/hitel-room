@@ -102,3 +102,10 @@ lines+=["","## 한계","로그인 후 실제 그룹 데이터 구조와 그룹 �
 print("GOOROOMEE_SOURCE_AUDIT_RESULT "+json.dumps({
  "pages":[{"name":x["name"],"status":x.get("http_status"),"final_url":x.get("dom",{}).get("url"),"scripts":len(x.get("dom",{}).get("scripts",[])),"controls":len(x.get("dom",{}).get("controls",[])),"error":x.get("error")} for x in result["pages"]],
  "public_assets":len(result["assets"]),"downloaded_sources":sum(bool(a.get("saved_file")) for a in result["assets"]),"errors":result["errors"]},ensure_ascii=False))
+
+# Human-auditable console digest of actual rendered DOM and public JS/CSS hashes.
+for item in result['pages']:
+ d=item.get('dom',{})
+ print('GOOROOMEE_PAGE_DOM '+json.dumps({'name':item['name'],'url':d.get('url'),'title':d.get('title'),'headings':d.get('headings',[])[:25],'controls':d.get('controls',[])[:70],'bodyText':d.get('bodyText','')[:1900],'network':item.get('responses',[])[:100]},ensure_ascii=False))
+for a in result['assets']:
+ print('GOOROOMEE_ASSET '+json.dumps({'url':a['url'],'bytes':a.get('bytes'),'sha256':a.get('sha256'),'saved_file':a.get('saved_file'),'keyword_counts':a.get('keyword_counts',{})},ensure_ascii=False))
