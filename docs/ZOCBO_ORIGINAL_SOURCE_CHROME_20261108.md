@@ -16,9 +16,9 @@
 - 학년/과목/교과서·난이도 필터: 원본 `zbFilter` 버튼 원문과 관측된 공개 선택 항목
 - 단원/하위단원/회차: 원본 `#examMain`, `zbAccordion`, `download__button` 및 원본 자료번호
 - 원본 상단 헤더와 로고·이용권 버튼/로그인 공식 주소
-- 홍보 배너: 원본 `.hijeckingBanner` HTML 및 `banner-learning3Q-public.png` 공식 원본 이미지 경로
-- 이용 안내: 원본 DOM의 실제 버튼을 표시. 본문 팝업은 원본 브라우저에서 공개 표시를 확인하지 못하여 공식 원본 페이지로 안내
-- 원본 하단 5개 항목: 중등·고등은 HITEL 내부 선택을 전환하며, 나머지는 공식 원본 페이지로 이동
+- 홍보 배너: 원본 `.hijeckingBanner` HTML 및 실제 GitHub Actions 브라우저에서 수집한 `banner-learning3Q-public.png` 원본 파일(574,515바이트, SHA256 `9d3e0c32e91fdee62e1e37ca79242b6e3eada6fec7a395ff0f5496f602a1adb5`)을 HITEL에서 직접 제공. 로고/이용권 SVG도 원본 파일 저장.
+- 이용 안내: 실제 원본 `menuCLS.goMenuDescriptionWeb()`의 `/exam/menuDescriptionWeb.asp?menu_cd=...` 경로를 확인한 후 중등·고등 15개 공개 안내 페이지의 원본 HTML을 캡처하여 HITEL 안에 표시. 확인되지 않은 경우 정확한 원본 안내 링크 제공.
+- 원본 하단 5개 항목: 원본 HTML `.fixedMenu`의 `홈 / 중등 / 고등 / 고등 부교재 / 기출열람실` 명칭과 실제 링크 사용. 중등·고등은 HITEL 내부 화면 전환. 원본 회색/활성 SVG 아이콘 확보 가능한 6개 사용, 일부 미확보 아이콘은 완전 일치 주장 불가.
 
 ## 브라우저 상호작용
 
@@ -37,7 +37,7 @@ GitHub Actions 증거는 `.github/workflows/zocbo-original-source-chrome-e2e.yml
 
 ## 미구현 및 검증 제외
 
-원본과 모든 픽셀이 동일하다는 판정은 하지 않았습니다. 로그인된 회원 기능, 실제 유료 문제 본문/정답/해설, PDF/HWP 다운로드와 동영상 재생, 학교별 시험지 생성은 공개 브라우저 검사만으로 완료되지 않습니다. 원본 안내 팝업을 공개 상태에서 표시하지 못했으므로 안내 버튼은 공식 원본 페이지로 이어지는 대체 동작입니다. 원본 모바일 로고·이용권 배너·하단 아이콘 일부는 원본 공개 리소스 주소를 사용하며, 원본의 동적 변경사항은 추가 동기화가 필요합니다.
+원본과 모든 픽셀이 동일하다는 판정은 하지 않았습니다. 로그인된 회원 기능, 실제 유료 문제 본문/정답/해설, PDF/HWP 다운로드와 동영상 재생, 학교별 시험지 생성은 공개 브라우저 검사만으로 완료되지 않습니다. 원본 메뉴 설명 15개 공개 HTML은 내부 연결했으나 회원 안내/계정 이용권 기능은 검증하지 못했습니다. 배너·로고·이용권 이미지는 캡처한 원본 파일을 직접 제공하며 다른 학년별 배너 5종과 일부 하단 활성 아이콘은 확보하지 못했습니다. 원본의 동적 변경사항은 추가 동기화가 필요합니다.
 
 ## 변경 파일
 
@@ -47,3 +47,10 @@ GitHub Actions 증거는 `.github/workflows/zocbo-original-source-chrome-e2e.yml
 - `server.mjs`와 `public/ypt-rebuild.html`: 원본 비교 모드 JS/CSS 로딩
 
 기존 `?screen=bankSearch`와 별도 `original=1` 주소를 제공하므로 사용자가 새 구조를 이전 화면과 직접 비교할 수 있습니다.
+
+## 실제 배포 서비스에서 검증한 실행 기록
+
+- 360px·390px 원본 DOM, 중3 영어 80건→다른 교과서 70건, 이용 안내 원본 문구, 고1 수학 411건, 학교 26개 구·군/25개 학교: https://github.com/lyonbegin/hitel-room/actions/runs/42469943486
+- 배포된 원본 배너 PNG·로고 SVG HTTP200 및 화면 표시 확인: https://github.com/lyonbegin/hitel-room/actions/runs/42469545660
+- 원본 모바일 이미지 수집 검증: https://github.com/lyonbegin/hitel-room/actions/runs/42469761902
+- 최신 원본 중3 영어 화면과 기존 원본 화면을 각각 스크린샷으로 저장, 390px와 360px에서 가로 넘침 없음. 메뉴별 전체 원문·유료 PDF 등 기능 완전 일치는 아직 검증하지 않았습니다.
