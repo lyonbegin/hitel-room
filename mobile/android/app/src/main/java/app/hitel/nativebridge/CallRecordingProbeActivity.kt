@@ -41,6 +41,7 @@ class CallRecordingProbeActivity : Activity() {
     private var duringCallReadable = false
     private var duringCallSizeGrew = false
     private var mediaSeenDuringCall = false
+    private var lastIdleAtMillis = 0L
     private lateinit var output: TextView
 
     private val poll = object : Runnable {
@@ -149,16 +150,24 @@ class CallRecordingProbeActivity : Activity() {
         duringCallReadable = false
         duringCallSizeGrew = false
         mediaSeenDuringCall = false
+        lastIdleAtMillis = 0L
         watching = true
         printStatus("파일 검사 시작. 사용자께서 실제 삼성 전화 화면을 여시기 바랍니다.")
         main.post(poll)
     }
 
     private fun appendSample(media: JSONObject, control: JSONObject, telephony: String) {
-        val confirmedAfterStart = control.optLong("lastRecordingConfirmedEpochMs", 0) >= sessionStart
-        recordingUiConfirmed = recordingUiConfirmed || confirmedAfterStart
-        val isDuringCall = telephony == "OFFHOOK" &&
-            control.optString("state") == "RECORDING_ACTIVE" && confirmedAfterStart
+        if (telephony == "IDLE") lastIdleAtMillis = System.currentTimeMillis()
+        val isDuringCall = CallRecordingEvidence.isRecordingDuringProbe(
+            callState = telephony,
+            uiState = control.optString("state"),
+            uiPackage = control.optString("phoneWindow"),
+            confirmedAtMillis = control.optLong("lastRecordingConfirmedEpochMs", 0),
+            observedAtMillis = control.optLong("lastObservedEpochMs", 0),
+            probeStartMillis = sessionStart,
+            lastIdleAtMillis = lastIdleAtMillis
+        )
+        recordingUiConfirmed = recordingUiConfirmed || isDuringCall
         val sources = listOfNotNull(media.optJSONArray("files"), media.optJSONArray("filesystemFiles"))
         var recentFiles = 0
         var readable = 0
@@ -189,6 +198,7 @@ class CallRecordingProbeActivity : Activity() {
             .put("recordingUiState", control)
             .put("mediaQuery", media)
             .put("candidateDuringCall", isDuringCall)
+            .put("evidenceWindow", "CONFIRMED_WITHIN_120S_BEFORE_PROBE_START")
             .put("newOrModifiedFiles", recentFiles)
             .put("readableWhileUiRecording", readable)
             .put("growingFilesWhileUiRecording", grew)
