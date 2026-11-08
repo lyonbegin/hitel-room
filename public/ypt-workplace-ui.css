@@ -1,0 +1,112 @@
+/* HITEL group-first UI module: inherits original YPT visual tokens and fonts. */
+#phone .wp-panel,#phone .wp-group-card,#phone .wp-session-card{background:#fff;border:1px solid #e8ebef;border-radius:12px;padding:13px;margin:9px 0}
+#phone .wp-overview{margin-top:3px;background:#f9fafb}
+#phone .wp-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:17px 0 9px;font-size:14px}
+#phone .wp-section-head strong{font-weight:750;color:#282c32}
+#phone .wp-section-head small{font-size:10px;font-weight:450;color:#7f8790}
+#phone .wp-line{display:flex;align-items:center;gap:9px;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:12px}
+#phone .wp-line:last-child{border-bottom:0}
+#phone .wp-line>div{min-width:0;flex:1}
+#phone .wp-line strong,#phone .wp-line small{display:block;line-height:1.5;overflow-wrap:anywhere}
+#phone .wp-line small{color:#7f8690;font-size:10px}
+#phone .wp-btn{border:1px solid #dfe3e8;border-radius:8px;background:#fff;color:#333942;font-size:11px;font-weight:600;padding:9px 12px;cursor:pointer;min-height:35px;white-space:normal;text-align:center}
+#phone .wp-btn:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+#phone .wp-primary{background:var(--orange);border-color:var(--orange);color:white}
+#phone .wp-danger{border-color:#bbb;color:#434343}
+#phone .wp-text-action{background:transparent;border:0;color:var(--orange);font-size:11px;font-weight:750;padding:6px;cursor:pointer;flex:none}
+#phone .wp-actions{display:flex;gap:7px;flex-wrap:wrap;margin:11px 0 2px}
+#phone .wp-actions>.wp-btn{flex:1 1 95px}
+#phone .wp-muted{color:#828995;font-size:11px;line-height:1.65;margin:8px 0;overflow-wrap:anywhere}
+#phone .wp-footnote{border-top:1px solid #eceef0;margin:18px 0 10px;padding-top:10px;font-size:10px;line-height:1.65;color:#8b929b}
+#phone .wp-group-choice{display:flex;align-items:center;gap:11px;justify-content:space-between;margin:8px 0 14px}
+#phone .wp-group-choice label{font-size:11px;color:#68717b;font-weight:650;white-space:nowrap}
+#phone .wp-group-choice select{min-width:0;max-width:70%;height:36px;border:1px solid #e1e4e7;border-radius:8px;background:#fff;color:#343a41;font-size:12px;padding:0 9px}
+#phone .wp-featured{display:grid;gap:9px}
+#phone .wp-feature-top{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:16px}
+#phone .wp-feature-top strong{overflow-wrap:anywhere}
+#phone .wp-chip{display:inline-flex;align-items:center;font-size:10px;color:#5c6370;background:#f3f4f6;border-radius:17px;padding:5px 9px;line-height:1.3}
+#phone .wp-next{display:grid;gap:6px;padding:10px 0;border-top:1px solid #eaedf0;border-bottom:1px solid #eaedf0}
+#phone .wp-next strong{font-size:11px}
+#phone .wp-next span{font-size:12px;line-height:1.5}
+#phone .wp-group-hero{border:1px solid #edf0f2;border-radius:12px;padding:15px 13px;margin:10px 0;background:#fcfcfd}
+#phone .wp-group-hero>strong{font-size:17px;display:block;overflow-wrap:anywhere}
+#phone .wp-group-hero p{font-size:11px;color:#7e8790;margin:8px 0 14px}
+#phone .wp-mini-metrics{display:flex;justify-content:space-around;border-top:1px solid #eceef0;padding-top:11px;gap:6px}
+#phone .wp-mini-metrics span{font-size:10px;color:#5e6672}
+#phone .wp-tabs,#phone .wp-filter-row,#phone .wp-room-tabs{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:9px 0 12px;padding-bottom:3px}
+#phone .wp-tabs .wp-btn,#phone .wp-filter-row .wp-btn,#phone .wp-room-tabs .wp-btn{min-width:max-content;border:0;border-radius:18px;background:#f3f4f6;color:#606872;font-size:11px;padding:7px 12px}
+#phone .wp-tabs .wp-btn.wp-active,#phone .wp-filter-row .wp-btn.wp-active,#phone .wp-room-tabs .wp-btn.wp-active{color:var(--orange);background:#fff3ec;font-weight:750}
+#phone .wp-tab-content{min-height:110px}
+#phone .wp-quick-links{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+#phone .wp-quick-links>.wp-btn{width:100%}
+#phone .wp-group-card .wp-line{padding:0 0 11px}
+#phone .wp-session-main{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#phone .wp-session-main>div{min-width:0;display:grid;gap:5px}
+#phone .wp-session-main strong{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+#phone .wp-session-main small{font-size:10px;color:#868d96;line-height:1.5}
+#phone .wp-session-main .wp-chip{justify-self:start}
+#phone .wp-session-title{display:block;font-size:16px;line-height:1.4;margin-bottom:9px}
+#phone .wp-section-spacer{margin:16px 0}
+#phone .wp-form{display:grid;gap:14px}
+#phone .wp-field{display:grid;gap:7px;font-size:11px;color:#626971}
+#phone .wp-field>span{font-weight:650;color:#4e5662}
+#phone .wp-field input,#phone .wp-field select,#phone .wp-compose input{display:block;width:100%;min-width:0;height:40px;border:1px solid #dee3e7;border-radius:8px;background:white;padding:8px 10px;font-size:12px;box-sizing:border-box}
+#phone .wp-fields-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-width:0}
+#phone .wp-fields-two .wp-field{min-width:0}
+#phone .wp-participant-strip{display:flex;gap:4px;padding:6px 0 13px}
+#phone .wp-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e9ecf0;border:2px solid #fff;color:#4d5560;font-size:12px;font-weight:750}
+#phone .wp-chat-log{display:grid;gap:9px;min-height:100px;max-height:320px;overflow-y:auto;margin:8px 0}
+#phone .wp-bubble{background:#f3f4f6;border-radius:9px;padding:10px 11px}
+#phone .wp-bubble small{color:#858b94;font-size:10px}
+#phone .wp-bubble p{font-size:12px;margin:5px 0;overflow-wrap:anywhere}
+#phone .wp-compose{display:flex;align-items:center;gap:6px;margin:12px 0}
+#phone .wp-compose input{flex:1}
+#phone .wp-month-head{display:flex;align-items:center;justify-content:space-between;margin:12px 0}
+#phone .wp-month-head strong{font-size:14px}
+#phone .wp-month-head .wp-btn{font-size:18px;min-width:38px}
+#phone .wp-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;margin:8px -1px 15px}
+#phone .wp-weekday{display:flex;align-items:center;justify-content:center;font-size:10px;color:#9298a2;padding:7px 0}
+#phone .wp-day{min-width:0;aspect-ratio:1;border:0;background:none;position:relative;font-size:12px;color:#454a50;border-radius:50%;cursor:pointer;display:grid;place-items:center}
+#phone .wp-day.wp-active{color:white;background:var(--orange)}
+#phone .wp-day i{position:absolute;bottom:4px;width:4px;height:4px;background:var(--orange);border-radius:50%}
+#phone .wp-day.wp-active i{background:white}
+#phone .wp-date-placeholder{min-height:26px}
+#phone .wp-task-row{display:flex;align-items:center;gap:10px;border-bottom:1px solid #eceff1;padding:11px 0}
+#phone .wp-task-row>div{display:grid;gap:3px;min-width:0}
+#phone .wp-task-row strong{font-size:12px;overflow-wrap:anywhere}
+#phone .wp-task-row small{font-size:10px;color:#899099}
+#phone .wp-task-row .wp-check{width:32px;min-width:32px;min-height:32px;padding:5px;border-radius:50%}
+#phone .wp-done{text-decoration:line-through;color:#8a929b}
+#phone .wp-room-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
+#phone .wp-room-header>div{display:grid;gap:3px;min-width:0}
+#phone .wp-room-header strong{font-size:13px;overflow-wrap:anywhere}
+#phone .wp-room-header small{font-size:10px;color:#88909a}
+#phone #wp-elapsed{font-size:12px;font-weight:750;white-space:nowrap}
+#phone .wp-room-notice{background:#f3f4f6;border-radius:7px;font-size:10px;padding:9px;line-height:1.5;color:#5d646c}
+#phone .wp-video-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0}
+#phone .wp-video-grid.wp-video-single{grid-template-columns:1fr}
+#phone .wp-video-tile{position:relative;background:#25292f;color:#fff;aspect-ratio:4/3;min-width:0;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#phone .wp-video-icon{font-size:34px;line-height:1;color:#b6bbc2}
+#phone .wp-video-tile small{font-size:11px}
+#phone .wp-video-badge{font-size:9px;position:absolute;left:7px;bottom:6px;color:#e9eaec}
+#phone .wp-side-participants{display:flex;gap:4px;flex-wrap:wrap}
+#phone .wp-room-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:9px 0}
+#phone .wp-room-toolbar .wp-btn{font-size:10px;padding:8px 4px;white-space:normal}
+#phone .wp-room-toolbar .wp-btn.wp-active{background:#f4f5f6}
+#phone .wp-room-panel,#phone .wp-room-docs{background:#f8f9fa;border-radius:9px;padding:12px;margin:10px 0}
+#phone .wp-room-panel .wp-line{border-color:#e7e9eb}
+#phone .wp-board-wrapper{border:1px solid #e2e6e9;border-radius:10px;padding:9px;margin:12px 0;background:white}
+#phone #wp-board{display:block;width:100%;height:auto;min-height:180px;background:#fff;border:1px solid #e6e9ee;border-radius:5px;touch-action:none;cursor:crosshair}
+#phone .wp-bank-share{display:block;width:100%;margin-top:14px;border:1px solid var(--orange);color:var(--orange);background:#fff}
+#phone .wp-picker-backdrop{position:absolute;inset:0;z-index:100;background:#20262b80;display:flex;align-items:end;justify-content:center}
+#phone .wp-picker-card{width:100%;max-height:75%;overflow-y:auto;display:grid;gap:8px;padding:15px 17px 24px;background:white;border-radius:17px 17px 0 0}
+#phone .wp-picker-card .wp-btn{text-align:left}
+#phone .wp-room-docs .wp-btn{margin-top:10px}
+@media(max-width:600px){
+ #phone .wp-group-choice{margin-top:6px}
+ #phone .wp-group-hero{padding:12px}
+ #phone .wp-video-tile{aspect-ratio:1.25}
+ #phone .wp-room-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #phone .wp-session-main strong{font-size:11px}
+ #phone .wp-fields-two{gap:6px}
+}
