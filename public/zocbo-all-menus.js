@@ -109,7 +109,7 @@ function load(slug,category){
   finally{
    loading.delete(slug);
    const s=window.ZOCBO_ALL_MENUS_STATE;
-   if(s&&zstate(s).allSub===slug&&document.querySelector('#phone .zb-all-wrapper'))window.ZOCBO_ALL_MENUS_RENDER?.();
+   if(s&&zstate(s).allSub===slug&&document.querySelector('#phone .zb-all-wrapper'))window.ZOCBO_ALL_MENUS_RENDER?.(s);
   }
  },0);
 }
