@@ -73,7 +73,7 @@ function searched(s){const z=stateOf(s);return `${subtitle(s)}${switcher()}
  ${link(chosenOriginalSearch(s),'선택한 과목의 원본 문제 목록 열기','zb-primary-link',false)}${link(chosenOriginalSearch(s),'같은 창에서 열기','zb-link',true)}</div>`;}
 function home(s){return `${subtitle(s)}
  <div class="zb-banner"><img src="/zocbo-assets/app-icon.png" alt="족보닷컴 원본 앱 아이콘" onerror="this.style.display='none'"><div><small>족보닷컴과 연결된 시험 대비</small><h2>문제은행</h2><p>학교·학년·과목 선택부터 자료 열람·다운로드까지</p></div></div>
- <div class="zb-search-launch" data-go="bankSearch" role="button" tabindex="0">⌕ &nbsp;과목·학교별 기출·예상 문제 검색 <span>›</span></div>
+ <div class="zb-search-launch" data-go="bankSearch" role="button" tabindex="0">⌕ &nbsp;학년·과목별 기출·예상 문제 검색 <span>›</span></div>
  <div class="zb-grid">
  <button data-go="bankSearch"><span>⌕</span><b>문제 검색</b><small>공개자료 35건</small></button>
  <button data-go="bankSchool"><span>♙</span><b>학교별 맞춤</b><small>실제 학교 선택</small></button>
@@ -103,7 +103,7 @@ function embeddedOfficial(url,description='족보닷컴 공식 화면'){
       ${link(url,'공식 사이트 새 탭으로 열기','zb-open-full',false)}${link(url,'현재 창에서 열기','zb-open-full',true)}
    </div>
    <div class="zb-iframe-wrap"><iframe class="zb-live-iframe" title="${esc(description)}" src="${esc(url)}" loading="eager" referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen"></iframe></div>
-   <div class="zb-iframe-fallback" role="note">화면이 비어 있으면 족보닷컴 서버의 외부 iframe 차단 설정일 수 있습니다. 위 '전체 화면 열기'는 동일한 원본 주소를 엽니다.</div>
+   <div class="zb-iframe-fallback" role="note">화면이 비어 있으면 족보닷컴 서버의 외부 iframe 차단 설정일 수 있습니다. 위 '공식 사이트 새 탭으로 열기'는 동일한 원본 주소를 엽니다.</div>
  </section>`;
 }
 function savedPage(s){const z=stateOf(s),data=(window.ZOCBO_CATALOG||[]).filter(r=>(z.saved||[]).includes(r.id));return `${switcher()}<div class="zb-section-title"><b>내 자료 책갈피</b></div><p class="zb-meta">자료 제목과 식별자만 이 브라우저에 저장됩니다. 원본 파일·계정 정보는 저장하지 않습니다.</p>${data.length?data.map(r=>`<div class="zb-paper-card"><button class="zb-paper-main" data-action="zbPick" data-id="${esc(r.id)}"><span class="zb-paper-icon">▤</span><span class="zb-paper-caption"><b>${esc(r.title)}</b><small>${esc(r.grade)} · ${esc(r.subject)}</small></span><span>›</span></button></div>`).join(''):`<div class="zb-no-results">저장된 자료가 없습니다. 자료 상세에서 책갈피를 추가할 수 있습니다.</div>`}`}
