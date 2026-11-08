@@ -1,107 +1,107 @@
 {
   "000010000100001": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 12904,
     "textLength": 670,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000100004": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 1884,
     "textLength": 755,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000200003": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 28800,
     "textLength": 843,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000200002": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 4881,
     "textLength": 970,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000300001": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2149,
     "textLength": 818,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000300002": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2809,
     "textLength": 748,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000300003": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2607,
     "textLength": 866,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000300004": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2886,
     "textLength": 910,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000300008": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2179,
     "textLength": 823,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000300009": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 3076,
     "textLength": 1180,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000010000400001": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2468,
     "textLength": 881,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000020000100001": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 12904,
     "textLength": 670,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000020000200003": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 28800,
     "textLength": 843,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000020000300001": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2149,
     "textLength": 818,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   },
   "000020000400001": {
     "status": 200,
-    "valid": false,
-    "bytes": 0,
+    "valid": true,
+    "bytes": 2468,
     "textLength": 881,
-    "error": "'NoneType' object is not iterable"
+    "error": null
   }
 }
