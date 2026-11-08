@@ -1,0 +1,33 @@
+name: Zocbo All 36 Discovered Original Mobile Navigation Links QA
+on:
+  push:
+    branches: [audit/zocbo-original-mobile-full-gap-20261108]
+    paths:
+      - tools/zocbo/audit_discovered_navigation.py
+      - .github/workflows/zocbo-discovered-36-link-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-get-link-crawl:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install browser
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Audit every discovered original public mobile navigation route
+        run: python tools/zocbo/audit_discovered_navigation.py
+      - name: Preserve response and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-mobile-36-navigation-report
+          path: zocbo-discovered-navigation-audit/
+          retention-days: 14
+          if-no-files-found: warn
