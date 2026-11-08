@@ -696,6 +696,8 @@
     el.textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
   },1000);
   save();contextUrl();render();
+  // Share the same in-memory group model with the optional AI captain module.
+  window.HITEL_WORKPLACE_BRIDGE={getModel:()=>model,saveModel:()=>save()};
   window.HITEL_WORKPLACE_INSPECT=()=>({
     status:'UI_LOCAL_ONLY',activeGroupId:model.activeGroupId,
     activeSessionId:model.activeSessionId,groupCount:model.groups.length,
