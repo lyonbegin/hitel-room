@@ -20,7 +20,7 @@ with sync_playwright() as p:
         ctx=browser.new_context(viewport={"width":width,"height":844},is_mobile=True,has_touch=True,locale="ko-KR")
         page=ctx.new_page()
         page.on("pageerror",lambda e:errors.append(str(e)))
-        page.goto(f"{BASE}/8-apps?app=jokbo&page=bank",wait_until="domcontentloaded",timeout=60000)
+        page.goto(f"{BASE}/?app=jokbo&page=bank",wait_until="domcontentloaded",timeout=60000)
         page.locator("#appcontent .zb-faithful .zb-f-main-tabs").wait_for(timeout=55000)
         assert page.locator("#bottomnav").count()==1,"Host must own one bottom nav"
         assert page.locator("#bottomnav button").count()==3,"Existing education bottom menu must be unchanged"
