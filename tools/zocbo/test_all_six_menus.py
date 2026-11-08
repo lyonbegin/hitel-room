@@ -47,7 +47,7 @@ with sync_playwright() as p:
      page.wait_for_function("()=>document.querySelector('#phone .zb-all-raw')!==null",timeout=35000)
     elif tab!='unit':
      page.wait_for_function("()=>document.querySelector('#phone .zb-all-raw')!==null",timeout=35000)
-    if tab in ('school','final','practice','concept','gangnam'):
+    if tab in ('school','final','practice','concept','gangnam','unit'):
      page.wait_for_function("()=>!document.querySelector('#phone .zb-native-loading')",timeout=45000)
     inner=page.locator("#phone .zb-all-raw").inner_text()
     displayed=page.locator("#phone .zb-native-summary").first.inner_text() if page.locator("#phone .zb-native-summary").count() else ""
