@@ -1,0 +1,68 @@
+name: Capture all original public Zocbo AJAX response bodies missed by HTML content-type
+on:
+  push:
+    branches: [audit/zocbo-complete-mobile-source-inventory-20261108]
+    paths:
+      - .github/workflows/zocbo-public-ajax-replay.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  recover-public-original-ajax:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {site: M, grade: '1'}
+          - {site: M, grade: '2'}
+          - {site: M, grade: '3'}
+          - {site: H, grade: '1'}
+          - {site: H, grade: '2'}
+          - {site: H, grade: '3'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright for actual origin public requests
+        run: |
+          python -m py_compile tools/zocbo/replay_public_ajax.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Wait for original DOM source artifact of this grade
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          name=original-source-${{ matrix.site }}-grade-${{ matrix.grade }}-all-subjects
+          for n in $(seq 1 110); do
+            if gh api repos/${{ github.repository }}/actions/runs/42458879929/artifacts -q '.artifacts[].name' | grep -Fx "$name"; then break; fi
+            sleep 20
+          done
+          mkdir -p capture-input
+          gh run download 42458879929 --name "$name" --dir capture-input
+          test -s capture-input/0/manifest.json
+      - name: Reproduce recorded public original POST/GET requests with original filters; save JSON + HTML response bodies
+        run: python tools/zocbo/replay_public_ajax.py --manifest capture-input/0/manifest.json --out archive/zocbo-public-ajax-${{ matrix.site }}${{ matrix.grade }}
+      - name: Archive original public AJAX responses in independent source branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          branch=archive/zocbo-public-ajax-${{ matrix.site }}${{ matrix.grade }}-20261108
+          git checkout -b "$branch"
+          git add archive/zocbo-public-ajax-${{ matrix.site }}${{ matrix.grade }}
+          git commit -m 'Archive actual public original mobile AJAX responses for ${{ matrix.site }} grade ${{ matrix.grade }}'
+          git push origin HEAD:"$branch"
+      - name: Upload full AJAX evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-public-ajax-${{ matrix.site }}-${{ matrix.grade }}
+          path: archive/zocbo-public-ajax-${{ matrix.site }}${{ matrix.grade }}/
+          retention-days: 30
+          if-no-files-found: warn
