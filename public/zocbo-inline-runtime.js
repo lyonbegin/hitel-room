@@ -15,7 +15,7 @@ const lookup=id=>rows.find(x=>x.id===id);
 const originalCache=document.createElement('template');originalCache.innerHTML=original.originalMarkup;
 const BASE_TAG=originalCache.content.querySelector('#event-content .promotion__section.is-data');
 if(!BASE_TAG||originalCache.content.querySelectorAll('button[data-act="sampleDown"]').length!==35)throw Error('Original source document structure changed');
-function zState(s){const z=s.zocbo||(s.zocbo={grade:'전체',subject:'전체',query:'',paperId:null,saved:[]});if(!z.eventGrade){const chosen=lookup(z.paperId);z.eventGrade=chosen?.grade||(/^(중|고)[123]$/.test(z.grade)?z.grade:'고1');}return z}
+function zState(s){const raw=new URLSearchParams(location.search).get('paper');const deepId=rows.some(r=>r.id===raw)?raw:null;const z=s.zocbo||(s.zocbo={grade:'전체',subject:'전체',query:'',paperId:deepId,saved:[]});if(!z.eventGrade){const chosen=lookup(z.paperId);z.eventGrade=chosen?.grade||(/^(중|고)[123]$/.test(z.grade)?z.grade:'고1');}return z}
 function gradename(button){return (button.dataset.siteid==='H'?'고':'중')+button.dataset.grade}
 function grouping(z){
  const grade=z.eventGrade||'고1',school=grade.startsWith('고')?'H':'M';
