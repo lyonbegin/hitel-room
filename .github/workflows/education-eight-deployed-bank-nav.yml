@@ -1,0 +1,34 @@
+name: Legacy eight app actual Railway bank tab verification
+on:
+  push:
+    branches: [feature/education-8-bank-live-route-fix-20261108]
+    paths:
+      - .github/workflows/education-eight-deployed-bank-nav.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deployed-eight-app-bank:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Assert deployed legacy bottom button opens actual bank data
+        env:
+          EDU8_BASE_URL: https://hitel-education-ui-8-production.up.railway.app
+        run: python tools/zocbo/education_eight_live_bank_test.py
+      - name: Upload real deployed screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eight-app-deployed-real-bank-button
+          path: education-eight-bank-test/
+          retention-days: 7
+          if-no-files-found: warn
