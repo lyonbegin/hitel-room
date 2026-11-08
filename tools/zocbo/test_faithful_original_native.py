@@ -66,6 +66,7 @@ with sync_playwright() as p:
   page.locator('#phone [data-action="zbFMain"][data-value="concept"]').click()
   page.wait_for_function("()=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase==='M_3_EG_concept'",timeout=25000)
   assert '영문법' in page.locator('#phone .zb-f-subtabs').inner_text()
+  page.wait_for_function("()=>document.querySelectorAll('#phone [data-zb-paper-id]').length>=72",timeout=30000)
   assert page.locator('#phone [data-zb-paper-id]').count()>=72
   # Return to original exact English unit and click original textbook choice.
   page.locator('#phone [data-action="zbFMain"][data-value="unit"]').click()
