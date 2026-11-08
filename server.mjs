@@ -6,13 +6,27 @@ const legacyHtml=brotliDecompressSync(Buffer.from(oldParts.join(''),'base64'));
 const educationHtml=readFileSync('./public/education.html');
 const educationJs=readFileSync('./public/education.js');
 const yptMockHtml=readFileSync('./public/ypt-original-mock.html');
+const yptVisualHtml=readFileSync('./public/ypt-rebuild.html');
+const yptVisualJs=readFileSync('./public/ypt-rebuild.js');
+const yptVisualCss=readFileSync('./public/ypt-rebuild.css');
+const yptVisualGraph=readFileSync('./public/ypt-graph.js');
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
- if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3}));return}
- if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
+ if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,assetsDir:'ypt-assets'}));return}
+ if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-rebuild.html'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
+ if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
+ if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
+ if(url.pathname==='/ypt-rebuild.css'){send(200,'text/css; charset=utf-8',yptVisualCss);return}
+ if(url.pathname==='/ypt-graph.js'){send(200,'application/javascript; charset=utf-8',yptVisualGraph);return}
+ if(url.pathname.startsWith('/ypt-assets/')){
+   const relative=url.pathname.slice('/ypt-assets/'.length);
+   if(!relative || !/^[a-zA-Z0-9._\/-]+$/.test(relative) || relative.split('/').includes('..')){send(400,'text/plain','invalid path');return}
+   const file='./public/ypt-assets/'+relative;
+   if(existsSync(file)){const ext=relative.split('.').pop().toLowerCase();const ct=({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',svg:'image/svg+xml',json:'application/json',avif:'image/avif'})[ext]||'application/octet-stream';send(200,ct,readFileSync(file));return}
+ }
  if(url.pathname==='/8-apps'||url.pathname==='/preview'){send(200,'text/html; charset=utf-8',educationHtml);return}
  if(/^\/assets\/00[0-2]\.png$/.test(url.pathname)) {const path='./public'+url.pathname;if(existsSync(path)){send(200,'image/png',readFileSync(path));return}}
  if(url.pathname==='/education.js'){send(200,'application/javascript; charset=utf-8',educationJs);return}
