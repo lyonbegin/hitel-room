@@ -17,11 +17,101 @@ const zocboOriginalEventJs=readFileSync('./public/zocbo-original-event.js');
 const zocboOriginalEventCss=readFileSync('./public/zocbo-original-event.css');
 const zocboInlineRuntimeJs=readFileSync('./public/zocbo-inline-runtime.js');
 const zocboInlineRuntimeCss=readFileSync('./public/zocbo-inline-runtime.css');
+
+/**
+ * Read-only anonymous source-backed metadata adapter.
+ * Only the two official exam-list modes are allowed.
+ * No user cookies, identity, download tokens, or files leave/enter this adapter.
+ */
+const zocboCache=new Map();
+const zocboHitTimes=new Map();
+const zocboModes={M:'000010000200003',H:'000020000200003'};
+function zocboFields(url){
+ const site=String(url.searchParams.get('site')||'H').toUpperCase();
+ const grade=String(url.searchParams.get('grade')||'1');
+ const subject=String(url.searchParams.get('subject')||'MT').toUpperCase();
+ if(!Object.hasOwn(zocboModes,site)|| !/^[123]$/.test(grade) || (site==='H'&&grade==='3') || !/^[A-Z0-9]{2,5}$/.test(subject))return null;
+ return {site,grade,subject,menu:zocboModes[site]};
+}
+function safeString(v,max=160){return String(v??'').slice(0,max)}
+function sourceInfoRow(item,kind){
+ if(!item||typeof item!=='object')return null;
+ if(kind==='exam')return {
+   id:safeString(item.EXPAPR_NO,45), title:safeString(item.EXPAPR_NAME||item.EXPAPR_NM,160),
+   group:safeString(item.EXPAPR_GROUP_CD,24),level:safeString(item.EXPAPR_LEVEL_CD,24),
+   rootPart:safeString(item.ROOT_PART_CD,30),subPart:safeString(item.SUB_PART_CD,30),
+   detailPart:safeString(item.DETAIL_PART_CD,30)
+ };
+ return {
+  root:safeString(item.ROOT_PART_NM||item.ROOT_PART_NAME,120),
+  sub:safeString(item.SUB_PART_NM||item.SUB_PART_NAME,120),
+  detail:safeString(item.DETAIL_PART_NM||item.DETAIL_PART_NAME,120),
+  rootCode:safeString(item.ROOT_PART_CD,30),
+  subCode:safeString(item.SUB_PART_CD,30),
+  detailCode:safeString(item.DETAIL_PART_CD,30)
+ };
+}
+async function zocboReadPublic(originPath,form,referrer){
+ const ctl=new AbortController();
+ const t=setTimeout(()=>ctl.abort(),11000);
+ try{
+  const r=await fetch('https://m.zocbo.com'+originPath,{
+   method:'POST',redirect:'error',signal:ctl.signal,
+   headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','Accept':'application/json,text/javascript,*/*;q=0.01','X-Requested-With':'XMLHttpRequest','Referer':referrer},
+   body:new URLSearchParams(form).toString()
+  });
+  if(!r.ok)throw new Error('ORIGIN_HTTP_'+r.status);
+  const raw=await r.text();
+  if(raw.length>4_000_000)throw new Error('ORIGIN_RESPONSE_TOO_LARGE');
+  let payload;try{payload=JSON.parse(raw)}catch{throw new Error('ORIGIN_NOT_JSON')}
+  if(!payload||typeof payload!=='object'||payload.RESULT==='false')throw new Error('ORIGIN_DATA_REJECTED');
+  return payload;
+ }finally{clearTimeout(t)}
+}
+async function serveZocboPublicCatalog(url,req,send){
+ const q=zocboFields(url);
+ if(!q){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_FILTER'}));return}
+ const key=[q.site,q.grade,q.subject].join(':');
+ const cached=zocboCache.get(key);
+ if(cached&&Date.now()-cached.at<120_000){send(200,'application/json; charset=utf-8',cached.json);return}
+ const ip=String(req.socket.remoteAddress||'unknown');
+ const bucket=(zocboHitTimes.get(ip)||[]).filter(v=>Date.now()-v<60_000);
+ if(bucket.length>=25){send(429,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'RATE_LIMIT'}));return}
+ bucket.push(Date.now());zocboHitTimes.set(ip,bucket);
+ if(zocboHitTimes.size>250)zocboHitTimes.clear();
+ const referrer='https://m.zocbo.com/exam/examListWeb.asp?'+new URLSearchParams({menu_cd:q.menu,siteid:q.site,subject_cd:q.subject,grade:q.grade});
+ const common={
+  menu_cd:q.menu,expapr_coretype_cd:'',expapr_group_cd:'',siteid:q.site,grade:q.grade,
+  subject_cd:q.subject,subject_detail_cd:'',tx_cd:'',root_part_cd:'',level_cd:'',
+  work_author:'',work_title:'',text_book_nm:'',korean_part_work_list:'',year_cd:'',
+  vod_type:''
+ };
+ try{
+  const [exams,parts]=await Promise.all([
+   zocboReadPublic('/exam/ajax/getMenuByExamSearchAjax.asp',{...common,is_part:'0',expapr_no_array:'',expapr_servicetype:'2'},referrer),
+   zocboReadPublic('/exam/ajax/getMenuByExamPartAjax.asp',{...common,is_scroll:'0'},referrer)
+  ]);
+  const result={
+   ok:true,source:'anonymous-official-mobile',filter:q,
+   officialUrl:referrer,examCount:Number(exams.EXAM_COUNT)||0,
+   exams:(Array.isArray(exams.MENU_BY_EXAM)?exams.MENU_BY_EXAM:[]).slice(0,500).map(v=>sourceInfoRow(v,'exam')).filter(v=>v&&v.id&&v.title),
+   parts:(Array.isArray(parts.MENU_BY_PART)?parts.MENU_BY_PART:[]).slice(0,600).map(v=>sourceInfoRow(v,'part')).filter(Boolean)
+  };
+  const json=JSON.stringify(result);
+  zocboCache.set(key,{at:Date.now(),json});
+  if(zocboCache.size>40)zocboCache.delete(zocboCache.keys().next().value);
+  send(200,'application/json; charset=utf-8',json);
+ }catch(e){
+  send(502,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'UPSTREAM_UNAVAILABLE',reason:safeString(e.message,80)}))
+ }
+}
+
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
-createServer((req,res)=>{
+createServer(async (req,res)=>{
  const url=new URL(req.url,'http://localhost');
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
+ if(url.pathname==='/api/zocbo/public-catalog'&&req.method==='GET'){await serveZocboPublicCatalog(url,req,send);return}
  if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,officialZocboPublicDocuments:35,zocboLiveLinks:true,zocboOriginalInline:true,zocboIframeCount:0,originalSourceCount:35,assetsDir:'ypt-assets'}));return}
  if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-rebuild.html'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
  if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
