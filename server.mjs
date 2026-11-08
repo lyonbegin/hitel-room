@@ -163,6 +163,20 @@ const originalRawModes={
  practice:'docs/zocbo-original-input/03-middle-practice.html',
  gangnam:'docs/zocbo-original-input/04-middle-gangnam.html'
 };
+
+// Provenance: immutable original m.zocbo.com anonymous 700-page Chromium capture.
+// Serve only whitelisted normalized DOM fragments, never source-site scripts or credentials.
+const sourceIndexPath='./public/zocbo-faithful-index.json';
+function serveZocboOriginalSource(url,send){
+ const caseId=String(url.searchParams.get('case')||'');
+ if(!/^[MH]_[123]_[A-Z0-9]{2,8}_(?:concept|unit|practice|revision|school|gangnam)(?:_[0-9]{15})?$/.test(caseId)){
+   send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_ORIGINAL_CASE'}));return;
+ }
+ const filepath='./public/zocbo-faithful-pages/'+caseId+'.json';
+ if(!existsSync(filepath)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_CASE_NOT_CAPTURED'}));return}
+ send(200,'application/json; charset=utf-8',readFileSync(filepath));return;
+}
+
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 createServer(async (req,res)=>{
@@ -170,6 +184,13 @@ createServer(async (req,res)=>{
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
  if(url.pathname==='/api/zocbo/public-catalog'&&req.method==='GET'){await serveZocboPublicCatalog(url,req,send);return}
  if(url.pathname==='/api/zocbo/public-school-options'&&req.method==='GET'){await serveZocboPublicSchoolOptions(url,send);return}
+ if(url.pathname==='/api/zocbo/faithful-index'&&req.method==='GET'){
+   if(!existsSync(sourceIndexPath)){send(503,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'SOURCE_INDEX_NOT_COMPILED'}));return}
+   send(200,'application/json; charset=utf-8',readFileSync(sourceIndexPath));return
+ }
+ if(url.pathname==='/api/zocbo/faithful-page'&&req.method==='GET'){serveZocboOriginalSource(url,send);return}
+ if(url.pathname==='/zocbo-faithful-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.js'));return}
+ if(url.pathname==='/zocbo-faithful-ui.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.css'));return}
  if(url.pathname==='/api/zocbo/menu-data'&&req.method==='GET'){
   const slug=String(url.searchParams.get('slug')||'');
   if(!originalMenuSlugs.has(slug)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MENU'}));return}
