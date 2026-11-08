@@ -1,9 +1,11 @@
-name: HITEL Call FlowLab v0.14 fullscreen only - no overlay
+name: HITEL Call FlowLab v0.14 Korean sherpa-onnx STT - current test
 on:
   push:
     branches: ["test/call-flow-lab-v14-20261108"]
     paths:
       - "flow-lab/v14_log_tab_samsung_dictation.py"
+      - "flow-lab/v14_sherpa_ko_integration.py"
+      - "flow-lab/KoreanSherpaStt.java"
       - ".github/workflows/build-call-flow-lab-v14.yml"
   workflow_dispatch:
 permissions:
@@ -38,6 +40,7 @@ jobs:
           python3 flow-lab/v12_no_overlay_front.py
           python3 flow-lab/v13_accessibility_onboarding.py
           python3 flow-lab/v14_log_tab_samsung_dictation.py
+          python3 flow-lab/v14_sherpa_ko_integration.py
       - name: Confirm answered-call evidence and distinct application identity
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
@@ -50,6 +53,11 @@ jobs:
           grep -F 'W14_SAMSUNG_DICTATION_REQUEST' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'logPage.addView(logList,new LinearLayout.LayoutParams(-1,0,1))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'focusSamsungTextCallInput' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'SHERPA_KO_USER_START' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'VOICE_RECOGNITION' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'com.github.k2-fsa:sherpa-onnx:1.12.26' AndroidProject/app/build.gradle.kts
+          grep -F 'jitpack.io' AndroidProject/settings.gradle.kts
+          grep -F 'versionCode = 15' AndroidProject/app/build.gradle.kts
           if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
           grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
