@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/ypt-workplace-ui-integrated-20261108
+      - feature/ypt-study-group-learning-nav-20261108
   workflow_dispatch:
 permissions:
   contents: read
