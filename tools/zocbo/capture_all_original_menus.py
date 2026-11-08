@@ -76,6 +76,30 @@ with sync_playwright() as p:
   report[slug]={'http':row.get('http'),'chapters':len(row.get('chapters',[])),'records':row.get('items',0),'error':row.get('error')}
   (OUT/(slug+'.json')).write_text(json.dumps(row,ensure_ascii=False,separators=(',',':')),encoding='utf8')
   print('ORIGINAL_MODE',slug,report[slug],flush=True)
+ # Capture separate school-specific filters and Gangnam-list public records.
+ for slug,url in {
+  'school_expected':'https://m.zocbo.com/M/expected.asp',
+  'gangnam_list':'https://m.zocbo.com/M/?menu=2&type=4',
+ }.items():
+  row={'slug':slug,'requested':url}
+  try:
+   result=page.goto(url,wait_until='domcontentloaded',timeout=30000)
+   page.wait_for_timeout(3500)
+   row.update(page.evaluate("""() => ({
+     actualUrl:location.href,
+     filters:[...document.querySelectorAll('#filter button,#filter_2 button')].filter(x=>getComputedStyle(x).display!=='none').map(x=>({name:x.innerText.trim(),action:x.dataset.act,source:x.dataset.src,value:x.value||''})),
+     total:document.querySelector('#recordCount')?.innerText||'',
+     records:[...document.querySelectorAll('#list_A li[data-no]')].map(x=>({
+       id:x.dataset.no||'',title:x.dataset.title||'',site:x.dataset.siteid||'',grade:x.dataset.grade||'',subject:x.dataset.subjcode||'',
+       group:x.dataset.group||'',tx:x.dataset.tx||'',year:x.dataset.year||'',
+       tags:[...x.querySelectorAll('.tag span')].map(y=>y.innerText.trim())
+     }))
+   })"""))
+   row['http']=result.status if result else 0
+  except Exception as exc:row['error']=str(exc)[:250]
+  (OUT/(slug+'.json')).write_text(json.dumps(row,ensure_ascii=False,separators=(',',':')),encoding='utf8')
+  report[slug]={'http':row.get('http'),'records':len(row.get('records',[])),'filters':len(row.get('filters',[])),'error':row.get('error')}
+  print('ORIGINAL_MODE',slug,report[slug],flush=True)
  context.close();browser.close()
 (OUT/'audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf8')
 print('SOURCE_MODES_COMPLETE',json.dumps(report,ensure_ascii=False),flush=True)
