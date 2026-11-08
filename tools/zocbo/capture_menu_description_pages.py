@@ -22,6 +22,7 @@ report={}
 def clean(s):
  root=BeautifulSoup(s,'html.parser')
  for x in list(root.find_all(True)):
+  if x.attrs is None:continue
   if x.name in ('script','style','iframe','form','object','embed','svg','noscript'):
    x.decompose();continue
   for attr in list(x.attrs):
