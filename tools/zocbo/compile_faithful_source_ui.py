@@ -42,7 +42,9 @@ def data_opts(case,grade):
    name=' '.join(label.stripped_strings)
    name=re.sub(r'\s+',' ',name).strip()
    if not name:continue
-   opts.append({'name':name,'value':inp.get('value','') if inp else '',
+   call=inp.get('onclick','') if inp else ''
+   action=re.search(r"selectedBottomSheetRadioItem\(this,\s*'[^']+',\s*'([^']*)'",call)
+   opts.append({'name':name,'value':action.group(1) if action else (inp.get('value','') if inp else ''),
                 'selected':bool(inp and inp.has_attr('checked'))})
   if not opts:
    seen=set()
@@ -128,6 +130,7 @@ for site in ('M','H'):
      'episodeCount':snap.get('episodes',0),
      'recordCount':snap.get('rowsDOMCount',0),
      'sourceHTML':row.get('domFile',''),
+     'originalPublicRequests':[{'path':x.get('path',''),'form':x.get('publicFilterForm','')} for x in source.get('requests',[]) if x.get('screen')==case and x.get('path','') in ('/exam/ajax/getMenuByExamSearchAjax.asp','/exam/ajax/getMenuByExamPartAjax.asp') and x.get('publicFilterForm')],
      'html':fragment
    }
    write(OUT/(case+'.json'),metadata)
