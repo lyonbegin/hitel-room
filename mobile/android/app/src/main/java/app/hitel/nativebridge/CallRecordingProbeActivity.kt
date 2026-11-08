@@ -39,6 +39,7 @@ class CallRecordingProbeActivity : Activity() {
     private val previousSizes = HashMap<String, Long>()
     private var recordingUiConfirmed = false
     private var duringCallReadable = false
+    private var duringCallTailReadable = false
     private var duringCallSizeGrew = false
     private var mediaSeenDuringCall = false
     private var lastIdleAtMillis = 0L
@@ -148,6 +149,7 @@ class CallRecordingProbeActivity : Activity() {
         sessionStart = System.currentTimeMillis()
         recordingUiConfirmed = false
         duringCallReadable = false
+        duringCallTailReadable = false
         duringCallSizeGrew = false
         mediaSeenDuringCall = false
         lastIdleAtMillis = 0L
@@ -171,6 +173,7 @@ class CallRecordingProbeActivity : Activity() {
         val sources = listOfNotNull(media.optJSONArray("files"), media.optJSONArray("filesystemFiles"))
         var recentFiles = 0
         var readable = 0
+        var tailReadable = 0
         var grew = 0
         for (files in sources) for (i in 0 until files.length()) {
             val file = files.optJSONObject(i) ?: continue
@@ -183,6 +186,10 @@ class CallRecordingProbeActivity : Activity() {
                 if (file.optString("readStatus") == "READ_OK") {
                     readable++
                     duringCallReadable = true
+                }
+                if (file.optString("tailReadStatus") == "TAIL_READ_OK") {
+                    tailReadable++
+                    duringCallTailReadable = true
                 }
                 val last = previousSizes[uri]
                 if (last != null && size > last) {
@@ -201,10 +208,11 @@ class CallRecordingProbeActivity : Activity() {
             .put("evidenceWindow", "CONFIRMED_WITHIN_120S_BEFORE_PROBE_START")
             .put("newOrModifiedFiles", recentFiles)
             .put("readableWhileUiRecording", readable)
+            .put("tailReadableWhileUiRecording", tailReadable)
             .put("growingFilesWhileUiRecording", grew)
         entries.put(record)
         printStatus("회차 ${entries.length()} / 전화=$telephony / UI=${control.optString("state")} / " +
-            "조회=${media.optString("status")} / 최근파일=$recentFiles / 통화중 읽음=$readable / 크기증가=$grew")
+            "조회=${media.optString("status")} / 최근파일=$recentFiles / 통화중 읽음=$readable / 끝부분 읽음=$tailReadable / 크기증가=$grew")
     }
 
     private fun finishProbe() {
@@ -216,6 +224,7 @@ class CallRecordingProbeActivity : Activity() {
 
     private fun report(): JSONObject {
         val judgement = when {
+            duringCallReadable && duringCallTailReadable && duringCallSizeGrew -> "TAIL_READABLE_GROWING_DURING_CALL"
             duringCallReadable && duringCallSizeGrew -> "READABLE_GROWING_DURING_CALL"
             duringCallReadable -> "READABLE_DURING_CALL_SIZE_GROWTH_UNVERIFIED"
             mediaSeenDuringCall -> "VISIBLE_DURING_CALL_READ_NOT_CONFIRMED"
@@ -230,6 +239,7 @@ class CallRecordingProbeActivity : Activity() {
             .put("recordingUiConfirmed", recordingUiConfirmed)
             .put("mediaSeenDuringCall", mediaSeenDuringCall)
             .put("duringCallReadable", duringCallReadable)
+            .put("duringCallTailReadable", duringCallTailReadable)
             .put("duringCallSizeGrew", duringCallSizeGrew)
             .put("observations", entries)
             .put("limitations", "OFFHOOK and accessibility labels are indirect evidence; this test does not transcribe audio.")
@@ -261,6 +271,7 @@ class CallRecordingProbeActivity : Activity() {
     private fun printStatus(message: String) {
         if (!::output.isInitialized) return
         val verdict = if (sessionStart == 0L) "NOT_STARTED" else when {
+            duringCallReadable && duringCallTailReadable && duringCallSizeGrew -> "녹음 중 끝부분 읽기·크기 증가 관측"
             duringCallReadable && duringCallSizeGrew -> "녹음 중 읽기·크기 증가 관측"
             duringCallReadable -> "녹음 중 읽기 관측 / 크기 증가 미확인"
             mediaSeenDuringCall -> "녹음 중 파일 표시 / 읽기 미확인"
