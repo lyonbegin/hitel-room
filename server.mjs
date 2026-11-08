@@ -244,6 +244,13 @@ createServer(async (req,res)=>{
    if(!existsSync(sourceIndexPath)){send(503,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'SOURCE_INDEX_NOT_COMPILED'}));return}
    send(200,'application/json; charset=utf-8',readFileSync(sourceIndexPath));return
  }
+ if(url.pathname==='/api/zocbo/original-menu-guide'&&req.method==='GET'){
+   const code=String(url.searchParams.get('menu_cd')||'');
+   if(!/^\d{15}$/.test(code)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MENU_CODE'}));return}
+   const fn='./public/zocbo-guide-pages/'+code+'.json';
+   if(!existsSync(fn)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_GUIDE_NOT_CAPTURED'}));return}
+   send(200,'application/json; charset=utf-8',readFileSync(fn));return
+ }
  if(url.pathname==='/api/zocbo/faithful-page'&&req.method==='GET'){serveZocboOriginalSource(url,send);return}
  if(url.pathname==='/zocbo-faithful-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.js'));return}
  if(url.pathname==='/zocbo-source-chrome.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-source-chrome.js'));return}
