@@ -64,3 +64,30 @@ body.zb-original-site #phone .zb-f-filter{display:none!important}
 #phone .zb-original-dialog-body{display:flex;flex-direction:column;gap:9px;padding:16px 0}
 #phone .zb-original-dialog-body>button,#phone .zb-original-dialog-body>a{background:#fff;border:1px solid #ddd;border-radius:7px;color:#222;padding:12px;text-decoration:none;text-align:left;font-size:13px}
 #phone .zb-original-dialog-body p{font-size:13px;line-height:1.6;color:#555}
+
+
+/* Align with original mobile CSS tabLineRound: text step badges are ::after,
+   active green line is ::before at the BOTTOM rather than above the label. */
+#phone .zb-original-main-tabs .tabLineRound li a[data-step]:before{content:none!important;display:none!important}
+#phone .zb-original-main-tabs .tabLineRound li[data-mn="1"] a[data-step]:after,
+#phone .zb-original-main-tabs .tabLineRound li[data-mn="4"] a[data-step]:after,
+#phone .zb-original-main-tabs .tabLineRound li[data-mn="5"] a[data-step]:after,
+#phone .zb-original-main-tabs .tabLineRound li[data-mn="6"] a[data-step]:after{
+ content:attr(data-step)!important;display:flex!important;align-items:center;justify-content:center;
+ position:absolute!important;top:3px!important;left:50%!important;bottom:auto!important;
+ width:35px!important;height:14px!important;transform:translateX(-50%)!important;
+ border:1px solid #d8ecff!important;border-radius:10px!important;
+ background:#eff7ff!important;color:#197edf!important;font-size:9px!important;font-weight:400!important;
+}
+#phone .zb-original-main-tabs .tabLineRound li.active a:before{
+ content:""!important;display:block!important;position:absolute!important;
+ left:0!important;bottom:0!important;top:auto!important;right:auto!important;
+ width:100%!important;height:2px!important;background:#5d9812!important;
+ transform:none!important;border:0!important;
+}
+#phone .zb-original-main-tabs .tabLineRound li.active a{border-bottom:0!important;color:#5d9812!important;font-weight:700!important}
+#phone .zb-original-banner .hijeckingBanner.is-learning3Q08.is-public a{
+ background-image:url("https://m.zocbo.com/images/mo/banner/banner-learning3Q-public.png")!important;
+ background-repeat:no-repeat!important;background-size:cover!important;background-position:right center!important;
+ background-color:#000c09!important;
+}
