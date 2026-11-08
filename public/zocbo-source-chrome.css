@@ -87,7 +87,7 @@ body.zb-original-site #phone .zb-f-filter{display:none!important}
 }
 #phone .zb-original-main-tabs .tabLineRound li.active a{border-bottom:0!important;color:#5d9812!important;font-weight:700!important}
 #phone .zb-original-banner .hijeckingBanner.is-learning3Q08.is-public a{
- background-image:url("https://m.zocbo.com/images/mo/banner/banner-learning3Q-public.png")!important;
+ background-image:url("/zocbo-source-assets/banner-learning3Q-public.png")!important;
  background-repeat:no-repeat!important;background-size:cover!important;background-position:right center!important;
  background-color:#000c09!important;
 }
