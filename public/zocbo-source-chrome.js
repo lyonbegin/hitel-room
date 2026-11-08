@@ -104,7 +104,26 @@ function originalDialog(title,body){
 }
 function guideDialog(doc){
  const source=doc.originalUrl||'https://m.zocbo.com/';
- originalDialog('이용 안내','<p>원본 모바일 사이트의 해당 학습 메뉴 이용 안내로 이동하실 수 있습니다.</p><a target="_blank" rel="noopener noreferrer" href="'+escape(source)+'">족보닷컴 해당 메뉴 열기</a>');
+ const menu=new URL(source).searchParams.get('menu_cd')||'';
+ const official=/^\d{15}$/.test(menu)
+   ?'https://m.zocbo.com/exam/menuDescriptionWeb.asp?menu_cd='+menu:source;
+ if(!/^\d{15}$/.test(menu)){
+   originalDialog('이용 안내','<p>이 메뉴에 대응되는 공개 이용 안내 페이지가 확인되지 않았습니다.</p><a href="'+escape(official)+'" target="_blank" rel="noopener noreferrer">원본 페이지 열기</a>');
+   return;
+ }
+ originalDialog('이용 안내','<p>원본 메뉴의 이용 안내 내용을 불러오고 있습니다.</p>');
+ fetch('/api/zocbo/original-menu-guide?'+new URLSearchParams({menu_cd:menu}),{credentials:'omit'})
+ .then(async r=>{const data=await r.json();if(!r.ok||!data.isValid||!data.html)throw Error(data.error||'ORIGINAL_GUIDE_UNAVAILABLE');return data})
+ .then(data=>{
+  const html='<article class="zb-original-guide-document">'+data.html+'</article>'
+    +'<a href="'+escape(official)+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본 안내 열기</a>';
+  const panel=document.querySelector('.zb-original-dialog .zb-original-dialog-body');
+  if(panel)panel.innerHTML=html;
+ }).catch(()=>{
+  const panel=document.querySelector('.zb-original-dialog .zb-original-dialog-body');
+  if(panel)panel.innerHTML='<p>해당 원본 안내의 공개 본문을 확보하지 못했습니다.</p>'
+    +'<a href="'+escape(official)+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본 안내 열기</a>';
+ });
 }
 function decorate(host,doc){
  if(host.dataset.zbChromeReady==='1')return;
