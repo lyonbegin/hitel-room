@@ -4,7 +4,7 @@
  */
 body.zb-original-site #phone .osbar,
 body.zb-original-site #phone .appbar,
-body.zb-original-site #phone .bottomnav,
+/* Keep the HITEL app bottom navigation visible in all modes. */
 body.zb-original-site #phone .gesture{display:none!important}
 body.zb-original-site #phone .appscroll{padding:0!important;overflow-y:auto!important;overflow-x:hidden;background:#f8f8f8}
 body.zb-original-site #phone .zb-faithful{padding:0!important;background:#f8f8f8}
