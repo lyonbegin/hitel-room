@@ -1,0 +1,4172 @@
+{
+  "summary": {
+    "recorded": 251,
+    "allowlistedUnique": 181,
+    "replayed": 181,
+    "json": 181,
+    "html": 0,
+    "errors": 0,
+    "oversize": 0,
+    "statuses": {
+      "200": 181
+    },
+    "screensWithBodies": 62
+  },
+  "responses": [
+    {
+      "screen": "H_2_KR_concept",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 53782,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/2f4a992d93a822878829.json",
+      "bodySha256": "ac99241bc9345ac0f6ef22fef2241b759e7a3686e5981ffa8dc12974cdf8edbd",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_concept",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28978,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 41,
+      "responseFile": "bodies/86b9a44431f2eb8c7555.json",
+      "bodySha256": "fed9cd018f5ca334ce41c95a9bbd65741f7a8af67d7ccb80d2e5bd6c1c51a1a2",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_concept",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 110501,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 96
+      },
+      "MENU_BY_EXAMCount": 96,
+      "responseFile": "bodies/5ae3013b0407bcd70fc3.json",
+      "bodySha256": "b2153036222dd3786e27de2fac20e13520774f1461b009a8baf1dc8d5f7b6190",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_unit",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51097,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/780abb1684dae1f2be7d.json",
+      "bodySha256": "19d6d5b2b8d1c9b1975728d3eddef1dba3142bdc661331313035a72454410c44",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_unit",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28978,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 41,
+      "responseFile": "bodies/835928a8637863b8eb02.json",
+      "bodySha256": "fed9cd018f5ca334ce41c95a9bbd65741f7a8af67d7ccb80d2e5bd6c1c51a1a2",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_unit",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=1&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 78689,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 68
+      },
+      "MENU_BY_EXAMCount": 68,
+      "responseFile": "bodies/d4874fefaf00bec505b1.json",
+      "bodySha256": "983331593a8f2078d752a6826ed147412731d1b2b9262214efad546e1b4e47c3",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6553,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 6,
+      "responseFile": "bodies/8a76d669e647f1717338.json",
+      "bodySha256": "1acd4aea49b2b7c24b7fba6b37e0a798ce4cae5e20bbc356a2ccb85f0a947c61",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/c8802b3216466394909e.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 145422,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 101
+      },
+      "MENU_BY_EXAMCount": 101,
+      "responseFile": "bodies/cf2ecf2373c28a3c1bc0.json",
+      "bodySha256": "939970af8d10e31a440d65a8fd9905b0ea2ac8478048f4269727a6c905152a83",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 47711,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/c8717cd9ba397e9c865c.json",
+      "bodySha256": "4f4bd84570486116cf312e19230e474a8cb1dedaaf90f14ea425966a55f0370f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28978,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 41,
+      "responseFile": "bodies/b36ee6ff9e8758740fef.json",
+      "bodySha256": "fed9cd018f5ca334ce41c95a9bbd65741f7a8af67d7ccb80d2e5bd6c1c51a1a2",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 14698,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 13
+      },
+      "MENU_BY_EXAMCount": 13,
+      "responseFile": "bodies/ab8e0e674bafcca0e04c.json",
+      "bodySha256": "a16d0d076d216cd233d355c7dc66f55211fd06cae663c4b7900d485265a260b7",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/c129290fd2945d1183a8.json",
+      "bodySha256": "0d551a307647fb0be90df5cc6d71c70ccebb27ddfbe460054b5217e53add7249",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28978,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 41,
+      "responseFile": "bodies/3d1093a0469e3c403fdf.json",
+      "bodySha256": "fed9cd018f5ca334ce41c95a9bbd65741f7a8af67d7ccb80d2e5bd6c1c51a1a2",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 18378,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 16
+      },
+      "MENU_BY_EXAMCount": 16,
+      "responseFile": "bodies/e2c7b432159838c99f75.json",
+      "bodySha256": "181c53ff85412a216bd94830532ef911157fcfefce5661abf938c75055fbf3ad",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/46f306eb10f59d2f1a81.json",
+      "bodySha256": "92a262df41957f987239275a28998d80d345f980dd215ab776cbb63fe48f3f89",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28978,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 41,
+      "responseFile": "bodies/e485f2a4d5e484db72ff.json",
+      "bodySha256": "fed9cd018f5ca334ce41c95a9bbd65741f7a8af67d7ccb80d2e5bd6c1c51a1a2",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 14802,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 13
+      },
+      "MENU_BY_EXAMCount": 13,
+      "responseFile": "bodies/9d26c98d4bc5a3a31f3b.json",
+      "bodySha256": "019d124250dbc621bd86cd1834997e81878e0d583fb6c12566a0f24c58c00c5f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46931,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/b0c17510af2d5427740a.json",
+      "bodySha256": "3bcdcd0fab9a8e71af2e3503d0950be830e810bd4bec0884d7935473a9a42445",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=2&tx_cd=HAKRCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 21519,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 30,
+      "responseFile": "bodies/fa42446b4c5e25bbda96.json",
+      "bodySha256": "20a0f70f25c769d3468fe94cbea70eded4033b6061e5916cfd577331c2876400",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=2&tx_cd=HAKRCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 21646,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 19
+      },
+      "MENU_BY_EXAMCount": 19,
+      "responseFile": "bodies/540ae63bea39abf75b2e.json",
+      "bodySha256": "75fb33905f7a9ec9178538e5b20a237d1027c304b820a4a1136a7b5f61b57f0b",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300005",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300005&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300005&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6470,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 7,
+      "responseFile": "bodies/0052cbd52f432243e22f.json",
+      "bodySha256": "67fbf467e7db856962623e9830ebdc47cbbad639713e3b174d7b1067164a4a92",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300005",
+      "path": "/exam/ajax/getWorkFilterAjax.asp",
+      "method": "POST",
+      "form": "expapr_coretype_cd=R1%7CR2%7CR3%7CR4%7CR5%7CR6%7CQ1%7CQ2%7CQ3%7CQ4%7CQ5%7CQ6&expapr_group_cd=K&siteid=H&grade=0&subject_cd=KR&subject_detail_cd=1&tx_cd=H7KREXPA001",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300005&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 78028,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "WORK_LIST"
+      ],
+      "originalCount": {},
+      "responseFile": "bodies/118d5f8b27b7627e1501.json",
+      "bodySha256": "f2a2f0d2a548ac4c32afd2322398f48b319f14905a04021ac4a8859f18d4b140",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300005",
+      "path": "/exam/ajax/getKoreanLiteratureAjax.asp",
+      "method": "GET",
+      "form": "",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300005&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "RESULT_CODE"
+      ],
+      "originalCount": {},
+      "responseFile": "bodies/44e5857ccc3623244dc9.json",
+      "bodySha256": "69cfcefd75a6533d61d22e2251c1acb0640517193744e27a9caca57fa076f9cb",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300006",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300006&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300006&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 1319,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 1,
+      "responseFile": "bodies/a171e7939151b861a50b.json",
+      "bodySha256": "482f79adab6ca2d10156aed42c7f68e47fd5427191dacf1b30e03eee18fc1df1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300006",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300006&expapr_coretype_cd=A1%7CA2%7CA3%7CA4&expapr_group_cd=P&siteid=H&grade=0&subject_cd=KR&subject_detail_cd=&tx_cd=H8KRCHA0002&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300006&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9372,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/4ce6116027fc5a8c51c9.json",
+      "bodySha256": "6d78db23ff408085e636159e36605fb589064c50e2c0216788efaba86e10f95d",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_practice_000020000300006",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300006&expapr_coretype_cd=A1%7CA2%7CA3%7CA4&expapr_group_cd=P&siteid=H&grade=0&subject_cd=KR&subject_detail_cd=&tx_cd=H8KRCHA0002&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300006&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 67240,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 58
+      },
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/5376bbf0113baeb55d02.json",
+      "bodySha256": "4af9ad3b2ef3bcdba777135e10d5a81686134f26bd2ac869b75e00b5dc4f7de0",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_revision",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44160,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/86d222b6da49b38db916.json",
+      "bodySha256": "e6d9751fa49baeba8c73730037ebc53a347be413d3ef6c9f39fde22b9f02f352",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_revision",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=2&tx_cd=HAKRCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 21519,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 30,
+      "responseFile": "bodies/1138f677492656cf9bf2.json",
+      "bodySha256": "20a0f70f25c769d3468fe94cbea70eded4033b6061e5916cfd577331c2876400",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_revision",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=2&tx_cd=HAKRCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 15821,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 13
+      },
+      "MENU_BY_EXAMCount": 13,
+      "responseFile": "bodies/702255b818e4f3c1159d.json",
+      "bodySha256": "590bb9404bf071edd13b1d0b13f685c3834f63d9eaf0ad7241bc2ab0e74f7b9f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44278,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/46aba4dac07f7ebbe919.json",
+      "bodySha256": "bdcb2700279547460ec1085a4eaa4dbbdaa667d6399e14fc32956bcafeaabfd1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_KR_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400002&expapr_coretype_cd=C&expapr_group_cd=B&siteid=H&grade=2&subject_cd=KR&subject_detail_cd=1&tx_cd=HAKRCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=0&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=KR&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 2229,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 2
+      },
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/6331675ec8d89eb3e244.json",
+      "bodySha256": "4c33be2b23409718c06352de82a40f00cc1ffc0f0d560682bf1a483c722f8c67",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 53782,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/8deef178a0804d4efa92.json",
+      "bodySha256": "ac99241bc9345ac0f6ef22fef2241b759e7a3686e5981ffa8dc12974cdf8edbd",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=V%7CW%7CS&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/10c7be9f996947fc893d.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=V%7CW%7CS&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 50363,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 44
+      },
+      "MENU_BY_EXAMCount": 44,
+      "responseFile": "bodies/faf1b99540081555d588.json",
+      "bodySha256": "2e78c1cf72ab63f097d388628959d3f913a56bc2675820fae0ab997470712c1e",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 2860,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/9a495cad2c7c68797082.json",
+      "bodySha256": "a5dbb79abf20f42111d65f8dd1bcceb9bc63781b65fe2205b1e30584ed8716f4",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100002&expapr_coretype_cd=C&expapr_group_cd=K&siteid=H&grade=0&subject_cd=EG&subject_detail_cd=&tx_cd=M7EGCHA1001&root_part_cd=&level_cd=1&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=MID_ENG&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 37500,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 56,
+      "responseFile": "bodies/73b8f33bc1488d0782b5.json",
+      "bodySha256": "ef5c78d9aa49e87d7f6e3bf341c600efe772d0e200d29640cbc8edd70593b5cb",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100002",
+      "path": "/exam/ajax/getAssociateAjax.asp",
+      "method": "POST",
+      "form": "subject_cd=EG&tx_cd=M7EGCHA1001",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 93165,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_ASSOCIATE_PART",
+        "MENU_BY_ASSOCIATE_INFO"
+      ],
+      "originalCount": {},
+      "responseFile": "bodies/e0d38ea54e0557717b8c.json",
+      "bodySha256": "f532fbcac82d8c7f1a1c234772dbeef9642c9a2a6f9729beb31fa1ed636a1496",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100002&expapr_coretype_cd=C&expapr_group_cd=K&siteid=H&grade=0&subject_cd=EG&subject_detail_cd=&tx_cd=M7EGCHA1001&root_part_cd=&level_cd=1&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=MID_ENG&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 99750,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 84
+      },
+      "MENU_BY_EXAMCount": 84,
+      "responseFile": "bodies/14299f4a9e32a3fa2c0c.json",
+      "bodySha256": "f3def592d8a3c1ffbff2cd947764a85a0c1a37b8c58a1e43f74e93e9a8d8e04a",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 1604,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 1,
+      "responseFile": "bodies/951db22199b850e7aa66.json",
+      "bodySha256": "b08cfc14e21d326fc6938de42333d010dddfaddd882c87db4cfaa68bae70711e",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100003&expapr_coretype_cd=E1%7CE2%7CE3%7CE4%7CE5&expapr_group_cd=P&siteid=H&grade=0&subject_cd=EG&subject_detail_cd=&tx_cd=M7EGEXA1001&root_part_cd=&level_cd=1&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=MID_ENG&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 24523,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 37,
+      "responseFile": "bodies/c87093b076bef87fdc26.json",
+      "bodySha256": "39a24bdd0a7ea966261c02175acc546080b135fc34c093a1e3bac31075a44851",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_concept_000020000100003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100003&expapr_coretype_cd=E1%7CE2%7CE3%7CE4%7CE5&expapr_group_cd=P&siteid=H&grade=0&subject_cd=EG&subject_detail_cd=&tx_cd=M7EGEXA1001&root_part_cd=&level_cd=1&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=MID_ENG&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 64707,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 51
+      },
+      "MENU_BY_EXAMCount": 51,
+      "responseFile": "bodies/801c7508728d66403fbf.json",
+      "bodySha256": "e0304742f9b466a65751b628aeb1a0f1a4fe68229f750150461c338fc49a8804",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_unit",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51097,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/c19ea9c8998d5403a661.json",
+      "bodySha256": "19d6d5b2b8d1c9b1975728d3eddef1dba3142bdc661331313035a72454410c44",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_unit",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/63a6127c20df7f9bedaa.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_unit",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 56010,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 50
+      },
+      "MENU_BY_EXAMCount": 50,
+      "responseFile": "bodies/67d081d41505df6c1c80.json",
+      "bodySha256": "581c768c2dd360044ff2dbce6caf9b070d3582c67f57c3c575d50934fbc05b06",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6553,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 6,
+      "responseFile": "bodies/1ed27489cb17c361d152.json",
+      "bodySha256": "1acd4aea49b2b7c24b7fba6b37e0a798ce4cae5e20bbc356a2ccb85f0a947c61",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/7fbb1c202f0ee0db155b.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 145422,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 101
+      },
+      "MENU_BY_EXAMCount": 101,
+      "responseFile": "bodies/108d5e2b55a703139a9f.json",
+      "bodySha256": "939970af8d10e31a440d65a8fd9905b0ea2ac8478048f4269727a6c905152a83",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 47711,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/aff5b6a1b62d0f6326f0.json",
+      "bodySha256": "4f4bd84570486116cf312e19230e474a8cb1dedaaf90f14ea425966a55f0370f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/232a9447d994cefb2a45.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 11146,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 10
+      },
+      "MENU_BY_EXAMCount": 10,
+      "responseFile": "bodies/a857e7817a627ea2940c.json",
+      "bodySha256": "85e00f092e9689a0110de73e07999b28870377f9b13a0ff111dc186f31644409",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/f7cf1eb2a3e925e47c9b.json",
+      "bodySha256": "0d551a307647fb0be90df5cc6d71c70ccebb27ddfbe460054b5217e53add7249",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/b9ee784f201a8c62f755.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16974,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 15
+      },
+      "MENU_BY_EXAMCount": 15,
+      "responseFile": "bodies/493d6210206c33aa82a7.json",
+      "bodySha256": "a43e77b5fd1bce3da7603eba24cf0626a5cf707bce00f2735c2c6134432ee516",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/394e85abce00ebbf9c68.json",
+      "bodySha256": "92a262df41957f987239275a28998d80d345f980dd215ab776cbb63fe48f3f89",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/9347eab52ec6b7254796.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 11226,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 10
+      },
+      "MENU_BY_EXAMCount": 10,
+      "responseFile": "bodies/56e1c93e2c0ea2b2c53b.json",
+      "bodySha256": "94e0d1515448a06f564b42048693a890a6b3b59b6dc61346265c2c259507bc40",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46931,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/712a3909050cee090135.json",
+      "bodySha256": "3bcdcd0fab9a8e71af2e3503d0950be830e810bd4bec0884d7935473a9a42445",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/e6fe30bdc731a5d5c9bf.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 11196,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 10
+      },
+      "MENU_BY_EXAMCount": 10,
+      "responseFile": "bodies/f5b18fab3cdf0159ebc6.json",
+      "bodySha256": "0dd23a793951c08cb0bf65490c55e49ea3f02992c4889730a63984960cb43d34",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300007",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300007&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300007&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 14273,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 17,
+      "responseFile": "bodies/d9965b55f439c2ed7ca5.json",
+      "bodySha256": "ae43261a8224f984329bbd8c9f2b355deba882c95701c03132784f20f0306527",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300007",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300007&expapr_coretype_cd=T&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300007&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28199,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/6b4c705300ae9e149efd.json",
+      "bodySha256": "8e5033aa3451aa7640b59cc498dab9880b67516d1f0a2b77de9f65265ffaa66f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_practice_000020000300007",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300007&expapr_coretype_cd=T&expapr_group_cd=H&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300007&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 5747,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 5
+      },
+      "MENU_BY_EXAMCount": 5,
+      "responseFile": "bodies/8075f4925d9e7ca9ce21.json",
+      "bodySha256": "978ff1118262690fe38efa8c470925813e1c2ba5ebf0c80c90f6b7782561278f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_revision",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44160,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/d29af26689da9672f965.json",
+      "bodySha256": "e6d9751fa49baeba8c73730037ebc53a347be413d3ef6c9f39fde22b9f02f352",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_revision",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=2&tx_cd=HAEGCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 28423,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 42,
+      "responseFile": "bodies/ac33ba0f724ba7d71895.json",
+      "bodySha256": "35f52e0e88505fc5a969e04dcb12b63dc6c549d256a291727f49fdf5beb41cd9",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_revision",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=2&tx_cd=HAEGCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 5856,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 5
+      },
+      "MENU_BY_EXAMCount": 5,
+      "responseFile": "bodies/9d3dd03fc89a0f14a40d.json",
+      "bodySha256": "006cc76f793caf8cdffed6a23417ecb7404d4e05c797a854d04f6cd1afef7c9e",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44278,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/e11be8be79a708d0fdba.json",
+      "bodySha256": "bdcb2700279547460ec1085a4eaa4dbbdaa667d6399e14fc32956bcafeaabfd1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_EG_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400002&expapr_coretype_cd=C&expapr_group_cd=B&siteid=H&grade=2&subject_cd=EG&subject_detail_cd=1&tx_cd=HAEGCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=0&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=EG&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 1170,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 1
+      },
+      "MENU_BY_EXAMCount": 1,
+      "responseFile": "bodies/86e3dd3c278afd51fe53.json",
+      "bodySha256": "cac20c6c2a5a813cd292975c8e358f346b5fb85361967d46ee4c0362e957e8e1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_concept",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 53782,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/10711b624f53686e5aee.json",
+      "bodySha256": "ac99241bc9345ac0f6ef22fef2241b759e7a3686e5981ffa8dc12974cdf8edbd",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_concept",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/f7448bb3187e5d7eb14b.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_concept",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 92292,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 62
+      },
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/52bbb7744cc7a7a279e7.json",
+      "bodySha256": "e2532a2a9eaf8d2476769bd21ed3f0381f694d67339052ece8a9bb35f7631e53",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_concept_000020000100004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100004&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6675,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 7,
+      "responseFile": "bodies/6532a6b77ab8b8e46a9c.json",
+      "bodySha256": "faa47f2234aa87c3a27f5bc0e88b01bdc09b6f528e58e71272f0f7837e7d75e4",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_concept_000020000100004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100004&expapr_coretype_cd=B1&expapr_group_cd=K&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100004&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16130,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/a4c27297cd97e8a5c14c.json",
+      "bodySha256": "acbfa074df49dd03df8fc077cc392851acfbb6b8713506af896d2c50e5c21433",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_concept_000020000100004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100004&expapr_coretype_cd=B1&expapr_group_cd=K&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2006&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100004&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49321,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 40
+      },
+      "MENU_BY_EXAMCount": 40,
+      "responseFile": "bodies/02cd2decf01e404f5b9d.json",
+      "bodySha256": "c77077818c65eec28c639b6bac8a51d7e4b526dfeed4f44532971b8b0c4c7c09",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51097,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/565150e67938e7195d03.json",
+      "bodySha256": "19d6d5b2b8d1c9b1975728d3eddef1dba3142bdc661331313035a72454410c44",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/ae97c6ffd7c76bc2c0ab.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 270369,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 242
+      },
+      "MENU_BY_EXAMCount": 242,
+      "responseFile": "bodies/a436783eb6c17d083026.json",
+      "bodySha256": "b5d5fb79c2d5bda7211031c383638eca3893c6102c2f6feb6a364e5376281c2b",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 270369,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 242
+      },
+      "MENU_BY_EXAMCount": 242,
+      "responseFile": "bodies/a9642eb0ba6dd573737a.json",
+      "bodySha256": "b5d5fb79c2d5bda7211031c383638eca3893c6102c2f6feb6a364e5376281c2b",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6553,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 6,
+      "responseFile": "bodies/7fbab22f4e38d5d5f009.json",
+      "bodySha256": "1acd4aea49b2b7c24b7fba6b37e0a798ce4cae5e20bbc356a2ccb85f0a947c61",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/84a0323d000e39a613bd.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 145422,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 101
+      },
+      "MENU_BY_EXAMCount": 101,
+      "responseFile": "bodies/2fb971a9b7d42ce8162b.json",
+      "bodySha256": "939970af8d10e31a440d65a8fd9905b0ea2ac8478048f4269727a6c905152a83",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 47711,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/3256041a29fbb0c40567.json",
+      "bodySha256": "4f4bd84570486116cf312e19230e474a8cb1dedaaf90f14ea425966a55f0370f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/c74ae8ea30539709f011.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 31938,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 30
+      },
+      "MENU_BY_EXAMCount": 30,
+      "responseFile": "bodies/d88245e20201f2666df3.json",
+      "bodySha256": "d3d19c50c399c9d3c8bfbe3099f8c6dbd147cb9cd4d99e3de8a042729acc89dc",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/8f8744b6939068cc4f22.json",
+      "bodySha256": "0d551a307647fb0be90df5cc6d71c70ccebb27ddfbe460054b5217e53add7249",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/4777209bdcb3a31afc3e.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 43354,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 40
+      },
+      "MENU_BY_EXAMCount": 40,
+      "responseFile": "bodies/e968dfb5b8d08f26f689.json",
+      "bodySha256": "a98df070d008e3ae59646c623513abdd2b818169647ecfdf37d6329f7477807e",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/3f6b0d1f811b437cfe78.json",
+      "bodySha256": "92a262df41957f987239275a28998d80d345f980dd215ab776cbb63fe48f3f89",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/57be4caf0af7ac9b8df2.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9483,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 9
+      },
+      "MENU_BY_EXAMCount": 9,
+      "responseFile": "bodies/753e5f1cecd05337269a.json",
+      "bodySha256": "7e597c2d210d2d9a89f2a4de75a19e00e9ca8ff09b6942600049d6d5bd46203c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46931,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/1cf69f7cea6bf3b0f77e.json",
+      "bodySha256": "3bcdcd0fab9a8e71af2e3503d0950be830e810bd4bec0884d7935473a9a42445",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/d6921f000569638e259b.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9456,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 9
+      },
+      "MENU_BY_EXAMCount": 9,
+      "responseFile": "bodies/e3f3fd71fdd99269f55d.json",
+      "bodySha256": "e632c64dfae83242d068f041dd2935ed523af5a76e0d4b5d3c9d29e3542ccbb6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300009",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300009&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300009&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 3598,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/8d29ae99eb1841afc942.json",
+      "bodySha256": "9ab77467131c6426e52799d2070cf5bc99b8e533283f125ba61894534ed71e12",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300009",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300009&expapr_coretype_cd=A&expapr_group_cd=T&siteid=H&grade=1&subject_cd=MT&subject_detail_cd=&tx_cd=H9MTCHA1001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300009&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 24070,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 35,
+      "responseFile": "bodies/12d6e1cc517e789d7aa4.json",
+      "bodySha256": "d77715a4a77827bc7d4db868301e12a62ea46053f451ab2eb9a7d3da25422e85",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300009",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300009&expapr_coretype_cd=A&expapr_group_cd=T&siteid=H&grade=1&subject_cd=MT&subject_detail_cd=&tx_cd=H9MTCHA1001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300009&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 30670,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 30
+      },
+      "MENU_BY_EXAMCount": 30,
+      "responseFile": "bodies/44ef6af190c04600f9da.json",
+      "bodySha256": "61193fe65e15b031059695cd513fd0b2be43e6804d6e0ac9f7d578e444d7c977",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300008",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300008&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300008&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 29903,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 37,
+      "responseFile": "bodies/982628767af62e68bb5d.json",
+      "bodySha256": "bb46209cdcc993cc3783960d05dbf3e1adf42b0893c4a8b91815753009348892",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300008",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300008&expapr_coretype_cd=C1%7CC2&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=4&tx_cd=HAMTCHA2003&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=%EB%AF%B8%EB%9E%98%EC%97%94(%ED%99%A9)&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300008&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9964,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/247e4dacdad0c1cd402e.json",
+      "bodySha256": "82b453b88301d6b9aa099fb72d4894d089553bb940af5f9392f9676f060d6ea5",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_practice_000020000300008",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300008&expapr_coretype_cd=C1%7CC2&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=4&tx_cd=HAMTCHA2003&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=%EB%AF%B8%EB%9E%98%EC%97%94(%ED%99%A9)&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300008&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 17757,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 15
+      },
+      "MENU_BY_EXAMCount": 15,
+      "responseFile": "bodies/8157e38cbb00f6667916.json",
+      "bodySha256": "641b108c6c0218560ab557401e441ac19b6bf51f656d10cc73ca3c1b8f292f85",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_revision",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44160,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/09c1bd999ed9de691fb2.json",
+      "bodySha256": "e6d9751fa49baeba8c73730037ebc53a347be413d3ef6c9f39fde22b9f02f352",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_revision",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/59d11f4589cb84206013.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_revision",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 11066,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 10
+      },
+      "MENU_BY_EXAMCount": 10,
+      "responseFile": "bodies/d220b776c70ece205cbf.json",
+      "bodySha256": "3b14fcd36cfca5ccba8b0ce791e6dc8b94951f7704b9e2bea88b85870c23cdf7",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44278,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/fdb53c6345c7333fe333.json",
+      "bodySha256": "bdcb2700279547460ec1085a4eaa4dbbdaa667d6399e14fc32956bcafeaabfd1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_MT_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400002&expapr_coretype_cd=C&expapr_group_cd=B&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=0&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=MT&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 2135,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 2
+      },
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/7c406a9f23106554d490.json",
+      "bodySha256": "222ea5dedda75cb4a12305f3538183d74a73b9ca741f885a27a02c4a892d4f58",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_concept",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 53782,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/dcf3cf239753f542d628.json",
+      "bodySha256": "ac99241bc9345ac0f6ef22fef2241b759e7a3686e5981ffa8dc12974cdf8edbd",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_concept",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/d40c78ac5bf87d6389ae.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_concept",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46121,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 42
+      },
+      "MENU_BY_EXAMCount": 42,
+      "responseFile": "bodies/3f2451b2854eea861dcb.json",
+      "bodySha256": "1c11ae75518bddefe1892b00264f4730d6c8c1d814d5caff447a7053de51ddd9",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_unit",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51097,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/b7a04d92082fb4737e62.json",
+      "bodySha256": "19d6d5b2b8d1c9b1975728d3eddef1dba3142bdc661331313035a72454410c44",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_unit",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/a72200721267703f6960.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_unit",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 173383,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 154
+      },
+      "MENU_BY_EXAMCount": 154,
+      "responseFile": "bodies/5d10c1f28a4132b36ca1.json",
+      "bodySha256": "d7de66a137b7a66005d70d2f99591f8838c5a25a866d78987c2d463eb38c97a1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6553,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 6,
+      "responseFile": "bodies/8574cddfbff978d86f4d.json",
+      "bodySha256": "1acd4aea49b2b7c24b7fba6b37e0a798ce4cae5e20bbc356a2ccb85f0a947c61",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/a3f26602241d2df55467.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 145422,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 101
+      },
+      "MENU_BY_EXAMCount": 101,
+      "responseFile": "bodies/1a5462c9d353e6c0cffa.json",
+      "bodySha256": "939970af8d10e31a440d65a8fd9905b0ea2ac8478048f4269727a6c905152a83",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 47711,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/9e22d6ab7d2a20207218.json",
+      "bodySha256": "4f4bd84570486116cf312e19230e474a8cb1dedaaf90f14ea425966a55f0370f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/848b987254210658cca9.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 19266,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 18
+      },
+      "MENU_BY_EXAMCount": 18,
+      "responseFile": "bodies/3a94813966e35f592b85.json",
+      "bodySha256": "fbad7a9a3b4f6746abae7b1cea2a50c610ba1c0a8897eeecff9dc144dbe57f67",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/78597b3a6094f4966130.json",
+      "bodySha256": "0d551a307647fb0be90df5cc6d71c70ccebb27ddfbe460054b5217e53add7249",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/7f7cafb2d2c992ee99ba.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 26138,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 24
+      },
+      "MENU_BY_EXAMCount": 24,
+      "responseFile": "bodies/961ac372c37079f3b0c2.json",
+      "bodySha256": "d227d94fb4c69ec74baebe4d0d6d3dd906a33333654d9211b961f1cd4374f14b",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/b7f7d96c5707b0bce897.json",
+      "bodySha256": "92a262df41957f987239275a28998d80d345f980dd215ab776cbb63fe48f3f89",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/f29a9daddb8639ed7ac3.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9585,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 9
+      },
+      "MENU_BY_EXAMCount": 9,
+      "responseFile": "bodies/6d7a0ad2579a27f4358b.json",
+      "bodySha256": "3d6f9a7ddf58280c79a13d12928f4b7c5db56d5b0fe6f7feb20cb3aa1e3aa41b",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46931,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/883d2bfe9445d4e1d0b7.json",
+      "bodySha256": "3bcdcd0fab9a8e71af2e3503d0950be830e810bd4bec0884d7935473a9a42445",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/9bd0ee32d97a08323315.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9558,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 9
+      },
+      "MENU_BY_EXAMCount": 9,
+      "responseFile": "bodies/652112e04e3f90959030.json",
+      "bodySha256": "864010b39279df06ac604e7cde8133db7b782f91663bdc2404fd076dec326410",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_revision",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44160,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/5caf4df6227d1875b048.json",
+      "bodySha256": "e6d9751fa49baeba8c73730037ebc53a347be413d3ef6c9f39fde22b9f02f352",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_revision",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=V%7CB&expapr_group_cd=B%7CH&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 9930,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 14,
+      "responseFile": "bodies/194622c02c789c65492b.json",
+      "bodySha256": "c7d4fd68515c8cbaaf17f54c7df8464452e556e2b7e87b6b315d0f30d0a15f7c",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_revision",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=V%7CB&expapr_group_cd=B%7CH&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 22129,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 20
+      },
+      "MENU_BY_EXAMCount": 20,
+      "responseFile": "bodies/fcfaea132b66ee091275.json",
+      "bodySha256": "b815d8bd6ed44f02eb3f4b212260879cf9700fbdad3ee32e82e096366bd80619",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44278,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/d6f09b66f65b34dd29fe.json",
+      "bodySha256": "bdcb2700279547460ec1085a4eaa4dbbdaa667d6399e14fc32956bcafeaabfd1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_SC_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400002&expapr_coretype_cd=C&expapr_group_cd=B&siteid=H&grade=2&subject_cd=SC&subject_detail_cd=&tx_cd=HASCCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=0&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=SC&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 2159,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 2
+      },
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/53223d0e786a2921c888.json",
+      "bodySha256": "443768655b166b55f56aa23b43a6fc5dcc39e78dd869b984ed6c45c89df1acab",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_concept",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 53782,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/1833abee9de711bcfc18.json",
+      "bodySha256": "ac99241bc9345ac0f6ef22fef2241b759e7a3686e5981ffa8dc12974cdf8edbd",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_concept",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/9f9a6a9c56145d47d08a.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_concept",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 50964,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 45
+      },
+      "MENU_BY_EXAMCount": 45,
+      "responseFile": "bodies/550c1f8e4865cc7c540c.json",
+      "bodySha256": "acf1551b6184a84cf5dc30e70b426e4c805b08ec0b0ac17f8a04dc16bebff2db",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_unit",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51097,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/713903f5ba4eca051eec.json",
+      "bodySha256": "19d6d5b2b8d1c9b1975728d3eddef1dba3142bdc661331313035a72454410c44",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_unit",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/e0fc8c8dde1aa34f4470.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_unit",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 225066,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 195
+      },
+      "MENU_BY_EXAMCount": 195,
+      "responseFile": "bodies/3f9d006273b9df2e08d8.json",
+      "bodySha256": "19fd2cb1e9084b520daae2103952831961562b0b9ff8d8e6d58e705b040f0136",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6553,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 6,
+      "responseFile": "bodies/0f557b245c50897754f4.json",
+      "bodySha256": "1acd4aea49b2b7c24b7fba6b37e0a798ce4cae5e20bbc356a2ccb85f0a947c61",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/8b6eb4491c21cd327df1.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 145422,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 101
+      },
+      "MENU_BY_EXAMCount": 101,
+      "responseFile": "bodies/55d359c0ace0f54f1442.json",
+      "bodySha256": "939970af8d10e31a440d65a8fd9905b0ea2ac8478048f4269727a6c905152a83",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 47711,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/bb65f14e31d4af96402d.json",
+      "bodySha256": "4f4bd84570486116cf312e19230e474a8cb1dedaaf90f14ea425966a55f0370f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/8c3daefbf52ae81a1b78.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 34476,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 30
+      },
+      "MENU_BY_EXAMCount": 30,
+      "responseFile": "bodies/0ea2293bf0dcd3be105e.json",
+      "bodySha256": "c3ec9829c13ae43afbd4b8ccf8d61f1cd434b9ca90362a3e785aaa07dc9ca79d",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/c822796a8e4c3563f252.json",
+      "bodySha256": "0d551a307647fb0be90df5cc6d71c70ccebb27ddfbe460054b5217e53add7249",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/96fa2cffeccdcdaa6efe.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 70062,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 60
+      },
+      "MENU_BY_EXAMCount": 60,
+      "responseFile": "bodies/96480eec8d9ba27bec06.json",
+      "bodySha256": "7ce4f7839aaa2ca6a937b8e79b40872b9ba1c8f02d9fd862639f72c865e042b1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/b4e89c301264487ab7c0.json",
+      "bodySha256": "92a262df41957f987239275a28998d80d345f980dd215ab776cbb63fe48f3f89",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/fdbc44d50ebd1e1a91e6.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 13476,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 12
+      },
+      "MENU_BY_EXAMCount": 12,
+      "responseFile": "bodies/32a75961b606ce7b4a91.json",
+      "bodySha256": "f1bf7d7320301aae4564cca6a6a6918c0be52a2352ee4d82f87dba9df310b2fe",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46931,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/02a2089809d3a7382fec.json",
+      "bodySha256": "3bcdcd0fab9a8e71af2e3503d0950be830e810bd4bec0884d7935473a9a42445",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/ba4bfb43410b3a592691.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 13440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 12
+      },
+      "MENU_BY_EXAMCount": 12,
+      "responseFile": "bodies/b19145fd73402d1034d0.json",
+      "bodySha256": "32974b25b193c24d0314b834fbab3dbe2b7797fc7f04a1997e38ffd995402688",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_revision",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44160,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/a32785e44308161736b0.json",
+      "bodySha256": "e6d9751fa49baeba8c73730037ebc53a347be413d3ef6c9f39fde22b9f02f352",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_revision",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=V%7CB&expapr_group_cd=B%7CH&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 25502,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 34,
+      "responseFile": "bodies/47fb872387edb47fc951.json",
+      "bodySha256": "2d3da46bab1cc73f4fb4ce28f3d0a7d77672ff425c37f7a0e47180d6ba0430f6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_revision",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=V%7CB&expapr_group_cd=B%7CH&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 34881,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 30
+      },
+      "MENU_BY_EXAMCount": 30,
+      "responseFile": "bodies/dd61f30b0d4e23b184ef.json",
+      "bodySha256": "07c1f7b9773747e333e5c91834f1fbb43056df97027590b4f566f099264b3be9",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44278,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/6639c1138eb54ac2baca.json",
+      "bodySha256": "bdcb2700279547460ec1085a4eaa4dbbdaa667d6399e14fc32956bcafeaabfd1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_LS_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400002&expapr_coretype_cd=C&expapr_group_cd=B&siteid=H&grade=2&subject_cd=LS&subject_detail_cd=&tx_cd=HALSCHA2001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=0&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=LS&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 2207,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 2
+      },
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/1b87cfca2582cf57c0fa.json",
+      "bodySha256": "dd7b92b37c68d20c1dfa513070d65aa87d07b7b22074b3ab9c0de5e77f51a72d",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_concept",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000100001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 53782,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/d6ee6c9147c7fa493bc0.json",
+      "bodySha256": "ac99241bc9345ac0f6ef22fef2241b759e7a3686e5981ffa8dc12974cdf8edbd",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_concept",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000100001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/301d275a93b5b2135160.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_unit",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000100001&expapr_coretype_cd=S%7CV%7CW&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 229320,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 198
+      },
+      "MENU_BY_EXAMCount": 198,
+      "responseFile": "bodies/302e7ed730fefb14dc8f.json",
+      "bodySha256": "4519ca6bcf224d6e814f3585b7cf7e247b022370e77b76adec989c9ad7b55fb0",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_unit",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 51097,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/f299d2d3c9c68a850040.json",
+      "bodySha256": "19d6d5b2b8d1c9b1975728d3eddef1dba3142bdc661331313035a72454410c44",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_unit",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200003&expapr_coretype_cd=&expapr_group_cd=C%7CE&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=2&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200003&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/af652d2d17f3a6c1a512.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000200002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 6553,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 6,
+      "responseFile": "bodies/a5604bcf55c39ae9418d.json",
+      "bodySha256": "1acd4aea49b2b7c24b7fba6b37e0a798ce4cae5e20bbc356a2ccb85f0a947c61",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=CONCEPT%7CTWEEZERS&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 16617,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 23,
+      "responseFile": "bodies/84291453dec3e53cdbfd.json",
+      "bodySha256": "28b975ca433e1721bbcb6ea601d8218cbf720d4e0ac6fbc5214a9da2b80a6776",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_unit_000020000200002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000200002&expapr_coretype_cd=B1%7CB2%7CB3%7CB4%7CB5%7CB6&expapr_group_cd=P&siteid=H&grade=2&subject_cd=MT&subject_detail_cd=1&tx_cd=HAMTCHA2001&root_part_cd=&level_cd=1%2C2%2C3&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=CONCEPT%7CTWEEZERS&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000200002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 145422,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 101
+      },
+      "MENU_BY_EXAMCount": 101,
+      "responseFile": "bodies/ee83988afc444878b2f9.json",
+      "bodySha256": "939970af8d10e31a440d65a8fd9905b0ea2ac8478048f4269727a6c905152a83",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 47711,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/6cdfc256c2fd559f158c.json",
+      "bodySha256": "4f4bd84570486116cf312e19230e474a8cb1dedaaf90f14ea425966a55f0370f",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/2beea6f516f77dbf5915.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300001&expapr_coretype_cd=&expapr_group_cd=M&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 79175,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 70
+      },
+      "MENU_BY_EXAMCount": 70,
+      "responseFile": "bodies/26001096d7789ceb7f61.json",
+      "bodySha256": "399e4c767a0e8622a60c01f23df89aac7fff3200f02e14caec32dd54a11bf9a0",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/95a1b5eca74712abed84.json",
+      "bodySha256": "0d551a307647fb0be90df5cc6d71c70ccebb27ddfbe460054b5217e53add7249",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/5f6a5e9a46b1966bd67b.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300002&expapr_coretype_cd=D&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 82902,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 72
+      },
+      "MENU_BY_EXAMCount": 72,
+      "responseFile": "bodies/30b1dcb7a891dd4a88af.json",
+      "bodySha256": "51bc460c4e6b98e47433ebde1ae7ba45d5e775640ec4c309e29e88c73cc551a6",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300003&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 49440,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 63,
+      "responseFile": "bodies/e93c6b5c913c20cd3404.json",
+      "bodySha256": "92a262df41957f987239275a28998d80d345f980dd215ab776cbb63fe48f3f89",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/0789df4603f09f13166a.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300003",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300003&expapr_coretype_cd=E&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300003&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 19638,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 18
+      },
+      "MENU_BY_EXAMCount": 18,
+      "responseFile": "bodies/b22eaabc3008bbf9c6b6.json",
+      "bodySha256": "fb2f4e077ed1738cd559d355d729e83940c73e8f5bf0510e80fdaaed8a638eca",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000300004&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 46931,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 62,
+      "responseFile": "bodies/41d68e618b8037eb5f76.json",
+      "bodySha256": "3bcdcd0fab9a8e71af2e3503d0950be830e810bd4bec0884d7935473a9a42445",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/c458a7c5ced4afecdb15.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_practice_000020000300004",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000300004&expapr_coretype_cd=G&expapr_group_cd=H&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000300004&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 19584,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 18
+      },
+      "MENU_BY_EXAMCount": 18,
+      "responseFile": "bodies/be51885c6f49eeb45499.json",
+      "bodySha256": "557411e44fe8bedf49bffca5c34687e50fc6768c96c7819ab7802ee660b33e15",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_revision",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400001&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44160,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/32150e71567a2433cefc.json",
+      "bodySha256": "e6d9751fa49baeba8c73730037ebc53a347be413d3ef6c9f39fde22b9f02f352",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_revision",
+      "path": "/exam/ajax/getMenuByExamPartAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&vod_type=&is_scroll=0",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 48228,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "PART_COUNT",
+        "MENU_BY_PART",
+        "PART_USE_CD"
+      ],
+      "originalCount": {},
+      "MENU_BY_PARTCount": 66,
+      "responseFile": "bodies/98f72facd9c622b78ab4.json",
+      "bodySha256": "82a2e6d1f85f842df90fbd35fa3b2ff89f8de9a50d93bf3a2d706960a355d179",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_revision",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400001&expapr_coretype_cd=A%7CB&expapr_group_cd=B&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=1&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400001&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 55299,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 48
+      },
+      "MENU_BY_EXAMCount": 48,
+      "responseFile": "bodies/45fd663638fa30e9228d.json",
+      "bodySha256": "72bfa7289251c551b0bad311fa0852ab5bfcf019b5db2575d5884d7f43815bb7",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByFilterAjax.asp",
+      "method": "POST",
+      "form": "menuCD=000020000400002&siteID=H",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 44278,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "MENU_BY_FILTER",
+        "MENU_BY_EXAM"
+      ],
+      "originalCount": {},
+      "MENU_BY_EXAMCount": 58,
+      "responseFile": "bodies/faffb5c1c2f242470772.json",
+      "bodySha256": "bdcb2700279547460ec1085a4eaa4dbbdaa667d6399e14fc32956bcafeaabfd1",
+      "outcome": "CAPTURED"
+    },
+    {
+      "screen": "H_2_HI_revision_000020000400002",
+      "path": "/exam/ajax/getMenuByExamSearchAjax.asp",
+      "method": "POST",
+      "form": "menu_cd=000020000400002&expapr_coretype_cd=C&expapr_group_cd=B&siteid=H&grade=2&subject_cd=HI&subject_detail_cd=&tx_cd=HALSCHA0001&root_part_cd=&level_cd=&work_author=&work_title=&text_book_nm=&korean_part_work_list=&year_cd=&is_part=0&vod_type=&step_cd=&expapr_servicetype=2",
+      "referer": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000020000400002&siteid=H&subject_cd=HI&grade=2",
+      "originalHTTP": 200,
+      "http": 200,
+      "bytes": 2153,
+      "contentType": "text/html; Charset=utf-8",
+      "rootKeys": [
+        "RESULT",
+        "EXAM_COUNT",
+        "MENU_BY_EXAM",
+        "VOD_COUNT",
+        "MENU_BY_VOD",
+        "PART_USE_CD"
+      ],
+      "originalCount": {
+        "EXAM_COUNT": 2
+      },
+      "MENU_BY_EXAMCount": 2,
+      "responseFile": "bodies/06beaebc993bb93e3887.json",
+      "bodySha256": "88da2ac9d41a2240bcf983e156fb6bcd2106b6f1cafae3c7867ea502da56350c",
+      "outcome": "CAPTURED"
+    }
+  ]
+}

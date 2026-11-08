@@ -1,0 +1,56 @@
+{
+    "RESULT": "true",
+    "MENU_BY_FILTER": [
+        {
+            "FILTER_CD": "FILTER_1",
+            "FILTER_NM": "학년",
+            "MENU_CD": "000020000100003",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 1
+        },
+        {
+            "FILTER_CD": "FILTER_11",
+            "FILTER_NM": "과목",
+            "MENU_CD": "000020000100003",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 2
+        },
+        {
+            "FILTER_CD": "FILTER_13",
+            "FILTER_NM": "난이도",
+            "MENU_CD": "000020000100003",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 3
+        }
+    ],
+    "MENU_BY_EXAM": [
+        {
+            "SEQ": "EXAM_0",
+            "MENU_CD": "000020000100003",
+            "SUB_MENU_CD": null,
+            "EXPAPR_GROUP_CD": "P",
+            "EXPAPR_CORETYPE_CD": "E1|E2|E3|E4|E5",
+            "SITE_ID": "H",
+            "GRADE": 0,
+            "GRADE_NM": "공통",
+            "SUBJECT_CD": "EG",
+            "SUBJECT_NM": "영어",
+            "SUBJECT_DETAIL_CD": null,
+            "SUBJECT_DETAIL_NM": null,
+            "TX_CD": "M7EGEXA1001|M7EGEXA2001|M7EGEXA3001",
+            "TX_NM": "공통",
+            "IS_DEFAULT": 1,
+            "IS_DEFAULT_SUBJECT": 1,
+            "TEXT_BOOK_CD": null,
+            "TEXT_BOOK_NM": null,
+            "YEAR_CD": null,
+            "YEAR_NM": null
+        }
+    ]
+}

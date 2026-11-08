@@ -1,0 +1,2414 @@
+{
+    "WORK_LIST": [
+        {
+            "EKL_CD": "EKL_CD_680",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "우리가 물이 되어",
+            "AUTHOR": "강은교",
+            "TITLE_AUTHOR": "강은교-우리가 물이 되어"
+        },
+        {
+            "EKL_CD": "EKL_CD_681",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "세한도",
+            "AUTHOR": "고재종",
+            "TITLE_AUTHOR": "고재종-세한도"
+        },
+        {
+            "EKL_CD": "EKL_CD_682",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "첫사랑",
+            "AUTHOR": "고재종",
+            "TITLE_AUTHOR": "고재종-첫사랑"
+        },
+        {
+            "EKL_CD": "EKL_CD_683",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "우리 동네 구자명 씨",
+            "AUTHOR": "고정희",
+            "TITLE_AUTHOR": "고정희-우리 동네 구자명 씨"
+        },
+        {
+            "EKL_CD": "EKL_CD_684",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "명랑한 밤길",
+            "AUTHOR": "공선옥",
+            "TITLE_AUTHOR": "공선옥-명랑한 밤길"
+        },
+        {
+            "EKL_CD": "EKL_CD_685",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "사평역에서",
+            "AUTHOR": "곽재구",
+            "TITLE_AUTHOR": "곽재구-사평역에서"
+        },
+        {
+            "EKL_CD": "EKL_CD_686",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "주옹설",
+            "AUTHOR": "권근",
+            "TITLE_AUTHOR": "권근-주옹설"
+        },
+        {
+            "EKL_CD": "EKL_CD_687",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "빼떼기",
+            "AUTHOR": "권정생",
+            "TITLE_AUTHOR": "권정생-빼떼기"
+        },
+        {
+            "EKL_CD": "EKL_CD_688",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "오백 년 도읍지를",
+            "AUTHOR": "길재",
+            "TITLE_AUTHOR": "길재-오백 년 도읍지를"
+        },
+        {
+            "EKL_CD": "EKL_CD_689",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "성북동 비둘기",
+            "AUTHOR": "김광섭",
+            "TITLE_AUTHOR": "김광섭-성북동 비둘기"
+        },
+        {
+            "EKL_CD": "EKL_CD_690",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "저녁에",
+            "AUTHOR": "김광섭",
+            "TITLE_AUTHOR": "김광섭-저녁에"
+        },
+        {
+            "EKL_CD": "EKL_CD_691",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "선의를 믿는 것의 어려움",
+            "AUTHOR": "김금희",
+            "TITLE_AUTHOR": "김금희-선의를 믿는 것의 어려움"
+        },
+        {
+            "EKL_CD": "EKL_CD_692",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "역마",
+            "AUTHOR": "김동리",
+            "TITLE_AUTHOR": "김동리-역마"
+        },
+        {
+            "EKL_CD": "EKL_CD_693",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "구운몽",
+            "AUTHOR": "김만중",
+            "TITLE_AUTHOR": "김만중-구운몽"
+        },
+        {
+            "EKL_CD": "EKL_CD_694",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "사씨남정기",
+            "AUTHOR": "김만중",
+            "TITLE_AUTHOR": "김만중-사씨남정기"
+        },
+        {
+            "EKL_CD": "EKL_CD_695",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "가는 길",
+            "AUTHOR": "김소월",
+            "TITLE_AUTHOR": "김소월-가는 길"
+        },
+        {
+            "EKL_CD": "EKL_CD_696",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "먼 후일",
+            "AUTHOR": "김소월",
+            "TITLE_AUTHOR": "김소월-먼 후일"
+        },
+        {
+            "EKL_CD": "EKL_CD_697",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "산유화",
+            "AUTHOR": "김소월",
+            "TITLE_AUTHOR": "김소월-산유화"
+        },
+        {
+            "EKL_CD": "EKL_CD_698",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "접동새",
+            "AUTHOR": "김소월",
+            "TITLE_AUTHOR": "김소월-접동새"
+        },
+        {
+            "EKL_CD": "EKL_CD_699",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "진달래꽃",
+            "AUTHOR": "김소월",
+            "TITLE_AUTHOR": "김소월-진달래꽃"
+        },
+        {
+            "EKL_CD": "EKL_CD_700",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "초혼",
+            "AUTHOR": "김소월",
+            "TITLE_AUTHOR": "김소월-초혼"
+        },
+        {
+            "EKL_CD": "EKL_CD_701",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "눈",
+            "AUTHOR": "김수영",
+            "TITLE_AUTHOR": "김수영-눈"
+        },
+        {
+            "EKL_CD": "EKL_CD_702",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "사랑",
+            "AUTHOR": "김수영",
+            "TITLE_AUTHOR": "김수영-사랑"
+        },
+        {
+            "EKL_CD": "EKL_CD_703",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "어느 날 고궁을 나오면서",
+            "AUTHOR": "김수영",
+            "TITLE_AUTHOR": "김수영-어느 날 고궁을 나오면서"
+        },
+        {
+            "EKL_CD": "EKL_CD_704",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "파밭 가에서",
+            "AUTHOR": "김수영",
+            "TITLE_AUTHOR": "김수영-파밭 가에서"
+        },
+        {
+            "EKL_CD": "EKL_CD_705",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "폭포",
+            "AUTHOR": "김수영",
+            "TITLE_AUTHOR": "김수영-폭포"
+        },
+        {
+            "EKL_CD": "EKL_CD_706",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "풀",
+            "AUTHOR": "김수영",
+            "TITLE_AUTHOR": "김수영-풀"
+        },
+        {
+            "EKL_CD": "EKL_CD_707",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "서울 1964년 겨울",
+            "AUTHOR": "김승옥",
+            "TITLE_AUTHOR": "김승옥-서울 1964년 겨울"
+        },
+        {
+            "EKL_CD": "EKL_CD_708",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "만복사저포기",
+            "AUTHOR": "김시습",
+            "TITLE_AUTHOR": "김시습-만복사저포기"
+        },
+        {
+            "EKL_CD": "EKL_CD_709",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "이생규장전",
+            "AUTHOR": "김시습",
+            "TITLE_AUTHOR": "김시습-이생규장전"
+        },
+        {
+            "EKL_CD": "EKL_CD_710",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "두근두근 내 인생",
+            "AUTHOR": "김애란",
+            "TITLE_AUTHOR": "김애란-두근두근 내 인생"
+        },
+        {
+            "EKL_CD": "EKL_CD_711",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "입동",
+            "AUTHOR": "김애란",
+            "TITLE_AUTHOR": "김애란-입동"
+        },
+        {
+            "EKL_CD": "EKL_CD_712",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "모란이 피기까지는",
+            "AUTHOR": "김영랑",
+            "TITLE_AUTHOR": "김영랑-모란이 피기까지는"
+        },
+        {
+            "EKL_CD": "EKL_CD_713",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "도요새에 관한 명상",
+            "AUTHOR": "김원일",
+            "TITLE_AUTHOR": "김원일-도요새에 관한 명상"
+        },
+        {
+            "EKL_CD": "EKL_CD_714",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "동백꽃",
+            "AUTHOR": "김유정",
+            "TITLE_AUTHOR": "김유정-동백꽃"
+        },
+        {
+            "EKL_CD": "EKL_CD_715",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "봄봄",
+            "AUTHOR": "김유정",
+            "TITLE_AUTHOR": "김유정-봄봄"
+        },
+        {
+            "EKL_CD": "EKL_CD_716",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "누군가 나에게 물었다",
+            "AUTHOR": "김종삼",
+            "TITLE_AUTHOR": "김종삼-누군가 나에게 물었다"
+        },
+        {
+            "EKL_CD": "EKL_CD_717",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "엇박자 D",
+            "AUTHOR": "김중혁",
+            "TITLE_AUTHOR": "김중혁-엇박자 D"
+        },
+        {
+            "EKL_CD": "EKL_CD_718",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "확신이 없어도 괜찮아",
+            "AUTHOR": "김찬호",
+            "TITLE_AUTHOR": "김찬호-확신이 없어도 괜찮아"
+        },
+        {
+            "EKL_CD": "EKL_CD_719",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "보지 못한 폭포",
+            "AUTHOR": "김창협",
+            "TITLE_AUTHOR": "김창협-보지 못한 폭포"
+        },
+        {
+            "EKL_CD": "EKL_CD_720",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "관내 분실",
+            "AUTHOR": "김초엽",
+            "TITLE_AUTHOR": "김초엽-관내 분실"
+        },
+        {
+            "EKL_CD": "EKL_CD_721",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "꽃",
+            "AUTHOR": "김춘수",
+            "TITLE_AUTHOR": "김춘수-꽃"
+        },
+        {
+            "EKL_CD": "EKL_CD_722",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "샤갈의 마을에 내리는 눈",
+            "AUTHOR": "김춘수",
+            "TITLE_AUTHOR": "김춘수-샤갈의 마을에 내리는 눈"
+        },
+        {
+            "EKL_CD": "EKL_CD_723",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "납작납작-박수근 화법을 위하여",
+            "AUTHOR": "김혜순",
+            "TITLE_AUTHOR": "김혜순-납작납작-박수근 화법을 위하여"
+        },
+        {
+            "EKL_CD": "EKL_CD_724",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "남한산성",
+            "AUTHOR": "김훈",
+            "TITLE_AUTHOR": "김훈-남한산성"
+        },
+        {
+            "EKL_CD": "EKL_CD_725",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "내 유년의 울타리는 탱자나무였다",
+            "AUTHOR": "나희덕",
+            "TITLE_AUTHOR": "나희덕-내 유년의 울타리는 탱자나무였다"
+        },
+        {
+            "EKL_CD": "EKL_CD_726",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "땅끝",
+            "AUTHOR": "나희덕",
+            "TITLE_AUTHOR": "나희덕-땅끝"
+        },
+        {
+            "EKL_CD": "EKL_CD_727",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "산속에서",
+            "AUTHOR": "나희덕",
+            "TITLE_AUTHOR": "나희덕-산속에서"
+        },
+        {
+            "EKL_CD": "EKL_CD_728",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "풀 비린내에 대하여",
+            "AUTHOR": "나희덕",
+            "TITLE_AUTHOR": "나희덕-풀 비린내에 대하여"
+        },
+        {
+            "EKL_CD": "EKL_CD_729",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "강호사시가",
+            "AUTHOR": "맹사성",
+            "TITLE_AUTHOR": "맹사성-강호사시가"
+        },
+        {
+            "EKL_CD": "EKL_CD_730",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "율포의 기억",
+            "AUTHOR": "문정희",
+            "TITLE_AUTHOR": "문정희-율포의 기억"
+        },
+        {
+            "EKL_CD": "EKL_CD_731",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "산수유나무의 농사",
+            "AUTHOR": "문태준",
+            "TITLE_AUTHOR": "문태준-산수유나무의 농사"
+        },
+        {
+            "EKL_CD": "EKL_CD_732",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "세상에서 가장 아름다운 이별(시나리오)",
+            "AUTHOR": "민규동",
+            "TITLE_AUTHOR": "민규동-세상에서 가장 아름다운 이별(시나리오)"
+        },
+        {
+            "EKL_CD": "EKL_CD_733",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "해",
+            "AUTHOR": "박두진",
+            "TITLE_AUTHOR": "박두진-해"
+        },
+        {
+            "EKL_CD": "EKL_CD_734",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "산이 날 에워싸고",
+            "AUTHOR": "박목월",
+            "TITLE_AUTHOR": "박목월-산이 날 에워싸고"
+        },
+        {
+            "EKL_CD": "EKL_CD_735",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "세상에 단 한 권뿐인 시집",
+            "AUTHOR": "박상률",
+            "TITLE_AUTHOR": "박상률-세상에 단 한 권뿐인 시집"
+        },
+        {
+            "EKL_CD": "EKL_CD_736",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "겨울 나들이",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-겨울 나들이"
+        },
+        {
+            "EKL_CD": "EKL_CD_737",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "그 여자네 집",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-그 여자네 집"
+        },
+        {
+            "EKL_CD": "EKL_CD_738",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "그해 겨울은 따뜻했네",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-그해 겨울은 따뜻했네"
+        },
+        {
+            "EKL_CD": "EKL_CD_739",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "나목",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-나목"
+        },
+        {
+            "EKL_CD": "EKL_CD_740",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "엄마의 말뚝2",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-엄마의 말뚝2"
+        },
+        {
+            "EKL_CD": "EKL_CD_741",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "카메라와 워커",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-카메라와 워커"
+        },
+        {
+            "EKL_CD": "EKL_CD_742",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "해산 바가지",
+            "AUTHOR": "박완서",
+            "TITLE_AUTHOR": "박완서-해산 바가지"
+        },
+        {
+            "EKL_CD": "EKL_CD_743",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "누항사",
+            "AUTHOR": "박인로",
+            "TITLE_AUTHOR": "박인로-누항사"
+        },
+        {
+            "EKL_CD": "EKL_CD_744",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "추억에서",
+            "AUTHOR": "박재삼",
+            "TITLE_AUTHOR": "박재삼-추억에서"
+        },
+        {
+            "EKL_CD": "EKL_CD_745",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "상기",
+            "AUTHOR": "박지원",
+            "TITLE_AUTHOR": "박지원-상기"
+        },
+        {
+            "EKL_CD": "EKL_CD_746",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "양반전",
+            "AUTHOR": "박지원",
+            "TITLE_AUTHOR": "박지원-양반전"
+        },
+        {
+            "EKL_CD": "EKL_CD_747",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "예덕선생전",
+            "AUTHOR": "박지원",
+            "TITLE_AUTHOR": "박지원-예덕선생전"
+        },
+        {
+            "EKL_CD": "EKL_CD_748",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "통곡할 만한 자리",
+            "AUTHOR": "박지원",
+            "TITLE_AUTHOR": "박지원-통곡할 만한 자리"
+        },
+        {
+            "EKL_CD": "EKL_CD_749",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "허생전",
+            "AUTHOR": "박지원",
+            "TITLE_AUTHOR": "박지원-허생전"
+        },
+        {
+            "EKL_CD": "EKL_CD_750",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "호질",
+            "AUTHOR": "박지원",
+            "TITLE_AUTHOR": "박지원-호질"
+        },
+        {
+            "EKL_CD": "EKL_CD_751",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "소설가 구보 씨의 일일",
+            "AUTHOR": "박태원",
+            "TITLE_AUTHOR": "박태원-소설가 구보 씨의 일일"
+        },
+        {
+            "EKL_CD": "EKL_CD_752",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "여백을 위한 잡담",
+            "AUTHOR": "박태원",
+            "TITLE_AUTHOR": "박태원-여백을 위한 잡담"
+        },
+        {
+            "EKL_CD": "EKL_CD_753",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "천변 풍경",
+            "AUTHOR": "박태원",
+            "TITLE_AUTHOR": "박태원-천변 풍경"
+        },
+        {
+            "EKL_CD": "EKL_CD_754",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "고향",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-고향"
+        },
+        {
+            "EKL_CD": "EKL_CD_755",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "국수",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-국수"
+        },
+        {
+            "EKL_CD": "EKL_CD_756",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "남신의주 유동 박시봉방",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-남신의주 유동 박시봉방"
+        },
+        {
+            "EKL_CD": "EKL_CD_757",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "모닥불",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-모닥불"
+        },
+        {
+            "EKL_CD": "EKL_CD_758",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "수라",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-수라"
+        },
+        {
+            "EKL_CD": "EKL_CD_759",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "여우난골족",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-여우난골족"
+        },
+        {
+            "EKL_CD": "EKL_CD_760",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "흰 바람벽이 있어",
+            "AUTHOR": "백석",
+            "TITLE_AUTHOR": "백석-흰 바람벽이 있어"
+        },
+        {
+            "EKL_CD": "EKL_CD_761",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q1",
+            "TX_CODE": "",
+            "TITLE": "공무도하가",
+            "AUTHOR": "백수광부의아내",
+            "TITLE_AUTHOR": "백수광부의아내-공무도하가"
+        },
+        {
+            "EKL_CD": "EKL_CD_762",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "무소유",
+            "AUTHOR": "법정",
+            "TITLE_AUTHOR": "법정-무소유"
+        },
+        {
+            "EKL_CD": "EKL_CD_763",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q2",
+            "TX_CODE": "",
+            "TITLE": "서동요",
+            "AUTHOR": "서동",
+            "TITLE_AUTHOR": "서동-서동요"
+        },
+        {
+            "EKL_CD": "EKL_CD_764",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "견우의 노래",
+            "AUTHOR": "서정주",
+            "TITLE_AUTHOR": "서정주-견우의 노래"
+        },
+        {
+            "EKL_CD": "EKL_CD_765",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "천지꽃과 백두산",
+            "AUTHOR": "석화",
+            "TITLE_AUTHOR": "석화-천지꽃과 백두산"
+        },
+        {
+            "EKL_CD": "EKL_CD_766",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "수양산 바라보며",
+            "AUTHOR": "성삼문",
+            "TITLE_AUTHOR": "성삼문-수양산 바라보며"
+        },
+        {
+            "EKL_CD": "EKL_CD_767",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "이 몸이 죽어 가서",
+            "AUTHOR": "성삼문",
+            "TITLE_AUTHOR": "성삼문-이 몸이 죽어 가서"
+        },
+        {
+            "EKL_CD": "EKL_CD_768",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "한 삼태기의 흙",
+            "AUTHOR": "성현",
+            "TITLE_AUTHOR": "성현-한 삼태기의 흙"
+        },
+        {
+            "EKL_CD": "EKL_CD_769",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "가난한 사랑 노래",
+            "AUTHOR": "신경림",
+            "TITLE_AUTHOR": "신경림-가난한 사랑 노래"
+        },
+        {
+            "EKL_CD": "EKL_CD_770",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "농무",
+            "AUTHOR": "신경림",
+            "TITLE_AUTHOR": "신경림-농무"
+        },
+        {
+            "EKL_CD": "EKL_CD_771",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "껍데기는 가라",
+            "AUTHOR": "신동엽",
+            "TITLE_AUTHOR": "신동엽-껍데기는 가라"
+        },
+        {
+            "EKL_CD": "EKL_CD_772",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "동주(시나리오)",
+            "AUTHOR": "신연식",
+            "TITLE_AUTHOR": "신연식-동주(시나리오)"
+        },
+        {
+            "EKL_CD": "EKL_CD_773",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "당신이 나무를 더 사랑하는 까닭-소광리 소나무 숲",
+            "AUTHOR": "신영복",
+            "TITLE_AUTHOR": "신영복-당신이 나무를 더 사랑하는 까닭-소광리 소나무 숲"
+        },
+        {
+            "EKL_CD": "EKL_CD_774",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "그날이 오면",
+            "AUTHOR": "심훈",
+            "TITLE_AUTHOR": "심훈-그날이 오면"
+        },
+        {
+            "EKL_CD": "EKL_CD_775",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "상록수",
+            "AUTHOR": "심훈",
+            "TITLE_AUTHOR": "심훈-상록수"
+        },
+        {
+            "EKL_CD": "EKL_CD_776",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "마지막 땅",
+            "AUTHOR": "양귀자",
+            "TITLE_AUTHOR": "양귀자-마지막 땅"
+        },
+        {
+            "EKL_CD": "EKL_CD_777",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "비 오는 날이면 가리봉동에 가야 한다(소설)",
+            "AUTHOR": "양귀자",
+            "TITLE_AUTHOR": "양귀자-비 오는 날이면 가리봉동에 가야 한다(소설)"
+        },
+        {
+            "EKL_CD": "EKL_CD_778",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "만세전",
+            "AUTHOR": "염상섭",
+            "TITLE_AUTHOR": "염상섭-만세전"
+        },
+        {
+            "EKL_CD": "EKL_CD_779",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "삼대",
+            "AUTHOR": "염상섭",
+            "TITLE_AUTHOR": "염상섭-삼대"
+        },
+        {
+            "EKL_CD": "EKL_CD_780",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "이유 있는 여유",
+            "AUTHOR": "오은",
+            "TITLE_AUTHOR": "오은-이유 있는 여유"
+        },
+        {
+            "EKL_CD": "EKL_CD_781",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q2",
+            "TX_CODE": "",
+            "TITLE": "제망매가",
+            "AUTHOR": "월명사",
+            "TITLE_AUTHOR": "월명사-제망매가"
+        },
+        {
+            "EKL_CD": "EKL_CD_782",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q1",
+            "TX_CODE": "",
+            "TITLE": "황조가",
+            "AUTHOR": "유리왕",
+            "TITLE_AUTHOR": "유리왕-황조가"
+        },
+        {
+            "EKL_CD": "EKL_CD_783",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "길",
+            "AUTHOR": "윤동주",
+            "TITLE_AUTHOR": "윤동주-길"
+        },
+        {
+            "EKL_CD": "EKL_CD_784",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "별 헤는 밤",
+            "AUTHOR": "윤동주",
+            "TITLE_AUTHOR": "윤동주-별 헤는 밤"
+        },
+        {
+            "EKL_CD": "EKL_CD_785",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "서시",
+            "AUTHOR": "윤동주",
+            "TITLE_AUTHOR": "윤동주-서시"
+        },
+        {
+            "EKL_CD": "EKL_CD_786",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "쉽게 씌어진 시",
+            "AUTHOR": "윤동주",
+            "TITLE_AUTHOR": "윤동주-쉽게 씌어진 시"
+        },
+        {
+            "EKL_CD": "EKL_CD_787",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "자화상",
+            "AUTHOR": "윤동주",
+            "TITLE_AUTHOR": "윤동주-자화상"
+        },
+        {
+            "EKL_CD": "EKL_CD_788",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "참회록",
+            "AUTHOR": "윤동주",
+            "TITLE_AUTHOR": "윤동주-참회록"
+        },
+        {
+            "EKL_CD": "EKL_CD_789",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "만흥",
+            "AUTHOR": "윤선도",
+            "TITLE_AUTHOR": "윤선도-만흥"
+        },
+        {
+            "EKL_CD": "EKL_CD_790",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "어부사시사",
+            "AUTHOR": "윤선도",
+            "TITLE_AUTHOR": "윤선도-어부사시사"
+        },
+        {
+            "EKL_CD": "EKL_CD_791",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "오우가",
+            "AUTHOR": "윤선도",
+            "TITLE_AUTHOR": "윤선도-오우가"
+        },
+        {
+            "EKL_CD": "EKL_CD_792",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "아홉 켤레의 구두로 남은 사내",
+            "AUTHOR": "윤흥길",
+            "TITLE_AUTHOR": "윤흥길-아홉 켤레의 구두로 남은 사내"
+        },
+        {
+            "EKL_CD": "EKL_CD_793",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "장마",
+            "AUTHOR": "윤흥길",
+            "TITLE_AUTHOR": "윤흥길-장마"
+        },
+        {
+            "EKL_CD": "EKL_CD_794",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "종탑 아래에서",
+            "AUTHOR": "윤흥길",
+            "TITLE_AUTHOR": "윤흥길-종탑 아래에서"
+        },
+        {
+            "EKL_CD": "EKL_CD_795",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "결혼",
+            "AUTHOR": "이강백",
+            "TITLE_AUTHOR": "이강백-결혼"
+        },
+        {
+            "EKL_CD": "EKL_CD_796",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "북어 대가리",
+            "AUTHOR": "이강백",
+            "TITLE_AUTHOR": "이강백-북어 대가리"
+        },
+        {
+            "EKL_CD": "EKL_CD_797",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "파수꾼",
+            "AUTHOR": "이강백",
+            "TITLE_AUTHOR": "이강백-파수꾼"
+        },
+        {
+            "EKL_CD": "EKL_CD_798",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "차마설",
+            "AUTHOR": "이곡",
+            "TITLE_AUTHOR": "이곡-차마설"
+        },
+        {
+            "EKL_CD": "EKL_CD_799",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "동명왕편",
+            "AUTHOR": "이규보",
+            "TITLE_AUTHOR": "이규보-동명왕편"
+        },
+        {
+            "EKL_CD": "EKL_CD_800",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "이옥설",
+            "AUTHOR": "이규보",
+            "TITLE_AUTHOR": "이규보-이옥설"
+        },
+        {
+            "EKL_CD": "EKL_CD_801",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "이와 개에 관한 명상",
+            "AUTHOR": "이규보",
+            "TITLE_AUTHOR": "이규보-이와 개에 관한 명상"
+        },
+        {
+            "EKL_CD": "EKL_CD_802",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "원고지",
+            "AUTHOR": "이근삼",
+            "TITLE_AUTHOR": "이근삼-원고지"
+        },
+        {
+            "EKL_CD": "EKL_CD_803",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "그대를 사랑합니다",
+            "AUTHOR": "이만희",
+            "TITLE_AUTHOR": "이만희-그대를 사랑합니다"
+        },
+        {
+            "EKL_CD": "EKL_CD_804",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "관촌수필",
+            "AUTHOR": "이문구",
+            "TITLE_AUTHOR": "이문구-관촌수필"
+        },
+        {
+            "EKL_CD": "EKL_CD_805",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "유자소전",
+            "AUTHOR": "이문구",
+            "TITLE_AUTHOR": "이문구-유자소전"
+        },
+        {
+            "EKL_CD": "EKL_CD_806",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "오발탄",
+            "AUTHOR": "이범선 원작, 나소운, 이종기 각색",
+            "TITLE_AUTHOR": "이범선 원작, 나소운, 이종기 각색-오발탄"
+        },
+        {
+            "EKL_CD": "EKL_CD_807",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "거울",
+            "AUTHOR": "이상",
+            "TITLE_AUTHOR": "이상-거울"
+        },
+        {
+            "EKL_CD": "EKL_CD_808",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "권태",
+            "AUTHOR": "이상",
+            "TITLE_AUTHOR": "이상-권태"
+        },
+        {
+            "EKL_CD": "EKL_CD_809",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "날개",
+            "AUTHOR": "이상",
+            "TITLE_AUTHOR": "이상-날개"
+        },
+        {
+            "EKL_CD": "EKL_CD_810",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "산촌여정",
+            "AUTHOR": "이상",
+            "TITLE_AUTHOR": "이상-산촌여정"
+        },
+        {
+            "EKL_CD": "EKL_CD_811",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "고양이가 기른 다람쥐",
+            "AUTHOR": "이상권",
+            "TITLE_AUTHOR": "이상권-고양이가 기른 다람쥐"
+        },
+        {
+            "EKL_CD": "EKL_CD_812",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "빼앗긴 들에도 봄은 오는가",
+            "AUTHOR": "이상화",
+            "TITLE_AUTHOR": "이상화-빼앗긴 들에도 봄은 오는가"
+        },
+        {
+            "EKL_CD": "EKL_CD_813",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "내 마음의 풍금",
+            "AUTHOR": "이영재",
+            "TITLE_AUTHOR": "이영재-내 마음의 풍금"
+        },
+        {
+            "EKL_CD": "EKL_CD_814",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "광야",
+            "AUTHOR": "이육사",
+            "TITLE_AUTHOR": "이육사-광야"
+        },
+        {
+            "EKL_CD": "EKL_CD_815",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "교목",
+            "AUTHOR": "이육사",
+            "TITLE_AUTHOR": "이육사-교목"
+        },
+        {
+            "EKL_CD": "EKL_CD_816",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "절정",
+            "AUTHOR": "이육사",
+            "TITLE_AUTHOR": "이육사-절정"
+        },
+        {
+            "EKL_CD": "EKL_CD_817",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "청포도",
+            "AUTHOR": "이육사",
+            "TITLE_AUTHOR": "이육사-청포도"
+        },
+        {
+            "EKL_CD": "EKL_CD_818",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "나빌레라(시나리오)",
+            "AUTHOR": "이은미",
+            "TITLE_AUTHOR": "이은미-나빌레라(시나리오)"
+        },
+        {
+            "EKL_CD": "EKL_CD_819",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "이화에 월백하고",
+            "AUTHOR": "이조년",
+            "TITLE_AUTHOR": "이조년-이화에 월백하고"
+        },
+        {
+            "EKL_CD": "EKL_CD_820",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "병신과 머저리",
+            "AUTHOR": "이청준",
+            "TITLE_AUTHOR": "이청준-병신과 머저리"
+        },
+        {
+            "EKL_CD": "EKL_CD_821",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "서편제",
+            "AUTHOR": "이청준",
+            "TITLE_AUTHOR": "이청준-서편제"
+        },
+        {
+            "EKL_CD": "EKL_CD_822",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "줄",
+            "AUTHOR": "이청준",
+            "TITLE_AUTHOR": "이청준-줄"
+        },
+        {
+            "EKL_CD": "EKL_CD_823",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "달밤",
+            "AUTHOR": "이태준",
+            "TITLE_AUTHOR": "이태준-달밤"
+        },
+        {
+            "EKL_CD": "EKL_CD_824",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "돌다리",
+            "AUTHOR": "이태준",
+            "TITLE_AUTHOR": "이태준-돌다리"
+        },
+        {
+            "EKL_CD": "EKL_CD_825",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "화단",
+            "AUTHOR": "이태준",
+            "TITLE_AUTHOR": "이태준-화단"
+        },
+        {
+            "EKL_CD": "EKL_CD_826",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "구마검",
+            "AUTHOR": "이해조",
+            "TITLE_AUTHOR": "이해조-구마검"
+        },
+        {
+            "EKL_CD": "EKL_CD_827",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "낙화",
+            "AUTHOR": "이형기",
+            "TITLE_AUTHOR": "이형기-낙화"
+        },
+        {
+            "EKL_CD": "EKL_CD_828",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "나상",
+            "AUTHOR": "이호철",
+            "TITLE_AUTHOR": "이호철-나상"
+        },
+        {
+            "EKL_CD": "EKL_CD_829",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "도산십이곡",
+            "AUTHOR": "이황",
+            "TITLE_AUTHOR": "이황-도산십이곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_830",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "만보",
+            "AUTHOR": "이황",
+            "TITLE_AUTHOR": "이황-만보"
+        },
+        {
+            "EKL_CD": "EKL_CD_831",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "메밀꽃 필 무렵",
+            "AUTHOR": "이효석",
+            "TITLE_AUTHOR": "이효석-메밀꽃 필 무렵"
+        },
+        {
+            "EKL_CD": "EKL_CD_832",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "공방전",
+            "AUTHOR": "임춘",
+            "TITLE_AUTHOR": "임춘-공방전"
+        },
+        {
+            "EKL_CD": "EKL_CD_833",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "가시리",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-가시리"
+        },
+        {
+            "EKL_CD": "EKL_CD_834",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q1",
+            "TX_CODE": "",
+            "TITLE": "단군 신화",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-단군 신화"
+        },
+        {
+            "EKL_CD": "EKL_CD_835",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "동동",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-동동"
+        },
+        {
+            "EKL_CD": "EKL_CD_836",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "두꺼비 파리를 물고",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-두꺼비 파리를 물고"
+        },
+        {
+            "EKL_CD": "EKL_CD_837",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "만전춘별사",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-만전춘별사"
+        },
+        {
+            "EKL_CD": "EKL_CD_838",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "박씨전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-박씨전"
+        },
+        {
+            "EKL_CD": "EKL_CD_839",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "봉산탈춤(미얄춤 과장)",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-봉산탈춤(미얄춤 과장)"
+        },
+        {
+            "EKL_CD": "EKL_CD_840",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "봉산탈춤(양반춤 과장)",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-봉산탈춤(양반춤 과장)"
+        },
+        {
+            "EKL_CD": "EKL_CD_841",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "서경별곡",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-서경별곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_842",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "소대성전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-소대성전"
+        },
+        {
+            "EKL_CD": "EKL_CD_843",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "심청전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-심청전"
+        },
+        {
+            "EKL_CD": "EKL_CD_844",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "어이 못 오던다",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-어이 못 오던다"
+        },
+        {
+            "EKL_CD": "EKL_CD_845",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "운영전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-운영전"
+        },
+        {
+            "EKL_CD": "EKL_CD_846",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "유충렬전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-유충렬전"
+        },
+        {
+            "EKL_CD": "EKL_CD_847",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "이춘풍전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-이춘풍전"
+        },
+        {
+            "EKL_CD": "EKL_CD_848",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "임진록",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-임진록"
+        },
+        {
+            "EKL_CD": "EKL_CD_849",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "적벽가",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-적벽가"
+        },
+        {
+            "EKL_CD": "EKL_CD_850",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "정석가",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-정석가"
+        },
+        {
+            "EKL_CD": "EKL_CD_851",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q2",
+            "TX_CODE": "",
+            "TITLE": "정읍사",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-정읍사"
+        },
+        {
+            "EKL_CD": "EKL_CD_852",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "조신의 꿈",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-조신의 꿈"
+        },
+        {
+            "EKL_CD": "EKL_CD_853",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "챵 내고쟈 챵을 내고쟈",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-챵 내고쟈 챵을 내고쟈"
+        },
+        {
+            "EKL_CD": "EKL_CD_854",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "청산별곡",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-청산별곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_855",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "춘향가",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-춘향가"
+        },
+        {
+            "EKL_CD": "EKL_CD_856",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "춘향전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-춘향전"
+        },
+        {
+            "EKL_CD": "EKL_CD_857",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "토끼전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-토끼전"
+        },
+        {
+            "EKL_CD": "EKL_CD_858",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "홍계월전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-홍계월전"
+        },
+        {
+            "EKL_CD": "EKL_CD_859",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "흥보가",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-흥보가"
+        },
+        {
+            "EKL_CD": "EKL_CD_860",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "흥보전",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-흥보전"
+        },
+        {
+            "EKL_CD": "EKL_CD_861",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "나와 남",
+            "AUTHOR": "장영희",
+            "TITLE_AUTHOR": "장영희-나와 남"
+        },
+        {
+            "EKL_CD": "EKL_CD_862",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "라디오같이 사랑을 끄고 켤 수 있다면",
+            "AUTHOR": "장정일",
+            "TITLE_AUTHOR": "장정일-라디오같이 사랑을 끄고 켤 수 있다면"
+        },
+        {
+            "EKL_CD": "EKL_CD_863",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "꺼삐딴 리",
+            "AUTHOR": "전광용",
+            "TITLE_AUTHOR": "전광용-꺼삐딴 리"
+        },
+        {
+            "EKL_CD": "EKL_CD_864",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "상춘곡",
+            "AUTHOR": "정극인",
+            "TITLE_AUTHOR": "정극인-상춘곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_865",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "삶을 바꾼 만남",
+            "AUTHOR": "정민",
+            "TITLE_AUTHOR": "정민-삶을 바꾼 만남"
+        },
+        {
+            "EKL_CD": "EKL_CD_866",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "수오재기",
+            "AUTHOR": "정약용",
+            "TITLE_AUTHOR": "정약용-수오재기"
+        },
+        {
+            "EKL_CD": "EKL_CD_867",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "탐진촌요",
+            "AUTHOR": "정약용",
+            "TITLE_AUTHOR": "정약용-탐진촌요"
+        },
+        {
+            "EKL_CD": "EKL_CD_868",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "용비어천가",
+            "AUTHOR": "정인지 외",
+            "TITLE_AUTHOR": "정인지 외-용비어천가"
+        },
+        {
+            "EKL_CD": "EKL_CD_869",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "송인",
+            "AUTHOR": "정지상",
+            "TITLE_AUTHOR": "정지상-송인"
+        },
+        {
+            "EKL_CD": "EKL_CD_870",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "고향",
+            "AUTHOR": "정지용",
+            "TITLE_AUTHOR": "정지용-고향"
+        },
+        {
+            "EKL_CD": "EKL_CD_871",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "향수",
+            "AUTHOR": "정지용",
+            "TITLE_AUTHOR": "정지용-향수"
+        },
+        {
+            "EKL_CD": "EKL_CD_872",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "관동별곡",
+            "AUTHOR": "정철",
+            "TITLE_AUTHOR": "정철-관동별곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_873",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "사미인곡",
+            "AUTHOR": "정철",
+            "TITLE_AUTHOR": "정철-사미인곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_874",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "속미인곡",
+            "AUTHOR": "정철",
+            "TITLE_AUTHOR": "정철-속미인곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_875",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "방문객",
+            "AUTHOR": "정현종",
+            "TITLE_AUTHOR": "정현종-방문객"
+        },
+        {
+            "EKL_CD": "EKL_CD_876",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "내가 사랑하는 사람",
+            "AUTHOR": "정호승",
+            "TITLE_AUTHOR": "정호승-내가 사랑하는 사람"
+        },
+        {
+            "EKL_CD": "EKL_CD_877",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "슬픔이 기쁨에게",
+            "AUTHOR": "정호승",
+            "TITLE_AUTHOR": "정호승-슬픔이 기쁨에게"
+        },
+        {
+            "EKL_CD": "EKL_CD_878",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "저문 강에 삽을 씻고",
+            "AUTHOR": "정희성",
+            "TITLE_AUTHOR": "정희성-저문 강에 삽을 씻고"
+        },
+        {
+            "EKL_CD": "EKL_CD_879",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "최척전",
+            "AUTHOR": "조위한",
+            "TITLE_AUTHOR": "조위한-최척전"
+        },
+        {
+            "EKL_CD": "EKL_CD_880",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "낙화",
+            "AUTHOR": "조지훈",
+            "TITLE_AUTHOR": "조지훈-낙화"
+        },
+        {
+            "EKL_CD": "EKL_CD_881",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "성난 기계",
+            "AUTHOR": "차범석",
+            "TITLE_AUTHOR": "차범석-성난 기계"
+        },
+        {
+            "EKL_CD": "EKL_CD_882",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "미스터 방",
+            "AUTHOR": "채만식",
+            "TITLE_AUTHOR": "채만식-미스터 방"
+        },
+        {
+            "EKL_CD": "EKL_CD_883",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "치숙",
+            "AUTHOR": "채만식",
+            "TITLE_AUTHOR": "채만식-치숙"
+        },
+        {
+            "EKL_CD": "EKL_CD_884",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "태평천하",
+            "AUTHOR": "채만식",
+            "TITLE_AUTHOR": "채만식-태평천하"
+        },
+        {
+            "EKL_CD": "EKL_CD_885",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "그 사람의 손을 보면",
+            "AUTHOR": "천양희",
+            "TITLE_AUTHOR": "천양희-그 사람의 손을 보면"
+        },
+        {
+            "EKL_CD": "EKL_CD_886",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "성에꽃",
+            "AUTHOR": "최두석",
+            "TITLE_AUTHOR": "최두석-성에꽃"
+        },
+        {
+            "EKL_CD": "EKL_CD_887",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "선운사에서",
+            "AUTHOR": "최영미",
+            "TITLE_AUTHOR": "최영미-선운사에서"
+        },
+        {
+            "EKL_CD": "EKL_CD_888",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "광장",
+            "AUTHOR": "최인훈",
+            "TITLE_AUTHOR": "최인훈-광장"
+        },
+        {
+            "EKL_CD": "EKL_CD_889",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "흐르는 북",
+            "AUTHOR": "최일남",
+            "TITLE_AUTHOR": "최일남-흐르는 북"
+        },
+        {
+            "EKL_CD": "EKL_CD_890",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q2",
+            "TX_CODE": "",
+            "TITLE": "찬기파랑가",
+            "AUTHOR": "충담사",
+            "TITLE_AUTHOR": "충담사-찬기파랑가"
+        },
+        {
+            "EKL_CD": "EKL_CD_891",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "은전한닢",
+            "AUTHOR": "피천득",
+            "TITLE_AUTHOR": "피천득-은전한닢"
+        },
+        {
+            "EKL_CD": "EKL_CD_892",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "수난이대",
+            "AUTHOR": "하근찬",
+            "TITLE_AUTHOR": "하근찬-수난이대"
+        },
+        {
+            "EKL_CD": "EKL_CD_893",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q3",
+            "TX_CODE": "",
+            "TITLE": "한림별곡",
+            "AUTHOR": "한림제유",
+            "TITLE_AUTHOR": "한림제유-한림별곡"
+        },
+        {
+            "EKL_CD": "EKL_CD_894",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "나룻배와 행인",
+            "AUTHOR": "한용운",
+            "TITLE_AUTHOR": "한용운-나룻배와 행인"
+        },
+        {
+            "EKL_CD": "EKL_CD_895",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "님의 침묵",
+            "AUTHOR": "한용운",
+            "TITLE_AUTHOR": "한용운-님의 침묵"
+        },
+        {
+            "EKL_CD": "EKL_CD_896",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "사랑하는 까닭",
+            "AUTHOR": "한용운",
+            "TITLE_AUTHOR": "한용운-사랑하는 까닭"
+        },
+        {
+            "EKL_CD": "EKL_CD_897",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "수의 비밀",
+            "AUTHOR": "한용운",
+            "TITLE_AUTHOR": "한용운-수의 비밀"
+        },
+        {
+            "EKL_CD": "EKL_CD_898",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "집방석 내지 마라",
+            "AUTHOR": "한호",
+            "TITLE_AUTHOR": "한호-집방석 내지 마라"
+        },
+        {
+            "EKL_CD": "EKL_CD_899",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "사과를 먹으며",
+            "AUTHOR": "함민복",
+            "TITLE_AUTHOR": "함민복-사과를 먹으며"
+        },
+        {
+            "EKL_CD": "EKL_CD_900",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "동승",
+            "AUTHOR": "함세덕",
+            "TITLE_AUTHOR": "함세덕-동승"
+        },
+        {
+            "EKL_CD": "EKL_CD_901",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "홍길동전",
+            "AUTHOR": "허균",
+            "TITLE_AUTHOR": "허균-홍길동전"
+        },
+        {
+            "EKL_CD": "EKL_CD_902",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "규원가",
+            "AUTHOR": "허난설헌",
+            "TITLE_AUTHOR": "허난설헌-규원가"
+        },
+        {
+            "EKL_CD": "EKL_CD_903",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "고향",
+            "AUTHOR": "현진건",
+            "TITLE_AUTHOR": "현진건-고향"
+        },
+        {
+            "EKL_CD": "EKL_CD_904",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "한중록",
+            "AUTHOR": "혜경궁 홍씨",
+            "TITLE_AUTHOR": "혜경궁 홍씨-한중록"
+        },
+        {
+            "EKL_CD": "EKL_CD_905",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "의산문답",
+            "AUTHOR": "홍대용",
+            "TITLE_AUTHOR": "홍대용-의산문답"
+        },
+        {
+            "EKL_CD": "EKL_CD_906",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "묏버들 가려 꺾어",
+            "AUTHOR": "홍랑",
+            "TITLE_AUTHOR": "홍랑-묏버들 가려 꺾어"
+        },
+        {
+            "EKL_CD": "EKL_CD_907",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "즐거운 편지",
+            "AUTHOR": "황동규",
+            "TITLE_AUTHOR": "황동규-즐거운 편지"
+        },
+        {
+            "EKL_CD": "EKL_CD_908",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "삼포 가는 길",
+            "AUTHOR": "황석영",
+            "TITLE_AUTHOR": "황석영-삼포 가는 길"
+        },
+        {
+            "EKL_CD": "EKL_CD_909",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "너와 나만의 시간",
+            "AUTHOR": "황순원",
+            "TITLE_AUTHOR": "황순원-너와 나만의 시간"
+        },
+        {
+            "EKL_CD": "EKL_CD_910",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "겨울-나무로부터 봄-나무에로",
+            "AUTHOR": "황지우",
+            "TITLE_AUTHOR": "황지우-겨울-나무로부터 봄-나무에로"
+        },
+        {
+            "EKL_CD": "EKL_CD_911",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "너를 기다리는 동안",
+            "AUTHOR": "황지우",
+            "TITLE_AUTHOR": "황지우-너를 기다리는 동안"
+        },
+        {
+            "EKL_CD": "EKL_CD_912",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "새들도 세상을 뜨는구나",
+            "AUTHOR": "황지우",
+            "TITLE_AUTHOR": "황지우-새들도 세상을 뜨는구나"
+        },
+        {
+            "EKL_CD": "EKL_CD_913",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "한국 생명 보험 회사 송일환 씨의 어느 날",
+            "AUTHOR": "황지우",
+            "TITLE_AUTHOR": "황지우-한국 생명 보험 회사 송일환 씨의 어느 날"
+        },
+        {
+            "EKL_CD": "EKL_CD_914",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "동짓달 기나긴 밤을",
+            "AUTHOR": "황진이",
+            "TITLE_AUTHOR": "황진이-동짓달 기나긴 밤을"
+        },
+        {
+            "EKL_CD": "EKL_CD_915",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q5",
+            "TX_CODE": "",
+            "TITLE": "절명시",
+            "AUTHOR": "황현",
+            "TITLE_AUTHOR": "황현-절명시"
+        },
+        {
+            "EKL_CD": "EKL_CD_917",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "나무도 바윗돌도 없는 뫼에",
+            "AUTHOR": "작자미상",
+            "TITLE_AUTHOR": "작자미상-나무도 바윗돌도 없는 뫼에"
+        },
+        {
+            "EKL_CD": "EKL_CD_918",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "어져 내 일이야",
+            "AUTHOR": "황진이",
+            "TITLE_AUTHOR": "황진이-어져 내 일이야"
+        },
+        {
+            "EKL_CD": "EKL_CD_919",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "뉴욕제과점",
+            "AUTHOR": "김연수",
+            "TITLE_AUTHOR": "김연수-뉴욕제과점"
+        },
+        {
+            "EKL_CD": "EKL_CD_920",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q6",
+            "TX_CODE": "",
+            "TITLE": "한 그리움이 다른 그리움에게",
+            "AUTHOR": "정희성",
+            "TITLE_AUTHOR": "정희성-한 그리움이 다른 그리움에게"
+        },
+        {
+            "EKL_CD": "EKL_CD_921",
+            "SITEID": "H",
+            "EXPAPR_GROUP": "K",
+            "EXPAPR_CORETYPE": "Q4",
+            "TX_CODE": "",
+            "TITLE": "십 년을 경영하여",
+            "AUTHOR": "송순",
+            "TITLE_AUTHOR": "송순-십 년을 경영하여"
+        }
+    ]
+}
