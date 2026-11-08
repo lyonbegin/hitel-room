@@ -43,7 +43,7 @@ await page.locator('#phone [data-action="timerToggle"]').click();
 assert((await page.locator('#phone').textContent()).includes('공부 중'),'Timer: click changes running state');
 await page.locator('#phone [data-action="timerToggle"]').click();
 await page.screenshot({path:'qa/ypt-timer.png'});
-const graph=JSON.parse(fs.readFileSync('qa/graph.json','utf8'));let count=0;
+const graph=JSON.parse(fs.readFileSync('public/ypt-graph.js','utf8').replace(/^window\.YPT_GRAPH=/,'').trim().replace(/;$/,''));let count=0;
 for(const id of Object.keys(graph)){
  await open(id);
  const content=(await page.locator('#phone .appscroll').textContent())||'';
