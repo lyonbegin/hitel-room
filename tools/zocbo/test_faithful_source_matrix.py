@@ -28,8 +28,8 @@ with sync_playwright() as p:
   url=BASE+f'/?screen=bankSearch&mobile=1&site={site}&grade={grade}&subject={subject}'
   page.goto(url,wait_until='domcontentloaded',timeout=35000)
   expected=f'{site}_{grade}_{subject}_unit'
-  page.wait_for_function("(name)=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase===name",expected,timeout=40000)
-  page.wait_for_function("(count)=>document.querySelectorAll('#phone [data-zb-paper-id]').length>=count",originalCount,timeout=45000)
+  page.wait_for_function("(name)=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase===name",arg=expected,timeout=40000)
+  page.wait_for_function("(count)=>document.querySelectorAll('#phone [data-zb-paper-id]').length>=count",arg=originalCount,timeout=45000)
   sub=page.locator('#phone .zb-f-subtabs button.is-active').inner_text()
   vals=page.locator('#phone .zb-f-filter-item span').all_inner_texts()
   assert sub==active,(expected,'sub mismatch',sub,active)
@@ -51,7 +51,7 @@ with sync_playwright() as p:
                'revision':'M_3_EG_revision','school':'M_3_EG_school','gangnam':'M_3_EG_gangnam'}
  for main,target in expectedMeta.items():
   page.locator(f'#phone [data-action="zbFMain"][data-value="{main}"]').click()
-  page.wait_for_function("(name)=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase===name",target,timeout=35000)
+  page.wait_for_function("(name)=>document.querySelector('#phone .zb-faithful')?.dataset.sourceCase===name",arg=target,timeout=35000)
   assert page.locator('#phone .zb-f-main-tabs button.is-active').count()==1
   result.setdefault('topNavigation',[]).append({'tab':main,'case':target})
  ctx.close();browser.close()
