@@ -44,7 +44,7 @@ jobs:
       - name: Confirm answered-call evidence and distinct application identity
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
-          grep -F 'versionCode = 14' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 15' AndroidProject/app/build.gradle.kts
           grep -F 'W11_CONNECTED_TIMER_ADVANCING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_TEXT_CALL_BUTTON_VISIBLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_ACCESSIBILITY_NOT_CONNECTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
