@@ -99,7 +99,7 @@ public final class KoreanSherpaStt {
             config.setModelConfig(model);
             config.setEnableEndpoint(true);
             recognizer=new OnlineRecognizer(null,config);
-            stream=recognizer.createStream();
+            stream=recognizer.createStream("");
             if(stopRequested)return;
             final int min=AudioRecord.getMinBufferSize(RATE,
                 AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT);
