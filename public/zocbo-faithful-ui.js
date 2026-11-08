@@ -212,12 +212,72 @@ function optionSheet(z,meta){
   return '<button type="button" data-action="zbFChoose" data-value="'+i+'" data-key="'+attr(key)+'" '+(o.disabled?'disabled':'')+' class="'+(current===name?'is-active':'')+'"><span>'+esc(name)+'</span><span class="zb-f-choice-check">'+(current===name?'✓':'')+'</span></button>';
  }).join('')+'</div></section>';
 }
+
+/* Recorded mobile original: middle-school grade 1 mathematics, Gangnam 3 district.
+ * The 20 public identifiers are read from the previously captured original,
+ * not synthesized. District/school choices use the public school-options API. */
+let gangnamSource=null,gangnamSourceError='',gangnamPending=false;
+const gangnamSchools=new Map();
+function ensureGangnamSource(){
+ if(gangnamSource||gangnamPending||gangnamSourceError)return;
+ gangnamPending=true;
+ fetch('/api/zocbo/menu-data?slug=gangnam_list',{credentials:'omit'})
+ .then(async r=>{const x=await r.json();if(!r.ok||!Array.isArray(x.records))throw Error(x.error||'원본 자료 조회 실패');return x})
+ .then(x=>{gangnamSource=x;redraw();})
+ .catch(e=>{gangnamSourceError=String(e.message||e);redraw();})
+ .finally(()=>{gangnamPending=false});
+}
+function ensureGangnamSchools(district){
+ if(!['강남구','서초구','송파구'].includes(district)||gangnamSchools.has(district))return;
+ gangnamSchools.set(district,{loading:true});
+ fetch('/api/zocbo/public-school-options?'+new URLSearchParams({site:'M',si:'서울',gu:district}),{credentials:'omit'})
+ .then(async r=>{const x=await r.json();if(!r.ok||!x.ok)throw Error(x.reason||x.error||'학교 조회 실패');return x})
+ .then(x=>{gangnamSchools.set(district,{list:arr(x.list)});redraw();})
+ .catch(e=>{gangnamSchools.set(district,{error:String(e.message||e)});redraw();});
+}
+function gangnamPage(z){
+ ensureGangnamSource();
+ const district=['강남구','서초구','송파구'].includes(z.fGangnamDistrict)?z.fGangnamDistrict:'강남구';
+ ensureGangnamSchools(district);
+ const schoolData=gangnamSchools.get(district)||{loading:true};
+ const records=arr(gangnamSource?.records);
+ const selected=records.find(x=>String(x.id)===String(z.fGangnamPaper||''));
+ return '<section class="zb-faithful zb-f-gangnam" data-source-case="gangnam_list">'
+  +siteBar(z)+topTabs(z,null)
+  +'<div class="zb-f-gangnam-inner">'
+  +'<h2>강남 3구 유형공략</h2>'
+  +'<p class="zb-f-gangnam-note">원본에서 확보한 중학교 1학년 수학 공개자료 20건과 서울 강남·서초·송파 학교 검색을 표시합니다.</p>'
+  +'<div class="zb-f-districts" role="group" aria-label="강남 3구 선택">'
+  +['강남구','서초구','송파구'].map(name=>'<button type="button" data-action="zbFGangnamDistrict" data-value="'+attr(name)+'" aria-pressed="'+String(name===district)+'" class="'+(name===district?'is-active':'')+'">'+esc(name)+'</button>').join('')
+  +'</div>'
+  +'<div class="zb-f-district-schools"><h3>'+esc(district)+' 학교 목록</h3>'
+  +(schoolData.loading?'<p role="status">원본 학교 목록 조회 중입니다.</p>':
+    schoolData.error?'<p role="alert">학교 조회 실패: '+esc(schoolData.error)+'</p><button type="button" data-action="zbFGangnamRetry" data-value="'+attr(district)+'">다시 조회</button>':
+    '<div class="zb-f-school-list">'+arr(schoolData.list).map(x=>'<button type="button" class="'+(z.fGangnamSchool===x.name?'is-active':'')+'" data-action="zbFGangnamSchool" data-value="'+attr(x.name)+'">'+esc(x.name)+'</button>').join('')+'</div>'
+     +(z.fGangnamSchool?'<p class="zb-f-gangnam-note">선택한 학교: '+esc(z.fGangnamSchool)+'</p>':''))+'</div>'
+  +'<h3>원본 공개 유형공략 자료 <small>'+records.length+'건</small></h3>'
+  +(gangnamSourceError?'<p role="alert">'+esc(gangnamSourceError)+'</p>':
+    !gangnamSource?'<p role="status">원본 공개자료 조회 중입니다.</p>':
+    !records.length?'<p>현재 확보된 공개 목록이 없습니다.</p>':
+    '<div class="zb-f-gangnam-papers">'+records.map(x=>
+     '<button type="button" data-action="zbFGangnamPaper" data-value="'+attr(x.id)+'">'
+     +'<strong>'+esc(x.title)+'</strong><small>자료번호 '+esc(x.id)+' · '+esc(x.year||'')+'</small></button>'
+    ).join('')+'</div>')
+  +(selected?'<div class="zb-f-gangnam-detail" role="dialog" aria-label="자료 정보">'
+    +'<h3>'+esc(selected.title)+'</h3><p>원본 공개자료 번호: '+esc(selected.id)+'</p>'
+    +'<p class="zb-f-gangnam-note">시험지 본문·정답·PDF 다운로드는 이 화면에서 확인되지 않았습니다.</p>'
+    +'<button type="button" data-action="zbFCopy" data-value="'+attr(selected.id)+'">자료번호 복사</button>'
+    +'<button type="button" data-action="zbFGangnamClose">닫기</button></div>':'')
+  +'</div></section>';
+}
+
 function sourcePage(s){
  sCurrent=s;
  const z=state(s);
  ensureIndex();
  if(!sourceIndex)return '<div class="zb-faithful"><div class="zb-f-loading" role="status">원본 족보닷컴 학년·과목 메뉴를 불러오는 중입니다.</div></div>';
  if(sourceIndex.error)return '<div class="zb-faithful zb-f-error">'+esc(sourceIndex.error)+'</div>';
+ if(z.fMain==='gangnam')return gangnamPage(z);
  const meta=getMeta(z),entry=getPage(z);
  if(!meta)return '<div class="zb-faithful"><div class="zb-f-error">해당 학년·과목·메뉴의 원본 화면이 확인되지 않았습니다. 임의의 수학 화면으로 대체하지 않았습니다.</div><button type="button" data-action="zbFReset">중2 수학 원본 보기</button></div>';
  const content=pageHtml(z,meta,entry);
@@ -330,6 +390,22 @@ UI.onAction=function(act,el,s,go,render,toast){
    const other=casesFor(z).find(id=>sourceIndex.cases[id].subCode===value);
    if(other)z.fCase=other;
   }
+
+ }else if(act==='zbFGangnamDistrict'){
+  if(!['강남구','서초구','송파구'].includes(value))return;
+  z.fGangnamDistrict=value;z.fGangnamSchool='';z.fGangnamPaper='';
+ }else if(act==='zbFGangnamSchool'){
+  const district=z.fGangnamDistrict||'강남구';
+  if(!arr(gangnamSchools.get(district)?.list).some(x=>x.name===value))return;
+  z.fGangnamSchool=value;z.fGangnamPaper='';
+ }else if(act==='zbFGangnamPaper'){
+  if(!arr(gangnamSource?.records).some(x=>String(x.id)===value))return;
+  z.fGangnamPaper=value;
+ }else if(act==='zbFGangnamClose'){
+  z.fGangnamPaper='';
+ }else if(act==='zbFGangnamRetry'){
+  if(!['강남구','서초구','송파구'].includes(value))return;
+  gangnamSchools.delete(value);ensureGangnamSchools(value);
  }else if(act==='zbFFilter'){
   z.fDrawer=value;z.fOptionsError='';z.fOptionsLoading=false;z.fOptionsOverride={};
   requestSchoolChoices(z,meta,value,render);
