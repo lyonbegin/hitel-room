@@ -18,7 +18,18 @@ const views=new Map(),loading=new Set();
 let sCurrent=null;
 function state(s){
  const z=s.zocbo||(s.zocbo={});
- if(!z.fSite){const g=z.liveGrade||'고1';z.fSite=g.startsWith('중')?'M':'H';z.fGrade=g.slice(1)==='3'&&z.fSite==='H'?'2':(g.slice(1)||'1');}
+ if(!z.fSite){
+  const q=new URLSearchParams(location.search),g=z.liveGrade||'고1';
+  const loc=q.get('site');
+  z.fSite=['M','H'].includes(loc)?loc:(g.startsWith('중')?'M':'H');
+  const grade=q.get('grade');
+  z.fGrade=/^[123]$/.test(grade||'')?grade:(g.slice(1)==='3'&&z.fSite==='H'?'2':(g.slice(1)||'1'));
+  const subject=q.get('subject');
+  z.fSubject=/^[A-Z0-9]{2,8}$/.test(subject||'')?subject:
+    (/^[A-Z0-9]{2,8}$/.test(z.liveSubject||'')?z.liveSubject:'MT');
+  const main=q.get('main');
+  z.fMain=MAIN.some(x=>x[0]===main)?main:'unit';
+ }
  if(!['1','2','3'].includes(z.fGrade))z.fGrade='1';
  if(!z.fSubject)z.fSubject=/^[A-Z0-9]{2,8}$/.test(z.liveSubject||'')?z.liveSubject:'MT';
  if(!MAIN.some(x=>x[0]===z.fMain))z.fMain='unit';
