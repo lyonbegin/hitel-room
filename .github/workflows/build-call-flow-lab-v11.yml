@@ -52,7 +52,7 @@ jobs:
           sha256sum "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -3
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'package: name=\x27app.hitel.callflowlab.v11\x27'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v11'
       - uses: actions/upload-artifact@v4
         with:
           name: HITEL-Call-FlowLab-v0.11-APK
