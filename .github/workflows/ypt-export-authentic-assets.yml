@@ -1,0 +1,35 @@
+name: YPT Rebuild Authentic UI Assets
+on:
+  push:
+    branches: [feature/ypt-resource-visual-rebuild-20261108]
+    paths:
+      - .github/workflows/ypt-export-authentic-assets.yml
+      - tools/ypt-original/export_ui_assets.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export-ypt-ui-assets:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      APP_ID: ypt
+      APP_PACKAGE: com.pallo.passiontimerscoped
+      APP_VERSION: '810.1.05'
+      APP_SHA256: '837c7dcc876838fb3ea755178cc93d71b1cf77ddff59ce2073f1d826d4dab388'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch original XAPK with exact hash validation
+        run: |
+          mkdir -p source/unpacked
+          python3 scripts/education/download_verified_xapk.py source
+          sha256sum source/ypt.xapk
+          unzip -q source/ypt.xapk -d source/unpacked
+      - name: Export UI image assets and manifest without shipping font files
+        run: python3 tools/ypt-original/export_ui_assets.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ypt-810-original-visual-assets
+          path: report-assets/
+          retention-days: 21
