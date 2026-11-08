@@ -81,9 +81,13 @@ for name,url in TARGETS.items():
 # Retrieve public CSS/JS for dependency inspection only; avoid executing or auto-injecting it.
 # Limit to 50 CSS and 40 JS URLs, avoid large bundles.
 manifest=[]
-type_budget={'css':50,'js':40}
+type_budget={'css':50,'js':95}
 for typ in ('css','js'):
- matching=[a for a in assets if a['kind']==typ][:type_budget[typ]]
+ matching=[a for a in assets if a['kind']==typ]
+ if typ=='js':
+  priorities=['pre-test2026d','pre-test.js','Download_New.js','newChapterSelector_preTest','login.js','Exam.js']
+  matching.sort(key=lambda v:(0 if any(x.lower() in v['url'].lower() for x in priorities) else 1, v['url']))
+ matching=matching[:type_budget[typ]]
  for j,a in enumerate(matching):
   u=a['url']
   try:
