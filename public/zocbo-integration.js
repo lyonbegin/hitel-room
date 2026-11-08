@@ -25,7 +25,7 @@ const ROADMAP={bankHome:{title:'문제은행',route:'app',label:'족보닷컴 �
  bankSearch:{title:'문제 검색',route:'middle',label:'단원별 학습 · 시험자료 검색'},
  bankResults:{title:'실제 공개자료 검색 결과',route:'finals',label:'2026 기말고사 무료자료'},
  bankPaper:{title:'시험자료 상세',route:'finals',label:'실제 공개자료 상세'},
- bankOfficial:{title:'족보닷컴 원본 화면',route:'app',label:'실제 모바일 WebView'},
+ bankOriginal:{title:'족보닷컴 원본 화면',route:'app',label:'실제 모바일 WebView'},
  bankLogin:{title:'족보닷컴 로그인',route:'login',label:'공식 계정 로그인'},
  bankSchool:{title:'학교별 시험 자료',route:'middleExpected',label:'학교별 맞춤학습'},
  bankFree:{title:'기출 무료열람실',route:'freeReading',label:'공식 학교별 기출 뷰어'},
