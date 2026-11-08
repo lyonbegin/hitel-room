@@ -45,7 +45,7 @@ for provider in list(app.findall("provider")):
         provider.set(k("authorities"),"com.CodeBySonu.VoxSherpa.HITEL.voxprovider")
 tree.write(out/"AndroidManifest.xml",encoding="utf-8",xml_declaration=True)
 (root/"gradle.properties").write_text(
-    "android.useAndroidX=true\\nandroid.enableJetifier=true\\norg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8\\n",
+    "android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8\n",
     encoding="utf-8")
 (root/"voxsherpa/build.gradle.kts").write_text("""plugins { id("com.android.library") }
 android {
