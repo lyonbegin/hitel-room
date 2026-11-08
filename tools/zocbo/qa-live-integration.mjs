@@ -36,11 +36,40 @@ try {
  const downloadLink=page.locator('#phone a[href="https://m.zocbo.com/event/pre-test2026d/"]').first();
  check(await downloadLink.count()>=1,'Download opens exact official event page');
  await page.screenshot({path:'zocbo-qa/bank-paper-detail.png'});
- await page.locator('#phone [data-action="zbViewOfficial"]').first().click();
+ check(await page.locator('#phone .zb-live-iframe').count()===1,'Actual official iframe in document detail, without intermediate navigation');
+ await open('bankOriginal');
  check((await page.locator('#stageTitle').textContent())==='족보닷컴 원본 화면','Original document viewer route registered and reached');
  const iframe=page.locator('#phone iframe');
- check((await iframe.getAttribute('src'))==='https://m.zocbo.com/event/pre-test2026d/','Real official document page embedded for browsing');
- check(await page.locator('#phone a[target="_self"][href="https://m.zocbo.com/event/pre-test2026d/"]').count()>=1,'Full-page original document fallback available');
+ check((await iframe.getAttribute('src'))==='https://m.zocbo.com/app/main_v2.asp','Original app WebView url embedded for browsing');
+ check(await page.locator('#phone a[target="_self"][href="https://m.zocbo.com/app/main_v2.asp"]').count()>=1,'Full-page original document fallback available');
+ const frameObservations=[];
+ const sites=[
+  ['bankSchool','https://m.zocbo.com/M/expected.asp'],
+  ['bankFree','https://m.zocbo.com/Freetrial/FreeReading.asp'],
+  ['bankDownload','https://m.zocbo.com/event/pre-test2026d/'],
+  ['bankLogin','https://m.zocbo.com/Member/login.asp'],
+  ['bankDiagnostic','https://m.zocbo.com/Freetrial/learningtest.asp']
+ ];
+ for(const [screen,expectedUrl] of sites){
+   await open(screen);
+   const embedded=page.locator('#phone .zb-live-iframe');
+   check(await embedded.count()===1,'Iframe primary page: '+screen);
+   check((await embedded.getAttribute('src'))===expectedUrl,'Original WebView URL: '+screen);
+   check(await page.locator('#phone .zb-external-bar').count()===0,'No link-only placeholder: '+screen);
+   const r=await page.request.get(expectedUrl,{timeout:15000}).catch(e=>null);
+   const headers=r?.headers()||{};
+   let frameText='',frameUrl='',frameError='';
+   try{await page.waitForTimeout(900);const frame=page.frames().find(f=>f.url().includes('zocbo.com'));frameUrl=frame?.url()||'';frameText=(await frame?.locator('body').innerText({timeout:3000}))?.slice(0,120)||''}catch(e){frameError=String(e).slice(0,180)}
+   frameObservations.push({screen,expectedUrl,httpStatus:r?.status()||null,xFrameOptions:headers['x-frame-options']||null,csp:headers['content-security-policy']||null,frameUrl,frameText,frameError});
+   if(screen==='bankSchool')await page.screenshot({path:'zocbo-qa/bank-school-real-iframe.png'});
+ }
+ fs.writeFileSync('zocbo-qa/iframe-observations.json',JSON.stringify(frameObservations,null,2));
+ console.log('IFRAME OBSERVATIONS',JSON.stringify(frameObservations));
+ await open('bankOriginal');
+ const reload=page.locator('#phone [data-action="zbReloadWebview"]');
+ check(await reload.count()===1,'Original WebView reload button present');
+ await reload.click();
+ check(await page.locator('#phone iframe[src="https://m.zocbo.com/app/main_v2.asp"]').count()===1,'Reload retains original WebView URL');
  await open('bankLogin');
  check(await page.locator('#phone a[href="https://m.zocbo.com/Member/login.asp"][target="_self"]').count()>0,'Original official login accessible in same browser tab');
  await open('bankSchool');
