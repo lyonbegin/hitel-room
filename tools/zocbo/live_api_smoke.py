@@ -48,6 +48,7 @@ with sync_playwright() as p:
    "iframes":page.locator("iframe").count()
   }
   assert R[f"mobile_{width}_initial"]["rootChapters"]>=5
+  assert page.locator('[data-action="zbNativeRoot"]').first.inner_text().strip().startswith("1."),("source chapter numbering missing",page.locator('[data-action="zbNativeRoot"]').first.inner_text())
   assert R[f"mobile_{width}_initial"]["initialVisibleExams"]==0
   assert R[f"mobile_{width}_initial"]["scrollWidth"]<=width
   assert R[f"mobile_{width}_initial"]["iframes"]==0
