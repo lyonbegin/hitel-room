@@ -34,6 +34,8 @@ with sync_playwright() as p:
   # Real original guide utility responds, does not contain a dead button.
   page.locator('#phone .zb-original-utility #MenuDescription button').click()
   page.get_by_role('dialog',name='이용 안내').wait_for(timeout=10000)
+  page.locator('#phone .zb-original-guide-document').wait_for(timeout=15000)
+  assert '교과서 흐름 그대로' in page.locator('#phone .zb-original-guide-document').inner_text(), 'Actual official unit guide text missing'
   page.locator('.zb-original-dialog [data-zb-close]').last.click()
   # Actual copied original top DOM tab transitions to real subject-specific source.
   page.locator('#phone .zb-original-main-tabs [data-zb-main="practice"]').click()
