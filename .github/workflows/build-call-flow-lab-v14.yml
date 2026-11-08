@@ -1,0 +1,95 @@
+name: HITEL Call FlowLab v0.14 fullscreen only - no overlay
+on:
+  push:
+    branches: ["test/call-flow-lab-v14-20261108"]
+    paths:
+      - "flow-lab/v14_log_tab_samsung_dictation.py"
+      - ".github/workflows/build-call-flow-lab-v14.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Rebuild existing source and apply Samsung v0.14 detection patch
+        run: |
+          tar -xJf flow-lab/v07_source.tar.xz
+          python3 flow-lab/v08_patch.py
+          python3 flow-lab/v08_overlay_patch.py
+          python3 flow-lab/v09_patch.py
+          python3 flow-lab/v09_live_patch.py
+          python3 flow-lab/v09_live_poll_patch.py
+          python3 flow-lab/v09_install_fix.py
+          python3 flow-lab/v10_connected_gate.py
+          python3 flow-lab/v11_connection_fix.py
+          python3 flow-lab/v12_no_overlay_front.py
+          python3 flow-lab/v13_accessibility_onboarding.py
+          python3 flow-lab/v14_log_tab_samsung_dictation.py
+      - name: Confirm answered-call evidence and distinct application identity
+        run: |
+          grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 14' AndroidProject/app/build.gradle.kts
+          grep -F 'W11_CONNECTED_TIMER_ADVANCING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'W11_TEXT_CALL_BUTTON_VISIBLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'W11_ACCESSIBILITY_NOT_CONNECTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'W13_FIRST_LAUNCH_ACCESSIBILITY_PROMPT' AndroidProject/app/src/main/java/app/hitel/samsungprobe/MainActivity.java
+          grep -F 'W13_ACCESSIBILITY_ENABLED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/MainActivity.java
+          grep -F 'W14_SAMSUNG_DICTATION_REQUEST' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'logPage.addView(logList,new LinearLayout.LayoutParams(-1,0,1))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'focusSamsungTextCallInput' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
+          grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
+          if grep -F 'updateOverlay' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
+      - name: Build Android installation APK
+        run: gradle -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Validate APK content, signature and application ID
+        run: |
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -3
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.14-APK
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Retain auditable Android sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.14-source
+          path: |
+            AndroidProject/app/src/main
+            AndroidProject/app/build.gradle.kts
+          if-no-files-found: warn
+
+      - name: Publish directly downloadable APK in public repository
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14.apk
+          (cd downloads && sha256sum HITEL14.apk > HITEL14.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14.apk downloads/HITEL14.sha256
+          git commit -m "build: publish HITEL14 directly installable APK [skip ci]"
+          git push origin HEAD:refs/heads/test/call-flow-lab-v14-20261108
