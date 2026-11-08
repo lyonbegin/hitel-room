@@ -46,7 +46,17 @@ function load(caseId){
  loading.add(caseId);
  fetch('/api/zocbo/faithful-page?'+new URLSearchParams({case:caseId}),{credentials:'omit',cache:'no-store'})
  .then(async r=>{const v=await r.json();if(!r.ok||!v.case)throw Error(v.error||'원본 화면 자료 없음');return v})
- .then(v=>{views.set(caseId,{data:v});redraw()})
+ .then(v=>{
+  const needsLive=['concept','unit','practice','revision'].includes(v.category)
+     && Number(v.episodeCount)===0 && arr(v.originalPublicRequests).length>0;
+  views.set(caseId,{data:v,liveLoading:needsLive});redraw();
+  if(needsLive){
+   fetch('/api/zocbo/public-case-catalog?'+new URLSearchParams({case:caseId}),{credentials:'omit'})
+    .then(async r=>{const data=await r.json();if(!r.ok||!data.ok)throw Error(data.reason||data.error||'원본 목록 조회 실패');return data})
+    .then(data=>{views.set(caseId,{data:v,liveData:data});redraw()})
+    .catch(e=>{views.set(caseId,{data:v,liveError:String(e.message||e).slice(0,110)});redraw()});
+  }
+ })
  .catch(e=>{views.set(caseId,{error:String(e.message||e).slice(0,150)});redraw()})
  .finally(()=>loading.delete(caseId));
 }
@@ -151,6 +161,9 @@ function pageHtml(z,meta,entry){
  if(z.fDynamicChanged)return '<div class="zb-f-loading" role="status">선택하신 조건의 원본 자료를 조회하고 있습니다.</div>';
  if(z.fDynamicError)return '<div class="zb-f-error" role="alert">선택 조건의 원본 자료를 확인할 수 없습니다. '+esc(z.fDynamicError)+'</div>';
  if(z.fDynamicData)return dynamicMarkup(z.fDynamicData);
+ if(entry.liveLoading)return '<div class="zb-f-loading" role="status">원본 공개 자료 목록을 실시간으로 조회하고 있습니다.</div>';
+ if(entry.liveError)return '<div class="zb-f-error" role="alert">원본 자료 목록을 확인하지 못했습니다. '+esc(entry.liveError)+'</div>';
+ if(entry.liveData)return dynamicMarkup(entry.liveData);
  return doc.html||'<div class="zb-f-empty">원본 공개 결과가 없습니다.</div>';
 }
 function infoSheet(z,meta){
@@ -242,6 +255,7 @@ function pickFromOptions(z,meta,key,value,toast,render){
   // SOURCE SELECTED: only explicitly captured source state may be shown; never re-label old dataset as new textbook.
   if(key==='SEARCH_TX_CD'||key==='SEARCH_LEVEL_CD'||key==='SEARCH_STEP_CD'){
    const original=arr(meta.filters).find(f=>filterKey(f)===key)?.name||'';
+   z.fDynamicData=null;z.fDynamicError='';
    if(name!==original){
     z.fDynamicChanged=true;
     requestChangedFilter(z,meta,key,opt,render,toast);
@@ -293,7 +307,7 @@ UI.onAction=function(act,el,s,go,render,toast){
   const ids=casesFor(z);
   const selected=ids.find(id=>sourceIndex.cases[id].subCode===value);
   if(!selected){toast('원본 하위 메뉴 자료가 확인되지 않았습니다.');return;}
-  z.fCase=selected;z.fDisplay={};z.fDrawer='';z.fSelected=null;
+  z.fCase=selected;z.fDisplay={};z.fDrawer='';z.fSelected=null;z.fDynamicData=null;z.fDynamicError='';z.fDynamicChanged=false;
   const source=sourceIndex.cases[selected];
   if(source.originalSubject!==z.fSubject&&source.originalSubject){
    z.fSubject=source.originalSubject;
