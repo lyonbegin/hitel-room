@@ -1,0 +1,65 @@
+name: Preserve original Zocbo browser-source matrix permanently in audit-only GitHub archive
+on:
+  push:
+    branches: [audit/zocbo-complete-mobile-source-inventory-20261108]
+    paths:
+      - .github/workflows/zocbo-preserve-original-sources.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  archive-browser-sources:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Await real source matrix browser evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for n in $(seq 1 240); do
+            state=$(gh run view 42458879929 --json status -q '.status')
+            echo "Matrix run state: $state; check $n"
+            [ "$state" = completed ] && break
+            sleep 20
+          done
+          [ "$(gh run view 42458879929 --json status -q '.status')" = completed ]
+          gh run view 42458879929 --json conclusion -q '.conclusion'
+      - name: Import all 6 actual mobile-source artifacts, keep errors and raw page DOM
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base=archive/zocbo-original-sources-20261108
+          for site in M H; do
+            for grade in 1 2 3; do
+              key="${site}${grade}"
+              dest="$base/$key"
+              mkdir -p "$dest"
+              gh run download 42458879929 --name "original-source-${site}-grade-${grade}-all-subjects" --dir "$dest"
+              if [ -d "$dest/0" ]; then mv "$dest/0"/* "$dest/"; rmdir "$dest/0"; fi
+              test -s "$dest/manifest.json"
+              echo "CAPTURED_SOURCE $key $(wc -c < "$dest/manifest.json") bytes manifest"
+            done
+          done
+      - name: Synthesize evidence-grounded all-grade subject/menu table
+        run: python tools/zocbo/aggregate_original_sources.py
+      - name: Commit source archive in a SEPARATE BRANCH, not in working HITEL product
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b archive/zocbo-original-browser-sources-20261108
+          git add archive/zocbo-original-sources-20261108
+          git commit -m 'Archive actual public mobile 6-grade browser DOM, JS/CSS, anonymous AJAX, screenshots, menu inventory'
+          git push origin HEAD:archive/zocbo-original-browser-sources-20261108
+      - name: Keep full archive ZIP for direct inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-all-grade-source-archive
+          path: archive/zocbo-original-sources-20261108/
+          retention-days: 30
+          if-no-files-found: warn
