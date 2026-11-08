@@ -32,3 +32,7 @@
 
 /* The YPT shell normally adds 20px horizontal padding. Inline original DOM already has bounded margins; prevent a second 20px that creates 410px scrollWidth on a 390px device. */
 #phone .appscroll:has(.zb-inline-root),#phone .appscroll:has(.zocbo-native-handoff){padding-left:0!important;padding-right:0!important;overflow-x:clip!important}
+
+/* Correct original content box: 100% width PLUS 10px side margins caused 410px scrollWidth on 390px viewport. */
+#phone .zb-inline-root{width:calc(100% - 24px)!important;margin-inline:12px!important}
+@media(max-width:390px){#phone .zb-inline-root{width:calc(100% - 20px)!important;margin-inline:10px!important}}
