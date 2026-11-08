@@ -59,7 +59,7 @@ async function zocboReadPublic(originPath,form,referrer){
  try{
   const r=await fetch('https://m.zocbo.com'+originPath,{
    method:'POST',redirect:'error',signal:ctl.signal,
-   headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','Accept':'application/json,text/javascript,*/*;q=0.01','X-Requested-With':'XMLHttpRequest','Referer':referrer},
+   headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','Accept':'application/json,text/javascript,*/*;q=0.01','X-Requested-With':'XMLHttpRequest','Referer':referrer,'Origin':'https://m.zocbo.com','User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'},
    body:new URLSearchParams(form).toString()
   });
   if(!r.ok)throw new Error('ORIGIN_HTTP_'+r.status);
@@ -82,15 +82,20 @@ async function serveZocboPublicCatalog(url,req,send){
  bucket.push(Date.now());zocboHitTimes.set(ip,bucket);
  if(zocboHitTimes.size>250)zocboHitTimes.clear();
  const referrer='https://m.zocbo.com/exam/examListWeb.asp?'+new URLSearchParams({menu_cd:q.menu,siteid:q.site,subject_cd:q.subject,grade:q.grade});
- const common={
-  menu_cd:q.menu,expapr_coretype_cd:'',expapr_group_cd:'',siteid:q.site,grade:q.grade,
-  subject_cd:q.subject,subject_detail_cd:'',tx_cd:'',root_part_cd:'',level_cd:'',
+ const filterInfo=await zocboReadPublic('/exam/ajax/getMenuByFilterAjax.asp',{menuCD:q.menu,siteID:q.site},referrer);
+  const choices=Array.isArray(filterInfo.MENU_BY_EXAM)?filterInfo.MENU_BY_EXAM:[];
+  const opts=choices.filter(x=>String(x.SITE_ID)===q.site&&String(x.GRADE)===q.grade&&String(x.SUBJECT_CD)===q.subject&&x.TX_CD);
+  const selected=opts.find(x=>String(x.IS_DEFAULT)==='Y'||String(x.IS_DEFAULT)==='1')||opts[0];
+  const tx=selected?.TX_CD||((q.subject==='MT')?q.site+'AMTCHA'+q.grade+'001':'');
+  const common={
+  menu_cd:q.menu,expapr_coretype_cd:'',expapr_group_cd:q.site==='H'?'C|E':'C',siteid:q.site,grade:q.grade,
+  subject_cd:q.subject,subject_detail_cd:'',tx_cd:tx,root_part_cd:'',level_cd:'2',
   work_author:'',work_title:'',text_book_nm:'',korean_part_work_list:'',year_cd:'',
   vod_type:''
  };
  try{
   const [exams,parts]=await Promise.all([
-   zocboReadPublic('/exam/ajax/getMenuByExamSearchAjax.asp',{...common,is_part:'0',expapr_no_array:'',expapr_servicetype:'2'},referrer),
+   zocboReadPublic('/exam/ajax/getMenuByExamSearchAjax.asp',{...common,is_part:'1',expapr_no_array:'',expapr_servicetype:'2'},referrer),
    zocboReadPublic('/exam/ajax/getMenuByExamPartAjax.asp',{...common,is_scroll:'0'},referrer)
   ]);
   const result={
