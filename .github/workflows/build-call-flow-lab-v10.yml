@@ -1,0 +1,67 @@
+name: HITEL Call FlowLab v0.10 connected call auto Text Call
+on:
+  push:
+    branches: ["test/call-flow-lab-v10-20261108"]
+    paths:
+      - "flow-lab/v10_connected_gate.py"
+      - ".github/workflows/build-call-flow-lab-v10.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Restore v0.9 native source, then apply v0.10 connected-call UI gate
+        run: |
+          tar -xJf flow-lab/v07_source.tar.xz
+          python3 flow-lab/v08_patch.py
+          python3 flow-lab/v08_overlay_patch.py
+          python3 flow-lab/v09_patch.py
+          python3 flow-lab/v09_live_patch.py
+          python3 flow-lab/v09_live_poll_patch.py
+          python3 flow-lab/v09_install_fix.py
+          python3 flow-lab/v10_connected_gate.py
+      - name: Verify source and package contract
+        run: |
+          grep -F 'versionCode = 10' AndroidProject/app/build.gradle.kts
+          grep -F 'applicationId = "app.hitel.callflowlab.v10"' AndroidProject/app/build.gradle.kts
+          grep -F 'if(!answeredUiGate(state))return;' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'W10_TEXT_BUTTON_AVAILABLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'Intent.ACTION_DIAL' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+      - name: Compile APK
+        run: gradle -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK and v2 signature
+        run: |
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.10-APK
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Export complete source for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.10-source
+          path: |
+            AndroidProject/app/src/main
+            AndroidProject/app/build.gradle.kts
+          if-no-files-found: warn
