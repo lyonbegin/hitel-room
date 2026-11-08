@@ -1,0 +1,127 @@
+{
+    "RESULT": "true",
+    "MENU_BY_FILTER": [
+        {
+            "FILTER_CD": "FILTER_1",
+            "FILTER_NM": "학년",
+            "MENU_CD": "000010000100004",
+            "SITE_ID": "M",
+            "GRADE": 1,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 1
+        },
+        {
+            "FILTER_CD": "FILTER_1",
+            "FILTER_NM": "학년",
+            "MENU_CD": "000010000100004",
+            "SITE_ID": "M",
+            "GRADE": 2,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 1
+        },
+        {
+            "FILTER_CD": "FILTER_1",
+            "FILTER_NM": "학년",
+            "MENU_CD": "000010000100004",
+            "SITE_ID": "M",
+            "GRADE": 3,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 1
+        },
+        {
+            "FILTER_CD": "FILTER_11",
+            "FILTER_NM": "과목",
+            "MENU_CD": "000010000100004",
+            "SITE_ID": "M",
+            "GRADE": 3,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 2
+        },
+        {
+            "FILTER_CD": "FILTER_11",
+            "FILTER_NM": "과목",
+            "MENU_CD": "000010000100004",
+            "SITE_ID": "M",
+            "GRADE": 2,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 2
+        },
+        {
+            "FILTER_CD": "FILTER_11",
+            "FILTER_NM": "과목",
+            "MENU_CD": "000010000100004",
+            "SITE_ID": "M",
+            "GRADE": 1,
+            "SUBJECT_CD": null,
+            "ORDER_NO": 2
+        }
+    ],
+    "MENU_BY_EXAM": [
+        {
+            "SEQ": "EXAM_0",
+            "MENU_CD": "000010000100004",
+            "SUB_MENU_CD": null,
+            "EXPAPR_GROUP_CD": "K",
+            "EXPAPR_CORETYPE_CD": "B1|B2|B3|B4|B5",
+            "SITE_ID": "M",
+            "GRADE": 1,
+            "GRADE_NM": "중1",
+            "SUBJECT_CD": "MT",
+            "SUBJECT_NM": "수학",
+            "SUBJECT_DETAIL_CD": null,
+            "SUBJECT_DETAIL_NM": null,
+            "TX_CD": "MAMTCHA1002",
+            "TX_NM": "공통",
+            "IS_DEFAULT": 1,
+            "IS_DEFAULT_SUBJECT": 0,
+            "TEXT_BOOK_CD": null,
+            "TEXT_BOOK_NM": null,
+            "YEAR_CD": null,
+            "YEAR_NM": null
+        },
+        {
+            "SEQ": "EXAM_1",
+            "MENU_CD": "000010000100004",
+            "SUB_MENU_CD": null,
+            "EXPAPR_GROUP_CD": "K",
+            "EXPAPR_CORETYPE_CD": "B1|B2|B3|B4|B5",
+            "SITE_ID": "M",
+            "GRADE": 2,
+            "GRADE_NM": "중2",
+            "SUBJECT_CD": "MT",
+            "SUBJECT_NM": "수학",
+            "SUBJECT_DETAIL_CD": null,
+            "SUBJECT_DETAIL_NM": null,
+            "TX_CD": "MAMTCHA2002",
+            "TX_NM": "공통",
+            "IS_DEFAULT": 1,
+            "IS_DEFAULT_SUBJECT": 1,
+            "TEXT_BOOK_CD": null,
+            "TEXT_BOOK_NM": null,
+            "YEAR_CD": null,
+            "YEAR_NM": null
+        },
+        {
+            "SEQ": "EXAM_2",
+            "MENU_CD": "000010000100004",
+            "SUB_MENU_CD": null,
+            "EXPAPR_GROUP_CD": "K",
+            "EXPAPR_CORETYPE_CD": "B1|B2|B3|B4|B5",
+            "SITE_ID": "M",
+            "GRADE": 3,
+            "GRADE_NM": "중3",
+            "SUBJECT_CD": "MT",
+            "SUBJECT_NM": "수학",
+            "SUBJECT_DETAIL_CD": null,
+            "SUBJECT_DETAIL_NM": null,
+            "TX_CD": "M9MTCHA3001",
+            "TX_NM": "공통",
+            "IS_DEFAULT": 1,
+            "IS_DEFAULT_SUBJECT": 0,
+            "TEXT_BOOK_CD": null,
+            "TEXT_BOOK_NM": null,
+            "YEAR_CD": null,
+            "YEAR_NM": null
+        }
+    ]
+}
