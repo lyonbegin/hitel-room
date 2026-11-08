@@ -13,12 +13,16 @@ const yptVisualGraph=readFileSync('./public/ypt-graph.js');
 const zocboIntegrationJs=readFileSync('./public/zocbo-integration.js');
 const zocboIntegrationCss=readFileSync('./public/zocbo-integration.css');
 const zocboCatalogJs=readFileSync('./public/zocbo-catalog.js');
+const zocboOriginalEventJs=readFileSync('./public/zocbo-original-event.js');
+const zocboOriginalEventCss=readFileSync('./public/zocbo-original-event.css');
+const zocboInlineRuntimeJs=readFileSync('./public/zocbo-inline-runtime.js');
+const zocboInlineRuntimeCss=readFileSync('./public/zocbo-inline-runtime.css');
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
- if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,officialZocboPublicDocuments:35,zocboLiveLinks:true,assetsDir:'ypt-assets'}));return}
+ if(url.pathname==='/health'){send(200,'application/json; charset=utf-8',JSON.stringify({ok:true,app:'YPT',mock:true,source:'original-XAPK-reverse-analysis',confirmedScreens:3,derivedScreens:65,officialZocboPublicDocuments:35,zocboLiveLinks:true,zocboOriginalInline:true,zocboIframeCount:0,originalSourceCount:35,assetsDir:'ypt-assets'}));return}
  if(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/ypt-rebuild.html'){send(200,'text/html; charset=utf-8',yptVisualHtml);return}
  if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
@@ -27,6 +31,10 @@ createServer((req,res)=>{
  if(url.pathname==='/zocbo-integration.js'){send(200,'application/javascript; charset=utf-8',zocboIntegrationJs);return}
  if(url.pathname==='/zocbo-integration.css'){send(200,'text/css; charset=utf-8',zocboIntegrationCss);return}
  if(url.pathname==='/zocbo-catalog.js'){send(200,'application/javascript; charset=utf-8',zocboCatalogJs);return}
+ if(url.pathname==='/zocbo-original-event.js'){send(200,'application/javascript; charset=utf-8',zocboOriginalEventJs);return}
+ if(url.pathname==='/zocbo-original-event.css'){send(200,'text/css; charset=utf-8',zocboOriginalEventCss);return}
+ if(url.pathname==='/zocbo-inline-runtime.js'){send(200,'application/javascript; charset=utf-8',zocboInlineRuntimeJs);return}
+ if(url.pathname==='/zocbo-inline-runtime.css'){send(200,'text/css; charset=utf-8',zocboInlineRuntimeCss);return}
  if(url.pathname==='/zocbo-assets/app-icon.png'){const p='./public/zocbo-assets/app-icon.png';if(existsSync(p)){send(200,'image/png',readFileSync(p));return}}
  if(url.pathname.startsWith('/ypt-assets/')){
    const relative=url.pathname.slice('/ypt-assets/'.length);
