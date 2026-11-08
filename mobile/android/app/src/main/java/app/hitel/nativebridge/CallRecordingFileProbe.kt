@@ -10,6 +10,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
+import java.io.RandomAccessFile
 
 /**
  * READ-ONLY probe of already indexed call recordings. No files are modified,
@@ -143,6 +144,24 @@ internal object CallRecordingFileProbe {
                         val read = FileInputStream(file).use { it.read(buffer) }
                         record.put("readStatus", if (read > 0) "READ_OK" else "READ_EOF")
                             .put("readBytes", if (read > 0) read else 0)
+                        // Read from the newest end of the growing file, not
+                        // merely its first MP4 header bytes.
+                        try {
+                            RandomAccessFile(file, "r").use { raf ->
+                                val currentSize = raf.length()
+                                val toRead = minOf(128L, currentSize).toInt()
+                                val offset = maxOf(0L, currentSize - toRead)
+                                raf.seek(offset)
+                                val tail = ByteArray(toRead)
+                                val tailRead = raf.read(tail)
+                                record.put("tailReadStatus", if (tailRead > 0) "TAIL_READ_OK" else "TAIL_EMPTY")
+                                    .put("tailOffsetBytes", offset)
+                                    .put("tailReadBytes", maxOf(0, tailRead))
+                            }
+                        } catch (e: Exception) {
+                            record.put("tailReadStatus", "TAIL_READ_FAILED")
+                                .put("tailReadError", e.javaClass.simpleName)
+                        }
                     } catch (e: Exception) {
                         record.put("readStatus", "READ_FAILED")
                             .put("readError", e.javaClass.simpleName)
