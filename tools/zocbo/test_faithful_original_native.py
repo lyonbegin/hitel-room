@@ -18,7 +18,7 @@ with sync_playwright() as p:
   page=ctx.new_page()
   page.set_default_timeout(18000)
   page.on('pageerror',lambda e:report['errors'].append({'width':width,'error':str(e)[:320]}))
-  page.goto(BASE+'/?screen=bankSearch',wait_until='domcontentloaded',timeout=35000)
+  page.goto(BASE+'/?screen=bankSearch&chrome=0',wait_until='domcontentloaded',timeout=35000)
   page.wait_for_function("()=>window.ZOCBO_FAITHFUL_INSPECT?.().source?.cases===700",timeout=40000)
   page.wait_for_selector('#phone .zb-faithful[data-source-case]',timeout=30000)
   # Original six top categories, not a partial hardcoded 4-category demo.
