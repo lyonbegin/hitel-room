@@ -1,0 +1,61 @@
+name: Original Zocbo mobile all subject menu filter drawers and option DOM
+on:
+  push:
+    branches: [audit/zocbo-complete-mobile-source-inventory-20261108]
+    paths:
+      - .github/workflows/zocbo-original-filter-options.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  actual-filters:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - {site: M, grade: '1'}
+          - {site: M, grade: '2'}
+          - {site: M, grade: '3'}
+          - {site: H, grade: '1'}
+          - {site: H, grade: '2'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Browser install
+        run: |
+          python -m py_compile tools/zocbo/click_all_original_filters.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Retrieve actual original per-grade menu/subject paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p src
+          gh run download 42458879929 --name original-source-${{ matrix.site }}-grade-${{ matrix.grade }}-all-subjects --dir src
+          test -s src/0/manifest.json
+      - name: Click EVERY public grade subject textbook and level filter in each subject top-menu; capture option sheets
+        run: python tools/zocbo/click_all_original_filters.py --manifest src/0/manifest.json --out original-filters/${{ matrix.site }}${{ matrix.grade }}
+      - name: Commit all original dropdown code and option source into separate audit-only GitHub branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          branch=archive/zocbo-public-filters-${{ matrix.site }}${{ matrix.grade }}-20261108
+          git checkout -b "$branch"
+          git add original-filters/${{ matrix.site }}${{ matrix.grade }}
+          git commit -m 'Store true original site/grade/subject/menu filter options and modal DOM'
+          git push origin HEAD:"$branch"
+      - name: Upload all dropdown DOM and example screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-mobile-filter-options-${{ matrix.site }}${{ matrix.grade }}
+          path: original-filters/${{ matrix.site }}${{ matrix.grade }}/
+          retention-days: 30
+          if-no-files-found: warn
