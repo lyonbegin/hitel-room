@@ -1,0 +1,306 @@
+{
+  "case": "M_1_LS_unit",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000200003&siteid=M&subject_cd=LS&grade=1",
+  "filters": [
+    {
+      "name": "중1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '중1');\">\n        <span class=\"check__text\">중1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '중2');\">\n        <span class=\"check__text\">중2</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '3', '중3');\">\n        <span class=\"check__text\">중3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "9-2. 민주주의의 이념과 기본 원리\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n9-3.민주주의의 발전 방안\n🔥2학기 중간\n기본\n9-3. 민주주의의 발전 방안\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n10-1.선거와 선거 과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-1. 선거와 선거 과정\n01회\n02회\n03회\n04회\n05회\n06회\n10-2.정치 주체와 정치과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-2. 정치 주체와 정치과정\n01회\n02회\n03회\n04회\n05회\n10-3.지방 자치와 시민 참여\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-3. 지방 자치와 시민 참여\n01회\n02회\n03회\n04회\n05회\n11.일상생활과 법\n2학기 기말 🔥\n11-1.법의 의미와 목적\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-1. 법의 의미와 목적\n01회\n02회\n03회\n04회\n05회\n06회\n11-2.법의 종류\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-2. 법의 종류\n01회\n02회\n03회\n04회\n05회\n11-3.재판의 의미와 공정한 재판\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-3. 재판의 의미와 공정한 재판\n01회\n02회\n03회\n04회\n05회\n12.인권과 기본권\n2학기 기말 🔥\n12-1.인권 보장과 기본권\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-1. 인권 보장과 기본권\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n12-2.기본권 제한과 침해 시 구제 방법\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-2. 기본권 제한과 침해 시 구제 방법\n01회\n02회\n03회\n04회\n05회\n06회\n12-3.근로자의 권리\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-3. 근로자의 권리\n01회\n02회\n03회\n04회\n05회\n06회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n중1\n중2\n중3"
+    },
+    {
+      "name": "사회",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '역사');\">\n        <span class=\"check__text\">역사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'ET', '도덕');\">\n        <span class=\"check__text\">도덕</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": " 원리\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n9-3.민주주의의 발전 방안\n🔥2학기 중간\n기본\n9-3. 민주주의의 발전 방안\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n10-1.선거와 선거 과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-1. 선거와 선거 과정\n01회\n02회\n03회\n04회\n05회\n06회\n10-2.정치 주체와 정치과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-2. 정치 주체와 정치과정\n01회\n02회\n03회\n04회\n05회\n10-3.지방 자치와 시민 참여\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-3. 지방 자치와 시민 참여\n01회\n02회\n03회\n04회\n05회\n11.일상생활과 법\n2학기 기말 🔥\n11-1.법의 의미와 목적\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-1. 법의 의미와 목적\n01회\n02회\n03회\n04회\n05회\n06회\n11-2.법의 종류\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-2. 법의 종류\n01회\n02회\n03회\n04회\n05회\n11-3.재판의 의미와 공정한 재판\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-3. 재판의 의미와 공정한 재판\n01회\n02회\n03회\n04회\n05회\n12.인권과 기본권\n2학기 기말 🔥\n12-1.인권 보장과 기본권\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-1. 인권 보장과 기본권\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n12-2.기본권 제한과 침해 시 구제 방법\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-2. 기본권 제한과 침해 시 구제 방법\n01회\n02회\n03회\n04회\n05회\n06회\n12-3.근로자의 권리\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-3. 근로자의 권리\n01회\n02회\n03회\n04회\n05회\n06회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n국어\n영어\n수학\n과학\n사회\n역사\n도덕\n기술가정"
+    },
+    {
+      "name": "사회①",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "사회①",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회①",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MALSCHA0001', '사회①');\">\n        <span class=\"check__text\">사회①</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n기본\n9-2. 민주주의의 이념과 기본 원리\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n9-3.민주주의의 발전 방안\n🔥2학기 중간\n기본\n9-3. 민주주의의 발전 방안\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n10-1.선거와 선거 과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-1. 선거와 선거 과정\n01회\n02회\n03회\n04회\n05회\n06회\n10-2.정치 주체와 정치과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-2. 정치 주체와 정치과정\n01회\n02회\n03회\n04회\n05회\n10-3.지방 자치와 시민 참여\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-3. 지방 자치와 시민 참여\n01회\n02회\n03회\n04회\n05회\n11.일상생활과 법\n2학기 기말 🔥\n11-1.법의 의미와 목적\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-1. 법의 의미와 목적\n01회\n02회\n03회\n04회\n05회\n06회\n11-2.법의 종류\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-2. 법의 종류\n01회\n02회\n03회\n04회\n05회\n11-3.재판의 의미와 공정한 재판\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-3. 재판의 의미와 공정한 재판\n01회\n02회\n03회\n04회\n05회\n12.인권과 기본권\n2학기 기말 🔥\n12-1.인권 보장과 기본권\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-1. 인권 보장과 기본권\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n12-2.기본권 제한과 침해 시 구제 방법\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-2. 기본권 제한과 침해 시 구제 방법\n01회\n02회\n03회\n04회\n05회\n06회\n12-3.근로자의 권리\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-3. 근로자의 권리\n01회\n02회\n03회\n04회\n05회\n06회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n사회①"
+    },
+    {
+      "name": "기본",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_LEVEL_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_LEVEL_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "기본",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기본",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "발전",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "발전",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">난이도</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_LEVEL_CD', '2', '기본');\">\n        <span class=\"check__text\">기본</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_LEVEL_CD', '3', '발전');\">\n        <span class=\"check__text\">발전</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "본\n9-2. 민주주의의 이념과 기본 원리\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n11회\n12회\n13회\n9-3.민주주의의 발전 방안\n🔥2학기 중간\n기본\n9-3. 민주주의의 발전 방안\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n10-1.선거와 선거 과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-1. 선거와 선거 과정\n01회\n02회\n03회\n04회\n05회\n06회\n10-2.정치 주체와 정치과정\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-2. 정치 주체와 정치과정\n01회\n02회\n03회\n04회\n05회\n10-3.지방 자치와 시민 참여\n2학기 기말 🔥\n🔥2학기 기말\n기본\n10-3. 지방 자치와 시민 참여\n01회\n02회\n03회\n04회\n05회\n11.일상생활과 법\n2학기 기말 🔥\n11-1.법의 의미와 목적\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-1. 법의 의미와 목적\n01회\n02회\n03회\n04회\n05회\n06회\n11-2.법의 종류\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-2. 법의 종류\n01회\n02회\n03회\n04회\n05회\n11-3.재판의 의미와 공정한 재판\n2학기 기말 🔥\n🔥2학기 기말\n기본\n11-3. 재판의 의미와 공정한 재판\n01회\n02회\n03회\n04회\n05회\n12.인권과 기본권\n2학기 기말 🔥\n12-1.인권 보장과 기본권\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-1. 인권 보장과 기본권\n01회\n02회\n03회\n04회\n05회\n06회\n07회\n08회\n09회\n10회\n12-2.기본권 제한과 침해 시 구제 방법\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-2. 기본권 제한과 침해 시 구제 방법\n01회\n02회\n03회\n04회\n05회\n06회\n12-3.근로자의 권리\n2학기 기말 🔥\n🔥2학기 기말\n기본\n12-3. 근로자의 권리\n01회\n02회\n03회\n04회\n05회\n06회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n난이도\n기본\n발전"
+    }
+  ]
+}

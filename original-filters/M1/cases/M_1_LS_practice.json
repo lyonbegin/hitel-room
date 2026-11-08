@@ -1,0 +1,258 @@
+{
+  "case": "M_1_LS_practice",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000300001&siteid=M&subject_cd=LS&grade=1",
+  "filters": [
+    {
+      "name": "중1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '중1');\">\n        <span class=\"check__text\">중1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '중2');\">\n        <span class=\"check__text\">중2</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '3', '중3');\">\n        <span class=\"check__text\">중3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n중1\n사회\n사회①\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.세계화 시대, 지리의 힘\n🔥1학기 중간\n1. 세계화 시대, 지리의 힘\n01회\n02회\n03회\n2.아시아\n🔥1학기 중간\n2. 아시아\n01회\n02회\n03회\n3.유럽\n🔥1학기 중간\n3. 유럽\n01회\n02회\n03회\n4.아프리카\n🔥1학기 기말\n4. 아프리카\n01회\n02회\n03회\n5.아메리카\n🔥1학기 기말\n5. 아메리카\n01회\n02회\n03회\n6.오세아니아와 극지방\n🔥1학기 기말\n6. 오세아니아와 극지방\n01회\n02회\n03회\n7.인간과 사회생활\n🔥2학기 중간\n7. 인간과 사회생활\n01회\n02회\n03회\n8.다양한 문화의 이해\n🔥2학기 중간\n8. 다양한 문화의 이해\n01회\n02회\n03회\n9.민주주의와 시민\n🔥2학기 중간\n9. 민주주의와 시민\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n🔥2학기 기말\n10. 정치과정과 시민 참여\n01회\n02회\n03회\n11.일상생활과 법\n2학기 기말 🔥\n🔥2학기 기말\n11. 일상생활과 법\n01회\n02회\n03회\n12.인권과 기본권\n2학기 기말 🔥\n🔥2학기 기말\n12. 인권과 기본권\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n중1\n중2\n중3"
+    },
+    {
+      "name": "사회",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '역사');\">\n        <span class=\"check__text\">역사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'ET', '도덕');\">\n        <span class=\"check__text\">도덕</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n중1\n사회\n사회①\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.세계화 시대, 지리의 힘\n🔥1학기 중간\n1. 세계화 시대, 지리의 힘\n01회\n02회\n03회\n2.아시아\n🔥1학기 중간\n2. 아시아\n01회\n02회\n03회\n3.유럽\n🔥1학기 중간\n3. 유럽\n01회\n02회\n03회\n4.아프리카\n🔥1학기 기말\n4. 아프리카\n01회\n02회\n03회\n5.아메리카\n🔥1학기 기말\n5. 아메리카\n01회\n02회\n03회\n6.오세아니아와 극지방\n🔥1학기 기말\n6. 오세아니아와 극지방\n01회\n02회\n03회\n7.인간과 사회생활\n🔥2학기 중간\n7. 인간과 사회생활\n01회\n02회\n03회\n8.다양한 문화의 이해\n🔥2학기 중간\n8. 다양한 문화의 이해\n01회\n02회\n03회\n9.민주주의와 시민\n🔥2학기 중간\n9. 민주주의와 시민\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n🔥2학기 기말\n10. 정치과정과 시민 참여\n01회\n02회\n03회\n11.일상생활과 법\n2학기 기말 🔥\n🔥2학기 기말\n11. 일상생활과 법\n01회\n02회\n03회\n12.인권과 기본권\n2학기 기말 🔥\n🔥2학기 기말\n12. 인권과 기본권\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n영어\n국어\n수학\n과학\n사회\n역사\n도덕\n기술가정"
+    },
+    {
+      "name": "사회①",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "사회①",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회①",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MALSCHA0001', '사회①');\">\n        <span class=\"check__text\">사회①</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "🔥1학기 중간\n3. 유럽\n01회\n02회\n03회\n4.아프리카\n4-1.아프리카의 국가와 자연환경\n4-2.아프리카의 문화와 지역 잠재력\n4-3.아프리카의 지속가능한 발전을 위한 노력\n🔥1학기 기말\n4. 아프리카\n01회\n02회\n03회\n5.아메리카\n5-1.아메리카의 국가와 자연환경\n5-2.아메리카의 다양한 민족 및 인종과 문화\n5-3.아메리카의 초국적 기업\n🔥1학기 기말\n5. 아메리카\n01회\n02회\n03회\n6.오세아니아와 극지방\n6-1.오세아니아의 국가와 자연환경\n6-2.태평양 지역의 환경 문제\n6-3.극지방의 중요성\n🔥1학기 기말\n6. 오세아니아와 극지방\n01회\n02회\n03회\n7.인간과 사회생활\n7-1.사회화와 자아 정체성\n7-2.사회적 지위와 역할\n7-3.우리 사회의 갈등과 차별\n🔥2학기 중간\n7. 인간과 사회생활\n01회\n02회\n03회\n8.다양한 문화의 이해\n8-1.문화의 의미와 특징\n8-2.미디어와 문화\n8-3.문화를 이해하는 태도\n🔥2학기 중간\n8. 다양한 문화의 이해\n01회\n02회\n03회\n9.민주주의와 시민\n9-1.정치와 민주주의\n9-2.민주주의의 이념과 기본 원리\n9-3.민주주의의 발전 방안\n🔥2학기 중간\n9. 민주주의와 시민\n01회\n02회\n03회\n10.정치과정과 시민 참여\n2학기 기말 🔥\n10-1.선거와 선거 과정\n10-2.정치 주체와 정치과정\n10-3.지방 자치와 시민 참여\n🔥2학기 기말\n10. 정치과정과 시민 참여\n01회\n02회\n03회\n11.일상생활과 법\n2학기 기말 🔥\n11-1.법의 의미와 목적\n11-2.법의 종류\n11-3.재판의 의미와 공정한 재판\n🔥2학기 기말\n11. 일상생활과 법\n01회\n02회\n03회\n12.인권과 기본권\n2학기 기말 🔥\n12-1.인권 보장과 기본권\n12-2.기본권 제한과 침해 시 구제 방법\n12-3.근로자의 권리\n🔥2학기 기말\n12. 인권과 기본권\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n사회①"
+    }
+  ]
+}

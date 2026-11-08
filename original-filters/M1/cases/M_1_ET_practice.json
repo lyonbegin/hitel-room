@@ -1,0 +1,276 @@
+{
+  "case": "M_1_ET_practice",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000300001&siteid=M&subject_cd=ET&grade=1",
+  "filters": [
+    {
+      "name": "중1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '중1');\">\n        <span class=\"check__text\">중1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '중2');\">\n        <span class=\"check__text\">중2</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '3', '중3');\">\n        <span class=\"check__text\">중3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "고객센터\n커뮤니티\n\n오직 여기서\n\n미리보는\n\n우리학교 기출 문제\n기출열람실\nAPP\n성적\n진단평가\n\n회원 전용 고퀄리티\n무료 서비스로 족보닷컴을\n체험해보세요!\n\n신규 회원 가입하고\n혜택받기\n서비스 안내\n예비중1\n예비중1 필독\n예비중1 맞춤 족보\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n중1\n도덕\n도덕①\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.자신과의 관계\n1-1.나는 어떤 사람이고 어떻게 살아야 할까\n1-2.어떤 사람이 도덕적인 사람일까\n1-3.행복이란 무엇일까\n🔥1학기 중간\n1. 자신과의 관계\n01회\n02회\n03회\n2.타인과의 관계\n2-1.가정의 모습은 어떠해야 할까\n2-2.우정이 소중한 이유는 무엇일까\n2-3.가상 공간에서 타인을 어떻게 대해야 할까\n🔥1학기 기말\n2. 타인과의 관계\n01회\n02회\n03회\n3.사회, 공동체와의 관계\n3-1.인권은 보편적 가치일까\n3-2.다양한 문화·종교는 어떻게 공존할 수 있을까\n3-3.통일은 어떤 의미와 가치가 있을까\n🔥2학기 중간\n3. 사회, 공동체와의 관계\n01회\n02회\n03회\n4.자연과의 관계\n2학기 기말 🔥\n4-1.도덕적 고려의 대상은 어디까지일까\n🔥2학기 기말\n4. 자연과의 관계\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n중1\n중2\n중3"
+    },
+    {
+      "name": "도덕",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '역사');\">\n        <span class=\"check__text\">역사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'ET', '도덕');\">\n        <span class=\"check__text\">도덕</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n\n미리보는\n\n우리학교 기출 문제\n기출열람실\nAPP\n성적\n진단평가\n\n회원 전용 고퀄리티\n무료 서비스로 족보닷컴을\n체험해보세요!\n\n신규 회원 가입하고\n혜택받기\n서비스 안내\n예비중1\n예비중1 필독\n예비중1 맞춤 족보\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n중1\n도덕\n도덕①\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.자신과의 관계\n1-1.나는 어떤 사람이고 어떻게 살아야 할까\n1-2.어떤 사람이 도덕적인 사람일까\n1-3.행복이란 무엇일까\n🔥1학기 중간\n1. 자신과의 관계\n01회\n02회\n03회\n2.타인과의 관계\n2-1.가정의 모습은 어떠해야 할까\n2-2.우정이 소중한 이유는 무엇일까\n2-3.가상 공간에서 타인을 어떻게 대해야 할까\n🔥1학기 기말\n2. 타인과의 관계\n01회\n02회\n03회\n3.사회, 공동체와의 관계\n3-1.인권은 보편적 가치일까\n3-2.다양한 문화·종교는 어떻게 공존할 수 있을까\n3-3.통일은 어떤 의미와 가치가 있을까\n🔥2학기 중간\n3. 사회, 공동체와의 관계\n01회\n02회\n03회\n4.자연과의 관계\n2학기 기말 🔥\n4-1.도덕적 고려의 대상은 어디까지일까\n🔥2학기 기말\n4. 자연과의 관계\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n영어\n국어\n수학\n과학\n사회\n역사\n도덕\n기술가정"
+    },
+    {
+      "name": "도덕①",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "도덕①",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕①",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕②",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕②",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAETCHA0001', '도덕①');\">\n        <span class=\"check__text\">도덕①</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAETCHA0003', '도덕②');\">\n        <span class=\"check__text\">도덕②</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "고객센터\n커뮤니티\n\n오직 여기서\n\n미리보는\n\n우리학교 기출 문제\n기출열람실\nAPP\n성적\n진단평가\n\n회원 전용 고퀄리티\n무료 서비스로 족보닷컴을\n체험해보세요!\n\n신규 회원 가입하고\n혜택받기\n서비스 안내\n예비중1\n예비중1 필독\n예비중1 맞춤 족보\n중등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n중2 22개정\n예비고1 신규 서비스 오픈\n예비고1 필독\n예비고1 족보\n미리보는 고등학교\n고등\n개념학습\n단원별 학습\nnew\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n고2 22개정\n고등 부교재수프링\n유형별 기출공략\n학평변형문제\n부교재변형\n스카이탭\n스카이탭 소개\n과외\n커리큘럼\n선생님\n이용방법\n이용후기\n소식\n공지사항\n업로드 일정\n이벤트\n이용권 학년 변경\n개념학습\n단원별 학습\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n중1\n도덕\n도덕①\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.자신과의 관계\n1-1.나는 어떤 사람이고 어떻게 살아야 할까\n1-2.어떤 사람이 도덕적인 사람일까\n1-3.행복이란 무엇일까\n🔥1학기 중간\n1. 자신과의 관계\n01회\n02회\n03회\n2.타인과의 관계\n2-1.가정의 모습은 어떠해야 할까\n2-2.우정이 소중한 이유는 무엇일까\n2-3.가상 공간에서 타인을 어떻게 대해야 할까\n🔥1학기 기말\n2. 타인과의 관계\n01회\n02회\n03회\n3.사회, 공동체와의 관계\n3-1.인권은 보편적 가치일까\n3-2.다양한 문화·종교는 어떻게 공존할 수 있을까\n3-3.통일은 어떤 의미와 가치가 있을까\n🔥2학기 중간\n3. 사회, 공동체와의 관계\n01회\n02회\n03회\n4.자연과의 관계\n2학기 기말 🔥\n4-1.도덕적 고려의 대상은 어디까지일까\n🔥2학기 기말\n4. 자연과의 관계\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n도덕①\n도덕②"
+    }
+  ]
+}

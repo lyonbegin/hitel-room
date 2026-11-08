@@ -1,0 +1,384 @@
+{
+  "case": "M_1_EG_practice",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000300001&siteid=M&subject_cd=EG&grade=1",
+  "filters": [
+    {
+      "name": "중1",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '중1');\">\n        <span class=\"check__text\">중1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '중2');\">\n        <span class=\"check__text\">중2</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '3', '중3');\">\n        <span class=\"check__text\">중3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "\n실전대비\n직전대비\n학교별 맞춤학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n교과서 문법 공략\n수행평가 공략\n중1\n영어\n천재(소영순)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.New Start, New Friends\n1-1.COMMUNICATION\n1-2.GRAMMAR\n1-3.READING\n🔥1학기 중간\n1. New Start, New Friends\n01회\n02회\n03회\n2.Happy School Days\n2-1.COMMUNICATION\n2-2.GRAMMAR\n2-3.READING\n🔥1학기 중간\n2. Happy School Days\n01회\n02회\n03회\n3.Together with Animals\n3-1.COMMUNICATION\n3-2.GRAMMAR\n3-3.READING\n🔥1학기 기말\n3. Together with Animals\n01회\n02회\n03회\n4.My Delicious Summer Trip\n4-1.COMMUNICATION\n4-2.GRAMMAR\n4-3.READING\n🔥1학기 기말\n4. My Delicious Summer Trip\n01회\n02회\n03회\n5.Share Your Joys and Worries\n5-1.COMMUNICATION\n5-2.GRAMMAR\n5-3.READING\n🔥2학기 중간\n5. Share Your Joys and Worries\n01회\n02회\n03회\n6.Heroes in Nature\n6-1.COMMUNICATION\n6-2.GRAMMAR\n6-3.READING\n🔥2학기 중간\n6. Heroes in Nature\n01회\n02회\n03회\n7.Love for Art\n2학기 기말 🔥\n7-1.COMMUNICATION\n7-2.GRAMMAR\n7-3.READING\n🔥2학기 기말\n7. Love for Art\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n중1\n중2\n중3"
+    },
+    {
+      "name": "영어",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "도덕",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "기술가정",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '역사');\">\n        <span class=\"check__text\">역사</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'ET', '도덕');\">\n        <span class=\"check__text\">도덕</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'TH', '기술가정');\">\n        <span class=\"check__text\">기술가정</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "학습\n강남 3구 유형공략\n서술형 공략\n최다빈출 공략\n최다오답 공략\n최상위 공략\n교과서 문법 공략\n수행평가 공략\n중1\n영어\n천재(소영순)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.New Start, New Friends\n1-1.COMMUNICATION\n1-2.GRAMMAR\n1-3.READING\n🔥1학기 중간\n1. New Start, New Friends\n01회\n02회\n03회\n2.Happy School Days\n2-1.COMMUNICATION\n2-2.GRAMMAR\n2-3.READING\n🔥1학기 중간\n2. Happy School Days\n01회\n02회\n03회\n3.Together with Animals\n3-1.COMMUNICATION\n3-2.GRAMMAR\n3-3.READING\n🔥1학기 기말\n3. Together with Animals\n01회\n02회\n03회\n4.My Delicious Summer Trip\n4-1.COMMUNICATION\n4-2.GRAMMAR\n4-3.READING\n🔥1학기 기말\n4. My Delicious Summer Trip\n01회\n02회\n03회\n5.Share Your Joys and Worries\n5-1.COMMUNICATION\n5-2.GRAMMAR\n5-3.READING\n🔥2학기 중간\n5. Share Your Joys and Worries\n01회\n02회\n03회\n6.Heroes in Nature\n6-1.COMMUNICATION\n6-2.GRAMMAR\n6-3.READING\n🔥2학기 중간\n6. Heroes in Nature\n01회\n02회\n03회\n7.Love for Art\n2학기 기말 🔥\n7-1.COMMUNICATION\n7-2.GRAMMAR\n7-3.READING\n🔥2학기 기말\n7. Love for Art\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n영어\n국어\n수학\n과학\n사회\n역사\n도덕\n기술가정"
+    },
+    {
+      "name": "천재(소영순)",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "천재(소영순)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(소영순)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(이상기)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "천재(이상기)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "능률(김기택)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "능률(김기택)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "YBM(박준언)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "YBM(박준언)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "미래엔(문영인)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "미래엔(문영인)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "동아(윤정미)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "동아(윤정미)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "동아(이병민)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "동아(이병민)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(황종배)",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "비상(황종배)",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1001', '천재(소영순)');\">\n        <span class=\"check__text\">천재(소영순)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1002', '천재(이상기)');\">\n        <span class=\"check__text\">천재(이상기)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1003', '능률(김기택)');\">\n        <span class=\"check__text\">능률(김기택)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1004', 'YBM(박준언)');\">\n        <span class=\"check__text\">YBM(박준언)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1005', '미래엔(문영인)');\">\n        <span class=\"check__text\">미래엔(문영인)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1006', '동아(윤정미)');\">\n        <span class=\"check__text\">동아(윤정미)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1007', '동아(이병민)');\">\n        <span class=\"check__text\">동아(이병민)</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'MAEGCHA1008', '비상(황종배)');\">\n        <span class=\"check__text\">비상(황종배)</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "공략\n교과서 문법 공략\n수행평가 공략\n중1\n영어\n천재(소영순)\nZ-PASS 최대 5만원 페이백(환급)\n11/15(일) 까지\n이용권 구매\n이용 안내\n1.New Start, New Friends\n1-1.COMMUNICATION\n1-2.GRAMMAR\n1-3.READING\n🔥1학기 중간\n1. New Start, New Friends\n01회\n02회\n03회\n2.Happy School Days\n2-1.COMMUNICATION\n2-2.GRAMMAR\n2-3.READING\n🔥1학기 중간\n2. Happy School Days\n01회\n02회\n03회\n3.Together with Animals\n3-1.COMMUNICATION\n3-2.GRAMMAR\n3-3.READING\n🔥1학기 기말\n3. Together with Animals\n01회\n02회\n03회\n4.My Delicious Summer Trip\n4-1.COMMUNICATION\n4-2.GRAMMAR\n4-3.READING\n🔥1학기 기말\n4. My Delicious Summer Trip\n01회\n02회\n03회\n5.Share Your Joys and Worries\n5-1.COMMUNICATION\n5-2.GRAMMAR\n5-3.READING\n🔥2학기 중간\n5. Share Your Joys and Worries\n01회\n02회\n03회\n6.Heroes in Nature\n6-1.COMMUNICATION\n6-2.GRAMMAR\n6-3.READING\n🔥2학기 중간\n6. Heroes in Nature\n01회\n02회\n03회\n7.Love for Art\n2학기 기말 🔥\n7-1.COMMUNICATION\n7-2.GRAMMAR\n7-3.READING\n🔥2학기 기말\n7. Love for Art\n01회\n02회\n03회\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n천재(소영순)\n천재(이상기)\n능률(김기택)\nYBM(박준언)\n미래엔(문영인)\n동아(윤정미)\n동아(이병민)\n비상(황종배)"
+    }
+  ]
+}
