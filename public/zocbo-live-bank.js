@@ -131,7 +131,6 @@ function panel(s){
  const z=state(s),q=filter(z),entry=cache.get(key(q));
  if(!entry||entry.error)return notice(entry);
  const data=entry.data;
- if(!z.liveQuery&&z.liveMode==='titles')z.liveMode='chapters';
  const showTitles=!!z.liveQuery.trim()||z.liveMode==='titles';
  return '<div class="zb-native-summary"><b>원본 시험지 '+data.exams.length+'건</b><small>대단원 '+treeOf(data).length+'개</small></div>'
  +'<div class="zb-native-tabs" role="tablist"><button type="button" data-action="zbNativeMode" data-value="chapters" aria-selected="'+!showTitles+'" class="'+(!showTitles?'is-on':'')+'">단원별</button><button type="button" data-action="zbNativeMode" data-value="titles" aria-selected="'+showTitles+'" class="'+(showTitles?'is-on':'')+'">전체 시험지</button></div>'
