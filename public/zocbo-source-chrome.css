@@ -1,0 +1,66 @@
+/* Source fidelity mode only (?original=1).
+ * The HTML below is the original site's captured DOM, styled by its scoped
+ * original CSS (zocbo-captured-original.css). Only shell/host layout is new.
+ */
+body.zb-original-site #phone .osbar,
+body.zb-original-site #phone .appbar,
+body.zb-original-site #phone .bottomnav,
+body.zb-original-site #phone .gesture{display:none!important}
+body.zb-original-site #phone .appscroll{padding:0!important;overflow-y:auto!important;overflow-x:hidden;background:#f8f8f8}
+body.zb-original-site #phone .zb-faithful{padding:0!important;background:#f8f8f8}
+body.zb-original-site #phone .zb-f-sitebar,
+body.zb-original-site #phone .zb-f-main-tabs,
+body.zb-original-site #phone .zb-f-subtabs,
+body.zb-original-site #phone .zb-f-filter{display:none!important}
+#phone .zb-original-head{height:58px;display:flex;align-items:center;justify-content:space-between;gap:9px;padding:0 13px;background:#fff;position:relative}
+#phone .zb-original-head button{border:0;background:none;cursor:pointer;padding:2px 3px;font-size:13px}
+#phone .zb-original-menu-button{font-size:23px!important;color:#242424;flex:none;width:24px;line-height:1}
+#phone .zb-original-student{flex:none;white-space:nowrap;color:#fff!important;font-size:10px!important;background:#1685d4!important;border-radius:14px!important;padding:6px 9px!important}
+#phone .zb-original-student span{margin-left:3px}
+#phone .zb-original-logo{display:flex;align-items:center;justify-content:center;flex:1;min-width:0}
+#phone .zb-original-logo img{max-width:94px;height:auto}
+#phone .zb-original-coupon{flex:none;display:flex;align-items:center;justify-content:center;width:53px}
+#phone .zb-original-coupon img{max-width:100%;height:auto}
+#phone .zb-original-login{flex:none;font-size:11px;text-decoration:none;color:#3467c7}
+#phone .zb-original-main-tabs{background:#fff;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;border-bottom:1px solid #ddd}
+#phone .zb-original-main-tabs .tabLineRound{display:flex!important;align-items:stretch;justify-content:flex-start!important;white-space:nowrap;min-width:max-content;margin:0!important;padding:0 10px!important;list-style:none!important;gap:0!important}
+#phone .zb-original-main-tabs .tabLineRound li{display:block!important;position:relative;flex:none!important;min-width:0!important;padding:0!important;margin:0!important;background:none}
+#phone .zb-original-main-tabs .tabLineRound li a{position:relative;display:flex!important;align-items:center;justify-content:center;padding:22px 8px 10px!important;min-height:53px;white-space:nowrap;text-decoration:none;color:#555!important;font-size:12px!important;border-bottom:2px solid transparent;line-height:1.2}
+#phone .zb-original-main-tabs .tabLineRound li.active a{border-color:#1e1e1e!important;color:#1b1b1b!important;font-weight:700}
+#phone .zb-original-main-tabs .tabLineRound li a[data-step]:before{content:attr(data-step);position:absolute;top:5px;left:50%;transform:translateX(-50%);padding:1px 5px;border-radius:7px;background:#ecf5ff;color:#3885cd;font-size:8px;font-weight:500;line-height:1.2}
+#phone .zb-original-main-tabs .tabLineRound li a .mo-label{display:none!important}
+#phone .zb-original-main-tabs .tabLineRound li a em{font-style:normal;font-size:12px}
+#phone .zb-original-sub-tabs{min-height:46px;background:#fff;border-bottom:1px solid #e8e8e8;display:flex;align-items:stretch;overflow-x:auto;scrollbar-width:none}
+#phone .zb-original-sub-tabs .lnb{display:flex!important;align-items:center;gap:15px;width:max-content;min-width:100%;padding:0 14px;margin:0;white-space:nowrap}
+#phone .zb-original-sub-tabs .lnb__button{font-size:13px!important;min-height:46px;white-space:nowrap;background:none!important;border:0!important;color:#a5a5a5!important;padding:11px 0!important}
+#phone .zb-original-sub-tabs .lnb__button.is-active{color:#161616!important;font-weight:700!important;border-bottom:2px solid #222!important}
+#phone .zb-original-filters{background:#fff;min-height:61px;border-bottom:1px solid #ececec}
+#phone .zb-original-filters .zbFilter,#phone .zb-original-filters .zbFilter__item{display:flex!important;align-items:center;overflow-x:auto;gap:8px;padding:10px 15px!important;min-height:59px;white-space:nowrap;scrollbar-width:none}
+#phone .zb-original-filters .zbFilter__item{padding:0!important;min-height:auto}
+#phone .zb-original-filters .zbFilter__button{flex:none;white-space:nowrap;border-radius:26px!important;font-size:12px!important;line-height:1.2;min-height:34px!important;padding:9px 13px!important}
+#phone .zb-original-filters #partFilter[style*="display:none"],#phone .zb-original-filters #workFilter[style*="display:none"]{display:none!important}
+#phone .zb-original-filters #filter:not(.zbFilter__item){display:flex;flex-wrap:wrap;gap:8px;padding:12px}
+#phone .zb-original-filters #filter:not(.zbFilter__item) .select-btn{min-height:44px;display:block;border:1px solid #e1e1e1;padding:11px 14px;background:#fff;color:#292929;font-size:13px;border-radius:5px;width:100%;text-align:left}
+#phone .zb-original-filters #filter:not(.zbFilter__item) .select-btn.fL,#phone .zb-original-filters #filter:not(.zbFilter__item) .select-btn.fR{width:calc(50% - 4px)}
+#phone .zb-original-banner .hijeckingBanner{display:flex!important;min-height:80px;width:100%;align-items:center;justify-content:space-between;margin:0!important;background-color:#111a53}
+#phone .zb-original-banner .hijeckingBanner .TRACK_TRG{width:100%}
+#phone .zb-original-banner .hijeckingBanner a{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:80px;padding:13px 12px;text-decoration:none;color:#fff}
+#phone .zb-original-banner .hijeckingBanner__text{font-size:12px!important;font-weight:700;line-height:1.45;color:#fff}
+#phone .zb-original-banner .hijeckingBanner__text .color-point{color:#ecfa39}
+#phone .zb-original-banner .targetBanner__button{background:#008fff;border:0!important;border-radius:5px;color:#fff;font-size:12px;font-weight:700;padding:13px 14px;white-space:nowrap;min-width:105px}
+#phone .zb-original-utility{background:#f8f8f8;display:flex;justify-content:flex-end;padding:9px 14px;min-height:50px}
+#phone .zb-original-utility .content__utility{display:flex!important;justify-content:flex-end;width:100%;min-height:30px}
+#phone .zb-original-utility .utility__button{border:0!important;border-radius:18px!important;background:#fff!important;color:#444!important;font-size:12px!important;padding:8px 14px!important}
+#phone .zb-original-footer{flex:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:64px;border-top:1px solid #e9e9e9;background:#fff;z-index:4}
+#phone .zb-original-footer>a,#phone .zb-original-footer>button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:5px 0!important;border:0;background:#fff;text-decoration:none;color:#9b9b9b;font-size:11px}
+#phone .zb-original-footer b{font-size:18px;line-height:1.2}
+#phone .zb-original-footer small{font-size:10px;line-height:1.2}
+#phone .zb-original-footer button:focus,#phone .zb-original-footer button:hover{color:#292929}
+#phone .zb-original-dialog{position:absolute;inset:0;z-index:100}
+#phone .zb-original-dialog-bg{position:absolute;inset:0;background:#0006}
+#phone .zb-original-dialog-panel{position:absolute;left:0;right:0;bottom:0;max-height:70%;overflow-y:auto;border-radius:16px 16px 0 0;background:#fff;padding:16px}
+#phone .zb-original-dialog-title{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:0 0 15px;font-size:14px}
+#phone .zb-original-dialog-title button{background:#fff;border:0;font-size:25px;color:#444}
+#phone .zb-original-dialog-body{display:flex;flex-direction:column;gap:9px;padding:16px 0}
+#phone .zb-original-dialog-body>button,#phone .zb-original-dialog-body>a{background:#fff;border:1px solid #ddd;border-radius:7px;color:#222;padding:12px;text-decoration:none;text-align:left;font-size:13px}
+#phone .zb-original-dialog-body p{font-size:13px;line-height:1.6;color:#555}
