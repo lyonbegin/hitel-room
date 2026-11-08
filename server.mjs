@@ -17,6 +17,8 @@ const zocboOriginalEventJs=readFileSync('./public/zocbo-original-event.js');
 const zocboOriginalEventCss=readFileSync('./public/zocbo-original-event.css');
 const zocboInlineRuntimeJs=readFileSync('./public/zocbo-inline-runtime.js');
 const zocboInlineRuntimeCss=readFileSync('./public/zocbo-inline-runtime.css');
+const zocboLiveBankJs=readFileSync('./public/zocbo-live-bank.js');
+const zocboLiveBankCss=readFileSync('./public/zocbo-live-bank.css');
 
 /**
  * Read-only anonymous source-backed metadata adapter.
@@ -123,6 +125,8 @@ createServer(async (req,res)=>{
  if(url.pathname==='/zocbo-catalog.js'){send(200,'application/javascript; charset=utf-8',zocboCatalogJs);return}
  if(url.pathname==='/zocbo-original-event.js'){send(200,'application/javascript; charset=utf-8',zocboOriginalEventJs);return}
  if(url.pathname==='/zocbo-original-event.css'){send(200,'text/css; charset=utf-8',zocboOriginalEventCss);return}
+ if(url.pathname==='/zocbo-live-bank.js'){send(200,'application/javascript; charset=utf-8',zocboLiveBankJs);return}
+ if(url.pathname==='/zocbo-live-bank.css'){send(200,'text/css; charset=utf-8',zocboLiveBankCss);return}
  if(url.pathname==='/zocbo-inline-runtime.js'){send(200,'application/javascript; charset=utf-8',zocboInlineRuntimeJs);return}
  if(url.pathname==='/zocbo-inline-runtime.css'){send(200,'text/css; charset=utf-8',zocboInlineRuntimeCss);return}
  if(url.pathname==='/zocbo-assets/app-icon.png'){const p='./public/zocbo-assets/app-icon.png';if(existsSync(p)){send(200,'image/png',readFileSync(p));return}}
