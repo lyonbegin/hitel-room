@@ -20,6 +20,20 @@ for(const pair of pairs){
    const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:28000}); rec.status=response?.status();
    await page.waitForTimeout(2500);
    if(original&&pair.key!=='search') await page.locator(selector).first().scrollIntoViewIfNeeded({timeout:9000}).catch(e=>rec.errors.push('scroll: '+e.message.slice(0,120)));
+   if(original && (pair.key==='event' || pair.key==='science')){
+     const btn=page.locator('main#event-content .ui-tab.is-secondary .ui-tab-nav button').first();
+     await btn.click({timeout:9000}).catch(e=>rec.errors.push('high1 tab: '+e.message.slice(0,140)));
+     await page.waitForTimeout(400);
+     if(pair.key==='science'){
+       const subject=page.locator('main#event-content button[data-act="sampleDown"][data-grade="1"][data-siteid="H"][data-subjcode="SC"]').first();
+       const row=subject.locator('xpath=ancestor::*[contains(@class,"data__item")][1]');
+       await row.scrollIntoViewIfNeeded({timeout:8500}).catch(e=>rec.errors.push('science row: '+e.message.slice(0,140)));
+     }
+   }
+   if(!original && pair.key==='search'){
+     await page.locator('#phone .zb-grades button[data-value="고1"]').first().click({timeout:8000}).catch(e=>rec.errors.push('hitel grade: '+e.message.slice(0,120)));
+     await page.locator('#phone .zb-subject-choices button[data-value="통합과학"]').first().click({timeout:8000}).catch(e=>rec.errors.push('hitel subject: '+e.message.slice(0,120)));
+   }
    rec.finalUrl=page.url();
    rec.layout=await page.evaluate((selector)=>{
      const root=document.querySelector(selector)||document.body;
