@@ -6,6 +6,7 @@ on:
       - ".github/workflows/build-call-flow-lab-v08.yml"
       - "flow-lab/v08-overlay/**"
       - "flow-lab/v08_patch.py"
+      - "flow-lab/v08_overlay_patch.py"
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,6 +30,7 @@ jobs:
         run: |
           tar -xJf flow-lab/v07_source.tar.xz
           python3 flow-lab/v08_patch.py
+          python3 flow-lab/v08_overlay_patch.py
           if test -d flow-lab/v08-overlay/AndroidProject; then cp -a flow-lab/v08-overlay/AndroidProject/. AndroidProject/; fi
       - name: Validate v0.8 update contract
         run: |
@@ -36,6 +38,7 @@ jobs:
           grep -F 'versionCode = 8' AndroidProject/app/build.gradle.kts
           grep -F 'provenBackground=background&&source.startsWith("event:")' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'snapshot.remoteBackgroundCount-backgroundProbeRemoteBaseline>=2' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'refreshOverlayTimeline()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
       - name: Export reviewable Android sources
         uses: actions/upload-artifact@v4
         with:
