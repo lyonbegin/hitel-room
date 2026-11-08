@@ -58,6 +58,15 @@ with sync_playwright() as p:
     if tab=="school":
      assert page.locator(".zb-all-school-controls >button").count()==7
      assert "서울" in inner and "강남구" in inner and "숙명여자중학교" in inner
+     page.locator('[data-action="zbAllSchoolFilter"][data-value="filter_gu"]').click()
+     page.wait_for_function("()=>document.querySelectorAll('.zb-all-school-choices button[data-action=zbAllSchoolChoose]').length>=26",timeout=25000)
+     assert page.locator('.zb-all-school-choices button').count()==26
+     page.locator('.zb-all-school-choices button[data-value="강남구"]').click()
+     page.locator('[data-action="zbAllSchoolFilter"][data-value="filter_sch"]').click()
+     page.wait_for_function("()=>document.querySelectorAll('.zb-all-school-choices button[data-action=zbAllSchoolChoose]').length>=25",timeout=25000)
+     assert page.locator('.zb-all-school-choices button').count()==25
+     page.locator('.zb-all-school-choices button[data-value="숙명여자중학교"]').click()
+     assert "숙명여자중학교" in page.locator(".zb-all-school-controls").inner_text()
     if tab=="gangnam":
      assert page.locator(".zb-native-title-item").count()==20
     results[f"{width}"]["qa"][slug]={"expected":count,"displayed":displayed,"buttons":page.locator('[data-action="zbAllRecord"]').count()}
