@@ -288,6 +288,8 @@ createServer(async (req,res)=>{
  if(url.pathname==='/ypt-mock'){send(200,'text/html; charset=utf-8',yptMockHtml);return}
  if(url.pathname==='/ypt-workplace-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/ypt-workplace-ui.js'));return}
  if(url.pathname==='/ypt-workplace-ui.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-workplace-ui.css'));return}
+ if(url.pathname==='/ypt-ai-captain.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/ypt-ai-captain.js'));return}
+ if(url.pathname==='/ypt-ai-captain.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-ai-captain.css'));return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
  if(url.pathname==='/ypt-rebuild.css'){send(200,'text/css; charset=utf-8',yptVisualCss);return}
  if(url.pathname==='/ypt-graph.js'){send(200,'application/javascript; charset=utf-8',yptVisualGraph);return}
