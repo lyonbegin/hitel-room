@@ -1,0 +1,37 @@
+name: Zocbo Full Functional Regression Audit
+on:
+  push:
+    branches: [feature/zocbo-full-link-qa-fixes-20261108]
+    paths: 
+      - .github/workflows/zocbo-full-regression-qa.yml
+      - tools/zocbo/qa-full-coverage.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install chromium
+      - name: Start the exact HITEL + Zocbo integration branch
+        run: |
+          PORT=3000 node server.mjs >qa-server.log 2>&1 &
+          sleep 3
+          curl -f http://127.0.0.1:3000/health
+      - name: End-to-end test real public catalogue, original links, frontend functionality, and all routes
+        run: node tools/zocbo/qa-full-coverage.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-full-regression-report-and-real-browser-screenshots
+          path: |
+            audit-v2/
+            qa-server.log
+          retention-days: 21
