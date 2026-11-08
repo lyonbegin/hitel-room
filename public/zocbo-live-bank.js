@@ -34,17 +34,17 @@ function treeOf(data){
  function ensureRoot(code,name){
   const k=code||name||'기타';
   if(!roots.has(k)){roots.set(k,{code:k,name:name||'기타',subs:new Map(),count:0});rootOrder.push(k)}
-  const r=roots.get(k);if(name&&!r.name)r.name=name;return r;
+  const r=roots.get(k);if(name&&(!r.name||(/^\s*\d+[.\-]/.test(name)&&!/^\s*\d+[.\-]/.test(r.name))))r.name=name;return r;
  }
  function ensureSub(r,code,name){
   const k=code||name||'기타';
   if(!r.subs.has(k))r.subs.set(k,{code:k,name:name||'기타',details:new Map(),count:0});
-  return r.subs.get(k);
+  const sub=r.subs.get(k);if(name&&(/^\s*\d+[.\-]/.test(name)&&!/^\s*\d+[.\-]/.test(sub.name)))sub.name=name;return sub;
  }
  function ensureDetail(sub,code,name){
   const k=code||name||'기타';
   if(!sub.details.has(k))sub.details.set(k,{code:k,name:name||'기타',exams:[]});
-  return sub.details.get(k);
+  const detail=sub.details.get(k);if(name&&(/^\s*\d+[.\-]/.test(name)&&!/^\s*\d+[.\-]/.test(detail.name)))detail.name=name;return detail;
  }
  for(const part of arrays(data.parts)){
   const r=ensureRoot(part.rootCode,part.root);
