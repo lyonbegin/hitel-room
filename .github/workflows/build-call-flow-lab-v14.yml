@@ -9,6 +9,8 @@ on:
       - "flow-lab/v14_pinned_voice_controls.py"
       - "flow-lab/v14_live_partial_streaming.py"
       - "flow-lab/v14_release_model_on_stop.py"
+      - "flow-lab/v14_deep_stt_diagnostics.py"
+      - "flow-lab/KoreanSttTrace.java"
       - "flow-lab/KoreanSherpaStt.java"
       - ".github/workflows/build-call-flow-lab-v14.yml"
   workflow_dispatch:
@@ -53,10 +55,11 @@ jobs:
           python3 flow-lab/v14_pinned_voice_controls.py
           python3 flow-lab/v14_live_partial_streaming.py
           python3 flow-lab/v14_release_model_on_stop.py
+          python3 flow-lab/v14_deep_stt_diagnostics.py
       - name: Confirm answered-call evidence and distinct application identity
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
-          grep -F 'versionCode = 19' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 20' AndroidProject/app/build.gradle.kts
           grep -F 'W11_CONNECTED_TIMER_ADVANCING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_TEXT_CALL_BUTTON_VISIBLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_ACCESSIBILITY_NOT_CONNECTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -83,10 +86,17 @@ jobs:
           grep -F 'ACTIVE.compareAndSet(false,true)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           grep -F 'recognizer.release()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           grep -F 'SHERPA_KO_MODEL_RELEASED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'SHERPA_DIAG_PCM_1S' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'requestWavSample()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'diagnosticAudioFile(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/LabStore.java
+          grep -F 'getClientAudioSource()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSttTrace.java
+          grep -F 'getAudioSource()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSttTrace.java
+          grep -F 'rmsDbFS=' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSttTrace.java
+          grep -F 'SHERPA_DIAG_FINALIZE_ERROR' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           if grep -F 'getSharedRecognizer' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java; then exit 1; fi
           grep -F 'SHERPA_KO_FIRST_PARTIAL_MS' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
-          grep -F 'versionCode = 19' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 20' AndroidProject/app/build.gradle.kts
           if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
           grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
