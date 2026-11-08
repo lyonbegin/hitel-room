@@ -21,7 +21,7 @@ def wp(page,action,value=None):
     click(page,q)
 def form(page,selector,values):
     for k,v in values.items():
-        page.locator(selector+' [name="'+k+'"]').fill(v) if k not in ("groupId","repeat") else page.locator(selector+' [name="'+k+'"]').select_option(v)
+        page.locator(selector+' [name="'+k+'"]').fill(v) if k not in ("groupId","repeat","institutionType") else page.locator(selector+' [name="'+k+'"]').select_option(v)
     page.locator(selector+' button[type=submit]').click()
 def snapshot(page,name):
     page.screenshot(path=str(OUT/name),full_page=False)
@@ -123,7 +123,7 @@ with sync_playwright() as p:
     # New group is created as one-member group, no fake minimum 2.
     nav(page,"그룹")
     click(page,'#phone [data-go="groupCreate"]')
-    form(page,"#wp-create-group",{"name":"E2E 새 그룹 "+str(width),"school":"테스트 학교","subject":"영어"})
+    form(page,"#wp-create-group",{"name":"E2E 새 그룹 "+str(width),"institutionType":"school","institutionName":"테스트 학교","grade":"2학년","subject":"영어","topics":"문법"})
     check(page.locator("#phone .wp-group-hero").inner_text().find("1/5명")>=0,"created group has exactly one person "+str(width))
     wp(page,"groupTab","members")
     click(page,'#phone [data-go="groupMembers"]')
@@ -134,6 +134,47 @@ with sync_playwright() as p:
     check(page.locator('#phone [data-wp="addMember"]').count()==0,"sixth person addition unavailable "+str(width))
     check(no_overflow(page),"five person group layout no horizontal overflow "+str(width))
     snapshot(page,str(width)+"-group-five.png")
+    # Reclassify an existing school group as an academy group. Group ID, members and records must remain intact.
+    record_before=page.evaluate("JSON.parse(localStorage.getItem('hitel.ypt.group-workplace.v1'))")
+    existing_id=record_before["activeGroupId"]
+    click(page,'#phone [data-go="groupSettings"]') if page.locator('#phone [data-go="groupSettings"]').count() else None
+    # groupMembers screen does not display settings; navigate to group detail and open settings.
+    if "screen=groupSettings" not in page.url:
+        click(page,'#phone [data-go="groupDetail"]')
+        click(page,'#phone [data-go="groupSettings"]')
+    check(page.locator("#wp-edit-group").count()==1,"edit selected study group settings "+str(width))
+    form(page,"#wp-edit-group",{"name":"수학·영어 통합반 "+str(width),"institutionType":"academy","institutionName":"한빛학원","grade":"고2","subject":"영어, 수학","topics":"미적분, 독해"})
+    after_edit=page.evaluate("JSON.parse(localStorage.getItem('hitel.ypt.group-workplace.v1'))")
+    edited=next(x for x in after_edit["groups"] if x["id"]==existing_id)
+    check(edited["institutionType"]=="academy" and edited["institutionName"]=="한빛학원","school group can be changed into academy "+str(width))
+    check(edited["grade"]=="고2" and edited["topics"]=="미적분, 독해","academy has editable grade and precise study scope "+str(width))
+    check(len(edited["members"])==5,"group participants unaffected by academy change "+str(width))
+    check("한빛학원" in page.locator("#phone .wp-group-hero").inner_text(),"academy name visible on group detail "+str(width))
+    snapshot(page,str(width)+"-academy-detail.png")
+    nav(page,"그룹")
+    page.locator('#phone [name="wpTypeFilter"]').select_option("academy")
+    page.locator('#phone [name="wpGradeFilter"]').select_option("고2")
+    page.locator('#phone [name="wpNameFilter"]').fill("한빛")
+    cards=page.locator('#phone #wp-filtered-groups .wp-group-card:not([hidden])')
+    check(cards.count()==1 and "한빛학원" in cards.first.inner_text(),"academy + grade + name filtered results "+str(width))
+    snapshot(page,str(width)+"-academy-filter.png")
+    page.locator('#phone [name="wpTypeFilter"]').select_option("school")
+    check(page.locator('#phone #wp-filtered-groups .wp-group-card:not([hidden])').count()==0,"school and academy categories are separate "+str(width))
+    page.locator('#phone [name="wpTypeFilter"]').select_option("all")
+    page.locator('#phone [name="wpGradeFilter"]').select_option("all")
+    page.locator('#phone [name="wpNameFilter"]').fill("")
+    click(page,'#phone [data-go="groupCreate"]')
+    check("학교" in page.locator('#phone [name="institutionType"]').inner_text(),"group create supports school "+str(width))
+    check("학원" in page.locator('#phone [name="institutionType"]').inner_text(),"group create supports academy "+str(width))
+    form(page,"#wp-create-group",{"name":"한빛학원 두 번째 스터디 "+str(width),"institutionType":"academy","institutionName":"한빛학원","grade":"고2","subject":"수학","topics":"수열"})
+    academy_again=page.evaluate("JSON.parse(localStorage.getItem('hitel.ypt.group-workplace.v1'))")
+    same=[x for x in academy_again["groups"] if x.get("institutionType")=="academy" and x.get("institutionName")=="한빛학원" and x.get("grade")=="고2"]
+    check(len(same)==2,"multiple independent groups in same academy and grade "+str(width))
+    check(same[0]["id"]!=same[1]["id"],"academy groups have distinct identity "+str(width))
+    page.reload(wait_until="domcontentloaded")
+    check("한빛학원" in page.locator("#phone .wp-group-hero").inner_text(),"academy grade persists after reload "+str(width))
+    check(no_overflow(page),"academy group mobile layout no horizontal overflow "+str(width))
+    snapshot(page,str(width)+"-academy-after-reload.png")
     ctx.close()
  browser.close()
 (OUT/"result.json").write_text(json.dumps(REPORT,ensure_ascii=False,indent=2),encoding="utf-8")
