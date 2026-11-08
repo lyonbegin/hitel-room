@@ -10,13 +10,14 @@ const priorPage=UI.page;
 const priorAction=UI.onAction;
 const cache=new Map();
 const inFlight=new Set();
+const gradeSubjects=new Map();
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const grades=['중1','중2','중3','고1','고2'];
 const subjects=[['MT','수학'],['KR','국어'],['EG','영어'],['SC','과학'],['LS','사회'],['HI','역사']];
 function filters(s){
  const z=s.zocbo||(s.zocbo={});
  if(!grades.includes(z.liveGrade))z.liveGrade=grades.includes(z.grade)?z.grade:'고1';
- if(!subjects.some(q=>q[0]===z.liveSubject))z.liveSubject='MT';
+ if(!/^[A-Z0-9]{2,5}$/.test(z.liveSubject||''))z.liveSubject='MT';
  return z;
 }
 function spec(z){
@@ -27,7 +28,7 @@ function info(q){const o=q.site==='H'?UI.PATHS.high:UI.PATHS.middle,u=new URL(o)
 function chooser(z){
  return '<div class="zb-live-chooser" role="group" aria-label="원본 문제은행 필터"><div class="zb-live-options">'
  +grades.map(g=>'<button type="button" data-action="zbLiveGrade" data-value="'+g+'" class="'+(z.liveGrade===g?'on':'')+'" aria-pressed="'+(z.liveGrade===g?'true':'false')+'">'+g+'</button>').join('')+'</div><div class="zb-live-options">'
- +subjects.map(([cd,n])=>'<button type="button" data-action="zbLiveSubject" data-value="'+cd+'" class="'+(z.liveSubject===cd?'on':'')+'" aria-pressed="'+(z.liveSubject===cd?'true':'false')+'">'+n+'</button>').join('')+'</div>'
+ +(gradeSubjects.get(z.liveGrade)||subjects.map(([code,name])=>({code,name}))).map(({code,name})=>'<button type="button" data-action="zbLiveSubject" data-value="'+esc(code)+'" class="'+(z.liveSubject===code?'on':'')+'" aria-pressed="'+(z.liveSubject===code?'true':'false')+'">'+esc(name)+'</button>').join('')+'</div>'
  +'<input type="search" class="zb-live-search" data-zb-live-query="1" placeholder="실제 시험지 제목 검색" value="'+esc(z.liveQuery||'')+'" aria-label="실시간 자료 목록 검색"></div>';
 }
 function rootGroups(parts){
@@ -45,7 +46,7 @@ function results(q,z){
  if(!entry)return '<div class="zb-live-state" role="status">원본 서버의 공개 문제 목록을 조회하고 있습니다.</div>';
  if(entry.error)return '<div class="zb-live-state" role="alert">현재 서버 자료를 조회할 수 없습니다. 오류: '+esc(entry.error)+'</div><a class="zb-link" href="'+esc(info(q))+'" target="_blank" rel="noopener noreferrer">원본 문제은행에서 확인하기</a>';
  const data=entry.data,term=(z.liveQuery||'').trim().toLowerCase();
- const exams=(data.exams||[]).filter(e=>!term||e.title.toLowerCase().includes(term)).slice(0,200);
+ const exams=(data.exams||[]).filter(e=>!term||e.title.toLowerCase().includes(term));
  const units=rootGroups(data.parts);
  return '<div class="zb-live-count"><b>시험지 '+exams.length+'건 표시</b><small>원본 조회 '+(data.exams||[]).length+'건 · 단원 '+units.length+'개</small></div>'
  +'<section class="zb-live-units"><h4>실제 단원 목록</h4>'
@@ -81,6 +82,7 @@ function schedule(q){
    const data=await v.json();
    if(!v.ok||!data.ok)throw Error(data.reason||data.error||'HTTP_'+v.status);
    cache.set(k,{data});
+   if(Array.isArray(data.subjects)&&data.subjects.length){gradeSubjects.set((q.site==='H'?'고':'중')+q.grade,data.subjects)}
   }catch(e){cache.set(k,{error:String(e.message||e).slice(0,120)})}
   finally{inFlight.delete(k);const panel=document.getElementById('zb-live-panel');if(panel&&panel.dataset.sourceKey===k)updatePanel()}
  },0);
@@ -93,7 +95,7 @@ UI.onAction=function(act,el,s,go,render,toast){
  if(act==='zbLiveGrade'||act==='zbLiveSubject'||act==='zbLiveRefresh'){
   const z=filters(s);
   if(act==='zbLiveGrade'&&grades.includes(el.dataset.value))z.liveGrade=el.dataset.value;
-  if(act==='zbLiveSubject'&&subjects.some(v=>v[0]===el.dataset.value))z.liveSubject=el.dataset.value;
+  if(act==='zbLiveSubject'&&/^[A-Z0-9]{2,5}$/.test(el.dataset.value||''))z.liveSubject=el.dataset.value;
   if(act==='zbLiveRefresh')cache.delete(key(spec(z)));
   window.ZOCBO_LIVE_STATE=s;
   updatePanel();
