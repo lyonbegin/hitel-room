@@ -1,0 +1,67 @@
+name: HITEL Call FlowLab v0.5 APK
+on:
+  push:
+    branches: ["test/call-flow-lab-v05-20261108"]
+    paths:
+      - "flow-lab/**"
+      - ".github/workflows/build-call-flow-lab-v05.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK dependencies
+        run: |
+          echo "SDK=$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Extract complete source and validate canonical v5 plans
+        run: |
+          tar -xJf flow-lab/v05_source.tar.xz
+          python3 - <<'PY'
+          import json
+          p='AndroidProject/app/src/main/assets/flow_catalog_v4.json'
+          d=json.load(open(p))
+          assert len(d['flow_tests'])==8, len(d['flow_tests'])
+          assert len(d['isolated_tests'])==6, len(d['isolated_tests'])
+          assert d['execution_buttons']==14
+          w03=next(x for x in d['flow_tests'] if x['id']=='W03')
+          assert '음성 입력 화면' in w03['title']
+          assert len(w03['steps'])==10
+          activity=pathlib.Path('AndroidProject/app/src/main/java/app/hitel/samsungprobe/VoiceInputActivity.java')
+          assert activity.exists(), 'W03 foreground voice Activity missing'
+          flowcode=pathlib.Path('AndroidProject/app/src/main/java/app/hitel/samsungprobe/FlowCatalog.java').read_text()
+          assert 'VOICE_INPUT|VOICE_DISPATCH' in flowcode, 'W03 branch actions missing'
+          import pathlib
+          src=pathlib.Path('AndroidProject/app/src/main/java/app/hitel/samsungprobe')
+          code=(src/'MainActivity.java').read_text()
+          assert 'FlowCatalog.flows()' in code and 'FlowCatalog.isolated()' in code
+          print('VALIDATED: 8 sequential flows + 6 isolated tests, no 41+34 buttons')
+          PY
+      - name: Compile installable signed-debug APK
+        run: gradle -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK archive and package
+        run: |
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name "*.apk" -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK"
+          ls -lh "$APK"
+          if [ -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Call-FlowLab-v0.5-APK
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
