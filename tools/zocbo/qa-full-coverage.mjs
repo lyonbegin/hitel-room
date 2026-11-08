@@ -72,7 +72,7 @@ try{
  await page.locator('#phone [data-action="zbRemember"]').click();
  check(await page.locator('#phone [data-action="zbRemember"]').textContent()==='책갈피 해제','Bookmark toggle works');
  check((await page.evaluate(()=>localStorage.getItem('hitel.zocbo.saved.v1'))||'').includes('H1-EG'),'Bookmark persisted locally');
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  check((await page.locator('#phone .zb-detail-head').textContent()).includes('공통영어'),'Shared detail permalink survives refresh');
  await goto('bankSaved');
  check((await page.locator('#phone').textContent()).includes('공통영어'),'Saved title list rehydrates across page load');
