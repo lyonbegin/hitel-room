@@ -10,7 +10,9 @@
     groupWhiteboard:'공동 화이트보드',
     groupMaterials:'그룹 자료함',
     groupSessionSummary:'학습 결과',
-    groupTaskDetail:'그룹 과제'
+    groupTaskDetail:'그룹 과제',
+    groupQuestions:'질문하기',
+    groupLearning:'학습',
   };
   const clone=x=>JSON.parse(JSON.stringify(x));
   const instituteTypeName=type=>type==='academy'?'학원':'학교';
@@ -42,7 +44,7 @@
       ],
       activeGroupId:'demo-five',activeSessionId:'session-example',activePaperId:'',
       sessions:[{id:'session-example',groupId:'demo-five',title:'수학 공동학습 (예시)',date:day,start:'19:00',end:'20:30',repeat:'매주',attendees:['나','학습자 2','학습자 3','학습자 4'],paperIds:[],example:true}],
-      tasks:[],materials:{},chats:{},studyLogs:[],boards:{}
+      tasks:[],materials:{},chats:{},studyLogs:[],boards:{},exams:[]
     };
   }
   function valid(raw){
@@ -53,6 +55,7 @@
     return fresh();
   }
   let model=getModel();
+  if(!Array.isArray(model.exams))model.exams=[];
   // Previous groups remain intact; missing institution metadata stays explicitly unset.
   model.groups.forEach(g=>{
     if(!['school','academy'].includes(g.institutionType))g.institutionType='school';
@@ -212,13 +215,54 @@
       muted('이 화면의 구성원 변경은 브라우저 내부 UI 확인용이며 실제 사용자 초대는 전송되지 않습니다.')+
       rowbuttons([navi('그룹으로','groupDetail'),navi('그룹 채팅','groupMessages')]);
   }
-  function messagesPage(){
+  function groupQuestionsPage(){
     const g=getGroup(),messages=model.chats[g.id]||[];
-    return groupChoice()+title('그룹 메시지',g.name)+
-      '<div class="wp-chat-log" role="log" aria-label="그룹 대화">'+(messages.length?messages.map(x=>
-      '<div class="wp-bubble"><small>'+esc(x.by)+' · '+esc(x.at)+'</small><p>'+esc(x.text)+'</p></div>').join(''):muted('그룹에 저장된 대화가 없습니다.'))+'</div>'+
-      '<div class="wp-compose"><input id="wp-chat-input" type="text" placeholder="그룹 메시지 입력" maxlength="500" />'+act('전송','sendChat','','wp-primary')+'</div>'+
-      localHint;
+    return groupChoice()+title('질문하기',g.name)+
+      block('<strong>스터디그룹의 질문</strong>'+
+        muted('음성·사진·문제·자료는 모두 질문의 방법입니다. 지금은 텍스트 질문을 기록할 수 있으며 AI의 자동 답변은 아직 연결되지 않았습니다.'))+
+      '<div class="wp-chat-log" role="log" aria-label="스터디그룹 질문 내역">'+
+      (messages.length?messages.map(x=>'<div class="wp-bubble"><small>'+esc(x.by)+' · '+esc(x.at)+'</small><p>'+esc(x.text)+'</p></div>').join(''):
+      muted('아직 이 스터디그룹에서 기록한 질문이 없습니다.'))+'</div>'+
+      '<div class="wp-compose"><input id="wp-chat-input" type="text" placeholder="AI 방장에게 궁금한 점 질문하기" maxlength="500" />'+
+      act('질문 기록','sendChat','','wp-primary')+'</div>'+
+      rowbuttons([navi('스터디그룹','groupDetail'),navi('학습','groupLearning')])+localHint;
+  }
+  function messagesPage(){return groupQuestionsPage();}
+  function groupLearningPage(){
+    const g=getGroup(),tab=state.wpLearningTab||'assignments';
+    const tabs=[['assignments','숙제·미션'],['materials','자료'],['exams','시험']];
+    let body='';
+    if(tab==='assignments'){
+      const list=tasksFor(g.id);
+      body=title('숙제·미션',list.length+'건')+
+        (list.length?list.map(t=>'<div class="wp-task-row">'+act(t.done?'✓':'○','toggleTask',t.id,'wp-check')+
+        '<div><strong class="'+(t.done?'wp-done':'')+'">'+esc(t.title)+'</strong><small>'+esc(t.assignee)+' · '+esc(t.date)+'</small></div></div>').join(''):
+        block(muted('등록된 그룹 숙제가 없습니다.')))+
+        rowbuttons([act('숙제 추가','newHomework','','wp-primary'),navi('그룹 미션 보기','groupMissions')]);
+    }else if(tab==='materials'){
+      const docs=materialsFor(g.id);
+      body=title('스터디그룹 자료',docs.length+'건')+
+        (docs.length?docs.map(d=>line(d.title,'자료번호 '+d.id,act('확인','viewMaterial',d.id))).join(''):
+        block(muted('아직 등록한 자료가 없습니다. 족보에서 필요한 문제를 찾아 스터디그룹에 공유할 수 있습니다.')))+
+        rowbuttons([navi('전체 자료함','groupMaterials'),navi('족보에서 찾기','bankSearch','wp-primary')]);
+    }else{
+      const exams=model.exams.filter(x=>x.groupId===g.id).sort((a,b)=>a.date.localeCompare(b.date));
+      body=title('스터디그룹 시험',exams.length+'건')+
+        (exams.length?exams.map(e=>line(e.title,e.date+' · '+(e.scope||'그룹 학습 범위'))).join(''):
+        block(muted('등록된 시험 일정이 없습니다.')))+
+        muted('시험 제목·범위·일정은 등록할 수 있습니다. AI 문제 출제·채점은 아직 연결되지 않았습니다.')+
+        (state.wpExamForm?
+          '<form id="wp-exam-form" class="wp-panel wp-form">'+
+          input('title','시험 이름','text','','예: 2학기 기말 대비 확인시험')+
+          input('scope','시험 범위','text',g.topics||g.subject||'','예: 미적분 1~3단원')+
+          input('date','시험 날짜','date',dateStr())+
+          '<button type="submit" class="wp-btn wp-primary">시험 일정 저장</button></form>':
+          rowbuttons([act('시험 일정 등록','newExam','','wp-primary')]));
+    }
+    return groupChoice()+title('학습',esc(g.name))+
+      '<nav class="wp-learning-tabs" aria-label="학습 세부 메뉴">'+
+      tabs.map(([k,label])=>act(label,'learningTab',k,tab===k?'wp-active':'')).join('')+
+      '</nav><section class="wp-learning-panel">'+body+'</section>'+localHint;
   }
   function materialsPage(){
     const g=getGroup(),docs=materialsFor(g.id);
@@ -382,7 +426,8 @@
     if(id==='groupDetail')return groupDetailPage();
     if(id==='groupSettings')return groupSettingsPage();
     if(id==='groupMembers'||id==='groupMemberSettings')return membersPage();
-    if(id==='groupMessages')return messagesPage();
+    if(id==='groupMessages'||id==='groupQuestions')return groupQuestionsPage();
+    if(id==='groupLearning')return groupLearningPage();
     if(id==='groupMaterials')return materialsPage();
     if(id==='groupSessionDetail')return sessionPage();
     if(id==='groupLiveRoom')return roomPage();
@@ -399,12 +444,33 @@
   homePage=function(){
     const old=priorHome();
     const pos=old.indexOf('<div class="eyeline"><h3>스터디 그룹</h3>');
-    return groupOverview()+title('내 학습 · 열품타')+(pos>=0?old.slice(0,pos):old);
+    return title('내 학습', '공부시간 · 개인 할 일 · 캘린더')+
+      rowbuttons([navi('캘린더','calendar'),navi('할 일','todo')])+
+      groupOverview()+title('학습 기록 · 열품타')+(pos>=0?old.slice(0,pos):old);
   };
   groupPage=function(id){const page=groupPageNew(id);return page!==null?page:priorGroup(id);};
   calendarPage=function(id){return id==='calendar'?calendarPageNew():id==='calendarAdd'?calendarAddPage():priorCal(id);};
   todoPage=function(id){return ['todo','todoDay','todoWeek','todoMonth'].includes(id)?todoPageNew():id==='todoAdd'?todoAddPage():priorTodo(id);};
-  bottomFor=function(id){return ['groupLiveRoom','groupWhiteboard'].includes(id)?'':priorBottom(id);};
+  bottomFor=function(id){
+    if(['welcome','signin','signup'].includes(id)||id.startsWith('external_')||
+       ['groupLiveRoom','groupWhiteboard'].includes(id))return '';
+    const active=id.startsWith('bank')?'bankSearch':
+      ['groupQuestions','groupMessages'].includes(id)?'groupQuestions':
+      ['groupLearning','groupMaterials','groupTaskDetail'].includes(id)?'groupLearning':
+      id.startsWith('group')||id==='groups'?'groups':'home';
+    const nav=[
+      ['groups','스터디그룹','navigation/bottom_group_fill.svg'],
+      ['groupQuestions','질문하기',null],
+      ['groupLearning','학습',null],
+      ['bankSearch','족보',null],
+      ['home','내 학습','navigation/bottom_home_fill.svg']
+    ];
+    return '<nav class="bottomnav zb-five wp-study-nav" aria-label="하단 내비게이션">'+
+      nav.map(([id,label,path])=>
+        '<button type="button" class="'+(active===id?'selected':'')+'" data-go="'+id+'" aria-label="'+label+'">'+
+        (path?image(path):'<span class="wp-nav-glyph" aria-hidden="true">'+(id==='groupQuestions'?'?':id==='groupLearning'?'▤':'▦')+'</span>')+
+        '<span>'+label+'</span></button>').join('')+'</nav>';
+  };
   function contextUrl(){
     const q=new URLSearchParams(location.search);
     q.set('screen',state.screen);
@@ -501,6 +567,9 @@
     const g=getGroup();
     if(action==='chooseGroup'){if(!getGroup(value))return;model.activeGroupId=value;state.wpGroupTab='schedule';save();go('groupDetail');return;}
     if(action==='groupTab'){state.wpGroupTab=value;render();return;}
+    if(action==='learningTab'){state.wpLearningTab=value;state.wpExamForm=false;render();return;}
+    if(action==='newExam'){state.wpExamForm=true;render();return;}
+    if(action==='newHomework'){state.wpTaskOrigin='groupLearning';state.wpTaskMode='group';go('todoAdd');return;}
     if(action==='addMember'){
       const input=document.querySelector('[name="memberName"]'),v=input?.value.trim();
       if(!v){toastWp('구성원 이름을 입력해 주세요.');return;}
@@ -577,6 +646,12 @@
     const form=ev.target;if(!form.id?.startsWith('wp-'))return;
     ev.preventDefault();
     const d=Object.fromEntries(new FormData(form).entries());
+    if(form.id==='wp-exam-form'){
+      if(!(d.title||'').trim()||!d.date){toastWp('시험 이름과 날짜를 확인해 주십시오.');return;}
+      model.exams.push({id:newId('exam'),groupId:model.activeGroupId,title:d.title.trim(),
+        date:d.date,scope:(d.scope||'').trim()});
+      state.wpExamForm=false;save();state.wpLearningTab='exams';render();return;
+    }
     if(form.id==='wp-create-group'||form.id==='wp-edit-group'){
       const name=(d.name||'').trim(),institute=(d.institutionName||'').trim(),grade=(d.grade||'').trim();
       const type=d.institutionType==='academy'?'academy':'school';
