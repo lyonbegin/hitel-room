@@ -7,6 +7,9 @@ on:
       - public/zocbo-source-chrome.js
       - public/zocbo-source-chrome.css
       - public/zocbo-guide-pages/**
+      - public/zocbo-source-assets/**
+      - server.mjs
+      - tools/zocbo/test_original_source_chrome.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,7 +28,7 @@ jobs:
           base=https://hitel-zocbo-native-hierarchy-production.up.railway.app
           ready=0
           for i in $(seq 1 45); do
-            if curl -fsS --max-time 8 "$base/api/zocbo/original-menu-guide?menu_cd=000010000200003" | jq -e '.isValid == true and (.html | length > 500)' >/dev/null; then ready=1; break; fi
+            if curl -fsS --max-time 8 "$base/api/zocbo/original-menu-guide?menu_cd=000010000200003" | jq -e '.isValid == true and (.html | length > 500)' >/dev/null && curl -fsS --max-time 8 "$base/zocbo-source-assets/banner-learning3Q-public.png" | sha256sum | grep -q '^9d3e0c32e91fdee62e1e37ca79242b6e3eada6fec7a395ff0f5496f602a1adb5'; then ready=1; break; fi
             sleep 8
           done
           [ "$ready" = 1 ]
