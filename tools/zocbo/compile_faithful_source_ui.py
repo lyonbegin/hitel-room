@@ -118,6 +118,20 @@ for site in ('M','H'):
    else:
     target=soup.select_one('#contents') or soup.select_one('#section')
     fragment=scrub(target)
+   # Keep real public mobile structure; scripts never executed in HITEL.
+   topEl=soup.select_one('.tabLineRound')
+   subEl=soup.select_one('#lnb_main_web')
+   filterEl=soup.select_one('.zbFilter') or soup.select_one('#filter')
+   bannerEl=soup.select_one('.hijeckingBanner')
+   utilityEl=soup.select_one('.content__utility')
+   logo=soup.select_one('.headTop img[src*="img_logoTop"]')
+   coupon=soup.select_one('.headTop img[src*="ico_coupon"]')
+   meta_chrome={
+     'topHTML':scrub(topEl),'subHTML':scrub(subEl),'filterHTML':scrub(filterEl),
+     'bannerHTML':scrub(bannerEl),'utilityHTML':scrub(utilityEl),
+     'logoSrc':('https://m.zocbo.com'+logo['src']) if logo and logo.get('src','').startswith('/') else (logo.get('src','') if logo else ''),
+     'couponSrc':('https://m.zocbo.com'+coupon['src']) if coupon and coupon.get('src','').startswith('/') else (coupon.get('src','') if coupon else ''),
+   }
    metadata={
      'case':case,'site':site,'grade':grade,'subject':subject,
      'originalSite':real_site.group(1) if real_site else site,
@@ -131,7 +145,8 @@ for site in ('M','H'):
      'recordCount':snap.get('rowsDOMCount',0),
      'sourceHTML':row.get('domFile',''),
      'originalPublicRequests':[{'path':x.get('path',''),'form':x.get('publicFilterForm','')} for x in source.get('requests',[]) if x.get('screen')==case and x.get('path','') in ('/exam/ajax/getMenuByExamSearchAjax.asp','/exam/ajax/getMenuByExamPartAjax.asp') and x.get('publicFilterForm')],
-     'html':fragment
+     'html':fragment,
+     **meta_chrome
    }
    write(OUT/(case+'.json'),metadata)
    INDEX['cases'][case]={
