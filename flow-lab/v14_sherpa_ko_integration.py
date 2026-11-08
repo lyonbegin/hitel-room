@@ -69,7 +69,7 @@ sub('''    /** User explicitly requests Samsung's real phone UI for speech input
                 ui.post(()->{
                     if(isFinishing()||text==null||text.isBlank())return;
                     String old=message.getText().toString().trim();
-                    String joined=old.isEmpty()?text:old+"\n"+text;
+                    String joined=old.isEmpty()?text:old+"\\n"+text;
                     message.setText(joined);
                     message.setSelection(joined.length());
                     lastSttResult=joined;
