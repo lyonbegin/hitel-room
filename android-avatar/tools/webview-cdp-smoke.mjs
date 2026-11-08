@@ -65,10 +65,26 @@ const probe=[
  'track:v.srcObject?.getVideoTracks()[0]?.readyState||null};',
  '})()'
 ].join('');
+const diagnostics=[
+ '(() => ({',
+ 'webgl:typeof gl==="undefined"?"not_defined":!!gl,',
+ 'moduleAsm:typeof Module!=="undefined"&&!!Module.asm,',
+ 'wasmMemory:typeof Module!=="undefined"?Module.HEAPU8?.length||0:0,',
+ 'loaderDisplay:document.getElementById("loadingSpinner")?.style.display,',
+ 'video:typeof videoProcessor==="undefined"?null:{src:videoProcessor.video?.currentSrc,readyState:videoProcessor.video?.readyState,networkState:videoProcessor.video?.networkState,errorCode:videoProcessor.video?.error?.code,width:videoProcessor.video?.videoWidth,height:videoProcessor.video?.videoHeight},',
+ 'config:typeof CONFIG==="undefined"?null:{video:CONFIG.videoSrc,data:CONFIG.dataSrc},',
+ 'jsonLoaded:typeof videoProcessor!=="undefined"&&!!videoProcessor.combinedData,',
+ 'dataLength:typeof dataSets==="undefined"?"no dataSets":dataSets?.length,',
+ '}) )()'
+].join('');
+async function pathStatuses(){
+  return await evaluate('(async()=>{const paths=["vendor/js/DHLiveMini.wasm","assets/01.mp4","assets/combined_data.json.gz"];return await Promise.all(paths.map(async p=>{try{const r=await fetch(p,{method:"HEAD"});return {p,status:r.status,type:r.headers.get("Content-Type"),len:r.headers.get("Content-Length")}}catch(e){return {p,error:String(e)}}}))})()');
+}
 const results=[];
 let p;
 for(let i=0;i<95;i++){
   p=await evaluate(probe);
+  if(i===12||i===36){const d=await evaluate(diagnostics);const paths=await pathStatuses(); console.log("DIAGNOSTICS",i,JSON.stringify({d,paths}));save("diagnostics-"+i+".json",{d,paths});}
   if(i%5===0 || i===0){ console.log('PROBE',i,JSON.stringify(p));results.push({atSec:i,...p});}
   if(p.wasm && p.frames>0 && p.track==='live' && p.receivedVideo && p.videoTime>0.3)break;
   await sleep(1000);

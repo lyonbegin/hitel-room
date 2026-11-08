@@ -16,6 +16,13 @@ function status(message) {
   el('status').textContent = message;
   console.log('[HITEL]', message);
 }
+window.addEventListener('unhandledrejection', e => {
+  const reason = e.reason instanceof Error ? e.reason.message : String(e.reason);
+  status('아바타 엔진 오류: ' + reason);
+});
+window.addEventListener('error', e => {
+  status('아바타 JavaScript 오류: ' + (e.message || 'Unknown'));
+});
 function rtcStatus(message) {
   el('rtc-status').textContent = message;
   console.log('[HITEL WebRTC]', message);
