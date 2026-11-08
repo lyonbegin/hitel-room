@@ -683,7 +683,10 @@
     if(form.id==='wp-task-form'){
       const t=(d.title||'').trim();if(!t){toastWp('할 일 제목을 입력해 주세요.');return;}
       model.tasks.unshift({id:newId('task'),title:t,groupId:d.groupId||null,assignee:(d.assignee||'나').trim(),date:d.date||dateStr(),sessionId:state.screen==='groupSessionDetail'?model.activeSessionId:null,done:false});
-      save();go('todo');return;
+      save();
+      if(state.wpTaskOrigin==='groupLearning'){state.wpTaskOrigin=null;state.wpLearningTab='assignments';go('groupLearning');}
+      else go('todo');
+      return;
     }
   });
   setInterval(()=>{
