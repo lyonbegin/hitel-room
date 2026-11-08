@@ -1,0 +1,50 @@
+name: Zocbo Live Metadata API and Mobile UI End To End QA
+on:
+  push:
+    branches: [feature/zocbo-dynamic-browser-audit-20261108]
+    paths:
+      - public/zocbo-live-bank.js
+      - public/zocbo-live-bank.css
+      - public/ypt-rebuild.html
+      - server.mjs
+      - tools/zocbo/live_api_smoke.py
+      - .github/workflows/zocbo-live-api-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-public-metadata-qa:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: JavaScript syntax validation
+        run: |
+          node --check server.mjs
+          node --check public/zocbo-live-bank.js
+          node --check public/zocbo-inline-runtime.js
+      - name: Install Playwright Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Launch real HITEL server with anonymous source adapter
+        run: |
+          node server.mjs >zocbo-live-server.log 2>&1 &
+          echo $! >zocbo-live-server.pid
+          for i in $(seq 1 25); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: Assert original backend results and actual mobile rendering
+        run: python tools/zocbo/live_api_smoke.py
+      - name: Preserve runtime server log
+        if: always()
+        run: cp zocbo-live-server.log zocbo-live-smoke-evidence/server.log || true
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-live-api-mobile-e2e-results
+          path: zocbo-live-smoke-evidence/
+          retention-days: 7
+          if-no-files-found: warn
