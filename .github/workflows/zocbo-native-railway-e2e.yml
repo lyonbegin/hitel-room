@@ -1,0 +1,35 @@
+name: Zocbo Native Hierarchy Railway Real URL Browser E2E
+on:
+  push:
+    branches: [feature/zocbo-native-hierarchy-rebuild-20261108]
+    paths:
+      - docs/ZOCBO_NATIVE_HIERARCHY_RELEASE_20261108.md
+      - .github/workflows/zocbo-native-railway-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-live-mobile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install browser for deployed source-vs-HITEL verification
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Assert live Railway API and 360/390px source hierarchy navigation
+        env:
+          ZOCBO_BASE_URL: https://hitel-zocbo-native-hierarchy-production.up.railway.app
+        run: python tools/zocbo/live_api_smoke.py
+      - name: Archive real deployment browser screenshots and assertions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-native-railway-real-browser-evidence
+          path: zocbo-live-smoke-evidence/
+          retention-days: 7
+          if-no-files-found: warn
