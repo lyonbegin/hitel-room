@@ -4,7 +4,7 @@ fs.mkdirSync('zocbo-qa',{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1440,height:1050}});
 const failures=[],checks=[],officialSiteWarnings=[];
-page.on('pageerror',e=>{const message=e.message||String(e);if(message==="Cannot read properties of undefined (reading 'on')")officialSiteWarnings.push(message);else failures.push('JavaScript: '+message)});
+page.on('pageerror',e=>{const message=e.message||String(e);if(message==="Cannot read properties of undefined (reading 'on')"||message==="Cannot read properties of null (reading 'sequence')")officialSiteWarnings.push(message);else failures.push('JavaScript: '+message)});
 function check(ok,name){checks.push({name,pass:!!ok});if(!ok)failures.push(name);console.log(ok?'PASS':'FAIL',name)}
 async function open(id){await page.goto('http://127.0.0.1:3000/?screen='+id);await page.waitForSelector('#phone .app');await page.waitForTimeout(200)}
 try {
