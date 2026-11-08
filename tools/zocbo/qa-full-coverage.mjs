@@ -5,8 +5,17 @@ fs.mkdirSync('audit-v2',{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const context=await browser.newContext({viewport:{width:1460,height:1020}});
 const page=await context.newPage();
-const results=[],failures=[],jsErrors=[];
-page.on('pageerror',e=>jsErrors.push(e.message));
+const results=[],failures=[],jsErrors=[],officialFrameErrors=[];
+page.on('pageerror',e=>{
+ const route=new URL(page.url()).searchParams.get('screen')||'';
+ const stack=String(e.stack||e.message);
+ const fromOriginal=/https:\/\/(?:m|sign)\.zocbo\.com/.test(stack)
+   || (['bankPaper','bankLogin','bankDownload','bankSchool','bankOriginal','bankDiagnostic','bankCategory'].includes(route)
+      && page.frames().some(f=>/^https:\/\/(?:m|sign)\.zocbo\.com/.test(f.url()))
+      && e.message.includes("Cannot read properties of undefined (reading 'on')"));
+ const event={route,message:e.message,stack:stack.slice(0,750)};
+ if(fromOriginal)officialFrameErrors.push(event);else jsErrors.push(event);
+});
 const check=(test,description)=>{const ok=!!test;results.push({description,passed:ok});console.log(ok?'PASS':'FAIL',description);if(!ok)failures.push(description)};
 const goto=async(id)=>{await page.goto(root+'/?screen='+encodeURIComponent(id),{waitUntil:'domcontentloaded'});await page.waitForSelector('#phone .app',{timeout:15000});await page.waitForTimeout(90)};
 const count=async(sel)=>page.locator(sel).count();
@@ -77,15 +86,19 @@ try{
  check(freeText.includes('앱')&&freeText.includes('웹'),'Free reading distinguishes installed-app from browser viewer');
  check(await count('#phone a[href="https://m.zocbo.com/Freetrial/FreeReading.asp"]')>0,'Original official app deep-link provided');
  check(await count('#phone a[href="https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y"]')>0,'Verified direct free reading web viewer provided');
- check((await page.locator('#phone .zb-live-iframe').getAttribute('src')||'').includes('search_webview=Y'),'Viewer iframe uses web path rather than app redirect');
+ check(await count('#phone .zb-live-iframe')===0,'Browser does not display proven blank native-only free viewer');
  await page.screenshot({path:'audit-v2/05-free-viewer.png'});
 
  await goto('bankLogin');
  check(await count('#phone a[href="https://m.zocbo.com/Member/login.asp"][target="_blank"]')>0,'Official login new-tab option retains HITEL');
  check(await count('#phone a[href="https://m.zocbo.com/Member/login.asp"][target="_self"]')>0,'Official login same-tab option exists');
  check((await page.locator('#phone .zb-live-iframe').getAttribute('src'))==='https://m.zocbo.com/Member/login.asp','Official native login webpage configured');
+ await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').first().waitFor({timeout:16000});
+ check(await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').count()>0,'Real original login password field actually rendered inside embedded page');
  await page.screenshot({path:'audit-v2/06-login.png'});
  await goto('bankDownload');check((await page.locator('#phone .zb-live-iframe').getAttribute('src'))==='https://m.zocbo.com/event/pre-test2026d/','Download uses actual public event page');
+ await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').first().waitFor({timeout:16000});
+ check(await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').count()===35,'Embedded official event page truly includes all 35 original sampleDown controls');
  await goto('bankCategory');check(await count('#phone .zb-feature-row')>=10,'All direct original service sections retained');
  
  const graph=await page.evaluate(()=>window.YPT_GRAPH);
@@ -105,8 +118,8 @@ try{
  check(catalog.length===35,'Original public catalog dataset still 35');
  check(catalog.every(x=>x.downloadAction==='sampleDown'&&x.source==='https://m.zocbo.com/event/pre-test2026d/'&&x.grade&&x.subject_cd),'Every public row preserves original action and identifier metadata');
 } catch(e){failures.push('Test execution exception: '+e.stack)}
-const report={tested:results.length,passes:results.filter(x=>x.passed).length,failures,jsErrors,results,accountLoginExecuted:false,authenticatedFileDownloaded:false};
+const report={tested:results.length,passes:results.filter(x=>x.passed).length,failures,jsErrors,officialFrameErrors,results,accountLoginExecuted:false,authenticatedFileDownloaded:false};
 fs.writeFileSync('audit-v2/results.json',JSON.stringify(report,null,2));
-console.log('RESULT',report.tested,'checks; failures',failures.length,'jsErrors',jsErrors.length,failures.slice(0,10));
+console.log('RESULT',report.tested,'checks; failures',failures.length,'appJsErrors',jsErrors.length,'originalSiteErrors',officialFrameErrors.length,failures.slice(0,10));
 await browser.close();
 if(failures.length||jsErrors.length)process.exit(1);
