@@ -27,7 +27,7 @@ with sync_playwright() as p:
   page.on('pageerror',lambda e:REPORT['page_errors'].append(str(e)))
   page.goto(BASE+'/?screen=groups',wait_until='domcontentloaded',timeout=65000)
   page.locator('#phone .wp-group-card').first.wait_for(timeout=45000)
-  check(page.locator('#phone .bottomnav button').all_inner_texts()==['스터디그룹','질문하기','학습','족보'],"agreed 4-tab navigation "+str(width))
+  check([x.get_attribute('aria-label') for x in page.locator('#phone .bottomnav button').all()]==['스터디그룹','질문하기','학습','족보'],"agreed 4-tab navigation "+str(width))
   check(page.evaluate("typeof window.HITEL_CAPTAIN_INSPECT==='function'"),"captain runtime loaded "+str(width))
   check(nooverflow(page),"group listing no mobile horizontal overflow "+str(width))
   wp(page,'chooseGroup','my-study')
