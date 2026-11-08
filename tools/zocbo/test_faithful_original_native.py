@@ -45,6 +45,8 @@ with sync_playwright() as p:
   root=page.locator('#phone #ROOT_PART_CD > .zbAccordion__item').first
   root.locator(':scope > .zbAccordion__header > button').click()
   assert 'zb-f-open' in (root.get_attribute('class') or '')
+  nested=root.locator('.zbAccordion__item').first
+  if nested.count(): nested.locator(':scope > .zbAccordion__header > button').click()
   page.screenshot(path=str(OUT/f'english-accordion-open-{width}.png'),full_page=False)
   paper=page.locator('#phone [data-zb-paper-id]').first
   real_id=paper.get_attribute('data-zb-paper-id')
