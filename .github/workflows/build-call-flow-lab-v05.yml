@@ -35,6 +35,7 @@ jobs:
           assert len(d['flow_tests'])==8, len(d['flow_tests'])
           assert len(d['isolated_tests'])==6, len(d['isolated_tests'])
           assert d['execution_buttons']==14
+          import pathlib
           w03=next(x for x in d['flow_tests'] if x['id']=='W03')
           assert '음성 입력 화면' in w03['title']
           assert len(w03['steps'])==10
