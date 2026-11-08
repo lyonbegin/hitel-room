@@ -1,0 +1,28 @@
+name: Zocbo Live Endpoints and Real Login/Download Audit
+on:
+  push:
+    branches: [feature/zocbo-full-link-qa-fixes-20261108]
+    paths:
+      - .github/workflows/zocbo-full-official-audit.yml
+      - tools/zocbo/audit_official_endpoints.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-official:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests beautifulsoup4
+      - name: Check actual official HTTPS login, public document rows, content and redirect flow
+        run: python tools/zocbo/audit_official_endpoints.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-official-connection-audit
+          path: zocbo-audit/endpoints.json
+          retention-days: 14
