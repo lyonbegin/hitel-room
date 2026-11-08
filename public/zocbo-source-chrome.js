@@ -94,7 +94,7 @@ function sourceFooter(app){
 function originalDialog(title,body){
  const current=document.querySelector('.zb-original-dialog');
  if(current)current.remove();
- const box=document.createElement('section');box.className='zb-original-dialog';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');
+ const box=document.createElement('section');box.className='zb-original-dialog';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',title);
  box.innerHTML='<div class="zb-original-dialog-bg" data-zb-close></div><div class="zb-original-dialog-panel"><div class="zb-original-dialog-title"><strong>'+escape(title)+'</strong><button type="button" data-zb-close>×</button></div><div class="zb-original-dialog-body">'+body+'</div></div>';
  document.querySelector('#phone .app')?.appendChild(box);
 }
