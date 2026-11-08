@@ -5,6 +5,8 @@ on:
     paths:
       - public/zocbo-faithful-ui.js
       - public/zocbo-faithful-ui.css
+      - public/zocbo-captured-original.css
+      - public/ypt-rebuild.html
       - public/zocbo-faithful-pages/**
       - server.mjs
       - tools/zocbo/test_faithful_original_native.py
