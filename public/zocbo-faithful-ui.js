@@ -73,6 +73,12 @@ function menuLabel(z,meta){
  const name=MAIN.find(x=>x[0]===z.fMain)?.[1]||'단원별 학습';
  return name;
 }
+function siteBar(z){
+ const opts=[['M','중등'],['H','고등']];
+ return '<div class="zb-f-sitebar" role="group" aria-label="중등 고등 선택">'
+  +opts.map(([code,name])=>'<button type="button" data-action="zbFSite" data-value="'+code+'" aria-pressed="'+(z.fSite===code)+'" class="'+(z.fSite===code?'is-active':'')+'">'+name+'</button>').join('')
+  +'</div>';
+}
 function topTabs(z,meta){
  const tabs=arr(meta?.top);
  const entries=MAIN.map(([id,label],i)=>{
@@ -111,11 +117,40 @@ function filterBar(z,meta){
   '<button type="button" class="zb-f-filter-item" data-action="zbFFilter" data-value="'+attr(filterKey(f))+'" data-index="'+i+'" aria-label="'+esc(f.name)+' 선택"><span>'+esc(selectedFilterLabel(z,f))+'</span><b aria-hidden="true"></b></button>'
  ).join('')+'</div>';
 }
+function dynamicMarkup(data){
+ const exams=arr(data.exams),parts=arr(data.parts);
+ if(!exams.length)return '<div class="zb-f-empty">원본 공개 검색 결과 0건입니다.</div>';
+ const roots=new Map();
+ const partMap=new Map(parts.map(p=>[[p.rootCode,p.subCode,p.detailCode].join('/'),p]));
+ for(const e of exams){
+  const pn=partMap.get([e.rootPart,e.subPart,e.detailPart].join('/'))||{};
+  const rk=e.rootPart||e.rootName||'기타';
+  if(!roots.has(rk))roots.set(rk,{name:e.rootName||pn.root||'단원',subs:new Map()});
+  const root=roots.get(rk),sk=e.subPart||e.subName||'기타';
+  if(!root.subs.has(sk))root.subs.set(sk,{name:e.subName||pn.sub||'세부 단원',exams:[]});
+  root.subs.get(sk).exams.push(e);
+ }
+ return '<div class="zbContainer is-secondary" id="examMain"><div class="zbAccordion has-toggle" id="ROOT_PART_CD">'
+  +[...roots.values()].map(root=>'<div class="zbAccordion__item EXAM_PART_ITEM"><div class="zbAccordion__header">'
+  +'<button type="button" class="zbAccordion__button is-unit has-nextUnit">'+esc(root.name)+'</button></div>'
+  +'<div class="zbAccordion__body"><div class="zbAccordion__content"><div class="zbAccordion">'
+  +[...root.subs.values()].map(sub=>'<div class="zbAccordion__item EXAM_PART_ITEM"><div class="zbAccordion__header">'
+  +'<button type="button" class="zbAccordion__button is-unit">'+esc(sub.name)+'</button></div><div class="zbAccordion__body">'
+  +sub.exams.map(e=>'<div class="download"><div class="grouping__box"><strong class="grouping__title">'+esc(e.detailName||e.title||'시험지')+'</strong></div>'
+  +'<div class="episode__buttons"><button type="button" class="download__button" data-zb-paper-id="'+attr(e.id)+'" data-zb-paper-kind="exam">'
+  +'<span class="button__text">'+esc(e.episode||e.title||'시험지')+'</span></button></div></div>').join('')
+  +'</div></div>').join('')
+  +'</div></div></div></div>').join('')
+  +'</div></div>';
+}
+
 function pageHtml(z,meta,entry){
  if(!entry)return '<div class="zb-f-loading" role="status">원본 모바일 화면의 단원·시험지 자료를 가져오고 있습니다.</div>';
  if(entry.error)return '<div class="zb-f-error" role="alert">'+esc(entry.error)+'</div>';
  const doc=entry.data;
  if(z.fDynamicChanged)return '<div class="zb-f-loading" role="status">선택하신 조건의 원본 자료를 조회하고 있습니다.</div>';
+ if(z.fDynamicError)return '<div class="zb-f-error" role="alert">선택 조건의 원본 자료를 확인할 수 없습니다. '+esc(z.fDynamicError)+'</div>';
+ if(z.fDynamicData)return dynamicMarkup(z.fDynamicData);
  return doc.html||'<div class="zb-f-empty">원본 공개 결과가 없습니다.</div>';
 }
 function infoSheet(z,meta){
@@ -159,7 +194,7 @@ function sourcePage(s){
  const content=pageHtml(z,meta,entry);
  const originalIsDifferent=meta.originalSubject&&meta.originalSubject!==z.fSubject;
  return '<div class="zb-faithful" data-source-case="'+attr(z.fCase)+'">'
-  +topTabs(z,meta)+subTabs(z,meta)+filterBar(z,meta)
+  +siteBar(z)+topTabs(z,meta)+subTabs(z,meta)+filterBar(z,meta)
   +'<div class="zb-f-content">'+content+'</div>'
   +(originalIsDifferent?'<p class="zb-f-source-notice">원본 사이트가 선택 요청을 '+esc(meta.originalSubject)+' 과목으로 이동시킨 화면입니다.</p>':'')
   +(z.fDrawer?optionSheet(z,meta):'')
@@ -172,7 +207,7 @@ function redraw(){
  if(host)host.outerHTML=sourcePage(sCurrent);
 }
 function clearSelection(z){
- z.fCase='';z.fDrawer='';z.fSelected=null;z.fDisplay={};z.fDynamicChanged=false;
+ z.fCase='';z.fDrawer='';z.fSelected=null;z.fDisplay={};z.fDynamicChanged=false;z.fDynamicData=null;z.fDynamicError='';
 }
 function setMain(z,cat){
  if(!MAIN.some(x=>x[0]===cat))return;
@@ -218,8 +253,7 @@ function pickFromOptions(z,meta,key,value,toast,render){
 function requestChangedFilter(z,meta,key,opt,render,toast){
  const original=meta.originalUrl||'';
  const params=new URLSearchParams({
-  site:z.fSite,grade:z.fGrade,subject:z.fSubject,menu:(original.match(/[?&]menu_cd=(\d+)/)||[])[1]||'',
-  changedFilter:key,choice:opt.value||opt.name||''
+  case:z.fCase,changedFilter:key,choice:opt.value||''
  });
  fetch('/api/zocbo/public-filtered?'+params,{credentials:'omit'})
  .then(async r=>{const data=await r.json();if(!r.ok||!data.ok)throw Error(data.reason||data.error||'원본 검색 불가');return data})
@@ -250,7 +284,10 @@ UI.page=function(id,s){
 UI.onAction=function(act,el,s,go,render,toast){
  if(!act||!act.startsWith('zbF'))return priorAction(act,el,s,go,render,toast);
  const z=state(s),value=el.dataset.value||'',meta=getMeta(z);
- if(act==='zbFMain'){
+ if(act==='zbFSite'){
+  if(value!=='M'&&value!=='H')return;
+  z.fSite=value;z.fGrade=value==='M'?'2':'1';z.fSubject='MT';clearSelection(z);
+ }else if(act==='zbFMain'){
   setMain(z,value);
  }else if(act==='zbFSub'){
   const ids=casesFor(z);
