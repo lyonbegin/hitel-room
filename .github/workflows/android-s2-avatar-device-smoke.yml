@@ -1,0 +1,53 @@
+name: HITEL S2 Android Real Emulator and WebRTC Loopback Test
+on:
+  push:
+    branches: [feature/s2-android-avatar-webrtc-20261108]
+    paths:
+      - 'android-avatar/**'
+      - '.github/workflows/android-s2-avatar-device-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-real-emulator:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Confirm KVM and build tools
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          gradle --version
+          test -d "$ANDROID_HOME/platforms/android-36"
+      - name: Build Android app
+        working-directory: android-avatar
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Android 15 emulator install, run, inspect real WebRTC video
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash android-avatar/tools/emulator-smoke.sh
+      - name: Preserve Android screenshots and WebView test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-s2-android-device-smoke-proof
+          path: android-avatar/test-results/
+          if-no-files-found: warn
