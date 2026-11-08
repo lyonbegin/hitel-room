@@ -58,6 +58,7 @@ public final class KoreanSherpaStt {
     private volatile boolean running;
     private volatile boolean stopRequested;
     private volatile AudioRecord recorder;
+    private volatile KoreanSttTrace diagnostics;
     private Thread worker;
     public KoreanSherpaStt(Context c,Listener l){context=c.getApplicationContext();listener=l;}
     public synchronized boolean isRunning(){return running;}
@@ -74,6 +75,15 @@ public final class KoreanSherpaStt {
         }catch(RuntimeException error){
             running=false;worker=null;ACTIVE.set(false);throw error;
         }
+    }
+    public void requestWavSample(){
+        KoreanSttTrace d=diagnostics;
+        if(!running||d==null){
+            state("WAV_NOT_READY","먼저 한국어 마이크를 시작해 주십시오. 12초 원음 진단은 사용자가 선택할 때만 저장합니다.");
+            return;
+        }
+        d.armWav();
+        state("WAV_ARMED","현재 마이크 입력 12초를 WAV로 저장합니다. W03 종료 시 결과 ZIP에 포함됩니다.");
     }
     public void stop(){
         stopRequested=true;
@@ -135,13 +145,20 @@ public final class KoreanSherpaStt {
             if(audio.getRecordingState()!=AudioRecord.RECORDSTATE_RECORDING)
                 throw new IllegalStateException("Microphone did not enter recording state");
             state("LISTENING","HITEL 한국어 STT 마이크 시작. 말씀해 주십시오. 실시간 PCM과 인식 결과를 기록합니다.");
+            diagnostics=new KoreanSttTrace(context,audio);
             final short[] pcm=new short[1600];
             long totalSamples=0L, nonZero=0L,lastDiag=System.currentTimeMillis();
             long decodeMs=0L, firstAudioAt=android.os.SystemClock.elapsedRealtime(), lastPartialAt=0L;
             String lastPartial="",lastFinal="";
             while(!stopRequested){
+                long readStarted=android.os.SystemClock.elapsedRealtime();
                 int n=audio.read(pcm,0,pcm.length,AudioRecord.READ_BLOCKING);
-                if(n<0)throw new IllegalStateException("AudioRecord.read="+n);
+                long readElapsed=android.os.SystemClock.elapsedRealtime()-readStarted;
+                if(n<0){
+                    if(diagnostics!=null)diagnostics.readFailure(n);
+                    if(stopRequested)break;
+                    throw new IllegalStateException("AudioRecord.read="+n);
+                }
                 if(n==0)continue;
                 float[] samples=new float[n];
                 for(int i=0;i<n;i++){
@@ -151,9 +168,16 @@ public final class KoreanSherpaStt {
                 totalSamples+=n;
                 stream.acceptWaveform(samples,RATE);
                 long decodeStarted=android.os.SystemClock.elapsedRealtime();
-                while(recognizer.isReady(stream))recognizer.decode(stream);
-                decodeMs+=android.os.SystemClock.elapsedRealtime()-decodeStarted;
+                int decodeSteps=0;
+                while(recognizer.isReady(stream)){
+                    recognizer.decode(stream);
+                    decodeSteps++;
+                }
+                long elapsedDecode=android.os.SystemClock.elapsedRealtime()-decodeStarted;
+                decodeMs+=elapsedDecode;
                 String partial=recognizer.getResult(stream).getText();
+                boolean endpoint=recognizer.isEndpoint(stream);
+                if(diagnostics!=null)diagnostics.chunk(pcm,n,readElapsed,elapsedDecode,decodeSteps,partial,endpoint);
                 long now=android.os.SystemClock.elapsedRealtime();
                 // Do not wait for an endpoint: publish first partial immediately.
                 // Throttle ONLY the UI updates, not neural inference.
@@ -166,10 +190,12 @@ public final class KoreanSherpaStt {
                     lastPartial=partial;
                     listener.onPartial(partial);
                 }
-                if(recognizer.isEndpoint(stream)){
+                if(endpoint){
                     String finalText=recognizer.getResult(stream).getText();
+                    if(diagnostics!=null)diagnostics.endpoint(finalText);
                     if(finalText!=null&&!finalText.isBlank()){
                         lastFinal=finalText;
+                        if(diagnostics!=null)diagnostics.finalText(finalText);
                         listener.onFinal(finalText);
                     }
                     recognizer.reset(stream);
@@ -203,8 +229,10 @@ public final class KoreanSherpaStt {
             stream.inputFinished();
             while(recognizer.isReady(stream))recognizer.decode(stream);
             String tail=recognizer.getResult(stream).getText();
-            if(tail!=null&&!tail.isBlank()&&!tail.equals(lastFinal))
+            if(tail!=null&&!tail.isBlank()&&!tail.equals(lastFinal)){
+                if(diagnostics!=null)diagnostics.finalText(tail);
                 listener.onFinal(tail);
+            }
             state("STOP","한국어 STT 마이크가 중지되었습니다. 결과를 확인하고 삼성 TTS 전송을 선택하십시오.");
         }catch(Throwable error){
             if(stopRequested){
@@ -215,6 +243,11 @@ public final class KoreanSherpaStt {
             }
         }finally{
             recorder=null;
+            KoreanSttTrace trace=diagnostics;
+            diagnostics=null;
+            if(trace!=null)try{trace.finish();}catch(Throwable error){
+                LabStore.log("SHERPA_DIAG_FINALIZE_ERROR",error.toString());
+            }
             if(audio!=null){
                 try{if(audio.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING)audio.stop();}catch(Exception ignored){}
                 try{audio.release();}catch(Exception ignored){}
