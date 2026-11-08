@@ -27,3 +27,14 @@
 .zb-iframe-fallback{flex:none;font-size:10px;line-height:1.45;color:#858c96;padding:6px 11px;background:#f7f8f9;border-top:1px solid #edf0f2}
 .zb-detail-head~.zb-embedded-page{min-height:620px;margin:12px -20px -25px;width:calc(100% + 40px)}
 @media(max-width:500px){.zb-iframe-fallback{font-size:9px}}
+/* Audit corrections: actual grade/subject filtering and legitimate document handoff */
+.zb-subject-choices{display:flex;overflow-x:auto;gap:5px;scrollbar-width:thin;padding:10px 0 3px;white-space:nowrap}
+.zb-subject-choices button{flex:none;font-size:11px;background:#fff;border:1px solid #e6e8eb;border-radius:15px;padding:7px 11px;color:#666e77;cursor:pointer}
+.zb-subject-choices button.on{background:#fff0e5;border-color:#f2c7a6;color:#d6702e;font-weight:800}
+.zb-detail-notice{margin:2px 0 7px;padding:6px 0;color:#525963;line-height:1.6}
+.zb-bookmark-button{border:1px solid #dddfe3;background:#fff;border-radius:11px;padding:12px;font-size:12px;color:#555d65;cursor:pointer}
+.zb-webview-toolbar{flex-wrap:wrap;column-gap:7px;row-gap:5px;padding:6px 8px}
+.zb-webview-toolbar .zb-open-full{font-size:10px}
+.zb-site-origin{flex:1 0 90px}
+.zb-external-bar .zb-link,.zb-external-bar .zb-primary-link{width:100%}
+@media(max-width:390px){.zb-webview-toolbar .zb-open-full{font-size:9px}.zb-site-origin{flex-basis:80px}}
