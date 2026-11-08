@@ -1,0 +1,222 @@
+{
+  "case": "M_3_SC_revision",
+  "url": "https://m.zocbo.com/exam/examListWeb.asp?menu_cd=000010000400001&siteid=M&subject_cd=SC&grade=3",
+  "filters": [
+    {
+      "name": "중3",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_GRADE",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_GRADE', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "중1",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중1",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중2",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "중3",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">학년</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '1', '중1');\">\n        <span class=\"check__text\">중1</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '2', '중2');\">\n        <span class=\"check__text\">중2</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_GRADE', '3', '중3');\">\n        <span class=\"check__text\">중3</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "�1학기 기말\nSTEP 2\n4-1. 감각 기관\n시험에 꼭나오는 문제\n4-2.신경계와 호르몬\n🔥1학기 기말\nSTEP 1\n4-2. 신경계와 호르몬\n직전요약노트\n풀이 TIP\n🔥1학기 기말\nSTEP 2\n4-2. 신경계와 호르몬\n시험에 꼭나오는 문제\n5.생식과 유전\n5-1.생식과 발생\n🔥2학기 중간\nSTEP 1\n5-1. 생식과 발생\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n5-1. 생식과 발생\n시험에 꼭나오는 문제\n5-2.유전\n🔥2학기 중간\nSTEP 1\n5-2. 유전\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n5-2. 유전\n시험에 꼭나오는 문제\n6.에너지 전환과 보존\n6-1.역학적 에너지 전환과 보존\n🔥2학기 중간\nSTEP 1\n6-1. 역학적 에너지 전환과 보존\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n6-1. 역학적 에너지 전환과 보존\n시험에 꼭나오는 문제\n6-2.전기 에너지의 발생과 전환\n🔥2학기 중간\nSTEP 1\n6-2. 전기 에너지의 발생과 전환\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n6-2. 전기 에너지의 발생과 전환\n시험에 꼭나오는 문제\n7.별과 우주\n2학기 기말 🔥\n7-1.별\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n7-1. 별\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n7-1. 별\n시험에 꼭나오는 문제\n7-2.은하와 우주\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n7-2. 은하와 우주\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n7-2. 은하와 우주\n시험에 꼭나오는 문제\n8.과학기술과 인류 문명\n2학기 기말 🔥\n8-1.과학기술과 인류 문명\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n8-1. 과학기술과 인류 문명\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n8-1. 과학기술과 인류 문명\n시험에 꼭나오는 문제\n홈\n중등\n고등\n고등 부교재\n기출열람실\n학년\n중1\n중2\n중3"
+    },
+    {
+      "name": "과학",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_SUBJECT_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_SUBJECT_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "국어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "국어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "영어",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "수학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "과학",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "사회",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "역사",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">과목</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'KR', '국어');\">\n        <span class=\"check__text\">국어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'EG', '영어');\">\n        <span class=\"check__text\">영어</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'MT', '수학');\">\n        <span class=\"check__text\">수학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'SC', '과학');\">\n        <span class=\"check__text\">과학</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'LS', '사회');\">\n        <span class=\"check__text\">사회</span>\n    </label>\n</li>\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_SUBJECT_CD', 'HI', '역사');\">\n        <span class=\"check__text\">역사</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "TEP 2\n4-1. 감각 기관\n시험에 꼭나오는 문제\n4-2.신경계와 호르몬\n🔥1학기 기말\nSTEP 1\n4-2. 신경계와 호르몬\n직전요약노트\n풀이 TIP\n🔥1학기 기말\nSTEP 2\n4-2. 신경계와 호르몬\n시험에 꼭나오는 문제\n5.생식과 유전\n5-1.생식과 발생\n🔥2학기 중간\nSTEP 1\n5-1. 생식과 발생\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n5-1. 생식과 발생\n시험에 꼭나오는 문제\n5-2.유전\n🔥2학기 중간\nSTEP 1\n5-2. 유전\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n5-2. 유전\n시험에 꼭나오는 문제\n6.에너지 전환과 보존\n6-1.역학적 에너지 전환과 보존\n🔥2학기 중간\nSTEP 1\n6-1. 역학적 에너지 전환과 보존\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n6-1. 역학적 에너지 전환과 보존\n시험에 꼭나오는 문제\n6-2.전기 에너지의 발생과 전환\n🔥2학기 중간\nSTEP 1\n6-2. 전기 에너지의 발생과 전환\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n6-2. 전기 에너지의 발생과 전환\n시험에 꼭나오는 문제\n7.별과 우주\n2학기 기말 🔥\n7-1.별\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n7-1. 별\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n7-1. 별\n시험에 꼭나오는 문제\n7-2.은하와 우주\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n7-2. 은하와 우주\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n7-2. 은하와 우주\n시험에 꼭나오는 문제\n8.과학기술과 인류 문명\n2학기 기말 🔥\n8-1.과학기술과 인류 문명\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n8-1. 과학기술과 인류 문명\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n8-1. 과학기술과 인류 문명\n시험에 꼭나오는 문제\n홈\n중등\n고등\n고등 부교재\n기출열람실\n과목\n국어\n영어\n수학\n과학\n사회\n역사"
+    },
+    {
+      "name": "공통",
+      "sourceClass": "zbFilter__button has-arrow SEARCH_TX_CD",
+      "onclick": "filterCLS.getBottomSheetLayer('SEARCH_TX_CD', this);",
+      "dataAct": "",
+      "options": [
+        {
+          "text": "공통",
+          "tag": "LI",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        },
+        {
+          "text": "공통",
+          "tag": "LABEL",
+          "role": "",
+          "value": "",
+          "dataAction": "",
+          "onclick": "",
+          "disabled": false
+        }
+      ],
+      "open": true,
+      "title": "",
+      "html": "<div class=\"bottomSheet is-active\" id=\"bottomSheetLayer\">\n    <div class=\"bottomSheet__backdrop is-fadeIn\" onclick=\"bottomSheetClose(this);\"></div>\n    <div class=\"bottomSheet__content is-slideUp\">\n        <div class=\"content__header is-internalization\" id=\"bottomSheetLayerHeader\">\n<strong class=\"header__title\">교과서</strong>\n\n<button type=\"button\" class=\"header__close\" onclick=\"bottomSheetClose(this);\"><span class=\"hide\">닫기</span></button>\n</div>\n        <div class=\"content__body\" id=\"bottomSheetLayerBody\">\n<ul class=\"check__list\" id=\"bottomSheetLayerBodyItem\">\n\n<li class=\"check__item\">\n    <label class=\"check__label\">\n        <input class=\"check__input\" name=\"type-2\" type=\"radio\" checked=\"\" onclick=\"filterCLS.selectedBottomSheetRadioItem(this, 'SEARCH_TX_CD', 'M7SCCHA3001', '공통');\">\n        <span class=\"check__text\">공통</span>\n    </label>\n</li>\n\n</ul>\n</div>\n        <div class=\"content__footer\" id=\"bottomSheetLayerFooter\"></div>\n    </div>\n</div>",
+      "visibleBodyTail": "TIP\n🔥1학기 기말\nSTEP 2\n4-1. 감각 기관\n시험에 꼭나오는 문제\n4-2.신경계와 호르몬\n🔥1학기 기말\nSTEP 1\n4-2. 신경계와 호르몬\n직전요약노트\n풀이 TIP\n🔥1학기 기말\nSTEP 2\n4-2. 신경계와 호르몬\n시험에 꼭나오는 문제\n5.생식과 유전\n5-1.생식과 발생\n🔥2학기 중간\nSTEP 1\n5-1. 생식과 발생\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n5-1. 생식과 발생\n시험에 꼭나오는 문제\n5-2.유전\n🔥2학기 중간\nSTEP 1\n5-2. 유전\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n5-2. 유전\n시험에 꼭나오는 문제\n6.에너지 전환과 보존\n6-1.역학적 에너지 전환과 보존\n🔥2학기 중간\nSTEP 1\n6-1. 역학적 에너지 전환과 보존\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n6-1. 역학적 에너지 전환과 보존\n시험에 꼭나오는 문제\n6-2.전기 에너지의 발생과 전환\n🔥2학기 중간\nSTEP 1\n6-2. 전기 에너지의 발생과 전환\n직전요약노트\n풀이 TIP\n🔥2학기 중간\nSTEP 2\n6-2. 전기 에너지의 발생과 전환\n시험에 꼭나오는 문제\n7.별과 우주\n2학기 기말 🔥\n7-1.별\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n7-1. 별\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n7-1. 별\n시험에 꼭나오는 문제\n7-2.은하와 우주\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n7-2. 은하와 우주\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n7-2. 은하와 우주\n시험에 꼭나오는 문제\n8.과학기술과 인류 문명\n2학기 기말 🔥\n8-1.과학기술과 인류 문명\n2학기 기말 🔥\n🔥2학기 기말\nSTEP 1\n8-1. 과학기술과 인류 문명\n직전요약노트\n풀이 TIP\n🔥2학기 기말\nSTEP 2\n8-1. 과학기술과 인류 문명\n시험에 꼭나오는 문제\n홈\n중등\n고등\n고등 부교재\n기출열람실\n교과서\n공통"
+    }
+  ]
+}
