@@ -1,0 +1,43 @@
+/* Neutral native-feel AI study captain UI. Uses existing YPT visual tokens and typography. */
+#phone .cap-hero{margin:10px 0 12px}
+#phone .cap-captain{border-color:#dfe4e8;margin-top:10px}
+#phone .cap-caption{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+#phone .cap-caption>div{display:grid;gap:3px;min-width:0}
+#phone .cap-caption strong{font-size:13px;font-weight:750}
+#phone .cap-caption small{font-size:10px;color:#777f87;line-height:1.5;white-space:normal}
+#phone .cap-avatar{flex:none;width:36px;height:36px;border:1px solid #e5e7eb;border-radius:12px;background:#f5f6f7;color:#323b45;display:grid;place-items:center;font-weight:800;font-size:12px}
+#phone .cap-status{font-size:10px;color:#69717a;background:#f7f8fa;border-radius:6px;padding:8px;margin:9px 0;line-height:1.6}
+#phone .cap-question{display:block;color:#262c32;font-size:13px;line-height:1.75;white-space:normal;margin:10px 0 13px}
+#phone .cap-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 14px}
+#phone .cap-metric{min-width:0;background:white;border:1px solid #e6e9ec;border-radius:10px;padding:13px 4px;display:grid;place-items:center;gap:7px;color:#252b30;cursor:pointer;font-family:inherit}
+#phone .cap-metric strong{font-size:17px;font-weight:750}
+#phone .cap-metric span{font-size:10px;white-space:nowrap}
+#phone .cap-activity .wp-line strong{font-weight:600;font-size:11px}
+#phone .cap-activity .wp-line small{font-size:10px}
+#phone .cap-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0 13px}
+#phone .cap-shortcuts .wp-btn{padding:12px 5px;min-width:0;font-size:11px;text-align:center}
+#phone .cap-cost{display:grid;gap:5px;font-size:12px}
+#phone .cap-cost>span{font-size:12px}
+#phone .cap-cost .wp-muted{margin:3px 0 0;font-size:10px}
+#phone .cap-intro{margin-top:10px}
+#phone .cap-intro .wp-muted{font-size:11px;line-height:1.7}
+#phone .cap-intro .wp-actions{margin-top:10px}
+#phone .cap-chat{min-height:150px;max-height:48vh;overflow-y:auto;margin:10px 0}
+#phone .cap-ai-bubble{border-left:3px solid #bec6cd;background:#f8f9fa}
+#phone #cap-question-form{display:grid;gap:10px}
+#phone #cap-question-form textarea,#phone #cap-note-form textarea,#phone #cap-submit-form textarea,#phone #cap-oral-form textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce1e6;border-radius:8px;background:white;line-height:1.65;font:inherit;font-size:12px;resize:vertical}
+#phone .cap-compose-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#phone .cap-compose-controls .wp-btn{font-size:10px;cursor:pointer}
+#phone .cap-attachment-name{font-size:10px;color:#727983;max-width:100%;overflow-wrap:anywhere}
+#phone .cap-learning-heading{font-size:11px;color:#6e7680}
+#phone .cap-chat .wp-bubble{line-height:1.7}
+#phone .cap-chat .wp-bubble p{white-space:pre-wrap;overflow-wrap:anywhere}
+#phone .cap-captain .wp-actions,#phone .cap-intro .wp-actions{display:flex;gap:6px;flex-wrap:wrap}
+#phone .cap-captain .wp-actions .wp-btn,#phone .cap-intro .wp-actions .wp-btn{flex:1;min-width:0;white-space:normal}
+#phone .wp-form input[type=number],#phone .wp-form textarea{min-width:0}
+@media(max-width:390px){
+ #phone .cap-metric span{font-size:9px}
+ #phone .cap-metric strong{font-size:15px}
+ #phone .cap-shortcuts .wp-btn{font-size:10px}
+ #phone .cap-caption small{font-size:9px}
+}
