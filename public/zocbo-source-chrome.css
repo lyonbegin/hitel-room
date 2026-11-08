@@ -97,3 +97,19 @@ body.zb-original-sector #phone .zb-faithful .zb-f-sitebar,body.zb-original-secto
 body.zb-original-sector #phone:has(.zb-faithful) .osbar,body.zb-original-sector #phone:has(.zb-faithful) .appbar{display:none!important}
 body.zb-original-sector #phone .zb-faithful{background:#f8f8f8;padding:0!important}
 body.zb-original-sector #phone:has(.zb-faithful) .appscroll{padding:0!important}
+
+/* Original standalone menuDescriptionWeb.asp content: keep source structure */
+#phone .zb-original-guide-document{max-height:56dvh;overflow:auto;color:#222;font-family:inherit;line-height:1.55}
+#phone .zb-original-guide-document img{max-width:100%;height:auto}
+#phone .zb-original-guide-document h1,
+#phone .zb-original-guide-document h2,
+#phone .zb-original-guide-document h3{font-weight:750;line-height:1.4;white-space:normal}
+#phone .zb-original-guide-document h1{font-size:18px}
+#phone .zb-original-guide-document h2{font-size:16px}
+#phone .zb-original-guide-document h3{font-size:14px}
+#phone .zb-original-guide-document a{color:#2462bb;text-decoration:underline}
+#phone .zb-original-dialog .zb-original-guide-document .tabLineRound,
+#phone .zb-original-dialog .zb-original-guide-document .tabLine-round_M{display:none}
+#phone .zb-original-dialog-panel:has(.zb-original-guide-document){max-height:89dvh}
+#phone .zb-original-dialog-body:has(.zb-original-guide-document){padding:8px 0}
+#phone .zb-original-dialog-body .zb-original-guide-document{width:100%;min-width:0}
