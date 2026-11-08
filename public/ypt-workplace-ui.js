@@ -205,6 +205,7 @@
       '<section class="wp-tab-content">'+body+'</section>'+
       title('기존 열품타 그룹 기능')+
       '<div class="wp-quick-links">'+navi('그룹 미션','groupMissions')+navi('그룹 랭킹','groupRanking')+
+      navi('캘린더','calendar')+navi('개인 할 일','todo')+navi('공부시간·기록','home')+
       navi('공지사항','groupNotice')+navi('그룹 설정','groupSettings')+'</div>';
   }
   function membersPage(){
@@ -444,7 +445,7 @@
   homePage=function(){
     const old=priorHome();
     const pos=old.indexOf('<div class="eyeline"><h3>스터디 그룹</h3>');
-    return title('내 학습', '공부시간 · 개인 할 일 · 캘린더')+
+    return title('공부시간·개인 일정', '기존 관리 화면')+
       rowbuttons([navi('캘린더','calendar'),navi('할 일','todo')])+
       groupOverview()+title('학습 기록 · 열품타')+(pos>=0?old.slice(0,pos):old);
   };
@@ -462,8 +463,7 @@
       ['groups','스터디그룹','navigation/bottom_group_fill.svg'],
       ['groupQuestions','질문하기',null],
       ['groupLearning','학습',null],
-      ['bankSearch','족보',null],
-      ['home','내 학습','navigation/bottom_home_fill.svg']
+      ['bankSearch','족보',null]
     ];
     return '<nav class="bottomnav zb-five wp-study-nav" aria-label="하단 내비게이션">'+
       nav.map(([id,label,path])=>
