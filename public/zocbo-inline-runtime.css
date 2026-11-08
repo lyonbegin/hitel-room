@@ -1,0 +1,31 @@
+/* Layout integration that scopes the original event CSS to a single HITEL sector */
+.zocbo-inline-title {padding:17px 14px 10px;background:#fff;border-bottom:1px solid #edf0f3}
+.zocbo-inline-title > span{font-size:11px;color:#3266ce;font-weight:700}
+.zocbo-inline-title h3{font-size:18px;line-height:1.45;margin:4px 0 5px;color:#17191d;font-weight:750}
+.zocbo-inline-title p{font-size:12px;color:#737980;margin:0 0 3px}
+.zocbo-inline-grade-switch{padding:12px 12px 8px;display:grid;grid-template-columns:1fr 1fr;gap:7px;background:#fff}
+.zocbo-inline-grade-switch button{min-height:39px;border:1px solid #dfe3e9;background:#fff;border-radius:9px;color:#3f4349;font-weight:650;font-size:13px;cursor:pointer}
+.zocbo-inline-grade-switch button[aria-pressed="true"]{background:#17191d;color:#fff;border-color:#17191d}
+.zb-inline-root{margin:0 12px 8px;background:#fff}
+.zb-inline-root .ui-tab[data-group-active="0"]{display:none!important}
+.zb-inline-root .ui-tab[data-group-active="1"]{display:block!important}
+.zb-inline-root .promotion .promotion__section.is-data .section__title{display:flex;align-items:center;justify-content:space-between}
+.zb-inline-root .promotion .promotion__section .title__content{font-size:11px}
+.zocbo-inline-footer{display:flex;flex-direction:column;gap:7px;padding:14px 12px 21px;background:#fff}
+.zocbo-inline-footer a,.zocbo-inline-footer button{display:block;min-height:44px;border:1px solid #d9e0e9;border-radius:9px;padding:12px;color:#3b424d;background:#fff;text-align:center;text-decoration:none;font-size:12px;font-weight:650;cursor:pointer}
+.zocbo-inline-footer a:first-child{color:#fff;background:#306ad5;border-color:#306ad5}
+.zocbo-handoff{border:1px solid #c4d8ff;background:#f4f8ff;padding:14px;margin:12px;border-radius:10px;display:grid;gap:10px;max-width:100%;line-height:1.6}
+.zocbo-handoff strong{font-size:15px;color:#17397a}
+.zocbo-handoff p{font-size:12px;color:#404b5d;margin:0}
+.zocbo-handoff-open{display:block;min-height:45px;padding:12px 8px;text-align:center;border-radius:9px;background:#326be1;color:#fff!important;text-decoration:none;font-size:12px;font-weight:700}
+.zocbo-handoff button{background:#fff;border:1px solid #d9e3f8;padding:10px;border-radius:8px;font-size:12px;cursor:pointer}
+.zocbo-native-handoff{margin:16px 12px;padding:18px 14px;display:flex;flex-direction:column;gap:14px;border:1px solid #e0e2e6;border-radius:12px;background:#fff;line-height:1.6}
+.zocbo-native-handoff h3{font-size:18px;color:#222629;margin:0}
+.zocbo-native-handoff p{font-size:13px;color:#525862;margin:0}
+.zocbo-native-handoff .zocbo-origin{font-size:11px;color:#7d8594;background:#f6f7fa;padding:9px 10px;border-radius:8px}
+.zocbo-native-handoff>a:not(.zocbo-handoff-open){font-size:12px;padding:9px;text-align:center;color:#3167bf;border:1px solid #cddded;border-radius:9px;text-decoration:none}
+.zb-inline-root,.zb-inline-root .promotion,.zb-inline-root .keyvisual__inner,.zb-inline-root .ui-tab{max-width:100%;overflow-wrap:anywhere}
+.zb-inline-root .promotion .ui-tab .ui-tab-nav{max-width:100%}
+.zb-inline-root .promotion .promotion__section.is-data{width:100%;min-width:0}
+.zb-inline-root .promotion .promotion__section.is-data .has-data1st{max-width:100%}
+@media(max-width:390px){.zb-inline-root{margin-inline:10px}.zocbo-inline-title{padding-inline:12px}.zocbo-inline-footer{padding-inline:10px}}
