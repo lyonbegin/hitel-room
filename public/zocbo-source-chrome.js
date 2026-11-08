@@ -3,8 +3,10 @@
    Active only under ?original=1, preserving HITEL's ordinary navigation. */
 (function(){
 'use strict';
-if(new URLSearchParams(location.search).get('original')!=='1')return;
-document.body.classList.add('zb-original-site');
+const params=new URLSearchParams(location.search);
+if(params.get('chrome')==='0')return;
+const fullOriginal=params.get('original')==='1';
+document.body.classList.add(fullOriginal?'zb-original-site':'zb-original-sector');
 const cache=new Map();
 const mainCodes={'1':'concept','4':'unit','5':'practice','6':'revision','2':'school','8':'gangnam'};
 let pending=false;
@@ -113,7 +115,7 @@ function decorate(host,doc){
  const below=document.createElement('div');below.className='zb-original-after-filters';attachPromo(below,doc);
  const content=host.querySelector(':scope > .zb-f-content');
  if(content)content.before(below);else host.appendChild(below);
- sourceFooter(host.closest('.app'));
+ if(fullOriginal)sourceFooter(host.closest('.app'));
 }
 function check(){
  pending=false;
