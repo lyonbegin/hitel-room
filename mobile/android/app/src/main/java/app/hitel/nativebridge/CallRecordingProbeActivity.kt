@@ -159,11 +159,11 @@ class CallRecordingProbeActivity : Activity() {
         recordingUiConfirmed = recordingUiConfirmed || confirmedAfterStart
         val isDuringCall = telephony == "OFFHOOK" &&
             control.optString("state") == "RECORDING_ACTIVE" && confirmedAfterStart
-        val files = media.optJSONArray("files") ?: JSONArray()
+        val sources = listOfNotNull(media.optJSONArray("files"), media.optJSONArray("filesystemFiles"))
         var recentFiles = 0
         var readable = 0
         var grew = 0
-        for (i in 0 until files.length()) {
+        for (files in sources) for (i in 0 until files.length()) {
             val file = files.optJSONObject(i) ?: continue
             if (!file.optBoolean("modifiedAfterTestStart", false)) continue
             recentFiles++
