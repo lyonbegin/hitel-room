@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width,initial-scale=1" />
+ <title>열품타 | APK 역공학 기반 UI 재구성</title>
+ <link rel="stylesheet" href="/ypt-rebuild.css?v=3" />
+</head>
+<body>
+<div class="workspace">
+  <aside class="map-pane" aria-label="화면 목록">
+    <div class="map-head">
+      <div class="map-brand"><span class="brand-mark"><img src="/ypt-assets/icon/icon.png" alt="" /></span><span><b>열품타 UI 구조</b><small>810.1.05 / 원본 XAPK 분석</small></span></div>
+      <h2>화면 탐색</h2>
+      <p>화면을 선택하여 본문·입력·탭·이동 동작을 확인하십시오. 원본에 근거한 항목과 재구성한 화면은 오른쪽에서 구분합니다.</p>
+    </div>
+    <div class="map-search-wrap"><input id="screenSearch" type="search" placeholder="화면 이름 검색" aria-label="화면 검색" /></div>
+    <div class="screen-map" id="screenMap"></div>
+    <footer class="map-foot">원본 실기기 캡처 3장 · 원본 리소스 적용<br />서버 연동 없이 실행되는 UI 시제품입니다.</footer>
+  </aside>
+  <main class="stage">
+    <div class="stage-top">
+      <div><div class="stage-kicker">YPT ORIGINAL RESOURCE REBUILD</div><h1 id="stageTitle">주간 랭킹</h1></div>
+      <div class="stage-actions"><button type="button" id="stageBack" class="small-btn">← 뒤로</button><button type="button" id="stageHome" class="small-btn primary">홈</button></div>
+    </div>
+    <div class="phone-wrap"><div id="phone" class="phone" aria-label="열품타 화면 목업"></div></div>
+    <div class="stage-bottom"><span class="dot orange"></span><span id="stageStatus">APK 리소스 사용 / 화면 재구성</span><button id="copyDeepLink" type="button">화면 주소 복사</button></div>
+  </main>
+  <aside class="audit-pane" aria-label="화면 근거 정보">
+    <div class="audit-kicker">RECONSTRUCTION EVIDENCE</div>
+    <h2 id="auditTitle">원본 근거</h2>
+    <div id="auditBody"></div>
+    <div class="audit-section"><strong>빠른 이동</strong><div id="auditActions" class="audit-actions"></div></div>
+    <div class="audit-footer">UI 안에는 분석용 문구를 넣지 않았습니다. 화면 근거와 구현 한계는 이 분석 패널에만 기록합니다.</div>
+  </aside>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/ypt-graph.js?v=3"></script>
+<script src="/ypt-rebuild.js?v=3"></script>
+</body>
+</html>
