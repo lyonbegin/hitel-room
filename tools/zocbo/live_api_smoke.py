@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Evidence-backed, unmocked original mobile chapter/episode end-to-end check."""
 import json
+import os
 import urllib.request
 import urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-BASE="http://127.0.0.1:3000"
+BASE=os.environ.get("ZOCBO_BASE_URL","http://127.0.0.1:3000").rstrip("/")
 out=Path("zocbo-live-smoke-evidence")
 out.mkdir(exist_ok=True)
 R={}
