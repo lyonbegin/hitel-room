@@ -13,7 +13,7 @@ def replace(old,new):
 
 # Remove the overlay window, panel, expand/collapse buttons and timeline entirely.
 start=s.index("    private WindowManager overlayManager;")
-end=s.index("    /** Continuous live OEM-window scan",start)
+end=s.index("    private static final String P=",start)
 s=s[:start]+'''    // No floating overlay of any type. HITEL displays all captions in W03 Activity.
     private int px(float dp){
         return (int)(getResources().getDisplayMetrics().density*dp+0.5f);
