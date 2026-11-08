@@ -20,6 +20,14 @@ PATHS=[
  '/images/mo/banner/banner-learning3Q-m3.png',
  '/images/mo/banner/banner-learning3Q-h1.png',
  '/images/mo/banner/banner-learning3Q-h2.png',
+ '/images/mo/ico_fixedMen_home.svg',
+ '/images/mo/ico_fixedMen_home_on.svg',
+ '/images/mo/ico_fixedMen_mid.svg',
+ '/images/mo/ico_fixedMen_mid_on.svg',
+ '/images/mo/ico_fixedMen_high.svg',
+ '/images/mo/ico_fixedMen_high_on.svg',
+ '/images/mo/ico_fixedMen_soopring.svg',
+ '/images/mo/ico_fixedMen_soopring_on.svg',
  '/cloudfront/images/mo/img_logoTop.svg',
  '/cloudfront/images/mo/ico_coupon.svg']
 report={}
