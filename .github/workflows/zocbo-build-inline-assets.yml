@@ -1,0 +1,41 @@
+name: Zocbo Original HTML + CSS Inline Asset Build
+on:
+  push:
+    branches: [feature/zocbo-dom-inline-source-audit-20261108]
+    paths:
+      - tools/zocbo/build_inline_assets.py
+      - .github/workflows/zocbo-build-inline-assets.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet requests beautifulsoup4 tinycss2
+      - name: Generate original document subtree and original scoped CSS
+        run: python tools/zocbo/build_inline_assets.py
+      - name: Commit only extracted public source-derived UI components
+        run: |
+          git config user.name 'hitel-original-source[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/zocbo-original-event.js public/zocbo-original-event.css zocbo-inline-source-report.json
+          git diff --cached --quiet || git commit -m "assets(zocbo): original 35-row event HTML and scoped authentic CSS"
+          git push origin HEAD:feature/zocbo-dom-inline-source-audit-20261108
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-source-derived-inline-ui
+          path: |
+            public/zocbo-original-event.js
+            public/zocbo-original-event.css
+            zocbo-inline-source-report.json
+          retention-days: 14
