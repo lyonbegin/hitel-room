@@ -24,6 +24,12 @@ with sync_playwright() as p:
  page=ctx.new_page()
  page.set_default_timeout(20000)
  page.on('pageerror',lambda e:result['errors'].append(str(e)[:240]))
+ page.goto(BASE+'/?screen=home&mobile=1',wait_until='domcontentloaded',timeout=35000)
+ bank=page.locator('#phone .bottomnav button').filter(has_text='문제은행')
+ assert bank.count()==1,'HITEL app bottom problem bank button missing'
+ bank.click()
+ page.wait_for_function("()=>document.querySelector('#phone .zb-faithful')!==null",timeout=25000)
+ result['bottomProblemBankClick']='opens-original-native-source-sector'
  for site,grade,subject,active,filters,originalCount in CASES:
   url=BASE+f'/?screen=bankSearch&mobile=1&site={site}&grade={grade}&subject={subject}'
   page.goto(url,wait_until='domcontentloaded',timeout=35000)
