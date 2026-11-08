@@ -87,3 +87,9 @@ body.zb-standalone .map-pane,body.zb-standalone .audit-pane,body.zb-standalone .
 body.zb-standalone .stage{padding:0;margin:0;min-height:100dvh;display:block}
 body.zb-standalone .phone-wrap{width:100%;max-width:100%}
 body.zb-standalone #phone{width:100%;height:100dvh;min-height:0;max-height:none;border:0;border-radius:0;box-shadow:none}
+
+/* Original-CSS compatibility: avoid doubled built-in chevrons and source font fallback. */
+#phone .zb-faithful #examMain .zbAccordion__header>.zbAccordion__button{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif!important;font-weight:700}
+#phone .zb-faithful #examMain .zbAccordion__header>.zbAccordion__button:after{content:none!important}
+#phone .zb-faithful #examMain #ROOT_PART_CD>.zbAccordion__item{box-shadow:none!important;border:1px solid #e0e0e0!important}
+#phone .zb-faithful #examMain #ROOT_PART_CD>.zbAccordion__item>.zbAccordion__header>.zbAccordion__button{font-size:14px!important;font-weight:750!important}
