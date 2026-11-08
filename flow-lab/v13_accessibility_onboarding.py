@@ -52,7 +52,7 @@ m_replace('''    private boolean accessibilityEnabled(){''',
         accessibilityGuideShown=true;
         new AlertDialog.Builder(this)
             .setTitle("HITEL 접근성 서비스 설정")
-            .setMessage("삼성 기본 전화 앱은 그대로 사용합니다. HITEL이 삼성 텍스트 통화 버튼과 상대방 자막을 확인하려면 접근성 서비스가 필요합니다.\n\n'접근성 설정 열기' → '설치된 앱' → 'HITEL 통화 흐름검증 - 화면 분석' → 사용을 켜 주십시오.\n\n사용 여부는 고객님이 직접 결정하십니다. 권한을 허용하지 않으면 자동 문자통화·실시간 자막 중계를 시작하지 않습니다.")
+            .setMessage("삼성 기본 전화 앱은 그대로 사용합니다. HITEL이 삼성 텍스트 통화 버튼과 상대방 자막을 확인하려면 접근성 서비스가 필요합니다.\\n\\n'접근성 설정 열기' → '설치된 앱' → 'HITEL 통화 흐름검증 - 화면 분석' → 사용을 켜 주십시오.\\n\\n사용 여부는 고객님이 직접 결정하십니다. 권한을 허용하지 않으면 자동 문자통화·실시간 자막 중계를 시작하지 않습니다.")
             .setPositiveButton("접근성 설정 열기",(d,w)->openAccessibilitySettings())
             .setNeutralButton("항목이 비활성화된 경우",(d,w)->openRestrictedSettingsHelp())
             .setNegativeButton("나중에",null)
