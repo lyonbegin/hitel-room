@@ -1,0 +1,51 @@
+name: HITEL original Zocbo source-faithful native phone sector E2E
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - public/zocbo-faithful-ui.js
+      - public/zocbo-faithful-ui.css
+      - public/zocbo-faithful-pages/**
+      - server.mjs
+      - tools/zocbo/test_faithful_original_native.py
+      - .github/workflows/zocbo-faithful-original-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-native-real-browser:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify original-native JavaScript source syntax & install browser
+        run: |
+          node --check server.mjs
+          node --check public/zocbo-faithful-ui.js
+          python -m py_compile tools/zocbo/test_faithful_original_native.py
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Start exact real-source branch server
+        run: |
+          node server.mjs > zocbo-faithful-server.log 2>&1 &
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:3000/health && break || sleep 1; done
+      - name: Verify original M3 English vs M3 math, textbook actual AJAX, nested accordion, original exam ID and mobile screens
+        run: python tools/zocbo/test_faithful_original_native.py
+      - name: Save exact mobile screenshots and per-action JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-faithful-mobile-390-360-e2e
+          path: zocbo-faithful-evidence/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Save server debug log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-faithful-server-debug
+          path: zocbo-faithful-server.log
+          retention-days: 3
