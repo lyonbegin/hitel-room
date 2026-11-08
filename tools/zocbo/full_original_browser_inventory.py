@@ -16,6 +16,8 @@ P.add_argument('--phase',choices=['discovery','matrix'],default='discovery')
 P.add_argument('--shard',type=int,default=0)
 P.add_argument('--shards',type=int,default=1)
 P.add_argument('--limit',type=int,default=0)
+P.add_argument('--site',choices=['M','H'],default=None)
+P.add_argument('--grade',choices=['1','2','3'],default=None)
 A=P.parse_args()
 BASE='https://m.zocbo.com'
 OUT=Path('zocbo-original-inventory') / A.phase / str(A.shard)
@@ -220,33 +222,87 @@ def discover(page):
   url=mode_url(site,grade,subject,'000010000200003')
   visit(page,f'selector_{site}_{grade}_{subject}',url,do_filters=True,screenshot=True)
 
+def subject_catalog(page,site,grade):
+ """Derive real subject options from original public filter AJAX, not hard-coded subject list."""
+ menu=('00002' if site=='H' else '00001')+'0000200003'
+ refer=f'{BASE}/exam/examListWeb.asp?menu_cd={menu}&siteid={site}&subject_cd=MT&grade={grade}'
+ try:
+  response=page.request.post(BASE+'/exam/ajax/getMenuByFilterAjax.asp',
+   form={'menuCD':menu,'siteID':site},
+   headers={'Referer':refer,'Origin':BASE,'X-Requested-With':'XMLHttpRequest',
+    'Accept':'application/json,text/javascript,*/*;q=0.01'},timeout=15000)
+  payload=response.json()
+  opts=payload.get('MENU_BY_EXAM',[])
+  results={}
+  for row in opts:
+   if str(row.get('SITE_ID'))!=site or str(row.get('GRADE'))!=grade:continue
+   cd=str(row.get('SUBJECT_CD') or '')
+   if SUBJECT_CODE_RE.fullmatch(cd):
+    results[cd]=safe(row.get('SUBJECT_NM') or cd,50)
+  manifest.setdefault('subjectCatalog',{})[site+grade]={'http':response.status,
+    'actualSubjects':[{'code':k,'name':v} for k,v in results.items()],'optionsSeen':len(opts)}
+  if results:return list(results.items())
+ except Exception as e:
+  manifest['errors'].append({'screen':f'original_subject_catalog_{site}_{grade}',
+    'error':safe(e,180)})
+ return [(code,name) for code,name in DEFAULT_SUBJECTS.items()]
+
 def matrix(page):
- # Crawl real original site/grade/subject per top-menu. Each combination includes the
- # actual returned TOP submenu href and NESTED submenu buttons rather than an invented map.
- subjects=['MT','EG','KR','SC','SO','HI','TH','MO','ET','DS']
- tasks=[]
- for site in ('M','H'):
-  for grade in ('1','2','3'):
-   for subject in subjects:
-    for label,code in TOP_MENU_CODES:
-     tasks.append((site,grade,subject,label,code))
- subset=[t for i,t in enumerate(tasks) if i % A.shards==A.shard]
- if A.limit:subset=subset[:A.limit]
- print('MATRIX_QUEUED',A.shard,A.shards,len(subset),'of',len(tasks),flush=True)
- for site,grade,subject,label,mode in subset:
-  ident=f'{site}_{grade}_{subject}_{label}'
-  r=visit(page,ident,mode_url(site,grade,subject,mode),screenshot=(subject in ('EG','MT') and grade=='3'))
-  # Actual submenu labels and handler codes are discovered per page/grade/subject,
-  # then visited on the original mobile site, not inferred from maths menus.
-  if label not in ('concept','unit','practice','revision'):continue
-  codes=[]
-  for sub in (r.get('snapshot') or {}).get('subMenus',[]):
-   m=re.search(r"'(\d{15})'",sub['onclick'])
-   if m and m.group(1) not in codes:codes.append(m.group(1))
-  # Bound each item's sub-menu count to avoid an unexpected source-site recursion.
-  for code in codes[:12]:
-   key=ident+'_'+code
-   visit(page,key,mode_url(site,grade,subject,code),screenshot=False)
+ combos=[(site,grade) for site in ('M','H') for grade in ('1','2','3')]
+ if A.site and A.grade:combos=[(A.site,A.grade)]
+ screen_count=0
+ for site,grade in combos:
+  subjects=subject_catalog(page,site,grade)
+  print('ORIGINAL_SUBJECT_CATALOG',site,grade,subjects,flush=True)
+  tasks=[(subject,name,label,mode) for subject,name in subjects for label,mode in TOP_MENU_CODES]
+  subset=[t for i,t in enumerate(tasks) if i % A.shards==A.shard]
+  if A.limit:subset=subset[:A.limit]
+  print('MATRIX_QUEUED',site,grade,len(subset),'original subjects',len(subjects),flush=True)
+  for subject,subjectName,label,mode in subset:
+   ident=f'{site}_{grade}_{subject}_{label}'
+   r=visit(page,ident,mode_url(site,grade,subject,mode),
+     screenshot=(subject in ('EG','MT') and label=='unit' and grade in ('2','3')))
+   # Actual nested menu codes read from original DOM for this precise grade-subject.
+   if label not in ('concept','unit','practice','revision'):continue
+   codes=[]
+   for sub in (r.get('snapshot') or {}).get('subMenus',[]):
+    m=re.search(r"'(\d{15})'",sub['onclick'])
+    if m and m.group(1) not in codes:codes.append(m.group(1))
+   for code in codes[:15]:
+    key=ident+'_'+code
+    visit(page,key,mode_url(site,grade,subject,code),screenshot=False)
+   screen_count+=1
+ print('MATRIX_SOURCE_CAPTURED',len(manifest['cases']),'screens',screen_count,'distinct source subject cases',flush=True)
+
+def click_original_controls(page):
+ """Actually click public original top and submenu tabs, rather than merely assuming URLs work."""
+ clicked=[]
+ for site,grade,subject in [('M','3','EG'),('M','3','MT'),('H','2','EG')]:
+  landing=mode_url(site,grade,subject,'000010000200003')
+  page.goto(landing,wait_until='domcontentloaded',timeout=25000)
+  page.wait_for_timeout(1100)
+  original=page.evaluate(SNAP_JS)
+  for menu in original['topMenus'][:10]:
+   url=menu.get('href') or ''
+   if not url.startswith(BASE) or 'login' in url.lower() or 'payment' in url.lower():continue
+   try:
+    page.goto(landing,wait_until='domcontentloaded',timeout=25000)
+    page.wait_for_timeout(800)
+    # Select exact known original menu href, not a locally reconstructed link.
+    link=page.locator('a[href]').filter(has_text=menu['name'].split('\n')[0][:7])
+    anchor=next((a for a in page.locator('.tabLineRound a').all() if a.get_attribute('href') and a.get_attribute('href').replace('&amp;','&') in url),None)
+    if anchor is None:continue
+    anchor.click(timeout=3500)
+    page.wait_for_timeout(1100)
+    snap=page.evaluate(SNAP_JS)
+    clicked.append({'site':site,'grade':grade,'subject':subject,
+      'clicked':menu['name'],'actualUrl':snap['actualUrl'],
+      'active':next((x['name'] for x in snap['topMenus'] if x['active']),None),
+      'subMenus':[x['name'] for x in snap['subMenus']],
+      'filters':[x['name'] for x in snap['filters']]})
+   except Exception as e:clicked.append({'site':site,'subject':subject,'clicked':menu['name'],'error':safe(e,190)})
+ write_json('actual_menu_clicks.json',clicked)
+ print('ORIGINAL_TOP_MENU_CLICKED',len(clicked),flush=True)
 
 def main():
  global current
@@ -259,7 +315,9 @@ def main():
   page.set_default_timeout(12000)
   page.on('response',on_response)
   page.on('pageerror',lambda e:manifest['errors'].append({'screen':current,'error':safe(e,320)}))
-  if A.phase=='discovery':discover(page)
+  if A.phase=='discovery':
+   discover(page)
+   click_original_controls(page)
   else:matrix(page)
   c.close();b.close()
  manifest['capturedAssets']=asset_data
