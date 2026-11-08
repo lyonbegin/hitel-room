@@ -5,7 +5,8 @@ fs.mkdirSync('audit-v2',{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const context=await browser.newContext({viewport:{width:1460,height:1020}});
 const page=await context.newPage();
-const results=[],failures=[],jsErrors=[],officialFrameErrors=[];
+const results=[],failures=[],jsErrors=[],officialFrameErrors=[],screenshotWarnings=[];
+async function safeShot(name){try{await page.screenshot({path:'audit-v2/'+name,timeout:9000,animations:'disabled'});}catch(err){const warning='Original external frame fonts prevented optional screenshot: '+name+' '+err.message;screenshotWarnings.push(warning);console.log('SCREENSHOT_WARNING',name);}}
 page.on('pageerror',e=>{
  const route=new URL(page.url()).searchParams.get('screen')||'';
  const stack=String(e.stack||e.message);
@@ -25,7 +26,7 @@ try{
  check(await count('#phone .timer-hero')===1,'Home timer retained');
  check(await count('#phone nav.bottomnav button')===5,'Five bottom tabs retained');
  check(await count('#phone [data-go="bankHome"]')>0,'Home bank direct entry');
- await page.screenshot({path:'audit-v2/01-ypt-home.png'});
+ await safeShot('01-ypt-home.png');
  await goto('groups');check((await page.locator('#phone').textContent()).includes('스터디'),'Existing group shell preserved');
  await goto('groupDetail');check((await page.locator('#phone').textContent()).includes('5명'),'Five member group cap reflected');
  check(await count('#phone [data-go="bankSearch"]')>0,'Group shared paperbank entry');
@@ -37,7 +38,7 @@ try{
  await goto('bankHome');
  check(await count('#phone .zb-grid button')===4,'Main paperbank core functions');
  check(await count('#phone [data-go="bankSaved"]')>0,'Bookmarks entry visible');
- await page.screenshot({path:'audit-v2/02-bank-home.png'});
+ await safeShot('02-bank-home.png');
  await page.locator('#phone nav.bottomnav [data-go="bankSearch"]').first().count().then(async n=>{
   if(n)await page.locator('#phone nav.bottomnav [data-go="bankSearch"]').first().click(); else await page.locator('#phone [data-go="bankSearch"]').first().click();
  });
@@ -57,7 +58,7 @@ try{
  check(await count('#phone .zb-paper-card')===1,'High grade 1 Common English filter');
  const href=await page.locator('#phone .zb-external-bar a.zb-primary-link').getAttribute('href');
  check(href.includes('subject_cd=EG')&&href.includes('siteid=H'),'English official search URL exact subject code/level');
- await page.screenshot({path:'audit-v2/03-bank-english-filter.png'});
+ await safeShot('03-bank-english-filter.png');
  await page.locator('#phone .zb-paper-card .zb-paper-main').first().click();
  check(await title()==='시험자료 상세','Detail screen opens');
  check((await page.locator('#phone .zb-detail-head').textContent()).includes('공통영어'),'Detail selected matching source item');
@@ -67,7 +68,7 @@ try{
  check(await count('#phone .zb-live-iframe')>=1,'Real website preview iframe provided');
  check((await page.locator('#phone .zb-external-bar').textContent()).includes('고1 · 공통영어'),'Honest exact subject selection instruction');
  check((await page.locator('#phone .zb-external-bar a.zb-link').first().getAttribute('href')||'').includes('subject_cd=EG'),'Detail provides actual subject-specific original exam list');
- await page.screenshot({path:'audit-v2/04-bank-detail.png'});
+ await safeShot('04-bank-detail.png');
  const url=new URL(page.url());check(url.searchParams.get('paper')==='H1-EG','Detail ID retained in shareable URL');
  await page.locator('#phone [data-action="zbRemember"]').click();
  check(await page.locator('#phone [data-action="zbRemember"]').textContent()==='책갈피 해제','Bookmark toggle works');
@@ -87,7 +88,7 @@ try{
  check(await count('#phone a[href="https://m.zocbo.com/Freetrial/FreeReading.asp"]')>0,'Original official app deep-link provided');
  check(await count('#phone a[href="https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y"]')>0,'Verified direct free reading web viewer provided');
  check(await count('#phone .zb-live-iframe')===0,'Browser does not display proven blank native-only free viewer');
- await page.screenshot({path:'audit-v2/05-free-viewer.png'});
+ await safeShot('05-free-viewer.png');
 
  await goto('bankLogin');
  check(await count('#phone a[href="https://m.zocbo.com/Member/login.asp"][target="_blank"]')>0,'Official login new-tab option retains HITEL');
@@ -95,7 +96,7 @@ try{
  check((await page.locator('#phone .zb-live-iframe').getAttribute('src'))==='https://m.zocbo.com/Member/login.asp','Official native login webpage configured');
  await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').first().waitFor({timeout:16000});
  check(await page.frameLocator('#phone .zb-live-iframe').locator('input[type="password"]').count()>0,'Real original login password field actually rendered inside embedded page');
- await page.screenshot({path:'audit-v2/06-login.png'});
+ await safeShot('06-login.png');
  await goto('bankDownload');check((await page.locator('#phone .zb-live-iframe').getAttribute('src'))==='https://m.zocbo.com/event/pre-test2026d/','Download uses actual public event page');
  await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').first().waitFor({state:'attached',timeout:16000});
  check(await page.frameLocator('#phone .zb-live-iframe').locator('[data-act="sampleDown"]').count()===35,'Embedded official event page truly includes all 35 original sampleDown controls');
@@ -118,7 +119,7 @@ try{
  check(catalog.length===35,'Original public catalog dataset still 35');
  check(catalog.every(x=>x.downloadAction==='sampleDown'&&x.source==='https://m.zocbo.com/event/pre-test2026d/'&&x.grade&&x.subject_cd),'Every public row preserves original action and identifier metadata');
 } catch(e){failures.push('Test execution exception: '+e.stack)}
-const report={tested:results.length,passes:results.filter(x=>x.passed).length,failures,jsErrors,officialFrameErrors,results,accountLoginExecuted:false,authenticatedFileDownloaded:false};
+const report={tested:results.length,passes:results.filter(x=>x.passed).length,failures,jsErrors,officialFrameErrors,screenshotWarnings,results,accountLoginExecuted:false,authenticatedFileDownloaded:false};
 fs.writeFileSync('audit-v2/results.json',JSON.stringify(report,null,2));
 console.log('RESULT',report.tested,'checks; failures',failures.length,'appJsErrors',jsErrors.length,'originalSiteErrors',officialFrameErrors.length,failures.slice(0,10));
 await browser.close();
