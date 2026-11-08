@@ -29,7 +29,7 @@ def collect(nodes):
    scoped=prefix(selector)
    if scoped:
     body=tinycss2.serialize(rule.content)
-    body=re.sub(r'url\(\s*([\"\\']?)(/[^)\"\\']+)\1\s*\)',lambda m:'url("https://m.zocbo.com'+m.group(2)+'")',body)
+    body=re.sub(r'url\(\s*/([^)]*)\)',lambda m:'url("https://m.zocbo.com/'+m.group(1)+'")',body)
     out.append(scoped+'{'+body+'}')
   elif rule.type=='at-rule' and rule.lower_at_keyword in ('media','supports') and rule.content:
    child=collect(tinycss2.parse_rule_list(rule.content,skip_comments=True,skip_whitespace=True))
