@@ -1,0 +1,177 @@
+name: HITEL14 OEM recording stop completed M4A sherpa-onnx integration
+on:
+  push:
+    branches: ["feature/hitel14-samsung-recording-file-asr-20261109"]
+    paths:
+      - "flow-lab/SamsungRecordingFlow.java"
+      - "flow-lab/SamsungCompletedM4aTranscriber.java"
+      - "flow-lab/v14_completed_recording_asr_integration.py"
+      - "flow-lab/v14_log_tab_samsung_dictation.py"
+      - "flow-lab/v14_sherpa_ko_integration.py"
+      - "flow-lab/v14_voxsherpa_upstream_import.py"
+      - "flow-lab/v14_pinned_voice_controls.py"
+      - "flow-lab/v14_live_partial_streaming.py"
+      - "flow-lab/v14_release_model_on_stop.py"
+      - "flow-lab/v14_deep_stt_diagnostics.py"
+      - "flow-lab/v14_voice_access_audio_ab.py"
+      - "flow-lab/VoiceAccessAudioTrial.java"
+      - "flow-lab/KoreanSttTrace.java"
+      - "flow-lab/KoreanSherpaStt.java"
+      - ".github/workflows/build-call-flow-lab-v14.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Checkout original VoxSherpa source (pinned, unchanged)
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Rebuild existing source and apply Samsung v0.14 detection patch
+        run: |
+          tar -xJf flow-lab/v07_source.tar.xz
+          python3 flow-lab/v08_patch.py
+          python3 flow-lab/v08_overlay_patch.py
+          python3 flow-lab/v09_patch.py
+          python3 flow-lab/v09_live_patch.py
+          python3 flow-lab/v09_live_poll_patch.py
+          python3 flow-lab/v09_install_fix.py
+          python3 flow-lab/v10_connected_gate.py
+          python3 flow-lab/v11_connection_fix.py
+          python3 flow-lab/v12_no_overlay_front.py
+          python3 flow-lab/v13_accessibility_onboarding.py
+          python3 flow-lab/v14_log_tab_samsung_dictation.py
+          python3 flow-lab/v14_sherpa_ko_integration.py
+          python3 flow-lab/v14_voxsherpa_upstream_import.py
+          python3 flow-lab/v14_pinned_voice_controls.py
+          python3 flow-lab/v14_live_partial_streaming.py
+          python3 flow-lab/v14_release_model_on_stop.py
+          python3 flow-lab/v14_deep_stt_diagnostics.py
+          python3 flow-lab/v14_voice_access_audio_ab.py
+          python3 flow-lab/v14_completed_recording_asr_integration.py
+      - name: Confirm answered-call evidence and distinct application identity
+        run: |
+          grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
+          grep -F 'SamsungRecordingFlow.arm(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'SamsungRecordingFlow.onStopClicked' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'SamsungCompletedM4aTranscriber.transcribe' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
+          grep -F 'private void stopKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'private void stopSamsungRecordingAndTranscribe()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'READ_MEDIA_AUDIO' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'W11_CONNECTED_TIMER_ADVANCING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'W11_TEXT_CALL_BUTTON_VISIBLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'W11_ACCESSIBILITY_NOT_CONNECTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'W13_FIRST_LAUNCH_ACCESSIBILITY_PROMPT' AndroidProject/app/src/main/java/app/hitel/samsungprobe/MainActivity.java
+          grep -F 'W13_ACCESSIBILITY_ENABLED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/MainActivity.java
+          grep -F 'W14_SAMSUNG_DICTATION_REQUEST' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'logPage.addView(logList,new LinearLayout.LayoutParams(-1,0,1))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'focusSamsungTextCallInput' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'SHERPA_KO_USER_START' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'VOICE_RECOGNITION' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'com.github.k2-fsa:sherpa-onnx:1.12.26' AndroidProject/app/build.gradle.kts
+          grep -F 'jitpack.io' AndroidProject/settings.gradle.kts
+          test -s AndroidProject/voxsherpa/src/main/java/com/CodeBySonu/VoxSherpa/ModelsFragmentActivity.java
+          test -s AndroidProject/voxsherpa/src/main/java/com/CodeBySonu/VoxSherpa/SettingFragmentActivity.java
+          test -s AndroidProject/voxsherpa/src/main/java/com/CodeBySonu/VoxSherpa/system/VoxSherpaTtsService.java
+          test -s AndroidProject/voxsherpa/src/main/assets/espeak-ng-data.zip
+          test -s AndroidProject/voxsherpa/src/main/assets/tts_frontend.zip
+          grep -F 'VOX_UPSTREAM_OPEN' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'screen.addView(micBar,3' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'screen.addView(voxSettings,6' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'pinnedMicState.setText(message)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'screen.addView(pinnedLiveCaption,5' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'sherpaCommittedText+System.lineSeparator()+text' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'ACTIVE.compareAndSet(false,true)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'recognizer.release()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'SHERPA_KO_MODEL_RELEASED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'SHERPA_DIAG_PCM_1S' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'requestWavSample()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'diagnosticAudioFile(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/LabStore.java
+          grep -F 'getClientAudioSource()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSttTrace.java
+          grep -F 'getAudioSource()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSttTrace.java
+          grep -F 'rmsDbFS=' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSttTrace.java
+          grep -F 'SHERPA_DIAG_FINALIZE_ERROR' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'screen.addView(voiceTrialModeButton,7' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'audioTrial.configureBeforeStart()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'finishedTrial.close()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          grep -F 'CallAccessibilityService.serviceConnected()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/VoiceAccessAudioTrial.java
+          grep -F 'NoiseSuppressor.create(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/VoiceAccessAudioTrial.java
+          grep -F 'AcousticEchoCanceler.create(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/VoiceAccessAudioTrial.java
+          grep -F 'MIC_DIRECTION_TOWARDS_USER' AndroidProject/app/src/main/java/app/hitel/samsungprobe/VoiceAccessAudioTrial.java
+          grep -F 'TYPE_BUILTIN_MIC' AndroidProject/app/src/main/java/app/hitel/samsungprobe/VoiceAccessAudioTrial.java
+          if grep -F 'getSharedRecognizer' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java; then exit 1; fi
+          grep -F 'SHERPA_KO_FIRST_PARTIAL_MS' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
+          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
+          if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
+          grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
+          if grep -F 'updateOverlay' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
+      - name: Show original VoxSherpa source retention
+        run: |
+          find AndroidProject/voxsherpa/src/main/java -name '*.java' | wc -l
+          find AndroidProject/voxsherpa/src/main/res -type f | wc -l
+          du -sh AndroidProject/voxsherpa/src/main/assets
+      - name: Route verified upstream Gradle 8.13 wrapper to official direct distribution CDN
+        run: |
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+          grep 'distributionUrl=' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+          grep 'distributionSha256Sum=' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+      - name: Build Android installation APK
+        run: bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Validate APK content, signature and application ID
+        run: |
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -3
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL14-Completed-Recording-Sherpa-APK
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Retain auditable Android sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL14-Completed-Recording-Sherpa-source
+          overwrite: true
+          path: |
+            AndroidProject/app/src/main
+            AndroidProject/app/build.gradle.kts
+            AndroidProject/voxsherpa/build.gradle.kts
+            AndroidProject/voxsherpa/src/main/AndroidManifest.xml
+            AndroidProject/voxsherpa/UPSTREAM-COMMIT.txt
+          if-no-files-found: warn
+
+      - name: Publish directly downloadable APK in public repository
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14_RecordingASR.apk
+          (cd downloads && sha256sum HITEL14_RecordingASR.apk > HITEL14.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14_RecordingASR.apk downloads/HITEL14_RecordingASR.sha256
+          git commit -m "build: publish HITEL14 recording-file ASR APK [skip ci]"
+          git push origin HEAD:refs/heads/feature/hitel14-samsung-recording-file-asr-20261109
