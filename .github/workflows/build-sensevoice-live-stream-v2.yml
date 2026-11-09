@@ -1,0 +1,105 @@
+name: Galaxy ARM64 SenseVoice Live Microphone STT APK v2
+on:
+  push:
+    branches: [feature/sensevoice-live-stream-v2-20261110]
+    paths:
+      - '.github/workflows/build-sensevoice-live-stream-v2.yml'
+      - 'sherpa-original-launcher/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-galaxy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare Android SDK and NDK
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" || true
+          test -x "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+      - name: Get official Sherpa C API Android ARM64 libraries, Korean INT8 model and FFmpegKit AAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DST=sherpa-original-launcher/app/src/main
+          mkdir -p /tmp/sherpa-android /tmp/korean-model /tmp/download "$DST/assets/sensevoice" "$DST/jniLibs/arm64-v8a" sherpa-original-launcher/app/libs
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/download
+          tar -xjf /tmp/download/sherpa-onnx-v1.12.26-android.tar.bz2 -C /tmp/sherpa-android
+          cp /tmp/sherpa-android/jniLibs/arm64-v8a/*.so "$DST/jniLibs/arm64-v8a/"
+          gh release download asr-models -R k2-fsa/sherpa-onnx -p sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2 -D /tmp/download
+          tar -xjf /tmp/download/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2 -C /tmp/korean-model
+          SRC=/tmp/korean-model/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17
+          cp "$SRC/model.int8.onnx" "$SRC/tokens.txt" "$DST/assets/sensevoice/"
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/download
+          cp /tmp/download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar
+          unzip -Z1 sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar | grep -F 'jni/arm64-v8a/libavformat.so'
+          find "$DST/jniLibs/arm64-v8a" -maxdepth 1 -type f \( -name 'libav*.so' -o -name 'libsw*.so' -o -name 'libffmpegkit*.so' \) -delete
+          test -s "$DST/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so"
+          test -s "$DST/jniLibs/arm64-v8a/libonnxruntime.so"
+          test -s "$DST/assets/sensevoice/model.int8.onnx"
+          sha256sum "$DST/assets/sensevoice/model.int8.onnx"
+      - name: Compile native Korean SenseVoice file recognizer (official Sherpa C API)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/api/sherpa-onnx/c-api
+          curl -fLsS --retry 5 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h -o /tmp/api/sherpa-onnx/c-api/c-api.h
+          DST=sherpa-original-launcher/app/src/main/jniLibs/arm64-v8a
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$DST/" || true
+          "$LLVM/aarch64-linux-android26-clang++" -std=c++17 -O2 -fPIE -pie \
+            -I/tmp/api sherpa-original-launcher/native/sensevoice-android-arm64.cc \
+            -L"$DST" -lsherpa-onnx-c-api -Wl,--no-undefined \
+            -o "$DST/libsensevoice-cli.so"
+          "$LLVM/llvm-readelf" -h "$DST/libsensevoice-cli.so" | grep AArch64
+          "$LLVM/llvm-readelf" -d "$DST/libsensevoice-cli.so" | grep NEEDED
+      - name: Compile and sign installable APK
+        run: |
+          set -euo pipefail
+          gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
+          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.sensevoice.livestream'
+          for f in lib/arm64-v8a/libsensevoice-cli.so lib/arm64-v8a/libsherpa-onnx-c-api.so lib/arm64-v8a/libonnxruntime.so lib/arm64-v8a/libffmpegkit.so assets/sensevoice/model.int8.onnx assets/sensevoice/tokens.txt; do
+            unzip -Z1 "$APK" | grep -Fx "$f"
+          done
+          unzip -p "$APK" AndroidManifest.xml >/dev/null
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'LiveSttService'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$APK" | grep -F 'android.permission.RECORD_AUDIO'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$APK" | grep -F 'android.permission.FOREGROUND_SERVICE'
+          unzip -p "$APK" lib/arm64-v8a/libsensevoice-cli.so > /tmp/sensevoice-from-apk.so
+          cmp /tmp/sensevoice-from-apk.so sherpa-original-launcher/app/src/main/jniLibs/arm64-v8a/libsensevoice-cli.so
+          cp "$APK" SenseVoice-Galaxy-Live-STT-v2.apk
+          sha256sum SenseVoice-Galaxy-Live-STT-v2.apk
+          ls -lh SenseVoice-Galaxy-Live-STT-v2.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SenseVoice-Galaxy-Live-STT-v2-APK
+          path: SenseVoice-Galaxy-Live-STT-v2.apk
+          compression-level: 0
+          if-no-files-found: error
+      - name: Publish verified Galaxy APK as direct release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=sherpa-sensevoice-galaxy-live-v2-20261110
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" SenseVoice-Galaxy-Live-STT-v2.apk --clobber
+          else
+            gh release create "$TAG" SenseVoice-Galaxy-Live-STT-v2.apk \
+              --target "$GITHUB_SHA" \
+              --title 'Galaxy Korean microphone streaming and saved recording STT (SenseVoice INT8 v2)' \
+              --notes 'Contains saved-file STT plus foreground microphone AudioRecord continuous capture, 4-second chunked SenseVoice Korean INT8 inference with live captions. Native model not token-by-token streaming; Android call downlink capture not included. APK build/signature/model checked, physical Galaxy live microphone test still required.'
+          fi
+          echo "DIRECT_APK_DOWNLOAD=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/SenseVoice-Galaxy-Live-STT-v2.apk"
