@@ -42,6 +42,7 @@ model.write_text(s,encoding="utf-8")
 s=access.read_text(encoding="utf-8")
 anchor='    private static final String P="com.samsung.android.incallui:id/";'
 impl='''    private long recordingConnectedObservedAt=0L;
+    private long lastRecordingArm=0L;
     private final Runnable recordingControlPoll=new Runnable(){
         @Override public void run(){
             try{pollSamsungRecordingControls();}
@@ -82,7 +83,16 @@ impl='''    private long recordingConnectedObservedAt=0L;
         String phase=SamsungRecordingFlow.phase();
         if("IDLE".equals(phase)||"DONE".equals(phase)||"ERROR".equals(phase)||
            "TRANSCRIBING".equals(phase)||"WAIT_FOR_FILE".equals(phase))return;
+        long sessionArm=SamsungRecordingFlow.armedAt();
+        if(sessionArm!=lastRecordingArm){
+            recordingConnectedObservedAt=0L;
+            lastRecordingArm=sessionArm;
+        }
         int state=actualCallState();
+        if(state==TelephonyManager.CALL_STATE_IDLE&&SamsungRecordingFlow.isStopClicked()){
+            SamsungRecordingFlow.onStopControlGone();
+            return;
+        }
         if(state!=TelephonyManager.CALL_STATE_OFFHOOK)return;
         int elapsed=observedCallDuration();
         if(elapsed>=1&&recordingConnectedObservedAt==0L)
