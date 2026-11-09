@@ -172,14 +172,14 @@ jobs:
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           test -s "$APK"
           cp "$APK" distribution/HITEL14_RecordingASR_SameID.apk
-          sed -i 's#applicationId = "app.hitel.callflowlab.v14"#applicationId = "app.hitel.callflowlab.v14.recording"#' AndroidProject/app/build.gradle.kts
-          sed -i 's#HITEL 통화 실시간 자막 v0.14 (한국어 STT)#HITEL14 통합 녹음 파일 전사 시험#' AndroidProject/app/src/main/AndroidManifest.xml
+          sed -i 's#applicationId = "app.hitel.callflowlab.v14"#applicationId = "app.hitel.callflowlab.v14.zipformer"#' AndroidProject/app/build.gradle.kts
+          sed -i 's#HITEL 통화 실시간 자막 v0.14 (한국어 STT)#HITEL14 한국어 Zipformer 파일 STT 시험#' AndroidProject/app/src/main/AndroidManifest.xml
           bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
           cp "$APK" distribution/HITEL14_RecordingASR_Parallel.apk
           test -s distribution/HITEL14_RecordingASR_SameID.apk
           test -s distribution/HITEL14_RecordingASR_Parallel.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_RecordingASR_SameID.apk | grep -F 'app.hitel.callflowlab.v14'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_RecordingASR_Parallel.apk | grep -F 'app.hitel.callflowlab.v14.recording'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_RecordingASR_Parallel.apk | grep -F 'app.hitel.callflowlab.v14.zipformer'
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose distribution/HITEL14_RecordingASR_Parallel.apk
           sha256sum distribution/*.apk
       - uses: actions/upload-artifact@v4
