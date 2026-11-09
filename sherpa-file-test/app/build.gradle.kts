@@ -9,8 +9,12 @@ android {
         applicationId = "app.hitel.sherpafiletest"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 3
+        versionName = "3.0.0"
+        ndk { abiFilters += listOf("arm64-v8a") }
+    }
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -18,8 +22,4 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildTypes { getByName("release") { isMinifyEnabled = false } }
-}
-dependencies {
-    implementation("com.github.k2-fsa:sherpa-onnx:1.12.26")
-    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-min:8.1.7")
 }

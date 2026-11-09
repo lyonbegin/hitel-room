@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(sherpa_original CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(ORIGINAL "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../sherpa-upstream-native/upstream")
+set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}")
+add_library(sherpa-upstream-ffmpeg SHARED native-bridge.cpp)
+target_include_directories(sherpa-upstream-ffmpeg PRIVATE "${ORIGINAL}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg-headers")
+foreach(name avfilter avformat avcodec avutil swresample)
+  add_library(upstream_${name} SHARED IMPORTED)
+  set_target_properties(upstream_${name} PROPERTIES IMPORTED_LOCATION "${LIB_DIR}/lib${name}.so")
+endforeach()
+add_library(upstream_sherpa SHARED IMPORTED)
+set_target_properties(upstream_sherpa PROPERTIES IMPORTED_LOCATION "${LIB_DIR}/libsherpa-onnx-c-api.so")
+target_link_libraries(sherpa-upstream-ffmpeg PRIVATE upstream_avfilter upstream_avformat
+  upstream_avcodec upstream_avutil upstream_swresample upstream_sherpa log android)
