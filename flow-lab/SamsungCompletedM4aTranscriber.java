@@ -18,7 +18,7 @@ import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
  *
  * PCM -> Korean STT: SAME sherpa-onnx Korean streaming Zipformer INT8
  * model, tokens, OnlineRecognizer API and settings as HITEL14's existing
- * KoreanSherpaStt.java microphone recognizer. NO Whisper/OfflineRecognizer,
+ * KoreanSherpaStt.java microphone recognizer. NO alternate ASR model,
  * NO new model download, NO custom PCM resampler.
  *
  * This file-only worker never starts/stops AudioRecord or the phone call.
