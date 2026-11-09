@@ -1,0 +1,76 @@
+name: Standalone Sherpa Korean M4A File STT APK
+on:
+  push:
+    branches:
+      - feature/hitel14-official-sherpa-file-transducer-20261109
+    paths:
+      - 'sherpa-file-test/**'
+      - '.github/workflows/build-sherpa-file-stt-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Reuse verified MIT M4A decoder in standalone app
+        run: |
+          mkdir -p sherpa-file-test/app/src/main/java/app/hitel/sherpafiletest
+          sed 's/^package app.hitel.samsungprobe$/package app.hitel.sherpafiletest/' flow-lab/TranscriberM4aDecoder.kt > sherpa-file-test/app/src/main/java/app/hitel/sherpafiletest/TranscriberM4aDecoder.kt
+          sed 's/^package app.hitel.samsungprobe$/package app.hitel.sherpafiletest/' flow-lab/TranscriberLocalAudioBudget.kt > sherpa-file-test/app/src/main/java/app/hitel/sherpafiletest/TranscriberLocalAudioBudget.kt
+      - name: Bundle previously used Korean INT8 Zipformer model inside APK
+        run: |
+          set -euo pipefail
+          mkdir -p sherpa-file-test/app/src/main/assets/models
+          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6'
+          cd sherpa-file-test/app/src/main/assets/models
+          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            curl --fail --location --retry 5 --retry-delay 5 --output "$name" "$BASE/$name"
+            test -s "$name"
+          done
+          test "$(stat -c %s encoder-epoch-99-avg-1.int8.onnx)" -gt 115000000
+          test "$(stat -c %s decoder-epoch-99-avg-1.onnx)" -gt 9500000
+          test "$(stat -c %s joiner-epoch-99-avg-1.int8.onnx)" -gt 2000000
+          test "$(stat -c %s tokens.txt)" -gt 50000
+          sha256sum *.onnx tokens.txt
+      - name: Build standalone APK (no HITEL14 build)
+        run: gradle -p sherpa-file-test :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify signed apk and package
+        run: |
+          set -euo pipefail
+          APK=$(find sherpa-file-test/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.sherpafiletest'
+          unzip -l "$APK" | grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx'
+          sha256sum "$APK"
+          cp "$APK" SherpaKoreanFileSTT-test-v1.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sherpa-Korean-File-STT-standalone-APK
+          path: SherpaKoreanFileSTT-test-v1.apk
+          if-no-files-found: error
+      - name: Publish downloadable APK (only after verified build)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='sherpa-ko-file-stt-test-v1'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" SherpaKoreanFileSTT-test-v1.apk --clobber
+          else
+            gh release create "$TAG" SherpaKoreanFileSTT-test-v1.apk --target "$GITHUB_SHA" --title 'Standalone Sherpa Korean File STT v1' --notes 'Independent Android file-picker / MediaCodec / Korean Zipformer offline STT; does not modify HITEL14.'
+          fi
