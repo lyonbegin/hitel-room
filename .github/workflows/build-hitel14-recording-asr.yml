@@ -169,7 +169,7 @@ jobs:
           test -s "$APK"
           mkdir -p downloads
           cp "$APK" downloads/HITEL14_RecordingASR.apk
-          (cd downloads && sha256sum HITEL14_RecordingASR.apk > HITEL14.sha256)
+          (cd downloads && sha256sum HITEL14_RecordingASR.apk > HITEL14_RecordingASR.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add downloads/HITEL14_RecordingASR.apk downloads/HITEL14_RecordingASR.sha256
