@@ -1,0 +1,58 @@
+name: Export UNMODIFIED sherpa FFmpeg C runtime for private uploaded-recording test
+on:
+  push:
+    branches: [feature/sherpa-original-local-recording-diagnostic-20261109]
+    paths: ['.github/workflows/export-sherpa-original-linux-runtime.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-offline-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch original sherpa Linux C API and exact Korean model
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/input /tmp/pkg /tmp/export/include /tmp/export/lib /tmp/export/models /tmp/export/source
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-linux-x64-shared-no-tts.tar.bz2 -D /tmp/input
+          tar -xjf /tmp/input/sherpa-onnx-v1.12.26-linux-x64-shared-no-tts.tar.bz2 -C /tmp/pkg
+          find /tmp/pkg -type f \( -name 'libsherpa-onnx-c-api.so*' -o -name 'libonnxruntime.so*' \) -exec cp -L '{}' /tmp/export/lib/ ';'
+          ls -lah /tmp/export/lib
+          test -s /tmp/export/lib/libsherpa-onnx-c-api.so
+          test -s /tmp/export/lib/libonnxruntime.so
+          curl -fsSL --retry 4 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/ffmpeg-examples/sherpa-onnx-ffmpeg.c -o /tmp/export/source/sherpa-onnx-ffmpeg.c
+          cmp /tmp/export/source/sherpa-onnx-ffmpeg.c sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+          curl -fsSL --retry 4 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h -o /tmp/input/c-api.h
+          mkdir -p /tmp/export/include/sherpa-onnx/c-api
+          cp /tmp/input/c-api.h /tmp/export/include/sherpa-onnx/c-api/c-api.h
+          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6'
+          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            curl -fL --retry 5 --retry-delay 4 -o "/tmp/export/models/$name" "$BASE/$name"
+            test -s "/tmp/export/models/$name"
+          done
+          sha256sum /tmp/export/models/* /tmp/export/source/sherpa-onnx-ffmpeg.c
+      - name: Include official FFmpeg headers for locally compiling original source
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libavcodec-dev libavformat-dev libavfilter-dev libavutil-dev libswresample-dev
+          for name in libavcodec libavformat libavfilter libavutil libswresample; do
+            cp -a "/usr/include/x86_64-linux-gnu/$name" /tmp/export/include/
+          done
+          echo 'The audio recording is never uploaded; this is only public executable + original Korean model.'
+          find /tmp/export -maxdepth 3 -type f | head -30
+      - name: Package runtime as diagnostic artifact (NO recording)
+        run: |
+          tar -cf sherpa-original-linux-runtime.tar -C /tmp/export .
+          ls -lh sherpa-original-linux-runtime.tar
+          sha256sum sherpa-original-linux-runtime.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sherpa-onnx-v1.12.26-original-linux-runtime-for-private-local-test
+          path: sherpa-original-linux-runtime.tar
+          compression-level: 0
+          if-no-files-found: error
