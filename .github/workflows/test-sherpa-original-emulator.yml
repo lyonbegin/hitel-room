@@ -139,12 +139,8 @@ jobs:
             adb push /tmp/sherpa_emulator_84sec.m4a /sdcard/Download/sherpa_emulator_84sec.m4a
             adb shell "cd /data/local/tmp/sherpa-qa && LD_LIBRARY_PATH=/data/local/tmp/sherpa-qa/lib ./lib/liboriginal-cli.so models/tokens.txt models/encoder-epoch-99-avg-1.int8.onnx models/decoder-epoch-99-avg-1.onnx models/joiner-epoch-99-avg-1.int8.onnx /sdcard/Download/sherpa_emulator_84sec.m4a" > emulator-qa/long-84s-original-cli-output.txt 2>&1 || echo "LONG_CLI_FAILED_RC=$?" >> emulator-qa/long-84s-original-cli-output.txt
             grep -a 'Output: srate:16000Hz' emulator-qa/long-84s-original-cli-output.txt
-            if grep -q 'LONG_CLI_FAILED_RC=' emulator-qa/long-84s-original-cli-output.txt; then
-              echo 'LONG_ORIGINAL_CLI_FAILED'; tail -60 emulator-qa/long-84s-original-cli-output.txt; exit 1
-            fi
-            if ! grep -aEq '[0-9]+: ' emulator-qa/long-84s-original-cli-output.txt; then
-              echo 'LONG_ORIGINAL_CLI_NO_TRANSCRIPT'; tail -60 emulator-qa/long-84s-original-cli-output.txt; exit 1
-            fi
+            if grep -q 'LONG_CLI_FAILED_RC=' emulator-qa/long-84s-original-cli-output.txt; then echo 'LONG_ORIGINAL_CLI_FAILED'; exit 1; fi
+            if ! grep -aEq '[0-9]+: ' emulator-qa/long-84s-original-cli-output.txt; then echo 'LONG_ORIGINAL_CLI_NO_TRANSCRIPT'; exit 1; fi
             echo 'LONG_ORIGINAL_CLI_RECOGNITION_PRESENT'
             tail -c 2000 emulator-qa/long-84s-original-cli-output.txt
             python3 sherpa-original-launcher/ci/test_emulator_ui.py
