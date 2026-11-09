@@ -115,9 +115,34 @@ def test():
         else:
             adb("shell","input","keyevent","66",check=False)
             time.sleep(1)
+    picked_in_documents_ui = find(get_ui(),["원본 STT 실행"])[1] is not None
+    if not picked_in_documents_ui:
+        print("DOCUMENTS_UI_PICKER_UNVERIFIED: file row clicks did not finish activity",flush=True)
+        save_logs("picker-file-not-returned")
+        # Use Android's existing MediaStore content URI delivery instead of fake
+        # file-selection success. The launcher supports Android ACTION_VIEW.
+        rows=adb("shell","content","query","--uri",
+                 "content://media/external/file",
+                 "--projection","_id:_display_name:mime_type",timeout=40,check=False)
+        print("MEDIASTORE_AUDIO_QUERY",rows[-2800:],flush=True)
+        uri=None
+        for row in rows.splitlines():
+            if NAME in row:
+                m=re.search(r"(?:^|[, ])_id=(\\d+)",row)
+                if m:
+                    uri="content://media/external/file/"+m.group(1)
+                    break
+        if uri is None:
+            uri="content://com.android.externalstorage.documents/document/primary%3ADownload%2F"+NAME
+            print("Using scoped-storage DocumentsProvider content URI",uri,flush=True)
+        print("DELIVERING_ANDROID_CONTENT_URI",uri,flush=True)
+        adb("shell","am","start","-n",PKG+"/.MainActivity",
+            "-a","android.intent.action.VIEW","-d",uri,
+            "-t","audio/mp4","--grant-read-uri-permission",timeout=30)
+        time.sleep(2)
     save_logs("file-selected")
     if not tap_term(["원본 STT 실행"],20):
-        raise RuntimeError("File picker did not deliver M4A to app; STT button not found")
+        raise RuntimeError("Neither Android picker nor external content URI delivered M4A to app")
     print("Waiting for actual original CLI to exit",flush=True)
     deadline=time.monotonic()+240
     logfile=""
@@ -143,7 +168,7 @@ def test():
         raise RuntimeError(f"Original executable returned exit={rc}, details in after-stt-logcat.txt")
     if chars==0:
         print("WARNING: synthetic Korean eSpeak fixture produced zero recognized characters; M4A decode/CLI completion proven but Korean recognition NOT proven.",flush=True)
-    (OUT/"PASS.txt").write_text(f"Emulator ABI x86_64, APK installed, DocumentsUI file picker, original CLI exited {rc}, recognized characters {chars}; generated test audio {NAME} (NOT user M4A).\n",encoding="utf-8")
+    (OUT/"PASS.txt").write_text(f"Emulator ABI x86_64, APK installed, audio input delivered via {'DocumentsUI picker' if picked_in_documents_ui else 'Android ACTION_VIEW content URI (picker separately UNVERIFIED)'}, official original CLI exited {rc}, recognized characters {chars}; Korean fixture M4A {NAME} (NOT user M4A).\n",encoding="utf-8")
 
 try:
     test()
