@@ -1,7 +1,7 @@
-name: Sherpa untouched original CLI + official FFmpegKit normalization Android emulator E2E
+name: Sherpa v3.2 Galaxy diagnostic / official CLI Android 15 E2E
 on:
   push:
-    branches: [feature/sherpa-original-ffmpeg-normalize-v3-20261109]
+    branches: [feature/sherpa-v31-galaxy-diagnostics-20261109]
     paths:
       - 'sherpa-original-launcher/**'
       - '.github/workflows/test-sherpa-original-emulator.yml'
@@ -117,10 +117,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-      - name: Run actual APK on Android 11 emulator and capture diagnostics
+      - name: Run actual APK on Android 15 emulator and capture diagnostics
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
