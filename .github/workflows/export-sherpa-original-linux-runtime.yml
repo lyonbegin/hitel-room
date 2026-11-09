@@ -44,7 +44,8 @@ jobs:
             cp -a "/usr/include/x86_64-linux-gnu/$name" /tmp/export/include/
           done
           echo 'The audio recording is never uploaded; this is only public executable + original Korean model.'
-          find /tmp/export -maxdepth 3 -type f | head -30
+          find /tmp/export -maxdepth 3 -type f > /tmp/export-file-list.txt
+          sed -n '1,30p' /tmp/export-file-list.txt
       - name: Package runtime as diagnostic artifact (NO recording)
         run: |
           tar -cf sherpa-original-linux-runtime.tar -C /tmp/export .
