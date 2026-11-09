@@ -96,13 +96,28 @@ def test():
             time.sleep(1)
         print("Drawer texts",describe(get_ui())[:40],flush=True)
         tap_term(["Downloads","Download","다운로드"],10)
+    # Android 11 DocumentsUI's grid file card may not open when text is clicked.
+    # Switch to the actual list view, where the whole document row is selectable.
+    root=get_ui()
+    if find(root,["List view"])[1] is not None:
+        tap_term(["List view"],10)
+        print("Switched picker to list view",describe(get_ui())[:28],flush=True)
     if not tap_term([NAME],20):
-        # Search through picker if directory list did not show the file
         print("Picker after nav",describe(get_ui())[:55],flush=True)
         raise RuntimeError("M4A file not visible in Android DocumentsUI")
+    time.sleep(1.5)
+    root=get_ui()
+    if find(root,["원본 STT 실행"])[1] is None:
+        print("First picker click did not return to app; retrying file row",describe(root)[:40],flush=True)
+        if find(root,[NAME])[1] is not None:
+            tap_term([NAME],8)
+            time.sleep(1.5)
+        else:
+            adb("shell","input","keyevent","66",check=False)
+            time.sleep(1)
     save_logs("file-selected")
-    if not tap_term(["원본 STT 실행"],30):
-        raise RuntimeError("STT button not enabled/visible after selecting M4A")
+    if not tap_term(["원본 STT 실행"],20):
+        raise RuntimeError("File picker did not deliver M4A to app; STT button not found")
     print("Waiting for actual original CLI to exit",flush=True)
     deadline=time.monotonic()+240
     logfile=""
