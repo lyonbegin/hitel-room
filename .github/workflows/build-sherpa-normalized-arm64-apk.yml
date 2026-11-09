@@ -47,18 +47,18 @@ jobs:
           gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
           APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F app.hitel.sherpaoriginalnormalized
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F app.hitel.sherpaoriginalnormalized31
           unzip -Z1 "$APK" | grep -F lib/arm64-v8a/liboriginal-cli.so
           unzip -Z1 "$APK" | grep -F lib/arm64-v8a/libffmpegkit.so
           unzip -Z1 "$APK" | grep -F lib/arm64-v8a/libavformat.so
           unzip -Z1 "$APK" | grep -F assets/models/encoder-epoch-99-avg-1.int8.onnx
           unzip -p "$APK" lib/arm64-v8a/liboriginal-cli.so > /tmp/inside-original-cli
           cmp /tmp/inside-original-cli sherpa-original-launcher/app/src/main/jniLibs/arm64-v8a/liboriginal-cli.so
-          cp "$APK" Sherpa-Original-STT-AAC48k-Fixed-v3-Galaxy-arm64.apk
-          sha256sum Sherpa-Original-STT-AAC48k-Fixed-v3-Galaxy-arm64.apk
+          cp "$APK" Sherpa-Original-STT-AAC48k-Fixed-v3.1-Galaxy-arm64.apk
+          sha256sum Sherpa-Original-STT-AAC48k-Fixed-v3.1-Galaxy-arm64.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Sherpa-Original-STT-AAC48k-Fixed-v3-Galaxy-arm64
-          path: Sherpa-Original-STT-AAC48k-Fixed-v3-Galaxy-arm64.apk
+          name: Sherpa-Original-STT-AAC48k-Fixed-v3.1-Galaxy-arm64
+          path: Sherpa-Original-STT-AAC48k-Fixed-v3.1-Galaxy-arm64.apk
           compression-level: 0
           if-no-files-found: error

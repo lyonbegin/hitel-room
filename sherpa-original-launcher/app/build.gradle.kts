@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sherpaoriginalnormalized"
+    applicationId = "app.hitel.sherpaoriginalnormalized31"
     minSdk = 26
     targetSdk = 28
-    versionCode = 3
-    versionName = "3.0.0"
+    versionCode = 4
+    versionName = "3.1.0"
     ndk { abiFilters.add("arm64-v8a"); abiFilters.add("x86_64") }
   }
   packaging {
@@ -25,4 +25,5 @@ android {
 
 dependencies {
   implementation(files("libs/ffmpeg-kit-min.aar"))
+  implementation("com.arthenica:smart-exception-java:0.2.1")
 }
