@@ -1,23 +1,5 @@
 name: HITEL14 OEM recording stop completed M4A sherpa-onnx integration
 on:
-  push:
-    branches: ["feature/hitel14-samsung-recording-file-asr-20261109"]
-    paths:
-      - "flow-lab/SamsungRecordingFlow.java"
-      - "flow-lab/SamsungCompletedM4aTranscriber.java"
-      - "flow-lab/v14_completed_recording_asr_integration.py"
-      - "flow-lab/v14_log_tab_samsung_dictation.py"
-      - "flow-lab/v14_sherpa_ko_integration.py"
-      - "flow-lab/v14_voxsherpa_upstream_import.py"
-      - "flow-lab/v14_pinned_voice_controls.py"
-      - "flow-lab/v14_live_partial_streaming.py"
-      - "flow-lab/v14_release_model_on_stop.py"
-      - "flow-lab/v14_deep_stt_diagnostics.py"
-      - "flow-lab/v14_voice_access_audio_ab.py"
-      - "flow-lab/VoiceAccessAudioTrial.java"
-      - "flow-lab/KoreanSttTrace.java"
-      - "flow-lab/KoreanSherpaStt.java"
-      - ".github/workflows/build-call-flow-lab-v14.yml"
   workflow_dispatch:
 permissions:
   contents: write
