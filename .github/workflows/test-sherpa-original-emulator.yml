@@ -87,7 +87,7 @@ jobs:
           gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
           APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.sherpaoriginalcli'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.sherpaoriginaldiag32'
           unzip -Z1 "$APK" | grep -F 'lib/x86_64/liboriginal-cli.so'
           unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/liboriginal-cli.so'
           unzip -Z1 "$APK" | grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx'
