@@ -1,0 +1,57 @@
+name: Production Railway exact original Zocbo mobile DOM and guide E2E
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - .github/workflows/zocbo-original-chrome-production.yml
+      - public/zocbo-source-chrome.js
+      - public/zocbo-source-chrome.css
+      - public/zocbo-guide-pages/**
+      - public/zocbo-source-assets/**
+      - server.mjs
+      - tools/zocbo/test_original_source_chrome.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deployed-real-source:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Confirm actual new production guide data and original DOM ready
+        run: |
+          set -euo pipefail
+          base=https://hitel-zocbo-native-hierarchy-production.up.railway.app
+          ready=0
+          for i in $(seq 1 45); do
+            if curl -fsS --max-time 8 "$base/api/zocbo/original-menu-guide?menu_cd=000010000200003" | jq -e '.isValid == true and (.html | length > 500)' >/dev/null && curl -fsS --max-time 8 "$base/zocbo-source-assets/banner-learning3Q-public.png" | sha256sum | grep -q '^9d3e0c32e91fdee62e1e37ca79242b6e3eada6fec7a395ff0f5496f602a1adb5'; then ready=1; break; fi
+            sleep 8
+          done
+          [ "$ready" = 1 ]
+          curl -fsS --max-time 8 "$base/api/zocbo/faithful-index" | jq -e '.stats.cases == 700'
+      - name: Install Chromium test runner
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Run real deployed source chrome, textbook and official guide dialog tests at 390 and 360
+        env:
+          HITEL_BASE_URL: https://hitel-zocbo-native-hierarchy-production.up.railway.app
+        run: python tools/zocbo/test_original_source_chrome.py
+      - name: Run real deployed original school selector AJAX tests
+        env:
+          HITEL_BASE_URL: https://hitel-zocbo-native-hierarchy-production.up.railway.app
+        run: python tools/zocbo/test_original_school_filters.py
+      - name: Preserve real production screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-original-mobile-dom-real-guide-school-evidence
+          path: |
+            zocbo-original-chrome-evidence/
+            zocbo-school-original-evidence/
+          retention-days: 7
+          if-no-files-found: warn

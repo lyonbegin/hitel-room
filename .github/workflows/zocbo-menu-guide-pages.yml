@@ -1,0 +1,43 @@
+name: Capture exact official original mobile menu description pages
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - tools/zocbo/capture_menu_description_pages.py
+      - .github/workflows/zocbo-menu-guide-pages.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  official-original-help-pages:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install public mobile browser and HTML DOM parser
+        run: |
+          python -m py_compile tools/zocbo/capture_menu_description_pages.py
+          pip install playwright==1.56.0 beautifulsoup4==4.12.3
+          python -m playwright install --with-deps chromium
+      - name: Capture actual menuDescriptionWeb DOM and retain source URLs
+        run: python tools/zocbo/capture_menu_description_pages.py
+      - name: Preserve original public mobile help pages
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add public/zocbo-guide-pages/
+          git commit -m 'Preserve official mobile menuDescriptionWeb public guide documents'
+          git fetch origin feature/zocbo-faithful-all-sources-20261108
+          git rebase FETCH_HEAD
+          git push origin HEAD:feature/zocbo-faithful-all-sources-20261108
+      - name: Upload official HTML evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-public-menu-description-pages
+          path: public/zocbo-guide-pages/
+          retention-days: 7
+          if-no-files-found: warn

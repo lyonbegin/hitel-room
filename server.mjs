@@ -163,6 +163,74 @@ const originalRawModes={
  practice:'docs/zocbo-original-input/03-middle-practice.html',
  gangnam:'docs/zocbo-original-input/04-middle-gangnam.html'
 };
+
+// Provenance: immutable original m.zocbo.com anonymous 700-page Chromium capture.
+// Serve only whitelisted normalized DOM fragments, never source-site scripts or credentials.
+
+const originalFilteredCache=new Map();
+async function serveZocboOriginalFiltered(url,send,isDefault=false){
+ const caseId=String(url.searchParams.get('case')||'');
+ const key=String(url.searchParams.get('changedFilter')||'');
+ const choice=String(url.searchParams.get('choice')||'');
+ if(!/^[MH]_[123]_[A-Z0-9]{2,8}_(?:concept|unit|practice|revision)(?:_[0-9]{15})?$/.test(caseId)||
+    (!isDefault&&!['SEARCH_TX_CD','SEARCH_LEVEL_CD','SEARCH_STEP_CD'].includes(key))||choice.length>100){
+  send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_ORIGINAL_FILTER'}));return;
+ }
+ const path='./public/zocbo-faithful-pages/'+caseId+'.json';
+ if(!existsSync(path)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_VIEW_NOT_CAPTURED'}));return}
+ const captured=JSON.parse(readFileSync(path,'utf8'));
+ const valid=isDefault?{name:'원본 기본 선택'}:(captured.filterOptions?.[key]||[]).find(o=>String(o.value)===choice);
+ if(!valid){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'FILTER_CHOICE_NOT_IN_ORIGINAL_SOURCE'}));return}
+ const qkey=[caseId,key,choice].join('|'),cached=originalFilteredCache.get(qkey);
+ if(cached&&Date.now()-cached.at<120000){send(200,'application/json; charset=utf-8',cached.json);return}
+ const requests=(captured.originalPublicRequests||[]).filter(x=>x&&x.form&&
+  ['/exam/ajax/getMenuByExamSearchAjax.asp','/exam/ajax/getMenuByExamPartAjax.asp'].includes(x.path));
+ // Source capture can finish before the second asynchronous original AJAX runs.
+ // The complementary search request is the same verified mobile filter form
+ // with the original public search-specific fields, never invented exam rows.
+ if(!requests.some(r=>r.path.includes('getMenuByExamSearchAjax'))){
+  const part=requests.find(r=>r.path.includes('getMenuByExamPartAjax'));
+  if(part){
+   const form=new URLSearchParams(part.form);
+   form.delete('is_scroll');
+   form.set('is_part','1');form.set('expapr_servicetype','2');
+   if(!form.has('step_cd'))form.set('step_cd','');
+   requests.push({path:'/exam/ajax/getMenuByExamSearchAjax.asp',form:form.toString()});
+  }
+ }
+ if(!requests.length){send(422,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_REQUEST_TEMPLATE_MISSING'}));return}
+ const field=key==='SEARCH_TX_CD'?'tx_cd':key==='SEARCH_LEVEL_CD'?'level_cd':'step_cd';
+ try{
+  const parsed=await Promise.all(requests.map(async req=>{
+   const form=new URLSearchParams(req.form);
+   if(!isDefault)form.set(field,choice);
+   const data=await zocboReadPublic(req.path,Object.fromEntries(form.entries()),captured.originalUrl);
+   return {path:req.path,data};
+  }));
+  const ex=parsed.find(x=>x.path.includes('getMenuByExamSearchAjax'))?.data;
+  const pt=parsed.find(x=>x.path.includes('getMenuByExamPartAjax'))?.data;
+  const exams=(Array.isArray(ex?.MENU_BY_EXAM)?ex.MENU_BY_EXAM:[]).slice(0,3000).map(x=>sourceInfoRow(x,'exam')).filter(x=>x?.id);
+  const parts=(Array.isArray(pt?.MENU_BY_PART)?pt.MENU_BY_PART:[]).slice(0,2000).map(x=>sourceInfoRow(x,'part')).filter(Boolean);
+  const obj={ok:true,source:'verified-anonymous-original-ajax',case:caseId,filter:isDefault?'ORIGINAL_DEFAULT':key,selected:String(valid.name),
+   total:Number(ex?.EXAM_COUNT)||exams.length,exams,parts};
+  const json=JSON.stringify(obj);
+  originalFilteredCache.set(qkey,{at:Date.now(),json});
+  if(originalFilteredCache.size>100)originalFilteredCache.delete(originalFilteredCache.keys().next().value);
+  send(200,'application/json; charset=utf-8',json);
+ }catch(e){send(502,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_FILTER_UPSTREAM_ERROR',reason:safeString(e.message,120)}))}
+}
+
+const sourceIndexPath='./public/zocbo-faithful-index.json';
+function serveZocboOriginalSource(url,send){
+ const caseId=String(url.searchParams.get('case')||'');
+ if(!/^[MH]_[123]_[A-Z0-9]{2,8}_(?:concept|unit|practice|revision|school|gangnam)(?:_[0-9]{15})?$/.test(caseId)){
+   send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_ORIGINAL_CASE'}));return;
+ }
+ const filepath='./public/zocbo-faithful-pages/'+caseId+'.json';
+ if(!existsSync(filepath)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_CASE_NOT_CAPTURED'}));return}
+ send(200,'application/json; charset=utf-8',readFileSync(filepath));return;
+}
+
 const port=Number(process.env.PORT||3000);
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 createServer(async (req,res)=>{
@@ -170,6 +238,33 @@ createServer(async (req,res)=>{
  function send(status,type,content){res.writeHead(status,{...headers,'Content-Type':type});res.end(content)}
  if(url.pathname==='/api/zocbo/public-catalog'&&req.method==='GET'){await serveZocboPublicCatalog(url,req,send);return}
  if(url.pathname==='/api/zocbo/public-school-options'&&req.method==='GET'){await serveZocboPublicSchoolOptions(url,send);return}
+ if(url.pathname==='/api/zocbo/public-case-catalog'&&req.method==='GET'){await serveZocboOriginalFiltered(url,send,true);return}
+ if(url.pathname==='/api/zocbo/public-filtered'&&req.method==='GET'){await serveZocboOriginalFiltered(url,send);return}
+ if(url.pathname==='/api/zocbo/faithful-index'&&req.method==='GET'){
+   if(!existsSync(sourceIndexPath)){send(503,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'SOURCE_INDEX_NOT_COMPILED'}));return}
+   send(200,'application/json; charset=utf-8',readFileSync(sourceIndexPath));return
+ }
+ if(url.pathname==='/api/zocbo/original-menu-guide'&&req.method==='GET'){
+   const code=String(url.searchParams.get('menu_cd')||'');
+   if(!/^\d{15}$/.test(code)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MENU_CODE'}));return}
+   const fn='./public/zocbo-guide-pages/'+code+'.json';
+   if(!existsSync(fn)){send(404,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'ORIGINAL_GUIDE_NOT_CAPTURED'}));return}
+   send(200,'application/json; charset=utf-8',readFileSync(fn));return
+ }
+ if(url.pathname==='/api/zocbo/faithful-page'&&req.method==='GET'){serveZocboOriginalSource(url,send);return}
+ if(url.pathname==='/zocbo-faithful-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.js'));return}
+ if(url.pathname==='/zocbo-source-chrome.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/zocbo-source-chrome.js'));return}
+ if(url.pathname==='/zocbo-source-chrome.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-source-chrome.css'));return}
+ if(url.pathname.startsWith('/zocbo-source-assets/')){
+   const name=url.pathname.slice('/zocbo-source-assets/'.length);
+   if(!/^[a-zA-Z0-9._-]{1,90}$/.test(name)||name==='.'||name==='..'){send(400,'text/plain','invalid asset');return}
+   const fn='./public/zocbo-source-assets/'+name;
+   if(!existsSync(fn)){send(404,'text/plain','original public asset not captured');return}
+   const type=name.endsWith('.svg')?'image/svg+xml':name.endsWith('.png')?'image/png':'application/octet-stream';
+   send(200,type,readFileSync(fn));return
+ }
+ if(url.pathname==='/zocbo-captured-original.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-captured-original.css'));return}
+ if(url.pathname==='/zocbo-faithful-ui.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/zocbo-faithful-ui.css'));return}
  if(url.pathname==='/api/zocbo/menu-data'&&req.method==='GET'){
   const slug=String(url.searchParams.get('slug')||'');
   if(!originalMenuSlugs.has(slug)){send(400,'application/json; charset=utf-8',JSON.stringify({ok:false,error:'INVALID_MENU'}));return}

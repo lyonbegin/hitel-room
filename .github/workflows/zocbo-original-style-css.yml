@@ -1,0 +1,42 @@
+name: Import scoped original mobile Zocbo CSS declarations
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - tools/zocbo/extract_mobile_css.py
+      - .github/workflows/zocbo-original-style-css.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-css:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install tinycss2 and validate original stylesheet capture parser
+        run: |
+          python -m py_compile tools/zocbo/extract_mobile_css.py
+          pip install tinycss2==1.4.0
+      - name: Download actual original mobile stylesheet and safely scope original UI rules
+        run: python tools/zocbo/extract_mobile_css.py
+      - name: Preserve verified CSS with a source hash in the feature branch
+        run: |
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git add public/zocbo-captured-original.css
+          git commit -m 'Preserve original sourced mobile CSS rules safely scoped to one native app sector'
+          git fetch origin feature/zocbo-faithful-all-sources-20261108
+          git rebase FETCH_HEAD
+          git push origin HEAD:feature/zocbo-faithful-all-sources-20261108
+      - name: Upload source CSS evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-mobile-scoped-css
+          path: public/zocbo-captured-original.css
+          retention-days: 7
+          if-no-files-found: warn

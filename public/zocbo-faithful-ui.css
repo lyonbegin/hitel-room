@@ -1,0 +1,95 @@
+/* HITEL native source-backed Zocbo sector.
+ * Original class names and mobile hierarchy, scoped under #phone to avoid
+ * leaking source site CSS into HITEL's existing shell. No iframe.
+ */
+#phone .zb-faithful{background:#f8f8f8;color:#222;width:100%;min-height:500px;overflow-x:hidden;padding-bottom:18px;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+#phone .zb-f-main-tabs{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;background:white;border-bottom:1px solid #eee;padding:0 8px;margin:0;gap:0;white-space:nowrap}
+#phone .zb-f-main-tabs::-webkit-scrollbar{height:0}
+#phone .zb-f-main-tabs>button{position:relative;flex:0 0 auto;padding:19px 12px 13px;font-size:12px;color:#666;font-weight:500;border:0;border-bottom:2px solid transparent;background:#fff;cursor:pointer;scroll-snap-align:start;line-height:1.35}
+#phone .zb-f-main-tabs>button.is-active{border-bottom-color:#222;color:#222;font-weight:750}
+#phone .zb-f-subtabs{display:flex;align-items:center;gap:20px;overflow-x:auto;white-space:nowrap;background:#fff;padding:0 16px;border-bottom:1px solid #eee;min-height:49px;scrollbar-width:none}
+#phone .zb-f-subtabs button{flex:none;border:0;border-bottom:2px solid transparent;background:none;color:#999;padding:14px 0 12px;font-size:13px;line-height:1.5;cursor:pointer}
+#phone .zb-f-subtabs button.is-active{color:#171717;font-weight:750;border-bottom-color:#171717}
+#phone .zb-f-filter{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:7px;min-height:64px;align-items:center;padding:12px;background:#fff;border-bottom:1px solid #eee;scrollbar-width:none}
+#phone .zb-f-filter-item{display:flex;align-items:center;gap:9px;white-space:nowrap;flex:none;min-height:35px;padding:7px 12px;border:1px solid #e8e8e8;border-radius:26px;color:#222;background:#fff;font-weight:600;font-size:12px;cursor:pointer}
+#phone .zb-f-filter-item b{height:7px;width:7px;display:inline-block;border:solid #303030;border-width:0 1.6px 1.6px 0;transform:translateY(-2px) rotate(45deg)}
+#phone .zb-f-content{padding:0 0 19px;min-height:200px;background:#f8f8f8}
+#phone .zb-f-loading,#phone .zb-f-empty,#phone .zb-f-error{padding:28px 17px;font-size:13px;line-height:1.7;color:#777}
+#phone .zb-f-error{color:#8c2e2e}
+#phone .zb-f-source-notice{color:#666;font-size:11px;margin:10px 13px}
+#phone .zb-faithful button{font-family:inherit}
+#phone .zb-faithful .zbContainer{background:#f8f8f8;padding:13px 13px 35px;min-height:200px;color:#252525}
+#phone .zb-faithful .zbAccordion,#phone .zb-faithful .zbAccordion__content{margin:0;padding:0}
+#phone .zb-faithful #ROOT_PART_CD{display:block}
+#phone .zb-faithful #ROOT_PART_CD>.zbAccordion__item{background:#fff;border:1px solid #dfdfdf;border-radius:7px;margin:0 0 12px;overflow:hidden}
+#phone .zb-faithful .zbAccordion__item{display:block;position:relative}
+#phone .zb-faithful .zbAccordion__header{position:relative;background:#fff}
+#phone .zb-faithful .zbAccordion__header>.zbAccordion__button{display:flex;align-items:center;justify-content:space-between;text-align:left;color:#202020;background:#fff;border:0;width:100%;padding:19px 15px;min-height:56px;font-size:13px;font-weight:650;line-height:1.55;cursor:pointer}
+#phone .zb-faithful #ROOT_PART_CD>.zbAccordion__item>.zbAccordion__header>.zbAccordion__button{font-weight:750;font-size:14px}
+#phone .zb-faithful .zbAccordion__header>.zbAccordion__button:after{content:'›';font-weight:400;font-size:16px;color:#aaa;margin-left:7px}
+#phone .zb-faithful .zbAccordion__item.zb-f-open>.zbAccordion__header>.zbAccordion__button:after{transform:rotate(90deg)}
+#phone .zb-faithful .zbAccordion__body{display:none;border-top:1px solid #eee;background:#fcfcfc}
+#phone .zb-faithful .zbAccordion__item.zb-f-open>.zbAccordion__body{display:block}
+#phone .zb-faithful .zbAccordion__body .zbAccordion__item{border-bottom:1px solid #ececec}
+#phone .zb-faithful .zbAccordion__body .zbAccordion__item:last-child{border-bottom:0}
+#phone .zb-faithful .zbAccordion__body .zbAccordion__header>.zbAccordion__button{padding:14px 15px;font-size:12px}
+#phone .zb-faithful .zbAccordion__body .zbAccordion__body{background:#fff}
+#phone .zb-faithful .zbAccordion__body .zbAccordion__content{width:100%}
+#phone .zb-faithful .zbAccordion__body .download{border-top:1px solid #eee;padding:12px 13px 15px;background:#fff}
+#phone .zb-faithful .zbAccordion__body .grouping__box{padding:7px 0 10px}
+#phone .zb-faithful .zbAccordion__body .grouping__title{display:block;font-size:12px;color:#333;font-weight:700}
+#phone .zb-faithful .download__badge{display:flex;flex-wrap:wrap;gap:4px}
+#phone .zb-faithful .download__badge .badge,#phone .zb-faithful .badge.is-tertiary{display:inline-block;padding:3px 7px;background:#f5f5f5;color:#555;border-radius:4px;font-size:10px;font-weight:550}
+#phone .zb-faithful .episode__buttons{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px}
+#phone .zb-faithful .download__button{flex:none;display:inline-flex;align-items:center;justify-content:center;padding:9px 10px;min-height:37px;color:#363636;background:#fff;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer;text-align:center;max-width:100%;white-space:normal}
+#phone .zb-faithful .download__button:hover{border-color:#999}
+#phone .zb-faithful .download__button .button__text{font-size:inherit;font-weight:600;line-height:1.35}
+#phone .zb-faithful .download__button.has-video:after{content:'▶';margin-left:4px}
+#phone .zb-faithful .label.is-listInfo{display:none}
+#phone .zb-faithful .zbAccordion__item .download__title{font-size:12px}
+#phone .zb-faithful .zbAccordion__item [style*="display:none"]{display:none}
+#phone .zb-faithful .zbAccordion__item [style*="pointer-events: auto"]{pointer-events:auto}
+#phone .zb-faithful #row_A{padding:14px;background:#fff}
+#phone .zb-faithful #row_A .listTop{display:block}
+#phone .zb-faithful #row_A .bbsNumber{font-size:12px}
+#phone .zb-faithful #row_A .bbsList{padding:0;list-style:none}
+#phone .zb-faithful #row_A img{max-width:100%;height:auto}
+#phone .zb-faithful #list_A{list-style:none;padding:0 12px;margin:0}
+#phone .zb-faithful #list_A li[data-no]{position:relative;padding:15px;background:#fff;margin:8px 0;border:1px solid #eee;border-radius:7px;cursor:pointer;font-size:12px}
+#phone .zb-faithful #list_A li[data-no] .title{font-size:13px;font-weight:700}
+#phone .zb-faithful #list_A li[data-no] button{background:#fff;color:#333;border:1px solid #ddd;padding:8px;border-radius:5px}
+#phone .zb-f-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.36);z-index:60}
+#phone .zb-f-sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:17px 17px 0 0;max-height:78%;overflow-y:auto;z-index:61;box-shadow:0 -6px 18px #0002;padding:0 16px 23px}
+#phone .zb-f-sheet-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:15px 0;min-height:56px}
+#phone .zb-f-sheet-head strong{font-size:15px}
+#phone .zb-f-sheet-head button{border:0;background:transparent;font-size:24px;color:#333;cursor:pointer}
+#phone .zb-f-sheet h3{font-size:15px;margin:19px 0 10px}
+#phone .zb-f-sheet .zb-f-sheet-meta{font-size:12px;color:#777;margin:0 0 16px}
+#phone .zb-f-sheet p{font-size:12px;color:#666;line-height:1.7}
+#phone .zb-f-sheet a,#phone .zb-f-sheet>button:not(.zb-f-sheet-head button){display:block;margin-top:12px;border:1px solid #ccc;border-radius:7px;padding:12px;text-decoration:none;color:#333;background:#fff;font-size:12px;text-align:center}
+#phone .zb-f-choices{padding:0;margin:0;display:flex;flex-direction:column}
+#phone .zb-f-choices>button{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:0;border-bottom:1px solid #f1f1f1;text-align:left;padding:15px 4px;font-size:13px;color:#333;cursor:pointer}
+#phone .zb-f-choices>button.is-active{font-weight:700}
+#phone .zb-f-choice-check{font-weight:700}
+#phone .zb-f-picker{padding-bottom:25px}
+@media(max-width:350px){#phone .zb-f-main-tabs>button{padding:15px 9px;font-size:11px}#phone .zb-f-subtabs{gap:13px;padding-left:11px}#phone .zb-f-filter{padding:10px}}
+
+#phone .zb-f-sitebar{display:flex;justify-content:flex-start;align-items:center;gap:6px;padding:9px 12px 7px;background:#fff;border-bottom:1px solid #eee}
+#phone .zb-f-sitebar button{background:#fff;color:#555;border:1px solid #dedede;border-radius:18px;font-size:11px;padding:7px 12px;cursor:pointer}
+#phone .zb-f-sitebar button.is-active{background:#272727;color:#fff;border-color:#272727;font-weight:700}
+
+/* Full-viewport mobile URL: ?screen=bankSearch&mobile=1 */
+#phone:has(.zb-faithful) .appscroll{padding:0;scrollbar-width:none;background:#fff}
+#phone:has(.zb-faithful) .topbar{flex:none}
+body.zb-standalone{background:#fff}
+body.zb-standalone .workspace{display:block;max-width:none;width:100%;min-height:100dvh;margin:0}
+body.zb-standalone .map-pane,body.zb-standalone .audit-pane,body.zb-standalone .stage-top,body.zb-standalone .stage-bottom{display:none!important}
+body.zb-standalone .stage{padding:0;margin:0;min-height:100dvh;display:block}
+body.zb-standalone .phone-wrap{width:100%;max-width:100%}
+body.zb-standalone #phone{width:100%;height:100dvh;min-height:0;max-height:none;border:0;border-radius:0;box-shadow:none}
+
+/* Original-CSS compatibility: avoid doubled built-in chevrons and source font fallback. */
+#phone .zb-faithful #examMain .zbAccordion__header>.zbAccordion__button{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif!important;font-weight:700}
+#phone .zb-faithful #examMain .zbAccordion__header>.zbAccordion__button:after{content:none!important}
+#phone .zb-faithful #examMain #ROOT_PART_CD>.zbAccordion__item{box-shadow:none!important;border:1px solid #e0e0e0!important}
+#phone .zb-faithful #examMain #ROOT_PART_CD>.zbAccordion__item>.zbAccordion__header>.zbAccordion__button{font-size:14px!important;font-weight:750!important}

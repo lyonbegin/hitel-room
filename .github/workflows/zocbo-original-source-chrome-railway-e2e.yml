@@ -1,0 +1,50 @@
+name: Verify deployed Railway ORIGINAL Zocbo mobile chrome + school source API
+on:
+  push:
+    branches: [feature/zocbo-faithful-all-sources-20261108]
+    paths:
+      - .github/workflows/zocbo-original-source-chrome-railway-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-railway-original-mobile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 22
+    env:
+      HITEL_BASE_URL: https://hitel-zocbo-native-hierarchy-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Confirm deployed source original UI assets are live
+        run: |
+          set -e
+          for i in $(seq 1 35); do
+            curl -fsS --max-time 12 "$HITEL_BASE_URL/zocbo-source-chrome.js" -o /tmp/source-chrome.js && break || sleep 7
+          done
+          test -s /tmp/source-chrome.js
+          grep -q 'zb-original-site' /tmp/source-chrome.js
+          curl -fsS --max-time 12 "$HITEL_BASE_URL/api/zocbo/faithful-page?case=M_3_EG_unit" | jq -e '.case == "M_3_EG_unit" and (.topHTML | length > 100) and (.bannerHTML | length > 50)'
+      - name: Browser with original CSS DOM
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Click deployed original source six tabs, filter, banner and guide
+        run: python tools/zocbo/test_original_source_chrome.py
+      - name: Click deployed original school source, Gangnam and Sookmyung selectors
+        run: python tools/zocbo/test_original_school_filters.py
+      - name: Recheck original 6 grade × subject source matrix
+        run: python tools/zocbo/test_faithful_source_matrix.py
+      - name: Preserve actual deployed mobile images and proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-deployed-original-mobile-and-school-proof
+          path: |
+            zocbo-original-chrome-evidence/
+            zocbo-school-original-evidence/
+            zocbo-source-matrix-evidence/
+          retention-days: 7
+          if-no-files-found: warn
