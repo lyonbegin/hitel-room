@@ -125,7 +125,7 @@ final class SamsungCompletedM4aTranscriber {
             // The original microphone recognizer finishes its stream by
             // inputFinished() and decoding ready frames; file input also gets
             // trailing zero PCM to flush the right context of the Zipformer.
-            channel.acceptWaveform(new float[RATE*TAIL_SILENCE_SECONDS],RATE);
+            channel.acceptWaveform(new float[audioRate[0]*TAIL_SILENCE_SECONDS],audioRate[0]);
             channel.inputFinished();
             decodeAllReady(asr,channel);
             captureHypothesis(asr,channel,hypothesis,recognizedPartials);
