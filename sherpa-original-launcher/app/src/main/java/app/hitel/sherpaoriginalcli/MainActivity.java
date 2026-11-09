@@ -21,6 +21,9 @@ import android.widget.Button;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.FFmpegSession;
+import com.arthenica.ffmpegkit.ReturnCode;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -68,10 +71,10 @@ public final class MainActivity extends Activity {
     int pad=(int)(18*getResources().getDisplayMetrics().density);
     root.setPadding(pad,pad,pad,pad);
     scroll.addView(root);
-    TextView head=text("Sherpa 원본 FFmpeg STT",23);
+    TextView head=text("Sherpa 원본 FFmpeg STT · 입력 호환 개선판",23);
     head.setTypeface(null,Typeface.BOLD);
     root.addView(head);
-    root.addView(text("공식 sherpa-onnx-ffmpeg.c 실행 파일을 그대로 사용합니다.\n한국어 Zipformer INT8 · 오프라인 · 추가 앱이나 ADB 불필요",13));
+    root.addView(text("공식 sherpa-onnx-ffmpeg.c 실행 파일 그대로\nFFmpegKit 원본 모듈로 AAC를 16kHz PCM으로 변환 후 인식\n한국어 Zipformer INT8 · 오프라인 · ADB 불필요",13));
     choose=button(root,"1. M4A / 음성 파일 선택");
     filename=text("선택한 파일 없음",14);root.addView(filename);
     execute=button(root,"2. 원본 STT 실행");execute.setEnabled(false);
@@ -191,6 +194,35 @@ public final class MainActivity extends Activity {
     if(dest.length()==0)throw new IOException("녹음 파일 길이가 0입니다");
     return dest;
   }
+  /*
+   * Keep upstream sherpa-onnx-ffmpeg.c UNTOUCHED.
+   * Existing upstream FFmpegKit decodes AAC and normalizes only the input file
+   * to fixed 16 kHz, signed 16-bit, mono WAV to avoid variable AAC frame
+   * properties in the untouched example's abuffer.
+   */
+  File normalizeAudioWithOfficialFFmpeg(File compressed) throws IOException {
+    if(stopRequested) throw new IOException("사용자 중지");
+    File wav=new File(getCacheDir(),"sherpa-original-fixed-16k-mono.wav");
+    if(wav.exists() && !wav.delete()) throw new IOException("이전 변환 파일 삭제 실패");
+    status("FFmpeg 원본 모듈: 16kHz·16비트·모노 WAV로 입력 형식 정규화 중…");
+    String[] args={
+      "-hide_banner","-nostdin","-loglevel","warning","-y",
+      "-i",compressed.getAbsolutePath(),
+      "-map","0:a:0","-vn",
+      "-ac","1","-ar","16000",
+      "-c:a","pcm_s16le",
+      wav.getAbsolutePath()
+    };
+    FFmpegSession session=FFmpegKit.executeWithArguments(args);
+    if(!ReturnCode.isSuccess(session.getReturnCode())){
+      String output=session.getAllLogsAsString();
+      if(output!=null && output.length()>1400)output=output.substring(output.length()-1400);
+      throw new IOException("FFmpeg 변환 실패 rc="+session.getReturnCode()+" / "+output);
+    }
+    if(wav.length()<44)throw new IOException("FFmpeg WAV 출력 크기가 비정상적입니다: "+wav.length());
+    Log.i(TAG,"OFFICIAL_FFMPEG_PREPARED format=pcm_s16le rate=16000 channels=1 wavBytes="+wav.length());
+    return wav;
+  }
   void run(){
     if(chosenUri==null||busy)return;
     busy=true;stopRequested=false;recognized="";
@@ -202,7 +234,9 @@ public final class MainActivity extends Activity {
       try{
         File model=extractModels();
         status("M4A 파일 준비 중…");
-        File audio=stageAudio();
+        File selectedAudio=stageAudio();
+        File audio=normalizeAudioWithOfficialFFmpeg(selectedAudio);
+        if(stopRequested)throw new IOException("사용자 중지");
         File libDir=new File(getApplicationInfo().nativeLibraryDir);
         File original=new File(libDir,"liboriginal-cli.so");
         if(!original.isFile()||!original.canExecute())
@@ -221,7 +255,7 @@ public final class MainActivity extends Activity {
         pb.environment().put("LD_LIBRARY_PATH",libDir.getAbsolutePath()+
           (oldPath==null||oldPath.isEmpty()?"":":"+oldPath));
         Log.i(TAG,"Original executable="+original+" audioBytes="+audio.length());
-        status("FFmpeg 원본 스트리밍 음성인식 진행 중…");
+        status("입력 정규화 완료 → 수정하지 않은 원본 STT 실행 중…");
         Process proc=pb.start();
         child=proc;
         try(InputStream stdout=new BufferedInputStream(proc.getInputStream())){
