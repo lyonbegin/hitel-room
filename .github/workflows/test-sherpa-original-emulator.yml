@@ -141,6 +141,9 @@ jobs:
             mkdir -p emulator-qa
             adb shell mkdir -p /data/local/tmp/sherpa-qa/lib /data/local/tmp/sherpa-qa/models
             adb push sherpa-original-launcher/app/src/main/jniLibs/x86_64/. /data/local/tmp/sherpa-qa/lib/
+            # FFmpeg native .so now lives in the official AAR instead of jniLibs;
+            # stage it as well for the direct-ELF test outside the installed APK.
+            adb push /tmp/ffmpeg-unpacked/jni/x86_64/. /data/local/tmp/sherpa-qa/lib/
             adb push sherpa-original-launcher/app/src/main/assets/models/. /data/local/tmp/sherpa-qa/models/
             adb shell chmod 755 /data/local/tmp/sherpa-qa/lib/liboriginal-cli.so
             adb shell "cd /data/local/tmp/sherpa-qa && LD_LIBRARY_PATH=/data/local/tmp/sherpa-qa/lib ./lib/liboriginal-cli.so models/tokens.txt models/encoder-epoch-99-avg-1.int8.onnx models/decoder-epoch-99-avg-1.onnx models/joiner-epoch-99-avg-1.int8.onnx /sdcard/Download/sherpa_emulator_ko.m4a" > emulator-qa/direct-original-cli-output.txt 2>&1 || echo "DIRECT_ORIGINAL_CLI_FAILED_RC=$?" >> emulator-qa/direct-original-cli-output.txt
