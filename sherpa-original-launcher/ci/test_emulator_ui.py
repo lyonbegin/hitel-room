@@ -14,6 +14,7 @@ from xml.etree import ElementTree as ET
 OUT = Path("emulator-qa")
 OUT.mkdir(exist_ok=True)
 PKG = "app.hitel.sherpaoriginalnormalized"
+ACTIVITY = PKG + "/app.hitel.sherpaoriginalcli.MainActivity"
 NAME = "sherpa_emulator_ko.m4a"
 
 def adb(*args, timeout=35, check=True):
@@ -82,7 +83,7 @@ def test():
     print("EMULATOR SDK", adb("shell","getprop","ro.build.version.sdk"),flush=True)
     print("PACKAGE",adb("shell","pm","path",PKG),flush=True)
     adb("logcat","-c")
-    adb("shell","am","start","-n",PKG+"/.MainActivity",timeout=25)
+    adb("shell","am","start","-n",ACTIVITY,timeout=25)
     if not tap_term(["M4A / 음성 파일 선택"],35):
         raise RuntimeError("APK UI failed to show file picker button")
     save_logs("document-picker")
@@ -136,7 +137,7 @@ def test():
             uri="content://com.android.externalstorage.documents/document/primary%3ADownload%2F"+NAME
             print("Using scoped-storage DocumentsProvider content URI",uri,flush=True)
         print("DELIVERING_ANDROID_CONTENT_URI",uri,flush=True)
-        adb("shell","am","start","-n",PKG+"/.MainActivity",
+        adb("shell","am","start","-n",ACTIVITY,
             "-a","android.intent.action.VIEW","-d",uri,
             "-t","audio/mp4","--grant-read-uri-permission",timeout=30)
         time.sleep(2)
