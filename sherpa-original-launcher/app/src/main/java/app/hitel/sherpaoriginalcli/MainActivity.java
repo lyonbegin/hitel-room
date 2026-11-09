@@ -2,6 +2,7 @@ package app.hitel.sherpaoriginalcli;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.media.MediaMetadataRetriever;
 import android.os.SystemClock;
 import android.os.Handler;
 import android.os.Looper;
@@ -40,13 +41,14 @@ public final class MainActivity extends Activity {
   };
   static final long[] MIN={115000000L,9500000L,2000000L,50000L};
   static final Pattern SEGMENT=Pattern.compile("^([0-9]+):(.*)$");
-  static final int OPEN=31,SAVE=32;
+  static final int OPEN=31,SAVE=32,SAVE_LOG=33;
   final Handler main=new Handler(Looper.getMainLooper());
   volatile Process child;
   volatile boolean busy=false,stopRequested=false;
   Uri chosenUri;
   String chosenName="", recognized="";
-  Button choose,execute,stop,save,copy;
+  Button choose,execute,stop,save,copy,saveLog;
+  volatile File fullLogFile;
   TextView status,result,diagnostic,filename;
   final ByteArrayOutputStream logBuffer=new ByteArrayOutputStream();
   long lastUi=0;
@@ -87,6 +89,7 @@ public final class MainActivity extends Activity {
     save=button(root,"TXT 파일 저장");save.setEnabled(false);
     root.addView(text("원본 FFmpeg / sherpa-onnx 출력 및 오류",15));
     diagnostic=text("실행 전",12);diagnostic.setTextIsSelectable(true);root.addView(diagnostic);
+    saveLog=button(root,"원본 실행 전체 로그 TXT 저장");saveLog.setEnabled(false);
     root.addView(text("엔진: 공식 sherpa-onnx v1.12.26 C 원본.\n별도 음성인식·PCM 처리 코드를 추가하지 않았습니다.",11));
     setContentView(scroll);
     choose.setOnClickListener(v->{
@@ -116,6 +119,14 @@ public final class MainActivity extends Activity {
       i.setType("text/plain");
       i.putExtra(Intent.EXTRA_TITLE,"sherpa-original-stt.txt");
       startActivityForResult(i,SAVE);
+    });
+    saveLog.setOnClickListener(v->{
+      if(fullLogFile==null||!fullLogFile.isFile())return;
+      Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+      i.addCategory(Intent.CATEGORY_OPENABLE);
+      i.setType("text/plain");
+      i.putExtra(Intent.EXTRA_TITLE,"sherpa-galaxy-full-diagnostic.txt");
+      startActivityForResult(i,SAVE_LOG);
     });
     acceptIncomingAudio(getIntent());
   }
@@ -158,6 +169,14 @@ public final class MainActivity extends Activity {
         out.write(recognized.getBytes(StandardCharsets.UTF_8));
         out.flush();status("TXT 저장 완료");
       }catch(Exception e){status("TXT 저장 실패: "+e);}
+    }else if(code==SAVE_LOG){
+      try(InputStream in=new FileInputStream(fullLogFile);
+          OutputStream out=getContentResolver().openOutputStream(uri)){
+        if(out==null)throw new IOException("진단 로그 출력 스트림 없음");
+        byte[] b=new byte[32768];int n;
+        while((n=in.read(b))!=-1)if(n>0)out.write(b,0,n);
+        out.flush();status("원본 전체 로그 저장 완료");
+      }catch(Exception e){status("전체 로그 저장 실패: "+e);}
     }
   }
   File extractModels()throws IOException{
@@ -192,6 +211,7 @@ public final class MainActivity extends Activity {
       }
     }
     if(dest.length()==0)throw new IOException("녹음 파일 길이가 0입니다");
+    Log.i(TAG,"SOURCE_AUDIO_STAGED filename="+chosenName+" bytes="+dest.length());
     return dest;
   }
   /*
@@ -220,13 +240,30 @@ public final class MainActivity extends Activity {
       throw new IOException("FFmpeg 변환 실패 rc="+session.getReturnCode()+" / "+output);
     }
     if(wav.length()<44)throw new IOException("FFmpeg WAV 출력 크기가 비정상적입니다: "+wav.length());
+    // Diagnostics only. Recognition and official C executable are untouched.
+    long sourceDurationMs=-1;
+    MediaMetadataRetriever mmr=new MediaMetadataRetriever();
+    try{
+      mmr.setDataSource(compressed.getAbsolutePath());
+      String duration=mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+      if(duration!=null)sourceDurationMs=Long.parseLong(duration);
+    }catch(Exception e){Log.w(TAG,"SOURCE_DURATION_UNAVAILABLE",e);}
+    finally{try{mmr.release();}catch(Exception ignored){}}
+    long normalizedMs=Math.max(0,wav.length()-44)*1000L/32000L;
+    Log.i(TAG,"NORMALIZED_WAV_AUDIT sourceDurationMs="+sourceDurationMs+
+      " normalizedDurationEstimateMs="+normalizedMs+" sourceBytes="+compressed.length()+
+      " wavBytes="+wav.length()+" note=PCM16_mono_16k; exact WAV header may differ");
+    if(normalizedMs<200L)throw new IOException("FFmpeg 출력 PCM이 너무 짧습니다: "+normalizedMs+"ms");
+    if(sourceDurationMs>=3000L && normalizedMs*100L<sourceDurationMs*95L)
+      throw new IOException("FFmpeg 출력이 원본보다 짧습니다. originalMs="+sourceDurationMs+
+        " decodedMs="+normalizedMs+"; 해당 녹음은 STT로 넘기지 않습니다.");
     Log.i(TAG,"OFFICIAL_FFMPEG_PREPARED format=pcm_s16le rate=16000 channels=1 wavBytes="+wav.length());
     return wav;
   }
   void run(){
     if(chosenUri==null||busy)return;
-    busy=true;stopRequested=false;recognized="";
-    execute.setEnabled(false);choose.setEnabled(false);
+    busy=true;stopRequested=false;recognized="";fullLogFile=null;
+    execute.setEnabled(false);choose.setEnabled(false);saveLog.setEnabled(false);
     stop.setEnabled(true);save.setEnabled(false);copy.setEnabled(false);
     result.setText("");diagnostic.setText("원본 실행 파일 준비 중…");
     logBuffer.reset();
@@ -258,10 +295,13 @@ public final class MainActivity extends Activity {
         status("입력 정규화 완료 → 수정하지 않은 원본 STT 실행 중…");
         Process proc=pb.start();
         child=proc;
-        try(InputStream stdout=new BufferedInputStream(proc.getInputStream())){
+        fullLogFile=new File(getFilesDir(),"sherpa-last-full-native-output.txt");
+        try(InputStream stdout=new BufferedInputStream(proc.getInputStream());
+            FileOutputStream fullOut=new FileOutputStream(fullLogFile,false)){
           byte[] buffer=new byte[2048];int n;
           while((n=stdout.read(buffer))!=-1){
             if(n==0)continue;
+            fullOut.write(buffer,0,n);
             logBuffer.write(buffer,0,n);
             if(logBuffer.size()>180000){
               byte[] bytes=logBuffer.toByteArray();
@@ -289,6 +329,7 @@ public final class MainActivity extends Activity {
         main.post(()->{
           execute.setEnabled(chosenUri!=null);
           choose.setEnabled(true);stop.setEnabled(false);
+          saveLog.setEnabled(fullLogFile!=null&&fullLogFile.isFile()&&fullLogFile.length()>0);
         });
       }
     },"Launch-Unmodified-Sherpa-CLI").start();
