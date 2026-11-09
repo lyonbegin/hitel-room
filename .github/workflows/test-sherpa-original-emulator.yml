@@ -1,7 +1,7 @@
-name: Sherpa untouched original CLI + official FFmpegKit normalization Android emulator E2E
+name: Android 15 Sherpa original FFmpegKit STT end-to-end
 on:
   push:
-    branches: [feature/sherpa-original-ffmpeg-normalize-v3-20261109]
+    branches: [feature/sherpa-original-android15-emulator-20261109]
     paths:
       - 'sherpa-original-launcher/**'
       - '.github/workflows/test-sherpa-original-emulator.yml'
@@ -117,18 +117,23 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-      - name: Run actual APK on Android 11 emulator and capture diagnostics
+      - name: Run actual APK on Android 15 emulator and capture diagnostics
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 35
           target: google_apis
           arch: x86_64
-          profile: pixel_2
+          profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             set -eu
             adb wait-for-device
+            echo 'Android version:'
+            adb shell getprop ro.build.version.release
+            adb shell getprop ro.build.version.sdk
+            adb shell getprop ro.product.cpu.abi
+            adb shell getprop ro.build.fingerprint
             adb shell settings put system screen_off_timeout 1800000
             adb shell input keyevent 82
             adb install -r sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
