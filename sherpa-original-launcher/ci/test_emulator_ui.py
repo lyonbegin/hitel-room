@@ -167,7 +167,7 @@ def test():
     if rc!=0:
         raise RuntimeError(f"Original executable returned exit={rc}, details in after-stt-logcat.txt")
     if chars==0:
-        print("WARNING: synthetic Korean eSpeak fixture produced zero recognized characters; M4A decode/CLI completion proven but Korean recognition NOT proven.",flush=True)
+        raise RuntimeError("Official Korean speech fixture produced zero STT characters; cannot mark successful")
     (OUT/"PASS.txt").write_text(f"Emulator ABI x86_64, APK installed, audio input delivered via {'DocumentsUI picker' if picked_in_documents_ui else 'Android ACTION_VIEW content URI (picker separately UNVERIFIED)'}, official original CLI exited {rc}, recognized characters {chars}; Korean fixture M4A {NAME} (NOT user M4A).\n",encoding="utf-8")
 
 try:
