@@ -214,6 +214,73 @@ public final class MainActivity extends Activity {
     Log.i(TAG,"SOURCE_AUDIO_STAGED filename="+chosenName+" bytes="+dest.length());
     return dest;
   }
+  // Pure instrumentation on FFmpeg's WAV output; it does not alter PCM or the original recognizer.
+  static final class PcmAudit {
+    final long samples;
+    final double rms;
+    final double peak;
+    final long nonQuietSamples;
+    PcmAudit(long samples,double rms,double peak,long nonQuietSamples){
+      this.samples=samples;this.rms=rms;this.peak=peak;this.nonQuietSamples=nonQuietSamples;
+    }
+    long durationMs(){return samples*1000L/16000L;}
+  }
+  static int le16(RandomAccessFile in)throws IOException {
+    return in.readUnsignedByte() | (in.readUnsignedByte()<<8);
+  }
+  static long le32(RandomAccessFile in)throws IOException {
+    return ((long)in.readUnsignedByte()) | (((long)in.readUnsignedByte())<<8) |
+           (((long)in.readUnsignedByte())<<16) | (((long)in.readUnsignedByte())<<24);
+  }
+  static PcmAudit inspectNormalizedWav(File wav)throws IOException {
+    try(RandomAccessFile in=new RandomAccessFile(wav,"r")){
+      byte[] hdr=new byte[12];in.readFully(hdr);
+      if(hdr[0]!='R'||hdr[1]!='I'||hdr[2]!='F'||hdr[3]!='F'||
+         hdr[8]!='W'||hdr[9]!='A'||hdr[10]!='V'||hdr[11]!='E')
+        throw new IOException("RIFF/WAVE 형식이 아닙니다.");
+      int format=-1,channels=-1,rate=-1,bits=-1;
+      long dataStart=-1,dataBytes=-1;
+      while(in.getFilePointer()+8<=in.length()){
+        byte[] tag=new byte[4];in.readFully(tag);
+        long size=le32(in),start=in.getFilePointer();
+        if(size>in.length()-start)throw new IOException("WAV chunk 범위 초과");
+        if(tag[0]=='f'&&tag[1]=='m'&&tag[2]=='t'&&tag[3]==' '){
+          if(size<16)throw new IOException("WAV fmt 길이 오류");
+          format=le16(in);channels=le16(in);rate=(int)le32(in);
+          le32(in);le16(in);bits=le16(in);
+        }else if(tag[0]=='d'&&tag[1]=='a'&&tag[2]=='t'&&tag[3]=='a'){
+          dataStart=start;dataBytes=size;
+        }
+        if(dataStart>=0&&format>=0)break;
+        long next=start+size+(size%2);
+        if(next>in.length())next=in.length();
+        in.seek(next);
+      }
+      if(format!=1||channels!=1||rate!=16000||bits!=16)
+        throw new IOException("PCM WAV 규격 오류: fmt="+format+" ch="+channels+" rate="+rate+" bits="+bits);
+      if(dataStart<0||dataBytes<3200||dataBytes%2!=0)
+        throw new IOException("WAV data 샘플이 없거나 부족합니다: bytes="+dataBytes);
+      in.seek(dataStart);
+      byte[] buffer=new byte[16384];
+      long left=dataBytes,samples=0,above=0;
+      double sumSquares=0,peak=0;
+      while(left>0){
+        int take=(int)Math.min((long)buffer.length,left);
+        in.readFully(buffer,0,take);
+        for(int i=0;i<take;i+=2){
+          int val=(short)((buffer[i]&255)|((buffer[i+1]&255)<<8));
+          double a=Math.abs((double)val);
+          sumSquares+=a*a;
+          if(a>peak)peak=a;
+          if(a>250)above++;
+          samples++;
+        }
+        left-=take;
+      }
+      return new PcmAudit(samples,Math.sqrt(sumSquares/samples)/32768.0,peak/32768.0,above);
+    }
+  }
+
   /*
    * Keep upstream sherpa-onnx-ffmpeg.c UNTOUCHED.
    * Existing upstream FFmpegKit decodes AAC and normalizes only the input file
@@ -249,14 +316,19 @@ public final class MainActivity extends Activity {
       if(duration!=null)sourceDurationMs=Long.parseLong(duration);
     }catch(Exception e){Log.w(TAG,"SOURCE_DURATION_UNAVAILABLE",e);}
     finally{try{mmr.release();}catch(Exception ignored){}}
-    long normalizedMs=Math.max(0,wav.length()-44)*1000L/32000L;
+    PcmAudit audit=inspectNormalizedWav(wav);
+    long normalizedMs=audit.durationMs();
     Log.i(TAG,"NORMALIZED_WAV_AUDIT sourceDurationMs="+sourceDurationMs+
-      " normalizedDurationEstimateMs="+normalizedMs+" sourceBytes="+compressed.length()+
-      " wavBytes="+wav.length()+" note=PCM16_mono_16k; exact WAV header may differ");
+      " pcmDurationMs="+normalizedMs+" pcmSamples="+audit.samples+
+      " rms="+audit.rms+" peak="+audit.peak+
+      " nonQuietSamples="+audit.nonQuietSamples+
+      " sourceBytes="+compressed.length()+" wavBytes="+wav.length());
     if(normalizedMs<200L)throw new IOException("FFmpeg 출력 PCM이 너무 짧습니다: "+normalizedMs+"ms");
     if(sourceDurationMs>=3000L && normalizedMs*100L<sourceDurationMs*95L)
       throw new IOException("FFmpeg 출력이 원본보다 짧습니다. originalMs="+sourceDurationMs+
         " decodedMs="+normalizedMs+"; 해당 녹음은 STT로 넘기지 않습니다.");
+    if(audit.rms<0.0001)
+      Log.w(TAG,"PCM_NEAR_SILENCE: 파일은 디코딩되었지만 음성 신호가 거의 없습니다. rms="+audit.rms);
     Log.i(TAG,"OFFICIAL_FFMPEG_PREPARED format=pcm_s16le rate=16000 channels=1 wavBytes="+wav.length());
     return wav;
   }
