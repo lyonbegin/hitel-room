@@ -158,6 +158,13 @@ s=replace_once(s,
         Button recordStop=btn("음성인식 중지 · 삼성 녹음 종료 · 통화 유지",
             this::stopSamsungRecordingAndTranscribe);
         content.addView(recordStop,new LinearLayout.LayoutParams(-1,dp(52)));
+        Button fileRetry=btn("마지막 완성 M4A 파일 전사 다시 실행 (전화 불필요)",
+            ()->{
+                boolean accepted=SamsungRecordingFlow.retryLastFile(getApplicationContext());
+                log("SAMSUNG_REC_RETRY_USER","accepted="+accepted);
+                refreshSamsungFileAsr();
+            });
+        content.addView(fileRetry,new LinearLayout.LayoutParams(-1,dp(50)));
         samsungFileAsrState=label("삼성 녹음 파일 인식: 통화 녹음 시작 대기",13,true);
         content.addView(samsungFileAsrState);
         samsungFileAsrTranscript=label("완료된 통화 녹음 파일 전사문이 이곳에 나타납니다. 기존 HITEL 마이크 인식은 그대로 유지합니다.",14,false);
