@@ -128,7 +128,7 @@ def test():
         uri=None
         for row in rows.splitlines():
             if NAME in row:
-                m=re.search(r"(?:^|[, ])_id=(\\d+)",row)
+                m=re.search(r"(?:^|[, ])_id=(\d+)",row)
                 if m:
                     uri="content://media/external/file/"+m.group(1)
                     break
