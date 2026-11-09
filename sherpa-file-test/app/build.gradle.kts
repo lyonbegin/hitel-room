@@ -9,8 +9,8 @@ android {
         applicationId = "app.hitel.sherpafiletest"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,4 +21,5 @@ android {
 }
 dependencies {
     implementation("com.github.k2-fsa:sherpa-onnx:1.12.26")
+    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-min:8.1.7")
 }

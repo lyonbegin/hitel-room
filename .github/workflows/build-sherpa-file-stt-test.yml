@@ -57,20 +57,20 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.sherpafiletest'
           unzip -l "$APK" | grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx'
           sha256sum "$APK"
-          cp "$APK" SherpaKoreanFileSTT-test-v1.apk
+          cp "$APK" SherpaKoreanFileSTT-stream-v2.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Sherpa-Korean-File-STT-standalone-APK
-          path: SherpaKoreanFileSTT-test-v1.apk
+          path: SherpaKoreanFileSTT-stream-v2.apk
           if-no-files-found: error
       - name: Publish downloadable APK (only after verified build)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='sherpa-ko-file-stt-test-v1'
+          TAG='sherpa-ko-file-stt-stream-v2'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" SherpaKoreanFileSTT-test-v1.apk --clobber
+            gh release upload "$TAG" SherpaKoreanFileSTT-stream-v2.apk --clobber
           else
-            gh release create "$TAG" SherpaKoreanFileSTT-test-v1.apk --target "$GITHUB_SHA" --title 'Standalone Sherpa Korean File STT v1' --notes 'Independent Android file-picker / MediaCodec / Korean Zipformer offline STT; does not modify HITEL14.'
+            gh release create "$TAG" SherpaKoreanFileSTT-stream-v2.apk --target "$GITHUB_SHA" --title 'Standalone Sherpa Korean File Streaming STT v2' --notes 'Android SAF file picker → FFmpegKit FIFO streaming 16k mono PCM windows → Korean Zipformer partial STT. HITEL14 unchanged.'
           fi

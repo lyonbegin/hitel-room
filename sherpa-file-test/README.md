@@ -1,24 +1,15 @@
-# Sherpa 한국어 파일 STT — 독립 Android 테스트 앱
+# 한국어 sherpa-onnx FFmpeg 스트리밍 STT (독립 테스트 v2)
 
-- **패키지 ID:** `app.hitel.sherpafiletest` (HITEL v14와 완전히 별개)
-- **STT:** `sherpa-onnx:1.12.26`, 한국어 streaming Zipformer INT8 `sherpa-onnx-streaming-zipformer-korean-2024-06-16` 재사용
-- **M4A 디코딩:** `flow-lab/TranscriberM4aDecoder.kt` / `TranscriberLocalAudioBudget.kt` (Majkey25/transcriber-android MIT 기반), CI에서 패키지명만 변경해 복사
-- **Android 파일 선택:** `ACTION_OPEN_DOCUMENT` (WhisperVault에서 확인한 SAF 접근 방식)
-- **실행:** 파일 선택 → STT 실행 → 결과 확인 → TXT 저장 위치 선택
-- **모델 제공:** 빌드 때 HF의 기존 Zipformer 4개 모델 파일을 APK assets에 넣음. 설치 후 **모델 네트워크 다운로드 필요 없음**.
-- **권한:** 인터넷/마이크/전화/접근성 권한 불필요. Android 시스템 파일 선택기를 통해 해당 파일 읽기 권한만 요청.
-- **모델 저장:** 설치 후 최초 실행에서 APK assets → 앱 전용 `files/sherpa-ko-v1/`로 추출. HITEL14의 비공개 모델 디렉터리와 직접 공유 불가.
-- **로그:** `adb logcat -s SherpaFileTest` — 파일·PCM·디코드 회수·에러.
-- **범위 제외:** 마이크, 기존 전화 후킹, 삼성 OEM, 자동 발신, v14 코드 수정.
-
-## 재현
-
-GitHub Actions `.github/workflows/build-sherpa-file-stt-test.yml`이 이 프로젝트만 컴파일합니다. Gradle 의존성 `com.github.k2-fsa:sherpa-onnx:1.12.26`은 기존 HITEL Android 코드와 동일합니다.
-
-빌드 성공과 APK 유효성 검사는 Actions 로그로 확인합니다. 실제 갤럭시 M4A 파일의 전사 성공은 설치 후 장치 테스트가 필요합니다. 기존 APK는 수정·삭제하지 않습니다.
-
-## 원본
-
-- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx/tree/v1.12.26), [official Java file streaming example](https://github.com/k2-fsa/sherpa-onnx/blob/v1.12.26/java-api-examples/StreamingDecodeFileTransducer.java)
-- [Majkey25/transcriber-android](https://github.com/Majkey25/transcriber-android) (MIT); [license](https://github.com/Majkey25/transcriber-android/blob/main/LICENSE)
-- [WhisperVault](https://github.com/rainhuang0220/WhisperVault) — 검증된 Android SAF 파일 선택 UX만 참조
+- 패키지: `app.hitel.sherpafiletest`, HITEL14와 완전히 별개
+- 기존 엔진: sherpa-onnx 1.12.26, 한국어 streaming Zipformer 2024-06-16 INT8
+- FFmpeg: `dev.ffmpegkit-maintained:ffmpeg-kit-min:8.1.7`
+- Android SAF: 기존 WhisperVault 방식, 파일 직접 선택
+- 데이터 경로: Android SAF URI → FFmpegKit `getSafParameterForRead()` → `registerNewFFmpegPipe()` → `-f s16le -ar 16000 -ac 1` → 3,200바이트(0.1초) 단위 PCM 읽기 → `OnlineStream.acceptWaveform` → `OnlineRecognizer.isReady/decode/getResult/isEndpoint/reset`
+- 파일 전체 PCM을 메모리에 적재하지 않습니다. 인식 중 문장을 화면에 계속 업데이트합니다.
+- 중지 버튼을 사용하면 FFmpeg 세션을 취소하며 확정된 결과를 화면에 남깁니다.
+- 모델 파일은 첫 설치 시 **APK에 포함**되어 별도 모델 다운로드가 필요 없습니다.
+- TXT 저장: 시스템 파일 저장기를 통해 사용자 선택 위치에 기록합니다.
+- 로그: `adb logcat -s SherpaFileTest` (원본 음성은 업로드하지 않음).
+- 스트리밍 방식 참고: [sherpa-onnx 공식 FFmpeg C 구현](https://github.com/k2-fsa/sherpa-onnx/blob/master/ffmpeg-examples/sherpa-onnx-ffmpeg.c), [FFmpegKit Android named pipe](https://github.com/arthenica/ffmpeg-kit/blob/main/android/ffmpeg-kit-android-lib/src/main/java/com/arthenica/ffmpegkit/FFmpegKitConfig.java)
+- Python과 FFmpegKit의 입출력 인터페이스는 다르므로 Android용 FFmpegKit native FIFO로 연결합니다.
+- 검증 기준: CI의 컴파일/서명/모델 포함 성공, 그리고 **실기기**에서 선택한 M4A의 PCM·decode count·partial/final 확인. CI만으로 실제 전사 성공을 인정하지 않습니다.

@@ -3,6 +3,12 @@ package app.hitel.sherpafiletest;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.SystemClock;
+import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.FFmpegKitConfig;
+import com.arthenica.ffmpegkit.FFmpegSession;
+import com.arthenica.ffmpegkit.ReturnCode;
+import java.util.concurrent.atomic.AtomicReference;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.database.Cursor;
@@ -49,8 +55,11 @@ public final class MainActivity extends Activity {
   private String selectedName="";
   private TextView selectedView, status;
   private EditText transcript;
-  private Button transcribe,save,copy;
+  private Button transcribe,save,copy,stop;
   private volatile boolean busy=false;
+  private volatile boolean stopRequested=false;
+  private final AtomicReference<FFmpegSession> activeFfmpeg=new AtomicReference<>();
+  private volatile String activePipe=null;
 
   private TextView text(String s, int sp) {
     TextView v=new TextView(this);
@@ -74,12 +83,14 @@ public final class MainActivity extends Activity {
     TextView title=text("한국어 Sherpa 파일 STT",23);
     title.setTypeface(null,Typeface.BOLD);
     root.addView(title);
-    root.addView(text("독립 테스트 앱 · Samsung 기본 전화 앱 변경 없음\n한국어 Zipformer 2024-06-16 INT8 · sherpa-onnx 1.12.26\n모델 APK 내 포함 · 네트워크/마이크 권한 없음",13));
+    root.addView(text("독립 테스트 앱 · 삼성 전화 앱 변경 없음\nFFmpeg PCM 파이프 0.1초 → sherpa-onnx 1.12.26\n한국어 Zipformer INT8 · 모델 APK 포함 · 진행 중 자막 표시",13));
     Button pick=button("1. M4A/WAV/MP3 파일 선택",root);
     selectedView=text("선택한 파일 없음",14);
     root.addView(selectedView);
-    transcribe=button("2. 파일 STT 실행",root);
+    transcribe=button("2. 파일 STT 시작 (실시간 결과 표시)",root);
     transcribe.setEnabled(false);
+    stop=button("인식 중지",root);
+    stop.setEnabled(false);
     status=text("준비됨. 파일을 선택해 주십시오.",14);
     root.addView(status);
     TextView resultTitle=text("인식 결과",19);
@@ -107,6 +118,7 @@ public final class MainActivity extends Activity {
       startActivityForResult(i,OPEN_FILE);
     });
     transcribe.setOnClickListener(v->runStt());
+    stop.setOnClickListener(v->stopStreaming());
     copy.setOnClickListener(v->{
       ((ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE))
         .setPrimaryClip(ClipData.newPlainText("Sherpa Korean STT",transcript.getText().toString()));
@@ -156,20 +168,57 @@ public final class MainActivity extends Activity {
     Log.e(TAG,stage,error);
     notifyStatus(stage+": "+error.getClass().getSimpleName()+" : "+error.getMessage());
   }
+  private void stopStreaming(){
+    if(!busy)return;
+    stopRequested=true;
+    notifyStatus("중지 요청: FFmpeg 스트림을 종료합니다. 지금까지 인식한 문장은 유지합니다.");
+    FFmpegSession session=activeFfmpeg.get();
+    if(session!=null)FFmpegKit.cancel(session.getSessionId());
+    stop.setEnabled(false);
+  }
+  private static String displayText(StringBuilder committed,String partial){
+    String fixed=committed.toString();
+    return partial.isEmpty()?fixed:fixed.isEmpty()?partial:fixed+"\n"+partial;
+  }
+  private void showStreaming(String value,String stage){
+    runOnUiThread(()->{
+      transcript.setText(value);
+      if(stage!=null)status.setText(stage);
+      if(!value.isBlank()){copy.setEnabled(true);save.setEnabled(true);}
+    });
+  }
+  private static int readWindow(InputStream in,byte[] buffer)throws IOException{
+    int count=0;
+    while(count<buffer.length){
+      int n=in.read(buffer,count,buffer.length-count);
+      if(n<0)break;
+      if(n==0)continue;
+      count+=n;
+    }
+    return count;
+  }
   private void runStt(){
-    final Uri audio=selected;
-    if(audio==null||busy)return;
+    final Uri uri=selected;
+    if(uri==null||busy)return;
     busy=true;
+    stopRequested=false;
     transcribe.setEnabled(false);
-    save.setEnabled(false);
+    stop.setEnabled(true);
     copy.setEnabled(false);
+    save.setEnabled(false);
     transcript.setText("");
     new Thread(()->{
-      OnlineRecognizer r=null;
+      OnlineRecognizer recognizer=null;
       OnlineStream stream=null;
+      String pipePath=null;
+      long lastUiAt=0L;
+      long pcmSamples=0L,decodeSteps=0L,nonZero=0L;
+      int endpoints=0;
+      StringBuilder committed=new StringBuilder();
+      String lastShown="";
       try{
         File modelDir=extractModels();
-        notifyStatus("모델 불러오는 중…");
+        notifyStatus("한국어 Zipformer 모델 초기화 중…");
         OnlineTransducerModelConfig tr=new OnlineTransducerModelConfig();
         tr.setEncoder(new File(modelDir,MODEL_FILES[0]).getAbsolutePath());
         tr.setDecoder(new File(modelDir,MODEL_FILES[1]).getAbsolutePath());
@@ -184,67 +233,123 @@ public final class MainActivity extends Activity {
         cfg.setModelConfig(mc);
         cfg.setEnableEndpoint(true);
         cfg.setDecodingMethod("greedy_search");
-        r=new OnlineRecognizer(null,cfg);
-        stream=r.createStream("");
-        final OnlineRecognizer rec=r;
-        final OnlineStream st=stream;
-        final StringBuilder recognized=new StringBuilder();
-        final int[] segments={0};
-        final long[] frames={0L};
-        final int[] decodeSteps={0};
-        final double[] sourceSec={0};
-        final Resampler16k rs=new Resampler16k();
-        notifyStatus("M4A 디코딩 및 한국어 STT 처리 중…");
-        TranscriberM4aDecoder.decode(this,audio,(samples,sampleRate)->{
-          if(sampleRate<=0)throw new IllegalArgumentException("Invalid source sample rate");
-          float[] resampled=rs.push(samples,sampleRate);
-          for(int offset=0;offset<resampled.length;offset+=16000){
-            float[] piece=Arrays.copyOfRange(resampled,offset,Math.min(offset+16000,resampled.length));
-            st.acceptWaveform(piece,16000);
-            frames[0]+=piece.length;
-            while(rec.isReady(st)) {
-              rec.decode(st);
-              decodeSteps[0]++;
+        recognizer=new OnlineRecognizer(null,cfg);
+        stream=recognizer.createStream("");
+        String saf=FFmpegKitConfig.getSafParameterForRead(this,uri);
+        if(saf==null||saf.isBlank())throw new IOException("FFmpeg SAF 입력 주소 생성 실패");
+        pipePath=FFmpegKitConfig.registerNewFFmpegPipe(this);
+        if(pipePath==null)throw new IOException("FFmpeg named pipe 생성 실패");
+        activePipe=pipePath;
+        final String[] ffArgs={
+          "-hide_banner","-loglevel","error","-nostdin",
+          "-i",saf,"-map","0:a:0","-vn",
+          "-ac","1","-ar","16000",
+          "-c:a","pcm_s16le","-f","s16le",
+          "-flush_packets","1","-y",pipePath
+        };
+        notifyStatus("FFmpeg 16kHz PCM 스트리밍 연결 중…");
+        Log.i(TAG,"FFMPEG_START source="+selectedName+" outputPipe="+pipePath);
+        final String[] ffError={""};
+        FFmpegSession ff=FFmpegKit.executeWithArgumentsAsync(ffArgs,session->{
+          ReturnCode code=session.getReturnCode();
+          Log.i(TAG,"FFMPEG_EXIT rc="+code+" success="+ReturnCode.isSuccess(code));
+          if(!ReturnCode.isSuccess(code))Log.e(TAG,"FFMPEG_FAILURE="+session.getFailStackTrace());
+        });
+        activeFfmpeg.set(ff);
+        byte[] bytes=new byte[3200]; // 0.1 s @ 16000 Hz, signed 16 bit mono
+        try(InputStream pcm=new BufferedInputStream(new FileInputStream(pipePath),3200*2)){
+          while(!stopRequested){
+            int count=readWindow(pcm,bytes);
+            if(count==0)break;
+            if((count&1)!=0)throw new IOException("FFmpeg PCM 바이트 수 홀수: "+count);
+            float[] samples=new float[count/2];
+            for(int i=0;i<samples.length;i++){
+              int lo=bytes[i*2]&0xff;
+              int hi=bytes[i*2+1];
+              short s=(short)((hi<<8)|lo);
+              samples[i]=s/32768f;
+              if(Math.abs((int)s)>250)nonZero++;
             }
-            if(rec.isEndpoint(st)){
-              String spoken=rec.getResult(st).getText().trim();
-              if(!spoken.isEmpty()){
-                if(recognized.length()>0)recognized.append("\n");
-                recognized.append(spoken);
-                segments[0]++;
-                final String shown=recognized.toString();
-                runOnUiThread(()->transcript.setText(shown));
+            stream.acceptWaveform(samples,16000);
+            pcmSamples+=samples.length;
+            while(recognizer.isReady(stream)){
+              recognizer.decode(stream);
+              decodeSteps++;
+            }
+            String partial=recognizer.getResult(stream).getText().trim();
+            boolean endpoint=recognizer.isEndpoint(stream);
+            if(endpoint){
+              if(!partial.isEmpty()){
+                if(committed.length()>0)committed.append("\n");
+                committed.append(partial);
+                endpoints++;
               }
-              rec.reset(st);
+              recognizer.reset(stream);
+              partial="";
+            }
+            String shown=displayText(committed,partial);
+            long now=SystemClock.elapsedRealtime();
+            if(!shown.equals(lastShown)&&now-lastUiAt>=120){
+              lastUiAt=now;
+              lastShown=shown;
+              showStreaming(shown,String.format(Locale.KOREA,
+                "인식 중: 오디오 %.1f초 · 확정 %d문장",pcmSamples/16000.0,endpoints));
+            }else if(now-lastUiAt>800){
+              lastUiAt=now;
+              notifyStatus(String.format(Locale.KOREA,
+                "처리 중: 오디오 %.1f초 · PCM %d샘플 · decode %d회 · 유효진폭 %d",
+                pcmSamples/16000.0,pcmSamples,decodeSteps,nonZero));
             }
           }
-          sourceSec[0]+=samples.length/(double)sampleRate;
-          notifyStatus(String.format(Locale.KOREA,"처리 중: 오디오 %.1f초, PCM 16kHz %d샘플, 디코드 %d회",
-            sourceSec[0],frames[0],decodeSteps[0]));
-        });
-        st.acceptWaveform(new float[12800],16000); // official file example: 0.8 sec tail
-        st.inputFinished();
-        while(rec.isReady(st)){rec.decode(st);decodeSteps[0]++;}
-        String last=rec.getResult(st).getText().trim();
-        if(!last.isEmpty()){
-          if(recognized.length()>0)recognized.append("\n");
-          recognized.append(last);
         }
-        String text=recognized.toString().trim();
-        Log.i(TAG,"FILE_ASR_RESULT model=streaming-zipformer-ko-2024-06-16; input="+selectedName+
-          "; sourceSeconds="+sourceSec[0]+"; pcmSamples="+frames[0]+"; decodeSteps="+decodeSteps[0]+
-          "; segments="+segments[0]+"; length="+text.length());
-        if(text.isEmpty())throw new IOException("모델 결과가 비어 있습니다. logcat에서 PCM, decodeSteps를 확인하십시오.");
-        runOnUiThread(()->{transcript.setText(text); save.setEnabled(true); copy.setEnabled(true);});
-        notifyStatus("전사 완료. TXT 저장 위치를 직접 선택해 주십시오.");
-      }catch(Throwable e){fail("파일 STT 실패",e);}
-      finally {
-        if(stream!=null){try{stream.release();}catch(Throwable ignored){}}
-        if(r!=null){try{r.release();}catch(Throwable ignored){}}
+        if(!stopRequested){
+          // Official sherpa-onnx FFmpeg C example flushes input on EOF.
+          stream.acceptWaveform(new float[4800],16000); // 0.3s tail
+          stream.inputFinished();
+          while(recognizer.isReady(stream)){
+            recognizer.decode(stream);
+            decodeSteps++;
+          }
+          String finalText=recognizer.getResult(stream).getText().trim();
+          if(!finalText.isEmpty()){
+            if(committed.length()>0)committed.append("\n");
+            committed.append(finalText);
+          }
+        }
+        String text=committed.toString().trim();
+        Log.i(TAG,"FILE_ASR_RESULT model=streaming-zipformer-ko-2024-06-16;"
+         +" source="+selectedName+"; pcmSamples="+pcmSamples+"; decodeSteps="+decodeSteps
+         +"; amplitudeAbove250="+nonZero+"; endpoints="+endpoints
+         +"; textLength="+text.length()+"; stopped="+stopRequested);
+        if(!text.isEmpty()){
+          showStreaming(text,null);
+          notifyStatus(String.format(Locale.KOREA,
+            "%s: 오디오 %.1f초 · 문장 %d개 · TXT 저장 가능",
+            stopRequested?"중지":"완료",pcmSamples/16000.0,endpoints+(text.isEmpty()?0:1)));
+        }else if(stopRequested){
+          notifyStatus("사용자가 중지했습니다. 아직 확정된 문장이 없습니다.");
+        }else{
+          throw new IOException("결과 공백 · PCM샘플="+pcmSamples+
+           ", decodeSteps="+decodeSteps+", 유효진폭="+nonZero+
+           ". adb logcat -s SherpaFileTest 에서 원인을 확인하십시오.");
+        }
+      }catch(Throwable e){
+        if(stopRequested)notifyStatus("인식 중지됨. 생성된 문장은 화면에 유지됩니다.");
+        else fail("FFmpeg 스트리밍 STT 실패",e);
+      }finally{
+        FFmpegSession s=activeFfmpeg.getAndSet(null);
+        if(s!=null && stopRequested)FFmpegKit.cancel(s.getSessionId());
+        if(pipePath!=null)FFmpegKitConfig.closeFFmpegPipe(pipePath);
+        activePipe=null;
+        if(stream!=null)try{stream.release();}catch(Throwable ignore){}
+        if(recognizer!=null)try{recognizer.release();}catch(Throwable ignore){}
         busy=false;
-        runOnUiThread(()->transcribe.setEnabled(selected!=null));
+        runOnUiThread(()->{
+          transcribe.setEnabled(selected!=null);
+          stop.setEnabled(false);
+        });
       }
-    },"Sherpa-File-STT").start();
+    },"Sherpa-FFmpeg-File-STT").start();
   }
   private File extractModels()throws IOException {
     File dir=new File(getFilesDir(),"sherpa-ko-v1");
