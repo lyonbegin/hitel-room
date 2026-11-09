@@ -112,6 +112,43 @@ final class SamsungRecordingFlow {
         WORKER.execute(SamsungRecordingFlow::finalizeAndTranscribe);
         return true;
     }
+    /** Returns all direct M4A files in /Recordings/Call, newest first. */
+    static File[] listSavedRecordings(){
+        File[] files=DIR.listFiles(file->isRecording(file)&&isDirectChildFile(file));
+        if(files==null)return new File[0];
+        java.util.Arrays.sort(files,(a,b)->{
+            int byTime=Long.compare(b.lastModified(),a.lastModified());
+            return byTime!=0?byTime:a.getName().compareTo(b.getName());
+        });
+        return files;
+    }
+
+    /** An explicitly chosen completed recording. No dialer, microphone or call UI actions. */
+    static boolean transcribeSelectedFile(Context context,File chosen){
+        if(context==null||!isDirectChildFile(chosen))return false;
+        synchronized(LOCK){
+            if("TRANSCRIBING".equals(phase)||"WAIT_FOR_FILE".equals(phase)||
+               "RECORDING".equals(phase)||"STOP_REQUESTED".equals(phase)||
+               "STOP_CLICKED".equals(phase)){
+                LabStore.log("SAMSUNG_REC_FILE_PICK_BUSY","phase="+phase);
+                return false;
+            }
+            appContext=context.getApplicationContext();
+            candidate=chosen;
+            lastCandidateBytes=chosen.length();
+            recordedFile=chosen.getAbsolutePath();
+            processed=true;
+            startClicked=false;stopClicked=false;stopRequested=false;
+            text="";
+            set("WAIT_FOR_FILE","선택한 삼성 M4A 파일 검증 후 Transcriber 원본 디코더로 STT합니다.");
+            LabStore.log("SAMSUNG_REC_FILE_PICK",
+                "filename="+chosen.getName()+"; bytes="+chosen.length()+
+                "; directory="+DIR.getAbsolutePath());
+        }
+        WORKER.execute(SamsungRecordingFlow::finalizeAndTranscribe);
+        return true;
+    }
+
     static boolean retryLastFile(Context context){
         if(context==null)return false;
         File last=new File(context.getApplicationContext()
