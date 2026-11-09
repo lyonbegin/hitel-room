@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sensevoice.koreanfile"
+    applicationId = "app.hitel.sensevoice.livestream"
     minSdk = 26
-    targetSdk = 28
-    versionCode = 1
-    versionName = "1.0.0-sensevoice"
+    targetSdk = 32
+    versionCode = 2
+    versionName = "2.0.0-live-chunk"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
