@@ -85,7 +85,7 @@ jobs:
           grep -F 'static boolean transcribeSelectedFile(Context context,File selected)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
           grep -F 'private void startKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'private void stopKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
-          grep -F 'SAMSUNG_REC_PCM_SUMMARY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'SAMSUNG_REC_UPSTREAM_PCM_SUMMARY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
           grep -F 'SamsungRecordingFlow.arm(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SamsungRecordingFlow.onStopClicked' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'SamsungCompletedM4aTranscriber.transcribe' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
