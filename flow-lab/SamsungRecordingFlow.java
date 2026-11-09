@@ -23,6 +23,7 @@ final class SamsungRecordingFlow {
     private static final ExecutorService WORKER=Executors.newSingleThreadExecutor();
     private static final File DIR=new File("/storage/emulated/0/Recordings/Call");
     private static final Map<String,Long> BASELINE=new HashMap<>();
+    private static volatile Context appContext;
     private static volatile String phase="IDLE";
     private static volatile String details="삼성 전화 녹음 대기";
     private static volatile String text="";
@@ -51,6 +52,7 @@ final class SamsungRecordingFlow {
     static boolean isStopClicked(){return stopClicked;}
     static void arm(Context context){
         synchronized(LOCK){
+            appContext=context.getApplicationContext();
             // Reset only on explicit new call, never on telephony idle/onResume.
             if("TRANSCRIBING".equals(phase)||"WAIT_FOR_FILE".equals(phase)){
                 set("BUSY","이전 녹음 파일 처리 중이므로 새 녹음을 시작하지 않습니다.");return;
@@ -194,7 +196,7 @@ final class SamsungRecordingFlow {
             set("TRANSCRIBING","완성 M4A 검증. 삼성 전화와 독립적으로 sherpa-onnx 전사 중입니다.");
             LabStore.log("SAMSUNG_REC_COMPLETE_M4A",
                 "file="+file.getAbsolutePath()+"; bytes="+file.length());
-            String result=SamsungCompletedM4aTranscriber.transcribe(file,
+            String result=SamsungCompletedM4aTranscriber.transcribe(file,appContext,
                 new SamsungCompletedM4aTranscriber.Progress(){
                     @Override public void onPhase(String info){set("TRANSCRIBING",info);}
                     @Override public void onSentence(String sentence){
