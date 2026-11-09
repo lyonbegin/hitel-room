@@ -119,6 +119,15 @@ jobs:
             adb push /tmp/sherpa_emulator_ko.m4a /sdcard/Download/sherpa_emulator_ko.m4a
             adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/sherpa_emulator_ko.m4a || true
             adb shell ls -l /sdcard/Download/sherpa_emulator_ko.m4a
+            # Isolate official C binary from Android file picker. This is the
+            # byte-identical original ELF plus the same Korean model.
+            mkdir -p emulator-qa
+            adb shell mkdir -p /data/local/tmp/sherpa-qa/lib /data/local/tmp/sherpa-qa/models
+            adb push sherpa-original-launcher/app/src/main/jniLibs/x86_64/. /data/local/tmp/sherpa-qa/lib/
+            adb push sherpa-original-launcher/app/src/main/assets/models/. /data/local/tmp/sherpa-qa/models/
+            adb shell chmod 755 /data/local/tmp/sherpa-qa/lib/liboriginal-cli.so
+            adb shell "cd /data/local/tmp/sherpa-qa && LD_LIBRARY_PATH=/data/local/tmp/sherpa-qa/lib ./lib/liboriginal-cli.so models/tokens.txt models/encoder-epoch-99-avg-1.int8.onnx models/decoder-epoch-99-avg-1.onnx models/joiner-epoch-99-avg-1.int8.onnx /sdcard/Download/sherpa_emulator_ko.m4a" > emulator-qa/direct-original-cli-output.txt 2>&1 || echo "DIRECT_ORIGINAL_CLI_FAILED_RC=$?" >> emulator-qa/direct-original-cli-output.txt
+            tail -65 emulator-qa/direct-original-cli-output.txt
             python3 sherpa-original-launcher/ci/test_emulator_ui.py
       - name: Upload emulator screenshots, logcat, UI and verification artifacts (even on failure)
         if: always()
