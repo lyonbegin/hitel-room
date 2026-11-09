@@ -166,9 +166,6 @@ s=replace_once(s,
                 refreshSamsungFileAsr();
             });
         content.addView(fileRetry,new LinearLayout.LayoutParams(-1,dp(50)));
-        Button savedFiles=btn("Recordings/Call 전체 M4A 목록 · 선택 STT",
-            this::chooseSamsungRecordingFile);
-        content.addView(savedFiles,new LinearLayout.LayoutParams(-1,dp(56)));
         samsungFileAsrState=label("삼성 녹음 파일 인식: 통화 녹음 시작 대기",13,true);
         content.addView(samsungFileAsrState);
         samsungFileAsrTranscript=label("완료된 통화 녹음 파일 전사문이 이곳에 나타납니다. 기존 HITEL 마이크 인식은 그대로 유지합니다.",14,false);
@@ -194,41 +191,6 @@ s=replace_once(s,
             return;
         }
         openCallUi();
-    }
-    /** Browse completed M4A recordings, with no phone or microphone interaction. */
-    private void chooseSamsungRecordingFile(){
-        if(!has(Manifest.permission.READ_MEDIA_AUDIO)){
-            requestPermissions(new String[]{Manifest.permission.READ_MEDIA_AUDIO},606);
-            return;
-        }
-        java.io.File[] saved=SamsungRecordingFlow.listSavedRecordings();
-        if(saved.length==0){
-            log("SAMSUNG_REC_FILE_LIST_EMPTY","folder=/storage/emulated/0/Recordings/Call");
-            status("내장 저장공간 / Recordings / Call 에서 읽을 수 있는 M4A가 없습니다.");
-            return;
-        }
-        String[] names=new String[saved.length];
-        java.text.SimpleDateFormat date=new java.text.SimpleDateFormat(
-            "yyyy-MM-dd HH:mm:ss",java.util.Locale.KOREA);
-        for(int i=0;i<saved.length;i++){
-            java.io.File file=saved[i];
-            names[i]=file.getName()+" · "+
-                String.format(java.util.Locale.KOREA,"%,d",file.length())+
-                " bytes · "+date.format(new java.util.Date(file.lastModified()));
-        }
-        log("SAMSUNG_REC_FILE_LIST_OPEN","count="+saved.length+"; /Recordings/Call");
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("Recordings / Call · "+saved.length+"개")
-            .setItems(names,(dialog,which)->{
-                java.io.File chosen=saved[which];
-                boolean ok=SamsungRecordingFlow.transcribeSelectedFile(
-                    getApplicationContext(),chosen);
-                log("SAMSUNG_REC_FILE_CHOICE","name="+chosen.getName()+
-                    "; accepted="+ok+"; bytes="+chosen.length());
-                if(!ok)status("M4A 처리 불가: 기존 작업 중이거나 파일에 접근할 수 없습니다.");
-                refreshSamsungFileAsr();
-            })
-            .setNegativeButton("취소",null).show();
     }
     private void refreshSamsungFileAsr(){
         String state=SamsungRecordingFlow.phase()+": "+SamsungRecordingFlow.details();
@@ -256,7 +218,7 @@ s=replace_once(s,
 s=replace_once(s,'else if(req==603)refreshState();else if(req==604)startKoreanSherpaSpeech();',
 '''else if(req==603)refreshState();else if(req==604)startKoreanSherpaSpeech();
             else if(req==605)placeCall();
-            else if(req==606)chooseSamsungRecordingFile();''',"permission callback")
+''',"permission callback")
 assert 'private void startKoreanSherpaSpeech()' in s
 assert 'private void stopKoreanSherpaSpeech()' in s
 assert 'this::stopKoreanSherpaSpeech' in s
