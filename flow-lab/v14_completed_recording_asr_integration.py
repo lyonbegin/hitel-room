@@ -245,4 +245,15 @@ s=replace_once(s,'plugins { id("com.android.application") }',
              "Transcriber Kotlin Android plugin")
 gradle.write_text(s,encoding="utf-8")
 
+# Use the same reliable mirror as the existing Gradle distribution, before
+# Maven Central (Kotlin compiler 2.2 JAR's redirected download was HTTP 504).
+settingFile=Path("AndroidProject/settings.gradle.kts")
+settingText=settingFile.read_text(encoding="utf-8")
+sourceRepos='repositories { google(); mavenCentral(); maven("https://jitpack.io") }'
+mirrorRepos='repositories { google(); maven("https://repo.huaweicloud.com/repository/maven"); mavenCentral(); maven("https://jitpack.io") }'
+if sourceRepos not in settingText:
+    raise AssertionError("unexpected settings.gradle.kts repos: "+settingText[:500])
+settingFile.write_text(settingText.replace(sourceRepos,mirrorRepos,1),encoding="utf-8")
+
+
 print("PASS: HITEL14 microphone unchanged, Samsung recording independent, completed-file sherpa, no hangup.")
