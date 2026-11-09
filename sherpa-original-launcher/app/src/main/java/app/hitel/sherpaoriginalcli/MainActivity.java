@@ -35,11 +35,8 @@ import java.util.regex.Pattern;
  */
 public final class MainActivity extends Activity {
   static final String TAG = "SherpaOriginalLauncher";
-  static final String[] MODEL={
-    "encoder-epoch-99-avg-1.int8.onnx","decoder-epoch-99-avg-1.onnx",
-    "joiner-epoch-99-avg-1.int8.onnx","tokens.txt"
-  };
-  static final long[] MIN={115000000L,9500000L,2000000L,50000L};
+  static final String[] MODEL={"model.int8.onnx","tokens.txt"};
+  static final long[] MIN={1000000L,1000L};
   static final Pattern SEGMENT=Pattern.compile("^([0-9]+):(.*)$");
   static final int OPEN=31,SAVE=32,SAVE_LOG=33;
   final Handler main=new Handler(Looper.getMainLooper());
@@ -73,13 +70,13 @@ public final class MainActivity extends Activity {
     int pad=(int)(18*getResources().getDisplayMetrics().density);
     root.setPadding(pad,pad,pad,pad);
     scroll.addView(root);
-    TextView head=text("Sherpa 원본 FFmpeg STT · 입력 호환 개선판",23);
+    TextView head=text("한국어 통화 녹음 STT · SenseVoice",23);
     head.setTypeface(null,Typeface.BOLD);
     root.addView(head);
-    root.addView(text("공식 sherpa-onnx-ffmpeg.c 실행 파일 그대로\nFFmpegKit 원본 모듈로 AAC를 16kHz PCM으로 변환 후 인식\n한국어 Zipformer INT8 · 오프라인 · ADB 불필요",13));
+    root.addView(text("Sherpa-ONNX 공식 C API · SenseVoice 한국어 INT8\nFFmpegKit으로 AAC/M4A를 16kHz PCM으로 변환 후 인식\n오프라인 · ARM64 갤럭시 · ADB 불필요",13));
     choose=button(root,"1. M4A / 음성 파일 선택");
     filename=text("선택한 파일 없음",14);root.addView(filename);
-    execute=button(root,"2. 원본 STT 실행");execute.setEnabled(false);
+    execute=button(root,"2. 한국어 SenseVoice STT 실행");execute.setEnabled(false);
     stop=button(root,"인식 중지");stop.setEnabled(false);
     status=text("준비됨",14);root.addView(status);
     TextView heading=text("인식 문장 (진행 중 계속 갱신)",18);
@@ -87,10 +84,10 @@ public final class MainActivity extends Activity {
     result=text("",17);result.setTextIsSelectable(true);root.addView(result);
     copy=button(root,"텍스트 복사");copy.setEnabled(false);
     save=button(root,"TXT 파일 저장");save.setEnabled(false);
-    root.addView(text("원본 FFmpeg / sherpa-onnx 출력 및 오류",15));
+    root.addView(text("FFmpeg / SenseVoice 전체 STT 로그",15));
     diagnostic=text("실행 전",12);diagnostic.setTextIsSelectable(true);root.addView(diagnostic);
     saveLog=button(root,"원본 실행 전체 로그 TXT 저장");saveLog.setEnabled(false);
-    root.addView(text("엔진: 공식 sherpa-onnx v1.12.26 C 원본.\n별도 음성인식·PCM 처리 코드를 추가하지 않았습니다.",11));
+    root.addView(text("엔진: Sherpa-ONNX v1.12.26 C API · SenseVoice 한국어 INT8.\n기존 삼성 기본 전화 앱은 변경하지 않습니다.\n통화 종료 후 저장된 녹음 파일을 선택하여 인식합니다.",11));
     setContentView(scroll);
     choose.setOnClickListener(v->{
       if(busy)return;
@@ -180,14 +177,14 @@ public final class MainActivity extends Activity {
     }
   }
   File extractModels()throws IOException{
-    File root=new File(getFilesDir(),"korean-int8-original");
+    File root=new File(getFilesDir(),"sensevoice-int8");
     if(!root.exists()&&!root.mkdirs())throw new IOException("모델 디렉터리 생성 실패");
     for(int i=0;i<MODEL.length;i++){
       File f=new File(root,MODEL[i]);
       if(f.length()>=MIN[i])continue;
       status("APK에 포함된 원본 모델 준비: "+MODEL[i]);
       File tmp=new File(root,MODEL[i]+".partial");
-      try(InputStream in=getAssets().open("models/"+MODEL[i]);
+      try(InputStream in=getAssets().open("sensevoice/"+MODEL[i]);
           FileOutputStream out=new FileOutputStream(tmp)){
         byte[] buffer=new byte[131072];int n;
         while((n=in.read(buffer))!=-1)if(n>0)out.write(buffer,0,n);
@@ -347,15 +344,13 @@ public final class MainActivity extends Activity {
         File audio=normalizeAudioWithOfficialFFmpeg(selectedAudio);
         if(stopRequested)throw new IOException("사용자 중지");
         File libDir=new File(getApplicationInfo().nativeLibraryDir);
-        File original=new File(libDir,"liboriginal-cli.so");
+        File original=new File(libDir,"libsensevoice-cli.so");
         if(!original.isFile()||!original.canExecute())
           throw new IOException("APK 원본 실행 파일을 실행할 수 없습니다: "+original);
         ProcessBuilder pb=new ProcessBuilder(
           original.getAbsolutePath(),
-          new File(model,MODEL[3]).getAbsolutePath(),
-          new File(model,MODEL[0]).getAbsolutePath(),
           new File(model,MODEL[1]).getAbsolutePath(),
-          new File(model,MODEL[2]).getAbsolutePath(),
+          new File(model,MODEL[0]).getAbsolutePath(),
           audio.getAbsolutePath()
         );
         pb.redirectErrorStream(true);
@@ -390,7 +385,7 @@ public final class MainActivity extends Activity {
         Log.i(TAG,"Original CLI finished rc="+code+" recognizedChars="+text.length());
         if(stopRequested)status("작업을 중지했습니다.");
         else if(code!=0)status("원본 실행 오류 (종료코드 "+code+"). 아래 원본 로그를 확인하십시오.");
-        else if(text.isEmpty())status("원본은 종료코드 0으로 완료됐지만 인식된 문장이 없습니다. 원본 출력을 확인하십시오.");
+        else if(text.isEmpty())status("SenseVoice 종료코드 0이지만 인식된 문장이 없습니다. 전체 로그를 확인하십시오.");
         else status("원본 음성인식 완료. 자막과 TXT 저장을 확인하십시오.");
       }catch(Throwable e){
         Log.e(TAG,"Original process start/run failed",e);
@@ -404,26 +399,21 @@ public final class MainActivity extends Activity {
           saveLog.setEnabled(fullLogFile!=null&&fullLogFile.isFile()&&fullLogFile.length()>0);
         });
       }
-    },"Launch-Unmodified-Sherpa-CLI").start();
+    },"Launch-SenseVoice-CAPI-Korean").start();
   }
   /* Only interprets the original program's terminal output.
    * It does NOT recognize speech, parse audio, or run the model.
    */
   static String toCaptions(String raw){
-    String noAnsi=raw.replaceAll("\\u001B\\[[0-9;]*[a-zA-Z]","");
-    TreeMap<Integer,String> segments=new TreeMap<>();
-    for(String segment:noAnsi.split("[\\r\\n]")){
-      Matcher m=SEGMENT.matcher(segment.trim());
-      if(m.matches())segments.put(Integer.parseInt(m.group(1)),m.group(2).trim());
+    String noAnsi=raw.replaceAll("\\u001B\\\\[[0-9;]*[a-zA-Z]","");
+    for(String line:noAnsi.split("[\\r\\n]")){
+      if(line.startsWith("FULL_TRANSCRIPT:")){
+        return line.substring("FULL_TRANSCRIPT:".length()).trim();
+      }
     }
-    StringBuilder txt=new StringBuilder();
-    for(Map.Entry<Integer,String> entry:segments.entrySet()){
-      if(entry.getValue().isEmpty())continue;
-      if(txt.length()>0)txt.append('\n');
-      txt.append(entry.getValue());
-    }
-    return txt.toString();
+    return "";
   }
+
   void updateResult(boolean finished){
     String raw=new String(logBuffer.toByteArray(),StandardCharsets.UTF_8);
     String parsed=toCaptions(raw);
