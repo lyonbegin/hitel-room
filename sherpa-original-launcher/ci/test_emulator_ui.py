@@ -13,7 +13,7 @@ from xml.etree import ElementTree as ET
 
 OUT = Path("emulator-qa")
 OUT.mkdir(exist_ok=True)
-PKG = "app.hitel.sherpaoriginalcli"
+PKG = "app.hitel.sherpaoriginalnormalized"
 NAME = "sherpa_emulator_ko.m4a"
 
 def adb(*args, timeout=35, check=True):
@@ -164,11 +164,13 @@ def test():
         raise RuntimeError("App did not report finished original CLI. See emulator-qa/after-stt-logcat.txt and screenshot")
     rc=int(m.group(1));chars=int(m.group(2))
     print(f"OBSERVED: original-cli-exit={rc}; recognizedChars={chars}",flush=True)
+    if "OFFICIAL_FFMPEG_PREPARED format=pcm_s16le rate=16000 channels=1" not in logfile:
+        raise RuntimeError("Official FFmpegKit 48k AAC -> 16k PCM WAV conversion was not confirmed")
     if rc!=0:
         raise RuntimeError(f"Original executable returned exit={rc}, details in after-stt-logcat.txt")
     if chars==0:
         raise RuntimeError("Official Korean speech fixture produced zero STT characters; cannot mark successful")
-    (OUT/"PASS.txt").write_text(f"Emulator ABI x86_64, APK installed, audio input delivered via {'DocumentsUI picker' if picked_in_documents_ui else 'Android ACTION_VIEW content URI (picker separately UNVERIFIED)'}, official original CLI exited {rc}, recognized characters {chars}; Korean fixture M4A {NAME} (NOT user M4A).\n",encoding="utf-8")
+    (OUT/"PASS.txt").write_text(f"Emulator ABI x86_64, APK installed, audio input delivered via {'DocumentsUI picker' if picked_in_documents_ui else 'Android ACTION_VIEW content URI (picker separately UNVERIFIED)'}, official original CLI exited {rc}, recognized characters {chars}; 48kHz AAC Korean fixture M4A {NAME}, normalized to 16k PCM via official FFmpegKit (NOT user M4A).\n",encoding="utf-8")
 
 try:
     test()
