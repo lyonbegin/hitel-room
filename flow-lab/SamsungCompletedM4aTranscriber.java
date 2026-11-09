@@ -94,15 +94,25 @@ final class SamsungCompletedM4aTranscriber {
                     energy[0]+=v*v;
                 }
 
-                channel.acceptWaveform(samples,rate);
-                decodeAllReady(asr,channel);
-                captureHypothesis(asr,channel,hypothesis,recognizedPartials);
-                if(asr.isEndpoint(channel)){
-                    String candidate=asr.getResult(channel).getText();
-                    if(candidate==null||candidate.isBlank())candidate=hypothesis[0];
-                    appendSentence(output,lastCommitted,candidate,progress);
-                    asr.reset(channel);
-                    hypothesis[0]="";
+                // Transcriber emits a whole-file PCM block for recordings
+                // shorter than 25 seconds. Feed its verified PCM into HITEL14's
+                // existing streaming model in the SAME ~100ms cadence used by
+                // KoreanSherpaStt's AudioRecord microphone, checking endpoints
+                // after each increment rather than after 25 seconds at once.
+                final int sampleWindow=Math.max(1,rate/10);
+                for(int begin=0;begin<samples.length;begin+=sampleWindow){
+                    final int end=Math.min(samples.length,begin+sampleWindow);
+                    final float[] window=java.util.Arrays.copyOfRange(samples,begin,end);
+                    channel.acceptWaveform(window,rate);
+                    decodeAllReady(asr,channel);
+                    captureHypothesis(asr,channel,hypothesis,recognizedPartials);
+                    if(asr.isEndpoint(channel)){
+                        String candidate=asr.getResult(channel).getText();
+                        if(candidate==null||candidate.isBlank())candidate=hypothesis[0];
+                        appendSentence(output,lastCommitted,candidate,progress);
+                        asr.reset(channel);
+                        hypothesis[0]="";
+                    }
                 }
                 LabStore.log("SAMSUNG_REC_KO_INPUT_CHUNK",
                     "sourceRate="+rate+"; samples="+samples.length+
