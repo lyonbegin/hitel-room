@@ -10,8 +10,7 @@ manifest=base/"AndroidManifest.xml"
 gradle=Path("AndroidProject/app/build.gradle.kts")
 
 for src in ("SamsungRecordingFlow.java","SamsungCompletedM4aTranscriber.java",
-            "TranscriberM4aDecoder.kt","TranscriberLocalAudioBudget.kt",
-            "TranscriberWhisperModelStore.kt","TranscriberWhisperFileStt.kt"):
+            "TranscriberM4aDecoder.kt","TranscriberLocalAudioBudget.kt"):
     shutil.copy2(Path("flow-lab")/src,java/src)
 
 def replace_once(txt,old,new,label):
