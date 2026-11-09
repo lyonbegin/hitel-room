@@ -57,6 +57,8 @@ final class SamsungCompletedM4aTranscriber {
         MediaCodec codec=null;
         final StringBuilder transcript=new StringBuilder();
         String lastSentence="";
+        String currentDraft="";
+        long recoveredDrafts=0L;
         long decodedOutputFrames=0L;
         long pcmToAsrFrames=0L, audiblePcmFrames=0L;
         long recognizerHypothesisCount=0L;
@@ -158,6 +160,7 @@ final class SamsungCompletedM4aTranscriber {
                             while(recognizer.isReady(stream))recognizer.decode(stream);
                             String hypothesis=recognizer.getResult(stream).getText();
                             if(hypothesis!=null&&!hypothesis.isBlank()){
+                                currentDraft=hypothesis.trim();
                                 recognizerHypothesisCount++;
                                 if(!firstHypothesisLogged){
                                     firstHypothesisLogged=true;
@@ -166,13 +169,21 @@ final class SamsungCompletedM4aTranscriber {
                                 }
                             }
                             if(recognizer.isEndpoint(stream)){
-                                String sentence=recognizer.getResult(stream).getText().trim();
+                                String raw=recognizer.getResult(stream).getText();
+                                String sentence=raw==null?"":raw.trim();
+                                if(sentence.isEmpty()&&!currentDraft.isEmpty()){
+                                    sentence=currentDraft;
+                                    recoveredDrafts++;
+                                    LabStore.log("SAMSUNG_REC_ASR_RECOVER_DRAFT",
+                                        "endpointHypothesisBlank=true; recoveredChars="+sentence.length());
+                                }
                                 if(!sentence.isEmpty()){
                                     if(transcript.length()>0)transcript.append('\n');
                                     transcript.append(sentence);
                                     lastSentence=sentence;
                                     progress.onSentence(sentence);
                                 }
+                                currentDraft="";
                                 recognizer.reset(stream);
                             }
                         }
@@ -216,23 +227,41 @@ final class SamsungCompletedM4aTranscriber {
             stream.acceptWaveform(new float[RATE],RATE);
             while(recognizer.isReady(stream))recognizer.decode(stream);
             if(recognizer.isEndpoint(stream)){
-                String last=recognizer.getResult(stream).getText().trim();
+                String rawLast=recognizer.getResult(stream).getText();
+                String last=rawLast==null?"":rawLast.trim();
+                if(last.isEmpty()&&!currentDraft.isEmpty()){
+                    last=currentDraft;
+                    recoveredDrafts++;
+                }
                 if(!last.isEmpty()&&!last.equals(lastSentence)){
                     if(transcript.length()>0)transcript.append('\n');
                     transcript.append(last);
                     lastSentence=last;
                     progress.onSentence(last);
                 }
+                currentDraft="";
                 recognizer.reset(stream);
             }
             stream.inputFinished();
             while(recognizer.isReady(stream))recognizer.decode(stream);
-            String tail=recognizer.getResult(stream).getText().trim();
+            String rawTail=recognizer.getResult(stream).getText();
+            String tail=rawTail==null?"":rawTail.trim();
+            if(tail.isEmpty()&&!currentDraft.isEmpty()){
+                tail=currentDraft;
+                recoveredDrafts++;
+                LabStore.log("SAMSUNG_REC_ASR_RECOVER_DRAFT",
+                    "finalHypothesisBlank=true; recoveredChars="+tail.length());
+            }
             if(!tail.isEmpty()&&!tail.equals(lastSentence)){
                 if(transcript.length()>0)transcript.append('\n');
                 transcript.append(tail);
                 progress.onSentence(tail);
             }
+            LabStore.log("SAMSUNG_REC_ASR_FINAL_AUDIT",
+                "finalCharacters="+transcript.length()+
+                "; recoveredDrafts="+recoveredDrafts+
+                "; nonemptyHypotheses="+recognizerHypothesisCount+
+                "; pcmFrames="+pcmToAsrFrames);
             if(transcript.length()==0){
                 LabStore.log("SAMSUNG_REC_SHERPA_EMPTY_WITH_PCM",
                     "peak="+peak+"; rms="+rms+
