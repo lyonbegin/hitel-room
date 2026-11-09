@@ -114,19 +114,41 @@ public final class MainActivity extends Activity {
       i.putExtra(Intent.EXTRA_TITLE,"sherpa-original-stt.txt");
       startActivityForResult(i,SAVE);
     });
+    acceptIncomingAudio(getIntent());
+  }
+  /* Android's own content Uri entry point. It selects a file without touching the engine. */
+  private void acceptAudioUri(Uri uri){
+    if(uri==null)return;
+    chosenUri=uri;
+    chosenName="recording.m4a";
+    try(Cursor c=getContentResolver().query(uri,
+        new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
+      if(c!=null&&c.moveToFirst()&&!c.isNull(0))chosenName=c.getString(0);
+    }catch(Exception ignored){}
+    filename.setText("선택: "+chosenName);
+    execute.setEnabled(true);
+    status("파일 선택 완료");
+    Log.i(TAG,"Accepted Android audio URI scheme="+uri.getScheme()+" name="+chosenName);
+  }
+  private void acceptIncomingAudio(Intent incoming){
+    if(incoming==null)return;
+    Uri uri=null;
+    if(Intent.ACTION_VIEW.equals(incoming.getAction())) uri=incoming.getData();
+    else if(Intent.ACTION_SEND.equals(incoming.getAction()))
+      uri=incoming.getParcelableExtra(Intent.EXTRA_STREAM);
+    acceptAudioUri(uri);
+  }
+  @Override public void onNewIntent(Intent incoming){
+    super.onNewIntent(incoming);
+    setIntent(incoming);
+    acceptIncomingAudio(incoming);
   }
   @Override public void onActivityResult(int code,int resultCode,Intent data){
     super.onActivityResult(code,resultCode,data);
     if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
     Uri uri=data.getData();
     if(code==OPEN){
-      chosenUri=uri;chosenName="recording.m4a";
-      try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
-        if(c!=null&&c.moveToFirst()&&!c.isNull(0))chosenName=c.getString(0);
-      }catch(Exception ignored){}
-      filename.setText("선택: "+chosenName);
-      execute.setEnabled(true);
-      status("파일 선택 완료");
+      acceptAudioUri(uri);
     }else if(code==SAVE){
       try(OutputStream out=getContentResolver().openOutputStream(uri)){
         if(out==null)throw new IOException("출력 스트림 없음");
