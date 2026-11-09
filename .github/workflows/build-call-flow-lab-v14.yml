@@ -80,7 +80,7 @@ jobs:
           test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
           test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberLocalAudioBudget.kt
           grep -F 'model=sherpa-onnx-streaming-zipformer-korean-2024-06-16' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
-          grep -F 'new OnlineRecognizer(null,config)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'new OnlineRecognizer(null, config)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
           grep -F 'class PcmChunker' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
           if grep -R -E 'Whisper|OfflineRecognizer' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java; then exit 1; fi
           grep -F 'chunker.finish()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
