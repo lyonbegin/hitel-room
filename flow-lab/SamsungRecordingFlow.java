@@ -20,6 +20,8 @@ import java.util.concurrent.Executors;
  */
 final class SamsungRecordingFlow {
     private static final Object LOCK=new Object();
+    private static final String PREF="samsung_recording_file_asr";
+    private static final String PREF_LAST_FILE="last_completed_m4a";
     private static final ExecutorService WORKER=Executors.newSingleThreadExecutor();
     private static final File DIR=new File("/storage/emulated/0/Recordings/Call");
     private static final Map<String,Long> BASELINE=new HashMap<>();
@@ -50,6 +52,32 @@ final class SamsungRecordingFlow {
         return stopRequested&&!stopClicked&&"STOP_REQUESTED".equals(phase);
     }
     static boolean isStopClicked(){return stopClicked;}
+    /** Re-run ASR on the exact previously confirmed file, without placing a call. */
+    static boolean retryLastFile(Context context){
+        if(context==null)return false;
+        File last=new File(context.getApplicationContext()
+            .getSharedPreferences(PREF,Context.MODE_PRIVATE)
+            .getString(PREF_LAST_FILE,""));
+        synchronized(LOCK){
+            if("TRANSCRIBING".equals(phase)||"WAIT_FOR_FILE".equals(phase))return false;
+            if(!isRecording(last)||!last.canRead()||!last.getParentFile().getAbsolutePath().equals(DIR.getAbsolutePath())){
+                set("ERROR","전사할 기존 삼성 통화녹음 파일이 없습니다.");
+                return false;
+            }
+            appContext=context.getApplicationContext();
+            candidate=last;
+            lastCandidateBytes=last.length();
+            recordedFile=last.getAbsolutePath();
+            processed=true;
+            stopRequested=false;stopClicked=false;
+            text="";
+            set("WAIT_FOR_FILE","기존 완료 M4A 파일을 다시 전사합니다. 전화·마이크를 변경하지 않습니다.");
+            LabStore.log("SAMSUNG_REC_RETRY_LAST_FILE",
+                "path="+recordedFile+"; bytes="+lastCandidateBytes);
+        }
+        WORKER.execute(SamsungRecordingFlow::finalizeAndTranscribe);
+        return true;
+    }
     static void arm(Context context){
         synchronized(LOCK){
             appContext=context.getApplicationContext();
@@ -193,6 +221,8 @@ final class SamsungRecordingFlow {
                 }
                 if(!audio)throw new IllegalStateException("M4A 안에 디코딩 가능한 음성 트랙이 없습니다.");
             }finally{extractor.release();}
+            appContext.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit()
+                .putString(PREF_LAST_FILE,recordedFile).apply();
             set("TRANSCRIBING","완성 M4A 검증. 삼성 전화와 독립적으로 sherpa-onnx 전사 중입니다.");
             LabStore.log("SAMSUNG_REC_COMPLETE_M4A",
                 "file="+file.getAbsolutePath()+"; bytes="+file.length());
