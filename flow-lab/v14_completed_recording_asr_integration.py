@@ -9,7 +9,8 @@ model=java/"KoreanSherpaStt.java"
 manifest=base/"AndroidManifest.xml"
 gradle=Path("AndroidProject/app/build.gradle.kts")
 
-for src in ("SamsungRecordingFlow.java","SamsungCompletedM4aTranscriber.java"):
+for src in ("SamsungRecordingFlow.java","SamsungCompletedM4aTranscriber.java",
+            "TranscriberM4aDecoder.kt","TranscriberLocalAudioBudget.kt"):
     shutil.copy2(Path("flow-lab")/src,java/src)
 
 def replace_once(txt,old,new,label):
@@ -165,6 +166,9 @@ s=replace_once(s,
                 refreshSamsungFileAsr();
             });
         content.addView(fileRetry,new LinearLayout.LayoutParams(-1,dp(50)));
+        Button savedFiles=btn("Recordings/Call 전체 M4A 목록 · 선택 STT",
+            this::chooseSamsungRecordingFile);
+        content.addView(savedFiles,new LinearLayout.LayoutParams(-1,dp(56)));
         samsungFileAsrState=label("삼성 녹음 파일 인식: 통화 녹음 시작 대기",13,true);
         content.addView(samsungFileAsrState);
         samsungFileAsrTranscript=label("완료된 통화 녹음 파일 전사문이 이곳에 나타납니다. 기존 HITEL 마이크 인식은 그대로 유지합니다.",14,false);
@@ -191,6 +195,41 @@ s=replace_once(s,
         }
         openCallUi();
     }
+    /** Browse completed M4A recordings, with no phone or microphone interaction. */
+    private void chooseSamsungRecordingFile(){
+        if(!has(Manifest.permission.READ_MEDIA_AUDIO)){
+            requestPermissions(new String[]{Manifest.permission.READ_MEDIA_AUDIO},606);
+            return;
+        }
+        java.io.File[] saved=SamsungRecordingFlow.listSavedRecordings();
+        if(saved.length==0){
+            log("SAMSUNG_REC_FILE_LIST_EMPTY","folder=/storage/emulated/0/Recordings/Call");
+            status("내장 저장공간 / Recordings / Call 에서 읽을 수 있는 M4A가 없습니다.");
+            return;
+        }
+        String[] names=new String[saved.length];
+        java.text.SimpleDateFormat date=new java.text.SimpleDateFormat(
+            "yyyy-MM-dd HH:mm:ss",java.util.Locale.KOREA);
+        for(int i=0;i<saved.length;i++){
+            java.io.File file=saved[i];
+            names[i]=file.getName()+" · "+
+                String.format(java.util.Locale.KOREA,"%,d",file.length())+
+                " bytes · "+date.format(new java.util.Date(file.lastModified()));
+        }
+        log("SAMSUNG_REC_FILE_LIST_OPEN","count="+saved.length+"; /Recordings/Call");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Recordings / Call · "+saved.length+"개")
+            .setItems(names,(dialog,which)->{
+                java.io.File chosen=saved[which];
+                boolean ok=SamsungRecordingFlow.transcribeSelectedFile(
+                    getApplicationContext(),chosen);
+                log("SAMSUNG_REC_FILE_CHOICE","name="+chosen.getName()+
+                    "; accepted="+ok+"; bytes="+chosen.length());
+                if(!ok)status("M4A 처리 불가: 기존 작업 중이거나 파일에 접근할 수 없습니다.");
+                refreshSamsungFileAsr();
+            })
+            .setNegativeButton("취소",null).show();
+    }
     private void refreshSamsungFileAsr(){
         String state=SamsungRecordingFlow.phase()+": "+SamsungRecordingFlow.details();
         if(samsungFileAsrState!=null&&!state.equals(lastSamsungFileAsrState)){
@@ -216,7 +255,8 @@ s=replace_once(s,
         }''',"permission on call")
 s=replace_once(s,'else if(req==603)refreshState();else if(req==604)startKoreanSherpaSpeech();',
 '''else if(req==603)refreshState();else if(req==604)startKoreanSherpaSpeech();
-            else if(req==605)placeCall();''',"permission callback")
+            else if(req==605)placeCall();
+            else if(req==606)chooseSamsungRecordingFile();''',"permission callback")
 assert 'private void startKoreanSherpaSpeech()' in s
 assert 'private void stopKoreanSherpaSpeech()' in s
 assert 'this::stopKoreanSherpaSpeech' in s
@@ -234,6 +274,12 @@ assert 'applicationId = "app.hitel.callflowlab.v14"' in s
 s=replace_once(s,'versionCode = 21','versionCode = 22',"version code")
 s=replace_once(s,'versionName = "0.14.7-voice-access-audio-ab"',
 'versionName = "0.14.8-completed-m4a-file-asr"',"version name")
+# Original HITEL14 uses Java only; Kotlin is required to compile the actual
+# MIT Transcriber MediaExtractor/MediaCodec implementation verbatim.
+assert 'plugins { id("com.android.application") }' in s
+s=replace_once(s,'plugins { id("com.android.application") }',
+             'plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") version "2.2.0" }',
+             "Transcriber Kotlin Android plugin")
 gradle.write_text(s,encoding="utf-8")
 
 print("PASS: HITEL14 microphone unchanged, Samsung recording independent, completed-file sherpa, no hangup.")
