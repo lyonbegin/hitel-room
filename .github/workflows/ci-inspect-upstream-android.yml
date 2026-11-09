@@ -1,0 +1,42 @@
+name: Inspect upstream sherpa FFmpeg Android prebuilts
+on:
+  push:
+    branches: [feature/sherpa-upstream-ffmpeg-native-20261109]
+    paths:
+      - 'sherpa-upstream-native/**'
+      - '.github/workflows/ci-inspect-upstream-android.yml'
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin and verify unchanged upstream source
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 4 'https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/ffmpeg-examples/sherpa-onnx-ffmpeg.c' > /tmp/upstream.c
+          cmp /tmp/upstream.c sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+          sha256sum /tmp/upstream.c
+      - name: Download official sherpa Android C API and FFmpegKit AAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/sherpa-prebuilt /tmp/ffmpeg-aar
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx \
+            -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/sherpa-prebuilt
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg \
+            -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-aar
+          echo '--- sherpa archive libs and includes ---'
+          tar tjf /tmp/sherpa-prebuilt/*.tar.bz2 | grep -E '(/include/|/lib/|/bin/)' | head -100 || true
+          echo '--- FFmpegKit packaged libs ---'
+          unzip -Z1 /tmp/ffmpeg-aar/*.aar | grep -E 'jni/arm64-v8a|\.h$' | head -100 || true
+          echo '--- FFmpegKit C ABI lib names ---'
+          unzip -Z1 /tmp/ffmpeg-aar/*.aar | grep -E 'jni/arm64-v8a/libav' || true
+          mkdir -p /tmp/sherpa-unpack
+          tar xjf /tmp/sherpa-prebuilt/*.tar.bz2 -C /tmp/sherpa-unpack
+          echo '--- actual sherpa C API library files ---'
+          find /tmp/sherpa-unpack -type f \( -name '*c-api*' -o -name '*onnxruntime*' -o -name 'c-api.h' \) | head -80
+          echo '--- archive top level ---'
+          find /tmp/sherpa-unpack -maxdepth 4 -type d | head -60
