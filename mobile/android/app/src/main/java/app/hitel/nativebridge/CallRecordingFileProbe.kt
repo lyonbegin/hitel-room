@@ -136,6 +136,13 @@ internal object CallRecordingFileProbe {
                     .put("sizeBytes", file.length())
                     .put("lastModifiedMillis", file.lastModified())
                     .put("modifiedAfterTestStart", file.lastModified() >= startedAtEpochMs - 5_000L)
+                val atomScan = Mp4GrowingFileInspector.inspect(file)
+                record.put("containerHint", atomScan.containerHint)
+                    .put("mp4Atoms", JSONArray(atomScan.atoms))
+                    .put("moovVisible", atomScan.hasMoov)
+                    .put("moofVisible", atomScan.hasMoof)
+                    .put("mdatVisible", atomScan.hasMdat)
+                    .put("incompleteAtom", atomScan.incompleteAtom)
                 if (file.length() == 0L) {
                     record.put("readStatus", "EMPTY_SIZE")
                 } else {
