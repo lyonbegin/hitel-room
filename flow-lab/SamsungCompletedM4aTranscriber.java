@@ -142,9 +142,64 @@ final class SamsungCompletedM4aTranscriber {
             String tail=asr.getResult(channel).getText();
             if(tail==null||tail.isBlank())tail=hypothesis[0];
             appendSentence(output,lastCommitted,tail,progress);
+            final int segmentedLength=output.length();
+            final double fileSeconds=frames[0]/(double)audioRate[0];
+            // The upstream sherpa-onnx StreamingDecodeFileTransducer.java
+            // decodes a COMPLETE file without resetting the stream on each
+            // detected endpoint. HITEL14's original microphone mode instead
+            // resets endpoints every ~100ms. Keep that live-mic algorithm
+            // untouched and compare it with the official file algorithm
+            // only when the original file result is missing or suspiciously
+            // short for a multi-second completed recording.
+            final boolean needsFileReferenceRecheck =
+                output.length()==0||(fileSeconds>=5d && output.length()<=4);
+            if(needsFileReferenceRecheck){
+                progress.onPhase("기존 한국어 Zipformer · 공식 파일 전사 방식으로 결과 재확인");
+                String reference="";
+                try{
+                    reference=decodeAsCompleteFileReference(asr,context,file);
+                    LabStore.log("SAMSUNG_REC_KO_REFERENCE_RESULT",
+                        "referenceChars="+reference.length()+
+                        "; segmentedChars="+segmentedLength+
+                        "; audioSeconds="+String.format(Locale.US,"%.3f",fileSeconds)+
+                        "; sameKoreanZipformerModel=true; noOtherModelLoaded=true");
+                    // Never throw away a valid segmented result for an empty
+                    // reference result. Longer reference output is selected
+                    // only when the original output was empty or <=4 chars
+                    // and the reference contains a substantially longer
+                    // sentence. The exact choice is always logged.
+                    if(!reference.isBlank() &&
+                      (output.length()==0 ||
+                       (output.length()<=4 && reference.length()>=output.length()+6))){
+                        output.setLength(0);
+                        output.append(reference.trim());
+                        progress.onSentence(reference.trim());
+                        LabStore.log("SAMSUNG_REC_KO_RESULT_SOURCE",
+                            "selected=official_file_reference; chars="+output.length());
+                    }else{
+                        LabStore.log("SAMSUNG_REC_KO_RESULT_SOURCE",
+                            "selected=segmented_existing; chars="+output.length());
+                    }
+                }catch(Throwable referenceFailure){
+                    LabStore.log("SAMSUNG_REC_KO_REFERENCE_ERROR",
+                        referenceFailure.getClass().getSimpleName()+
+                        ": "+referenceFailure.getMessage());
+                    if(output.length()==0){
+                        throw new IOException(
+                            "파일 전사의 두 경로 모두 실패했습니다. 구간 인식 결과 없음, "+
+                            "공식 sherpa 파일 전사 재확인 오류: "+referenceFailure.getMessage(),
+                            referenceFailure);
+                    }
+                }
+            }
             LabStore.log("SAMSUNG_REC_KO_STT_RESULT",
                 "characters="+output.length()+"; sourceFrames="+frames[0]+
-                "; hypotheses="+recognizedPartials[0]+"; koreanZipformer=true");
+                "; sampleRate="+audioRate[0]+
+                "; peak="+String.format(Locale.US,"%.6f",peak[0])+
+                "; rms="+String.format(Locale.US,"%.6f",rms)+
+                "; hypotheses="+recognizedPartials[0]+
+                "; usedReferenceRecheck="+needsFileReferenceRecheck+
+                "; koreanZipformer=true");
             if(output.length()==0)
                 throw new IOException("기존 한국어 Zipformer가 완료 M4A의 음성 문장을 반환하지 않았습니다. "+
                     "PCM_SUMMARY 및 KO_INPUT_CHUNK를 확인하십시오.");
@@ -153,6 +208,64 @@ final class SamsungCompletedM4aTranscriber {
             if(stream!=null)try{stream.release();}catch(Throwable ignored){}
             if(recognizer!=null)try{recognizer.release();}catch(Throwable ignored){}
         }
+    }
+
+    /**
+     * Independent second pass following the OFFICIAL sherpa-onnx
+     * java-api-examples/StreamingDecodeFileTransducer.java:
+     *  accept the entire file PCM, append silence, decode, getResult.
+     * No endpoint resets and no alternate recognizer/model.
+     * Source: https://github.com/k2-fsa/sherpa-onnx/blob/v1.12.26/
+     * java-api-examples/StreamingDecodeFileTransducer.java
+     */
+    private static String decodeAsCompleteFileReference(
+        OnlineRecognizer recognizer,Context context,File file)throws Exception{
+        final OnlineStream fileStream=recognizer.createStream("");
+        final long[] frames={0L};
+        final int[] rate={0},chunks={0},steps={0};
+        try{
+            TranscriberM4aDecoder.decode(context,Uri.fromFile(file),(samples,sampleRate)->{
+                if(samples==null||samples.length==0)return;
+                if(sampleRate<=0)
+                    throw new IllegalStateException("파일 샘플레이트 오류: "+sampleRate);
+                if(rate[0]!=0 && rate[0]!=sampleRate)
+                    throw new IllegalStateException("파일 중 샘플레이트 변경");
+                rate[0]=sampleRate;
+                frames[0]+=samples.length;
+                chunks[0]++;
+                // Official streaming-transducer file decoding pattern:
+                // one continuous stream, no endpoint/segment reset.
+                fileStream.acceptWaveform(samples,sampleRate);
+                steps[0]+=decodeAllReadyAndCount(recognizer,fileStream);
+            });
+            if(frames[0]==0||rate[0]==0)
+                throw new IOException("Transcriber PCM이 없는 M4A");
+            fileStream.acceptWaveform(
+                new float[Math.max(1,(int)(0.8d*rate[0]))],rate[0]);
+            fileStream.inputFinished();
+            steps[0]+=decodeAllReadyAndCount(recognizer,fileStream);
+            String value=recognizer.getResult(fileStream).getText();
+            LabStore.log("SAMSUNG_REC_KO_REFERENCE_AUDIT",
+                "chunks="+chunks[0]+"; frames="+frames[0]+
+                "; sampleRate="+rate[0]+"; decodeSteps="+steps[0]+
+                "; nonemptyResult="+(value!=null&&!value.isBlank())+
+                "; chars="+(value==null?0:value.length()));
+            return value==null?"":value.trim();
+        }finally{
+            try{fileStream.release();}catch(Throwable ignored){}
+        }
+    }
+
+    private static int decodeAllReadyAndCount(
+            OnlineRecognizer recognizer,OnlineStream stream){
+        int steps=0;
+        while(recognizer.isReady(stream)){
+            if(++steps>MAX_DECODE_STEPS)
+                throw new IllegalStateException(
+                    "Zipformer 공식 파일 디코드 최대 횟수 초과");
+            recognizer.decode(stream);
+        }
+        return steps;
     }
 
     private static void decodeAllReady(OnlineRecognizer recognizer,OnlineStream stream){
