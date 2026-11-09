@@ -1,7 +1,7 @@
-name: Sherpa original CLI Android emulator end-to-end
+name: Sherpa untouched original CLI + official FFmpegKit normalization Android emulator E2E
 on:
   push:
-    branches: [feature/sherpa-original-cli-emulator-qa-20261109]
+    branches: [feature/sherpa-original-ffmpeg-normalize-v3-20261109]
     paths:
       - 'sherpa-original-launcher/**'
       - '.github/workflows/test-sherpa-original-emulator.yml'
@@ -71,6 +71,17 @@ jobs:
           "$LLVM/llvm-readelf" -h "$DST/liboriginal-cli.so" | grep -E 'X86-64|DYN'
           "$LLVM/llvm-readelf" -d "$DST/liboriginal-cli.so" | grep NEEDED
           sha256sum "$DST/liboriginal-cli.so" sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+          # Keep one copy of official FFmpegKit native libraries, supplied by
+          # the official AAR: remove native duplicates from the CLI bundle.
+          # The original sherpa ELF stays byte-identical.
+          mkdir -p sherpa-original-launcher/app/libs
+          cp /tmp/native-releases/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar
+          for abi in arm64-v8a x86_64; do
+            d="sherpa-original-launcher/app/src/main/jniLibs/$abi"
+            find "$d" -maxdepth 1 -type f \( -name 'libav*.so' -o -name 'libsw*.so' -o -name 'libffmpegkit*.so' \) -delete
+          done
+          unzip -Z1 sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar | grep -F 'jni/arm64-v8a/libavformat.so'
+          unzip -Z1 sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar | grep -F 'jni/x86_64/libavformat.so'
       - name: Build emulator-installable APK with both ARM64 and x86_64 original executables
         run: |
           gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
@@ -90,13 +101,13 @@ jobs:
           BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6/test_wavs'
           curl --fail --location --retry 5 -o /tmp/original-korean.wav "$BASE/0.wav"
           curl --fail --location --retry 5 -o emulator-qa/reference-transcript.txt "$BASE/trans.txt"
-          ffmpeg -hide_banner -loglevel error -y -i /tmp/original-korean.wav -c:a aac -b:a 96k -ac 1 /tmp/sherpa_emulator_ko.m4a
+          ffmpeg -hide_banner -loglevel error -y -i /tmp/original-korean.wav -c:a aac -b:a 128k -ar 48000 -ac 1 /tmp/sherpa_emulator_ko.m4a
           ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,sample_rate,channels -of default=noprint_wrappers=1 /tmp/sherpa_emulator_ko.m4a | tee emulator-qa/fixture-ffprobe.txt
           test -s /tmp/sherpa_emulator_ko.m4a
           sha256sum /tmp/sherpa_emulator_ko.m4a > emulator-qa/fixture-m4a.sha256
           # Long M4A regression (~84s), derived ONLY from upstream Korean fixture.
           # This is NOT the user's private 1002 phone recording.
-          ffmpeg -hide_banner -loglevel error -y -stream_loop 30 -i /tmp/original-korean.wav -t 84             -c:a aac -b:a 96k -ac 1 /tmp/sherpa_emulator_84sec.m4a
+          ffmpeg -hide_banner -loglevel error -y -stream_loop 30 -i /tmp/original-korean.wav -t 84 -c:a aac -b:a 128k -ar 48000 -ac 1 /tmp/sherpa_emulator_84sec.m4a
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1             /tmp/sherpa_emulator_84sec.m4a | tee emulator-qa/long-84s-ffprobe.txt
           test -s /tmp/sherpa_emulator_84sec.m4a
           sha256sum /tmp/sherpa_emulator_84sec.m4a > emulator-qa/long-84s-m4a.sha256
@@ -160,7 +171,7 @@ jobs:
       - name: Upload actually tested installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: SherpaOriginalFFmpeg-Android11-Tested-APK
+          name: SherpaOriginalFFmpeg-AAC48k-Normalized-v3-APK
           path: sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           compression-level: 6
