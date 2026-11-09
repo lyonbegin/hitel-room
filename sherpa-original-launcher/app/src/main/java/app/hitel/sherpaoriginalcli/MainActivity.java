@@ -2,8 +2,6 @@ package app.hitel.sherpaoriginalcli;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.media.MediaMetadataRetriever;
-import android.os.SystemClock;
 import android.os.Handler;
 import android.os.Looper;
 import android.content.Context;
@@ -19,50 +17,47 @@ import android.widget.ScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Button;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import com.arthenica.ffmpegkit.FFmpegKit;
-import com.arthenica.ffmpegkit.FFmpegSession;
-import com.arthenica.ffmpegkit.ReturnCode;
 import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
-/*
- * This file is ONLY the Android launcher/reader of original CLI stderr.
- * All audio decoding, resampling and STT live in the untouched upstream ELF.
- */
 public final class MainActivity extends Activity {
-  static final String TAG = "SherpaOriginalLauncher";
-  static final String[] MODEL={"model.int8.onnx","tokens.txt"};
-  static final long[] MIN={1000000L,1000L};
-  static final Pattern SEGMENT=Pattern.compile("^([0-9]+):(.*)$");
+  static final String TAG="SenseVoiceFileStream";
   static final int OPEN=31,SAVE=32,SAVE_LOG=33;
+  static final int SAMPLE_RATE=16000;
   final Handler main=new Handler(Looper.getMainLooper());
-  volatile Process child;
+  volatile Process nativeEngine;
   volatile boolean busy=false,stopRequested=false;
+  volatile File logFile;
+  volatile long fileDurationMs=0,decodedMs=0;
+  volatile int receivedSegments=0;
   Uri chosenUri;
-  String chosenName="", recognized="";
+  String chosenName="",recognized="";
+  final TreeMap<Integer,String> captions=new TreeMap<>();
   Button choose,execute,stop,save,copy,saveLog;
-  volatile File fullLogFile;
-  TextView status,result,diagnostic,filename;
-  final ByteArrayOutputStream logBuffer=new ByteArrayOutputStream();
-  long lastUi=0;
+  TextView status,result,diagnostic,filename,progress;
+  final StringBuilder diagnostics=new StringBuilder();
 
-  TextView text(String s,int size){
+  TextView text(String s,int size) {
     TextView v=new TextView(this);
-    v.setText(s);v.setTextSize(size);v.setPadding(0,10,0,10);
-    return v;
+    v.setText(s);v.setTextSize(size);v.setPadding(0,9,0,9);return v;
   }
-  Button button(LinearLayout root,String s){
-    Button b=new Button(this);b.setText(s);root.addView(b);return b;
+  Button button(LinearLayout root,String title) {
+    Button b=new Button(this);b.setText(title);root.addView(b);return b;
   }
-  void status(String s){
+  void status(String s) {
     Log.i(TAG,s);
     main.post(()->status.setText(s));
   }
-  @Override public void onCreate(Bundle saved){
+  static String clock(long millis) {
+    long sec=millis/1000;
+    return String.format(Locale.KOREA,"%02d:%02d",sec/60,sec%60);
+  }
+  @Override public void onCreate(Bundle saved) {
     super.onCreate(saved);
     ScrollView scroll=new ScrollView(this);
     LinearLayout root=new LinearLayout(this);
@@ -70,24 +65,30 @@ public final class MainActivity extends Activity {
     int pad=(int)(18*getResources().getDisplayMetrics().density);
     root.setPadding(pad,pad,pad,pad);
     scroll.addView(root);
-    TextView head=text("한국어 통화 녹음 STT · SenseVoice",23);
-    head.setTypeface(null,Typeface.BOLD);
-    root.addView(head);
-    root.addView(text("Sherpa-ONNX 공식 C API · SenseVoice 한국어 INT8\nFFmpegKit으로 AAC/M4A를 16kHz PCM으로 변환 후 인식\n오프라인 · ARM64 갤럭시 · ADB 불필요",13));
-    choose=button(root,"1. M4A / 음성 파일 선택");
+    TextView title=text("녹음 파일 스트리밍 STT",23);
+    title.setTypeface(null,Typeface.BOLD);root.addView(title);
+    root.addView(text("녹음 파일을 처음부터 끝까지 순차 디코딩합니다.\n" +
+      "완료될 때까지 기다리지 않고, 약 4초마다 SenseVoice 한국어 자막을 추가합니다.\n" +
+      "파일 입력 → Android MediaCodec → 16kHz PCM → SenseVoice C API",13));
+    choose=button(root,"1. 녹음 파일 선택 (M4A / MP3 등)");
     filename=text("선택한 파일 없음",14);root.addView(filename);
-    execute=button(root,"2. 한국어 SenseVoice STT 실행");execute.setEnabled(false);
-    stop=button(root,"인식 중지");stop.setEnabled(false);
-    status=text("준비됨",14);root.addView(status);
-    TextView heading=text("인식 문장 (진행 중 계속 갱신)",18);
-    heading.setTypeface(null,Typeface.BOLD);root.addView(heading);
-    result=text("",17);result.setTextIsSelectable(true);root.addView(result);
-    copy=button(root,"텍스트 복사");copy.setEnabled(false);
-    save=button(root,"TXT 파일 저장");save.setEnabled(false);
-    root.addView(text("FFmpeg / SenseVoice 전체 STT 로그",15));
-    diagnostic=text("실행 전",12);diagnostic.setTextIsSelectable(true);root.addView(diagnostic);
-    saveLog=button(root,"원본 실행 전체 로그 TXT 저장");saveLog.setEnabled(false);
-    root.addView(text("엔진: Sherpa-ONNX v1.12.26 C API · SenseVoice 한국어 INT8.\n기존 삼성 기본 전화 앱은 변경하지 않습니다.\n통화 종료 후 저장된 녹음 파일을 선택하여 인식합니다.",11));
+    execute=button(root,"2. 파일 스트리밍 STT 시작");execute.setEnabled(false);
+    stop=button(root,"스트리밍 중지");stop.setEnabled(false);
+    status=text("파일 선택 대기",14);root.addView(status);
+    progress=text("읽은 파일 길이: 0초",14);root.addView(progress);
+    TextView subtitle=text("연속 인식된 문장 (구간별 즉시 갱신)",18);
+    subtitle.setTypeface(null,Typeface.BOLD);root.addView(subtitle);
+    result=text("녹음 파일을 선택하여 시작하십시오.",17);
+    result.setTextIsSelectable(true);root.addView(result);
+    copy=button(root,"누적 한국어 자막 복사");copy.setEnabled(false);
+    save=button(root,"누적 자막 TXT로 저장");save.setEnabled(false);
+    root.addView(text("실제 디코더 및 Sherpa 출력 로그",14));
+    diagnostic=text("실행 전",12);
+    diagnostic.setTextIsSelectable(true);root.addView(diagnostic);
+    saveLog=button(root,"전체 진단 로그 TXT로 저장");saveLog.setEnabled(false);
+    root.addView(text("녹음 파일 전체를 미리 WAV로 변환하지 않습니다.\n" +
+      "SenseVoice는 문자를 한 글자씩 출력하는 스트리밍 모델이 아니라, 연속 공급된 PCM을 구간별로 인식하는 모델입니다.\n" +
+      "통화 중 전화망의 내부 수신 음성을 가로채는 기능은 포함하지 않습니다.",12));
     setContentView(scroll);
     choose.setOnClickListener(v->{
       if(busy)return;
@@ -97,335 +98,264 @@ public final class MainActivity extends Activity {
       i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
       startActivityForResult(i,OPEN);
     });
-    execute.setOnClickListener(v->run());
+    execute.setOnClickListener(v->startStream());
     stop.setOnClickListener(v->{
       stopRequested=true;
-      Process p=child;
-      if(p!=null)p.destroy();
+      Process process=nativeEngine;
+      if(process!=null)process.destroy();
       stop.setEnabled(false);
-      status("실행 중지 요청");
+      status("파일 스트리밍 중지 요청됨");
     });
     copy.setOnClickListener(v->{
       ((ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE))
-        .setPrimaryClip(ClipData.newPlainText("Sherpa original STT",recognized));
-      status("텍스트 복사 완료");
+        .setPrimaryClip(ClipData.newPlainText("파일 스트리밍 STT",recognized));
+      status("한국어 자막을 복사했습니다.");
     });
-    save.setOnClickListener(v->{
-      Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-      i.addCategory(Intent.CATEGORY_OPENABLE);
-      i.setType("text/plain");
-      i.putExtra(Intent.EXTRA_TITLE,"sherpa-original-stt.txt");
-      startActivityForResult(i,SAVE);
-    });
-    saveLog.setOnClickListener(v->{
-      if(fullLogFile==null||!fullLogFile.isFile())return;
-      Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-      i.addCategory(Intent.CATEGORY_OPENABLE);
-      i.setType("text/plain");
-      i.putExtra(Intent.EXTRA_TITLE,"sherpa-galaxy-full-diagnostic.txt");
-      startActivityForResult(i,SAVE_LOG);
-    });
-    acceptIncomingAudio(getIntent());
+    save.setOnClickListener(v->createTextFile(SAVE,"SenseVoice-Streaming-Transcript.txt"));
+    saveLog.setOnClickListener(v->createTextFile(SAVE_LOG,"SenseVoice-Streaming-Diagnostics.txt"));
+    acceptIntent(getIntent());
   }
-  /* Android's own content Uri entry point. It selects a file without touching the engine. */
-  private void acceptAudioUri(Uri uri){
+
+  void createTextFile(int code,String name){
+    Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+    i.addCategory(Intent.CATEGORY_OPENABLE);
+    i.setType("text/plain");i.putExtra(Intent.EXTRA_TITLE,name);
+    startActivityForResult(i,code);
+  }
+  void acceptIntent(Intent incoming){
+    if(incoming==null)return;
+    Uri u=null;
+    if(Intent.ACTION_VIEW.equals(incoming.getAction()))u=incoming.getData();
+    if(Intent.ACTION_SEND.equals(incoming.getAction()))
+      u=incoming.getParcelableExtra(Intent.EXTRA_STREAM);
+    if(u!=null)selectAudio(u);
+  }
+  @Override public void onNewIntent(Intent incoming){
+    super.onNewIntent(incoming);setIntent(incoming);acceptIntent(incoming);
+  }
+  void selectAudio(Uri uri){
     if(uri==null)return;
     chosenUri=uri;
-    chosenName="recording.m4a";
+    chosenName="recording";
     try(Cursor c=getContentResolver().query(uri,
-        new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
-      if(c!=null&&c.moveToFirst()&&!c.isNull(0))chosenName=c.getString(0);
+       new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
+      if(c!=null && c.moveToFirst()&&!c.isNull(0))chosenName=c.getString(0);
     }catch(Exception ignored){}
     filename.setText("선택: "+chosenName);
     execute.setEnabled(true);
-    status("파일 선택 완료");
-    Log.i(TAG,"Accepted Android audio URI scheme="+uri.getScheme()+" name="+chosenName);
-  }
-  private void acceptIncomingAudio(Intent incoming){
-    if(incoming==null)return;
-    Uri uri=null;
-    if(Intent.ACTION_VIEW.equals(incoming.getAction())) uri=incoming.getData();
-    else if(Intent.ACTION_SEND.equals(incoming.getAction()))
-      uri=incoming.getParcelableExtra(Intent.EXTRA_STREAM);
-    acceptAudioUri(uri);
-  }
-  @Override public void onNewIntent(Intent incoming){
-    super.onNewIntent(incoming);
-    setIntent(incoming);
-    acceptIncomingAudio(incoming);
+    status("녹음 파일이 선택되었습니다. 시작 시 파일 앞부분부터 인식합니다.");
   }
   @Override public void onActivityResult(int code,int resultCode,Intent data){
     super.onActivityResult(code,resultCode,data);
     if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
     Uri uri=data.getData();
-    if(code==OPEN){
-      acceptAudioUri(uri);
+    if(code==OPEN) {
+      selectAudio(uri);
     }else if(code==SAVE){
       try(OutputStream out=getContentResolver().openOutputStream(uri)){
         if(out==null)throw new IOException("출력 스트림 없음");
-        out.write(recognized.getBytes(StandardCharsets.UTF_8));
-        out.flush();status("TXT 저장 완료");
-      }catch(Exception e){status("TXT 저장 실패: "+e);}
+        out.write(recognized.getBytes(StandardCharsets.UTF_8));out.flush();
+        status("누적 한국어 자막을 저장했습니다.");
+      }catch(Exception e){status("자막 저장 실패: "+e);}
     }else if(code==SAVE_LOG){
-      try(InputStream in=new FileInputStream(fullLogFile);
+      File f=logFile;
+      if(f==null||!f.isFile()){status("진단 로그가 없습니다.");return;}
+      try(InputStream in=new FileInputStream(f);
           OutputStream out=getContentResolver().openOutputStream(uri)){
-        if(out==null)throw new IOException("진단 로그 출력 스트림 없음");
-        byte[] b=new byte[32768];int n;
-        while((n=in.read(b))!=-1)if(n>0)out.write(b,0,n);
-        out.flush();status("원본 전체 로그 저장 완료");
-      }catch(Exception e){status("전체 로그 저장 실패: "+e);}
+        if(out==null)throw new IOException("출력 스트림 없음");
+        byte[] buf=new byte[32768];int n;
+        while((n=in.read(buf))!=-1){if(n>0)out.write(buf,0,n);}
+        out.flush();status("스트리밍 진단 로그를 저장했습니다.");
+      }catch(Exception e){status("로그 저장 실패: "+e);}
     }
   }
-  File extractModels()throws IOException{
-    File root=new File(getFilesDir(),"sensevoice-int8");
-    if(!root.exists()&&!root.mkdirs())throw new IOException("모델 디렉터리 생성 실패");
-    for(int i=0;i<MODEL.length;i++){
-      File f=new File(root,MODEL[i]);
-      if(f.length()>=MIN[i])continue;
-      status("APK에 포함된 원본 모델 준비: "+MODEL[i]);
-      File tmp=new File(root,MODEL[i]+".partial");
-      try(InputStream in=getAssets().open("sensevoice/"+MODEL[i]);
-          FileOutputStream out=new FileOutputStream(tmp)){
-        byte[] buffer=new byte[131072];int n;
-        while((n=in.read(buffer))!=-1)if(n>0)out.write(buffer,0,n);
-        out.getFD().sync();
+  File extractModel(String name,long min) throws IOException{
+    File dir=new File(getFilesDir(),"sensevoice-int8");
+    if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("모델 폴더 생성 실패");
+    File dest=new File(dir,name);
+    if(dest.length()>=min)return dest;
+    status("SenseVoice 한국어 모델 준비: "+name);
+    File temporary=new File(dir,name+".partial");
+    if(temporary.exists()&&!temporary.delete())throw new IOException("임시 모델 교체 실패");
+    try(InputStream in=getAssets().open("sensevoice/"+name);
+        FileOutputStream out=new FileOutputStream(temporary)){
+      byte[] b=new byte[131072];int n;
+      while((n=in.read(b))!=-1){
+        if(stopRequested)throw new IOException("인식 중지");
+        if(n>0)out.write(b,0,n);
       }
-      if(tmp.length()<MIN[i])throw new IOException("원본 모델 파일 누락: "+MODEL[i]);
-      if(f.exists()&&!f.delete())throw new IOException("원본 모델 교체 실패");
-      if(!tmp.renameTo(f))throw new IOException("원본 모델 저장 실패");
+      out.getFD().sync();
     }
-    return root;
-  }
-  File stageAudio()throws IOException{
-    File dest=new File(getCacheDir(),"selected-original-audio.m4a");
-    try(InputStream in=getContentResolver().openInputStream(chosenUri);
-        FileOutputStream out=new FileOutputStream(dest)){
-      if(in==null)throw new IOException("녹음 파일을 열 수 없습니다");
-      byte[] buffer=new byte[131072];int n;
-      while((n=in.read(buffer))!=-1){
-        if(stopRequested)throw new IOException("사용자 중지");
-        if(n>0)out.write(buffer,0,n);
-      }
-    }
-    if(dest.length()==0)throw new IOException("녹음 파일 길이가 0입니다");
-    Log.i(TAG,"SOURCE_AUDIO_STAGED filename="+chosenName+" bytes="+dest.length());
+    if(temporary.length()<min)throw new IOException("APK 한국어 모델 파일 누락: "+name);
+    if(dest.exists()&&!dest.delete())throw new IOException("기존 모델 교체 실패");
+    if(!temporary.renameTo(dest))throw new IOException("모델 저장 실패");
     return dest;
   }
-  // Pure instrumentation on FFmpeg's WAV output; it does not alter PCM or the original recognizer.
-  static final class PcmAudit {
-    final long samples;
-    final double rms;
-    final double peak;
-    final long nonQuietSamples;
-    PcmAudit(long samples,double rms,double peak,long nonQuietSamples){
-      this.samples=samples;this.rms=rms;this.peak=peak;this.nonQuietSamples=nonQuietSamples;
-    }
-    long durationMs(){return samples*1000L/16000L;}
+  static void writeLittleInt(OutputStream out,int x)throws IOException{
+    out.write(x&255);out.write((x>>8)&255);out.write((x>>16)&255);out.write((x>>24)&255);
   }
-  static int le16(RandomAccessFile in)throws IOException {
-    return in.readUnsignedByte() | (in.readUnsignedByte()<<8);
-  }
-  static long le32(RandomAccessFile in)throws IOException {
-    return ((long)in.readUnsignedByte()) | (((long)in.readUnsignedByte())<<8) |
-           (((long)in.readUnsignedByte())<<16) | (((long)in.readUnsignedByte())<<24);
-  }
-  static PcmAudit inspectNormalizedWav(File wav)throws IOException {
-    try(RandomAccessFile in=new RandomAccessFile(wav,"r")){
-      byte[] hdr=new byte[12];in.readFully(hdr);
-      if(hdr[0]!='R'||hdr[1]!='I'||hdr[2]!='F'||hdr[3]!='F'||
-         hdr[8]!='W'||hdr[9]!='A'||hdr[10]!='V'||hdr[11]!='E')
-        throw new IOException("RIFF/WAVE 형식이 아닙니다.");
-      int format=-1,channels=-1,rate=-1,bits=-1;
-      long dataStart=-1,dataBytes=-1;
-      while(in.getFilePointer()+8<=in.length()){
-        byte[] tag=new byte[4];in.readFully(tag);
-        long size=le32(in),start=in.getFilePointer();
-        if(size>in.length()-start)throw new IOException("WAV chunk 범위 초과");
-        if(tag[0]=='f'&&tag[1]=='m'&&tag[2]=='t'&&tag[3]==' '){
-          if(size<16)throw new IOException("WAV fmt 길이 오류");
-          format=le16(in);channels=le16(in);rate=(int)le32(in);
-          le32(in);le16(in);bits=le16(in);
-        }else if(tag[0]=='d'&&tag[1]=='a'&&tag[2]=='t'&&tag[3]=='a'){
-          dataStart=start;dataBytes=size;
-        }
-        if(dataStart>=0&&format>=0)break;
-        long next=start+size+(size%2);
-        if(next>in.length())next=in.length();
-        in.seek(next);
+  void renderCaptions(){
+    StringBuilder visible=new StringBuilder(),plain=new StringBuilder();
+    synchronized(captions){
+      for(Map.Entry<Integer,String> e:captions.entrySet()){
+        int seq=e.getKey();
+        String line=e.getValue();
+        if(line.isEmpty())continue;
+        long startMs=(seq-1)*FilePcmStream.SEGMENT_SECONDS*1000L;
+        if(visible.length()>0)visible.append("\n\n");
+        visible.append("[").append(clock(startMs)).append("] ").append(line);
+        if(plain.length()>0)plain.append('\n');
+        plain.append(line);
       }
-      if(format!=1||channels!=1||rate!=16000||bits!=16)
-        throw new IOException("PCM WAV 규격 오류: fmt="+format+" ch="+channels+" rate="+rate+" bits="+bits);
-      if(dataStart<0||dataBytes<3200||dataBytes%2!=0)
-        throw new IOException("WAV data 샘플이 없거나 부족합니다: bytes="+dataBytes);
-      in.seek(dataStart);
-      byte[] buffer=new byte[16384];
-      long left=dataBytes,samples=0,above=0;
-      double sumSquares=0,peak=0;
-      while(left>0){
-        int take=(int)Math.min((long)buffer.length,left);
-        in.readFully(buffer,0,take);
-        for(int i=0;i<take;i+=2){
-          int val=(short)((buffer[i]&255)|((buffer[i+1]&255)<<8));
-          double a=Math.abs((double)val);
-          sumSquares+=a*a;
-          if(a>peak)peak=a;
-          if(a>250)above++;
-          samples++;
-        }
-        left-=take;
-      }
-      return new PcmAudit(samples,Math.sqrt(sumSquares/samples)/32768.0,peak/32768.0,above);
+    }
+    recognized=plain.toString();
+    result.setText(visible.length()>0?visible.toString():"파일을 읽고 있습니다. 아직 인식된 한국어 문장이 없습니다.");
+    copy.setEnabled(!recognized.isEmpty());
+    save.setEnabled(!recognized.isEmpty());
+  }
+  void updateDiagnostic(String row){
+    synchronized(diagnostics){
+      diagnostics.append(row).append('\n');
+      if(diagnostics.length()>50000)diagnostics.delete(0,diagnostics.length()-35000);
+      final String last=diagnostics.length()>4000?
+        diagnostics.substring(diagnostics.length()-4000):diagnostics.toString();
+      main.post(()->diagnostic.setText(last));
     }
   }
-
-  /*
-   * Keep upstream sherpa-onnx-ffmpeg.c UNTOUCHED.
-   * Existing upstream FFmpegKit decodes AAC and normalizes only the input file
-   * to fixed 16 kHz, signed 16-bit, mono WAV to avoid variable AAC frame
-   * properties in the untouched example's abuffer.
-   */
-  File normalizeAudioWithOfficialFFmpeg(File compressed) throws IOException {
-    if(stopRequested) throw new IOException("사용자 중지");
-    File wav=new File(getCacheDir(),"sherpa-original-fixed-16k-mono.wav");
-    if(wav.exists() && !wav.delete()) throw new IOException("이전 변환 파일 삭제 실패");
-    status("FFmpeg 원본 모듈: 16kHz·16비트·모노 WAV로 입력 형식 정규화 중…");
-    String[] args={
-      "-hide_banner","-nostdin","-loglevel","warning","-y",
-      "-i",compressed.getAbsolutePath(),
-      "-map","0:a:0","-vn",
-      "-ac","1","-ar","16000",
-      "-c:a","pcm_s16le",
-      wav.getAbsolutePath()
-    };
-    FFmpegSession session=FFmpegKit.executeWithArguments(args);
-    if(!ReturnCode.isSuccess(session.getReturnCode())){
-      String output=session.getAllLogsAsString();
-      if(output!=null && output.length()>1400)output=output.substring(output.length()-1400);
-      throw new IOException("FFmpeg 변환 실패 rc="+session.getReturnCode()+" / "+output);
-    }
-    if(wav.length()<44)throw new IOException("FFmpeg WAV 출력 크기가 비정상적입니다: "+wav.length());
-    // Diagnostics only. Recognition and official C executable are untouched.
-    long sourceDurationMs=-1;
-    MediaMetadataRetriever mmr=new MediaMetadataRetriever();
-    try{
-      mmr.setDataSource(compressed.getAbsolutePath());
-      String duration=mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-      if(duration!=null)sourceDurationMs=Long.parseLong(duration);
-    }catch(Exception e){Log.w(TAG,"SOURCE_DURATION_UNAVAILABLE",e);}
-    finally{try{mmr.release();}catch(Exception ignored){}}
-    PcmAudit audit=inspectNormalizedWav(wav);
-    long normalizedMs=audit.durationMs();
-    Log.i(TAG,"NORMALIZED_WAV_AUDIT sourceDurationMs="+sourceDurationMs+
-      " pcmDurationMs="+normalizedMs+" pcmSamples="+audit.samples+
-      " rms="+audit.rms+" peak="+audit.peak+
-      " nonQuietSamples="+audit.nonQuietSamples+
-      " sourceBytes="+compressed.length()+" wavBytes="+wav.length());
-    if(normalizedMs<200L)throw new IOException("FFmpeg 출력 PCM이 너무 짧습니다: "+normalizedMs+"ms");
-    if(sourceDurationMs>=3000L && normalizedMs*100L<sourceDurationMs*95L)
-      throw new IOException("FFmpeg 출력이 원본보다 짧습니다. originalMs="+sourceDurationMs+
-        " decodedMs="+normalizedMs+"; 해당 녹음은 STT로 넘기지 않습니다.");
-    if(audit.rms<0.0001)
-      Log.w(TAG,"PCM_NEAR_SILENCE: 파일은 디코딩되었지만 음성 신호가 거의 없습니다. rms="+audit.rms);
-    Log.i(TAG,"OFFICIAL_FFMPEG_PREPARED format=pcm_s16le rate=16000 channels=1 wavBytes="+wav.length());
-    return wav;
-  }
-  void run(){
-    if(chosenUri==null||busy)return;
-    busy=true;stopRequested=false;recognized="";fullLogFile=null;
-    execute.setEnabled(false);choose.setEnabled(false);saveLog.setEnabled(false);
-    stop.setEnabled(true);save.setEnabled(false);copy.setEnabled(false);
-    result.setText("");diagnostic.setText("원본 실행 파일 준비 중…");
-    logBuffer.reset();
-    new Thread(()->{
-      try{
-        File model=extractModels();
-        status("M4A 파일 준비 중…");
-        File selectedAudio=stageAudio();
-        File audio=normalizeAudioWithOfficialFFmpeg(selectedAudio);
-        if(stopRequested)throw new IOException("사용자 중지");
-        File libDir=new File(getApplicationInfo().nativeLibraryDir);
-        File original=new File(libDir,"libsensevoice-cli.so");
-        if(!original.isFile()||!original.canExecute())
-          throw new IOException("APK 원본 실행 파일을 실행할 수 없습니다: "+original);
-        ProcessBuilder pb=new ProcessBuilder(
-          original.getAbsolutePath(),
-          new File(model,MODEL[1]).getAbsolutePath(),
-          new File(model,MODEL[0]).getAbsolutePath(),
-          audio.getAbsolutePath()
-        );
-        pb.redirectErrorStream(true);
-        pb.directory(getFilesDir());
-        String oldPath=pb.environment().get("LD_LIBRARY_PATH");
-        pb.environment().put("LD_LIBRARY_PATH",libDir.getAbsolutePath()+
-          (oldPath==null||oldPath.isEmpty()?"":":"+oldPath));
-        Log.i(TAG,"Original executable="+original+" audioBytes="+audio.length());
-        status("입력 정규화 완료 → 수정하지 않은 원본 STT 실행 중…");
-        Process proc=pb.start();
-        child=proc;
-        fullLogFile=new File(getFilesDir(),"sherpa-last-full-native-output.txt");
-        try(InputStream stdout=new BufferedInputStream(proc.getInputStream());
-            FileOutputStream fullOut=new FileOutputStream(fullLogFile,false)){
-          byte[] buffer=new byte[2048];int n;
-          while((n=stdout.read(buffer))!=-1){
-            if(n==0)continue;
-            fullOut.write(buffer,0,n);
-            logBuffer.write(buffer,0,n);
-            if(logBuffer.size()>180000){
-              byte[] bytes=logBuffer.toByteArray();
-              logBuffer.reset();
-              logBuffer.write(bytes,bytes.length-140000,140000);
+  Thread outputReader(Process process,File log) {
+    Thread thread=new Thread(()->{
+      try(BufferedReader reader=new BufferedReader(new InputStreamReader(
+            process.getInputStream(),StandardCharsets.UTF_8));
+          FileOutputStream file=new FileOutputStream(log,false)){
+        String line;
+        while((line=reader.readLine())!=null){
+          byte[] bytes=(line+"\n").getBytes(StandardCharsets.UTF_8);
+          file.write(bytes);file.flush();
+          Log.i(TAG,"NATIVE: "+line);
+          updateDiagnostic(line);
+          if(line.startsWith("STT_READY")){
+            status("SenseVoice 준비됨 · 파일을 연속 읽으며 구간별 인식 중");
+          }
+          if(line.startsWith("STT_SEGMENT:")){
+            String[] cols=line.split(":",3);
+            if(cols.length==3){
+              try{
+                int seq=Integer.parseInt(cols[1]);
+                synchronized(captions){captions.put(seq,cols[2].trim());}
+                receivedSegments++;
+                main.post(()->renderCaptions());
+                status("구간 "+seq+" 인식 완료 · 누적 "+receivedSegments+"구간 · 다음 파일 구간 처리 중");
+              }catch(NumberFormatException ex){
+                updateDiagnostic("SEGMENT_PARSE_FAILED "+line);
+              }
             }
-            long now=SystemClock.uptimeMillis();
-            if(now-lastUi>120){lastUi=now;updateResult(false);}
           }
         }
-        int code=proc.waitFor();
-        updateResult(true);
-        String text=toCaptions(new String(logBuffer.toByteArray(),StandardCharsets.UTF_8));
-        Log.i(TAG,"Original CLI finished rc="+code+" recognizedChars="+text.length());
-        if(stopRequested)status("작업을 중지했습니다.");
-        else if(code!=0)status("원본 실행 오류 (종료코드 "+code+"). 아래 원본 로그를 확인하십시오.");
-        else if(text.isEmpty())status("SenseVoice 종료코드 0이지만 인식된 문장이 없습니다. 전체 로그를 확인하십시오.");
-        else status("원본 음성인식 완료. 자막과 TXT 저장을 확인하십시오.");
+      }catch(IOException e){
+        Log.e(TAG,"Native transcript reader failed",e);
+        updateDiagnostic("NATIVE_READER_ERROR "+e);
+      }
+    },"SenseVoice-Streaming-Result-Reader");
+    thread.start();
+    return thread;
+  }
+  void startStream(){
+    if(chosenUri==null||busy)return;
+    busy=true;stopRequested=false;nativeEngine=null;logFile=null;
+    decodedMs=0;fileDurationMs=0;receivedSegments=0;recognized="";
+    synchronized(captions){captions.clear();}
+    synchronized(diagnostics){diagnostics.setLength(0);}
+    choose.setEnabled(false);execute.setEnabled(false);
+    stop.setEnabled(true);save.setEnabled(false);copy.setEnabled(false);
+    saveLog.setEnabled(false);
+    result.setText("디코더 시작 중…");diagnostic.setText("");
+    progress.setText("파일 스트리밍 준비 중…");
+    new Thread(()->{
+      Thread readerThread=null;
+      Process process=null;
+      int sourceChunks=0;
+      try{
+        File model=extractModel("model.int8.onnx",1000000L);
+        File tokens=extractModel("tokens.txt",1000L);
+        if(stopRequested)throw new InterruptedException("실행 중지");
+        File binary=new File(getApplicationInfo().nativeLibraryDir,"libsensevoice-stream.so");
+        if(!binary.isFile()||!binary.canExecute())
+          throw new IOException("스트리밍 SenseVoice ARM64 실행 파일이 누락되었습니다: "+binary);
+        ProcessBuilder pb=new ProcessBuilder(binary.getAbsolutePath(),
+          tokens.getAbsolutePath(),model.getAbsolutePath());
+        pb.directory(getFilesDir());
+        pb.redirectErrorStream(true);
+        String oldPath=pb.environment().get("LD_LIBRARY_PATH");
+        pb.environment().put("LD_LIBRARY_PATH",getApplicationInfo().nativeLibraryDir+
+          (oldPath==null||oldPath.isEmpty()?"":":"+oldPath));
+        process=pb.start();nativeEngine=process;
+        logFile=new File(getFilesDir(),"sensevoice-stream-last-native-output.txt");
+        readerThread=outputReader(process,logFile);
+        status("선택한 파일을 스트리밍으로 디코딩 중…");
+        final Process pipe=process;
+        final AtomicInteger seqs=new AtomicInteger(0);
+        try(BufferedOutputStream nativeInput=new BufferedOutputStream(pipe.getOutputStream(),262144)){
+          FilePcmStream.decode(this,chosenUri,new FilePcmStream.Callback(){
+            @Override public boolean cancelled(){return stopRequested;}
+            @Override public void onStart(long total,String mime,int rate,int channels){
+              fileDurationMs=total;
+              status("디코더 연결: "+mime+" / "+rate+"Hz / "+channels+"채널");
+            }
+            @Override public void onProgress(long played,long total){
+              decodedMs=played;
+              final String line="파일 스트리밍 입력: "+clock(played)+" / "+
+                (total>0?clock(total):"종료 시까지")+
+                " · 인식 "+receivedSegments+"구간";
+              main.post(()->progress.setText(line));
+            }
+            @Override public void onSegment(int seq,byte[] pcm,long position,long total,boolean last)throws Exception{
+              if(stopRequested)throw new InterruptedException("사용자 중지");
+              writeLittleInt(nativeInput,seq);
+              writeLittleInt(nativeInput,pcm.length/2);
+              nativeInput.write(pcm);
+              nativeInput.flush();
+              seqs.incrementAndGet();
+              updateDiagnostic("FILE_STREAM_CHUNK_SENT seq="+seq+" bytes="+pcm.length+
+                 " decoded_until="+clock(position)+" / "+(total>0?clock(total):"unknown")+" last="+last);
+            }
+          });
+          if(!stopRequested){
+            writeLittleInt(nativeInput,0);writeLittleInt(nativeInput,0);
+            nativeInput.flush();
+          }
+        }
+        sourceChunks=seqs.get();
+        if(stopRequested)throw new InterruptedException("사용자 중지");
+        int code=process.waitFor();
+        if(readerThread!=null)readerThread.join(5000);
+        if(code!=0)status("파일 스트리밍 STT 오류: 엔진 종료코드 "+code+" · 로그 확인");
+        else if(receivedSegments!=sourceChunks)
+          status("일부 구간 출력 누락: 입력 "+sourceChunks+"구간 / 출력 "+receivedSegments+"구간");
+        else if(recognized.isEmpty())
+          status("파일 스트리밍 완료. "+sourceChunks+"구간 인식 실행, 한국어 출력 없음");
+        else
+          status("전체 파일 스트리밍 완료 · "+receivedSegments+"구간 · 한국어 "+recognized.length()+"글자");
+      }catch(InterruptedException e){
+        status("사용자 요청으로 파일 스트리밍을 중지했습니다.");
       }catch(Throwable e){
-        Log.e(TAG,"Original process start/run failed",e);
-        status("원본 실행 오류: "+e.getMessage());
-        main.post(()->diagnostic.setText(e.toString()));
+        Log.e(TAG,"Continuous file STT failed",e);
+        status("파일 스트리밍 오류: "+e.getMessage());
+        updateDiagnostic("STREAM_FILE_EXCEPTION "+e);
       }finally{
-        child=null;busy=false;
+        if(process!=null){
+          if(process.isAlive())process.destroyForcibly();
+        }
+        if(readerThread!=null && readerThread.isAlive()){
+          try{readerThread.join(3000);}catch(InterruptedException ignored){}
+        }
+        nativeEngine=null;busy=false;
         main.post(()->{
-          execute.setEnabled(chosenUri!=null);
-          choose.setEnabled(true);stop.setEnabled(false);
-          saveLog.setEnabled(fullLogFile!=null&&fullLogFile.isFile()&&fullLogFile.length()>0);
+          execute.setEnabled(chosenUri!=null);choose.setEnabled(true);
+          stop.setEnabled(false);
+          saveLog.setEnabled(logFile!=null&&logFile.isFile()&&logFile.length()>0);
+          renderCaptions();
         });
       }
-    },"Launch-SenseVoice-CAPI-Korean").start();
-  }
-  /* Only interprets the original program's terminal output.
-   * It does NOT recognize speech, parse audio, or run the model.
-   */
-  static String toCaptions(String raw){
-    for(String line:raw.split("\\r?\\n")){
-      String cleaned=line.trim();
-      if(cleaned.startsWith("FULL_TRANSCRIPT:")){
-        return cleaned.substring("FULL_TRANSCRIPT:".length()).trim();
-      }
-    }
-    return "";
-  }
-
-  void updateResult(boolean finished){
-    String raw=new String(logBuffer.toByteArray(),StandardCharsets.UTF_8);
-    String parsed=toCaptions(raw);
-    String diag=raw.length()>2500?raw.substring(raw.length()-2500):raw;
-    String clean=diag.replaceAll("\\u001B\\[[0-9;]*[a-zA-Z]","");
-    main.post(()->{
-      if(!parsed.isEmpty()){
-        recognized=parsed;
-        result.setText(parsed);
-        copy.setEnabled(true);save.setEnabled(true);
-      }else if(finished)result.setText("음성인식 문장이 출력되지 않았습니다.");
-      diagnostic.setText(clean);
-    });
+    },"Galaxy-Selected-File-Streaming-ASR").start();
   }
 }
