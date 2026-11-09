@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sherpaoriginalnormalized31"
+    applicationId = "app.hitel.sherpaoriginaldiag32"
     minSdk = 26
     targetSdk = 28
-    versionCode = 4
-    versionName = "3.1.0"
+    versionCode = 5
+    versionName = "3.2.0-diagnostic"
     ndk { abiFilters.add("arm64-v8a"); abiFilters.add("x86_64") }
   }
   packaging {
