@@ -42,12 +42,22 @@ def describe(root):
 
 def find(root, terms):
     if isinstance(terms,str): terms=[terms]
-    for n in root.iter("node"):
-        txt = n.attrib.get("text","")
-        desc = n.attrib.get("content-desc","")
-        if any(t.casefold() in txt.casefold() or t.casefold() in desc.casefold() for t in terms):
-            bounds = n.attrib.get("bounds","")
-            coords = list(map(int,re.findall(r"\d+",bounds)))
+    nodes=list(root.iter("node"))
+    # DocumentsUI renders a preview icon before the real file title.
+    # Exact text match avoids accidentally opening a preview instead of selecting.
+    for mode in ("exact_text","contains_text","content_desc"):
+        for n in nodes:
+            txt=n.attrib.get("text","")
+            desc=n.attrib.get("content-desc","")
+            if mode=="exact_text":
+                matched=any(t.casefold()==txt.casefold() for t in terms)
+            elif mode=="contains_text":
+                matched=any(t.casefold() in txt.casefold() for t in terms if txt)
+            else:
+                matched=any(t.casefold() in desc.casefold() for t in terms if desc)
+            if not matched: continue
+            bounds=n.attrib.get("bounds","")
+            coords=list(map(int,re.findall(r"\d+",bounds)))
             if len(coords)!=4: continue
             return n,((coords[0]+coords[2])//2,(coords[1]+coords[3])//2)
     return None,None
