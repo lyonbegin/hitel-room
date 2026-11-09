@@ -1,0 +1,129 @@
+name: Build untouched sherpa-onnx-ffmpeg.c CLI for Android ARM64
+on:
+  push:
+    branches: [feature/sherpa-original-cli-arm64-20261109]
+    paths:
+      - '.github/workflows/build-sherpa-unmodified-cli-android.yml'
+      - 'sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android NDK 27
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" || true
+      - name: Verify byte-for-byte source against official v1.12.26
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 5             https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/ffmpeg-examples/sherpa-onnx-ffmpeg.c             > /tmp/official.c
+          cmp /tmp/official.c sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+          sha256sum sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+      - name: Obtain OFFICIAL Android C API binaries and existing Android FFmpeg binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/packages /tmp/ffmpeg /tmp/sherpa /tmp/release/sherpa-original-cli-arm64/lib
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx             -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/packages
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg             -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/packages
+          tar xjf /tmp/packages/sherpa-onnx-v1.12.26-android.tar.bz2 -C /tmp/sherpa
+          unzip -q /tmp/packages/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -d /tmp/ffmpeg
+          cp /tmp/sherpa/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so /tmp/release/sherpa-original-cli-arm64/lib/
+          cp /tmp/sherpa/jniLibs/arm64-v8a/libonnxruntime.so /tmp/release/sherpa-original-cli-arm64/lib/
+          cp /tmp/ffmpeg/jni/arm64-v8a/*.so /tmp/release/sherpa-original-cli-arm64/lib/
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          if [ ! -f /tmp/release/sherpa-original-cli-arm64/lib/libc++_shared.so ]; then
+            cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so"                 /tmp/release/sherpa-original-cli-arm64/lib/
+          fi
+      - name: Prepare FFmpeg 6.1 headers used by Android AAR; sherpa official C API header
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libavcodec-dev libavformat-dev libavfilter-dev libavutil-dev libswresample-dev
+          mkdir -p /tmp/ffheaders /tmp/include/sherpa-onnx/c-api
+          cp -a /usr/include/x86_64-linux-gnu/libavcodec             /usr/include/x86_64-linux-gnu/libavformat             /usr/include/x86_64-linux-gnu/libavfilter             /usr/include/x86_64-linux-gnu/libavutil             /usr/include/x86_64-linux-gnu/libswresample /tmp/ffheaders/
+          curl --fail --silent --show-error --location --retry 5             https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h             -o /tmp/include/sherpa-onnx/c-api/c-api.h
+      - name: Compile EXACT official C file as a stand-alone Android executable — no JNI or STT modifications
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          LIB=/tmp/release/sherpa-original-cli-arm64/lib
+          "$LLVM/aarch64-linux-android26-clang++"             -std=c++17 -O2 -fPIC -x c++             -I /tmp/ffheaders -I /tmp/include             sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c             -L "$LIB"             -lsherpa-onnx-c-api -lavfilter -lavformat -lavcodec -lavutil -lswresample             -Wl,--no-undefined             -o /tmp/release/sherpa-original-cli-arm64/sherpa-onnx-ffmpeg
+          "$LLVM/llvm-readelf" -h /tmp/release/sherpa-original-cli-arm64/sherpa-onnx-ffmpeg             | grep -E 'ELF64|AArch64|Machine:'
+          "$LLVM/llvm-readelf" -d /tmp/release/sherpa-original-cli-arm64/sherpa-onnx-ffmpeg             | grep NEEDED
+          cp sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c             /tmp/release/sherpa-original-cli-arm64/ORIGINAL-sherpa-onnx-ffmpeg.c
+      - name: Bundle exact earlier Korean Zipformer INT8 model without modifying it
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release/sherpa-original-cli-arm64/models
+          BASE=https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6
+          cd /tmp/release/sherpa-original-cli-arm64/models
+          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            curl --fail --location --retry 5 --retry-delay 5 -o "$name" "$BASE/$name"
+            test -s "$name"
+          done
+          test "$(stat -c %s encoder-epoch-99-avg-1.int8.onnx)" -gt 115000000
+          sha256sum *.onnx tokens.txt
+      - name: Provide Windows ADB INSTALL and run scripts (no new audio engine)
+        run: |
+          cat > /tmp/release/INSTALL-ON-GALAXY.ps1 <<'PS1'
+          param([string]$AudioFile = "", [string]$Adb = "")
+          $ErrorActionPreference = "Stop"
+          if ($Adb -eq "") {
+            if (Test-Path ".\adb.exe") { $Adb = (Resolve-Path ".\adb.exe").Path }
+            elseif (Get-Command adb -ErrorAction SilentlyContinue) { $Adb = "adb" }
+            else { throw "adb.exe가 없습니다. scrcpy/adb.exe가 있는 폴더에서 실행하거나 -Adb 경로를 지정하십시오." }
+          }
+          $Local = Join-Path $PSScriptRoot "sherpa-original-cli-arm64"
+          & $Adb devices
+          & $Adb push "$Local" "/data/local/tmp/"
+          if ($LASTEXITCODE -ne 0) { throw "파일 설치에 실패했습니다." }
+          & $Adb shell "chmod 755 /data/local/tmp/sherpa-original-cli-arm64/sherpa-onnx-ffmpeg"
+          if ($LASTEXITCODE -ne 0) { throw "실행 권한 설정에 실패했습니다." }
+          Write-Host "원본 프로그램과 한국어 모델을 /data/local/tmp/sherpa-original-cli-arm64/ 에 설치했습니다."
+          if ($AudioFile -ne "") {
+            & $Adb push "$AudioFile" "/data/local/tmp/sherpa-original-cli-arm64/input.m4a"
+            if ($LASTEXITCODE -ne 0) { throw "M4A 전송에 실패했습니다." }
+            $Cmd = "cd /data/local/tmp/sherpa-original-cli-arm64 && LD_LIBRARY_PATH=./lib ./sherpa-onnx-ffmpeg models/tokens.txt models/encoder-epoch-99-avg-1.int8.onnx models/decoder-epoch-99-avg-1.onnx models/joiner-epoch-99-avg-1.int8.onnx input.m4a"
+            & $Adb shell $Cmd
+            if ($LASTEXITCODE -ne 0) { throw "원본 프로그램이 오류를 반환했습니다." }
+          }
+          PS1
+          cat > /tmp/release/README.txt <<'TXT'
+          This is the byte-for-byte unmodified sherpa-onnx v1.12.26 ffmpeg-examples/sherpa-onnx-ffmpeg.c
+          compiled directly into an Android arm64 command-line executable.
+          It is NOT an APK and does NOT install via tapping a file. ADB installation needs a Galaxy attached to your PC.
+          It is NOT a rewritten or wrapped STT pipeline; it uses original FFmpeg+sherpa implementation.
+          In Windows PowerShell, expand ZIP. With adb.exe accessible in current folder:
+          .\INSTALL-ON-GALAXY.ps1 -AudioFile "C:\path\to\recording.m4a"
+          OR for installation only:
+          .\INSTALL-ON-GALAXY.ps1
+          If using scripts is disabled, invoke with PowerShell -ExecutionPolicy Bypass -File .\INSTALL-ON-GALAXY.ps1
+          Live text is printed by the ORIGINAL program in the ADB terminal.
+          TXT
+          cd /tmp/release
+          zip -q -r /tmp/Sherpa-Original-C-Android-ARM64.zip .
+          unzip -t /tmp/Sherpa-Original-C-Android-ARM64.zip | tail -2
+          ls -lh /tmp/Sherpa-Original-C-Android-ARM64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sherpa-Original-C-Android-ARM64
+          path: /tmp/Sherpa-Original-C-Android-ARM64.zip
+          if-no-files-found: error
+      - name: Publish verified untouched CLI package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=sherpa-original-c-arm64-cli-20261109
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" /tmp/Sherpa-Original-C-Android-ARM64.zip --clobber
+          else
+            gh release create "$TAG" /tmp/Sherpa-Original-C-Android-ARM64.zip               --target "$GITHUB_SHA" --title "Untouched original sherpa-onnx FFmpeg for Android ARM64"               --notes "Byte-for-byte original C source cross-compiled as Android ARM64 CLI. No JNI, new recognizer or STT code. Requires ADB install to real device; Android device execution not yet verified."
+          fi
