@@ -1,7 +1,7 @@
 name: Build corrected Sherpa original STT APK for Galaxy ARM64
 on:
   push:
-    branches: [feature/sherpa-original-ffmpeg-normalize-v3-20261109]
+    branches: [feature/sherpa-v31-galaxy-diagnostics-20261109]
     paths:
       - '.github/workflows/build-sherpa-normalized-arm64-apk.yml'
   workflow_dispatch:
@@ -47,7 +47,7 @@ jobs:
           gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
           APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F app.hitel.sherpaoriginalnormalized31
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F app.hitel.sherpaoriginaldiag32
           unzip -Z1 "$APK" | grep -F lib/arm64-v8a/liboriginal-cli.so
           unzip -Z1 "$APK" | grep -F lib/arm64-v8a/libffmpegkit.so
           unzip -Z1 "$APK" | grep -F lib/arm64-v8a/libavformat.so
