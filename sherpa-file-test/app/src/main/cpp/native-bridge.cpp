@@ -6,7 +6,7 @@
 #define main sherpa_upstream_main
 #include "sherpa-onnx-ffmpeg.c"
 #undef main
-extern "C" JNIEXPORT jint JNICALL Java_app_hitel_sherpafiletest_MainActivity_nativeOriginal(
+extern "C" JNIEXPORT jint JNICALL Java_app_hitel_sherpafiletest_TranscribeWorkerService_nativeOriginal(
  JNIEnv* env,jobject instance,jstring tok,jstring enc,jstring dec,jstring join,jstring path){
  const char* v[5]={
   env->GetStringUTFChars(tok,nullptr),env->GetStringUTFChars(enc,nullptr),

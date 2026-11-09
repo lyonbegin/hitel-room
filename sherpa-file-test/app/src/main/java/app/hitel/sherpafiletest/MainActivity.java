@@ -4,6 +4,12 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.content.BroadcastReceiver;
+import android.content.ServiceConnection;
+import android.content.ComponentName;
+import android.content.IntentFilter;
+import android.os.IBinder;
+import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
 import java.util.TreeMap;
 import java.util.Map;
@@ -50,9 +56,56 @@ public final class MainActivity extends Activity {
   private EditText transcript;
   private Button transcribe,save,copy;
   private volatile boolean busy=false;
-  static {System.loadLibrary("sherpa-upstream-ffmpeg");}
-  private native int nativeOriginal(String tok,String enc,String dec,String join,String file);
   private final java.io.ByteArrayOutputStream originalStderr=new java.io.ByteArrayOutputStream();
+  private boolean boundWorker=false;
+  private TextView errorPanel;
+  private final ServiceConnection workerConnection=new ServiceConnection(){
+    @Override public void onServiceConnected(ComponentName n,IBinder service){
+      boundWorker=true;
+      Log.i(TAG,"Engine process connected");
+    }
+    @Override public void onServiceDisconnected(ComponentName n){
+      Log.e(TAG,"Native engine process terminated unexpectedly");
+      busy=false;transcribe.setEnabled(selected!=null);
+      showLastError("원본 FFmpeg 엔진 프로세스 종료. 실제 오류 로그:");
+    }
+    @Override public void onBindingDied(ComponentName n){
+      boundWorker=false;busy=false;transcribe.setEnabled(selected!=null);
+      showLastError("엔진 프로세스 연결 종료:");
+    }
+  };
+  private final BroadcastReceiver asrEvents=new BroadcastReceiver(){
+    @Override public void onReceive(Context ctx,Intent msg){
+      String action=msg.getAction();
+      if(TranscribeWorkerService.ACTION_LOG.equals(action)){
+        byte[] chunk=msg.getByteArrayExtra("chunk");
+        if(chunk!=null)onNativeBytes(chunk);
+      }else if(TranscribeWorkerService.ACTION_DONE.equals(action)){
+        int code=msg.getIntExtra("code",-99);
+        busy=false;transcribe.setEnabled(selected!=null);
+        if(code==0)notifyStatus("공식 FFmpeg 처리 완료");
+        else showLastError("원본 STT 반환 오류 "+code+":");
+        unbindWorker();
+      }
+    }
+  };
+  private void unbindWorker(){
+    if(boundWorker){
+      try{unbindService(workerConnection);}catch(Exception ignored){}
+      boundWorker=false;
+    }
+  }
+  private void showLastError(String prefix){
+    File f=new File(getFilesDir(),TranscribeWorkerService.LOG_FILE);
+    String raw="";
+    try{
+      byte[] b=java.nio.file.Files.readAllBytes(f.toPath());
+      raw=new String(b,StandardCharsets.UTF_8);
+      if(raw.length()>2600)raw=raw.substring(raw.length()-2600);
+    }catch(Exception e){raw="실제 FFmpeg 오류 내용이 저장되지 않았습니다: "+e;}
+    if(errorPanel!=null)errorPanel.setText(prefix+"\n"+raw);
+    notifyStatus(prefix);
+  }
 
   private TextView text(String s, int sp) {
     TextView v=new TextView(this);
@@ -97,8 +150,14 @@ public final class MainActivity extends Activity {
     save=button("3. TXT 저장 위치 직접 선택",root);
     copy.setEnabled(false);
     save.setEnabled(false);
-    root.addView(text("진단: adb logcat -s SherpaFileTest\n원본 오디오는 외부 전송하지 않습니다. 결과를 다른 앱의 전용 폴더에 자동 저장하지 않습니다.",12));
+    root.addView(text("진단: adb logcat -s SherpaFileTest SherpaNativeWorker\n원본 엔진은 별도 작업 프로세스에서 실행됩니다.",12));
+    errorPanel=text("원본 FFmpeg 진단: 대기 중",12);
+    root.addView(errorPanel);
     setContentView(scroll);
+    IntentFilter filter=new IntentFilter();
+    filter.addAction(TranscribeWorkerService.ACTION_LOG);
+    filter.addAction(TranscribeWorkerService.ACTION_DONE);
+    registerReceiver(asrEvents,filter,Context.RECEIVER_NOT_EXPORTED);
     pick.setOnClickListener(v->{
       if(busy)return;
       Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -158,37 +217,65 @@ public final class MainActivity extends Activity {
     Log.e(TAG,stage,error);
     notifyStatus(stage+": "+error.getClass().getSimpleName()+" : "+error.getMessage());
   }
-  // Adapter only. The upstream main() performs ALL FFmpeg and STT work.
+  // The main app only stages SAF audio and passes it to the UNCHANGED upstream engine.
   private void runStt(){
     final Uri uri=selected;
     if(uri==null||busy)return;
     busy=true;
     transcribe.setEnabled(false);
-    save.setEnabled(false);
-    copy.setEnabled(false);
+    save.setEnabled(false);copy.setEnabled(false);
     transcript.setText("");
+    errorPanel.setText("원본 FFmpeg 진단: 준비 중");
     synchronized(originalStderr){originalStderr.reset();}
     new Thread(()->{
-      try(ParcelFileDescriptor fd=getContentResolver().openFileDescriptor(uri,"r")){
-        if(fd==null)throw new IOException("Android 파일 설명자 열기 실패");
-        File dir=extractModels();
-        String path="/proc/self/fd/"+fd.getFd();
-        notifyStatus("공식 원본 FFmpeg 연속 인식 중…");
-        Log.i(TAG,"Original main() file descriptor "+fd.getFd());
-        int rc=nativeOriginal(
-          new File(dir,MODEL_FILES[3]).getAbsolutePath(),
-          new File(dir,MODEL_FILES[0]).getAbsolutePath(),
-          new File(dir,MODEL_FILES[1]).getAbsolutePath(),
-          new File(dir,MODEL_FILES[2]).getAbsolutePath(),
-          path);
-        if(rc!=0)throw new IOException("원본 프로그램 종료코드="+rc);
-        notifyStatus("공식 원본 FFmpeg 인식 완료");
-      }catch(Throwable e){fail("공식 FFmpeg 원본 실행 실패",e);}
-      finally{
+      try{
+        File models=extractModels();
+        notifyStatus("M4A 압축 원본을 FFmpeg가 읽을 수 있는 앱 내부 경로로 연결 중…");
+        File localAudio=new File(getCacheDir(),"selected-original-audio.m4a");
+        try(InputStream in=getContentResolver().openInputStream(uri);
+            OutputStream out=new BufferedOutputStream(new FileOutputStream(localAudio))){
+          if(in==null)throw new IOException("Android 원본 M4A 파일 입력 오류");
+          byte[] buf=new byte[131072];int n;
+          while((n=in.read(buf))!=-1){
+            if(n>0)out.write(buf,0,n);
+          }
+        }
+        if(localAudio.length()==0)throw new IOException("오디오 파일 크기가 0입니다");
+        Log.i(TAG,"SAF file staged, bytes="+localAudio.length());
+        File oldLog=new File(getFilesDir(),TranscribeWorkerService.LOG_FILE);
+        if(oldLog.exists()&&!oldLog.delete())Log.w(TAG,"Previous worker log could not be removed");
+        Intent job=new Intent(this,TranscribeWorkerService.class);
+        job.setAction(TranscribeWorkerService.ACTION_RUN);
+        job.putExtra("file",localAudio.getAbsolutePath());
+        job.putExtra("tokens",new File(models,MODEL_FILES[3]).getAbsolutePath());
+        job.putExtra("encoder",new File(models,MODEL_FILES[0]).getAbsolutePath());
+        job.putExtra("decoder",new File(models,MODEL_FILES[1]).getAbsolutePath());
+        job.putExtra("joiner",new File(models,MODEL_FILES[2]).getAbsolutePath());
+        runOnUiThread(()->{
+          try{
+            if(!bindService(new Intent(this,TranscribeWorkerService.class),
+                workerConnection,Context.BIND_AUTO_CREATE))
+              throw new IOException("독립 원본 엔진 프로세스 바인드 실패");
+            boundWorker=true;
+            if(startService(job)==null)throw new IOException("엔진 작업 실행 실패");
+            notifyStatus("원본 sherpa-onnx-ffmpeg.c 인식 실행 중…");
+          }catch(Exception e){
+            busy=false;transcribe.setEnabled(selected!=null);
+            showLastError("작업 프로세스 시작 실패 "+e+":");
+            unbindWorker();
+          }
+        });
+      }catch(Throwable e){
         busy=false;
+        fail("M4A 파일 준비 실패",e);
         runOnUiThread(()->transcribe.setEnabled(selected!=null));
       }
-    },"Original-Sherpa-FFmpeg").start();
+    },"Stage-SAF-Compressed-Audio").start();
+  }
+  @Override protected void onDestroy(){
+    try{unregisterReceiver(asrEvents);}catch(Exception ignored){}
+    unbindWorker();
+    super.onDestroy();
   }
   @SuppressWarnings("unused")
   private void onNativeBytes(byte[] data){

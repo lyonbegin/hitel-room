@@ -77,26 +77,26 @@ jobs:
           APK=sherpa-file-test/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep 'app.hitel.sherpaoriginalffmpeg'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep 'app.hitel.sherpaoriginalworker'
           unzip -Z1 "$APK" | grep 'lib/arm64-v8a/libsherpa-upstream-ffmpeg.so'
           unzip -Z1 "$APK" | grep 'lib/arm64-v8a/libsherpa-onnx-c-api.so'
           unzip -Z1 "$APK" | grep 'lib/arm64-v8a/libavfilter.so'
           unzip -Z1 "$APK" | grep 'assets/models/encoder-epoch-99-avg-1.int8.onnx'
           sha256sum "$APK"
-          cp "$APK" SherpaOriginalFFmpeg-v3-standalone.apk
+          cp "$APK" SherpaOriginalFFmpeg-v4-worker.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Sherpa-Original-FFmpeg-Android-APK
-          path: SherpaOriginalFFmpeg-v3-standalone.apk
+          path: SherpaOriginalFFmpeg-v4-worker.apk
           if-no-files-found: error
       - name: Publish APK only after native build and signature verification
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=sherpa-upstream-ffmpeg-android-v3-standalone
+          TAG=sherpa-upstream-ffmpeg-android-v4-worker
           if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" SherpaOriginalFFmpeg-v3-standalone.apk --clobber
+            gh release upload "$TAG" SherpaOriginalFFmpeg-v4-worker.apk --clobber
           else
-            gh release create "$TAG" SherpaOriginalFFmpeg-v3-standalone.apk --target "$GITHUB_SHA" --title "Original sherpa-onnx FFmpeg Android v3" --notes "Official upstream C decoder/transcriber unchanged. Android JNI file bridge only. APK build checked; real Galaxy STT not yet verified."
+            gh release create "$TAG" SherpaOriginalFFmpeg-v4-worker.apk --target "$GITHUB_SHA" --title "Original sherpa-onnx FFmpeg Android worker v4" --notes "Official upstream C decoder/transcriber unchanged. Android JNI file bridge only. APK build checked; real Galaxy STT not yet verified; isolated worker protects UI and writes native stderr to private app log."
           fi

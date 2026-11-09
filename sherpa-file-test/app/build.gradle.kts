@@ -6,11 +6,11 @@ android {
     namespace = "app.hitel.sherpafiletest"
     compileSdk = 35
     defaultConfig {
-        applicationId = "app.hitel.sherpaoriginalffmpeg"
+        applicationId = "app.hitel.sherpaoriginalworker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "3.1.0"
+        versionCode = 4
+        versionName = "4.0.0"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
     externalNativeBuild {
