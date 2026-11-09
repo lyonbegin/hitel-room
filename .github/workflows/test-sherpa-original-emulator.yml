@@ -29,7 +29,7 @@ jobs:
           sudo apt-get install -y -qq ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavutil-dev libswresample-dev
       - name: Retrieve published byte-identical ARM64 CLI and Korean model
         env:
-          GH_TOKEN: $${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/original-cli /tmp/native-releases /tmp/sherpa-unpacked /tmp/ffmpeg-unpacked
@@ -46,7 +46,7 @@ jobs:
           cmp /tmp/original.c sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
       - name: Compile SAME untouched original source for emulator x86_64 (no STT changes)
         env:
-          GH_TOKEN: $${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/native-releases
@@ -129,7 +129,7 @@ jobs:
           if-no-files-found: warn
       - name: Publish APK ONLY if emulator STT test passed
         env:
-          GH_TOKEN: $${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -s emulator-qa/PASS.txt
