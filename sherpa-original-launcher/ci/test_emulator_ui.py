@@ -13,7 +13,7 @@ from xml.etree import ElementTree as ET
 
 OUT = Path("emulator-qa")
 OUT.mkdir(exist_ok=True)
-PKG = "app.hitel.sherpaoriginalnormalized31"
+PKG = "app.hitel.sherpaoriginaldiag32"
 ACTIVITY = PKG + "/app.hitel.sherpaoriginalcli.MainActivity"
 NAME = "sherpa_emulator_ko.m4a"
 
