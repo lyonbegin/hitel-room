@@ -1,10 +1,13 @@
-name: HITEL14 OEM recording stop completed M4A sherpa-onnx integration
+name: HITEL14 MIT Transcriber M4A source integration & selected file STT
 on:
   push:
-    branches: ["feature/hitel14-samsung-recording-file-asr-20261109"]
+    branches: ["feature/hitel14-upstream-transcriber-m4a-20261109"]
     paths:
       - "flow-lab/SamsungRecordingFlow.java"
       - "flow-lab/SamsungCompletedM4aTranscriber.java"
+      - "flow-lab/TranscriberM4aDecoder.kt"
+      - "flow-lab/TranscriberLocalAudioBudget.kt"
+      - "flow-lab/THIRD_PARTY_MAJKEY25_MIT.txt"
       - "flow-lab/v14_completed_recording_asr_integration.py"
       - "flow-lab/v14_manual_recording_file_picker.py"
       - "flow-lab/v14_log_tab_samsung_dictation.py"
@@ -70,6 +73,12 @@ jobs:
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
           grep -F 'versionCode = 23' AndroidProject/app/build.gradle.kts
+          grep -F 'id("org.jetbrains.kotlin.android") version "2.2.0"' AndroidProject/app/build.gradle.kts
+          grep -F 'TranscriberM4aDecoder.decode(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
+          test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberLocalAudioBudget.kt
+          grep -F 'class PcmChunker' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
+          grep -F 'chunker.finish()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
           grep -F 'SamsungRecordingFlow.allCallFiles()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SamsungRecordingFlow.transcribeSelectedFile(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'static File[] allCallFiles()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
@@ -200,4 +209,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add downloads/HITEL14_RecordingASR_SameID.apk downloads/HITEL14_RecordingASR_Parallel.apk downloads/HITEL14_RecordingASR.sha256
           git commit -m "build: publish complete HITEL14 file-ASR full app variants [skip ci]"
-          git push origin HEAD:refs/heads/feature/hitel14-samsung-recording-file-asr-20261109
+          git push origin HEAD:refs/heads/feature/hitel14-upstream-transcriber-m4a-20261109
