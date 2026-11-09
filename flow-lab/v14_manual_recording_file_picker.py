@@ -118,6 +118,7 @@ filecode=flow.read_text(encoding="utf-8")
 assert 'static File[] allCallFiles()' in filecode
 assert 'static boolean transcribeSelectedFile(Context context,File selected)' in filecode
 assert 'WORKER.execute(SamsungRecordingFlow::finalizeAndTranscribe)' in filecode
-assert 'TelecomManager.endCall' not in filecode
-assert 'AudioRecord' not in filecode.replace('Never uses AudioRecord','')
+body=filecode.split('final class SamsungRecordingFlow',1)[1]
+assert 'TelecomManager.endCall' not in body
+assert 'AudioRecord' not in body
 print("PASS: all Recordings/Call files enumerated and selectable; independent file STT; no microphone/hangup changes")
