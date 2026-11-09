@@ -28,6 +28,8 @@ final class SamsungCompletedM4aTranscriber {
     }
     private static final int RATE=16000;
     private static final long CODEC_TIMEOUT_US=10_000L;
+    private static final double MIN_SPEECH_PEAK=0.008d;
+    private static final long MIN_AUDIO_FRAMES=1600L;
     private SamsungCompletedM4aTranscriber(){}
 
     static String transcribe(File file,android.content.Context context,Progress progress)throws Exception{
@@ -56,6 +58,13 @@ final class SamsungCompletedM4aTranscriber {
         final StringBuilder transcript=new StringBuilder();
         String lastSentence="";
         long decodedOutputFrames=0L;
+        long pcmToAsrFrames=0L, audiblePcmFrames=0L;
+        long recognizerHypothesisCount=0L;
+        double peak=0d, squareSum=0d;
+        int outputChannels=0, outputSampleRate=0, outputEncoding=0;
+        boolean firstHypothesisLogged=false;
+        int audioTrackInputSampleRate=0;
+        long fileDurationUs=-1L;
         try{
             recognizer=new OnlineRecognizer(null,config);
             stream=recognizer.createStream("");
@@ -70,6 +79,17 @@ final class SamsungCompletedM4aTranscriber {
             String mime=inputFormat.getString(MediaFormat.KEY_MIME);
             if(mime==null)throw new IOException("M4A MIME이 없습니다.");
             extractor.selectTrack(track);
+            audioTrackInputSampleRate=inputFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)?
+                inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE):-1;
+            fileDurationUs=inputFormat.containsKey(MediaFormat.KEY_DURATION)?
+                inputFormat.getLong(MediaFormat.KEY_DURATION):-1L;
+            LabStore.log("SAMSUNG_REC_M4A_TRACK",
+                "mime="+mime+"; compressedBytes="+file.length()+
+                "; sampleRate="+audioTrackInputSampleRate+
+                "; durationUs="+fileDurationUs+
+                "; channels="+(inputFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)?
+                    inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT):-1));
+            progress.onPhase("M4A 오디오 트랙 확인: "+mime+" · 디코더 초기화");
             codec=MediaCodec.createDecoderByType(mime);
             codec.configure(inputFormat,null,null,0);
             codec.start();
@@ -110,6 +130,11 @@ final class SamsungCompletedM4aTranscriber {
                     if(encoding!=AudioFormat.ENCODING_PCM_16BIT&&encoding!=AudioFormat.ENCODING_PCM_FLOAT)
                         throw new IOException("지원하지 않는 PCM 인코딩: "+encoding);
                     resampler=new PcmResampler();
+                    outputSampleRate=sampleRate;
+                    outputChannels=channels;
+                    outputEncoding=encoding;
+                    LabStore.log("SAMSUNG_REC_PCM_FORMAT",
+                        "sampleRate="+sampleRate+"; channels="+channels+"; pcmEncoding="+encoding);
                     progressed=true;
                 }else if(outputIndex>=0){
                     if(info.size>0){
@@ -121,9 +146,25 @@ final class SamsungCompletedM4aTranscriber {
                         float[] mono=toMono(output,encoding,channels);
                         float[] samples16k=resampler.to16k(mono,sampleRate);
                         decodedOutputFrames+=mono.length;
+                        pcmToAsrFrames+=samples16k.length;
+                        for(float v:mono){
+                            double amplitude=Math.abs((double)v);
+                            peak=Math.max(peak,amplitude);
+                            squareSum+=((double)v)*v;
+                            if(amplitude>=MIN_SPEECH_PEAK)audiblePcmFrames++;
+                        }
                         if(samples16k.length>0){
                             stream.acceptWaveform(samples16k,RATE);
                             while(recognizer.isReady(stream))recognizer.decode(stream);
+                            String hypothesis=recognizer.getResult(stream).getText();
+                            if(hypothesis!=null&&!hypothesis.isBlank()){
+                                recognizerHypothesisCount++;
+                                if(!firstHypothesisLogged){
+                                    firstHypothesisLogged=true;
+                                    LabStore.log("SAMSUNG_REC_SHERPA_FIRST_TEXT",
+                                        "chars="+hypothesis.length()+"; inputFrames="+pcmToAsrFrames);
+                                }
+                            }
                             if(recognizer.isEndpoint(stream)){
                                 String sentence=recognizer.getResult(stream).getText().trim();
                                 if(!sentence.isEmpty()){
@@ -147,6 +188,43 @@ final class SamsungCompletedM4aTranscriber {
                     progress.onPhase("삼성 녹음 파일 AAC→PCM→sherpa 인식 중 · "+decodedOutputFrames+" frames");
                 }
             }
+            double rms=decodedOutputFrames>0?
+                Math.sqrt(squareSum/decodedOutputFrames):0d;
+            double sourceSeconds=outputSampleRate>0?
+                decodedOutputFrames/(double)outputSampleRate:0d;
+            double asrSeconds=pcmToAsrFrames/(double)RATE;
+            LabStore.log("SAMSUNG_REC_PCM_SUMMARY",
+                "sourceFrames="+decodedOutputFrames+
+                "; sampleRate="+outputSampleRate+
+                "; channels="+outputChannels+
+                "; pcmEncoding="+outputEncoding+
+                "; audioSeconds="+String.format(java.util.Locale.US,"%.3f",sourceSeconds)+
+                "; asrSeconds="+String.format(java.util.Locale.US,"%.3f",asrSeconds)+
+                "; asrFrames="+pcmToAsrFrames+
+                "; peak="+String.format(java.util.Locale.US,"%.5f",peak)+
+                "; rms="+String.format(java.util.Locale.US,"%.5f",rms)+
+                "; nonSilentFrames="+audiblePcmFrames+
+                "; sherpaNonemptyHypotheses="+recognizerHypothesisCount);
+            if(decodedOutputFrames<MIN_AUDIO_FRAMES||pcmToAsrFrames<MIN_AUDIO_FRAMES)
+                throw new IOException("완료 M4A의 PCM 출력량이 부족합니다. 디코더/파일 확인 필요: frames="+decodedOutputFrames+
+                    " asrFrames="+pcmToAsrFrames);
+            if(peak<MIN_SPEECH_PEAK)
+                throw new IOException("PCM은 디코딩되었으나 사실상 무음입니다. 녹음 내용 또는 AAC 출력 확인 필요: peak="+peak+
+                    " rms="+rms);
+            // Streaming models may not mark the final phrase complete until
+            // trailing silence arrives. This is file-based flushing only.
+            stream.acceptWaveform(new float[RATE],RATE);
+            while(recognizer.isReady(stream))recognizer.decode(stream);
+            if(recognizer.isEndpoint(stream)){
+                String last=recognizer.getResult(stream).getText().trim();
+                if(!last.isEmpty()&&!last.equals(lastSentence)){
+                    if(transcript.length()>0)transcript.append('\n');
+                    transcript.append(last);
+                    lastSentence=last;
+                    progress.onSentence(last);
+                }
+                recognizer.reset(stream);
+            }
             stream.inputFinished();
             while(recognizer.isReady(stream))recognizer.decode(stream);
             String tail=recognizer.getResult(stream).getText().trim();
@@ -154,6 +232,13 @@ final class SamsungCompletedM4aTranscriber {
                 if(transcript.length()>0)transcript.append('\n');
                 transcript.append(tail);
                 progress.onSentence(tail);
+            }
+            if(transcript.length()==0){
+                LabStore.log("SAMSUNG_REC_SHERPA_EMPTY_WITH_PCM",
+                    "peak="+peak+"; rms="+rms+
+                    "; asrFrames="+pcmToAsrFrames+
+                    "; sherpaNonemptyHypotheses="+recognizerHypothesisCount);
+                throw new IOException("PCM 음성 데이터는 확보되었으나 sherpa 한국어 인식 결과가 비어 있습니다. PCM_SUMMARY를 확인하십시오.");
             }
             return transcript.toString();
         }finally{
