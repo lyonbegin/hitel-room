@@ -1,0 +1,145 @@
+name: Sherpa original CLI Android emulator end-to-end
+on:
+  push:
+    branches: [feature/sherpa-original-cli-emulator-qa-20261109]
+    paths:
+      - 'sherpa-original-launcher/**'
+      - '.github/workflows/test-sherpa-original-emulator.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  android-emulator-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install Android SDK/NDK and FFmpeg headers
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" || true
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libavcodec-dev libavformat-dev libavfilter-dev libavutil-dev libswresample-dev
+      - name: Retrieve published byte-identical ARM64 CLI and Korean model
+        env:
+          GH_TOKEN: $${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/original-cli /tmp/native-releases /tmp/sherpa-unpacked /tmp/ffmpeg-unpacked
+          gh release download sherpa-original-c-arm64-cli-20261109 -R lyonbegin/hitel-room -p Sherpa-Original-C-Android-ARM64.zip -D /tmp/original-cli
+          unzip -q /tmp/original-cli/Sherpa-Original-C-Android-ARM64.zip -d /tmp/original-cli/root
+          SRC=/tmp/original-cli/root/sherpa-original-cli-arm64
+          DST=sherpa-original-launcher/app/src/main
+          mkdir -p "$DST/jniLibs/arm64-v8a" "$DST/jniLibs/x86_64" "$DST/assets/models"
+          cp "$SRC/lib/"*.so "$DST/jniLibs/arm64-v8a/"
+          cp "$SRC/sherpa-onnx-ffmpeg" "$DST/jniLibs/arm64-v8a/liboriginal-cli.so"
+          cp "$SRC/models/"* "$DST/assets/models/"
+          cmp "$SRC/sherpa-onnx-ffmpeg" "$DST/jniLibs/arm64-v8a/liboriginal-cli.so"
+          curl -fL --retry 5 --retry-delay 3 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/ffmpeg-examples/sherpa-onnx-ffmpeg.c -o /tmp/original.c
+          cmp /tmp/original.c sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+      - name: Compile SAME untouched original source for emulator x86_64 (no STT changes)
+        env:
+          GH_TOKEN: $${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/native-releases
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/native-releases
+          tar -xjf /tmp/native-releases/sherpa-onnx-v1.12.26-android.tar.bz2 -C /tmp/sherpa-unpacked
+          unzip -q /tmp/native-releases/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -d /tmp/ffmpeg-unpacked
+          DST=sherpa-original-launcher/app/src/main/jniLibs/x86_64
+          cp /tmp/sherpa-unpacked/jniLibs/x86_64/libsherpa-onnx-c-api.so "$DST/"
+          cp /tmp/sherpa-unpacked/jniLibs/x86_64/libonnxruntime.so "$DST/"
+          cp /tmp/ffmpeg-unpacked/jni/x86_64/*.so "$DST/"
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$LLVM/../sysroot/usr/lib/x86_64-linux-android/libc++_shared.so" "$DST/" || true
+          mkdir -p /tmp/ffmpeg-headers /tmp/sherpa-api/sherpa-onnx/c-api
+          cp -a /usr/include/x86_64-linux-gnu/libavcodec /usr/include/x86_64-linux-gnu/libavformat /usr/include/x86_64-linux-gnu/libavfilter /usr/include/x86_64-linux-gnu/libavutil /usr/include/x86_64-linux-gnu/libswresample /tmp/ffmpeg-headers/
+          curl -fsSL --retry 5 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h -o /tmp/sherpa-api/sherpa-onnx/c-api/c-api.h
+          "$LLVM/x86_64-linux-android26-clang++" -std=c++17 -O2 -fPIE -pie -x c++ \
+            -I/tmp/ffmpeg-headers -I/tmp/sherpa-api \
+            sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c \
+            -L"$DST" -lsherpa-onnx-c-api -lavfilter -lavformat -lavcodec -lavutil -lswresample \
+            -Wl,--no-undefined -o "$DST/liboriginal-cli.so"
+          "$LLVM/llvm-readelf" -h "$DST/liboriginal-cli.so" | grep -E 'X86-64|DYN'
+          "$LLVM/llvm-readelf" -d "$DST/liboriginal-cli.so" | grep NEEDED
+          sha256sum "$DST/liboriginal-cli.so" sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+      - name: Build emulator-installable APK with both ARM64 and x86_64 original executables
+        run: |
+          gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
+          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.sherpaoriginalcli'
+          unzip -Z1 "$APK" | grep -F 'lib/x86_64/liboriginal-cli.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/liboriginal-cli.so'
+          unzip -Z1 "$APK" | grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx'
+          unzip -p "$APK" lib/x86_64/liboriginal-cli.so > /tmp/extracted-original
+          cmp /tmp/extracted-original sherpa-original-launcher/app/src/main/jniLibs/x86_64/liboriginal-cli.so
+          mkdir -p emulator-qa
+          sha256sum "$APK" > emulator-qa/apk.sha256
+      - name: Download OFFICIAL Korean-model speech sample and convert WAV to M4A
+        run: |
+          set -euo pipefail
+          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6/test_wavs'
+          curl --fail --location --retry 5 -o /tmp/original-korean.wav "$BASE/0.wav"
+          curl --fail --location --retry 5 -o emulator-qa/reference-transcript.txt "$BASE/trans.txt"
+          ffmpeg -hide_banner -loglevel error -y -i /tmp/original-korean.wav -c:a aac -b:a 96k -ac 1 /tmp/sherpa_emulator_ko.m4a
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,sample_rate,channels -of default=noprint_wrappers=1 /tmp/sherpa_emulator_ko.m4a | tee emulator-qa/fixture-ffprobe.txt
+          test -s /tmp/sherpa_emulator_ko.m4a
+          sha256sum /tmp/sherpa_emulator_ko.m4a > emulator-qa/fixture-m4a.sha256
+      - name: Enable KVM for GitHub-hosted emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Run actual APK on Android 11 emulator and capture diagnostics
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -euo pipefail
+            adb wait-for-device
+            adb shell settings put system screen_off_timeout 1800000
+            adb shell input keyevent 82
+            adb install -r sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+            adb shell mkdir -p /sdcard/Download
+            adb push /tmp/sherpa_emulator_ko.m4a /sdcard/Download/sherpa_emulator_ko.m4a
+            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/sherpa_emulator_ko.m4a || true
+            adb shell ls -l /sdcard/Download/sherpa_emulator_ko.m4a
+            python3 sherpa-original-launcher/ci/test_emulator_ui.py
+      - name: Upload emulator screenshots, logcat, UI and verification artifacts (even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sherpa-original-emulator-e2e-diagnostics
+          path: emulator-qa/
+          if-no-files-found: warn
+      - name: Publish APK ONLY if emulator STT test passed
+        env:
+          GH_TOKEN: $${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s emulator-qa/PASS.txt
+          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          cp "$APK" Sherpa-Original-FFmpeg-Emulator-Tested-v2.apk
+          TAG=sherpa-original-ffmpeg-emulator-tested-v2
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Sherpa-Original-FFmpeg-Emulator-Tested-v2.apk --clobber
+          else
+            gh release create "$TAG" Sherpa-Original-FFmpeg-Emulator-Tested-v2.apk \
+              --target "$GITHUB_SHA" --title 'Sherpa original FFmpeg Android v2 (Android emulator tested)' \
+              --notes 'Official unmodified upstream sherpa-onnx-ffmpeg.c. Actual x86_64 Android 11 emulator installed APK, opened original model official Korean WAV reencoded M4A using DocumentsUI and invoked original executable; logs in workflow artifacts. User M4A not provided in current accessible files.'
+          fi
