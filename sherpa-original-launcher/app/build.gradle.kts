@@ -3,17 +3,17 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sensevoice.koreanfile"
+    applicationId = "app.hitel.sensevoice.filestream"
     minSdk = 26
     targetSdk = 28
-    versionCode = 1
-    versionName = "1.0.0-sensevoice"
+    versionCode = 3
+    versionName = "3.0.0-file-stream"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
     jniLibs {
       useLegacyPackaging = true
-      keepDebugSymbols.add("**/libsensevoice-cli.so")
+      keepDebugSymbols.add("**/libsensevoice-stream.so")
     }
   }
   compileOptions {
