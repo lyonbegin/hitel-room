@@ -24,6 +24,4 @@ android {
 }
 
 dependencies {
-  implementation(files("libs/ffmpeg-kit-min.aar"))
-  implementation("com.arthenica:smart-exception-java:0.2.1")
 }
