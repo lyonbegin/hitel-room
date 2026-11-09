@@ -6,6 +6,7 @@ on:
       - "flow-lab/SamsungRecordingFlow.java"
       - "flow-lab/SamsungCompletedM4aTranscriber.java"
       - "flow-lab/v14_completed_recording_asr_integration.py"
+      - "flow-lab/v14_manual_recording_file_picker.py"
       - "flow-lab/v14_log_tab_samsung_dictation.py"
       - "flow-lab/v14_sherpa_ko_integration.py"
       - "flow-lab/v14_voxsherpa_upstream_import.py"
@@ -64,10 +65,18 @@ jobs:
           python3 flow-lab/v14_deep_stt_diagnostics.py
           python3 flow-lab/v14_voice_access_audio_ab.py
           python3 flow-lab/v14_completed_recording_asr_integration.py
+          python3 flow-lab/v14_manual_recording_file_picker.py
       - name: Confirm answered-call evidence and distinct application identity
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
-          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 23' AndroidProject/app/build.gradle.kts
+          grep -F 'SamsungRecordingFlow.allCallFiles()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'SamsungRecordingFlow.transcribeSelectedFile(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'static File[] allCallFiles()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
+          grep -F 'static boolean transcribeSelectedFile(Context context,File selected)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
+          grep -F 'private void startKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'private void stopKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'SAMSUNG_REC_PCM_SUMMARY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
           grep -F 'SamsungRecordingFlow.arm(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SamsungRecordingFlow.onStopClicked' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'SamsungCompletedM4aTranscriber.transcribe' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
@@ -118,7 +127,7 @@ jobs:
           if grep -F 'getSharedRecognizer' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java; then exit 1; fi
           grep -F 'SHERPA_KO_FIRST_PARTIAL_MS' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
-          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 23' AndroidProject/app/build.gradle.kts
           if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
           grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
