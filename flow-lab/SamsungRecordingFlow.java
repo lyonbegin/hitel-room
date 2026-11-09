@@ -53,6 +53,65 @@ final class SamsungRecordingFlow {
     }
     static boolean isStopClicked(){return stopClicked;}
     /** Re-run ASR on the exact previously confirmed file, without placing a call. */
+    /**
+     * Return EVERY regular file directly under Internal storage/Recordings/Call,
+     * not only .m4a. Android 13+ needs the existing READ_MEDIA_AUDIO grant for
+     * audio files. Null means this folder is inaccessible; empty means no files.
+     * This never touches the phone call or microphone state.
+     */
+    static File[] allCallFiles(){
+        File[] entries=DIR.listFiles();
+        if(entries==null)return null;
+        java.util.ArrayList<File> files=new java.util.ArrayList<>();
+        for(File entry:entries)if(entry!=null&&entry.isFile())files.add(entry);
+        files.sort((a,b)->{
+            int time=Long.compare(b.lastModified(),a.lastModified());
+            return time!=0?time:a.getName().compareToIgnoreCase(b.getName());
+        });
+        return files.toArray(new File[0]);
+    }
+    static String callFolderPath(){return DIR.getAbsolutePath();}
+    private static boolean isDirectChildFile(File selected){
+        if(selected==null||!selected.isFile()||!selected.canRead()||selected.length()<=0)return false;
+        try{
+            File child=selected.getCanonicalFile();
+            return child.getParentFile()!=null&&child.getParentFile().equals(DIR.getCanonicalFile());
+        }catch(java.io.IOException e){return false;}
+    }
+    /**
+     * Direct manual file -> completed-file ASR; does not start a call, record,
+     * stop an ongoing call, or operate the HITEL14 microphone.
+     */
+    static boolean transcribeSelectedFile(Context context,File selected){
+        if(context==null)return false;
+        synchronized(LOCK){
+            if("TRANSCRIBING".equals(phase)||"WAIT_FOR_FILE".equals(phase)||
+                "RECORDING".equals(phase)||"START_CLICKED".equals(phase)||
+                "STOP_REQUESTED".equals(phase)||"STOP_CLICKED".equals(phase)){
+                LabStore.log("SAMSUNG_REC_MANUAL_BUSY","phase="+phase);
+                return false;
+            }
+            if(!isDirectChildFile(selected)){
+                set("ERROR","선택한 파일을 읽을 수 없거나 Recordings/Call 폴더 안의 파일이 아닙니다.");
+                LabStore.log("SAMSUNG_REC_MANUAL_REJECT","not a readable direct child of "+DIR);
+                return false;
+            }
+            appContext=context.getApplicationContext();
+            candidate=selected;
+            recordedFile=selected.getAbsolutePath();
+            lastCandidateBytes=selected.length();
+            processed=true;
+            startClicked=false;
+            stopRequested=false;
+            stopClicked=false;
+            text="";
+            set("WAIT_FOR_FILE","선택한 저장 파일의 오디오 트랙을 검사하고 STT를 시작합니다: "+selected.getName());
+            LabStore.log("SAMSUNG_REC_MANUAL_SELECT",
+                "name="+selected.getName()+"; path="+recordedFile+"; bytes="+lastCandidateBytes);
+        }
+        WORKER.execute(SamsungRecordingFlow::finalizeAndTranscribe);
+        return true;
+    }
     static boolean retryLastFile(Context context){
         if(context==null)return false;
         File last=new File(context.getApplicationContext()
@@ -60,7 +119,7 @@ final class SamsungRecordingFlow {
             .getString(PREF_LAST_FILE,""));
         synchronized(LOCK){
             if("TRANSCRIBING".equals(phase)||"WAIT_FOR_FILE".equals(phase))return false;
-            if(!isRecording(last)||!last.canRead()||!last.getParentFile().getAbsolutePath().equals(DIR.getAbsolutePath())){
+            if(!isDirectChildFile(last)){
                 set("ERROR","전사할 기존 삼성 통화녹음 파일이 없습니다.");
                 return false;
             }
