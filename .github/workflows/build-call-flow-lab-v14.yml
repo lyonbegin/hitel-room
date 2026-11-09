@@ -7,6 +7,8 @@ on:
       - "flow-lab/SamsungCompletedM4aTranscriber.java"
       - "flow-lab/TranscriberM4aDecoder.kt"
       - "flow-lab/TranscriberLocalAudioBudget.kt"
+      - "flow-lab/TranscriberWhisperModelStore.kt"
+      - "flow-lab/TranscriberWhisperFileStt.kt"
       - "flow-lab/THIRD_PARTY_MAJKEY25_MIT.txt"
       - "flow-lab/v14_completed_recording_asr_integration.py"
       - "flow-lab/v14_manual_recording_file_picker.py"
@@ -74,9 +76,12 @@ jobs:
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
           grep -F 'versionCode = 23' AndroidProject/app/build.gradle.kts
           grep -F 'id("org.jetbrains.kotlin.android") version "2.2.0"' AndroidProject/app/build.gradle.kts
-          grep -F 'TranscriberM4aDecoder.decode(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'TranscriberWhisperFileStt.transcribe(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
           test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
           test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberLocalAudioBudget.kt
+          test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberWhisperModelStore.kt
+          test -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberWhisperFileStt.kt
+          grep -F 'OfflineRecognizer(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberWhisperFileStt.kt
           grep -F 'class PcmChunker' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
           grep -F 'chunker.finish()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberM4aDecoder.kt
           grep -F 'SamsungRecordingFlow.allCallFiles()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -85,7 +90,7 @@ jobs:
           grep -F 'static boolean transcribeSelectedFile(Context context,File selected)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
           grep -F 'private void startKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'private void stopKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
-          grep -F 'SAMSUNG_REC_UPSTREAM_PCM_SUMMARY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'SAMSUNG_REC_MIT_TRANSCRIBER_START' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
           grep -F 'SamsungRecordingFlow.arm(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SamsungRecordingFlow.onStopClicked' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'SamsungCompletedM4aTranscriber.transcribe' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
