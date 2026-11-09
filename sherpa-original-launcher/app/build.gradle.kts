@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sherpaoriginalcli"
+    applicationId = "app.hitel.sherpaoriginalnormalized"
     minSdk = 26
     targetSdk = 28
-    versionCode = 2
-    versionName = "2.0.0"
+    versionCode = 3
+    versionName = "3.0.0"
     ndk { abiFilters.add("arm64-v8a"); abiFilters.add("x86_64") }
   }
   packaging {
@@ -21,4 +21,8 @@ android {
     targetCompatibility = JavaVersion.VERSION_17
   }
   buildTypes { getByName("release") { isMinifyEnabled = false } }
+}
+
+dependencies {
+  implementation(files("libs/ffmpeg-kit-min.aar"))
 }
