@@ -1,6 +1,11 @@
 package app.hitel.sherpaoriginalcli;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
 import android.media.MediaMetadataRetriever;
 import android.os.SystemClock;
@@ -38,7 +43,21 @@ public final class MainActivity extends Activity {
   static final String[] MODEL={"model.int8.onnx","tokens.txt"};
   static final long[] MIN={1000000L,1000L};
   static final Pattern SEGMENT=Pattern.compile("^([0-9]+):(.*)$");
-  static final int OPEN=31,SAVE=32,SAVE_LOG=33;
+  static final int OPEN=31,SAVE=32,SAVE_LOG=33,MIC_PERMISSION=34;
+  Button liveStart,liveStop,liveCopy;
+  TextView liveStatus,liveCaptions;
+  boolean liveReceiverRegistered=false;
+  final BroadcastReceiver liveReceiver=new BroadcastReceiver(){
+    @Override public void onReceive(Context context,Intent intent){
+      if(intent==null||!LiveSttService.ACTION_UPDATE.equals(intent.getAction()))return;
+      String message=intent.getStringExtra(LiveSttService.EXTRA_STATUS);
+      String text=intent.getStringExtra(LiveSttService.EXTRA_TEXT);
+      if(message!=null)liveStatus.setText(message);
+      if(text!=null)liveCaptions.setText(text.isEmpty()?"마이크 음성 입력 대기 중…":text);
+      refreshLiveButtons();
+    }
+  };
+
   final Handler main=new Handler(Looper.getMainLooper());
   volatile Process child;
   volatile boolean busy=false,stopRequested=false;
@@ -70,7 +89,7 @@ public final class MainActivity extends Activity {
     int pad=(int)(18*getResources().getDisplayMetrics().density);
     root.setPadding(pad,pad,pad,pad);
     scroll.addView(root);
-    TextView head=text("한국어 통화 녹음 STT · SenseVoice",23);
+    TextView head=text("한국어 STT · 파일 / 실시간",23);
     head.setTypeface(null,Typeface.BOLD);
     root.addView(head);
     root.addView(text("Sherpa-ONNX 공식 C API · SenseVoice 한국어 INT8\nFFmpegKit으로 AAC/M4A를 16kHz PCM으로 변환 후 인식\n오프라인 · ARM64 갤럭시 · ADB 불필요",13));
@@ -79,11 +98,36 @@ public final class MainActivity extends Activity {
     execute=button(root,"2. 한국어 SenseVoice STT 실행");execute.setEnabled(false);
     stop=button(root,"인식 중지");stop.setEnabled(false);
     status=text("준비됨",14);root.addView(status);
-    TextView heading=text("인식 문장 (진행 중 계속 갱신)",18);
+    TextView heading=text("파일 음성인식 결과",18);
     heading.setTypeface(null,Typeface.BOLD);root.addView(heading);
     result=text("",17);result.setTextIsSelectable(true);root.addView(result);
     copy=button(root,"텍스트 복사");copy.setEnabled(false);
     save=button(root,"TXT 파일 저장");save.setEnabled(false);
+    root.addView(text("마이크 실시간 자막 · 4초 구간 인식",19));
+    root.addView(text("마이크 음성을 계속 받아 구간마다 SenseVoice로 인식합니다. 화면을 벗어나도 마이크 포그라운드 서비스가 유지됩니다. 통화 상대방의 내부 수신 음성을 직접 캡처하는 기능은 아닙니다.",12));
+    liveStart=button(root,"3. 마이크 실시간 STT 시작");
+    liveStop=button(root,"실시간 인식 중지");liveStop.setEnabled(false);
+    liveStatus=text("마이크 대기",13);root.addView(liveStatus);
+    liveCaptions=text("실시간 자막이 여기에 표시됩니다.",17);
+    liveCaptions.setTextIsSelectable(true);root.addView(liveCaptions);
+    liveCopy=button(root,"실시간 자막 복사");
+    liveCopy.setOnClickListener(v->{
+      String body=getSharedPreferences("sensevoice_live",MODE_PRIVATE)
+          .getString(LiveSttService.EXTRA_TEXT,"");
+      ((ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE))
+        .setPrimaryClip(ClipData.newPlainText("실시간 한국어 STT",body));
+      status("실시간 자막을 복사했습니다.");
+    });
+    liveStart.setOnClickListener(v->{
+      if(busy){status("파일 STT 종료 후 시작하십시오.");return;}
+      if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},MIC_PERMISSION);
+        return;
+      }
+      startLiveTranscription();
+    });
+    liveStop.setOnClickListener(v->stopLiveTranscription());
+    refreshLiveButtons();
     root.addView(text("FFmpeg / SenseVoice 전체 STT 로그",15));
     diagnostic=text("실행 전",12);diagnostic.setTextIsSelectable(true);root.addView(diagnostic);
     saveLog=button(root,"원본 실행 전체 로그 TXT 저장");saveLog.setEnabled(false);
@@ -126,6 +170,61 @@ public final class MainActivity extends Activity {
       startActivityForResult(i,SAVE_LOG);
     });
     acceptIncomingAudio(getIntent());
+  }
+  void startLiveTranscription(){
+    if(LiveSttService.isActive()){status("실시간 자막이 이미 실행 중입니다.");return;}
+    try{
+      Intent start=new Intent(this,LiveSttService.class).setAction(LiveSttService.ACTION_START);
+      if(Build.VERSION.SDK_INT>=26)startForegroundService(start);
+      else startService(start);
+      liveStatus.setText("마이크 서비스 시작 요청 중…");
+      liveStart.setEnabled(false);liveStop.setEnabled(true);
+    }catch(Throwable e){
+      Log.e(TAG,"Live microphone start failed",e);
+      liveStatus.setText("마이크 서비스 시작 실패: "+e.getMessage());
+    }
+  }
+  void stopLiveTranscription(){
+    Intent stopIntent=new Intent(this,LiveSttService.class).setAction(LiveSttService.ACTION_STOP);
+    startService(stopIntent);
+    liveStatus.setText("실시간 자막 종료 요청 중…");
+  }
+  void refreshLiveButtons(){
+    boolean running=LiveSttService.isActive();
+    if(liveStart!=null)liveStart.setEnabled(!running&&!busy);
+    if(liveStop!=null)liveStop.setEnabled(running);
+  }
+  void refreshLiveText(){
+    String message=getSharedPreferences("sensevoice_live",MODE_PRIVATE)
+       .getString(LiveSttService.EXTRA_STATUS,"마이크 대기");
+    String transcript=getSharedPreferences("sensevoice_live",MODE_PRIVATE)
+       .getString(LiveSttService.EXTRA_TEXT,"");
+    if(liveStatus!=null)liveStatus.setText(message);
+    if(liveCaptions!=null)liveCaptions.setText(transcript.isEmpty()?"실시간 음성 입력 대기 중…":transcript);
+    refreshLiveButtons();
+  }
+  @Override protected void onStart(){
+    super.onStart();
+    IntentFilter filter=new IntentFilter(LiveSttService.ACTION_UPDATE);
+    if(Build.VERSION.SDK_INT>=33)registerReceiver(liveReceiver,filter,Context.RECEIVER_NOT_EXPORTED);
+    else registerReceiver(liveReceiver,filter);
+    liveReceiverRegistered=true;
+    refreshLiveText();
+  }
+  @Override protected void onStop(){
+    if(liveReceiverRegistered){
+      unregisterReceiver(liveReceiver);
+      liveReceiverRegistered=false;
+    }
+    super.onStop();
+  }
+  @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+    super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+    if(requestCode==MIC_PERMISSION){
+      if(grantResults.length>0&&grantResults[0]==PackageManager.PERMISSION_GRANTED)
+        startLiveTranscription();
+      else liveStatus.setText("마이크 권한이 거부되어 실시간 인식을 시작할 수 없습니다.");
+    }
   }
   /* Android's own content Uri entry point. It selects a file without touching the engine. */
   private void acceptAudioUri(Uri uri){
@@ -331,6 +430,10 @@ public final class MainActivity extends Activity {
   }
   void run(){
     if(chosenUri==null||busy)return;
+    if(LiveSttService.isActive()){
+      status("실시간 마이크 인식 종료 후 파일 STT를 실행하십시오.");
+      return;
+    }
     busy=true;stopRequested=false;recognized="";fullLogFile=null;
     execute.setEnabled(false);choose.setEnabled(false);saveLog.setEnabled(false);
     stop.setEnabled(true);save.setEnabled(false);copy.setEnabled(false);
