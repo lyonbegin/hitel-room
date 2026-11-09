@@ -405,10 +405,10 @@ public final class MainActivity extends Activity {
    * It does NOT recognize speech, parse audio, or run the model.
    */
   static String toCaptions(String raw){
-    String noAnsi=raw.replaceAll("\\u001B\\\\[[0-9;]*[a-zA-Z]","");
-    for(String line:noAnsi.split("[\\r\\n]")){
-      if(line.startsWith("FULL_TRANSCRIPT:")){
-        return line.substring("FULL_TRANSCRIPT:".length()).trim();
+    for(String line:raw.split("\\r?\\n")){
+      String cleaned=line.trim();
+      if(cleaned.startsWith("FULL_TRANSCRIPT:")){
+        return cleaned.substring("FULL_TRANSCRIPT:".length()).trim();
       }
     }
     return "";
