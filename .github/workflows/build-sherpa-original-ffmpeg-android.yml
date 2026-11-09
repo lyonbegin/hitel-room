@@ -1,0 +1,102 @@
+name: Original sherpa FFmpeg C Android native APK
+on:
+  push:
+    branches: [feature/sherpa-upstream-ffmpeg-native-20261109]
+    paths:
+      - 'sherpa-file-test/**'
+      - 'sherpa-upstream-native/**'
+      - '.github/workflows/build-sherpa-original-ffmpeg-android.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Android SDK NDK CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018" || true
+      - name: Confirm upstream C source unchanged
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 'https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/ffmpeg-examples/sherpa-onnx-ffmpeg.c' > /tmp/upstream.c
+          cmp /tmp/upstream.c sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c
+          sha256sum /tmp/upstream.c
+      - name: Fetch actual Android native FFmpeg and sherpa C API releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/native-deps /tmp/sherpa-unpack /tmp/ffmpeg-unpack
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/native-deps
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/native-deps
+          tar xjf /tmp/native-deps/sherpa-onnx-v1.12.26-android.tar.bz2 -C /tmp/sherpa-unpack
+          unzip -q /tmp/native-deps/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -d /tmp/ffmpeg-unpack
+          DEST=sherpa-file-test/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$DEST"
+          cp /tmp/sherpa-unpack/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so "$DEST/"
+          cp /tmp/sherpa-unpack/jniLibs/arm64-v8a/libonnxruntime.so "$DEST/"
+          cp /tmp/ffmpeg-unpack/jni/arm64-v8a/*.so "$DEST/"
+          ls -lah "$DEST"
+      - name: Set up FFmpeg native C headers matching FFmpeg 6.1 ABI
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libavcodec-dev libavformat-dev libavfilter-dev libavutil-dev libswresample-dev
+          HEADERS=sherpa-file-test/app/src/main/cpp/ffmpeg-headers
+          mkdir -p "$HEADERS"
+          cp -a /usr/include/x86_64-linux-gnu/libavcodec /usr/include/x86_64-linux-gnu/libavformat /usr/include/x86_64-linux-gnu/libavfilter /usr/include/x86_64-linux-gnu/libavutil /usr/include/x86_64-linux-gnu/libswresample "$HEADERS/"
+          mkdir -p sherpa-file-test/app/src/main/cpp/include/sherpa-onnx/c-api
+          curl -fsSL --retry 5 'https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h' > sherpa-file-test/app/src/main/cpp/include/sherpa-onnx/c-api/c-api.h
+      - name: Bundle the existing Korean INT8 Zipformer files
+        run: |
+          set -euo pipefail
+          mkdir -p sherpa-file-test/app/src/main/assets/models
+          BASE=https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6
+          cd sherpa-file-test/app/src/main/assets/models
+          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            curl --fail --location --retry 5 --retry-delay 5 -o "$name" "$BASE/$name"
+            test -s "$name"
+          done
+          test "$(stat -c %s encoder-epoch-99-avg-1.int8.onnx)" -gt 115000000
+          sha256sum *.onnx tokens.txt
+      - name: Build original C implementation as Android JNI
+        run: gradle -p sherpa-file-test :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify apk signature and native upstream libraries
+        run: |
+          set -euo pipefail
+          APK=sherpa-file-test/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep 'app.hitel.sherpafiletest'
+          unzip -Z1 "$APK" | grep 'lib/arm64-v8a/libsherpa-upstream-ffmpeg.so'
+          unzip -Z1 "$APK" | grep 'lib/arm64-v8a/libsherpa-onnx-c-api.so'
+          unzip -Z1 "$APK" | grep 'lib/arm64-v8a/libavfilter.so'
+          unzip -Z1 "$APK" | grep 'assets/models/encoder-epoch-99-avg-1.int8.onnx'
+          sha256sum "$APK"
+          cp "$APK" SherpaOriginalFFmpeg-v3.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sherpa-Original-FFmpeg-Android-APK
+          path: SherpaOriginalFFmpeg-v3.apk
+          if-no-files-found: error
+      - name: Publish APK only after native build and signature verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=sherpa-upstream-ffmpeg-android-v3
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" SherpaOriginalFFmpeg-v3.apk --clobber
+          else
+            gh release create "$TAG" SherpaOriginalFFmpeg-v3.apk --target "$GITHUB_SHA" --title "Original sherpa-onnx FFmpeg Android v3" --notes "Official upstream C decoder/transcriber unchanged. Android JNI file bridge only. APK build checked; real Galaxy STT not yet verified."
+          fi
