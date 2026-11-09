@@ -1,10 +1,12 @@
-name: HITEL14 MIT Transcriber M4A source integration & selected file STT
+name: HITEL14 official sherpa StreamingDecodeFileTransducer + Korean Zipformer
 on:
   push:
-    branches: ["feature/hitel14-upstream-transcriber-m4a-20261109"]
+    branches: ["feature/hitel14-official-sherpa-file-transducer-20261109"]
     paths:
       - "flow-lab/SamsungRecordingFlow.java"
       - "flow-lab/SamsungCompletedM4aTranscriber.java"
+      - "flow-lab/upstream/sherpa-onnx-v1.12.26/StreamingDecodeFileTransducer.java"
+      - "flow-lab/HITEL14_UPSTREAM_STT_PROVENANCE_20261109.md"
       - "flow-lab/TranscriberM4aDecoder.kt"
       - "flow-lab/TranscriberLocalAudioBudget.kt"
       - "flow-lab/THIRD_PARTY_MAJKEY25_MIT.txt"
@@ -88,7 +90,16 @@ jobs:
           grep -F 'static boolean transcribeSelectedFile(Context context,File selected)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
           grep -F 'private void startKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'private void stopKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
-          grep -F 'SAMSUNG_REC_ORIGINAL_KO_MODEL' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'SAMSUNG_REC_FILE_REFERENCE_BEGIN' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          git hash-object flow-lab/upstream/sherpa-onnx-v1.12.26/StreamingDecodeFileTransducer.java | grep -F '75365728ffe75fff0c77335d3c22515c84ae42dc'
+          grep -F 'stream.acceptWaveform(tailPaddings, sampleRate[0])' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'while (recognizer.isReady(stream))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'String text = recognizer.getResult(stream).getText()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          grep -F 'new float[(int) (0.8 * sampleRate[0])]' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java
+          if grep -E '^[[:space:]]*(recognizer|asr)\.(reset|isEndpoint)\(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java; then echo 'FORBIDDEN custom segmentation' >&2; exit 1; fi
+          if grep -E '^[[:space:]]*.*[a-zA-Z]\.inputFinished\(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungCompletedM4aTranscriber.java; then echo 'FORBIDDEN custom inputFinished' >&2; exit 1; fi
+          test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberWhisperFileStt.kt
+          test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/TranscriberWhisperModelStore.kt
           grep -F 'SamsungRecordingFlow.arm(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SamsungRecordingFlow.onStopClicked' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'SamsungCompletedM4aTranscriber.transcribe' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
@@ -171,27 +182,27 @@ jobs:
           mkdir -p distribution
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           test -s "$APK"
-          cp "$APK" distribution/HITEL14_RecordingASR_SameID.apk
-          sed -i 's#applicationId = "app.hitel.callflowlab.v14"#applicationId = "app.hitel.callflowlab.v14.zipformer"#' AndroidProject/app/build.gradle.kts
-          sed -i 's#HITEL 통화 실시간 자막 v0.14 (한국어 STT)#HITEL14 한국어 Zipformer 파일 STT 시험#' AndroidProject/app/src/main/AndroidManifest.xml
+          cp "$APK" distribution/HITEL14_OfficialSherpaFile_SameID.apk
+          sed -i 's#applicationId = "app.hitel.callflowlab.v14"#applicationId = "app.hitel.callflowlab.v14.officialfile"#' AndroidProject/app/build.gradle.kts
+          sed -i 's#HITEL 통화 실시간 자막 v0.14 (한국어 STT)#HITEL14 sherpa 공식 완료 파일 STT#' AndroidProject/app/src/main/AndroidManifest.xml
           bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
-          cp "$APK" distribution/HITEL14_RecordingASR_Parallel.apk
-          test -s distribution/HITEL14_RecordingASR_SameID.apk
-          test -s distribution/HITEL14_RecordingASR_Parallel.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_RecordingASR_SameID.apk | grep -F 'app.hitel.callflowlab.v14'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_RecordingASR_Parallel.apk | grep -F 'app.hitel.callflowlab.v14.zipformer'
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose distribution/HITEL14_RecordingASR_Parallel.apk
+          cp "$APK" distribution/HITEL14_OfficialSherpaFile_Parallel.apk
+          test -s distribution/HITEL14_OfficialSherpaFile_SameID.apk
+          test -s distribution/HITEL14_OfficialSherpaFile_Parallel.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_OfficialSherpaFile_SameID.apk | grep -F 'app.hitel.callflowlab.v14'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging distribution/HITEL14_OfficialSherpaFile_Parallel.apk | grep -F 'app.hitel.callflowlab.v14.officialfile'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose distribution/HITEL14_OfficialSherpaFile_Parallel.apk
           sha256sum distribution/*.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-Completed-Recording-Sherpa-APK
+          name: HITEL14-Official-SherpaFile-APK
           path: distribution/*.apk
           if-no-files-found: error
       - name: Retain auditable Android sources
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-Completed-Recording-Sherpa-source
+          name: HITEL14-Official-SherpaFile-source
           overwrite: true
           path: |
             AndroidProject/app/src/main
@@ -205,11 +216,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p downloads
-          cp distribution/HITEL14_RecordingASR_SameID.apk downloads/HITEL14_RecordingASR_SameID.apk
-          cp distribution/HITEL14_RecordingASR_Parallel.apk downloads/HITEL14_RecordingASR_Parallel.apk
-          (cd downloads && sha256sum HITEL14_RecordingASR_SameID.apk HITEL14_RecordingASR_Parallel.apk > HITEL14_RecordingASR.sha256)
+          cp distribution/HITEL14_OfficialSherpaFile_SameID.apk downloads/HITEL14_OfficialSherpaFile_SameID.apk
+          cp distribution/HITEL14_OfficialSherpaFile_Parallel.apk downloads/HITEL14_OfficialSherpaFile_Parallel.apk
+          (cd downloads && sha256sum HITEL14_OfficialSherpaFile_SameID.apk HITEL14_OfficialSherpaFile_Parallel.apk > HITEL14_RecordingASR.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_RecordingASR_SameID.apk downloads/HITEL14_RecordingASR_Parallel.apk downloads/HITEL14_RecordingASR.sha256
+          git add downloads/HITEL14_OfficialSherpaFile_SameID.apk downloads/HITEL14_OfficialSherpaFile_Parallel.apk downloads/HITEL14_RecordingASR.sha256
           git commit -m "build: publish complete HITEL14 file-ASR full app variants [skip ci]"
-          git push origin HEAD:refs/heads/feature/hitel14-upstream-transcriber-m4a-20261109
+          git push origin HEAD:refs/heads/feature/hitel14-official-sherpa-file-transducer-20261109
