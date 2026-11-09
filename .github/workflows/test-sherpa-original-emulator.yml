@@ -136,19 +136,22 @@ jobs:
           name: sherpa-original-emulator-e2e-diagnostics
           path: emulator-qa/
           if-no-files-found: warn
-      - name: Publish APK ONLY if emulator STT test passed
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Require verified Korean STT before releasing artifact
         run: |
           set -euo pipefail
           test -s emulator-qa/PASS.txt
-          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
-          cp "$APK" Sherpa-Original-FFmpeg-Emulator-Tested-v2.apk
-          TAG=sherpa-original-ffmpeg-emulator-tested-v2
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Sherpa-Original-FFmpeg-Emulator-Tested-v2.apk --clobber
-          else
-            gh release create "$TAG" Sherpa-Original-FFmpeg-Emulator-Tested-v2.apk \
-              --target "$GITHUB_SHA" --title 'Sherpa original FFmpeg Android v2 (Android emulator tested)' \
-              --notes 'Official unmodified upstream sherpa-onnx-ffmpeg.c. Actual x86_64 Android 11 emulator installed APK, opened original model official Korean WAV reencoded M4A using DocumentsUI and invoked original executable; logs in workflow artifacts. User M4A not provided in current accessible files.'
-          fi
+          grep -F 'official original CLI exited 0' emulator-qa/PASS.txt
+          cat emulator-qa/PASS.txt
+      - name: Upload actually tested installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SherpaOriginalFFmpeg-Android11-Tested-APK
+          path: sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          compression-level: 6
+      - name: Record tested APK hash and source identity
+        run: |
+          set -euo pipefail
+          sha256sum sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          cmp sherpa-upstream-native/upstream/sherpa-onnx-ffmpeg.c /tmp/original.c
+          echo "APK artifact uploaded; GitHub Actions release API cannot publish due token permissions (403)."
