@@ -1,8 +1,11 @@
-name: HITEL W03 current test - original VoxSherpa TTS + Korean sherpa STT
+name: HITEL14 OEM recording stop completed M4A sherpa-onnx integration
 on:
   push:
-    branches: ["test/call-flow-lab-v14-20261108"]
+    branches: ["feature/hitel14-samsung-recording-file-asr-20261109"]
     paths:
+      - "flow-lab/SamsungRecordingFlow.java"
+      - "flow-lab/SamsungCompletedM4aTranscriber.java"
+      - "flow-lab/v14_completed_recording_asr_integration.py"
       - "flow-lab/v14_log_tab_samsung_dictation.py"
       - "flow-lab/v14_sherpa_ko_integration.py"
       - "flow-lab/v14_voxsherpa_upstream_import.py"
@@ -15,6 +18,7 @@ on:
       - "flow-lab/KoreanSttTrace.java"
       - "flow-lab/KoreanSherpaStt.java"
       - ".github/workflows/build-call-flow-lab-v14.yml"
+      - ".github/workflows/build-hitel14-recording-asr.yml"
   workflow_dispatch:
 permissions:
   contents: write
@@ -59,10 +63,17 @@ jobs:
           python3 flow-lab/v14_release_model_on_stop.py
           python3 flow-lab/v14_deep_stt_diagnostics.py
           python3 flow-lab/v14_voice_access_audio_ab.py
+          python3 flow-lab/v14_completed_recording_asr_integration.py
       - name: Confirm answered-call evidence and distinct application identity
         run: |
           grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
-          grep -F 'versionCode = 21' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
+          grep -F 'SamsungRecordingFlow.arm(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'SamsungRecordingFlow.onStopClicked' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
+          grep -F 'SamsungCompletedM4aTranscriber.transcribe' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SamsungRecordingFlow.java
+          grep -F 'private void stopKoreanSherpaSpeech()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'private void stopSamsungRecordingAndTranscribe()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'READ_MEDIA_AUDIO' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'W11_CONNECTED_TIMER_ADVANCING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_TEXT_CALL_BUTTON_VISIBLE' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           grep -F 'W11_ACCESSIBILITY_NOT_CONNECTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -107,7 +118,7 @@ jobs:
           if grep -F 'getSharedRecognizer' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java; then exit 1; fi
           grep -F 'SHERPA_KO_FIRST_PARTIAL_MS' AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
-          grep -F 'versionCode = 21' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
           if grep -F 'screen.addView(logList,new LinearLayout.LayoutParams(-1,0,3))' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then exit 1; fi
           grep -F 'W12_HITEL_FOREGROUND_CONFIRMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java
           if grep -F 'TYPE_ACCESSIBILITY_OVERLAY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/CallAccessibilityService.java; then exit 1; fi
@@ -135,14 +146,14 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14'
       - uses: actions/upload-artifact@v4
         with:
-          name: HITEL-Call-FlowLab-v0.14-APK
+          name: HITEL14-Completed-Recording-Sherpa-APK
           path: AndroidProject/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
       - name: Retain auditable Android sources
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL-Call-FlowLab-v0.14-source
+          name: HITEL14-Completed-Recording-Sherpa-source
           overwrite: true
           path: |
             AndroidProject/app/src/main
@@ -158,10 +169,10 @@ jobs:
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           test -s "$APK"
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14.apk
-          (cd downloads && sha256sum HITEL14.apk > HITEL14.sha256)
+          cp "$APK" downloads/HITEL14_RecordingASR.apk
+          (cd downloads && sha256sum HITEL14_RecordingASR.apk > HITEL14.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14.apk downloads/HITEL14.sha256
-          git commit -m "build: publish HITEL14 directly installable APK [skip ci]"
-          git push origin HEAD:refs/heads/test/call-flow-lab-v14-20261108
+          git add downloads/HITEL14_RecordingASR.apk downloads/HITEL14_RecordingASR.sha256
+          git commit -m "build: publish HITEL14 recording-file ASR APK [skip ci]"
+          git push origin HEAD:refs/heads/feature/hitel14-samsung-recording-file-asr-20261109
