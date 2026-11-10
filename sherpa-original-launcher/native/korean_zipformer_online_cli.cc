@@ -10,6 +10,7 @@
 #include "sherpa-onnx/c-api/c-api.h"
 #include <algorithm>
 #include <cstdint>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -43,12 +44,36 @@ std::vector<std::string> words(const std::string& text){
   while(ss>>w)output.push_back(w);
   return output;
 }
+// Compare recognized Korean sound as text *independent of spaces*.
+// The streaming decoder can rewrite "유선 상품" as "유선상품" without changing
+// any spoken syllable. Token-index freezing permanently lost all subsequent
+// captions on the real Android test. Prefix agreement must use normalized
+// characters rather than whitespace-separated index alone.
+std::string normalized(const std::string& s){
+  std::string out;
+  for(unsigned char c:s){
+    if(c>=128||std::isalnum(c))out.push_back(static_cast<char>(c));
+  }
+  return out;
+}
+size_t raw_index_after(const std::string& raw,size_t normalizedBytes){
+  size_t used=0;
+  for(size_t i=0;i<raw.size();++i){
+    unsigned char c=static_cast<unsigned char>(raw[i]);
+    if(c>=128||std::isalnum(c)){
+      if(used==normalizedBytes)return i;
+      ++used;
+      if(used==normalizedBytes)return i+1;
+    }
+  }
+  return raw.size();
+}
 struct Engine {
   const SherpaOnnxOnlineRecognizer* recognizer=nullptr;
   const SherpaOnnxOnlineStream* stream=nullptr;
   uint64_t pcmSamples=0;
   unsigned int captions=0, hypotheses=0;
-  std::vector<std::string> priorHypothesis, committed;
+  std::string committedNorm;
   std::string lastRaw;
   int quietUpdates=0;
   void emit(const std::vector<std::string>& v,size_t first,size_t end,bool final){
@@ -67,41 +92,53 @@ struct Engine {
     const auto* result=SherpaOnnxGetOnlineStreamResult(recognizer,stream);
     if(!result)return;
     const std::string raw=sanitize(result->text?result->text:"");
-    std::vector<std::string> now=words(raw);
     SherpaOnnxDestroyOnlineRecognizerResult(result);
     if(raw==lastRaw)quietUpdates++;
     else quietUpdates=0;
-    if(raw!=lastRaw||final) {
+    if(raw!=lastRaw||final){
       printf("ONLINE_HYPOTHESIS:%lld:%s\n",
           static_cast<long long>(pcmSamples*1000/16000),raw.c_str());
       hypotheses++;
-      lastRaw=raw;
     }
-    // Exact-prefix LocalAgreement over consecutive incremental hypotheses.
-    // Retractions are not emitted; captions are not retroactively rewritten.
-    size_t common=0;
-    while(common<now.size()&&common<priorHypothesis.size()
-        &&now[common]==priorHypothesis[common])++common;
-    // The last word in a partial result may still be growing.
-    size_t safe=final?now.size():(now.empty()?0:std::min(common,now.size()-1));
-    // If there is no following word, allow an unchanged final word after
-    // three successive decoder updates to avoid starving one-word speech.
-    if(!final && common==now.size() && quietUpdates>=3)safe=common;
-    size_t agreed=0;
-    while(agreed<committed.size()&&agreed<now.size()
-         &&committed[agreed]==now[agreed])agreed++;
-    if(agreed<committed.size()){
-      printf("ONLINE_REWRITE_SKIPPED:%zu:%zu\n",agreed,committed.size());
-      priorHypothesis=std::move(now);
+    const std::string norm=normalized(raw);
+    const std::string prior=normalized(lastRaw);
+    size_t stable=0;
+    while(stable<norm.size()&&stable<prior.size()&&norm[stable]==prior[stable])
+      ++stable;
+    if(final||quietUpdates>=3)stable=norm.size();
+    if(norm.compare(0,committedNorm.size(),committedNorm)!=0){
+      printf("ONLINE_REWRITE_PENDING:already=%zu:now=%zu:common=%zu\n",
+          committedNorm.size(),norm.size(),stable);
+      // Keep earlier committed words visible, but never claim the new
+      // result's rewritten sounds are 'fresh'. A UI provisional-correction
+      // layer can replace them later. Unlike word-index logic, spaces alone
+      // will NOT trigger this branch.
+      lastRaw=raw;
       return;
     }
-    const size_t from=committed.size();
-    safe=std::max(from,std::min(safe,now.size()));
-    if(safe>from) {
-      emit(now,from,safe,final);
-      committed.insert(committed.end(),now.begin()+from,now.begin()+safe);
-    }
-    priorHypothesis=std::move(now);
+    lastRaw=raw;
+    if(stable<=committedNorm.size())return;
+    // Do not slice UTF-8 inside a Hangul syllable. Each Hangul codepoint is
+    // three bytes; fall back to the last valid codepoint boundary.
+    while(stable>0 && stable<norm.size() &&
+          (static_cast<unsigned char>(norm[stable])&0xc0)==0x80)--stable;
+    if(stable<=committedNorm.size())return;
+    const size_t oldRaw=raw_index_after(raw,committedNorm.size());
+    const size_t safeRaw=raw_index_after(raw,stable);
+    if(safeRaw<=oldRaw)return;
+    const std::string fragment=raw.substr(oldRaw,safeRaw-oldRaw);
+    std::vector<std::string> updated=words(fragment);
+    if(updated.empty())return;
+    size_t confirm=updated.size();
+    // A last word with no following boundary may be a syllable-in-progress.
+    // Confirm it only after 3 identical updates or at final audio EOF.
+    const bool endedWithSpace=std::isspace(static_cast<unsigned char>(fragment.back()));
+    if(!final && quietUpdates<3 && !endedWithSpace && confirm>0)--confirm;
+    if(confirm==0)return;
+    emit(updated,0,confirm,final);
+    for(size_t i=0;i<confirm;++i)committedNorm+=normalized(updated[i]);
+    printf("ONLINE_NORMALIZED_PREFIX_COMMITTED:bytes=%zu:newWords=%zu\n",
+           committedNorm.size(),confirm);
   }
   void accept(const float* wave,uint32_t n){
     pcmSamples+=n;
