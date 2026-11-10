@@ -9,7 +9,10 @@
  * Each frame is then written out with an ADTS header (lossless).
  *
  * Build: cc -O2 -o recover_m4a recover_m4a.c $(pkg-config --cflags --libs libavcodec libavutil)
- * Usage: recover_m4a in.m4a out.aac [sample_rate=48000] [channels=1] [sizes.txt]
+ * Usage: recover_m4a in.m4a out.aac [sample_rate=48000] [channels=1] [sizes.txt|-] [cursorBytes=0]
+ * Incremental mode reads only source bytes from the last COMPLETE AAC frame
+ * boundary. The next cursor is emitted as RECOVERY_CURSOR and incomplete
+ * trailing frames remain unread for the next growth event.
  *        then: ffmpeg -i out.aac -c copy out.m4a
  */
 #include <stdint.h>
@@ -101,25 +104,42 @@ int main(int argc, char **argv)
     FILE *f, *out, *sizes = NULL;
     uint8_t *buf, adts[7];
     long size, off, end, skipped = 0, nframes = 0;
+    long cursor = 0, input_base = 0, next_cursor = 0;
     int sr = 48000, ch = 1, sri, n;
     const AVCodec *codec;
 
     if (argc < 3) {
-        fprintf(stderr, "usage: %s in.m4a out.aac [sample_rate] [channels] [sizes.txt]\n", argv[0]);
+        fprintf(stderr, "usage: %s in.m4a out.aac [sample_rate] [channels] [sizes.txt|-] [cursorBytes]\n", argv[0]);
         return 1;
     }
     if (argc > 3) sr = atoi(argv[3]);
     if (argc > 4) ch = atoi(argv[4]);
+    if (argc > 6) cursor = atol(argv[6]);
+    if (cursor < 0) { fprintf(stderr, "AAC_CURSOR_NEGATIVE\n"); return 2; }
     if ((sri = sr_index(sr)) < 0) { fprintf(stderr, "bad sample rate\n"); return 1; }
 
     if (!(f = fopen(argv[1], "rb"))) { perror(argv[1]); return 1; }
     fseek(f, 0, SEEK_END); size = ftell(f); fseek(f, 0, SEEK_SET);
-    buf = malloc(size);
-    if (fread(buf, 1, size, f) != (size_t)size) { perror("read"); return 1; }
+    if (cursor > size) { fprintf(stderr, "AAC_CURSOR_BEYOND_SOURCE cursor=%ld size=%ld\n",cursor,size); fclose(f); return 3; }
+    input_base = cursor;
+    if (cursor > 0 && fseek(f,cursor,SEEK_SET) != 0) {
+        perror("AAC_CURSOR_SEEK"); fclose(f); return 2;
+    }
+    const long bytes_to_read = size - input_base;
+    buf = malloc(bytes_to_read ? (size_t)bytes_to_read : 1);
+    if (!buf) { perror("malloc-incremental-aac"); fclose(f); return 2; }
+    if (fread(buf,1,(size_t)bytes_to_read,f) != (size_t)bytes_to_read) {
+        perror("read-aac-increment"); free(buf); fclose(f); return 1;
+    }
     fclose(f);
+    off = 0;
+    end = bytes_to_read;
+    if (!cursor && (off = find_mdat(buf,bytes_to_read,&end)) < 0) {
+        fprintf(stderr, "no mdat found\n"); free(buf); return 1;
+    }
+    fprintf(stderr, "AAC_DELTA_READ cursor=%ld bytes=%ld payloadOffset=%ld\n",
+            cursor, bytes_to_read, input_base + off);
 
-    if ((off = find_mdat(buf, size, &end)) < 0) { fprintf(stderr, "no mdat found\n"); return 1; }
-    fprintf(stderr, "mdat payload: %ld .. %ld (%ld bytes)\n", off, end, end - off);
 
     av_log_set_level(AV_LOG_QUIET);
     codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
@@ -134,14 +154,14 @@ int main(int argc, char **argv)
     frm = av_frame_alloc();
 
     if (!(out = fopen(argv[2], "wb"))) { perror(argv[2]); return 1; }
-    if (argc > 5 && !(sizes = fopen(argv[5], "w"))) { perror(argv[5]); return 1; }
+    if (argc > 5 && strcmp(argv[5], "-") && !(sizes = fopen(argv[5], "w"))) { perror(argv[5]); return 1; }
 
     while (off < end) {
         n = frame_len(buf + off, end - off);
         if (!n) {                   /* corruption or truncated tail: resync */
             long s = off + 1;
             while (s < end && !chains(buf, s, end)) s++;
-            if (s >= end) { skipped += end - off; break; }
+            if (s >= end) { /* incomplete final frame: preserve cursor */ break; }
             fprintf(stderr, "resync: skipped %ld bytes at %ld\n", s - off, off);
             skipped += s - off;
             off = s;
@@ -162,8 +182,12 @@ int main(int argc, char **argv)
                     nframes * 1024.0 / sr / 60, 100.0 * off / end);
     }
 
-    fprintf(stderr, "recovered %ld frames = %.2f min of audio; %ld bytes unrecoverable\n",
-            nframes, nframes * 1024.0 / sr / 60, skipped);
+    next_cursor = input_base + off;
+    fprintf(stderr, "RECOVERY_CURSOR source=%ld next=%ld frames=%ld inputBytes=%ld\n",
+            cursor,next_cursor,nframes,size);
+    fprintf(stderr, "recovered %ld NEW frames = %.2f sec of audio; %ld bytes resynced\n",
+            nframes,nframes*1024.0/sr,skipped);
+    free(buf);
     fclose(out);
     if (sizes) fclose(sizes);
     return 0;
