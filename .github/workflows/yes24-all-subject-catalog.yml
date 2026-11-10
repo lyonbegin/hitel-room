@@ -9,7 +9,7 @@ on:
       pages_per_category:
         description: 'Max pages in each category'
         required: false
-        default: '2'
+        default: '5'
   push:
     branches: [feature/all-subject-books-catalog-20261111]
     paths:
@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 28
     env:
       MAX_CATEGORY_VISITS: ${{ github.event.inputs.max_categories || '300' }}
-      MAX_PER_CATEGORY_PAGES: ${{ github.event.inputs.pages_per_category || '2' }}
+      MAX_PER_CATEGORY_PAGES: ${{ github.event.inputs.pages_per_category || '5' }}
       CATALOG_OUT: reports/textbook_catalog
     steps:
       - uses: actions/checkout@v4
