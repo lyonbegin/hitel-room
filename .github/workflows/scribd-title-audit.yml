@@ -22,7 +22,7 @@ jobs:
         run: |
           pip install playwright==1.56.0
           python -m playwright install --with-deps chromium
-      - name: Enumerate all visible titles from two original Scribd queries
+      - name: Collect broad Scribd search hits for 33 series then classify middle/high
         run: python tools/zocbo/scribd_series_audit.py
       - name: Upload raw search-result listings and screenshots
         if: always()
