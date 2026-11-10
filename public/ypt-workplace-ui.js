@@ -14,6 +14,14 @@
     groupQuestions:'질문하기',
     groupLearning:'학습',
     groupAITutor:'AI 과외',
+    groupBookDetail:'문제집 상세',
+    groupBookLearn:'문제집 학습',
+    groupAITutorPractice:'AI 수학 체험',
+    groupPractice:'문제풀이',
+    groupProblemDetail:'문항 상세',
+    groupCoach:'학습 코치',
+    groupMistakes:'오답 복습',
+    groupCoachDashboard:'학습기록',
   };
   const clone=x=>JSON.parse(JSON.stringify(x));
   const instituteTypeName=type=>type==='academy'?'학원':'학교';
