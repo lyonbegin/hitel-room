@@ -132,7 +132,8 @@ struct Engine {
     size_t confirm=updated.size();
     // A last word with no following boundary may be a syllable-in-progress.
     // Confirm it only after 3 identical updates or at final audio EOF.
-    const bool endedWithSpace=std::isspace(static_cast<unsigned char>(fragment.back()));
+    const bool endedWithSpace=(safeRaw<raw.size() &&
+        std::isspace(static_cast<unsigned char>(raw[safeRaw])));
     if(!final && quietUpdates<3 && !endedWithSpace && confirm>0)--confirm;
     if(confirm==0)return;
     emit(updated,0,confirm,final);
