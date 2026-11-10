@@ -35,6 +35,7 @@ public final class GrowingCallEngine {
   volatile String transcription="";
   volatile Uri activeUri;
   final AtomicLong pcmBytes=new AtomicLong();
+  final AtomicLong committedPcmBytes=new AtomicLong();
   final AtomicLong lastPcm=new AtomicLong();
   final AtomicInteger chunkCount=new AtomicInteger();
   final AtomicInteger resultCount=new AtomicInteger();
@@ -108,7 +109,7 @@ public final class GrowingCallEngine {
       Process p=sherpa;
       if(p!=null&&p.isAlive())p.destroyForcibly();
       log.event("CONTROL","END","reason",endReason,"pcmBytes",pcmBytes.get(),
-        "pcmSeconds",pcmBytes.get()/32000.0,"chunksSent",chunkCount.get(),
+        "pcmSeconds",pcmBytes.get()/32000.0,"uniquePcmSentBytes",committedPcmBytes.get(),"chunksSent",chunkCount.get(),
         "sttResults",resultCount.get(),"fileChanges",fileChangeCount,
         "fileGrowthBytes",observedGrowthBytes,"transcriptChars",transcription.length());
       log.diagnosticSummary();
@@ -125,15 +126,12 @@ public final class GrowingCallEngine {
       ||name.endsWith(".3gp")||name.endsWith(".amr")||name.endsWith(".wav");
   }
   String display(Uri uri){
-    try(DocumentFileProbe ignored=null){/* no-op */}catch(Exception ignored){}
     try(android.database.Cursor cursor=context.getContentResolver().query(uri,
         new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null)){
       if(cursor!=null && cursor.moveToFirst()&&!cursor.isNull(0))return cursor.getString(0);
     }catch(Exception err){log.error("FILE","DISPLAY_NAME_QUERY_FAILED",err);}
     return uri.getLastPathSegment()==null?"unknown":uri.getLastPathSegment();
   }
-  /** Marker used to avoid leaked metadata cursor; never instantiated. */
-  static final class DocumentFileProbe implements AutoCloseable {public void close(){}}
 
   Uri waitForGrowingFile(Uri folder)throws Exception {
     log.event("FOLDER","TREE_SCAN_START","uri",folder.toString());
@@ -438,8 +436,11 @@ public final class GrowingCallEngine {
             "size",stat.getSize(),"bitrate",stat.getBitrate(),"speed",stat.getSpeed());
         });
       session=ffmpeg;
+      final long alreadyDelivered=committedPcmBytes.get();
       fifoReader=new Thread(()->{
         byte[] temp=new byte[8192];
+        long replayBytesRemaining=alreadyDelivered;
+        log.event("PIPE","REPLAY_GUARD_ACTIVE","attempt",attempt,"skipAlreadyProcessedPcmBytes",replayBytesRemaining);
         ByteArrayOutputStream pcmWindow=new ByteArrayOutputStream(WINDOW_BYTES+8192);
         int lowByte=-1;
         try(InputStream in=new FileInputStream(chosenPipe)){
@@ -448,11 +449,22 @@ public final class GrowingCallEngine {
             int n=in.read(temp);
             if(n<0){log.event("PIPE","FIFO_EOF","attempt",attempt);break;}
             if(n==0)continue;
-            long total=pcmBytes.addAndGet(n);
+            int offset=0;
+            if(replayBytesRemaining>0){
+              int skip=(int)Math.min((long)n,replayBytesRemaining);
+              replayBytesRemaining-=skip;
+              offset=skip;
+              if(skip>0 && replayBytesRemaining==0)
+                log.event("PIPE","REPLAY_SKIP_COMPLETED","attempt",attempt,
+                  "bytesSkipped",alreadyDelivered,"newAudioResumesNow",true);
+              if(offset==n)continue;
+            }
+            int fresh=n-offset;
+            long total=pcmBytes.addAndGet(fresh);
             lastPcm.set(SystemClock.elapsedRealtime());
-            pcmWindow.write(temp,0,n);
-            if(total==n || total%65536<n){
-              log.event("PCM","BUFFER_READ","attempt",attempt,"bytes",n,"totalBytes",total,
+            pcmWindow.write(temp,offset,fresh);
+            if(total==fresh || total%65536<fresh){
+              log.event("PCM","BUFFER_READ","attempt",attempt,"bytes",fresh,"totalReadBytes",total,
                 "totalSeconds",total/32000.0,"queuedBytes",pcmWindow.size());
             }
             while(pcmWindow.size()>=WINDOW_BYTES){
@@ -543,6 +555,7 @@ public final class GrowingCallEngine {
       "peak",peak,"nonzeroPct",100.0*nonzero/Math.max(1,samples));
     OutputStream out=p.getOutputStream();
     little32(out,seq);little32(out,samples);out.write(pcm);out.flush();
+    committedPcmBytes.addAndGet(pcm.length);
     callback.onStatus("PCM 입력 "+String.format(Locale.US,"%.1f",pcmBytes.get()/32000.0)+
       "초 / STT 전송 "+seq+"구간",transcription);
   }
