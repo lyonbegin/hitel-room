@@ -30,7 +30,7 @@ ROOTS={
 }
 BASE="https://www.yes24.com/product/category/display/"
 MAX_VISITS=max(2,int(os.getenv("MAX_CATEGORY_VISITS","200")))
-MAX_PAGES=max(1,min(4,int(os.getenv("MAX_PER_CATEGORY_PAGES","2"))))
+MAX_PAGES=max(1,min(8,int(os.getenv("MAX_PER_CATEGORY_PAGES","5"))))
 REQUEST_INTERVAL=0.21
 CATEGORY_RE=re.compile(r"/(?:product|24)/category/display/(\d{9,20})(?:\b|[/?#])",re.I)
 PRODUCT_RE=re.compile(r"/(?:product/goods|goods/detail)/(\d+)(?:$|[/?#])",re.I)
