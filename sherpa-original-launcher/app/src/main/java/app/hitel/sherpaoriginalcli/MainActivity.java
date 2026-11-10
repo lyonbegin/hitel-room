@@ -20,6 +20,7 @@ import android.widget.CheckBox;
 import android.util.Log;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -39,20 +40,49 @@ public final class MainActivity extends Activity {
   TextView source,status,caption,latestTwo,logs,summary;
   Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
   volatile boolean receiverRegistered=false;
+  volatile long lastLogRefreshNs=0;
   final StringBuilder liveText=new StringBuilder();
 
   final BroadcastReceiver broadcast=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
       if(intent==null || !GrowingCallService.EVENT.equals(intent.getAction()))return;
+      final long recvNs=SystemClock.elapsedRealtimeNanos();
       String message=intent.getStringExtra(GrowingCallService.EX_STATUS);
       String text=intent.getStringExtra(GrowingCallService.EX_TEXT);
+      final boolean live=message!=null&&message.startsWith("실시간 자막");
+      final long seq=intent.getLongExtra(GrowingCallService.EX_CAPTION_SEQ,-1);
+      final long sendNs=intent.getLongExtra(GrowingCallService.EX_BROADCAST_BOOT_NS,0);
+      final long nativeNs=intent.getLongExtra(GrowingCallService.EX_NATIVE_BOOT_NS,0);
+      if(live)TraceJournal.uiTiming(recvNs,"UI","LIVE_BROADCAST_RECEIVED",
+        "captionSeq",seq,"broadcastToReceiverMs",sendNs>0?(recvNs-sendNs)/1000000.0:-1,
+        "nativeToReceiverMs",nativeNs>0?(recvNs-nativeNs)/1000000.0:-1);
       if(message!=null)status.setText(message);
       if(text!=null){
         caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
         if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+        if(live){
+          final String expected=caption.getText().toString();
+          final long setNs=SystemClock.elapsedRealtimeNanos();
+          TraceJournal.uiTiming(setNs,"UI","LIVE_SET_TEXT",
+            "captionSeq",seq,"chars",expected.length(),
+            "nativeToSetTextMs",nativeNs>0?(setNs-nativeNs)/1000000.0:-1,
+            "broadcastToSetTextMs",sendNs>0?(setNs-sendNs)/1000000.0:-1);
+          caption.postOnAnimation(()->{
+            final long frameNs=SystemClock.elapsedRealtimeNanos();
+            final boolean same=expected.equals(caption.getText().toString());
+            TraceJournal.uiTiming(frameNs,"UI","NEXT_FRAME_CALLBACK",
+              "captionSeq",seq,"sameTextStillPresent",same,
+              "nativeToFrameCallbackMs",nativeNs>0?(frameNs-nativeNs)/1000000.0:-1,
+              "setTextToFrameCallbackMs",(frameNs-setNs)/1000000.0,
+              "note","frame callback, not proven screen scanout");
+          });
+        }
       }
       refreshButtons();
-      refreshEventTail();
+      if(recvNs-lastLogRefreshNs>2000000000L){
+        lastLogRefreshNs=recvNs;
+        refreshEventTail();
+      }
     }
   };
   static String lastTwoWords(String s){
@@ -104,7 +134,7 @@ public final class MainActivity extends Activity {
     summary=text("로그: 미실행",13);root.addView(summary);
     logs=text("감시 로그 대기 중",11);logs.setTextIsSelectable(true);root.addView(logs);
     root.addView(text(
-      "ZIP 구성: events.jsonl(시각·스레드·원인·파일 크기·변화량·접근 오류·FIFO·PCM·STT), " +
+      "ZIP 구성: events.jsonl(시각·스레드·파일·AAC·FFmpeg·STT), latency-trace.jsonl(나노초 단위 단계별 시간), " +
       "ffmpeg-raw.txt, stt-raw.txt, M4A 헤더 바이너리, README.txt.\n" +
       "성공 및 실패 여부와 관계없이 장치 내부에 저장됩니다. 전화번호·파일명·전사 내용이 로그에 포함될 수 있으니 ZIP 공유 전 확인하십시오.\n"+
       "실제 통화 음성은 로그 ZIP에 원본 파일 형태로 복사하지 않습니다.",12));
