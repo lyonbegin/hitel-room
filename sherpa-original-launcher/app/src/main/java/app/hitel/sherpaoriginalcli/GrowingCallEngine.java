@@ -405,6 +405,23 @@ public final class GrowingCallEngine {
         while((line=reader.readLine())!=null){
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
+          if(line.startsWith("ONLINE_READY:")){
+            log.event("ONLINE","MODEL_READY","settings",line);
+          }
+          if(line.startsWith("ONLINE_HYPOTHESIS:")){
+            String[] on=line.split(":",3);
+            if(on.length==3)log.event("ONLINE","HYPOTHESIS",
+                "audioMs",on[1],"text",on[2]);
+          }
+          if(line.startsWith("ONLINE_ACCEPTED:")){
+            log.event("ONLINE","PCM_ACCEPTED","details",line);
+          }
+          if(line.startsWith("ONLINE_REWRITE_SKIPPED:")){
+            log.event("ONLINE","REWRITE_SKIPPED","details",line);
+          }
+          if(line.startsWith("ONLINE_FINISHED:")){
+            log.event("ONLINE","FINAL_FLUSH","details",line);
+          }
           if(line.startsWith("VAD_READY:")){
             log.event("VAD","MODEL_READY","settings",line.substring("VAD_READY:".length()));
           }
@@ -482,17 +499,20 @@ public final class GrowingCallEngine {
       "exists",executable.exists(),"executable",executable.canExecute(),"bytes",executable.length());
     if(!executable.isFile()||!executable.canExecute())
       throw new IOException("ARM64 SenseVoice stream CLI missing");
-    File tokens=extract("tokens.txt",1000),model=extract("model.int8.onnx",1000000);
-    File vad=extract("silero_vad.onnx",100000);
+    File tokens=extract("tokens.txt",1000);
+    File encoder=extract("encoder.int8.onnx",1000000);
+    File decoder=extract("decoder.int8.onnx",100000);
+    File joiner=extract("joiner.int8.onnx",100000);
     ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),
-      tokens.getAbsolutePath(),model.getAbsolutePath(),vad.getAbsolutePath());
+      tokens.getAbsolutePath(),encoder.getAbsolutePath(),
+      decoder.getAbsolutePath(),joiner.getAbsolutePath());
     String old=pb.environment().get("LD_LIBRARY_PATH");
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
     pb.directory(context.getFilesDir());pb.redirectErrorStream(true);
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
-      "command",executable.getName()+" [tokens] [model] [silero-vad]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
+      "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
     nativeReader(sherpa);
   }
 
