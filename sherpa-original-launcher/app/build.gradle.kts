@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.koreanzipformer.prewarm12"
+    applicationId = "app.hitel.koreanzipformer.incremental13"
     minSdk = 26
     targetSdk = 28
-    versionCode = 12
-    versionName = "12.0.0-ko-174m-prewarm-gate"
+    versionCode = 13
+    versionName = "13.0.0-ko-174m-incremental-aac"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
