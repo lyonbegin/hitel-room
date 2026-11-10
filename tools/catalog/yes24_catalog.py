@@ -84,7 +84,7 @@ def product_links(soup):
 def category_page_url(cid,page):
     # Use the existing category URL; the site's page-number parameter can be
     # ignored by the server, which we check by comparing returned product IDs.
-    return BASE+cid+(("?PageNumber="+str(page)) if page>1 else "")
+    return BASE+cid+(("?page="+str(page)) if page>1 else "")
 def main():
     OUT.mkdir(parents=True,exist_ok=True)
     queue=deque(ROOTS.keys())
