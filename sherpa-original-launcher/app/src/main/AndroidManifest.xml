@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application android:label="녹음 파일 스트리밍 STT"
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+  <application android:label="통화 녹음 FFmpeg STT 진단"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
       android:extractNativeLibs="true"
       android:allowBackup="false"
@@ -11,5 +13,6 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <service android:name=".GrowingCallService" android:exported="false" android:foregroundServiceType="dataSync"/>
   </application>
 </manifest>
