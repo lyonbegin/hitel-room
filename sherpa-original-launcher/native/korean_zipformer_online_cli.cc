@@ -18,8 +18,14 @@
 #include <sstream>
 #include <unistd.h>
 #include <chrono>
+#include <time.h>
 
 namespace {
+uint64_t boot_ns(){
+  struct timespec ts{};
+  clock_gettime(CLOCK_BOOTTIME,&ts);
+  return static_cast<uint64_t>(ts.tv_sec)*1000000000ULL+static_cast<uint64_t>(ts.tv_nsec);
+}
 bool read_all(void* dest,size_t size) {
   auto* bytes=static_cast<uint8_t*>(dest);
   size_t got=0;
@@ -76,6 +82,7 @@ struct Engine {
   std::string committedNorm;
   std::string lastRaw;
   int quietUpdates=0;
+  uint32_t currentSeq=0;
   void emit(const std::vector<std::string>& v,size_t first,size_t end,bool final){
     for(size_t i=first;i<end;i+=2){
       std::string text=v[i];
@@ -100,6 +107,8 @@ struct Engine {
       // captions can lag or be blocked by an ASR rewrite; never gate UI
       // updates on the confirmed-prefix buffer.
       const long long audioMs=static_cast<long long>(pcmSamples*1000/16000);
+      printf("ONLINE_TIMING:LIVE:%u:%lld:%llu:0\n",hypotheses+1,audioMs,
+             static_cast<unsigned long long>(boot_ns()));
       printf("ONLINE_HYPOTHESIS:%lld:%s\n",audioMs,raw.c_str());
       printf("ONLINE_LIVE:%lld:%s\n",audioMs,raw.c_str());
       std::vector<std::string> tw=words(raw);
@@ -151,12 +160,23 @@ struct Engine {
     printf("ONLINE_NORMALIZED_PREFIX_COMMITTED:bytes=%zu:newWords=%zu\n",
            committedNorm.size(),confirm);
   }
-  void accept(const float* wave,uint32_t n){
+  void accept(const float* wave,uint32_t n,uint32_t seq){
+    currentSeq=seq;
     pcmSamples+=n;
+    const uint64_t acceptedNs=boot_ns();
+    printf("ONLINE_TIMING:INPUT:%u:%llu:%llu:0\n",seq,
+        static_cast<unsigned long long>(pcmSamples*1000/16000),
+        static_cast<unsigned long long>(acceptedNs));
     SherpaOnnxOnlineStreamAcceptWaveform(stream,16000,wave,n);
     int iteration=0;
     while(SherpaOnnxIsOnlineStreamReady(recognizer,stream)&&++iteration<1000){
+      const uint64_t decodeBegin=boot_ns();
       SherpaOnnxDecodeOnlineStream(recognizer,stream);
+      const uint64_t decodeEnd=boot_ns();
+      printf("ONLINE_TIMING:DECODE:%u:%llu:%llu:%llu\n",seq,
+          static_cast<unsigned long long>(pcmSamples*1000/16000),
+          static_cast<unsigned long long>(decodeEnd),
+          static_cast<unsigned long long>((decodeEnd-decodeBegin)/1000));
       update(false);
     }
   }
@@ -198,7 +218,12 @@ int main(int argc,char** argv){
   c.max_active_paths=8;
   c.enable_endpoint=0; // VAD must never gate 1-2-word captions.
   Engine engine;
+  const uint64_t modelBeginNs=boot_ns();
   engine.recognizer=SherpaOnnxCreateOnlineRecognizer(&c);
+  const uint64_t modelEndNs=boot_ns();
+  printf("ONLINE_TIMING:MODEL_LOAD:0:0:%llu:%llu\n",
+      static_cast<unsigned long long>(modelEndNs),
+      static_cast<unsigned long long>((modelEndNs-modelBeginNs)/1000));
   if(!engine.recognizer){
     fprintf(stderr,"KOREAN_ZIPFORMER_MODEL_LOAD_FAILED\n");
     return 3;
@@ -224,7 +249,7 @@ int main(int argc,char** argv){
       pcm[i]=static_cast<int16_t>(u)/32768.f;
     }
     printf("ONLINE_ACCEPTED:%u:%u\n",seq,n);
-    engine.accept(pcm.data(),n);
+    engine.accept(pcm.data(),n,seq);
   }
   engine.finish();
   SherpaOnnxDestroyOnlineStream(engine.stream);
