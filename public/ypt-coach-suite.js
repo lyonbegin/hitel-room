@@ -176,15 +176,15 @@ function practiceList(){
  card('<h4>문항 탐색</h4><div class="cs-filters">'+[
  ['all','전체'],['new','미완료'],['miss','오답'],['done','완료'],['saved','저장']
  ].map(([k,t])=>formButton(t,'filter',k,x.filters===k?'selected':'')).join('')+'</div>'+
- '<div class="cs-question-list">'+(list.length?list.map(p=>problemCard(p)).join(''):'<p class="cs-empty">해당 조건의 문제가 없습니다.</p>')+'</div></section>')+
+ '<div class="cs-question-list">'+(list.length?list.map(p=>problemCard(p)).join(''):'<p class="cs-empty">해당 조건의 문제가 없습니다.</p>')+'</div>')+
  card('<h4>문제 직접 입력하기</h4><p class="cs-muted">시중 교재의 페이지·번호 또는 본인이 작성한 문제를 기록하고 풀 수 있습니다.</p>'+
  '<form id="cs-manual-form"><div class="cs-fields">'+
  '<label>문항 위치<input name="location" maxlength="60" placeholder="예: 32쪽 7번" required /></label>'+
  '<label>문제 내용<textarea name="question" maxlength="1800" placeholder="문제 내용을 직접 적어 주세요." required></textarea></label></div>'+
  '<button type="submit" class="cs-btn primary">내 문제에 추가</button></form>'+
- '<p class="cs-muted">직접 입력한 문제는 원본 교재 문항을 자동으로 불러오거나 채점하지 않습니다.</p></section>')+
+ '<p class="cs-muted">직접 입력한 문제는 원본 교재 문항을 자동으로 불러오거나 채점하지 않습니다.</p>')+
  card('<h4>함께 공부하기</h4><div class="cs-links">'+formButton('학교별 족보','route','bankSearch')+
- formButton('그룹 자료','route','groupLearning')+formButton('그룹 질문','route','groupQuestions')+'</div></section>');
+ formButton('그룹 자료','route','groupLearning')+formButton('그룹 질문','route','groupQuestions')+'</div>');
 }
 function canvasMarkup(p){
  return '<div class="cs-scratch"><div class="cs-scratch-head"><strong>손글씨 풀이 공간</strong>'+
@@ -204,19 +204,19 @@ function detail(){
  '<div class="cs-keyboard" aria-label="수식 입력 도구">'+['x','²','+','−','/','(',')','=','>','<',','].map(k=>formButton(k,'symbol',k)).join('')+'</div>'+
  '<button type="submit" class="cs-btn primary">'+(p.kind==='manual'?'내 풀이 저장':'답 제출하고 채점')+'</button></form>'+
  (last?'<div class="cs-result '+(last.correct?'correct':'wrong')+'">'+(last.correct===true?'정답입니다. 스스로 확인한 방법을 말로 설명해 보세요.':last.correct===false?'다른 방법으로 다시 생각해 보세요. 아래 힌트나 코치에게 질문할 수 있습니다.':'직접 입력한 문제의 풀이를 저장했습니다.')+'</div>':'')+
- (p.kind==='manual'?'<p class="cs-muted">직접 입력 문항은 자동 정오 판정이 지원되지 않습니다.</p>':'')+'</section>')+
+ (p.kind==='manual'?'<p class="cs-muted">직접 입력 문항은 자동 정오 판정이 지원되지 않습니다.</p>':'')+'')+
  card('<div class="cs-splithead"><h4>힌트와 풀이 과정</h4><span>'+h.hint+'/'+p.hints.length+'단계</span></div>'+
  (h.hint?'<div class="cs-hint">'+esc(p.hints[h.hint-1]||'')+'</div>':'<p class="cs-muted">답을 바로 표시하지 않고 작은 힌트를 순서대로 제공합니다.</p>')+
  '<div class="cs-links">'+formButton('힌트 한 단계','hint',p.id)+formButton('코치에게 묻기','route','groupCoach')+
  (last||h.hint>=p.hints.length?formButton('해설 단계보기','explain',p.id):'')+'</div>'+
- (x.drafts['explain:'+p.id]==='yes'&&p.steps.length?'<ol class="cs-explanation">'+p.steps.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ol>':'')+'</section>')+
+ (x.drafts['explain:'+p.id]==='yes'&&p.steps.length?'<ol class="cs-explanation">'+p.steps.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ol>':'')+'')+
  canvasMarkup(p)+
  card('<h4>사진 · 자료 첨부</h4><label class="cs-file-label" for="cs-file">사진 선택 / 카메라 열기<input id="cs-file" type="file" accept="image/*" capture="environment" /></label>'+
  (uploaded?'<div class="cs-upload"><img src="'+uploaded+'" alt="첨부한 문제 또는 풀이 사진"/>'+
  formButton('사진 삭제','removePhoto',p.id)+'</div>':'')+
- '<p class="cs-muted">사진은 현재 기기에서 미리보기로만 사용합니다. 이미지에서 문항을 자동 판독하거나 정답을 추출하지 않습니다.</p></section>')+
+ '<p class="cs-muted">사진은 현재 기기에서 미리보기로만 사용합니다. 이미지에서 문항을 자동 판독하거나 정답을 추출하지 않습니다.</p>')+
  card('<h4>학습 이어가기</h4>'+buttonsFor(p)+
- '<div class="cs-links">'+formButton('그룹에 이 문항 공유','shareProblem',p.id)+formButton('단원 바꾸기','route','groupBookDetail')+'</div></section>');
+ '<div class="cs-links">'+formButton('그룹에 이 문항 공유','shareProblem',p.id)+formButton('단원 바꾸기','route','groupBookDetail')+'</div>');
 }
 function chat(){
  const p=selected();if(!p)return header('코치');
@@ -226,7 +226,7 @@ function chat(){
  card('<div class="cs-coach-problem"><small>현재 공부하는 문항</small><strong>'+esc(p.question)+'</strong>'+
  (recent?'<span>최근 풀이: '+esc(recent.answer||'입력 없음')+' · '+(recent.correct===true?'정답':recent.correct===false?'오답':'직접 등록')+'</span>':'')+
  '<div class="cs-links">'+formButton('문제로 돌아가기','route','groupProblemDetail')+
- formButton('다른 문제 선택','route','groupPractice')+'</div></div></section>')+
+ formButton('다른 문제 선택','route','groupPractice')+'</div></div>')+
  '<div class="cs-coach-quick">'+[
  ['역사에서 시작','history'],['첫 질문','first'],['힌트','hint'],['다른 방법','alternative'],['검산 방법','check'],['비슷한 문제','variant']
  ].map(([t,k])=>formButton(t,'coachQuick',k)).join('')+'</div>'+
@@ -248,9 +248,9 @@ function mistakes(){
   return '<div class="cs-mistake"><div><strong>'+esc(p.question)+'</strong><small>내 답: '+esc(entry.answer)+' · '+date(entry.at)+'</small></div>'+
   '<div class="cs-links">'+formButton('재도전','review',p.id,'primary')+
   formButton('코치','openCoach',p.id)+formButton('그룹 공유','shareProblem',p.id)+'</div></div>';
- }).join(''):'<p class="cs-empty">아직 오답 기록이 없습니다. 문항을 풀어 보시면 자동으로 정리됩니다.</p>')+'</section>')+
+ }).join(''):'<p class="cs-empty">아직 오답 기록이 없습니다. 문항을 풀어 보시면 자동으로 정리됩니다.</p>')+'')+
  card('<h4>복습 방법</h4><p class="cs-muted">다시 도전할 때는 같은 수학적 원리를 유지하되 숫자를 바꿉니다. 이전의 정답을 외우는 방식이 아니라 풀이 과정을 복습합니다.</p>'+
- formButton('문항 목록으로','route','groupPractice','primary')+'</section>');
+ formButton('문항 목록으로','route','groupPractice','primary')+'');
 }
 function dashboard(){
  const a=counts(),hist=x.attempts.filter(v=>v.bookId===book().id).slice(-12).reverse();
@@ -261,17 +261,17 @@ function dashboard(){
  days.push('<div><small>'+['일','월','화','수','목','금','토'][d.getDay()]+'</small><b>'+d.getDate()+'</b><i class="'+(num?'on':'')+'"></i></div>')}
  const next=a.wrong>a.correct?'오답 문항부터 다시 살펴보세요.':a.attempts>0?'다른 유형을 선택해 풀이 방법을 설명해 보세요.':'먼저 쉬운 문제 한 개를 풀어보세요.';
  return header('학습기록','실제 이 브라우저에 기록된 풀이·학습을 확인합니다.')+
- stat()+card('<h4>최근 7일 학습</h4><div class="cs-week">'+days.join('')+'</div></section>')+
+ stat()+card('<h4>최근 7일 학습</h4><div class="cs-week">'+days.join('')+'</div>')+
  card('<h4>다음 학습 제안</h4><p class="cs-advice">'+next+'</p>'+
  '<div class="cs-links">'+formButton('오답부터 복습','route','groupMistakes')+
- formButton('계속 문제풀기','route','groupPractice','primary')+'</div></section>')+
+ formButton('계속 문제풀기','route','groupPractice','primary')+'</div>')+
  card('<h4>최근 풀이 기록</h4>'+
  (hist.length?hist.map(v=>'<div class="cs-history">'+
  '<span class="'+(v.correct===true?'yes':v.correct===false?'no':'')+'">'+(v.correct===true?'✓':v.correct===false?'×':'·')+'</span>'+
  '<div><strong>'+esc(v.question)+'</strong><small>내 답: '+esc(v.answer||'')+' · '+date(v.at)+'</small></div></div>').join(''):
- '<p class="cs-empty">아직 풀이 기록이 없습니다.</p>')+'</section>')+
+ '<p class="cs-empty">아직 풀이 기록이 없습니다.</p>')+'')+
  card('<h4>그룹 학습과 연결</h4><div class="cs-links">'+formButton('그룹 자료함','route','groupLearning')+
- formButton('학교별 족보','route','bankSearch')+formButton('그룹 질문','route','groupQuestions')+'</div></section>');
+ formButton('학교별 족보','route','bankSearch')+formButton('그룹 질문','route','groupQuestions')+'</div>');
 }
 function selectProblem(id){const p=allProblems().find(z=>z.id===id);if(!p)return false;x.selected=id;store();return true}
 function duplicateProblem(id){const p=allProblems().find(z=>z.id===id);if(!p)return;const s=(x.seed[id]||0)+1;x.seed[id]=s;x.selected=id;delete x.drafts[id];delete x.drafts['explain:'+id];const h=cstate(p);h.hint=0;h.messages=[];store();go('groupProblemDetail')}
