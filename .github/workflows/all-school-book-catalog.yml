@@ -1,0 +1,37 @@
+name: Middle and High School All-Subject Scribd Metadata Catalog
+on:
+  push:
+    branches: [feature/all-subject-scribd-catalog-20261111]
+    paths:
+      - tools/zocbo/catalog_all_school_subjects.py
+      - .github/workflows/all-school-book-catalog.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scan:
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [0, 1]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify script syntax
+        run: python -m py_compile tools/zocbo/catalog_all_school_subjects.py
+      - name: Discover broadly indexed book titles and actual document URLs
+        run: python tools/zocbo/catalog_all_school_subjects.py --batch ${{ matrix.batch }} --batch-size 90 --out all-school-textbook-catalog
+      - name: Inspect result summary
+        run: cat all-school-textbook-catalog/summary.json
+      - name: Upload complete query manifest, source attempts, split catalogs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-school-book-links-batch-${{ matrix.batch }}
+          path: all-school-textbook-catalog/
+          if-no-files-found: warn
+          retention-days: 30
