@@ -214,8 +214,8 @@ int main(int argc,char** argv){
   c.model_config.num_threads=2;
   c.model_config.provider="cpu";
   c.model_config.modeling_unit="cjkchar";
-  c.decoding_method="modified_beam_search";
-  c.max_active_paths=8;
+  c.decoding_method="greedy_search";
+  c.max_active_paths=1;
   c.enable_endpoint=0; // VAD must never gate 1-2-word captions.
   Engine engine;
   const uint64_t modelBeginNs=boot_ns();
@@ -233,7 +233,7 @@ int main(int argc,char** argv){
     SherpaOnnxDestroyOnlineRecognizer(engine.recognizer);return 4;
   }
   printf("STT_READY\n");
-  printf("ONLINE_READY:model=korean-zipformer-174m-int8:chunk=16:threads=2:full_previous_state=true:live=UNCONFIRMED\n");
+  printf("ONLINE_READY:model=korean-zipformer-174m-int8:chunk=16:threads=2:full_previous_state=true:live=UNCONFIRMED:decoding=greedy_search\n");
   int status=0;
   for(;;){
     uint8_t header[8];
