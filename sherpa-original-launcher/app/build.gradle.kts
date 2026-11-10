@@ -7,7 +7,7 @@ android {
     minSdk = 26
     targetSdk = 28
     versionCode = 8
-    versionName = "8.0.0-ko-zipformer-online-int8"
+    versionName = "8.0.0-ko-zipformer-174m-online-int8"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
