@@ -2,360 +2,253 @@ package app.hitel.sherpaoriginalcli;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
+import android.os.Build;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ClipData;
-import android.content.ClipboardManager;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.OpenableColumns;
-import android.util.Log;
 import android.graphics.Typeface;
-import android.widget.ScrollView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Button;
-
+import android.widget.TextView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.CompoundButton;
+import android.widget.CheckBox;
+import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.Locale;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.*;
 
+/**
+ * Diagnostic user interface. Selection and monitoring are distinct:
+ * 1) choose an existing M4A (including one growing) or
+ * 2) grant access to the Samsung Call recording directory while in foreground,
+ *    then switch to the Samsung Phone app to begin a call.
+ * Full JSONL/FFmpeg/Sherpa logs may be zipped after success or failure.
+ */
 public final class MainActivity extends Activity {
-  static final String TAG="SenseVoiceFileStream";
-  static final int OPEN=31,SAVE=32,SAVE_LOG=33;
-  static final int SAMPLE_RATE=16000;
-  final Handler main=new Handler(Looper.getMainLooper());
-  volatile Process nativeEngine;
-  volatile boolean busy=false,stopRequested=false;
-  volatile File logFile;
-  volatile long fileDurationMs=0,decodedMs=0;
-  volatile int receivedSegments=0;
-  Uri chosenUri;
-  String chosenName="",recognized="";
-  final TreeMap<Integer,String> captions=new TreeMap<>();
-  Button choose,execute,stop,save,copy,saveLog;
-  TextView status,result,diagnostic,filename,progress;
-  final StringBuilder diagnostics=new StringBuilder();
+  static final int FILE=31,FOLDER=32,EXPORT=33;
+  final Handler ui=new Handler(Looper.getMainLooper());
+  Uri selected;
+  boolean folderMode=false;
+  TextView source,status,caption,logs,summary;
+  Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
+  volatile boolean receiverRegistered=false;
+  final StringBuilder liveText=new StringBuilder();
 
-  TextView text(String s,int size) {
-    TextView v=new TextView(this);
-    v.setText(s);v.setTextSize(size);v.setPadding(0,9,0,9);return v;
+  final BroadcastReceiver broadcast=new BroadcastReceiver(){
+    @Override public void onReceive(Context context,Intent intent){
+      if(intent==null || !GrowingCallService.EVENT.equals(intent.getAction()))return;
+      String message=intent.getStringExtra(GrowingCallService.EX_STATUS);
+      String text=intent.getStringExtra(GrowingCallService.EX_TEXT);
+      if(message!=null)status.setText(message);
+      if(text!=null)caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
+      refreshButtons();
+      refreshEventTail();
+    }
+  };
+  TextView text(String value,int size){
+    TextView v=new TextView(this);v.setText(value);v.setTextSize(size);
+    v.setPadding(0,9,0,9);return v;
   }
-  Button button(LinearLayout root,String title) {
-    Button b=new Button(this);b.setText(title);root.addView(b);return b;
+  Button button(LinearLayout parent,String title){
+    Button v=new Button(this);v.setText(title);parent.addView(v);return v;
   }
-  void status(String s) {
-    Log.i(TAG,s);
-    main.post(()->status.setText(s));
-  }
-  static String clock(long millis) {
-    long sec=millis/1000;
-    return String.format(Locale.KOREA,"%02d:%02d",sec/60,sec%60);
-  }
-  @Override public void onCreate(Bundle saved) {
-    super.onCreate(saved);
+  @Override public void onCreate(Bundle b){
+    super.onCreate(b);
     ScrollView scroll=new ScrollView(this);
     LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
-    int pad=(int)(18*getResources().getDisplayMetrics().density);
-    root.setPadding(pad,pad,pad,pad);
+    int padding=(int)(16*getResources().getDisplayMetrics().density);
+    root.setPadding(padding,padding,padding,padding);
     scroll.addView(root);
-    TextView title=text("녹음 파일 스트리밍 STT",23);
-    title.setTypeface(null,Typeface.BOLD);root.addView(title);
-    root.addView(text("녹음 파일을 처음부터 끝까지 순차 디코딩합니다.\n" +
-      "완료될 때까지 기다리지 않고, 약 4초마다 SenseVoice 한국어 자막을 추가합니다.\n" +
-      "파일 입력 → Android MediaCodec → 16kHz PCM → SenseVoice C API",13));
-    choose=button(root,"1. 녹음 파일 선택 (M4A / MP3 등)");
-    filename=text("선택한 파일 없음",14);root.addView(filename);
-    execute=button(root,"2. 파일 스트리밍 STT 시작");execute.setEnabled(false);
-    stop=button(root,"스트리밍 중지");stop.setEnabled(false);
-    status=text("파일 선택 대기",14);root.addView(status);
-    progress=text("읽은 파일 길이: 0초",14);root.addView(progress);
-    TextView subtitle=text("연속 인식된 문장 (구간별 즉시 갱신)",18);
-    subtitle.setTypeface(null,Typeface.BOLD);root.addView(subtitle);
-    result=text("녹음 파일을 선택하여 시작하십시오.",17);
-    result.setTextIsSelectable(true);root.addView(result);
-    copy=button(root,"누적 한국어 자막 복사");copy.setEnabled(false);
-    save=button(root,"누적 자막 TXT로 저장");save.setEnabled(false);
-    root.addView(text("실제 디코더 및 Sherpa 출력 로그",14));
-    diagnostic=text("실행 전",12);
-    diagnostic.setTextIsSelectable(true);root.addView(diagnostic);
-    saveLog=button(root,"전체 진단 로그 TXT로 저장");saveLog.setEnabled(false);
-    root.addView(text("녹음 파일 전체를 미리 WAV로 변환하지 않습니다.\n" +
-      "SenseVoice는 문자를 한 글자씩 출력하는 스트리밍 모델이 아니라, 연속 공급된 PCM을 구간별로 인식하는 모델입니다.\n" +
-      "통화 중 전화망의 내부 수신 음성을 가로채는 기능은 포함하지 않습니다.",12));
+    TextView header=text("삼성 통화 녹음 파일 증가분 → FFmpeg → SenseVoice STT",20);
+    header.setTypeface(null,Typeface.BOLD);root.addView(header);
+    root.addView(text(
+      "삼성 기본 전화앱은 변경하지 않습니다. 실제 통화 중 녹음 파일이 다른 앱에서 열리는지, " +
+      "크기가 증가하는지, FFmpeg -follow 1로 AAC→16kHz PCM을 추출할 수 있는지, " +
+      "Sherpa-ONNX가 문장을 반환하는지 단계별로 측정합니다.",13));
+    root.addView(text("STEP 1 · 감시 대상 선택",17));
+    fileButton=button(root,"녹음 M4A 파일 직접 선택 (이미 존재하는 파일)");
+    folderButton=button(root,"통화 녹음 폴더 선택 (새로 커지는 파일 자동 감시)");
+    source=text("입력 없음 · 갤럭시의 Recordings/Call 폴더를 선택해 주십시오.",14);
+    source.setTextIsSelectable(true);root.addView(source);
+    root.addView(text(
+      "폴더 모드는 시작 당시 존재하는 파일은 건너뛰고, 이후 새로 나타나거나 크기가 변한 오디오 파일을 자동으로 선택합니다. " +
+      "삼성 전화앱에서 녹음을 시작하신 뒤 앱으로 돌아오지 않아도 백그라운드 감시가 계속됩니다.",12));
+    root.addView(text("STEP 2 · 증가분 스트리밍 진단",17));
+    startButton=button(root,"FFmpeg + SenseVoice 진단 시작");
+    stopButton=button(root,"진단 중지");
+    status=text("대기 중",15);root.addView(status);
+    root.addView(text("한국어 STT 자막 (들어오는 구간마다 갱신)",16));
+    caption=text("아직 인식 결과 없음",16);caption.setTextIsSelectable(true);root.addView(caption);
+    root.addView(text("STEP 3 · 상세 원본 로그 확보",17));
+    exportButton=button(root,"전체 진단 로그 ZIP 저장 (오류 발생 시에도 가능)");
+    refreshButton=button(root,"파일 증가·FFmpeg·STT 로그 새로고침");
+    summary=text("로그: 미실행",13);root.addView(summary);
+    logs=text("감시 로그 대기 중",11);logs.setTextIsSelectable(true);root.addView(logs);
+    root.addView(text(
+      "ZIP 구성: events.jsonl(시각·스레드·원인·파일 크기·변화량·접근 오류·FIFO·PCM·STT), " +
+      "ffmpeg-raw.txt, stt-raw.txt, M4A 헤더 바이너리, README.txt.\n" +
+      "성공 및 실패 여부와 관계없이 장치 내부에 저장됩니다. 전화번호·파일명·전사 내용이 로그에 포함될 수 있으니 ZIP 공유 전 확인하십시오.\n"+
+      "실제 통화 음성은 로그 ZIP에 원본 파일 형태로 복사하지 않습니다.",12));
     setContentView(scroll);
-    choose.setOnClickListener(v->{
-      if(busy)return;
-      Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
-      i.addCategory(Intent.CATEGORY_OPENABLE);
-      i.setType("audio/*");
-      i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-      startActivityForResult(i,OPEN);
-    });
-    execute.setOnClickListener(v->startStream());
-    stop.setOnClickListener(v->{
-      stopRequested=true;
-      Process process=nativeEngine;
-      if(process!=null)process.destroy();
-      stop.setEnabled(false);
-      status("파일 스트리밍 중지 요청됨");
-    });
-    copy.setOnClickListener(v->{
-      ((ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE))
-        .setPrimaryClip(ClipData.newPlainText("파일 스트리밍 STT",recognized));
-      status("한국어 자막을 복사했습니다.");
-    });
-    save.setOnClickListener(v->createTextFile(SAVE,"SenseVoice-Streaming-Transcript.txt"));
-    saveLog.setOnClickListener(v->createTextFile(SAVE_LOG,"SenseVoice-Streaming-Diagnostics.txt"));
-    acceptIntent(getIntent());
-  }
 
-  void createTextFile(int code,String name){
+    fileButton.setOnClickListener(v->choose(false));
+    folderButton.setOnClickListener(v->choose(true));
+    startButton.setOnClickListener(v->start());
+    stopButton.setOnClickListener(v->stop());
+    exportButton.setOnClickListener(v->export());
+    refreshButton.setOnClickListener(v->refreshEventTail());
+    String last=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("sourceUri","");
+    if(!last.isEmpty()){
+      try{selected=Uri.parse(last);
+        folderMode=getSharedPreferences("growing_diag",MODE_PRIVATE).getBoolean("folderMode",false);
+        source.setText((folderMode?"녹음 폴더":"녹음 파일")+": "+last);
+      }catch(Exception ignored){}
+    }
+    refreshButtons();
+  }
+  void choose(boolean folder){
+    if(active())return;
+    Intent i;
+    if(folder){
+      i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+    }else{
+      i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+      i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("audio/*");
+    }
+    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|
+      Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+    startActivityForResult(i,folder?FOLDER:FILE);
+  }
+  @Override public void onActivityResult(int requestCode,int resultCode,Intent intent){
+    super.onActivityResult(requestCode,resultCode,intent);
+    if(resultCode!=RESULT_OK || intent==null || intent.getData()==null)return;
+    Uri uri=intent.getData();
+    if(requestCode==FILE || requestCode==FOLDER){
+      selected=uri;folderMode=requestCode==FOLDER;
+      try {
+        getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);
+      }catch(Throwable err){
+        Log.w("GrowingM4aDiag","Persistable SAF permission unavailable",err);
+        status.setText("선택 성공 · 영구 권한 유지 실패: "+err);
+      }
+      getSharedPreferences("growing_diag",MODE_PRIVATE).edit()
+        .putString("sourceUri",uri.toString()).putBoolean("folderMode",folderMode).apply();
+      source.setText((folderMode?"자동 감시할 폴더":"연속 읽을 파일")+": "+uri);
+      status.setText("선택 완료 · 진단 시작 버튼을 누르십시오.");
+      refreshButtons();
+    }else if(requestCode==EXPORT){
+      String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
+      File dir=new File(getFilesDir(),"diagnostics/run-"+id);
+      if(id.isEmpty()||!dir.exists()){
+        status.setText("내보낼 진단 기록이 없습니다.");return;
+      }
+      try(OutputStream out=getContentResolver().openOutputStream(uri)){
+        if(out==null)throw new IOException("SAF ZIP 출력 스트림이 열리지 않았습니다.");
+        TraceJournal.zipDirectory(dir,out,id);
+        status.setText("진단 ZIP 저장 완료: "+uri);
+      }catch(Throwable e){
+        status.setText("ZIP 저장 실패: "+e.getMessage());
+        Log.e("GrowingM4aDiag","ZIP export failure",e);
+      }
+    }
+  }
+  void start(){
+    if(selected==null){status.setText("먼저 녹음 파일 또는 폴더를 선택하십시오.");return;}
+    if(active()){status.setText("진단이 이미 실행 중입니다.");return;}
+    try{
+      Intent i=new Intent(this,GrowingCallService.class).setAction(GrowingCallService.START);
+      i.putExtra(GrowingCallService.EX_URI,selected.toString());
+      i.putExtra(GrowingCallService.EX_FOLDER,folderMode);
+      if(Build.VERSION.SDK_INT>=26)startForegroundService(i);
+      else startService(i);
+      status.setText("포그라운드 서비스 시작 요청 · 파일 감시 로그 기록 중");
+      ui.postDelayed(this::refreshButtons,850);
+    }catch(Throwable e){
+      Log.e("GrowingM4aDiag","Service start failed",e);
+      status.setText("서비스 시작 실패: "+e);
+    }
+  }
+  void stop(){
+    Intent i=new Intent(this,GrowingCallService.class).setAction(GrowingCallService.STOP);
+    try{startService(i);status.setText("진단 종료 요청 · 로그는 보관됩니다.");}
+    catch(Throwable e){status.setText("중지 요청 오류: "+e);}
+    ui.postDelayed(this::refreshButtons,500);
+  }
+  void export(){
+    String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
+    if(id.isEmpty()){status.setText("진단 실행 기록이 없습니다.");return;}
     Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
     i.addCategory(Intent.CATEGORY_OPENABLE);
-    i.setType("text/plain");i.putExtra(Intent.EXTRA_TITLE,name);
-    startActivityForResult(i,code);
+    i.setType("application/zip");
+    i.putExtra(Intent.EXTRA_TITLE,"Galaxy-Growing-M4A-FFmpeg-STT-"+id+".zip");
+    startActivityForResult(i,EXPORT);
   }
-  void acceptIntent(Intent incoming){
-    if(incoming==null)return;
-    Uri u=null;
-    if(Intent.ACTION_VIEW.equals(incoming.getAction()))u=incoming.getData();
-    if(Intent.ACTION_SEND.equals(incoming.getAction()))
-      u=incoming.getParcelableExtra(Intent.EXTRA_STREAM);
-    if(u!=null)selectAudio(u);
+  boolean active(){return getSharedPreferences("growing_diag",MODE_PRIVATE).getBoolean("active",false);}
+  void refreshButtons(){
+    boolean running=active();
+    startButton.setEnabled(selected!=null&&!running);
+    stopButton.setEnabled(running);
+    folderButton.setEnabled(!running);
+    fileButton.setEnabled(!running);
+    String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
+    exportButton.setEnabled(!id.isEmpty());
+    summary.setText("세션: "+(id.isEmpty()?"없음":id)+" · 상태: "+(running?"실행 중":"종료 또는 대기"));
   }
-  @Override public void onNewIntent(Intent incoming){
-    super.onNewIntent(incoming);setIntent(incoming);acceptIntent(incoming);
-  }
-  void selectAudio(Uri uri){
-    if(uri==null)return;
-    chosenUri=uri;
-    chosenName="recording";
-    try(Cursor c=getContentResolver().query(uri,
-       new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){
-      if(c!=null && c.moveToFirst()&&!c.isNull(0))chosenName=c.getString(0);
-    }catch(Exception ignored){}
-    filename.setText("선택: "+chosenName);
-    execute.setEnabled(true);
-    status("녹음 파일이 선택되었습니다. 시작 시 파일 앞부분부터 인식합니다.");
-  }
-  @Override public void onActivityResult(int code,int resultCode,Intent data){
-    super.onActivityResult(code,resultCode,data);
-    if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
-    Uri uri=data.getData();
-    if(code==OPEN) {
-      selectAudio(uri);
-    }else if(code==SAVE){
-      try(OutputStream out=getContentResolver().openOutputStream(uri)){
-        if(out==null)throw new IOException("출력 스트림 없음");
-        out.write(recognized.getBytes(StandardCharsets.UTF_8));out.flush();
-        status("누적 한국어 자막을 저장했습니다.");
-      }catch(Exception e){status("자막 저장 실패: "+e);}
-    }else if(code==SAVE_LOG){
-      File f=logFile;
-      if(f==null||!f.isFile()){status("진단 로그가 없습니다.");return;}
-      try(InputStream in=new FileInputStream(f);
-          OutputStream out=getContentResolver().openOutputStream(uri)){
-        if(out==null)throw new IOException("출력 스트림 없음");
-        byte[] buf=new byte[32768];int n;
-        while((n=in.read(buf))!=-1){if(n>0)out.write(buf,0,n);}
-        out.flush();status("스트리밍 진단 로그를 저장했습니다.");
-      }catch(Exception e){status("로그 저장 실패: "+e);}
-    }
-  }
-  File extractModel(String name,long min) throws IOException{
-    File dir=new File(getFilesDir(),"sensevoice-int8");
-    if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("모델 폴더 생성 실패");
-    File dest=new File(dir,name);
-    if(dest.length()>=min)return dest;
-    status("SenseVoice 한국어 모델 준비: "+name);
-    File temporary=new File(dir,name+".partial");
-    if(temporary.exists()&&!temporary.delete())throw new IOException("임시 모델 교체 실패");
-    try(InputStream in=getAssets().open("sensevoice/"+name);
-        FileOutputStream out=new FileOutputStream(temporary)){
-      byte[] b=new byte[131072];int n;
-      while((n=in.read(b))!=-1){
-        if(stopRequested)throw new IOException("인식 중지");
-        if(n>0)out.write(b,0,n);
-      }
-      out.getFD().sync();
-    }
-    if(temporary.length()<min)throw new IOException("APK 한국어 모델 파일 누락: "+name);
-    if(dest.exists()&&!dest.delete())throw new IOException("기존 모델 교체 실패");
-    if(!temporary.renameTo(dest))throw new IOException("모델 저장 실패");
-    return dest;
-  }
-  static void writeLittleInt(OutputStream out,int x)throws IOException{
-    out.write(x&255);out.write((x>>8)&255);out.write((x>>16)&255);out.write((x>>24)&255);
-  }
-  void renderCaptions(){
-    StringBuilder visible=new StringBuilder(),plain=new StringBuilder();
-    synchronized(captions){
-      for(Map.Entry<Integer,String> e:captions.entrySet()){
-        int seq=e.getKey();
-        String line=e.getValue();
-        if(line.isEmpty())continue;
-        long startMs=(seq-1)*FilePcmStream.SEGMENT_SECONDS*1000L;
-        if(visible.length()>0)visible.append("\n\n");
-        visible.append("[").append(clock(startMs)).append("] ").append(line);
-        if(plain.length()>0)plain.append('\n');
-        plain.append(line);
-      }
-    }
-    recognized=plain.toString();
-    result.setText(visible.length()>0?visible.toString():"파일을 읽고 있습니다. 아직 인식된 한국어 문장이 없습니다.");
-    copy.setEnabled(!recognized.isEmpty());
-    save.setEnabled(!recognized.isEmpty());
-  }
-  void updateDiagnostic(String row){
-    synchronized(diagnostics){
-      diagnostics.append(row).append('\n');
-      if(diagnostics.length()>50000)diagnostics.delete(0,diagnostics.length()-35000);
-      final String last=diagnostics.length()>4000?
-        diagnostics.substring(diagnostics.length()-4000):diagnostics.toString();
-      main.post(()->diagnostic.setText(last));
-    }
-  }
-  Thread outputReader(Process process,File log) {
-    Thread thread=new Thread(()->{
-      try(BufferedReader reader=new BufferedReader(new InputStreamReader(
-            process.getInputStream(),StandardCharsets.UTF_8));
-          FileOutputStream file=new FileOutputStream(log,false)){
-        String line;
-        while((line=reader.readLine())!=null){
-          byte[] bytes=(line+"\n").getBytes(StandardCharsets.UTF_8);
-          file.write(bytes);file.flush();
-          Log.i(TAG,"NATIVE: "+line);
-          updateDiagnostic(line);
-          if(line.startsWith("STT_READY")){
-            status("SenseVoice 준비됨 · 파일을 연속 읽으며 구간별 인식 중");
-          }
-          if(line.startsWith("STT_SEGMENT:")){
-            String[] cols=line.split(":",3);
-            if(cols.length==3){
-              try{
-                int seq=Integer.parseInt(cols[1]);
-                synchronized(captions){captions.put(seq,cols[2].trim());}
-                receivedSegments++;
-                main.post(()->renderCaptions());
-                status("구간 "+seq+" 인식 완료 · 누적 "+receivedSegments+"구간 · 다음 파일 구간 처리 중");
-              }catch(NumberFormatException ex){
-                updateDiagnostic("SEGMENT_PARSE_FAILED "+line);
-              }
-            }
-          }
-        }
-      }catch(IOException e){
-        Log.e(TAG,"Native transcript reader failed",e);
-        updateDiagnostic("NATIVE_READER_ERROR "+e);
-      }
-    },"SenseVoice-Streaming-Result-Reader");
-    thread.start();
-    return thread;
-  }
-  void startStream(){
-    if(chosenUri==null||busy)return;
-    busy=true;stopRequested=false;nativeEngine=null;logFile=null;
-    decodedMs=0;fileDurationMs=0;receivedSegments=0;recognized="";
-    synchronized(captions){captions.clear();}
-    synchronized(diagnostics){diagnostics.setLength(0);}
-    choose.setEnabled(false);execute.setEnabled(false);
-    stop.setEnabled(true);save.setEnabled(false);copy.setEnabled(false);
-    saveLog.setEnabled(false);
-    result.setText("디코더 시작 중…");diagnostic.setText("");
-    progress.setText("파일 스트리밍 준비 중…");
+  void refreshEventTail(){
+    String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
+    if(id.isEmpty())return;
+    File eventFile=new File(new File(getFilesDir(),"diagnostics/run-"+id),"events.jsonl");
+    if(!eventFile.isFile()){logs.setText("진단 기록 생성 대기 중");return;}
     new Thread(()->{
-      Thread readerThread=null;
-      Process process=null;
-      int sourceChunks=0;
-      try{
-        File model=extractModel("model.int8.onnx",1000000L);
-        File tokens=extractModel("tokens.txt",1000L);
-        if(stopRequested)throw new InterruptedException("실행 중지");
-        File binary=new File(getApplicationInfo().nativeLibraryDir,"libsensevoice-stream.so");
-        if(!binary.isFile()||!binary.canExecute())
-          throw new IOException("스트리밍 SenseVoice ARM64 실행 파일이 누락되었습니다: "+binary);
-        ProcessBuilder pb=new ProcessBuilder(binary.getAbsolutePath(),
-          tokens.getAbsolutePath(),model.getAbsolutePath());
-        pb.directory(getFilesDir());
-        pb.redirectErrorStream(true);
-        String oldPath=pb.environment().get("LD_LIBRARY_PATH");
-        pb.environment().put("LD_LIBRARY_PATH",getApplicationInfo().nativeLibraryDir+
-          (oldPath==null||oldPath.isEmpty()?"":":"+oldPath));
-        process=pb.start();nativeEngine=process;
-        logFile=new File(getFilesDir(),"sensevoice-stream-last-native-output.txt");
-        readerThread=outputReader(process,logFile);
-        status("선택한 파일을 스트리밍으로 디코딩 중…");
-        final Process pipe=process;
-        final AtomicInteger seqs=new AtomicInteger(0);
-        try(BufferedOutputStream nativeInput=new BufferedOutputStream(pipe.getOutputStream(),262144)){
-          FilePcmStream.decode(this,chosenUri,new FilePcmStream.Callback(){
-            @Override public boolean cancelled(){return stopRequested;}
-            @Override public void onStart(long total,String mime,int rate,int channels){
-              fileDurationMs=total;
-              status("디코더 연결: "+mime+" / "+rate+"Hz / "+channels+"채널");
-            }
-            @Override public void onProgress(long played,long total){
-              decodedMs=played;
-              final String line="파일 스트리밍 입력: "+clock(played)+" / "+
-                (total>0?clock(total):"종료 시까지")+
-                " · 인식 "+receivedSegments+"구간";
-              main.post(()->progress.setText(line));
-            }
-            @Override public void onSegment(int seq,byte[] pcm,long position,long total,boolean last)throws Exception{
-              if(stopRequested)throw new InterruptedException("사용자 중지");
-              writeLittleInt(nativeInput,seq);
-              writeLittleInt(nativeInput,pcm.length/2);
-              nativeInput.write(pcm);
-              nativeInput.flush();
-              seqs.incrementAndGet();
-              updateDiagnostic("FILE_STREAM_CHUNK_SENT seq="+seq+" bytes="+pcm.length+
-                 " decoded_until="+clock(position)+" / "+(total>0?clock(total):"unknown")+" last="+last);
-            }
-          });
-          if(!stopRequested){
-            writeLittleInt(nativeInput,0);writeLittleInt(nativeInput,0);
-            nativeInput.flush();
-          }
+      try(RandomAccessFile raf=new RandomAccessFile(eventFile,"r")){
+        long size=raf.length();
+        long offset=Math.max(0,size-28000);
+        raf.seek(offset);
+        byte[] b=new byte[(int)Math.min(28000,size-offset)];
+        raf.readFully(b);
+        String contents=new String(b,StandardCharsets.UTF_8);
+        String[] lines=contents.split("\n");
+        StringBuilder view=new StringBuilder();
+        for(int j=Math.max(0,lines.length-28);j<lines.length;j++){
+          String line=lines[j];
+          try{
+            org.json.JSONObject obj=new org.json.JSONObject(line);
+            view.append(obj.optString("timestamp")).append(" [")
+              .append(obj.optString("category")).append("] ")
+              .append(obj.optString("event")).append(" ")
+              .append(obj.optJSONObject("data")).append("\n\n");
+          }catch(Exception ignored){view.append(line).append('\n');}
         }
-        sourceChunks=seqs.get();
-        if(stopRequested)throw new InterruptedException("사용자 중지");
-        int code=process.waitFor();
-        if(readerThread!=null)readerThread.join(5000);
-        if(code!=0)status("파일 스트리밍 STT 오류: 엔진 종료코드 "+code+" · 로그 확인");
-        else if(receivedSegments!=sourceChunks)
-          status("일부 구간 출력 누락: 입력 "+sourceChunks+"구간 / 출력 "+receivedSegments+"구간");
-        else if(recognized.isEmpty())
-          status("파일 스트리밍 완료. "+sourceChunks+"구간 인식 실행, 한국어 출력 없음");
-        else
-          status("전체 파일 스트리밍 완료 · "+receivedSegments+"구간 · 한국어 "+recognized.length()+"글자");
-      }catch(InterruptedException e){
-        status("사용자 요청으로 파일 스트리밍을 중지했습니다.");
-      }catch(Throwable e){
-        Log.e(TAG,"Continuous file STT failed",e);
-        status("파일 스트리밍 오류: "+e.getMessage());
-        updateDiagnostic("STREAM_FILE_EXCEPTION "+e);
-      }finally{
-        if(process!=null){
-          if(process.isAlive())process.destroyForcibly();
-        }
-        if(readerThread!=null && readerThread.isAlive()){
-          try{readerThread.join(3000);}catch(InterruptedException ignored){}
-        }
-        nativeEngine=null;busy=false;
-        main.post(()->{
-          execute.setEnabled(chosenUri!=null);choose.setEnabled(true);
-          stop.setEnabled(false);
-          saveLog.setEnabled(logFile!=null&&logFile.isFile()&&logFile.length()>0);
-          renderCaptions();
-        });
-      }
-    },"Galaxy-Selected-File-Streaming-ASR").start();
+        ui.post(()->logs.setText(view.toString()));
+      }catch(Throwable e){ui.post(()->logs.setText("로그 조회 실패: "+e));}
+    },"GrowingLogScreenReader").start();
+  }
+  void loadPersisted(){
+    String msg=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentStatus","대기 중");
+    String text=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentTranscript","");
+    status.setText(msg);
+    caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":text);
+    refreshButtons();
+    refreshEventTail();
+  }
+  @Override protected void onStart(){
+    super.onStart();
+    IntentFilter filter=new IntentFilter(GrowingCallService.EVENT);
+    if(Build.VERSION.SDK_INT>=33)registerReceiver(broadcast,filter,Context.RECEIVER_NOT_EXPORTED);
+    else registerReceiver(broadcast,filter);
+    receiverRegistered=true;
+    loadPersisted();
+  }
+  @Override protected void onStop(){
+    if(receiverRegistered){unregisterReceiver(broadcast);receiverRegistered=false;}
+    super.onStop();
   }
 }
