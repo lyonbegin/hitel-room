@@ -162,7 +162,9 @@ struct Engine {
       static_cast<long long>(prevMs));
     std::vector<float> current(seg->samples,seg->samples+seg->n);
     std::string output;
-    if(prior.exists && !prior.emittedText.empty()) {
+    // Even when a prior utterance produced empty text, send its FULL audio
+    // to the contextual recognizer. Dedup will fall back to current-only.
+    if(prior.exists) {
       // Full previous speech is retained. Only the intervening silence can
       // be shortened (to 1 second), never previous speech itself.
       const size_t silence=static_cast<size_t>(
