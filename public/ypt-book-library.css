@@ -1,0 +1,117 @@
+/* HITEL school subject textbook bookshelf — neutral white/gray appearance.
+ * Cover-grid inspired by eBook libraries, not copied layout or stylesheets.
+ */
+#phone .bs-library{font-family:inherit;color:#2b3038;padding-bottom:32px}
+#phone .bs-library button,#phone .bs-library input,#phone .bs-library textarea,#phone .bs-library select{font:inherit}
+#phone .bs-library button{cursor:pointer}
+#phone .bs-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:8px 0 16px}
+#phone .bs-title h3{font-size:22px;margin:0 0 6px;line-height:1.3}
+#phone .bs-title p{color:#747b85;font-size:11px;margin:0;line-height:1.6}
+#phone .bs-price{border:1px solid #e4e7eb;border-radius:20px;padding:6px 8px;font-size:10px;color:#616772;white-space:nowrap}
+#phone .bs-major-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid #e8ebef;gap:1px;margin:8px 0 15px}
+#phone .bs-major-tabs button{height:43px;border:0;background:#fff;color:#888f98;font-size:12px;font-weight:600;padding:8px 3px;border-bottom:2px solid transparent}
+#phone .bs-major-tabs button.active{color:#212833;font-weight:800;border-bottom-color:#262b33}
+#phone .bs-search{display:flex;border:1px solid #dce1e6;border-radius:10px;height:42px;overflow:hidden;background:white;margin-bottom:11px}
+#phone .bs-search input{border:0;outline:0;flex:1;min-width:0;font-size:12px;padding:0 13px}
+#phone .bs-search button{background:#f5f6f7;border:0;border-left:1px solid #e8ebee;padding:0 15px;font-size:12px;color:#39404a;font-weight:700}
+#phone .bs-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:13px}
+#phone .bs-filter{display:grid;gap:5px;min-width:0}
+#phone .bs-filter>span{font-size:9px;color:#7f858e}
+#phone .bs-filter select,#phone .bs-layout-controls select{min-width:0;width:100%;border:1px solid #e1e4e8;border-radius:7px;background:white;color:#3c434b;font-size:10px;padding:7px 3px;height:34px}
+#phone .bs-subline{font-size:11px;color:#68717d;padding:4px 0 13px}
+#phone .bs-folders{display:flex;gap:6px;overflow-x:auto;padding:0 0 13px;scrollbar-width:none}
+#phone .bs-btn{background:#fff;border:1px solid #dfe3e8;border-radius:8px;color:#414853;padding:8px 10px;min-height:31px;font-size:11px;text-align:center;line-height:1.3;white-space:nowrap}
+#phone .bs-btn.primary{background:#303640;color:white;border-color:#303640}
+#phone .bs-btn.checked,#phone .bs-btn.on{border-color:#8e969f;background:#eff1f3;font-weight:700}
+#phone .bs-btn.bs-tab{border-radius:18px;font-size:10px;flex:none}
+#phone .bs-btn.bs-tab.active{border-color:#515964;color:#272c35;font-weight:800;background:#f2f3f5}
+#phone .bs-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;margin:17px 0 10px}
+#phone .bs-heading h4{font-size:14px;margin:0;font-weight:800}
+#phone .bs-heading small{display:block;margin-top:4px;font-size:10px;color:#8a929b}
+#phone .bs-layout-controls{display:flex;align-items:center;gap:5px}
+#phone .bs-layout-controls select{width:86px}
+#phone .bs-layout-controls .bs-btn{padding:5px 8px;min-height:33px;font-size:15px}
+#phone .bs-books{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px}
+#phone .bs-book{min-width:0;position:relative}
+#phone .bs-book-open{border:0;background:transparent;padding:0;width:100%;text-align:left;display:flex;flex-direction:column;gap:7px;color:#293039}
+#phone .bs-cover{width:100%;aspect-ratio:0.72;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border-radius:5px;border:1px solid #e3e5e9;background:#f2f3f5;box-shadow:0 2px 3px #00000008}
+#phone .bs-cover>img{width:100%;height:100%;object-fit:contain;background:#fff;display:block}
+#phone .bs-text-cover{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px;width:100%;height:100%;padding:9px 6px 8px;background:#f5f5f4;color:#393c42;border-left:6px solid #dee1e5}
+#phone .bs-text-cover>small{font-size:8px;color:#7d838a;overflow-wrap:anywhere}
+#phone .bs-text-cover>strong{font-size:13px;font-weight:900;line-height:1.25;overflow-wrap:anywhere;word-break:keep-all}
+#phone .bs-text-cover>em{font-style:normal;font-size:11px;color:#555d65}
+#phone .bs-cover.bs-cover-missing{background:#f8f9fa}
+#phone .bs-book-info{display:grid;gap:4px;min-width:0;width:100%}
+#phone .bs-book-info strong{font-size:11px;font-weight:750;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:30px}
+#phone .bs-book-info small{font-size:9px;color:#8a919b;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#phone .bs-progress{height:5px;border-radius:8px;overflow:hidden;background:#e8eaed;flex:none;margin:7px 0 4px}
+#phone .bs-progress span{display:block;height:100%;background:#5e666e}
+#phone .bs-quick{display:flex;gap:4px;margin:7px 0 0}
+#phone .bs-quick .bs-btn{font-size:9px;padding:5px 2px;min-width:0;flex:1;white-space:normal;min-height:28px}
+#phone .bs-books.list-view{display:grid;grid-template-columns:1fr;gap:0}
+#phone .bs-book.bs-book-list{display:grid;grid-template-columns:1fr auto;gap:5px 9px;padding:11px 0;border-bottom:1px solid #eff1f3}
+#phone .bs-book.bs-book-list .bs-book-open{flex-direction:row;align-items:center;min-width:0;grid-column:1}
+#phone .bs-book.bs-book-list .bs-cover{width:56px;height:76px;flex:none;aspect-ratio:auto}
+#phone .bs-book.bs-book-list .bs-book-info strong{min-height:0;font-size:12px}
+#phone .bs-book.bs-book-list .bs-quick{margin:0;flex-direction:column;grid-column:2;grid-row:1}
+#phone .bs-book.bs-book-list .bs-quick .bs-btn{min-height:29px;min-width:66px;padding:4px}
+#phone .bs-book.bs-book-list .bs-progress{grid-column:1/-1;width:100%}
+#phone .bs-recent{margin:16px 0 8px}
+#phone .bs-recent-scroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 0 7px}
+#phone .bs-recent-scroll button{display:flex;gap:8px;align-items:center;min-width:180px;max-width:210px;border:1px solid #e8eaed;border-radius:10px;padding:8px;background:#fff;text-align:left;color:#343a43}
+#phone .bs-recent-scroll .bs-cover{width:46px;height:64px;min-width:46px;aspect-ratio:auto}
+#phone .bs-recent-scroll button>span:last-child{font-size:11px;font-weight:750;display:grid;gap:5px}
+#phone .bs-recent-scroll button>span:last-child small{font-size:9px;font-weight:400;color:#848b95}
+#phone .bs-catalog-note{border-top:1px solid #edf0f1;color:#90959c;font-size:10px;line-height:1.6;margin:22px 0 12px;padding-top:12px}
+#phone .bs-empty{text-align:center;border:1px dashed #dfe2e6;border-radius:11px;padding:35px 15px;margin:10px 0}
+#phone .bs-empty strong{font-size:13px}
+#phone .bs-empty p{font-size:11px;color:#858b94;line-height:1.6;margin:12px 0}
+#phone .bs-local-warning{color:#8c939b;font-size:10px;line-height:1.65;background:#f8f9fa;border-radius:8px;padding:10px;margin:12px 0}
+#phone .bs-visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#phone .bs-back{margin:5px 0 16px}
+#phone .bs-detail-hero{display:flex;gap:16px;align-items:flex-start;margin:7px 0 18px}
+#phone .bs-detail-hero>.bs-cover{width:116px;min-width:116px;aspect-ratio:0.72}
+#phone .bs-detail-info{min-width:0;flex:1}
+#phone .bs-detail-info small{font-size:10px;color:#838b93}
+#phone .bs-detail-info h3{font-size:18px;font-weight:800;line-height:1.35;margin:7px 0}
+#phone .bs-detail-info p{font-size:11px;color:#666e78;margin:0 0 10px}
+#phone .bs-tag{display:inline-block;background:#f1f2f4;color:#5d656e;font-size:9px;padding:5px 8px;border-radius:6px;margin-bottom:8px}
+#phone .bs-detail-actions,#phone .bs-detail-bottom,#phone .bs-reading-actions{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}
+#phone .bs-detail-actions .bs-btn,#phone .bs-detail-bottom .bs-btn,#phone .bs-reading-actions .bs-btn{flex:1;white-space:normal}
+#phone .bs-folder-assignment{max-width:210px;margin:13px 0}
+#phone .bs-section-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:21px 0 11px}
+#phone .bs-section-title h4{margin:0;font-size:14px}
+#phone .bs-section-title small{font-size:9px;color:#858c96}
+#phone .bs-chapters{border:1px solid #e7e9ec;border-radius:10px;overflow:hidden}
+#phone .bs-chapters button{width:100%;display:flex;align-items:center;gap:12px;background:#fff;border:0;border-bottom:1px solid #eceef0;text-align:left;padding:13px 11px;font-size:12px;color:#414852}
+#phone .bs-chapters button:last-child{border-bottom:0}
+#phone .bs-chapters button.active{background:#f3f4f6;color:#252b32;font-weight:800}
+#phone .bs-chapters button>span:first-child{font-size:10px;color:#8b929b}
+#phone .bs-chapters button>strong{flex:1}
+#phone .bs-learning-actions{border:1px solid #e8ebee;border-radius:10px;padding:15px;margin-top:15px;display:grid;gap:9px}
+#phone .bs-learning-actions strong{font-size:14px}
+#phone .bs-learning-actions p{font-size:11px;color:#878d96;line-height:1.5;margin:0}
+#phone .bs-progress-buttons{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+#phone .bs-progress-buttons .bs-btn{min-width:0;padding:6px 0;font-size:10px}
+#phone .bs-note-label{display:block;font-size:12px;font-weight:750;margin:22px 0 7px}
+#phone #bs-memo{border:1px solid #dfe3e7;border-radius:9px;background:#fff;width:100%;min-height:110px;padding:12px;font-size:11px;line-height:1.7;resize:vertical}
+#phone .bs-reading-head small{font-size:11px;color:#858c96}
+#phone .bs-reading-head h3{font-size:18px;margin:8px 0 15px}
+#phone .bs-reading-paper{border:1px solid #e5e7ea;background:#fff;border-radius:12px;padding:23px 16px;margin:10px 0}
+#phone .bs-reading-label{font-size:10px;letter-spacing:.05em;font-weight:750;color:#7f868e}
+#phone .bs-reading-paper h4{font-size:18px;line-height:1.45;margin:18px 0}
+#phone .bs-reading-paper>p{font-size:12px;line-height:1.8;color:#646c74}
+#phone .bs-reading-steps{display:grid;gap:9px;margin:22px 0}
+#phone .bs-reading-steps div{display:flex;align-items:center;gap:13px;border-bottom:1px solid #f0f1f2;padding-bottom:9px}
+#phone .bs-reading-steps span{font-size:11px;color:#969da3}
+#phone .bs-reading-steps strong{font-size:12px;color:#353b42}
+#phone .bs-reading-paper .bs-reading-foot{font-size:10px;color:#9aa1a8;margin-top:14px}
+@media(max-width:390px){
+ #phone .bs-books{gap:9px 6px}
+ #phone .bs-book-info strong{font-size:10px}
+ #phone .bs-detail-hero{gap:10px}
+ #phone .bs-detail-hero>.bs-cover{width:98px;min-width:98px}
+ #phone .bs-title h3{font-size:20px}
+ #phone .bs-filters{gap:4px}
+ #phone .bs-filter select{font-size:9px}
+}
