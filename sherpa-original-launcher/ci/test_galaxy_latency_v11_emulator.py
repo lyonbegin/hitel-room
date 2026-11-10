@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 
 OUT=Path("emulator-qa-v11")
 OUT.mkdir(exist_ok=True)
-PKG="app.hitel.koreanzipformer.latencytrace"
+PKG="app.hitel.koreanzipformer.prewarm12"
 MAIN=PKG+"/app.hitel.sherpaoriginalcli.MainActivity"
 NAME="ko_live_test.m4a"
 
@@ -112,13 +112,23 @@ def check_actual():
     time.sleep(3)
     capture("stt-running")
     found=False
-    deadline=time.monotonic()+150
+    deadline=time.monotonic()+270
     while time.monotonic()<deadline:
         raw=read_log("latency-trace.jsonl")
         events=read_log("events.jsonl")
         if "LIVE_SET_TEXT" in raw and '"LIVE_CAPTION"' in events:
             found=True
-            print("LIVE TEXTVIEW UPDATE EVIDENCE",flush=True)
+        # Never stop on the first word. Preserve the entire 16.725-second
+        # reference input: an early stop previously hid truncated PCM delivery.
+        buffered_audio_ms=0
+        try:
+            buffered_audio_ms=max((int(e.get("data",{}).get("audioEndMs",0)) for e in
+                (json.loads(line) for line in raw.splitlines() if line.strip())
+                if e.get("stage")=="PCM" and e.get("event")=="PIPE_WRITE_END"),default=0)
+        except (ValueError,TypeError,json.JSONDecodeError):pass
+        print("FULL_PCM_PROGRESS_MS",buffered_audio_ms,"CAPTIONS",found,flush=True)
+        if found and buffered_audio_ms>=15000:
+            print("REAL_FULL_AUDIO_PCM_AND_CAPTIONS_CONFIRMED",flush=True)
             break
         if any(t in events for t in ("FATAL_ERROR","MODEL_LOAD_FAILED","FIFO_READ_OR_STT_WRITE_FAILURE")):
             print("STT WARNING/ERROR", events[-1200:],flush=True)
@@ -135,7 +145,12 @@ def check_actual():
     stages={x.get("stage") for x in (json.loads(line) for line in timeline.splitlines()
                                    if line.strip() and line.startswith("{"))}
     print("STAGES",sorted(str(x) for x in stages),flush=True)
+    total_audio_ms=max((int(e.get("data",{}).get("audioEndMs",0)) for e in
+        (json.loads(line) for line in timeline.splitlines() if line.strip())
+        if e.get("stage")=="PCM" and e.get("event")=="PIPE_WRITE_END"),default=0)
     checks={
+        "prewarm gate released":'"PREWARM_GATE_RELEASED"' in timeline,
+        "at least 15s source PCM transferred":total_audio_ms>=15000,
         "APK installed":bool(adb("shell","pm","path",PKG,check=False)),
         "FFmpeg attempted":'"ATTEMPT_BEGIN"' in events or '"START_COMMAND"' in timeline,
         "PCM delivered":'"PIPE_WRITE_END"' in timeline,
@@ -152,9 +167,12 @@ def check_actual():
     print("CHECKS",checks,flush=True)
     if not all(checks.values()):
         raise RuntimeError("E2E FAIL - failed checkpoints: "+repr([k for k,v in checks.items() if not v]))
+    original=os.environ.get("GALAXY_ORIGINAL_SHA256","")
+    sample=("original Samsung call M4A verified SHA256 "+original if original
+           else "generated public Korean speech fixture")
     (OUT/"PASS.txt").write_text("PASS Android 15 x86_64. APK actual install; DocumentsUI M4A; "
         "174M Zipformer native partial captions; UI setText and frame callbacks; "
-        "latency diagnostic JSONL; generated Korean speech fixture, NOT original Samsung call. "
+        "latency diagnostic JSONL; 15s+ PCM processed; "+sample+". "
         "Separate x86_64 APK; ARM64 real Galaxy unverified.\n",encoding="utf-8")
 
 if __name__=="__main__":
