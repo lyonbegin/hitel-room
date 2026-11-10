@@ -826,7 +826,7 @@ public final class GrowingCallEngine {
       String report=diagnostic.toString("UTF-8");
       long nextByte=-1,newFrames=-1;
       java.util.regex.Matcher m=java.util.regex.Pattern.compile(
-        "RECOVERY_CURSOR source=(\\\\d+) next=(\\\\d+) frames=(\\\\d+)").matcher(report);
+        "RECOVERY_CURSOR source=(\\d+) next=(\\d+) frames=(\\d+)").matcher(report);
       if(m.find() && Long.parseLong(m.group(1))==resumeByte){
         nextByte=Long.parseLong(m.group(2));
         newFrames=Long.parseLong(m.group(3));
