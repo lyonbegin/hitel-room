@@ -165,15 +165,21 @@ struct Engine {
     // Even when a prior utterance produced empty text, send its FULL audio
     // to the contextual recognizer. Dedup will fall back to current-only.
     if(prior.exists) {
-      // Full previous speech is retained. Only the intervening silence can
-      // be shortened (to 1 second), never previous speech itself.
-      const size_t silence=static_cast<size_t>(
-          std::min<int64_t>(gap,kRate));
+      // Preserve the ENTIRE intervening silence in original PCM time.
+      // No fixed 300-500 ms overlap and no 1-second pause truncation.
+      // Only the full preceding speech and its actual following silent gap
+      // precede the new utterance; no future audio is appended.
+      const size_t silence=static_cast<size_t>(gap);
       std::vector<float> contextual;
       contextual.reserve(prior.samples.size()+silence+current.size());
       contextual.insert(contextual.end(),prior.samples.begin(),prior.samples.end());
       contextual.insert(contextual.end(),silence,0.f);
       contextual.insert(contextual.end(),current.begin(),current.end());
+      printf("VAD_CONTEXT:%u:priorMs=%lld:silenceMs=%lld:currentMs=%lld:contextMs=%lld\n",
+          seq,static_cast<long long>(prevMs),
+          static_cast<long long>(gap*1000/kRate),
+          static_cast<long long>(seg->n*1000/kRate),
+          static_cast<long long>(contextual.size()*1000/kRate));
       std::string merged=decode(recognizer,contextual);
       Dedup d=new_only(prior.emittedText,merged);
       printf("STT_ALIGNMENT:%u:%s:%.3f\n",seq,d.method.c_str(),d.normalizedError);
