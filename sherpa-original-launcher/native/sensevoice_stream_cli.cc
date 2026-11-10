@@ -1,6 +1,6 @@
 // Samsung continuously growing M4A -> lossless AAC recovery -> PCM16
-// -> Silero VAD (utterance / silence boundaries) -> SenseVoice with one-sided,
-// full PRIOR utterance context -> caption only for NEW utterance.
+// -> 10ms short-pause candidates + SenseVoice CTC word timestamps + LocalAgreement;
+// Silero utterance VAD and full PRIOR context remain asynchronous diagnostics.
 //
 // stdin: repeated little-endian uint32(seq), uint32(samples), PCM16 LE.
 // (0,0) means end: flush VAD, finalize pending speech.
@@ -132,6 +132,126 @@ std::string decode(const SherpaOnnxOfflineRecognizer* rec,
   SherpaOnnxDestroyOfflineStream(stream);
   return trim(oneline(text));
 }
+
+struct TimedWord {
+  std::string text;
+  int64_t beginMs=0, endMs=0;
+};
+std::vector<TimedWord> read_words(const SherpaOnnxOfflineRecognizerResult* res,
+                                   int64_t offsetMs, int64_t spanMs) {
+  std::vector<TimedWord> words;
+  if(!res)return words;
+  // sherpa-onnx v1.12.26's SenseVoice CTC result carries tokens_arr +
+  // timestamps; group SentencePiece U+2581 word starts, as in the original
+  // SenseVoice post()/WhisperStreaming timestamped-word implementation.
+  const int n=std::min(1024, std::max(0, res->count));
+  if(n>0 && res->tokens_arr && res->timestamps){
+    for(int i=0;i<n;++i){
+      const char* ptr=res->tokens_arr[i];
+      if(!ptr)continue;
+      std::string t=ptr;
+      std::string cleaned;
+      bool fresh=false;
+      for(size_t p=0;p<t.size();){
+        if(t.compare(p,3,"\xE2\x96\x81")==0){
+          fresh=true;p+=3;continue;
+        }
+        if(t[p]==' '||t[p]=='\n'||t[p]=='\t'){
+          fresh=true;++p;continue;
+        }
+        cleaned.push_back(t[p++]);
+      }
+      const float ts=res->timestamps[i];
+      const int64_t ms=offsetMs+static_cast<int64_t>(std::round(ts*1000.f));
+      if(cleaned.empty())continue;
+      if(words.empty()||fresh){
+        words.push_back({cleaned,ms,ms+80});
+      }else{
+        words.back().text+=cleaned;
+        words.back().endMs=std::max(words.back().endMs,ms+80);
+      }
+    }
+    if(words.size()>1){
+      for(size_t i=0;i+1<words.size();++i)
+        words[i].endMs=std::min(words[i].endMs,words[i+1].beginMs);
+    }
+  }
+  // Some model variants contain no whitespace token or no timestamps.
+  // Only in this fallback do we infer rough word times from UTF-8 text.
+  if(words.size()<2 && res->text){
+    std::string phrase=trim(oneline(res->text));
+    std::vector<std::string> terms;
+    size_t p=0;
+    while(p<phrase.size()){
+      while(p<phrase.size()&&std::isspace(static_cast<unsigned char>(phrase[p])))p++;
+      size_t q=p;
+      while(q<phrase.size()&&!std::isspace(static_cast<unsigned char>(phrase[q])))q++;
+      if(q>p)terms.push_back(phrase.substr(p,q-p));
+      p=q;
+    }
+    if(terms.size()>1){
+      words.clear();
+      for(size_t i=0;i<terms.size();++i){
+        const int64_t a=offsetMs+static_cast<int64_t>(spanMs*i/terms.size());
+        const int64_t b=offsetMs+static_cast<int64_t>(spanMs*(i+1)/terms.size());
+        words.push_back({terms[i],a,b});
+      }
+      printf("WORD_TIME_MODE:FALLBACK_ESTIMATED:%zu\n",words.size());
+    }
+  }
+  if(!words.empty())printf("WORD_TIME_MODE:CTC_OR_FALLBACK:%zu\n",words.size());
+  return words;
+}
+// Unlike Silero's utterance-end detector, this follows stable-ts's NONVAD
+// loudness-mask approach: 10ms loudness, local smoothing, quantization,
+// contiguous quiet runs. It supplies short-silence *candidates*, not a
+// promise that every quiet run is a lexical boundary.
+struct ShortPause {
+  int64_t begin=0,end=0;
+};
+std::vector<ShortPause> short_pauses(const std::vector<float>& pcm,
+                                    int64_t offsetSamples) {
+  const int window=160; // 10 ms at 16 kHz
+  const size_t frames=pcm.size()/window;
+  std::vector<ShortPause> gaps;
+  if(frames<10)return gaps;
+  std::vector<double> loud(frames);
+  double peak=0;
+  for(size_t f=0;f<frames;++f){
+    double v=0;
+    for(int j=0;j<window;++j)v+=std::abs(pcm[f*window+j]);
+    loud[f]=v/window;
+    peak=std::max(peak,loud[f]);
+  }
+  if(peak<0.0001)return gaps;
+  std::vector<bool> quiet(frames,false);
+  for(size_t f=0;f<frames;++f){
+    double smoothed=0;
+    for(int j=-2;j<=2;j++){
+      int x=std::min<int>(frames-1,std::max<int>(0,static_cast<int>(f)+j));
+      smoothed+=loud[x];
+    }
+    // Original stable-ts non-VAD method uses 20-level quantization and
+    // k_size=5 smoothing. This C++ signal-domain port uses frame-mean
+    // loudness rather than torch interpolation; validate against real audio.
+    const int quant=static_cast<int>(std::round(20*(smoothed/5)/peak));
+    quiet[f]=quant<1;
+  }
+  for(size_t f=0;f<frames;){
+    if(!quiet[f]){++f;continue;}
+    size_t e=f+1;while(e<frames&&quiet[e])++e;
+    if(e-f>=7 && e-f<=35) {
+      gaps.push_back({(offsetSamples+static_cast<int64_t>(f*window))*1000/kRate,
+                      (offsetSamples+static_cast<int64_t>(e*window))*1000/kRate});
+    }
+    f=e;
+  }
+  return gaps;
+}
+bool same_word(const TimedWord& a,const TimedWord& b){
+  return normalize(a.text).chars==normalize(b.text).chars &&
+         std::llabs(a.beginMs-b.beginMs)<=500;
+}
 struct PriorSpeech {
   int64_t start=0;
   std::vector<float> samples;
@@ -142,10 +262,89 @@ struct Engine {
   const SherpaOnnxOfflineRecognizer* recognizer=nullptr;
   const SherpaOnnxVoiceActivityDetector* vad=nullptr;
   std::vector<float> remaining;
+  std::vector<float> recording;
+  std::vector<TimedWord> lastHypothesis;
   PriorSpeech prior;
-  unsigned int count=0;
+  int64_t committedThroughMs=0, lastDecodeAt=0;
   int64_t acceptedSamples=0;
-
+  unsigned int count=0, captions=0, shortPauseCount=0;
+  bool hasPending=false;
+  void emitCaption(const std::vector<TimedWord>& additions, const char* source) {
+    for(size_t i=0;i<additions.size();i+=2){
+      std::string text=additions[i].text;
+      if(i+1<additions.size())text+=" "+additions[i+1].text;
+      text=trim(oneline(text));
+      if(!text.empty()){
+        printf("STT_SEGMENT:%u:%s\n",++captions,text.c_str());
+        printf("WORD_COMMIT:%u:%lld:%lld:%s\n",captions,
+               static_cast<long long>(additions[i].beginMs),
+               static_cast<long long>(additions[std::min(i+1,additions.size()-1)].endMs),
+               source);
+      }
+    }
+  }
+  void recognizeLive(bool final=false) {
+    const int64_t now=static_cast<int64_t>(recording.size());
+    if(!final && now-lastDecodeAt<kRate)return;
+    if(now<kRate/2)return;
+    lastDecodeAt=now;
+    // Recognition happens BEFORE VAD utterance-end. A rolling 8-second window
+    // avoids the 17-40-second no-captions regression of v6.
+    const int64_t from=std::max<int64_t>(0,now-8*kRate);
+    std::vector<float> clip(recording.begin()+from,recording.end());
+    const auto pauses=short_pauses(clip,from);
+    for(const auto& gap:pauses){
+      // Only log new gaps, not the same pause on every overlapping decode.
+      if(gap.end>lastLoggedPauseMs){
+        lastLoggedPauseMs=gap.end;
+        ++shortPauseCount;
+        printf("SHORT_PAUSE:%u:%lld:%lld:%lld\n",shortPauseCount,
+            static_cast<long long>(gap.begin),
+            static_cast<long long>(gap.end),
+            static_cast<long long>(gap.end-gap.begin));
+      }
+    }
+    const SherpaOnnxOfflineStream* stream=SherpaOnnxCreateOfflineStream(recognizer);
+    if(!stream)return;
+    SherpaOnnxAcceptWaveformOffline(stream,kRate,clip.data(),static_cast<int32_t>(clip.size()));
+    SherpaOnnxDecodeOfflineStream(recognizer,stream);
+    const SherpaOnnxOfflineRecognizerResult* res=SherpaOnnxGetOfflineStreamResult(stream);
+    const int64_t offset=from*1000/kRate;
+    auto words=read_words(res,offset,clip.size()*1000/kRate);
+    std::string full=(res&&res->text)?trim(oneline(res->text)):"";
+    if(res)SherpaOnnxDestroyOfflineRecognizerResult(res);
+    SherpaOnnxDestroyOfflineStream(stream);
+    printf("WORD_HYPOTHESIS:%lld:%zu:%s\n",
+           static_cast<long long>(now*1000/kRate),words.size(),full.c_str());
+    std::vector<TimedWord> newCommitted;
+    for(const auto& word:words){
+      if(word.endMs<=committedThroughMs || normalize(word.text).chars.empty())
+        continue;
+      bool stable=final;
+      for(const auto& prev:lastHypothesis) {
+        if(same_word(word,prev)){stable=true;break;}
+      }
+      // Original WhisperStreaming LocalAgreement commits matching words on
+      // consecutive updates. A recent short quiet run is a second source of
+      // evidence for a boundary, but never blindly truncates a phoneme.
+      if(!stable){
+        for(const auto& p:pauses){
+          if(p.begin>=word.endMs-80 && p.begin<=word.endMs+260 &&
+             now*1000/kRate-p.end>180){stable=true;break;}
+        }
+      }
+      if(stable && (final||word.endMs<=now*1000/kRate-120)){
+        newCommitted.push_back(word);
+        committedThroughMs=std::max(committedThroughMs,word.endMs);
+      } else if(!stable && !final) {
+        // Do not skip a word to commit later words out of order.
+        break;
+      }
+    }
+    lastHypothesis=std::move(words);
+    if(!newCommitted.empty())emitCaption(newCommitted,final?"FINAL_FLUSH":"TIMED_LOCAL_AGREEMENT");
+  }
+  int64_t lastLoggedPauseMs=-1;
   void emitSpeech(const SherpaOnnxSpeechSegment* seg) {
     if(!seg||seg->n<1||!seg->samples)return;
     const int64_t start=seg->start;
@@ -161,39 +360,30 @@ struct Engine {
       static_cast<long long>(gap*1000/kRate),
       static_cast<long long>(prevMs));
     std::vector<float> current(seg->samples,seg->samples+seg->n);
-    std::string output;
-    // Even when a prior utterance produced empty text, send its FULL audio
-    // to the contextual recognizer. Dedup will fall back to current-only.
+    // Retain the full preceding utterance and the exact intervening recorded
+    // PCM. This is the original user's one-sided context rule, evaluated at
+    // VAD completion, not used as a gate for live captions.
     if(prior.exists) {
-      // Preserve the ENTIRE intervening silence in original PCM time.
-      // No fixed 300-500 ms overlap and no 1-second pause truncation.
-      // Only the full preceding speech and its actual following silent gap
-      // precede the new utterance; no future audio is appended.
-      const size_t silence=static_cast<size_t>(gap);
       std::vector<float> contextual;
-      contextual.reserve(prior.samples.size()+silence+current.size());
+      contextual.reserve(prior.samples.size()+gap+current.size());
       contextual.insert(contextual.end(),prior.samples.begin(),prior.samples.end());
-      contextual.insert(contextual.end(),silence,0.f);
+      const int64_t gapStart=prior.start+static_cast<int64_t>(prior.samples.size());
+      if(gapStart>=0 && start<=static_cast<int64_t>(recording.size()))
+        contextual.insert(contextual.end(),recording.begin()+gapStart,
+                          recording.begin()+start);
+      else contextual.insert(contextual.end(),static_cast<size_t>(gap),0.f);
       contextual.insert(contextual.end(),current.begin(),current.end());
       printf("VAD_CONTEXT:%u:priorMs=%lld:silenceMs=%lld:currentMs=%lld:contextMs=%lld\n",
           seq,static_cast<long long>(prevMs),
           static_cast<long long>(gap*1000/kRate),
           static_cast<long long>(seg->n*1000/kRate),
           static_cast<long long>(contextual.size()*1000/kRate));
+      // No duplicated final caption: this contextual STT is diagnostic only.
       std::string merged=decode(recognizer,contextual);
-      Dedup d=new_only(prior.emittedText,merged);
-      printf("STT_ALIGNMENT:%u:%s:%.3f\n",seq,d.method.c_str(),d.normalizedError);
-      if(d.method=="FULL_PRIOR_PREFIX_REMOVED")output=d.newText;
-      else output=decode(recognizer,current);
-    } else {
-      output=decode(recognizer,current);
-      printf("STT_ALIGNMENT:%u:FIRST_OR_EMPTY_PRIOR:0\n",seq);
+      printf("VAD_FINAL_CONTEXT_TEXT:%u:%s\n",seq,merged.c_str());
     }
-    output=trim(oneline(output));
-    printf("STT_SEGMENT:%u:%s\n",seq,output.c_str());
     prior.start=start;
     prior.samples=std::move(current);
-    prior.emittedText=output;
     prior.exists=true;
   }
   void drain() {
@@ -205,28 +395,28 @@ struct Engine {
     }
   }
   void accept(const float* pcm,size_t countSamples) {
+    recording.insert(recording.end(),pcm,pcm+countSamples);
     remaining.insert(remaining.end(),pcm,pcm+countSamples);
     size_t n=0;
-    while(remaining.size()-n>=kVadWindow){
-      SherpaOnnxVoiceActivityDetectorAcceptWaveform(vad,remaining.data()+n,
-                                                     kVadWindow);
+    while(remaining.size()-n>=kVadWindow) {
+      SherpaOnnxVoiceActivityDetectorAcceptWaveform(vad,remaining.data()+n,kVadWindow);
       acceptedSamples+=kVadWindow;
       n+=kVadWindow;
       drain();
     }
     if(n)remaining.erase(remaining.begin(),remaining.begin()+n);
+    recognizeLive();
   }
   void finish() {
-    if(!remaining.empty()) {
-      // Flush remaining PCM without losing a syllable at the recording end.
+    if(!remaining.empty()){
       remaining.resize(kVadWindow,0.f);
-      SherpaOnnxVoiceActivityDetectorAcceptWaveform(vad,remaining.data(),
-                                                     kVadWindow);
+      SherpaOnnxVoiceActivityDetectorAcceptWaveform(vad,remaining.data(),kVadWindow);
       acceptedSamples+=kVadWindow;
       remaining.clear();
     }
     SherpaOnnxVoiceActivityDetectorFlush(vad);
     drain();
+    recognizeLive(true);
     printf("VAD_FINISHED:%u:%lld\n",count,
            static_cast<long long>(acceptedSamples*1000/kRate));
   }
@@ -256,7 +446,7 @@ int main(int argc,char** argv) {
   vadCfg.silero_vad.threshold=0.42f;
   vadCfg.silero_vad.min_silence_duration=0.42f;
   vadCfg.silero_vad.min_speech_duration=0.14f;
-  vadCfg.silero_vad.max_speech_duration=45.f; // safety bound, not a fixed segment duration
+  vadCfg.silero_vad.max_speech_duration=20.f; // safety bound, not a fixed segment duration
   vadCfg.silero_vad.window_size=kVadWindow;
   vadCfg.sample_rate=kRate;
   vadCfg.num_threads=1;
@@ -268,7 +458,7 @@ int main(int argc,char** argv) {
     return 7;
   }
   printf("STT_READY\n");
-  printf("VAD_READY:rate=16000:window=512:min_silence_ms=420:overlap=FULL_PRIOR_SPEECH\n");
+  printf("VAD_READY:rate=16000:window=512:live=CTC_WORD_LOCAL_AGREEMENT:overlap=FULL_PRIOR_SPEECH\n");
   int status=0;
   for(;;) {
     unsigned char header[8];
@@ -296,7 +486,7 @@ int main(int argc,char** argv) {
     engine.accept(wave.data(),wave.size());
   }
   engine.finish();
-  printf("STT_FINISHED:%u\n",engine.count);
+  printf("STT_FINISHED:%u\n",engine.captions);
   SherpaOnnxDestroyVoiceActivityDetector(engine.vad);
   SherpaOnnxDestroyOfflineRecognizer(engine.recognizer);
   return status;
