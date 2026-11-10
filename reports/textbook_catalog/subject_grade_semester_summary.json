@@ -1,0 +1,27 @@
+{
+  "generated_at_utc": "2026-11-10T16:12:41.219557+00:00",
+  "unique_books": 2872,
+  "coverage_groups_with_items": 132,
+  "subjects_found": {
+    "과학": 290,
+    "국어": 496,
+    "기술가정": 28,
+    "도덕·윤리": 58,
+    "미분류": 512,
+    "사회": 171,
+    "수학": 551,
+    "역사": 109,
+    "영어": 564,
+    "음악": 15,
+    "정보": 13,
+    "제2외국어": 17,
+    "미술": 10,
+    "체육": 7,
+    "한문": 31
+  },
+  "grades_unspecified": 1978,
+  "semesters_unspecified": 2252,
+  "subjects_unspecified": 512,
+  "levels_need_review": 74,
+  "interpretation": "Results represent acquired links only. Empty cells or unspecified grade/term are not proof books do not exist."
+}
