@@ -34,6 +34,11 @@ public final class GrowingCallEngine {
   volatile String fifo;
   volatile String transcription="";
   volatile boolean hasLiveHypothesis=false;
+  volatile long nativeLiveBootNs=0;
+  volatile long nativeLiveId=0;
+  volatile long nativeLiveAudioMs=0;
+  private int loudChunks=0,quietChunks=0;
+  private boolean activeEnergyBurst=false;
   volatile long nativeLaunchElapsed=0;
   volatile long lastStaleLogElapsed=0;
   volatile Uri activeUri;
@@ -88,13 +93,16 @@ public final class GrowingCallEngine {
   }
 
   void run(Uri given,boolean directoryMode){
+    log.timing("ENGINE","SESSION_START","folderMode",directoryMode);
     log.event("CONTROL","ENGINE_START","inputUri",String.valueOf(given),"folderMode",directoryMode,
       "targetAbi",Arrays.toString(Build.SUPPORTED_ABIS));
     try{
       // Start the 174M model BEFORE waiting for a new Samsung call. In the
       // field trace cold model initialization took 13.79 seconds; overlap
       // that cost with idle folder monitoring, not with incoming speech.
+      log.timing("MODEL","PREWARM_BEGIN","beforeFileDiscovery",true);
       nativeStart();
+      log.timing("MODEL","PREWARM_PROCESS_STARTED","nativeReady",false);
       log.event("LATENCY","MODEL_PREWARM_STARTED","beforeFileDiscovery",true);
       status("한국어 STT 모델 준비 중 · 녹음 파일 감시를 병행합니다");
       Uri file=directoryMode?waitForGrowingFile(given):given;
@@ -191,6 +199,7 @@ public final class GrowingCallEngine {
           "selection","new or size-changing audio only");
       first=false;
       if(growing!=null){
+        log.timing("FILE","NEW_RECORDING_DISCOVERED","bytes",growing.length(),"scan",scans);
         log.event("FOLDER","ACTIVE_FILE_DETECTED","name",growing.getName(),
           "size",growing.length(),"uri",growing.getUri().toString());
         status("증가하는 녹음 파일 감지: "+growing.getName());
@@ -235,7 +244,10 @@ public final class GrowingCallEngine {
         long modified=document==null?-1:document.lastModified();
         if(n==0||n<0)log.event("FILE","UNAVAILABLE_OR_EMPTY","size",n,"lastModified",modified);
         if(n!=lastSize||modified!=lastModified){
-          if(lastSize>=0&&n>lastSize){observedGrowthBytes+=n-lastSize;fileChangeCount++;}
+          if(lastSize>=0&&n>lastSize){
+            observedGrowthBytes+=n-lastSize;fileChangeCount++;
+            log.timing("FILE","RECORDING_GREW","newBytes",n,"deltaBytes",n-lastSize,"poll",checks);
+          }
           if(lastSize>=0&&n<lastSize)log.event("FILE","TRUNCATED_OR_REPLACED","old",lastSize,"new",n);
           if(n>=0 && (n>mirroredBytes || n<mirroredBytes)){
             appendMirror(uri,"size-change-"+checks);
@@ -328,6 +340,8 @@ public final class GrowingCallEngine {
           }
           dest.flush();
           mirroredBytes+=appended;
+          log.timing("FILE","MIRROR_APPENDED","addedBytes",appended,"totalBytes",mirroredBytes,
+            "durationMs",SystemClock.elapsedRealtime()-begin);
           log.event("MIRROR","INCREMENT_APPENDED","label",label,"oldOffset",start,
             "bytesAppended",appended,"newOffset",mirroredBytes,
             "sourceSize",available,"elapsedMs",SystemClock.elapsedRealtime()-begin,
@@ -412,11 +426,37 @@ public final class GrowingCallEngine {
       try(BufferedReader reader=new BufferedReader(new InputStreamReader(p.getInputStream(),StandardCharsets.UTF_8))){
         String line;
         while((line=reader.readLine())!=null){
+          final long receivedNs=SystemClock.elapsedRealtimeNanos();
+          if(line.startsWith("ONLINE_TIMING:")){
+            try{
+              String[] metric=line.split(":",6);
+              if(metric.length==6){
+                long sampleId=Long.parseLong(metric[2]);
+                long audioMs=Long.parseLong(metric[3]);
+                long nativeNs=Long.parseLong(metric[4]);
+                long durationUs=Long.parseLong(metric[5]);
+                log.timingAt(nativeNs,"NATIVE",metric[1],"sampleId",sampleId,
+                  "audioEndMs",audioMs,"durationUs",durationUs,
+                  "javaReaderLagMs",(receivedNs-nativeNs)/1000000.0);
+                if("LIVE".equals(metric[1])){
+                  nativeLiveBootNs=nativeNs;
+                  nativeLiveAudioMs=audioMs;
+                  nativeLiveId=sampleId;
+                }
+              }
+            }catch(RuntimeException e){log.event("NATIVE","TIMING_PARSE_ERROR","line",line,"error",e.toString());}
+            continue;
+          }
+          if(line.startsWith("ONLINE_LIVE:"))
+            log.timingAt(receivedNs,"BRIDGE","LIVE_STDOUT_RECEIVED",
+              "nativeHypothesisId",nativeLiveId,"nativeBootNs",nativeLiveBootNs,
+              "nativeToReaderMs",nativeLiveBootNs>0?(receivedNs-nativeLiveBootNs)/1000000.0:-1);
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
           if(line.startsWith("ONLINE_READY:")){
             log.event("ONLINE","MODEL_READY","settings",line,
               "prewarmDurationMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
+            log.timing("MODEL","READY_IN_JAVA","startupMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
             callback.onStatus("한국어 STT 모델 준비 완료 · 실시간 인식 가능",transcription);
           }
           if(line.startsWith("ONLINE_LIVE:")){
@@ -430,6 +470,9 @@ public final class GrowingCallEngine {
                 log.event("STT","LIVE_CAPTION","audioMs",latest[1],
                   "publishedElapsedMs",wall,"text",provisional,
                   "confirmed",false);
+                log.timing("STT","LIVE_RESULT_TO_SERVICE",
+                  "nativeHypothesisId",nativeLiveId,"audioEndMs",nativeLiveAudioMs,
+                  "nativeBootNs",nativeLiveBootNs,"chars",provisional.length());
                 callback.onStatus("실시간 자막 · 진행 중 인식 (자동 보정)",transcription);
               }
             }
@@ -542,11 +585,13 @@ public final class GrowingCallEngine {
       (old==null?"":":"+old));
     pb.directory(context.getFilesDir());pb.redirectErrorStream(true);
     nativeLaunchElapsed=SystemClock.elapsedRealtime();
+    log.timing("MODEL","NATIVE_PROCESS_LAUNCH_BEGIN","launchElapsedMs",nativeLaunchElapsed);
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
       "startedBeforeRecordingFileDiscovered",true,
       "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
     nativeReader(sherpa);
+    log.timing("MODEL","NATIVE_PROCESS_LAUNCHED","pidAvailable",Build.VERSION.SDK_INT>=26);
   }
 
   static String escape(String input){return "\""+input.replace("\\","\\\\").replace("\"","\\\"")+"\"";}
@@ -613,6 +658,7 @@ public final class GrowingCallEngine {
         File local=workingMirror;
         String layout=local==null?"NO_MIRROR":describeMirrorLayout(local);
         boolean finalMoov=layout.contains("MOOV_FOUND;");
+        log.timing("AAC","SNAPSHOT_READY","sourceBytes",snapshotBytes,"finalMoov",finalMoov);
         File adts=null;
         if(!finalMoov){
           adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
@@ -635,6 +681,7 @@ public final class GrowingCallEngine {
         final boolean useAlternate=alternateInput!=null &&
           !alternateInput.equals(path) && attempt>1 && attempt%4==0;
         String currentInput=adts!=null?adts.getAbsolutePath():(useAlternate?alternateInput:path);
+        log.timing("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"sourceBytes",snapshotBytes);
         log.event("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"fileSize",sizeBefore,
           "alreadyPcmBytes",before,"source",currentInput,
           "sourceMode",currentInput.startsWith("saf:")?"SAF":"FILE_OR_PROC_FD",
@@ -646,6 +693,7 @@ public final class GrowingCallEngine {
         if(adts!=null && adts.exists() && !adts.delete())
           log.event("AAC","TEMP_CLEANUP_FAILED","path",adts.getAbsolutePath());
         long newBytes=pcmBytes.get()-before;
+        log.timing("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,"freshPcmBytes",newBytes);
         log.event("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,
           "newPcmBytes",newBytes,"totalPcmBytes",pcmBytes.get(),
           "sourceByteSizeNow",currentSize);
@@ -743,6 +791,7 @@ public final class GrowingCallEngine {
     final AtomicBoolean complete=new AtomicBoolean(false);
     final AtomicInteger returnCode=new AtomicInteger(Integer.MIN_VALUE);
     long begin=SystemClock.elapsedRealtime();
+    log.timing("FFMPEG","START_COMMAND","attempt",attempt);
     long previousPcm=pcmBytes.get();
     String termination="UNKNOWN";
     final AtomicBoolean readerDone=new AtomicBoolean(false);
@@ -807,7 +856,10 @@ public final class GrowingCallEngine {
               if(offset==n)continue;
             }
             int fresh=n-offset;
+            long pcmArrivalNs=SystemClock.elapsedRealtimeNanos();
             long total=pcmBytes.addAndGet(fresh);
+            log.timingAt(pcmArrivalNs,"PCM","NEW_BYTES_FROM_FFMPEG",
+              "attempt",attempt,"freshBytes",fresh,"totalPcmBytes",total);
             lastPcm.set(SystemClock.elapsedRealtime());
             pcmWindow.write(temp,offset,fresh);
             if(total==fresh || total%65536<fresh){
