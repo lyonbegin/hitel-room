@@ -1,0 +1,66 @@
+name: HITEL Full Coach & Benchmark Mobile E2E
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - public/ypt-coach-suite.js
+      - public/ypt-coach-suite.css
+      - public/ypt-book-library.js
+      - public/ypt-rebuild.html
+      - server.mjs
+      - tools/education/test_coach_suite.py
+      - .github/workflows/hitel-coach-suite-mobile-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  coach-mobile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 24
+    env:
+      HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source syntax checks
+        run: |
+          node --check public/ypt-coach-suite.js
+          node --check public/ypt-book-library.js
+          node --check public/ypt-workplace-ui.js
+          node --check server.mjs
+          python -m py_compile tools/education/test_coach_suite.py
+      - name: Install browser
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Confirm deployed coach module
+        run: |
+          python - <<'PY'
+          import urllib.request,time
+          url='https://hitel-education-zocbo-unified-production.up.railway.app/ypt-coach-suite.js'
+          for i in range(60):
+              try:
+                  with urllib.request.urlopen(url,timeout=8) as r:
+                      code=r.read().decode('utf-8','replace')
+                      if r.status==200 and 'HITEL_COACH_INSPECT' in code:
+                          print('COACH_MODULE_DEPLOYED',len(code));break
+              except Exception as e:print('deployment pending',str(e)[:90])
+              time.sleep(5)
+          else:raise SystemExit('COACH_MODULE_MISSING')
+          PY
+      - name: Test mobile 320 360 390 430 browser journey
+        run: python tools/education/test_coach_suite.py
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-coach-benchmark-mobile-evidence
+          path: education-coach-mobile-evidence/
+          if-no-files-found: warn
+          retention-days: 21
