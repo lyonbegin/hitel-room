@@ -1,0 +1,98 @@
+name: HITEL All-Subject Secondary Workbooks Catalogue
+on:
+  workflow_dispatch:
+    inputs:
+      max_queries:
+        description: 'Maximum broad book title and curriculum searches (10-250)'
+        required: false
+        default: '110'
+      max_pages:
+        description: 'Google Books API pages per query (1-4)'
+        required: false
+        default: '2'
+  push:
+    branches: [feature/all-subject-books-catalog-20261111]
+    paths:
+      - tools/catalog/collect_books.py
+      - .github/workflows/all-subject-workbook-catalog.yml
+permissions:
+  contents: write
+concurrency:
+  group: all-subject-book-catalog
+  cancel-in-progress: false
+jobs:
+  catalog:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 28
+    env:
+      MAX_QUERIES: ${{ github.event.inputs.max_queries || '110' }}
+      MAX_PAGES: ${{ github.event.inputs.max_pages || '2' }}
+      CATALOG_OUT: reports/textbook_catalog
+      BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+      GOOGLE_CSE_KEY: ${{ secrets.GOOGLE_CSE_KEY }}
+      GOOGLE_CSE_CX: ${{ secrets.GOOGLE_CSE_CX }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate code and the middle/high subject classification
+        run: |
+          python -m py_compile tools/catalog/collect_books.py
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'tools/catalog')
+          from collect_books import classify, make_queries
+          mid=classify('2022개정 체크체크 중등 수학 2-1')
+          assert (mid['학교급'],mid['학년'],mid['학기'],mid['과목'])==('중등','2','1','수학'),mid
+          high=classify('2022 개정 고등 공통수학1')
+          assert high['학교급']=='고등',high
+          moral=classify('중학교 도덕 1 평가문제집')
+          assert moral['과목']=='도덕·윤리',moral
+          assert len(make_queries())>110
+          print('Classification tests OK. Total planned query variants:',len(make_queries()))
+          PY
+      - name: Collect public metadata and individual book detail URLs
+        run: python tools/catalog/collect_books.py
+      - name: Validate outputs and show factual summary
+        run: |
+          python - <<'PY'
+          import json,csv
+          from pathlib import Path
+          p=Path('reports/textbook_catalog')
+          s=json.loads((p/'summary.json').read_text(encoding='utf-8'))
+          print('COLLECTION_REPORT',json.dumps({k:v for k,v in s.items() if k!='failed_queries'},ensure_ascii=False))
+          for path in ['books_raw_all.csv','books_middle_high.csv','scribd_document_detail_links.csv','source_queries_status.csv','search_queries_manifest.csv']:
+              fp=p/path
+              assert fp.exists(),fp
+              with fp.open(encoding='utf-8-sig',newline='') as fh:
+                  docs=list(csv.DictReader(fh))
+              print('FILE_CHECK',path,'rows',len(docs))
+              if 'books_' in path:
+                  assert all(row['detail_url'].startswith('http') for row in docs),path
+          PY
+      - name: Persist search results in the audit branch
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -f reports/textbook_catalog/summary.json ]; then
+            echo 'No summary generated. Preserve action logs and failure status.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add reports/textbook_catalog/
+          if ! git diff --cached --quiet; then
+            git commit -m 'data: update all-subject middle/high workbook source URLs and audit [skip ci]'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+      - name: Upload complete CSV and audit data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-all-subject-book-links
+          path: reports/textbook_catalog/
+          if-no-files-found: warn
+          retention-days: 90
