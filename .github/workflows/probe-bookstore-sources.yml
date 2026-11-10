@@ -4,6 +4,7 @@ on:
     branches: [feature/all-subject-books-catalog-20261111]
     paths:
       - tools/catalog/probe_sources.py
+      - tools/catalog/probe_yes24_formats.py
       - .github/workflows/probe-bookstore-sources.yml
   workflow_dispatch:
 permissions:
@@ -19,3 +20,5 @@ jobs:
           python-version: '3.11'
       - name: Find book listings with real product URLs
         run: python tools/catalog/probe_sources.py
+      - name: Find correct YES24 search and pagination URLs
+        run: python tools/catalog/probe_yes24_formats.py
