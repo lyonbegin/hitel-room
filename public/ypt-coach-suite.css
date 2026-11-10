@@ -100,3 +100,14 @@
  #phone .cs-heading h3{font-size:19px}
  #phone .cs-problem-actions{flex-direction:column}
 }
+
+/* Timer, pen/highlighter/eraser, export and group-note actions */
+#phone .cs-timer{display:flex;align-items:center;gap:7px;justify-content:space-between;background:#f7f8fa;border-radius:9px;border:1px solid #e8eaee;padding:11px;margin:11px 0;flex-wrap:wrap}
+#phone .cs-timer>div{display:grid;gap:3px;flex:1}
+#phone .cs-timer small{font-size:9px;color:#838c96}
+#phone .cs-timer strong{font-size:16px;font-variant-numeric:tabular-nums;color:#303942}
+#phone .cs-timer .cs-btn{min-height:33px;padding:6px 9px}
+#phone .cs-scratch-head{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;align-items:center}
+#phone .cs-scratch-head strong{width:100%;margin-bottom:3px}
+#phone .cs-scratch-head .cs-btn{min-height:28px;padding:5px 8px;font-size:10px}
+#phone .cs-scratch-head .cs-btn.selected{background:#e9edf0;border-color:#909ba5}
