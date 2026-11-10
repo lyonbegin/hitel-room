@@ -683,23 +683,24 @@ public final class GrowingCallEngine {
         String layout=local==null?"NO_MIRROR":describeMirrorLayout(local);
         boolean finalMoov=layout.contains("MOOV_FOUND;");
         log.timing("AAC","SNAPSHOT_READY","sourceBytes",snapshotBytes,"finalMoov",finalMoov);
-        File adts=null;
+        File adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
         long recoveredDeltaEnd=-1;
         final long deltaStart=nextAacFrameSourceByte;
-        if(!finalMoov){
-          adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
-          recoveredDeltaEnd=recoverMdatAac(local,adts,snapshotBytes,deltaStart);
-          if(recoveredDeltaEnd<0 || recoveredDeltaEnd<=deltaStart){
-            processedMirrorBytes=snapshotBytes;
-            Thread.sleep(100);
-            continue;
-          }
+        recoveredDeltaEnd=recoverMdatAac(local,adts,snapshotBytes,deltaStart);
+        if(recoveredDeltaEnd>deltaStart){
           log.event("AAC","NEW_FRAMES_READY","sourceStart",deltaStart,
             "sourceEnd",recoveredDeltaEnd,"newSourceBytes",recoveredDeltaEnd-deltaStart,
-            "adtsBytes",adts.length(),"moovPresent",false);
+            "adtsBytes",adts.length(),"moovPresent",finalMoov);
+        }else if(finalMoov){
+          // Finalized MP4 with a codec/sample-rate different from Samsung AAC
+          // still supports ordinary FFmpeg decoding. Use this only as fallback;
+          // in-progress Samsung AAC MUST NOT be reread from 0 for each growth.
+          adts=null;
+          log.event("AAC","FINAL_FALLBACK","sourceBytes",snapshotBytes,
+            "why","incremental AAC did not return a full new frame");
         }else{
-          log.event("AAC","FINAL_MOOV_FOUND","inputBytes",snapshotBytes,
-            "note","Fallback to finalized original M4A for consistency");
+          processedMirrorBytes=snapshotBytes;
+          Thread.sleep(100);continue;
         }
         attempt++;
         long before=pcmBytes.get();
