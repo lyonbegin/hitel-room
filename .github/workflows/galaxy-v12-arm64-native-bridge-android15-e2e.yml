@@ -1,0 +1,70 @@
+name: Galaxy v12 EXACT ARM64 APK Android 15 NativeBridge E2E
+on:
+  push:
+    branches: [feature/galaxy-v12-prewarm-before-ffmpeg-20261111]
+    paths:
+      - '.github/workflows/galaxy-v12-arm64-native-bridge-android15-e2e.yml'
+      - 'sherpa-original-launcher/ci/run_v12_arm64_bridge.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nativebridge-arm64-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch EXACT signed Galaxy v12 ARM64 APK from completed build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p arm64-apk emulator-qa-v12-arm64bridge
+          gh run download 42853576913 -R lyonbegin/hitel-room \
+            -n Galaxy-Korean-Zipformer-174M-PrewarmGate-v12-APK -D arm64-apk
+          echo 'd41735f7c13c99d67b131476b9734b0830f82176b24bda792b900be05599c205  arm64-apk/Galaxy-Korean-Zipformer-174M-PrewarmGate-v12.apk' | sha256sum -c -
+          unzip -Z1 arm64-apk/Galaxy-Korean-Zipformer-174M-PrewarmGate-v12.apk \
+            | grep -Fx 'lib/arm64-v8a/libsensevoice-stream.so'
+          sha256sum arm64-apk/*.apk > emulator-qa-v12-arm64bridge/installed-apk.sha256
+      - name: Prepare Korean AAC M4A reference fixture
+        run: |
+          set -euo pipefail
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6/test_wavs'
+          curl -fLsS --retry 5 --retry-delay 2 "$BASE/0.wav" -o /tmp/korean.wav
+          ffmpeg -hide_banner -loglevel error -y -stream_loop 4 -i /tmp/korean.wav \
+            -t 18 -ar 16000 -ac 1 -c:a aac -b:a 96k /tmp/ko_live_test.m4a
+          ffprobe -v error -show_entries format=duration,size,format_name \
+            -of default=noprint_wrappers=1 /tmp/ko_live_test.m4a
+      - name: Enable KVM on Android 15 emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install EXACT ARM64 APK; run Android native bridge model + UI E2E
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash sherpa-original-launcher/ci/run_v12_arm64_bridge.sh
+      - name: Always save installation/native bridge and emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Galaxy-v12-original-ARM64-APK-Android15-NativeBridge-Evidence
+          path: |
+            emulator-qa-v12-arm64bridge/
+            emulator-qa-v11/
+          compression-level: 6
+          if-no-files-found: warn
+      - name: Require true ARM64 APK + actual captions; no build-only acceptance
+        run: |
+          set -euo pipefail
+          test -s emulator-qa-v12-arm64bridge/PASS.txt
+          grep -F '15s+ PCM processed' emulator-qa-v12-arm64bridge/PASS.txt
+          grep -F 'ARM64-only APK tested through Android 15 x86_64 Native Bridge' emulator-qa-v12-arm64bridge/PASS.txt
