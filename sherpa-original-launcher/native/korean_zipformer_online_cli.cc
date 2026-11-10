@@ -152,7 +152,7 @@ struct Engine {
   }
   void finish(){
     // Match model creator guidance: 1x chunk padding (32*40ms).
-    std::vector<float> padding(32*640,0.f);
+    std::vector<float> padding(16*640,0.f); // Korean 174M streaming chunk16 = 640ms
     SherpaOnnxOnlineStreamAcceptWaveform(stream,16000,padding.data(),padding.size());
     SherpaOnnxOnlineStreamInputFinished(stream);
     int iteration=0;
@@ -198,7 +198,7 @@ int main(int argc,char** argv){
     SherpaOnnxDestroyOnlineRecognizer(engine.recognizer);return 4;
   }
   printf("STT_READY\n");
-  printf("ONLINE_READY:model=korean-zipformer-int8:chunk=32:threads=2:full_previous_state=true\n");
+  printf("ONLINE_READY:model=korean-zipformer-174m-int8:chunk=16:threads=2:online=true:provisional=true\n");
   int status=0;
   for(;;){
     uint8_t header[8];
@@ -213,8 +213,11 @@ int main(int argc,char** argv){
       const uint16_t u=uint16_t(bytes[2*i])|(uint16_t(bytes[2*i+1])<<8);
       pcm[i]=static_cast<int16_t>(u)/32768.f;
     }
-    printf("ONLINE_ACCEPTED:%u:%u\n",seq,n);
+    const auto t0=std::chrono::steady_clock::now();
     engine.accept(pcm.data(),n);
+    const auto decodeUs=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-t0).count();
+    printf("ONLINE_ACCEPTED:%u:%u\n",seq,n);
+    printf("ONLINE_DECODE_MS:%u:%.3f:%.3f\n",seq,static_cast<double>(engine.pcmSamples)*1000.0/16000.0,decodeUs/1000.0);
   }
   engine.finish();
   SherpaOnnxDestroyOnlineStream(engine.stream);
