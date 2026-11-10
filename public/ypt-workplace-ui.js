@@ -13,6 +13,7 @@
     groupTaskDetail:'그룹 과제',
     groupQuestions:'질문하기',
     groupLearning:'학습',
+    groupAITutor:'AI 과외',
   };
   const clone=x=>JSON.parse(JSON.stringify(x));
   const instituteTypeName=type=>type==='academy'?'학원':'학교';
@@ -421,6 +422,70 @@
       input('date','기한','date',state.wpDay||dateStr())+
       '<div class="wp-actions"><button class="wp-btn wp-primary" type="submit">저장</button>'+navi('취소','todo')+'</div></form>'+localHint;
   }
+
+  // Group-linked AI tutoring: question-flow demonstrator, local progress only.
+  const AI_BOOKS=[
+    ['concept','개념원리 중학 수학 2-1','개념 발견과 역사 이야기','개념원리'],
+    ['ssen','쎈 중등 수학 2-2','유형별 무제한 재도전 구상','쎈'],
+    ['black','블랙라벨 중학 수학 2-1','심화 문제 사고 훈련','블랙라벨']
+  ];
+  const AI_QUESTIONS=[
+    ['가로와 세로의 합이 5m입니다. 가로가 1m라면 세로는 몇 m일까요?',['4','4m'],'1에 얼마를 더하면 5가 될까요?'],
+    ['가로 1m, 세로 4m인 직사각형의 넓이는 몇 ㎡일까요?',['4','4㎡'],'넓이는 가로와 세로를 곱해 구합니다.'],
+    ['가로를 2m로 바꾸면 합이 5m가 되도록 세로는 몇 m여야 할까요?',['3','3m'],'2에 얼마를 더해야 5가 될까요?'],
+    ['가로 2m, 세로 3m일 때 넓이는 몇 ㎡인가요?',['6','6㎡'],'2와 3을 곱해 보세요.'],
+    ['가로를 x로 표현하면, 두 길이의 합이 5일 때 세로는 어떤 식일까요?',['5-x','-x+5'],'전체 길이의 합 5에서 가로 x를 빼세요.'],
+    ['그렇다면 넓이가 6이 되도록 가로와 세로의 관계를 식으로 적어보세요.',['x(5-x)=6','x*(5-x)=6','(5-x)x=6','(5-x)*x=6'],'가로 × 세로 = 6이라는 조건을 사용합니다.'],
+    ['x(5-x)=6을 전개하여 정리하면 x²로 시작하는 방정식은 무엇일까요?',['x²-5x+6=0','x^2-5x+6=0'],'5x-x²=6에서 모든 항을 한쪽으로 옮겨 보세요.'],
+    ['이제 y=x²와 y=5x-6의 교점을 생각해 봅시다. x=2 또는 x=3을 대입하면 원래 식의 값은 얼마가 될까요?',['0'],'두 그래프의 높이가 같으면 x²-(5x-6)은 얼마일까요?']
+  ];
+  const aiNormalize=s=>String(s||'').toLowerCase().replace(/\s/g,'').replace(/−/g,'-').replace(/×/g,'*').replace(/²/g,'^2');
+  function aiRecord(){
+    if(!model.aiTutor||typeof model.aiTutor!=='object')model.aiTutor={};
+    const gid=getGroup().id;
+    return model.aiTutor[gid]||(model.aiTutor[gid]={book:'concept',started:false,step:0,misses:0,hint:''});
+  }
+  function aiTutorPage(){
+    const g=getGroup(),r=aiRecord(),count=Math.max(1,g.members.length),price=Math.ceil(50000/count);
+    const catalog=AI_BOOKS.map(b=>'<button type="button" class="wp-ai-book '+(r.book===b[0]?'chosen':'')+'" data-wp="aiSelect" data-value="'+b[0]+'"><span class="wp-ai-cover">'+esc(b[3])+'</span><span class="wp-ai-book-text"><strong>'+esc(b[1])+'</strong><small>'+esc(b[2])+'</small></span><span aria-hidden="true">'+(r.book===b[0]?'✓':'›')+'</span></button>').join('');
+    let exercise='';
+    if(!r.started){
+      exercise=block('<strong>수학적 발견을 따라가는 AI 과외</strong>'+
+        muted('3,800년 전 사람들이 모르는 땅의 길이를 구하던 이야기에서 시작합니다. 질문과 실패를 거쳐 목표 문제로 갑니다.')+
+        '<div class="wp-ai-formula">x² − 5x + 6 = 0</div>'+
+        muted('이차방정식은 중3 학습 예시입니다. 위 중2 교재의 실제 문항은 아닙니다.')+
+        rowbuttons([act('질문형 과외 체험','aiStart','','wp-primary')]));
+    }else if(r.step>=AI_QUESTIONS.length){
+      exercise=block('<strong>목표 문제에 도달했습니다.</strong>'+
+        '<div class="wp-ai-formula">x² − 5x + 6 = 0</div>'+
+        muted('땅의 넓이 문제에서 방정식, 두 그래프의 교점까지 연결했습니다.')+
+        line('통과한 질문',AI_QUESTIONS.length+'개')+line('실패 후 재도전',r.misses+'회')+
+        rowbuttons([act('다시 처음부터','aiReset','','wp-primary')]));
+    }else{
+      const q=AI_QUESTIONS[r.step];
+      exercise=block('<div class="wp-ai-progress"><strong>질문 '+(r.step+1)+' / '+AI_QUESTIONS.length+'</strong><small>답변에 따라 다음 단계 진행</small></div>'+
+        '<div class="wp-ai-track"><span style="width:'+Math.floor(100*r.step/AI_QUESTIONS.length)+'%"></span></div>'+
+        '<p class="wp-ai-story">오래전 사람들이 직사각형 땅의 넓이를 알아내려던 문제를 함께 해결해 보겠습니다.</p>'+
+        '<p class="wp-ai-question">'+esc(q[0])+'</p>'+
+        (r.hint?'<p class="wp-ai-hint" role="status">다시 생각해 보세요. '+esc(r.hint)+'</p>':'')+
+        '<form id="wp-ai-form" class="wp-ai-form"><label for="wp-ai-answer">학생의 답</label><input id="wp-ai-answer" required autocomplete="off" placeholder="여기에 답을 입력하세요" /><button class="wp-btn wp-primary" type="submit">답변하기</button></form>'+
+        rowbuttons([act('처음부터 재도전','aiReset')]));
+    }
+    return groupChoice()+title('AI 과외','과목별 5인 공동구독')+
+      block('<div class="wp-ai-price"><strong>AI 과외 선생님 1명</strong><b>그룹 월 50,000원</b></div>'+
+        line('현재 그룹',g.name+' · '+count+'/5명')+
+        line('1인당 예상 월 이용료',price.toLocaleString('ko-KR')+'원')+
+        muted('5명이 모이면 1인당 월 10,000원 · 실제 결제 기능은 아직 미연동'))+
+      title('문제집별 AI 트레이너','33종 구성 계획 · 3종 대표 예시')+
+      '<div class="wp-ai-books">'+catalog+'</div>'+
+      title('대화형 AI 과외 체험',AI_BOOKS.find(b=>b[0]===r.book)?.[1]||'')+
+      exercise+
+      title('같은 그룹의 학습자료')+
+      block(line('숙제 · 미션 · 자료 · 시험','그룹 자료공유와 학교별 내신학습')+
+        rowbuttons([navi('그룹 자료','groupLearning'),navi('학교별 족보','bankSearch')]))+
+      '<p class="wp-footnote">이 화면은 질문 순서를 확인하는 로컬 시연입니다. 생성형 AI 응답, 실제 교재 문항 33종, 그룹 결제 및 회원 간 실시간 동기화는 연결되어 있지 않습니다.</p>';
+  }
+
   function groupPageNew(id){
     if(id==='groups'||id==='groupSearch')return groupsPage();
     if(id==='groupCreate')return groupCreatePage();
@@ -429,6 +494,7 @@
     if(id==='groupMembers'||id==='groupMemberSettings')return membersPage();
     if(id==='groupMessages'||id==='groupQuestions')return groupQuestionsPage();
     if(id==='groupLearning')return groupLearningPage();
+    if(id==='groupAITutor')return aiTutorPage();
     if(id==='groupMaterials')return materialsPage();
     if(id==='groupSessionDetail')return sessionPage();
     if(id==='groupLiveRoom')return roomPage();
@@ -457,18 +523,20 @@
        ['groupLiveRoom','groupWhiteboard'].includes(id))return '';
     const active=id.startsWith('bank')?'bankSearch':
       ['groupQuestions','groupMessages'].includes(id)?'groupQuestions':
-      ['groupLearning','groupMaterials','groupTaskDetail'].includes(id)?'groupLearning':
+      id==='groupAITutor'?'groupAITutor':
+       ['groupLearning','groupMaterials','groupTaskDetail'].includes(id)?'groupLearning':
       id.startsWith('group')||id==='groups'?'groups':'home';
     const nav=[
       ['groups','스터디그룹','navigation/bottom_group_fill.svg'],
       ['groupQuestions','질문하기',null],
       ['groupLearning','학습',null],
+       ['groupAITutor','AI 과외',null],
       ['bankSearch','족보',null]
     ];
     return '<nav class="bottomnav zb-five wp-study-nav" aria-label="하단 내비게이션">'+
       nav.map(([id,label,path])=>
         '<button type="button" class="'+(active===id?'selected':'')+'" data-go="'+id+'" aria-label="'+label+'">'+
-        (path?image(path):'<span class="wp-nav-glyph" aria-hidden="true">'+(id==='groupQuestions'?'?':id==='groupLearning'?'▤':'▦')+'</span>')+
+        (path?image(path):'<span class="wp-nav-glyph" aria-hidden="true">'+(id==='groupQuestions'?'?':id==='groupLearning'?'▤':id==='groupAITutor'?'✦':'▦')+'</span>')+
         '<span>'+label+'</span></button>').join('')+'</nav>';
   };
   function contextUrl(){
@@ -565,6 +633,21 @@
   }
   function handle(action,value,btn){
     const g=getGroup();
+    if(action==='aiSelect'){
+      if(!AI_BOOKS.some(b=>b[0]===value))return;
+      const r=aiRecord();Object.assign(r,{book:value,started:false,step:0,misses:0,hint:''});
+      save();render();return;
+    }
+    if(action==='aiStart'){const r=aiRecord();Object.assign(r,{started:true,step:0,misses:0,hint:''});save();render();return;}
+    if(action==='aiReset'){const r=aiRecord();Object.assign(r,{started:false,step:0,misses:0,hint:''});save();render();return;}
+    if(action==='aiAnswer'){
+      const r=aiRecord(),q=AI_QUESTIONS[r.step],input=document.getElementById('wp-ai-answer');
+      if(!r.started||!q||!input)return;
+      const value=input.value.trim();if(!value){toastWp('답을 입력해 주세요.');return;}
+      if(q[1].some(a=>aiNormalize(a)===aiNormalize(value))){r.step++;r.hint='';}
+      else{r.misses++;r.hint=q[2];}
+      save();render();return;
+    }
     if(action==='chooseGroup'){if(!getGroup(value))return;model.activeGroupId=value;state.wpGroupTab='schedule';save();go('groupDetail');return;}
     if(action==='groupTab'){state.wpGroupTab=value;render();return;}
     if(action==='learningTab'){state.wpLearningTab=value;state.wpExamForm=false;render();return;}
@@ -645,6 +728,7 @@
   document.addEventListener('submit',ev=>{
     const form=ev.target;if(!form.id?.startsWith('wp-'))return;
     ev.preventDefault();
+    if(form.id==='wp-ai-form'){handle('aiAnswer','',form.querySelector('button'));return;}
     const d=Object.fromEntries(new FormData(form).entries());
     if(form.id==='wp-exam-form'){
       if(!(d.title||'').trim()||!d.date){toastWp('시험 이름과 날짜를 확인해 주십시오.');return;}
