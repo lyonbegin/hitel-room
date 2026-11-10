@@ -5,6 +5,7 @@ on:
       - feature/scribd-title-first-audit-20261110
     paths:
       - tools/zocbo/scribd_series_audit.py
+      - tools/zocbo/scribd_public_index_fallback.py
       - .github/workflows/scribd-title-audit.yml
   workflow_dispatch:
 permissions:
@@ -24,6 +25,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Collect broad Scribd search hits for 33 series then classify middle/high
         run: python tools/zocbo/scribd_series_audit.py
+      - name: Collect publicly indexed real Scribd detail links and classify
+        run: python tools/zocbo/scribd_public_index_fallback.py
       - name: Upload raw search-result listings and screenshots
         if: always()
         uses: actions/upload-artifact@v4
