@@ -123,7 +123,7 @@ def google_html(root,offset):
     return {"root":root,"search_url":url,"engine":"Google HTML","status":status,"hits":hits,"error":err}
 
 def detail_metadata(d):
-    status,body,end,err=fetch(d["url"])
+    status,body,end,err=fetch(d["URL"])
     page_title=""
     if body:
         mm=re.search(r"<title[^>]*>(.*?)</title>",body,re.S|re.I)
