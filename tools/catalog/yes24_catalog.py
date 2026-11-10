@@ -23,6 +23,10 @@ from collect_books import OUT, classify, compact, write_csv
 ROOTS={
     "001001049": "중등",
     "001001050": "고등",
+    # Verified real intermediate YES24 category pages reveal the hidden
+    # middle-school subject/grade tree, which the root landing page omits.
+    "001001049002001": "중등",  # 국어(중등1)
+    "001001049002005": "중등",  # 사회/역사(중등1)
 }
 BASE="https://www.yes24.com/product/category/display/"
 MAX_VISITS=max(2,int(os.getenv("MAX_CATEGORY_VISITS","200")))
