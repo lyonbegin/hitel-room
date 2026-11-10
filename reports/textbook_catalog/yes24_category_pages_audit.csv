@@ -1,0 +1,21 @@
+﻿category_id,level,page,page_url,products,new_ids,status
+001001049,중등,1,https://www.yes24.com/product/category/display/001001049,124,124,read and parsed
+001001049,중등,2,https://www.yes24.com/product/category/display/001001049?PageNumber=2,124,0,pagination returned same IDs; stopped
+001001050,고등,1,https://www.yes24.com/product/category/display/001001050,181,180,read and parsed
+001001050,고등,2,https://www.yes24.com/product/category/display/001001050?PageNumber=2,181,0,pagination returned same IDs; stopped
+001001050009,고등,1,https://www.yes24.com/product/category/display/001001050009,24,6,read and parsed
+001001050009,고등,2,https://www.yes24.com/product/category/display/001001050009?PageNumber=2,24,0,pagination returned same IDs; stopped
+001001050003,고등,1,https://www.yes24.com/product/category/display/001001050003,24,5,read and parsed
+001001050003,고등,2,https://www.yes24.com/product/category/display/001001050003?PageNumber=2,24,0,pagination returned same IDs; stopped
+001001050006,고등,1,https://www.yes24.com/product/category/display/001001050006,24,11,read and parsed
+001001050006,고등,2,https://www.yes24.com/product/category/display/001001050006?PageNumber=2,24,0,pagination returned same IDs; stopped
+001001050007,고등,1,https://www.yes24.com/product/category/display/001001050007,27,3,read and parsed
+001001050007,고등,2,https://www.yes24.com/product/category/display/001001050007?PageNumber=2,27,0,pagination returned same IDs; stopped
+001001050001,고등,1,https://www.yes24.com/product/category/display/001001050001,32,29,read and parsed
+001001050001,고등,2,https://www.yes24.com/product/category/display/001001050001?PageNumber=2,32,0,pagination returned same IDs; stopped
+001001050004,고등,1,https://www.yes24.com/product/category/display/001001050004,24,16,read and parsed
+001001050004,고등,2,https://www.yes24.com/product/category/display/001001050004?PageNumber=2,24,0,pagination returned same IDs; stopped
+001001050002,고등,1,https://www.yes24.com/product/category/display/001001050002,24,21,read and parsed
+001001050002,고등,2,https://www.yes24.com/product/category/display/001001050002?PageNumber=2,24,0,pagination returned same IDs; stopped
+001001050005,고등,1,https://www.yes24.com/product/category/display/001001050005,34,24,read and parsed
+001001050005,고등,2,https://www.yes24.com/product/category/display/001001050005?PageNumber=2,34,0,pagination returned same IDs; stopped
