@@ -1,0 +1,122 @@
+name: Galaxy ARM64 Korean Zipformer 174M prewarm gate v12
+on:
+  push:
+    branches: [feature/galaxy-v12-prewarm-before-ffmpeg-20261111]
+    paths:
+      - '.github/workflows/build-galaxy-prewarm-v12-arm64.yml'
+      - 'sherpa-original-launcher/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-galaxy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare Android SDK and NDK (skip preinstalled; bound network waits)
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          NDK_COMPILER="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          if [ -x "$NDK_COMPILER" ] && [ -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            echo "REUSE_PREINSTALLED_ANDROID_SDK_NDK"
+          else
+            echo "INSTALL_MISSING_ANDROID_COMPONENTS"
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$NDK_COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Download verified Korean 174M Zipformer INT8 ONNX and Android runtimes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HF_HUB_DOWNLOAD_TIMEOUT: "150"
+          HF_HUB_DISABLE_TELEMETRY: "1"
+        run: |
+          set -euo pipefail
+          DST=sherpa-original-launcher/app/src/main
+          mkdir -p /tmp/sherpa-android /tmp/download "$DST/assets/sensevoice" "$DST/jniLibs/arm64-v8a" sherpa-original-launcher/app/libs
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/download
+          tar -xjf /tmp/download/sherpa-onnx-v1.12.26-android.tar.bz2 -C /tmp/sherpa-android
+          cp /tmp/sherpa-android/jniLibs/arm64-v8a/*.so "$DST/jniLibs/arm64-v8a/"
+          python3 -m pip install --disable-pip-version-check -q 'huggingface_hub>=0.36,<2'
+          python3 sherpa-original-launcher/native/download_korean_zipformer_174m.py
+          test -s "$DST/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so"
+          test -s "$DST/jniLibs/arm64-v8a/libonnxruntime.so"
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/download
+          cp /tmp/download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar
+          unzip -Z1 sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar | grep -Fx 'jni/arm64-v8a/libffmpegkit.so'
+          find "$DST/jniLibs/arm64-v8a" -maxdepth 1 -type f \( -name 'libav*.so' -o -name 'libsw*.so' -o -name 'libffmpegkit*.so' \) -delete
+
+      - name: Compile genuine streaming Zipformer C API native process
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/api/sherpa-onnx/c-api
+          curl -fLsS --retry 5 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h -o /tmp/api/sherpa-onnx/c-api/c-api.h
+          DST=sherpa-original-launcher/app/src/main/jniLibs/arm64-v8a
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$DST/" || true
+          "$LLVM/aarch64-linux-android26-clang++" -std=c++17 -O2 -fPIE -pie \
+            -I/tmp/api sherpa-original-launcher/native/korean_zipformer_online_cli.cc \
+            -L"$DST" -lsherpa-onnx-c-api -Wl,--no-undefined \
+            -o "$DST/libsensevoice-stream.so"
+          "$LLVM/llvm-readelf" -h "$DST/libsensevoice-stream.so" | grep AArch64
+          "$LLVM/llvm-readelf" -d "$DST/libsensevoice-stream.so" | grep NEEDED
+      - name: Build Android native raw AAC frame recovery oracle
+        run: |
+          set -euo pipefail
+          ROOT=sherpa-original-launcher
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          mkdir -p /tmp/ffmpeg-headers /tmp/ffmpeg-arm
+          curl -fLsS --retry 5 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          FFMPEG_HEADERS="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          # FFmpeg's generated platform header is absent from its source archive.
+          # This Android ARM64 little-endian NDK target needs these public API flags.
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$FFMPEG_HEADERS/libavutil/avconfig.h"
+          unzip -qo "$ROOT/app/libs/ffmpeg-kit-min.aar" 'jni/arm64-v8a/libavcodec.so' 'jni/arm64-v8a/libavutil.so' -d /tmp/ffmpeg-arm
+          DST="$ROOT/app/src/main/jniLibs/arm64-v8a"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c99 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" "$ROOT/native/aac_mdat_recover_oracle.c" \
+            -L/tmp/ffmpeg-arm/jni/arm64-v8a -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-recover.so"
+          "$LLVM/llvm-readelf" -d "$DST/libaac-mdat-recover.so" | grep -E 'libav(codec|util).so'
+      - name: Compile and verify independent 174M Online APK
+        run: |
+          set -euo pipefail
+          gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
+          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.koreanzipformer.prewarm12'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionName='12.0.0-ko-174m-prewarm-gate'"
+          grep -F 'recoverMdatAac' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'SherpaOnnxCreateOnlineRecognizer' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'ONLINE_HYPOTHESIS:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'ONLINE_LIVE:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'MODEL_PREWARM_STARTED' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'STT_SEGMENT:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'CLOCK_BOOTTIME' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'latency-trace.jsonl' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/LatencyTrace.java
+          grep -F 'NEXT_FRAME_CALLBACK' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/MainActivity.java
+          grep -F 'PREWARM_GATE_RELEASED' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          for f in lib/arm64-v8a/libaac-mdat-recover.so lib/arm64-v8a/libsensevoice-stream.so lib/arm64-v8a/libsherpa-onnx-c-api.so lib/arm64-v8a/libonnxruntime.so lib/arm64-v8a/libffmpegkit.so assets/sensevoice/encoder.int8.onnx assets/sensevoice/decoder.int8.onnx assets/sensevoice/joiner.int8.onnx assets/sensevoice/tokens.txt; do
+            unzip -Z1 "$APK" | grep -Fx "$f"
+          done
+          cp "$APK" Galaxy-Korean-Zipformer-174M-PrewarmGate-v12.apk
+          sha256sum Galaxy-Korean-Zipformer-174M-PrewarmGate-v12.apk
+          ls -lh Galaxy-Korean-Zipformer-174M-PrewarmGate-v12.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Galaxy-Korean-Zipformer-174M-PrewarmGate-v12-APK
+          path: Galaxy-Korean-Zipformer-174M-PrewarmGate-v12.apk
+          compression-level: 0
+          if-no-files-found: error
