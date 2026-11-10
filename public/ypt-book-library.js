@@ -26,9 +26,9 @@ const SERIES=[
  ['suryuk','수력충전','수경출판사','기초'],
  ['pungsan','풍산자','지학사','개념']
 ];
-const VARIANTS=[['중1','2'],['중2','1'],['중3','1']];
-const BOOKS=VARIANTS.flatMap(([grade,term])=>SERIES.map(([series,name,publisher,level],i)=>({
- id:series+'-'+grade+'-'+term,series,name:(name+(series==='black'?' 중학 수학':series==='check'?' 중학 수학':' 중등 수학'))+' '+grade.replace('중','')+'-'+term,
+const VARIANTS=[['중1','1',4],['중1','2',4],['중2','1',11],['중2','2',5],['중3','1',5],['중3','2',4]];
+const BOOKS=VARIANTS.flatMap(([grade,term,count])=>SERIES.slice(0,count).map(([series,name,publisher,level],i)=>({
+ id:series+'-'+grade+'-'+term,series,name:(name+(['concept','rpm','black','check','suryuk','pungsan'].includes(series)?' 중학 수학':' 중등 수학'))+' '+grade.replace('중','')+'-'+term,
  grade,term,subject:'수학',publisher,level,rank:i+1,
  image:grade==='중2'&&term==='1'?COVER[series]||'':'',
  verifiedCover:grade==='중2'&&term==='1'&&Boolean(COVER[series]),
@@ -139,7 +139,7 @@ function mainPage(){
  htmlButton('▦','view','grid',db.view==='grid'?'on':'')+
  htmlButton('☷','view','list',db.view==='list'?'on':'')+'</div></div>'+
  (arr.length?'<div class="bs-books '+(db.view==='list'?'list-view':'')+'">'+arr.map(bookTile).join('')+'</div>':noResult())+
- '<div class="bs-catalog-note">수학 33권은 11개 교재 시리즈의 학년별 책장 구성 예시입니다. 실제 표지가 확인된 중2 1학기 교재에만 표지 이미지를 사용합니다. 본 화면은 교재 원문·문항을 제공하지 않습니다.</div>'+
+ '<div class="bs-catalog-note">수학 33권은 인기 교재 시리즈의 학년·학기별 책장 구성 예시입니다. 실제 표지가 확인된 중2 1학기 교재에만 표지 이미지를 사용합니다. 본 화면은 교재 원문·문항을 제공하지 않습니다.</div>'+
  '</section>';
 }
 function detailPage(){
