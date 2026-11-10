@@ -34,6 +34,8 @@ public final class GrowingCallEngine {
   volatile String fifo;
   volatile String transcription="";
   volatile boolean hasLiveHypothesis=false;
+  volatile boolean onlineModelReady=false;
+  final java.util.concurrent.CountDownLatch onlineModelReadyLatch=new java.util.concurrent.CountDownLatch(1);
   volatile long nativeLiveBootNs=0;
   volatile long nativeLiveId=0;
   volatile long nativeLiveAudioMs=0;
@@ -70,6 +72,7 @@ public final class GrowingCallEngine {
   }
   public void stop(){
     stop=true;
+    onlineModelReadyLatch.countDown(); // unblock prewarm gate for cancellation
     log.event("CONTROL","STOP_REQUEST","ffmpegSessionId",ffmpeg==null?-1:ffmpeg.getSessionId(),
       "pcmBytes",pcmBytes.get(),"chunks",chunkCount.get());
     FFmpegSession s=ffmpeg;
@@ -454,6 +457,8 @@ public final class GrowingCallEngine {
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
           if(line.startsWith("ONLINE_READY:")){
+            onlineModelReady=true;
+            onlineModelReadyLatch.countDown();
             log.event("ONLINE","MODEL_READY","settings",line,
               "prewarmDurationMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
             log.timing("MODEL","READY_IN_JAVA","startupMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
@@ -609,6 +614,20 @@ public final class GrowingCallEngine {
   }
   void processSource(Uri uri)throws Exception {
     if(sherpa==null || !sherpa.isAlive())throw new IOException("Prewarmed online STT process not running");
+    // The original v11 race let FFmpeg feed a cold native process. Its stdin
+    // blocked while the 174M model loaded for 45s in the emulator; the FFmpeg
+    // 25s no-PCM watchdog then aborted the M4A after only 4.07s of PCM.
+    // Keep folder/recording discovery and mirroring alive, but do not launch
+    // audio decoding until the recognizer has explicitly emitted ONLINE_READY.
+    final long gateBegin=SystemClock.elapsedRealtimeNanos();
+    log.timingAt(gateBegin,"MODEL","PREWARM_GATE_WAIT_BEGIN","recordingSelected",true);
+    boolean signalled=onlineModelReadyLatch.await(100,java.util.concurrent.TimeUnit.SECONDS);
+    if(stop){endReason="USER_STOP";return;}
+    if(!signalled||!onlineModelReady||sherpa==null||!sherpa.isAlive())
+      throw new IOException("174M recognizer did not become ONLINE_READY within 100s");
+    final long gateEnd=SystemClock.elapsedRealtimeNanos();
+    log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
+      "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
     String path=workingMirror==null?null:workingMirror.getAbsolutePath();
     log.event("INPUT","SEEKABLE_PRIVATE_MIRROR_PREFERRED","path",path,
       "sourceUri",uri.toString(),"initialBytes",mirroredBytes);
