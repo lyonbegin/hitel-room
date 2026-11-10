@@ -318,8 +318,19 @@ struct Engine {
            static_cast<long long>(now*1000/kRate),words.size(),full.c_str());
     std::vector<TimedWord> newCommitted;
     for(const auto& word:words){
+      // Commit only audio that starts after the last printed word. The
+      // rolling CTC re-decode can assign an already printed phoneme a new,
+      // longer token (e.g. 창업 -> 창업복의). Its timestamp overlaps the
+      // previous committed word. Never emit that old phoneme twice.
       if(word.endMs<=committedThroughMs || normalize(word.text).chars.empty())
         continue;
+      if(word.beginMs<committedThroughMs){
+        printf("WORD_REWRITE_OVERLAP_SKIPPED:%lld:%lld:%lld:%s\n",
+               static_cast<long long>(word.beginMs),
+               static_cast<long long>(word.endMs),
+               static_cast<long long>(committedThroughMs),word.text.c_str());
+        continue;
+      }
       bool stable=final;
       for(const auto& prev:lastHypothesis) {
         if(same_word(word,prev)){stable=true;break;}
