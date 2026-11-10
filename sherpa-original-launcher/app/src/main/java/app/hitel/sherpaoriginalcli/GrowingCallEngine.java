@@ -345,6 +345,12 @@ public final class GrowingCallEngine {
           log.event("INPUT","SAF_FALLBACK","safPath",path);
         }
       }
+      String safAlternative=null;
+      try {
+        safAlternative=FFmpegKitConfig.getSafParameterForRead(context,uri);
+        log.event("INPUT","SAF_SECONDARY_READY","safInput",String.valueOf(safAlternative),
+          "willFallbackOnFailure",true);
+      }catch(Throwable e){log.error("INPUT","SAF_SECONDARY_FAILED",e);}
       long initial=SystemClock.elapsedRealtime();
       int attempt=0,failures=0;
       long sizeBefore=-1;
@@ -352,10 +358,15 @@ public final class GrowingCallEngine {
         attempt++;
         long before=pcmBytes.get();
         sizeBefore=currentSize;
+        final boolean useSafAlternate=safAlternative!=null &&
+          !safAlternative.equals(path) && attempt>1 && attempt%2==0;
+        String currentInput=useSafAlternate?safAlternative:path;
         log.event("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"fileSize",sizeBefore,
-          "alreadyPcmBytes",before,"source",path);
-        status("FFmpeg 파일 증가분 디코딩 시도 "+attempt+"회 · "+display(uri));
-        String result=consumeOnce(path,attempt);
+          "alreadyPcmBytes",before,"source",currentInput,
+          "sourceMode",useSafAlternate?"SAF_FALLBACK":"FILE_OR_PROC_FD");
+        status("FFmpeg 파일 증가분 디코딩 시도 "+attempt+"회 ("+
+          (useSafAlternate?"SAF":"파일 디스크립터")+") · "+display(uri));
+        String result=consumeOnce(currentInput,attempt);
         long newBytes=pcmBytes.get()-before;
         log.event("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,
           "newPcmBytes",newBytes,"totalPcmBytes",pcmBytes.get(),
@@ -373,7 +384,7 @@ public final class GrowingCallEngine {
             "note","Likely moov atom absent, inaccessible in-progress file, or unsupported SAF follow");
           // Still remain active to detect the next actual change; never spin.
         }
-        long waitUntil=SystemClock.elapsedRealtime()+15000;
+        long waitUntil=SystemClock.elapsedRealtime()+(attempt==1 && safAlternative!=null?1000:15000);
         long prev=currentSize;
         while(!stop && currentSize==prev && SystemClock.elapsedRealtime()<waitUntil){
           Thread.sleep(800);
