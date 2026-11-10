@@ -41,6 +41,18 @@ with sync_playwright() as playwright:
    except Exception:
     page.screenshot(path=str(OUT/f"FAILED-{width}-{route}.png"),full_page=True)
     raise AssertionError(f"SELECTOR_MISSING route={route} url={page.url} selector={selector} title={page.locator('#phone .appscroll').inner_text()[:380]!r}")
+   if route=="bankSearch":
+    try:
+     page.locator("#phone .zb-f-sitebar").wait_for(state="visible",timeout=18000)
+     print("ZOCBO_LOADED",page.locator("#phone .appscroll").inner_text()[:450].replace("\\n"," "),flush=True)
+    except Exception:
+     print("ZOCBO_STILL_NOT_READY",json.dumps({
+      "text":page.locator("#phone .appscroll").inner_text()[:900],
+      "inspector":page.evaluate("window.ZOCBO_FAITHFUL_INSPECT?.()"),
+      "api":page.evaluate("""async()=>{try{let r=await fetch('/api/zocbo/faithful-index');let t=await r.text();return {status:r.status,length:t.length,head:t.slice(0,130)}}catch(e){return String(e)}}""")
+     },ensure_ascii=False),flush=True)
+     page.screenshot(path=str(OUT/f"FAILED_BANK_{width}.png"),full_page=True)
+     raise AssertionError("ZOCBO_CONTENT_NOT_RENDERED")
    actual=page.evaluate("window.HITEL_WORKPLACE_INSPECT?.().screen")
    params=dict(page.evaluate("Object.fromEntries(new URLSearchParams(location.search))"))
    shown=page.locator(selector).count()
