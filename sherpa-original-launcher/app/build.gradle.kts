@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.sensevoice.growingm4adiag"
     minSdk = 26
     targetSdk = 28
-    versionCode = 5
-    versionName = "5.0.0-growing-mdat-aac-recovery"
+    versionCode = 6
+    versionName = "6.0.0-silero-vad-prior-utterance"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
