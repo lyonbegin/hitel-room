@@ -1,0 +1,36 @@
+name: Test Visible Google Chrome Scribd Crawl
+on:
+  push:
+    branches: [feature/scribd-title-first-audit-20261110]
+    paths: [tools/zocbo/test_scribd_real_chrome.py, .github/workflows/scribd-visible-chrome.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-chrome:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install browser test requirements
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Install full Google Chrome stable (not bundled Chromium)
+        run: |
+          wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y /tmp/google-chrome.deb
+          google-chrome --version
+      - name: Test public Scribd pages with visible desktop Chrome
+        run: xvfb-run -a python tools/zocbo/test_scribd_real_chrome.py
+      - name: Upload result screenshots, detail URLs, status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd-visible-chrome-evidence
+          path: chrome-visible-scribd/
+          if-no-files-found: warn
+          retention-days: 14
