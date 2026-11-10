@@ -196,7 +196,7 @@ public final class GrowingCallEngine {
         status("증가하는 녹음 파일 감지: "+growing.getName());
         return growing.getUri();
       }
-      Thread.sleep(1000);
+      Thread.sleep(180);
     }
     return null;
   }
@@ -249,7 +249,7 @@ public final class GrowingCallEngine {
             "noPcmForMs",lastPcm.get()==0?-1:SystemClock.elapsedRealtime()-lastPcm.get());
         }
       }catch(Throwable t){log.error("FILE","POLL_ERROR",t);}
-      try{Thread.sleep(200);}catch(InterruptedException e){break;}
+      try{Thread.sleep(100);}catch(InterruptedException e){break;}
     }
     log.event("FILE","POLL_STOPPED","checks",checks);
   }
@@ -608,7 +608,7 @@ public final class GrowingCallEngine {
         // ever stopping the recorder or modifying its original file.
         long snapshotBytes=mirroredBytes;
         if(snapshotBytes<1024 || snapshotBytes==processedMirrorBytes){
-          Thread.sleep(350);continue;
+          Thread.sleep(100);continue;
         }
         File local=workingMirror;
         String layout=local==null?"NO_MIRROR":describeMirrorLayout(local);
@@ -618,7 +618,7 @@ public final class GrowingCallEngine {
           adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
           if(!recoverMdatAac(local,adts,snapshotBytes)){
             processedMirrorBytes=snapshotBytes;
-            Thread.sleep(350);
+            Thread.sleep(100);
             continue;
           }
           log.event("AAC","LIVE_PREFIX_READY","inputBytes",snapshotBytes,
@@ -851,7 +851,7 @@ public final class GrowingCallEngine {
             "ffmpegCompleted",complete.get(),"pcmBytes",pcmBytes.get());
           break;
         }
-        Thread.sleep(400);
+        Thread.sleep(100);
       }
       if(stop)termination="STOPPED";
       log.event("FFMPEG","SESSION_STOP_REQUESTED","attempt",attempt,"why",termination,
