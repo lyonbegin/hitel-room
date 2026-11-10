@@ -65,6 +65,8 @@ jobs:
           git add reports/textbook_catalog/yes24_*
           if ! git diff --cached --quiet; then
             git commit -m 'data: update middle/high all-subject real YES24 book detail URL catalog [skip ci]'
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
       - name: Upload full data CSV and category audit
