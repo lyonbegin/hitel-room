@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sensevoice.growingm4adiag"
+    applicationId = "app.hitel.koreanzipformer.streamdiag"
     minSdk = 26
     targetSdk = 28
-    versionCode = 7
-    versionName = "7.0.0-short-pause-ctc-word-commit"
+    versionCode = 8
+    versionName = "8.0.0-ko-zipformer-online-int8"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
