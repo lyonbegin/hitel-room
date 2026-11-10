@@ -1,0 +1,77 @@
+name: HITEL YES24 All-Subject Middle and High Workbooks
+on:
+  workflow_dispatch:
+    inputs:
+      max_categories:
+        description: 'Max reachable middle/high categories to visit'
+        required: false
+        default: '300'
+      pages_per_category:
+        description: 'Max pages in each category'
+        required: false
+        default: '2'
+  push:
+    branches: [feature/all-subject-books-catalog-20261111]
+    paths:
+      - tools/catalog/yes24_catalog.py
+      - .github/workflows/yes24-all-subject-catalog.yml
+permissions:
+  contents: write
+concurrency:
+  group: yes24-all-subject-book-catalog
+  cancel-in-progress: false
+jobs:
+  yes24-all-subject:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 28
+    env:
+      MAX_CATEGORY_VISITS: ${{ github.event.inputs.max_categories || '300' }}
+      MAX_PER_CATEGORY_PAGES: ${{ github.event.inputs.pages_per_category || '2' }}
+      CATALOG_OUT: reports/textbook_catalog
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install HTML parser
+        run: pip install beautifulsoup4==4.12.3
+      - name: Validate catalogue crawler
+        run: |
+          python -m py_compile tools/catalog/yes24_catalog.py tools/catalog/collect_books.py
+      - name: Crawl middle/high reference-book categories and real product URLs
+        run: python tools/catalog/yes24_catalog.py
+      - name: Verify rows and report source coverage
+        run: |
+          python - <<'PY'
+          import csv,json
+          from pathlib import Path
+          p=Path('reports/textbook_catalog')
+          summary=json.loads((p/'yes24_summary.json').read_text('utf-8'))
+          with (p/'yes24_book_detail_links.csv').open(encoding='utf-8-sig',newline='') as f:
+              books=list(csv.DictReader(f))
+          assert len(books)==summary['unique_book_detail_urls']
+          assert all(r['실제 상세페이지'].startswith('https://www.yes24.com/product/goods/') for r in books)
+          print('VERIFIED_YES24_CATALOG',json.dumps(summary,ensure_ascii=False))
+          print('SAMPLE_REAL_BOOK_LINKS',json.dumps([{
+            'title':r['교재명'],'subject':r['과목'],'level':r['학교급'],
+            'url':r['실제 상세페이지']} for r in books[:35]],ensure_ascii=False))
+          PY
+      - name: Commit collected public metadata report
+        if: success()
+        continue-on-error: true
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add reports/textbook_catalog/yes24_*
+          if ! git diff --cached --quiet; then
+            git commit -m 'data: update middle/high all-subject real YES24 book detail URL catalog [skip ci]'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+      - name: Upload full data CSV and category audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-yes24-all-subject-book-links
+          path: reports/textbook_catalog/yes24_*
+          if-no-files-found: warn
+          retention-days: 90
