@@ -46,6 +46,8 @@ public final class GrowingCallEngine {
   volatile Uri activeUri;
   volatile File workingMirror;
   volatile long mirroredBytes=0;
+  volatile long nextAacFrameSourceByte=0; // source bytes up to last COMPLETE AAC frame
+  volatile long pendingDeltaPcmBytes=0; // only the PCM sent from an interrupted delta
   final AtomicLong pcmBytes=new AtomicLong();
   final AtomicLong committedPcmBytes=new AtomicLong();
   final AtomicLong lastPcm=new AtomicLong();
@@ -312,6 +314,9 @@ public final class GrowingCallEngine {
         log.event("MIRROR","SOURCE_TRUNCATED","previous",mirroredBytes,"newSize",available);
         try(FileOutputStream truncate=new FileOutputStream(target,false)){}
         mirroredBytes=0;
+        nextAacFrameSourceByte=0;
+        pendingDeltaPcmBytes=0;
+        log.event("CURSOR","RESET_AFTER_SOURCE_TRUNCATION","bytesNow",available);
         start=0;
       }
       if(available>=0 && available==mirroredBytes){
@@ -679,14 +684,18 @@ public final class GrowingCallEngine {
         boolean finalMoov=layout.contains("MOOV_FOUND;");
         log.timing("AAC","SNAPSHOT_READY","sourceBytes",snapshotBytes,"finalMoov",finalMoov);
         File adts=null;
+        long recoveredDeltaEnd=-1;
+        final long deltaStart=nextAacFrameSourceByte;
         if(!finalMoov){
           adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
-          if(!recoverMdatAac(local,adts,snapshotBytes)){
+          recoveredDeltaEnd=recoverMdatAac(local,adts,snapshotBytes,deltaStart);
+          if(recoveredDeltaEnd<0 || recoveredDeltaEnd<=deltaStart){
             processedMirrorBytes=snapshotBytes;
             Thread.sleep(100);
             continue;
           }
-          log.event("AAC","LIVE_PREFIX_READY","inputBytes",snapshotBytes,
+          log.event("AAC","NEW_FRAMES_READY","sourceStart",deltaStart,
+            "sourceEnd",recoveredDeltaEnd,"newSourceBytes",recoveredDeltaEnd-deltaStart,
             "adtsBytes",adts.length(),"moovPresent",false);
         }else{
           log.event("AAC","FINAL_MOOV_FOUND","inputBytes",snapshotBytes,
@@ -707,11 +716,30 @@ public final class GrowingCallEngine {
           "alternateAttempt",useAlternate);
         status("FFmpeg 파일 증가분 디코딩 시도 "+attempt+"회 ("+
           (currentInput.startsWith("saf:")?"SAF":"파일 경로")+") · "+display(uri));
-        String result=consumeOnce(currentInput,attempt);
+        // Full finalized MP4 keeps its existing replay guard. Only a
+        // recovered ADTS DELTA skips PCM sent from the same uncommitted delta.
+        long replaySkip=adts!=null?pendingDeltaPcmBytes:committedPcmBytes.get();
+        log.event("CURSOR","BEFORE_FFMPEG","sourceStart",deltaStart,
+          "sourceEnd",recoveredDeltaEnd,"skipPcmBytes",replaySkip,
+          "committedAudioMs",committedPcmBytes.get()/32L);
+        String result=consumeOnce(currentInput,attempt,replaySkip);
         processedMirrorBytes=snapshotBytes;
         if(adts!=null && adts.exists() && !adts.delete())
           log.event("AAC","TEMP_CLEANUP_FAILED","path",adts.getAbsolutePath());
         long newBytes=pcmBytes.get()-before;
+        if(adts!=null){
+          if("FFMPEG_CLEAN_END".equals(result)){
+            nextAacFrameSourceByte=recoveredDeltaEnd;
+            pendingDeltaPcmBytes=0;
+            log.timing("AAC","SOURCE_CURSOR_COMMITTED","sourceByte",nextAacFrameSourceByte,
+              "freshPcmBytes",newBytes,"committedAudioMs",committedPcmBytes.get()/32L);
+          }else{
+            pendingDeltaPcmBytes+=newBytes;
+            processedMirrorBytes=-1; // repeat from cursor after bounded backoff
+            log.event("AAC","DELTA_RETRY_PRESERVED","sourceByte",nextAacFrameSourceByte,
+              "pcmAlreadySent",pendingDeltaPcmBytes,"reason",result);
+          }
+        }
         log.timing("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,"freshPcmBytes",newBytes);
         log.event("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,
           "newPcmBytes",newBytes,"totalPcmBytes",pcmBytes.get(),
@@ -761,22 +789,22 @@ public final class GrowingCallEngine {
    * Input is a snapshot of our private SAF mirror, NEVER the original recorder.
    * Each attempt rewrites temporary ADTS; PCM replay guard below only sends fresh PCM.
    */
-  boolean recoverMdatAac(File source,File output,long sourceBytes) {
-    if(source==null || !source.isFile())return false;
+  long recoverMdatAac(File source,File output,long sourceBytes,long resumeByte) {
+    if(source==null || !source.isFile())return -1;
     File binary=new File(context.getApplicationInfo().nativeLibraryDir,"libaac-mdat-recover.so");
     if(!binary.isFile() || !binary.canExecute()){
       log.event("AAC","RECOVER_BINARY_MISSING","path",binary.getAbsolutePath());
-      return false;
+      return -1;
     }
     if(output.exists() && !output.delete()){
       log.event("AAC","CANNOT_CLEAR_STALE_ADTS","path",output.getAbsolutePath());
-      return false;
+      return -1;
     }
     Process p=null;
     long begin=SystemClock.elapsedRealtime();
     try{
       ProcessBuilder pb=new ProcessBuilder(binary.getAbsolutePath(),source.getAbsolutePath(),
-        output.getAbsolutePath(),"48000","1");
+        output.getAbsolutePath(),"48000","1","-",Long.toString(resumeByte));
       pb.redirectErrorStream(true);
       String old=pb.environment().get("LD_LIBRARY_PATH");
       pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
@@ -791,20 +819,30 @@ public final class GrowingCallEngine {
         }
       }
       boolean ended=p.waitFor(15,java.util.concurrent.TimeUnit.SECONDS);
-      if(!ended){p.destroyForcibly();log.event("AAC","RECOVER_TIMEOUT","ms",15000);return false;}
+      if(!ended){p.destroyForcibly();log.event("AAC","RECOVER_TIMEOUT","ms",15000);return -1;}
       int code=p.exitValue();
       long length=output.exists()?output.length():0;
+      String report=diagnostic.toString("UTF-8");
+      long nextByte=-1,newFrames=-1;
+      java.util.regex.Matcher m=java.util.regex.Pattern.compile(
+        "RECOVERY_CURSOR source=(\\\\d+) next=(\\\\d+) frames=(\\\\d+)").matcher(report);
+      if(m.find() && Long.parseLong(m.group(1))==resumeByte){
+        nextByte=Long.parseLong(m.group(2));
+        newFrames=Long.parseLong(m.group(3));
+      }
       log.event("AAC","RECOVER_END","exit",code,"mdatBytes",sourceBytes,
-        "adtsBytes",length,"elapsedMs",SystemClock.elapsedRealtime()-begin,
-        "details",diagnostic.toString("UTF-8").replace("\\n"," ").trim());
-      return code==0 && length>=100;
+        "sourceCursorStart",resumeByte,"sourceCursorNext",nextByte,
+        "newFrames",newFrames,"adtsBytes",length,
+        "elapsedMs",SystemClock.elapsedRealtime()-begin,
+        "details",report.replace("\\n"," ").trim());
+      return code==0 && length>=100 && nextByte>resumeByte?nextByte:-1;
     }catch(Throwable e){
       log.error("AAC","RECOVERY_FAILED",e);
-      return false;
+      return -1;
     }finally{if(p!=null && p.isAlive())p.destroyForcibly();}
   }
 
-  String consumeOnce(String input,int attempt){
+  String consumeOnce(String input,int attempt,long alreadyDelivered){
     fifo=null;
     FFmpegSession session=null;
     final AtomicBoolean complete=new AtomicBoolean(false);
@@ -851,7 +889,6 @@ public final class GrowingCallEngine {
             "size",stat.getSize(),"bitrate",stat.getBitrate(),"speed",stat.getSpeed());
         });
       session=ffmpeg;
-      final long alreadyDelivered=committedPcmBytes.get();
       fifoReader=new Thread(()->{
         byte[] temp=new byte[8192];
         long replayBytesRemaining=alreadyDelivered;
