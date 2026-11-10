@@ -67,12 +67,12 @@ public final class MainActivity extends Activity {
     int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);
     scroll.addView(root);
-    TextView header=text("삼성 통화 녹음 파일 증가분 → FFmpeg → SenseVoice STT",20);
+    TextView header=text("삼성 통화 녹음 파일 증가분 → FFmpeg → 한국어 Zipformer 스트리밍 STT",20);
     header.setTypeface(null,Typeface.BOLD);root.addView(header);
     root.addView(text(
       "삼성 기본 전화앱은 변경하지 않습니다. 실제 통화 중 녹음 파일이 다른 앱에서 열리는지, " +
       "크기가 증가하는지, FFmpeg -follow 1로 AAC→16kHz PCM을 추출할 수 있는지, " +
-      "Sherpa-ONNX가 문장을 반환하는지 단계별로 측정합니다.",13));
+      "한국어 전용 Zipformer 온라인 모델이 한두 단어씩 반환하는지 단계별로 측정합니다.",13));
     root.addView(text("STEP 1 · 감시 대상 선택",17));
     fileButton=button(root,"녹음 M4A 파일 직접 선택 (이미 존재하는 파일)");
     folderButton=button(root,"통화 녹음 폴더 선택 (새로 커지는 파일 자동 감시)");
@@ -82,7 +82,7 @@ public final class MainActivity extends Activity {
       "폴더 모드는 시작 당시 존재하는 파일은 건너뛰고, 이후 새로 나타나거나 크기가 변한 오디오 파일을 자동으로 선택합니다. " +
       "삼성 전화앱에서 녹음을 시작하신 뒤 앱으로 돌아오지 않아도 백그라운드 감시가 계속됩니다.",12));
     root.addView(text("STEP 2 · 증가분 스트리밍 진단",17));
-    startButton=button(root,"FFmpeg + SenseVoice 진단 시작");
+    startButton=button(root,"FFmpeg + 한국어 Zipformer 진단 시작");
     stopButton=button(root,"진단 중지");
     status=text("대기 중",15);root.addView(status);
     root.addView(text("한국어 STT 자막 (들어오는 구간마다 갱신)",16));
