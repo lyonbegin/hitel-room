@@ -52,7 +52,7 @@ function templateFor(index,variant=0){
  if(/이차방정식/.test(label)){
    const a=2+pad+ofs,c=3+((stage+ofs)%4),sum=a+c,product=a*c;
    question='x² − '+sum+'x + '+product+' = 0 의 모든 해를 작은 수부터 차례대로 입력하세요.';
-   answer=[a,c].sort((u,v)=>u-v).join(',');kind='pair';
+   answer=[a,c].sort((u,v)=>u-v).join(',');kind='roots';
    hints=['직사각형의 변 길이를 알아내려는 상황에서 출발해 봅니다. 어떤 두 수가 필요한가요?',
    '두 해의 합은 '+sum+', 곱은 '+product+'입니다.',
    '곱해서 '+product+'이면서 더해서 '+sum+'이 되는 두 수를 찾아보세요.'];
@@ -61,7 +61,7 @@ function templateFor(index,variant=0){
    concept='두 수의 합과 곱을 이용한 이차방정식';
  }else if(/연립/.test(label)){
    const a=2+pad+ofs,c=4+((stage+ofs)%3);question='x+y='+(a+c)+', x−y='+(a-c)+'를 동시에 만족하는 x,y를 입력하세요.';
-   answer=a+','+c;kind='pair';
+   answer=a+','+c;kind='orderedpair';
    hints=['두 조건을 동시에 만족해야 합니다. 한 식만으로 충분할까요?','두 식을 더하면 y항이 없어집니다.','2x='+(2*a)+'이므로 x를 구하고 x+y 식에 대입해 보세요.'];
    steps=['두 식을 더하면 2x='+(2*a)+'입니다.','x='+a+'입니다.','y='+(a+c)+'−'+a+'='+c+'입니다.'];
    story='물건 두 종류의 개수를 알 수 없을 때 서로 다른 조건을 결합하면 답을 찾을 수 있습니다.';
@@ -115,7 +115,7 @@ function manualProblems(){return x.manual.filter(v=>v.key===key()).map(v=>({...v
 function allProblems(){return [...generated(),...manualProblems()]}
 function selected(){const list=allProblems(),v=list.find(z=>z.id===x.selected)||list[0];if(v)x.selected=v.id;return v;}
 function attempts(id){return x.attempts.filter(a=>a.problemId===id)}
-function mistakeIds(){return [...new Set(x.attempts.filter(a=>a.correct===false).map(a=>a.problemId))]}
+function mistakeIds(){const latest=new Map();for(const a of x.attempts)latest.set(a.problemId,a.correct);return [...latest].filter(([,result])=>result===false).map(([id])=>id)}
 function counts(){
  const a=x.attempts.filter(v=>v.bookId===book().id),ok=a.filter(v=>v.correct).length,bad=a.filter(v=>v.correct===false).length,review=mistakeIds().length;
  return {attempts:a.length,correct:ok,wrong:bad,review,rate:a.length?Math.round(100*ok/a.length):0};
@@ -123,11 +123,15 @@ function counts(){
 function norm(s){return String(s??'').toLowerCase().replace(/[ \t\n\r]/g,'').replace(/−/g,'-').replace(/[（]/g,'(').replace(/[）]/g,')').replace(/²/g,'^2').replace(/[，]/g,',').replace(/;/g,',').replace(/또는/g,',').replace(/그리고/g,',').replace(/x=/g,'').replace(/y=/g,'').replace(/[\[\]{}]/g,'').replace(/(\d)\.0\b/g,'$1')}
 function rightAnswer(p,value){
  if(p.kind==='manual')return null;
- if(p.kind==='pair'){
+ if(p.kind==='roots'||p.kind==='orderedpair'){
  const num=norm(value).match(/-?\d+(?:\.\d+)?/g)||[],sol=norm(p.answer).match(/-?\d+(?:\.\d+)?/g)||[];
- return num.length===2&&num.map(Number).sort((a,b)=>a-b).join(',')===sol.map(Number).sort((a,b)=>a-b).join(',');
+ return num.length===2&&(p.kind==='roots'?num.map(Number).sort((a,b)=>a-b).join(',')===sol.map(Number).sort((a,b)=>a-b).join(','):num.map(Number).join(',')===sol.map(Number).join(','));
  }
  let a=norm(value),z=norm(p.answer);
+ if(p.kind==='fraction'){
+  const fraction=t=>{const v=t.split('/');return v.length===2&&v.every(k=>k!==''&&!Number.isNaN(Number(k)))&&Number(v[1])!==0?Number(v[0])/Number(v[1]):Number(t)};
+  const actual=fraction(a),expected=fraction(z);return Number.isFinite(actual)&&Number.isFinite(expected)&&Math.abs(actual-expected)<1e-9;
+ }
  if(p.kind==='ineq')return a===z;
  if(p.kind==='expression')return a===z||a.replace(/\+0$/,'')===z.replace(/\+0$/,'');
  return a===z;
@@ -227,7 +231,7 @@ function detail(){
  problemCard(p,true)+timerWidget()+
  card('<h4>내 답안</h4>'+
  '<form id="cs-answer-form"><label class="cs-input-label" for="cs-answer">답 또는 풀이식</label>'+
- '<input id="cs-answer" name="answer" autocomplete="off" maxlength="220" required value="'+esc(x.drafts[p.id]||'')+'" placeholder="'+(p.kind==='pair'?'예: 2, 3':p.kind==='ineq'?'예: x>3':'예: 6')+'"/>'+
+ '<input id="cs-answer" name="answer" autocomplete="off" maxlength="220" required value="'+esc(x.drafts[p.id]||'')+'" placeholder="'+(['roots','orderedpair'].includes(p.kind)?'예: 2, 3':p.kind==='ineq'?'예: x>3':p.kind==='fraction'?'예: 1/2':'예: 6')+'"/>'+
  '<div class="cs-keyboard" aria-label="수식 입력 도구">'+['x','²','+','−','/','(',')','=','>','<',','].map(k=>formButton(k,'symbol',k)).join('')+'</div>'+
  '<button type="submit" class="cs-btn primary">'+(p.kind==='manual'?'내 풀이 저장':'답 제출하고 채점')+'</button></form>'+
  (last?'<div class="cs-result '+(last.correct?'correct':'wrong')+'">'+(last.correct===true?'정답입니다. 스스로 확인한 방법을 말로 설명해 보세요.':last.correct===false?'다른 방법으로 다시 생각해 보세요. 아래 힌트나 코치에게 질문할 수 있습니다.':'직접 입력한 문제의 풀이를 저장했습니다.')+'</div>':'')+
@@ -266,7 +270,7 @@ function chat(){
 }
 function mistakes(){
  const miss=mistakeIds(),all=[...new Map(x.attempts.filter(a=>a.correct===false).map(a=>[a.problemId,a])).values()].reverse();
- const a=all.filter(v=>v.bookId===book().id);
+ const unresolved=new Set(miss);const a=all.filter(v=>v.bookId===book().id&&unresolved.has(v.problemId));
  return header('오답 복습','틀린 이유를 확인하고 같은 원리의 새 조건으로 다시 풀어보세요.')+
  stat()+
  card('<div class="cs-splithead"><h4>오답 문항</h4><span>'+a.length+'건</span></div>'+
