@@ -10,6 +10,8 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Build;
+import android.os.SystemClock;
+import java.util.concurrent.atomic.AtomicLong;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -22,11 +24,15 @@ public final class GrowingCallService extends Service {
   public static final String EX_FOLDER="isFolder";
   public static final String EX_STATUS="status";
   public static final String EX_TEXT="transcript";
+  public static final String EX_CAPTION_SEQ="captionSeq";
+  public static final String EX_BROADCAST_BOOT_NS="broadcastBootNs";
+  public static final String EX_NATIVE_BOOT_NS="nativeHypothesisBootNs";
   static final String CHANNEL="growing_m4a_diagnostics";
   static final int NOTE_ID=2803;
   volatile GrowingCallEngine engine;
   volatile TraceJournal journal;
   volatile boolean active=false;
+  final AtomicLong captionSeq=new AtomicLong();
 
   @Override public IBinder onBind(Intent intent){return null;}
   @Override public int onStartCommand(Intent incoming,int flags,int startId){
@@ -100,13 +106,28 @@ public final class GrowingCallService extends Service {
     else startForeground(NOTE_ID,note);
   }
   void sendStatus(String status,String transcript){
+    final long sentNs=SystemClock.elapsedRealtimeNanos();
+    final boolean live=status!=null && status.startsWith("실시간 자막");
+    final long id=live?captionSeq.incrementAndGet():-1;
+    final GrowingCallEngine e=engine;
+    final long nativeNs=e==null?0:e.nativeLiveBootNs;
+    final long nativeId=e==null?0:e.nativeLiveId;
+    if(live && journal!=null)journal.timingAt(sentNs,"BROADCAST","LIVE_SEND_BEGIN",
+      "captionSeq",id,"nativeHypothesisId",nativeId,"nativeBootNs",nativeNs,
+      "nativeToServiceMs",nativeNs>0?(sentNs-nativeNs)/1000000.0:-1,
+      "chars",transcript==null?0:transcript.length());
     getSharedPreferences("growing_diag",MODE_PRIVATE).edit()
       .putString("currentStatus",status).putString("currentTranscript",transcript).apply();
     Intent update=new Intent(EVENT);
     update.setPackage(getPackageName());
     update.putExtra(EX_STATUS,status);
     update.putExtra(EX_TEXT,transcript);
+    update.putExtra(EX_CAPTION_SEQ,id);
+    update.putExtra(EX_BROADCAST_BOOT_NS,sentNs);
+    update.putExtra(EX_NATIVE_BOOT_NS,nativeNs);
     sendBroadcast(update);
+    if(live && journal!=null)journal.timing("BROADCAST","LIVE_SEND_RETURNED",
+      "captionSeq",id,"sendCallDurationMs",(SystemClock.elapsedRealtimeNanos()-sentNs)/1000000.0);
     Log.i("GrowingM4aDiag","STATUS_BROADCAST "+status);
   }
   @Override public void onDestroy(){
