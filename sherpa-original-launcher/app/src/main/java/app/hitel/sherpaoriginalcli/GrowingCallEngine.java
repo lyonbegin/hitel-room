@@ -416,6 +416,14 @@ public final class GrowingCallEngine {
                 "priorUtteranceMs",a[5]);
             }
           }
+          if(line.startsWith("VAD_CONTEXT:")){
+            String[] c=line.split(":",6);
+            if(c.length==6){
+              log.event("VAD","CONTEXT_AUDIO","utterance",c[1],
+                "priorMs",c[2],"silenceMs",c[3],
+                "currentMs",c[4],"contextMs",c[5]);
+            }
+          }
           if(line.startsWith("STT_ALIGNMENT:")){
             String[] a=line.split(":",4);
             if(a.length==4){
