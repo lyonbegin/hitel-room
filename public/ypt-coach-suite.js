@@ -451,5 +451,7 @@ window.HITEL_COACH_INSPECT=()=>({
  localRuleCoach:true,llmConnected:false,photoOCR:false,serverShared:false,
  currentSelected:selected()?.id
 });
+const directScreen=new URLSearchParams(location.search).get('screen');
+if(directScreen&&Object.hasOwn(ROUTES,directScreen))state.screen=directScreen;
 if(Object.hasOwn(ROUTES,state.screen))render();
 })();
