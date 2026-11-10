@@ -467,30 +467,33 @@ public final class GrowingCallEngine {
       long initial=SystemClock.elapsedRealtime();
       int attempt=0,failures=0;
       long sizeBefore=-1;
-      while(!stop&&attempt<24){
-        // Samsung original M4A has an extended mdat box and a trailing moov.
-        // Repeatedly asking FFmpeg to demux the unfinished mdat is impossible:
-        // there are no AAC sample boundaries without the moov sample table.
-        boolean ready=false;
-        long gateStart=SystemClock.elapsedRealtime();
-        while(!stop && SystemClock.elapsedRealtime()-gateStart<180000){
-          File local=workingMirror;
-          String layout=local==null?"NO_PRIVATE_MIRROR":describeMirrorLayout(local);
-          if(layout.contains("MOOV_FOUND;")){
-            ready=true;
-            log.event("FORMAT","MOOV_READY_FOR_FFMPEG",
-              "mirroredBytes",mirroredBytes,"layout",layout,
-              "elapsedMs",SystemClock.elapsedRealtime()-gateStart);
-            break;
-          }
-          if(SystemClock.elapsedRealtime()-gateStart<1100){
-            log.event("FORMAT","MOOV_PENDING","mirroredBytes",mirroredBytes,"layout",layout,
-              "note","No MP4 sample table before Samsung M4A finalized");
-          }
-          Thread.sleep(700);
+      long processedMirrorBytes=-1;
+      while(!stop&&attempt<600){
+        // The original Samsung recorder keeps one M4A open. AAC-LC inside its
+        // mdat has no ADTS frame headers, while the trailing moov is absent.
+        // Recover complete AAC frames from the latest seekable mirror, without
+        // ever stopping the recorder or modifying its original file.
+        long snapshotBytes=mirroredBytes;
+        if(snapshotBytes<1024 || snapshotBytes==processedMirrorBytes){
+          Thread.sleep(350);continue;
         }
-        if(stop){endReason="USER_STOP";return;}
-        if(!ready){endReason="MOOV_TIMEOUT";log.event("FORMAT","MOOV_TIMEOUT","mirrorBytes",mirroredBytes);return;}
+        File local=workingMirror;
+        String layout=local==null?"NO_MIRROR":describeMirrorLayout(local);
+        boolean finalMoov=layout.contains("MOOV_FOUND;");
+        File adts=null;
+        if(!finalMoov){
+          adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
+          if(!recoverMdatAac(local,adts,snapshotBytes)){
+            processedMirrorBytes=snapshotBytes;
+            Thread.sleep(350);
+            continue;
+          }
+          log.event("AAC","LIVE_PREFIX_READY","inputBytes",snapshotBytes,
+            "adtsBytes",adts.length(),"moovPresent",false);
+        }else{
+          log.event("AAC","FINAL_MOOV_FOUND","inputBytes",snapshotBytes,
+            "note","Fallback to finalized original M4A for consistency");
+        }
         attempt++;
         long before=pcmBytes.get();
         sizeBefore=mirroredBytes;
@@ -498,7 +501,7 @@ public final class GrowingCallEngine {
         // on Android 15 despite Java ContentResolver permission being valid.
         final boolean useAlternate=alternateInput!=null &&
           !alternateInput.equals(path) && attempt>1 && attempt%4==0;
-        String currentInput=useAlternate?alternateInput:path;
+        String currentInput=adts!=null?adts.getAbsolutePath():(useAlternate?alternateInput:path);
         log.event("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"fileSize",sizeBefore,
           "alreadyPcmBytes",before,"source",currentInput,
           "sourceMode",currentInput.startsWith("saf:")?"SAF":"FILE_OR_PROC_FD",
@@ -506,6 +509,9 @@ public final class GrowingCallEngine {
         status("FFmpeg 파일 증가분 디코딩 시도 "+attempt+"회 ("+
           (currentInput.startsWith("saf:")?"SAF":"파일 경로")+") · "+display(uri));
         String result=consumeOnce(currentInput,attempt);
+        processedMirrorBytes=snapshotBytes;
+        if(adts!=null && adts.exists() && !adts.delete())
+          log.event("AAC","TEMP_CLEANUP_FAILED","path",adts.getAbsolutePath());
         long newBytes=pcmBytes.get()-before;
         log.event("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,
           "newPcmBytes",newBytes,"totalPcmBytes",pcmBytes.get(),
@@ -547,6 +553,53 @@ public final class GrowingCallEngine {
           "exitCode",ended?p.exitValue():-1,"resultCount",resultCount.get());
       }
     }
+  }
+
+  /** Exact AAC frame boundary recovery verified against original Samsung stsz table.
+   * Input is a snapshot of our private SAF mirror, NEVER the original recorder.
+   * Each attempt rewrites temporary ADTS; PCM replay guard below only sends fresh PCM.
+   */
+  boolean recoverMdatAac(File source,File output,long sourceBytes) {
+    if(source==null || !source.isFile())return false;
+    File binary=new File(context.getApplicationInfo().nativeLibraryDir,"libaac-mdat-recover.so");
+    if(!binary.isFile() || !binary.canExecute()){
+      log.event("AAC","RECOVER_BINARY_MISSING","path",binary.getAbsolutePath());
+      return false;
+    }
+    if(output.exists() && !output.delete()){
+      log.event("AAC","CANNOT_CLEAR_STALE_ADTS","path",output.getAbsolutePath());
+      return false;
+    }
+    Process p=null;
+    long begin=SystemClock.elapsedRealtime();
+    try{
+      ProcessBuilder pb=new ProcessBuilder(binary.getAbsolutePath(),source.getAbsolutePath(),
+        output.getAbsolutePath(),"48000","1");
+      pb.redirectErrorStream(true);
+      String old=pb.environment().get("LD_LIBRARY_PATH");
+      pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
+        (old==null?"":":"+old));
+      p=pb.start();
+      // C tool only emits a bounded diagnostic line, never transcribed audio.
+      ByteArrayOutputStream diagnostic=new ByteArrayOutputStream();
+      try(InputStream in=p.getInputStream()){
+        byte[] chunk=new byte[512];int n;
+        while((n=in.read(chunk))!=-1){
+          if(diagnostic.size()<4096)diagnostic.write(chunk,0,Math.min(n,4096-diagnostic.size()));
+        }
+      }
+      boolean ended=p.waitFor(15,java.util.concurrent.TimeUnit.SECONDS);
+      if(!ended){p.destroyForcibly();log.event("AAC","RECOVER_TIMEOUT","ms",15000);return false;}
+      int code=p.exitValue();
+      long length=output.exists()?output.length():0;
+      log.event("AAC","RECOVER_END","exit",code,"mdatBytes",sourceBytes,
+        "adtsBytes",length,"elapsedMs",SystemClock.elapsedRealtime()-begin,
+        "details",diagnostic.toString("UTF-8").replace("\\n"," ").trim());
+      return code==0 && length>=100;
+    }catch(Throwable e){
+      log.error("AAC","RECOVERY_FAILED",e);
+      return false;
+    }finally{if(p!=null && p.isAlive())p.destroyForcibly();}
   }
 
   String consumeOnce(String input,int attempt){
