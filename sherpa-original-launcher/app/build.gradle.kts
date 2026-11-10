@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.koreanzipformer.streamdiag"
     minSdk = 26
     targetSdk = 28
-    versionCode = 8
-    versionName = "8.0.0-ko-zipformer-174m-online-int8"
+    versionCode = 9
+    versionName = "9.0.0-ko-174m-chunk16-live"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
