@@ -543,7 +543,7 @@ public final class GrowingCallEngine {
       final String chosenPipe=fifo;
       log.event("PIPE","FIFO_CREATED","path",fifo);
       final boolean followSupportedInput=!input.startsWith("saf:");
-      String cmd="-hide_banner -loglevel repeat+level+info -nostdin "+
+      String cmd="-y -hide_banner -loglevel repeat+level+info -nostdin "+
         (followSupportedInput?"-follow 1 ":"")+
         "-probesize 262144 -analyzeduration 2000000 "+
         "-i "+escape(input)+" -map 0:a:0 -vn -ac 1 -ar 16000 -c:a pcm_s16le "+
