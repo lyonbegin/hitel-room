@@ -130,7 +130,9 @@ function mainPage(){
  searchForm()+
  (db.tab==='all'?filters():'<div class="bs-subline">'+(db.tab==='mine'?'<span>개인별 문제집과 학습 진도</span>':'<span>'+esc(groupName)+' · '+(g?.members?.length||0)+'/5명</span>')+'</div>')+
  (db.tab==='mine'?'<div class="bs-folders">'+['전체',...db.folders].map(f=>toolbarButton(f,'folder',f,db.folder===f)).join('')+htmlButton('새 책장 +','addFolder','','bs-tab')+'</div>':'')+
+ (db.tab==='group'?'<div class="bs-group-picker"><label for="bs-group-picker">책장을 확인할 스터디그룹</label><select id="bs-group-picker" data-bs-change="groupId">'+(groupModel()?.groups||[]).map(x=>'<option value="'+esc(x.id)+'"'+(x.id===g?.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>':'')+
  (db.tab==='group'?'<p class="bs-local-warning">그룹 책장 공유 내용은 현재 브라우저에 저장됩니다. 다른 학생과의 서버 동기화는 아직 연결되지 않았습니다.</p>':'')+
+ (db.tab==='all'&&!db.query?'<div class="bs-discovery"><strong>무엇부터 공부할까요?</strong><div class="bs-discovery-chips">'+[['기초','기초부터'],['개념','개념 이해'],['유형','유형 훈련'],['심화','심화 도전']].map(([k,t])=>htmlButton(t,'levelPick',k,db.level===k?'checked':'')).join('')+htmlButton('모두 보기','levelPick','전체')+'</div></div>':'')+
  (db.tab==='all'&&recent.length?'<div class="bs-recent"><div class="bs-heading"><h4>이어서 공부하기</h4><small>최근 열어본 문제집</small></div>'+
  '<div class="bs-recent-scroll">'+recent.map(b=>'<button data-bs="open" data-val="'+esc(b.id)+'" type="button">'+cover(b,true)+'<span>'+esc(b.name)+'<small>'+esc(db.progress[b.id]||0)+'% 진행 · '+formatDate(db.last[b.id])+'</small></span></button>').join('')+'</div></div>':'')+
  '<div class="bs-heading"><div><h4>'+(db.tab==='all'?'학년별 문제집':db.tab==='mine'?'내가 선택한 문제집':'공동으로 보는 문제집')+'</h4><small>'+arr.length+'권 · '+(db.tab==='all'?'표지 중심 도서 탐색':'학습 기록 및 보관')+'</small></div>'+
@@ -156,6 +158,7 @@ function detailPage(){
  '<div class="bs-progress"><span style="width:'+p+'%"></span></div><small>내 학습 진도 '+p+'%</small></div></div>'+
  '<div class="bs-detail-actions">'+htmlButton(mine?'내 책장에 저장됨':'내 책장에 추가','mineToggle',b.id,mine?'checked':'primary')+
  htmlButton(shared?'그룹에 공유됨':'그룹 책장에 공유','groupToggle',b.id,shared?'checked':'')+'</div>'+
+ (groupModel()?.groups?.length>1?'<div class="bs-share-other"><label for="bs-other-group">다른 스터디그룹에도 공유</label><div class="bs-share-other-row"><select id="bs-other-group">'+groupModel().groups.filter(x=>x.id!==group()?.id).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')+'</select>'+htmlButton('공유','shareOther',b.id)+'</div></div>':'')+
  (mine?'<div class="bs-folder-assignment">'+selectField('내 책장 분류','assignFolder',[...db.folders].map(x=>[x,x]),folder)+'</div>':'')+
  '<div class="bs-section-title"><h4>학습할 단원</h4><small>독립 학습 목표 · 실제 교재 목차가 아닙니다</small></div>'+
  '<div class="bs-chapters">'+units.map((u,i)=>'<button data-bs="unit" data-val="'+i+'" class="'+(Number(selected)===i?'active':'')+'" type="button"><span>'+String(i+1).padStart(2,'0')+'</span><strong>'+esc(u)+'</strong><span>›</span></button>').join('')+'</div>'+
@@ -215,6 +218,13 @@ function action(type,val){
   db.folder=v;save();redraw();return;
  }
  if(type==='view'){db.view=val;save();redraw();return;}
+ if(type==='levelPick'){db.level=val;save();redraw();return;}
+ if(type==='shareOther'){
+  const m=groupModel(),target=document.getElementById('bs-other-group')?.value;
+  const g=m?.groups?.find(x=>x.id===target);if(!g||!MAP.has(val))return;
+  g.bookShelf=[...new Set([...(Array.isArray(g.bookShelf)?g.bookShelf:[]),val])];
+  window.HITEL_WORKPLACE_BRIDGE?.saveModel?.();toast('선택한 그룹의 책장에 교재를 등록했습니다.');redraw();return;
+ }
  if(type==='open'){open(val);return;}
  if(type==='back'){go('groupAITutor');return;}
  if(type==='go'){go(val);return;}
@@ -248,9 +258,13 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{
  const t=e.target;if(!t.closest('#phone'))return;
  if(t.dataset.bsChange){
-  const key=t.dataset.bsChange,allowed=['grade','term','level','publisher','sort','assignFolder'];
+  const key=t.dataset.bsChange,allowed=['grade','term','level','publisher','sort','assignFolder','groupId'];
   if(!allowed.includes(key))return;
   if(key==='assignFolder'){db.assignment[currentBook().id]=t.value;}
+  else if(key==='groupId'){
+    const m=groupModel();if(!m?.groups?.some(g=>g.id===t.value))return;
+    m.activeGroupId=t.value;window.HITEL_WORKPLACE_BRIDGE?.saveModel?.();
+  }
   else db[key]=t.value;
   save();redraw();return;
  }
