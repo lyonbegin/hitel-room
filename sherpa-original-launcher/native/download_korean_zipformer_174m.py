@@ -13,14 +13,14 @@ dest.mkdir(parents=True,exist_ok=True)
 # benchmark (private action 42827478126); publisher SHA256SUMS has a different
 # path notation and was NOT marked verified in that run.
 pinned={
-    "encoder":"d07cbf5198c8c6d41108cc9c9e057b0a3591846867b6a4d2e283add3bbb84413",
+    "encoder":"e595e2e37f46078387868ffa656b775de787fa511cf851cf8e1892d7dbdabe54",
     "decoder":"f5dfa6c8609b29da86c739d4904889475c33b62e28e70c619952a0ee6c31416f",
     "joiner":"64efd9aeb71fb2278c713b3d5eb5ec45edf6b2ccd8716d3709044f17723c13fd",
     "tokens":"435dfb9e0a2b6a79124f1a4d8f0f33a951b25384726e2e0d854f081533e6ec9d",
 }
 report={}
 for kind in ("encoder","decoder","joiner","tokens"):
-    source_name="tokens.txt" if kind=="tokens" else f"{kind}-epoch-99-avg-1-chunk-32-left-128.int8.onnx"
+    source_name="tokens.txt" if kind=="tokens" else f"{kind}-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
     asset_name=source_name if kind=="tokens" else f"{kind}.int8.onnx"
     source=Path(hf_hub_download(repo_id=repo,filename=source_name))
     target=dest/asset_name
