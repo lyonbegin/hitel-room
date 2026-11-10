@@ -192,13 +192,37 @@ public final class GrowingCallEngine {
     return null;
   }
 
+  /**
+   * DocumentFile.length() may be cached by MediaStore/DocumentsUI for a URI
+   * selected before an external recorder app appends new bytes. A newly-opened
+   * real file descriptor exposes the current inode size via fstat.
+   */
+  long currentReadableSize(Uri uri,long providerMetadataSize) {
+    try(ParcelFileDescriptor fd=context.getContentResolver().openFileDescriptor(uri,"r")){
+      if(fd!=null){
+        long size=fd.getStatSize();
+        if(size>=0){
+          if(providerMetadataSize>=0 && size!=providerMetadataSize)
+            log.event("FILE","PROVIDER_METADATA_STALE","providerSize",providerMetadataSize,
+              "realFdSize",size,"uri",uri.toString());
+          return size;
+        }
+      }
+    }catch(Throwable e){
+      log.event("FILE","LIVE_FD_STAT_UNAVAILABLE","message",String.valueOf(e),
+        "metadataFallback",providerMetadataSize);
+    }
+    return providerMetadataSize;
+  }
+
   void pollChanges(Uri uri){
     long lastSize=Long.MIN_VALUE,lastModified=Long.MIN_VALUE,checks=0;
     while(!stop && !Thread.currentThread().isInterrupted()){
       checks++;
       try{
         DocumentFile document=DocumentFile.fromSingleUri(context,uri);
-        long n=document==null?-1:document.length();
+        long metadataSize=document==null?-1:document.length();
+        long n=currentReadableSize(uri,metadataSize);
         long modified=document==null?-1:document.lastModified();
         if(n==0||n<0)log.event("FILE","UNAVAILABLE_OR_EMPTY","size",n,"lastModified",modified);
         if(n!=lastSize||modified!=lastModified){
@@ -258,7 +282,7 @@ public final class GrowingCallEngine {
       long available=-1;
       try{
         DocumentFile doc=DocumentFile.fromSingleUri(context,uri);
-        if(doc!=null)available=doc.length();
+        if(doc!=null)available=currentReadableSize(uri,doc.length());
       }catch(Throwable ignored){}
       if(available>=0 && available<mirroredBytes){
         log.event("MIRROR","SOURCE_TRUNCATED","previous",mirroredBytes,"newSize",available);
