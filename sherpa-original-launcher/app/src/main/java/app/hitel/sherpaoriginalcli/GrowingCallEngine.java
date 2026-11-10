@@ -618,7 +618,7 @@ public final class GrowingCallEngine {
         // ever stopping the recorder or modifying its original file.
         long snapshotBytes=mirroredBytes;
         if(snapshotBytes<1024 || snapshotBytes==processedMirrorBytes){
-          Thread.sleep(350);continue;
+          Thread.sleep(80);continue;
         }
         File local=workingMirror;
         String layout=local==null?"NO_MIRROR":describeMirrorLayout(local);
@@ -628,7 +628,7 @@ public final class GrowingCallEngine {
           adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
           if(!recoverMdatAac(local,adts,snapshotBytes)){
             processedMirrorBytes=snapshotBytes;
-            Thread.sleep(350);
+            Thread.sleep(80);
             continue;
           }
           log.event("AAC","LIVE_PREFIX_READY","inputBytes",snapshotBytes,
@@ -678,7 +678,7 @@ public final class GrowingCallEngine {
         long waitUntil=SystemClock.elapsedRealtime()+(attempt==1 && alternateInput!=null?1000:15000);
         long prev=currentSize;
         while(!stop && currentSize==prev && SystemClock.elapsedRealtime()<waitUntil){
-          Thread.sleep(800);
+          Thread.sleep(75);
         }
         if(stop){endReason="USER_STOP";return;}
         if(currentSize!=prev)log.event("FFMPEG","RETRY_AFTER_GROWTH","old",prev,"new",currentSize);
@@ -859,7 +859,7 @@ public final class GrowingCallEngine {
             "ffmpegCompleted",complete.get(),"pcmBytes",pcmBytes.get());
           break;
         }
-        Thread.sleep(400);
+        Thread.sleep(45);
       }
       if(stop)termination="STOPPED";
       log.event("FFMPEG","SESSION_STOP_REQUESTED","attempt",attempt,"why",termination,
