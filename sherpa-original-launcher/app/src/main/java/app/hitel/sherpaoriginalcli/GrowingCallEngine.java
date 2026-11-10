@@ -33,6 +33,8 @@ public final class GrowingCallEngine {
   volatile Process sherpa;
   volatile String fifo;
   volatile String transcription="";
+  volatile boolean hasOnlineHypothesis=false;
+  volatile long modelReadyElapsedMs=0;
   volatile Uri activeUri;
   volatile File workingMirror;
   volatile long mirroredBytes=0;
@@ -47,8 +49,9 @@ public final class GrowingCallEngine {
   volatile boolean finished=false;
   volatile String endReason="NOT_STARTED";
   private Thread worker;
-  // Transport PCM to the persistent Silero VAD every 0.5s, NEVER use a fixed STT boundary.
-  static final int WINDOW_SAMPLES=16000/2;
+  // Send PCM to persistent Zipformer online recognizer every 100ms (not 500ms).
+  // This is a transport flush only; model maintains its own 640ms chunk-16 state.
+  static final int WINDOW_SAMPLES=1600;
   static final int WINDOW_BYTES=WINDOW_SAMPLES*2;
 
   public GrowingCallEngine(Context context,TraceJournal log,Callback callback){
@@ -88,6 +91,13 @@ public final class GrowingCallEngine {
     log.event("CONTROL","ENGINE_START","inputUri",String.valueOf(given),"folderMode",directoryMode,
       "targetAbi",Arrays.toString(Build.SUPPORTED_ABIS));
     try{
+      // Warm 174M ASR BEFORE waiting for the first recording file.
+      // The earlier v8 launched it only AFTER detecting the M4A and thus
+      // incurred 13.79s of avoidable start-of-call silence on Galaxy Flip3.
+      nativeStart();
+      log.event("LATENCY","MODEL_PREWARM_LAUNCHED","note",
+        "Start monitoring before call; recognizer loads while waiting for recording");
+      status("한국어 STT 준비 중 · 통화 전 감시를 시작해 주십시오.");
       Uri file=directoryMode?waitForGrowingFile(given):given;
       if(file==null)throw new IOException("파일을 발견하지 못했거나 감시를 중지했습니다.");
       activeUri=file;
@@ -187,7 +197,7 @@ public final class GrowingCallEngine {
         status("증가하는 녹음 파일 감지: "+growing.getName());
         return growing.getUri();
       }
-      Thread.sleep(1000);
+      Thread.sleep(250);
     }
     return null;
   }
@@ -240,7 +250,7 @@ public final class GrowingCallEngine {
             "noPcmForMs",lastPcm.get()==0?-1:SystemClock.elapsedRealtime()-lastPcm.get());
         }
       }catch(Throwable t){log.error("FILE","POLL_ERROR",t);}
-      try{Thread.sleep(950);}catch(InterruptedException e){break;}
+      try{Thread.sleep(180);}catch(InterruptedException e){break;}
     }
     log.event("FILE","POLL_STOPPED","checks",checks);
   }
@@ -406,12 +416,34 @@ public final class GrowingCallEngine {
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
           if(line.startsWith("ONLINE_READY:")){
-            log.event("ONLINE","MODEL_READY","settings",line);
+            modelReadyElapsedMs=SystemClock.elapsedRealtime();
+            log.event("ONLINE","MODEL_READY","settings",line,
+              "modelReadyElapsedRealtimeMs",modelReadyElapsedMs);
+            callback.onStatus("한국어 STT 모델 준비 완료 · 음성 감시 중",transcription);
           }
           if(line.startsWith("ONLINE_HYPOTHESIS:")){
             String[] on=line.split(":",3);
-            if(on.length==3)log.event("ONLINE","HYPOTHESIS",
-                "audioMs",on[1],"text",on[2]);
+            if(on.length==3){
+              log.event("ONLINE","HYPOTHESIS","audioMs",on[1],"text",on[2]);
+              final String live=on[2].trim();
+              // Do NOT gate screen updates on immutable-prefix word
+              // commits. Android log showed 36 ONLINE_REWRITE_PENDING while
+              // the model already recognized the full spoken sentence.
+              // Provisional recognition is replaceable; corrections appear
+              // in-place instead of blocking all future captions.
+              if(!live.isEmpty()){
+                hasOnlineHypothesis=true;
+                transcription=live;
+                String[] words=live.split("\\s+");
+                String tail=words.length<=2?live:
+                  words[words.length-2]+" "+words[words.length-1];
+                long displayAt=SystemClock.elapsedRealtime();
+                log.event("LATENCY","LIVE_HYPOTHESIS_VISIBLE","audioMs",on[1],
+                    "elapsedRealtimeMs",displayAt,"tail",tail,
+                    "recognizedChars",live.length());
+                callback.onStatus("실시간 임시 자막: "+tail,live);
+              }
+            }
           }
           if(line.startsWith("ONLINE_ACCEPTED:")){
             log.event("ONLINE","PCM_ACCEPTED","details",line);
@@ -481,7 +513,8 @@ public final class GrowingCallEngine {
               int seq;
               try{seq=Integer.parseInt(sections[1]);}catch(NumberFormatException e){seq=-1;}
               if(!sections[2].trim().isEmpty()){
-                transcription+=((transcription.isEmpty())?"":"\n")+sections[2].trim();
+                if(!hasOnlineHypothesis)
+                  transcription+=((transcription.isEmpty())?"":"\n")+sections[2].trim();
               }
               resultCount.incrementAndGet();
               log.event("STT","CAPTION","sequence",seq,"text",sections[2].trim(),
@@ -530,7 +563,8 @@ public final class GrowingCallEngine {
     return null;
   }
   void processSource(Uri uri)throws Exception {
-    nativeStart();
+    // nativeStart() ran before file selection, ensuring call audio never
+    // triggers expensive 174M model extraction or process initialization.
     String path=workingMirror==null?null:workingMirror.getAbsolutePath();
     log.event("INPUT","SEEKABLE_PRIVATE_MIRROR_PREFERRED","path",path,
       "sourceUri",uri.toString(),"initialBytes",mirroredBytes);
