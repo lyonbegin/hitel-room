@@ -34,6 +34,8 @@ public final class GrowingCallEngine {
   volatile String fifo;
   volatile String transcription="";
   volatile Uri activeUri;
+  volatile File workingMirror;
+  volatile long mirroredBytes=0;
   final AtomicLong pcmBytes=new AtomicLong();
   final AtomicLong committedPcmBytes=new AtomicLong();
   final AtomicLong lastPcm=new AtomicLong();
@@ -68,7 +70,7 @@ public final class GrowingCallEngine {
     String path=fifo;
     if(path!=null){
       // FIFO reader can be waiting in open(), if ffmpeg failed before opening the write end.
-      new Thread(()->{try(FileOutputStream out=new FileOutputStream(path)){out.write(0);out.flush();}
+      new Thread(()->{try(FileOutputStream out=new FileOutputStream(path)){out.flush();}
          catch(Exception e){log.event("PIPE","UNBLOCK_OPEN_FAILURE","error",String.valueOf(e));}},
          "Unblock-FFmpeg-FIFO").start();
     }
@@ -87,6 +89,12 @@ public final class GrowingCallEngine {
       Uri file=directoryMode?waitForGrowingFile(given):given;
       if(file==null)throw new IOException("파일을 발견하지 못했거나 감시를 중지했습니다.");
       activeUri=file;
+      File dir=new File(context.getCacheDir(),"growing-m4a-reader");
+      if(!dir.exists()&&!dir.mkdirs())throw new IOException("Cannot create private FFmpeg input folder");
+      workingMirror=new File(dir,"recording-"+SystemClock.elapsedRealtime()+".m4a");
+      log.event("MIRROR","PRIVATE_MIRROR_CREATED","path",workingMirror.getAbsolutePath(),
+        "note","Android SAF provides bytes; private seekable file is FFmpeg input; deleted on stop");
+      appendMirror(file,"initial");
       log.event("FILE","SELECTED_FOR_STREAM","uri",file.toString(),"displayName",display(file));
       File sampler=takeSample(file,"initial");
       if(sampler!=null)log.event("FILE","INITIAL_HEADER_SAVED","name",sampler.getName());
@@ -112,6 +120,12 @@ public final class GrowingCallEngine {
         "pcmSeconds",pcmBytes.get()/32000.0,"uniquePcmSentBytes",committedPcmBytes.get(),"chunksSent",chunkCount.get(),
         "sttResults",resultCount.get(),"fileChanges",fileChangeCount,
         "fileGrowthBytes",observedGrowthBytes,"transcriptChars",transcription.length());
+      File temp=workingMirror;
+      if(temp!=null){
+        boolean removed=temp.delete();
+        log.event("MIRROR","PRIVATE_MIRROR_REMOVED","deleted",removed,
+          "bytesWritten",mirroredBytes,"path",temp.getAbsolutePath());
+      }
       log.diagnosticSummary();
       finished=true;
       callback.onStatus("진단 종료 · "+endReason+" · ZIP 로그를 저장하십시오.",transcription);
@@ -188,6 +202,9 @@ public final class GrowingCallEngine {
         if(n!=lastSize||modified!=lastModified){
           if(lastSize>=0&&n>lastSize){observedGrowthBytes+=n-lastSize;fileChangeCount++;}
           if(lastSize>=0&&n<lastSize)log.event("FILE","TRUNCATED_OR_REPLACED","old",lastSize,"new",n);
+          if(n>=0 && (n>mirroredBytes || n<mirroredBytes)){
+            appendMirror(uri,"size-change-"+checks);
+          }
           log.event("FILE","SIZE_OR_MTIME_CHANGED","oldBytes",lastSize,"newBytes",n,
             "delta",lastSize>=0?n-lastSize:0,"mtime",modified,"checks",checks);
           lastSize=n;lastModified=modified;currentSize=n;
@@ -226,6 +243,91 @@ public final class GrowingCallEngine {
     }catch(Throwable e){log.error("FORMAT","HEADER_PROBE_FAILED_"+label,e);return null;}
     finally{if(fd!=null)try{fd.close();}catch(Exception ignored){}}
   }
+  /** Copy only newly-written bytes from Android SAF source into a seekable private
+   *  file. FFmpegKit's saf: reader can fail to seek to trailing MP4 moov and
+   *  /proc/self/fd is denied under Android 15 scoped storage. Do not log audio.
+   */
+  synchronized void appendMirror(Uri uri,String label){
+    File target=workingMirror;
+    if(target==null)return;
+    long start=mirroredBytes;
+    long begin=SystemClock.elapsedRealtime();
+    try{
+      long available=-1;
+      try{
+        DocumentFile doc=DocumentFile.fromSingleUri(context,uri);
+        if(doc!=null)available=doc.length();
+      }catch(Throwable ignored){}
+      if(available>=0 && available<mirroredBytes){
+        log.event("MIRROR","SOURCE_TRUNCATED","previous",mirroredBytes,"newSize",available);
+        try(FileOutputStream truncate=new FileOutputStream(target,false)){}
+        mirroredBytes=0;
+        start=0;
+      }
+      if(available>=0 && available==mirroredBytes){
+        if("initial".equals(label))log.event("MIRROR","NO_BYTES_AVAILABLE","size",available);
+        return;
+      }
+      try(InputStream in=context.getContentResolver().openInputStream(uri)){
+        if(in==null)throw new IOException("SAF source InputStream is null");
+        long remaining=mirroredBytes;
+        while(remaining>0){
+          long skipped=in.skip(remaining);
+          if(skipped>0){remaining-=skipped;continue;}
+          if(in.read()<0)break;
+          remaining--;
+        }
+        if(remaining>0){
+          throw new EOFException("SAF stream shorter than mirrored cursor; missing="+remaining);
+        }
+        try(FileOutputStream dest=new FileOutputStream(target,true)){
+          byte[] buffer=new byte[32768];
+          int n;
+          long appended=0;
+          while((n=in.read(buffer))!=-1){
+            if(stop)break;
+            if(n<=0)continue;
+            dest.write(buffer,0,n);
+            appended+=n;
+            if(appended>64*1024*1024L)throw new IOException("Diagnostic safety: file grew beyond 64MB in single update");
+          }
+          dest.flush();
+          mirroredBytes+=appended;
+          log.event("MIRROR","INCREMENT_APPENDED","label",label,"oldOffset",start,
+            "bytesAppended",appended,"newOffset",mirroredBytes,
+            "sourceSize",available,"elapsedMs",SystemClock.elapsedRealtime()-begin,
+            "layout",describeMirrorLayout(target));
+        }
+      }
+    }catch(Throwable e){log.error("MIRROR","INCREMENT_READ_FAILED_"+label,e);}
+  }
+
+  static String describeMirrorLayout(File f) {
+    StringBuilder result=new StringBuilder();
+    try(RandomAccessFile raf=new RandomAccessFile(f,"r")){
+      long length=raf.length();
+      long pos=0;
+      int count=0;
+      while(pos+8<=length && count++<20){
+        raf.seek(pos);
+        int size32=raf.readInt();
+        byte[] type=new byte[4];raf.readFully(type);
+        String name=new String(type,StandardCharsets.US_ASCII);
+        long size=size32&0xffffffffL;
+        if(size==1){if(pos+16>length)break;size=raf.readLong();}
+        if(size==0)size=length-pos;
+        result.append(name).append("@").append(pos).append("+").append(size).append(";");
+        if(size<8 || pos+size>length){
+          result.append("INCOMPLETE_BOX;");
+          break;
+        }
+        if("moov".equals(name))result.append("MOOV_FOUND;");
+        pos+=size;
+      }
+    }catch(Throwable error){result.append("SCAN_ERROR=").append(error.getMessage());}
+    return result.toString();
+  }
+
   static long u32(byte[] a,int off) {
     return ((long)(a[off]&255)<<24)|((long)(a[off+1]&255)<<16)
       |((long)(a[off+2]&255)<<8)|(a[off+3]&255);
@@ -329,7 +431,9 @@ public final class GrowingCallEngine {
   }
   void processSource(Uri uri)throws Exception {
     nativeStart();
-    String path=directPath(uri);
+    String path=workingMirror==null?null:workingMirror.getAbsolutePath();
+    log.event("INPUT","SEEKABLE_PRIVATE_MIRROR_PREFERRED","path",path,
+      "sourceUri",uri.toString(),"initialBytes",mirroredBytes);
     ParcelFileDescriptor pfd=null;
     try{
       String alternateInput=null;
@@ -520,7 +624,7 @@ public final class GrowingCallEngine {
       fifoReader.start();
       while(!stop){
         if(complete.get()&&readerDone.get()){termination="FFMPEG_EXIT";break;}
-        if(complete.get() && SystemClock.elapsedRealtime()-begin>12000){
+        if(complete.get() && SystemClock.elapsedRealtime()-begin>3500){
           termination="FFMPEG_EXIT_FIFO_WAIT";break;
         }
         long last=lastPcm.get();
@@ -561,7 +665,7 @@ public final class GrowingCallEngine {
     // A writer connecting to a FIFO unblocks reader's open(). A reader that is
     // already actively reading is released by cancellation of FFmpeg's writer.
     new Thread(()->{
-      try(FileOutputStream out=new FileOutputStream(namedPipe)){out.write(0);out.flush();}
+      try(FileOutputStream out=new FileOutputStream(namedPipe)){out.flush();}
       catch(Throwable ignored){}
     },"FIFO-Rescue-Writer").start();
   }
