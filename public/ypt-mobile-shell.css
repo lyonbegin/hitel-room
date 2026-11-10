@@ -1,0 +1,35 @@
+/* Mobile-first production shell: one app surface, no side panels. */
+html,body{margin:0;width:100%;height:100%;min-height:100%;overflow-x:hidden;background:#fff}
+.workspace{display:block!important;grid-template-columns:none!important;max-width:520px;width:100%;min-height:100dvh;margin:0 auto;padding:0!important;background:#fff}
+.workspace .map-pane,.workspace .audit-pane,.workspace .stage-top,.workspace .stage-bottom{display:none!important}
+.workspace .stage{display:block!important;width:100%;min-height:100dvh;padding:0!important;margin:0}
+.workspace .phone-wrap{width:100%;max-width:none;min-width:0}
+.workspace #phone.phone{width:100%;max-width:none;min-width:0;height:100dvh;min-height:0;max-height:none;border:0;border-radius:0;box-shadow:none;margin:0}
+.workspace #phone .app{height:100%;min-width:0}
+.workspace #phone .appscroll{padding:0 16px 32px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+.workspace #phone .appbar{padding:0 16px}
+.workspace #phone .bottomnav{height:calc(64px + env(safe-area-inset-bottom));padding:4px 3px env(safe-area-inset-bottom);width:100%}
+.workspace #phone .bottomnav button{min-width:0;min-height:50px;font-size:10px;padding:5px 0}
+.workspace #phone .gesture{height:8px;display:none}
+#phone .bs-books{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}
+#phone .bs-library{min-width:0}
+#phone .bs-book-info strong{font-size:12px;min-height:auto}
+#phone .bs-quick .bs-btn{min-height:34px}
+#phone .bs-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#phone .bs-filter select{font-size:12px;padding:8px}
+#phone .bs-major-tabs button{font-size:12px}
+#phone .bs-detail-hero{display:flex;flex-direction:column;align-items:flex-start}
+#phone .bs-detail-hero>.bs-cover{width:118px;min-width:0}
+#phone .bs-detail-info{width:100%}
+#phone .bs-detail-actions{display:grid;grid-template-columns:1fr}
+#phone .bs-detail-bottom{display:grid;grid-template-columns:1fr}
+#phone .bs-reading-actions{display:grid;grid-template-columns:1fr}
+#phone .bs-share-other-row{display:grid;grid-template-columns:1fr}
+#phone .bs-book.bs-book-list .bs-cover{width:62px;height:84px}
+@media (max-width:350px){
+ .workspace #phone .appscroll{padding-left:12px;padding-right:12px}
+ #phone .bs-books{gap:13px 8px}
+ #phone .bs-major-tabs button{font-size:11px}
+ #phone .wp-study-nav button{font-size:9px}
+}
+@media (min-width:521px){body{background:#eef0f2}.workspace{box-shadow:0 4px 35px #14202b10}}
