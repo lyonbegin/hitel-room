@@ -96,8 +96,18 @@ struct Engine {
     if(raw==lastRaw)quietUpdates++;
     else quietUpdates=0;
     if(raw!=lastRaw||final){
-      printf("ONLINE_HYPOTHESIS:%lld:%s\n",
-          static_cast<long long>(pcmSamples*1000/16000),raw.c_str());
+      // Provisional speech-to-text MUST be visible immediately. Confirmed
+      // captions can lag or be blocked by an ASR rewrite; never gate UI
+      // updates on the confirmed-prefix buffer.
+      const long long audioMs=static_cast<long long>(pcmSamples*1000/16000);
+      printf("ONLINE_HYPOTHESIS:%lld:%s\n",audioMs,raw.c_str());
+      printf("ONLINE_LIVE:%lld:%s\n",audioMs,raw.c_str());
+      std::vector<std::string> tw=words(raw);
+      if(!tw.empty()){
+        const size_t tail=tw.size()>2?tw.size()-2:0;
+        const std::string latest=tw.size()-tail==2?tw[tail]+" "+tw[tail+1]:tw[tail];
+        printf("ONLINE_LIVE_TAIL:%lld:%s\n",audioMs,latest.c_str());
+      }
       hypotheses++;
     }
     const std::string norm=normalized(raw);
@@ -151,8 +161,8 @@ struct Engine {
     }
   }
   void finish(){
-    // Match model creator guidance: 1x chunk padding (32*40ms).
-    std::vector<float> padding(32*640,0.f);
+    // Match faster 174M chunk16 model's ~640ms trailing padding.
+    std::vector<float> padding(16*640,0.f);
     SherpaOnnxOnlineStreamAcceptWaveform(stream,16000,padding.data(),padding.size());
     SherpaOnnxOnlineStreamInputFinished(stream);
     int iteration=0;
@@ -198,7 +208,7 @@ int main(int argc,char** argv){
     SherpaOnnxDestroyOnlineRecognizer(engine.recognizer);return 4;
   }
   printf("STT_READY\n");
-  printf("ONLINE_READY:model=korean-zipformer-int8:chunk=32:threads=2:full_previous_state=true\n");
+  printf("ONLINE_READY:model=korean-zipformer-174m-int8:chunk=16:threads=2:full_previous_state=true:live=UNCONFIRMED\n");
   int status=0;
   for(;;){
     uint8_t header[8];
