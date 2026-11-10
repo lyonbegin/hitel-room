@@ -432,6 +432,9 @@ public final class GrowingCallEngine {
           if(line.startsWith("WORD_TIME_MODE:")){
             log.event("WORD","TIMESTAMP_SOURCE","details",line);
           }
+          if(line.startsWith("WORD_REWRITE_OVERLAP_SKIPPED:")){
+            log.event("WORD","REWRITE_OVERLAP_SKIPPED","details",line);
+          }
           if(line.startsWith("WORD_COMMIT:")){
             String[] c=line.split(":",5);
             if(c.length==5)log.event("WORD","COMMITTED","sequence",c[1],
