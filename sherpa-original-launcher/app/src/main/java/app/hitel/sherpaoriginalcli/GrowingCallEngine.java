@@ -425,9 +425,9 @@ public final class GrowingCallEngine {
             }
           }
           if(line.startsWith("SHORT_PAUSE:")){
-            String[] p=line.split(":",5);
-            if(p.length==5)log.event("WORD","SHORT_PAUSE","sequence",p[1],
-              "startMs",p[2],"endMs",p[3],"durationMs",p[4]);
+            String[] pauseParts=line.split(":",5);
+            if(pauseParts.length==5)log.event("WORD","SHORT_PAUSE","sequence",pauseParts[1],
+              "startMs",pauseParts[2],"endMs",pauseParts[3],"durationMs",pauseParts[4]);
           }
           if(line.startsWith("WORD_TIME_MODE:")){
             log.event("WORD","TIMESTAMP_SOURCE","details",line);
