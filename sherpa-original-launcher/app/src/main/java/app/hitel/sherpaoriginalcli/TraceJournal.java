@@ -79,6 +79,9 @@ public final class TraceJournal {
     event("APP","RUN_SUMMARY","eventCount",lines,"lastUI",lastUI,"runtimeMs",SystemClock.elapsedRealtime()-started);
   }
   public synchronized void exportZip(OutputStream target)throws IOException {
+    zipDirectory(directory,target,runId);
+  }
+  public static void zipDirectory(File directory,OutputStream target,String runId)throws IOException {
     // Flush all writes before packaging. ZIP is created and saved on device, never uploaded.
     try(ZipOutputStream zip=new ZipOutputStream(target,StandardCharsets.UTF_8)){
       zip.setLevel(6);
