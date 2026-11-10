@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.koreanzipformer.fastcaption"
+    applicationId = "app.hitel.koreanzipformer.latencytrace"
     minSdk = 26
     targetSdk = 28
-    versionCode = 9
-    versionName = "9.0.0-ko-174m-fast-live-chunk16"
+    versionCode = 11
+    versionName = "11.0.0-ko-174m-latencytrace"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
