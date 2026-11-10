@@ -39,7 +39,7 @@ def tap_name(names, seconds=15):
             listing=nodes()
             for preference in (0,1):
                 for n,title in listing:
-                    if any((title==x if preference==0 else x in title) for x in names):
+                    if any((title.casefold()==x.casefold() if preference==0 else x.casefold() in title.casefold()) for x in names):
                         coords=list(map(int,re.findall(r"\d+",n.attrib.get("bounds",""))))
                         if len(coords)==4:
                             x=(coords[0]+coords[2])//2
