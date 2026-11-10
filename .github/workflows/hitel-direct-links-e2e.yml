@@ -1,0 +1,62 @@
+name: HITEL Direct Link Real Page E2E
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - public/ypt-workplace-ui.js
+      - public/ypt-book-library.js
+      - public/ypt-coach-suite.js
+      - tools/education/test_direct_links.py
+      - .github/workflows/hitel-direct-links-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  navigate-every-url:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 22
+    env:
+      HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          python -m py_compile tools/education/test_direct_links.py
+          node --check public/ypt-workplace-ui.js
+          node --check public/ypt-book-library.js
+          node --check public/ypt-coach-suite.js
+      - name: Install Chromium Playwright
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Wait for deployed direct-link fix
+        run: |
+          python - <<'PY'
+          import urllib.request,time
+          url='https://hitel-education-zocbo-unified-production.up.railway.app/ypt-workplace-ui.js'
+          for i in range(45):
+              try:
+                  with urllib.request.urlopen(url,timeout=10) as r:
+                      code=r.read().decode('utf-8','replace')
+                      if "groupCoachDashboard:'학습기록'" in code and "groupBookDetail:'문제집 상세'" in code:
+                          print('DEEPLINK_FIXED_DEPLOYMENT_READY');break
+              except Exception as e: print(str(e)[:90])
+              time.sleep(5)
+          else:raise SystemExit('DEEPLINK_FIX_NOT_DEPLOYED')
+          PY
+      - name: Directly open every screen in fresh mobile browsers
+        run: python tools/education/test_direct_links.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-direct-link-page-screenshots
+          path: direct-link-mobile-evidence/
+          if-no-files-found: warn
+          retention-days: 21
