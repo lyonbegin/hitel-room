@@ -36,7 +36,7 @@ public final class MainActivity extends Activity {
   final Handler ui=new Handler(Looper.getMainLooper());
   Uri selected;
   boolean folderMode=false;
-  TextView source,status,caption,logs,summary;
+  TextView source,status,caption,latestTwo,logs,summary;
   Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
   volatile boolean receiverRegistered=false;
   final StringBuilder liveText=new StringBuilder();
@@ -47,11 +47,19 @@ public final class MainActivity extends Activity {
       String message=intent.getStringExtra(GrowingCallService.EX_STATUS);
       String text=intent.getStringExtra(GrowingCallService.EX_TEXT);
       if(message!=null)status.setText(message);
-      if(text!=null)caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
+      if(text!=null){
+        caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
+        if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+      }
       refreshButtons();
       refreshEventTail();
     }
   };
+  static String lastTwoWords(String s){
+    if(s==null||s.trim().isEmpty())return "새로 인식된 단어 대기 중";
+    String[] words=s.trim().split("\\s+");
+    return words.length==1?words[0]:words[words.length-2]+" "+words[words.length-1];
+  }
   TextView text(String value,int size){
     TextView v=new TextView(this);v.setText(value);v.setTextSize(size);
     v.setPadding(0,9,0,9);return v;
@@ -85,7 +93,10 @@ public final class MainActivity extends Activity {
     startButton=button(root,"FFmpeg + 한국어 Zipformer 진단 시작");
     stopButton=button(root,"진단 중지");
     status=text("대기 중",15);root.addView(status);
-    root.addView(text("한국어 STT 자막 (들어오는 구간마다 갱신)",16));
+    root.addView(text("현재 말하는 내용 · 확정 대기 없이 즉시 표시",17));
+    latestTwo=text("새로 인식된 단어 대기 중",24);
+    latestTwo.setTypeface(null,Typeface.BOLD);root.addView(latestTwo);
+    root.addView(text("전체 임시 자막 · 다음 인식에 따라 자동 보정",16));
     caption=text("아직 인식 결과 없음",16);caption.setTextIsSelectable(true);root.addView(caption);
     root.addView(text("STEP 3 · 상세 원본 로그 확보",17));
     exportButton=button(root,"전체 진단 로그 ZIP 저장 (오류 발생 시에도 가능)");
@@ -236,6 +247,7 @@ public final class MainActivity extends Activity {
     String text=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentTranscript","");
     status.setText(msg);
     caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":text);
+    if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
     refreshButtons();
     refreshEventTail();
   }
