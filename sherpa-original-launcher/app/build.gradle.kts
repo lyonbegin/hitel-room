@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.sensevoice.filestream"
+    applicationId = "app.hitel.sensevoice.growingm4adiag"
     minSdk = 26
     targetSdk = 28
-    versionCode = 3
-    versionName = "3.0.0-file-stream"
+    versionCode = 4
+    versionName = "4.0.0-growing-m4a-ffmpeg-diagnostic"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
@@ -24,4 +24,7 @@ android {
 }
 
 dependencies {
+  implementation(files("libs/ffmpeg-kit-min.aar"))
+  implementation("com.arthenica:smart-exception-java:0.2.1")
+  implementation("androidx.documentfile:documentfile:1.0.1")
 }
