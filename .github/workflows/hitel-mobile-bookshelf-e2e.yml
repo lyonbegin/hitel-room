@@ -1,0 +1,66 @@
+name: HITEL Mobile Textbook Bookshelf E2E
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - public/ypt-mobile-shell.css
+      - public/ypt-book-library.css
+      - public/ypt-book-library.js
+      - public/ypt-rebuild.html
+      - server.mjs
+      - tools/education/test_mobile_bookshelf.py
+      - .github/workflows/hitel-mobile-bookshelf-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  phone-only-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    env:
+      HITEL_BASE_URL: https://hitel-education-zocbo-unified-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Static syntax checks
+        run: |
+          node --check public/ypt-book-library.js
+          node --check public/ypt-rebuild.js
+          node --check public/ypt-workplace-ui.js
+          node --check public/ypt-ai-captain.js
+          node --check server.mjs
+          python -m py_compile tools/education/test_mobile_bookshelf.py
+      - name: Install Playwright Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Verify correct latest UI version is deployed
+        run: |
+          python - <<'PY'
+          import urllib.request,time
+          url='https://hitel-education-zocbo-unified-production.up.railway.app/ypt-book-library.js'
+          for i in range(60):
+              try:
+                  with urllib.request.urlopen(url,timeout=10) as r:
+                      body=r.read().decode('utf-8','replace')
+                      if 'function weekActivity()' in body and 'function notePanel(' in body and r.status==200:
+                          print('BOOKSHELF_LATEST_CODE_READY',len(body));break
+              except Exception as e:print('deployed check',str(e)[:100])
+              time.sleep(5)
+          else:raise SystemExit('NEW_BOOKSHELF_NOT_DEPLOYED')
+          PY
+      - name: Real Chromium mobile 320 / 360 / 390 / 430 px E2E
+        run: python tools/education/test_mobile_bookshelf.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-mobile-bookshelf-screenshots
+          path: education-bookshelf-mobile-evidence/
+          if-no-files-found: warn
+          retention-days: 21
