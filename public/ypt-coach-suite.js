@@ -15,11 +15,13 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&
 const now=()=>Date.now();
 const date=ts=>new Date(ts||now()).toLocaleDateString('ko-KR');
 const uid=()=>now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
-const initial=()=>({selected:'',filters:'all',seed:{},attempts:[],coach:{},drafts:{},manual:[],uploads:{},drawings:{},favorites:[],startTime:now(),view:'list'});
+const initial=()=>({selected:'',filters:'all',seed:{},attempts:[],coach:{},drafts:{},manual:[],uploads:{},drawings:{},favorites:[],startTime:now(),timer:{running:false,startedAt:0,seconds:0},penMode:'pen',view:'list'});
 let x;
 try{x=Object.assign(initial(),JSON.parse(localStorage.getItem(KEY)||'null')||{});}catch(_){x=initial()}
 for(const key of ['seed','coach','drafts','uploads','drawings'])if(!x[key]||typeof x[key]!=='object')x[key]={};
 for(const key of ['attempts','manual','favorites'])if(!Array.isArray(x[key]))x[key]=[];
+if(!x.timer||typeof x.timer!=='object')x.timer={running:false,startedAt:0,seconds:0};
+if(!['pen','highlight','eraser'].includes(x.penMode))x.penMode='pen';
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify({...x,uploads:{}}));}catch(_){}}; // images are session-only
 let sheetCanvas=null,paint=false,lastPoint=null;
 function book(){return B.currentBook()}
@@ -186,9 +188,34 @@ function practiceList(){
  card('<h4>함께 공부하기</h4><div class="cs-links">'+formButton('학교별 족보','route','bankSearch')+
  formButton('그룹 자료','route','groupLearning')+formButton('그룹 질문','route','groupQuestions')+'</div>');
 }
+function timerSeconds(){
+ return Math.max(0,Math.floor(Number(x.timer.seconds)||0)+ (x.timer.running?Math.max(0,Math.floor((now()-(x.timer.startedAt||now()))/1000)):0));
+}
+function timerLabel(n){return String(Math.floor(n/3600)).padStart(2,'0')+':'+String(Math.floor(n%3600/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+function timerWidget(){
+ return '<div class="cs-timer"><div><small>문제풀이 시간</small><strong id="cs-timer-text">'+timerLabel(timerSeconds())+'</strong></div>'+
+ formButton(x.timer.running?'일시정지':'시작','timerToggle')+formButton('초기화','timerReset')+'</div>';
+}
+function exportStudy(){
+ const all=B.getState().bookNotes||[],entries=x.attempts.filter(v=>v.bookId===book().id);
+ const rows=[['종류','교재','단원','기록 내용','날짜']];
+ for(const n of all.filter(z=>z.bookId===book().id))rows.push(['노트',book().name,n.unit||'',(n.type||'')+' '+(n.text||''),date(n.at)]);
+ for(const a of entries)rows.push(['풀이',book().name,a.unit||'',a.question+' / 내 답: '+a.answer+' / '+(a.correct===true?'정답':a.correct===false?'오답':'확인 전'),date(a.at)]);
+ const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='hitel-learning-record.csv';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+function shareNote(){
+ const notes=(B.getState().bookNotes||[]).filter(n=>n.bookId===book().id);
+ const last=notes[notes.length-1],g=group(),m=B.getGroupModel();if(!last||!g||!m){toast('공유할 학습 노트가 없습니다.');return}
+ const docs=m.materials[g.id]||(m.materials[g.id]=[]);
+ const id='coach-note-'+last.id;
+ if(!docs.some(d=>d.id===id))docs.push({id,title:'학습 노트 · '+(last.unit||unit()),site:'학생 학습노트',bookId:book().id,unit:last.unit||unit(),text:last.text,kind:'coach-note'});
+ B.saveGroup();toast('선택한 스터디그룹 자료함에 노트를 공유했습니다.');render();
+}
 function canvasMarkup(p){
  return '<div class="cs-scratch"><div class="cs-scratch-head"><strong>손글씨 풀이 공간</strong>'+
- formButton('지우기','erase',p.id)+'</div>'+
+ formButton('펜','penMode','pen',x.penMode==='pen'?'selected':'')+formButton('형광펜','penMode','highlight',x.penMode==='highlight'?'selected':'')+formButton('지우개','penMode','eraser',x.penMode==='eraser'?'selected':'')+formButton('전체 삭제','erase',p.id)+'</div>'+
  '<canvas id="cs-canvas" width="620" height="285" aria-label="손가락이나 펜으로 풀이를 적는 공간"></canvas>'+
  '<small>한 손가락 또는 터치펜으로 쓰실 수 있습니다. 필기는 이 브라우저에서 다시 열람할 수 있습니다.</small></div>';
 }
@@ -197,7 +224,7 @@ function detail(){
  const h=cstate(p);const prev=attempts(p.id);const last=prev[prev.length-1];const uploaded=x.uploads[p.id];
  return header('문항별 문제풀이','문제를 먼저 풀고, 필요할 때 코치에게 도움을 요청하세요.')+
  formButton('‹ 문항 목록','route','groupPractice','cs-back')+
- problemCard(p,true)+
+ problemCard(p,true)+timerWidget()+
  card('<h4>내 답안</h4>'+
  '<form id="cs-answer-form"><label class="cs-input-label" for="cs-answer">답 또는 풀이식</label>'+
  '<input id="cs-answer" name="answer" autocomplete="off" maxlength="220" required value="'+esc(x.drafts[p.id]||'')+'" placeholder="'+(p.kind==='pair'?'예: 2, 3':p.kind==='ineq'?'예: x>3':'예: 6')+'"/>'+
@@ -261,7 +288,7 @@ function dashboard(){
  days.push('<div><small>'+['일','월','화','수','목','금','토'][d.getDay()]+'</small><b>'+d.getDate()+'</b><i class="'+(num?'on':'')+'"></i></div>')}
  const next=a.wrong>a.correct?'오답 문항부터 다시 살펴보세요.':a.attempts>0?'다른 유형을 선택해 풀이 방법을 설명해 보세요.':'먼저 쉬운 문제 한 개를 풀어보세요.';
  return header('학습기록','실제 이 브라우저에 기록된 풀이·학습을 확인합니다.')+
- stat()+card('<h4>최근 7일 학습</h4><div class="cs-week">'+days.join('')+'</div>')+
+ stat()+card('<div class="cs-splithead"><h4>학습기록 관리</h4></div><div class="cs-links">'+formButton('기록 CSV 내보내기','export')+formButton('최신 학습노트 그룹 공유','shareNote')+'</div>')+card('<h4>최근 7일 학습</h4><div class="cs-week">'+days.join('')+'</div>')+
  card('<h4>다음 학습 제안</h4><p class="cs-advice">'+next+'</p>'+
  '<div class="cs-links">'+formButton('오답부터 복습','route','groupMistakes')+
  formButton('계속 문제풀기','route','groupPractice','primary')+'</div>')+
@@ -330,6 +357,15 @@ function action(k,v){
  if(k==='hint'){if(!p)return;const h=cstate(p);h.hint=Math.min(p.hints.length,h.hint+1);store();render();return}
  if(k==='explain'){if(!p)return;x.drafts['explain:'+p.id]='yes';store();render();return}
  if(k==='symbol'){markAnswerText(v);return}
+ if(k==='timerToggle'){
+  if(x.timer.running){x.timer.seconds=timerSeconds();x.timer.running=false;x.timer.startedAt=0}
+  else{x.timer.running=true;x.timer.startedAt=now()}
+  store();render();return;
+ }
+ if(k==='timerReset'){x.timer={running:false,startedAt:0,seconds:0};store();render();return}
+ if(k==='penMode'){if(['pen','highlight','eraser'].includes(v))x.penMode=v;store();render();return}
+ if(k==='export'){exportStudy();return}
+ if(k==='shareNote'){shareNote();return}
  if(k==='coachQuick'){coachQuick(v);return}
  if(k==='shareProblem'){share(v);return}
  if(k==='removePhoto'){if(p)delete x.uploads[p.id];render();return}
@@ -360,7 +396,14 @@ function mountCanvas(){
  if(data){const im=new Image();im.onload=()=>{if(sheetCanvas===canvas)ctx.drawImage(im,0,0,canvas.width,canvas.height)};im.src=data}
  if(canvas.dataset.bound)return;canvas.dataset.bound='1';canvas.style.touchAction='none';
  canvas.addEventListener('pointerdown',e=>{paint=true;lastPoint=point(canvas,e);try{canvas.setPointerCapture(e.pointerId)}catch(_){}});
- canvas.addEventListener('pointermove',e=>{if(!paint||!lastPoint)return;const next=point(canvas,e);ctx.strokeStyle='#343b46';ctx.lineWidth=2.6;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(...lastPoint);ctx.lineTo(...next);ctx.stroke();lastPoint=next});
+ canvas.addEventListener('pointermove',e=>{
+ if(!paint||!lastPoint)return;const next=point(canvas,e);
+ ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+ if(x.penMode==='eraser'){ctx.globalCompositeOperation='destination-out';ctx.lineWidth=22}
+ else if(x.penMode==='highlight'){ctx.globalCompositeOperation='source-over';ctx.strokeStyle='rgba(225,195,55,.28)';ctx.lineWidth=17}
+ else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle='#343b46';ctx.lineWidth=2.6}
+ ctx.beginPath();ctx.moveTo(...lastPoint);ctx.lineTo(...next);ctx.stroke();ctx.restore();lastPoint=next;
+});
  const end=()=>{if(!paint)return;paint=false;lastPoint=null;const p=selected();if(p){try{x.drawings[p.id]=canvas.toDataURL('image/png');store()}catch(_){}}};
  canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
 }
@@ -397,6 +440,7 @@ document.addEventListener('change',e=>{
   };im.src=data;
  };reader.readAsDataURL(file);
 },true);
+setInterval(()=>{const el=document.getElementById('cs-timer-text');if(el&&x.timer.running)el.textContent=timerLabel(timerSeconds())},1000);
 window.HITEL_COACH_INSPECT=()=>({
  screen:state.screen,bookId:book()?.id,unit:unit(),problemCount:allProblems().length,
  attempts:x.attempts.length,wrong:mistakeIds().length,coachMessages:Object.values(x.coach).reduce((sum,h)=>sum+(h.messages?.length||0),0),
