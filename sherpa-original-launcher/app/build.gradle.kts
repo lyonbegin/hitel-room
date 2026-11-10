@@ -3,7 +3,7 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.koreanzipformer.streamdiag"
+    applicationId = "app.hitel.koreanzipformer.instantdiag"
     minSdk = 26
     targetSdk = 28
     versionCode = 9
