@@ -309,7 +309,7 @@ public final class GrowingCallEngine {
       (old==null?"":":"+old));
     pb.directory(context.getFilesDir());pb.redirectErrorStream(true);
     sherpa=pb.start();
-    log.event("STT","NATIVE_START","pid",Build.VERSION.SDK_INT>=26?sherpa.pid():-1,
+    log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
       "command",executable.getName()+" [tokens] [model]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
     nativeReader(sherpa);
   }
