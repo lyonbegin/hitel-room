@@ -115,3 +115,15 @@
  #phone .bs-filters{gap:4px}
  #phone .bs-filter select{font-size:9px}
 }
+
+/* Group library switcher, inter-group sharing and discovery shelves */
+#phone .bs-group-picker{display:grid;gap:6px;margin:3px 0 12px}
+#phone .bs-group-picker label,#phone .bs-share-other label{font-size:10px;font-weight:700;color:#67717b}
+#phone .bs-group-picker select,#phone .bs-share-other select{min-width:0;width:100%;height:37px;padding:0 10px;background:white;color:#343b43;border:1px solid #e0e4e9;border-radius:7px;font-size:11px}
+#phone .bs-share-other{display:grid;gap:7px;padding:12px;background:#f8f9fa;border-radius:9px}
+#phone .bs-share-other-row{display:flex;gap:7px}
+#phone .bs-share-other-row select{flex:1}
+#phone .bs-discovery{border:1px solid #ecedf0;border-radius:10px;background:#fafafa;padding:12px;margin:11px 0 16px}
+#phone .bs-discovery>strong{font-size:12px;font-weight:800}
+#phone .bs-discovery-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+#phone .bs-discovery-chips .bs-btn{font-size:10px;min-height:30px;border-radius:20px;padding:6px 9px}
