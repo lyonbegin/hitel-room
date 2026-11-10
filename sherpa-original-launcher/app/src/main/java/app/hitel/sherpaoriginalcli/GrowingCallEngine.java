@@ -33,6 +33,9 @@ public final class GrowingCallEngine {
   volatile Process sherpa;
   volatile String fifo;
   volatile String transcription="";
+  volatile boolean hasLiveHypothesis=false;
+  volatile long nativeLaunchElapsed=0;
+  volatile long lastStaleLogElapsed=0;
   volatile Uri activeUri;
   volatile File workingMirror;
   volatile long mirroredBytes=0;
@@ -48,7 +51,7 @@ public final class GrowingCallEngine {
   volatile String endReason="NOT_STARTED";
   private Thread worker;
   // Transport PCM to the persistent Silero VAD every 0.5s, NEVER use a fixed STT boundary.
-  static final int WINDOW_SAMPLES=16000/2;
+  static final int WINDOW_SAMPLES=16000/5; // 200ms PCM transport, not recognition segmentation
   static final int WINDOW_BYTES=WINDOW_SAMPLES*2;
 
   public GrowingCallEngine(Context context,TraceJournal log,Callback callback){
@@ -88,6 +91,12 @@ public final class GrowingCallEngine {
     log.event("CONTROL","ENGINE_START","inputUri",String.valueOf(given),"folderMode",directoryMode,
       "targetAbi",Arrays.toString(Build.SUPPORTED_ABIS));
     try{
+      // Start the 174M model BEFORE waiting for a new Samsung call. In the
+      // field trace cold model initialization took 13.79 seconds; overlap
+      // that cost with idle folder monitoring, not with incoming speech.
+      nativeStart();
+      log.event("LATENCY","MODEL_PREWARM_STARTED","beforeFileDiscovery",true);
+      status("한국어 STT 모델 준비 중 · 녹음 파일 감시를 병행합니다");
       Uri file=directoryMode?waitForGrowingFile(given):given;
       if(file==null)throw new IOException("파일을 발견하지 못했거나 감시를 중지했습니다.");
       activeUri=file;
@@ -240,7 +249,7 @@ public final class GrowingCallEngine {
             "noPcmForMs",lastPcm.get()==0?-1:SystemClock.elapsedRealtime()-lastPcm.get());
         }
       }catch(Throwable t){log.error("FILE","POLL_ERROR",t);}
-      try{Thread.sleep(950);}catch(InterruptedException e){break;}
+      try{Thread.sleep(200);}catch(InterruptedException e){break;}
     }
     log.event("FILE","POLL_STOPPED","checks",checks);
   }
@@ -406,7 +415,29 @@ public final class GrowingCallEngine {
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
           if(line.startsWith("ONLINE_READY:")){
-            log.event("ONLINE","MODEL_READY","settings",line);
+            log.event("ONLINE","MODEL_READY","settings",line,
+              "prewarmDurationMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
+            callback.onStatus("한국어 STT 모델 준비 완료 · 실시간 인식 가능",transcription);
+          }
+          if(line.startsWith("ONLINE_LIVE:")){
+            String[] latest=line.split(":",3);
+            if(latest.length==3){
+              String provisional=latest[2].trim();
+              if(!provisional.isEmpty()){
+                hasLiveHypothesis=true;
+                transcription=provisional; // REPLACE, do not append duplicates
+                long wall=SystemClock.elapsedRealtime();
+                log.event("STT","LIVE_CAPTION","audioMs",latest[1],
+                  "publishedElapsedMs",wall,"text",provisional,
+                  "confirmed",false);
+                callback.onStatus("실시간 자막 · 진행 중 인식 (자동 보정)",transcription);
+              }
+            }
+          }
+          if(line.startsWith("ONLINE_LIVE_TAIL:")){
+            String[] tail=line.split(":",3);
+            if(tail.length==3)log.event("STT","LIVE_LAST_2_WORDS",
+                "audioMs",tail[1],"text",tail[2]);
           }
           if(line.startsWith("ONLINE_HYPOTHESIS:")){
             String[] on=line.split(":",3);
@@ -480,7 +511,7 @@ public final class GrowingCallEngine {
             if(sections.length==3){
               int seq;
               try{seq=Integer.parseInt(sections[1]);}catch(NumberFormatException e){seq=-1;}
-              if(!sections[2].trim().isEmpty()){
+              if(!hasLiveHypothesis && !sections[2].trim().isEmpty()){
                 transcription+=((transcription.isEmpty())?"":"\n")+sections[2].trim();
               }
               resultCount.incrementAndGet();
@@ -510,8 +541,10 @@ public final class GrowingCallEngine {
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
     pb.directory(context.getFilesDir());pb.redirectErrorStream(true);
+    nativeLaunchElapsed=SystemClock.elapsedRealtime();
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
+      "startedBeforeRecordingFileDiscovered",true,
       "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
     nativeReader(sherpa);
   }
@@ -530,7 +563,7 @@ public final class GrowingCallEngine {
     return null;
   }
   void processSource(Uri uri)throws Exception {
-    nativeStart();
+    if(sherpa==null || !sherpa.isAlive())throw new IOException("Prewarmed online STT process not running");
     String path=workingMirror==null?null:workingMirror.getAbsolutePath();
     log.event("INPUT","SEEKABLE_PRIVATE_MIRROR_PREFERRED","path",path,
       "sourceUri",uri.toString(),"initialBytes",mirroredBytes);
@@ -632,10 +665,12 @@ public final class GrowingCallEngine {
             "note","Likely moov atom absent, inaccessible in-progress file, or unsupported SAF follow");
           // Still remain active to detect the next actual change; never spin.
         }
-        long waitUntil=SystemClock.elapsedRealtime()+(attempt==1 && alternateInput!=null?1000:15000);
+        // A 15-second stable-file sleep is incompatible with immediate
+        // call captions when Samsung buffers small AAC frame writes.
+        long waitUntil=SystemClock.elapsedRealtime()+650;
         long prev=currentSize;
         while(!stop && currentSize==prev && SystemClock.elapsedRealtime()<waitUntil){
-          Thread.sleep(800);
+          Thread.sleep(100);
         }
         if(stop){endReason="USER_STOP";return;}
         if(currentSize!=prev)log.event("FFMPEG","RETRY_AFTER_GROWTH","old",prev,"new",currentSize);
