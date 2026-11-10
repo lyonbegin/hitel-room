@@ -5,6 +5,7 @@ on:
     paths:
       - tools/catalog/probe_sources.py
       - tools/catalog/probe_yes24_formats.py
+      - tools/catalog/yes24_category_id_probe.py
       - .github/workflows/probe-bookstore-sources.yml
   workflow_dispatch:
 permissions:
@@ -22,3 +23,5 @@ jobs:
         run: python tools/catalog/probe_sources.py
       - name: Find correct YES24 search and pagination URLs
         run: python tools/catalog/probe_yes24_formats.py
+      - name: Inspect embedded middle/high category IDs
+        run: python tools/catalog/yes24_category_id_probe.py
