@@ -21,11 +21,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Prepare Android SDK and NDK
+      - name: Prepare Android SDK and NDK (skip preinstalled; bound network waits)
+        timeout-minutes: 6
         run: |
           set -euo pipefail
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" || true
-          test -x "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          NDK_COMPILER="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          if [ -x "$NDK_COMPILER" ] && [ -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            echo "REUSE_PREINSTALLED_ANDROID_SDK_NDK"
+          else
+            echo "INSTALL_MISSING_ANDROID_COMPONENTS"
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$NDK_COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
       - name: Download verified Korean 174M Zipformer INT8 ONNX and Android runtimes
         env:
           GH_TOKEN: ${{ github.token }}
