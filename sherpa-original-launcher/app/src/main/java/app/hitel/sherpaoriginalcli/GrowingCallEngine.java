@@ -332,25 +332,34 @@ public final class GrowingCallEngine {
     String path=directPath(uri);
     ParcelFileDescriptor pfd=null;
     try{
-      if(path==null){
-        try{
-          pfd=context.getContentResolver().openFileDescriptor(uri,"r");
-          if(pfd==null)throw new IOException("Null openFileDescriptor");
-          path="/proc/self/fd/"+pfd.getFd();
-          log.event("INPUT","PROC_FD_SELECTED","fd",pfd.getFd(),
-            "stat",pfd.getStatSize(),"path",path);
-        }catch(Throwable e){
-          log.error("INPUT","PROC_FD_FAILURE_USING_SAF",e);
-          path=FFmpegKitConfig.getSafParameterForRead(context,uri);
-          log.event("INPUT","SAF_FALLBACK","safPath",path);
-        }
+      String alternateInput=null;
+      String safInput=null;
+      try{
+        safInput=FFmpegKitConfig.getSafParameterForRead(context,uri);
+        log.event("INPUT","SAF_REGISTERED","safPath",String.valueOf(safInput));
+      }catch(Throwable e){log.error("INPUT","SAF_REGISTER_FAILED",e);}
+      if(path==null && safInput!=null && !safInput.isEmpty()){
+        path=safInput;
+        log.event("INPUT","SAF_PREFERRED","input",path,
+          "reason","Android 15 /proc/self/fd read denied on original emulator test");
+      }else if(path!=null && safInput!=null && !safInput.isEmpty()){
+        alternateInput=safInput;
       }
-      String safAlternative=null;
-      try {
-        safAlternative=FFmpegKitConfig.getSafParameterForRead(context,uri);
-        log.event("INPUT","SAF_SECONDARY_READY","safInput",String.valueOf(safAlternative),
-          "willFallbackOnFailure",true);
-      }catch(Throwable e){log.error("INPUT","SAF_SECONDARY_FAILED",e);}
+      if(path==null){
+        pfd=context.getContentResolver().openFileDescriptor(uri,"r");
+        if(pfd==null)throw new IOException("No readable direct file, SAF, or content FD");
+        path="/proc/self/fd/"+pfd.getFd();
+        log.event("INPUT","PROC_FD_SELECTED","fd",pfd.getFd(),"stat",pfd.getStatSize(),"path",path);
+      }else if(path.startsWith("saf:")){
+        try {
+          pfd=context.getContentResolver().openFileDescriptor(uri,"r");
+          if(pfd!=null){
+            alternateInput="/proc/self/fd/"+pfd.getFd();
+            log.event("INPUT","PROC_FD_SECONDARY","fd",pfd.getFd(),
+              "note","For comparison only; /proc/self/fd may be denied on Android 15");
+          }
+        }catch(Throwable e){log.error("INPUT","PROC_FD_SECONDARY_UNAVAILABLE",e);}
+      }
       long initial=SystemClock.elapsedRealtime();
       int attempt=0,failures=0;
       long sizeBefore=-1;
@@ -358,14 +367,17 @@ public final class GrowingCallEngine {
         attempt++;
         long before=pcmBytes.get();
         sizeBefore=currentSize;
-        final boolean useSafAlternate=safAlternative!=null &&
-          !safAlternative.equals(path) && attempt>1 && attempt%2==0;
-        String currentInput=useSafAlternate?safAlternative:path;
+        // Prefer Android SAF. The /proc/self/fd path was denied by FFmpegKit
+        // on Android 15 despite Java ContentResolver permission being valid.
+        final boolean useAlternate=alternateInput!=null &&
+          !alternateInput.equals(path) && attempt>1 && attempt%4==0;
+        String currentInput=useAlternate?alternateInput:path;
         log.event("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"fileSize",sizeBefore,
           "alreadyPcmBytes",before,"source",currentInput,
-          "sourceMode",useSafAlternate?"SAF_FALLBACK":"FILE_OR_PROC_FD");
+          "sourceMode",currentInput.startsWith("saf:")?"SAF":"FILE_OR_PROC_FD",
+          "alternateAttempt",useAlternate);
         status("FFmpeg 파일 증가분 디코딩 시도 "+attempt+"회 ("+
-          (useSafAlternate?"SAF":"파일 디스크립터")+") · "+display(uri));
+          (currentInput.startsWith("saf:")?"SAF":"파일 경로")+") · "+display(uri));
         String result=consumeOnce(currentInput,attempt);
         long newBytes=pcmBytes.get()-before;
         log.event("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,
@@ -373,8 +385,11 @@ public final class GrowingCallEngine {
           "sourceByteSizeNow",currentSize);
         if("STOPPED".equals(result)){endReason="USER_STOP";return;}
         if(newBytes>0){
-          if("FFMPEG_CLEAN_END".equals(result)){endReason="FILE_EOF";return;}
           failures=0;
+          if("FFMPEG_CLEAN_END".equals(result)){
+            log.event("FFMPEG","CLEAN_EOF_WAIT_FOR_MORE_BYTES","attempt",attempt,
+              "note","SAF seekable snapshot read finished, but Samsung recorder may append more");
+          }
         }else failures++;
         // Important: partial M4A may not yet have moov. Wait for a size change and
         // retry instead of reporting bogus capture success.
@@ -384,7 +399,7 @@ public final class GrowingCallEngine {
             "note","Likely moov atom absent, inaccessible in-progress file, or unsupported SAF follow");
           // Still remain active to detect the next actual change; never spin.
         }
-        long waitUntil=SystemClock.elapsedRealtime()+(attempt==1 && safAlternative!=null?1000:15000);
+        long waitUntil=SystemClock.elapsedRealtime()+(attempt==1 && alternateInput!=null?1000:15000);
         long prev=currentSize;
         while(!stop && currentSize==prev && SystemClock.elapsedRealtime()<waitUntil){
           Thread.sleep(800);
@@ -423,11 +438,15 @@ public final class GrowingCallEngine {
       if(fifo==null)throw new IOException("FFmpegKit pipe registration failed");
       final String chosenPipe=fifo;
       log.event("PIPE","FIFO_CREATED","path",fifo);
+      final boolean followSupportedInput=!input.startsWith("saf:");
       String cmd="-hide_banner -loglevel repeat+level+info -nostdin "+
-        "-follow 1 -probesize 262144 -analyzeduration 2000000 "+
+        (followSupportedInput?"-follow 1 ":"")+
+        "-probesize 262144 -analyzeduration 2000000 "+
         "-i "+escape(input)+" -map 0:a:0 -vn -ac 1 -ar 16000 -c:a pcm_s16le "+
         "-f s16le -flush_packets 1 "+escape(chosenPipe);
-      log.event("FFMPEG","COMMAND","command",cmd,"attempt",attempt);
+      log.event("FFMPEG","COMMAND","command",cmd,"attempt",attempt,
+        "followOptionEnabled",followSupportedInput,
+        "safUsesRepeatedSnapshotReads",!followSupportedInput);
       ffmpeg=FFmpegKit.executeAsync(cmd,
         result->{
           int code=result.getReturnCode()==null?Integer.MIN_VALUE:result.getReturnCode().getValue();
