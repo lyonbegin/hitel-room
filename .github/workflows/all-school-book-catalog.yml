@@ -4,6 +4,7 @@ on:
     branches: [feature/all-subject-scribd-catalog-20261111]
     paths:
       - tools/zocbo/catalog_all_school_subjects.py
+      - tools/zocbo/scribd_seed_document_links.csv
       - .github/workflows/all-school-book-catalog.yml
   workflow_dispatch:
 permissions:
