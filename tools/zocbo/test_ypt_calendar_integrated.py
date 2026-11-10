@@ -17,7 +17,7 @@ with sync_playwright() as p:
   page.locator('#phone .bottomnav button').filter(has_text='족보').wait_for()
   assert page.locator('#phone .bottomnav').count()==1
   assert page.locator('#phone .zb-faithful').count()==0,'Calendar must not render bank content'
-  assert page.locator('#phone .bottomnav button').count()==4,'Four HITEL study-group tabs must be preserved'
+  assert page.locator('#phone .bottomnav button').count()==5,'Five HITEL study-group tabs must be preserved'
   page.screenshot(path=str(OUT/f'{width}-calendar-before.png'),full_page=False)
   page.locator('#phone .bottomnav button').filter(has_text='족보').click()
   page.locator('#phone .zb-faithful .zb-f-main-tabs button').first.wait_for(timeout=50000)
@@ -49,7 +49,7 @@ with sync_playwright() as p:
   page.locator('#phone [data-wp="chooseGroup"][data-value="my-study"]').first.click()
   page.locator('#phone [data-go="calendar"]').first.click()
   assert page.locator('#phone .zb-faithful').count()==0
-  assert page.locator('#phone .bottomnav button').count()==4
+  assert page.locator('#phone .bottomnav button').count()==5
   assert 'screen=calendar' in page.url
   check['returnedToCalendar']=True
   REPORT['screens'].append(check)
