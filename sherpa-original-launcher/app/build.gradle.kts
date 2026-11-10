@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.sensevoice.growingm4adiag"
     minSdk = 26
     targetSdk = 28
-    versionCode = 4
-    versionName = "4.0.0-growing-m4a-ffmpeg-diagnostic"
+    versionCode = 5
+    versionName = "5.0.0-growing-mdat-aac-recovery"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
