@@ -127,3 +127,43 @@
 #phone .bs-discovery>strong{font-size:12px;font-weight:800}
 #phone .bs-discovery-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 #phone .bs-discovery-chips .bs-btn{font-size:10px;min-height:30px;border-radius:20px;padding:6px 9px}
+
+/* Mobile reading journal and one-step practice UI */
+#phone .bs-shelf-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:6px 0 17px;padding:13px 5px;border:1px solid #e6e8ec;border-radius:10px;background:#f9fafb}
+#phone .bs-shelf-stats>div{display:flex;align-items:center;flex-direction:column;gap:6px;min-width:0}
+#phone .bs-shelf-stats strong{font-size:19px;font-weight:800;color:#242a32}
+#phone .bs-shelf-stats small{font-size:9px;color:#6e7780;text-align:center;word-break:keep-all}
+#phone .bs-activity{margin-bottom:15px}
+#phone .bs-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;padding:12px 6px;background:#fafafb;border:1px solid #eff0f2;border-radius:11px}
+#phone .bs-day{display:flex;align-items:center;flex-direction:column;gap:6px;font-size:11px;color:#818992;min-width:0}
+#phone .bs-day small{font-size:10px}
+#phone .bs-day strong{font-weight:600;font-size:12px}
+#phone .bs-day i{display:block;height:5px;width:5px;border-radius:50%;background:#e3e6ea}
+#phone .bs-day.active strong{color:#222932}
+#phone .bs-day.active i{background:#343c45}
+#phone .bs-note-caption{margin:0 0 13px;color:#808792;font-size:11px;line-height:1.65}
+#phone .bs-note-compose{display:grid;gap:8px;border:1px solid #e5e7eb;border-radius:11px;background:#fafafb;padding:13px}
+#phone .bs-note-compose>label{display:block;color:#666d76;font-size:11px;font-weight:700}
+#phone .bs-note-compose>select,#phone .bs-note-compose>textarea{width:100%;min-width:0;border-radius:8px;border:1px solid #dfe3e7;background:white;padding:10px;color:#2a3138;font-size:12px}
+#phone .bs-note-compose>textarea{min-height:88px;resize:vertical;line-height:1.6}
+#phone .bs-note-compose .bs-btn{min-height:39px}
+#phone .bs-note-history{display:grid;gap:8px;margin:10px 0 18px}
+#phone .bs-note-row{border:1px solid #e7ebef;border-radius:10px;padding:12px}
+#phone .bs-note-row>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#phone .bs-note-row>div span{font-size:10px;font-weight:800;background:#f2f3f5;border-radius:5px;padding:4px 7px}
+#phone .bs-note-row>div small{font-size:9px;color:#9199a2}
+#phone .bs-note-row>p{font-size:12px;color:#444c55;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+#phone .bs-note-row>.bs-btn{font-size:9px;padding:5px 9px;min-height:27px}
+#phone .bs-note-empty{font-size:11px;color:#8c939c;padding:16px;text-align:center}
+#phone .bs-lesson-top{padding:14px 0}
+#phone .bs-lesson-top small{color:#626b74;font-size:11px;font-weight:750}
+#phone .bs-track{height:7px;border-radius:6px;background:#e8ebee;overflow:hidden;margin-top:9px}
+#phone .bs-track span{display:block;height:100%;background:#404851;transition:width .2s}
+#phone .bs-lesson-card{border-radius:12px;padding:26px 17px;margin:6px 0 15px;background:#f7f8f9;border:1px solid #e9ecef;min-height:240px;display:flex;flex-direction:column;gap:14px}
+#phone .bs-lesson-count{font-size:11px;font-weight:800;color:#757e87;letter-spacing:.05em}
+#phone .bs-lesson-card h4{font-size:20px;line-height:1.35;margin:0}
+#phone .bs-lesson-card p{font-size:13px;line-height:1.8;color:#505861;margin:0}
+#phone .bs-lesson-prompt{margin-top:auto;font-size:11px;line-height:1.7;color:#777f88;border-top:1px solid #e3e7eb;padding-top:13px}
+#phone .bs-lesson-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#phone .bs-lesson-buttons .bs-btn{min-height:42px}
+@media(max-width:350px){#phone .bs-shelf-stats{gap:2px;padding:10px 3px}#phone .bs-shelf-stats small{font-size:8px}#phone .bs-lesson-card{padding:19px 13px}}
