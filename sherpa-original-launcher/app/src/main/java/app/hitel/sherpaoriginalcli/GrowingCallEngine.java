@@ -468,9 +468,32 @@ public final class GrowingCallEngine {
       int attempt=0,failures=0;
       long sizeBefore=-1;
       while(!stop&&attempt<24){
+        // Samsung original M4A has an extended mdat box and a trailing moov.
+        // Repeatedly asking FFmpeg to demux the unfinished mdat is impossible:
+        // there are no AAC sample boundaries without the moov sample table.
+        boolean ready=false;
+        long gateStart=SystemClock.elapsedRealtime();
+        while(!stop && SystemClock.elapsedRealtime()-gateStart<180000){
+          File local=workingMirror;
+          String layout=local==null?"NO_PRIVATE_MIRROR":describeMirrorLayout(local);
+          if(layout.contains("MOOV_FOUND;")){
+            ready=true;
+            log.event("FORMAT","MOOV_READY_FOR_FFMPEG",
+              "mirroredBytes",mirroredBytes,"layout",layout,
+              "elapsedMs",SystemClock.elapsedRealtime()-gateStart);
+            break;
+          }
+          if(SystemClock.elapsedRealtime()-gateStart<1100){
+            log.event("FORMAT","MOOV_PENDING","mirroredBytes",mirroredBytes,"layout",layout,
+              "note","No MP4 sample table before Samsung M4A finalized");
+          }
+          Thread.sleep(700);
+        }
+        if(stop){endReason="USER_STOP";return;}
+        if(!ready){endReason="MOOV_TIMEOUT";log.event("FORMAT","MOOV_TIMEOUT","mirrorBytes",mirroredBytes);return;}
         attempt++;
         long before=pcmBytes.get();
-        sizeBefore=currentSize;
+        sizeBefore=mirroredBytes;
         // Prefer Android SAF. The /proc/self/fd path was denied by FFmpegKit
         // on Android 15 despite Java ContentResolver permission being valid.
         final boolean useAlternate=alternateInput!=null &&
@@ -492,7 +515,7 @@ public final class GrowingCallEngine {
           failures=0;
           if("FFMPEG_CLEAN_END".equals(result)){
             log.event("FFMPEG","CLEAN_EOF_WAIT_FOR_MORE_BYTES","attempt",attempt,
-              "note","SAF seekable snapshot read finished, but Samsung recorder may append more");
+              "note","Mirrored file decoded, STT pending until persistent native process confirms captions");
           }
         }else failures++;
         // Important: partial M4A may not yet have moov. Wait for a size change and
@@ -542,7 +565,9 @@ public final class GrowingCallEngine {
       if(fifo==null)throw new IOException("FFmpegKit pipe registration failed");
       final String chosenPipe=fifo;
       log.event("PIPE","FIFO_CREATED","path",fifo);
-      final boolean followSupportedInput=!input.startsWith("saf:");
+      // Following a seekable finalized MP4 can deadlock at EOF; file growth
+      // is handled by pollChanges + appendMirror + repeat demux with PCM cursor.
+      final boolean followSupportedInput=false;
       String cmd="-y -hide_banner -loglevel repeat+level+info -nostdin "+
         (followSupportedInput?"-follow 1 ":"")+
         "-probesize 262144 -analyzeduration 2000000 "+
