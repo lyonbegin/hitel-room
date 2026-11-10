@@ -47,7 +47,8 @@ public final class GrowingCallEngine {
   volatile boolean finished=false;
   volatile String endReason="NOT_STARTED";
   private Thread worker;
-  static final int WINDOW_SAMPLES=3*16000;
+  // Transport PCM to the persistent Silero VAD every 0.5s, NEVER use a fixed STT boundary.
+  static final int WINDOW_SAMPLES=16000/2;
   static final int WINDOW_BYTES=WINDOW_SAMPLES*2;
 
   public GrowingCallEngine(Context context,TraceJournal log,Callback callback){
@@ -65,8 +66,9 @@ public final class GrowingCallEngine {
       "pcmBytes",pcmBytes.get(),"chunks",chunkCount.get());
     FFmpegSession s=ffmpeg;
     if(s!=null)FFmpegKit.cancel(s.getSessionId());
-    Process process=sherpa;
-    if(process!=null)process.destroy();
+    // Do not destroy the recognizer here: the worker sends a clean EOF (0,0)
+    // so Silero VAD can flush the final utterance and print its last caption.
+    log.event("CONTROL","VAD_GRACEFUL_FINAL_FLUSH_REQUESTED");
     String path=fifo;
     if(path!=null){
       // FIFO reader can be waiting in open(), if ffmpeg failed before opening the write end.
@@ -379,6 +381,27 @@ public final class GrowingCallEngine {
         while((line=reader.readLine())!=null){
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
+          if(line.startsWith("VAD_READY:")){
+            log.event("VAD","MODEL_READY","settings",line.substring("VAD_READY:".length()));
+          }
+          if(line.startsWith("VAD_SEGMENT:")){
+            String[] a=line.split(":",6);
+            if(a.length==6){
+              log.event("VAD","UTTERANCE_BOUNDARY","utterance",a[1],
+                "startMs",a[2],"endMs",a[3],"silenceMs",a[4],
+                "priorUtteranceMs",a[5]);
+            }
+          }
+          if(line.startsWith("STT_ALIGNMENT:")){
+            String[] a=line.split(":",4);
+            if(a.length==4){
+              log.event("VAD","CONTEXT_DEDUP","utterance",a[1],
+                "method",a[2],"normalizedError",a[3]);
+            }
+          }
+          if(line.startsWith("VAD_FINISHED:")){
+            log.event("VAD","FINAL_FLUSH_FINISHED","details",line);
+          }
           if(line.startsWith("STT_SEGMENT:")){
             String[] sections=line.split(":",3);
             if(sections.length==3){
@@ -404,15 +427,16 @@ public final class GrowingCallEngine {
     if(!executable.isFile()||!executable.canExecute())
       throw new IOException("ARM64 SenseVoice stream CLI missing");
     File tokens=extract("tokens.txt",1000),model=extract("model.int8.onnx",1000000);
+    File vad=extract("silero_vad.onnx",100000);
     ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),
-      tokens.getAbsolutePath(),model.getAbsolutePath());
+      tokens.getAbsolutePath(),model.getAbsolutePath(),vad.getAbsolutePath());
     String old=pb.environment().get("LD_LIBRARY_PATH");
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
     pb.directory(context.getFilesDir());pb.redirectErrorStream(true);
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
-      "command",executable.getName()+" [tokens] [model]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
+      "command",executable.getName()+" [tokens] [model] [silero-vad]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
     nativeReader(sherpa);
   }
 
@@ -548,7 +572,7 @@ public final class GrowingCallEngine {
       if(p!=null && p.isAlive()){
         try{OutputStream out=p.getOutputStream();little32(out,0);little32(out,0);out.flush();out.close();}
         catch(Throwable e){log.error("STT","FINAL_EOF_FAILED",e);}
-        boolean ended=p.waitFor(5,java.util.concurrent.TimeUnit.SECONDS);
+        boolean ended=p.waitFor(18,java.util.concurrent.TimeUnit.SECONDS);
         log.event("STT","NATIVE_PROCESS_END","ended",ended,
           "exitCode",ended?p.exitValue():-1,"resultCount",resultCount.get());
       }
@@ -687,7 +711,9 @@ public final class GrowingCallEngine {
               sendChunk(current,attempt);
             }
           }
-          if(pcmWindow.size()>=16000 && !stop){
+          // Flush trailing complete PCM (down to 32ms); an incomplete VAD
+          // window is carried inside the native process across all snapshots.
+          if(pcmWindow.size()>=1024 && !stop){
             byte[] buffered=pcmWindow.toByteArray();
             if((buffered.length&1)==1)buffered=Arrays.copyOf(buffered,buffered.length-1);
             sendChunk(buffered,attempt);
@@ -762,13 +788,13 @@ public final class GrowingCallEngine {
       peak=Math.max(peak,Math.abs(f));
       if(value!=0)nonzero++;
     }
-    log.event("PCM","CHUNK_TO_STT","segment",seq,"attempt",attempt,"samples",samples,
+    log.event("PCM","CHUNK_TO_STT","segment",seq,"attempt",attempt,"transportOnly",true,"samples",samples,
       "durationSec",samples/16000.0,"rms",Math.sqrt(sum/Math.max(1,samples)),
       "peak",peak,"nonzeroPct",100.0*nonzero/Math.max(1,samples));
     OutputStream out=p.getOutputStream();
     little32(out,seq);little32(out,samples);out.write(pcm);out.flush();
     committedPcmBytes.addAndGet(pcm.length);
     callback.onStatus("PCM 입력 "+String.format(Locale.US,"%.1f",pcmBytes.get()/32000.0)+
-      "초 / STT 전송 "+seq+"구간",transcription);
+      "초 / VAD 음성 분석 중 ("+seq+"번째 입력)",transcription);
   }
 }
