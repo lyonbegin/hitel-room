@@ -17,6 +17,8 @@ public final class TraceJournal {
   private final Context context;
   private final File directory;
   private final File events;
+  private final LatencyTrace latency;
+  private static volatile TraceJournal activeJournal;
   private final long started=SystemClock.elapsedRealtime();
   private final SimpleDateFormat iso=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ",Locale.US);
   private final String runId;
@@ -31,12 +33,20 @@ public final class TraceJournal {
     directory=new File(context.getFilesDir(),"diagnostics/run-"+runId);
     if(!directory.exists()&&!directory.mkdirs())throw new IllegalStateException("Cannot create diagnosis directory: "+directory);
     events=new File(directory,"events.jsonl");
+    latency=new LatencyTrace(directory);
+    activeJournal=this;
     event("APP","SESSION_START",map("runId",runId,"device",Build.MANUFACTURER+" / "+Build.MODEL,
       "android",Build.VERSION.SDK_INT,"brand",Build.BRAND,"abi",Arrays.toString(Build.SUPPORTED_ABIS),
       "appId",context.getPackageName(),"elapsedRealtime",started));
   }
   public String id(){return runId;}
   public File dir(){return directory;}
+  public void timing(String stage,String name,Object... pairs){latency.add(stage,name,map(pairs));}
+  public void timingAt(long bootNs,String stage,String name,Object... pairs){latency.at(bootNs,stage,name,map(pairs));}
+  public static void uiTiming(long bootNs,String stage,String name,Object... pairs){
+    TraceJournal journal=activeJournal;
+    if(journal!=null)journal.timingAt(bootNs,stage,name,pairs);
+  }
   public synchronized void listener(Listener value){listener=value;}
   public static Map<String,Object> map(Object... values){
     Map<String,Object> result=new LinkedHashMap<>();
@@ -47,7 +57,11 @@ public final class TraceJournal {
   public synchronized void event(String category,String name,Map<String,Object> details){
     JSONObject object=new JSONObject();
     try{
-      object.put("timestamp",iso.format(new Date()));
+      long eventBootNs=SystemClock.elapsedRealtimeNanos();
+      long wallMs=System.currentTimeMillis();
+      object.put("timestamp",iso.format(new Date(wallMs)));
+      object.put("wall_epoch_ms",wallMs);
+      object.put("boot_ns",eventBootNs);
       object.put("elapsed_ms",SystemClock.elapsedRealtime()-started);
       object.put("thread",Thread.currentThread().getName());
       object.put("category",category);
@@ -77,6 +91,8 @@ public final class TraceJournal {
   }
   public void diagnosticSummary(){
     event("APP","RUN_SUMMARY","eventCount",lines,"lastUI",lastUI,"runtimeMs",SystemClock.elapsedRealtime()-started);
+    timing("APP","TIMELINE_SUMMARY","droppedEvents",latency.lost(),"note","no speech-onset ground truth without an external synchronized microphone");
+    latency.close();
   }
   public synchronized void exportZip(OutputStream target)throws IOException {
     zipDirectory(directory,target,runId);
@@ -99,6 +115,8 @@ public final class TraceJournal {
       zip.write(("Growing Samsung call-recording M4A diagnostics.\n"+
         "LOCAL DEVICE DIAGNOSIS, does not prove native telephony audio capture.\n"+
         "events.jsonl: timestamped structured diagnostics, file growth, file header probes, FFmpeg output, PCM chunks, native STT.\n"+
+        "latency-trace.jsonl: boot_ns CLOCK_BOOTTIME stage times, PCM delivery, native decode, broadcasts and UI frame callbacks.\n"+
+        "ENERGY_ONSET_CANDIDATE is acoustic energy, NOT a proven time the caller started speaking. UI_NEXT_FRAME_CALLBACK does NOT prove actual display scanout.\n"+
         "ffmpeg-raw.txt: native FFmpeg log, stt-raw.txt: Sherpa-ONNX native process output.\n"+
         "May contain local file names, paths and transcripts. Share only after reviewing.\n"+
         "Run ID: "+runId+"\n").getBytes(StandardCharsets.UTF_8));
