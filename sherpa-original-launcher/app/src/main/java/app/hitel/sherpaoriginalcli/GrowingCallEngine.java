@@ -527,6 +527,15 @@ public final class GrowingCallEngine {
     },"SenseVoice-Native-Stdout").start();
   }
   void nativeStart()throws Exception {
+    Process ready=PrewarmedRecognizer.acquire(context,5000);
+    if(ready!=null){
+      sherpa=ready;
+      log.event("STT","PREWARM_PROCESS_REUSED","processAlive",sherpa.isAlive(),
+        "warmupState",PrewarmedRecognizer.state());
+      nativeReader(sherpa);
+      return;
+    }
+    log.event("STT","PREWARM_FALLBACK","warmupState",PrewarmedRecognizer.state());
     File executable=new File(context.getApplicationInfo().nativeLibraryDir,"libsensevoice-stream.so");
     log.event("STT","BINARY_PROBE","path",executable.getAbsolutePath(),
       "exists",executable.exists(),"executable",executable.canExecute(),"bytes",executable.length());
