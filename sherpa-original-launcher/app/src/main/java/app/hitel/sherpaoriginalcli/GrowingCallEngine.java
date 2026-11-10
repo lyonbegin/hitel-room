@@ -424,6 +424,27 @@ public final class GrowingCallEngine {
                 "currentMs",c[4],"contextMs",c[5]);
             }
           }
+          if(line.startsWith("SHORT_PAUSE:")){
+            String[] p=line.split(":",5);
+            if(p.length==5)log.event("WORD","SHORT_PAUSE","sequence",p[1],
+              "startMs",p[2],"endMs",p[3],"durationMs",p[4]);
+          }
+          if(line.startsWith("WORD_TIME_MODE:")){
+            log.event("WORD","TIMESTAMP_SOURCE","details",line);
+          }
+          if(line.startsWith("WORD_COMMIT:")){
+            String[] c=line.split(":",5);
+            if(c.length==5)log.event("WORD","COMMITTED","sequence",c[1],
+              "startMs",c[2],"endMs",c[3],"source",c[4]);
+          }
+          if(line.startsWith("WORD_HYPOTHESIS:")){
+            String[] h=line.split(":",4);
+            if(h.length==4)log.event("WORD","HYPOTHESIS","audioMs",h[1],
+              "wordCount",h[2],"text",h[3]);
+          }
+          if(line.startsWith("VAD_FINAL_CONTEXT_TEXT:")){
+            log.event("VAD","FINAL_CONTEXT_ONLY","details",line);
+          }
           if(line.startsWith("STT_ALIGNMENT:")){
             String[] a=line.split(":",4);
             if(a.length==4){
