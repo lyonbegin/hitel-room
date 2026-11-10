@@ -231,7 +231,7 @@ function detailPage(){
  '<div class="bs-chapters">'+units.map((u,i)=>'<button data-bs="unit" data-val="'+i+'" class="'+(Number(selected)===i?'active':'')+'" type="button"><span>'+String(i+1).padStart(2,'0')+'</span><strong>'+esc(u)+'</strong><span>›</span></button>').join('')+'</div>'+
  '<div class="bs-learning-actions"><strong>'+esc(units[selected]||units[0])+'</strong>'+
  '<p>원리 발견 → 쉬운 질문 → 반복 훈련 → 목표문제 재도전</p>'+
- htmlButton('이 단원 학습 시작','learn',b.id,'primary')+'</div>'+
+ htmlButton('이 단원 학습 시작','learn',b.id,'primary')+htmlButton('코치와 문제풀기','go','groupCoach')+'</div>'+
  '<div class="bs-section-title"><h4>학습 진행 상태</h4><small>직접 기록한 내용만 저장됩니다</small></div>'+
  '<div class="bs-progress-buttons">'+[0,25,50,75,100].map(n=>htmlButton(n+'%','progress',String(n),p===n?'checked':'')).join('')+'</div>'+
  '<label class="bs-note-label" for="bs-memo">풀이 메모 · 오답 정리</label>'+
@@ -250,7 +250,7 @@ function readingPage(){
  '<p>이 단원을 학습하는 목적을 먼저 생각하고, 질문과 대화를 통해 원리를 발견한 뒤 반복 훈련합니다.</p>'+
  learningStepPage(b)+
  '<p class="bs-reading-foot">실제 교재 원문이나 생성형 AI 문제풀이가 제공되는 화면은 아닙니다. 아래 체험은 이차방정식 예시 고정 질문 8단계입니다.</p></div>'+
- '<div class="bs-reading-actions">'+htmlButton('이차방정식 대화 시연','go','groupAITutorPractice','primary')+
+ '<div class="bs-reading-actions">'+htmlButton('학습 코치에게 질문','go','groupCoach','primary')+htmlButton('문제 직접 풀기','go','groupPractice')+htmlButton('틀린 문제 복습','go','groupMistakes')+htmlButton('기존 8문항 대화 시연','go','groupAITutorPractice')+
  htmlButton('AI에 질문하기','go','groupQuestions')+
  htmlButton('다음 단원','nextUnit')+'</div>'+
  '</section>';
@@ -357,6 +357,20 @@ document.addEventListener('submit',e=>{
  if(e.target.id!=='bs-search-form')return;
  e.preventDefault();e.stopImmediatePropagation();db.query=String(new FormData(e.target).get('query')||'').trim();db.queryDraft=db.query;save();redraw();
 },true);
+window.HITEL_BOOKSHELF_BRIDGE={
+ currentBook:()=>({...currentBook()}),
+ currentUnit:()=>{const b=currentBook(),u=UNIT[b.grade+'-'+b.term]||UNIT['중2-1'];return u[Number(db.unit[b.id])||0]||u[0];},
+ currentUnitIndex:()=>Number(db.unit[currentBook().id])||0,
+ getState:()=>db,
+ getCatalog:()=>BOOKS.map(b=>({...b})),
+ setBook:(id)=>{if(!MAP.has(id))return false;db.selected=id;db.last[id]=Date.now();save();return true;},
+ setUnit:(idx)=>{const b=currentBook(),u=UNIT[b.grade+'-'+b.term]||UNIT['중2-1'];if(!Number.isInteger(idx)||idx<0||idx>=u.length)return false;db.unit[b.id]=idx;save();return true;},
+ updateCoachProgress:(id,increment)=>{if(!MAP.has(id))return;const n=Number(db.progress[id]||0),next=Math.min(95,n+Math.max(0,Number(increment)||0));db.progress[id]=next;db.last[id]=Date.now();track(id,'coach');save();},
+ addCoachNote:(id,type,text,unit)=>{if(!MAP.has(id))return;db.bookNotes.push({id:'coach-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),bookId:id,type:String(type).slice(0,10),text:String(text).slice(0,2000),unit:String(unit).slice(0,100),at:Date.now()});track(id,'note');save();},
+ getGroup:()=>group(),
+ getGroupModel:()=>groupModel(),
+ saveGroup:()=>window.HITEL_WORKPLACE_BRIDGE?.saveModel?.()
+};
 window.HITEL_BOOKSHELF_INSPECT=()=>({
  screen:state.screen,libraryCount:BOOKS.length,actualCoverCount:BOOKS.filter(b=>b.verifiedCover).length,
  tab:db.tab,grade:db.grade,term:db.term,selected:db.selected,
