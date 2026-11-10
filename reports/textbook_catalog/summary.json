@@ -1,0 +1,339 @@
+{
+  "generated_at_utc": "2026-11-10T15:39:33.615797+00:00",
+  "coverage_statement": "Only public indexed metadata; this is NOT an exhaustive Korean middle/high workbook list.",
+  "target": "all middle and high school grades, subjects and terms; mixed 2015 and 2022 curricula",
+  "all_subject_categories": [
+    "수학",
+    "국어",
+    "영어",
+    "과학",
+    "사회",
+    "역사",
+    "도덕",
+    "기술가정",
+    "정보",
+    "한문",
+    "외국어",
+    "예체능"
+  ],
+  "query_manifest_total": 141,
+  "queries_executed": 110,
+  "raw_book_records": 0,
+  "unique_book_detail_links": 0,
+  "middle_high_classified": 0,
+  "by_level": {},
+  "by_subject": {},
+  "individual_scribd_detail_links_new": 0,
+  "scribd_search_capability": "unavailable: no API search credentials; direct Scribd browser requests blocked by CAPTCHA",
+  "requests_by_status": {
+    "Google Books:429": 27,
+    "Open Library:200": 22,
+    "Open Library:422": 2,
+    "Scribd discovery:NOT_CONFIGURED": 1
+  },
+  "failed_queries": [
+    {
+      "source": "Google Books",
+      "query": "베이직쎈",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "개념쎈",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "쎈",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Open Library",
+      "query": "쎈",
+      "query_kind": "기본 교재명",
+      "status": 422,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 422: Unprocessable Content",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "라이트쎈",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "우공비Q+Q",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "일품",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Open Library",
+      "query": "일품",
+      "query_kind": "기본 교재명",
+      "status": 422,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 422: Unprocessable Content",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "개념원리",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "교과서 개념잡기",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "개념플러스유형",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "체크체크",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "최상위수학",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "풍산자",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "수력충전",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "블랙라벨 수학",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "에이급",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "숨마쿰라우데",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "마플교과서",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "마플시너지",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "수학의 정석",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "수학의 바이블",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "일등급 수학",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "수학의 왕도",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "자이스토리 수학",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "마더텅 수학",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "매3비",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "매3문",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Google Books",
+      "query": "빠작",
+      "query_kind": "기본 교재명",
+      "status": 429,
+      "count": 0,
+      "totalItems": "",
+      "error": "HTTP Error 429: Too Many Requests",
+      "page": 0
+    },
+    {
+      "source": "Scribd discovery",
+      "query": "all roots",
+      "query_kind": "API credentials",
+      "status": "NOT_CONFIGURED",
+      "count": 0,
+      "totalItems": "",
+      "error": "BRAVE_SEARCH_API_KEY or GOOGLE_CSE_KEY+CX not configured",
+      "page": 0
+    }
+  ],
+  "completeness_verified": false,
+  "pagination_complete": false,
+  "copyright_note": "Only metadata and direct book/document detail links. No textbook PDFs or page images copied."
+}

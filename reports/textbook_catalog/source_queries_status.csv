@@ -1,0 +1,53 @@
+﻿source,query,query_kind,status,count,totalItems,error,page
+Google Books,베이직쎈,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,베이직쎈,기본 교재명,200,0,0,,0
+Google Books,개념쎈,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,개념쎈,기본 교재명,200,0,0,,0
+Google Books,쎈,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,쎈,기본 교재명,422,0,,HTTP Error 422: Unprocessable Content,0
+Google Books,라이트쎈,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,라이트쎈,기본 교재명,200,0,0,,0
+Google Books,우공비Q+Q,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,우공비Q+Q,기본 교재명,200,0,0,,0
+Google Books,일품,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,일품,기본 교재명,422,0,,HTTP Error 422: Unprocessable Content,0
+Google Books,개념원리,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,개념원리,기본 교재명,200,0,0,,0
+Google Books,교과서 개념잡기,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,교과서 개념잡기,기본 교재명,200,0,0,,0
+Google Books,개념플러스유형,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,개념플러스유형,기본 교재명,200,0,0,,0
+Google Books,체크체크,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,체크체크,기본 교재명,200,0,0,,0
+Google Books,최상위수학,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,최상위수학,기본 교재명,200,0,0,,0
+Google Books,풍산자,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,풍산자,기본 교재명,200,0,0,,0
+Google Books,수력충전,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,수력충전,기본 교재명,200,0,0,,0
+Google Books,블랙라벨 수학,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,블랙라벨 수학,기본 교재명,200,0,0,,0
+Google Books,에이급,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,에이급,기본 교재명,200,0,0,,0
+Google Books,숨마쿰라우데,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,숨마쿰라우데,기본 교재명,200,0,0,,0
+Google Books,마플교과서,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,마플교과서,기본 교재명,200,0,0,,0
+Google Books,마플시너지,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,마플시너지,기본 교재명,200,0,0,,0
+Google Books,수학의 정석,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,수학의 정석,기본 교재명,200,0,0,,0
+Google Books,수학의 바이블,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,수학의 바이블,기본 교재명,200,0,0,,0
+Google Books,일등급 수학,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,일등급 수학,기본 교재명,200,0,0,,0
+Google Books,수학의 왕도,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,수학의 왕도,기본 교재명,200,0,0,,0
+Google Books,자이스토리 수학,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,자이스토리 수학,기본 교재명,200,0,0,,0
+Google Books,마더텅 수학,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Open Library,마더텅 수학,기본 교재명,200,0,0,,0
+Google Books,매3비,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Google Books,매3문,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Google Books,빠작,기본 교재명,429,0,,HTTP Error 429: Too Many Requests,0
+Scribd discovery,all roots,API credentials,NOT_CONFIGURED,0,,BRAVE_SEARCH_API_KEY or GOOGLE_CSE_KEY+CX not configured,0
