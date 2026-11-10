@@ -44,12 +44,15 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const newState=()=>({tab:'all',grade:'중2',term:'1',subject:'수학',level:'전체',publisher:'전체',
  sort:'recommended',view:'grid',query:'',queryDraft:'',folder:'전체',mine:[],favorites:[],folders:['학습 중','복습','보관함'],
  assignment:{},selected:BOOKS.find(b=>b.series==='concept'&&b.grade==='중2')?.id||BOOKS[0].id,
- progress:{},unit:{},memo:{},last:{},openCount:0});
+ progress:{},unit:{},memo:{},last:{},activity:[],bookNotes:[],learningStep:{},openCount:0});
 let db;
 try{db=Object.assign(newState(),JSON.parse(localStorage.getItem(KEY)||'null')||{});}catch(_){db=newState();}
 if(!Array.isArray(db.mine))db.mine=[];
 if(!Array.isArray(db.favorites))db.favorites=[];
 if(!Array.isArray(db.folders))db.folders=['학습 중','복습','보관함'];
+if(!Array.isArray(db.activity))db.activity=[];
+if(!Array.isArray(db.bookNotes))db.bookNotes=[];
+if(!db.learningStep||typeof db.learningStep!=='object')db.learningStep={};
 for(const key of ['assignment','progress','unit','memo','last'])if(!db[key]||typeof db[key]!=='object')db[key]={};
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(_){}}
 function groupModel(){return window.HITEL_WORKPLACE_BRIDGE?.getModel?.()||null;}
@@ -65,6 +68,69 @@ function cover(b,compact=false){
  '<span class="bs-text-cover"><small>'+esc(b.publisher)+'</small><strong>'+esc(b.name.split(' 중')[0])+'</strong><em>'+esc(b.grade)+'-'+esc(b.term)+'</em></span>';
  return '<span class="bs-cover '+(compact?'bs-small-cover':'')+'" aria-label="'+esc(b.name)+'">'+thumb+'</span>';
 }
+
+/* Bookmory: record actual local actions and calendar; Libby: resume + shelf statuses. */
+function track(id,kind){
+ const now=new Date();
+ const day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+ db.activity.push({bookId:id,kind,date:day,at:now.getTime()});
+ if(db.activity.length>700)db.activity=db.activity.slice(-700);
+}
+function weekActivity(){
+ const now=new Date(),days=[];
+ for(let delta=6;delta>=0;delta--){
+  const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-delta);
+  const iso=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const cnt=db.activity.filter(x=>x.date===iso).length;
+  days.push('<div class="bs-day'+(cnt?' active':'')+'" title="'+esc(iso)+'"><small>'+['일','월','화','수','목','금','토'][d.getDay()]+'</small><strong>'+d.getDate()+'</strong><i></i></div>');
+ }
+ return '<section class="bs-activity"><div class="bs-heading"><div><h4>최근 7일 공부 기록</h4><small>실제 이 기기에서 열람·학습한 날짜</small></div>'+htmlButton('전체 기록','history')+'</div><div class="bs-week">'+days.join('')+'</div></section>';
+}
+function shelfStatus(){
+ const done=db.mine.filter(id=>(db.progress[id]||0)===100).length;
+ const inProgress=db.mine.filter(id=>(db.progress[id]||0)>0&&(db.progress[id]||0)<100).length;
+ const noteCount=db.bookNotes.length;
+ return '<div class="bs-shelf-stats">'+[
+ ['내 문제집',db.mine.length],['공부 중',inProgress],['완료',done],['학습 노트',noteCount]
+ ].map(([name,num])=>'<div><strong>'+Number(num)+'</strong><small>'+name+'</small></div>').join('')+'</div>';
+}
+/* BookFusion: chapter-bound, type-tagged notes without copying a book page. */
+function notePanel(b,units){
+ const notes=db.bookNotes.filter(x=>x.bookId===b.id).slice().reverse().slice(0,20);
+ const currentUnit=units[Number(db.unit[b.id])||0]||'단원';
+ const html=notes.map(n=>'<article class="bs-note-row"><div><span>'+esc(n.type)+'</span><small>'+esc(n.unit)+' · '+formatDate(n.at)+'</small></div>'+
+ '<p>'+esc(n.text)+'</p>'+htmlButton('삭제','removeNote',n.id)+'</article>').join('');
+ return '<div class="bs-section-title"><h4>질문 · 발견 · 오답 노트</h4><small>'+notes.length+'개 기록</small></div>'+
+ '<p class="bs-note-caption">선택한 단원에 연결해 기록하고 다시 찾아볼 수 있습니다.</p>'+
+ '<form id="bs-book-note-form" class="bs-note-compose"><label for="bs-note-type">기록 종류</label>'+
+ '<select id="bs-note-type" name="type"><option value="질문">질문</option><option value="발견">발견</option><option value="오답">오답</option></select>'+
+ '<label for="bs-note-text">내가 배운 내용 · 다시 질문할 내용</label>'+
+ '<textarea id="bs-note-text" required maxlength="2000" name="text" placeholder="'+esc(currentUnit)+'에서 발견한 원리나 어려운 점을 적어 보세요"></textarea>'+
+ '<button type="submit" class="bs-btn primary">노트 저장</button></form>'+
+ (notes.length?'<div class="bs-note-history">'+html+'</div>':'<div class="bs-note-empty">아직 작성한 학습 노트가 없습니다.</div>');
+}
+const LESSON_FLOW=[
+ ['문제의 시작','이 개념이 필요해졌던 상황을 먼저 살펴봅니다. 문제를 만나기 전 사람들은 무엇을 해결하려고 했을까요?'],
+ ['기존 방법에 도전','이미 알고 있는 방법만으로 해결해 보겠습니다. 어디에서 막히는지 직접 확인해 보세요.'],
+ ['새로운 원리 발견','새로운 표현이나 관점을 도입하면 이전에 막혔던 부분을 어떻게 해결할 수 있을까요?'],
+ ['다른 접근 비교','같은 조건을 식·그림·그래프로 나타내어 결과가 어떻게 연결되는지 비교해 봅니다.'],
+ ['독립적인 재도전','새로운 조건의 문제를 혼자 해결하고 왜 그 방법이 통하는지 설명해 보세요.']
+];
+function lessonStepKey(b){return b.id+':'+(Number(db.unit[b.id])||0);}
+function learningStepPage(b){
+ const idx=Math.max(0,Math.min(LESSON_FLOW.length-1,Number(db.learningStep[lessonStepKey(b)])||0));
+ const phase=LESSON_FLOW[idx];
+ return '<div class="bs-lesson-top"><small>발견형 학습 · 단계 '+(idx+1)+' / '+LESSON_FLOW.length+'</small>'+
+ '<div class="bs-track"><span style="width:'+((idx+1)/LESSON_FLOW.length*100)+'%"></span></div></div>'+
+ '<div class="bs-lesson-card"><span class="bs-lesson-count">STEP '+String(idx+1).padStart(2,'0')+'</span><h4>'+esc(phase[0])+'</h4>'+
+ '<p>'+esc(phase[1])+'</p>'+
+ '<div class="bs-lesson-prompt">어떤 점이 궁금하거나 어려웠는지 확인해 보세요.</div></div>'+
+ '<div class="bs-lesson-buttons">'+
+ htmlButton('이전 단계','lessonStep',String(Math.max(0,idx-1)))+
+ htmlButton(idx===LESSON_FLOW.length-1?'첫 단계로':'다음 단계','lessonStep',String((idx+1)%LESSON_FLOW.length),'primary')+
+ '</div>';
+}
+
 function searchForm(){
  return '<form id="bs-search-form" class="bs-search"><label for="bs-query" class="bs-visually-hidden">문제집 검색</label>'+
  '<input id="bs-query" type="search" name="query" placeholder="문제집·출판사 검색" value="'+esc(db.queryDraft||db.query)+'" autocomplete="off" />'+
@@ -128,6 +194,7 @@ function mainPage(){
  ['all','전체 문제집'],['mine','내 책장'],['group','그룹 책장']
  ].map(([key,label])=>'<button type="button" role="tab" aria-selected="'+(db.tab===key)+'" class="'+(db.tab===key?'active':'')+'" data-bs="tab" data-val="'+key+'">'+label+'</button>').join('')+'</div>'+
  searchForm()+
+ (db.tab==='mine'?shelfStatus()+weekActivity():'')+
  (db.tab==='all'?filters():'<div class="bs-subline">'+(db.tab==='mine'?'<span>개인별 문제집과 학습 진도</span>':'<span>'+esc(groupName)+' · '+(g?.members?.length||0)+'/5명</span>')+'</div>')+
  (db.tab==='mine'?'<div class="bs-folders">'+['전체',...db.folders].map(f=>toolbarButton(f,'folder',f,db.folder===f)).join('')+htmlButton('새 책장 +','addFolder','','bs-tab')+'</div>':'')+
  (db.tab==='group'?'<div class="bs-group-picker"><label for="bs-group-picker">책장을 확인할 스터디그룹</label><select id="bs-group-picker" data-bs-change="groupId">'+(groupModel()?.groups||[]).map(x=>'<option value="'+esc(x.id)+'"'+(x.id===g?.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>':'')+
@@ -168,7 +235,7 @@ function detailPage(){
  '<div class="bs-section-title"><h4>학습 진행 상태</h4><small>직접 기록한 내용만 저장됩니다</small></div>'+
  '<div class="bs-progress-buttons">'+[0,25,50,75,100].map(n=>htmlButton(n+'%','progress',String(n),p===n?'checked':'')).join('')+'</div>'+
  '<label class="bs-note-label" for="bs-memo">풀이 메모 · 오답 정리</label>'+
- '<textarea id="bs-memo" data-bs-memo="'+esc(b.id)+'" placeholder="공부한 내용을 기록하세요.">'+esc(db.memo[b.id]||'')+'</textarea>'+
+ '<textarea id="bs-memo" data-bs-memo="'+esc(b.id)+'" placeholder="공부한 내용을 기록하세요.">'+esc(db.memo[b.id]||'')+'</textarea>'+notePanel(b,units)+
  '<div class="bs-detail-bottom">'+htmlButton('학교별 족보','go','bankSearch')+htmlButton('그룹 학습자료','go','groupLearning')+'</div>'+
  '<p class="bs-local-warning">학습 진도·메모·책장 상태는 이 브라우저에만 저장됩니다. 온라인 회원 연동은 아직 연결되지 않았습니다.</p>'+
  '</section>';
@@ -181,7 +248,7 @@ function readingPage(){
  '<div class="bs-reading-paper"><div class="bs-reading-label">AI 과외 학습 흐름</div>'+
  '<h4>어떤 문제를 해결해야 할까요?</h4>'+
  '<p>이 단원을 학습하는 목적을 먼저 생각하고, 질문과 대화를 통해 원리를 발견한 뒤 반복 훈련합니다.</p>'+
- '<div class="bs-reading-steps">'+['문제가 생긴 이유','이전 수학자의 접근','작은 질문으로 발견','다른 방법과 비교','새로운 문제에 적용'].map((t,k)=>'<div><span>'+String(k+1).padStart(2,'0')+'</span><strong>'+t+'</strong></div>').join('')+'</div>'+
+ learningStepPage(b)+
  '<p class="bs-reading-foot">실제 교재 원문이나 생성형 AI 문제풀이가 제공되는 화면은 아닙니다. 아래 체험은 이차방정식 예시 고정 질문 8단계입니다.</p></div>'+
  '<div class="bs-reading-actions">'+htmlButton('이차방정식 대화 시연','go','groupAITutorPractice','primary')+
  htmlButton('AI에 질문하기','go','groupQuestions')+
@@ -207,7 +274,7 @@ bottomFor=function(id){
  return oldBottom(id);
 };
 function redraw(){render();}
-function open(id){if(!MAP.has(id))return;db.selected=id;db.last[id]=Date.now();save();go('groupBookDetail');}
+function open(id){if(!MAP.has(id))return;db.selected=id;db.last[id]=Date.now();track(id,'open');save();go('groupBookDetail');}
 function action(type,val){
  const b=currentBook(),gid=group()?.id;
  if(type==='tab'){db.tab=val;db.query='';db.queryDraft='';db.folder='전체';save();redraw();return;}
@@ -241,13 +308,16 @@ function action(type,val){
   redraw();return;
  }
  if(type==='unit'){db.unit[b.id]=Number(val)||0;save();redraw();return;}
- if(type==='learn'){db.last[b.id]=Date.now();save();go('groupBookLearn');return;}
+ if(type==='learn'){db.last[b.id]=Date.now();track(b.id,'study');save();go('groupBookLearn');return;}
+ if(type==='lessonStep'){const idx=Number(val);if(!Number.isInteger(idx)||idx<0||idx>=LESSON_FLOW.length)return;db.learningStep[lessonStepKey(b)]=idx;track(b.id,'step');save();redraw();return;}
+ if(type==='removeNote'){const n=db.bookNotes.find(x=>x.id===val);if(n?.bookId!==b.id)return;db.bookNotes=db.bookNotes.filter(x=>x.id!==val);save();redraw();return;}
+ if(type==='history'){db.sort='recent';save();redraw();return;}
  if(type==='nextUnit'){
   const units=UNIT[b.grade+'-'+b.term]||UNIT['중2-1'];
   db.unit[b.id]=((db.unit[b.id]||0)+1)%units.length;
   db.last[b.id]=Date.now();save();redraw();return;
  }
- if(type==='progress'){const n=Number(val);db.progress[b.id]=n;db.last[b.id]=Date.now();
+ if(type==='progress'){const n=Number(val);if(![0,25,50,75,100].includes(n))return;db.progress[b.id]=n;db.last[b.id]=Date.now();track(b.id,'progress');
   if(n===100){if(!db.mine.includes(b.id))db.mine.push(b.id);if(!db.folders.includes('완료'))db.folders.push('완료');db.assignment[b.id]='완료';}
   save();redraw();return;}
 }
@@ -275,6 +345,15 @@ document.addEventListener('input',e=>{
  if(e.target?.dataset?.bsMemo){db.memo[e.target.dataset.bsMemo]=e.target.value;save();}
 });
 document.addEventListener('submit',e=>{
+ if(e.target.id==='bs-book-note-form'){
+  e.preventDefault();e.stopImmediatePropagation();
+  const fd=new FormData(e.target),body=String(fd.get('text')||'').trim().slice(0,2000);
+  const kind=String(fd.get('type')||'질문');
+  if(!body||!['질문','발견','오답'].includes(kind))return;
+  const book=currentBook(),units=UNIT[book.grade+'-'+book.term]||UNIT['중2-1'];
+  db.bookNotes.push({id:'note-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),bookId:book.id,unit:units[Number(db.unit[book.id])||0]||'',type:kind,text:body,at:Date.now()});
+  track(book.id,'note');save();redraw();return;
+ }
  if(e.target.id!=='bs-search-form')return;
  e.preventDefault();e.stopImmediatePropagation();db.query=String(new FormData(e.target).get('query')||'').trim();db.queryDraft=db.query;save();redraw();
 },true);
