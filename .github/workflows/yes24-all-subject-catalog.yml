@@ -14,6 +14,7 @@ on:
     branches: [feature/all-subject-books-catalog-20261111]
     paths:
       - tools/catalog/yes24_catalog.py
+      - tools/catalog/build_coverage.py
       - .github/workflows/yes24-all-subject-catalog.yml
 permissions:
   contents: write
@@ -40,6 +41,8 @@ jobs:
           python -m py_compile tools/catalog/yes24_catalog.py tools/catalog/collect_books.py
       - name: Crawl middle/high reference-book categories and real product URLs
         run: python tools/catalog/yes24_catalog.py
+      - name: Build subject and grade-semester coverage matrix
+        run: python tools/catalog/build_coverage.py
       - name: Verify rows and report source coverage
         run: |
           python - <<'PY'
@@ -62,7 +65,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add reports/textbook_catalog/yes24_*
+          git add reports/textbook_catalog/yes24_* reports/textbook_catalog/subject_grade_semester_*
           if ! git diff --cached --quiet; then
             git commit -m 'data: update middle/high all-subject real YES24 book detail URL catalog [skip ci]'
             git fetch origin "${GITHUB_REF_NAME}"
@@ -74,6 +77,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hitel-yes24-all-subject-book-links
-          path: reports/textbook_catalog/yes24_*
+          path: |
+            reports/textbook_catalog/yes24_*
+            reports/textbook_catalog/subject_grade_semester_*
           if-no-files-found: warn
           retention-days: 90
