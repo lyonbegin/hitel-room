@@ -49,6 +49,7 @@ with sync_playwright() as play:
   check(page.locator('#phone .cs-hint').count()==1,f'staged hints rendered {width}')
   # Preserve problem handwriting using mouse pointers.
   c=page.locator('#phone #cs-canvas')
+  c.scroll_into_view_if_needed()
   b=c.bounding_box()
   page.mouse.move(b['x']+25,b['y']+40)
   page.mouse.down()
