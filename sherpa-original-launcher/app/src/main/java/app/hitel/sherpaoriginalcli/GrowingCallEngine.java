@@ -686,7 +686,13 @@ public final class GrowingCallEngine {
         File adts=new File(context.getCacheDir(),"aac-recovery-"+log.id()+".aac");
         long recoveredDeltaEnd=-1;
         final long deltaStart=nextAacFrameSourceByte;
-        recoveredDeltaEnd=recoverMdatAac(local,adts,snapshotBytes,deltaStart);
+        if(finalMoov && deltaStart==0){
+          // A pre-existing finished file may be AAC at 16kHz/44.1kHz instead
+          // of Samsung 48kHz; do not misidentify its raw AAC profile.
+          // The incremental cursor applies to a recording detected BEFORE moov.
+          adts=null;
+          log.event("AAC","FINISHED_FILE_STANDARD_DECODE","sourceBytes",snapshotBytes);
+        }else recoveredDeltaEnd=recoverMdatAac(local,adts,snapshotBytes,deltaStart);
         if(recoveredDeltaEnd>deltaStart){
           log.event("AAC","NEW_FRAMES_READY","sourceStart",deltaStart,
             "sourceEnd",recoveredDeltaEnd,"newSourceBytes",recoveredDeltaEnd-deltaStart,
