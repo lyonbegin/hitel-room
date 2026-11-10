@@ -73,6 +73,9 @@ jobs:
           curl -fLsS --retry 5 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
           tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
           FFMPEG_HEADERS="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          # FFmpeg's generated platform header is absent from its source archive.
+          # This Android ARM64 little-endian NDK target needs these public API flags.
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$FFMPEG_HEADERS/libavutil/avconfig.h"
           unzip -qo "$ROOT/app/libs/ffmpeg-kit-min.aar" 'jni/arm64-v8a/libavcodec.so' 'jni/arm64-v8a/libavutil.so' -d /tmp/ffmpeg-arm
           DST="$ROOT/app/src/main/jniLibs/arm64-v8a"
           "$LLVM/aarch64-linux-android26-clang" -O2 -std=c99 -fPIE -pie \
