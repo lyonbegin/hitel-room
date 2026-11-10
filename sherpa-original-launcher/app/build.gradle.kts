@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.koreanzipformer.streamdiag"
+    applicationId = "app.hitel.koreanzipformer.fastcaption"
     minSdk = 26
     targetSdk = 28
-    versionCode = 8
-    versionName = "8.0.0-ko-zipformer-174m-online-int8"
+    versionCode = 9
+    versionName = "9.0.0-ko-174m-fast-live-chunk16"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
