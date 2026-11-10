@@ -85,7 +85,7 @@ def classify(title,area_hint=""):
     high=bool(re.search(r"고등|고교|고등학교|고[123](?!\d)|고\s*[123]\s*[-－]|수능|공통수학|공통국어|공통영어|통합과학[12]?|통합사회[12]?|미적분[ⅠⅡ]|대수\s*(?:개념|문제)",title))
     level="복합" if mid and high else "중등" if mid else "고등" if high else "미분류"
     grade=""
-    mm=re.search(r"(?:중학|중등|중학교|중)\s*([123])(?:학년)?(?:\s*[-－]\s*([12]))?",title)
+    mm=re.search(r"(?:중학|중등|중학교|중)\s*(?:수학|국어|영어|과학|사회|역사|도덕)?\s*([123])(?:학년)?(?:\s*[-－]\s*([12]))?",title)
     hh=re.search(r"(?:고등|고교|고)\s*([123])(?:학년)?(?:\s*[-－]\s*([12]))?",title)
     if level=="중등" and mm:grade=mm.group(1)
     if level=="고등" and hh:grade=hh.group(1)
