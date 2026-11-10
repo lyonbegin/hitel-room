@@ -6,6 +6,7 @@ on:
       - tools/catalog/probe_sources.py
       - tools/catalog/probe_yes24_formats.py
       - tools/catalog/yes24_category_id_probe.py
+      - tools/catalog/probe_yes24_pagination.py
       - .github/workflows/probe-bookstore-sources.yml
   workflow_dispatch:
 permissions:
@@ -25,3 +26,5 @@ jobs:
         run: python tools/catalog/probe_yes24_formats.py
       - name: Inspect embedded middle/high category IDs
         run: python tools/catalog/yes24_category_id_probe.py
+      - name: Test full category pagination
+        run: python tools/catalog/probe_yes24_pagination.py
