@@ -951,13 +951,34 @@ public final class GrowingCallEngine {
       peak=Math.max(peak,Math.abs(f));
       if(value!=0)nonzero++;
     }
+    double rms=Math.sqrt(sum/Math.max(1,samples));
+    if(rms>=0.018){
+      loudChunks++;quietChunks=0;
+      if(!activeEnergyBurst && loudChunks>=2){
+        activeEnergyBurst=true;
+        log.timing("PCM","ENERGY_ONSET_CANDIDATE","seq",seq,"rms",rms,
+          "audioOffsetMs",committedPcmBytes.get()/32L,
+          "warning","acoustic energy threshold; NOT verified caller speech onset");
+      }
+    }else{
+      quietChunks++;loudChunks=0;
+      if(quietChunks>=3)activeEnergyBurst=false;
+    }
     log.event("PCM","CHUNK_TO_STT","segment",seq,"attempt",attempt,"transportOnly",true,"samples",samples,
-      "durationSec",samples/16000.0,"rms",Math.sqrt(sum/Math.max(1,samples)),
+      "durationSec",samples/16000.0,"rms",rms,
       "peak",peak,"nonzeroPct",100.0*nonzero/Math.max(1,samples));
     OutputStream out=p.getOutputStream();
+    long writeBeginNs=SystemClock.elapsedRealtimeNanos();
+    log.timingAt(writeBeginNs,"PCM","PIPE_WRITE_BEGIN","seq",seq,"attempt",attempt,
+      "samples",samples,"audioEndMs",(committedPcmBytes.get()+pcm.length)/32L,"rms",rms);
     little32(out,seq);little32(out,samples);out.write(pcm);out.flush();
+    long writeEndNs=SystemClock.elapsedRealtimeNanos();
     committedPcmBytes.addAndGet(pcm.length);
-    callback.onStatus("PCM 입력 "+String.format(Locale.US,"%.1f",pcmBytes.get()/32000.0)+
-      "초 / VAD 음성 분석 중 ("+seq+"번째 입력)",transcription);
+    log.timingAt(writeEndNs,"PCM","PIPE_WRITE_END","seq",seq,"attempt",attempt,
+      "audioEndMs",committedPcmBytes.get()/32L,
+      "writeDurationMs",(writeEndNs-writeBeginNs)/1000000.0);
+    // One status update per second avoids UI broadcasts for every 200ms PCM packet.
+    if(seq%5==0)callback.onStatus("PCM 입력 "+String.format(Locale.US,"%.1f",pcmBytes.get()/32000.0)+
+      "초 / 온라인 인식 중 ("+seq+"번째 입력)",transcription);
   }
 }
