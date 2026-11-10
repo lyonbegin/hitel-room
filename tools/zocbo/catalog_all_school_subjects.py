@@ -81,7 +81,15 @@ def main():
  write_csv(out/'search_attempts.csv',['검색어','페이지','HTTP','검색주소','발견문서수','오류'],[
  {'검색어':r['term'],'페이지':r['start'],'HTTP':r['http'],'검색주소':r['url'],'발견문서수':len(r['results']),'오류':r['error']} for r in attempts])
  docs={}
- for docid,title,source in SEEDS:docs[docid]={'id':docid,'title':title,'origin':source,'terms':set()}
+ seed_records=list(SEEDS)
+ seed_path=Path(__file__).with_name('scribd_seed_document_links.csv')
+ if seed_path.exists():
+  with seed_path.open(encoding='utf-8-sig',newline='') as f:
+   seed_records.extend((x['document_id'],x['title'],x['source']) for x in csv.DictReader(f))
+ for docid,title,source in seed_records:
+  old=docs.get(docid)
+  if old and len(old['title'])>=len(title):continue
+  docs[docid]={'id':docid,'title':title,'origin':source,'terms':set()}
  for r in attempts:
   for id,title in r['results']:
    row=docs.setdefault(id,{'id':id,'title':'','origin':'공개 검색 색인','terms':set()})
@@ -102,8 +110,8 @@ def main():
  write_csv(out/'subjects.csv',['학교급','과목군','포함과목'],[
  {'학교급':g,'과목군':k,'포함과목':v} for g,classes in SUBJECTS.items() for k,v in classes.items()])
  summary={'batch':args.batch,'total_basic_terms':len(terms),'terms_run':len(active),
- 'search_attempts':len(attempts),'new_index_documents':len(docs)-len(SEEDS),
- 'seed_documents':len(SEEDS),'unique_detail_urls':len(docs),
+ 'search_attempts':len(attempts),'new_index_documents':len(docs)-len(set(x[0] for x in seed_records)),
+ 'seed_documents':len(set(x[0] for x in seed_records)),'unique_detail_urls':len(docs),
  'subject_groups':sum(len(g) for g in SUBJECTS.values()),'all_books_verified':False,
  'limitations':'GitHub Chrome Scribd CAPTCHA and public index gaps. No zero-result inference, full-text verification or copyright license claim.'}
  (out/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
