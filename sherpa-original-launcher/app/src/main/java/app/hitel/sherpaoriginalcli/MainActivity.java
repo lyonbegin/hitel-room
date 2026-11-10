@@ -61,6 +61,10 @@ public final class MainActivity extends Activity {
   }
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
+    // Preload the heavy 174M Korean INT8 recognizer while the user chooses
+    // their call-recording folder. Without this, Galaxy Flip3 took 13.79s
+    // AFTER incoming speech to load the model.
+    PrewarmedRecognizer.warm(this);
     ScrollView scroll=new ScrollView(this);
     LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
@@ -80,7 +84,7 @@ public final class MainActivity extends Activity {
     source.setTextIsSelectable(true);root.addView(source);
     root.addView(text(
       "폴더 모드는 시작 당시 존재하는 파일은 건너뛰고, 이후 새로 나타나거나 크기가 변한 오디오 파일을 자동으로 선택합니다. " +
-      "삼성 전화앱에서 녹음을 시작하신 뒤 앱으로 돌아오지 않아도 백그라운드 감시가 계속됩니다.",12));
+      "반드시 실제 통화 전에 앱을 열고 감시를 시작해 주십시오. 한국어 174M 모델 준비에는 첫 실행 시 수초 이상 걸릴 수 있습니다. 준비가 끝나면 새 음성이 들어오는 대로 자막을 갱신합니다.",12));
     root.addView(text("STEP 2 · 증가분 스트리밍 진단",17));
     startButton=button(root,"FFmpeg + 한국어 Zipformer 진단 시작");
     stopButton=button(root,"진단 중지");
