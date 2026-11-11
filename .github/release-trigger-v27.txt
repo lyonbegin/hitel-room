@@ -1,0 +1,6 @@
+v27 174M model-only comparison release
+Source branch: experiment/zipformer-v25-primary-standby-174m-v27-20261112
+Signed ARM64 APK build: https://github.com/lyonbegin/hitel-room/actions/runs/43059836213
+Build conclusion verified success.
+Source baseline: v25 192a825fe38832c6cc90c5d79bf9275330156e32.
+No changes to AAC/FFmpeg path or Sherpa-ONNX stream/primary-standby scheduling.
