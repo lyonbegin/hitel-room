@@ -1,7 +1,7 @@
 name: Galaxy ARM64 Korean Zipformer 174M v28 pinned live captions
 on:
   push:
-    branches: [experiment/zipformer-v28-caption-display-pump-v28-20261112]
+    branches: [experiment/zipformer-v27-caption-display-pump-v28-20261112]
     paths:
       - '.github/workflows/build-galaxy-174m-fixed-caption-v28-arm64.yml'
       - 'sherpa-original-launcher/**'
