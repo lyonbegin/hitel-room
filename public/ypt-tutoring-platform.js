@@ -181,19 +181,21 @@ function directoryHome(){
  return '<section class="tp-app tp-study-main">'+heading('학교·학원별 스터디','조건에 맞는 스터디를 찾거나 내 스터디로 이동하세요.')+
  '<nav class="tp-main-tabs" aria-label="스터디그룹 메인">'+
  bt('스터디 찾기','mainTab','discover',ui.mainTab==='discover')+
- bt('내 스터디','mainTab','mine',ui.mainTab==='mine')+'</nav>'+
+ bt('내 스터디','mainTab','mine',ui.mainTab==='mine')+
+ bt('스터디 만들기','mainTab','create',ui.mainTab==='create')+'</nav>'+
+ '<div class="tp-join-shortcut">'+goBtn('초대 코드로 가입','groupJoin')+'</div>'+
  (ui.mainTab==='mine'?
  '<div class="tp-section-label"><strong>내 스터디</strong><small>'+model.groups.length+'개</small></div>'+
  '<form id="tp-group-search-form" class="tp-search"><input name="q" value="'+esc(ui.groupQuery)+'" placeholder="내 스터디 검색" aria-label="내 스터디 검색"/><button type="submit">검색</button></form>'+
  '<div class="tp-chips">'+[['all','전체'],['school','학교'],['academy','학원']].map(([k,n])=>bt(n,'groupFilter',k,ui.groupType===k)).join('')+'</div>'+
  '<div class="tp-group-list">'+(my.length?my.map(g=>compactGroup(g)).join(''):empty('가입한 스터디가 없습니다.','스터디 찾기에서 기존 스터디를 알아보거나 새로 만드실 수 있습니다.',bt('스터디 찾기','mainTab','discover',true)))+'</div>':
+ ui.mainTab==='create'?createGroup(true):
  '<form id="tp-directory-search-form" class="tp-search"><input name="q" value="'+esc(ui.findQuery)+'" placeholder="학교·학원·과목·교재 검색" aria-label="모집 스터디 검색"/><button type="submit">검색</button></form>'+
  directoryFilters()+
  '<div class="tp-section-label"><strong>스터디 찾아보기</strong><small>'+entries.length+'개 표시</small></div>'+
  '<p class="tp-directory-warning">현재 외부 사용자들이 모집 중인 실시간 그룹 데이터는 연결되지 않았습니다. 아래 그룹은 탐색·가입 과정을 확인하기 위한 예시와 이 기기에 저장한 스터디입니다.</p>'+
  '<div class="tp-discover-list">'+(entries.length?entries.map(listingCard).join(''):
  empty('조건에 맞는 스터디가 없습니다.','학교·학원 이름 또는 학년·과목 조건을 변경해 보세요.'))+'</div>')+
- actions([goBtn('새 스터디 만들기','groupCreate',true),goBtn('초대 코드로 참여','groupJoin')])+
  '</section>';
 }
 function listingPreview(){
@@ -256,9 +258,9 @@ function profile(){
  '<p class="tp-note">현재 교재 전문 AI 모델의 실제 학습 완료 여부는 검증되지 않았습니다. 이 화면은 코치와 스터디 연결 UI입니다.</p>'+
  '</section>';
 }
-function createGroup(){
- const b=selectedBook(),grade=b?.grade||'중2',subject=b?.subject||'수학';
- return '<section class="tp-app">'+heading('스터디 만들기','학교·학원, 학년, 과목과 교재를 지정합니다.')+
+function createGroup(embedded=false){
+ const b=embedded&&!ui.selectedBook?null:selectedBook(),grade=b?.grade||'중2',subject=b?.subject||'수학';
+ return (embedded?'<div class="tp-create-inline">':'<section class="tp-app">')+heading('스터디 만들기','학교·학원, 학년, 과목과 교재를 지정합니다.')+
  panel('<form id="tp-group-create-form" class="tp-form">'+
  '<label>학교 또는 학원<select name="institutionType">'+
  '<option value="school">학교</option><option value="academy">학원</option></select></label>'+
@@ -271,7 +273,7 @@ function createGroup(){
  '<label>학습 범위 (선택)<input name="topics" maxlength="120" placeholder="예: 중간고사 대비 1~3단원" /></label>'+
  '<button type="submit" class="tp-btn primary">스터디 개설</button></form>'+
  '<p class="tp-note">가입 인원 및 초대 기능은 스터디 관리에서 확인합니다. 다른 기기와의 실시간 회원 동기화는 아직 연결되지 않았습니다.</p>')+
- '</section>';
+ (embedded?'</div>':'</section>');
 }
 function joinGroup(){
  return '<section class="tp-app">'+heading('스터디 참여','초대받은 스터디에 참여합니다.')+
@@ -520,7 +522,7 @@ function practice(gid,route){
 function action(name,val){
  const g=active();
  if(name==='route'){if(val==='bankSearch')prepareBankContext();updateRoute(val);return}
- if(name==='mainTab'){ui.mainTab=val==='mine'?'mine':'discover';render();return}
+ if(name==='mainTab'){ui.mainTab=['discover','mine','create'].includes(val)?val:'discover';if(val==='create')ui.selectedBook='';render();return}
  if(name==='previewListing'){ui.selectedListing=val;updateRoute('groupPreview');const u=new URL(location.href);u.searchParams.set('listing',val);history.replaceState(null,'',u);return}
  if(name==='openListing'){const l=allListings().find(x=>x.id===val);const own=l?.groupId||membershipForListing(l||{})?.id;if(own)selectGroup(own,'groupDetail');return}
  if(name==='joinListing'){joinListing(val);return}
@@ -596,7 +598,7 @@ function forms(form){
    bookId:book.id,bookTitle:book.name,coachId:'coach:'+book.id,coachName:coachNameForBook(book),
    bookShelf:[book.id]
   };
-  model.groups.push(group);model.activeGroupId=group.id;save();
+  model.groups.push(group);model.activeGroupId=group.id;ui.mainTab='mine';save();
   if(catalogMap.has(book.id))LIB.setBook(book.id);
   updateRoute('groupDetail');return;
  }
@@ -687,7 +689,7 @@ window.HITEL_TUTOR_PLATFORM={
 const requested=new URLSearchParams(location.search);
 if(PAGES[requested.get('screen')])state.screen=requested.get('screen');
 if(requested.get('group')&&gById(requested.get('group')))model.activeGroupId=requested.get('group');
-if(requested.get('tab')==='mine')ui.mainTab='mine';
+if(['mine','create','discover'].includes(requested.get('tab')))ui.mainTab=requested.get('tab');
 if(requested.get('listing'))ui.selectedListing=requested.get('listing');
 if(['groupBookDetail','groupCoachProfile'].includes(state.screen)&&requested.get('book')&&bookById(requested.get('book')))ui.selectedBook=requested.get('book');
 if(state.screen==='bankSearch')prepareBankContext();
