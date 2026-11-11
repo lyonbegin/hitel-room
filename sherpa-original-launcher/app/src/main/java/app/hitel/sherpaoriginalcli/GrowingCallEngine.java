@@ -639,7 +639,7 @@ public final class GrowingCallEngine {
             log.event("ONLINE","MODEL_READY","settings",line,
               "prewarmDurationMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
             log.timing("MODEL","READY_IN_JAVA","startupMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
-            callback.onStatus("한국어 STT 모델 준비 완료 · 실시간 인식 가능",transcription);
+            callback.onStatus("Vosk 한국어 모델 준비 완료 · 연속 자막 인식 중",transcription);
           }
           if(line.startsWith("ONLINE_EDIT:")){
             // Native protocol: ONLINE_EDIT:<audioMs>:<UTF16-prefix-length>:<changed UTF8 suffix>
@@ -762,22 +762,73 @@ public final class GrowingCallEngine {
       }catch(Throwable t){log.error("STT","NATIVE_OUTPUT_READER_ERROR",t);}
     },"SenseVoice-Native-Stdout").start();
   }
+  // Vosk model is shipped as an authentic SHA-256-verified 0.22 archive.
+  // Extraction is ONE-TIME into private app files; no model unpack on each call.
+  // The active Samsung recording/AAC decoder path remains byte-identical.
+  static void deleteTree(File f){
+    if(!f.exists())return;
+    File[] children=f.isDirectory()?f.listFiles():null;
+    if(children!=null)for(File c:children)deleteTree(c);
+    if(!f.delete())throw new IllegalStateException("Cannot delete stale model file "+f);
+  }
+  File ensureVoskModel()throws Exception{
+    File root=new File(context.getFilesDir(),"vosk-model-small-ko-0.22");
+    File marker=new File(root,".complete-v30");
+    if(marker.isFile() && new File(root,"am/final.mdl").isFile()){
+      log.timing("MODEL","VOSK_MODEL_ALREADY_EXTRACTED","bytes",root.length());
+      return root;
+    }
+    File temporary=new File(context.getFilesDir(),"vosk-model-small-ko-0.22.tmp");
+    deleteTree(temporary);
+    if(!temporary.mkdirs())throw new IOException("Vosk model temporary folder unavailable");
+    long extractedBytes=0;int files=0;
+    long started=SystemClock.elapsedRealtime();
+    try(InputStream modelZip=context.getAssets().open("vosk/vosk-model-small-ko-0.22.zip");
+        java.util.zip.ZipInputStream entries=new java.util.zip.ZipInputStream(modelZip)){
+      java.util.zip.ZipEntry entry;byte[] buffer=new byte[65536];
+      final String rootPath=temporary.getCanonicalPath()+File.separator;
+      while((entry=entries.getNextEntry())!=null){
+        String name=entry.getName().replace('\\','/');
+        if(name.startsWith("vosk-model-small-ko-0.22/"))
+          name=name.substring("vosk-model-small-ko-0.22/".length());
+        if(name.isEmpty()||entry.isDirectory())continue;
+        File target=new File(temporary,name);
+        if(!target.getCanonicalPath().startsWith(rootPath))
+          throw new IOException("Refusing unsafe Vosk archive path: "+name);
+        File parent=target.getParentFile();
+        if(parent!=null&&!parent.isDirectory()&&!parent.mkdirs())
+          throw new IOException("Cannot make Vosk model folder");
+        try(OutputStream output=new FileOutputStream(target)){
+          int n;while((n=entries.read(buffer))!=-1){
+            output.write(buffer,0,n);extractedBytes+=n;
+          }
+        }
+        files++;
+        entries.closeEntry();
+      }
+    }catch(Exception error){
+      deleteTree(temporary);
+      throw error;
+    }
+    if(files<5||!new File(temporary,"am/final.mdl").isFile())
+      throw new IOException("Vosk Korean model ZIP layout invalid, files="+files);
+    deleteTree(root);
+    if(!temporary.renameTo(root))throw new IOException("Vosk model move into place failed");
+    if(!marker.createNewFile())throw new IOException("Cannot record completed model extraction");
+    log.timing("MODEL","VOSK_MODEL_UNPACKED_ONCE","files",files,
+      "bytes",extractedBytes,"durationMs",SystemClock.elapsedRealtime()-started);
+    return root;
+  }
   void nativeStart()throws Exception {
     File executable=new File(context.getApplicationInfo().nativeLibraryDir,"libsensevoice-stream.so");
     log.event("STT","BINARY_PROBE","path",executable.getAbsolutePath(),
       "exists",executable.exists(),"executable",executable.canExecute(),"bytes",executable.length());
     if(!executable.isFile()||!executable.canExecute())
-      throw new IOException("ARM64 SenseVoice stream CLI missing");
-    File tokens=extract("tokens.txt",1000);
-    File encoder=extract("encoder.int8.onnx",1000000);
-    File decoder=extract("decoder.int8.onnx",100000);
-    File joiner=extract("joiner.int8.onnx",100000);
+      throw new IOException("ARM64 Vosk Korean STT CLI missing");
+    File model=ensureVoskModel();
     ProcessBuilder pb=liveEdgeMode?
-      new ProcessBuilder(executable.getAbsolutePath(),tokens.getAbsolutePath(),
-        encoder.getAbsolutePath(),decoder.getAbsolutePath(),joiner.getAbsolutePath(),
-        "--live-edge"):
-      new ProcessBuilder(executable.getAbsolutePath(),tokens.getAbsolutePath(),
-        encoder.getAbsolutePath(),decoder.getAbsolutePath(),joiner.getAbsolutePath());
+      new ProcessBuilder(executable.getAbsolutePath(),model.getAbsolutePath(),"--live-edge"):
+      new ProcessBuilder(executable.getAbsolutePath(),model.getAbsolutePath());
     String old=pb.environment().get("LD_LIBRARY_PATH");
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
@@ -786,8 +837,8 @@ public final class GrowingCallEngine {
     log.timing("MODEL","NATIVE_PROCESS_LAUNCH_BEGIN","launchElapsedMs",nativeLaunchElapsed);
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
-      "startedBeforeRecordingFileDiscovered",true,
-      "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner] [optional live-edge]","abi",Arrays.toString(Build.SUPPORTED_ABIS),"liveEdge",liveEdgeMode);
+      "command","vosk_small_ko [verified-model-folder] [optional live-edge]",
+      "abi",Arrays.toString(Build.SUPPORTED_ABIS),"liveEdge",liveEdgeMode);
     nativeReader(sherpa);
     log.timing("MODEL","NATIVE_PROCESS_LAUNCHED","pidAvailable",Build.VERSION.SDK_INT>=26);
   }
@@ -817,7 +868,7 @@ public final class GrowingCallEngine {
     boolean signalled=onlineModelReadyLatch.await(100,java.util.concurrent.TimeUnit.SECONDS);
     if(stop){endReason="USER_STOP";return;}
     if(!signalled||!onlineModelReady||sherpa==null||!sherpa.isAlive())
-      throw new IOException("174M recognizer did not become ONLINE_READY within 100s");
+      throw new IOException("Vosk Korean recognizer did not become ONLINE_READY within 100s");
     final long gateEnd=SystemClock.elapsedRealtimeNanos();
     log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
       "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
