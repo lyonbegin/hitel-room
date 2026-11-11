@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 
 OUT=Path("emulator-qa-v11")
 OUT.mkdir(exist_ok=True)
-PKG="app.hitel.koreanzipformer.incremental13"
+PKG="app.hitel.koreanzipformer.integrity14"
 MAIN=PKG+"/app.hitel.sherpaoriginalcli.MainActivity"
 NAME="ko_live_test.m4a"
 
@@ -127,7 +127,7 @@ def check_actual():
                 if e.get("stage")=="PCM" and e.get("event")=="PIPE_WRITE_END"),default=0)
         except (ValueError,TypeError,json.JSONDecodeError):pass
         print("FULL_PCM_PROGRESS_MS",buffered_audio_ms,"CAPTIONS",found,flush=True)
-        if found and buffered_audio_ms>=15000:
+        if found and buffered_audio_ms>=16500:
             print("REAL_FULL_AUDIO_PCM_AND_CAPTIONS_CONFIRMED",flush=True)
             break
         if any(t in events for t in ("FATAL_ERROR","MODEL_LOAD_FAILED","FIFO_READ_OR_STT_WRITE_FAILURE")):
@@ -150,7 +150,7 @@ def check_actual():
         if e.get("stage")=="PCM" and e.get("event")=="PIPE_WRITE_END"),default=0)
     checks={
         "prewarm gate released":'"PREWARM_GATE_RELEASED"' in timeline,
-        "at least 15s source PCM transferred":total_audio_ms>=15000,
+        "at least 16.5s source PCM transferred":total_audio_ms>=16500,
         "APK installed":bool(adb("shell","pm","path",PKG,check=False)),
         "FFmpeg attempted":'"ATTEMPT_BEGIN"' in events or '"START_COMMAND"' in timeline,
         "PCM delivered":'"PIPE_WRITE_END"' in timeline,
