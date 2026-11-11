@@ -37,6 +37,17 @@ def tap_name(names, seconds=15):
     while time.monotonic()<end:
         try:
             listing=nodes()
+            if any("com.google.android.googlesdksetup isn't responding" in title for _,title in listing):
+                for dialog_node,title in listing:
+                    if title.casefold() in ("close app","앱 닫기"):
+                        coords=list(map(int,re.findall(r"\d+",dialog_node.attrib.get("bounds",""))))
+                        if len(coords)==4:
+                            adb("shell","input","tap",str((coords[0]+coords[2])//2),
+                                str((coords[1]+coords[3])//2))
+                            print("DISMISSED_SYSTEM_GOOGLE_SETUP_ANR_NOT_APP_CRASH",flush=True)
+                            time.sleep(1)
+                            break
+                continue
             for preference in (0,1):
                 for n,title in listing:
                     if any((title.casefold()==x.casefold() if preference==0 else x.casefold() in title.casefold()) for x in names):
