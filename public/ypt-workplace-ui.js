@@ -22,6 +22,10 @@
     groupCoach:'학습 코치',
     groupMistakes:'오답 복습',
     groupCoachDashboard:'학습기록',
+    groupCoachProfile:'AI 선생님 소개',
+    groupTeacherChat:'AI 선생님과 대화',
+    groupJoin:'스터디 참여',
+    groupTutorSettings:'담당 선생님 설정',
   };
   const clone=x=>JSON.parse(JSON.stringify(x));
   const instituteTypeName=type=>type==='academy'?'학원':'학교';
