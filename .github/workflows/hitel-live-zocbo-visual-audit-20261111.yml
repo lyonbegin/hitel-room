@@ -27,9 +27,21 @@ jobs:
         run: |
           mkdir -p live-zocbo-proof
           python - <<'PY'
-          import json, os, time, traceback
+          import json, os, time, traceback, urllib.request
           from playwright.sync_api import sync_playwright
           output={'url':os.environ['LIVE_URL'],'states':[],'errors':[]}
+          for attempt in range(36):
+            try:
+              with urllib.request.urlopen(os.environ['LIVE_URL'],timeout=15) as r:
+                markup=r.read().decode('utf-8','replace')
+              if 'hitel-school-zocbo.js?v=3' in markup and 'zocbo-faithful-ui.js?v=4' in markup:
+                print('LIVE_DEPLOYED_NEW_SCHOOL_ASSETS_READY',attempt)
+                break
+            except Exception as e:
+              print('Waiting for current production:',str(e)[:140])
+            time.sleep(5)
+          else:
+            raise RuntimeError('Latest source files are not yet serving from production.')
           with sync_playwright() as p:
             browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
             context=browser.new_context(viewport={'width':390,'height':844},device_scale_factor=1,is_mobile=True,has_touch=True)
@@ -53,6 +65,12 @@ jobs:
                  const metrics=el=>el?{html:el.outerHTML.slice(0,700),width:Math.round(el.getBoundingClientRect().width),height:Math.round(el.getBoundingClientRect().height),visible:!!(el.getClientRects().length)}:null;
                  return {viewport:innerWidth,bodyScrollWidth:document.body.scrollWidth,bodyText:texts.slice(0,9000),
                   phone:metrics(target),faithful:metrics(source),native:metrics(native),guide:metrics(original),
+                  sourceFilterCount:document.querySelectorAll('.zb-f-filter').length,
+                  duplicatePickerCount:document.querySelectorAll('.hsc-native-pickers').length,
+                  duplicateIntroCount:document.querySelectorAll('.hsc-original-heading').length,
+                  demoClassVisible:texts.includes('중2 수학 스터디 (예시)'),
+                  activeSchoolFilter:[...document.querySelectorAll('button[data-action="zbFFilter"]')].map(b=>b.dataset.value),
+                  dialogTitle:document.querySelector('[role="dialog"] .zb-f-sheet-head strong')?.textContent||'',
                   images:[...document.images].slice(0,25).map(x=>({src:x.currentSrc.slice(-140),alt:x.alt,w:x.naturalWidth,h:x.naturalHeight,visible:!!x.getClientRects().length})),
                   links:[...document.querySelectorAll('#phone button')].slice(0,45).map(x=>({text:x.innerText.trim().slice(0,100),action:x.dataset.action||'',go:x.dataset.go||'',visible:!!x.getClientRects().length}))};
                 }""")
@@ -60,6 +78,17 @@ jobs:
                 print('PRODUCTION_SCREEN_'+name.upper(),json.dumps({k:v for k,v in info.items() if k not in ('bodyText','links','images')},ensure_ascii=False))
                 print('TEXT_'+name.upper(),info['bodyText'][:3200].replace('\n',' | '))
               snap('initial')
+              initial=output['states'][-1]
+              output['realAssertions']={
+                'http200': output['status']==200,
+                'mobile390': initial['viewport']==390 and initial['bodyScrollWidth']==390,
+                'one_source_filter': initial['sourceFilterCount']==1,
+                'no_duplicate_picker': initial['duplicatePickerCount']==0,
+                'no_duplicate_intro': initial['duplicateIntroCount']==0,
+                'no_demo_class': not initial['demoClassVisible'],
+                'original_menu_exists': '원본' not in initial['bodyText'] or '학교별 맞춤학습' in initial['bodyText']
+              }
+              print('REAL_ASSERTIONS',json.dumps(output['realAssertions'],ensure_ascii=False))
               try:
                 source=page.locator('button[data-action="zbFMain"][data-value="school"]')
                 if source.count():
@@ -71,12 +100,28 @@ jobs:
               except Exception as e:
                 output['errors'].append('school-click '+str(e))
               try:
-                picker=page.locator('.hsc-native-picker[data-value="filter_sch"]')
+                picker=page.locator('button[data-action="zbFFilter"][data-value="filter_sch"]')
                 if picker.count():
                   picker.first.click(timeout=10000)
-                  page.wait_for_timeout(3500)
+                  page.wait_for_timeout(1500)
                   snap('school-picker')
-                  print('SCHOOL_PICKER_CLICKED')
+                  print('SCHOOL_PICKER_CLICKED',output['states'][-1]['dialogTitle'])
+                  # With no region selected this MUST open the first region picker.
+                  output['realAssertions']['region_first']=(
+                    '지역' in output['states'][-1]['dialogTitle'] or
+                    '시' in output['states'][-1]['dialogTitle'])
+                  try:
+                    city=page.locator('button[data-action="zbFChoose"]').filter(has_text='서울').first
+                    if city.count():
+                      city.click(timeout=8000)
+                      page.wait_for_timeout(700)
+                      gu=page.locator('button[data-action="zbFFilter"][data-value="filter_gu"]')
+                      gu.first.click(timeout=8000)
+                      page.wait_for_timeout(5000)
+                      snap('district-picker')
+                      print('DISTRICT_PICKER',output['states'][-1]['dialogTitle'])
+                  except Exception as clickerror:
+                    output['errors'].append('district-click '+str(clickerror))
                 else: print('SCHOOL_PICKER_NOT_FOUND')
               except Exception as e:
                 output['errors'].append('picker-click '+str(e))
@@ -85,7 +130,8 @@ jobs:
               traceback.print_exc()
             finally:
               json.dump(output,open('live-zocbo-proof/report.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
-              print('LIVE_VISUAL_AUDIT_REPORT',json.dumps(output,ensure_ascii=False)[:19000])
+              print('LIVE_VISUAL_AUDIT_REPORT',json.dumps(output,ensure_ascii=False)[:12000])
+              print('REAL_ASSERTIONS_FINAL',json.dumps(output.get('realAssertions',{}),ensure_ascii=False))
               browser.close()
           PY
       - name: Archive real mobile screenshots and DOM evidence
