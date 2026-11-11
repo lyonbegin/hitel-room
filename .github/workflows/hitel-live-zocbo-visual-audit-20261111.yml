@@ -34,7 +34,7 @@ jobs:
             try:
               with urllib.request.urlopen(os.environ['LIVE_URL'],timeout=15) as r:
                 markup=r.read().decode('utf-8','replace')
-              if 'hitel-school-zocbo.js?v=3' in markup and 'zocbo-faithful-ui.js?v=4' in markup:
+              if 'hitel-school-zocbo.js?v=4' in markup and 'zocbo-faithful-ui.js?v=5' in markup:
                 print('LIVE_DEPLOYED_NEW_SCHOOL_ASSETS_READY',attempt)
                 break
             except Exception as e:
@@ -83,25 +83,32 @@ jobs:
               output['realAssertions']={
                 'http200': output['status']==200,
                 'mobile390': initial['viewport']==390 and initial['bodyScrollWidth']==390,
-                'one_source_filter': initial['sourceFilterCount']==1,
+                'old_source_filter_removed': initial['sourceFilterCount']==0,
                 'no_duplicate_picker': initial['duplicatePickerCount']==0,
                 'no_duplicate_intro': initial['duplicateIntroCount']==0,
                 'no_demo_class': not initial['demoClassVisible'],
-                'original_menu_exists': '원본' not in initial['bodyText'] or '학교별 맞춤학습' in initial['bodyText']
+                'old_horizontal_tabs_absent': '개념학습' not in initial['bodyText'] and '학교별 맞춤학습' not in initial['bodyText'],
+                'new_search_card': '학교와 시험조건을 선택하세요' in initial['bodyText'],
+                'new_school_picker': '다니는 학교를 찾아보세요' in initial['bodyText'],
+                'new_middle_high': '중학교' in initial['bodyText'] and '고등학교' in initial['bodyText'],
+                'header_create_preserved': '＋ 학습반 만들기' in initial['bodyText']
               }
               print('REAL_ASSERTIONS',json.dumps(output['realAssertions'],ensure_ascii=False))
               try:
-                source=page.locator('button[data-action="zbFMain"][data-value="school"]')
+                source=page.locator('button[data-action="zbFSite"][data-value="H"]')
                 if source.count():
                   source.first.click(timeout=12000)
-                  page.wait_for_timeout(7000)
-                  snap('school-tab')
-                  print('SCHOOL_TAB_CLICKED')
+                  page.wait_for_timeout(650)
+                  snap('high-school')
+                  print('HIGH_SCHOOL_SELECTED')
+                  page.locator('button[data-action="zbFSite"][data-value="M"]').click(timeout=8000)
+                  page.wait_for_timeout(1000)
+                  snap('middle-school')
                 else: print('SCHOOL_TAB_BUTTON_NOT_FOUND')
               except Exception as e:
                 output['errors'].append('school-click '+str(e))
               try:
-                picker=page.locator('button[data-action="zbFFilter"][data-value="filter_sch"]')
+                picker=page.locator('.hmf-school[data-action="zbFFilter"][data-value="filter_sch"]')
                 if picker.count():
                   picker.first.click(timeout=10000)
                   page.wait_for_timeout(1500)
@@ -133,6 +140,8 @@ jobs:
               json.dump(output,open('live-zocbo-proof/report.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
               print('LIVE_VISUAL_AUDIT_REPORT',json.dumps(output,ensure_ascii=False)[:12000])
               print('REAL_ASSERTIONS_FINAL',json.dumps(output.get('realAssertions',{}),ensure_ascii=False))
+              if not all(output.get('realAssertions',{}).values()):
+                raise AssertionError('Actual deployed UI has old strips or new controls missing: '+str(output.get('realAssertions',{})))
               browser.close()
           PY
       - name: Archive real mobile screenshots and DOM evidence
