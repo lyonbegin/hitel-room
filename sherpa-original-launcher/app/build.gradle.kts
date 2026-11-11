@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.koreanzipformer.stream28"
+    applicationId = "app.hitel.koreanzipformer.stream29"
     minSdk = 26
     targetSdk = 28
-    versionCode = 28
-    versionName = "28.0.0-ko-174m-visible-live-caption"
+    versionCode = 29
+    versionName = "29.0.0-ko-174m-single-continuous-speechgate"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
