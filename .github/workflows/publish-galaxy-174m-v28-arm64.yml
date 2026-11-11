@@ -18,7 +18,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUN=43064407102
+          RUN=43065058497
           test "$(gh run view "$RUN" -R lyonbegin/hitel-room --json conclusion --jq .conclusion)" = "success"
           test "$(gh api repos/lyonbegin/hitel-room/actions/runs/"$RUN" --jq .head_branch)" = "experiment/zipformer-v27-caption-display-pump-v28-20261112"
           mkdir -p /tmp/v28-apk
@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           TAG=v28-174m-visible-captions-20261112
           APK=Galaxy-Korean-Zipformer-174M-PrimaryStandby-v28-ARM64.apk
-          SOURCE_SHA="$(gh api repos/lyonbegin/hitel-room/actions/runs/43064407102 --jq .head_sha)"
+          SOURCE_SHA="$(gh api repos/lyonbegin/hitel-room/actions/runs/43065058497 --jq .head_sha)"
           gh release create "$TAG" "$APK" -R lyonbegin/hitel-room \
             --target "$SOURCE_SHA" \
             --title "Galaxy STT v28 · fixed visible captions · Zipformer 174M INT8" \
