@@ -1,0 +1,114 @@
+name: HITEL Zocbo primary and exam category same UI browser QA
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - .github/workflows/hitel-zocbo-unified-category-qa-20261111.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-mobile-compare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Compare school and mock exam categories on actual deployment
+        env:
+          SITE: https://hitel-education-zocbo-unified-production.up.railway.app/?screen=bankSearch&group=demo-five&session=session-example
+        run: |
+          mkdir -p zocbo-unified-visual
+          python - <<'PY'
+          import os,time,json,urllib.request,traceback
+          from playwright.sync_api import sync_playwright
+          base=os.environ['SITE']
+          ready=False
+          for attempt in range(40):
+            try:
+              with urllib.request.urlopen(base,timeout=12) as r:
+                body=r.read().decode('utf-8','replace')
+              ready=all(q in body for q in ['hitel-exam-hub.js?v=4','hitel-class-home.js?v=8','hitel-school-zocbo.css?v=6'])
+              if ready: break
+            except Exception as e:print('Waiting for Railway:',str(e)[:120])
+            time.sleep(5)
+          assert ready,'Latest CSS and JS not deployed to the real site'
+          report={'url':base,'checks':{},'errors':[],'screens':[]}
+          with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
+            page=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1,is_mobile=True,has_touch=True)
+            page.on('pageerror',lambda err:report['errors'].append(str(err)[:250]))
+            response=page.goto(base,wait_until='domcontentloaded',timeout=60000)
+            page.wait_for_timeout(5000)
+            def screenshot(name):
+              page.screenshot(path='zocbo-unified-visual/'+name+'.png',full_page=True)
+              vals=page.evaluate("""() => {
+                let buttons=[...document.querySelectorAll('#phone .hsc-school-kind .hsc-types button')];
+                let rc=buttons.map(x=>({txt:x.innerText.trim(),rect: [Math.round(x.getBoundingClientRect().x),Math.round(x.getBoundingClientRect().y),Math.round(x.getBoundingClientRect().right),Math.round(x.getBoundingClientRect().bottom)],className:x.className}));
+                return {header:document.querySelector('.hxs-header .hxs-toprow h2')?.textContent,
+                bodyText:document.querySelector('#phone')?.innerText.slice(0,3500),
+                hasExamExplorer:!!document.querySelector('#phone .hsc-exam-explore'),
+                hasSchoolFinder:!!document.querySelector('#phone .hmf-finder'),
+                hasExtraBigCards:!!document.querySelector('#phone .hxe-types'),
+                categoryButtons:rc,
+                grid:getComputedStyle(document.querySelector('#phone .hsc-school-kind .hsc-types')).gridTemplateColumns,
+                bodyScrollWidth:document.body.scrollWidth,viewport:window.innerWidth,
+                globalCreate:!!document.querySelector('#phone .hxs-create'),
+                questionSearch:!!document.querySelector('#phone .hxs-search'),
+                mockGrade:document.querySelector('#phone select[data-hxe-field=grade]')?.value,
+                sourceCards:document.querySelectorAll('#phone .hxe-source').length,
+                backButton:!!document.querySelector('#phone .hxs-back')
+                };
+              }""")
+              report['screens'].append({'name':name,**vals})
+              print('ACTUAL_SCREEN_'+name.upper(),json.dumps({k:v for k,v in vals.items() if k!='bodyText'},ensure_ascii=False))
+              print('TEXT_'+name.upper(),str(vals['bodyText'])[:2200].replace('\n',' | '))
+              return vals
+            school=screenshot('01-school')
+            page.locator('#phone button[data-hsc="category"][data-v="mock"]').click(timeout=10000)
+            page.wait_for_timeout(1400)
+            mock=screenshot('02-mock')
+            selectors=page.locator('#phone select[data-hxe-field]')
+            report['checks']['mock_form_uses_native_controls']=selectors.count()>=4
+            report['checks']['mock_official_sources_visible']=mock['sourceCards']>=3
+            page.locator('#phone select[data-hxe-field=grade]').select_option('고3')
+            page.wait_for_timeout(500)
+            changed=screenshot('03-mock-grade-changed')
+            report['checks']['grade_works']=changed['mockGrade']=='고3'
+            page.locator('#phone button[data-hxe="category"][data-value="admission"]').click(timeout=10000)
+            page.wait_for_timeout(500)
+            admission=screenshot('04-admission')
+            report['checks']['category_switch_works']=admission['hasExamExplorer'] and '고입 전형' in admission['bodyText']
+            page.locator('#phone button[data-hxe="category"][data-value="school"]').click(timeout=10000)
+            page.wait_for_timeout(900)
+            schoolReturn=screenshot('05-school-return')
+            report['checks']['back_to_school_works']=schoolReturn['hasSchoolFinder'] and not schoolReturn['hasExamExplorer']
+            report['checks']['http200']=response.status==200
+            report['checks']['same_title']='족보'==school['header']==mock['header']==admission['header']==schoolReturn['header']
+            report['checks']['same_six_categories']=len(school['categoryButtons'])==6 and len(mock['categoryButtons'])==6
+            report['checks']['same_three_by_two_grid']=school['grid']==mock['grid'] and len(set(x['rect'][1] for x in mock['categoryButtons']))==2
+            report['checks']['no_legacy_card_grid']=not mock['hasExtraBigCards']
+            report['checks']['no_extra_back_arrow']=not mock['backButton']
+            report['checks']['same_global_create_search']=school['globalCreate'] and mock['globalCreate'] and school['questionSearch'] and mock['questionSearch']
+            report['checks']['all_category_buttons_inside_viewport']=all(x['rect'][2]<=390 and x['rect'][0]>=0 for x in mock['categoryButtons'])
+            report['checks']['no_horizontal_overflow']=all(x['viewport']==390 and x['bodyScrollWidth']<=390 for x in [school,mock,admission])
+            browser.close()
+          print('QA_CHECKS',json.dumps(report['checks'],ensure_ascii=False))
+          print('QA_ERRORS',json.dumps(report['errors'],ensure_ascii=False))
+          with open('zocbo-unified-visual/qa.json','w',encoding='utf-8') as f:json.dump(report,f,ensure_ascii=False,indent=2)
+          if not all(report['checks'].values()):
+            raise AssertionError('Live UI mismatch: '+repr([k for k,v in report['checks'].items() if not v]))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-zocbo-unified-live-mobile
+          path: zocbo-unified-visual/
+          retention-days: 10
