@@ -128,7 +128,7 @@ const oldTopBar=topBar;
 const shellTabs=[['groups','학습반','♧'],['groupLearning','학습','▤'],['groupAITutor','AI 과외','✦'],['bankSearch','족보','▦']];
 const shellTitles={groups:'학습반',groupSearch:'학습반 찾기',groupCreate:'학습반 만들기',groupDetail:'내 학습반',
 groupLearning:'학습',groupLearningResources:'학습자료',groupLearningExams:'시험',
-groupAITutor:'AI 과외',groupTutorCatalog:'AI 선생님',groupMissionJourney:'오늘의 미션',groupMissionPlay:'문제 풀기',bankSearch:'족보'};
+groupAITutor:'AI 과외',groupTutorCatalog:'교재별 AI 과외',groupTutorMine:'내 AI 과외',groupTutorOffer:'AI 선생님 소개',groupMissionJourney:'오늘의 미션',groupMissionPlay:'문제 풀기',bankSearch:'족보'};
 topBar=function(id){
  if(['welcome','signin','signup'].includes(id))return oldTopBar(id);
  const isRoot=['groups','groupLearning','groupAITutor','bankSearch','settings','home'].includes(id);
@@ -189,7 +189,7 @@ document.addEventListener('click',ev=>{
 });
 bottomFor=function(route){
  if(['welcome','signin','signup'].includes(route)||route.startsWith('external_')||['groupLiveRoom','groupWhiteboard'].includes(route))return '';
- const active=route.startsWith('bank')?'bankSearch':route==='groupAITutor'||route==='groupTutorCatalog'?'groupAITutor':
+ const active=route.startsWith('bank')?'bankSearch':['groupAITutor','groupTutorCatalog','groupTutorMine','groupTutorOffer','groupBookDetail','groupCoachProfile'].includes(route)?'groupAITutor':
  ['groupLearning','groupLearningResources','groupLearningExams','groupMissionJourney','groupMissionPlay'].includes(route)?'groupLearning':'groups';
  return '<nav class="bottomnav hxs-nav" aria-label="하단 메뉴">'+shellTabs.map(([id,name,icon])=>
  '<button type="button" data-go="'+id+'" class="'+(active===id?'selected':'')+'" aria-label="'+name+'"><span class="hxs-navicon" aria-hidden="true">'+icon+'</span><span>'+name+'</span></button>').join('')+'</nav>';
