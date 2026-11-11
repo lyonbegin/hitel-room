@@ -272,6 +272,68 @@ function gangnamPage(z){
   +'</div></section>';
 }
 
+/* HITEL-native school-search content. The original authenticated / guidance
+ * markup stays available under "원본 이용안내" but does not occupy the screen.
+ * Source-bound menu/filter handling remains unchanged.
+ */
+function schoolNativeContent(z,meta,entry){
+ const labels=z.fDisplay||{},city=String(labels.filter_si||'').trim(),
+       district=String(labels.filter_gu||'').trim(),
+       school=String(labels.filter_sch||'').trim(),
+       example=/예시|샘플|sample|example/i.test(school),
+       validSchool=!!school&&!example,
+       grade=(z.fSite==='H'?'고':'중')+z.fGrade;
+ const subj=sourceSubjectOptions(z).find(x=>x.code===z.fSubject)?.name||
+       (z.fSubject==='MT'?'수학':String(labels.filter_subject||'과목 확인 필요'));
+ const originalUrl=String(meta?.originalUrl||'https://m.zocbo.com/');
+ const sourceLink=/^https:\/\/(?:m\.|www\.)?zocbo\.com\//.test(originalUrl)?originalUrl:'https://m.zocbo.com/';
+ const activeData=z.fDynamicData||entry?.liveData;
+ const papers=arr(activeData?.exams).filter(x=>x&&x.id);
+ const isLoading=!entry||!!z.fDynamicChanged||!!entry?.liveLoading;
+ const error=String(z.fDynamicError||entry?.liveError||entry?.error||sourceIndex?.error||'');
+ const button=(name,key,active)=>'<button type="button" class="hsc-native-picker'+(active?' picked':'')+
+   '" data-action="zbFFilter" data-value="'+attr(key)+'"><span>'+esc(name)+'</span><b>›</b></button>';
+ const criteria='<div class="hsc-native-pickers" aria-label="학교별 원본 검색 조건">'+
+  button(city||'시·도 선택','filter_si',!!city)+
+  button(district||'구/군 선택','filter_gu',!!district)+
+  button(validSchool?school:(school?school+' · 변경 필요':'학교 선택'),'filter_sch',validSchool)+
+  button(grade,'filter_grade',true)+
+  '</div>';
+ const okSchool=validSchool&&!!city&&!!district;
+ const guidance=!city?'지역부터 선택해 주세요.':
+  !district?'선택하신 지역의 구·군을 지정해 주세요.':
+  !validSchool?'실제 학교를 선택해 주세요. 예시 학교는 검색 결과로 인정하지 않습니다.':
+  '원본에서 해당 학교·과목의 자료를 확인해 주세요.';
+ const status=papers.length?'확인된 공개 목록 '+papers.length+'건':
+   isLoading?'원본 자료 확인 중':error?'자료 조회 확인 필요':'공개 시험지 확보 전';
+ const intro='<div class="hsc-native-summary"><div><small>학교별 내신 · 원본 자료 탐색</small>'+
+  '<h3>우리 학교 시험자료</h3><p>'+esc(grade)+' · '+esc(subj)+
+  ' · 학교별 예상족보 / 기출자료를 구분해 확인합니다.</p></div>'+
+  '<span class="hsc-native-status">'+esc(status)+'</span></div>';
+ const result=papers.length?
+  '<div class="hsc-native-results">'+papers.slice(0,120).map(e=>
+   '<button type="button" class="hsc-native-paper" data-zb-paper-id="'+attr(e.id)+'" data-zb-paper-kind="exam">'+
+   '<span><small>원본 자료번호 '+esc(e.id)+'</small><b class="button__text">'+
+   esc(e.title||e.detailName||e.episode||'공개 시험자료')+'</b></span><strong>상세 ›</strong></button>').join('')+
+   '</div>':
+  '<div class="hsc-native-empty"><div class="hsc-native-empty-icon" aria-hidden="true">▤</div>'+
+  '<strong>'+(!okSchool?'학교를 선택하면 자료를 찾으실 수 있습니다.':
+    isLoading?'원본 공개자료를 확인하고 있습니다.':
+    error?'현재 원본 자료를 조회할 수 없습니다.':
+    '선택 조건의 기출 원문은 아직 확보되지 않았습니다.')+'</strong>'+
+  '<p>'+(error?'원본 서버 응답을 확인한 후 다시 시도해 주세요.':
+    '학교별 예상족보는 실제 과거 시험 기출과 다를 수 있습니다. 확인된 자료번호만 학습반에 연결할 수 있습니다.')+'</p></div>';
+ const notice='<div class="hsc-native-notice"><span>확인할 검색조건</span><p>'+esc(guidance)+'</p></div>';
+ const actions='<div class="hsc-native-actions">'+
+ '<a href="'+attr(sourceLink)+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본에서 조회 ↗</a>'+
+ '<button type="button" data-go="bankSchoolPractice">학습반에 연결된 기출 보기</button></div>';
+ const oldGuide=String(entry?.data?.html||'');
+ const legacy=oldGuide?'<details class="hsc-native-guide"><summary>원본 학교별 예상족보 이용안내 보기</summary>'+
+  '<div class="hsc-native-legacy">'+oldGuide+'</div></details>':'';
+ return '<section class="hsc-native-school" aria-label="학교별 내신 기출자료">'+intro+criteria+notice+
+ '<div class="hsc-native-list-head"><b>시험자료 목록</b><small>'+esc(status)+'</small></div>'+
+ result+actions+legacy+'</section>';
+}
 function sourcePage(s){
  sCurrent=s;
  const z=state(s);
@@ -281,7 +343,7 @@ function sourcePage(s){
  if(z.fMain==='gangnam')return gangnamPage(z);
  const meta=getMeta(z),entry=getPage(z);
  if(!meta)return '<div class="zb-faithful"><div class="zb-f-error">해당 학년·과목·메뉴의 원본 화면이 확인되지 않았습니다. 임의의 수학 화면으로 대체하지 않았습니다.</div><button type="button" data-action="zbFReset">중2 수학 원본 보기</button></div>';
- const content=pageHtml(z,meta,entry);
+ const content=z.fMain==='school'?schoolNativeContent(z,meta,entry):pageHtml(z,meta,entry);
  const originalIsDifferent=meta.originalSubject&&meta.originalSubject!==z.fSubject;
  return '<div class="zb-faithful" data-source-case="'+attr(z.fCase)+'">'
   +siteBar(z)+topTabs(z,meta)+subTabs(z,meta)+filterBar(z,meta)
