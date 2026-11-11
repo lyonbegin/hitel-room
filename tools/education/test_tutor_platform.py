@@ -129,7 +129,9 @@ with sync_playwright() as p:
         check(data(page)["activeGroupId"]==g2,"learning group switcher sets current group")
         check("연립방정식 복습" not in page.locator("#phone .tp-app").inner_text(),"other school's assignment hidden")
         nav(page,"groups")
-        check(page.locator(".tp-group-item").count()>=5,"multiple groups listed without 1000-group directory")
+        check(page.locator(".tp-discover-item").count()>=5,"study group directory is restored on entry")
+        choose(page,"mainTab","mine")
+        check(page.locator(".tp-group-item").count()>=5,"all joined groups stay in My Study")
         check(page.locator("#phone .tp-app").evaluate("(n)=>getComputedStyle(n).display")!="none","visible single mobile app pane")
         check(page.evaluate("document.documentElement.scrollWidth <= innerWidth+2"),"no horizontal scrolling")
         # Verify original exercise tool remains reachable from a catalog-linked group.
