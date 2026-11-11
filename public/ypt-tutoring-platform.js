@@ -178,7 +178,7 @@ function directoryHome(){
  const entries=filteredListings();
  const my=model.groups.filter(g=>(ui.groupType==='all'||g.institutionType===ui.groupType)&&
  (!ui.groupQuery||(g.name+' '+placeContext(g)+' '+coachFor(g)+' '+(bookFor(g)?.name||'')).toLocaleLowerCase().includes(ui.groupQuery.toLocaleLowerCase())));
- return '<section class="tp-app tp-study-main">'+heading('스터디그룹','학교·학원과 과목에 맞는 스터디를 찾거나 내 스터디로 이동하세요.')+
+ return '<section class="tp-app tp-study-main">'+heading('학교·학원별 스터디','조건에 맞는 스터디를 찾거나 내 스터디로 이동하세요.')+
  '<nav class="tp-main-tabs" aria-label="스터디그룹 메인">'+
  bt('스터디 찾기','mainTab','discover',ui.mainTab==='discover')+
  bt('내 스터디','mainTab','mine',ui.mainTab==='mine')+'</nav>'+
