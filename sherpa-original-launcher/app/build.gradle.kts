@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.sherpaoriginalcli"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.koreanzipformer.seek15"
+    applicationId = "app.hitel.koreanzipformer.stream16"
     minSdk = 26
     targetSdk = 28
-    versionCode = 15
-    versionName = "15.0.0-ko-174m-seek-cursor"
+    versionCode = 16
+    versionName = "16.0.0-ko-174m-continuous-aac-300ms"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
