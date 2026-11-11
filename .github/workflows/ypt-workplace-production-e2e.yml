@@ -1,8 +1,6 @@
 name: YPT Workplace Existing Production Final Verification
+# Legacy baseline preserved for manual comparison. Active branch uses hitel-tutor-platform-e2e.yml.
 on:
-  push:
-    branches:
-      - feature/ypt-study-group-learning-nav-20261108
   workflow_dispatch:
 permissions:
   contents: read
