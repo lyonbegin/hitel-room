@@ -161,7 +161,7 @@ int main(int argc,char** argv){
   c.model_config.modeling_unit="cjkchar";
   c.decoding_method=greedy?"greedy_search":"modified_beam_search";
   c.max_active_paths=greedy?1:8;
-  printf("ONLINE_BENCH_CONFIG:decode=%s:threads=%d:paths=%d\\n",
+  printf("ONLINE_BENCH_CONFIG:decode=%s:threads=%d:paths=%d\n",
          c.decoding_method,threads,c.max_active_paths);
   c.enable_endpoint=0; // VAD must never gate 1-2-word captions.
   Engine engine;
