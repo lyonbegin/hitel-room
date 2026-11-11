@@ -34,7 +34,7 @@ jobs:
             try:
               with urllib.request.urlopen(os.environ['LIVE_URL'],timeout=15) as r:
                 markup=r.read().decode('utf-8','replace')
-              if 'hitel-school-zocbo.js?v=4' in markup and 'zocbo-faithful-ui.js?v=5' in markup:
+              if 'hitel-school-zocbo.js?v=4' in markup and 'zocbo-faithful-ui.js?v=5' in markup and 'hitel-school-zocbo.css?v=5' in markup:
                 print('LIVE_DEPLOYED_NEW_SCHOOL_ASSETS_READY',attempt)
                 break
             except Exception as e:
@@ -67,6 +67,7 @@ jobs:
                  return {viewport:innerWidth,bodyScrollWidth:document.body.scrollWidth,bodyText:texts.slice(0,9000),
                   phone:metrics(target),faithful:metrics(source),native:metrics(native),guide:metrics(original),
                   sourceFilterCount:document.querySelectorAll('.zb-f-filter').length,
+                  categoryButtons:[...document.querySelectorAll('.hsc-school-kind .hsc-types button')].map(el=>({text:el.innerText.trim(),left:Math.round(el.getBoundingClientRect().left),right:Math.round(el.getBoundingClientRect().right),top:Math.round(el.getBoundingClientRect().top),visible:!!el.getClientRects().length})),
                   duplicatePickerCount:document.querySelectorAll('.hsc-native-pickers').length,
                   duplicateIntroCount:document.querySelectorAll('.hsc-original-heading').length,
                   demoClassVisible:texts.includes('중2 수학 스터디 (예시)'),
@@ -91,7 +92,9 @@ jobs:
                 'new_search_card': '학교와 시험조건을 선택하세요' in initial['bodyText'],
                 'new_school_picker': '다니는 학교를 찾아보세요' in initial['bodyText'],
                 'new_middle_high': '중학교' in initial['bodyText'] and '고등학교' in initial['bodyText'],
-                'header_create_preserved': '＋ 학습반 만들기' in initial['bodyText']
+                'header_create_preserved': '＋ 학습반 만들기' in initial['bodyText'],
+                'six_categories_visible':len(initial['categoryButtons'])==6 and all(x['visible'] and x['right']<=390 for x in initial['categoryButtons']),
+                'two_row_category_grid':len(set(x['top'] for x in initial['categoryButtons']))==2
               }
               print('REAL_ASSERTIONS',json.dumps(output['realAssertions'],ensure_ascii=False))
               try:
