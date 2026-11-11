@@ -1,0 +1,98 @@
+name: HITEL production actual mobile Zocbo visual audit
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - .github/workflows/hitel-live-zocbo-visual-audit-20261111.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-live-school-bank:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real browser
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Capture actual live 390px mobile site and school menu
+        env:
+          LIVE_URL: https://hitel-education-zocbo-unified-production.up.railway.app/?screen=bankSearch&group=demo-five&session=session-example
+        run: |
+          mkdir -p live-zocbo-proof
+          python - <<'PY'
+          import json, os, time, traceback
+          from playwright.sync_api import sync_playwright
+          output={'url':os.environ['LIVE_URL'],'states':[],'errors':[]}
+          with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
+            context=browser.new_context(viewport={'width':390,'height':844},device_scale_factor=1,is_mobile=True,has_touch=True)
+            page=context.new_page()
+            page.on('pageerror',lambda e:output['errors'].append('JS '+str(e)[:500]))
+            page.on('console',lambda m:output['errors'].append('CONSOLE '+m.text[:250]) if m.type=='error' else None)
+            try:
+              response=page.goto(os.environ['LIVE_URL'],wait_until='domcontentloaded',timeout=50000)
+              page.wait_for_timeout(9000)
+              output['status']=response.status if response else None
+              output['title']=page.title()
+              output['final_url']=page.url
+              def snap(name):
+                page.screenshot(path='live-zocbo-proof/'+name+'.png',full_page=True)
+                info=page.evaluate("""() => {
+                 const target=document.querySelector('#phone');
+                 const source=document.querySelector('.zb-faithful');
+                 const native=document.querySelector('.hsc-native-school');
+                 const original=document.querySelector('.hsc-native-guide');
+                 const texts=(target||document.body).innerText||'';
+                 const metrics=el=>el?{html:el.outerHTML.slice(0,700),width:Math.round(el.getBoundingClientRect().width),height:Math.round(el.getBoundingClientRect().height),visible:!!(el.getClientRects().length)}:null;
+                 return {viewport:innerWidth,bodyScrollWidth:document.body.scrollWidth,bodyText:texts.slice(0,9000),
+                  phone:metrics(target),faithful:metrics(source),native:metrics(native),guide:metrics(original),
+                  images:[...document.images].slice(0,25).map(x=>({src:x.currentSrc.slice(-140),alt:x.alt,w:x.naturalWidth,h:x.naturalHeight,visible:!!x.getClientRects().length})),
+                  links:[...document.querySelectorAll('#phone button')].slice(0,45).map(x=>({text:x.innerText.trim().slice(0,100),action:x.dataset.action||'',go:x.dataset.go||'',visible:!!x.getClientRects().length}))};
+                }""")
+                output['states'].append({'name':name,**info})
+                print('PRODUCTION_SCREEN_'+name.upper(),json.dumps({k:v for k,v in info.items() if k not in ('bodyText','links','images')},ensure_ascii=False))
+                print('TEXT_'+name.upper(),info['bodyText'][:3200].replace('\n',' | '))
+              snap('initial')
+              try:
+                source=page.locator('button[data-action="zbFMain"][data-value="school"]')
+                if source.count():
+                  source.first.click(timeout=12000)
+                  page.wait_for_timeout(7000)
+                  snap('school-tab')
+                  print('SCHOOL_TAB_CLICKED')
+                else: print('SCHOOL_TAB_BUTTON_NOT_FOUND')
+              except Exception as e:
+                output['errors'].append('school-click '+str(e))
+              try:
+                picker=page.locator('.hsc-native-picker[data-value="filter_sch"]')
+                if picker.count():
+                  picker.first.click(timeout=10000)
+                  page.wait_for_timeout(3500)
+                  snap('school-picker')
+                  print('SCHOOL_PICKER_CLICKED')
+                else: print('SCHOOL_PICKER_NOT_FOUND')
+              except Exception as e:
+                output['errors'].append('picker-click '+str(e))
+            except Exception as e:
+              output['errors'].append('BROWSER '+str(e))
+              traceback.print_exc()
+            finally:
+              json.dump(output,open('live-zocbo-proof/report.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
+              print('LIVE_VISUAL_AUDIT_REPORT',json.dumps(output,ensure_ascii=False)[:19000])
+              browser.close()
+          PY
+      - name: Archive real mobile screenshots and DOM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-zocbo-live-mobile-proof-20261111
+          path: live-zocbo-proof/
+          retention-days: 10
+          if-no-files-found: warn
