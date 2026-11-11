@@ -249,6 +249,7 @@ public final class GrowingCallEngine {
     long lastSize=Long.MIN_VALUE,lastModified=Long.MIN_VALUE,checks=0;
     while(!stop && !Thread.currentThread().isInterrupted()){
       checks++;
+      final long pollBeginNs=SystemClock.elapsedRealtimeNanos();
       try{
         DocumentFile document=DocumentFile.fromSingleUri(context,uri);
         long metadataSize=document==null?-1:document.length();
@@ -273,6 +274,11 @@ public final class GrowingCallEngine {
             "noPcmForMs",lastPcm.get()==0?-1:SystemClock.elapsedRealtime()-lastPcm.get());
         }
       }catch(Throwable t){log.error("FILE","POLL_ERROR",t);}
+      final long pollEndNs=SystemClock.elapsedRealtimeNanos();
+      log.timingAt(pollEndNs,"PIPELINE","FILE_POLL",
+        "poll",checks,"durationMs",(pollEndNs-pollBeginNs)/1000000.0,
+        "startBootNs",pollBeginNs,"endBootNs",pollEndNs,
+        "note","metadata check and any synchronous mirror append, excludes 300ms sleep");
       try{Thread.sleep(STREAM_POLL_MS);}catch(InterruptedException e){break;}
     }
     log.event("FILE","POLL_STOPPED","checks",checks);
@@ -363,6 +369,7 @@ public final class GrowingCallEngine {
     if(target==null)return;
     long start=mirroredBytes;
     long begin=SystemClock.elapsedRealtime();
+    final long mirrorBeginNs=SystemClock.elapsedRealtimeNanos();
     try{
       long available=-1;
       try{
@@ -398,6 +405,11 @@ public final class GrowingCallEngine {
           mirroredBytes+=appended;
           log.timing("FILE","MIRROR_APPENDED","addedBytes",appended,"totalBytes",mirroredBytes,
             "durationMs",SystemClock.elapsedRealtime()-begin);
+          final long mirrorEndNs=SystemClock.elapsedRealtimeNanos();
+          log.timingAt(mirrorEndNs,"PIPELINE","FILE_MIRROR_COPY",
+            "offsetBefore",start,"offsetAfter",mirroredBytes,"bytes",appended,
+            "durationMs",(mirrorEndNs-mirrorBeginNs)/1000000.0,
+            "startBootNs",mirrorBeginNs,"endBootNs",mirrorEndNs);
           log.event("MIRROR","INCREMENT_APPENDED","label",label,"oldOffset",start,
             "bytesAppended",appended,"newOffset",mirroredBytes,
             "sourceSize",available,"elapsedMs",SystemClock.elapsedRealtime()-begin,
@@ -1020,6 +1032,7 @@ public final class GrowingCallEngine {
       byte[] head=new byte[12];
       long lastCursor=-1;
       while(!stop){
+        final long followerWaitBeginNs=SystemClock.elapsedRealtimeNanos();
         try{reader.readFully(head);}
         catch(EOFException eof){
           if(stop)break;
@@ -1037,6 +1050,11 @@ public final class GrowingCallEngine {
         long frameReadBeginNs=SystemClock.elapsedRealtimeNanos();
         reader.readFully(adts);
         long frameReadEndNs=SystemClock.elapsedRealtimeNanos();
+        log.timingAt(frameReadEndNs,"PIPELINE","AAC_FRAME_WAIT_AND_READ",
+          "frame",inputFrames+1,"sourceByte",cursor,"compressedBytes",n,
+          "durationMs",(frameReadEndNs-followerWaitBeginNs)/1000000.0,
+          "startBootNs",followerWaitBeginNs,"endBootNs",frameReadEndNs,
+          "note","includes waiting for next compressed AAC packet");
         log.timingAt(frameReadEndNs,"PIPELINE","AAC_FRAME_READ",
           "frame",inputFrames+1,"sourceByte",cursor,"compressedBytes",n,
           "durationMs",(frameReadEndNs-frameReadBeginNs)/1000000.0,
