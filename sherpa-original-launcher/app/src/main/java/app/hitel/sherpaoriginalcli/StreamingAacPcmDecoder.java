@@ -92,6 +92,28 @@ final class StreamingAacPcmDecoder implements AutoCloseable {
       "totalAacFrames",inputFrames,"totalPcmBytes",outputPcmBytes);
     return frames;
   }
+  /**
+   * One complete ADTS frame from the persistent native growing-M4A follower.
+   * Keeps MediaCodec and the FIR resampler alive for the ENTIRE call. No files
+   * or new processes are opened for individual AAC frames.
+   */
+  void feedAdtsFrame(byte[] frame,PcmSink sink)throws Exception {
+    if(ended)throw new IllegalStateException("Decoder closed");
+    if(frame.length<8||frame.length>8192||
+       (frame[0]&255)!=255||(frame[1]&0xf0)!=0xf0)
+       throw new IOException("Invalid streamed AAC ADTS frame");
+    int rateIndex=(frame[2]>>2)&15;
+    int mono=((frame[2]&1)<<2)|((frame[3]>>6)&3);
+    int frameLen=((frame[3]&3)<<11)|((frame[4]&255)<<3)|((frame[5]&224)>>5);
+    int hdr=((frame[1]&1)==1)?7:9;
+    if(rateIndex!=3||mono!=1||frameLen!=frame.length||frameLen<=hdr)
+       throw new IOException("Unexpected AAC stream format or frame length: "+
+         rateIndex+"/"+mono+"/"+frameLen+"/"+frame.length);
+    byte[] payload=java.util.Arrays.copyOfRange(frame,hdr,frame.length);
+    queueFrame(payload,sink);
+    drain(sink,0);
+    // flushPcm occurs automatically at each 200ms window, not on phrase end.
+  }
   private void queueFrame(byte[] data,PcmSink sink)throws Exception {
     long begin=SystemClock.elapsedRealtime();
     for(;;){
