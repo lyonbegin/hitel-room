@@ -47,6 +47,7 @@ public final class GrowingCallEngine {
   volatile File workingMirror;
   volatile long mirroredBytes=0;
   volatile StreamingAacPcmDecoder continuousAacDecoder;
+  volatile Process aacFollower;
   // Poll ONLY for source growth every 300ms. Native STT receives PCM when decoded;
   // neither input nor captions wait for VAD, silence, or utterance completion.
   static final long STREAM_POLL_MS=300;
@@ -83,6 +84,8 @@ public final class GrowingCallEngine {
       "pcmBytes",pcmBytes.get(),"chunks",chunkCount.get());
     FFmpegSession s=ffmpeg;
     if(s!=null)FFmpegKit.cancel(s.getSessionId());
+    Process follower=aacFollower;
+    if(follower!=null && follower.isAlive())follower.destroy();
     // Do not destroy the recognizer here: the worker sends a clean EOF (0,0)
     // so Silero VAD can flush the final utterance and print its last caption.
     log.event("CONTROL","VAD_GRACEFUL_FINAL_FLUSH_REQUESTED");
@@ -687,6 +690,20 @@ public final class GrowingCallEngine {
     log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
       "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
     String path=workingMirror==null?null:workingMirror.getAbsolutePath();
+    // Samsung growing 3GP4+mdat: keep the SAME native AAC packet extractor,
+    // Android MediaCodec, and Zipformer OnlineStream alive for the whole call.
+    // Completed WAV/M4A files retain the old generic fallback path.
+    File originalMirror=workingMirror;
+    if(originalMirror!=null && originalMirror.isFile()){
+      String layout=describeMirrorLayout(originalMirror);
+      if(layout.contains("mdat@") && !layout.contains("MOOV_FOUND;") &&
+         layout.contains("ftyp@")){
+        log.event("STREAM","PERSISTENT_MDAT_FOLLOW_SELECTED","bytes",originalMirror.length(),
+          "layout",layout,"mode","ONE_OPEN_INPUT_AND_ONE_AAC_DECODER");
+        processPersistentAacFollow(originalMirror);
+        return;
+      }
+    }
     log.event("INPUT","SEEKABLE_PRIVATE_MIRROR_PREFERRED","path",path,
       "sourceUri",uri.toString(),"initialBytes",mirroredBytes);
     ParcelFileDescriptor pfd=null;
@@ -901,6 +918,121 @@ public final class GrowingCallEngine {
         log.event("STT","NATIVE_PROCESS_END","ended",ended,
           "exitCode",ended?p.exitValue():-1,"resultCount",resultCount.get());
       }
+    }
+  }
+
+  /**
+   * Live Samsung mdat -> ADTS via a single FFmpeg libavcodec native process;
+   * output packets -> one Android MediaCodec -> persistent online Zipformer.
+   * Exact source cursor is included in each binary frame and is COMMITTED only
+   * after its PCM was accepted into the native-process input pipe.
+   */
+  void processPersistentAacFollow(File source)throws Exception{
+    File bin=new File(context.getApplicationInfo().nativeLibraryDir,"libaac-mdat-follow.so");
+    if(!bin.isFile())throw new IOException("Persistent AAC follower missing "+bin);
+    StreamingAacPcmDecoder decoder=new StreamingAacPcmDecoder(log);
+    continuousAacDecoder=decoder;
+    Process p=null;
+    Thread stderr=null;
+    long inputFrames=0,started=SystemClock.elapsedRealtime();
+    try{
+      ProcessBuilder pb=new ProcessBuilder(bin.getAbsolutePath(),
+        source.getAbsolutePath(),"48000","1");
+      pb.redirectErrorStream(false);
+      p=pb.start();
+      aacFollower=p;
+      final Process followed=p;
+      stderr=new Thread(()->{
+        try(BufferedReader lines=new BufferedReader(new InputStreamReader(
+            followed.getErrorStream(),StandardCharsets.UTF_8))){
+          String line;
+          while((line=lines.readLine())!=null){
+            if(line.startsWith("AAC_FOLLOW_CURSOR:")){
+              log.timing("FOLLOW","NATIVE_CURSOR","line",line);
+            }else if(line.startsWith("AAC_FOLLOW_ERROR:")){
+              log.event("FOLLOW","ERROR","line",line);
+            }else{
+              log.event("FOLLOW","STATUS","line",line);
+            }
+          }
+        }catch(Throwable e){if(!stop)log.error("FOLLOW","LOG_READER_FAILED",e);}
+      },"Growing-AAC-Follow-Stderr");
+      stderr.start();
+      log.timing("FOLLOW","PERSISTENT_PROCESS_STARTED","source",source.getName(),
+        "mirrorBytes",source.length(),"pidAvailable",Build.VERSION.SDK_INT>=26);
+      DataInputStream reader=new DataInputStream(new BufferedInputStream(p.getInputStream(),65536));
+      byte[] head=new byte[12];
+      long lastCursor=-1;
+      while(!stop){
+        try{reader.readFully(head);}
+        catch(EOFException eof){
+          if(stop)break;
+          throw new IOException("Persistent AAC follower ended before recorder stop; exit="+
+            (p.isAlive()?"unknown":p.exitValue()),eof);
+        }
+        int n=(head[0]&255)|((head[1]&255)<<8)|
+          ((head[2]&255)<<16)|((head[3]&255)<<24);
+        long cursor=0;
+        for(int i=0;i<8;i++)cursor|=((long)(head[i+4]&255))<<(8*i);
+        if(n<8||n>8192||cursor<=lastCursor)
+          throw new IOException("Invalid AAC follower frame n="+n+" source="+cursor+
+            " prev="+lastCursor);
+        byte[] adts=new byte[n];
+        reader.readFully(adts);
+        final int seq=(int)(inputFrames+1);
+        long frameStartNs=SystemClock.elapsedRealtimeNanos();
+        decoder.feedAdtsFrame(adts,pcm->{
+          sendChunk(pcm,seq);
+          pcmBytes.addAndGet(pcm.length);
+          lastPcm.set(SystemClock.elapsedRealtime());
+        });
+        long finishedNs=SystemClock.elapsedRealtimeNanos();
+        inputFrames++;
+        lastCursor=cursor;
+        nextAacFrameSourceByte=cursor;
+        // Source position refers to the last complete compressed packet that
+        // has reached the persistent AAC decoder, NOT a model inference ack.
+        if(inputFrames<=2 || inputFrames%10==0){
+          log.timingAt(finishedNs,"STREAM","FOLLOW_FRAME_CONSUMED",
+            "frame",inputFrames,"sourceByte",cursor,"compressedBytes",n-7,
+            "processingMs",(finishedNs-frameStartNs)/1000000.0,
+            "pcmBytes",pcmBytes.get(),"modelInputMs",committedPcmBytes.get()/32L,
+            "mirrorBytes",mirroredBytes);
+          log.timing("AAC","SOURCE_CURSOR_COMMITTED","sourceByte",cursor,
+            "framesConsumed",inputFrames,"committedAudioMs",committedPcmBytes.get()/32L);
+          saveAudioCursorCheckpoint("PERSISTENT_AAC_FRAME_CONSUMED");
+        }
+      }
+      endReason=stop?"USER_STOP":"STREAM_TERMINATED";
+    }finally{
+      Process local=p;
+      if(local!=null && local.isAlive())local.destroy();
+      if(local!=null){
+        try{local.waitFor(2,java.util.concurrent.TimeUnit.SECONDS);}
+        catch(InterruptedException ignored){Thread.currentThread().interrupt();}
+        if(local.isAlive())local.destroyForcibly();
+      }
+      if(stderr!=null){
+        try{stderr.join(1200);}catch(InterruptedException ignored){}
+      }
+      aacFollower=null;
+      try{
+        final long endFrame=inputFrames;
+        decoder.finish(pcm->{
+          // Drain the codec's remaining <200ms PCM without making a new decoder.
+          // Never re-input any earlier speech.
+          if(sherpa!=null && sherpa.isAlive()){
+            sendChunk(pcm,(int)(endFrame+1));
+            pcmBytes.addAndGet(pcm.length);
+          }
+        });
+      }catch(Throwable e){log.error("FOLLOW","FINAL_PCM_DRAIN_FAILED",e);}
+      decoder.close();
+      continuousAacDecoder=null;
+      log.timing("FOLLOW","PERSISTENT_PROCESS_STOPPED","frames",inputFrames,
+        "sourceCursor",nextAacFrameSourceByte,"pcmBytes",pcmBytes.get(),
+        "elapsedMs",SystemClock.elapsedRealtime()-started,
+        "wasStoppedByUser",stop);
     }
   }
 
