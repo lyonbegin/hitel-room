@@ -517,6 +517,11 @@ public final class GrowingCallEngine {
             log.timingAt(receivedNs,"STT","FULL_PRIOR_PREFIX_MERGED","details",line);
           if(line.startsWith("ONLINE_CONTEXT_LIVE_MERGE:"))
             log.timingAt(receivedNs,"STT","PRIOR_OVERLAP_LIVE_CORRECTION","details",line);
+          if(line.startsWith("SPEAKER_READY:")||line.startsWith("SPEAKER_INTERVAL:")||
+             line.startsWith("SPEAKER_FINISHED:")||line.startsWith("SPEAKER_UNAVAILABLE:")||
+             line.startsWith("SPEAKER_PCM_GAP:")||line.startsWith("SPEAKER_BACKPRESSURE:")){
+            log.event("SPEAKER","MODEL_OR_CLASSIFICATION","details",line);
+          }
           if(line.startsWith("ONLINE_READY:")){
             onlineModelReady=true;
             onlineModelReadyLatch.countDown();
@@ -643,9 +648,20 @@ public final class GrowingCallEngine {
     File encoder=extract("encoder.int8.onnx",1000000);
     File decoder=extract("decoder.int8.onnx",100000);
     File joiner=extract("joiner.int8.onnx",100000);
+    String speakerPath="-";
+    try{
+      File model=extract("speaker-campplus.onnx",20000000);
+      speakerPath=model.getAbsolutePath();
+    }catch(Throwable optionalSpeakerFailure){
+      // The original 2 ASR workers must still start if the speaker model fails.
+      log.event("SPEAKER","OPTIONAL_MODEL_UNAVAILABLE",
+        "reason",String.valueOf(optionalSpeakerFailure));
+    }
+    File profile=SpeakerEnrollment.output(context);
+    String selfPcm=SpeakerEnrollment.exists(context)?profile.getAbsolutePath():"-";
     ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),
       tokens.getAbsolutePath(),encoder.getAbsolutePath(),
-      decoder.getAbsolutePath(),joiner.getAbsolutePath());
+      decoder.getAbsolutePath(),joiner.getAbsolutePath(),speakerPath,selfPcm);
     String old=pb.environment().get("LD_LIBRARY_PATH");
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
@@ -655,7 +671,8 @@ public final class GrowingCallEngine {
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
       "startedBeforeRecordingFileDiscovered",true,
-      "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
+      "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner] [speaker-model] [self-profile]","abi",Arrays.toString(Build.SUPPORTED_ABIS),
+       "speakerModel",!"-".equals(speakerPath),"selfEnrollment",!"-".equals(selfPcm));
     nativeReader(sherpa);
     log.timing("MODEL","NATIVE_PROCESS_LAUNCHED","pidAvailable",Build.VERSION.SDK_INT>=26);
   }
