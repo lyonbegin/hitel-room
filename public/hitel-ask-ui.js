@@ -26,7 +26,7 @@ function teacher(question=''){
 topBar=function(route){
  if(['welcome','signin','signup'].includes(route)||route.startsWith('external_'))return oldTop(route);
  const source=oldTop(route);const match=source.match(/<h2>([\s\S]*?)<\/h2>/);const title=match?match[1]:'HITEL 교육';
- const root=['groups','home','groupLearning','groupAITutor','bankSearch','settings'].includes(route);
+ const root=['groups','groupLearning','groupAITutor','bankSearch','bankExamExplore','settings'].includes(route);
  return '<header class="appbar ask-shell"><div class="ask-head"><div class="ask-title">'+
  (root?'':'<button type="button" data-action="back" class="ask-back" aria-label="뒤로">‹</button>')+
  '<h2>'+title+'</h2></div><div class="ask-head-actions"><button type="button" class="ask-create" data-hc="new">＋ 학습반 만들기</button>'+
