@@ -1,0 +1,45 @@
+name: Publish Galaxy 174M single continuous speech-gated v29 APK
+on:
+  push:
+    branches: [experiment/zipformer-single-continuous-speechgate-v29-20261112]
+    paths:
+      - '.github/release-trigger-v29.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the exact successful v29 source-matched signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN=43068644413
+          test "$(gh run view "$RUN" -R lyonbegin/hitel-room --json conclusion --jq .conclusion)" = "success"
+          test "$(gh api repos/lyonbegin/hitel-room/actions/runs/"$RUN" --jq .head_branch)" = "experiment/zipformer-single-continuous-speechgate-v29-20261112"
+          mkdir -p /tmp/v29-apk
+          gh run download "$RUN" -R lyonbegin/hitel-room \
+            -n Galaxy-Korean-Zipformer-174M-SingleContinuous-v29-ARM64-APK -D /tmp/v29-apk
+          APK=/tmp/v29-apk/Galaxy-Korean-Zipformer-174M-SingleContinuous-v29-ARM64.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          cp "$APK" .
+      - name: Publish direct-download APK as immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v29-174m-single-continuous-20261112
+          APK=Galaxy-Korean-Zipformer-174M-SingleContinuous-v29-ARM64.apk
+          SOURCE_SHA="$(gh api repos/lyonbegin/hitel-room/actions/runs/43068644413 --jq .head_sha)"
+          gh release create "$TAG" "$APK" -R lyonbegin/hitel-room \
+            --target "$SOURCE_SHA" \
+            --title "Galaxy STT v29 · fixed visible captions · Zipformer 174M INT8" \
+            --notes "Exactly one persistent Sherpa-ONNX 174M INT8 recognizer and OnlineStream; no dual workers or 4-second forced segmentation; low-energy PCM gate skips silence before AcceptWaveform; continuous incremental captions; existing Samsung M4A/AAC path unchanged. Separate stream29 package. Real Galaxy performance unverified." \
+            --latest=false
+          gh release view "$TAG" -R lyonbegin/hitel-room --json assets --jq '.assets[].name' | grep -Fx "$APK"
+          echo "DOWNLOAD=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK"
