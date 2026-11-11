@@ -409,10 +409,20 @@ function pickFromOptions(z,meta,key,value,toast,render){
   gradeFromName(z,name);
   const allowed=sourceSubjectOptions(z);
   if(!allowed.some(x=>x.code===z.fSubject))z.fSubject=allowed[0]?.code||'MT';
-  clearSelection(z);
+  if(z.fMain==='school'){
+   // A grade change must never silently forget the chosen city/district/school.
+   z.fDisplay={...z.fDisplay,filter_grade:z.fGrade+'학년'};
+   z.fCase='';z.fDrawer='';z.fSelected=null;z.fDynamicData=null;z.fDynamicError='';z.fDynamicChanged=false;
+  }else clearSelection(z);
  }else if(key==='SEARCH_SUBJECT_CD'||key==='filter_subject'){
   const row=sourceSubjectOptions(z).find(x=>x.name===name||x.code===opt.code);
-  if(row){z.fSubject=row.code;clearSelection(z);}
+  if(row){
+   z.fSubject=row.code;
+   if(z.fMain==='school'){
+    z.fDisplay={...z.fDisplay,filter_subject:row.name};
+    z.fCase='';z.fDrawer='';z.fSelected=null;z.fDynamicData=null;z.fDynamicError='';z.fDynamicChanged=false;
+   }else clearSelection(z);
+  }
   else {z.fDisplay[key]=name;z.fDrawer='';}
  }else if(key==='filter_si'||key==='filter_gu'||key==='filter_sch'){
   z.fDisplay[key]=name;z.fDrawer='';
