@@ -38,7 +38,8 @@ public final class MainActivity extends Activity {
   Uri selected;
   boolean folderMode=false;
   TextView source,status,caption,latestTwo,logs,summary,stageTimes;
-  Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
+  Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton,threadButton;
+  CheckBox greedyCheck;
   volatile boolean receiverRegistered=false;
   volatile long lastLogRefreshNs=0;
   final StringBuilder liveText=new StringBuilder();
@@ -120,6 +121,23 @@ public final class MainActivity extends Activity {
       "폴더 모드는 시작 당시 존재하는 파일은 건너뛰고, 이후 새로 나타나거나 크기가 변한 오디오 파일을 자동으로 선택합니다. " +
       "삼성 전화앱에서 녹음을 시작하신 뒤 앱으로 돌아오지 않아도 백그라운드 감시가 계속됩니다.",12));
     root.addView(text("STEP 2 · 증가분 스트리밍 진단",17));
+    root.addView(text("v21 실기기용 모델 비교 설정 (실행 전에 선택)",13));
+    greedyCheck=new CheckBox(this);
+    greedyCheck.setText("Greedy Search 시험 사용 (해제: v20 Beam Search)");
+    android.content.SharedPreferences bench=getSharedPreferences("zipformer_bench",MODE_PRIVATE);
+    greedyCheck.setChecked("greedy_search".equals(bench.getString("decode","greedy_search")));
+    root.addView(greedyCheck);
+    threadButton=button(root,"CPU 스레드: "+bench.getInt("threads",2)+" (눌러 변경: 1 / 2 / 4)");
+    greedyCheck.setOnCheckedChangeListener((button,enabled)->
+      getSharedPreferences("zipformer_bench",MODE_PRIVATE).edit()
+        .putString("decode",enabled?"greedy_search":"modified_beam_search").apply());
+    threadButton.setOnClickListener(v->{
+      android.content.SharedPreferences pref=getSharedPreferences("zipformer_bench",MODE_PRIVATE);
+      int current=pref.getInt("threads",2);
+      int next=current==1?2:current==2?4:1;
+      pref.edit().putInt("threads",next).apply();
+      threadButton.setText("CPU 스레드: "+next+" (눌러 변경: 1 / 2 / 4)");
+    });
     startButton=button(root,"FFmpeg + 한국어 Zipformer 진단 시작");
     stopButton=button(root,"진단 중지");
     status=text("대기 중",15);root.addView(status);
@@ -311,7 +329,7 @@ public final class MainActivity extends Activity {
       }
       StringBuilder display=new StringBuilder();
       for(String stage:stages)if(latest.containsKey(stage))
-        display.append(stage).append(" · ").append(latest.get(stage)).append("\\n");
+        display.append(stage).append(" · ").append(latest.get(stage)).append(System.lineSeparator());
       String view=display.length()==0?"구간별 결과 대기 중":display.toString();
       ui.post(()->{if(stageTimes!=null)stageTimes.setText(view);});
     }catch(Throwable e){
