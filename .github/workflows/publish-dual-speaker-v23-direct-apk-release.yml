@@ -1,0 +1,53 @@
+name: Publish v23 dual STT plus speaker ID direct APK
+on:
+  push:
+    branches: [experiment/zipformer-dual-speaker-id-v23-20261111]
+    paths: ['.github/workflows/publish-dual-speaker-v23-direct-apk-release.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract already verified ARM64 APK from successful build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/direct-apk
+          gh run download 43033878177 -R lyonbegin/hitel-room \
+            -n Galaxy-Korean-Zipformer-174M-DualSpeaker-v23-ARM64-APK \
+            -D /tmp/direct-apk
+          APK=/tmp/direct-apk/Galaxy-Korean-Zipformer-174M-DualSpeaker-v23-ARM64.apk
+          test -s "$APK"
+          file "$APK"
+          file "$APK" | grep -E 'Zip archive|Android package|Java archive'
+          sha256sum "$APK" | tee /tmp/direct-apk/Galaxy-Korean-Zipformer-174M-DualSpeaker-v23-ARM64.apk.sha256
+          unzip -t "$APK" | tail -n 2
+          unzip -Z1 "$APK" | grep -Fx 'assets/sensevoice/speaker-campplus.onnx'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libsensevoice-stream.so'
+
+      - name: Publish single direct-download APK as GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=/tmp/direct-apk/Galaxy-Korean-Zipformer-174M-DualSpeaker-v23-ARM64.apk
+          TAG=v23-dual-zipformer-speaker-id-20261111
+          if gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" -R lyonbegin/hitel-room --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --repo lyonbegin/hitel-room \
+              --target experiment/zipformer-dual-speaker-id-v23-20261111 \
+              --title "Samsung dual Zipformer v23 with local self speaker ID APK" \
+              --notes "Direct ARM64 APK download (no artifact ZIP). Maintains TWO independent 174M Zipformer recognizers, adds independent 1-thread CAMPPlus speaker embedding, pre-call 5s on-device voice enrollment. Android 15 x86_64 original Samsung M4A E2E passed 26/26 plus 12 speaker windows. Phone enrollment and speaker identity correctness require real Galaxy validation. Do not assume overlapped voice can be separated perfectly." \
+              --latest=false
+          fi
+          URL="$(gh release view "$TAG" -R lyonbegin/hitel-room --json assets -q '.assets[] | select(.name=="Galaxy-Korean-Zipformer-174M-DualSpeaker-v23-ARM64.apk") | .url')"
+          test -n "$URL"
+          echo "VERIFIED_DIRECT_APK_URL=$URL"
+          echo "APK_BYTES=$(stat -c %s "$APK")"
