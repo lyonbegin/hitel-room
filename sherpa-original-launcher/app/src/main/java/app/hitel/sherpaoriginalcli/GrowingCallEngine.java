@@ -24,7 +24,14 @@ import java.util.concurrent.atomic.AtomicLong;
  * All failures, byte growth, MP4 header, timeouts and native logs remain in a ZIP-exportable journal.
  */
 public final class GrowingCallEngine {
-  public interface Callback { void onStatus(String status,String transcription); }
+  public interface Callback {
+    void onStatus(String status,String transcription);
+    // Unicode-safe edit from the two-worker native process; broadcast only
+    // the changed suffix. The full string stays local for rejoining the UI.
+    default void onCaptionEdit(String status,int keepUtf16,String suffix,String full){
+      onStatus(status,full);
+    }
+  }
   final Context context;
   final TraceJournal log;
   final Callback callback;
@@ -506,7 +513,7 @@ public final class GrowingCallEngine {
             }catch(RuntimeException e){log.event("NATIVE","TIMING_PARSE_ERROR","line",line,"error",e.toString());}
             continue;
           }
-          if(line.startsWith("ONLINE_LIVE:"))
+          if(line.startsWith("ONLINE_EDIT:"))
             log.timingAt(receivedNs,"BRIDGE","LIVE_STDOUT_RECEIVED",
               "nativeHypothesisId",nativeLiveId,"nativeBootNs",nativeLiveBootNs,
               "nativeToReaderMs",nativeLiveBootNs>0?(receivedNs-nativeLiveBootNs)/1000000.0:-1);
@@ -528,21 +535,34 @@ public final class GrowingCallEngine {
             log.timing("MODEL","READY_IN_JAVA","startupMs",SystemClock.elapsedRealtime()-nativeLaunchElapsed);
             callback.onStatus("한국어 STT 모델 준비 완료 · 실시간 인식 가능",transcription);
           }
-          if(line.startsWith("ONLINE_LIVE:")){
-            String[] latest=line.split(":",3);
-            if(latest.length==3){
-              String provisional=latest[2].trim();
-              if(!provisional.isEmpty()){
-                hasLiveHypothesis=true;
-                transcription=provisional; // REPLACE, do not append duplicates
-                long wall=SystemClock.elapsedRealtime();
-                log.event("STT","LIVE_CAPTION","audioMs",latest[1],
-                  "publishedElapsedMs",wall,"text",provisional,
-                  "confirmed",false);
-                log.timing("STT","LIVE_RESULT_TO_SERVICE",
-                  "nativeHypothesisId",nativeLiveId,"audioEndMs",nativeLiveAudioMs,
-                  "nativeBootNs",nativeLiveBootNs,"chars",provisional.length());
-                callback.onStatus("실시간 자막 · 진행 중 인식 (자동 보정)",transcription);
+          if(line.startsWith("ONLINE_EDIT:")){
+            // Native protocol: ONLINE_EDIT:<audioMs>:<UTF16-prefix-length>:<changed UTF8 suffix>
+            // The prefix is in Java UTF-16 code units, so Korean syllables and
+            // supplementary-plane characters cannot be torn apart by an edit.
+            String[] edit=line.split(":",4);
+            if(edit.length==4){
+              try{
+                int keep=Integer.parseInt(edit[2]);
+                String previous=transcription;
+                if(keep<0||keep>previous.length())
+                  throw new IOException("Invalid incremental caption keep="+keep+
+                    " previousUtf16="+previous.length());
+                String next=previous.substring(0,keep)+edit[3];
+                if(!next.equals(previous)){
+                  hasLiveHypothesis=true;
+                  transcription=next;
+                  log.event("STT","LIVE_CAPTION_PATCH","audioMs",edit[1],
+                    "keepUtf16",keep,"suffixChars",edit[3].length(),
+                    "fullChars",next.length(),"confirmed",false);
+                  log.timing("STT","LIVE_RESULT_TO_SERVICE","nativeHypothesisId",nativeLiveId,
+                    "audioEndMs",nativeLiveAudioMs,"nativeBootNs",nativeLiveBootNs,
+                    "chars",edit[3].length(),"deltaOnly",true);
+                  callback.onCaptionEdit("실시간 자막 · 진행 중 인식 (자동 보정)",
+                    keep,edit[3],next);
+                }
+              }catch(Exception badEdit){
+                log.error("STT","INCREMENTAL_EDIT_INVALID",badEdit);
+                throw badEdit; // stop rather than silently corrupt Unicode text
               }
             }
           }
