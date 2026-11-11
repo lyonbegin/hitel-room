@@ -10,6 +10,8 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <functional>
+#include <cmath>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -85,6 +87,8 @@ std::string joinOverlap(const std::string& left,const std::string& right){
   for(size_t j=common;j<b.size();++j){result+=" ";result+=b[j];}
   return result;
 }
+#include "speaker_sidecar.h"
+
 struct Task {
   enum Type{DATA,END,QUIT} type=DATA;
   int window=0;
@@ -116,9 +120,11 @@ struct Worker{
 };
 struct Manager{
   Worker workers[2];
+  SpeakerSidecar speaker;
   std::mutex stateMutex,readyMutex;
   std::condition_variable readyCv;
   std::map<int,Segment> segments;
+  std::vector<SpeakerObservation> speakerTimeline;
   int ready=0;
   bool error=false;
   std::string lastPublished;
@@ -127,8 +133,9 @@ struct Manager{
   std::atomic<int> maxWindow{-1};
   std::set<int> endedWindows;
   std::string argv[4];
-  explicit Manager(int argc,char** a) {
-    (void)argc;
+  explicit Manager(int argc,char** a)
+    : speaker(argc>=7?a[5]:"",argc>=7?a[6]:"-",
+              [this](const SpeakerObservation& obs){onSpeaker(obs);}) {
     for(int i=0;i<4;++i)argv[i]=a[i+1];
     for(int i=0;i<2;++i){workers[i].parent=this;workers[i].id=i;}
   }
@@ -148,6 +155,8 @@ struct Manager{
       return false;
     }
     say("STT_READY");
+    // Never gate either 174M ASR worker on optional speaker model loading.
+    speaker.start();
     say("ONLINE_READY:model=korean-zipformer-174m-int8:parallel_workers=2:window_ms=4000:stride_ms=3000:overlap_ms=1000:decoding=modified_beam_search:threads_per_worker=2");
     say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true");
     return true;
@@ -166,6 +175,7 @@ struct Manager{
   }
   void dispatch(uint32_t seq,const float* audio,uint32_t length){
     const uint64_t first=pcmSamples.load(),last=first+length;
+    speaker.feed(audio,length,first); // independent queue; never drops ASR PCM.
     const uint64_t audioMs=last*1000/RATE;
     say("ONLINE_TIMING:INPUT:%u:%llu:%llu:0",seq,
         (unsigned long long)audioMs,(unsigned long long)bootNs());
@@ -196,34 +206,88 @@ struct Manager{
     Task task;task.type=Task::END;task.window=w;
     workers[w%2].enqueue(std::move(task));
   }
-  void publish(int window,const std::string& raw,bool finished){
-    std::string full;
+  // Speaker classifications are defined on the ONE original PCM timeline.
+  // ASR worker index 0/1 is NOT a person ID. Windows can straddle a turn or
+  // overlap speech; in those cases the caption is explicitly "MIXED/UNKNOWN".
+  std::string speakerForWindowLocked(int w){
+    const int start=w*3000,end=start+4000;
+    int self=0,other=0,a=0,b=0,unknown=0;
+    for(const auto& obs:speakerTimeline){
+      const int center=(obs.startMs+obs.endMs)/2;
+      if(center<start || center>=end)continue;
+      if(obs.label=="SELF")++self;
+      else if(obs.label=="OTHER")++other;
+      else if(obs.label=="A")++a;
+      else if(obs.label=="B")++b;
+      else ++unknown;
+    }
+    if(self && other)return "혼합 · 내 말/상대방 추정";
+    if(a && b)return "혼합 · 화자 A/B";
+    if(self && unknown>=self)return "화자 불확실";
+    if(other && unknown>=other)return "화자 불확실";
+    if(self)return "내 말 추정";
+    if(other)return "상대방 추정";
+    if(a && unknown>=a)return "화자 불확실";
+    if(b && unknown>=b)return "화자 불확실";
+    if(a)return "화자 A";
+    if(b)return "화자 B";
+    return "화자 확인 중";
+  }
+  void onSpeaker(const SpeakerObservation& obs){
+    {
+      std::lock_guard<std::mutex> guard(stateMutex);
+      speakerTimeline.push_back(obs);
+    }
+    // Repaint the SAME two-worker merged hypothesis when a late speaker
+    // embedding becomes ready; never re-decode or drop ASR audio.
+    publishMerged(-1);
+  }
+  void publishMerged(int changedWindow){
+    std::string displayed,raw;
     unsigned int seq=0;
     {
       std::lock_guard<std::mutex> guard(stateMutex);
-      Segment& s=segments[window];
-      if(raw!=s.text)s.text=raw;
-      if(finished)s.done=true;
+      const bool tag=speaker.available();
       for(int i=0;i<=maxWindow.load();++i){
         auto it=segments.find(i);
         if(it==segments.end())break;
-        full=joinOverlap(full,it->second.text);
+        const std::string next=joinOverlap(raw,it->second.text);
+        if(next.size()>raw.size()){
+          const std::string additional=next.substr(raw.size());
+          if(tag && !additional.empty()){
+            if(!displayed.empty())displayed+=" ";
+            displayed+="["+speakerForWindowLocked(i)+"]";
+          }
+          displayed+=additional;
+        }
+        raw=next;
       }
-      if(full==lastPublished)return;
-      lastPublished=full;
+      if(!tag)displayed=raw;
+      if(displayed==lastPublished)return;
+      lastPublished=displayed;
       seq=++hypotheses;
     }
     const auto now=bootNs(),audioMs=pcmSamples.load()*1000/RATE;
     say("ONLINE_TIMING:LIVE:%u:%llu:%llu:0",seq,
         (unsigned long long)audioMs,(unsigned long long)now);
-    say("ONLINE_HYPOTHESIS:%llu:%s",(unsigned long long)audioMs,full.c_str());
-    say("ONLINE_LIVE:%llu:%s",(unsigned long long)audioMs,full.c_str());
-    const auto w=tokens(full);
+    say("ONLINE_HYPOTHESIS:%llu:%s",(unsigned long long)audioMs,displayed.c_str());
+    say("ONLINE_LIVE:%llu:%s",(unsigned long long)audioMs,displayed.c_str());
+    const auto w=tokens(raw);
     if(!w.empty()){
       const std::string tail=w.size()>1?w[w.size()-2]+" "+w.back():w.back();
       say("ONLINE_LIVE_TAIL:%llu:%s",(unsigned long long)audioMs,tail.c_str());
     }
-    say("DUAL_LIVE:window=%d:chars=%zu:workers=2",window,full.size());
+    say("DUAL_LIVE:window=%d:chars=%zu:workers=2:speakerSidecar=1",
+        changedWindow,displayed.size());
+  }
+  void publish(int window,const std::string& raw,bool finished){
+    {
+      std::lock_guard<std::mutex> guard(stateMutex);
+      Segment& s=segments[window];
+      if(raw!=s.text)s.text=raw;
+      if(finished)s.done=true;
+    }
+    publishMerged(window);
   }
   void finish(){
     // Close only windows still open. All full windows already received END.
@@ -232,11 +296,17 @@ struct Manager{
     }
     for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
     for(auto &w:workers)w.thread.join();
+    // Speaker sidecar is independent and must finish queued observations
+    // before final labeled transcript; normal ASR is never blocked by it.
+    speaker.stopAndJoin();
+    publishMerged(-1);
     std::string result;
     {
       std::lock_guard<std::mutex> guard(stateMutex);
       for(int i=0;i<=maxWindow.load();++i)result=joinOverlap(result,segments[i].text);
     }
+    // Final raw transcript stays lossless; provisional speaker annotations
+    // were already emitted through ONLINE_LIVE and separately logged.
     if(!result.empty()){
       say("STT_SEGMENT:1:%s",result.c_str());
       say("ONLINE_FINAL_FULL_TEXT:audioMs=%llu:chars=%zu",
@@ -365,7 +435,7 @@ void Worker::loop(){
 } // namespace
 int main(int argc,char** argv){
   setvbuf(stdout,nullptr,_IOLBF,0);
-  if(argc!=5){fprintf(stderr,"USAGE: dual_zipformer tokens encoder decoder joiner\n");return 2;}
+  if(argc!=7){fprintf(stderr,"USAGE: dual_zipformer tokens encoder decoder joiner speaker_model self_pcm_or_dash\n");return 2;}
   Manager engine(argc,argv);
   if(!engine.launch())return 3;
   int status=0;
