@@ -1,6 +1,8 @@
 package app.hitel.sherpaoriginalcli;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Build;
 import android.content.Context;
@@ -33,12 +35,13 @@ import java.util.*;
  * Full JSONL/FFmpeg/Sherpa logs may be zipped after success or failure.
  */
 public final class MainActivity extends Activity {
-  static final int FILE=31,FOLDER=32,EXPORT=33;
+  static final int FILE=31,FOLDER=32,EXPORT=33,ENROLL_PERMISSION=34;
   final Handler ui=new Handler(Looper.getMainLooper());
   Uri selected;
   boolean folderMode=false;
-  TextView source,status,caption,latestTwo,logs,summary;
-  Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
+  TextView source,status,caption,latestTwo,logs,summary,voiceProfile;
+  Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton,enrollButton;
+  volatile boolean enrollingVoice=false;
   volatile boolean receiverRegistered=false;
   volatile long lastLogRefreshNs=0;
   final StringBuilder liveText=new StringBuilder();
@@ -111,6 +114,15 @@ public final class MainActivity extends Activity {
       "삼성 기본 전화앱은 변경하지 않습니다. 실제 통화 중 녹음 파일이 다른 앱에서 열리는지, " +
       "크기가 증가하는지, FFmpeg -follow 1로 AAC→16kHz PCM을 추출할 수 있는지, " +
       "한국어 전용 Zipformer 온라인 모델이 한두 단어씩 반환하는지 단계별로 측정합니다.",13));
+    root.addView(text("내 말 / 상대방 구분 · 화자 식별",17));
+    root.addView(text(
+      "통화 전에 본인 목소리를 5초 등록하면 화자 분석 결과를 내 말·상대방 추정으로 구분합니다. "+
+      "혼합·불확실 구간은 자막을 삭제하지 않고 그대로 보여드립니다. "+
+      "녹음된 본인 목소리는 이 기기 내부에만 저장되며 통화 중 마이크를 따로 녹음하지 않습니다.",12));
+    enrollButton=button(root,"내 목소리 등록 (통화 전 5초 녹음)");
+    voiceProfile=text(SpeakerEnrollment.exists(this)?
+      "내 목소리 등록됨 · 화자 식별 활성화":"미등록 · 화자 A/B만 표시 (내 말로 단정하지 않음)",13);
+    root.addView(voiceProfile);
     root.addView(text("STEP 1 · 감시 대상 선택",17));
     fileButton=button(root,"녹음 M4A 파일 직접 선택 (이미 존재하는 파일)");
     folderButton=button(root,"통화 녹음 폴더 선택 (새로 커지는 파일 자동 감시)");
@@ -140,6 +152,7 @@ public final class MainActivity extends Activity {
       "실제 통화 음성은 로그 ZIP에 원본 파일 형태로 복사하지 않습니다.",12));
     setContentView(scroll);
 
+    enrollButton.setOnClickListener(v->enrollVoice());
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
     startButton.setOnClickListener(v->start());
@@ -154,6 +167,31 @@ public final class MainActivity extends Activity {
       }catch(Exception ignored){}
     }
     refreshButtons();
+  }
+  void enrollVoice(){
+    if(active()||enrollingVoice){
+      voiceProfile.setText("통화 인식 중에는 목소리를 등록할 수 없습니다.");return;
+    }
+    if(Build.VERSION.SDK_INT>=23 &&
+       checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+      requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},ENROLL_PERMISSION);
+      return;
+    }
+    enrollingVoice=true;enrollButton.setEnabled(false);
+    voiceProfile.setText("본인 목소리 녹음 중 · 평상시 목소리로 5초간 말씀해 주십시오.");
+    SpeakerEnrollment.record(this,(ok,message)->ui.post(()->{
+      enrollingVoice=false;
+      voiceProfile.setText(message);
+      refreshButtons();
+    }));
+  }
+  @Override public void onRequestPermissionsResult(int requestCode,
+      String[] permissions,int[] grantResults){
+    super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+    if(requestCode!=ENROLL_PERMISSION)return;
+    if(grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED)
+      enrollVoice();
+    else voiceProfile.setText("마이크 접근 권한이 없어 내 목소리를 등록하지 못했습니다.");
   }
   void choose(boolean folder){
     if(active())return;
@@ -239,6 +277,7 @@ public final class MainActivity extends Activity {
     stopButton.setEnabled(running);
     folderButton.setEnabled(!running);
     fileButton.setEnabled(!running);
+    if(enrollButton!=null)enrollButton.setEnabled(!running&&!enrollingVoice);
     String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
     exportButton.setEnabled(!id.isEmpty());
     summary.setText("세션: "+(id.isEmpty()?"없음":id)+" · 상태: "+(running?"실행 중":"종료 또는 대기"));
