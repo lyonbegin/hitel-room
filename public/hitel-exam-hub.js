@@ -32,7 +32,7 @@ diagnostic:[['kice2','기초학력·학업성취도·검정고시 관련 자료'
 };
 const ui={category:'mock',grade:'고2',year:'2026',month:'9',subject:'수학',track:'전국연합',school:'',selected:'ebsi2'};
 let active=null,pending=null;
-const ROUTES={bankExamExplore:'다른 기출시험 찾기',bankExamDetail:'기출 자료원 안내',bankExamClass:'기출 학습반 연결'};
+const ROUTES={bankExamExplore:'족보',bankExamDetail:'기출 자료원 안내',bankExamClass:'기출 학습반 연결'};
 for(const [id,title] of Object.entries(ROUTES))window.YPT_GRAPH[id]={title,evidence:[],actions:[{text:'학교별 족보',go:'bankSearch'}]};
 const source=(id)=>SOURCES[ui.category]?.find(r=>r[0]===id)||null;
 const button=(txt,a,v='',cls='')=>'<button type="button" class="'+cls+'" data-hxe="'+a+'" data-value="'+esc(v)+'">'+txt+'</button>';
@@ -50,9 +50,11 @@ function subjectKey(s){
  return name.trim().slice(0,35);
 }
 const seats=g=>Math.max(1,Math.min(5,Number(g.capacity)||5));
+/* The same six-option 3x2 grid is used by the primary school bank and EVERY exam category. */
 function tabs(id){
- return '<div class="hxe-types">'+CATS.map(([key,name,icon])=>
- button('<span aria-hidden="true">'+icon+'</span><b>'+esc(name)+'</b>','category',key,'hxe-type'+(key===id?' selected':''))).join('')+'</div>';
+ return '<nav class="hsc-school-kind" aria-label="시험 종류"><span>찾으실 시험</span>'+
+ '<div class="hsc-types">'+CATS.map(([key,name])=>
+ button(esc(name),'category',key,key===id?'current':'')).join('')+'</div></nav>';
 }
 /* The compact, class-aware main is supplied by hitel-school-zocbo.js. */
 function bankTop(){return ''}
@@ -66,7 +68,8 @@ function changeCategory(id){
  go('bankExamExplore');
 }
 function opts(name,label,list){
- return '<label class="hxe-field"><span>'+label+'</span><select data-hxe-field="'+name+'">'+
+ return '<label class="hmf-field hmf-native-field"><span class="hmf-field-name">'+esc(label)+'</span>'+
+ '<select class="hmf-native-select" aria-label="'+esc(label)+'" data-hxe-field="'+name+'">'+
  list.map(x=>'<option value="'+esc(x)+'"'+(x===ui[name]?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>';
 }
 function extraFilters(){
@@ -80,8 +83,8 @@ function extraFilters(){
  ui.category==='admission'?['국제고','외고','과학고','영재학교','자사고']:
  ui.category==='contest'?['KMO','기타 수학경시','과학경시']:
  ui.category==='university'?['논술','구술면접','제시문 면접']:['기초학력','학업성취도','검정고시']);
- return '<div class="hxe-filters">'+opts('grade','대상 학년',grade)+opts('year','시행연도·모집학년도',years)+extra+opts('subject','과목',subjects)+'</div>'+
- (['admission','university'].includes(ui.category)?'<label class="hxe-field"><span>지원 학교·대학 (선택)</span><input type="text" maxlength="80" placeholder="학교명 입력" data-hxe-field="school" value="'+esc(ui.school)+'"></label>':'');
+ return '<div class="hmf-pair hmf-exam-fields">'+opts('grade','대상 학년',grade)+opts('year','시행연도·모집학년도',years)+extra+opts('subject','과목',subjects)+'</div>'+
+ (['admission','university'].includes(ui.category)?'<label class="hmf-field hmf-native-field hmf-exam-school"><span class="hmf-field-name">지원 학교·대학 (선택)</span><input type="text" maxlength="80" placeholder="학교명 입력" data-hxe-field="school" value="'+esc(ui.school)+'"></label>':'');
 }
 function title(){
  const name={mock:'모의고사·수능',admission:'고입 전형',contest:'경시대회',university:'대학별고사',diagnostic:'진단·평가'}[ui.category];
@@ -93,14 +96,23 @@ function title(){
 }
 function explorer(){
  const cat=CATS.find(x=>x[0]===ui.category)||CATS[1];
- return '<section class="hxe-screen"><div class="hxe-back"><button data-go="bankSearch">‹ 기존 학교별 족보</button></div>'+
- '<small>기존 족보 검색 유지 · 다른 시험 확장</small><h2>'+esc(cat[1])+' 자료 찾기</h2><p>'+esc(cat[3])+'</p>'+
- tabs(ui.category)+extraFilters()+
- '<p class="hxe-notice">아래는 공식 자료를 검색할 수 있는 출처입니다. 선택하신 연도·과목의 개별 문제지 확보 여부는 아직 확인되지 않았습니다.</p>'+
- '<div class="hxe-sources">'+SOURCES[ui.category].map(x=>'<div class="hxe-source"><small>'+esc(x[2])+'</small><h3>'+esc(x[1])+'</h3><p>'+esc(x[4])+'</p>'+
- (ui.category==='mock'&&x[5]!==ui.grade?'<em>선택 학년과 다른 자료원</em>':'')+
- '<div class="hxe-actions">'+raw(x)+button('이 출처로 학습반 준비 →','pick',x[0],'hxe-button')+'</div></div>').join('')+'</div>'+
- '<p class="hxe-notice">시험 연도·시행월은 공식 사이트에서도 다시 선택해 주셔야 할 수 있습니다.</p></section>';
+ return '<section class="hxe-screen hsc-exam-explore" aria-label="HITEL 기출·족보">'+
+ tabs(ui.category)+
+ '<div class="hmf-finder hmf-exam-finder">'+
+ '<div class="hmf-heading"><div><small>'+esc(cat[1])+' · 공식 기출자료</small>'+
+ '<strong>학교와 시험조건을 선택하세요</strong></div>'+
+ '<span class="hmf-caption">'+esc(cat[1])+'</span></div>'+
+ '<p class="hmf-exam-subtitle">'+esc(cat[3])+'</p>'+
+ extraFilters()+
+ '<p class="hmf-footnote">기존 학교별 족보와 같은 검색 화면입니다. 시험자료의 실제 확보 여부는 원본 자료원에서 확인합니다.</p>'+
+ '</div>'+
+ '<div class="hsc-native-list-head hmf-exam-list-head"><b>'+esc(cat[1])+' 자료원</b><small>공식 출처</small></div>'+
+ '<p class="hmf-result-status">선택한 연도·과목의 문제지·정답 전체가 확보된 것은 아닙니다. 공식 자료원에서 조건을 확인해 주세요.</p>'+
+ '<div class="hxe-sources">'+SOURCES[ui.category].map(x=>'<article class="hxe-source"><small>'+esc(x[2])+'</small><h3>'+esc(x[1])+'</h3><p>'+esc(x[4])+'</p>'+
+ (ui.category==='mock'&&x[5]!==ui.grade?'<em>선택한 학년과 다른 자료원입니다.</em>':'')+
+ '<div class="hxe-actions">'+raw(x)+button('이 출처로 학습반 준비 →','pick',x[0],'hxe-button')+'</div></article>').join('')+'</div>'+
+ '<p class="hmf-footnote">시행연도·시행월은 원본 사이트에서도 다시 지정해야 할 수 있습니다.</p>'+
+ '</section>';
 }
 function description(){
  const x=source(ui.selected);if(!x)return null;
