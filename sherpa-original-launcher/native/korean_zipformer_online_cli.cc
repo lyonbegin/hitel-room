@@ -1,4 +1,4 @@
-// v25: Korean 72M INT8 model, PRIMARY/ON-DEMAND STANDBY worker assignment.
+// v27: Korean 174M INT8 model, PRIMARY/ON-DEMAND STANDBY worker assignment.
 // Primary #0 handles every independent 4-second segment if ready. Standby #1
 // is used only when primary's previous segment is still being processed.
 // Up to 0.5 sec of old PCM is supplied only as adjacent context; it cannot
@@ -181,7 +181,7 @@ struct Manager{
       return false;
     }
     say("STT_READY");
-    say("ONLINE_READY:model=korean-zipformer-72m-int8:workers=2:primary=0:standby=1:window_ms=4000:stride_ms=4000:context_preroll_ms=500:decoding=modified_beam_search:threads_per_worker=1");
+    say("ONLINE_READY:model=korean-zipformer-174m-int8:workers=2:primary=0:standby=1:window_ms=4000:stride_ms=4000:context_preroll_ms=500:decoding=modified_beam_search:threads_per_worker=1");
     say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true:allocation=primary_then_standby:liveEdge=%d",liveEdge?1:0);
     return true;
   }
@@ -407,7 +407,7 @@ void Worker::loop(){
   config.model_config.transducer.decoder=parent->argv[2].c_str();
   config.model_config.transducer.joiner=parent->argv[3].c_str();
   config.model_config.tokens=parent->argv[0].c_str();
-  config.model_config.num_threads=1; // 72M INT8, reduce concurrent CPU contention.
+  config.model_config.num_threads=1; // 174M INT8; retain v25 one thread per worker to limit CPU contention.
   config.model_config.provider="cpu";
   config.model_config.modeling_unit="cjkchar";
   config.decoding_method="modified_beam_search";
