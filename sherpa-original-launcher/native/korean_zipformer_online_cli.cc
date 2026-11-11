@@ -57,6 +57,7 @@ struct Engine {
   const SherpaOnnxOnlineStream* stream=nullptr;
   uint64_t pcmSamples=0;
   unsigned int captions=0, hypotheses=0;
+  uint64_t decodeCalls=0, decodeTotalUs=0, decodeMaxUs=0;
   std::string lastRaw;
   // No VAD, prefix seals, prior speech merging, or mid-call commits.
   uint32_t currentSeq=0;
@@ -105,6 +106,10 @@ struct Engine {
       const uint64_t decodeBegin=boot_ns();
       SherpaOnnxDecodeOnlineStream(recognizer,stream);
       const uint64_t decodeEnd=boot_ns();
+      const uint64_t elapsedUs=(decodeEnd-decodeBegin)/1000;
+      decodeCalls++;
+      decodeTotalUs+=elapsedUs;
+      decodeMaxUs=std::max(decodeMaxUs,elapsedUs);
       printf("ONLINE_TIMING:DECODE:%u:%llu:%llu:%llu\n",seq,
           static_cast<unsigned long long>(pcmSamples*1000/16000),
           static_cast<unsigned long long>(decodeEnd),
@@ -126,6 +131,12 @@ struct Engine {
       update(false);
     }
     update(true);
+    printf("ONLINE_PERF_SUMMARY:audioMs=%llu:decodeCalls=%llu:decodeTotalUs=%llu:decodeMaxUs=%llu:decodeRTF=%.6f\\n",
+        static_cast<unsigned long long>(pcmSamples*1000/16000),
+        static_cast<unsigned long long>(decodeCalls),
+        static_cast<unsigned long long>(decodeTotalUs),
+        static_cast<unsigned long long>(decodeMaxUs),
+        pcmSamples?double(decodeTotalUs)/double(pcmSamples*1000000.0/16000.0):0.0);
     printf("ONLINE_FINISHED:pcmMs=%llu:hypotheses=%u:captions=%u\n",
            static_cast<unsigned long long>(pcmSamples*1000/16000),
            hypotheses,captions);
