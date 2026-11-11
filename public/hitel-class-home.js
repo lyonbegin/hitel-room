@@ -140,7 +140,9 @@ topBar=function(id){
 };
 function shellIndex(){
  const groups=(model.groups||[]).map(g=>({title:g.name||'학습반',description:[g.institutionName||g.school,g.grade,g.subject].filter(Boolean).join(' · '),action:'class',id:g.id,kind:'내 학습반'}));
- const topics=['내신집중반','문제집완성반','선행학습반','약점극복반','겨울방학 집중반','기말고사 집중반'].map(title=>({title,description:'학습반 유형 찾아보기',action:'search',id:title.replace(/반$/,''),kind:'학습반 추천'}));
+ const available=[...season(monthNow()).items,...recommended()];
+ available.forEach(t=>templates.set(t.id,t));
+ const topics=available.map(t=>({title:t.name,description:t.desc,action:'template',id:t.id,kind:'학습반 추천'}));
  const links=[['학습반 찾기','학교·학년·과목으로 반 검색','groupSearch'],['AI 선생님 찾기','AI 과외와 교재별 트레이너','groupAITutor'],['학교별 족보','내신 족보와 문제은행','bankSearch'],['나의 학습','문제 미션과 학습자료','groupLearning']]
  .map(([title,description,id])=>({title,description,id,action:'route',kind:'서비스'}));
  return [...groups,...topics,...links];
@@ -162,6 +164,7 @@ function shellDraw(){
 function shellOpenResult(action,id){
  shellOpen=false;shellQuery='';
  if(action==='class'){const g=model.groups.find(x=>x.id===id);if(!g)return;model.activeGroupId=id;wp.saveModel();go('groupDetail');return;}
+ if(action==='template'){const selected=templates.get(id);if(!selected)return;choices.template=selected;go('groupCreate');return;}
  if(action==='search'){state.wpInstitutionFilterName=id;go('groupSearch');return;}
  if(action==='route'){go(id);return;}
  shellDraw();
