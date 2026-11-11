@@ -163,6 +163,16 @@ def check_actual():
         "captions in UI":found,
         "timeline exported":len(timeline)>100,
     }
+    if os.getenv("REQUIRE_INCREMENTAL_GROWING")=="1":
+        commits=[x for x in (json.loads(line) for line in timeline.splitlines()
+                           if line.strip() and line.startswith("{"))
+                 if x.get("stage")=="AAC" and x.get("event")=="SOURCE_CURSOR_COMMITTED"]
+        positions=[int(x.get("data",{}).get("sourceByte",0)) for x in commits]
+        checks["growing AAC source cursor committed at least twice"]=len(positions)>=2
+        checks["AAC source cursor strictly increases"]=all(b>a for a,b in zip(positions,positions[1:]))
+        checks["incremental AAC frames, not full-file rereads"]='"NEW_FRAMES_READY"' in events
+        (OUT/"aac-cursor-positions.json").write_text(json.dumps(positions),encoding="utf-8")
+        print("SOURCE_CURSOR_POSITIONS",positions,flush=True)
     (OUT/"checks.json").write_text(json.dumps(checks,ensure_ascii=False,indent=2),encoding="utf-8")
     print("CHECKS",checks,flush=True)
     if not all(checks.values()):
