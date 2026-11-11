@@ -37,7 +37,7 @@ public final class MainActivity extends Activity {
   final Handler ui=new Handler(Looper.getMainLooper());
   Uri selected;
   boolean folderMode=false;
-  TextView source,status,caption,latestTwo,logs,summary;
+  TextView source,status,caption,latestTwo,latestPinnedCaption,logs,summary;
   Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
   volatile boolean receiverRegistered=false;
   volatile long lastLogRefreshNs=0;
@@ -97,10 +97,21 @@ public final class MainActivity extends Activity {
     if(first<text.length() && Character.isLowSurrogate(text.charAt(first)))first++;
     return "…\n"+text.substring(first);
   }
+  // A fixed, always-visible live region must use the END of the current
+  // recognized text, not the TOP of an expanding TextView inside ScrollView.
+  static String recentCaptionTail(String value,int limit){
+    if(value==null || value.isEmpty())return "";
+    if(value.length()<=limit)return value;
+    int from=value.length()-limit;
+    if(Character.isLowSurrogate(value.charAt(from)))from++;
+    return "…"+value.substring(from);
+  }
   void updateCaptionText(String text,boolean live,long seq,long nativeNs,long sendNs){
     caption.setText(text.isEmpty()?
       "아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":recentCaption(text));
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+    if(latestPinnedCaption!=null)latestPinnedCaption.setText(
+      text.isEmpty()?"새 음성인식 결과 대기 중":recentCaptionTail(text,150));
     if(live){
       final String expected=caption.getText().toString();
       final long setNs=SystemClock.elapsedRealtimeNanos();
@@ -139,12 +150,30 @@ public final class MainActivity extends Activity {
   }
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
+    // Critical visibility fix: separate always-visible latest captions from
+    // the diagnostics scroll area, while STT/AAC/worker logic stays untouched.
+    LinearLayout page=new LinearLayout(this);
+    page.setOrientation(LinearLayout.VERTICAL);
+    int padding=(int)(16*getResources().getDisplayMetrics().density);
+    LinearLayout pinned=new LinearLayout(this);
+    pinned.setOrientation(LinearLayout.VERTICAL);
+    pinned.setPadding(padding,padding,padding,padding/2);
+    pinned.addView(text("실시간 자막 · 항상 최신 내용 표시",16));
+    latestTwo=text("새로 인식된 단어 대기 중",24);
+    latestTwo.setTypeface(null,Typeface.BOLD);
+    pinned.addView(latestTwo);
+    latestPinnedCaption=text("새 음성인식 결과 대기 중",19);
+    latestPinnedCaption.setMaxLines(4);
+    pinned.addView(latestPinnedCaption);
+    page.addView(pinned,new LinearLayout.LayoutParams(
+      LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
     ScrollView scroll=new ScrollView(this);
     LinearLayout root=new LinearLayout(this);
     root.setOrientation(LinearLayout.VERTICAL);
-    int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);
     scroll.addView(root);
+    page.addView(scroll,new LinearLayout.LayoutParams(
+      LinearLayout.LayoutParams.MATCH_PARENT,0,1f));
     TextView header=text("삼성 통화 녹음 파일 증가분 → FFmpeg → 한국어 Zipformer 174M 스트리밍 STT",20);
     header.setTypeface(null,Typeface.BOLD);root.addView(header);
     root.addView(text(
@@ -163,10 +192,7 @@ public final class MainActivity extends Activity {
     startButton=button(root,"FFmpeg + 한국어 Zipformer 진단 시작");
     stopButton=button(root,"진단 중지");
     status=text("대기 중",15);root.addView(status);
-    root.addView(text("현재 말하는 내용 · 확정 대기 없이 즉시 표시",17));
-    latestTwo=text("새로 인식된 단어 대기 중",24);
-    latestTwo.setTypeface(null,Typeface.BOLD);root.addView(latestTwo);
-    root.addView(text("현재 자막 · 최신 구간만 표시하고 전체 기록은 유지",16));
+    root.addView(text("전체 진단 자막 · 새 내용은 위 고정 영역에 항상 표시",16));
     caption=text("아직 인식 결과 없음",16);caption.setTextIsSelectable(true);root.addView(caption);
     root.addView(text("STEP 3 · 상세 원본 로그 확보",17));
     exportButton=button(root,"전체 진단 로그 ZIP 저장 (오류 발생 시에도 가능)");
@@ -178,7 +204,7 @@ public final class MainActivity extends Activity {
       "ffmpeg-raw.txt, stt-raw.txt, M4A 헤더 바이너리, README.txt.\n" +
       "성공 및 실패 여부와 관계없이 장치 내부에 저장됩니다. 전화번호·파일명·전사 내용이 로그에 포함될 수 있으니 ZIP 공유 전 확인하십시오.\n"+
       "실제 통화 음성은 로그 ZIP에 원본 파일 형태로 복사하지 않습니다.",12));
-    setContentView(scroll);
+    setContentView(page);
 
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
@@ -321,6 +347,8 @@ public final class MainActivity extends Activity {
       .getLong("currentTranscriptRevision",0);
     caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":recentCaption(text));
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+    if(latestPinnedCaption!=null)latestPinnedCaption.setText(
+      text.isEmpty()?"새 음성인식 결과 대기 중":recentCaptionTail(text,150));
     refreshButtons();
     refreshEventTail();
   }
