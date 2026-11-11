@@ -141,7 +141,7 @@ jobs:
         run: |
           ! grep -F 'priorContext.accept(' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
           grep -F 'SINGLE_STREAM_FINISHED:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
-      - name: Compile and verify 174M primary/standby Online APK
+      - name: Compile and verify 174M exactly one continuous OnlineStream APK
         run: |
           set -euo pipefail
           gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
@@ -155,7 +155,7 @@ jobs:
           grep -F 'SINGLE_STREAM_CREATED:count=1' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
           grep -F 'SherpaOnnxCreateOnlineStream' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
           grep -F 'SPEECH_GATE_SKIP' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
-          grep -F 'ONLINE_LIVE_TAIL:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'SPEECH_GATE_PASS:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
           grep -F 'MODEL_PREWARM_STARTED' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
           grep -F 'STT_SEGMENT:' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
           grep -F 'CLOCK_BOOTTIME' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
