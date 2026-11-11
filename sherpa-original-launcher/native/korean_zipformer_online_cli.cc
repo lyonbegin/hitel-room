@@ -11,6 +11,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <functional>
+#include <fstream> // must be outside the anonymous namespace containing speaker_sidecar.h
 #include <cmath>
 #include <cstdarg>
 #include <cstdint>
