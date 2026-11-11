@@ -299,6 +299,58 @@ public final class GrowingCallEngine {
    *  file. FFmpegKit's saf: reader can fail to seek to trailing MP4 moov and
    *  /proc/self/fd is denied under Android 15 scoped storage. Do not log audio.
    */
+  /** Jump to the committed source byte, rather than reopening and decoding
+   * the preceding M4A on each growth event. Prefer an actual seekable SAF FD;
+   * some DocumentsProviders return pipes, in which case preserve the original
+   * InputStream.skip() fallback. The caller still only appends new bytes.
+   */
+  InputStream openMirrorDelta(Uri uri,long offset)throws IOException {
+    ParcelFileDescriptor fd=null;
+    try{
+      fd=context.getContentResolver().openFileDescriptor(uri,"r");
+      if(fd!=null && fd.getStatSize()>=0){
+        FileInputStream seekable=new FileInputStream(fd.getFileDescriptor());
+        try{
+          seekable.getChannel().position(offset);
+          long actual=seekable.getChannel().position();
+          if(actual!=offset)throw new IOException("Seek mismatch: "+actual+" != "+offset);
+          log.timing("MIRROR","SOURCE_SEEK","sourceOffset",offset,
+            "fileSizeAtOpen",fd.getStatSize(),"method","SAF_FILE_DESCRIPTOR");
+          return seekable; // FileInputStream owns the FD after return.
+        }catch(Throwable failed){
+          try{seekable.close();}catch(Exception ignored){}
+          throw failed;
+        }
+      }
+    }catch(Throwable unsupported){
+      log.event("MIRROR","SOURCE_SEEK_UNSUPPORTED","sourceOffset",offset,
+        "error",String.valueOf(unsupported),"fallback","INPUT_STREAM_SKIP");
+    }finally{
+      // Successful transfer is owned by the FileInputStream; close only a
+      // descriptor which was not transferred (e.g. a provider pipe).
+      // The transferred descriptor stays alive with the returned stream.
+      if(fd!=null && fd.getStatSize()<0)try{fd.close();}catch(Exception ignored){}
+    }
+    InputStream fallback=context.getContentResolver().openInputStream(uri);
+    if(fallback==null)throw new IOException("SAF source InputStream is null");
+    try{
+      long remaining=offset;
+      while(remaining>0){
+        long skipped=fallback.skip(remaining);
+        if(skipped>0){remaining-=skipped;continue;}
+        if(fallback.read()<0)throw new EOFException("SAF stream shorter than cursor: "+remaining);
+        remaining--;
+      }
+      log.timing("MIRROR","SOURCE_SEEK","sourceOffset",offset,
+        "method","SAF_INPUT_STREAM_SKIP");
+      return fallback;
+    }catch(Throwable e){
+      try{fallback.close();}catch(Exception ignored){}
+      if(e instanceof IOException)throw (IOException)e;
+      throw new IOException("SAF skip fallback failed",e);
+    }
+  }
+
   synchronized void appendMirror(Uri uri,String label){
     File target=workingMirror;
     if(target==null)return;
@@ -323,18 +375,7 @@ public final class GrowingCallEngine {
         if("initial".equals(label))log.event("MIRROR","NO_BYTES_AVAILABLE","size",available);
         return;
       }
-      try(InputStream in=context.getContentResolver().openInputStream(uri)){
-        if(in==null)throw new IOException("SAF source InputStream is null");
-        long remaining=mirroredBytes;
-        while(remaining>0){
-          long skipped=in.skip(remaining);
-          if(skipped>0){remaining-=skipped;continue;}
-          if(in.read()<0)break;
-          remaining--;
-        }
-        if(remaining>0){
-          throw new EOFException("SAF stream shorter than mirrored cursor; missing="+remaining);
-        }
+      try(InputStream in=openMirrorDelta(uri,mirroredBytes)){
         try(FileOutputStream dest=new FileOutputStream(target,true)){
           byte[] buffer=new byte[32768];
           int n;
