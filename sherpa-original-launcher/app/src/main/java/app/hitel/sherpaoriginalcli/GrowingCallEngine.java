@@ -319,7 +319,7 @@ public final class GrowingCallEngine {
           return seekable; // FileInputStream owns the FD after return.
         }catch(Throwable failed){
           try{seekable.close();}catch(Exception ignored){}
-          throw failed;
+          throw new IOException("SAF source FD was not seekable",failed);
         }
       }
     }catch(Throwable unsupported){
