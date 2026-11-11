@@ -31,7 +31,7 @@ jobs:
             try:
               with urllib.request.urlopen(root,timeout=15) as f:
                 text=f.read().decode('utf-8','replace')
-              if 'ypt-rebuild.js?v=5' in text and 'hitel-class-home.js?v=10' in text:
+              if 'ypt-rebuild.js?v=5' in text and 'hitel-class-home.js?v=10' in text and 'hitel-ask-ui.js?v=2' in text:
                 ready=True;break
             except Exception as e:print('WAIT_DEPLOY',str(e)[:150])
             time.sleep(3)
@@ -50,7 +50,7 @@ jobs:
             for name,path in [('root',''),('legacy_home','?screen=home'),('classes','?screen=groups')]:
               driver.get(root+path)
               try:
-                WebDriverWait(driver,14,poll_frequency=.25).until(lambda d: d.find_elements(By.CSS_SELECTOR,'#phone .hxs-header'))
+                WebDriverWait(driver,14,poll_frequency=.25).until(lambda d: d.find_elements(By.CSS_SELECTOR,'#phone .ask-shell'))
               except Exception as e:report['errors'].append(name+': header wait: '+str(e)[:200])
               driver.save_screenshot('home-qa-evidence/'+name+'.png')
               dom=driver.page_source
@@ -58,13 +58,14 @@ jobs:
               info=driver.execute_script("""return {
                path:location.pathname+location.search,
                stageTitle:document.querySelector('#stageTitle')?.innerText,
-               mobileHeader:document.querySelector('#phone .hxs-header h2')?.innerText||null,
-               oldHeader:document.querySelector('#phone .appbar:not(.hxs-header) h2')?.innerText||null,
+               mobileHeader:document.querySelector('#phone .ask-shell h2')?.innerText||null,
+               oldHeader:document.querySelector('#phone .appbar:not(.ask-shell) h2')?.innerText||null,
                desktopShortcut:document.querySelector('#stageHome')?.innerText,
                bottomMenu:[...document.querySelectorAll('#phone .hxs-nav button')].map(x=>x.getAttribute('aria-label')),
                mapHasHome:[...document.querySelectorAll('#screenMap .map-item')].some(x=>x.innerText.trim()==='홈'),
                excerpt:document.querySelector('#phone')?.innerText.slice(0,1200),
                shellReady:!!window.HITEL_SHELL_INSPECT,
+               questionBarVisible:!!document.querySelector('#phone .ask-shell .ask-bar'),
                shellState:typeof state==='object'?state.screen:'unavailable'
               }""")
               info['name']=name
@@ -83,6 +84,7 @@ jobs:
               checks[label+'_no_legacy_header']=not item['oldHeader']
               checks[label+'_desktop_shortcut']=item['desktopShortcut']=='학습반'
               checks[label+'_four_menu']=item['bottomMenu']==['학습반','학습','AI 과외','족보']
+              checks[label+'_question_bar']=item['questionBarVisible']
               checks[label+'_no_home_map']=not item['mapHasHome']
               checks[label+'_screen']=item['shellState']=='groups'
             report['checks']=checks
