@@ -134,7 +134,7 @@
 }
 /* Study-group discovery landing. Discovery is distinct from enrolled groups. */
 #phone .tp-study-main{padding-bottom:44px}
-#phone .tp-main-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;border-bottom:1px solid #e1e5ea;margin:8px 0 18px;padding-bottom:5px}
+#phone .tp-main-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;border-bottom:1px solid #e1e5ea;margin:8px 0 6px;padding-bottom:5px}
 #phone .tp-main-tabs .tp-btn{min-height:40px;border:0;background:transparent;border-radius:0;font-size:13px!important;color:#78818d}
 #phone .tp-main-tabs .tp-btn.primary{background:#fff;color:#272e36;border-bottom:2px solid #303740;font-weight:800}
 #phone .tp-discovery-filters{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0 16px}
@@ -171,3 +171,10 @@
 #phone .tp-group-item>.tp-actions>.tp-btn{display:flex!important;flex:1 1 0!important;width:0!important;
   max-width:none!important;min-width:0!important;box-sizing:border-box!important;white-space:normal!important;
   padding:9px 3px!important;font-size:10px!important}
+
+#phone .tp-main-tabs .tp-btn{padding:8px 2px;font-size:11px!important;min-width:0;letter-spacing:-.04em;white-space:nowrap}
+#phone .tp-join-shortcut{display:flex;justify-content:flex-end;margin:2px 0 12px}
+#phone .tp-join-shortcut .tp-btn{font-size:10px!important;border:none;min-height:30px;padding:6px 0;color:#606b78;text-decoration:underline;text-underline-offset:3px;background:transparent}
+#phone .tp-create-inline{display:grid;gap:11px;margin:4px 0 12px}
+#phone .tp-create-inline>.tp-head{margin:5px 0 7px}
+@media(max-width:350px){#phone .tp-main-tabs .tp-btn{font-size:10px!important;padding:8px 1px}}
