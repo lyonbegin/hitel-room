@@ -113,7 +113,7 @@ function prog(p){return '<div class="hj-progress"><i style="width:'+Math.min(100
 function header(title,sub,back){return '<header class="hj-heading">'+(back?nav('‹ 돌아가기',back,'hj-quiet'):'')+'<h2>'+esc(title)+'</h2>'+(sub?'<p>'+esc(sub)+'</p>':'')+'</header>'}
 function tile(g){
  const d=today(),n=STAGES.filter(s=>stageDone(g,d,s.id)).length;
- return '<button class="hj-group" data-hj="group" data-value="'+esc(g.id)+'"><div class="hj-between"><span class="hj-pill">'+esc((g.goalType||'공동학습')+' · '+subject(g))+'</span><small>'+(g.members?.length||1)+'/5명</small></div><b>'+esc(g.name)+'</b><p>'+esc(trainerName(g))+' · '+esc(goal(g))+'</p>'+prog(n/3*100)+'<div class="hj-between"><small>오늘 '+n+'/3단계 완료</small><small>반 입장 ›</small></div></button>'
+ return '<button class="hj-group" data-hj="group" data-value="'+esc(g.id)+'"><div class="hj-between"><span class="hj-pill">'+esc((g.goalType||'공동학습')+' · '+subject(g))+'</span><small>'+(g.members?.length||1)+'/'+Math.max(1,Math.min(5,Number(g.capacity)||5))+'명</small></div><b>'+esc(g.name)+'</b><p>'+esc(trainerName(g))+' · '+esc(goal(g))+'</p>'+prog(n/3*100)+'<div class="hj-between"><small>오늘 '+n+'/3단계 완료</small><small>반 입장 ›</small></div></button>'
 }
 function main(){
  const joined=model.groups.filter(g=>g.members?.includes('나')),own=trainerList().length;
@@ -129,28 +129,31 @@ function main(){
  btn('▤<b>비문학 독해반</b><small>국어 · 스터디 찾기</small>','route','groupSearch')+'</div></section>';
 }
 function create(){
- return '<section class="hj">'+header('새 스터디그룹','반을 개설한 다음 담당 트레이너를 지정합니다.','groups')+
+ const book=window.HITEL_CLASS_AI_FLOW?.pending?.()||null;
+ const classSubject=book?.subject||'수학',bookName=book?.name||'';
+ return '<section class="hj">'+header('학습반 만들기','정원을 정하고 학습반을 개설한 다음 담당 AI 선생님을 지정합니다.','groups')+
+ (book?'<div class="hj-panel"><small>선택한 교재·시리즈</small><b>'+esc(bookName)+'</b><p>학습반에 연결할 학습자료입니다. 실제 학년·학기·판본은 확인하셔야 합니다.</p></div>':'')+
  '<form id="hj-create" class="hj-form">'+
  '<label>반 이름<input name="name" maxlength="70" required placeholder="예: 중3 수학 이차방정식 완성반"></label>'+
  '<div class="hj-formrow"><label>구분<select name="institutionType"><option value="school">학교</option><option value="academy">학원</option></select></label><label>학년<select name="grade">'+['초4','초5','초6','중1','중2','중3','고1','고2','고3','제한 없음'].map(x=>'<option>'+x+'</option>').join('')+'</select></label></div>'+
  '<label>학교·학원명<input name="institutionName" maxlength="100" required placeholder="학교 또는 학원명"></label>'+
- '<div class="hj-formrow"><label>과목<select name="subject">'+SUBJECTS.map(x=>'<option>'+x+'</option>').join('')+'</select></label><label>학습 목표<select name="goalType">'+GOALS.map(x=>'<option>'+x+'</option>').join('')+'</select></label></div>'+
- '<label>완성할 목표<input name="goalTitle" maxlength="150" required placeholder="예: 쎈 수학 C단계 완성"></label>'+
+ '<div class="hj-formrow"><label>과목<select name="subject">'+SUBJECTS.map(x=>'<option'+(x===classSubject?' selected':'')+'>'+x+'</option>').join('')+'</select></label><label>학습 목표<select name="goalType">'+GOALS.map(x=>'<option'+(book&&x==='문제집 완성'?' selected':'')+'>'+x+'</option>').join('')+'</select></label></div>'+
+ '<label>완성할 목표<input name="goalTitle" maxlength="150" required value="'+esc(bookName?bookName+' 학습 목표 완성':'')+'" placeholder="예: 쎈 수학 C단계 완성"></label>'+
  '<label>학습 범위<input name="topics" maxlength="150" placeholder="단원·범위 (선택)"></label>'+
  '<div class="hj-formrow"><label>시작일<input type="date" name="courseStart" value="'+today()+'" required></label><label>코스 기간<select name="courseDays">'+[5,7,10,14,21,30].map(n=>'<option value="'+n+'"'+(n===10?' selected':'')+'>'+n+'일</option>').join('')+'</select></label></div>'+
- '<label>교재 (선택)<input name="bookTitle" maxlength="120" placeholder="반 개설 후에도 등록할 수 있습니다."></label>'+
- '<p class="hj-muted">교재 구매나 트레이너 선택 없이 반부터 만들 수 있습니다.</p>'+
- '<button type="submit" class="hj-btn hj-black hj-wide">반 개설 후 트레이너 선택 →</button></form></section>';
+ '<label>학습반 정원<select name="capacity" required>'+[1,2,3,4,5].map(n=>'<option value="'+n+'">'+n+'명'+(n===1?' (혼자 이용)':'')+'</option>').join('')+'</select></label>'+'<label>교재 (선택)<input name="bookTitle" maxlength="120" value="'+esc(bookName)+'" placeholder="교재가 있다면 입력해 주세요."></label>'+
+ '<p class="hj-muted">정원은 1~5명이며 혼자 이용하셔도 학습반을 개설합니다. 결제 금액과 24시간 모집 규칙은 이번 단계에서 적용하지 않습니다.</p>'+
+ '<button type="submit" class="hj-btn hj-black hj-wide">학습반 만들고 AI 선생님 지정 →</button></form></section>';
 }
 function trainers(){
  const g=current();if(!g)return main();
  const items=trainerList().filter(t=>t.subject===subject(g));
- return '<section class="hj">'+header('AI 트레이너 선택',g.name,'groupDetail')+
- '<div class="hj-panel"><small>이 반의 과목</small><b>'+esc(subject(g))+'</b><p>같은 과목이면 학년·교재·목표에 관계없이 트레이너를 다시 사용할 수 있습니다.</p></div>'+
+ return '<section class="hj">'+header('학습반 담당 AI 선생님 지정',g.name,'groupDetail')+
+ '<div class="hj-panel"><small>학습반의 담당 과목 · 정원</small><b>'+esc(subject(g))+' · '+Math.max(1,Math.min(5,Number(g.capacity)||5))+'명</b><p>담당 AI 선생님 한 명이 학습반을 이끕니다. 같은 과목이면 학년·교재·목표에 관계없이 기존 선생님을 재사용할 수 있습니다.</p></div>'+
  '<div class="hj-section"><strong>사용 가능한 트레이너</strong></div>'+
  (items.length?items.map(t=>'<button type="button" class="hj-trainer" data-hj="trainer" data-value="'+esc(t.id)+'"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 기존 트레이너 재사용</small></div><i>선택 ›</i></button>').join(''):'<div class="hj-empty">이 과목으로 등록된 트레이너가 없습니다.</div>')+
  '<form id="hj-trainer-create" class="hj-form hj-panel"><b>새 트레이너 프로필 등록</b><label>트레이너 이름<input name="name" required maxlength="70" placeholder="예: 수학 AI 트레이너 A"></label><button type="submit" class="hj-btn hj-outline hj-wide">등록 후 지정</button></form>'+
- nav('트레이너 지정 없이 반으로 돌아가기','groupDetail','hj-outline hj-wide')+'</section>';
+ '<p class="hj-muted">학습반 운영을 시작하려면 담당 AI 선생님을 지정해 주세요.</p></section>';
 }
 function schedule(g,d){
  let n=dayNo(g,d)-1,range=Math.min(days(g),7),offset=Math.min(Math.max(0,n-3),Math.max(0,days(g)-range)),out='<div class="hj-calendar">';
@@ -169,7 +172,7 @@ function journey(){
  const d=activeDate(g),done=dailyDone(g,d),step=STAGES.filter(x=>stageDone(g,d,x.id)).length;
  const doneDays=courseCount(g);
  return '<section class="hj">'+header(g.name,(g.institutionName||g.school||'스터디')+' · '+(g.grade||'')+' · '+subject(g),'groups')+
- '<div class="hj-between"><span class="hj-pill">'+esc(g.goalType||'목표형 공동학습')+'</span><small>'+(g.members?.length||1)+'/5명</small></div>'+
+ '<div class="hj-between"><span class="hj-pill">'+esc(g.goalType||'목표형 공동학습')+'</span><small>'+(g.members?.length||1)+'/'+Math.max(1,Math.min(5,Number(g.capacity)||5))+'명</small></div>'+
  '<div class="hj-panel hj-course"><div class="hj-between"><div><small>진행 중인 문제 코스</small><b>'+esc(goal(g))+'</b></div><small>DAY '+Math.max(1,dayNo(g,today()))+'/'+days(g)+'</small></div>'+prog(doneDays/days(g)*100)+'<div class="hj-between"><small>전체 진행률</small><small>'+doneDays+'/'+days(g)+'일</small></div></div>'+
  '<div class="hj-between hj-section"><strong>학습 스케줄</strong><small>'+esc(d.slice(5))+'</small></div>'+
  schedule(g,d)+
@@ -350,12 +353,19 @@ bottomFor=function(route){
 function assign(tid){
  const g=current(),t=trainerList().find(t=>t.id===tid);
  if(!g||!t||t.subject!==subject(g)){toast('같은 과목의 트레이너만 선택할 수 있습니다.');return}
- g.trainerId=t.id;g.coachId=t.id;g.coachName=t.name;WP.saveModel();go('groupDetail');
+ g.trainerId=t.id;g.coachId=t.id;g.coachName=t.name;WP.saveModel();window.HITEL_CLASS_AI_FLOW?.clearPending?.();go('groupDetail');
 }
 function makeGroup(f){
  const d=new FormData(f),v=k=>String(d.get(k)||'').trim();if(!v('name')||!v('institutionName')||!v('goalTitle'))return;
  const type=v('institutionType')==='academy'?'academy':'school',id='group-'+uid();
- model.groups.push({id,name:v('name'),institutionType:type,institutionName:v('institutionName'),school:type==='school'?v('institutionName'):'',grade:v('grade'),subject:v('subject'),goalType:v('goalType'),goalTitle:v('goalTitle'),topics:v('topics'),courseStart:v('courseStart')||today(),courseDays:Number(v('courseDays'))||10,bookId:'',bookTitle:v('bookTitle'),bookShelf:[],coachId:'',coachName:'',trainerId:'',members:['나'],example:false,localDirectoryVisible:false});
+ const seat=Number(v('capacity'));
+ if(!Number.isInteger(seat)||seat<1||seat>5){toast('학습반 정원은 1~5명 중에서 선택해 주세요.');return}
+ const selected=window.HITEL_CLASS_AI_FLOW?.pending?.()||null;
+ const bookId=(selected?.verified&&selected.bookId&&selected.subject===v('subject'))?selected.bookId:'';
+ const studyBook=selected&&v('bookTitle')===selected.name?{series: selected.name,publisher:selected.publisher||'',source:selected.source||'',
+  verified:!!bookId,grade:selected.grade||'',term:selected.term||''}:null;
+ model.groups.push({id,name:v('name'),institutionType:type,institutionName:v('institutionName'),school:type==='school'?v('institutionName'):'',grade:v('grade'),subject:v('subject'),goalType:v('goalType'),goalTitle:v('goalTitle'),topics:v('topics'),courseStart:v('courseStart')||today(),courseDays:Number(v('courseDays'))||10,capacity:seat,
+ bookId,bookTitle:v('bookTitle'),studyBook,bookShelf:bookId?[bookId]:[],coachId:'',coachName:'',trainerId:'',members:['나'],example:false,localDirectoryVisible:false});
  model.activeGroupId=id;WP.saveModel();ui.day=v('courseStart')||today();go('groupTrainerSelect');
 }
 async function materialSave(f){
