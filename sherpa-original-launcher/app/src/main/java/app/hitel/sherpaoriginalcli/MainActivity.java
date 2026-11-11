@@ -37,7 +37,7 @@ public final class MainActivity extends Activity {
   final Handler ui=new Handler(Looper.getMainLooper());
   Uri selected;
   boolean folderMode=false;
-  TextView source,status,caption,latestTwo,logs,summary;
+  TextView source,status,caption,latestTwo,logs,summary,stageTimes;
   Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
   volatile boolean receiverRegistered=false;
   volatile long lastLogRefreshNs=0;
@@ -128,6 +128,10 @@ public final class MainActivity extends Activity {
     latestTwo.setTypeface(null,Typeface.BOLD);root.addView(latestTwo);
     root.addView(text("전체 임시 자막 · 다음 인식에 따라 자동 보정",16));
     caption=text("아직 인식 결과 없음",16);caption.setTextIsSelectable(true);root.addView(caption);
+    root.addView(text("최근 처리 구간별 소요시간 (각 구간 단독 측정)",17));
+    stageTimes=text("구간별 측정값 대기 중",13);
+    stageTimes.setTextIsSelectable(true);
+    root.addView(stageTimes);
     root.addView(text("STEP 3 · 상세 원본 로그 확보",17));
     exportButton=button(root,"전체 진단 로그 ZIP 저장 (오류 발생 시에도 가능)");
     refreshButton=button(root,"파일 증가·FFmpeg·STT 로그 새로고침");
@@ -249,6 +253,7 @@ public final class MainActivity extends Activity {
     File eventFile=new File(new File(getFilesDir(),"diagnostics/run-"+id),"events.jsonl");
     if(!eventFile.isFile()){logs.setText("진단 기록 생성 대기 중");return;}
     new Thread(()->{
+      refreshStageTiming(id);
       try(RandomAccessFile raf=new RandomAccessFile(eventFile,"r")){
         long size=raf.length();
         long offset=Math.max(0,size-28000);
@@ -271,6 +276,47 @@ public final class MainActivity extends Activity {
         ui.post(()->logs.setText(view.toString()));
       }catch(Throwable e){ui.post(()->logs.setText("로그 조회 실패: "+e));}
     },"GrowingLogScreenReader").start();
+  }
+  void refreshStageTiming(String id){
+    File file=new File(new File(getFilesDir(),"diagnostics/run-"+id),"latency-trace.jsonl");
+    if(!file.isFile())return;
+    try(RandomAccessFile raf=new RandomAccessFile(file,"r")){
+      long size=raf.length();
+      long offset=Math.max(0,size-131072L);
+      raf.seek(offset);
+      byte[] data=new byte[(int)(size-offset)];
+      raf.readFully(data);
+      String[] lines=new String(data,StandardCharsets.UTF_8).split("\\n");
+      // Each entry is independent. Do not add or subtract cumulative model times.
+      LinkedHashMap<String,String> latest=new LinkedHashMap<>();
+      final String[] stages={
+        "AAC_FRAME_READ","AAC_CODEC_INPUT_WAIT","AAC_CODEC_FRAME_TOTAL",
+        "PCM_SINK_CALLBACK","PCM_PIPE_WRITE","ACCEPT","DECODE",
+        "HYPOTHESIS","PUBLISH"};
+      for(String line:lines){
+        try{
+          org.json.JSONObject obj=new org.json.JSONObject(line);
+          if(!"PIPELINE".equals(obj.optString("stage")))continue;
+          String stage=obj.optString("event");
+          org.json.JSONObject d=obj.optJSONObject("data");
+          if(d==null||!d.has("durationMs"))continue;
+          String key="";
+          if(d.has("chunkSeq"))key="chunk "+d.optLong("chunkSeq");
+          else if(d.has("aacFrame"))key="AAC "+d.optLong("aacFrame");
+          else if(d.has("frame"))key="AAC "+d.optLong("frame");
+          else if(d.has("outputChunk"))key="PCM "+d.optLong("outputChunk");
+          double ms=d.optDouble("durationMs",-1);
+          if(ms>=0)latest.put(stage,String.format(Locale.US,"%.2f ms  (%s)",ms,key));
+        }catch(Exception ignored){}
+      }
+      StringBuilder display=new StringBuilder();
+      for(String stage:stages)if(latest.containsKey(stage))
+        display.append(stage).append(" · ").append(latest.get(stage)).append("\\n");
+      String view=display.length()==0?"구간별 결과 대기 중":display.toString();
+      ui.post(()->{if(stageTimes!=null)stageTimes.setText(view);});
+    }catch(Throwable e){
+      ui.post(()->{if(stageTimes!=null)stageTimes.setText("구간 시간 조회 실패: "+e);});
+    }
   }
   void loadPersisted(){
     String msg=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentStatus","대기 중");
