@@ -10,7 +10,7 @@ if(!WP||!LIB)return;
 const model=WP.getModel(),CAT=LIB.getCatalog(),DATA=window.HITEL_MOONZIP_SOURCE;
 const clean=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MATCH_SERIES={'쎈':'ssen','개념원리':'concept','EBS 수능특강':'ebs','100발 100중':'100bal'};
-const cur={seriesId:'',catalogId:'',editionId:'',pending:null,origin:'series'};
+const cur={seriesId:'',seriesRecord:null,catalogId:'',editionId:'',pending:null,origin:'series'};
 const pageBefore=groupPage,bottomBefore=bottomFor;
 const routes={groupBookClassSelect:'AI 선생님을 지정할 학습반 선택'};
 for(const [id,title] of Object.entries(routes)){
@@ -49,12 +49,12 @@ function detailHtml(b,series=false){
  const final=picked?metaCatalog(picked):(series?metaSeries(b):metaCatalog(b));
  const owner=linkedTeacherList(final.subject);
  const purpose=Array.isArray(b.purpose)?['개념','유형','연산','심화'].map((n,i)=>({label:n,value:b.purpose[i]||0})).filter(x=>x.value>0):[];
- const desc=series?'문제집 시리즈에 대한 평가 정보입니다. 특정 판본이나 AI 선생님의 학습 능력 점수가 아닙니다.':'HITEL에서 등록된 교재 정보입니다. AI 선생님은 학습반에 지정됩니다.';
+ const desc=series?(b.snapshotOnly?'제공받은 문집 첫 화면에 소개된 교재입니다. 표지·이름·난이도 외의 출판사·투표·학습분포·정확한 판본 정보는 아직 확보되지 않았습니다.':'문제집 시리즈에 대한 평가 정보입니다. 특정 판본이나 AI 선생님의 학습 능력 점수가 아닙니다.'):'HITEL에서 등록된 교재 정보입니다. AI 선생님은 학습반에 지정됩니다.';
  return '<section class="ca-flow ca-detail">'+
  '<button type="button" class="ca-back" data-go="groupMoonzipSearch">‹ 문제집 찾기로</button>'+
  '<div class="ca-hero"><div class="ca-cover">'+(b.image?'<img src="'+clean(b.image)+'" alt="'+clean(b.name)+' 표지" loading="lazy" onerror="this.style.display=&quot;none&quot;" />':'<span>▤</span>')+'</div>'+
  '<div class="ca-bookinfo"><small>선택한 학습 교재</small><h2>'+clean(b.name)+'</h2><p>'+clean(b.publisher||'')+'</p>'+
- (b.score!=null?'<span class="ca-score">문집 시리즈 난이도 '+Number(b.score).toFixed(1)+'/10 · 투표 '+(b.votes||0)+'개</span>':'')+
+ (b.score!=null?'<span class="ca-score">문집 시리즈 난이도 '+Number(b.score).toFixed(1)+'/10'+(Number.isFinite(b.votes)?' · 투표 '+b.votes+'개':' · 첫 화면 표시 기준')+'</span>':'')+
  '<p class="ca-smallnote">'+clean(desc)+'</p></div></div>'+
  (variants.length?'<div class="ca-panel"><strong>학년·학기별 교재 선택</strong><p>AI 과외에 연결할 정확한 교재를 선택해 주세요.</p>'+
  '<select id="ca-edition" aria-label="교재 학년 학기 선택"><option value="">시리즈만 선택 (학년·판본 미확정)</option>'+
@@ -78,11 +78,12 @@ function detailHtml(b,series=false){
 }
 function getActiveDetail(){
  if(cur.origin==='catalog'){const b=currentCatalog();return metaCatalog(b)}
- return metaSeries(seriesById(cur.seriesId));
+ return metaSeries(cur.seriesRecord||seriesById(cur.seriesId));
 }
 function ensureSeries(b){
  if(!b)return null;
  if(cur.seriesId!==b.id||cur.origin!=='series'){cur.seriesId=b.id;cur.catalogId='';cur.editionId='';cur.origin='series';}
+ cur.seriesRecord=b;
  return b;
 }
 function renderSeries(b){return detailHtml(ensureSeries(b),true)}
