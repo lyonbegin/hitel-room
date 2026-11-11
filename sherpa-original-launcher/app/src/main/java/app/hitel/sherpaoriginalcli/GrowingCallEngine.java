@@ -559,6 +559,10 @@ public final class GrowingCallEngine {
           if(line.startsWith("ONLINE_REWRITE_SKIPPED:")){
             log.event("ONLINE","REWRITE_SKIPPED","details",line);
           }
+          if(line.startsWith("ONLINE_PERF_SUMMARY:")){
+            log.event("MODEL","ZIPFORMER_PERFORMANCE","metrics",line,
+              "classification",classifyDecodeRtf(line));
+          }
           if(line.startsWith("ONLINE_FINISHED:")){
             log.event("ONLINE","FINAL_FLUSH","details",line);
           }
@@ -632,6 +636,17 @@ public final class GrowingCallEngine {
         }
       }catch(Throwable t){log.error("STT","NATIVE_OUTPUT_READER_ERROR",t);}
     },"SenseVoice-Native-Stdout").start();
+  }
+  // Parse the native decode-only realtime factor; this is NOT end-to-end caption latency.
+  static String classifyDecodeRtf(String summary){
+    try{
+      String key="decodeRTF=";
+      int at=summary.indexOf(key);
+      if(at<0)return "UNVERIFIED_NO_RTF";
+      double rtf=Double.parseDouble(summary.substring(at+key.length()).trim());
+      if(!Double.isFinite(rtf)||rtf<0)return "UNVERIFIED_BAD_RTF";
+      return rtf<1.0?"DECODE_FASTER_THAN_AUDIO":"DECODE_SLOWER_THAN_AUDIO";
+    }catch(RuntimeException error){return "UNVERIFIED_BAD_RTF";}
   }
   void nativeStart()throws Exception {
     File executable=new File(context.getApplicationInfo().nativeLibraryDir,"libsensevoice-stream.so");
