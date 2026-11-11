@@ -143,6 +143,46 @@ function filterBar(z,meta){
   '<button type="button" class="zb-f-filter-item" data-action="zbFFilter" data-value="'+attr(filterKey(f))+'" data-index="'+i+'" aria-label="'+esc(f.name)+' 선택"><span>'+esc(selectedFilterLabel(z,f))+'</span><b aria-hidden="true"></b></button>'
  ).join('')+'</div>';
 }
+/* HITEL's actual school-search UI, replacing ALL THREE former source rows:
+ * grade strip, six educational menu tabs, and seven tiny filter buttons.
+ * Reuses the verified source action handlers for school, region, grade, subject.
+ * The old source data and other learning routes are retained.
+ */
+function hitelSchoolFinder(z,meta){
+ const d=z.fDisplay||{},site=z.fSite,grade=(site==='H'?'고':'중')+z.fGrade;
+ const school=String(d.filter_sch||'').trim(),isDemo=/예시|샘플|demo|sample/i.test(school);
+ const cleanSchool=school&&!isDemo?school:'';
+ const city=String(d.filter_si||'').trim(),county=String(d.filter_gu||'').trim();
+ const subject=sourceSubjectOptions(z).find(x=>x.code===z.fSubject)?.name||
+  (z.fSubject==='MT'?'수학':String(d.filter_subject||'과목 선택'));
+ const field=(label,key,value,empty=false,cls='')=>
+  '<button type="button" class="hmf-field '+cls+(empty?' hmf-unset':'')+'" data-action="zbFFilter" data-value="'+attr(key)+'">'+
+  '<span class="hmf-field-name">'+esc(label)+'</span><span class="hmf-field-value">'+esc(value)+'</span>'+
+  '<span class="hmf-arrow" aria-hidden="true">⌄</span></button>';
+ const cityLabel=city||'시·도 선택',countyLabel=county||'시·군·구 선택';
+ return '<section class="hmf-finder" aria-label="HITEL 학교별 시험 검색">'+
+  '<div class="hmf-heading"><div><small>우리 학교 검색</small><strong>학교와 시험조건을 선택하세요</strong></div>'+
+  '<span class="hmf-caption">학교별 내신</span></div>'+
+  '<div class="hmf-level" role="group" aria-label="학교급 선택">'+
+  '<button type="button" data-action="zbFSite" data-value="M" aria-pressed="'+(site==='M')+'" class="'+(site==='M'?'hmf-active':'')+'">중학교</button>'+
+  '<button type="button" data-action="zbFSite" data-value="H" aria-pressed="'+(site==='H')+'" class="'+(site==='H'?'hmf-active':'')+'">고등학교</button></div>'+
+  '<button type="button" class="hmf-school" data-action="zbFFilter" data-value="filter_sch">'+
+  '<span class="hmf-school-icon" aria-hidden="true">⌕</span>'+
+  '<span class="hmf-school-copy"><small>학교</small><strong>'+esc(cleanSchool||'다니는 학교를 찾아보세요')+'</strong>'+
+  '<span>'+esc(city&&county?city+' · '+county:city||'지역과 학교를 차례대로 선택합니다')+'</span></span>'+
+  '<span class="hmf-school-go" aria-hidden="true">›</span></button>'+
+  '<div class="hmf-pair">'+
+    field('지역','filter_si',cityLabel,!city)+
+    field('구·군','filter_gu',countyLabel,!county)+
+  '</div>'+
+  '<div class="hmf-pair">'+
+    field('학년','filter_grade',grade)+
+    field('과목','filter_subject',subject)+
+  '</div>'+
+  '<div class="hmf-scope">'+field('시험 범위 · 단원','filter_Chapter',d.filter_Chapter||'시험 범위를 확인해 주세요',!d.filter_Chapter)+'</div>'+
+  '<p class="hmf-footnote">검색조건은 기존 족보닷컴 자료체계와 연결됩니다. 실제 학교별 자료는 확인된 원본만 표시됩니다.</p>'+
+ '</section>';
+}
 function dynamicMarkup(data){
  const exams=arr(data.exams),parts=arr(data.parts);
  if(!exams.length)return '<div class="zb-f-empty">원본 공개 검색 결과 0건입니다.</div>';
@@ -300,10 +340,7 @@ function schoolNativeContent(z,meta,entry){
   '원본에서 해당 학교·과목의 자료를 확인해 주세요.';
  const status=papers.length?'확인된 공개 목록 '+papers.length+'건':
    isLoading?'원본 자료 확인 중':error?'자료 조회 확인 필요':'공개 시험지 확보 전';
- const intro='<div class="hsc-native-summary"><div><small>학교별 내신 · 원본 자료 탐색</small>'+
-  '<h3>우리 학교 시험자료</h3><p>'+esc(grade)+' · '+esc(subj)+
-  ' · 학교별 예상족보 / 기출자료를 구분해 확인합니다.</p></div>'+
-  '<span class="hsc-native-status">'+esc(status)+'</span></div>';
+ const intro=''; // The main school-search card already owns the title and grade summary.
  const result=papers.length?
   '<div class="hsc-native-results">'+papers.slice(0,120).map(e=>
    '<button type="button" class="hsc-native-paper" data-zb-paper-id="'+attr(e.id)+'" data-zb-paper-kind="exam">'+
@@ -317,7 +354,7 @@ function schoolNativeContent(z,meta,entry){
     '선택 조건의 기출 원문은 아직 확보되지 않았습니다.')+'</strong>'+
   '<p>'+(error?'원본 서버 응답을 확인한 후 다시 시도해 주세요.':
     '학교별 예상족보는 실제 과거 시험 기출과 다를 수 있습니다. 확인된 자료번호만 학습반에 연결할 수 있습니다.')+'</p></div>';
- const notice='<div class="hsc-native-notice"><span>확인할 검색조건</span><p>'+esc(guidance)+'</p></div>';
+ const notice=(!city||!district||!validSchool)?'<div class="hmf-result-status">'+esc(guidance)+'</div>':'';
  const actions='<div class="hsc-native-actions">'+
  '<a href="'+attr(sourceLink)+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본에서 조회 ↗</a>'+
  '<button type="button" data-go="bankSchoolPractice">학습반에 연결된 기출 보기</button></div>';
@@ -325,7 +362,7 @@ function schoolNativeContent(z,meta,entry){
  const legacy=oldGuide?'<details class="hsc-native-guide"><summary>족보닷컴 원본 이용안내</summary>'+
   '<div class="hsc-native-legacy">'+oldGuide+'</div></details>':'';
  return '<section class="hsc-native-school" aria-label="학교별 내신 기출자료">'+intro+notice+
- '<div class="hsc-native-list-head"><b>시험자료 목록</b><small>'+esc(status)+'</small></div>'+
+ '<div class="hsc-native-list-head"><b>검색된 시험자료</b><small>'+esc(status)+'</small></div>'+
  result+actions+legacy+'</section>';
 }
 function sourcePage(s){
@@ -340,7 +377,7 @@ function sourcePage(s){
  const content=z.fMain==='school'?schoolNativeContent(z,meta,entry):pageHtml(z,meta,entry);
  const originalIsDifferent=meta.originalSubject&&meta.originalSubject!==z.fSubject;
  return '<div class="zb-faithful" data-source-case="'+attr(z.fCase)+'">'
-  +siteBar(z)+topTabs(z,meta)+subTabs(z,meta)+filterBar(z,meta)
+  +(z.fMain==='school'?hitelSchoolFinder(z,meta):siteBar(z)+topTabs(z,meta)+subTabs(z,meta)+filterBar(z,meta))
   +'<div class="zb-f-content">'+content+'</div>'
   +(originalIsDifferent?'<p class="zb-f-source-notice">원본 사이트가 선택 요청을 '+esc(meta.originalSubject)+' 과목으로 이동시킨 화면입니다.</p>':'')
   +(z.fDrawer?optionSheet(z,meta):'')
