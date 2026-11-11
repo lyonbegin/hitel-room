@@ -46,6 +46,10 @@ public final class GrowingCallEngine {
   volatile Uri activeUri;
   volatile File workingMirror;
   volatile long mirroredBytes=0;
+  volatile StreamingAacPcmDecoder continuousAacDecoder;
+  // Poll ONLY for source growth every 300ms. Native STT receives PCM when decoded;
+  // neither input nor captions wait for VAD, silence, or utterance completion.
+  static final long STREAM_POLL_MS=300;
   volatile long nextAacFrameSourceByte=0; // source bytes up to last COMPLETE AAC frame
   volatile long pendingDeltaPcmBytes=0; // only the PCM sent from an interrupted delta
   final AtomicLong pcmBytes=new AtomicLong();
@@ -266,7 +270,7 @@ public final class GrowingCallEngine {
             "noPcmForMs",lastPcm.get()==0?-1:SystemClock.elapsedRealtime()-lastPcm.get());
         }
       }catch(Throwable t){log.error("FILE","POLL_ERROR",t);}
-      try{Thread.sleep(100);}catch(InterruptedException e){break;}
+      try{Thread.sleep(STREAM_POLL_MS);}catch(InterruptedException e){break;}
     }
     log.event("FILE","POLL_STOPPED","checks",checks);
   }
@@ -719,6 +723,8 @@ public final class GrowingCallEngine {
       int attempt=0,failures=0;
       long sizeBefore=-1;
       long processedMirrorBytes=-1;
+      StreamingAacPcmDecoder incrementalDecoder=null;
+      try {
       while(!stop&&attempt<600){
         // The original Samsung recorder keeps one M4A open. AAC-LC inside its
         // mdat has no ADTS frame headers, while the trailing moov is absent.
@@ -778,7 +784,29 @@ public final class GrowingCallEngine {
         log.event("CURSOR","BEFORE_FFMPEG","sourceStart",deltaStart,
           "sourceEnd",recoveredDeltaEnd,"skipPcmBytes",replaySkip,
           "committedAudioMs",committedPcmBytes.get()/32L);
-        String result=consumeOnce(currentInput,attempt,replaySkip);
+        String result;
+        if(adts!=null){
+          if(incrementalDecoder==null){
+            incrementalDecoder=new StreamingAacPcmDecoder(log);
+            continuousAacDecoder=incrementalDecoder;
+          }
+          final int part=attempt;
+          long fed=incrementalDecoder.feed(adts,attempt,pcm->{
+            log.timing("PCM","LIVE_DECODER_PCM_FORWARD",
+              "attempt",part,"bytes",pcm.length,
+              "audioMs",committedPcmBytes.get()/32L);
+            sendChunk(pcm,part);
+            pcmBytes.addAndGet(pcm.length);
+            lastPcm.set(SystemClock.elapsedRealtime());
+          });
+          result=fed>0?"STREAMING_AAC_ACCEPTED":"STREAMING_AAC_NO_FRAMES";
+          log.event("STREAM","AAC_DELTA_ACCEPTED",
+            "attempt",attempt,"frames",fed,
+            "pcmDelivered",pcmBytes.get()-before,
+            "sourceCursorBefore",deltaStart,"sourceCursorNext",recoveredDeltaEnd);
+        }else{
+          result=consumeOnce(currentInput,attempt,replaySkip);
+        }
         if(result.startsWith("FATAL_UNDRAINED_PCM_"))
           throw new IOException("Refusing AAC cursor commit: previous PCM reader was not drained: "+result);
         processedMirrorBytes=snapshotBytes;
@@ -786,7 +814,7 @@ public final class GrowingCallEngine {
           log.event("AAC","TEMP_CLEANUP_FAILED","path",adts.getAbsolutePath());
         long newBytes=pcmBytes.get()-before;
         if(adts!=null){
-          if("FFMPEG_CLEAN_END".equals(result)){
+          if("STREAMING_AAC_ACCEPTED".equals(result) || "FFMPEG_CLEAN_END".equals(result)){
             nextAacFrameSourceByte=recoveredDeltaEnd;
             pendingDeltaPcmBytes=0;
             log.timing("AAC","SOURCE_CURSOR_COMMITTED","sourceByte",nextAacFrameSourceByte,
@@ -821,7 +849,7 @@ public final class GrowingCallEngine {
         }
         // A 15-second stable-file sleep is incompatible with immediate
         // call captions when Samsung buffers small AAC frame writes.
-        long waitUntil=SystemClock.elapsedRealtime()+650;
+        long waitUntil=SystemClock.elapsedRealtime()+STREAM_POLL_MS;
         long prev=currentSize;
         while(!stop && currentSize==prev && SystemClock.elapsedRealtime()<waitUntil){
           Thread.sleep(100);
@@ -831,6 +859,23 @@ public final class GrowingCallEngine {
         else log.event("FFMPEG","RETRY_AFTER_STABLE_INTERVAL","size",currentSize);
       }
       endReason=stop?"USER_STOP":"ATTEMPTS_EXHAUSTED";
+      }finally{
+        if(incrementalDecoder!=null){
+          try{
+            if(!stop && sherpa!=null && sherpa.isAlive()){
+              final int lastAttempt=attempt;
+              incrementalDecoder.finish(pcm->{
+                sendChunk(pcm,lastAttempt);
+                pcmBytes.addAndGet(pcm.length);
+              });
+            }
+          }catch(Throwable e){log.error("STREAM","FINAL_AAC_DRAIN_FAILED",e);}
+          finally{
+            incrementalDecoder.close();
+            continuousAacDecoder=null;
+          }
+        }
+      }
     }finally{
       if(pfd!=null)try{pfd.close();}catch(Exception ignored){}
       Process p=sherpa;
