@@ -1054,7 +1054,9 @@ public final class GrowingCallEngine {
     }
   }
 
-  // One final EOF to flush the native recognizer after AAC follower stops.
+  // Two independent Zipformer workers must fully drain all PCM windows after
+  // final EOF. The original v20 18-second grace period could kill worker B
+  // before its last 4-second/overlap window completed.
   void finishNativeOnSourceEnd(){
     Process p=sherpa;
     if(p==null||!p.isAlive())return;
@@ -1063,9 +1065,13 @@ public final class GrowingCallEngine {
       little32(out,0);little32(out,0);out.flush();out.close();
     }catch(Throwable e){log.error("STT","FOLLOW_FINAL_EOF_FAILED",e);}
     try{
-      boolean ended=p.waitFor(18,java.util.concurrent.TimeUnit.SECONDS);
+      log.timing("STT","DUAL_WORKER_FINAL_DRAIN_WAIT_BEGIN","maxWaitSeconds",90);
+      boolean ended=p.waitFor(90,java.util.concurrent.TimeUnit.SECONDS);
+      log.timing("STT","DUAL_WORKER_FINAL_DRAIN_WAIT_END",
+        "ended",ended,"captions",resultCount.get());
       log.event("STT","FOLLOW_NATIVE_PROCESS_END","ended",ended,
         "exitCode",ended?p.exitValue():-1,"captions",resultCount.get());
+      if(!ended)log.event("STT","DUAL_WORKER_FINAL_DRAIN_TIMEOUT","seconds",90);
     }catch(InterruptedException e){Thread.currentThread().interrupt();}
   }
 
