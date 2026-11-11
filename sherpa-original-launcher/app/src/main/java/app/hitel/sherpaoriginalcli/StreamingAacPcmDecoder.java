@@ -26,7 +26,7 @@ final class StreamingAacPcmDecoder implements AutoCloseable {
   private final float[] history=new float[FILTER];
   private final double[] taps=new double[FILTER];
   private int historyHead, channels=1, outputRate=SOURCE_RATE, outputEncoding=AudioFormat.ENCODING_PCM_16BIT;
-  private long sampleCount, inputFrames, outputSamples, outputPcmBytes;
+  private long sampleCount, inputFrames, outputSamples, outputPcmBytes, outputChunks;
   private boolean ended;
 
   StreamingAacPcmDecoder(TraceJournal log) throws Exception {
@@ -110,14 +110,26 @@ final class StreamingAacPcmDecoder implements AutoCloseable {
        throw new IOException("Unexpected AAC stream format or frame length: "+
          rateIndex+"/"+mono+"/"+frameLen+"/"+frame.length);
     byte[] payload=java.util.Arrays.copyOfRange(frame,hdr,frame.length);
+    long beginNs=SystemClock.elapsedRealtimeNanos();
     queueFrame(payload,sink);
     drain(sink,0);
+    long endNs=SystemClock.elapsedRealtimeNanos();
+    journal.timingAt(endNs,"PIPELINE","AAC_CODEC_FRAME_TOTAL",
+      "aacFrame",inputFrames,"pcmAudioEndMs",outputPcmBytes/32L,
+      "startBootNs",beginNs,"endBootNs",endNs,
+      "durationMs",(endNs-beginNs)/1000000.0,
+      "note","includes synchronous PCM callbacks, whose time is separately logged");
     // flushPcm occurs automatically at each 200ms window, not on phrase end.
   }
   private void queueFrame(byte[] data,PcmSink sink)throws Exception {
     long begin=SystemClock.elapsedRealtime();
     for(;;){
+      long waitStartNs=SystemClock.elapsedRealtimeNanos();
       int idx=codec.dequeueInputBuffer(3000);
+      long waitEndNs=SystemClock.elapsedRealtimeNanos();
+      journal.timingAt(waitEndNs,"PIPELINE","AAC_CODEC_INPUT_WAIT",
+        "aacFrame",inputFrames+1,"durationMs",(waitEndNs-waitStartNs)/1000000.0,
+        "startBootNs",waitStartNs,"endBootNs",waitEndNs,"bufferIndex",idx);
       if(idx>=0){
         ByteBuffer input=codec.getInputBuffer(idx);
         if(input==null || input.capacity()<data.length)
@@ -189,7 +201,14 @@ final class StreamingAacPcmDecoder implements AutoCloseable {
     if(pcm.size()==0)return;
     byte[] data=pcm.toByteArray();
     pcm.reset();
+    long sinkStartNs=SystemClock.elapsedRealtimeNanos();
     sink.accept(data);
+    long sinkEndNs=SystemClock.elapsedRealtimeNanos();
+    journal.timingAt(sinkEndNs,"PIPELINE","PCM_SINK_CALLBACK",
+      "outputChunk",++outputChunks,"pcmAudioEndMs",outputPcmBytes/32L,
+      "bytes",data.length,"durationMs",(sinkEndNs-sinkStartNs)/1000000.0,
+      "startBootNs",sinkStartNs,"endBootNs",sinkEndNs,
+      "note","output callback includes the native process pipe write");
   }
   long pcmBytes(){return outputPcmBytes;}
   void finish(PcmSink sink)throws Exception {
