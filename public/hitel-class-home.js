@@ -132,10 +132,15 @@ groupAITutor:'AI 과외',groupTutorCatalog:'AI 선생님',groupMissionJourney:'�
 topBar=function(id){
  if(['welcome','signin','signup'].includes(id))return oldTopBar(id);
  const isRoot=['groups','groupLearning','groupAITutor','bankSearch','settings','home'].includes(id);
- return '<header class="appbar hxs-header">'+(isRoot?'':'<button type="button" class="hxs-back" data-action="back" aria-label="뒤로">‹</button>')+
+ return '<header class="appbar hxs-header">'+
+ '<div class="hxs-toprow">'+
+ (isRoot?'':'<button type="button" class="hxs-back" data-action="back" aria-label="뒤로">‹</button>')+
  '<h2>'+e(shellTitles[id]||String(GRAPH[id]?.title||'HITEL 교육').replace(/스터디그룹/g,'학습반'))+'</h2>'+
- '<div class="hxs-search"><span aria-hidden="true">⌕</span><input id="hxs-input" type="search" autocomplete="off" placeholder="학습반 · AI · 족보" aria-label="통합 검색" value="'+e(shellQuery)+'"></div>'+
+ '<div class="hxs-header-actions">'+
+ '<button type="button" class="hxs-create" data-hxs="new-class" aria-label="새 학습반 만들기">＋ 학습반 만들기</button>'+
  '<button type="button" class="hxs-settings" data-go="settings" aria-label="설정">⋯</button>'+
+ '</div></div>'+
+ '<div class="hxs-search"><span aria-hidden="true">⌕</span><input id="hxs-input" type="search" autocomplete="off" placeholder="학습반 · AI · 족보 검색" aria-label="통합 검색" value="'+e(shellQuery)+'"></div>'+
  '<div id="hxs-results" class="hxs-results" hidden></div></header>';
 };
 function shellIndex(){
@@ -178,6 +183,7 @@ document.addEventListener('keydown',ev=>{
 document.addEventListener('click',ev=>{
  const result=ev.target.closest?.('#phone button[data-hxs]');
  if(result){ev.preventDefault();ev.stopPropagation();
+ if(result.dataset.hxs==='new-class'){choices.template=null;shellOpen=false;shellQuery='';go('groupCreate');return;}
  if(result.dataset.hxs==='close'){shellOpen=false;shellDraw();}else shellOpenResult(result.dataset.hxs,result.dataset.v||'');return;}
  if(shellOpen&&!ev.target.closest?.('#phone .hxs-search, #phone .hxs-results')){shellOpen=false;shellDraw();}
 });

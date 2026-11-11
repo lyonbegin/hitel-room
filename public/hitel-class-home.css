@@ -95,3 +95,21 @@
 #phone .hxs-nav .hxs-navicon{display:block;height:24px;line-height:24px;font-size:21px;color:inherit}
 @media(min-width:700px){#phone .hclass .hclass-heroes{grid-template-columns:repeat(2,minmax(0,1fr))}#phone .hclass .hclass-hero,#phone .hclass .hclass-hero:nth-child(2){min-height:205px}}
 @media(max-width:355px){#phone .hxs-header{padding:0 10px;gap:5px}#phone .hxs-header h2{font-size:16px;min-width:42px}#phone .hxs-search{width:40%;padding:0 7px}#phone .hxs-search>span{display:none}#phone .hclass .hclass-hero h3{font-size:18px}}
+
+
+/* Header actions preserved in full: new learning class + settings; search on separate line. */
+#phone .appbar.hxs-header{height:111px!important;min-height:111px;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:4px!important;padding:8px 16px 9px!important}
+#phone .hxs-toprow{width:100%;min-width:0;display:flex;align-items:center;gap:7px;height:43px;flex:none}
+#phone .hxs-toprow h2{font-size:18px;flex:1;max-width:none!important;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#phone .hxs-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:none}
+#phone .hxs-header-actions .hxs-create{display:inline-flex;align-items:center;justify-content:center;height:32px;min-width:0;padding:0 12px;background:#26292f;border:1px solid #26292f;border-radius:18px;color:#fff;font-size:11px;font-weight:760;white-space:nowrap;letter-spacing:-.015em}
+#phone .hxs-header-actions .hxs-create:focus-visible,#phone .hxs-header-actions .hxs-settings:focus-visible{outline:2px solid #ee783e;outline-offset:2px}
+#phone .hxs-header-actions .hxs-settings{width:32px;min-width:32px;height:36px}
+#phone .hxs-header .hxs-search{margin-left:0!important;width:100%!important;max-width:none;flex:none;height:38px!important;border-radius:11px}
+#phone .hxs-header .hxs-results{top:105px!important;right:12px;left:12px;width:auto!important}
+@media(max-width:355px){
+ #phone .appbar.hxs-header{padding-left:10px!important;padding-right:10px!important}
+ #phone .hxs-toprow h2{font-size:16px}
+ #phone .hxs-header-actions .hxs-create{padding:0 9px;font-size:10px}
+ #phone .hxs-header-actions{gap:3px}
+}
