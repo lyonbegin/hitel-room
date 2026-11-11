@@ -105,7 +105,7 @@ public final class MainActivity extends Activity {
     int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);
     scroll.addView(root);
-    TextView header=text("삼성 통화 녹음 파일 증가분 → FFmpeg → 한국어 Zipformer 174M 스트리밍 STT",20);
+    TextView header=text("삼성 통화 녹음 파일 증가분 → FFmpeg → 한국어 Zipformer 72M INT8 스트리밍 STT",20);
     header.setTypeface(null,Typeface.BOLD);root.addView(header);
     root.addView(text(
       "삼성 기본 전화앱은 변경하지 않습니다. 실제 통화 중 녹음 파일이 다른 앱에서 열리는지, " +
