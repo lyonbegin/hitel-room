@@ -75,7 +75,7 @@ function pageHome(){
  return '<section class="hclass">'+
  '<div class="hclass-brand"><div class="hclass-brand-symbol">✧</div><div><strong>HITEL 교육</strong><small>AI 선생님과 함께하는 최대 5인 학습반</small></div>'+
  b('＋ 학습반 만들기','new','','hclass-top-add')+'</div>'+
- '<div class="hclass-title"><h2>학습반</h2><p>목표가 같은 친구들과 함께 문제를 해결하세요.</p></div>'+
+ '<div class="hclass-title"><h2>어떤 공부를 시작할까요?</h2><p>학교 시험부터 문제집 완성까지, 우리에게 맞는 학습반을 찾아보세요.</p></div>'+
  '<div class="hclass-jump">'+b('⌕ 학습반 찾기','route','groupSearch')+b('◷ 내 학습반 '+joined.length,'mine','')+'</div>'+
  '<header class="hclass-heading"><span>✦ '+m+'월 · '+e(seasonData.label)+'</span><h3>지금 뜨는 학습반</h3><p>'+e(seasonData.lead)+'</p></header>'+
  '<div class="hclass-heroes">'+seasonData.items.map(heroCard).join('')+'</div>'+
@@ -121,6 +121,72 @@ document.addEventListener('click',ev=>{
  if(action==='mine'){document.querySelector('#hclass-mine')?.scrollIntoView?.({behavior:'smooth',block:'start'});return;}
  if(action==='openClass'){const g=model.groups.find(g=>g.id===value);if(!g)return;model.activeGroupId=g.id;wp.saveModel();go('groupDetail');return;}
 });
+
+/* HITEL mobile shell: visible top search, four accessible bottom tabs. */
+let shellQuery='',shellOpen=false;
+const oldTopBar=topBar;
+const shellTabs=[['groups','학습반','♧'],['groupLearning','학습','▤'],['groupAITutor','AI 과외','✦'],['bankSearch','족보','▦']];
+const shellTitles={groups:'학습반',groupSearch:'학습반 찾기',groupCreate:'학습반 만들기',groupDetail:'내 학습반',
+groupLearning:'학습',groupLearningResources:'학습자료',groupLearningExams:'시험',
+groupAITutor:'AI 과외',groupTutorCatalog:'AI 선생님',groupMissionJourney:'오늘의 미션',groupMissionPlay:'문제 풀기',bankSearch:'족보'};
+topBar=function(id){
+ if(['welcome','signin','signup'].includes(id))return oldTopBar(id);
+ const isRoot=['groups','groupLearning','groupAITutor','bankSearch','settings','home'].includes(id);
+ return '<header class="appbar hxs-header">'+(isRoot?'':'<button type="button" class="hxs-back" data-action="back" aria-label="뒤로">‹</button>')+
+ '<h2>'+e(shellTitles[id]||String(GRAPH[id]?.title||'HITEL 교육').replace(/스터디그룹/g,'학습반'))+'</h2>'+
+ '<div class="hxs-search"><span aria-hidden="true">⌕</span><input id="hxs-input" type="search" autocomplete="off" placeholder="학습반 · AI · 족보" aria-label="통합 검색" value="'+e(shellQuery)+'"></div>'+
+ '<button type="button" class="hxs-settings" data-go="settings" aria-label="설정">⋯</button>'+
+ '<div id="hxs-results" class="hxs-results" hidden></div></header>';
+};
+function shellIndex(){
+ const groups=(model.groups||[]).map(g=>({title:g.name||'학습반',description:[g.institutionName||g.school,g.grade,g.subject].filter(Boolean).join(' · '),action:'class',id:g.id,kind:'내 학습반'}));
+ const topics=['내신집중반','문제집완성반','선행학습반','약점극복반','겨울방학 집중반','기말고사 집중반'].map(title=>({title,description:'학습반 유형 찾아보기',action:'search',id:title.replace(/반$/,''),kind:'학습반 추천'}));
+ const links=[['학습반 찾기','학교·학년·과목으로 반 검색','groupSearch'],['AI 선생님 찾기','AI 과외와 교재별 트레이너','groupAITutor'],['학교별 족보','내신 족보와 문제은행','bankSearch'],['나의 학습','문제 미션과 학습자료','groupLearning']]
+ .map(([title,description,id])=>({title,description,id,action:'route',kind:'서비스'}));
+ return [...groups,...topics,...links];
+}
+function shellMatches(query){
+ const text=String(query||'').trim().toLocaleLowerCase('ko'),entries=shellIndex();
+ if(!text)return entries.slice(-4);
+ const matched=entries.filter(x=>(x.title+' '+x.description+' '+x.kind).toLocaleLowerCase('ko').includes(text)).slice(0,7);
+ return matched.length?matched:[{title:'학교·학원별 학습반 찾기',description:'입력하신 검색어로 학습반 검색',action:'search',id:query,kind:'전체 검색'},
+ {title:'관련 족보 찾기',description:'학교별 기출과 문제은행',action:'route',id:'bankSearch',kind:'전체 검색'}];
+}
+function shellDraw(){
+ const panel=document.querySelector('#phone #hxs-results');if(!panel)return;
+ panel.hidden=!shellOpen;if(!shellOpen){panel.innerHTML='';return;}
+ panel.innerHTML='<div class="hxs-result-head"><b>'+(shellQuery?'검색 결과':'추천 바로 가기')+'</b><button type="button" data-hxs="close">닫기</button></div>'+
+ shellMatches(shellQuery).map(x=>'<button type="button" class="hxs-result" data-hxs="'+e(x.action)+'" data-v="'+e(x.id)+'">'+
+ '<span><strong>'+e(x.title)+'</strong><small>'+e(x.description)+'</small></span><em>'+e(x.kind)+'</em></button>').join('');
+}
+function shellOpenResult(action,id){
+ shellOpen=false;shellQuery='';
+ if(action==='class'){const g=model.groups.find(x=>x.id===id);if(!g)return;model.activeGroupId=id;wp.saveModel();go('groupDetail');return;}
+ if(action==='search'){state.wpInstitutionFilterName=id;go('groupSearch');return;}
+ if(action==='route'){go(id);return;}
+ shellDraw();
+}
+document.addEventListener('focusin',ev=>{if(ev.target?.id==='hxs-input'){shellQuery=ev.target.value||'';shellOpen=true;shellDraw();}});
+document.addEventListener('input',ev=>{if(ev.target?.id==='hxs-input'){shellQuery=ev.target.value||'';shellOpen=true;shellDraw();}});
+document.addEventListener('keydown',ev=>{
+ if(ev.target?.id==='hxs-input'&&ev.key==='Enter'){ev.preventDefault();const first=shellMatches(shellQuery)[0];if(first)shellOpenResult(first.action,first.id);}
+ if(ev.key==='Escape'&&shellOpen){shellOpen=false;shellDraw();}
+});
+document.addEventListener('click',ev=>{
+ const result=ev.target.closest?.('#phone button[data-hxs]');
+ if(result){ev.preventDefault();ev.stopPropagation();
+ if(result.dataset.hxs==='close'){shellOpen=false;shellDraw();}else shellOpenResult(result.dataset.hxs,result.dataset.v||'');return;}
+ if(shellOpen&&!ev.target.closest?.('#phone .hxs-search, #phone .hxs-results')){shellOpen=false;shellDraw();}
+});
+bottomFor=function(route){
+ if(['welcome','signin','signup'].includes(route)||route.startsWith('external_')||['groupLiveRoom','groupWhiteboard'].includes(route))return '';
+ const active=route.startsWith('bank')?'bankSearch':route==='groupAITutor'||route==='groupTutorCatalog'?'groupAITutor':
+ ['groupLearning','groupLearningResources','groupLearningExams','groupMissionJourney','groupMissionPlay'].includes(route)?'groupLearning':'groups';
+ return '<nav class="bottomnav hxs-nav" aria-label="하단 메뉴">'+shellTabs.map(([id,name,icon])=>
+ '<button type="button" data-go="'+id+'" class="'+(active===id?'selected':'')+'" aria-label="'+name+'"><span class="hxs-navicon" aria-hidden="true">'+icon+'</span><span>'+name+'</span></button>').join('')+'</nav>';
+};
+window.HITEL_SHELL_INSPECT=()=>({bottomMenu:shellTabs.map(x=>x[1]),hasQuestionTab:false,searchItems:shellIndex().length,season:season(monthNow()).label});
+
 window.HITEL_CLASS_DISCOVERY_INSPECT=()=>({route:state.screen,month:monthNow(),season:season(monthNow()).label,
  visibleClassCount:owned().length,templateSelected:choices.template?.id||null,source:'browser-local',popularityVerified:false});
 })();
