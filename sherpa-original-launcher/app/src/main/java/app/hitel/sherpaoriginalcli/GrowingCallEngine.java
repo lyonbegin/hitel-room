@@ -483,6 +483,27 @@ public final class GrowingCallEngine {
         String line;
         while((line=reader.readLine())!=null){
           final long receivedNs=SystemClock.elapsedRealtimeNanos();
+          if(line.startsWith("ONLINE_STAGE:")){
+            // Stage timings are per chunk, NOT cumulative. Both clocks are CLOCK_BOOTTIME.
+            try{
+              String[] part=line.split(":",6);
+              if(part.length==6){
+                long seq=Long.parseLong(part[2]);
+                long audioMs=Long.parseLong(part[3]);
+                long startNs=Long.parseLong(part[4]);
+                long endNs=Long.parseLong(part[5]);
+                if(endNs>=startNs && startNs>0)
+                  log.timingAt(endNs,"PIPELINE",part[1],
+                    "chunkSeq",seq,"audioEndMs",audioMs,"startBootNs",startNs,
+                    "endBootNs",endNs,"durationMs",(endNs-startNs)/1000000.0,
+                    "readerLagMs",(receivedNs-endNs)/1000000.0);
+                else log.event("PIPELINE","INVALID_STAGE_CLOCK","line",line);
+              }
+            }catch(RuntimeException error){
+              log.event("PIPELINE","STAGE_PARSE_ERROR","line",line,"error",error.toString());
+            }
+            continue;
+          }
           if(line.startsWith("ONLINE_TIMING:")){
             try{
               String[] metric=line.split(":",6);
@@ -1013,7 +1034,13 @@ public final class GrowingCallEngine {
           throw new IOException("Invalid AAC follower frame n="+n+" source="+cursor+
             " prev="+lastCursor);
         byte[] adts=new byte[n];
+        long frameReadBeginNs=SystemClock.elapsedRealtimeNanos();
         reader.readFully(adts);
+        long frameReadEndNs=SystemClock.elapsedRealtimeNanos();
+        log.timingAt(frameReadEndNs,"PIPELINE","AAC_FRAME_READ",
+          "frame",inputFrames+1,"sourceByte",cursor,"compressedBytes",n,
+          "durationMs",(frameReadEndNs-frameReadBeginNs)/1000000.0,
+          "startBootNs",frameReadBeginNs,"endBootNs",frameReadEndNs);
         final int seq=(int)(inputFrames+1);
         long frameStartNs=SystemClock.elapsedRealtimeNanos();
         decoder.feedAdtsFrame(adts,pcm->{
@@ -1022,6 +1049,11 @@ public final class GrowingCallEngine {
           lastPcm.set(SystemClock.elapsedRealtime());
         });
         long finishedNs=SystemClock.elapsedRealtimeNanos();
+        log.timingAt(finishedNs,"PIPELINE","AAC_TO_PCM_AND_PIPE",
+          "frame",inputFrames+1,"sourceByte",cursor,
+          "durationMs",(finishedNs-frameStartNs)/1000000.0,
+          "startBootNs",frameStartNs,"endBootNs",finishedNs,
+          "note","includes codec, resampling and any synchronous PCM pipe callback");
         inputFrames++;
         lastCursor=cursor;
         nextAacFrameSourceByte=cursor;
@@ -1381,6 +1413,7 @@ public final class GrowingCallEngine {
     if(p==null||!p.isAlive())throw new IOException("SenseVoice native process exited");
     int samples=pcm.length/2;
     int seq=chunkCount.incrementAndGet();
+    final long chunkStartNs=SystemClock.elapsedRealtimeNanos();
     double sum=0,peak=0,nonzero=0;
     for(int i=0;i+1<pcm.length;i+=2){
       int lo=pcm[i]&255,hi=pcm[i+1]<<8;
@@ -1417,6 +1450,14 @@ public final class GrowingCallEngine {
     log.timingAt(writeEndNs,"PCM","PIPE_WRITE_END","seq",seq,"attempt",attempt,
       "audioEndMs",committedPcmBytes.get()/32L,
       "writeDurationMs",(writeEndNs-writeBeginNs)/1000000.0);
+    log.timingAt(writeEndNs,"PIPELINE","PCM_PREP_AND_WRITE",
+      "chunkSeq",seq,"audioEndMs",committedPcmBytes.get()/32L,
+      "startBootNs",chunkStartNs,"endBootNs",writeEndNs,
+      "durationMs",(writeEndNs-chunkStartNs)/1000000.0);
+    log.timingAt(writeEndNs,"PIPELINE","PCM_PIPE_WRITE",
+      "chunkSeq",seq,"audioEndMs",committedPcmBytes.get()/32L,
+      "startBootNs",writeBeginNs,"endBootNs",writeEndNs,
+      "durationMs",(writeEndNs-writeBeginNs)/1000000.0);
     // One status update per second avoids UI broadcasts for every 200ms PCM packet.
     if(seq%5==0)callback.onStatus("PCM 입력 "+String.format(Locale.US,"%.1f",pcmBytes.get()/32000.0)+
       "초 / 온라인 인식 중 ("+seq+"번째 입력)",transcription);
