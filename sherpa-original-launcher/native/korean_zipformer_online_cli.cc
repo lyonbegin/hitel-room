@@ -62,10 +62,16 @@ struct Engine {
   // No VAD, prefix seals, prior speech merging, or mid-call commits.
   uint32_t currentSeq=0;
   void update(bool final) {
-    const auto* result=SherpaOnnxGetOnlineStreamResult(recognizer,stream);
+    const uint64_t hypothesisBeginNs=boot_ns();
+    const auto* result=SherpaOnnxGetOnlineStreamResult(recognizer,stream); 
     if(!result)return;
     const std::string raw=sanitize(result->text?result->text:"");
     SherpaOnnxDestroyOnlineRecognizerResult(result);
+    const uint64_t hypothesisEndNs=boot_ns();
+    printf("ONLINE_STAGE:HYPOTHESIS:%u:%llu:%llu:%llu\n",currentSeq,
+          static_cast<unsigned long long>(pcmSamples*1000/16000),
+          static_cast<unsigned long long>(hypothesisBeginNs),
+          static_cast<unsigned long long>(hypothesisEndNs));
     // The Zipformer hypothesis is a REPLACEABLE full-session transcript.
     // Every new hypothesis replaces the entire displayed string; there is
     // no stable-prefix or previously sealed utterance to duplicate or freeze.
@@ -74,7 +80,12 @@ struct Engine {
       printf("ONLINE_TIMING:LIVE:%u:%lld:%llu:0\n",hypotheses+1,audioMs,
           static_cast<unsigned long long>(boot_ns()));
       printf("ONLINE_HYPOTHESIS:%lld:%s\n",audioMs,raw.c_str());
+      const uint64_t publishBeginNs=boot_ns();
       printf("ONLINE_LIVE:%lld:%s\n",audioMs,raw.c_str());
+      const uint64_t publishEndNs=boot_ns();
+      printf("ONLINE_STAGE:PUBLISH:%u:%lld:%llu:%llu\n",currentSeq,audioMs,
+          static_cast<unsigned long long>(publishBeginNs),
+          static_cast<unsigned long long>(publishEndNs));
       std::vector<std::string> tw=words(raw);
       if(!tw.empty()){
         const size_t tail=tw.size()>2?tw.size()-2:0;
@@ -100,12 +111,22 @@ struct Engine {
     printf("ONLINE_TIMING:INPUT:%u:%llu:%llu:0\n",seq,
         static_cast<unsigned long long>(pcmSamples*1000/16000),
         static_cast<unsigned long long>(acceptedNs));
-    SherpaOnnxOnlineStreamAcceptWaveform(stream,16000,wave,n);
+    const uint64_t acceptStartNs=boot_ns();
+    SherpaOnnxOnlineStreamAcceptWaveform(stream,16000,wave,n); 
+    const uint64_t acceptEndNs=boot_ns();
+    printf("ONLINE_STAGE:ACCEPT:%u:%llu:%llu:%llu\n",seq,
+          static_cast<unsigned long long>(pcmSamples*1000/16000),
+          static_cast<unsigned long long>(acceptStartNs),
+          static_cast<unsigned long long>(acceptEndNs));
     int iteration=0;
     while(SherpaOnnxIsOnlineStreamReady(recognizer,stream)&&++iteration<1000){
       const uint64_t decodeBegin=boot_ns();
       SherpaOnnxDecodeOnlineStream(recognizer,stream);
       const uint64_t decodeEnd=boot_ns();
+      printf("ONLINE_STAGE:DECODE:%u:%llu:%llu:%llu\n",seq,
+          static_cast<unsigned long long>(pcmSamples*1000/16000),
+          static_cast<unsigned long long>(decodeBegin),
+          static_cast<unsigned long long>(decodeEnd));
       const uint64_t elapsedUs=(decodeEnd-decodeBegin)/1000;
       decodeCalls++;
       decodeTotalUs+=elapsedUs;
