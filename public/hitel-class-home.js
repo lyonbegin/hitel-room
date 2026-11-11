@@ -63,7 +63,7 @@ function miniCard(c){
 function ownCard(g){
  const n=(g.members||[]).length,teacher=g.coachName||'AI 선생님 선택 대기',label=g.goalType||'공동학습';
  return '<button type="button" class="hclass-owned" data-hc="openClass" data-v="'+e(g.id)+'">'+
- '<div class="hclass-owned-top"><span>'+e(label)+' · '+e(g.subject||'학습')+'</span><small>'+n+'/5명</small></div>'+
+ '<div class="hclass-owned-top"><span>'+e(label)+' · '+e(g.subject||'학습')+'</span><small>'+n+'/'+Math.max(1,Math.min(5,Number(g.capacity)||5))+'명</small></div>'+
  '<strong>'+e(g.name||'내 학습반')+'</strong><p>'+e(teacher)+' · '+e(g.goalTitle||g.topics||'목표를 정해 보세요')+'</p>'+
  '<div class="hclass-owned-foot"><span>'+(g.example?'체험용 학습반':'진행 중인 학습반')+'</span><b>학습반 입장 ›</b></div></button>';
 }
@@ -101,7 +101,7 @@ function prefill(markup,c){
 }
 groupPage=function(route){
  if(route==='groups')return pageHome();
- if(route==='groupCreate')return prefill(previousPage(route),choices.template);
+ if(route==='groupCreate')return window.HITEL_CLASS_AI_FLOW?.pending?.()?previousPage(route):prefill(previousPage(route),choices.template);
  const rendered=previousPage(route);
  if(['groupSearch','groupJoin','groupPreview'].includes(route)&&typeof rendered==='string')return rendered.replace(/스터디그룹/g,'학습반').replace(/스터디/g,'학습반');
  return rendered;
