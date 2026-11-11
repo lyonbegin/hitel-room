@@ -1,0 +1,6 @@
+Release authorization for Galaxy v28 UI-visible live-caption comparison.
+Source branch: experiment/zipformer-v27-caption-display-pump-v28-20261112
+Signed ARM64 APK build success: https://github.com/lyonbegin/hitel-room/actions/runs/43065058497
+v27 native recognizers, two-worker dispatch, Korean 174M ONNX and Samsung AAC pipeline: unchanged.
+Only MainActivity fixed latest 48-character captions outside scroll with the latest two words always visible; distinct package stream28.
+Android 15 growing-M4A regression is a separate check; do not infer real-device screen scanout latency from native frame callback.
