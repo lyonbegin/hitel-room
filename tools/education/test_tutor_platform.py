@@ -56,6 +56,13 @@ def ask(page,question):
     check(screen(page)=="groupTeacherChat","group directly opens its assigned teacher")
     page.locator("#tp-chat-compose [name=question]").fill(question)
     page.locator("#tp-chat-compose button[type=submit]").click()
+    print("CHAT_DEBUG",json.dumps({
+      "screen":screen(page),"groupId":data(page)["activeGroupId"],
+      "studentBubbles":page.locator("#phone .tp-bubble.student").count(),
+      "teacherBubbles":page.locator("#phone .tp-bubble.teacher").count(),
+      "chatObj":data(page).get("teacherChats"),
+      "text":page.locator("#phone .tp-chat-history").inner_text()[:900]
+    },ensure_ascii=False),flush=True)
     check(page.locator("#phone .tp-bubble.student").count()==1,"student question saved")
     check(page.locator("#phone .tp-bubble.teacher").count()==1,"clearly rule-based demo answer shown")
 def learning(page):
