@@ -143,8 +143,8 @@ struct Manager{
   std::mutex stateMutex,readyMutex;
   std::condition_variable readyCv;
   std::map<int,Segment> segments;
-  int ready=0;
-  bool error=false;
+  int primaryState=0; // 0: loading, 1: ready, -1: failed
+  std::atomic<bool> standbyReady{false};
   std::string lastPublished;
   std::atomic<uint64_t> pcmSamples{0};
   unsigned int hypotheses=0;
@@ -161,16 +161,20 @@ struct Manager{
     for(int i=0;i<4;++i)argv[i]=a[i+1];
     for(int i=0;i<2;++i){workers[i].parent=this;workers[i].id=i;}
   }
-  void signalReady(bool ok){
+  void signalReady(bool ok,int worker){
     std::lock_guard<std::mutex> guard(readyMutex);
-    if(!ok)error=true;
-    ++ready;readyCv.notify_all();
+    if(worker==0)primaryState=ok?1:-1;
+    else standbyReady.store(ok);
+    readyCv.notify_all();
+    if(worker==1)say("DUAL_STANDBY_MODEL_%s",ok?"READY":"UNAVAILABLE");
   }
   bool launch(){
     for(auto &w:workers)w.start();
     std::unique_lock<std::mutex> lock(readyMutex);
-    readyCv.wait(lock,[this]{return ready==2;});
-    if(error){
+    // The primary recognizer alone opens the live stream. NEVER block live
+    // start on a secondary model that may still be warming up.
+    readyCv.wait(lock,[this]{return primaryState!=0;});
+    if(primaryState!=1){
       lock.unlock();
       for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
       for(auto &w:workers)w.thread.join();
@@ -196,7 +200,8 @@ struct Manager{
       // No id%2 alternation. Worker 0 is always preferred when unreserved.
       // Only an unfinished primary segment causes a handoff to standby.
       const int primary=reserved[0].load(),standby=reserved[1].load();
-      const int assigned=primary==0?0:(standby==0?1:0);
+      const int assigned=primary==0?0:
+        (standby==0 && standbyReady.load()?1:0);
       windowOwners.emplace(id,assigned);
       reserved[assigned].fetch_add(1);
       segments.emplace(id,Segment{});
@@ -211,9 +216,10 @@ struct Manager{
         workers[assigned].enqueue(std::move(context));
       }
       maxWindow.store(id);
-      say("DUAL_ASSIGN:window=%d:worker=%d:primaryBusy=%d:standbyBusy=%d:reason=%s",
-          id,assigned,primary,standby,
-          assigned==0?"PRIMARY_AVAILABLE":"PRIMARY_PROCESSING_PREVIOUS");
+      say("DUAL_ASSIGN:window=%d:worker=%d:primaryBusy=%d:standbyBusy=%d:standbyReady=%d:reason=%s",
+          id,assigned,primary,standby,standbyReady.load()?1:0,
+          assigned==1?"PRIMARY_PROCESSING_PREVIOUS":
+          primary==0?"PRIMARY_AVAILABLE":"STANDBY_UNAVAILABLE_OR_BUSY");
     }
   }
   void remember(const float* audio,size_t count){
@@ -411,7 +417,7 @@ void Worker::loop(){
   recognizer=SherpaOnnxCreateOnlineRecognizer(&config);
   say("DUAL_MODEL_READY:worker=%d:ok=%d:durationMs=%llu",id,recognizer?1:0,
       (unsigned long long)((bootNs()-begin)/1000000));
-  parent->signalReady(recognizer!=nullptr);
+  parent->signalReady(recognizer!=nullptr,id);
   if(!recognizer)return;
   for(;;){
     Task job;
