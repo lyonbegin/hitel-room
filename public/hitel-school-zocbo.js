@@ -12,7 +12,8 @@ const model=WP.getModel(),oldPage=UI.page,oldGroupPage=groupPage;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const own=()=>Array.isArray(model.groups)?model.groups.filter(g=>g?.members?.includes('나')):[];
 const schoolOf=g=>String(g?.school||g?.institutionName||'').trim();
-const classes=()=>own().filter(g=>/^[중고][123]$/.test(g.grade||'')&&schoolOf(g));
+const isExample=g=>!!g.example||/예시|샘플|demo/i.test(String(g.name||'')+' '+schoolOf(g));
+const classes=()=>own().filter(g=>/^[중고][123]$/.test(g.grade||'')&&schoolOf(g)&&!isExample(g));
 const subject=g=>String(g?.subject||'').split(/[,·/]/)[0].trim();
 const normSchool=s=>String(s||'').trim().replace(/\s/g,'').replace(/(고등학교|중학교|초등학교|고|중|초)$/,'');
 const metaSchool=x=>x?.category==='school'&&!!x.paperId;
@@ -23,7 +24,7 @@ const buttons=[
  ['school','학교 내신'],['mock','모의·수능'],['admission','고입 전형'],
  ['contest','경시'],['university','대학별고사'],['diagnostic','진단·평가']
 ];
-const ui={groupId:model.activeGroupId||'',prefilledFor:'',selectedPaperKey:''};
+const ui={groupId:model.activeGroupId||'',prefilledFor:'',selectedPaperKey:'',defaultSchoolApplied:false};
 window.YPT_GRAPH.bankSchoolPractice={title:'우리 반 기출 학습',evidence:[],actions:[{text:'족보',go:'bankSearch'}]};
 function group(){return classes().find(x=>x.id===ui.groupId)||classes().find(x=>x.id===model.activeGroupId)||classes()[0]||null}
 function choose(id){const g=classes().find(x=>x.id===id);if(!g)return;ui.groupId=id;ui.prefilledFor='';model.activeGroupId=id;WP.saveModel();apply(g,state);render()}
@@ -63,7 +64,12 @@ function apply(g,s){
 }
 function maybePrefill(s){
  const g=group();
- if(g&&ui.prefilledFor!==g.id)apply(g,s);
+ if(g&&ui.prefilledFor!==g.id){apply(g,s);return}
+ if(!g&&!ui.defaultSchoolApplied&&s){
+  const z=s.zocbo||(s.zocbo={});
+  if(!z.fMain)z.fMain='school';
+  ui.defaultSchoolApplied=true;
+ }
 }
 function cats(){
  return '<nav class="hsc-types" aria-label="시험 종류">'+buttons.map(([type,label])=>
@@ -81,23 +87,23 @@ function shown(g){
 function home(s){
  maybePrefill(s);
  const groups=classes(),g=group(),linked=records(g);
- return '<section class="hsc-home" aria-label="학습반과 학교별 족보 통합">'+
- '<div class="hsc-hero"><div><span>학교별 기출 × AI 학습반</span><h2>우리 반 시험 기출 찾기</h2><p>학교별 기출을 찾고, 실제 자료번호를 학습반에 연결해 공부합니다.</p></div></div>'+
+ return '<section class="hsc-home" aria-label="HITEL 기출·족보">'+
+ '<div class="hsc-hero"><div><span>학교 내신 · 기출·족보</span><h2>우리 학교 기출 찾기</h2>'+
+ '<p>학교·학년·과목에 맞는 원본 자료를 찾고 학습반에 연결합니다.</p></div></div>'+
  (groups.length?
-  '<div class="hsc-select-row"><label for="hsc-class-picker">학습반</label>'+
-  '<select id="hsc-class-picker" aria-label="족보를 검색할 학습반 선택">'+groups.map(x=>
-  '<option value="'+esc(x.id)+'"'+(g?.id===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></div>'+shown(g):
-  '<div class="hsc-no-class"><strong>학습반을 선택해 학교별 기출을 연결해 보세요.</strong>'+
-  '<p>학습반이 없으셔도 아래의 중·고등·지역·학교별 족보는 그대로 검색하실 수 있습니다.</p>'+
-  '<button type="button" data-go="groups">내 학습반 보기 ›</button></div>')+
- '<div class="hsc-tabs-label"><strong>다른 시험 기출도 찾아보세요</strong></div>'+cats()+
- (g&&linked.length?'<div class="hsc-linked"><strong>우리 반에 연결된 기출</strong>'+
- linked.slice(-2).reverse().map(x=>'<button type="button" data-hsc="study" class="hsc-linked-paper"><b>'+esc(x.title||'기출시험지')+
- '</b><small>원본번호 '+esc(x.paperId)+' · 문제 본문은 별도 확보</small></button>').join('')+'</div>':'')+
- '<div class="hsc-original-heading"><h3>학교별 기출 원본 검색</h3>'+
- '<p>'+(g?esc(schoolOf(g)+' · '+g.grade+' · '+subject(g))+' 검색조건을 불러왔습니다. ':'')+
- '기존 중·고등, 지역·학교·학년·과목·중간·기말 선택을 그대로 이용합니다.</p></div>'+
- (g?'<p class="hsc-original-caution">학교명은 검색조건으로 적용됩니다. 아래 자료가 실제 해당 학교에서 출제됐는지는 원본 자료를 확인해 주세요.</p>':'')+
+ '<div class="hsc-compact-class"><label for="hsc-class-picker">학습반</label>'+
+ '<select id="hsc-class-picker" aria-label="기출을 검색할 학습반">'+groups.map(x=>
+ '<option value="'+esc(x.id)+'"'+(g?.id===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>'+
+ '<div class="hsc-compact-status"><small>'+esc([schoolOf(g),g.grade,subject(g)].join(' · '))+'</small>'+
+ '<span>'+linked.length+'건 연결</span></div>'+
+ '<button type="button" data-hsc="apply">학습반 검색조건 적용</button>'+
+ '<button type="button" data-hsc="study">연결 기출 보기</button></div>':
+ '<div class="hsc-initial-note"><span>내 학습반이 없으셔도 학교별 기출을 검색하실 수 있습니다.</span>'+
+ '<button type="button" data-go="groupCreate">＋ 학습반 만들기</button></div>')+
+ '<div class="hsc-tabs-label"><strong>기출 종류</strong></div>'+cats()+
+ (g&&linked.length?'<div class="hsc-linked"><strong>내 학습반의 기출</strong>'+
+ linked.slice(-2).reverse().map(x=>'<button type="button" data-hsc="study" class="hsc-linked-paper"><b>'+esc(x.title||'기출자료')+
+ '</b><small>원본 자료번호 '+esc(x.paperId)+'</small></button>').join('')+'</div>':'')+
  '</section>';
 }
 function teacherGroupCard(g){
