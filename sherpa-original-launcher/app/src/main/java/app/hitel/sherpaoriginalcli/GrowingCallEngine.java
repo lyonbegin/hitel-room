@@ -203,6 +203,28 @@ public final class GrowingCallEngine {
   long recordingCreatedAt(DocumentFile file,long observedAt){
     final String name=file.getName();
     if(name==null)return observedAt;
+    // Verified actual Galaxy SM-F711N call name from user diagnosis:
+    // "통화 녹음 100_261111_235842.m4a" => 2026-11-11 23:58:42.
+    // The Samsung recorder's original creation timestamp is more accurate
+    // for creation ordering than mutable lastModified or delayed media index.
+    java.util.regex.Matcher samsung=java.util.regex.Pattern
+      .compile("_(\\d{6})_(\\d{6})(?:\\.|_)").matcher(name);
+    if(samsung.find()){
+      try{
+        java.text.SimpleDateFormat fmt=new java.text.SimpleDateFormat(
+          "yyMMdd_HHmmss",java.util.Locale.US);
+        fmt.setLenient(false);
+        java.util.Date parsed=fmt.parse(samsung.group(1)+"_"+samsung.group(2));
+        if(parsed!=null){
+          long created=parsed.getTime();
+          log.event("FOLDER","SAMSUNG_CREATION_FROM_FILENAME",
+            "name",name,"createdMs",created);
+          return created;
+        }
+      }catch(java.text.ParseException badDate){
+        log.event("FOLDER","SAMSUNG_CREATION_FILENAME_INVALID","name",name);
+      }
+    }
     String docId=null,folderPath=null;
     try{
       docId=DocumentsContract.getDocumentId(file.getUri());
