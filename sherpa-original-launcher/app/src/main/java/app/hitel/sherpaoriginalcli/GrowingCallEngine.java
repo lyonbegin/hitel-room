@@ -6,6 +6,10 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
+import android.provider.MediaStore;
+import android.database.Cursor;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
 import android.util.Log;
 import androidx.documentfile.provider.DocumentFile;
 import com.arthenica.ffmpegkit.FFmpegKit;
@@ -188,11 +192,80 @@ public final class GrowingCallEngine {
     return uri.getLastPathSegment()==null?"unknown":uri.getLastPathSegment();
   }
 
+  /**
+   * Sort simultaneous growing recordings by creation evidence, NOT modified time.
+   * MediaStore.DATE_ADDED = timestamp originally added to media index, and is
+   * checked only for an exact selected-folder/path match. BasicFileAttributes
+   * creationTime is used when the primary: SAF file is directly accessible.
+   * Fallback is when THIS monitor first observed the file; this fallback
+   * cannot prove historical filesystem birth order, and is logged explicitly.
+   */
+  long recordingCreatedAt(DocumentFile file,long observedAt){
+    final String name=file.getName();
+    if(name==null)return observedAt;
+    String docId=null,folderPath=null;
+    try{
+      docId=DocumentsContract.getDocumentId(file.getUri());
+      if(docId!=null && docId.startsWith("primary:")){
+        String rel=docId.substring("primary:".length());
+        int slash=rel.lastIndexOf('/');
+        if(slash>=0)folderPath=rel.substring(0,slash+1);
+      }
+    }catch(Throwable ignored){}
+    if(Build.VERSION.SDK_INT>=29 && folderPath!=null){
+      try{
+        String[] columns={MediaStore.MediaColumns.DATE_ADDED,
+          MediaStore.MediaColumns.RELATIVE_PATH};
+        Uri index=MediaStore.Files.getContentUri("external");
+        String where=MediaStore.MediaColumns.DISPLAY_NAME+"=?";
+        try(Cursor results=context.getContentResolver().query(index,columns,
+            where,new String[]{name},null)){
+          if(results!=null)while(results.moveToNext()){
+            long seconds=results.getLong(0);
+            String indexedFolder=results.getString(1);
+            if(seconds>0 && folderPath.equals(indexedFolder)){
+              long added=seconds*1000L;
+              log.event("FOLDER","CREATION_ORDER_MEDIASTORE_FIRST_ADDED",
+                "name",name,"dateAddedMs",added,"relativePath",indexedFolder);
+              return added;
+            }
+          }
+        }
+      }catch(Throwable err){
+        log.event("FOLDER","CREATION_MEDIASTORE_UNAVAILABLE","name",name,
+          "error",err.toString());
+      }
+    }
+    if(docId!=null && docId.startsWith("primary:")){
+      try{
+        java.nio.file.Path path=new File("/storage/emulated/0/",
+          docId.substring("primary:".length())).toPath();
+        BasicFileAttributes a=Files.readAttributes(path,BasicFileAttributes.class);
+        long created=a.creationTime().toMillis();
+        // Filesystem may synthesize ctime from mtime when birth time missing.
+        if(created>0 && !a.creationTime().equals(a.lastModifiedTime())){
+          log.event("FOLDER","CREATION_ORDER_FILESYSTEM","name",name,
+            "createdMs",created);
+          return created;
+        }
+      }catch(Throwable err){
+        log.event("FOLDER","CREATION_FILESYSTEM_UNAVAILABLE","name",name,
+          "error",err.toString());
+      }
+    }
+    log.event("FOLDER","CREATION_TIME_UNAVAILABLE_FIRST_SEEN_FALLBACK",
+      "name",name,"firstObservedMs",observedAt,
+      "note","NEVER order by lastModified; unknown birth ordering");
+    return observedAt;
+  }
+
   Uri waitForGrowingFile(Uri folder)throws Exception {
     log.event("FOLDER","TREE_SCAN_START","uri",folder.toString());
     DocumentFile directory=DocumentFile.fromTreeUri(context,folder);
     if(directory==null||!directory.isDirectory())throw new IOException("선택한 URI가 폴더가 아닙니다.");
     HashMap<String,Long> baseline=new HashMap<>();
+    HashMap<String,Long> firstObserved=new HashMap<>();
+    HashMap<String,Long> creationOrder=new HashMap<>();
     boolean first=true;
     long scans=0;
     while(!stop){
@@ -200,30 +273,41 @@ public final class GrowingCallEngine {
       try{children=directory.listFiles();}
       catch(Exception ex){log.error("FOLDER","LIST_FAILED",ex);Thread.sleep(1500);continue;}
       scans++;
-      DocumentFile growing=null;long bestTime=-1;
+      DocumentFile growing=null;long newestCreated=Long.MIN_VALUE;
       int candidateCount=0;
       for(DocumentFile f:children){
         if(!f.isFile()||!looksAudio(f))continue;
         candidateCount++;
         String key=f.getUri().toString();
         long current=f.length();long updated=f.lastModified();
+        if(!firstObserved.containsKey(key))firstObserved.put(key,System.currentTimeMillis());
         Long old=baseline.put(key,current);
         if(!first && (old==null || old.longValue()!=current)){
           log.event("FOLDER","CHILD_CHANGED","name",f.getName(),"old",old,"new",current,
             "modified",updated,"uri",key);
-          if(current>=1024 && (growing==null || updated>bestTime)){
-            growing=f;bestTime=updated;
+          if(current>=1024){
+            Long creation=creationOrder.get(key);
+            if(creation==null){
+              creation=recordingCreatedAt(f,firstObserved.get(key));
+              creationOrder.put(key,creation);
+            }
+            if(growing==null||creation>newestCreated||
+               (creation==newestCreated &&
+                f.getName().compareTo(growing.getName())>0)){
+              growing=f;newestCreated=creation;
+            }
           }
         }
       }
       if(scans==1||scans%5==0)
         log.event("FOLDER","SCAN","iteration",scans,"count",candidateCount,"files",children.length,
-          "selection","new or size-changing audio only");
+          "selection","detect new/size-changing; choose newest CREATED not most recently modified");
       first=false;
       if(growing!=null){
         log.timing("FILE","NEW_RECORDING_DISCOVERED","bytes",growing.length(),"scan",scans);
         log.event("FOLDER","ACTIVE_FILE_DETECTED","name",growing.getName(),
-          "size",growing.length(),"uri",growing.getUri().toString());
+          "size",growing.length(),"selectedCreationMs",newestCreated,
+          "uri",growing.getUri().toString());
         status("증가하는 녹음 파일 감지: "+growing.getName());
         return growing.getUri();
       }
