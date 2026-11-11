@@ -752,6 +752,15 @@ public final class GrowingCallEngine {
           log.event("AAC","NEW_FRAMES_READY","sourceStart",deltaStart,
             "sourceEnd",recoveredDeltaEnd,"newSourceBytes",recoveredDeltaEnd-deltaStart,
             "adtsBytes",adts.length(),"moovPresent",finalMoov);
+        }else if(finalMoov && incrementalDecoder!=null){
+          // Samsung adds moov when the file closes. Once raw AAC frames have
+          // entered the persistent decoder, NEVER fall back to re-decoding
+          // the now-finalized M4A from zero; just await any remaining bytes.
+          processedMirrorBytes=snapshotBytes;
+          log.event("STREAM","FINAL_MOOV_NO_NEW_AAC","cursor",deltaStart,
+            "snapshotBytes",snapshotBytes);
+          Thread.sleep(STREAM_POLL_MS);
+          continue;
         }else if(finalMoov){
           // Finalized MP4 with a codec/sample-rate different from Samsung AAC
           // still supports ordinary FFmpeg decoding. Use this only as fallback;
