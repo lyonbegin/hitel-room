@@ -814,7 +814,7 @@ public final class GrowingCallEngine {
       File file=new File(log.dir(),"audio-cursor-checkpoint.json");
       File tmp=new File(log.dir(),"audio-cursor-checkpoint.tmp");
       try(FileOutputStream out=new FileOutputStream(tmp,false)){
-        out.write((state.toString()+"\\n").getBytes(StandardCharsets.UTF_8));
+        out.write((state.toString()+"\n").getBytes(StandardCharsets.UTF_8));
         out.flush();out.getFD().sync();
       }
       if(file.exists()&&!file.delete())throw new IOException("Cannot replace cursor checkpoint");
