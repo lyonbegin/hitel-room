@@ -40,7 +40,7 @@ jobs:
                  '--hide-scrollbars','--window-size=390,844','--virtual-time-budget=5000','--dump-dom',url]
             p=subprocess.run(cmd,capture_output=True,text=True,timeout=60)
             text=p.stdout
-            header=re.search(r'<div class="hxs-toprow">.*?<h2>(.*?)</h2>',text,re.S)
+            header=re.search(r'<header[^>]*hxs-header[^>]*>.*?<h2[^>]*>(.*?)</h2>',text,re.S)
             headings=[re.sub('<[^>]+>','',x).strip() for x in re.findall(r'<h2[^>]*>(.*?)</h2>',text,re.S)]
             checks={
               'chrome_exited':p.returncode==0,
