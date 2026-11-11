@@ -20,7 +20,7 @@ jobs:
           set -euo pipefail
           RUN=43064407102
           test "$(gh run view "$RUN" -R lyonbegin/hitel-room --json conclusion --jq .conclusion)" = "success"
-          test "$(gh api repos/lyonbegin/hitel-room/actions/runs/"$RUN" --jq .head_branch)" = "experiment/zipformer-v28-caption-display-pump-v28-20261112"
+          test "$(gh api repos/lyonbegin/hitel-room/actions/runs/"$RUN" --jq .head_branch)" = "experiment/zipformer-v27-caption-display-pump-v28-20261112"
           mkdir -p /tmp/v28-apk
           gh run download "$RUN" -R lyonbegin/hitel-room \
             -n Galaxy-Korean-Zipformer-174M-PrimaryStandby-v28-ARM64-APK -D /tmp/v28-apk
