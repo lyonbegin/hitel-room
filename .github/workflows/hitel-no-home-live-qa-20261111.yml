@@ -1,0 +1,58 @@
+name: HITEL no-home direct browser verification
+on:
+  push:
+    branches: [feature/ypt-study-group-learning-nav-20261108]
+    paths:
+      - .github/workflows/hitel-no-home-live-qa-20261111.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Verify actual mobile routes in installed Chrome
+        env:
+          ROOT: https://hitel-education-zocbo-unified-production.up.railway.app/
+        run: |
+          python3 - <<'PY'
+          import os,subprocess,shutil,re,json,time,urllib.request
+          root=os.environ['ROOT']
+          chrome=shutil.which('google-chrome') or shutil.which('google-chrome-stable') or shutil.which('chromium')
+          assert chrome, 'Chrome not present on GitHub runner'
+          print('CHROME_VERSION',subprocess.check_output([chrome,'--version'],text=True).strip())
+          ready=False
+          for n in range(30):
+            try:
+              with urllib.request.urlopen(root,timeout=12) as resp:
+                page=resp.read().decode('utf-8','replace')
+              if 'ypt-rebuild.js?v=5' in page and 'hitel-class-home.js?v=9' in page:
+                ready=True
+                break
+            except Exception as e:
+              print('WAIT_DEPLOY',str(e)[:200])
+            time.sleep(4)
+          assert ready, 'Latest home-redirect source is not deployed'
+          results={}
+          for name,url in [('root',root),('legacy_home',root+'?screen=home'),('classes',root+'?screen=groups')]:
+            cmd=[chrome,'--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
+                 '--hide-scrollbars','--window-size=390,844','--virtual-time-budget=5000','--dump-dom',url]
+            p=subprocess.run(cmd,capture_output=True,text=True,timeout=60)
+            text=p.stdout
+            header=re.search(r'<div class="hxs-toprow">.*?<h2>(.*?)</h2>',text,re.S)
+            headings=[re.sub('<[^>]+>','',x).strip() for x in re.findall(r'<h2[^>]*>(.*?)</h2>',text,re.S)]
+            checks={
+              'chrome_exited':p.returncode==0,
+              'header_learning_class':bool(header and '학습반' in header.group(1)),
+              'no_old_home_button':not bool(re.search(r'id="stageHome"[^>]*>홈<',text)),
+              'desktop_shortcut_class':bool(re.search(r'id="stageHome"[^>]*>학습반<',text)),
+              'four_tabs_present':all('aria-label="'+x+'"' in text for x in ['학습반','학습','AI 과외','족보']),
+              'no_home_in_screen_map':not bool(re.search(r'class="map-item[^"]*"[^>]*>홈',text)),
+              'no_home_heading':not bool(header and '홈' in header.group(1))
+            }
+            results[name]={'checks':checks,'headings':headings[:8],'stderrTail':p.stderr[-500:]}
+            print('REAL_BROWSER_'+name.upper(),json.dumps(results[name],ensure_ascii=False))
+          if not all(all(x['checks'].values()) for x in results.values()):
+            raise AssertionError('Live home redirect test failed')
+          PY
