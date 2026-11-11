@@ -1,0 +1,45 @@
+name: Publish Galaxy 174M fixed visible captions v28 APK
+on:
+  push:
+    branches: [experiment/zipformer-v28-caption-display-pump-v28-20261112]
+    paths:
+      - '.github/release-trigger-v28.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the exact successful v28 source-matched signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN=43064407102
+          test "$(gh run view "$RUN" -R lyonbegin/hitel-room --json conclusion --jq .conclusion)" = "success"
+          test "$(gh api repos/lyonbegin/hitel-room/actions/runs/"$RUN" --jq .head_branch)" = "experiment/zipformer-v28-caption-display-pump-v28-20261112"
+          mkdir -p /tmp/v28-apk
+          gh run download "$RUN" -R lyonbegin/hitel-room \
+            -n Galaxy-Korean-Zipformer-174M-PrimaryStandby-v28-ARM64-APK -D /tmp/v28-apk
+          APK=/tmp/v28-apk/Galaxy-Korean-Zipformer-174M-PrimaryStandby-v28-ARM64.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          cp "$APK" .
+      - name: Publish direct-download APK as immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v28-174m-visible-captions-20261112
+          APK=Galaxy-Korean-Zipformer-174M-PrimaryStandby-v28-ARM64.apk
+          SOURCE_SHA="$(gh api repos/lyonbegin/hitel-room/actions/runs/43064407102 --jq .head_sha)"
+          gh release create "$TAG" "$APK" -R lyonbegin/hitel-room \
+            --target "$SOURCE_SHA" \
+            --title "Galaxy STT v28 · fixed visible captions · Zipformer 174M INT8" \
+            --notes "UI-only fix from proven v27 174M native streaming code. The latest words and recent transcript remain visible in a fixed top panel while the diagnostics scroll below. Primary/standby scheduling, delta-only captions, Samsung AAC/FFmpeg input logic, 512ms pre-roll and creation-time selection unchanged. Separate Android package stream28. Actual Galaxy performance is not yet established." \
+            --latest=false
+          gh release view "$TAG" -R lyonbegin/hitel-room --json assets --jq '.assets[].name' | grep -Fx "$APK"
+          echo "DOWNLOAD=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK"
