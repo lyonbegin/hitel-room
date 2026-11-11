@@ -562,7 +562,7 @@ public final class GrowingCallEngine {
                 }
               }catch(Exception badEdit){
                 log.error("STT","INCREMENTAL_EDIT_INVALID",badEdit);
-                throw badEdit; // stop rather than silently corrupt Unicode text
+                throw new IllegalStateException("Invalid incremental STT edit",badEdit);
               }
             }
           }
@@ -725,6 +725,20 @@ public final class GrowingCallEngine {
           "layout",layout,"mode","ONE_OPEN_INPUT_AND_ONE_AAC_DECODER");
         try{processPersistentAacFollow(originalMirror);}
         finally{finishNativeOnSourceEnd();}
+        return;
+      }
+    }
+    if(liveEdgeMode && originalMirror!=null && originalMirror.isFile()){
+      final String finishedLayout=describeMirrorLayout(originalMirror);
+      if(finishedLayout.contains("MOOV_FOUND;")){
+        // An already finalized call has no live edge; replaying the entire
+        // finished file would recreate the exact startup delay we are fixing.
+        log.event("STREAM","LIVE_EDGE_RECORDING_ALREADY_ENDED",
+          "policy","skip_historical_audio_in_live_folder_mode",
+          "mirrorBytes",originalMirror.length());
+        status("실시간 음성 대기 · 모델 준비 전에 해당 통화 녹음이 종료되었습니다.");
+        endReason="LIVE_EDGE_RECORDING_ENDED";
+        finishNativeOnSourceEnd();
         return;
       }
     }
