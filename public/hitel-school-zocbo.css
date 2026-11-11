@@ -140,3 +140,29 @@
  #phone .hsc-native-pickers{grid-template-columns:1fr}
  #phone .hsc-native-actions{grid-template-columns:1fr}
 }
+
+/* Live-browser audit 2026-11-11: one source filter, compact class context. */
+#phone .hsc-home{padding:12px 4px 8px;gap:10px}
+#phone .hsc-hero h2{font-size:19px}
+#phone .hsc-hero p{font-size:10px}
+#phone .hsc-tabs-label strong{font-size:11px}
+#phone .hsc-types{padding:0 0 5px}
+#phone .hsc-types button{padding:7px 10px}
+#phone .hsc-compact-class{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:7px;border:1px solid #e5e7ed;border-radius:12px;background:#f7f8fc;padding:11px}
+#phone .hsc-compact-class>label{color:#7365b5;font-size:10px;font-weight:780}
+#phone .hsc-compact-class>select{grid-column:1/-1;background:white;border:1px solid #e1e5eb;border-radius:9px;font-size:12px;padding:9px;min-width:0;width:100%}
+#phone .hsc-compact-status{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;align-items:center}
+#phone .hsc-compact-status small{font-size:10px;color:#747e8e;overflow-wrap:anywhere}
+#phone .hsc-compact-status span{font-size:10px;color:#695ec6;white-space:nowrap}
+#phone .hsc-compact-class>button{font-size:10px;font-weight:710;border-radius:9px;border:1px solid #dfe0e9;padding:9px 7px;background:white;color:#44465d;min-height:36px}
+#phone .hsc-compact-class>button[data-hsc=apply]{background:#282d36;border-color:#282d36;color:#fff}
+#phone .hsc-initial-note{display:flex;flex-direction:column;gap:7px;border-radius:11px;background:#f7f8fb;padding:11px}
+#phone .hsc-initial-note span{font-size:10px;color:#747e8b}
+#phone .hsc-initial-note button{align-self:flex-start;background:none;border:0;padding:4px 0;color:#5b51bb;font-size:10px;font-weight:700}
+#phone .hsc-native-school{gap:10px!important;padding:13px 11px!important}
+#phone .hsc-native-summary h3{font-size:16px}
+#phone .hsc-native-summary p{font-size:10px}
+#phone .hsc-native-empty{min-height:145px}
+#phone .zb-f-filter{gap:5px}
+#phone .zb-f-filter-item{border-radius:13px;min-height:34px}
+#phone .hsc-native-legacy img{display:none!important}
