@@ -274,20 +274,16 @@ function trainerHub(){
  nav('전체 교재별 AI 선생님 찾아보기 →','groupTutorCatalog','hj-outline hj-wide')+
  '<div class="ai-group-cta"><div><strong>학습반에 AI 선생님을 연결하세요</strong><p>선생님은 최대 5명이 참여하는 학습반을 이끌고 각자의 문제풀이를 돕습니다.</p></div>'+
  nav('학습반 찾기','groupSearch','hj-outline')+nav('학습반 만들기','groupCreate','hj-black')+'</div>'+
- '<section class="ai-mine"><strong>내 AI 과외</strong><p>보유한 AI 선생님과 연결된 학습반을 관리하세요.</p><small>선생님 '+mine.length+'명 · 내 학습반 '+joined.length+'개</small>'+
- nav('내 AI 과외 관리 →','groupTutorMine','hj-outline hj-wide')+'</section>'+
+ '<section class="ai-mine"><strong>내 학습반</strong><p>담당 AI 선생님과 교재는 학습반에서 관리합니다.</p><small>참여 중 '+joined.length+'개 학습반</small>'+
+ nav('내 학습반으로 이동 →','groups','hj-outline hj-wide')+'</section>'+
  '<p class="ai-note">추천 카드는 학습 방식 소개이며, 실제 판매 중인 구독 상품이나 인기 순위를 나타내지 않습니다.</p></section>';
 }
+/* Legacy deep-link fallback. A class is the only owned/managed learning unit. */
 function tutorMine(){
- const mine=trainerList(),joined=model.groups.filter(g=>g.members?.includes('나'));
- return '<section class="hj ai-mine-page">'+header('내 AI 과외','사용 중인 AI 선생님과 연결된 학습반','groupAITutor')+
- '<div class="hj-between hj-section"><strong>내 AI 선생님</strong><small>'+mine.length+'명</small></div>'+
- (mine.length?mine.map(t=>'<div class="hj-trainer"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 학습반에 연결됨</small></div></div>').join(''):'<div class="hj-empty">등록된 AI 선생님이 없습니다.</div>')+
- '<div class="hj-between hj-section"><strong>내 학습반</strong><small>'+joined.length+'개</small></div>'+
- (joined.length?joined.map(tile).join(''):'<div class="hj-empty">현재 참여 중인 학습반이 없습니다.</div>')+
- nav('교재별 AI 선생님 찾기','groupTutorCatalog','hj-outline hj-wide')+
- nav('AI 과외 추천으로 돌아가기','groupAITutor','hj-quiet hj-wide')+
- '<p class="hj-muted">실제 구독·결제 관리 서버는 현재 연결되지 않았습니다.</p></section>';
+ const joined=model.groups.filter(g=>g.members?.includes('나'));
+ return '<section class="hj">'+header('내 학습반','담당 AI 선생님·교재·학습목표·정원은 각 학습반에서 관리합니다.','groups')+
+ (joined.length?joined.map(tile).join(''):'<div class="hj-empty">참여 중인 학습반이 없습니다.</div>')+
+ nav('학습반 화면으로 이동','groups','hj-black hj-wide')+'</section>';
 }
 function tutorOfferPage(){
  const t=aiOffer(aiDiscover.selected);if(!t)return trainerHub();
@@ -327,7 +323,7 @@ function exams(){
  (items.length?items.map(e=>'<div class="hj-panel"><b>'+esc(e.title)+'</b><p>'+esc(e.date||'')+' · '+esc(e.scope||'범위 미등록')+'</p></div>').join(''):'<div class="hj-empty">등록된 시험 일정이 없습니다.</div>')+
  '<form id="hj-exam" class="hj-form hj-panel"><b>시험 등록</b><label>시험명<input name="title" maxlength="120" required></label><label>범위<input name="scope" maxlength="300"></label><label>시험일<input name="date" type="date" value="'+today()+'" required></label><button type="submit" class="hj-btn hj-black hj-wide">저장</button></form></section>';
 }
-const routes={groupMissionJourney:'학습 코스',groupMissionPlay:'문제 풀기',groupTrainerSelect:'AI 트레이너',groupTutorCatalog:'교재별 AI 과외',groupTutorMine:'내 AI 과외',groupTutorOffer:'AI 학습 방식 소개',groupLearningResources:'공동 학습자료',groupLearningExams:'시험·평가'};
+const routes={groupMissionJourney:'학습 코스',groupMissionPlay:'문제 풀기',groupTrainerSelect:'AI 트레이너',groupTutorCatalog:'교재별 AI 과외',groupTutorMine:'내 학습반',groupTutorOffer:'AI 학습 방식 소개',groupLearningResources:'공동 학습자료',groupLearningExams:'시험·평가'};
 for(const[k,v]of Object.entries(routes)){window.YPT_GRAPH[k]={title:v,evidence:[],actions:[{text:'스터디그룹',go:'groups'}]};if(GROUPS['스터디 그룹'])GROUPS['스터디 그룹'].push(k)}
 groupPage=function(route){
  if(route==='groups')return main();
@@ -347,7 +343,8 @@ groupPage=function(route){
 bottomFor=function(route){
  if(['groupMissionJourney','groupMissionPlay','groupLearningResources','groupLearningExams'].includes(route))return oldNav('groupLearning');
  if(route==='groupTrainerSelect')return oldNav('groups');
- if(['groupTutorCatalog','groupTutorMine','groupTutorOffer'].includes(route))return oldNav('groupAITutor');
+ if(route==='groupTutorMine')return oldNav('groups');
+ if(['groupTutorCatalog','groupTutorOffer'].includes(route))return oldNav('groupAITutor');
  return oldNav(route);
 };
 function assign(tid){
