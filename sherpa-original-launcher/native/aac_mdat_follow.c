@@ -33,6 +33,9 @@ static long long checkCount,frameCount,bytesRead,sourceCursor,lastReportMs;
 static uint8_t *pending;
 static size_t pendingLen,pendingCapacity;
 static int rate=48000,channels=1,sampleIndex=3;
+static int liveEdge=0; // --live-edge: never replay the backlog accumulated during model prewarm.
+#define MAX_CATCHUP_FRAMES 60 // 60 AAC-LC packets = approx 1.28 s; skip only if behind.
+#define KEEP_LIVE_FRAMES 36 // approx 0.77 s of latest context when catching up.
 
 static long long nowMs(void){
   struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);
@@ -139,7 +142,8 @@ static int readGrowing(FILE *f,long long length){
   clearerr(f);return (int)done;
 }
 int main(int argc,char **argv){
-  if(argc<2||argc>4){fprintf(stderr,"USAGE: aac_mdat_follow file [rate] [channels]\n");return 2;}
+  if(argc<2||argc>5){fprintf(stderr,"USAGE: aac_mdat_follow file [rate] [channels] [--live-edge]\n");return 2;}
+  if(argc==5){if(strcmp(argv[4],"--live-edge"))return 2;liveEdge=1;}
   if(argc>=3)rate=atoi(argv[2]);
   if(argc>=4)channels=atoi(argv[3]);
   sampleIndex=freqIndex(rate);
@@ -163,7 +167,9 @@ int main(int argc,char **argv){
   struct stat st;
   int initialized=0;
   long long lastSize=0,lastGrowth=nowMs();
-  fprintf(stderr,"AAC_FOLLOW_STARTED:rate=%d:channels=%d\n",rate,channels);
+  int bootstrap=liveEdge;
+  long long droppedFrames=0,emittedFrames=0;
+  fprintf(stderr,"AAC_FOLLOW_STARTED:rate=%d:channels=%d:liveEdge=%d\n",rate,channels,liveEdge);
   for(;;){
     if(fstat(fileno(f),&st)!=0){perror("fstat");return 9;}
     long long sz=(long long)st.st_size;
@@ -190,12 +196,57 @@ int main(int argc,char **argv){
     if(added==0){sleepMs(40);continue;} // never recompute frames without new bytes
     long long before=frameCount;
     size_t consumed=0;
+    // The raw Samsung mdat AAC has no frame delimiters. Parse complete packets
+    // to advance an exact source cursor before deciding what to emit.
+    size_t cap=64,count=0;
+    size_t *ends=(size_t*)malloc(cap*sizeof(*ends));
+    if(!ends)return 15;
     while(consumed<pendingLen){
       int n=frameSize(pending+consumed,pendingLen-consumed);
-      if(n<=0)break; // partial AAC frame: keep EXACT bytes for next growth
-      if(emitAdts(pending+consumed,n,sourceCursor+(long long)consumed+n)<0){fprintf(stderr,"AAC_FOLLOW_ERROR:OUTPUT_BROKEN\n");return 14;}
-      consumed+=(size_t)n;frameCount++;
+      if(n<=0)break; // partial AAC frame: preserve bytes until next growth
+      if(count==cap){
+        size_t nextCap=cap*2;
+        size_t* resized=(size_t*)realloc(ends,nextCap*sizeof(*ends));
+        if(!resized){free(ends);return 15;}
+        ends=resized;cap=nextCap;
+      }
+      consumed+=(size_t)n;
+      ends[count++]=consumed;
     }
+    size_t skip=0;
+    if(bootstrap){
+      // Crucial: the first existing recorder snapshot is HISTORY, never input
+      // to either recognizer. New packets after this snapshot are live speech.
+      skip=count;
+      bootstrap=0;
+      fprintf(stderr,"AAC_FOLLOW_LIVE_EDGE_INITIAL:source=%lld:skipFrames=%zu:sourceBytes=%lld\n",
+        sourceCursor+(long long)consumed,skip,sz);
+      fflush(stderr);
+    }else if(liveEdge && count>MAX_CATCHUP_FRAMES){
+      // For a stalled/slow consumer, emit only freshest ~770ms, not a delayed
+      // multi-second replay. Other ASR work is unchanged.
+      skip=count-KEEP_LIVE_FRAMES;
+      fprintf(stderr,"AAC_FOLLOW_LIVE_EDGE_CATCHUP:source=%lld:skipped=%zu:fresh=%zu:bytesBehind=%lld\n",
+        sourceCursor+(long long)(skip?ends[skip-1]:0),skip,count-skip,
+        sz-(sourceCursor+(long long)consumed));
+      fflush(stderr);
+    }
+    if(skip){
+      droppedFrames+=(long long)skip;
+      fprintf(stderr,"AAC_FOLLOW_LIVE_EDGE_SKIP:source=%lld:skippedFrames=%zu:totalSkipped=%lld\n",
+        sourceCursor+(long long)ends[skip-1],skip,droppedFrames);
+      fflush(stderr);
+    }
+    for(size_t k=skip;k<count;++k){
+      const size_t start=k?ends[k-1]:0;
+      const size_t len=ends[k]-start;
+      if(emitAdts(pending+start,(int)len,sourceCursor+(long long)ends[k])<0){
+        free(ends);fprintf(stderr,"AAC_FOLLOW_ERROR:OUTPUT_BROKEN\n");return 14;
+      }
+      emittedFrames++;
+    }
+    frameCount+=(long long)count;
+    free(ends);
     if(consumed){
       pendingLen-=consumed;
       if(pendingLen)memmove(pending,pending+consumed,pendingLen);
@@ -203,8 +254,8 @@ int main(int argc,char **argv){
     }
     if(frameCount!=before || (nowMs()-lastReportMs>2000 && initialized)){
       lastReportMs=nowMs();
-      fprintf(stderr,"AAC_FOLLOW_CURSOR:source=%lld:read=%lld:frames=%lld:pending=%zu:added=%d:uptimeMs=%lld\n",
-        sourceCursor,bytesRead,frameCount,pendingLen,added,lastReportMs);
+      fprintf(stderr,"AAC_FOLLOW_CURSOR:source=%lld:read=%lld:frames=%lld:emitted=%lld:dropped=%lld:pending=%zu:added=%d:uptimeMs=%lld\n",
+        sourceCursor,bytesRead,frameCount,emittedFrames,droppedFrames,pendingLen,added,lastReportMs);
       fflush(stderr);
     }
     if(added==0)sleepMs(30);
