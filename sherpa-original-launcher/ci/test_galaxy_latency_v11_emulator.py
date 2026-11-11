@@ -76,7 +76,7 @@ def archive_logs():
     if not path:return {}
     d=OUT/"app-logs";d.mkdir(exist_ok=True)
     output={}
-    for fn in ("latency-trace.jsonl","events.jsonl","stt-raw.txt","ffmpeg-raw.txt"):
+    for fn in ("latency-trace.jsonl","events.jsonl","stt-raw.txt","ffmpeg-raw.txt","audio-cursor-checkpoint.json"):
         contents=read_log(fn)
         (d/fn).write_text(contents,encoding="utf-8")
         output[fn]=len(contents)
@@ -171,6 +171,18 @@ def check_actual():
         checks["growing AAC source cursor committed at least twice"]=len(positions)>=2
         checks["AAC source cursor strictly increases"]=all(b>a for a,b in zip(positions,positions[1:]))
         checks["incremental AAC frames, not full-file rereads"]='"NEW_FRAMES_READY"' in events
+        checkpointText=read_log("audio-cursor-checkpoint.json")
+        try: checkpoint=json.loads(checkpointText)
+        except (ValueError,TypeError): checkpoint={}
+        checks["saved source cursor and audio time"]=(
+            int(checkpoint.get("aacSourceByteCursor",0))>0 and
+            int(checkpoint.get("audioTimeMs",0))>=1000)
+        rawNative=read_log("stt-raw.txt")
+        checks["full prior speech contextualized"]='ONLINE_PRIOR_CONTEXT:' in rawNative
+        checks["previous and current text overlap merged"]=(
+            'ONLINE_CONTEXT_MERGE:' in rawNative or
+            'ONLINE_CONTEXT_LIVE_MERGE:' in rawNative)
+        print("CURSOR_CHECKPOINT",checkpoint,flush=True)
         (OUT/"aac-cursor-positions.json").write_text(json.dumps(positions),encoding="utf-8")
         print("SOURCE_CURSOR_POSITIONS",positions,flush=True)
     (OUT/"checks.json").write_text(json.dumps(checks,ensure_ascii=False,indent=2),encoding="utf-8")
