@@ -461,6 +461,14 @@ public final class GrowingCallEngine {
               "nativeToReaderMs",nativeLiveBootNs>0?(receivedNs-nativeLiveBootNs)/1000000.0:-1);
           log.raw("stt-raw.txt",line);
           log.event("STT","NATIVE_OUTPUT","text",line);
+          if(line.startsWith("ONLINE_PRIOR_SEALED:"))
+            log.timingAt(receivedNs,"STT","PRIOR_UTTERANCE_SEALED","details",line);
+          if(line.startsWith("ONLINE_PRIOR_CONTEXT:"))
+            log.timingAt(receivedNs,"STT","FULL_PRIOR_PCM_CONTEXT","details",line);
+          if(line.startsWith("ONLINE_CONTEXT_MERGE:"))
+            log.timingAt(receivedNs,"STT","FULL_PRIOR_PREFIX_MERGED","details",line);
+          if(line.startsWith("ONLINE_CONTEXT_LIVE_MERGE:"))
+            log.timingAt(receivedNs,"STT","PRIOR_OVERLAP_LIVE_CORRECTION","details",line);
           if(line.startsWith("ONLINE_READY:")){
             onlineModelReady=true;
             onlineModelReadyLatch.countDown();
