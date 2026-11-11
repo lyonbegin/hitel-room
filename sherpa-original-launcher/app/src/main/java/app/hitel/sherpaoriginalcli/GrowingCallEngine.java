@@ -666,9 +666,12 @@ public final class GrowingCallEngine {
     File encoder=extract("encoder.int8.onnx",1000000);
     File decoder=extract("decoder.int8.onnx",100000);
     File joiner=extract("joiner.int8.onnx",100000);
-    ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),
-      tokens.getAbsolutePath(),encoder.getAbsolutePath(),
-      decoder.getAbsolutePath(),joiner.getAbsolutePath());
+    ProcessBuilder pb=liveEdgeMode?
+      new ProcessBuilder(executable.getAbsolutePath(),tokens.getAbsolutePath(),
+        encoder.getAbsolutePath(),decoder.getAbsolutePath(),joiner.getAbsolutePath(),
+        "--live-edge"):
+      new ProcessBuilder(executable.getAbsolutePath(),tokens.getAbsolutePath(),
+        encoder.getAbsolutePath(),decoder.getAbsolutePath(),joiner.getAbsolutePath());
     String old=pb.environment().get("LD_LIBRARY_PATH");
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
@@ -678,7 +681,7 @@ public final class GrowingCallEngine {
     sherpa=pb.start();
     log.event("STT","NATIVE_START","processAlive",sherpa.isAlive(),
       "startedBeforeRecordingFileDiscovered",true,
-      "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner]","abi",Arrays.toString(Build.SUPPORTED_ABIS));
+      "command",executable.getName()+" [tokens] [zipformer-encoder] [decoder] [joiner] [optional live-edge]","abi",Arrays.toString(Build.SUPPORTED_ABIS),"liveEdge",liveEdgeMode);
     nativeReader(sherpa);
     log.timing("MODEL","NATIVE_PROCESS_LAUNCHED","pidAvailable",Build.VERSION.SDK_INT>=26);
   }
