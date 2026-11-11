@@ -96,6 +96,7 @@ with sync_playwright() as pw:
     eq(page.locator("#phone .tp-group-item").count(),len(joined["groups"]),"all old groups plus joined sample remain in My Study")
     button_rects=page.locator("#phone .tp-group-item").first.locator(".tp-actions .tp-btn").evaluate_all(
         "(els)=>els.map(e=>({l:e.getBoundingClientRect().left,r:e.getBoundingClientRect().right,w:e.getBoundingClientRect().width}))")
+    print("MOBILE_BUTTON_RECTS",width,json.dumps(button_rects),flush=True)
     check(len(button_rects)==2 and all(0<=b["l"] and b["r"]<=width+1 and b["w"]>55 for b in button_rects)
           and button_rects[0]["r"]<=button_rects[1]["l"],"My Study actions fit side-by-side inside mobile width")
     snap(page,width,"07-my-study-separated")
