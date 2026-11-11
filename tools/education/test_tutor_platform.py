@@ -114,7 +114,7 @@ with sync_playwright() as p:
         ask(page,"이 문장의 문법이 이해되지 않습니다.")
         nav(page,"groupQuestions")
         check(screen(page)=="groupQuestions","bottom question tab goes to teacher picker")
-        check(page.locator("#phone .tp-chat-item").count()==3,"one teacher per joined configured group")
+        check(page.locator("#phone .tp-chat-item").count()==4,"three created study groups plus one explicit demo tutor")
         snap(page,width,"teacher-picker")
         choose(page,"openChat",g1)
         check(data(page)["activeGroupId"]==g1,"teacher picker changes active group to chosen teacher")
