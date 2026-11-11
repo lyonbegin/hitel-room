@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 
 OUT=Path("emulator-qa-v11")
 OUT.mkdir(exist_ok=True)
-PKG="app.hitel.koreanzipformer.stream17"
+PKG="app.hitel.koreanzipformer.stream18"
 MAIN=PKG+"/app.hitel.sherpaoriginalcli.MainActivity"
 NAME="ko_live_test.m4a"
 
@@ -183,14 +183,14 @@ def check_actual():
         positions=[int(x.get("data",{}).get("sourceByte",0)) for x in commits]
         checks["growing AAC source cursor committed at least twice"]=len(positions)>=2
         checks["AAC source cursor strictly increases"]=all(b>a for a,b in zip(positions,positions[1:]))
-        checks["incremental AAC frames, not full-file rereads"]='"NEW_FRAMES_READY"' in events
+        checks["incremental AAC frames, not full-file rereads"]=('"PERSISTENT_MDAT_FOLLOW_SELECTED"' in events and '"PERSISTENT_PROCESS_STARTED"' in timeline)
         timelineEvents=[json.loads(line) for line in timeline.splitlines()
                         if line.strip() and line.startswith("{")]
         continuous=os.getenv("REQUIRE_CONTINUOUS_AAC")=="1"
         drainAck=[e for e in timelineEvents if e.get("stage")=="PIPE"
                   and e.get("event")=="READER_DRAIN_ACKNOWLEDGED"]
         decoded=[e for e in timelineEvents if e.get("stage")=="STREAM"
-                 and e.get("event")=="AAC_DELTA_DECODED"]
+                 and e.get("event")=="FOLLOW_FRAME_CONSUMED"]
         if continuous:
             checks["all cursor commits follow continuous decoded AAC frames"]=(
                 len(decoded)>=len(commits)>=4 and
@@ -199,6 +199,9 @@ def check_actual():
                     for d,c in zip(decoded,commits)))
             checks["one persistent AAC MediaCodec instance"]=(
                 events.count('"PERSISTENT_ANDROID_AAC_DECODER_STARTED"')==1)
+            checks["one persistent native AAC follower"]=(
+                events.count('"PERSISTENT_PROCESS_STARTED"')==1 or
+                timeline.count('"PERSISTENT_PROCESS_STARTED"')==1)
             checks["no repeated FFmpeg processes for growing Samsung AAC"]=(
                 '"ATTEMPT_BEGIN"' not in events and '"START_COMMAND"' not in timeline)
         else:
