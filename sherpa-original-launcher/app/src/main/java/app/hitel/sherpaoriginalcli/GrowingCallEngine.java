@@ -29,6 +29,8 @@ public final class GrowingCallEngine {
   final TraceJournal log;
   final Callback callback;
   volatile boolean stop=false;
+  // Only a newly discovered growing call is live; selected files retain replay.
+  volatile boolean liveEdgeMode=false;
   volatile FFmpegSession ffmpeg;
   volatile Process sherpa;
   volatile String fifo;
@@ -105,6 +107,7 @@ public final class GrowingCallEngine {
   }
 
   void run(Uri given,boolean directoryMode){
+    liveEdgeMode=directoryMode;
     log.timing("ENGINE","SESSION_START","folderMode",directoryMode);
     log.event("CONTROL","ENGINE_START","inputUri",String.valueOf(given),"folderMode",directoryMode,
       "targetAbi",Arrays.toString(Build.SUPPORTED_ABIS));
@@ -937,8 +940,9 @@ public final class GrowingCallEngine {
     Thread stderr=null;
     long inputFrames=0,started=SystemClock.elapsedRealtime();
     try{
-      ProcessBuilder pb=new ProcessBuilder(bin.getAbsolutePath(),
-        source.getAbsolutePath(),"48000","1");
+      ProcessBuilder pb=liveEdgeMode?
+        new ProcessBuilder(bin.getAbsolutePath(),source.getAbsolutePath(),"48000","1","--live-edge"):
+        new ProcessBuilder(bin.getAbsolutePath(),source.getAbsolutePath(),"48000","1");
       pb.redirectErrorStream(false);
       // Match the proven v17 recovery helper: FFmpeg AAR's libavcodec and
       // libavutil live beside our ELF inside nativeLibraryDir. A standalone
@@ -957,6 +961,9 @@ public final class GrowingCallEngine {
           while((line=lines.readLine())!=null){
             if(line.startsWith("AAC_FOLLOW_CURSOR:")){
               log.timing("FOLLOW","NATIVE_CURSOR","line",line);
+            }else if(line.startsWith("AAC_FOLLOW_LIVE_EDGE_")){
+              log.timing("FOLLOW","LIVE_EDGE_SKIP","line",line,
+                "mode",liveEdgeMode,"policy","do_not_replay_old_audio");
             }else if(line.startsWith("AAC_FOLLOW_ERROR:")){
               log.event("FOLLOW","ERROR","line",line);
             }else{
@@ -967,7 +974,8 @@ public final class GrowingCallEngine {
       },"Growing-AAC-Follow-Stderr");
       stderr.start();
       log.timing("FOLLOW","PERSISTENT_PROCESS_STARTED","source",source.getName(),
-        "mirrorBytes",source.length(),"pidAvailable",Build.VERSION.SDK_INT>=26);
+        "mirrorBytes",source.length(),"liveEdgeMode",liveEdgeMode,
+        "pidAvailable",Build.VERSION.SDK_INT>=26);
       DataInputStream reader=new DataInputStream(new BufferedInputStream(p.getInputStream(),65536));
       byte[] head=new byte[12];
       long lastCursor=-1;
