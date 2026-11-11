@@ -16,6 +16,7 @@
 #include <cstring>
 #include <deque>
 #include <map>
+#include <set>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -121,10 +122,10 @@ struct Manager{
   int ready=0;
   bool error=false;
   std::string lastPublished;
-  uint64_t pcmSamples=0;
+  std::atomic<uint64_t> pcmSamples{0};
   unsigned int hypotheses=0;
-  int maxWindow=-1;
-  bool ended[2]={false,false};
+  std::atomic<int> maxWindow{-1};
+  std::set<int> endedWindows;
   std::string argv[4];
   explicit Manager(int argc,char** a) {
     (void)argc;
@@ -152,19 +153,19 @@ struct Manager{
     return true;
   }
   void beginWindow(int w){
-    if(w<=maxWindow)return; // dispatched only in monotonic order.
+    if(w<=maxWindow.load().load())return; // dispatched only in monotonic order.
     // A single incoming PCM chunk may straddle one stride; do not omit it.
-    for(int id=maxWindow+1;id<=w;++id){
+    for(int id=maxWindow.load()+1;id<=w;++id){
       Task t;t.type=Task::DATA;t.window=id;
       // Empty start marker: process() creates new OnlineStream for this window.
       workers[id%2].enqueue(std::move(t));
       std::lock_guard<std::mutex> guard(stateMutex);
       segments.emplace(id,Segment{});
     }
-    maxWindow=w;
+    maxWindow.store(w);
   }
   void dispatch(uint32_t seq,const float* audio,uint32_t length){
-    const uint64_t first=pcmSamples,last=first+length;
+    const uint64_t first=pcmSamples.load(),last=first+length;
     const uint64_t audioMs=last*1000/RATE;
     say("ONLINE_TIMING:INPUT:%u:%llu:%llu:0",seq,
         (unsigned long long)audioMs,(unsigned long long)bootNs());
@@ -182,15 +183,13 @@ struct Manager{
     }
     // Complete any window when its last sample has been dispatched.
     for(int w=std::max(0,highest-1);w<=highest;++w){
-      if(!ended[w%2] && last>=uint64_t(w)*STRIDE+WINDOW){
+      if(!endedWindows.count(w) && last>=uint64_t(w)*STRIDE+WINDOW){
         Task task;task.type=Task::END;task.window=w;
         workers[w%2].enqueue(std::move(task));
-        ended[w%2]=true;
+        endedWindows.insert(w);
       }
     }
-    // The second window in a worker slot begins at the next stride; reset
-    // slot-local end state whenever that new window starts.
-    pcmSamples=last;
+    pcmSamples.store(last);
     say("ONLINE_ACCEPTED:%u:%u",seq,length);
   }
   void markEnd(int w){
@@ -205,7 +204,7 @@ struct Manager{
       Segment& s=segments[window];
       if(raw!=s.text)s.text=raw;
       if(finished)s.done=true;
-      for(int i=0;i<=maxWindow;++i){
+      for(int i=0;i<=maxWindow.load();++i){
         auto it=segments.find(i);
         if(it==segments.end())break;
         full=joinOverlap(full,it->second.text);
@@ -214,7 +213,7 @@ struct Manager{
       lastPublished=full;
       seq=++hypotheses;
     }
-    const auto now=bootNs(),audioMs=pcmSamples*1000/RATE;
+    const auto now=bootNs(),audioMs=pcmSamples.load()*1000/RATE;
     say("ONLINE_TIMING:LIVE:%u:%llu:%llu:0",seq,
         (unsigned long long)audioMs,(unsigned long long)now);
     say("ONLINE_HYPOTHESIS:%llu:%s",(unsigned long long)audioMs,full.c_str());
@@ -228,25 +227,23 @@ struct Manager{
   }
   void finish(){
     // Close only windows still open. All full windows already received END.
-    for(int w=0;w<=maxWindow;++w){
-      // END is tracked per-window in separate set below (see Worker).
-      // A redundant END on a completed window is explicitly ignored.
-      markEnd(w);
+    for(int w=0;w<=maxWindow.load().load();++w){
+      if(!endedWindows.count(w))markEnd(w);
     }
     for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
     for(auto &w:workers)w.thread.join();
     std::string result;
     {
       std::lock_guard<std::mutex> guard(stateMutex);
-      for(int i=0;i<=maxWindow;++i)result=joinOverlap(result,segments[i].text);
+      for(int i=0;i<=maxWindow.load();++i)result=joinOverlap(result,segments[i].text);
     }
     if(!result.empty()){
       say("STT_SEGMENT:1:%s",result.c_str());
       say("ONLINE_FINAL_FULL_TEXT:audioMs=%llu:chars=%zu",
-          (unsigned long long)(pcmSamples*1000/RATE),result.size());
+          (unsigned long long)(pcmSamples.load()*1000/RATE),result.size());
     }
     say("ONLINE_FINISHED:pcmMs=%llu:hypotheses=%u:captions=%u:workers=2",
-        (unsigned long long)(pcmSamples*1000/RATE),hypotheses,!result.empty()?1:0);
+        (unsigned long long)(pcmSamples.load()*1000/RATE),hypotheses,!result.empty()?1:0);
     say("STT_FINISHED:%u",!result.empty()?1:0);
   }
 };
