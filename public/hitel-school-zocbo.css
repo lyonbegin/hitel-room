@@ -1,0 +1,80 @@
+/* Compact school exam homepage + class-linked source question workflow.
+ * Original Zocbo search CSS and its interactive filters are untouched. */
+#phone .hsc-home,#phone .hsc-study{box-sizing:border-box;display:flex;flex-direction:column;gap:13px;width:100%;min-width:0;max-width:100%;padding:12px 4px 15px;font:12px/1.6 -apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;color:#293242}
+#phone .hsc-home *,#phone .hsc-study *{box-sizing:border-box}
+#phone .hsc-home button,#phone .hsc-study button{cursor:pointer}
+#phone .hsc-hero>div>span{font-size:10px;color:#dd7542;font-weight:750}
+#phone .hsc-hero h2{font-size:20px;letter-spacing:-.05em;line-height:1.35;margin:3px 0 5px}
+#phone .hsc-hero p{font-size:11px;color:#87909d;line-height:1.6;margin:0}
+#phone .hsc-select-row{display:flex;gap:9px;align-items:center;min-width:0}
+#phone .hsc-select-row label{font-size:10px;font-weight:750;color:#626c78;flex:none}
+#phone .hsc-select-row select{width:100%;min-width:0;border:1px solid #e1e4e9;border-radius:10px;padding:10px;background:white;color:#303848;font-size:11px}
+#phone .hsc-class-card{display:flex;flex-direction:column;gap:9px;background:#f6f7fb;border-radius:14px;border:1px solid #e4e7ef;padding:13px}
+#phone .hsc-class-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#phone .hsc-class-top>span:first-child{font-size:10px;color:#6874a0;font-weight:780}
+#phone .hsc-count{font-size:10px;color:#6860bd;background:#eceafa;border-radius:15px;padding:3px 8px}
+#phone .hsc-class-card>strong{font-size:15px;line-height:1.4;letter-spacing:-.03em}
+#phone .hsc-class-meta{display:flex;gap:5px;flex-wrap:wrap}
+#phone .hsc-class-meta span{font-size:10px;color:#77818f;background:white;border:1px solid #e9eaf0;border-radius:10px;padding:3px 7px}
+#phone .hsc-class-cta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#phone .hsc-primary,#phone .hsc-outline{border-radius:10px;border:1px solid #292e38;padding:10px 6px;text-align:center;font-size:10px;font-weight:780;min-height:41px;line-height:1.5}
+#phone .hsc-primary{background:#292e38;color:white}
+#phone .hsc-outline{background:white;border-color:#dedfe7;color:#4c5264}
+#phone .hsc-tabs-label strong{font-size:12px}
+#phone .hsc-types{display:flex;gap:7px;overflow-x:auto;max-width:100%;padding:1px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#phone .hsc-types::-webkit-scrollbar{display:none}
+#phone .hsc-types button{flex:none;border:1px solid #e0e3e9;background:white;border-radius:20px;color:#737d89;font-size:11px;padding:8px 12px;white-space:nowrap}
+#phone .hsc-types button.current{background:#282d35;color:#fff;border-color:#282d35}
+#phone .hsc-no-class{display:flex;flex-direction:column;gap:6px;background:#f6f7fa;border-radius:12px;padding:13px}
+#phone .hsc-no-class strong{font-size:12px}
+#phone .hsc-no-class p{color:#84909d;font-size:11px;margin:0}
+#phone .hsc-no-class button{padding:7px;border:0;background:transparent;color:#5547cc;text-align:left;font-weight:750}
+#phone .hsc-linked{display:flex;flex-direction:column;gap:7px;background:#fbfbfd;border-radius:12px;padding:10px}
+#phone .hsc-linked>strong{font-size:11px;color:#37404d}
+#phone .hsc-linked-paper{border:1px solid #e6e7ee;border-radius:10px;background:white;padding:9px 10px;display:flex;align-items:flex-start;flex-direction:column;gap:3px;text-align:left;min-width:0}
+#phone .hsc-linked-paper b{font-size:11px;overflow-wrap:anywhere}
+#phone .hsc-linked-paper small{font-size:10px;color:#969daa}
+#phone .hsc-original-heading{padding-top:10px;border-top:1px solid #e7e9ee}
+#phone .hsc-original-heading h3{font-size:15px;margin:0 0 4px;letter-spacing:-.03em}
+#phone .hsc-original-heading p{font-size:10px;color:#848d9a;margin:0;line-height:1.6}
+#phone .hsc-original-caution{border-left:2px solid #ddd9fb;padding-left:9px;color:#96919e;font-size:10px;margin:0;line-height:1.6}
+#phone .zb-f-sheet .zb-f-to-class{display:block;width:100%;border:0;border-radius:10px;background:#5648dd;color:white;font-size:12px;font-weight:760;min-height:42px;padding:10px 12px;margin-top:10px}
+#phone .hsc-group-panel{border:1px solid #dedcf4;border-radius:13px;background:#faf9ff;padding:13px;display:flex;flex-direction:column;gap:9px;margin:13px 0}
+#phone .hsc-group-panel>div{display:flex;flex-direction:column;gap:5px}
+#phone .hsc-group-panel small{font-size:10px;color:#7065ba}
+#phone .hsc-group-panel strong{font-size:13px}
+#phone .hsc-group-panel p{font-size:10px;color:#8a91a2;margin:0}
+#phone .hsc-group-panel button{border:0;border-radius:9px;padding:11px;background:#5148c8;color:#fff;font-size:11px;font-weight:730;text-align:center}
+#phone .hsc-study{padding:13px 4px 35px}
+#phone .hsc-study .hsc-back{align-self:flex-start;border:0;background:none;color:#5d55c4;font-size:11px;padding:3px 0}
+#phone .hsc-study>small{font-size:10px;color:#ca7149}
+#phone .hsc-study h2{font-size:20px;letter-spacing:-.035em;margin:0}
+#phone .hsc-study h3{font-size:15px;margin:4px 0}
+#phone .hsc-study-lead{background:#f5f6fa;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:5px}
+#phone .hsc-study-lead strong{font-size:12px}
+#phone .hsc-study-lead p{font-size:10px;color:#7f8b99;line-height:1.6;margin:0}
+#phone .hsc-paper,#phone .hsc-question{border:1px solid #e3e7ed;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:9px;min-width:0}
+#phone .hsc-paper>b{font-size:12px}
+#phone .hsc-paper>small{font-size:10px;color:#8a93a0}
+#phone .hsc-paper>div{display:flex;flex-wrap:wrap;gap:8px}
+#phone .hsc-paper button,#phone .hsc-paper a{border:1px solid #e0e1eb;border-radius:8px;padding:7px 10px;background:#fff;font-size:10px;color:#534ac7;text-decoration:none}
+#phone .hsc-empty{background:#f8f9fb;border-radius:10px;color:#959da8;font-size:11px;padding:13px;line-height:1.65}
+#phone .hsc-add-question{display:flex;flex-direction:column;gap:8px;padding:14px;background:#f9f9fc;border:1px solid #ececf4;border-radius:12px}
+#phone .hsc-add-question>p{font-size:10px;color:#7d8697;margin:0}
+#phone .hsc-add-question form{display:flex;flex-direction:column;gap:10px}
+#phone .hsc-add-question label,#phone .hsc-question label{display:flex;flex-direction:column;gap:4px;color:#566273;font-size:11px;min-width:0}
+#phone .hsc-add-question input,#phone .hsc-add-question select,#phone .hsc-add-question textarea,#phone .hsc-question input{border:1px solid #dbdfe8;border-radius:8px;padding:9px;background:white;font-size:11px;min-width:0;width:100%;color:#222d3b}
+#phone .hsc-add-question textarea{resize:vertical}
+#phone .hsc-add-question input[type=file]{padding:8px}
+#phone .hsc-question-head{display:flex;flex-direction:column;gap:3px}
+#phone .hsc-question-head b{font-size:13px}
+#phone .hsc-question-head small{font-size:10px;color:#8b94a1}
+#phone .hsc-question>p{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+#phone .hsc-question>img{display:block;max-width:100%;max-height:450px;object-fit:contain;border-radius:8px;background:#f5f5f7}
+#phone .hsc-question form{display:flex;gap:7px;align-items:end}
+#phone .hsc-question form label{flex:1}
+#phone .hsc-question form button{background:#292d37;color:#fff;border:0;border-radius:8px;font-size:11px;padding:10px;white-space:nowrap}
+#phone .hsc-answer-state{background:#f4f3fc;border-radius:8px;padding:9px;font-size:10px;color:#574b9b}
+#phone .hsc-question-ask{border:1px solid #e0dcf1;background:white;border-radius:9px;padding:9px;color:#5349c3;font-size:11px;font-weight:720}
+#phone .hsc-disclosure{font-size:10px;color:#929cab;line-height:1.7}
+@media(max-width:360px){#phone .hsc-home,#phone .hsc-study{gap:11px}#phone .hsc-class-cta{grid-template-columns:1fr}#phone .hsc-types button{padding:8px 10px}#phone .hsc-class-card>strong{font-size:14px}}
