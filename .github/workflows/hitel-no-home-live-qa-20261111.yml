@@ -51,7 +51,7 @@ jobs:
               'no_home_in_screen_map':not bool(re.search(r'class="map-item[^"]*"[^>]*>홈',text)),
               'no_home_heading':not bool(header and '홈' in header.group(1))
             }
-            results[name]={'checks':checks,'headings':headings[:8],'stderrTail':p.stderr[-500:]}
+            results[name]={'checks':checks,'headings':headings[:8],'headerMatch':header.group(1) if header else None,'hxsSnippet':text[max(0,text.find('hxs-header')-150):text.find('hxs-header')+650],'stderrTail':p.stderr[-500:]}
             print('REAL_BROWSER_'+name.upper(),json.dumps(results[name],ensure_ascii=False))
           if not all(all(x['checks'].values()) for x in results.values()):
             raise AssertionError('Live home redirect test failed')
