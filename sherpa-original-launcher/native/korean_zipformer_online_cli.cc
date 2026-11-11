@@ -148,7 +148,7 @@ struct Manager{
       return false;
     }
     say("STT_READY");
-    say("ONLINE_READY:model=korean-zipformer-174m-int8:parallel_workers=2:window_ms=4000:stride_ms=3000:overlap_ms=1000:decoding=modified_beam_search:threads_per_worker=2");
+    say("ONLINE_READY:model=korean-zipformer-72m-int8:parallel_workers=2:window_ms=4000:stride_ms=3000:overlap_ms=1000:decoding=modified_beam_search:threads_per_worker=2");
     say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true");
     return true;
   }
