@@ -1,0 +1,51 @@
+name: v23 CAMPPlus same/different speaker public benchmark
+on:
+  push:
+    branches: [experiment/zipformer-dual-speaker-id-v23-20261111]
+    paths:
+      - '.github/workflows/speaker-id-threshold-benchmark-v23.yml'
+      - 'sherpa-original-launcher/native/speaker_id_threshold_test.cc'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download same-version sherpa C API model and public speaker samples
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/spk/lib /tmp/spk/model /tmp/spk/wav /tmp/spk/api/sherpa-onnx/c-api
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx \
+            -p sherpa-onnx-v1.12.26-linux-x64-shared.tar.bz2 -D /tmp/spk/lib
+          tar -xjf /tmp/spk/lib/sherpa-onnx-v1.12.26-linux-x64-shared.tar.bz2 -C /tmp/spk/lib
+          gh release download speaker-recongition-models -R k2-fsa/sherpa-onnx \
+            -p 3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx -D /tmp/spk/model
+          curl -fLsS --retry 3 \
+            https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h \
+            -o /tmp/spk/api/sherpa-onnx/c-api/c-api.h
+          for p in enroll/fangjun-sr-2.wav test/fangjun-test-sr-1.wav \
+                   enroll/leijun-sr-1.wav test/leijun-test-sr-1.wav \
+                   test/liudehua-test-sr-1.wav; do
+            curl -fLsS --retry 3 "https://raw.githubusercontent.com/csukuangfj/sr-data/main/$p" \
+              -o "/tmp/spk/wav/$(basename "$p")"
+          done
+          file /tmp/spk/wav/*.wav
+      - name: Compile and test exact same CAMPPlus model cosine threshold
+        run: |
+          set -euo pipefail
+          LIBDIR="$(dirname "$(find /tmp/spk/lib -name 'libsherpa-onnx-c-api.so' | head -1)")"
+          test -f "$LIBDIR/libsherpa-onnx-c-api.so"
+          g++ -std=c++17 -O2 -I/tmp/spk/api \
+            sherpa-original-launcher/native/speaker_id_threshold_test.cc \
+            -L"$LIBDIR" -lsherpa-onnx-c-api -o /tmp/spk/test
+          LD_LIBRARY_PATH="$LIBDIR" /tmp/spk/test | tee speaker-threshold-v23.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v23-public-speaker-identity-sanity-no-private-voice
+          path: speaker-threshold-v23.txt
