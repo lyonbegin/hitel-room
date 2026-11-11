@@ -73,7 +73,7 @@ public final class GrowingCallEngine {
   }
   public void start(Uri uri,boolean isFolder){
     if(worker!=null)throw new IllegalStateException("Session already started");
-    worker=new Thread(()->run(uri,isFolder),"Growing-M4A-FFmpeg-Engine");
+    worker=new Thread(()->run(uri,isFolder),"Growing-M4A-Online-Engine");
     worker.start();
   }
   public void stop(){
@@ -725,7 +725,7 @@ public final class GrowingCallEngine {
       long processedMirrorBytes=-1;
       StreamingAacPcmDecoder incrementalDecoder=null;
       try {
-      while(!stop&&attempt<600){
+      while(!stop){ // Maintain live input for calls longer than 600 x 300ms
         // The original Samsung recorder keeps one M4A open. AAC-LC inside its
         // mdat has no ADTS frame headers, while the trailing moov is absent.
         // Recover complete AAC frames from the latest seekable mirror, without
@@ -794,7 +794,7 @@ public final class GrowingCallEngine {
         // Full finalized MP4 keeps its existing replay guard. Only a
         // recovered ADTS DELTA skips PCM sent from the same uncommitted delta.
         long replaySkip=adts!=null?pendingDeltaPcmBytes:committedPcmBytes.get();
-        log.event("CURSOR","BEFORE_FFMPEG","sourceStart",deltaStart,
+        log.event("CURSOR","BEFORE_AUDIO_DELTA","sourceStart",deltaStart,
           "sourceEnd",recoveredDeltaEnd,"skipPcmBytes",replaySkip,
           "committedAudioMs",committedPcmBytes.get()/32L);
         String result;
@@ -832,7 +832,7 @@ public final class GrowingCallEngine {
             pendingDeltaPcmBytes=0;
             log.timing("AAC","SOURCE_CURSOR_COMMITTED","sourceByte",nextAacFrameSourceByte,
               "freshPcmBytes",newBytes,"committedAudioMs",committedPcmBytes.get()/32L);
-            saveAudioCursorCheckpoint("AAC_DELTA_FFMPEG_CLEAN_END");
+            saveAudioCursorCheckpoint(adts!=null?"AAC_DELTA_STREAM_COMMITTED":"AAC_DELTA_FFMPEG_CLEAN_END");
           }else{
             pendingDeltaPcmBytes+=newBytes;
             processedMirrorBytes=-1; // repeat from cursor after bounded backoff
@@ -873,7 +873,7 @@ public final class GrowingCallEngine {
         if(currentSize!=prev)log.event("FFMPEG","RETRY_AFTER_GROWTH","old",prev,"new",currentSize);
         else log.event("FFMPEG","RETRY_AFTER_STABLE_INTERVAL","size",currentSize);
       }
-      endReason=stop?"USER_STOP":"ATTEMPTS_EXHAUSTED";
+      endReason=stop?"USER_STOP":"STREAM_TERMINATED";
       }finally{
         if(incrementalDecoder!=null){
           try{
