@@ -38,7 +38,25 @@ function apply(g,s){
  if(city)z.fDisplay.filter_si=city;
  const sub=subject(g);
  if(sub==='수학'){z.fSubject='MT';z.fDisplay.filter_subject='수학'}
- else {z.fSubject=z.fSubject||'MT';/* keep source code until its mapping is verified */}
+ else {
+  // Never show mathematics source results under another subject's class label.
+  // Resolve the original subject code from the source-captured index first.
+  z.fSubject='PENDING';z.fDisplay.filter_subject=sub;
+  const classId=g.id,siteKey=site+z.fGrade;
+  fetch('/api/zocbo/faithful-index',{credentials:'omit',cache:'no-store'})
+   .then(r=>r.ok?r.json():Promise.reject(new Error('원본 과목표 조회 불가')))
+   .then(data=>{
+    const rows=Array.isArray(data.subjects?.[siteKey])?data.subjects[siteKey]:[];
+    const found=rows.find(x=>String(x.name||'').trim()===sub)||
+     rows.find(x=>String(x.name||'').includes(sub));
+    if(!found?.code)return;
+    if(ui.prefilledFor!==classId||state.screen!=='bankSearch')return;
+    const current=state.zocbo;if(!current)return;
+    current.fSubject=found.code;current.fCase='';
+    current.fDisplay=current.fDisplay||{};current.fDisplay.filter_subject=found.name||sub;
+    render();
+   }).catch(()=>{});
+ }
  z.fDynamicData=null;z.fDynamicError='';z.fDynamicChanged=false;
  ui.groupId=g.id;ui.prefilledFor=g.id;
  return true;
