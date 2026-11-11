@@ -1,10 +1,8 @@
-// v20 baseline: two independent, persistent sherpa-onnx recognizers.
-// Original AAC -> PCM Java transport is UNCHANGED. No greedy/beam A/B switch.
-// Adjacent 4-second windows overlap by 1 second. Each window is assigned
-// alternately to worker 0 or 1; each worker owns its OWN recognizer and stream.
-// All 16k PCM is delivered once to its primary window and once to the adjacent
-// window only for the deliberate 1-second context overlap.
-// This is a prototype: window text merging must be measured for accuracy.
+// v25: Korean 72M INT8 model, PRIMARY/ON-DEMAND STANDBY worker assignment.
+// Primary #0 handles every independent 4-second segment if ready. Standby #1
+// is used only when primary's previous segment is still being processed.
+// Up to 0.5 sec of old PCM is supplied only as adjacent context; it cannot
+// be mistaken for a new recorder delta. Never force modulo-2 alternation.
 #include "sherpa-onnx/c-api/c-api.h"
 #include <algorithm>
 #include <atomic>
@@ -28,9 +26,10 @@
 namespace {
 constexpr uint64_t RATE=16000;
 constexpr uint64_t WINDOW=RATE*4;
-constexpr uint64_t STRIDE=RATE*3;
+constexpr uint64_t STRIDE=RATE*4;
+constexpr uint64_t PREROLL=RATE/2;
 constexpr size_t QUEUE_CAP=512; // direct-file playback: lossless historical replay.
-constexpr size_t LIVE_QUEUE_CAP=28; // live only: do not accumulate several seconds behind.
+constexpr size_t LIVE_QUEUE_CAP=28; // stale backlog guard; preserves model identity.
 std::mutex outputMutex;
 uint64_t bootNs(){
   struct timespec t{};clock_gettime(CLOCK_BOOTTIME,&t);
@@ -151,6 +150,10 @@ struct Manager{
   unsigned int hypotheses=0;
   std::atomic<int> maxWindow{-1};
   std::set<int> endedWindows;
+  std::map<int,int> windowOwners;
+  std::atomic<int> reserved[2]{{0},{0}};
+  std::deque<float> preroll;
+  std::mutex ownerMutex;
   std::string argv[4];
   bool liveEdge=false;
   explicit Manager(int argc,char** a) {
@@ -174,53 +177,81 @@ struct Manager{
       return false;
     }
     say("STT_READY");
-    say("ONLINE_READY:model=korean-zipformer-174m-int8:parallel_workers=2:window_ms=4000:stride_ms=3000:overlap_ms=1000:decoding=modified_beam_search:threads_per_worker=2");
-    say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true:liveEdge=%d",liveEdge?1:0);
+    say("ONLINE_READY:model=korean-zipformer-72m-int8:workers=2:primary=0:standby=1:window_ms=4000:stride_ms=4000:context_preroll_ms=500:decoding=modified_beam_search:threads_per_worker=1");
+    say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true:allocation=primary_then_standby:liveEdge=%d",liveEdge?1:0);
     return true;
   }
-  void beginWindow(int w){
-    if(w<=maxWindow.load())return; // dispatched only in monotonic order.
-    // A single incoming PCM chunk may straddle one stride; do not omit it.
+  int owner(int window){
+    auto it=windowOwners.find(window);
+    return it==windowOwners.end()?0:it->second;
+  }
+  void releaseWindow(int window,int worker){
+    const int after=reserved[worker].fetch_sub(1)-1;
+    say("DUAL_WORKER_RELEASE:worker=%d:window=%d:reservedAfter=%d",
+        worker,window,after);
+  }
+  void beginWindow(int w,uint32_t seq){
+    if(w<=maxWindow.load())return;
     for(int id=maxWindow.load()+1;id<=w;++id){
-      Task t;t.type=Task::DATA;t.window=id;
-      // Empty start marker: process() creates new OnlineStream for this window.
-      workers[id%2].enqueue(std::move(t));
-      std::lock_guard<std::mutex> guard(stateMutex);
+      // No id%2 alternation. Worker 0 is always preferred when unreserved.
+      // Only an unfinished primary segment causes a handoff to standby.
+      const int primary=reserved[0].load(),standby=reserved[1].load();
+      const int assigned=primary==0?0:(standby==0?1:0);
+      windowOwners.emplace(id,assigned);
+      reserved[assigned].fetch_add(1);
       segments.emplace(id,Segment{});
+      Task start;start.type=Task::DATA;start.window=id;start.seq=seq;
+      workers[assigned].enqueue(std::move(start));
+      // Preserve only the preceding 500ms phoneme context across a 4s
+      // segment boundary. The next 4s are NEW data, never historical replay.
+      if(id>0 && !preroll.empty()){
+        Task context;context.type=Task::DATA;context.window=id;context.seq=seq;
+        context.globalEnd=uint64_t(id)*STRIDE;
+        context.pcm.assign(preroll.begin(),preroll.end());
+        workers[assigned].enqueue(std::move(context));
+      }
+      maxWindow.store(id);
+      say("DUAL_ASSIGN:window=%d:worker=%d:primaryBusy=%d:standbyBusy=%d:reason=%s",
+          id,assigned,primary,standby,
+          assigned==0?"PRIMARY_AVAILABLE":"PRIMARY_PROCESSING_PREVIOUS");
     }
-    maxWindow.store(w);
+  }
+  void remember(const float* audio,size_t count){
+    for(size_t i=0;i<count;++i){
+      preroll.push_back(audio[i]);
+      if(preroll.size()>PREROLL)preroll.pop_front();
+    }
+  }
+  void markEnd(int w){
+    if(!endedWindows.insert(w).second)return;
+    Task task;task.type=Task::END;task.window=w;
+    workers[owner(w)].enqueue(std::move(task));
   }
   void dispatch(uint32_t seq,const float* audio,uint32_t length){
     const uint64_t first=pcmSamples.load(),last=first+length;
     const uint64_t audioMs=last*1000/RATE;
     say("ONLINE_TIMING:INPUT:%u:%llu:%llu:0",seq,
         (unsigned long long)audioMs,(unsigned long long)bootNs());
-    const int highest=int((last-1)/STRIDE);
-    beginWindow(highest);
-    for(int w=std::max(0,highest-1);w<=highest;++w){
-      const uint64_t a=uint64_t(w)*STRIDE,b=a+WINDOW;
-      const uint64_t lo=std::max(a,first),hi=std::min(b,last);
-      if(hi>lo){
-        Task task;task.type=Task::DATA;task.window=w;task.seq=seq;
-        task.globalEnd=hi;
-        task.pcm.assign(audio+(lo-first),audio+(hi-first));
-        workers[w%2].enqueue(std::move(task));
+    uint64_t at=first;
+    while(at<last){
+      const int w=int(at/STRIDE);
+      if(w>maxWindow.load()){
+        // Close the previous worker before attempting to reuse primary.
+        if(w>0 && maxWindow.load()>=0)markEnd(w-1);
+        beginWindow(w,seq);
       }
-    }
-    // Complete any window when its last sample has been dispatched.
-    for(int w=std::max(0,highest-1);w<=highest;++w){
-      if(!endedWindows.count(w) && last>=uint64_t(w)*STRIDE+WINDOW){
-        Task task;task.type=Task::END;task.window=w;
-        workers[w%2].enqueue(std::move(task));
-        endedWindows.insert(w);
-      }
+      const uint64_t hi=std::min(last,(uint64_t(w)+1)*STRIDE);
+      const size_t lengthNow=size_t(hi-at);
+      Task task;task.type=Task::DATA;task.window=w;task.seq=seq;
+      task.globalEnd=hi;
+      task.pcm.assign(audio+(at-first),audio+(at-first)+lengthNow);
+      workers[owner(w)].enqueue(std::move(task));
+      remember(audio+(at-first),lengthNow);
+      if(hi==(uint64_t(w)+1)*STRIDE)markEnd(w);
+      at=hi;
     }
     pcmSamples.store(last);
     say("ONLINE_ACCEPTED:%u:%u",seq,length);
-  }
-  void markEnd(int w){
-    Task task;task.type=Task::END;task.window=w;
-    workers[w%2].enqueue(std::move(task));
   }
   void publish(int window,const std::string& raw,bool finished){
     std::string full,prior;
@@ -263,10 +294,8 @@ struct Manager{
         window,full.size(),keepUtf16,suffix.size());
   }
   void finish(){
-    // Close only windows still open. All full windows already received END.
-    for(int w=0;w<=maxWindow.load();++w){
-      if(!endedWindows.count(w))markEnd(w);
-    }
+    // Finalize the last unclosed segment on user stop/source EOF.
+    for(int w=0;w<=maxWindow.load();++w)markEnd(w);
     for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
     for(auto &w:workers)w.thread.join();
     std::string result;
@@ -287,18 +316,9 @@ struct Manager{
 void Worker::start(){thread=std::thread(&Worker::loop,this);}
 void Worker::enqueue(Task&& task){
   std::unique_lock<std::mutex> lock(mutex);
-  if(parent->liveEdge && task.type==Task::DATA && !task.pcm.empty()
-     && jobs.size()>=LIVE_QUEUE_CAP){
-    // A recognizer that is >several seconds behind must NOT replay stale
-    // audio indefinitely. Workers remain independent and no new model is
-    // introduced. This policy is ONLY enabled for real-time folder mode;
-    // an explicitly selected file is still losslessly transcribed.
-    const size_t dropped=jobs.size();
-    const int lastWindow=jobs.empty()?-1:jobs.back().window;
-    jobs.clear();
-    say("DUAL_LIVE_QUEUE_SKIP:worker=%d:droppedJobs=%zu:fromWindow=%d:resumeWindow=%d",
-        id,dropped,lastWindow,task.window);
-  }
+  // Never blindly clear a window's END marker: that would strand the
+  // standby reservation and mix consecutive streams. Upstream AAC live-edge
+  // dropping is responsible for urgent catch-up.
   const uint64_t start=bootNs();
   cv.wait(lock,[this]{return jobs.size()<QUEUE_CAP;});
   const auto waitMs=(bootNs()-start)/1000000;
@@ -314,7 +334,7 @@ void Worker::beginWindow(int window){
   if(!stream){say("DUAL_FATAL:worker=%d:stream_create_failed",id);return;}
   activeWindow=window;lastRaw.clear();
   say("DUAL_WINDOW_STARTED:worker=%d:window=%d:fromMs=%d",
-      id,window,window*3000);
+      id,window,window*4000);
 }
 void Worker::update(bool final){
   if(!stream)return;
@@ -369,7 +389,9 @@ void Worker::endWindow(){
   say("DUAL_WINDOW_FINISHED:worker=%d:window=%d:decodeCalls=%llu:decodeTotalMs=%llu",
       id,activeWindow,(unsigned long long)decodeCalls,(unsigned long long)(decodeUs/1000));
   SherpaOnnxDestroyOnlineStream(stream);
+  const int ended=activeWindow;
   stream=nullptr;activeWindow=-1;
+  parent->releaseWindow(ended,id);
 }
 void Worker::loop(){
   SherpaOnnxOnlineRecognizerConfig config={};
@@ -379,7 +401,7 @@ void Worker::loop(){
   config.model_config.transducer.decoder=parent->argv[2].c_str();
   config.model_config.transducer.joiner=parent->argv[3].c_str();
   config.model_config.tokens=parent->argv[0].c_str();
-  config.model_config.num_threads=2; // preserve EXACT v20 decoding settings.
+  config.model_config.num_threads=1; // 72M INT8, reduce concurrent CPU contention.
   config.model_config.provider="cpu";
   config.model_config.modeling_unit="cjkchar";
   config.decoding_method="modified_beam_search";
