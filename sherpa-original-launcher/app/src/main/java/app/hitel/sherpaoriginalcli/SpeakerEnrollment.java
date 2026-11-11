@@ -56,6 +56,8 @@ final class SpeakerEnrollment {
           throw new IOException("마이크 녹음이 시작되지 않았습니다.");
         final int expected=RATE*2*SECONDS;
         int recorded=0;
+        double energy=0;
+        long energySamples=0;
         byte[] bytes=new byte[4096];
         try(FileOutputStream out=new FileOutputStream(temp,false)){
           while(recorded<expected){
@@ -63,11 +65,20 @@ final class SpeakerEnrollment {
             int n=recorder.read(bytes,0,want);
             if(n<=0)throw new IOException("마이크 읽기 실패: "+n);
             out.write(bytes,0,n);
+            for(int i=0;i+1<n;i+=2){
+              int u=(bytes[i]&255)|((bytes[i+1]&255)<<8);
+              short sample=(short)u;
+              double value=sample/32768.0;
+              energy+=value*value;
+              energySamples++;
+            }
             recorded+=n;
           }
           out.flush();out.getFD().sync();
         }
         if(temp.length()!=expected)throw new IOException("등록 음성 길이가 올바르지 않습니다.");
+        if(energySamples==0 || Math.sqrt(energy/energySamples)<0.012)
+          throw new IOException("목소리가 너무 작거나 무음입니다. 조용한 곳에서 다시 등록하십시오.");
         if(target.exists()&&!target.delete())
           throw new IOException("기존 음성 등록 파일을 교체할 수 없습니다.");
         if(!temp.renameTo(target))
