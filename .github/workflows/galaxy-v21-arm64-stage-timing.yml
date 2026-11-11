@@ -4,6 +4,9 @@ on:
     branches:
       - experiment/zipformer-decoder-ab-20261111
   workflow_dispatch:
+concurrency:
+  group: galaxy-v21-arm64-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
