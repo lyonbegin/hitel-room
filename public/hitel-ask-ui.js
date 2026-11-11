@@ -143,4 +143,6 @@ document.addEventListener('input',ev=>{if(ev.target?.id==='ask-text')ui.draft=ev
 document.addEventListener('change',ev=>{if(['ask-camera','ask-gallery'].includes(ev.target?.id))photo(ev.target.files?.[0])});
 document.addEventListener('keydown',ev=>{if(ev.target?.id==='ask-text'&&ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();send()}if(ev.key==='Escape'&&ui.open)dismiss()});
 window.HITEL_ASK_INSPECT=()=>({questionBar:true,camera:true,voice:true,threads:ui.threads.length,open:ui.open,context:teacher(ui.draft)});
+// The base app renders before extension scripts load; refresh the shell once after overriding it.
+render();
 })();
