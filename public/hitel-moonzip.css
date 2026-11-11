@@ -187,3 +187,9 @@
  #phone .mzx-sort{max-width:102px}
  #phone .mzx-sort select{max-width:102px}
 }
+
+#phone .mzx-popular a.mzx-unreviewed{display:flex;align-items:center;gap:9px;padding:10px 11px;width:100%;background:#fff;border:0;border-bottom:1px solid #edf0f4;text-align:left;text-decoration:none;color:#333b48}
+#phone .mzx-popular a.mzx-unreviewed:last-child{border-bottom:0}
+#phone .mzx-unreviewed b{font-size:15px;color:#5548f4;min-width:16px}
+#phone .mzx-unreviewed span{flex:1;min-width:0;overflow-wrap:anywhere;font-size:11px}
+#phone .mzx-unreviewed em{font-size:10px;color:#8e97a2;font-style:normal;white-space:nowrap}
