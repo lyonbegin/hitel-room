@@ -35,7 +35,8 @@ static size_t pendingLen,pendingCapacity;
 static int rate=48000,channels=1,sampleIndex=3;
 static int liveEdge=0; // --live-edge: never replay the backlog accumulated during model prewarm.
 #define MAX_CATCHUP_FRAMES 60 // 60 AAC-LC packets = approx 1.28 s; skip only if behind.
-#define KEEP_LIVE_FRAMES 36 // approx 0.77 s of latest context when catching up.
+#define KEEP_LIVE_FRAMES 36 // approx 0.77 s of newest data when catching up.
+#define KEEP_START_FRAMES 24 // 24*1024/48000=512ms of pre-ready Samsung AAC.
 
 static long long nowMs(void){
   struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);
@@ -215,12 +216,14 @@ int main(int argc,char **argv){
     }
     size_t skip=0;
     if(bootstrap){
-      // Crucial: the first existing recorder snapshot is HISTORY, never input
-      // to either recognizer. New packets after this snapshot are live speech.
-      skip=count;
+      // Keep precisely the newest ~0.5 sec (24 complete 48k AAC frames).
+      // Earlier audio preceding recognizer readiness is explicitly skipped.
+      // AAC frames are parsed before skipping: never seek into raw mdat bytes.
+      skip=count>KEEP_START_FRAMES?count-KEEP_START_FRAMES:0;
       bootstrap=0;
-      fprintf(stderr,"AAC_FOLLOW_LIVE_EDGE_INITIAL:source=%lld:skipFrames=%zu:sourceBytes=%lld\n",
-        sourceCursor+(long long)consumed,skip,sz);
+      fprintf(stderr,"AAC_FOLLOW_LIVE_EDGE_INITIAL:source=%lld:skipFrames=%zu:preservedFrames=%zu:preRollMs=%zu:sourceBytes=%lld\n",
+        sourceCursor+(long long)consumed,skip,count-skip,
+        (count-skip)*1024UL*1000UL/(unsigned long)rate,sz);
       fflush(stderr);
     }else if(liveEdge && count>MAX_CATCHUP_FRAMES){
       // For a stalled/slow consumer, emit only freshest ~770ms, not a delayed
