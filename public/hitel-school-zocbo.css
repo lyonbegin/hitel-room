@@ -78,3 +78,65 @@
 #phone .hsc-question-ask{border:1px solid #e0dcf1;background:white;border-radius:9px;padding:9px;color:#5349c3;font-size:11px;font-weight:720}
 #phone .hsc-disclosure{font-size:10px;color:#929cab;line-height:1.7}
 @media(max-width:360px){#phone .hsc-home,#phone .hsc-study{gap:11px}#phone .hsc-class-cta{grid-template-columns:1fr}#phone .hsc-types button{padding:8px 10px}#phone .hsc-class-card>strong{font-size:14px}}
+
+
+/* School-specific faithful Zocbo page: HITEL-native UI in place of oversized
+   "우리학교 이번 시험문제는?" captured guide. Other menus remain functional. */
+#phone .zb-faithful{background:#fff;color:#293241;min-height:240px;overflow-x:hidden}
+#phone .zb-faithful .zb-f-sitebar{background:#fff}
+#phone .zb-faithful .zb-f-main-tabs{background:#fff;border-bottom:1px solid #edf0f4;gap:6px;padding:0 9px}
+#phone .zb-faithful .zb-f-main-tabs>button{background:#fff;color:#6e7887;font-size:11px;padding:13px 10px 11px;min-height:42px}
+#phone .zb-faithful .zb-f-main-tabs>button.is-active{color:#35313e;border-bottom-color:#5148c9;font-weight:780}
+#phone .zb-faithful .zb-f-subtabs{background:#fff;border-bottom:1px solid #f0f1f4;min-height:42px;padding:0 11px}
+#phone .zb-faithful .zb-f-subtabs>button{color:#7d8793;font-size:11px;padding:12px 0}
+#phone .zb-faithful .zb-f-subtabs>button.is-active{color:#4b43bb;border-bottom-color:#5148c9}
+#phone .zb-faithful .zb-f-filter{background:#fff;border-bottom:1px solid #edf0f4;padding:11px 10px;min-height:54px;gap:6px}
+#phone .zb-faithful .zb-f-filter-item{background:#f9fafb;border:1px solid #e4e7ec;font-size:10px;font-weight:670;color:#475365;min-height:34px;padding:7px 10px}
+#phone .zb-faithful .zb-f-content{background:#fff;min-height:0;padding:0 0 20px}
+#phone .zb-faithful .hsc-native-school{box-sizing:border-box;display:flex;flex-direction:column;gap:13px;padding:15px 11px 22px;background:#fff;min-width:0;font:12px/1.6 -apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;color:#293241}
+#phone .hsc-native-school *{box-sizing:border-box}
+#phone .hsc-native-summary{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;min-width:0}
+#phone .hsc-native-summary>div{flex:1;min-width:0}
+#phone .hsc-native-summary small{display:block;color:#dd7546;font-size:10px;font-weight:750;margin-bottom:5px}
+#phone .hsc-native-summary h3{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-.04em;line-height:1.4;color:#232b39}
+#phone .hsc-native-summary p{font-size:10px;color:#8993a1;line-height:1.55;margin:0}
+#phone .hsc-native-status{flex:none;max-width:115px;background:#f4f4fa;border-radius:14px;color:#635aa7;padding:5px 9px;font-size:9px;font-weight:730;text-align:center;line-height:1.4}
+#phone .hsc-native-pickers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#phone .hsc-native-picker{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #e2e5ec;background:#fff;border-radius:10px;min-width:0;min-height:42px;padding:10px;text-align:left;color:#6b7584;font-size:11px}
+#phone .hsc-native-picker.picked{border-color:#d4d2ec;background:#faf9ff;color:#38366d;font-weight:700}
+#phone .hsc-native-picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#phone .hsc-native-picker b{color:#9696a6;font-size:13px;font-weight:400;flex:none}
+#phone .hsc-native-notice{display:flex;align-items:flex-start;flex-direction:column;gap:3px;background:#f5f6fa;border-radius:10px;padding:11px 12px}
+#phone .hsc-native-notice span{font-size:10px;color:#5a51ae;font-weight:750}
+#phone .hsc-native-notice p{margin:0;font-size:10px;color:#7a8593;line-height:1.6}
+#phone .hsc-native-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:5px}
+#phone .hsc-native-list-head b{font-size:14px;color:#242d3a}
+#phone .hsc-native-list-head small{font-size:10px;color:#999fac}
+#phone .hsc-native-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;min-height:180px;border:1px dashed #e2e5ec;border-radius:13px;padding:19px 14px;background:#fafbfc}
+#phone .hsc-native-empty-icon{display:flex;align-items:center;justify-content:center;border-radius:15px;width:44px;height:44px;background:#eef0f7;color:#756bb0;font-size:24px}
+#phone .hsc-native-empty strong{font-size:12px;letter-spacing:-.025em;color:#333e4c}
+#phone .hsc-native-empty p{font-size:10px;line-height:1.7;margin:0;color:#8b95a2;max-width:290px}
+#phone .hsc-native-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#phone .hsc-native-actions a,#phone .hsc-native-actions button{min-height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:4px;text-align:center;padding:10px 8px;font-size:10px;font-weight:760;line-height:1.5;text-decoration:none}
+#phone .hsc-native-actions a{border:1px solid #e0e4ec;background:#fff;color:#4d5667}
+#phone .hsc-native-actions button{border:1px solid #292e38;background:#292e38;color:#fff;cursor:pointer}
+#phone .hsc-native-results{display:flex;flex-direction:column;gap:7px}
+#phone .hsc-native-paper{display:flex;align-items:center;justify-content:space-between;gap:9px;width:100%;min-width:0;text-align:left;background:#fff;border:1px solid #e2e6ec;border-radius:10px;padding:12px;cursor:pointer;color:#2b3444}
+#phone .hsc-native-paper>span{display:flex;flex-direction:column;gap:4px;min-width:0}
+#phone .hsc-native-paper small{font-size:9px;color:#7b8595}
+#phone .hsc-native-paper .button__text{font-size:12px;overflow-wrap:anywhere;line-height:1.5}
+#phone .hsc-native-paper>strong{font-size:10px;font-weight:710;flex:none;color:#5344b4}
+#phone .hsc-native-guide{border-top:1px solid #e9ebf0;padding-top:10px}
+#phone .hsc-native-guide>summary{list-style:none;font-size:11px;color:#6a7482;cursor:pointer;padding:7px 0}
+#phone .hsc-native-guide>summary:before{content:'▸';padding-right:6px;color:#928ab3}
+#phone .hsc-native-guide[open]>summary:before{content:'▾'}
+#phone .hsc-native-legacy{border:1px solid #ecedf1;border-radius:9px;padding:10px;overflow-x:auto;max-width:100%;margin-top:8px;background:#fff}
+#phone .hsc-native-legacy *{max-width:100%;box-sizing:border-box}
+#phone .hsc-native-legacy img{height:auto;object-fit:contain}
+#phone .hsc-native-legacy .promotion{min-width:0}
+@media(max-width:355px){
+ #phone .hsc-native-summary{flex-direction:column}
+ #phone .hsc-native-status{max-width:100%}
+ #phone .hsc-native-pickers{grid-template-columns:1fr}
+ #phone .hsc-native-actions{grid-template-columns:1fr}
+}
