@@ -68,6 +68,30 @@ std::string normalized(std::string s){
     return c<128 && (c=='.'||c==','||c=='!'||c=='?'||c==':'||c==';');
   }),s.end());return s;
 }
+// Count UTF-16 code units in a valid UTF-8 prefix. Java String uses UTF-16.
+// Never split a Unicode code point when generating an incremental edit.
+size_t utf16Length(const std::string& value,size_t bytes){
+  size_t units=0;
+  for(size_t i=0;i<bytes;){
+    const unsigned char lead=static_cast<unsigned char>(value[i]);
+    size_t n=1;
+    if((lead&0xF8)==0xF0){n=4;units+=2;}
+    else if((lead&0xF0)==0xE0){n=3;units+=1;}
+    else if((lead&0xE0)==0xC0){n=2;units+=1;}
+    else {units+=1;}
+    i+=std::min(n,bytes-i);
+  }
+  return units;
+}
+size_t commonUtf8Prefix(const std::string& oldText,const std::string& newText){
+  size_t k=0;
+  const size_t limit=std::min(oldText.size(),newText.size());
+  while(k<limit && oldText[k]==newText[k])++k;
+  // k may be inside a multi-byte Hangul code point.
+  while(k>0 && k<newText.size() &&
+        (static_cast<unsigned char>(newText[k])&0xC0)==0x80)--k;
+  return k;
+}
 std::string joinOverlap(const std::string& left,const std::string& right){
   if(left.empty())return right;
   if(right.empty())return left;
@@ -197,7 +221,7 @@ struct Manager{
     workers[w%2].enqueue(std::move(task));
   }
   void publish(int window,const std::string& raw,bool finished){
-    std::string full;
+    std::string full,prior;
     unsigned int seq=0;
     {
       std::lock_guard<std::mutex> guard(stateMutex);
@@ -210,20 +234,28 @@ struct Manager{
         full=joinOverlap(full,it->second.text);
       }
       if(full==lastPublished)return;
+      prior=lastPublished;
       lastPublished=full;
       seq=++hypotheses;
     }
+    // Only the changed UTF-8 suffix is sent to Java. The retained prefix
+    // is described by UTF-16 code units so Hangul and emoji survive edits.
+    // Both ASR recognizers and the original AAC delta stream are UNCHANGED.
+    const size_t prefixBytes=commonUtf8Prefix(prior,full);
+    const size_t keepUtf16=utf16Length(prior,prefixBytes);
+    const std::string suffix=full.substr(prefixBytes);
     const auto now=bootNs(),audioMs=pcmSamples.load()*1000/RATE;
     say("ONLINE_TIMING:LIVE:%u:%llu:%llu:0",seq,
         (unsigned long long)audioMs,(unsigned long long)now);
-    say("ONLINE_HYPOTHESIS:%llu:%s",(unsigned long long)audioMs,full.c_str());
-    say("ONLINE_LIVE:%llu:%s",(unsigned long long)audioMs,full.c_str());
+    say("ONLINE_EDIT:%llu:%zu:%s",(unsigned long long)audioMs,
+        keepUtf16,suffix.c_str());
     const auto w=tokens(full);
     if(!w.empty()){
       const std::string tail=w.size()>1?w[w.size()-2]+" "+w.back():w.back();
       say("ONLINE_LIVE_TAIL:%llu:%s",(unsigned long long)audioMs,tail.c_str());
     }
-    say("DUAL_LIVE:window=%d:chars=%zu:workers=2",window,full.size());
+    say("DUAL_LIVE:window=%d:chars=%zu:workers=2:patchUtf16Keep=%zu:patchUtf8Bytes=%zu",
+        window,full.size(),keepUtf16,suffix.size());
   }
   void finish(){
     // Close only windows still open. All full windows already received END.
