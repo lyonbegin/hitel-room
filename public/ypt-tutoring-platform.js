@@ -660,6 +660,7 @@ function forms(form){
  }
 }
 document.addEventListener('click',ev=>{
+ if(ev.target.closest('#phone .bottomnav button[data-go="groups"]'))ui.mainTab='discover';
  if(ev.target.closest('#phone button[data-go="bankSearch"]'))prepareBankContext();
  const b=ev.target.closest('#phone [data-tp]');if(!b)return;
  ev.preventDefault();ev.stopImmediatePropagation();action(b.dataset.tp,b.dataset.value||'');
