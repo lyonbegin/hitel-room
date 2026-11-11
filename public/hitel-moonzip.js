@@ -88,6 +88,12 @@ function home(){
  sec('최근 리뷰','원본 HTML에 포함된 리뷰 발췌')+
  '<div class="mzx-review"><b>마플시너지</b><small>난이도 3.0 · 개념·유형</small><p>쎈(두껍고 더 지루한)</p></div>'+
  '<div class="mzx-review"><b>포카칩 모의고사 2027</b><small>난이도 9.5 · 심화</small><p>ㅇㅇ</p></div>'+
+ sec('첫 리뷰를 기다리는 문제집','제공된 원본 화면의 리뷰 0개 교재')+
+ '<div class="mzx-popular">'+[
+ ['4점코드','6c1605c0-2d74-4dd3-a0ed-a56216fd0e31'],
+ ['천재일우 시즌1','7b1a757a-41ea-4ba0-84b7-a8d99c70dd85'],
+ ['기출코드','77224e3e-4de0-469f-8ae2-5e4f3f435397']
+ ].map(([name,id],i)=>'<a class="mzx-unreviewed" href="https://moonzip.kr/series/'+id+'" target="_blank" rel="noopener noreferrer"><b>'+(i+1)+'</b><span>'+esc(name)+'</span><em>리뷰 0개 ›</em></a>').join('')+'</div>'+
  '<div class="mzx-convert"><strong>고른 문제집으로 AI 과외를 시작하세요</strong><p>교재별 데이터와 AI 선생님, 최대 5인 학습반을 연결합니다.</p>'+
  '<button type="button" data-go="groupTutorCatalog">HITEL 교재별 AI 과외 찾아보기 →</button></div>'+
  sourceNotice()+'</section>';
