@@ -67,6 +67,19 @@ for(const g of model.groups){
  if(!g.bookId)g.bookId='';
  if(!g.coachId)g.coachId='';
  if(!g.coachName)g.coachName='';
+ // Only the pre-existing, explicitly marked example group receives a sample tutor.
+ // Never silently change any real group or its previously selected curriculum.
+ if(g.id==='demo-five'&&g.example===true&&!g.bookId&&!g.institutionName&&!g.grade){
+  const sample=catalogMap.get('concept-중2-1');
+  if(sample){
+   g.name='중2 수학 스터디 (예시)';
+   g.institutionName='예시중학교';g.school='예시중학교';
+   g.grade='중2';g.subject='수학';
+   g.bookId=sample.id;g.bookTitle=sample.name;
+   g.coachId='coach:'+sample.id;g.coachName=coachNameForBook(sample);
+   g.bookShelf=[sample.id];
+  }
+ }
 }
 const ui={subject:'전체',grade:'전체',query:'',selectedBook:'',groupQuery:'',groupType:'all',learningTab:'assignments',formMode:'',chatListQuery:'',chatSubject:'전체'};
 const urlInit=new URLSearchParams(location.search),path=urlInit.get('screen');
