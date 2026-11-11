@@ -113,6 +113,8 @@ jobs:
           grep -F 'READER_DRAIN_ACKNOWLEDGED' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
           grep -F 'SOURCE_SEEK' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
           grep -F 'PERSISTENT_ANDROID_AAC_DECODER_STARTED' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/StreamingAacPcmDecoder.java
+          grep -F 'FINAL_MOOV_NO_NEW_AAC' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'STREAM_POLL_MS=300' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
           grep -F 'RECOVERY_CURSOR source=' sherpa-original-launcher/native/aac_mdat_recover_oracle.c
           grep -F 'ONLINE_CONTEXT_MERGE:' sherpa-original-launcher/native/online_prior_speech_context.h
           grep -F 'FATAL_UNDRAINED_PCM_' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
