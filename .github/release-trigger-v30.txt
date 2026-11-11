@@ -1,0 +1,6 @@
+Vosk Small Korean 0.22 v30 experimental APK direct release trigger.
+Signed native Android ARM64 build success run: https://github.com/lyonbegin/hitel-room/actions/runs/43073144582
+Actual small-ko model SHA256: eea36124087fed26c59996a4761519458e3bd185e8ea9d9865ad8760c4a1d989
+Runtime AAR SHA256: validated against Maven Central public checksum.
+The new recognizer is Vosk native and single continuous. Original Samsung M4A recording folder/AAC/MediaCodec input is unchanged.
+Caution: Android15 original Samsung audio E2E and physical Galaxy performance are separate from APK build.
