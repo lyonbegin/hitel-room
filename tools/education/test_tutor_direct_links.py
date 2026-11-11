@@ -6,7 +6,9 @@ from playwright.sync_api import sync_playwright
 BASE=os.getenv("HITEL_BASE_URL","https://hitel-education-zocbo-unified-production.up.railway.app").rstrip("/")
 OUT=Path("tutor-direct-link-evidence");OUT.mkdir(exist_ok=True,parents=True)
 CASES=[
- ("groups","내 스터디","#phone .tp-group-item"),
+ ("groups","스터디 찾기","#phone .tp-discover-item"),
+ ("groupSearch","스터디 검색","#phone .tp-discovery-filters"),
+ ("groupPreview","스터디 상세","#phone .tp-small-row"),
  ("groupAITutor","AI 과외","#phone .tp-book-item"),
  ("groupCoachProfile","AI 선생님","#phone .tp-profile"),
  ("groupBookDetail","AI 선생님","#phone .tp-profile"),
@@ -27,7 +29,7 @@ with sync_playwright() as p:
    ctx=browser.new_context(viewport={"width":width,"height":844},is_mobile=True,has_touch=True,locale="ko-KR",timezone_id="Asia/Seoul")
    page=ctx.new_page();errors=[]
    page.on("pageerror",lambda e:errors.append(str(e)))
-   page.goto(BASE+"/?screen="+route+"&group=demo-five",wait_until="domcontentloaded",timeout=60000)
+   page.goto(BASE+"/?screen="+route+"&group=demo-five"+("&listing=sample-math-ssen" if route=="groupPreview" else ""),wait_until="domcontentloaded",timeout=60000)
    page.locator(selector).first.wait_for(state="attached",timeout=35000)
    shown=page.evaluate("window.HITEL_TUTOR_PLATFORM.getState().screen")
    if shown!=route:raise AssertionError("WRONG_ROUTE "+route+" opened "+shown)
