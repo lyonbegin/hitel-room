@@ -42,6 +42,8 @@ public final class MainActivity extends Activity {
   volatile boolean receiverRegistered=false;
   volatile long lastLogRefreshNs=0;
   final StringBuilder liveText=new StringBuilder();
+  volatile long captionRevision=0;
+  String currentCaption="";
 
   final BroadcastReceiver broadcast=new BroadcastReceiver(){
     @Override public void onReceive(Context context,Intent intent){
@@ -58,24 +60,26 @@ public final class MainActivity extends Activity {
         "nativeToReceiverMs",nativeNs>0?(recvNs-nativeNs)/1000000.0:-1);
       if(message!=null)status.setText(message);
       if(text!=null){
-        caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
-        if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
-        if(live){
-          final String expected=caption.getText().toString();
-          final long setNs=SystemClock.elapsedRealtimeNanos();
-          TraceJournal.uiTiming(setNs,"UI","LIVE_SET_TEXT",
-            "captionSeq",seq,"chars",expected.length(),
-            "nativeToSetTextMs",nativeNs>0?(setNs-nativeNs)/1000000.0:-1,
-            "broadcastToSetTextMs",sendNs>0?(setNs-sendNs)/1000000.0:-1);
-          caption.postOnAnimation(()->{
-            final long frameNs=SystemClock.elapsedRealtimeNanos();
-            final boolean same=expected.equals(caption.getText().toString());
-            TraceJournal.uiTiming(frameNs,"UI","NEXT_FRAME_CALLBACK",
-              "captionSeq",seq,"sameTextStillPresent",same,
-              "nativeToFrameCallbackMs",nativeNs>0?(frameNs-nativeNs)/1000000.0:-1,
-              "setTextToFrameCallbackMs",(frameNs-setNs)/1000000.0,
-              "note","frame callback, not proven screen scanout");
-          });
+        // Explicit full snapshot, used only at app attach/start/stop.
+        final long revision=intent.getLongExtra(GrowingCallService.EX_REVISION,0);
+        if(revision>=captionRevision){
+          currentCaption=text;captionRevision=revision;
+          updateCaptionText(text,live,seq,nativeNs,sendNs);
+        }
+      }else if(intent.hasExtra(GrowingCallService.EX_PATCH_KEEP)){
+        final long revision=intent.getLongExtra(GrowingCallService.EX_REVISION,-1);
+        final int keep=intent.getIntExtra(GrowingCallService.EX_PATCH_KEEP,-1);
+        final String suffix=intent.getStringExtra(GrowingCallService.EX_PATCH_SUFFIX);
+        if(revision==captionRevision+1 && keep>=0 &&
+           keep<=currentCaption.length() && suffix!=null){
+          // Edit only the changed suffix; never send the whole caption again.
+          currentCaption=currentCaption.substring(0,keep)+suffix;
+          captionRevision=revision;
+          updateCaptionText(currentCaption,true,seq,nativeNs,sendNs);
+        }else if(revision>captionRevision){
+          // The Activity was paused or a broadcast was missed.
+          // Never corrupt the transcript by applying a stale patch.
+          requestCaptionSync();
         }
       }
       refreshButtons();
@@ -85,6 +89,34 @@ public final class MainActivity extends Activity {
       }
     }
   };
+  void updateCaptionText(String text,boolean live,long seq,long nativeNs,long sendNs){
+    caption.setText(text.isEmpty()?
+      "아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
+    if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+    if(live){
+      final String expected=caption.getText().toString();
+      final long setNs=SystemClock.elapsedRealtimeNanos();
+      TraceJournal.uiTiming(setNs,"UI","LIVE_SET_TEXT",
+        "captionSeq",seq,"chars",expected.length(),
+        "nativeToSetTextMs",nativeNs>0?(setNs-nativeNs)/1000000.0:-1,
+        "broadcastToSetTextMs",sendNs>0?(setNs-sendNs)/1000000.0:-1,
+        "patchOnly",true,"revision",captionRevision);
+      caption.postOnAnimation(()->{
+        final long frameNs=SystemClock.elapsedRealtimeNanos();
+        final boolean same=expected.equals(caption.getText().toString());
+        TraceJournal.uiTiming(frameNs,"UI","NEXT_FRAME_CALLBACK",
+          "captionSeq",seq,"sameTextStillPresent",same,
+          "nativeToFrameCallbackMs",nativeNs>0?(frameNs-nativeNs)/1000000.0:-1,
+          "setTextToFrameCallbackMs",(frameNs-setNs)/1000000.0,
+          "note","frame callback, not proven screen scanout");
+      });
+    }
+  }
+  void requestCaptionSync(){
+    if(!active())return;
+    try{startService(new Intent(this,GrowingCallService.class).setAction(GrowingCallService.SYNC));}
+    catch(Throwable e){Log.w("GrowingM4aDiag","Caption sync request failed",e);}
+  }
   static String lastTwoWords(String s){
     if(s==null||s.trim().isEmpty())return "새로 인식된 단어 대기 중";
     String[] words=s.trim().split("\\s+");
@@ -276,6 +308,9 @@ public final class MainActivity extends Activity {
     String msg=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentStatus","대기 중");
     String text=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentTranscript","");
     status.setText(msg);
+    currentCaption=text;
+    captionRevision=getSharedPreferences("growing_diag",MODE_PRIVATE)
+      .getLong("currentTranscriptRevision",0);
     caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":text);
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
     refreshButtons();
@@ -288,6 +323,7 @@ public final class MainActivity extends Activity {
     else registerReceiver(broadcast,filter);
     receiverRegistered=true;
     loadPersisted();
+    requestCaptionSync();
   }
   @Override protected void onStop(){
     if(receiverRegistered){unregisterReceiver(broadcast);receiverRegistered=false;}
