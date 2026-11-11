@@ -84,7 +84,7 @@ public final class GrowingCallService extends Service {
           finishIfNeeded();
         }
       });
-      sendStatus("FFmpeg/SenseVoice 성장 파일 진단 시작", "");
+      sendStatus("통화 녹음 증가분 · Vosk 실시간 인식 시작", "");
       engine.start(uri,isFolder);
     }catch(Throwable t){
       Log.e("GrowingM4aDiag","Failed to launch service",t);
