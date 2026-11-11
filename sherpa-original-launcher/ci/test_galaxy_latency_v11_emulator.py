@@ -147,8 +147,22 @@ def check_actual():
               "events",len(events),flush=True)
         time.sleep(8)
     capture("stt-completed-or-timeout")
-    tap_name(["진단 중지"],8)
-    time.sleep(3)
+    assert tap_name(["진단 중지"],8), "stop button missing"
+    # v20 collected logs only 3 seconds after STOP. With two independent
+    # recognizers this silently misses the last queued window/final merge.
+    # Require actual native STT_FINISHED, not just 16.5s PCM pipe acceptance.
+    native_final=False
+    for drain_poll in range(54):
+        raw_final=read_log("stt-raw.txt")
+        if "STT_FINISHED:" in raw_final:
+            native_final=True
+            print("TWO_WORKER_FINAL_NATIVE_COMMIT_CONFIRMED",
+                  "poll",drain_poll,"commits",raw_final.count("STT_SEGMENT:"),flush=True)
+            break
+        if drain_poll%5==0:
+            print("DUAL_WORKER_FINAL_DRAIN_PENDING","poll",drain_poll,flush=True)
+        time.sleep(2)
+    assert native_final, "Two-worker native final transcript never committed after STOP"
     report=archive_logs()
     print("APP LOG FILES",report,flush=True)
     timeline=read_log("latency-trace.jsonl")
