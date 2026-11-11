@@ -153,7 +153,7 @@ struct Manager{
     return true;
   }
   void beginWindow(int w){
-    if(w<=maxWindow.load().load())return; // dispatched only in monotonic order.
+    if(w<=maxWindow.load())return; // dispatched only in monotonic order.
     // A single incoming PCM chunk may straddle one stride; do not omit it.
     for(int id=maxWindow.load()+1;id<=w;++id){
       Task t;t.type=Task::DATA;t.window=id;
@@ -227,7 +227,7 @@ struct Manager{
   }
   void finish(){
     // Close only windows still open. All full windows already received END.
-    for(int w=0;w<=maxWindow.load().load();++w){
+    for(int w=0;w<=maxWindow.load();++w){
       if(!endedWindows.count(w))markEnd(w);
     }
     for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
