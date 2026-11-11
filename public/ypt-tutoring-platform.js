@@ -253,11 +253,10 @@ function teacherChat(){
  (history.length?history.map(m=>'<div class="tp-bubble '+(m.role==='student'?'student':'teacher')+'"><small>'+(m.role==='student'?'나':'AI 선생님')+'</small><p>'+esc(m.text)+'</p></div>').join(''):
  '<div class="tp-welcome"><strong>무엇이 궁금하신가요?</strong><p>'+esc(bookFor(g)?.name||'선택 교재')+' 학습과 '+esc(g.institutionName||'학교')+' 수업에 관한 질문을 남겨보세요.</p></div>')+'</div>'+
  '<div class="tp-topic-tools">'+
- bt('현재 숙제','chatQuick','숙제'),
- bt('시험 준비','chatQuick','시험'),
- catalogMap.has(g.bookId)?bt('문제풀이','practice',g.id):'',
- goBtn('자료','groupLearning')
- .replace('data-value="groupLearning"','data-value="groupLearning"')+
+ bt('현재 숙제','chatQuick','숙제')+
+ bt('시험 준비','chatQuick','시험')+
+ (catalogMap.has(g.bookId)?bt('문제풀이','practice',g.id):'')+
+ goBtn('자료','groupLearning')+
  '</div>'+
  '<form id="tp-chat-compose" class="tp-compose"><label class="tp-visually-hidden" for="tp-question">질문 입력</label>'+
  '<textarea id="tp-question" name="question" rows="3" maxlength="1600" required placeholder="궁금한 내용을 입력하세요."></textarea>'+
