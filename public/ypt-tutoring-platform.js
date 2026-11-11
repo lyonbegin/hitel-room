@@ -36,7 +36,7 @@ const bookById=bid=>catalogMap.get(bid)||customBooks().find(b=>b.id===bid)||null
 const bookFor=g=>g?bookById(g.bookId):null;
 const coachFor=g=>g?.coachName||coachLabel(bookFor(g));
 const titleOf=g=>[g.institutionName||g.school,g.grade,g.subject].filter(Boolean).join(' · ')||g.name;
-const groupMatchesBook=g=>!!(g&&g.coachId&&g.bookId&&bookFor(g));
+const groupMatchesBook=g=>!!(g&&(g.trainerId||g.coachId));
 const save=()=>WP.saveModel();
 const todayTitle=()=>new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric'});
 const bt=(text,action,value='',primary=false)=>'<button type="button" class="tp-btn'+(primary?' primary':'')+'" data-tp="'+esc(action)+'" data-value="'+esc(value)+'">'+esc(text)+'</button>';

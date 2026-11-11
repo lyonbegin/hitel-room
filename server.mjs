@@ -295,6 +295,8 @@ createServer(async (req,res)=>{
  if(url.pathname==='/ypt-coach-suite.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/ypt-coach-suite.js'));return}
  if(url.pathname==='/ypt-coach-suite.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-coach-suite.css'));return}
  if(url.pathname==='/ypt-tutoring-platform.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/ypt-tutoring-platform.js'));return}
+ if(url.pathname==='/hitel-journey.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/hitel-journey.js'));return}
+ if(url.pathname==='/hitel-journey.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-journey.css'));return}
  if(url.pathname==='/ypt-tutoring-platform.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-tutoring-platform.css'));return}
  if(url.pathname==='/ypt-mobile-shell.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-mobile-shell.css'));return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
