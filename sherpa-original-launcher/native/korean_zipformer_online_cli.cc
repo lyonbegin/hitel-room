@@ -225,8 +225,10 @@ struct Manager{
   void publish(int window,const std::string& raw,bool finished){
     std::string full,prior;
     unsigned int seq=0;
+    // The state update AND ONLINE_EDIT publish must be one serialized unit.
+    // Otherwise worker 1 can publish patch N+1 before worker 0 publishes N.
+    std::lock_guard<std::mutex> guard(stateMutex);
     {
-      std::lock_guard<std::mutex> guard(stateMutex);
       Segment& s=segments[window];
       if(raw!=s.text)s.text=raw;
       if(finished)s.done=true;
@@ -240,6 +242,7 @@ struct Manager{
       lastPublished=full;
       seq=++hypotheses;
     }
+    // stateMutex remains held until the complete patch is emitted.
     // Only the changed UTF-8 suffix is sent to Java. The retained prefix
     // is described by UTF-16 code units so Hangul and emoji survive edits.
     // Both ASR recognizers and the original AAC delta stream are UNCHANGED.
