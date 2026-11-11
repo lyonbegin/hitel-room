@@ -1,0 +1,132 @@
+/* HITEL textbook-coach group architecture: mobile-first, single-column, neutral. */
+#phone .tp-app{padding:5px 0 35px;font-family:inherit;color:#293039;min-width:0}
+#phone .tp-app *{box-sizing:border-box}
+#phone .tp-app button,#phone .tp-app select,#phone .tp-app input,#phone .tp-app textarea{font:inherit}
+#phone .tp-app button{cursor:pointer}
+#phone .tp-head{display:grid;gap:7px;margin:13px 0 18px}
+#phone .tp-head h2{font-size:23px;line-height:1.3;margin:0;font-weight:800;color:#262d35;letter-spacing:-.035em}
+#phone .tp-head p{font-size:11px;line-height:1.7;color:#808892;margin:0}
+#phone .tp-btn{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:38px;padding:10px 12px;font-size:11px!important;font-weight:650;border:1px solid #dfe3e9;border-radius:9px;background:#fff;color:#3e4651;line-height:1.3;white-space:normal;text-align:center}
+#phone .tp-btn.primary{background:#303741;border-color:#303741;color:#fff}
+#phone .tp-btn:focus-visible,#phone .tp-app input:focus-visible,#phone .tp-app textarea:focus-visible,#phone .tp-app select:focus-visible{outline:2px solid #747c86;outline-offset:2px}
+#phone .tp-panel{border:1px solid #e5e9ed;border-radius:12px;background:white;padding:15px;margin:13px 0;display:grid;gap:12px}
+#phone .tp-panel>strong{font-size:13px;font-weight:800}
+#phone .tp-panel>p{font-size:11px;color:#737b86;line-height:1.7;margin:0}
+#phone .tp-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+#phone .tp-actions .tp-btn{flex:1 1 auto}
+#phone .tp-form{display:grid;gap:12px}
+#phone .tp-form label{display:grid;gap:6px;font-size:11px;font-weight:650;color:#58616b}
+#phone .tp-form input,#phone .tp-form textarea,#phone .tp-form select,#phone .tp-inline-select select,#phone .tp-switch select{display:block;width:100%;max-width:100%;min-width:0;border:1px solid #dde2e8;border-radius:8px;padding:10px;background:#fff;font-size:12px;color:#2d343d}
+#phone .tp-form textarea{min-height:90px;resize:vertical;line-height:1.6}
+#phone .tp-form .tp-btn{min-height:44px;margin-top:4px}
+#phone .tp-search{display:flex;border:1px solid #dce1e6;border-radius:10px;min-height:42px;margin:10px 0 12px;overflow:hidden;background:#fff}
+#phone .tp-search input{border:0;outline:0;min-width:0;flex:1;padding:10px 12px;font-size:12px}
+#phone .tp-search button{border:0;border-left:1px solid #e4e7eb;padding:6px 15px;background:#f6f7f8;font-size:11px;font-weight:750;color:#444b54}
+#phone .tp-chips{display:flex;gap:6px;overflow-x:auto;white-space:nowrap;scrollbar-width:none;margin:10px 0 13px}
+#phone .tp-chips .tp-btn{border-radius:18px;flex:none;padding:6px 12px;font-size:10px!important;min-height:32px}
+#phone .tp-inline-select{display:flex;gap:10px;align-items:center;font-size:11px;color:#737a84}
+#phone .tp-inline-select select{max-width:110px;padding:7px}
+#phone .tp-group-list{display:grid;gap:10px}
+#phone .tp-group-item{padding:15px;border:1px solid #e4e8ed;border-radius:12px;background:#fff}
+#phone .tp-item-head{display:flex;justify-content:space-between;gap:7px}
+#phone .tp-item-head>div{display:grid;gap:4px}
+#phone .tp-item-head strong{font-size:14px;line-height:1.45}
+#phone .tp-item-head small,#phone .tp-teacher-summary small{font-size:10px;color:#888f98;line-height:1.5}
+#phone .tp-chevron{font-size:18px;color:#a4acb5;line-height:1.4;flex:none}
+#phone .tp-teacher-summary{display:flex;gap:11px;align-items:center;margin:15px 0 10px}
+#phone .tp-teacher-summary>div{display:grid;gap:5px;min-width:0;flex:1}
+#phone .tp-teacher-summary strong{font-size:12px;line-height:1.45}
+#phone .tp-teacher-mark{width:42px;height:42px;min-width:42px;display:grid;place-items:center;background:#f2f3f5;border:1px solid #e5e8ed;border-radius:12px;color:#49515a;font-weight:800;font-size:12px}
+#phone .tp-teacher-mark.large{width:54px;height:54px;min-width:54px;font-size:16px}
+#phone .tp-recent{margin:6px 0;font-size:10px;color:#868d96;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#phone .tp-group-item .tp-actions{display:grid;grid-template-columns:1fr 1fr;margin:12px 0 0}
+#phone .tp-group-item .tp-actions button{font-size:11px!important}
+#phone .tp-empty{padding:25px 14px;border:1px dashed #dadee5;border-radius:10px;text-align:center;display:grid;gap:11px;justify-items:center}
+#phone .tp-empty>strong{font-size:13px;color:#4d5560}
+#phone .tp-empty p{font-size:11px;line-height:1.6;color:#8c959e;margin:0}
+#phone .tp-book-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 13px;margin:14px 0}
+#phone .tp-book-item{display:grid;gap:6px;justify-items:start;border:0;background:transparent;color:#343b43;min-width:0;padding:0;text-align:left}
+#phone .tp-cover{width:100%;max-width:100%;aspect-ratio:.74;position:relative;border:1px solid #e4e7ea;background:#f7f8fa;border-radius:5px;overflow:hidden;display:grid;align-content:center}
+#phone .tp-cover img{width:100%;height:100%;object-fit:contain;background:white}
+#phone .tp-cover-plain{display:flex;flex-direction:column;justify-content:space-between;padding:13px;background:#f5f6f7;border-left:5px solid #d2d6db}
+#phone .tp-cover-plain small,#phone .tp-cover-plain span{font-size:9px;color:#8b929a;overflow-wrap:anywhere}
+#phone .tp-cover-plain strong{font-size:15px;overflow-wrap:anywhere;word-break:keep-all}
+#phone .tp-book-item>strong{font-size:12px;line-height:1.5;word-break:keep-all}
+#phone .tp-book-item>small{font-size:10px;color:#8a929a}
+#phone .tp-profile{display:grid;grid-template-columns:100px 1fr;gap:17px;align-items:start}
+#phone .tp-profile>.tp-cover{width:100px}
+#phone .tp-profile>div:last-child{display:grid;gap:9px}
+#phone .tp-profile small{font-size:10px;color:#848c95}
+#phone .tp-profile h3{font-size:16px;line-height:1.4;margin:0}
+#phone .tp-profile p{font-size:11px;color:#707985;margin:0}
+#phone .tp-tags{display:flex;flex-wrap:wrap;gap:6px}
+#phone .tp-tags span{background:#f1f3f5;color:#626b76;font-size:9px;border-radius:16px;padding:6px 9px}
+#phone .tp-small-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #edf0f2}
+#phone .tp-small-row:last-child{border-bottom:0}
+#phone .tp-small-row span{font-size:11px;color:#626b75;flex:1;min-width:0;line-height:1.45}
+#phone .tp-small-row strong{font-size:11px;text-align:right;overflow-wrap:anywhere}
+#phone .tp-switch{display:grid;gap:7px;margin:9px 0 13px;font-size:10px;color:#7f8792;font-weight:700}
+#phone .tp-switch select{font-size:12px;min-height:39px}
+#phone .tp-group-head{display:grid;gap:6px;margin:11px 0 15px}
+#phone .tp-group-head small{font-size:11px;color:#818992}
+#phone .tp-group-head h2{font-size:23px;font-weight:800;line-height:1.4;margin:0}
+#phone .tp-hero-coach{display:flex;gap:13px;align-items:center;margin:17px 0;padding:16px;border:1px solid #e5e9ee;border-radius:11px}
+#phone .tp-hero-text{display:grid;gap:6px;min-width:0}
+#phone .tp-hero-text strong{font-size:14px;line-height:1.4}
+#phone .tp-hero-text small{font-size:11px;color:#8a919b;line-height:1.5}
+#phone .tp-cta .tp-actions{display:grid;grid-template-columns:1fr}
+#phone .tp-info{background:#fafbfc}
+#phone .tp-subtle{font-size:11px;line-height:1.7;color:#868e98;margin:0}
+#phone .tp-three-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#phone .tp-three-actions .tp-btn{padding:10px 2px;min-height:48px}
+#phone .tp-manage{margin-top:19px}
+#phone .tp-chat-item{width:100%;text-align:left;display:flex;align-items:center;gap:11px;background:#fff;color:#3b444d;padding:12px 2px;border:0;border-bottom:1px solid #e8ebef}
+#phone .tp-chat-meta{display:grid;gap:5px;flex:1;min-width:0}
+#phone .tp-chat-meta strong{font-size:12px;line-height:1.45}
+#phone .tp-chat-meta small{font-size:10px;color:#858e97;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#phone .tp-chat-page{display:flex;flex-direction:column}
+#phone .tp-chat-top{display:flex;gap:10px;align-items:center;padding:6px 0 10px;border-bottom:1px solid #edf0f2}
+#phone .tp-chat-top .tp-btn{flex:none;font-size:10px!important}
+#phone .tp-chat-top-details{display:grid;gap:4px;min-width:0}
+#phone .tp-chat-top-details strong{font-size:13px}
+#phone .tp-chat-top-details small{font-size:10px;color:#848b95}
+#phone .tp-chat-history{display:flex;flex-direction:column;gap:12px;min-height:270px;max-height:460px;overflow-y:auto;padding:17px 0}
+#phone .tp-bubble{max-width:87%;border-radius:11px;background:#f3f5f6;padding:12px 14px;align-self:flex-start;font-size:12px;color:#424c56}
+#phone .tp-bubble.student{align-self:flex-end;background:#e9edf1}
+#phone .tp-bubble.teacher{align-self:flex-start}
+#phone .tp-bubble small{display:block;font-size:10px;color:#858e98;margin-bottom:5px}
+#phone .tp-bubble p{margin:0;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+#phone .tp-welcome{display:grid;gap:9px;justify-items:center;text-align:center;margin:auto;max-width:280px}
+#phone .tp-welcome strong{font-size:15px}
+#phone .tp-welcome p{font-size:12px;color:#7f8792;line-height:1.7}
+#phone .tp-topic-tools{display:flex;gap:6px;flex-wrap:wrap;margin:11px 0}
+#phone .tp-topic-tools .tp-btn{border-radius:17px;padding:6px 9px;min-height:30px;font-size:10px!important}
+#phone .tp-compose{display:grid;gap:9px;margin:10px 0}
+#phone .tp-compose textarea{width:100%;min-height:77px;padding:12px;border:1px solid #dce1e6;border-radius:9px;font-size:12px;line-height:1.6;resize:vertical}
+#phone .tp-compose .tp-btn{justify-self:stretch;min-height:42px}
+#phone .tp-study-teacher{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid #e7ebef;border-radius:9px;margin:10px 0}
+#phone .tp-study-teacher>div{display:grid;gap:4px;flex:1;min-width:0}
+#phone .tp-study-teacher strong{font-size:11px;line-height:1.5}
+#phone .tp-study-teacher small{font-size:10px;color:#8a929b}
+#phone .tp-study-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:14px 0}
+#phone .tp-study-tabs .tp-btn{font-size:11px!important;min-width:0;padding:7px 3px}
+#phone .tp-study-tabs .tp-btn.primary{background:#eef0f2;border-color:#a5aeb8;color:#323942}
+#phone .tp-learning-row{display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid #eceff1;padding:10px 0}
+#phone .tp-learning-row:last-child{border-bottom:0}
+#phone .tp-learning-row>div{display:grid;gap:5px;flex:1;min-width:0}
+#phone .tp-learning-row strong{font-size:12px;line-height:1.5}
+#phone .tp-learning-row small{font-size:10px;color:#818a94;line-height:1.6}
+#phone .tp-learning-row p{font-size:11px;line-height:1.7;white-space:pre-wrap}
+#phone .tp-learning-row .tp-btn{padding:6px 10px;min-height:29px;font-size:14px!important}
+#phone .tp-done{text-decoration:line-through;color:#a5abb3}
+#phone .tp-file-icon{font-size:18px;color:#89929c;width:30px;text-align:center}
+#phone .tp-note{color:#9aa1a9;font-size:10px;line-height:1.75;margin:13px 0}
+#phone .tp-visually-hidden{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;border:0;white-space:nowrap;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:350px){
+ #phone .tp-head h2,#phone .tp-group-head h2{font-size:20px}
+ #phone .tp-book-grid{gap:14px 9px}
+ #phone .tp-group-item{padding:12px}
+ #phone .tp-btn{font-size:10px!important;padding:8px 7px}
+ #phone .tp-profile{grid-template-columns:84px 1fr;gap:11px}
+ #phone .tp-profile>.tp-cover{width:84px}
+}
