@@ -51,121 +51,45 @@ std::vector<std::string> words(const std::string& text){
   while(ss>>w)output.push_back(w);
   return output;
 }
-// Compare recognized Korean sound as text *independent of spaces*.
-// The streaming decoder can rewrite "유선 상품" as "유선상품" without changing
-// any spoken syllable. Token-index freezing permanently lost all subsequent
-// captions on the real Android test. Prefix agreement must use normalized
-// characters rather than whitespace-separated index alone.
-std::string normalized(const std::string& s){
-  std::string out;
-  for(unsigned char c:s){
-    if(c>=128||std::isalnum(c))out.push_back(static_cast<char>(c));
-  }
-  return out;
-}
-size_t raw_index_after(const std::string& raw,size_t normalizedBytes){
-  size_t used=0;
-  for(size_t i=0;i<raw.size();++i){
-    unsigned char c=static_cast<unsigned char>(raw[i]);
-    if(c>=128||std::isalnum(c)){
-      if(used==normalizedBytes)return i;
-      ++used;
-      if(used==normalizedBytes)return i+1;
-    }
-  }
-  return raw.size();
-}
 struct Engine {
   const SherpaOnnxOnlineRecognizer* recognizer=nullptr;
   const SherpaOnnxOnlineStream* stream=nullptr;
   uint64_t pcmSamples=0;
   unsigned int captions=0, hypotheses=0;
-  std::string committedNorm;
   std::string lastRaw;
-  // Intentionally no OnlinePriorSpeechContext in pure streaming mode.
-  int quietUpdates=0;
+  // No VAD, prefix seals, prior speech merging, or mid-call commits.
   uint32_t currentSeq=0;
-  void emit(const std::vector<std::string>& v,size_t first,size_t end,bool final){
-    for(size_t i=first;i<end;i+=2){
-      std::string text=v[i];
-      if(i+1<end)text+=" "+v[i+1];
-      if(text.empty())continue;
-      const unsigned int s=++captions;
-      const long long inputMs=static_cast<long long>(pcmSamples*1000/16000);
-      printf("STT_SEGMENT:%u:%s\n",s,text.c_str());
-      printf("WORD_COMMIT:%u:%lld:%lld:%s\n",s,inputMs,inputMs,
-          final?"ONLINE_FINAL":"ONLINE_STABLE_PREFIX");
-    }
-  }
   void update(bool final) {
     const auto* result=SherpaOnnxGetOnlineStreamResult(recognizer,stream);
     if(!result)return;
     const std::string raw=sanitize(result->text?result->text:"");
     SherpaOnnxDestroyOnlineRecognizerResult(result);
-    if(raw==lastRaw)quietUpdates++;
-    else quietUpdates=0;
+    // The Zipformer hypothesis is a REPLACEABLE full-session transcript.
+    // Every new hypothesis replaces the entire displayed string; there is
+    // no stable-prefix or previously sealed utterance to duplicate or freeze.
     if(raw!=lastRaw||final){
-      // Provisional speech-to-text MUST be visible immediately. Confirmed
-      // captions can lag or be blocked by an ASR rewrite; never gate UI
-      // updates on the confirmed-prefix buffer.
       const long long audioMs=static_cast<long long>(pcmSamples*1000/16000);
       printf("ONLINE_TIMING:LIVE:%u:%lld:%llu:0\n",hypotheses+1,audioMs,
-             static_cast<unsigned long long>(boot_ns()));
-      // The OnlineStream already retains its encoder state. Do NOT replay
-      // previous utterances, wait for silence, or join text based on a
-      // heuristic acoustic pause. The current entire corrected hypothesis
-      // replaces the last provisional caption immediately.
-      const std::string merged=raw;
+          static_cast<unsigned long long>(boot_ns()));
       printf("ONLINE_HYPOTHESIS:%lld:%s\n",audioMs,raw.c_str());
-      printf("ONLINE_LIVE:%lld:%s\n",audioMs,merged.c_str());
-      std::vector<std::string> tw=words(merged);
+      printf("ONLINE_LIVE:%lld:%s\n",audioMs,raw.c_str());
+      std::vector<std::string> tw=words(raw);
       if(!tw.empty()){
         const size_t tail=tw.size()>2?tw.size()-2:0;
         const std::string latest=tw.size()-tail==2?tw[tail]+" "+tw[tail+1]:tw[tail];
         printf("ONLINE_LIVE_TAIL:%lld:%s\n",audioMs,latest.c_str());
       }
       hypotheses++;
-    }
-    const std::string norm=normalized(raw);
-    const std::string prior=normalized(lastRaw);
-    size_t stable=0;
-    while(stable<norm.size()&&stable<prior.size()&&norm[stable]==prior[stable])
-      ++stable;
-    if(final||quietUpdates>=3)stable=norm.size();
-    if(norm.compare(0,committedNorm.size(),committedNorm)!=0){
-      printf("ONLINE_REWRITE_PENDING:already=%zu:now=%zu:common=%zu\n",
-          committedNorm.size(),norm.size(),stable);
-      // Keep earlier committed words visible, but never claim the new
-      // result's rewritten sounds are 'fresh'. A UI provisional-correction
-      // layer can replace them later. Unlike word-index logic, spaces alone
-      // will NOT trigger this branch.
       lastRaw=raw;
-      return;
     }
-    lastRaw=raw;
-    if(stable<=committedNorm.size())return;
-    // Do not slice UTF-8 inside a Hangul syllable. Each Hangul codepoint is
-    // three bytes; fall back to the last valid codepoint boundary.
-    while(stable>0 && stable<norm.size() &&
-          (static_cast<unsigned char>(norm[stable])&0xc0)==0x80)--stable;
-    if(stable<=committedNorm.size())return;
-    const size_t oldRaw=raw_index_after(raw,committedNorm.size());
-    const size_t safeRaw=raw_index_after(raw,stable);
-    if(safeRaw<=oldRaw)return;
-    const std::string fragment=raw.substr(oldRaw,safeRaw-oldRaw);
-    std::vector<std::string> updated=words(fragment);
-    if(updated.empty())return;
-    size_t confirm=updated.size();
-    // A last word with no following boundary may be a syllable-in-progress.
-    // Confirm it only after 3 identical updates or at final audio EOF.
-    const bool endedWithSpace=(safeRaw<raw.size() &&
-        std::isspace(static_cast<unsigned char>(raw[safeRaw])));
-    if(!final && quietUpdates<3 && !endedWithSpace && confirm>0)--confirm;
-    if(confirm==0)return;
-    emit(updated,0,confirm,final);
-    for(size_t i=0;i<confirm;++i)committedNorm+=normalized(updated[i]);
-    printf("ONLINE_NORMALIZED_PREFIX_COMMITTED:bytes=%zu:newWords=%zu\n",
-           committedNorm.size(),confirm);
+    if(final && !raw.empty()){
+      // Only commit ONE final full-session transcript at source EOF.
+      // The Java UI has already displayed the replaceable LIVE hypothesis.
+      captions++;
+      printf("STT_SEGMENT:%u:%s\n",captions,raw.c_str());
+      printf("ONLINE_FINAL_FULL_TEXT:audioMs=%llu:chars=%zu\n",
+          static_cast<unsigned long long>(pcmSamples*1000/16000),raw.size());
+    }
   }
   void accept(const float* wave,uint32_t n,uint32_t seq){
     currentSeq=seq;
@@ -243,7 +167,7 @@ int main(int argc,char** argv){
     SherpaOnnxDestroyOnlineRecognizer(engine.recognizer);return 4;
   }
   printf("STT_READY\n");
-  printf("ONLINE_READY:model=korean-zipformer-174m-int8:chunk=16:threads=2:full_previous_state=true:live=UNCONFIRMED\n");
+  printf("ONLINE_READY:model=korean-zipformer-174m-int8:chunk_size=45:chunk_shift=32:threads=2:full_previous_state=true:live=REPLACE\n");
   int status=0;
   for(;;){
     uint8_t header[8];
