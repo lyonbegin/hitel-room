@@ -40,6 +40,9 @@ int main(){
   require(x.transcriptBeforeCurrent=="유선 상품 신청은 일 번"||
           x.transcriptBeforeCurrent=="유선 상품","sealed transcript available");
   const auto display=x.merge("유선상품 신청은 일 번입니다");
-  require(display.find("신청")!=std::string::npos,"one-sided live lexical continuation kept");
+  require(display=="유선상품 신청은 일 번입니다",
+          "newest online provisional transcript never regresses to stale prior");
+  require(display.find("신청")!=std::string::npos,
+          "one-sided live lexical continuation kept");
   std::printf("ALL_PRIOR_CONTEXT_TESTS_PASSED\n");
 }
