@@ -151,7 +151,7 @@ function trainers(){
  return '<section class="hj">'+header('학습반 담당 AI 선생님 지정',g.name,'groupDetail')+
  '<div class="hj-panel"><small>학습반의 담당 과목 · 정원</small><b>'+esc(subject(g))+' · '+Math.max(1,Math.min(5,Number(g.capacity)||5))+'명</b><p>담당 AI 선생님 한 명이 학습반을 이끕니다. 같은 과목이면 학년·교재·목표에 관계없이 기존 선생님을 재사용할 수 있습니다.</p></div>'+
  '<div class="hj-section"><strong>사용 가능한 트레이너</strong></div>'+
- (items.length?items.map(t=>'<button type="button" class="hj-trainer" data-hj="trainer" data-value="'+esc(t.id)+'"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 기존 트레이너 재사용</small></div><i>선택 ›</i></button>').join(''):'<div class="hj-empty">이 과목으로 등록된 트레이너가 없습니다.</div>')+
+ (g.coachId&&g.coachName?'<div class="hj-panel"><small>현재 담당 AI 선생님</small><b>'+esc(g.coachName)+'</b><p>현재 담당 선생님으로 계속 운영할 수 있습니다.</p>'+btn('현재 AI 선생님 유지하고 학습반으로 →','keepTrainer','','hj-black hj-wide')+'</div>':'')+ (items.length?items.map(t=>'<button type="button" class="hj-trainer" data-hj="trainer" data-value="'+esc(t.id)+'"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 기존 트레이너 재사용</small></div><i>선택 ›</i></button>').join(''):'<div class="hj-empty">이 과목으로 등록된 트레이너가 없습니다.</div>')+
  '<form id="hj-trainer-create" class="hj-form hj-panel"><b>새 트레이너 프로필 등록</b><label>트레이너 이름<input name="name" required maxlength="70" placeholder="예: 수학 AI 트레이너 A"></label><button type="submit" class="hj-btn hj-outline hj-wide">등록 후 지정</button></form>'+
  '<p class="hj-muted">학습반 운영을 시작하려면 담당 AI 선생님을 지정해 주세요.</p></section>';
 }
@@ -393,6 +393,7 @@ document.addEventListener('click',e=>{
  if(a==='group'){const g=model.groups.find(g=>g.id===v);if(!g)return;model.activeGroupId=g.id;WP.saveModel();ui.day=today();go('groupDetail');return}
  if(a==='aiSubject'){aiDiscover.subject=v;render();return}
  if(a==='aiOffer'){if(!aiOffer(v))return;aiDiscover.selected=v;go('groupTutorOffer');return}
+ if(a==='keepTrainer'){const g=current();if(g?.coachId&&g.coachName){window.HITEL_CLASS_AI_FLOW?.clearPending?.();go('groupDetail')}return}
  if(a==='trainer'){assign(v);return}
  if(a==='day'){ui.day=v;render();return}
  if(a==='stage'||a==='extra'){openProblem(v);return}
