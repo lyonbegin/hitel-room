@@ -1,0 +1,140 @@
+name: Galaxy ARM64 Vosk Small Korean 0.22 v30 native streaming comparison
+on:
+  push:
+    branches: [experiment/galaxy-vosk-small-ko-single-stream-v30-20261112]
+    paths:
+      - '.github/workflows/build-galaxy-vosk-small-ko-v30-arm64.yml'
+      - 'sherpa-original-launcher/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-galaxy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare Android SDK and NDK (skip preinstalled; bound network waits)
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          NDK_COMPILER="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          if [ -x "$NDK_COMPILER" ] && [ -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            echo "REUSE_PREINSTALLED_ANDROID_SDK_NDK"
+          else
+            echo "INSTALL_MISSING_ANDROID_COMPONENTS"
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$NDK_COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+
+      - name: Verify the original Samsung AAC MediaCodec capture path remains untouched
+        run: |
+          set -euo pipefail
+          git diff --exit-code b4e9a7162d547ccd8019c342a0e6e9204de48c01 -- \
+            sherpa-original-launcher/native/aac_mdat_follow.c \
+            sherpa-original-launcher/native/aac_mdat_recover_oracle.c \
+            sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/StreamingAacPcmDecoder.java
+          grep -F 'VOSK_STREAM_CREATED:count=1' sherpa-original-launcher/native/vosk_korean_stream_cli.cc
+          grep -F 'vosk_recognizer_accept_waveform(' sherpa-original-launcher/native/vosk_korean_stream_cli.cc
+          ! grep -F 'SherpaOnnx' sherpa-original-launcher/native/vosk_korean_stream_cli.cc
+      - name: Fetch SHA-256 verified Android ARM64 Vosk runtime and Korean mobile model
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          ROOT=sherpa-original-launcher/app/src/main
+          mkdir -p "$ROOT/jniLibs/arm64-v8a" "$ROOT/assets/vosk" sherpa-original-launcher/app/libs /tmp/download
+          curl -fLsSL --retry 5 --connect-timeout 20 --max-time 250 \
+            https://repo.maven.apache.org/maven2/com/alphacephei/vosk-android/0.3.75/vosk-android-0.3.75.aar \
+            -o /tmp/download/vosk-android-0.3.75.aar
+          echo 'ab2f8b91ac8051561aa325546b35fed787be12adfad  /tmp/download/vosk-android-0.3.75.aar' | sha256sum --check
+          unzip -Z1 /tmp/download/vosk-android-0.3.75.aar | grep -Fx 'jni/arm64-v8a/libvosk.so'
+          unzip -p /tmp/download/vosk-android-0.3.75.aar jni/arm64-v8a/libvosk.so > "$ROOT/jniLibs/arm64-v8a/libvosk.so"
+          curl -fLsSL --retry 5 --connect-timeout 20 --max-time 600 \
+            https://huggingface.co/rhasspy/vosk-models/resolve/main/ko/vosk-model-small-ko-0.22.zip \
+            -o "$ROOT/assets/vosk/vosk-model-small-ko-0.22.zip"
+          echo 'eea36124087fed26c59996a4761519458e3bd185e8ea9d9865ad8760c4a1d989  sherpa-original-launcher/app/src/main/assets/vosk/vosk-model-small-ko-0.22.zip' | sha256sum --check
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          p='sherpa-original-launcher/app/src/main/assets/vosk/vosk-model-small-ko-0.22.zip'
+          with ZipFile(p) as z:
+              names=z.namelist()
+          assert any(x.endswith('/am/final.mdl') for x in names),names[:20]
+          assert len(names)>5,len(names)
+          print('VERIFIED_VOSK_KOREAN_MODEL_FILES',len(names),flush=True)
+          PY
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg \
+            -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/download
+          cp /tmp/download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar \
+            sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar
+          unzip -Z1 sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar |
+            grep -Fx 'jni/arm64-v8a/libffmpegkit.so'
+      - name: Compile genuine Vosk Korean streaming C API executable (not Zipformer)
+        run: |
+          set -euo pipefail
+          DST=sherpa-original-launcher/app/src/main/jniLibs/arm64-v8a
+          LLVM="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$DST/" || true
+          "$LLVM/aarch64-linux-android26-clang++" -std=c++17 -O2 -fPIE -pie \
+            sherpa-original-launcher/native/vosk_korean_stream_cli.cc \
+            -L"$DST" -lvosk -Wl,--no-undefined -o "$DST/libsensevoice-stream.so"
+          "$LLVM/llvm-readelf" -h "$DST/libsensevoice-stream.so" | grep -F AArch64
+          "$LLVM/llvm-readelf" -d "$DST/libsensevoice-stream.so" | grep -F libvosk.so
+          ! "$LLVM/llvm-readelf" -d "$DST/libsensevoice-stream.so" | grep -F libsherpa
+      - name: Build Android native raw AAC frame recovery oracle
+        run: |
+          set -euo pipefail
+          ROOT=sherpa-original-launcher
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          mkdir -p /tmp/ffmpeg-headers /tmp/ffmpeg-arm
+          curl -fLsS --retry 5 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          FFMPEG_HEADERS="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          # FFmpeg's generated platform header is absent from its source archive.
+          # This Android ARM64 little-endian NDK target needs these public API flags.
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$FFMPEG_HEADERS/libavutil/avconfig.h"
+          unzip -qo "$ROOT/app/libs/ffmpeg-kit-min.aar" 'jni/arm64-v8a/libavcodec.so' 'jni/arm64-v8a/libavutil.so' -d /tmp/ffmpeg-arm
+          DST="$ROOT/app/src/main/jniLibs/arm64-v8a"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c99 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" "$ROOT/native/aac_mdat_recover_oracle.c" \
+            -L/tmp/ffmpeg-arm/jni/arm64-v8a -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-recover.so"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" "$ROOT/native/aac_mdat_follow.c" \
+            -L/tmp/ffmpeg-arm/jni/arm64-v8a -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-follow.so"
+          "$LLVM/llvm-readelf" -h "$DST/libaac-mdat-follow.so" | grep -F 'AArch64'
+          "$LLVM/llvm-readelf" -d "$DST/libaac-mdat-recover.so" | grep -E 'libav(codec|util).so'
+      - name: Build, sign and verify native Vosk Korean model APK
+        run: |
+          set -euo pipefail
+          gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
+          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" |
+            grep -F 'app.hitel.koreanzipformer.stream30'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" |
+            grep -F "versionName='30.0.0-ko-vosk-small-streaming'"
+          unzip -Z1 "$APK" | grep -Fx lib/arm64-v8a/libvosk.so
+          unzip -Z1 "$APK" | grep -Fx lib/arm64-v8a/libsensevoice-stream.so
+          unzip -Z1 "$APK" | grep -Fx assets/vosk/vosk-model-small-ko-0.22.zip
+          ! unzip -Z1 "$APK" | grep -F assets/sensevoice/encoder.int8.onnx
+          cp "$APK" Galaxy-Korean-VoskSmall-v30-ARM64.apk
+          sha256sum Galaxy-Korean-VoskSmall-v30-ARM64.apk
+          ls -lh Galaxy-Korean-VoskSmall-v30-ARM64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Galaxy-Korean-VoskSmall-v30-ARM64-APK
+          path: Galaxy-Korean-VoskSmall-v30-ARM64.apk
+          compression-level: 0
+          if-no-files-found: error
