@@ -144,13 +144,14 @@ window.HITEL_CLASS_AI_FLOW={pending,clearPending,renderSeries,renderCatalogBook,
  selectedSeries:cur.seriesId,selectedEdition:cur.editionId,selectedCatalog:cur.catalogId,
  pending:pending(),classCount:model.groups?.length||0,mode:'single-learning-class',paymentImplemented:false})};
 groupPage=function(route){
+ if(route==='groupTutorMine')return pageBefore('groups'); // old saved URL now resolves to the existing class-home page
  if(route==='groupBookClassSelect')return existing()||'<section class="ca-flow"><p>교재를 다시 선택해 주세요.</p><button data-go="groupAITutor">AI 과외로 돌아가기</button></section>';
  if(route==='groupTutorCatalog')return pageBefore('groupMoonzipSearch'); // no second catalogue
  if(['groupCoachProfile','groupBookDetail'].includes(route))return renderCatalogBook(); // one teacher-first book detail
  if(['groupMoonzipRoadmap','groupMoonzipCompare'].includes(route))return pageBefore('groupMoonzipSearch'); // stale deep links
  return pageBefore(route);
 };
-bottomFor=function(route){return ['groupBookClassSelect','groupTutorCatalog','groupCoachProfile','groupBookDetail','groupMoonzipRoadmap','groupMoonzipCompare'].includes(route)?bottomBefore('groupAITutor'):bottomBefore(route)};
+bottomFor=function(route){if(route==='groupTutorMine')return bottomBefore('groups');return ['groupBookClassSelect','groupTutorCatalog','groupCoachProfile','groupBookDetail','groupMoonzipRoadmap','groupMoonzipCompare'].includes(route)?bottomBefore('groupAITutor'):bottomBefore(route)};
 document.addEventListener('click',ev=>{
  const btn=ev.target.closest?.('#phone [data-ca]');
  if(!btn)return;
