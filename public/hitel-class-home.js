@@ -72,9 +72,9 @@ function pageHome(){
  templates.clear();[...seasonData.items,...rec].forEach(x=>templates.set(x.id,x));
  const filtered=choices.selectedCategory==='all'?rec:rec.filter(x=>x.category===choices.selectedCategory);
  const my=preferred(),focus=my?(my.grade||'')+' '+(my.subject||''):'내신 · 선행 · 문제집 · 약점 극복';
+ // The global app header owns the only "학습반 만들기" action.
+ // Do not render another brand bar or create action inside the scrolling homepage.
  return '<section class="hclass">'+
- '<div class="hclass-brand"><div class="hclass-brand-symbol">✧</div><div><strong>HITEL 교육</strong><small>AI 선생님과 함께하는 최대 5인 학습반</small></div>'+
- b('＋ 학습반 만들기','new','','hclass-top-add')+'</div>'+
  '<div class="hclass-title"><h2>어떤 공부를 시작할까요?</h2><p>학교 시험부터 문제집 완성까지, 우리에게 맞는 학습반을 찾아보세요.</p></div>'+
  '<div class="hclass-jump">'+b('⌕ 학습반 찾기','route','groupSearch')+b('◷ 내 학습반 '+joined.length,'mine','')+'</div>'+
  '<header class="hclass-heading"><span>✦ '+m+'월 · '+e(seasonData.label)+'</span><h3>지금 뜨는 학습반</h3><p>'+e(seasonData.lead)+'</p></header>'+
