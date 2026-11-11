@@ -1,0 +1,6 @@
+Galaxy 72M v25 release authorization 2026-11-12.
+Source commit 192a825fe38832c6cc90c5d79bf9275330156e32.
+ARM64 build success: 43055530030.
+Android15 original Samsung M4A E2E pass: 43054805195.
+Private Samsung AAC 512ms packet timeline proof pass: 43056932969.
+Note: final primary-only readiness gate has successful ARM64 compile; latest E2E is a distinct revalidation and hardware Galaxy benchmark is pending.
