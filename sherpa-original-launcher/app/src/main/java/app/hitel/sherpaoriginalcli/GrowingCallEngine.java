@@ -740,6 +740,7 @@ public final class GrowingCallEngine {
             pendingDeltaPcmBytes=0;
             log.timing("AAC","SOURCE_CURSOR_COMMITTED","sourceByte",nextAacFrameSourceByte,
               "freshPcmBytes",newBytes,"committedAudioMs",committedPcmBytes.get()/32L);
+            saveAudioCursorCheckpoint("AAC_DELTA_FFMPEG_CLEAN_END");
           }else{
             pendingDeltaPcmBytes+=newBytes;
             processedMirrorBytes=-1; // repeat from cursor after bounded backoff
@@ -790,6 +791,38 @@ public final class GrowingCallEngine {
           "exitCode",ended?p.exitValue():-1,"resultCount",resultCount.get());
       }
     }
+  }
+
+  /** Diagnostic source/audio cursor checkpoint, written only after a
+   *  newly recovered AAC delta has finished transmitting to the recognizer.
+   *  This records the exact time to resume within the active recording.
+   *  A NEW process is not automatically resumed without restoring its
+   *  previous speech context; do not silently skip that context.
+   */
+  void saveAudioCursorCheckpoint(String reason){
+    try{
+      org.json.JSONObject state=new org.json.JSONObject();
+      state.put("sourceUri",activeUri==null?"":activeUri.toString());
+      state.put("aacSourceByteCursor",nextAacFrameSourceByte);
+      state.put("pcmByteCursor",committedPcmBytes.get());
+      state.put("audioTimeMs",committedPcmBytes.get()/32L);
+      state.put("pcmChunkSequence",chunkCount.get());
+      state.put("sourceSize",mirroredBytes);
+      state.put("pendingDeltaPcmBytes",pendingDeltaPcmBytes);
+      state.put("lastUpdatedWallEpochMs",System.currentTimeMillis());
+      state.put("reason",reason);
+      File file=new File(log.dir(),"audio-cursor-checkpoint.json");
+      File tmp=new File(log.dir(),"audio-cursor-checkpoint.tmp");
+      try(FileOutputStream out=new FileOutputStream(tmp,false)){
+        out.write((state.toString()+"\\n").getBytes(StandardCharsets.UTF_8));
+        out.flush();out.getFD().sync();
+      }
+      if(file.exists()&&!file.delete())throw new IOException("Cannot replace cursor checkpoint");
+      if(!tmp.renameTo(file))throw new IOException("Cannot atomically publish cursor checkpoint");
+      log.timing("CURSOR","CHECKPOINT_SAVED",
+        "sourceByte",nextAacFrameSourceByte,"audioTimeMs",committedPcmBytes.get()/32L,
+        "pcmBytes",committedPcmBytes.get(),"reason",reason);
+    }catch(Throwable e){log.error("CURSOR","CHECKPOINT_WRITE_FAILED",e);}
   }
 
   /** Exact AAC frame boundary recovery verified against original Samsung stsz table.
