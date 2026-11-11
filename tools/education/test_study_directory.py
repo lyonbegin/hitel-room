@@ -94,6 +94,10 @@ with sync_playwright() as pw:
     page.locator('#phone .bottomnav button[data-go="groups"]').click()
     click(page,"mainTab","mine")
     eq(page.locator("#phone .tp-group-item").count(),len(joined["groups"]),"all old groups plus joined sample remain in My Study")
+    button_rects=page.locator("#phone .tp-group-item").first.locator(".tp-actions .tp-btn").evaluate_all(
+        "(els)=>els.map(e=>({l:e.getBoundingClientRect().left,r:e.getBoundingClientRect().right,w:e.getBoundingClientRect().width}))")
+    check(len(button_rects)==2 and all(0<=b["l"] and b["r"]<=width+1 and b["w"]>55 for b in button_rects)
+          and button_rects[0]["r"]<=button_rects[1]["l"],"My Study actions fit side-by-side inside mobile width")
     snap(page,width,"07-my-study-separated")
     click(page,"mainTab","discover")
     check("참여 중" in page.locator('#phone .tp-discover-item[data-listing-id="sample-math-ssen"]').inner_text(),"joined status visible in directory")
