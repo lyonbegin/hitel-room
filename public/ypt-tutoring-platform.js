@@ -356,7 +356,28 @@ function groupTalk(){
  '<p class="tp-note">그룹 메시지는 현재 브라우저에만 기록됩니다. 실제 멤버에게 전송되지는 않습니다.</p>'+
  '</section>';
 }
+function prepareBankContext(){
+ const g=active(),match=/^(중|고)([123])$/.exec(String(g?.grade||''));if(!g||!match)return;
+ const subjects={수학:'MT',영어:'EG',국어:'KR',과학:'SC',사회:'LS',역사:'HI'};
+ const z=state.zocbo||(state.zocbo={});
+ const site=match[1]==='중'?'M':'H',grade=match[2],subject=subjects[g.subject];
+ if(!subject)return;
+ if(z.fSite!==site||z.fGrade!==grade||z.fSubject!==subject){
+   z.fSite=site;z.fGrade=grade;z.fSubject=subject;z.fMain=g.institutionType==='school'?'school':'unit';
+   z.fCase='';z.fDisplay={};z.fDynamicData=null;z.fSelected=null;
+ }
+}
 function currentRoute(id){
+ if(['groupPractice','groupProblemDetail','groupCoach','groupMistakes','groupCoachDashboard','groupBookLearn'].includes(id)){
+  const g=active();
+  if(!groupMatchesBook(g))return '<section class="tp-app">'+heading('학습 도구','담당 선생님을 먼저 설정해 주세요.')+
+    empty('선택한 스터디에 담당 교재가 없습니다.','교재를 지정하면 해당 수업의 문제풀이와 복습 도구를 사용할 수 있습니다.',bt('AI 선생님 설정','setupTutor',g?.id||'',true))+'</section>';
+  if(!catalogMap.has(g.bookId))return '<section class="tp-app">'+currentGroupHero(g)+
+    empty('이 교재의 연습문항이 준비되지 않았습니다.','등록한 교재의 전문 문항 데이터는 아직 연결되지 않았습니다.',bt('AI 선생님에게 질문','openChat',g.id,true))+'</section>';
+  LIB.setBook(g.bookId);
+ }
+ if(id==='groupAITutorPractice')return '<section class="tp-app">'+heading('학습 도구','현재 스터디에서 AI 선생님과 공부하세요.')+
+   actions([goBtn('스터디로 돌아가기','groupDetail',true),goBtn('질문하기','groupQuestions')])+'</section>';
  if(id==='groups'||id==='groupSearch')return groupIndex();
  if(id==='groupAITutor')return teacherFinder();
  if(id==='groupBookDetail'||id==='groupCoachProfile')return profile();
@@ -389,7 +410,7 @@ function practice(gid,route){
 }
 function action(name,val){
  const g=active();
- if(name==='route'){updateRoute(val);return}
+ if(name==='route'){if(val==='bankSearch')prepareBankContext();updateRoute(val);return}
  if(name==='groupFilter'){ui.groupType=val;render();return}
  if(name==='filterSubject'){ui.subject=val;render();return}
  if(name==='chatSubject'){ui.chatSubject=val;render();return}
@@ -498,6 +519,7 @@ function forms(form){
  }
 }
 document.addEventListener('click',ev=>{
+ if(ev.target.closest('#phone button[data-go="bankSearch"]'))prepareBankContext();
  const b=ev.target.closest('#phone [data-tp]');if(!b)return;
  ev.preventDefault();ev.stopImmediatePropagation();action(b.dataset.tp,b.dataset.value||'');
 },true);
@@ -524,5 +546,6 @@ const requested=new URLSearchParams(location.search);
 if(PAGES[requested.get('screen')])state.screen=requested.get('screen');
 if(requested.get('group')&&gById(requested.get('group')))model.activeGroupId=requested.get('group');
 if(['groupBookDetail','groupCoachProfile'].includes(state.screen)&&requested.get('book')&&bookById(requested.get('book')))ui.selectedBook=requested.get('book');
+if(state.screen==='bankSearch')prepareBankContext();
 save();render();
 })();
