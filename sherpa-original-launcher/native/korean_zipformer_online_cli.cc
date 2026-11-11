@@ -8,6 +8,7 @@
 //         WORD_COMMIT:<seq>:<inputMs>:<inputMs>:ONLINE_STABLE_PREFIX,
 //         STT_FINISHED:<count>.
 #include "sherpa-onnx/c-api/c-api.h"
+#include "online_prior_speech_context.h"
 #include <algorithm>
 #include <cstdint>
 #include <cctype>
@@ -81,6 +82,7 @@ struct Engine {
   unsigned int captions=0, hypotheses=0;
   std::string committedNorm;
   std::string lastRaw;
+  OnlinePriorSpeechContext priorContext;
   int quietUpdates=0;
   uint32_t currentSeq=0;
   void emit(const std::vector<std::string>& v,size_t first,size_t end,bool final){
@@ -109,9 +111,15 @@ struct Engine {
       const long long audioMs=static_cast<long long>(pcmSamples*1000/16000);
       printf("ONLINE_TIMING:LIVE:%u:%lld:%llu:0\n",hypotheses+1,audioMs,
              static_cast<unsigned long long>(boot_ns()));
+      const std::string merged=priorContext.merge(raw);
+      if(merged!=raw){
+        const auto d=priorContext.align(raw);
+        printf("ONLINE_CONTEXT_LIVE_MERGE:audioMs=%lld:method=%s:error=%.3f:priorChars=%zu\n",
+          audioMs,d.method.c_str(),d.normalizedError,priorContext.transcriptBeforeCurrent.size());
+      }
       printf("ONLINE_HYPOTHESIS:%lld:%s\n",audioMs,raw.c_str());
-      printf("ONLINE_LIVE:%lld:%s\n",audioMs,raw.c_str());
-      std::vector<std::string> tw=words(raw);
+      printf("ONLINE_LIVE:%lld:%s\n",audioMs,merged.c_str());
+      std::vector<std::string> tw=words(merged);
       if(!tw.empty()){
         const size_t tail=tw.size()>2?tw.size()-2:0;
         const std::string latest=tw.size()-tail==2?tw[tail]+" "+tw[tail+1]:tw[tail];
@@ -179,6 +187,9 @@ struct Engine {
           static_cast<unsigned long long>((decodeEnd-decodeBegin)/1000));
       update(false);
     }
+    // v7 short-pause candidates and the previous entire utterance are kept
+    // AFTER immediate live updates, never used as a gate for one-word captions.
+    priorContext.accept(wave,n,pcmSamples,lastRaw);
   }
   void finish(){
     // Match faster 174M chunk16 model's ~640ms trailing padding.
