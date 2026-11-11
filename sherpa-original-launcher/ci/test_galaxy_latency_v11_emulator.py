@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 
 OUT=Path("emulator-qa-v11")
 OUT.mkdir(exist_ok=True)
-PKG="app.hitel.koreanzipformer.stream19"
+PKG="app.hitel.koreanzipformer.stream20"
 MAIN=PKG+"/app.hitel.sherpaoriginalcli.MainActivity"
 NAME="ko_live_test.m4a"
 
@@ -171,6 +171,8 @@ def check_actual():
         "native PCM accepted":'"event":"INPUT"' in timeline,
         "native decode performed":'"event":"DECODE"' in timeline,
         "native partial caption":'"event":"LIVE"' in timeline,
+        "no stalled legacy prefix rewriting":'ONLINE_REWRITE_PENDING:' not in read_log("stt-raw.txt"),
+        "single final transcript only":read_log("stt-raw.txt").count("STT_SEGMENT:") <= 1,
         "TextView changed":'"LIVE_SET_TEXT"' in timeline,
         "frame callback":'"NEXT_FRAME_CALLBACK"' in timeline,
         "captions in UI":found,
