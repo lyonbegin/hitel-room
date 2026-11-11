@@ -171,12 +171,25 @@ def check_actual():
         checks["growing AAC source cursor committed at least twice"]=len(positions)>=2
         checks["AAC source cursor strictly increases"]=all(b>a for a,b in zip(positions,positions[1:]))
         checks["incremental AAC frames, not full-file rereads"]='"NEW_FRAMES_READY"' in events
+        timelineEvents=[json.loads(line) for line in timeline.splitlines()
+                        if line.strip() and line.startswith("{")]
+        drainAck=[e for e in timelineEvents if e.get("stage")=="PIPE"
+                  and e.get("event")=="READER_DRAIN_ACKNOWLEDGED"]
+        checks["all cursor commits follow completed PCM reader drain"]=(
+            len(drainAck)>=len(commits)>=4 and
+            all(int(a.get("boot_ns",0))>0 and
+                int(a.get("boot_ns",0))<=int(c.get("boot_ns",0))
+                for a,c in zip(drainAck,commits)))
+        checks["no undrained reader was accepted"]='"READER_DRAIN_NOT_CONFIRMED"' not in events
+        (OUT/"fifo-drain-ack-count.json").write_text(
+            json.dumps({"ack":len(drainAck),"committed":len(commits)}),
+            encoding="utf-8")
         checkpointText=read_log("audio-cursor-checkpoint.json")
         try: checkpoint=json.loads(checkpointText)
         except (ValueError,TypeError): checkpoint={}
         checks["saved source cursor and audio time"]=(
             int(checkpoint.get("aacSourceByteCursor",0))>0 and
-            int(checkpoint.get("audioTimeMs",0))>=1000)
+            int(checkpoint.get("audioTimeMs",0))>=16500)
         rawNative=read_log("stt-raw.txt")
         checks["full prior speech contextualized"]='ONLINE_PRIOR_CONTEXT:' in rawNative
         checks["previous and current text overlap merged"]=(
@@ -194,7 +207,7 @@ def check_actual():
            else "generated public Korean speech fixture")
     (OUT/"PASS.txt").write_text("PASS Android 15 x86_64. APK actual install; DocumentsUI M4A; "
         "174M Zipformer native partial captions; UI setText and frame callbacks; "
-        "latency diagnostic JSONL; 15s+ PCM processed; "+sample+". "
+        "latency diagnostic JSONL; 16.5s+ PCM processed; "+sample+". "
         "Separate x86_64 APK; ARM64 real Galaxy unverified.\n",encoding="utf-8")
 
 if __name__=="__main__":
