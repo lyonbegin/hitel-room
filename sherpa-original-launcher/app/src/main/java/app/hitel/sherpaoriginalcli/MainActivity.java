@@ -59,9 +59,18 @@ public final class MainActivity extends Activity {
         "nativeToReceiverMs",nativeNs>0?(recvNs-nativeNs)/1000000.0:-1);
       if(message!=null)status.setText(message);
       if(text!=null){
+        final long captionSetBeginNs=SystemClock.elapsedRealtimeNanos();
         caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
+        final long captionSetEndNs=SystemClock.elapsedRealtimeNanos();
         if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
         if(live){
+          TraceJournal.uiTiming(captionSetEndNs,"PIPELINE","UI_SET_TEXT",
+            "captionSeq",seq,"durationMs",(captionSetEndNs-captionSetBeginNs)/1000000.0,
+            "startBootNs",captionSetBeginNs,"endBootNs",captionSetEndNs);
+          if(sendNs>0 && recvNs>=sendNs)
+            TraceJournal.uiTiming(recvNs,"PIPELINE","UI_BROADCAST",
+              "captionSeq",seq,"durationMs",(recvNs-sendNs)/1000000.0,
+              "startBootNs",sendNs,"endBootNs",recvNs);
           final String expected=caption.getText().toString();
           final long setNs=SystemClock.elapsedRealtimeNanos();
           TraceJournal.uiTiming(setNs,"UI","LIVE_SET_TEXT",
@@ -71,6 +80,10 @@ public final class MainActivity extends Activity {
           caption.postOnAnimation(()->{
             final long frameNs=SystemClock.elapsedRealtimeNanos();
             final boolean same=expected.equals(caption.getText().toString());
+            TraceJournal.uiTiming(frameNs,"PIPELINE","UI_FRAME_CALLBACK",
+              "captionSeq",seq,"durationMs",(frameNs-setNs)/1000000.0,
+              "startBootNs",setNs,"endBootNs",frameNs,
+              "note","callback only; not proof of visible scanout");
             TraceJournal.uiTiming(frameNs,"UI","NEXT_FRAME_CALLBACK",
               "captionSeq",seq,"sameTextStillPresent",same,
               "nativeToFrameCallbackMs",nativeNs>0?(frameNs-nativeNs)/1000000.0:-1,
@@ -156,7 +169,7 @@ public final class MainActivity extends Activity {
     summary=text("로그: 미실행",13);root.addView(summary);
     logs=text("감시 로그 대기 중",11);logs.setTextIsSelectable(true);root.addView(logs);
     root.addView(text(
-      "ZIP 구성: events.jsonl(시각·스레드·파일·AAC·FFmpeg·STT), latency-trace.jsonl(나노초 단위 단계별 시간), " +
+      "ZIP 구성: events.jsonl(시각·스레드·파일·AAC·FFmpeg·STT), latency-trace.jsonl(각 구간 독립 소요시간), " +
       "ffmpeg-raw.txt, stt-raw.txt, M4A 헤더 바이너리, README.txt.\n" +
       "성공 및 실패 여부와 관계없이 장치 내부에 저장됩니다. 전화번호·파일명·전사 내용이 로그에 포함될 수 있으니 ZIP 공유 전 확인하십시오.\n"+
       "실제 통화 음성은 로그 ZIP에 원본 파일 형태로 복사하지 않습니다.",12));
@@ -308,9 +321,10 @@ public final class MainActivity extends Activity {
       // Each entry is independent. Do not add or subtract cumulative model times.
       LinkedHashMap<String,String> latest=new LinkedHashMap<>();
       final String[] stages={
+        "FILE_POLL","FILE_MIRROR_COPY","AAC_FRAME_WAIT_AND_READ",
         "AAC_FRAME_READ","AAC_CODEC_INPUT_WAIT","AAC_CODEC_FRAME_TOTAL",
         "PCM_SINK_CALLBACK","PCM_PIPE_WRITE","ACCEPT","DECODE",
-        "HYPOTHESIS","PUBLISH"};
+        "HYPOTHESIS","PUBLISH","UI_BROADCAST","UI_SET_TEXT","UI_FRAME_CALLBACK"};
       for(String line:lines){
         try{
           org.json.JSONObject obj=new org.json.JSONObject(line);
