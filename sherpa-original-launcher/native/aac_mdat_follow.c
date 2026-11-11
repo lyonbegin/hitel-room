@@ -78,19 +78,20 @@ static int writeAll(const void *p,size_t n){
   }
   return 0;
 }
-static int emitAdts(const uint8_t *raw,int n){
+static int emitAdts(const uint8_t *raw,int n,long long sourceEnd){
   int size=n+7;
-  uint8_t h[11]={0};
+  uint8_t h[19]={0};
   h[0]=(uint8_t)(size&255);
   h[1]=(uint8_t)((size>>8)&255);
   h[2]=(uint8_t)((size>>16)&255);
   h[3]=(uint8_t)((size>>24)&255);
-  h[4]=0xff;h[5]=0xf1;
-  h[6]=(uint8_t)((1<<6)|(sampleIndex<<2)|(channels>>2));
-  h[7]=(uint8_t)(((channels&3)<<6)|(size>>11));
-  h[8]=(uint8_t)((size>>3)&255);
-  h[9]=(uint8_t)(((size&7)<<5)|0x1f);
-  h[10]=0xfc;
+  for(int i=0;i<8;i++)h[4+i]=(uint8_t)(((uint64_t)sourceEnd>>(i*8))&255);
+  h[12]=0xff;h[13]=0xf1;
+  h[14]=(uint8_t)((1<<6)|(sampleIndex<<2)|(channels>>2));
+  h[15]=(uint8_t)(((channels&3)<<6)|(size>>11));
+  h[16]=(uint8_t)((size>>3)&255);
+  h[17]=(uint8_t)(((size&7)<<5)|0x1f);
+  h[18]=0xfc;
   if(writeAll(h,sizeof(h))||writeAll(raw,(size_t)n))return -1;
   if(fflush(stdout))return -1;
   return 0;
@@ -186,12 +187,13 @@ int main(int argc,char **argv){
     int added=readGrowing(f,sz);
     if(added<0){fprintf(stderr,"AAC_FOLLOW_ERROR:BUFFER_OR_READ\n");return 13;}
     if(added>0)lastGrowth=nowMs();
+    if(added==0){sleepMs(40);continue;} // never recompute frames without new bytes
     long long before=frameCount;
     size_t consumed=0;
     while(consumed<pendingLen){
       int n=frameSize(pending+consumed,pendingLen-consumed);
       if(n<=0)break; // partial AAC frame: keep EXACT bytes for next growth
-      if(emitAdts(pending+consumed,n)<0){fprintf(stderr,"AAC_FOLLOW_ERROR:OUTPUT_BROKEN\n");return 14;}
+      if(emitAdts(pending+consumed,n,sourceCursor+(long long)consumed+n)<0){fprintf(stderr,"AAC_FOLLOW_ERROR:OUTPUT_BROKEN\n");return 14;}
       consumed+=(size_t)n;frameCount++;
     }
     if(consumed){
