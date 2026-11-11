@@ -219,14 +219,86 @@ function checkAnswer(){
  else if(!r.solved.includes(ui.mode+':'+q.id))r.solved.push(ui.mode+':'+q.id);
  store(DBKEY,db);render();
 }
+/* Discovery-first AI tutoring; featured examples are learning themes, not
+   verified paid tutors or real-time popularity rankings. */
+const AI_OFFERS=[
+ {id:'math-concept',name:'수학 개념발견 AI',subject:'수학',kind:'개념 발견',desc:'답을 먼저 보여주지 않고 원리를 발견하도록 질문과 힌트로 돕습니다.',areas:'개념 발견 · 단계별 힌트 · 문제 해결',icon:'∑',theme:'violet'},
+ {id:'math-exam',name:'학교 내신 AI 선생님',subject:'수학',kind:'내신 집중',desc:'시험범위와 학교별 기출 유형을 바탕으로 핵심 문제를 연습합니다.',areas:'내신 대비 · 실전 유형 · 오답',icon:'◎',theme:'orange'},
+ {id:'math-book',name:'문제집 완주 AI',subject:'수학',kind:'교재 완주',desc:'선택한 문제집의 진도에 따라 매일 문제를 해결합니다.',areas:'문제집 · 진도 · 오답',icon:'▤',theme:'green'},
+ {id:'english',name:'영어 독해 AI',subject:'영어',kind:'독해 집중',desc:'문장 구조와 어휘·문맥을 연결하여 독해 문제를 해결합니다.',areas:'독해 · 문법 · 어휘',icon:'Aa',theme:'blue'},
+ {id:'korean',name:'국어 독해 AI',subject:'국어',kind:'독해 집중',desc:'글의 구조와 중심 생각을 찾아 독해 유형을 풀어봅니다.',areas:'비문학 · 문학 · 독해',icon:'가',theme:'rose'},
+ {id:'science',name:'과학 탐구 AI',subject:'과학',kind:'탐구 집중',desc:'실험 현상과 과학 원리를 이해하고 문제에 적용합니다.',areas:'개념 · 탐구 · 문제',icon:'✦',theme:'teal'}
+];
+const aiDiscover={subject:'전체',selected:''};
+function aiSeason(){
+ const m=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',month:'numeric'}).format(new Date()));
+ const pair=(title,name1,desc1,name2,desc2)=>({title,items:[
+ {id:'season-a',name:name1,subject:'수학',kind:'시기별 추천',desc:desc1,areas:'목표 · 미션 · 문제풀이',icon:'◎',theme:'orange'},
+ {id:'season-b',name:name2,subject:'수학',kind:'학습 준비',desc:desc2,areas:'개념 · 선행 · 문제풀이',icon:'↗',theme:'blue'}
+ ]});
+ if(m<=2)return pair('겨울방학·신학기 준비','겨울방학 개념완성 AI','부족한 개념을 보완하고 새 학기를 준비합니다.','새 학년 선행 AI','새 학기 핵심 원리부터 차례로 이해합니다.');
+ if(m<=4)return pair('신학기·중간고사 대비','중간고사 집중 AI','시험범위에 맞추어 주요 유형을 학습합니다.','새 학기 개념발견 AI','새 단원의 원리를 질문과 미션으로 익힙니다.');
+ if(m<=6)return pair('1학기 기말고사 대비','1학기 기말고사 AI','학교별 시험범위를 확인하고 실전 문제를 풉니다.','기말고사 약점극복 AI','자주 틀리는 유형을 집중 보완합니다.');
+ if(m<=8)return pair('여름방학·2학기 준비','여름방학 집중 AI','방학 동안 개념과 문제 유형을 완성합니다.','2학기 선행 AI','다음 학기 개념과 기본 문제를 미리 익힙니다.');
+ if(m<=10)return pair('2학기 중간고사 대비','2학기 중간고사 AI','학교별 시험범위 중심으로 문제를 연습합니다.','실전유형 돌파 AI','기본부터 응용까지 문제를 해결합니다.');
+ return pair('기말고사·겨울방학 준비','2학기 기말고사 AI','학교별 기말고사 범위와 족보 유형을 중심으로 학습합니다.','겨울방학 선행 AI','다음 학기 개념을 미리 익히고 문제에 적용합니다.');
+}
+function aiOffer(id){return [...aiSeason().items,...AI_OFFERS].find(t=>t.id===id)||null}
+function aiOfferCard(t,feature=false){
+ return '<button type="button" class="'+(feature?'ai-feature ai-'+esc(t.theme):'ai-choice')+'" data-hj="aiOffer" data-value="'+esc(t.id)+'">'+
+ (feature?'<span class="ai-feature-tag">'+esc(t.kind)+' · 학습 테마</span><span class="ai-feature-icon">'+esc(t.icon)+'</span>':
+ '<span class="ai-choice-icon">'+esc(t.icon)+'</span><small>'+esc(t.subject)+' · '+esc(t.kind)+'</small>')+
+ '<strong>'+esc(t.name)+'</strong><span class="ai-desc">'+esc(t.desc)+'</span>'+
+ '<span class="ai-more">'+(feature?'학습 방식 알아보기 →':'자세히 알아보기 ›')+'</span></button>';
+}
+function aiBooks(){
+ const books=window.HITEL_BOOKSHELF_BRIDGE?.getCatalog?.()||[];
+ return ['concept','ssen','rpm'].map(ser=>books.find(b=>b.series===ser&&b.grade==='중2'&&b.term==='1')).filter(Boolean);
+}
 function trainerHub(){
- return '<section class="hj">'+header('AI 과외','사용 중인 AI 트레이너와 교재별 학습 도구','groups')+
- '<div class="hj-section"><strong>내 AI 트레이너</strong></div>'+
- (trainerList().length?trainerList().map(t=>'<div class="hj-trainer"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 연결된 반에서 사용</small></div></div>').join(''):'<div class="hj-empty">등록된 트레이너가 없습니다.</div>')+
- '<div class="hj-section"><strong>내 스터디</strong></div>'+
- model.groups.map(g=>tile(g)).join('')+
- nav('기존 교재별 AI 과외·문제집 검색','groupTutorCatalog','hj-outline hj-wide')+
- '<p class="hj-muted">기존 문제집 책장·문제풀이·오답 복습 기능은 보존됩니다.</p></section>';
+ const featured=aiSeason(),filter=aiDiscover.subject==='전체'?AI_OFFERS:AI_OFFERS.filter(t=>t.subject===aiDiscover.subject);
+ const mine=trainerList(),joined=model.groups.filter(g=>g.members?.includes('나'));
+ return '<section class="hj ai-market">'+
+ '<div class="ai-intro"><small>AI 선생님 탐색</small><h2>어떤 AI 과외가 필요하세요?</h2><p>학교 내신부터 문제집 완성까지, 공부 목표에 맞는 AI 선생님을 찾아보세요.</p></div>'+
+ '<div class="ai-section"><span>이번 시기 · '+esc(featured.title)+'</span><h3>지금 추천하는 AI 과외</h3><p>시험·방학 일정에 맞춘 학습 방식 추천입니다.</p></div>'+
+ '<div class="ai-feature-grid">'+featured.items.map(t=>aiOfferCard(t,true)).join('')+'</div>'+
+ '<div class="ai-section"><span>과목·공부 목적별 추천</span><h3>이런 AI 선생님 어때요?</h3><p>학습 방식과 전문 분야를 비교해 보세요.</p></div>'+
+ '<div class="ai-subjects">'+['전체','수학','영어','국어','과학'].map(x=>btn(esc(x),'aiSubject',x,'ai-filter'+(x===aiDiscover.subject?' selected':''))).join('')+'</div>'+
+ '<div class="ai-choice-grid">'+filter.map(t=>aiOfferCard(t)).join('')+'</div>'+
+ '<div class="ai-section"><span>교재와 연결하는 AI 선생님</span><h3>교재별 AI 과외</h3><p>문제집을 선택해 기존 교재별 선생님 소개를 확인하세요.</p></div>'+
+ '<div class="ai-books">'+aiBooks().map(b=>'<button type="button" class="ai-book" data-tp="chooseBook" data-value="'+esc(b.id)+'"><span class="ai-book-icon">▤</span>'+
+ '<span><strong>'+esc(b.name)+'</strong><small>'+esc([b.grade,b.publisher].filter(Boolean).join(' · '))+'</small></span><b>›</b></button>').join('')+'</div>'+
+ nav('전체 교재별 AI 선생님 찾아보기 →','groupTutorCatalog','hj-outline hj-wide')+
+ '<div class="ai-group-cta"><div><strong>학습반에 AI 선생님을 연결하세요</strong><p>선생님은 최대 5명이 참여하는 학습반을 이끌고 각자의 문제풀이를 돕습니다.</p></div>'+
+ nav('학습반 찾기','groupSearch','hj-outline')+nav('학습반 만들기','groupCreate','hj-black')+'</div>'+
+ '<section class="ai-mine"><strong>내 AI 과외</strong><p>보유한 AI 선생님과 연결된 학습반을 관리하세요.</p><small>선생님 '+mine.length+'명 · 내 학습반 '+joined.length+'개</small>'+
+ nav('내 AI 과외 관리 →','groupTutorMine','hj-outline hj-wide')+'</section>'+
+ '<p class="ai-note">추천 카드는 학습 방식 소개이며, 실제 판매 중인 구독 상품이나 인기 순위를 나타내지 않습니다.</p></section>';
+}
+function tutorMine(){
+ const mine=trainerList(),joined=model.groups.filter(g=>g.members?.includes('나'));
+ return '<section class="hj ai-mine-page">'+header('내 AI 과외','사용 중인 AI 선생님과 연결된 학습반','groupAITutor')+
+ '<div class="hj-between hj-section"><strong>내 AI 선생님</strong><small>'+mine.length+'명</small></div>'+
+ (mine.length?mine.map(t=>'<div class="hj-trainer"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 학습반에 연결됨</small></div></div>').join(''):'<div class="hj-empty">등록된 AI 선생님이 없습니다.</div>')+
+ '<div class="hj-between hj-section"><strong>내 학습반</strong><small>'+joined.length+'개</small></div>'+
+ (joined.length?joined.map(tile).join(''):'<div class="hj-empty">현재 참여 중인 학습반이 없습니다.</div>')+
+ nav('교재별 AI 선생님 찾기','groupTutorCatalog','hj-outline hj-wide')+
+ nav('AI 과외 추천으로 돌아가기','groupAITutor','hj-quiet hj-wide')+
+ '<p class="hj-muted">실제 구독·결제 관리 서버는 현재 연결되지 않았습니다.</p></section>';
+}
+function tutorOfferPage(){
+ const t=aiOffer(aiDiscover.selected);if(!t)return trainerHub();
+ const groupList=model.groups.filter(g=>g.members?.includes('나')&&subject(g)===t.subject);
+ return '<section class="hj ai-offer-page">'+header('AI 과외 학습 방식',t.name,'groupAITutor')+
+ '<div class="ai-offer-feature ai-'+esc(t.theme)+'"><span>'+esc(t.subject)+' · '+esc(t.kind)+'</span>'+
+ '<div class="ai-offer-mark">'+esc(t.icon)+'</div><h3>'+esc(t.name)+'</h3><p>'+esc(t.desc)+'</p></div>'+
+ '<div class="hj-panel"><b>학습 방식</b><p>'+esc(t.areas)+'</p><p>목표에 따라 문제를 풀고, 막히는 부분은 AI 질문창으로 바로 물어보실 수 있습니다.</p></div>'+
+ '<button class="hj-btn hj-black hj-wide" type="button" data-ask="open">✦ AI에게 학습 질문하기</button>'+
+ nav('이 학습목표로 학습반 만들기','groupCreate','hj-outline hj-wide')+
+ nav('관련 학습반 찾아보기','groupSearch','hj-outline hj-wide')+
+ nav('교재별 AI 선생님 찾기','groupTutorCatalog','hj-quiet hj-wide')+
+ (groupList.length?'<div class="hj-between hj-section"><strong>내 '+esc(t.subject)+' 학습반</strong><small>'+groupList.length+'개</small></div>'+groupList.map(tile).join(''):'')+
+ '<p class="ai-note">현재는 AI 과외 유형 설명 화면입니다. 개별 신규 선생님의 실제 구독·결제 및 별도 전용 AI 모델 배정은 연결되지 않았습니다.</p></section>';
 }
 function learning(){
  const g=current();if(!g)return main();
@@ -252,7 +324,7 @@ function exams(){
  (items.length?items.map(e=>'<div class="hj-panel"><b>'+esc(e.title)+'</b><p>'+esc(e.date||'')+' · '+esc(e.scope||'범위 미등록')+'</p></div>').join(''):'<div class="hj-empty">등록된 시험 일정이 없습니다.</div>')+
  '<form id="hj-exam" class="hj-form hj-panel"><b>시험 등록</b><label>시험명<input name="title" maxlength="120" required></label><label>범위<input name="scope" maxlength="300"></label><label>시험일<input name="date" type="date" value="'+today()+'" required></label><button type="submit" class="hj-btn hj-black hj-wide">저장</button></form></section>';
 }
-const routes={groupMissionJourney:'학습 코스',groupMissionPlay:'문제 풀기',groupTrainerSelect:'AI 트레이너',groupTutorCatalog:'교재별 AI 과외',groupLearningResources:'공동 학습자료',groupLearningExams:'시험·평가'};
+const routes={groupMissionJourney:'학습 코스',groupMissionPlay:'문제 풀기',groupTrainerSelect:'AI 트레이너',groupTutorCatalog:'교재별 AI 과외',groupTutorMine:'내 AI 과외',groupTutorOffer:'AI 학습 방식 소개',groupLearningResources:'공동 학습자료',groupLearningExams:'시험·평가'};
 for(const[k,v]of Object.entries(routes)){window.YPT_GRAPH[k]={title:v,evidence:[],actions:[{text:'스터디그룹',go:'groups'}]};if(GROUPS['스터디 그룹'])GROUPS['스터디 그룹'].push(k)}
 groupPage=function(route){
  if(route==='groups')return main();
@@ -261,6 +333,8 @@ groupPage=function(route){
  if(route==='groupMissionPlay')return player();
  if(route==='groupTrainerSelect')return trainers();
  if(route==='groupAITutor')return trainerHub();
+ if(route==='groupTutorMine')return tutorMine();
+ if(route==='groupTutorOffer')return tutorOfferPage();
  if(route==='groupTutorCatalog')return oldPage('groupAITutor');
  if(route==='groupLearning')return learning();
  if(route==='groupLearningResources')return resources();
@@ -270,7 +344,7 @@ groupPage=function(route){
 bottomFor=function(route){
  if(['groupMissionJourney','groupMissionPlay','groupLearningResources','groupLearningExams'].includes(route))return oldNav('groupLearning');
  if(route==='groupTrainerSelect')return oldNav('groups');
- if(route==='groupTutorCatalog')return oldNav('groupAITutor');
+ if(['groupTutorCatalog','groupTutorMine','groupTutorOffer'].includes(route))return oldNav('groupAITutor');
  return oldNav(route);
 };
 function assign(tid){
@@ -307,6 +381,8 @@ document.addEventListener('click',e=>{
  e.preventDefault();e.stopPropagation();const a=b.dataset.hj,v=b.dataset.value||'';
  if(a==='route'){go(v);return}
  if(a==='group'){const g=model.groups.find(g=>g.id===v);if(!g)return;model.activeGroupId=g.id;WP.saveModel();ui.day=today();go('groupDetail');return}
+ if(a==='aiSubject'){aiDiscover.subject=v;render();return}
+ if(a==='aiOffer'){if(!aiOffer(v))return;aiDiscover.selected=v;go('groupTutorOffer');return}
  if(a==='trainer'){assign(v);return}
  if(a==='day'){ui.day=v;render();return}
  if(a==='stage'||a==='extra'){openProblem(v);return}
