@@ -1,16 +1,6 @@
 name: HITEL Full Coach & Benchmark Mobile E2E
+# Legacy baseline preserved for manual comparison. Active branch uses hitel-tutor-platform-e2e.yml.
 on:
-  push:
-    branches:
-      - feature/ypt-study-group-learning-nav-20261108
-    paths:
-      - public/ypt-coach-suite.js
-      - public/ypt-coach-suite.css
-      - public/ypt-book-library.js
-      - public/ypt-rebuild.html
-      - server.mjs
-      - tools/education/test_coach_suite.py
-      - .github/workflows/hitel-coach-suite-mobile-e2e.yml
   workflow_dispatch:
 permissions:
   contents: read
