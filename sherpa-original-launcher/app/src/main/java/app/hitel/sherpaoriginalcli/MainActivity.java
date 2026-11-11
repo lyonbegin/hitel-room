@@ -89,9 +89,17 @@ public final class MainActivity extends Activity {
       }
     }
   };
+  // Bound the TextView layout cost during long calls. Full transcript stays
+  // in engine memory and occasional checkpoint; only newest text is rendered.
+  static String recentCaption(String text){
+    if(text==null || text.length()<=420)return text==null?"":text;
+    int first=text.length()-420;
+    if(first<text.length() && Character.isLowSurrogate(text.charAt(first)))first++;
+    return "…\n"+text.substring(first);
+  }
   void updateCaptionText(String text,boolean live,long seq,long nativeNs,long sendNs){
     caption.setText(text.isEmpty()?
-      "아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
+      "아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":recentCaption(text));
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
     if(live){
       final String expected=caption.getText().toString();
@@ -158,7 +166,7 @@ public final class MainActivity extends Activity {
     root.addView(text("현재 말하는 내용 · 확정 대기 없이 즉시 표시",17));
     latestTwo=text("새로 인식된 단어 대기 중",24);
     latestTwo.setTypeface(null,Typeface.BOLD);root.addView(latestTwo);
-    root.addView(text("전체 임시 자막 · 다음 인식에 따라 자동 보정",16));
+    root.addView(text("현재 자막 · 최신 구간만 표시하고 전체 기록은 유지",16));
     caption=text("아직 인식 결과 없음",16);caption.setTextIsSelectable(true);root.addView(caption);
     root.addView(text("STEP 3 · 상세 원본 로그 확보",17));
     exportButton=button(root,"전체 진단 로그 ZIP 저장 (오류 발생 시에도 가능)");
@@ -311,7 +319,7 @@ public final class MainActivity extends Activity {
     currentCaption=text;
     captionRevision=getSharedPreferences("growing_diag",MODE_PRIVATE)
       .getLong("currentTranscriptRevision",0);
-    caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":text);
+    caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":recentCaption(text));
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
     refreshButtons();
     refreshEventTail();
