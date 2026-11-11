@@ -780,13 +780,17 @@ public final class GrowingCallEngine {
         final boolean useAlternate=alternateInput!=null &&
           !alternateInput.equals(path) && attempt>1 && attempt%4==0;
         String currentInput=adts!=null?adts.getAbsolutePath():(useAlternate?alternateInput:path);
-        log.timing("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"sourceBytes",snapshotBytes);
-        log.event("FFMPEG","ATTEMPT_BEGIN","attempt",attempt,"fileSize",sizeBefore,
+        final String processingStage=adts!=null?"STREAM":"FFMPEG";
+        log.timing(processingStage,adts!=null?"AAC_DELTA_BEGIN":"ATTEMPT_BEGIN",
+          "attempt",attempt,"sourceBytes",snapshotBytes);
+        log.event(processingStage,adts!=null?"AAC_DELTA_BEGIN":"ATTEMPT_BEGIN",
+          "attempt",attempt,"fileSize",sizeBefore,
           "alreadyPcmBytes",before,"source",currentInput,
           "sourceMode",currentInput.startsWith("saf:")?"SAF":"FILE_OR_PROC_FD",
           "alternateAttempt",useAlternate);
-        status("FFmpeg 파일 증가분 디코딩 시도 "+attempt+"회 ("+
-          (currentInput.startsWith("saf:")?"SAF":"파일 경로")+") · "+display(uri));
+        status(adts!=null
+          ?"AAC 지속 디코더에 새 프레임 전달 "+attempt+"회 · "+display(uri)
+          :"FFmpeg 완성 파일 디코딩 "+attempt+"회 · "+display(uri));
         // Full finalized MP4 keeps its existing replay guard. Only a
         // recovered ADTS DELTA skips PCM sent from the same uncommitted delta.
         long replaySkip=adts!=null?pendingDeltaPcmBytes:committedPcmBytes.get();
@@ -836,8 +840,10 @@ public final class GrowingCallEngine {
               "pcmAlreadySent",pendingDeltaPcmBytes,"reason",result);
           }
         }
-        log.timing("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,"freshPcmBytes",newBytes);
-        log.event("FFMPEG","ATTEMPT_END","attempt",attempt,"reason",result,
+        log.timing(processingStage,adts!=null?"AAC_DELTA_END":"ATTEMPT_END",
+          "attempt",attempt,"reason",result,"freshPcmBytes",newBytes);
+        log.event(processingStage,adts!=null?"AAC_DELTA_END":"ATTEMPT_END",
+          "attempt",attempt,"reason",result,
           "newPcmBytes",newBytes,"totalPcmBytes",pcmBytes.get(),
           "sourceByteSizeNow",currentSize);
         if("STOPPED".equals(result)){endReason="USER_STOP";return;}
