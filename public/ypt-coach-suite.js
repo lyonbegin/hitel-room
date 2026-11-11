@@ -27,19 +27,19 @@ let sheetCanvas=null,paint=false,lastPoint=null;
 function book(){return B.currentBook()}
 function unit(){return B.currentUnit()}
 function group(){return B.getGroup()}
-function key(){return book().id+'|'+B.currentUnitIndex()}
+function key(){return (group()?.id||'personal')+'|'+book().id+'|'+B.currentUnitIndex()}
 function formButton(label,action,value='',extra=''){
  return '<button type="button" class="cs-btn '+extra+'" data-cs="'+esc(action)+'" data-value="'+esc(value)+'">'+esc(label)+'</button>';
 }
 function card(s){return '<section class="cs-card">'+s+'</section>'}
 function header(title,subtitle=''){
  const b=book(),g=group();
- return '<div class="cs-heading"><div><span class="cs-eyebrow">'+esc(b.name)+' · '+esc(unit())+'</span><h3>'+esc(title)+'</h3>'+
+ return '<div class="cs-heading"><div><span class="cs-eyebrow">'+esc(g?.name||'개인 학습')+' · '+esc(b.name)+' · '+esc(unit())+'</span><h3>'+esc(title)+'</h3>'+
  (subtitle?'<p>'+esc(subtitle)+'</p>':'')+'</div></div>'+
  '<nav class="cs-subnav" aria-label="과외 학습 메뉴">'+[
- ['groupPractice','문제풀이'],['groupCoach','코치'],['groupMistakes','오답'],['groupCoachDashboard','학습기록']
+ ['groupPractice','문제풀이'],['groupCoach','풀이 도움'],['groupMistakes','오답'],['groupCoachDashboard','학습기록']
  ].map(([id,t])=>'<button type="button" data-cs="route" data-value="'+id+'" class="'+(state.screen===id||state.screen==='groupProblemDetail'&&id==='groupPractice'?'current':'')+'">'+t+'</button>').join('')+'</nav>'+
- '<div class="cs-book-ctx"><span>현재 그룹 <strong>'+esc(g?.name||'개인')+'</strong></span>'+formButton('교재 바꾸기','route','groupAITutor')+'</div>';
+ '<div class="cs-book-ctx"><span>현재 그룹 <strong>'+esc(g?.name||'개인')+'</strong></span>'+formButton('스터디로 돌아가기','route','groupDetail')+'</div>';
 }
 function chapterMeta(){return '<div class="cs-scope">'+formButton('‹ 교재 상세','route','groupBookDetail')+
  '<span>'+esc(unit())+'</span>'+formButton('단원 변경','route','groupBookDetail')+'</div>'}
@@ -115,9 +115,9 @@ function manualProblems(){return x.manual.filter(v=>v.key===key()).map(v=>({...v
 function allProblems(){return [...generated(),...manualProblems()]}
 function selected(){const list=allProblems(),v=list.find(z=>z.id===x.selected)||list[0];if(v)x.selected=v.id;return v;}
 function attempts(id){return x.attempts.filter(a=>a.problemId===id)}
-function mistakeIds(){const latest=new Map();for(const a of x.attempts)latest.set(a.problemId,a.correct);return [...latest].filter(([,result])=>result===false).map(([id])=>id)}
+function mistakeIds(){const latest=new Map();for(const a of x.attempts.filter(v=>v.groupId===(group()?.id||'personal')))latest.set(a.problemId,a.correct);return [...latest].filter(([,result])=>result===false).map(([id])=>id)}
 function counts(){
- const a=x.attempts.filter(v=>v.bookId===book().id),ok=a.filter(v=>v.correct).length,bad=a.filter(v=>v.correct===false).length,review=mistakeIds().length;
+ const a=x.attempts.filter(v=>v.bookId===book().id&&v.groupId===(group()?.id||'personal')),ok=a.filter(v=>v.correct).length,bad=a.filter(v=>v.correct===false).length,review=mistakeIds().length;
  return {attempts:a.length,correct:ok,wrong:bad,review,rate:a.length?Math.round(100*ok/a.length):0};
 }
 function norm(s){return String(s??'').toLowerCase().replace(/[ \t\n\r]/g,'').replace(/−/g,'-').replace(/[（]/g,'(').replace(/[）]/g,')').replace(/²/g,'^2').replace(/[，]/g,',').replace(/;/g,',').replace(/또는/g,',').replace(/그리고/g,',').replace(/x=/g,'').replace(/y=/g,'').replace(/[\[\]{}]/g,'').replace(/(\d)\.0\b/g,'$1')}
@@ -201,7 +201,7 @@ function timerWidget(){
  formButton(x.timer.running?'일시정지':'시작','timerToggle')+formButton('초기화','timerReset')+'</div>';
 }
 function exportStudy(){
- const all=B.getState().bookNotes||[],entries=x.attempts.filter(v=>v.bookId===book().id);
+ const all=B.getState().bookNotes||[],entries=x.attempts.filter(v=>v.bookId===book().id&&v.groupId===(group()?.id||'personal'));
  const rows=[['종류','교재','단원','기록 내용','날짜']];
  for(const n of all.filter(z=>z.bookId===book().id))rows.push(['노트',book().name,n.unit||'',(n.type||'')+' '+(n.text||''),date(n.at)]);
  for(const a of entries)rows.push(['풀이',book().name,a.unit||'',a.question+' / 내 답: '+a.answer+' / '+(a.correct===true?'정답':a.correct===false?'오답':'확인 전'),date(a.at)]);
@@ -269,7 +269,7 @@ function chat(){
  '<p class="cs-muted">현재 문제와 풀이 결과가 코치 대화의 기준입니다. 생성형 AI가 도입되면 여기에 실제 문맥 기반 응답을 연결합니다.</p>';
 }
 function mistakes(){
- const miss=mistakeIds(),all=[...new Map(x.attempts.filter(a=>a.correct===false).map(a=>[a.problemId,a])).values()].reverse();
+ const miss=mistakeIds(),all=[...new Map(x.attempts.filter(a=>a.correct===false&&a.groupId===(group()?.id||'personal')).map(a=>[a.problemId,a])).values()].reverse();
  const unresolved=new Set(miss);const a=all.filter(v=>v.bookId===book().id&&unresolved.has(v.problemId));
  return header('오답 복습','틀린 이유를 확인하고 같은 원리의 새 조건으로 다시 풀어보세요.')+
  stat()+
@@ -284,11 +284,11 @@ function mistakes(){
  formButton('문항 목록으로','route','groupPractice','primary')+'');
 }
 function dashboard(){
- const a=counts(),hist=x.attempts.filter(v=>v.bookId===book().id).slice(-12).reverse();
+ const a=counts(),hist=x.attempts.filter(v=>v.bookId===book().id&&v.groupId===(group()?.id||'personal')).slice(-12).reverse();
  const acts=B.getState()?.activity||[],days=[];
  for(let j=6;j>=0;j--){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-j);
  const ymd=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
- const num=acts.filter(v=>v.date===ymd).length+x.attempts.filter(v=>new Date(v.at).toLocaleDateString('sv-SE')===ymd).length;
+ const num=acts.filter(v=>v.date===ymd).length+x.attempts.filter(v=>v.groupId===(group()?.id||'personal')&&new Date(v.at).toLocaleDateString('sv-SE')===ymd).length;
  days.push('<div><small>'+['일','월','화','수','목','금','토'][d.getDay()]+'</small><b>'+d.getDate()+'</b><i class="'+(num?'on':'')+'"></i></div>')}
  const next=a.wrong>a.correct?'오답 문항부터 다시 살펴보세요.':a.attempts>0?'다른 유형을 선택해 풀이 방법을 설명해 보세요.':'먼저 쉬운 문제 한 개를 풀어보세요.';
  return header('학습기록','실제 이 브라우저에 기록된 풀이·학습을 확인합니다.')+
@@ -317,7 +317,7 @@ function share(id){
 }
 function submitAnswer(val){
  const p=selected(),text=String(val||'').trim();if(!p||!text)return;
- const result=rightAnswer(p,text),entry={id:uid(),problemId:p.id,bookId:p.bookId,unit:p.unit,question:p.question,answer:text,expected:p.answer||'',correct:result,at:now()};
+ const result=rightAnswer(p,text),entry={id:uid(),groupId:group()?.id||'personal',problemId:p.id,bookId:p.bookId,unit:p.unit,question:p.question,answer:text,expected:p.answer||'',correct:result,at:now()};
  x.attempts.push(entry);if(x.attempts.length>3000)x.attempts=x.attempts.slice(-3000);
  x.drafts[p.id]=text;
  if(result===true){B.updateCoachProgress(p.bookId,4);addCoach(p,'coach','정답입니다. 그 답이 나오는 이유를 직접 설명해 주시겠습니까?')}
@@ -329,7 +329,7 @@ function saveManual(fd){
  const location=String(fd.get('location')||'').trim().slice(0,60),text=String(fd.get('question')||'').trim().slice(0,1800);
  if(!location||!text)return;
  const id='my-'+uid();
- x.manual.push({id,key:key(),bookId:book().id,unit:unit(),title:location,question:text,answer:'',kind:'manual',at:now()});
+ x.manual.push({id,key:key(),groupId:group()?.id||'personal',bookId:book().id,unit:unit(),title:location,question:text,answer:'',kind:'manual',at:now()});
  x.selected=id;store();go('groupProblemDetail');
 }
 function markAnswerText(value){const el=document.getElementById('cs-answer');if(!el)return;const s=el.selectionStart||0,e=el.selectionEnd||0;let t=value==='²'?'²':value==='−'?'−':value;
