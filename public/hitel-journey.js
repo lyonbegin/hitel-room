@@ -132,16 +132,16 @@ function create(){
  const book=window.HITEL_CLASS_AI_FLOW?.pending?.()||null,exam=window.HITEL_EXAM_FLOW?.pending?.()||null;
  const classSubject=exam?.subject||book?.subject||'수학',bookName=book?.name||'';
  const selectedGrade=exam?.grade||book?.grade||'';
- const examGoalType=exam?({mock:'수능·모의고사',admission:'특목고 입시',contest:'경시대회',university:'독해·논술',diagnostic:'자유 목표'}[exam.category]||'자유 목표'):'';
+ const examGoalType=exam?({mock:'수능·모의고사',admission:'특목고 입시',contest:'경시대회',university:'독해·논술',diagnostic:'자유 목표',school:'학교 내신'}[exam.category]||'자유 목표'):'';
  return '<section class="hj">'+header('학습반 만들기','정원을 정하고 학습반을 개설한 다음 담당 AI 선생님을 지정합니다.','groups')+
  (book?'<div class="hj-panel"><small>선택한 교재·시리즈</small><b>'+esc(bookName)+'</b><p>학습반에 연결할 학습자료입니다. 실제 학년·학기·판본은 확인하셔야 합니다.</p></div>':'')+
  (exam?'<div class="hj-panel"><small>기출·시험 준비 참고자료</small><b>'+esc(exam.title)+'</b><p>선택하신 공식 자료원과 검색조건을 연결합니다. 실제 문제지·정답과 AI 기출 분석은 아직 확보되지 않았습니다.</p></div>':'')+
  '<form id="hj-create" class="hj-form">'+
- '<label>반 이름<input name="name" maxlength="70" required value="'+esc(exam?exam.title.replace('자료 찾기','대비반').slice(0,70):'')+'" placeholder="예: 중3 수학 이차방정식 완성반"></label>'+
+ '<label>반 이름<input name="name" maxlength="70" required value="'+esc(exam?(exam.category==='school'?[exam.school||'',exam.grade||'',exam.subject||'','내신 준비반'].filter(Boolean).join(' ').slice(0,70):exam.title.replace('자료 찾기','대비반').slice(0,70)):'')+'" placeholder="예: 중3 수학 이차방정식 완성반"></label>'+
  '<div class="hj-formrow"><label>구분<select name="institutionType"><option value="school">학교</option><option value="academy">학원</option></select></label><label>학년<select name="grade">'+['초4','초5','초6','중1','중2','중3','고1','고2','고3','제한 없음'].map(x=>'<option'+(selectedGrade===x?' selected':'')+'>'+x+'</option>').join('')+'</select></label></div>'+
- '<label>학교·학원명<input name="institutionName" maxlength="100" required placeholder="학교 또는 학원명"></label>'+
+ '<label>학교·학원명<input name="institutionName" maxlength="100" required value="'+esc(exam?.category==='school'?exam.school||'':'')+'" placeholder="학교 또는 학원명"></label>'+
  '<div class="hj-formrow"><label>과목<select name="subject">'+SUBJECTS.map(x=>'<option'+(x===classSubject?' selected':'')+'>'+x+'</option>').join('')+'</select></label><label>학습 목표<select name="goalType">'+GOALS.map(x=>'<option'+((exam?x===examGoalType:book&&x==='문제집 완성')?' selected':'')+'>'+x+'</option>').join('')+'</select></label></div>'+
- '<label>완성할 목표<input name="goalTitle" maxlength="150" required value="'+esc(exam?exam.title:bookName?bookName+' 학습 목표 완성':'')+'" placeholder="예: 쎈 수학 C단계 완성"></label>'+
+ '<label>완성할 목표<input name="goalTitle" maxlength="150" required value="'+esc(exam?(exam.category==='school'?('학교 기출 학습 · '+exam.title):exam.title):bookName?bookName+' 학습 목표 완성':'')+'" placeholder="예: 쎈 수학 C단계 완성"></label>'+
  '<label>학습 범위<input name="topics" maxlength="150" value="'+esc(exam?exam.year+' · '+exam.subject:'')+'" placeholder="단원·범위 (선택)"></label>'+
  '<div class="hj-formrow"><label>시작일<input type="date" name="courseStart" value="'+today()+'" required></label><label>코스 기간<select name="courseDays">'+[5,7,10,14,21,30].map(n=>'<option value="'+n+'"'+(n===10?' selected':'')+'>'+n+'일</option>').join('')+'</select></label></div>'+
  '<label>학습반 정원<select name="capacity" required>'+[1,2,3,4,5].map(n=>'<option value="'+n+'">'+n+'명'+(n===1?' (혼자 이용)':'')+'</option>').join('')+'</select></label>'+'<label>교재 (선택)<input name="bookTitle" maxlength="120" value="'+esc(bookName)+'" placeholder="교재가 있다면 입력해 주세요."></label>'+
@@ -177,7 +177,7 @@ function journey(){
  return '<section class="hj">'+header(g.name,(g.institutionName||g.school||'스터디')+' · '+(g.grade||'')+' · '+subject(g),'groups')+
  '<div class="hj-between"><span class="hj-pill">'+esc(g.goalType||'목표형 공동학습')+'</span><small>'+(g.members?.length||1)+'/'+Math.max(1,Math.min(5,Number(g.capacity)||5))+'명</small></div>'+
  '<div class="hj-panel hj-course"><div class="hj-between"><div><small>진행 중인 문제 코스</small><b>'+esc(goal(g))+'</b></div><small>DAY '+Math.max(1,dayNo(g,today()))+'/'+days(g)+'</small></div>'+prog(doneDays/days(g)*100)+'<div class="hj-between"><small>전체 진행률</small><small>'+doneDays+'/'+days(g)+'일</small></div></div>'+
- (g.examFocus?'<div class="hj-panel"><small>연결된 기출·시험 준비</small><b>'+esc(g.examFocus.title)+'</b><p>'+esc(g.examFocus.sourceName||'자료원')+' · 원문 검색조건만 연결됨 (문항·정답 미확보)</p>'+nav('기출 참고자료 보기 →','groupLearningResources','hj-outline')+'</div>':'')+
+ (g.examFocus?'<div class="hj-panel"><small>연결된 기출·시험 준비</small><b>'+esc(g.examFocus.title)+'</b><p>'+esc(g.examFocus.sourceName||'자료원')+(g.examFocus.paperId?' · 원본 자료번호 '+esc(g.examFocus.paperId):' · 원문 검색조건만 연결됨')+' · 문항·정답 미확보</p>'+nav(g.examFocus.paperId?'기출 문제 학습하기 →':'기출 참고자료 보기 →',g.examFocus.paperId?'bankSchoolPractice':'groupLearningResources','hj-outline')+'</div>':'')+
  '<div class="hj-between hj-section"><strong>학습 스케줄</strong><small>'+esc(d.slice(5))+'</small></div>'+
  schedule(g,d)+
  '<div class="hj-between hj-section"><div><strong>'+(d===today()?'오늘의 여정':'선택한 날의 코스')+'</strong><small>'+esc(goal(g))+'</small></div><span class="hj-pill">'+(done?'완료':'진행 '+step+'/3')+'</span></div>'+
@@ -315,7 +315,7 @@ function resources(){
  const items=model.materials?.[g.id]||[];
  return '<section class="hj">'+header('공동 학습자료',g.name,'groupDetail')+
  '<div class="hj-between hj-section"><strong>자료함</strong><small>'+items.length+'건</small></div>'+
- (items.length?items.slice(-50).reverse().map(it=>'<div class="hj-panel"><b>'+esc(it.title||'학습자료')+'</b>'+(it.photo&&it.photo.startsWith('data:image/jpeg;base64,')?'<img class="hj-photo" src="'+it.photo+'" alt="'+esc(it.title||'학습 사진')+'">':'')+(it.text?'<p>'+esc(it.text.slice(0,450))+'</p>':'')+(it.sourceUrl&&/^https:\/\/(?:www\.ebsi\.co\.kr|cloud\.ebsi\.co\.kr|www\.suneung\.re\.kr|www\.hischool\.go\.kr|admission\.ksa\.hs\.kr|www\.kmo\.or\.kr|www\.adiga\.kr|www\.kice\.re\.kr)\//.test(it.sourceUrl)?'<p><a href="'+esc(it.sourceUrl)+'" target="_blank" rel="noopener noreferrer">공식 자료원에서 확인 ↗</a></p>':'')+'</div>').join(''):'<div class="hj-empty">아직 등록된 자료가 없습니다.</div>')+
+ (items.length?items.slice(-50).reverse().map(it=>'<div class="hj-panel"><b>'+esc(it.title||'학습자료')+'</b>'+(it.photo&&it.photo.startsWith('data:image/jpeg;base64,')?'<img class="hj-photo" src="'+it.photo+'" alt="'+esc(it.title||'학습 사진')+'">':'')+(it.text?'<p>'+esc(it.text.slice(0,450))+'</p>':'')+(it.sourceUrl&&/^https:\/\/(?:www\.ebsi\.co\.kr|cloud\.ebsi\.co\.kr|www\.suneung\.re\.kr|www\.hischool\.go\.kr|admission\.ksa\.hs\.kr|www\.kmo\.or\.kr|www\.adiga\.kr|www\.kice\.re\.kr|m\.zocbo\.com|www\.zocbo\.com)\//.test(it.sourceUrl)?'<p><a href="'+esc(it.sourceUrl)+'" target="_blank" rel="noopener noreferrer">공식 자료원에서 확인 ↗</a></p>':'')+'</div>').join(''):'<div class="hj-empty">아직 등록된 자료가 없습니다.</div>')+
  '<form id="hj-material" class="hj-form hj-panel"><b>자료 등록</b><label>제목<input name="title" maxlength="120" required></label><label>메모<textarea name="text" rows="3" maxlength="2500"></textarea></label><label>풀이·필기 사진 (선택)<input name="image" type="file" accept="image/*"></label><button type="submit" class="hj-btn hj-black hj-wide">자료 저장</button></form>'+
  '</section>';
 }
@@ -323,6 +323,7 @@ function exams(){
  const g=current();if(!g)return main();
  const items=(model.exams||[]).filter(e=>e.groupId===g.id);
  return '<section class="hj">'+header('시험·평가',g.name,'groupDetail')+
+ (Array.isArray(g.examResources)&&g.examResources.some(x=>x.paperId)?'<div class="hj-panel"><b>학습반에 연결된 학교별 기출</b><p>'+g.examResources.filter(x=>x.paperId).length+'건의 원본 자료번호가 등록되어 있습니다.</p>'+nav('기출 문항 학습하기 →','bankSchoolPractice','hj-outline hj-wide')+'</div>':'')+
  '<div class="hj-between hj-section"><strong>시험 일정</strong><small>'+items.length+'건</small></div>'+
  (items.length?items.map(e=>'<div class="hj-panel"><b>'+esc(e.title)+'</b><p>'+esc(e.date||'')+' · '+esc(e.scope||'범위 미등록')+'</p></div>').join(''):'<div class="hj-empty">등록된 시험 일정이 없습니다.</div>')+
  '<form id="hj-exam" class="hj-form hj-panel"><b>시험 등록</b><label>시험명<input name="title" maxlength="120" required></label><label>범위<input name="scope" maxlength="300"></label><label>시험일<input name="date" type="date" value="'+today()+'" required></label><button type="submit" class="hj-btn hj-black hj-wide">저장</button></form></section>';
@@ -372,12 +373,13 @@ function makeGroup(f){
  bookId,bookTitle:v('bookTitle'),studyBook,bookShelf:bookId?[bookId]:[],coachId:'',coachName:'',trainerId:'',members:['나'],example:false,localDirectoryVisible:false});
  if(exam){
   const created=model.groups[model.groups.length-1];
-  const examKey=[exam.sourceId,exam.year,exam.month,exam.track,exam.subject,exam.grade].join('|');
+  const examKey=[exam.sourceId,exam.paperId||'',exam.school||'',exam.year,exam.month,exam.track,exam.subject,exam.grade].join('|');
   created.examFocus={...exam};created.examResources=[{...exam,key:examKey}];
   if(!model.materials||typeof model.materials!=='object')model.materials={};
   if(!Array.isArray(model.materials[id]))model.materials[id]=[];
-  model.materials[id].push({id:'exam-'+id,title:exam.title,unit:'기출 참고자료',examKey,sourceUrl:exam.sourceUrl,
-   text:'공식 자료원: '+exam.sourceName+' · 개별 문제지 미확보'});
+  model.materials[id].push({id:'exam-'+id,title:exam.title,unit:exam.paperId?'학교 기출':'기출 참고자료',examKey,
+   originalPaperId:exam.paperId||'',sourceUrl:exam.sourceUrl,
+   text:exam.paperId?'족보닷컴 원본 자료번호 '+exam.paperId+' · 문항·정답 아직 미확보':'공식 자료원: '+exam.sourceName+' · 개별 문제지 미확보'});
  }
  model.activeGroupId=id;WP.saveModel();ui.day=v('courseStart')||today();go('groupTrainerSelect');
 }
