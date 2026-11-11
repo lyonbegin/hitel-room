@@ -59,13 +59,33 @@ function results(){
  else if(ui.sort==='name')rs.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
  return rs;
 }
+function resolveSelected(id){
+ const found=DATA.series.find(b=>b.id===id);
+ if(found)return found;
+ const match=/^(hero|popular):(\d+)$/.exec(id);
+ if(!match)return null;
+ const i=Number(match[2]);
+ const record=match[1]==='hero'?DATA.hero[i]:DATA.popular[i];
+ if(!record)return null;
+ const [name,score,image]=record;
+ return DATA.series.find(b=>b.name===name)||{
+  id,name,score,image:image||'',publisher:'',votes:null,cats:[],purpose:[],
+  snapshotOnly:true
+ };
+}
+function showBook(id){
+ if(!resolveSelected(id)){toast('선택한 교재를 찾을 수 없습니다.');return}
+ ui.selected=id;
+ try{sessionStorage.setItem('hitel.moonzip.selected-series.v1',id)}catch{}
+ go('groupMoonzipSeries');
+}
 function home(){
  const hero=DATA.hero;
  return shell('groupAITutor')+
  '<div class="mzx-home-intro"><small>투표 2,169개 · 이번 주 +129 <em>제공 원본 화면 기준</em></small>'+
  '<h2>감이 아니라 <strong>데이터로</strong><br>문제집을 비교하세요.</h2>'+
- '<div class="mzx-cover-row">'+hero.map(([name,score,src])=>{
-  return '<button type="button" data-mzx="query" data-value="'+esc(name)+'" class="mzx-cover-tile"><span>난이도 <b style="color:'+levelColor(score)+'">'+score.toFixed(1)+'</b></span>'+
+ '<div class="mzx-cover-row">'+hero.map(([name,score,src],i)=>{
+  return '<button type="button" data-mzx="openBook" data-value="hero:'+i+'" class="mzx-cover-tile"><span>난이도 <b style="color:'+levelColor(score)+'">'+score.toFixed(1)+'</b></span>'+
   cover(src,name,'mzx-hero-cover')+'<strong>'+esc(name)+'</strong></button>';
  }).join('')+
  '<button type="button" class="mzx-cover-tile mzx-cover-more" data-go="groupMoonzipSearch"><span>전체 보기</span><b>›</b><strong>더보기</strong></button></div>'+
@@ -75,7 +95,7 @@ function home(){
  sec('난이도별 문제집 찾기','내 수준에 맞는 문제집을 찾아보세요')+
  '<div class="mzx-level-grid">'+DATA.levels.map(l=>'<button type="button" data-mzx="level" data-value="'+l[3]+','+l[4]+'"><b>'+l[0]+'</b><strong>'+l[1]+'</strong><small>'+l[2]+'</small></button>').join('')+'</div>'+
  sec('실시간 인기 문제집','제공된 원본 화면의 11월 11일 기준 항목')+
- '<div class="mzx-popular">'+DATA.popular.map(([name,score],i)=>'<button type="button" data-mzx="query" data-value="'+esc(name)+'"><b>'+(i+1)+'</b>'+
+ '<div class="mzx-popular">'+DATA.popular.map(([name,score],i)=>'<button type="button" data-mzx="openBook" data-value="popular:'+i+'"><b>'+(i+1)+'</b>'+
  '<span>'+esc(name)+'</span><em>난이도 '+score.toFixed(1)+'</em></button>').join('')+'</div>'+
  sec('최근 리뷰','원본 HTML에 포함된 리뷰 발췌')+
  '<div class="mzx-review"><b>마플시너지</b><small>난이도 3.0 · 개념·유형</small><p>쎈(두껍고 더 지루한)</p></div>'+
@@ -111,7 +131,9 @@ function catalogBridge(book){
  const k=map[book.name];return k?list.find(b=>b.series===k)||null:null;
 }
 function detail(){
- const b=DATA.series.find(x=>x.id===ui.selected)||DATA.series[1],linked=catalogBridge(b);
+ const current=ui.selected||'';
+ const saved=(()=>{try{return sessionStorage.getItem('hitel.moonzip.selected-series.v1')||''}catch{return''}})();
+ const b=resolveSelected(current)||resolveSelected(saved)||DATA.series[1],linked=catalogBridge(b);
  if(window.HITEL_CLASS_AI_FLOW?.renderSeries)return window.HITEL_CLASS_AI_FLOW.renderSeries(b);
  return shell('groupMoonzipSearch')+act('‹ 문제집 목록','route','groupMoonzipSearch','mzx-link')+
  '<div class="mzx-detail-intro">'+cover(b.image,b.name,'mzx-detail-cover')+'<div>'+tags(b.cats)+
@@ -173,7 +195,7 @@ document.addEventListener('click',ev=>{
  if(a==='category'){openSearch(v);return}
  if(a==='level'){const [lo,hi]=v.split(',').map(Number);openSearch(null,lo,hi);return}
  if(a==='query'){ui.q=v;ui.min=1;ui.max=10;ui.cat=[];go('groupMoonzipSearch');return}
- if(a==='detail'){ui.selected=v;go('groupMoonzipSeries');return}
+ if(a==='openBook'||a==='detail'){showBook(v);return}
  if(a==='roadmap'){ui.roadmap=Number(v);if(state.screen==='groupMoonzipRoadmap')refresh();else go('groupMoonzipRoadmap');return}
  if(a==='reset'){ui.q='';ui.cat=[];ui.min=1;ui.max=10;refresh();return}
  if(a==='filter'){ui.showFilters=!ui.showFilters;refresh();return}
