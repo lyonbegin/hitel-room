@@ -198,4 +198,6 @@ window.HITEL_SHELL_INSPECT=()=>({bottomMenu:shellTabs.map(x=>x[1]),hasQuestionTa
 
 window.HITEL_CLASS_DISCOVERY_INSPECT=()=>({route:state.screen,month:monthNow(),season:season(monthNow()).label,
  visibleClassCount:owned().length,templateSelected:choices.template?.id||null,source:'browser-local',popularityVerified:false});
+// Apply the new four-tab shell on initial load, not only after a later navigation.
+render();
 })();
