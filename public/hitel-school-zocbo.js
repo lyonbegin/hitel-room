@@ -187,7 +187,7 @@ document.addEventListener('submit',async event=>{
   const file=form.querySelector?.('input[type="file"]')?.files?.[0];
   if(!prompt&&!file){toast('문제 내용이나 사진을 등록해 주세요.');return}
   try{
-   const photo=await photoToJpeg(file);
+   const photo=file?await photoToJpeg(file):'';
    if(!Array.isArray(g.schoolExamQuestions))g.schoolExamQuestions=[];
    if(g.schoolExamQuestions.length>=150){toast('등록 가능한 기출문항은 150개입니다.');return}
    g.schoolExamQuestions.push({id:'q-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),
