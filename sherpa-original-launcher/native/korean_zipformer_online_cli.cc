@@ -131,7 +131,7 @@ struct Engine {
       update(false);
     }
     update(true);
-    printf("ONLINE_PERF_SUMMARY:audioMs=%llu:decodeCalls=%llu:decodeTotalUs=%llu:decodeMaxUs=%llu:decodeRTF=%.6f\\n",
+    printf("ONLINE_PERF_SUMMARY:audioMs=%llu:decodeCalls=%llu:decodeTotalUs=%llu:decodeMaxUs=%llu:decodeRTF=%.6f\n",
         static_cast<unsigned long long>(pcmSamples*1000/16000),
         static_cast<unsigned long long>(decodeCalls),
         static_cast<unsigned long long>(decodeTotalUs),
