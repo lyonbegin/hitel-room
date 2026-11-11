@@ -48,10 +48,45 @@ const smallBanks={
  사회:[item('c1','수요 증가, 공급 일정이면 균형 가격은 일반적으로?',['상승','하락','불변'],0,'사려는 사람이 많아집니다.','경제'),item('c2','삼권분립의 주된 목적은?',['권력 집중 방지','권력 독점 강화','투표 폐지'],0,'국가 권력 간 견제를 생각하세요.','정치')]
 };
 const STAGES=[{id:'discover',name:'해에서 원리 찾아내기',tag:'STAGE 01 · 규칙 발견',ico:'◇'},{id:'practice',name:'핵심 유형 돌파',tag:'STAGE 02 · 문제 돌파',ico:'✎'},{id:'apply',name:'숨은 조건을 찾아라',tag:'STAGE 03 · 응용',ico:'◎'}];
+/* Reproducible day-specific questions; same calendar day retains its answers. */
+const ROOT_PAIRS=[[2,3],[1,4],[-1,5],[2,-3],[-2,4],[3,5],[1,-4],[2,-5],[4,-2],[3,-1]];
+function equation(a,b,m=1){
+ const linear=-m*(a+b),constant=m*a*b;
+ return (m===1?'x²':m+'x²')+(linear>=0?' + ':' − ')+Math.abs(linear)+'x'+(constant>=0?' + ':' − ')+Math.abs(constant)+' = 0';
+}
+function rootText(a,b){return a+'와 '+b}
+function factorText(a,b){
+ const factor=n=>'(x '+(n>=0?'− '+n:'+ '+Math.abs(n))+')';
+ return factor(a)+factor(b);
+}
+function dailyMath(g,k,d){
+ const n=Math.max(0,dayNo(g,d)-1),roots=ROOT_PAIRS[n%ROOT_PAIRS.length],a=roots[0],b=roots[1];
+ const mk=(id,text,opts,hint,tag)=>item(id,text,opts,0,hint,tag);
+ if(k==='discover')return [
+  mk('d1','두 근이 '+rootText(a,b)+'인 이차방정식은?',[equation(a,b),equation(-a,-b),equation(a,b+1)],'두 근을 각각 (x−근)의 인수로 만들어 보세요.','규칙 발견'),
+  mk('d2','두 근이 '+rootText(a,b)+'일 때 알맞은 인수분해식은?',[factorText(a,b),factorText(-a,-b),factorText(a,b+1)],'두 근을 대입했을 때 각 인수가 0이 되는지 확인하세요.','개념 검증')
+ ];
+ if(k==='practice')return [
+  mk('p1',equation(a,b)+'의 해는?',[rootText(a,b),rootText(-a,-b),rootText(a,b+1)],'합과 곱에 맞는 두 근을 찾으세요.','유형 돌파'),
+  mk('p2',equation(-a,b+2)+'의 해는?',[rootText(-a,b+2),rootText(a,-b-2),rootText(-a,b+1)],'인수분해한 뒤 인수가 0이 되는 값을 찾으세요.','유형 돌파')
+ ];
+ if(k==='apply')return [
+  mk('a1','두 근이 '+rootText(a,b)+'이고 최고차항 계수가 2인 식은?',[equation(a,b,2),equation(-a,-b,2),equation(a,b)],'원래 인수식에 2를 곱해 보세요.','실전 응용'),
+  mk('a2','두 근이 '+rootText(a,b)+'일 때 두 근의 합은?',[String(a+b),String(-(a+b)),String(a*b)],'두 근을 더해 보세요.','실전 응용')
+ ];
+ if(k==='bonus'){
+  const prev=plus(d,-1),earlier=db.groups[g.id]?.[prev]?.wrong||[],recent=earlier[earlier.length-1];
+  const trouble=recent?.tag||'응용 유형';
+  return [mk('bonus','어제 어려웠던 '+trouble+' 다시 도전 · '+equation(a+1,b)+'의 해는?',[rootText(a+1,b),rootText(-a-1,-b),rootText(a,b)],'두 근에 해당하는 인수식을 찾아보세요.','맞춤 도전')];
+ }
+ if(k==='boss')return [mk('boss','종합 관문 · 두 근이 '+rootText(a,b)+'이고 최고차항 계수가 3인 이차방정식은?',[equation(a,b,3),equation(a,b),equation(-a,-b,3)],'먼저 (x−a)(x−b)를 만들고 3을 곱해 보세요.','보스 챌린지')];
+ return dailyMath(g,'practice',d);
+}
 function questions(g,k){
- if(subject(g)==='수학')return k==='bonus'?[qMath.bonus]:k==='boss'?[qMath.boss]:qMath[k]||qMath.practice;
+ const d=activeDate(g);
+ if(subject(g)==='수학')return dailyMath(g,k,d);
  const x=smallBanks[subject(g)]||smallBanks.사회;
- if(k==='bonus'||k==='boss')return[Object.assign({},x[k==='bonus'?0:1],{id:k})];
+ if(k==='bonus'||k==='boss')return [Object.assign({},x[k==='bonus'?0:1],{id:k})];
  return x.map((q,i)=>Object.assign({},q,{id:k+'-'+i}));
 }
 function record(g,d){
