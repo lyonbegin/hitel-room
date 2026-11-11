@@ -192,7 +192,8 @@ function infoSheet(z,meta){
  +'<div class="zb-f-sheet-meta">원본 자료번호 <b>'+esc(item.id)+'</b></div>'
  +'<p>실제 족보닷컴에서 확인된 자료번호입니다. 문제 본문·정답·해설 및 동영상·파일 열람은 원본 계정의 권한을 확인하여 진행됩니다.</p>'
  +'<a href="'+attr(meta?.originalUrl||'https://m.zocbo.com/')+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본 화면 열기</a>'
- +'<button type="button" data-action="zbFCopy" data-value="'+attr(item.id)+'">자료번호 복사</button></section>';
+ +'<button type="button" data-action="zbFCopy" data-value="'+attr(item.id)+'">자료번호 복사</button>'+
+ '<button type="button" class="zb-f-to-class" data-action="zbFClassLink" data-value="'+attr(item.id)+'">이 기출을 학습반에 연결 →</button></section>';
 }
 function optionSheet(z,meta){
  const key=z.fDrawer;if(!key)return '';
@@ -416,6 +417,25 @@ UI.onAction=function(act,el,s,go,render,toast){
   z.fDrawer='';z.fSelected=null;
  }else if(act==='zbFReset'){
   z.fSite='M';z.fGrade='2';z.fSubject='MT';z.fMain='unit';clearSelection(z);
+ }else if(act==='zbFClassLink'){
+  if(!z.fSelected?.id||!window.HITEL_EXAM_FLOW?.beginSchoolPaper){
+    toast('선택한 기출자료를 학습반에 연결할 수 없습니다.');return;
+  }
+  const subjectName=sourceSubjectOptions(z).find(x=>x.code===z.fSubject)?.name||
+    z.fDisplay?.filter_subject||'과목 미확정';
+  const originalUrl=meta?.originalUrl||'https://m.zocbo.com/';
+  window.HITEL_EXAM_FLOW.beginSchoolPaper({
+    paperId:String(z.fSelected.id).slice(0,120),
+    title:String(z.fSelected.title||'학교별 시험자료').slice(0,150),
+    grade:(z.fSite==='M'?'중':'고')+z.fGrade,
+    subject:subjectName,school:String(z.fDisplay?.filter_sch||'').slice(0,100),
+    city:String(z.fDisplay?.filter_si||'').slice(0,40),
+    district:String(z.fDisplay?.filter_gu||'').slice(0,40),
+    course:String(z.fDisplay?.filter_Chapter||'').slice(0,100),
+    menu:z.fMain,sourceCase:String(z.fCase||'').slice(0,80),
+    sourceUrl:originalUrl
+  });
+  return;
  }else if(act==='zbFCopy'){
   const id=value;
   navigator.clipboard?.writeText(id).then(()=>toast('자료번호를 복사했습니다.')).catch(()=>toast('클립보드 접근이 제한됐습니다.'));
