@@ -15,7 +15,7 @@ dest.mkdir(parents=True,exist_ok=True)
 manifest=Path(hf_hub_download(repo_id=repo,filename="SHA256SUMS",revision=revision)).read_text()
 checksums={}
 for line in manifest.splitlines():
-    m=re.match(r"^([a-fA-F0-9]{64})\\s+\\*?(.+)$",line.strip())
+    m=re.match(r"^([a-fA-F0-9]{64})\s+\*?(.+)$",line.strip())
     if m:checksums[Path(m.group(2)).name]=m.group(1).lower()
 report={"model":repo,"revision":revision,"assets":{}}
 for kind in ("encoder","decoder","joiner","tokens"):
