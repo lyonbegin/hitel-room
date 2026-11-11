@@ -1,7 +1,7 @@
 name: Publish Galaxy 174M fixed visible captions v28 APK
 on:
   push:
-    branches: [experiment/zipformer-v28-caption-display-pump-v28-20261112]
+    branches: [experiment/zipformer-v27-caption-display-pump-v28-20261112]
     paths:
       - '.github/release-trigger-v28.txt'
   workflow_dispatch:
