@@ -131,7 +131,7 @@ groupLearning:'학습',groupLearningResources:'학습자료',groupLearningExams:
 groupAITutor:'AI 과외',groupTutorCatalog:'교재별 AI 과외',groupTutorMine:'학습반',groupTutorOffer:'AI 선생님 소개',groupMissionJourney:'오늘의 미션',groupMissionPlay:'문제 풀기',bankSearch:'족보',bankExamExplore:'족보'};
 topBar=function(id){
  if(['welcome','signin','signup'].includes(id))return oldTopBar(id);
- const isRoot=['groups','groupTutorMine','groupLearning','groupAITutor','bankSearch','bankExamExplore','settings','home'].includes(id);
+ const isRoot=['groups','groupTutorMine','groupLearning','groupAITutor','bankSearch','bankExamExplore','settings'].includes(id);
  return '<header class="appbar hxs-header">'+
  '<div class="hxs-toprow">'+
  (isRoot?'':'<button type="button" class="hxs-back" data-action="back" aria-label="뒤로">‹</button>')+
