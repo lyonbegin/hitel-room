@@ -1,0 +1,5 @@
+v29 single continuous Korean 174M ARM64 signed release authorization.
+Source branch: experiment/zipformer-single-continuous-speechgate-v29-20261112
+Signed ARM64 v29 GitHub Actions: https://github.com/lyonbegin/hitel-room/actions/runs/43068644413
+Result: success. Exactly 1 Sherpa-ONNX online recognizer and online stream; speech-energy gate skips silent PCM. Old AAC, MediaCodec and M4A folder monitoring unchanged.
+Actual Galaxy Android15 run is a separate validation and may expose recognition quality tradeoffs.
