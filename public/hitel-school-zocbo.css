@@ -221,3 +221,7 @@
  #phone .hmf-field{padding-left:9px}
  #phone .hmf-heading strong{font-size:16px}
 }
+
+/* No cropped category carousel on the primary school-search screen. */
+#phone .hsc-school-kind .hsc-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;gap:7px;padding:0 0 3px}
+#phone .hsc-school-kind .hsc-types button{width:100%;min-width:0;white-space:normal;min-height:35px;padding:8px 3px;text-align:center;border-radius:10px;font-size:10px;line-height:1.3}
