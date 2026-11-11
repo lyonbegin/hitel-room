@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 
 OUT=Path("emulator-qa-v11")
 OUT.mkdir(exist_ok=True)
-PKG="app.hitel.koreanzipformer.seek15"
+PKG="app.hitel.koreanzipformer.stream16"
 MAIN=PKG+"/app.hitel.sherpaoriginalcli.MainActivity"
 NAME="ko_live_test.m4a"
 
@@ -152,7 +152,9 @@ def check_actual():
         "prewarm gate released":'"PREWARM_GATE_RELEASED"' in timeline,
         "at least 16.5s source PCM transferred":total_audio_ms>=16500,
         "APK installed":bool(adb("shell","pm","path",PKG,check=False)),
-        "FFmpeg attempted":'"ATTEMPT_BEGIN"' in events or '"START_COMMAND"' in timeline,
+        "AAC input path active":('"PERSISTENT_ANDROID_AAC_DECODER_STARTED"' in events
+            if os.getenv("REQUIRE_CONTINUOUS_AAC")=="1" else
+            '"ATTEMPT_BEGIN"' in events or '"START_COMMAND"' in timeline),
         "PCM delivered":'"PIPE_WRITE_END"' in timeline,
         "native model ready":'"READY_IN_JAVA"' in timeline,
         "native PCM accepted":'"event":"INPUT"' in timeline,
@@ -173,13 +175,31 @@ def check_actual():
         checks["incremental AAC frames, not full-file rereads"]='"NEW_FRAMES_READY"' in events
         timelineEvents=[json.loads(line) for line in timeline.splitlines()
                         if line.strip() and line.startswith("{")]
+        continuous=os.getenv("REQUIRE_CONTINUOUS_AAC")=="1"
         drainAck=[e for e in timelineEvents if e.get("stage")=="PIPE"
                   and e.get("event")=="READER_DRAIN_ACKNOWLEDGED"]
-        checks["all cursor commits follow completed PCM reader drain"]=(
-            len(drainAck)>=len(commits)>=4 and
-            all(int(a.get("boot_ns",0))>0 and
-                int(a.get("boot_ns",0))<=int(c.get("boot_ns",0))
-                for a,c in zip(drainAck,commits)))
+        decoded=[e for e in timelineEvents if e.get("stage")=="STREAM"
+                 and e.get("event")=="AAC_DELTA_DECODED"]
+        if continuous:
+            checks["all cursor commits follow continuous decoded AAC frames"]=(
+                len(decoded)>=len(commits)>=4 and
+                all(int(d.get("boot_ns",0))>0 and
+                    int(d.get("boot_ns",0))<=int(c.get("boot_ns",0))
+                    for d,c in zip(decoded,commits)))
+            checks["one persistent AAC MediaCodec instance"]=(
+                events.count('"PERSISTENT_ANDROID_AAC_DECODER_STARTED"')==1)
+            checks["no repeated FFmpeg processes for growing Samsung AAC"]=(
+                '"ATTEMPT_BEGIN"' not in events and '"START_COMMAND"' not in timeline)
+        else:
+            checks["all cursor commits follow completed PCM reader drain"]=(
+                len(drainAck)>=len(commits)>=4 and
+                all(int(a.get("boot_ns",0))>0 and
+                    int(a.get("boot_ns",0))<=int(c.get("boot_ns",0))
+                    for a,c in zip(drainAck,commits)))
+        (OUT/"fifo-drain-ack-count.json").write_text(
+            json.dumps({"ack":len(drainAck),"decodedDeltas":len(decoded),
+                        "committed":len(commits)}),
+            encoding="utf-8")
         checks["no undrained reader was accepted"]='"READER_DRAIN_NOT_CONFIRMED"' not in events
         (OUT/"fifo-drain-ack-count.json").write_text(
             json.dumps({"ack":len(drainAck),"committed":len(commits)}),
