@@ -11,7 +11,7 @@ from xml.etree import ElementTree as ET
 
 OUT=Path("emulator-qa-v11")
 OUT.mkdir(exist_ok=True)
-PKG="app.hitel.koreanzipformer.stream16"
+PKG="app.hitel.koreanzipformer.stream17"
 MAIN=PKG+"/app.hitel.sherpaoriginalcli.MainActivity"
 NAME="ko_live_test.m4a"
 
@@ -211,10 +211,8 @@ def check_actual():
             int(checkpoint.get("aacSourceByteCursor",0))>0 and
             int(checkpoint.get("audioTimeMs",0))>=16500)
         rawNative=read_log("stt-raw.txt")
-        checks["full prior speech contextualized"]='ONLINE_PRIOR_CONTEXT:' in rawNative
-        checks["previous and current text overlap merged"]=(
-            'ONLINE_CONTEXT_MERGE:' in rawNative or
-            'ONLINE_CONTEXT_LIVE_MERGE:' in rawNative)
+        checks["legacy prior speech segmentation disabled"]='ONLINE_PRIOR_CONTEXT:' not in rawNative
+        checks["continuous live captions without pause gate"]=('ONLINE_LIVE:' in rawNative)
         print("CURSOR_CHECKPOINT",checkpoint,flush=True)
         (OUT/"aac-cursor-positions.json").write_text(json.dumps(positions),encoding="utf-8")
         print("SOURCE_CURSOR_POSITIONS",positions,flush=True)
