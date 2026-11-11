@@ -103,7 +103,7 @@ jobs:
       - name: Verify no legacy prior-context PCM replay
         run: |
           ! grep -F 'priorContext.accept(' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
-          grep -F 'const std::string merged=raw' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'ONLINE_LIVE:%lld:%s' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
       - name: Compile and verify independent 174M Online APK
         run: |
           set -euo pipefail
