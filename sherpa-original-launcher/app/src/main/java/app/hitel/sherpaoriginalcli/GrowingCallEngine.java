@@ -685,7 +685,7 @@ public final class GrowingCallEngine {
     boolean signalled=onlineModelReadyLatch.await(100,java.util.concurrent.TimeUnit.SECONDS);
     if(stop){endReason="USER_STOP";return;}
     if(!signalled||!onlineModelReady||sherpa==null||!sherpa.isAlive())
-      throw new IOException("174M recognizer did not become ONLINE_READY within 100s");
+      throw new IOException("72M recognizer did not become ONLINE_READY within 100s");
     final long gateEnd=SystemClock.elapsedRealtimeNanos();
     log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
       "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
