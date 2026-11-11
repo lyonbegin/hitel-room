@@ -225,3 +225,34 @@
 /* No cropped category carousel on the primary school-search screen. */
 #phone .hsc-school-kind .hsc-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible;gap:7px;padding:0 0 3px}
 #phone .hsc-school-kind .hsc-types button{width:100%;min-width:0;white-space:normal;min-height:35px;padding:8px 3px;text-align:center;border-radius:10px;font-size:10px;line-height:1.3}
+
+/* Shared Zocbo design: exam-specific routes use EXACTLY the first school
+   screen's 3x2 exam selector, field cards, and compact typography. */
+#phone .hsc-exam-explore{display:flex;flex-direction:column;gap:11px;padding:9px 7px 26px;min-height:0;background:#fff}
+#phone .hsc-exam-explore .hsc-school-kind{display:flex;flex-direction:column;gap:8px}
+#phone .hsc-exam-explore .hsc-school-kind>span{font-size:11px;font-weight:800;color:#525c69;padding-left:3px}
+#phone .hsc-exam-explore .hsc-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;overflow:visible;width:100%;min-width:0;margin:0;padding:0}
+#phone .hsc-exam-explore .hsc-types>button{width:100%;min-width:0;min-height:35px;background:#fff;border:1px solid #e4e7ed;border-radius:10px;color:#737d89;font-size:10px;font-weight:600;line-height:1.3;text-align:center;white-space:normal;padding:8px 3px}
+#phone .hsc-exam-explore .hsc-types>button.current{background:#282d36;color:#fff;border-color:#282d36;font-weight:750}
+#phone .hsc-exam-explore .hmf-exam-finder{gap:11px;padding:13px 13px 17px;background:#fff;border-top:1px solid #edf0f3}
+#phone .hsc-exam-explore .hmf-exam-subtitle{margin:-5px 0 3px;font-size:10px;color:#7f8997;line-height:1.6}
+#phone .hsc-exam-explore .hmf-exam-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0}
+#phone .hsc-exam-explore .hmf-native-field{display:flex;flex-direction:column;gap:4px;min-height:64px;padding:9px 27px 8px 11px;position:relative;border:1px solid #e3e6ed;background:#fff;border-radius:11px;min-width:0}
+#phone .hsc-exam-explore .hmf-native-field:after{content:'⌄';position:absolute;right:11px;top:22px;font-size:17px;color:#919aaa;pointer-events:none}
+#phone .hsc-exam-explore .hmf-native-field .hmf-field-name{display:block;color:#8d96a4;font-size:10px;font-weight:680;line-height:1.5}
+#phone .hsc-exam-explore .hmf-native-select{display:block;width:100%;min-width:0;min-height:23px;height:auto;background:transparent;border:0;outline-offset:2px;appearance:none;padding:0;margin:0;font-size:12px;line-height:1.4;font-weight:740;color:#2b3541;cursor:pointer}
+#phone .hsc-exam-explore .hmf-native-field input{border:0;padding:0;margin:0;width:100%;min-height:26px;background:transparent;font-size:12px;color:#2b3541;outline-offset:2px}
+#phone .hsc-exam-explore .hmf-exam-school{min-height:60px;margin:0 13px 0;width:calc(100% - 26px)}
+#phone .hsc-exam-explore .hmf-exam-school:after{content:''}
+#phone .hsc-exam-explore .hmf-exam-list-head{padding:8px 6px 0;border-top:1px solid #edf0f3}
+#phone .hsc-exam-explore .hmf-result-status{margin:0 6px;font-size:10px;background:#f7f8fa;border-radius:10px;padding:10px;color:#7e8998}
+#phone .hsc-exam-explore .hxe-sources{display:flex;flex-direction:column;gap:9px;padding:0 6px;max-width:100%;min-width:0}
+#phone .hsc-exam-explore .hxe-source{width:100%;min-width:0;border-radius:12px;padding:13px;background:#fff;border:1px solid #e3e6ec;box-shadow:none}
+#phone .hsc-exam-explore .hxe-source small{font-size:10px;color:#665bc2}
+#phone .hsc-exam-explore .hxe-source h3{font-size:13px;color:#273140}
+#phone .hsc-exam-explore .hxe-source p{font-size:10px;color:#828d9b}
+#phone .hsc-exam-explore .hmf-footnote{margin:0 8px}
+@media(max-width:350px){
+ #phone .hsc-exam-explore .hsc-types>button{font-size:9px;padding:8px 1px}
+ #phone .hsc-exam-explore .hxe-actions{grid-template-columns:1fr}
+}
