@@ -41,6 +41,8 @@
 #phone .tp-recent{margin:6px 0;font-size:10px;color:#868d96;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
 #phone .tp-group-item .tp-actions{display:grid;grid-template-columns:1fr 1fr;margin:12px 0 0}
 #phone .tp-group-item .tp-actions button{font-size:11px!important}
+#phone .tp-group-item .tp-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;width:100%;max-width:100%;overflow:hidden}
+#phone .tp-group-item .tp-actions .tp-btn{width:100%!important;min-width:0!important;max-width:100%!important;flex:none!important;padding:9px 4px}
 #phone .tp-empty{padding:25px 14px;border:1px dashed #dadee5;border-radius:10px;text-align:center;display:grid;gap:11px;justify-items:center}
 #phone .tp-empty>strong{font-size:13px;color:#4d5560}
 #phone .tp-empty p{font-size:11px;line-height:1.6;color:#8c959e;margin:0}
