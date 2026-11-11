@@ -27,10 +27,14 @@ struct OnlinePriorSpeechContext {
     return prior_merge::new_only(transcriptBeforeCurrent,wholeRaw);
   }
   std::string merge(const std::string& wholeRaw)const{
-    if(!previousExists||transcriptBeforeCurrent.empty())return wholeRaw;
-    const auto d=align(wholeRaw);
-    return d.method=="FULL_PRIOR_PREFIX_REMOVED"?
-      prior_merge::combine(transcriptBeforeCurrent,d.newText):wholeRaw;
+    // An ONLINE recognizer returns the entire transcript and keeps prior
+    // encoded speech in its state. Its latest raw hypothesis can CORRECT an
+    // earlier provisional word. Replacing it with a previous, unconfirmed
+    // prefix (the v6 *offline* method) freezes mistakes. Therefore preserve
+    // the newest full online hypothesis; the v6 fuzzy alignment is computed
+    // for overlap verification and for separately decoded context only.
+    // Duplicate input PCM is never fed back to the OnlineStream.
+    return wholeRaw;
   }
   void accept(const float* pcm,uint32_t count,uint64_t totalSamples,
               const std::string& wholeRaw){
