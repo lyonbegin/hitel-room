@@ -87,21 +87,14 @@ function shown(g){
 function home(s){
  maybePrefill(s);
  const groups=classes(),g=group(),linked=records(g);
- return '<section class="hsc-home" aria-label="HITEL 기출·족보">'+
- '<div class="hsc-hero"><div><span>학교 내신 · 기출·족보</span><h2>우리 학교 기출 찾기</h2>'+
- '<p>학교·학년·과목에 맞는 원본 자료를 찾고 학습반에 연결합니다.</p></div></div>'+
+ return '<section class="hsc-home hsc-school-entry" aria-label="기출·족보">'+
  (groups.length?
- '<div class="hsc-compact-class"><label for="hsc-class-picker">학습반</label>'+
- '<select id="hsc-class-picker" aria-label="기출을 검색할 학습반">'+groups.map(x=>
+ '<div class="hsc-school-class-line"><span class="hsc-school-class-label">현재 학습반</span>'+
+ '<select id="hsc-class-picker" aria-label="학교별 기출 학습반">'+groups.map(x=>
  '<option value="'+esc(x.id)+'"'+(g?.id===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>'+
- '<div class="hsc-compact-status"><small>'+esc([schoolOf(g),g.grade,subject(g)].join(' · '))+'</small>'+
- '<span>'+linked.length+'건 연결</span></div>'+
- '<button type="button" data-hsc="apply">학습반 검색조건 적용</button>'+
- '<button type="button" data-hsc="study">연결 기출 보기</button></div>':
- '<div class="hsc-initial-note"><span>내 학습반이 없으셔도 학교별 기출을 검색하실 수 있습니다.</span>'+
- '<button type="button" data-go="groupCreate">＋ 학습반 만들기</button></div>')+
- '<div class="hsc-tabs-label"><strong>기출 종류</strong></div>'+cats()+
- (g&&linked.length?'<div class="hsc-linked"><strong>내 학습반의 기출</strong>'+
+ '<button type="button" data-hsc="study" aria-label="학습반에 연결한 기출 보기">기출 '+linked.length+'건 ›</button></div>':'')+
+ '<div class="hsc-school-kind"><span>찾으실 시험</span>'+cats()+'</div>'+
+ (g&&linked.length?'<div class="hsc-linked"><strong>학습반에 연결된 기출</strong>'+
  linked.slice(-2).reverse().map(x=>'<button type="button" data-hsc="study" class="hsc-linked-paper"><b>'+esc(x.title||'기출자료')+
  '</b><small>원본 자료번호 '+esc(x.paperId)+'</small></button>').join('')+'</div>':'')+
  '</section>';
