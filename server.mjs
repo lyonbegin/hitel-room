@@ -338,6 +338,9 @@ createServer(async (req,res)=>{
  if(url.pathname==='/hitel-class-home.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-class-home.css'));return}
  if(url.pathname==='/hitel-ask-ui.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/hitel-ask-ui.js'));return}
  if(url.pathname==='/hitel-ask-ui.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-ask-ui.css'));return}
+ if(url.pathname==='/hitel-moonzip-data.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/hitel-moonzip-data.js'));return}
+ if(url.pathname==='/hitel-moonzip.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/hitel-moonzip.js'));return}
+ if(url.pathname==='/hitel-moonzip.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-moonzip.css'));return}
  if(url.pathname==='/ypt-tutoring-platform.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-tutoring-platform.css'));return}
  if(url.pathname==='/ypt-mobile-shell.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-mobile-shell.css'));return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
