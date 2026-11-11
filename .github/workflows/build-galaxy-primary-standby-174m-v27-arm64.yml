@@ -1,7 +1,7 @@
 name: Galaxy ARM64 Korean Zipformer v27 174M primary standby creation-first
 on:
   push:
-    branches: [experiment/zipformer-v27-primary-standby-174m-v27-20261112]
+    branches: [experiment/zipformer-v25-primary-standby-174m-v27-20261112]
     paths:
       - '.github/workflows/build-galaxy-primary-standby-174m-v27-arm64.yml'
       - 'sherpa-original-launcher/**'
