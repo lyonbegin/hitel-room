@@ -1,14 +1,6 @@
 name: HITEL Direct Link Real Page E2E
+# Legacy baseline preserved for manual comparison. Active branch uses hitel-tutor-platform-e2e.yml.
 on:
-  push:
-    branches:
-      - feature/ypt-study-group-learning-nav-20261108
-    paths:
-      - public/ypt-workplace-ui.js
-      - public/ypt-book-library.js
-      - public/ypt-coach-suite.js
-      - tools/education/test_direct_links.py
-      - .github/workflows/hitel-direct-links-e2e.yml
   workflow_dispatch:
 permissions:
   contents: read
