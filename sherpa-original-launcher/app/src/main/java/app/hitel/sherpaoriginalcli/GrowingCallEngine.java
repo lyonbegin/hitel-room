@@ -940,6 +940,13 @@ public final class GrowingCallEngine {
       ProcessBuilder pb=new ProcessBuilder(bin.getAbsolutePath(),
         source.getAbsolutePath(),"48000","1");
       pb.redirectErrorStream(false);
+      // Match the proven v17 recovery helper: FFmpeg AAR's libavcodec and
+      // libavutil live beside our ELF inside nativeLibraryDir. A standalone
+      // ProcessBuilder executable does NOT inherit Android's dlopen search path.
+      String previousLd=pb.environment().get("LD_LIBRARY_PATH");
+      String appLib=context.getApplicationInfo().nativeLibraryDir;
+      pb.environment().put("LD_LIBRARY_PATH",appLib+
+        (previousLd==null?"":":"+previousLd));
       p=pb.start();
       aacFollower=p;
       final Process followed=p;
