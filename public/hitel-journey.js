@@ -54,7 +54,7 @@ function equation(a,b,m=1){
  const linear=-m*(a+b),constant=m*a*b;
  return (m===1?'x²':m+'x²')+(linear>=0?' + ':' − ')+Math.abs(linear)+'x'+(constant>=0?' + ':' − ')+Math.abs(constant)+' = 0';
 }
-function rootText(a,b){return a+'와 '+b}
+function rootText(a,b){const particle=[0,1,3,6,7,8].includes(Math.abs(a)%10)?'과 ':'와 ';return a+particle+b}
 function factorText(a,b){
  const factor=n=>'(x '+(n>=0?'− '+n:'+ '+Math.abs(n))+')';
  return factor(a)+factor(b);
@@ -149,7 +149,7 @@ function trainers(){
  '<div class="hj-panel"><small>이 반의 과목</small><b>'+esc(subject(g))+'</b><p>같은 과목이면 학년·교재·목표에 관계없이 트레이너를 다시 사용할 수 있습니다.</p></div>'+
  '<div class="hj-section"><strong>사용 가능한 트레이너</strong></div>'+
  (items.length?items.map(t=>'<button type="button" class="hj-trainer" data-hj="trainer" data-value="'+esc(t.id)+'"><span>AI</span><div><b>'+esc(t.name)+'</b><small>'+esc(t.subject)+' · 기존 트레이너 재사용</small></div><i>선택 ›</i></button>').join(''):'<div class="hj-empty">이 과목으로 등록된 트레이너가 없습니다.</div>')+
- '<form id="hj-trainer-create" class="hj-form hj-panel"><b>새 트레이너 프로필 등록</b><label>트레이너 이름<input name="name" required maxlength="70" placeholder="예: 수학 AI 트레이너 A"></label><button type="submit" class="hj-btn hj-outline hj-wide">등록 후 지정</button><p class="hj-muted">프로필 등록은 실제 AI 서비스 가입이나 결제와 다릅니다.</p></form>'+
+ '<form id="hj-trainer-create" class="hj-form hj-panel"><b>새 트레이너 프로필 등록</b><label>트레이너 이름<input name="name" required maxlength="70" placeholder="예: 수학 AI 트레이너 A"></label><button type="submit" class="hj-btn hj-outline hj-wide">등록 후 지정</button></form>'+
  nav('트레이너 지정 없이 반으로 돌아가기','groupDetail','hj-outline hj-wide')+'</section>';
 }
 function schedule(g,d){
@@ -183,7 +183,7 @@ function journey(){
  '<div class="hj-between hj-pts"><small>누적 포인트</small><strong>'+totalPoints(g).toLocaleString('ko-KR')+' P</strong></div>'+
  '<div class="hj-teacher"><span>AI</span><div><b>'+esc(trainerName(g))+'</b><small>문제별 힌트 · 풀이 피드백 · 진행 관리</small></div>'+nav('변경','groupTrainerSelect','hj-quiet')+'</div>'+
  '<div class="hj-section"><strong>우리 반</strong></div><div class="hj-links">'+nav('미션','groupMissionJourney')+nav('자료','groupLearningResources')+nav('시험','groupLearningExams')+nav('족보','bankSearch')+nav('공부방','groupLiveRoom')+nav('대화','groupMessages')+nav('일정','calendar')+nav('멤버·설정','groupSettings')+'</div>'+
- '<p class="hj-muted">초기 문제는 검증용 문항입니다. 생성형 AI 출제·다른 기기 동기화는 아직 연결되지 않았습니다.</p></section>';
+ '</section>';
 }
 function openProblem(mode){
  const g=current(),d=activeDate(g);if(!g||d>today())return;
@@ -206,7 +206,7 @@ function player(){
  (ui.result==='hint'?'<div class="hj-feedback">'+esc(q.hint)+'</div>':'')+
  (ui.result==='correct'?'<div class="hj-feedback right">정답입니다. 문제를 해결했습니다.</div>'+btn(ui.index+1<qs.length?'다음 문제 →':'미션 결과 보기 →','next','','hj-black hj-wide'):
  btn('정답 확인','check','','hj-black hj-wide')+btn('힌트 보기','hint','','hj-quiet hj-wide'))+
- '<p class="hj-muted">풀이 결과와 획득 점수는 현재 브라우저에 저장됩니다.</p></section>';
+ '</section>';
 }
 function checkAnswer(){
  const g=current(),d=activeDate(g),q=questions(g,ui.mode)[ui.index];
@@ -233,7 +233,7 @@ function learning(){
  return '<section class="hj">'+header('학습',g.name,'groups')+
  '<div class="hj-panel"><small>진행 중인 문제 코스</small><b>'+esc(goal(g))+'</b>'+prog(courseCount(g)/days(g)*100)+nav('오늘의 코스 이어하기 →','groupDetail','hj-black hj-wide')+'</div>'+
  '<div class="hj-links">'+nav('미션','groupMissionJourney')+nav('공동 자료','groupLearningResources')+nav('시험·평가','groupLearningExams')+nav('학교별 족보','bankSearch')+'</div>'+
- '<p class="hj-muted">기존 자료·시험·과제 데이터는 유지됩니다.</p></section>';
+ '</section>';
 }
 function resources(){
  const g=current();if(!g)return main();
@@ -242,7 +242,7 @@ function resources(){
  '<div class="hj-between hj-section"><strong>자료함</strong><small>'+items.length+'건</small></div>'+
  (items.length?items.slice(-50).reverse().map(it=>'<div class="hj-panel"><b>'+esc(it.title||'학습자료')+'</b>'+(it.photo&&it.photo.startsWith('data:image/jpeg;base64,')?'<img class="hj-photo" src="'+it.photo+'" alt="'+esc(it.title||'학습 사진')+'">':'')+(it.text?'<p>'+esc(it.text.slice(0,450))+'</p>':'')+'</div>').join(''):'<div class="hj-empty">아직 등록된 자료가 없습니다.</div>')+
  '<form id="hj-material" class="hj-form hj-panel"><b>자료 등록</b><label>제목<input name="title" maxlength="120" required></label><label>메모<textarea name="text" rows="3" maxlength="2500"></textarea></label><label>풀이·필기 사진 (선택)<input name="image" type="file" accept="image/*"></label><button type="submit" class="hj-btn hj-black hj-wide">자료 저장</button></form>'+
- '<p class="hj-muted">현재 공유 자료는 브라우저에 저장됩니다. 실제 학생 간 서버 공유는 미연결입니다.</p></section>';
+ '</section>';
 }
 function exams(){
  const g=current();if(!g)return main();
