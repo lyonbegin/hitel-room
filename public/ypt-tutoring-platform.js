@@ -529,8 +529,8 @@ function action(name,val){
  if(name==='groupFilter'){ui.groupType=val;render();return}
  if(name==='filterSubject'){ui.subject=val;render();return}
  if(name==='chatSubject'){ui.chatSubject=val;render();return}
- if(name==='chooseBook'){if(!bookById(val))return;ui.selectedBook=val;LIB.setBook(val);updateRoute('groupCoachProfile');return}
- if(name==='createFromBook'){if(!bookById(val))return;ui.selectedBook=val;updateRoute('groupCreate');return}
+ if(name==='chooseBook'){if(!bookById(val))return;if(window.HITEL_CLASS_AI_FLOW?.openCatalogBook){window.HITEL_CLASS_AI_FLOW.openCatalogBook(val);return}ui.selectedBook=val;LIB.setBook(val);updateRoute('groupCoachProfile');return}
+ if(name==='createFromBook'){if(!bookById(val))return;if(window.HITEL_CLASS_AI_FLOW?.openCatalogBook){window.HITEL_CLASS_AI_FLOW.openCatalogBook(val);return}ui.selectedBook=val;updateRoute('groupCreate');return}
  if(name==='selectGroup'){selectGroup(val,'groupDetail');return}
  if(name==='openChat'){selectGroup(val,'groupTeacherChat');return}
  if(name==='setupTutor'){selectGroup(val,'groupTutorSettings');return}
