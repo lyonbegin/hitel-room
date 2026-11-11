@@ -19,6 +19,7 @@
 #include <sstream>
 #include <unistd.h>
 #include <chrono>
+#include <cstdlib>
 #include <time.h>
 
 namespace {
@@ -145,11 +146,23 @@ int main(int argc,char** argv){
   c.model_config.transducer.decoder=argv[3];
   c.model_config.transducer.joiner=argv[4];
   c.model_config.tokens=argv[1];
-  c.model_config.num_threads=2;
+  // A/B benchmark switches. Defaults preserve the v20 validated configuration.
+  // Set ZIPFORMER_DECODE=greedy_search and/or ZIPFORMER_THREADS=1|2|4
+  // only in a separately measured test run; never claim speedup without metrics.
+  const char* mode=std::getenv("ZIPFORMER_DECODE");
+  const bool greedy=mode && std::strcmp(mode,"greedy_search")==0;
+  const char* threadsEnv=std::getenv("ZIPFORMER_THREADS");
+  int threads=2;
+  if(threadsEnv && (std::strcmp(threadsEnv,"1")==0 ||
+                    std::strcmp(threadsEnv,"2")==0 ||
+                    std::strcmp(threadsEnv,"4")==0)) threads=std::atoi(threadsEnv);
+  c.model_config.num_threads=threads;
   c.model_config.provider="cpu";
   c.model_config.modeling_unit="cjkchar";
-  c.decoding_method="modified_beam_search";
-  c.max_active_paths=8;
+  c.decoding_method=greedy?"greedy_search":"modified_beam_search";
+  c.max_active_paths=greedy?1:8;
+  printf("ONLINE_BENCH_CONFIG:decode=%s:threads=%d:paths=%d\\n",
+         c.decoding_method,threads,c.max_active_paths);
   c.enable_endpoint=0; // VAD must never gate 1-2-word captions.
   Engine engine;
   const uint64_t modelBeginNs=boot_ns();
