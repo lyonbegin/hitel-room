@@ -1035,6 +1035,16 @@ public final class GrowingCallEngine {
           }
         });
       }catch(Throwable e){log.error("FOLLOW","FINAL_PCM_DRAIN_FAILED",e);}
+      // The codec can hold a partial (<200ms) PCM window until EOS. The
+      // periodic every-10-AAC-frame checkpoint is therefore NOT sufficient
+      // to represent the delivered final audio offset. Persist AFTER final
+      // codec drain while the pipe is still valid, including on user stop.
+      saveAudioCursorCheckpoint("PERSISTENT_AAC_FINAL_PCM_DRAINED");
+      log.timing("FOLLOW","FINAL_PCM_AND_CURSOR_COMMITTED",
+        "sourceCursor",nextAacFrameSourceByte,
+        "totalPcmBytes",committedPcmBytes.get(),
+        "totalAudioMs",committedPcmBytes.get()/32L,
+        "aacFrames",inputFrames);
       decoder.close();
       continuousAacDecoder=null;
       log.timing("FOLLOW","PERSISTENT_PROCESS_STOPPED","frames",inputFrames,
