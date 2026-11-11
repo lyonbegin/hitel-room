@@ -15,11 +15,8 @@ const oldPage=groupPage,oldBottom=bottomFor;
 const load=()=>{try{let x=JSON.parse(localStorage.getItem('hitel.moonzip.bookshelf.v1')||'[]');return Array.isArray(x)?x:[]}catch{return []}};
 const ui={q:'',cat:[],min:1,max:10,sort:'votes',selected:'1',saved:new Set(load()),compare:new Set(),roadmap:0,showFilters:false};
 const levelColor=n=>n<=2?'#0d9b7c':n<=4?'#659b27':n<=6?'#b87917':'#d65a30';
-function nav(active){
- return '<nav class="mzx-nav" aria-label="AI 과외 세부 메뉴">'+
- [['groupAITutor','문제집'],['groupTutorMine','내 AI 과외']].map(([id,label])=>
- '<button type="button" data-go="'+id+'" class="'+(id===active?'on':'')+'">'+label+'</button>').join('')+'</nav>';
-}
+/* The entire AI tutoring page is one workbook-curation surface, not a personal tutor inventory. */
+function nav(){return ''}
 function searchForm(){return '<form class="mzx-search" id="mzx-search-form"><input name="q" type="search" autocomplete="off" placeholder="문제집 검색" aria-label="문제집 시리즈명 또는 출판사 검색" value="'+esc(ui.q)+'"><button type="submit" aria-label="문제집 찾기">⌕</button></form>'}
 function shell(route){return '<section class="mzx">'+nav(route)+searchForm()}
 function sec(title,description='',more=''){return '<div class="mzx-section"><div><h3>'+title+'</h3>'+(description?'<p>'+description+'</p>':'')+'</div>'+more+'</div>'}
