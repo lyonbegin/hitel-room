@@ -649,6 +649,18 @@ public final class GrowingCallEngine {
     String old=pb.environment().get("LD_LIBRARY_PATH");
     pb.environment().put("LD_LIBRARY_PATH",context.getApplicationInfo().nativeLibraryDir+
       (old==null?"":":"+old));
+    // Experimental branch: compare greedy against the v20 beam-search baseline.
+    // Values can be preconfigured by the diagnostic UI through SharedPreferences.
+    android.content.SharedPreferences bench=context.getSharedPreferences("zipformer_bench",Context.MODE_PRIVATE);
+    String decodeMode=bench.getString("decode","greedy_search");
+    if(!"greedy_search".equals(decodeMode) && !"modified_beam_search".equals(decodeMode))
+      decodeMode="modified_beam_search";
+    int cpuThreads=bench.getInt("threads",2);
+    if(cpuThreads!=1 && cpuThreads!=2 && cpuThreads!=4)cpuThreads=2;
+    pb.environment().put("ZIPFORMER_DECODE",decodeMode);
+    pb.environment().put("ZIPFORMER_THREADS",Integer.toString(cpuThreads));
+    log.event("MODEL","ZIPFORMER_BENCH_CONFIG","decode",decodeMode,"threads",cpuThreads,
+      "baseline","modified_beam_search:2");
     pb.directory(context.getFilesDir());pb.redirectErrorStream(true);
     nativeLaunchElapsed=SystemClock.elapsedRealtime();
     log.timing("MODEL","NATIVE_PROCESS_LAUNCH_BEGIN","launchElapsedMs",nativeLaunchElapsed);
