@@ -11,6 +11,7 @@ on:
       - public/ypt-rebuild.html
       - server.mjs
       - tools/education/test_tutor_platform.py
+      - tools/education/test_tutor_direct_links.py
       - .github/workflows/hitel-tutor-platform-e2e.yml
   workflow_dispatch:
 permissions:
@@ -36,6 +37,7 @@ jobs:
           node --check public/ypt-workplace-ui.js
           node --check server.mjs
           python -m py_compile tools/education/test_tutor_platform.py
+          python -m py_compile tools/education/test_tutor_direct_links.py
       - name: Install real mobile browser test environment
         run: |
           pip install playwright==1.56.0
@@ -57,10 +59,14 @@ jobs:
           PY
       - name: Verify full multi-group study journey on real mobile browser
         run: python tools/education/test_tutor_platform.py
+      - name: Verify all direct screen links in fresh mobile contexts
+        run: python tools/education/test_tutor_direct_links.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: hitel-school-tutor-mobile-screenshots
-          path: tutor-platform-mobile-evidence/
+          path: |
+            tutor-platform-mobile-evidence/
+            tutor-direct-link-evidence/
           if-no-files-found: warn
           retention-days: 21
