@@ -1,0 +1,46 @@
+name: Zipformer A/B native syntax smoke
+on:
+  push:
+    branches:
+      - experiment/zipformer-decoder-ab-20261111
+  workflow_dispatch:
+jobs:
+  native-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Zipformer CLI using exact C-API stub
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/zipformer-smoke/sherpa-onnx/c-api
+          cat > /tmp/zipformer-smoke/sherpa-onnx/c-api/c-api.h <<'HEADER'
+          #pragma once
+          #ifdef __cplusplus
+          extern "C" {
+          #endif
+          typedef struct SherpaOnnxOnlineRecognizer SherpaOnnxOnlineRecognizer;
+          typedef struct SherpaOnnxOnlineStream SherpaOnnxOnlineStream;
+          typedef struct { const char* encoder; const char* decoder; const char* joiner; } SherpaOnnxOnlineTransducerModelConfig;
+          typedef struct { SherpaOnnxOnlineTransducerModelConfig transducer; const char* tokens; int num_threads; const char* provider; const char* modeling_unit; } SherpaOnnxOnlineModelConfig;
+          typedef struct { int sample_rate; int feature_dim; } SherpaOnnxFeatureConfig;
+          typedef struct { SherpaOnnxFeatureConfig feat_config; SherpaOnnxOnlineModelConfig model_config; const char* decoding_method; int max_active_paths; int enable_endpoint; } SherpaOnnxOnlineRecognizerConfig;
+          typedef struct { const char* text; } SherpaOnnxOnlineRecognizerResult;
+          const SherpaOnnxOnlineRecognizer* SherpaOnnxCreateOnlineRecognizer(const SherpaOnnxOnlineRecognizerConfig*);
+          const SherpaOnnxOnlineStream* SherpaOnnxCreateOnlineStream(const SherpaOnnxOnlineRecognizer*);
+          SherpaOnnxOnlineRecognizerResult* SherpaOnnxGetOnlineStreamResult(const SherpaOnnxOnlineRecognizer*,const SherpaOnnxOnlineStream*);
+          void SherpaOnnxDestroyOnlineRecognizerResult(const SherpaOnnxOnlineRecognizerResult*);
+          void SherpaOnnxOnlineStreamAcceptWaveform(const SherpaOnnxOnlineStream*,int,const float*,int);
+          int SherpaOnnxIsOnlineStreamReady(const SherpaOnnxOnlineRecognizer*,const SherpaOnnxOnlineStream*);
+          void SherpaOnnxDecodeOnlineStream(const SherpaOnnxOnlineRecognizer*,const SherpaOnnxOnlineStream*);
+          void SherpaOnnxOnlineStreamInputFinished(const SherpaOnnxOnlineStream*);
+          void SherpaOnnxDestroyOnlineStream(const SherpaOnnxOnlineStream*);
+          void SherpaOnnxDestroyOnlineRecognizer(const SherpaOnnxOnlineRecognizer*);
+          #ifdef __cplusplus
+          }
+          #endif
+          HEADER
+          g++ -std=c++17 -fsyntax-only -Wall -Wextra -I/tmp/zipformer-smoke sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'ONLINE_PERF_SUMMARY' sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'ZIPFORMER_DECODE' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          echo "PASS: Native syntax and Android experiment setting wiring (NOT a model inference or Android device test)"
