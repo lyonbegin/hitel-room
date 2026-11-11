@@ -38,15 +38,24 @@ const source=(id)=>SOURCES[ui.category]?.find(r=>r[0]===id)||null;
 const button=(txt,a,v='',cls='')=>'<button type="button" class="'+cls+'" data-hxe="'+a+'" data-value="'+esc(v)+'">'+txt+'</button>';
 const raw=(s)=>'<a href="'+esc(s[3])+'" target="_blank" rel="noopener noreferrer" class="hxe-origin">공식 자료원 열기 ↗</a>';
 const subj=s=>String(s||'').split(/[,·/]/)[0].trim();
+const schoolKey=s=>String(s||'').trim().replace(/\s/g,'').replace(/(고등학교|중학교|초등학교|고|중|초)$/,'');
+function subjectKey(s){
+ const name=String(s||'');
+ if(/수학|미적분|기하|확률|통계/.test(name))return '수학';
+ if(/국어|문학|독서|화법|작문/.test(name))return '국어';
+ if(/영어/.test(name))return '영어';
+ if(/과학|물리|화학|생명|지구/.test(name))return '과학';
+ if(/사회|정치|경제|윤리|지리/.test(name))return '사회';
+ if(/한국사|역사/.test(name))return '한국사';
+ return name.trim().slice(0,35);
+}
 const seats=g=>Math.max(1,Math.min(5,Number(g.capacity)||5));
 function tabs(id){
  return '<div class="hxe-types">'+CATS.map(([key,name,icon])=>
  button('<span aria-hidden="true">'+icon+'</span><b>'+esc(name)+'</b>','category',key,'hxe-type'+(key===id?' selected':''))).join('')+'</div>';
 }
-function bankTop(){
- return '<section class="hxe-add"><small>기존 학교별 족보에 다른 기출시험 추가</small><h2>어떤 시험을 준비하시나요?</h2>'+
- tabs('school')+'<div class="hxe-original"><strong>학교 내신 · 기존 족보닷컴 검색</strong><span>중등·고등 / 지역 / 학교 / 학년 / 과목 / 중간·기말 검색을 그대로 제공합니다.</span></div></section>';
-}
+/* The compact, class-aware main is supplied by hitel-school-zocbo.js. */
+function bankTop(){return ''}
 function changeCategory(id){
  if(id==='school'){go('bankSearch');return}
  if(!SOURCES[id])return;
@@ -102,16 +111,18 @@ function description(){
 function detail(){
  if(!active)return '<section class="hxe-screen"><p>먼저 시험 자료원을 선택해 주세요.</p><button data-go="bankExamExplore">찾기로</button></section>';
  const x=source(active.sourceId);
+ const zocboLink=active.category==='school'&&/^https:\/\/(?:m\.|www\.)?zocbo\.com\//.test(active.sourceUrl||'')?'<a class="hxe-origin" href="'+esc(active.sourceUrl)+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본 자료 검색 화면 열기 ↗</a>':'';
  return '<section class="hxe-screen"><div class="hxe-back"><button data-go="bankExamExplore">‹ 검색조건 수정</button></div>'+
  '<small>기출자료 탐색 · 원문 미확보</small><h2>'+esc(active.title)+'</h2>'+
- '<div class="hxe-info"><b>공식 자료원</b><p>'+esc(active.sourceName)+'</p>'+(x?raw(x):'')+'</div>'+
+ '<div class="hxe-info"><b>공식 자료원</b><p>'+esc(active.sourceName)+'</p>'+(active.paperId?'<p>원본 자료번호: <b>'+esc(active.paperId)+'</b></p>':'')+(active.school?'<p>학교 검색조건: '+esc(active.school)+' (해당 자료의 학교 일치 여부는 원본에서 확인 필요)</p>':'')+(x?raw(x):zocboLink)+'</div>'+
  '<div class="hxe-info"><b>학습반에 연결할 정보</b><p>시험 이름·연도·대상 학년·과목·출처 링크를 연결합니다. 실제 문항·정답·AI 기출 분석은 아직 확보되지 않았습니다.</p></div>'+
  button('이 시험 준비를 학습반에 연결하기 →','start','','hxe-primary')+'</section>';
 }
 function choices(){
  if(!pending)return '<section class="hxe-screen"><p>먼저 시험 자료원을 선택해 주세요.</p><button data-go="bankExamExplore">찾기</button></section>';
  const gs=(model.groups||[]).filter(g=>g.members?.includes('나')&&subj(g.subject)===pending.subject&&
- (!g.grade||g.grade==='제한 없음'||g.grade===pending.grade));
+ (!g.grade||g.grade==='제한 없음'||g.grade===pending.grade)&&
+ (pending.category!=='school'||!pending.school||!g.institutionName&&!g.school||schoolKey(g.institutionName||g.school)===schoolKey(pending.school)));
  return '<section class="hxe-screen"><div class="hxe-back"><button data-go="bankExamDetail">‹ 자료 안내로</button></div>'+
  '<small>학습반과 기출자료 연결</small><h2>'+esc(pending.title)+'</h2>'+
  '<p>학생 1명도 학습반으로 이용합니다. 담당 AI 선생님은 학습반에 지정합니다.</p>'+
@@ -126,18 +137,20 @@ function choices(){
 function linkClass(id){
  const g=model.groups.find(x=>x.id===id),r=pending;
  if(!g||!r||!g.members?.includes('나')){toast('연결할 학습반이 없습니다.');return}
- if(subj(g.subject)!==r.subject||(g.grade&&g.grade!=='제한 없음'&&g.grade!==r.grade)){
+ if(subj(g.subject)!==r.subject||(g.grade&&g.grade!=='제한 없음'&&g.grade!==r.grade)||
+   (r.category==='school'&&r.school&&(g.institutionName||g.school)&&schoolKey(g.institutionName||g.school)!==schoolKey(r.school))){
   toast('기출의 학년·과목과 학습반이 일치하지 않습니다.');return;
  }
  if(!Array.isArray(g.examResources))g.examResources=[];
- const key=[r.sourceId,r.year,r.month,r.track,r.subject,r.grade].join('|');
+ const key=[r.sourceId,r.paperId||'',r.school||'',r.year,r.month,r.track,r.subject,r.grade].join('|');
  if(!g.examResources.some(v=>v.key===key))g.examResources.push({...r,key});
  g.examFocus={...r};
  if(!model.materials||typeof model.materials!=='object')model.materials={};
  if(!Array.isArray(model.materials[g.id]))model.materials[g.id]=[];
  if(!model.materials[g.id].some(x=>x.examKey===key))
  model.materials[g.id].push({id:'exam-'+g.id+'-'+g.examResources.length,title:r.title,
-  text:'공식 자료원: '+r.sourceName+' · 원문 개별 문항 미확보',unit:'기출 참고자료',examKey:key,sourceUrl:r.sourceUrl});
+  text:(r.paperId?'족보닷컴 원본 자료번호 '+r.paperId+' · 문제 본문·정답 미확보':'공식 자료원: '+r.sourceName+' · 개별 문제지 미확보'),unit:r.paperId?'학교 기출':'기출 참고자료',
+  examKey:key,originalPaperId:r.paperId||'',sourceUrl:r.sourceUrl});
  model.activeGroupId=g.id;WP.saveModel();pending=null;
  go(g.coachId?'groupDetail':'groupTrainerSelect');
 }
@@ -148,7 +161,7 @@ document.addEventListener('click',e=>{
  if(a==='pick'){ui.selected=v;active=description();if(active)go('bankExamDetail');return}
  if(a==='start'){if(!active){toast('시험 자료원을 먼저 선택해 주세요.');return}window.HITEL_CLASS_AI_FLOW?.clearPending?.();pending={...active};go('bankExamClass');return}
  if(a==='attach'){linkClass(v);return}
- if(a==='new'){go('groupCreate');return}
+ if(a==='new'){window.HITEL_CLASS_AI_FLOW?.clearPending?.();go('groupCreate');return}
 });
 document.addEventListener('change',e=>{
  const field=e.target?.getAttribute?.('data-hxe-field');if(!field||!Object.hasOwn(ui,field))return;
@@ -163,7 +176,28 @@ UI.page=function(route,s){
  if(route==='bankExamClass')return choices();
  return priorPage(route,s);
 };
-window.HITEL_EXAM_FLOW={pending:()=>pending?{...pending}:null,clearPending:()=>{pending=null},
+window.HITEL_EXAM_FLOW={
+ beginSchoolPaper:(input)=>{
+  const p=input||{},id=String(p.paperId||'').trim().slice(0,120);
+  if(!id){toast('먼저 원본 자료번호가 있는 시험지를 선택해 주세요.');return false}
+  const subjName=subjectKey(p.subject||''),grade=String(p.grade||'').trim();
+  if(!['수학','국어','영어','과학','사회','한국사','면접','논술','정보'].includes(subjName)||
+     !/^[중고][123]$/.test(grade)){toast('학년과 과목을 확인한 다음 학습반에 연결해 주세요.');return false}
+  const name=String(p.title||'학교별 시험자료').trim().slice(0,150);
+  const src=String(p.sourceUrl||'');
+  const safeUrl=/^https:\/\/(?:m\.|www\.)?zocbo\.com\//.test(src)?src:'https://m.zocbo.com/';
+  active={category:'school',kind:'school',grade,subject:subjName,school:String(p.school||'').trim().slice(0,100),
+   city:String(p.city||'').slice(0,40),district:String(p.district||'').slice(0,40),
+   title:name,sourceId:'zocbo:'+id,paperId:id,sourceName:'족보닷컴',sourceUrl:safeUrl,
+   originalSubject:String(p.subject||''),sourceCase:String(p.sourceCase||''),
+   menu:String(p.menu||''),year:'',month:'',track:'학교 내신',sourceStatus:'original_paper_id_only',
+   verifiedPaper:false,schoolPaperMatchVerified:false};
+  window.HITEL_CLASS_AI_FLOW?.clearPending?.();
+  pending={...active};
+  go('bankExamClass');
+  return true;
+ },
+ pending:()=>pending?{...pending}:null,clearPending:()=>{pending=null},
  attach:(id,x)=>{pending=x;linkClass(id)},
  inspect:()=>({categories:CATS.map(x=>x[0]),additionalSources:Object.values(SOURCES).reduce((n,x)=>n+x.length,0),
  originalBankPreserved:true,sourceOnly:true,pending:pending?.title||''})};
