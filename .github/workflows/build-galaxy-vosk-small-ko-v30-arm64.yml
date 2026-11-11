@@ -56,7 +56,12 @@ jobs:
           curl -fLsSL --retry 5 --connect-timeout 20 --max-time 250 \
             https://repo.maven.apache.org/maven2/com/alphacephei/vosk-android/0.3.75/vosk-android-0.3.75.aar \
             -o /tmp/download/vosk-android-0.3.75.aar
-          echo 'ab2f8b91ac8051561aa325546b35fed787be12adfad  /tmp/download/vosk-android-0.3.75.aar' | sha256sum --check
+          curl -fLsSL --retry 3 --connect-timeout 15 --max-time 60 \
+            https://repo.maven.apache.org/maven2/com/alphacephei/vosk-android/0.3.75/vosk-android-0.3.75.aar.sha256 \
+            -o /tmp/download/vosk-android.aar.sha256
+          EXPECTED="$(cut -d' ' -f1 /tmp/download/vosk-android.aar.sha256 | tr -d '\\r\\n')"
+          test "${#EXPECTED}" -eq 64
+          echo "$EXPECTED  /tmp/download/vosk-android-0.3.75.aar" | sha256sum --check
           unzip -Z1 /tmp/download/vosk-android-0.3.75.aar | grep -Fx 'jni/arm64-v8a/libvosk.so'
           unzip -p /tmp/download/vosk-android-0.3.75.aar jni/arm64-v8a/libvosk.so > "$ROOT/jniLibs/arm64-v8a/libvosk.so"
           curl -fLsSL --retry 5 --connect-timeout 20 --max-time 600 \
