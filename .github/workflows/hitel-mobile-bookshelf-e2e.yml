@@ -1,16 +1,6 @@
 name: HITEL Mobile Textbook Bookshelf E2E
+# Legacy baseline preserved for manual comparison. Active branch uses hitel-tutor-platform-e2e.yml.
 on:
-  push:
-    branches:
-      - feature/ypt-study-group-learning-nav-20261108
-    paths:
-      - public/ypt-mobile-shell.css
-      - public/ypt-book-library.css
-      - public/ypt-book-library.js
-      - public/ypt-rebuild.html
-      - server.mjs
-      - tools/education/test_mobile_bookshelf.py
-      - .github/workflows/hitel-mobile-bookshelf-e2e.yml
   workflow_dispatch:
 permissions:
   contents: read
