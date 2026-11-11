@@ -11,7 +11,7 @@ if(!WP||!LIB)throw Error('HITEL group/book dependencies not loaded');
 const model=WP.getModel(),catalog=LIB.getCatalog();
 const catalogMap=new Map(catalog.map(b=>[b.id,b]));
 const PAGES={
- groups:'내 스터디',groupSearch:'내 스터디',
+ groups:'스터디그룹',groupSearch:'스터디 찾기',groupPreview:'스터디 상세',
  groupCreate:'스터디 개설',groupJoin:'스터디 가입',
  groupDetail:'스터디 상세',groupSettings:'스터디 설정',
  groupQuestions:'질문하기',groupTeacherChat:'AI 선생님과 대화',
@@ -81,7 +81,7 @@ for(const g of model.groups){
   }
  }
 }
-const ui={subject:'전체',grade:'전체',query:'',selectedBook:'',groupQuery:'',groupType:'all',learningTab:'assignments',formMode:'',chatListQuery:'',chatSubject:'전체'};
+const ui={subject:'전체',grade:'전체',query:'',selectedBook:'',groupQuery:'',groupType:'all',mainTab:'discover',findInstitution:'all',findGrade:'전체',findSubject:'전체',findQuery:'',selectedListing:'',learningTab:'assignments',formMode:'',chatListQuery:'',chatSubject:'전체'};
 const urlInit=new URLSearchParams(location.search),path=urlInit.get('screen');
 if(urlInit.get('book')&&bookById(urlInit.get('book')))ui.selectedBook=urlInit.get('book');
 function selectGroup(gid,route){
@@ -113,17 +113,112 @@ function selectGroupControl(){
  return '<label class="tp-switch"><span>내 스터디</span><select data-tp-select="group" aria-label="현재 스터디 선택">'+
  model.groups.map(g=>'<option value="'+esc(g.id)+'"'+(g.id===model.activeGroupId?' selected':'')+'>'+esc(g.name)+'</option>').join('')+'</select></label>';
 }
-function groupIndex(){
- const groups=model.groups.filter(g=>(ui.groupType==='all'||g.institutionType===ui.groupType)&&(!ui.groupQuery||(
- g.name+' '+placeContext(g)+' '+coachFor(g)+' '+(bookFor(g)?.name||'')).toLocaleLowerCase().includes(ui.groupQuery.toLocaleLowerCase())));
- return '<section class="tp-app">'+heading('내 스터디','가입한 스터디와 담당 AI 선생님을 확인하세요.')+
- '<form id="tp-group-search-form" class="tp-search"><input name="q" value="'+esc(ui.groupQuery)+'" placeholder="학교·학원·과목·선생님 검색" aria-label="스터디 검색" />'+
- '<button type="submit">검색</button></form>'+
+/* Clearly labeled functional samples: no fabricated real student groups. */
+const SAMPLE_LISTINGS=[
+ {id:'sample-math-ssen',name:'예시중학교 2학년 · 쎈 수학',institutionType:'school',
+  institutionName:'예시중학교',grade:'중2',subject:'수학',bookId:'ssen-중2-1',
+  topics:'연립일차방정식 · 일차함수',memberCount:2,example:true},
+ {id:'sample-math-concept',name:'예시중학교 2학년 · 개념원리',institutionType:'school',
+  institutionName:'예시중학교',grade:'중2',subject:'수학',bookId:'concept-중2-1',
+  topics:'중간고사 대비 · 1~3단원',memberCount:3,example:true},
+ {id:'sample-academy-math',name:'예시학원 중3 수학 스터디',institutionType:'academy',
+  institutionName:'예시학원',grade:'중3',subject:'수학',bookId:'black-중3-1',
+  topics:'심화 문제·서술형 연습',memberCount:1,example:true},
+ {id:'sample-english',name:'예시고등학교 2학년 · 영어 독해',institutionType:'school',
+  institutionName:'예시고등학교',grade:'고2',subject:'영어',bookId:'sample-english-book',
+  bookTitle:'영어 독해 연습 교재 (예시)',topics:'독해·문법 질문',memberCount:4,example:true},
+ {id:'sample-full',name:'예시중학교 2학년 · 만원 스터디',institutionType:'school',
+  institutionName:'예시중학교',grade:'중2',subject:'수학',bookId:'rpm-중2-1',
+  topics:'단원별 복습',memberCount:5,example:true}
+];
+const membershipForListing=l=>model.groups.find(g=>g.sourceListingId===l.id||g.id===l.id)||null;
+const allListings=()=>[
+ ...model.groups.filter(g=>g.localDirectoryVisible&&!g.example).map(g=>({
+  id:'own-'+g.id,groupId:g.id,name:g.name,institutionType:g.institutionType,
+  institutionName:g.institutionName||g.school,grade:g.grade,subject:g.subject,
+  bookId:g.bookId,bookTitle:bookFor(g)?.name||g.bookTitle||'',topics:g.topics,
+  memberCount:g.members?.length||1,localOnly:true
+ })),
+ ...SAMPLE_LISTINGS
+];
+function directoryFilters(){
+ return '<div class="tp-discovery-filters">'+
+ '<label>구분<select data-tp-select="findInstitution"><option value="all">학교·학원 전체</option>'+
+ '<option value="school"'+(ui.findInstitution==='school'?' selected':'')+'>학교</option>'+
+ '<option value="academy"'+(ui.findInstitution==='academy'?' selected':'')+'>학원</option></select></label>'+
+ '<label>학년<select data-tp-select="findGrade">'+['전체','초5','초6','중1','중2','중3','고1','고2','고3'].map(g=>
+ '<option value="'+g+'"'+(g===ui.findGrade?' selected':'')+'>'+g+'</option>').join('')+'</select></label>'+
+ '<label>과목<select data-tp-select="findSubject">'+['전체','수학','영어','국어','과학','사회','기타'].map(q=>
+ '<option value="'+q+'"'+(q===ui.findSubject?' selected':'')+'>'+q+'</option>').join('')+'</select></label></div>';
+}
+function filteredListings(){
+ const query=ui.findQuery.toLocaleLowerCase().trim();
+ return allListings().filter(g=>
+  (ui.findInstitution==='all'||g.institutionType===ui.findInstitution)&&
+  (ui.findGrade==='전체'||g.grade===ui.findGrade)&&
+  (ui.findSubject==='전체'||g.subject===ui.findSubject)&&
+  (!query||[g.name,g.institutionName,g.grade,g.subject,g.bookTitle,bookById(g.bookId)?.name,g.topics].filter(Boolean).join(' ').toLocaleLowerCase().includes(query))
+ );
+}
+function listingCard(l){
+ const joined=!!(l.groupId||membershipForListing(l)),full=l.memberCount>=5;
+ const book=bookById(l.bookId),label=book?.name||l.bookTitle||'교재 미정';
+ return '<article class="tp-discover-item" data-listing-id="'+esc(l.id)+'">'+
+  '<div class="tp-list-top"><strong>'+esc(l.name)+'</strong><span class="tp-list-meta">'+(l.example?'예시':l.localOnly?'이 기기':'모집')+'</span></div>'+
+  '<div class="tp-list-info">'+esc([l.institutionName,l.grade,l.subject].filter(Boolean).join(' · '))+'</div>'+
+  '<div class="tp-list-book">'+esc(label)+'</div>'+
+  '<div class="tp-list-bottom"><span>'+(joined?'참여 중':full?'모집 마감':'모집 중')+'</span>'+
+   '<small>참여 '+l.memberCount+' / 5</small></div>'+
+  actions([bt('스터디 살펴보기','previewListing',l.id),
+  joined?bt('내 스터디 열기','openListing',l.id,true):
+  full?'<span class="tp-closed" aria-label="모집 마감">마감</span>':
+  bt('참여 확인','previewListing',l.id,true)])+'</article>';
+}
+function directoryHome(){
+ const entries=filteredListings();
+ const my=model.groups.filter(g=>(ui.groupType==='all'||g.institutionType===ui.groupType)&&
+ (!ui.groupQuery||(g.name+' '+placeContext(g)+' '+coachFor(g)+' '+(bookFor(g)?.name||'')).toLocaleLowerCase().includes(ui.groupQuery.toLocaleLowerCase())));
+ return '<section class="tp-app tp-study-main">'+heading('스터디그룹','학교·학원과 과목에 맞는 스터디를 찾거나 내 스터디로 이동하세요.')+
+ '<nav class="tp-main-tabs" aria-label="스터디그룹 메인">'+
+ bt('스터디 찾기','mainTab','discover',ui.mainTab==='discover')+
+ bt('내 스터디','mainTab','mine',ui.mainTab==='mine')+'</nav>'+
+ (ui.mainTab==='mine'?
+ '<div class="tp-section-label"><strong>내 스터디</strong><small>'+model.groups.length+'개</small></div>'+
+ '<form id="tp-group-search-form" class="tp-search"><input name="q" value="'+esc(ui.groupQuery)+'" placeholder="내 스터디 검색" aria-label="내 스터디 검색"/><button type="submit">검색</button></form>'+
  '<div class="tp-chips">'+[['all','전체'],['school','학교'],['academy','학원']].map(([k,n])=>bt(n,'groupFilter',k,ui.groupType===k)).join('')+'</div>'+
- '<div class="tp-group-list">'+(groups.length?groups.map(g=>compactGroup(g)).join(''):empty('조건에 맞는 스터디가 없습니다.'))+'</div>'+
+ '<div class="tp-group-list">'+(my.length?my.map(g=>compactGroup(g)).join(''):empty('가입한 스터디가 없습니다.','스터디 찾기에서 기존 스터디를 알아보거나 새로 만드실 수 있습니다.',bt('스터디 찾기','mainTab','discover',true)))+'</div>':
+ '<form id="tp-directory-search-form" class="tp-search"><input name="q" value="'+esc(ui.findQuery)+'" placeholder="학교·학원·과목·교재 검색" aria-label="모집 스터디 검색"/><button type="submit">검색</button></form>'+
+ directoryFilters()+
+ '<div class="tp-section-label"><strong>스터디 찾아보기</strong><small>'+entries.length+'개 표시</small></div>'+
+ '<p class="tp-directory-warning">현재 외부 사용자들이 모집 중인 실시간 그룹 데이터는 연결되지 않았습니다. 아래 그룹은 탐색·가입 과정을 확인하기 위한 예시와 이 기기에 저장한 스터디입니다.</p>'+
+ '<div class="tp-discover-list">'+(entries.length?entries.map(listingCard).join(''):
+ empty('조건에 맞는 스터디가 없습니다.','학교·학원 이름 또는 학년·과목 조건을 변경해 보세요.'))+'</div>')+
  actions([goBtn('새 스터디 만들기','groupCreate',true),goBtn('초대 코드로 참여','groupJoin')])+
  '</section>';
 }
+function listingPreview(){
+ const l=allListings().find(g=>g.id===ui.selectedListing);
+ if(!l)return '<section class="tp-app">'+heading('스터디 살펴보기')+
+ empty('선택한 스터디를 찾을 수 없습니다.','스터디 찾기 화면에서 다시 선택해 주세요.',bt('스터디 찾기','route','groups',true))+'</section>';
+ const joined=!!(l.groupId||membershipForListing(l)),full=l.memberCount>=5;
+ const book=bookById(l.bookId),bookName=book?.name||l.bookTitle||'교재 확인 필요';
+ return '<section class="tp-app">'+bt('‹ 스터디 찾기','route','groups')+
+ heading(l.name,'스터디에 참여하기 전에 학습정보를 확인하세요.')+
+ panel('<strong>스터디 정보</strong>'+
+ '<div class="tp-small-row"><span>학교·학원</span><strong>'+esc(l.institutionName)+'</strong></div>'+
+ '<div class="tp-small-row"><span>학년·과목</span><strong>'+esc(l.grade+' · '+l.subject)+'</strong></div>'+
+ '<div class="tp-small-row"><span>교재</span><strong>'+esc(bookName)+'</strong></div>'+
+ '<div class="tp-small-row"><span>학습범위</span><strong>'+esc(l.topics||'추후 지정')+'</strong></div>'+
+ '<div class="tp-small-row"><span>참여 현황</span><strong>'+l.memberCount+' / 5명'+(full?' · 마감':'')+'</strong></div>')+
+ (joined?panel('<p>이미 참여 중인 스터디입니다.</p>'+bt('내 스터디 열기','openListing',l.id,true)):
+ full?empty('모집이 마감된 스터디입니다.','다른 스터디를 찾아보시거나 새로 개설해 주세요.',bt('다른 스터디 찾기','route','groups')):
+ panel('<strong>'+(l.example?'예시 스터디 참여 체험':'가입 확인')+'</strong>'+
+ '<p>'+(l.example?'이 항목은 실제 학생이 모집한 스터디가 아닙니다. 가입하면 이 브라우저의 내 스터디 목록에 예시 그룹이 추가됩니다.':
+ '현재 다른 기기와 연결되지 않습니다. 가입 결과는 이 브라우저에만 저장됩니다.')+'</p>'+
+ bt(l.example?'예시 스터디에 참여하기':'이 스터디 참여','joinListing',l.id,true)))+
+ '</section>';
+}
+function groupIndex(){return directoryHome();}
 function teacherFinder(){
  let books=[...catalog,...customBooks()],grouped=new Set(['전체',...books.map(b=>b.subject||'수학')]);
  books=books.filter(b=>(ui.subject==='전체'||b.subject===ui.subject)&&(ui.grade==='전체'||b.grade===ui.grade)&&
@@ -392,6 +487,7 @@ function currentRoute(id){
  if(id==='groupAITutorPractice')return '<section class="tp-app">'+heading('학습 도구','현재 스터디에서 AI 선생님과 공부하세요.')+
    actions([goBtn('스터디로 돌아가기','groupDetail',true),goBtn('질문하기','groupQuestions')])+'</section>';
  if(id==='groups'||id==='groupSearch')return groupIndex();
+ if(id==='groupPreview')return listingPreview();
  if(id==='groupAITutor')return teacherFinder();
  if(id==='groupBookDetail'||id==='groupCoachProfile')return profile();
  if(id==='groupCreate')return createGroup();
@@ -411,7 +507,7 @@ bottomFor=function(id){
  if(id==='groupQuestions'||id==='groupTeacherChat'||id==='groupMessages')return oldBottom('groupQuestions');
  if(id==='groupLearning')return oldBottom('groupLearning');
  if(['groupAITutor','groupBookDetail','groupCoachProfile'].includes(id))return oldBottom('groupAITutor');
- if(['groups','groupSearch','groupCreate','groupJoin','groupDetail','groupSettings','groupTutorSettings'].includes(id))return oldBottom('groups');
+ if(['groups','groupSearch','groupPreview','groupCreate','groupJoin','groupDetail','groupSettings','groupTutorSettings'].includes(id))return oldBottom('groups');
  return oldBottom(id);
 };
 function updateRoute(route){ui.formMode='';go(route)}
@@ -424,6 +520,10 @@ function practice(gid,route){
 function action(name,val){
  const g=active();
  if(name==='route'){if(val==='bankSearch')prepareBankContext();updateRoute(val);return}
+ if(name==='mainTab'){ui.mainTab=val==='mine'?'mine':'discover';render();return}
+ if(name==='previewListing'){ui.selectedListing=val;updateRoute('groupPreview');return}
+ if(name==='openListing'){const l=allListings().find(x=>x.id===val);const own=l?.groupId||membershipForListing(l||{})?.id;if(own)selectGroup(own,'groupDetail');return}
+ if(name==='joinListing'){joinListing(val);return}
  if(name==='groupFilter'){ui.groupType=val;render();return}
  if(name==='filterSubject'){ui.subject=val;render();return}
  if(name==='chatSubject'){ui.chatSubject=val;render();return}
@@ -442,6 +542,31 @@ function action(name,val){
  }
  if(name==='generateInvite'){if(!g||g.id!==val)return;g.inviteCode=g.inviteCode||('ST-'+Math.random().toString(36).slice(2,8).toUpperCase());save();render();return}
 }
+function joinListing(listingId){
+ const l=allListings().find(g=>g.id===listingId);
+ if(!l)return;
+ const existed=membershipForListing(l);
+ if(existed||l.groupId){selectGroup(existed?.id||l.groupId,'groupDetail');return}
+ if(l.memberCount>=5){toast('모집이 마감된 스터디입니다.');return}
+ // A sample listing creates a sample local study only; no external account or group is modified.
+ let book=bookById(l.bookId);
+ if(!book&&l.example&&l.bookTitle){
+  book=registeredBook(l.bookTitle,l.subject,l.grade);
+ }
+ const newGroup={
+  id:'local-'+l.id,name:l.name,institutionType:l.institutionType,
+  institutionName:l.institutionName,school:l.institutionType==='school'?l.institutionName:'',
+  grade:l.grade,subject:l.subject,topics:l.topics||'',sourceListingId:l.id,
+  members:['나',...Array.from({length:l.memberCount},(_,i)=>'예시 참여자 '+(i+2))],
+  example:!!l.example,bookId:book?.id||'',bookTitle:book?.name||l.bookTitle||'',
+  coachId:book?'coach:'+book.id:'',coachName:book?coachNameForBook(book):'',
+  bookShelf:book?[book.id]:[]
+ };
+ if(model.groups.some(g=>g.id===newGroup.id)){toast('이미 참여 중인 스터디입니다.');return}
+ model.groups.push(newGroup);model.activeGroupId=newGroup.id;save();
+ if(book&&catalogMap.has(book.id))LIB.setBook(book.id);
+ ui.mainTab='mine';updateRoute('groupDetail');
+}
 function registeredBook(name,subject,grade){
  const match=customBooks().find(b=>b.name===name&&b.subject===subject&&b.grade===grade);
  if(match)return match;
@@ -454,6 +579,7 @@ function forms(form){
  const g=active();
  if(form.id==='tp-catalog-search-form'){ui.query=v('q');render();return}
  if(form.id==='tp-group-search-form'){ui.groupQuery=v('q');render();return}
+ if(form.id==='tp-directory-search-form'){ui.findQuery=v('q');ui.mainTab='discover';render();return}
  if(form.id==='tp-chat-search-form'){ui.chatListQuery=v('q');render();return}
  if(form.id==='tp-register-book'){
   if(!v('name')||!v('subject')||!v('grade'))return;
@@ -545,19 +671,24 @@ document.addEventListener('change',ev=>{
  const type=t.dataset.tpSelect;
  if(type==='group'){selectGroup(t.value);return}
  if(type==='catalogGrade'){ui.grade=t.value;render();return}
+ if(type==='findInstitution'){ui.findInstitution=t.value;render();return}
+ if(type==='findGrade'){ui.findGrade=t.value;render();return}
+ if(type==='findSubject'){ui.findSubject=t.value;render();return}
 },true);
 window.HITEL_TUTOR_PLATFORM={
  getModel:()=>model,
  getCurrentGroup:()=>active(),
  getCoach:g=>g?{bookId:g.bookId,coachId:g.coachId,coachName:coachFor(g)}:null,
  getChat:gid=>getTeacherQuery(gById(gid)||{id:'none'}).slice(),
- getState:()=>({screen:state.screen,groupId:active()?.id,groupCount:model.groups.length,
+ getState:()=>({screen:state.screen,mainTab:ui.mainTab,directoryCount:allListings().length,filteredDirectoryCount:filteredListings().length,groupId:active()?.id,groupCount:model.groups.length,
  groupCoach:active()?.coachId||'',bookId:active()?.bookId||'',teacherCount:model.groups.filter(groupMatchesBook).length,
  serverShared:false,llmConnected:false,mode:'BROWSER_LOCAL'})
 };
 const requested=new URLSearchParams(location.search);
 if(PAGES[requested.get('screen')])state.screen=requested.get('screen');
 if(requested.get('group')&&gById(requested.get('group')))model.activeGroupId=requested.get('group');
+if(requested.get('tab')==='mine')ui.mainTab='mine';
+if(requested.get('listing'))ui.selectedListing=requested.get('listing');
 if(['groupBookDetail','groupCoachProfile'].includes(state.screen)&&requested.get('book')&&bookById(requested.get('book')))ui.selectedBook=requested.get('book');
 if(state.screen==='bankSearch')prepareBankContext();
 save();render();
