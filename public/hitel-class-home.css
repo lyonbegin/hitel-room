@@ -1,0 +1,55 @@
+
+/* HITEL seasonal learning-class discovery: independent, scoped surface */
+.hclass{display:flex;flex-direction:column;gap:14px;padding:3px 0 26px;color:#22262c;font:13px/1.48 -apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif}
+.hclass *{box-sizing:border-box}.hclass h2,.hclass h3,.hclass p{margin:0}
+.hclass button{font:inherit;cursor:pointer}.hclass button:focus-visible{outline:2px solid #eb8351;outline-offset:2px}
+.hclass .hclass-btn{border:0;background:transparent;border-radius:10px;padding:10px 11px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:680}
+.hclass-brand{height:50px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #f1f1f1;padding-bottom:9px}
+.hclass-brand-symbol{width:27px;height:27px;border-radius:10px;background:#ed7541;display:grid;place-items:center;color:white;font-weight:800}
+.hclass-brand>div:nth-child(2){flex:1;min-width:0}.hclass-brand strong{display:block;font-size:13px}.hclass-brand small{display:block;font-size:9px;color:#8a8e97}
+.hclass .hclass-top-add{color:white;background:#23252a;white-space:nowrap;font-size:10px;padding:8px 10px;border-radius:20px}
+.hclass-title h2{font-size:25px;font-weight:790;letter-spacing:-.065em}.hclass-title p{font-size:11px;color:#8a9097;margin-top:4px}
+.hclass-jump{display:grid;grid-template-columns:1fr 1fr;gap:7px}.hclass-jump button{background:#f6f7f8;border:1px solid #ecedef;font-size:11px}
+.hclass-heading{margin-top:8px}.hclass-heading>span{display:block;font-size:10px;font-weight:780;color:#cf6c39}
+.hclass-heading h3{font-size:19px;font-weight:800;letter-spacing:-.05em;margin-top:5px}.hclass-heading p{margin-top:5px;color:#858d97;font-size:11px;line-height:1.6}
+.hclass-heroes{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -20px;padding:0 20px 5px}
+.hclass-heroes::-webkit-scrollbar{display:none}
+.hclass-hero{flex:0 0 min(88%,350px);scroll-snap-align:start;min-height:238px;padding:18px;border-radius:18px;display:flex;align-items:flex-start;flex-direction:column;position:relative;overflow:hidden;color:#fff}
+.hclass-hero.orange,.hclass-hero.hclass-orange{background:linear-gradient(135deg,#f78c5a,#e75e36)}
+.hclass-hero.blue,.hclass-hero.hclass-blue{background:linear-gradient(130deg,#5477a4,#304e76)}
+.hclass-hero.green,.hclass-hero.hclass-green{background:linear-gradient(130deg,#3a9f90,#218477)}
+.hclass-hero-top{display:flex;justify-content:space-between;width:100%;align-items:center;z-index:1;position:relative}
+.hclass-hero-top span{font-size:10px;font-weight:800;background:#ffffff32;padding:5px 10px;border:1px solid #ffffff55;border-radius:20px}
+.hclass-hero-top small{font-size:10px;color:#fffc}
+.hclass-hero-mark{position:absolute;right:17px;top:53px;font-size:60px;opacity:.24;pointer-events:none}
+.hclass-hero h3{font-size:22px;letter-spacing:-.05em;line-height:1.35;margin:26px 0 8px;z-index:1;position:relative}
+.hclass-hero p{font-size:11px;line-height:1.6;color:#fffceb;position:relative;z-index:1;max-width:94%}
+.hclass-hero .hclass-hero-action{margin-top:auto;background:white;color:#30333a;padding:10px 14px;font-size:11px;font-weight:800;position:relative;z-index:1}
+.hclass-hero-caption{display:flex;justify-content:space-between;gap:5px;align-items:center}
+.hclass-hero-caption>span{font-size:9px;color:#9299a2}.hclass .hclass-text-button{padding:5px;color:#555c65;white-space:nowrap;font-size:10px}
+.hclass-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.hclass .hclass-filters button{border:1px solid #e5e7eb;background:#fff;padding:8px 12px;border-radius:22px;white-space:nowrap;color:#6b727a}
+.hclass .hclass-filters button.active{background:#2a2b30;color:white;border-color:#2a2b30}
+.hclass-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.hclass-mini{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:7px;padding:13px;border-radius:14px;border:1px solid #ebeef0;background:#fff;min-height:186px}
+.hclass-mini-icon{font-size:21px;background:#f3f4f5;border-radius:10px;display:grid;place-items:center;width:36px;height:36px}
+.hclass-mini>small{font-size:9px;color:#d9753e;font-weight:730}
+.hclass-mini>strong{font-size:12px;letter-spacing:-.025em}
+.hclass-mini-desc{font-size:10px;color:#90949b;line-height:1.5;flex:1}
+.hclass-mini-more{font-size:10px;font-weight:730;color:#363b44}
+.hclass-search-cta{background:#f4f6f8;border-radius:15px;padding:15px;display:flex;flex-direction:column;gap:9px}
+.hclass-search-cta strong{font-size:12px}.hclass-search-cta p{font-size:10px;color:#838991;line-height:1.6}
+.hclass .hclass-search-action{background:white;border:1px solid #e5e7e9;width:100%;min-height:38px}
+.hclass-mine{display:flex;flex-direction:column;gap:10px;scroll-margin-top:12px}
+.hclass-mine-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hclass-mine-header h3{font-size:18px;letter-spacing:-.05em}.hclass-mine-header p{font-size:10px;color:#8e939b;margin-top:3px}
+.hclass-mine-header>span{background:#f3f4f6;border-radius:15px;font-size:11px;padding:5px 10px}
+.hclass-owned{border:1px solid #e7e9ed;background:white;border-radius:13px;padding:13px;display:flex;flex-direction:column;gap:9px;text-align:left}
+.hclass-owned-top,.hclass-owned-foot{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.hclass-owned-top>span{font-size:10px;color:#a05c3e;background:#fff1ea;border-radius:20px;padding:4px 8px}.hclass-owned-top small{font-size:10px;color:#868f96}
+.hclass-owned>strong{font-size:13px}.hclass-owned>p{color:#8e939b;font-size:11px}
+.hclass-owned-foot{border-top:1px solid #f0f1f2;padding-top:10px;font-size:10px;color:#9ca0a7}.hclass-owned-foot b{color:#323740;font-weight:740}
+.hclass-empty{font-size:11px;color:#8b939b;background:#f6f6f6;padding:18px;border-radius:12px}
+.hclass-prefill{background:#fff6ed;border:1px solid #f6d9c4;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px;margin:6px 0}
+.hclass-prefill small{font-size:10px;color:#aa6e47}.hclass-prefill strong{font-size:13px}.hclass-prefill p{font-size:10px;color:#86796e}
+@media(max-width:400px){.hclass-heroes{margin-left:-17px;margin-right:-17px;padding-left:17px;padding-right:17px}.hclass-hero{flex-basis:92%}}
