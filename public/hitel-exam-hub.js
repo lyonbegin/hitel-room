@@ -146,7 +146,7 @@ document.addEventListener('click',e=>{
  e.preventDefault();e.stopPropagation();const a=b.dataset.hxe,v=b.dataset.value||'';
  if(a==='category'){changeCategory(v);return}
  if(a==='pick'){ui.selected=v;active=description();if(active)go('bankExamDetail');return}
- if(a==='start'){if(!active){toast('시험 자료원을 먼저 선택해 주세요.');return}pending={...active};go('bankExamClass');return}
+ if(a==='start'){if(!active){toast('시험 자료원을 먼저 선택해 주세요.');return}window.HITEL_CLASS_AI_FLOW?.clearPending?.();pending={...active};go('bankExamClass');return}
  if(a==='attach'){linkClass(v);return}
  if(a==='new'){go('groupCreate');return}
 });
