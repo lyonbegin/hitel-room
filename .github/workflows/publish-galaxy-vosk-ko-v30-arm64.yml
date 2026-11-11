@@ -1,0 +1,45 @@
+name: Publish Vosk Korean small on-device streaming v30 APK
+on:
+  push:
+    branches: [experiment/galaxy-vosk-small-ko-single-stream-v30-20261112]
+    paths:
+      - '.github/release-trigger-v30.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the exact successful v30 source-matched signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN=43073144582
+          test "$(gh run view "$RUN" -R lyonbegin/hitel-room --json conclusion --jq .conclusion)" = "success"
+          test "$(gh api repos/lyonbegin/hitel-room/actions/runs/"$RUN" --jq .head_branch)" = "experiment/galaxy-vosk-small-ko-single-stream-v30-20261112"
+          mkdir -p /tmp/v30-apk
+          gh run download "$RUN" -R lyonbegin/hitel-room \
+            -n Galaxy-Korean-VoskSmall-v30-ARM64-APK -D /tmp/v30-apk
+          APK=/tmp/v30-apk/Galaxy-Korean-VoskSmall-v30-ARM64.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          cp "$APK" .
+      - name: Publish direct-download APK as immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v30-vosk-small-ko-20261112
+          APK=Galaxy-Korean-VoskSmall-v30-ARM64.apk
+          SOURCE_SHA="$(gh api repos/lyonbegin/hitel-room/actions/runs/43073144582 --jq .head_sha)"
+          gh release create "$TAG" "$APK" -R lyonbegin/hitel-room \
+            --target "$SOURCE_SHA" \
+            --title "Galaxy STT v30 · fixed visible captions · Zipformer 174M INT8" \
+            --notes "Different ASR engine: Vosk Korean small 0.22 (Kaldi), native continuous 16kHz PCM streaming, partial captions. Samsung M4A file monitor and AAC/MediaCodec decoder preserved, no second ASR worker. SHA-256-verified mobile model and Android ARM64 runtime. Separate stream30 application ID. Hardware Galaxy speed and CER require device test." \
+            --latest=false
+          gh release view "$TAG" -R lyonbegin/hitel-room --json assets --jq '.assets[].name' | grep -Fx "$APK"
+          echo "DOWNLOAD=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK"
