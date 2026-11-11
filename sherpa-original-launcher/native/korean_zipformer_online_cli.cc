@@ -29,7 +29,8 @@ namespace {
 constexpr uint64_t RATE=16000;
 constexpr uint64_t WINDOW=RATE*4;
 constexpr uint64_t STRIDE=RATE*3;
-constexpr size_t QUEUE_CAP=512; // bounded; NEVER silently drop input PCM.
+constexpr size_t QUEUE_CAP=512; // direct-file playback: lossless historical replay.
+constexpr size_t LIVE_QUEUE_CAP=28; // live only: do not accumulate several seconds behind.
 std::mutex outputMutex;
 uint64_t bootNs(){
   struct timespec t{};clock_gettime(CLOCK_BOOTTIME,&t);
@@ -151,8 +152,9 @@ struct Manager{
   std::atomic<int> maxWindow{-1};
   std::set<int> endedWindows;
   std::string argv[4];
+  bool liveEdge=false;
   explicit Manager(int argc,char** a) {
-    (void)argc;
+    liveEdge=(argc==6);
     for(int i=0;i<4;++i)argv[i]=a[i+1];
     for(int i=0;i<2;++i){workers[i].parent=this;workers[i].id=i;}
   }
@@ -173,7 +175,7 @@ struct Manager{
     }
     say("STT_READY");
     say("ONLINE_READY:model=korean-zipformer-174m-int8:parallel_workers=2:window_ms=4000:stride_ms=3000:overlap_ms=1000:decoding=modified_beam_search:threads_per_worker=2");
-    say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true");
+    say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true:liveEdge=%d",liveEdge?1:0);
     return true;
   }
   void beginWindow(int w){
@@ -282,11 +284,23 @@ struct Manager{
 void Worker::start(){thread=std::thread(&Worker::loop,this);}
 void Worker::enqueue(Task&& task){
   std::unique_lock<std::mutex> lock(mutex);
+  if(parent->liveEdge && task.type==Task::DATA && !task.pcm.empty()
+     && jobs.size()>=LIVE_QUEUE_CAP){
+    // A recognizer that is >several seconds behind must NOT replay stale
+    // audio indefinitely. Workers remain independent and no new model is
+    // introduced. This policy is ONLY enabled for real-time folder mode;
+    // an explicitly selected file is still losslessly transcribed.
+    const size_t dropped=jobs.size();
+    const int lastWindow=jobs.empty()?-1:jobs.back().window;
+    jobs.clear();
+    say("DUAL_LIVE_QUEUE_SKIP:worker=%d:droppedJobs=%zu:fromWindow=%d:resumeWindow=%d",
+        id,dropped,lastWindow,task.window);
+  }
   const uint64_t start=bootNs();
   cv.wait(lock,[this]{return jobs.size()<QUEUE_CAP;});
   const auto waitMs=(bootNs()-start)/1000000;
   if(waitMs>25)say("DUAL_QUEUE_BACKPRESSURE:worker=%d:waitMs=%llu:queue=%zu",id,
-                    (unsigned long long)waitMs,jobs.size());
+                     (unsigned long long)waitMs,jobs.size());
   jobs.emplace_back(std::move(task));
   lock.unlock();cv.notify_one();
 }
@@ -397,7 +411,12 @@ void Worker::loop(){
 } // namespace
 int main(int argc,char** argv){
   setvbuf(stdout,nullptr,_IOLBF,0);
-  if(argc!=5){fprintf(stderr,"USAGE: dual_zipformer tokens encoder decoder joiner\n");return 2;}
+  if(argc!=5 && argc!=6){
+    fprintf(stderr,"USAGE: dual_zipformer tokens encoder decoder joiner [--live-edge]\n");return 2;
+  }
+  if(argc==6 && strcmp(argv[5],"--live-edge")){
+    fprintf(stderr,"Unknown optional mode: %s\n",argv[5]);return 2;
+  }
   Manager engine(argc,argv);
   if(!engine.launch())return 3;
   int status=0;
