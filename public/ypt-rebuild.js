@@ -13,7 +13,7 @@ const VERIFIED={
 };
 const GROUPS={
  '원본 실행 캡처':['welcome','signin','signup'],
- '홈 / 공부':['home','timer','timerRunning','timerDictionary','timerApps','timerSettings','timerNoise','timerRest','subjects','subjectAdd','subjectEdit'],
+ '기존 학습 도구':['timer','timerRunning','timerDictionary','timerApps','timerSettings','timerNoise','timerRest','subjects','subjectAdd','subjectEdit'],
  '스터디 그룹':['groups','groupSearch','groupCreate','groupJoin','groupDetail','groupMembers','groupMemberSettings','groupNotice','groupMessages','groupMissions','groupMissionCreate','groupMissionProof','groupRanking','groupSettings'],
  '할 일':['todo','todoAdd','todoRepeat','todoDay','todoWeek','todoMonth','todoStats','todoMove'],
  '캘린더 / 시간표':['calendar','calendarAdd','calendarDayoff','calendarSettings','timetable','timetableAdd','timetableSubject'],
@@ -29,8 +29,10 @@ const defaultTasks=[
  {id:3,title:'영어 단어 50개 암기',sub:'영어 · 오후 14:00',done:false,color:SUBJECT_COLORS[2]},
  {id:4,title:'과학 개념 복습',sub:'과학 · 오후 17:00',done:false,color:SUBJECT_COLORS[3]}
 ];
-const state={screen:'home',history:[],menuOpen:'랭킹',tasks:defaultTasks,clockSec:2*3600+34*60+16,clockRunning:false,subject:'수학',chosenRank:'rankWeek',rankCategory:'전체',monthOffset:0,date:8,todoView:'todo',groupSearch:'',groupFilter:'전체',statTab:'week',selectedColor:SUBJECT_COLORS[0],form:{},toggles:{keepScreen:true,whiteNoise:false,showRest:true,wakeNotify:false,groupPublic:true,notification:true,visible:true},chat:['오늘도 열심히 공부해요!','저도 지금 시작합니다 💪'],nickname:'나',modal:null};
-const initial=new URLSearchParams(location.search).get('screen'); if(initial && (GRAPH[initial]||VERIFIED[initial])) state.screen=initial;
+const state={screen:'groups',history:[],menuOpen:'랭킹',tasks:defaultTasks,clockSec:2*3600+34*60+16,clockRunning:false,subject:'수학',chosenRank:'rankWeek',rankCategory:'전체',monthOffset:0,date:8,todoView:'todo',groupSearch:'',groupFilter:'전체',statTab:'week',selectedColor:SUBJECT_COLORS[0],form:{},toggles:{keepScreen:true,whiteNoise:false,showRest:true,wakeNotify:false,groupPublic:true,notification:true,visible:true},chat:['오늘도 열심히 공부해요!','저도 지금 시작합니다 💪'],nickname:'나',modal:null};
+const initial=new URLSearchParams(location.search).get('screen');
+if(initial && (GRAPH[initial]||VERIFIED[initial]))state.screen=initial==='home'?'groups':initial;
+if(initial==='home')history.replaceState(null,'','?screen=groups');
 const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const asset=p=>A+p;
 const image=(p,cls='',style='')=>`<img src="${asset(p)}" alt="" class="${cls}" ${style?`style="${style}"`:''}>`;
@@ -146,16 +148,16 @@ function settingsPage(id){
  if(id==='settingsPassword')return `<div class="form-card"><h3>비밀번호 재설정</h3>${formField('현재 비밀번호','oldPassword','','password')}${formField('새 비밀번호','newPassword','','password')}${formField('새 비밀번호 확인','confirmPassword','','password')}<button class="button-solid wide" data-action="showDemoAuth">변경하기</button><p class="fieldnote">이 목업에서는 실제 계정의 비밀번호를 변경할 수 없습니다.</p></div>`;
  return '';
 }
-const applicableBottom=['home','groups','todo','calendar'];
+const applicableBottom=['groups','todo','calendar'];
 function bottomFor(id){if(['welcome','signin','signup'].includes(id)||id.startsWith('external_'))return '';
- const active=id.startsWith('bank')?'bankSearch':id.startsWith('group')?'groups':id.startsWith('todo')?'todo':id.startsWith('calendar')||id.startsWith('timetable')?'calendar':id==='groups'||id==='home'||id==='todo'||id==='calendar'?id:'home';
+ const active=id.startsWith('bank')?'bankSearch':id.startsWith('group')?'groups':id.startsWith('todo')?'todo':id.startsWith('calendar')||id.startsWith('timetable')?'calendar':id==='groups'||id==='todo'||id==='calendar'?id:'groups';
  return `<nav class="bottomnav zb-five" aria-label="하단 내비게이션">${[
- ['home','홈','navigation/bottom_home_fill.svg'],['groups','그룹','navigation/bottom_group_fill.svg'],['todo','할 일','navigation/bottom_todo_fill.svg'],['calendar','캘린더','navigation/bottom_calendar.svg'],['bankSearch','문제은행',null]
+ ['groups','그룹','navigation/bottom_group_fill.svg'],['todo','할 일','navigation/bottom_todo_fill.svg'],['calendar','캘린더','navigation/bottom_calendar.svg'],['bankSearch','문제은행',null]
  ].map(([k,t,p])=>`<button class="${active===k?'selected':''}" data-go="${k}">${p?image(p):'<span class="zb-bank-icon">▦</span>'}<span>${t}</span></button>`).join('')}</nav>`;
 }
 function makeBody(id){
  if(id.startsWith('bank'))return window.ZOCBOUI.page(id,state);
- if(['home'].includes(id))return homePage();
+ if(id==='home')return groupPage('groups');
  if(id.startsWith('rank')||id==='ranking')return id==='rankCategory'?categoryPage():rankPage(id);
  if(id.startsWith('group')||id==='groups')return groupPage(id);
  if(id.startsWith('todo')||id==='todo')return todoPage(id);
@@ -169,9 +171,9 @@ function makeBody(id){
  return `<div class="empty-panel"><strong>화면 자료 확인 중</strong><p>선택하신 화면과 연결된 기능을 분석하고 있습니다.</p></div>`;
 }
 function currentTitle(id){return VERIFIED[id]?.title||GRAPH[id]?.title||({external_google:'Google 인증',external_apple:'Apple 인증',email_entry:'이메일 인증',more_options:'추가 로그인 방식'})[id]||'화면';}
-function topBar(id){const title=currentTitle(id);const back=['home','groups','todo','calendar','planner','ranking','rankWeek'].includes(id)?false:true;
+function topBar(id){const title=currentTitle(id);const back=['groups','todo','calendar','planner','ranking','rankWeek'].includes(id)?false:true;
  const right=id.startsWith('bank')?`<button class="iconbtn" data-go="bankCategory" aria-label="문제은행 메뉴">⋯</button>`:id==='home'?`<button class="iconbtn" data-go="settings" aria-label="설정">☰</button>`:id==='groups'?`<button class="iconbtn" data-go="groupSearch" aria-label="그룹 검색">⌕</button>`:id==='todo'||id==='calendar'?`<button class="iconbtn" data-go="${id==='todo'?'todoAdd':'calendarAdd'}" aria-label="추가">＋</button>`:id==='rankWeek'?`<button class="iconbtn" data-go="rankCategory" aria-label="랭킹 설정">☷</button>`:`<button class="iconbtn" data-go="settings" aria-label="더보기">⋯</button>`;
- return `<div class="osbar"><span>9:18 ▣</span><span>◆ ◢ ▣</span></div><div class="appbar">${back?'<button class="iconbtn" aria-label="뒤로" data-action="back">‹</button>':''}<h2>${e(id==='home'?'YPT':title)}</h2>${right}</div>`;
+ return `<div class="osbar"><span>9:18 ▣</span><span>◆ ◢ ▣</span></div><div class="appbar">${back?'<button class="iconbtn" aria-label="뒤로" data-action="back">‹</button>':''}<h2>${e(title)}</h2>${right}</div>`;
 }
 function renderPhone(){let id=state.screen;const el=document.getElementById('phone');if(VERIFIED[id]){const s=VERIFIED[id];el.innerHTML=`<div style="position:relative;width:100%;height:100%"><img class="auth-screenshot" src="${s.file}" alt="열품타 실제 원본 실행 캡처: ${e(s.title)}" />${s.actions.map(([title,to,rect])=>`<button class="auth-button" style="left:${rect[0]/440*100}%;top:${rect[1]/956*100}%;width:${(rect[2]-rect[0])/440*100}%;height:${(rect[3]-rect[1])/956*100}%" data-go="${to}" aria-label="${e(title)}">${e(title)}</button>`).join('')}</div>`;return;}
  if(!GRAPH[id]){el.innerHTML=`<div class="app">${topBar(id)}<div class="appscroll"><div class="auth-placeholder"><h3>${e(currentTitle(id))}</h3><p>로그인 시스템에 연결되는 화면입니다. 인증 절차는 목업 범위에 포함되지 않습니다.</p>${btn('시작 화면으로 돌아가기','welcome','button-solid wide')}</div></div><div class="gesture"></div></div>`;return;}
@@ -187,12 +189,18 @@ function renderInspector(){const id=state.screen;const p=GRAPH[id]||VERIFIED[id]
  if(id==='calendar'||id.startsWith('calendar'))inner+=`<div class="audit-source"><h3>Android XML 분석</h3><p>calendar_widget.xml / calendar_week.xml / calendar_schedule.xml 등 구조를 참고했습니다. 단, Flutter 본문의 정확한 위젯 배치는 별도 검증 대상입니다.</p></div>`;
  if(id==='home')inner+=`<div class="audit-source"><h3>원본 홈 가이드 이미지</h3><p>APK의 home_new_02.png에 주황색 타이머 상단 영역, Timer · Books · Insights · Planner 탭, 과목 목록이 나타납니다. 이를 홈 시각구성의 추가 참고자료로 사용했습니다.</p><img src="${asset('home/home_new_02.png')}" style="width:100%;margin-top:8px" alt="원본 APK 홈 사용 예시" /></div>`;
  inner+=`<div class="audit-source"><h3>데이터 출처</h3><p>${verified?'실제 화면 PNG.':id.startsWith('bank')?'족보닷컴 원본 XAPK 내 URL·WebView·다운로드 처리 코드와 2026 기말고사 공식 공개 HTML의 학년·과목 35건을 사용합니다. 실시간 회원 검색·다운로드는 공식 족보닷컴 사이트에서만 실행됩니다.':'화면 숫자·닉네임·시간·순위는 모두 브라우저 내부의 테스트용 예시 데이터입니다. 실제 서비스/API와 연결하지 않았습니다.'}</p></div>`;
- document.getElementById('auditBody').innerHTML=inner;const shortcuts=p.actions||[];document.getElementById('auditActions').innerHTML=shortcuts.map(a=>`<button data-go="${e(a.go)}">${e(a.text)} →</button>`).join('')||`<button data-go="home">홈으로 이동 →</button>`;
+ document.getElementById('auditBody').innerHTML=inner;const shortcuts=p.actions||[];document.getElementById('auditActions').innerHTML=shortcuts.map(a=>`<button data-go="${e(a.go)}">${e(a.text)} →</button>`).join('')||`<button data-go="groups">학습반으로 이동 →</button>`;
  document.getElementById('stageStatus').textContent=verified?'원본 APK 실화면 PNG · 원본 캡처 확인':'원본 리소스 적용 · 화면별 본문 시제품 / 배치 미검증';
  document.getElementById('stageBack').disabled=state.history.length===0;}
 function render(){renderPhone();renderMap();renderInspector()}
-function go(id){if(id==='bankHome'&&document.activeElement?.closest?.('.bottomnav'))id='bankSearch';if(!GRAPH[id]&&!VERIFIED[id]&&!['external_google','external_apple','email_entry','more_options','privacy','terms'].includes(id))return;state.history.push(state.screen);state.screen=id;state.modal=null;for(const [g,ids] of Object.entries(GROUPS))if(ids.includes(id))state.menuOpen=g;const url=new URLSearchParams({screen:id});if(id==='bankPaper'&&state.zocbo?.paperId)url.set('paper',state.zocbo.paperId);history.replaceState(null,'','?'+url.toString());render();}
-function back(){if(state.history.length){state.screen=state.history.pop();state.modal=null;history.replaceState(null,'','?screen='+encodeURIComponent(state.screen));render()}else go('home')}
+function go(id){if(id==='home')id='groups';if(id==='bankHome'&&document.activeElement?.closest?.('.bottomnav'))id='bankSearch';if(!GRAPH[id]&&!VERIFIED[id]&&!['external_google','external_apple','email_entry','more_options','privacy','terms'].includes(id))return;state.history.push(state.screen);state.screen=id;state.modal=null;for(const [g,ids] of Object.entries(GROUPS))if(ids.includes(id))state.menuOpen=g;const url=new URLSearchParams({screen:id});if(id==='bankPaper'&&state.zocbo?.paperId)url.set('paper',state.zocbo.paperId);history.replaceState(null,'','?'+url.toString());render();}
+function back(){
+ if(state.history.length){
+  let prev=state.history.pop();while(prev==='home'&&state.history.length)prev=state.history.pop();
+  state.screen=prev==='home'?'groups':prev;state.modal=null;
+  history.replaceState(null,'','?screen='+encodeURIComponent(state.screen));render()
+ }else go('groups');
+}
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>el.classList.remove('show'),2200)}
 function downloadCSV(){const rows=[['날짜','과목','공부시간(분)'],['2026-11-08','국어','73'],['2026-11-08','수학','45'],['2026-11-08','영어','36']];const blob=new Blob(['\ufeff'+rows.map(x=>x.join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ypt_sample_study_log.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function handleAction(act,button){if(act.startsWith('zb'))return window.ZOCBOUI.onAction(act,button,state,go,render,toast);const v=button.dataset.value||'',k=button.dataset.key||'';
@@ -221,7 +229,7 @@ function handleAction(act,button){if(act.startsWith('zb'))return window.ZOCBOUI.
  default:toast('이 화면은 시각 목업입니다.');return;
  }
 }
-document.addEventListener('click',ev=>{const t=ev.target.closest('button[data-go],button[data-action],[role="button"][data-go],#stageBack,#stageHome,#copyDeepLink');if(!t)return;if(t.id==='stageBack'){back();return}if(t.id==='stageHome'){go('home');return}if(t.id==='copyDeepLink'){navigator.clipboard?.writeText(location.href).then(()=>toast('현재 화면 주소를 복사했습니다.')).catch(()=>toast('주소 복사가 제한되었습니다.'));return}if(t.dataset.go){go(t.dataset.go);return}if(t.dataset.action)handleAction(t.dataset.action,t)});
+document.addEventListener('click',ev=>{const t=ev.target.closest('button[data-go],button[data-action],[role="button"][data-go],#stageBack,#stageHome,#copyDeepLink');if(!t)return;if(t.id==='stageBack'){back();return}if(t.id==='stageHome'){go('groups');return}if(t.id==='copyDeepLink'){navigator.clipboard?.writeText(location.href).then(()=>toast('현재 화면 주소를 복사했습니다.')).catch(()=>toast('주소 복사가 제한되었습니다.'));return}if(t.dataset.go){go(t.dataset.go);return}if(t.dataset.action)handleAction(t.dataset.action,t)});
 document.addEventListener('input',ev=>{const t=ev.target;if(t.dataset.zbInput){window.ZOCBOUI.onInput(ev,state);return;}if(t.id==='screenSearch'){renderMap();return}if(t.matches('[data-form]')){state.form[t.dataset.form]=t.value;if(t.dataset.form==='groupSearch')state.groupSearch=t.value;}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){if(state.modal){state.modal=null;render()}else back();}if(ev.key==='Enter'&&ev.target.matches('[role="button"][data-go]'))go(ev.target.dataset.go)});
 setInterval(()=>{if(!state.clockRunning)return;state.clockSec++;if(['home','timer','timerRunning'].includes(state.screen)){const c=document.querySelector('.running-clock,.timer-hero .clock');if(c)c.textContent=timeFmt(state.clockSec)}},1000);
