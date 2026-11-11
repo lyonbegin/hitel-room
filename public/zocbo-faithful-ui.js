@@ -291,14 +291,8 @@ function schoolNativeContent(z,meta,entry){
  const papers=arr(activeData?.exams).filter(x=>x&&x.id);
  const isLoading=!entry||!!z.fDynamicChanged||!!entry?.liveLoading;
  const error=String(z.fDynamicError||entry?.liveError||entry?.error||sourceIndex?.error||'');
- const button=(name,key,active)=>'<button type="button" class="hsc-native-picker'+(active?' picked':'')+
-   '" data-action="zbFFilter" data-value="'+attr(key)+'"><span>'+esc(name)+'</span><b>›</b></button>';
- const criteria='<div class="hsc-native-pickers" aria-label="학교별 원본 검색 조건">'+
-  button(city||'시·도 선택','filter_si',!!city)+
-  button(district||'구/군 선택','filter_gu',!!district)+
-  button(validSchool?school:(school?school+' · 변경 필요':'학교 선택'),'filter_sch',validSchool)+
-  button(grade,'filter_grade',true)+
-  '</div>';
+ // Search controls are provided ONCE by the original source filterBar.
+ // Do not render the duplicate four-button picker that formerly appeared here.
  const okSchool=validSchool&&!!city&&!!district;
  const guidance=!city?'지역부터 선택해 주세요.':
   !district?'선택하신 지역의 구·군을 지정해 주세요.':
@@ -328,9 +322,9 @@ function schoolNativeContent(z,meta,entry){
  '<a href="'+attr(sourceLink)+'" target="_blank" rel="noopener noreferrer">족보닷컴 원본에서 조회 ↗</a>'+
  '<button type="button" data-go="bankSchoolPractice">학습반에 연결된 기출 보기</button></div>';
  const oldGuide=String(entry?.data?.html||'');
- const legacy=oldGuide?'<details class="hsc-native-guide"><summary>원본 학교별 예상족보 이용안내 보기</summary>'+
+ const legacy=oldGuide?'<details class="hsc-native-guide"><summary>족보닷컴 원본 이용안내</summary>'+
   '<div class="hsc-native-legacy">'+oldGuide+'</div></details>':'';
- return '<section class="hsc-native-school" aria-label="학교별 내신 기출자료">'+intro+criteria+notice+
+ return '<section class="hsc-native-school" aria-label="학교별 내신 기출자료">'+intro+notice+
  '<div class="hsc-native-list-head"><b>시험자료 목록</b><small>'+esc(status)+'</small></div>'+
  result+actions+legacy+'</section>';
 }
@@ -416,8 +410,11 @@ function requestChangedFilter(z,meta,key,opt,render,toast){
 function requestSchoolChoices(z,meta,key,render){
  if(key!=='filter_gu'&&key!=='filter_sch')return;
  z.fOptionsLoading=true;z.fOptionsError='';
- const city=z.fDisplay.filter_si||'서울';
- const gu=z.fDisplay.filter_gu||'강남구';
+ const city=z.fDisplay.filter_si||'';
+ const gu=z.fDisplay.filter_gu||'';
+ if(!city||(key==='filter_sch'&&!gu)){
+  z.fOptionsLoading=false;z.fOptionsError='먼저 시·도와 구·군을 선택해 주세요.';render();return;
+ }
  const params=new URLSearchParams({site:z.fSite,si:city});
  if(key==='filter_sch')params.set('gu',gu);
  fetch('/api/zocbo/public-school-options?'+params,{credentials:'omit'})
@@ -470,8 +467,16 @@ UI.onAction=function(act,el,s,go,render,toast){
   if(!['강남구','서초구','송파구'].includes(value))return;
   gangnamSchools.delete(value);ensureGangnamSchools(value);
  }else if(act==='zbFFilter'){
-  z.fDrawer=value;z.fOptionsError='';z.fOptionsLoading=false;z.fOptionsOverride={};
-  requestSchoolChoices(z,meta,value,render);
+  // The real source depends on region -> district -> school.
+  // Without the prior choice, take the user to the missing prerequisite,
+  // never query a fabricated default of 서울/강남구.
+  let key=value;
+  const d=z.fDisplay||{};
+  if(key==='filter_sch'&&!d.filter_si)key='filter_si';
+  else if(key==='filter_sch'&&!d.filter_gu)key='filter_gu';
+  else if(key==='filter_gu'&&!d.filter_si)key='filter_si';
+  z.fDrawer=key;z.fOptionsError='';z.fOptionsLoading=false;z.fOptionsOverride={};
+  requestSchoolChoices(z,meta,key,render);
  }else if(act==='zbFChoose'){
   pickFromOptions(z,meta,el.dataset.key||z.fDrawer,value,toast,render);
   return;
