@@ -1,0 +1,47 @@
+name: Publish Galaxy Korean 72M primary/standby v25 APK
+on:
+  push:
+    branches: [experiment/zipformer-primary-standby-livehalf-v25-20261112]
+    paths:
+      - '.github/release-trigger-v25.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve verified signed ARM64 APK from exact public CI build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN=43055530030
+          STATUS="$(gh run view "$RUN" -R lyonbegin/hitel-room --json conclusion --jq .conclusion)"
+          test "$STATUS" = "success"
+          mkdir -p /tmp/v25-apk
+          gh run download "$RUN" -R lyonbegin/hitel-room \
+            -n Galaxy-Korean-Zipformer-72M-PrimaryStandby-v25-ARM64-APK \
+            -D /tmp/v25-apk
+          APK=/tmp/v25-apk/Galaxy-Korean-Zipformer-72M-PrimaryStandby-v25-ARM64.apk
+          test -s "$APK"
+          sha256sum "$APK" | tee /tmp/v25-apk.sha256
+          cp "$APK" "./Galaxy-Korean-Zipformer-72M-PrimaryStandby-v25-ARM64.apk"
+      - name: Publish immutable v25 direct APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v25-72m-primary-standby-20261112
+          APK=Galaxy-Korean-Zipformer-72M-PrimaryStandby-v25-ARM64.apk
+          SOURCE_SHA="$(gh api repos/lyonbegin/hitel-room/actions/runs/43055530030 --jq .head_sha)"
+          gh release create "$TAG" "$APK" \
+            -R lyonbegin/hitel-room --target "$SOURCE_SHA" \
+            --title "Galaxy Korean STT v25 · 72M INT8 · primary/standby · half-second live edge" \
+            --notes "Separate package app.hitel.koreanzipformer.stream25. Selects the latest created Samsung call recording from folder monitoring, uses only last ~512ms of pre-ready AAC at live edge, starts on primary 72M Korean INT8 recognizer, dispatches to standby only if primary busy, and sends delta-only captions. Requires real-Galaxy validation for performance and CER." \
+            --latest=false
+          gh release view "$TAG" -R lyonbegin/hitel-room --json assets \
+            --jq '.assets[].name' | grep -Fx "$APK"
+          echo "DOWNLOAD=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK"
