@@ -700,7 +700,8 @@ public final class GrowingCallEngine {
          layout.contains("ftyp@")){
         log.event("STREAM","PERSISTENT_MDAT_FOLLOW_SELECTED","bytes",originalMirror.length(),
           "layout",layout,"mode","ONE_OPEN_INPUT_AND_ONE_AAC_DECODER");
-        processPersistentAacFollow(originalMirror);
+        try{processPersistentAacFollow(originalMirror);}
+        finally{finishNativeOnSourceEnd();}
         return;
       }
     }
@@ -1022,7 +1023,7 @@ public final class GrowingCallEngine {
           // Drain the codec's remaining <200ms PCM without making a new decoder.
           // Never re-input any earlier speech.
           if(sherpa!=null && sherpa.isAlive()){
-            sendChunk(pcm,(int)(endFrame+1));
+            sendChunk(pcm,(int)(endFrame+1),true);
             pcmBytes.addAndGet(pcm.length);
           }
         });
@@ -1034,6 +1035,21 @@ public final class GrowingCallEngine {
         "elapsedMs",SystemClock.elapsedRealtime()-started,
         "wasStoppedByUser",stop);
     }
+  }
+
+  // One final EOF to flush the native recognizer after AAC follower stops.
+  void finishNativeOnSourceEnd(){
+    Process p=sherpa;
+    if(p==null||!p.isAlive())return;
+    try{
+      OutputStream out=p.getOutputStream();
+      little32(out,0);little32(out,0);out.flush();out.close();
+    }catch(Throwable e){log.error("STT","FOLLOW_FINAL_EOF_FAILED",e);}
+    try{
+      boolean ended=p.waitFor(18,java.util.concurrent.TimeUnit.SECONDS);
+      log.event("STT","FOLLOW_NATIVE_PROCESS_END","ended",ended,
+        "exitCode",ended?p.exitValue():-1,"captions",resultCount.get());
+    }catch(InterruptedException e){Thread.currentThread().interrupt();}
   }
 
   /** Diagnostic source/audio cursor checkpoint, written only after a
@@ -1314,8 +1330,9 @@ public final class GrowingCallEngine {
       catch(Throwable ignored){}
     },"FIFO-Rescue-Writer").start();
   }
-  void sendChunk(byte[] pcm,int attempt)throws Exception{
-    if(stop)return;
+  void sendChunk(byte[] pcm,int attempt)throws Exception{sendChunk(pcm,attempt,false);}
+  void sendChunk(byte[] pcm,int attempt,boolean finalDrain)throws Exception{
+    if(stop && !finalDrain)return;
     Process p=sherpa;
     if(p==null||!p.isAlive())throw new IOException("SenseVoice native process exited");
     int samples=pcm.length/2;
