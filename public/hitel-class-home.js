@@ -101,7 +101,7 @@ function prefill(markup,c){
 }
 groupPage=function(route){
  if(route==='groups')return pageHome();
- if(route==='groupCreate')return window.HITEL_CLASS_AI_FLOW?.pending?.()?previousPage(route):prefill(previousPage(route),choices.template);
+ if(route==='groupCreate')return (window.HITEL_CLASS_AI_FLOW?.pending?.()||window.HITEL_EXAM_FLOW?.pending?.())?previousPage(route):prefill(previousPage(route),choices.template);
  const rendered=previousPage(route);
  if(['groupSearch','groupJoin','groupPreview'].includes(route)&&typeof rendered==='string')return rendered.replace(/스터디그룹/g,'학습반').replace(/스터디/g,'학습반');
  return rendered;
@@ -114,7 +114,7 @@ document.addEventListener('click',ev=>{
  const target=ev.target.closest?.('#phone button[data-hc]');if(!target)return;
  ev.preventDefault();ev.stopPropagation();
  const action=target.dataset.hc,value=target.dataset.v||'';
- if(action==='new'){choices.template=null;window.HITEL_CLASS_AI_FLOW?.clearPending?.();go('groupCreate');return;}
+ if(action==='new'){choices.template=null;window.HITEL_CLASS_AI_FLOW?.clearPending?.();window.HITEL_EXAM_FLOW?.clearPending?.();go('groupCreate');return;}
  if(action==='template'){const t=templates.get(value);if(!t)return;choices.template=t;go('groupCreate');return;}
  if(action==='route'){if(value==='groupCreate')choices.template=null;go(value);return;}
  if(action==='filter'){choices.selectedCategory=value;render();return;}

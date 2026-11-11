@@ -1,0 +1,43 @@
+/* HITEL additive exam hub. Original Zocbo HTML/CSS is untouched. */
+#phone .hxe-add,#phone .hxe-screen{--hx-ink:#222b3a;--hx-muted:#8490a0;--hx-line:#e4e7ed;--hx-purple:#5548d9;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;min-width:0;max-width:100%;width:100%;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;color:var(--hx-ink);background:#fff}
+#phone .hxe-add{border-bottom:1px solid #e7e9ee;margin:0 0 12px;padding:12px 6px 18px}
+#phone .hxe-screen{padding:12px 5px 30px}
+#phone .hxe-add *,#phone .hxe-screen *{box-sizing:border-box}
+#phone .hxe-add>small,#phone .hxe-screen>small{color:#e07a49;font-weight:720;font-size:10px}
+#phone .hxe-add h2,#phone .hxe-screen h2{margin:0;font-size:20px;letter-spacing:-.04em;line-height:1.4;color:#202735;overflow-wrap:anywhere}
+#phone .hxe-add p,#phone .hxe-screen>p{margin:0;font-size:11px;color:#7b8796;line-height:1.7}
+#phone .hxe-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;width:100%;min-width:0}
+#phone .hxe-type{display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:0;border:1px solid #e5e7ec;border-radius:12px;background:#fff;padding:9px 4px;min-height:68px;color:#4e5867;text-align:center}
+#phone .hxe-type.selected{border-color:#584cea;background:#f4f2ff;color:#5043d1}
+#phone .hxe-type span{font-size:19px;font-weight:750;line-height:1.2}
+#phone .hxe-type b{font-size:11px;white-space:normal;overflow-wrap:anywhere;font-weight:720}
+#phone .hxe-original{display:flex;flex-direction:column;gap:4px;padding:11px 12px;background:#f4f6f9;border-radius:10px;border-left:3px solid #5548d9}
+#phone .hxe-original strong{font-size:12px;color:#323c4d}
+#phone .hxe-original span{font-size:10px;color:#758294;line-height:1.55}
+#phone .hxe-back button{border:0;background:transparent;padding:4px 0;color:#564acf;font-size:11px}
+#phone .hxe-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#phone .hxe-field{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:11px;color:#707b88}
+#phone .hxe-field span{font-size:10px;color:#6b7685;font-weight:690}
+#phone .hxe-field select,#phone .hxe-field input{width:100%;min-height:39px;border:1px solid #dfe3ea;border-radius:9px;padding:9px;background:white;color:#2d3745;min-width:0;font-size:12px}
+#phone .hxe-notice{background:#f7f8fa;padding:10px 12px;border-radius:10px;font-size:10px!important;color:#8d96a1!important;line-height:1.7}
+#phone .hxe-sources{display:flex;flex-direction:column;gap:10px}
+#phone .hxe-source{border:1px solid var(--hx-line);border-radius:13px;padding:13px;display:flex;flex-direction:column;gap:9px;background:white;min-width:0}
+#phone .hxe-source small{color:#635ac0;font-size:10px;font-weight:700}
+#phone .hxe-source h3{font-size:14px;letter-spacing:-.03em;margin:0}
+#phone .hxe-source p{font-size:11px;color:#7f8997;margin:0}
+#phone .hxe-source em{font-size:10px;color:#bd7552;font-style:normal}
+#phone .hxe-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding-top:4px}
+#phone .hxe-origin,#phone .hxe-button,#phone .hxe-primary{display:flex;align-items:center;justify-content:center;text-align:center;padding:9px 8px;border-radius:10px;font-size:11px;font-weight:720;min-height:39px;line-height:1.5}
+#phone .hxe-origin{border:1px solid #dfe1ec;color:#4d5370;background:#fff;text-decoration:none}
+#phone .hxe-button{border:1px solid #dcdaf8;background:#f5f3ff;color:#5548ca}
+#phone .hxe-primary{width:100%;background:#5548d9;border:1px solid #5548d9;color:white;min-height:44px}
+#phone .hxe-info{display:flex;flex-direction:column;gap:7px;border:1px solid #e6e8f0;border-radius:12px;padding:13px}
+#phone .hxe-info b{font-size:13px;color:#303a49}
+#phone .hxe-info p{font-size:11px;color:#818a96;margin:0;line-height:1.6}
+#phone .hxe-section-title{font-size:14px;margin:6px 0 0}
+#phone .hxe-group{border:1px solid #e3e5ed;border-radius:12px;padding:12px;background:white;text-align:left;display:flex;flex-direction:column;gap:5px;width:100%;min-width:0}
+#phone .hxe-group b{font-size:13px;color:#263042}
+#phone .hxe-group small{font-size:10px;color:#8390a1}
+#phone .hxe-group span{font-size:10px;color:#5347c8;font-weight:750;padding-top:6px}
+#phone .hxe-add button,#phone .hxe-screen button{cursor:pointer}
+@media(max-width:360px){#phone .hxe-type b{font-size:10px}#phone .hxe-type{min-height:64px}#phone .hxe-actions{grid-template-columns:1fr}#phone .hxe-add,#phone .hxe-screen{gap:10px}}

@@ -343,6 +343,8 @@ createServer(async (req,res)=>{
  if(url.pathname==='/hitel-moonzip.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-moonzip.css'));return}
  if(url.pathname==='/hitel-class-ai-flow.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/hitel-class-ai-flow.js'));return}
  if(url.pathname==='/hitel-class-ai-flow.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-class-ai-flow.css'));return}
+ if(url.pathname==='/hitel-exam-hub.js'){send(200,'application/javascript; charset=utf-8',readFileSync('./public/hitel-exam-hub.js'));return}
+ if(url.pathname==='/hitel-exam-hub.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/hitel-exam-hub.css'));return}
  if(url.pathname==='/ypt-tutoring-platform.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-tutoring-platform.css'));return}
  if(url.pathname==='/ypt-mobile-shell.css'){send(200,'text/css; charset=utf-8',readFileSync('./public/ypt-mobile-shell.css'));return}
  if(url.pathname==='/ypt-rebuild.js'){send(200,'application/javascript; charset=utf-8',yptVisualJs);return}
