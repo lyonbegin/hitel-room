@@ -177,6 +177,7 @@ UI.page=function(route,s){
  return priorPage(route,s);
 };
 window.HITEL_EXAM_FLOW={
+ chooseCategory:changeCategory,
  beginSchoolPaper:(input)=>{
   const p=input||{},id=String(p.paperId||'').trim().slice(0,120);
   if(!id){toast('먼저 원본 자료번호가 있는 시험지를 선택해 주세요.');return false}
