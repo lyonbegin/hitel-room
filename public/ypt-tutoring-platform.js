@@ -122,7 +122,7 @@ const SAMPLE_LISTINGS=[
   institutionName:'예시중학교',grade:'중2',subject:'수학',bookId:'concept-중2-1',
   topics:'중간고사 대비 · 1~3단원',memberCount:3,example:true},
  {id:'sample-academy-math',name:'예시학원 중3 수학 스터디',institutionType:'academy',
-  institutionName:'예시학원',grade:'중3',subject:'수학',bookId:'black-중3-1',
+  institutionName:'예시학원',grade:'중3',subject:'수학',bookId:'ssen-중3-1',
   topics:'심화 문제·서술형 연습',memberCount:1,example:true},
  {id:'sample-english',name:'예시고등학교 2학년 · 영어 독해',institutionType:'school',
   institutionName:'예시고등학교',grade:'고2',subject:'영어',bookId:'sample-english-book',
@@ -521,7 +521,7 @@ function action(name,val){
  const g=active();
  if(name==='route'){if(val==='bankSearch')prepareBankContext();updateRoute(val);return}
  if(name==='mainTab'){ui.mainTab=val==='mine'?'mine':'discover';render();return}
- if(name==='previewListing'){ui.selectedListing=val;updateRoute('groupPreview');return}
+ if(name==='previewListing'){ui.selectedListing=val;updateRoute('groupPreview');const u=new URL(location.href);u.searchParams.set('listing',val);history.replaceState(null,'',u);return}
  if(name==='openListing'){const l=allListings().find(x=>x.id===val);const own=l?.groupId||membershipForListing(l||{})?.id;if(own)selectGroup(own,'groupDetail');return}
  if(name==='joinListing'){joinListing(val);return}
  if(name==='groupFilter'){ui.groupType=val;render();return}
