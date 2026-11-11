@@ -738,6 +738,8 @@ public final class GrowingCallEngine {
           "sourceEnd",recoveredDeltaEnd,"skipPcmBytes",replaySkip,
           "committedAudioMs",committedPcmBytes.get()/32L);
         String result=consumeOnce(currentInput,attempt,replaySkip);
+        if(result.startsWith("FATAL_UNDRAINED_PCM_"))
+          throw new IOException("Refusing AAC cursor commit: previous PCM reader was not drained: "+result);
         processedMirrorBytes=snapshotBytes;
         if(adts!=null && adts.exists() && !adts.delete())
           log.event("AAC","TEMP_CLEANUP_FAILED","path",adts.getAbsolutePath());
@@ -900,7 +902,9 @@ public final class GrowingCallEngine {
     long previousPcm=pcmBytes.get();
     String termination="UNKNOWN";
     final AtomicBoolean readerDone=new AtomicBoolean(false);
-    final AtomicBoolean writerDone=new AtomicBoolean(false);
+    final AtomicBoolean readerFailed=new AtomicBoolean(false);
+    final AtomicLong readerProgressAt=new AtomicLong(begin);
+    final AtomicLong ffmpegCompletedAt=new AtomicLong(0);
     Thread fifoReader=null;
     try {
       fifo=FFmpegKitConfig.registerNewFFmpegPipe(context);
@@ -923,6 +927,7 @@ public final class GrowingCallEngine {
           int code=result.getReturnCode()==null?Integer.MIN_VALUE:result.getReturnCode().getValue();
           returnCode.set(code);
           complete.set(true);
+          ffmpegCompletedAt.set(SystemClock.elapsedRealtime());
           log.event("FFMPEG","EXECUTE_COMPLETE","code",code,"state",String.valueOf(result.getState()),
             "failStack",String.valueOf(result.getFailStackTrace()),"durationMs",SystemClock.elapsedRealtime()-begin);
         },
@@ -949,6 +954,7 @@ public final class GrowingCallEngine {
             int n=in.read(temp);
             if(n<0){log.event("PIPE","FIFO_EOF","attempt",attempt);break;}
             if(n==0)continue;
+            readerProgressAt.set(SystemClock.elapsedRealtime());
             int offset=0;
             if(replayBytesRemaining>0){
               int skip=(int)Math.min((long)n,replayBytesRemaining);
@@ -976,16 +982,19 @@ public final class GrowingCallEngine {
               pcmWindow.reset();
               pcmWindow.write(buffered,WINDOW_BYTES,buffered.length-WINDOW_BYTES);
               sendChunk(current,attempt);
+              readerProgressAt.set(SystemClock.elapsedRealtime());
             }
           }
           // Flush trailing complete PCM (down to 32ms); an incomplete VAD
           // window is carried inside the native process across all snapshots.
-          if(pcmWindow.size()>=1024 && !stop){
+          if(pcmWindow.size()>=2 && !stop){
             byte[] buffered=pcmWindow.toByteArray();
             if((buffered.length&1)==1)buffered=Arrays.copyOf(buffered,buffered.length-1);
             sendChunk(buffered,attempt);
+            readerProgressAt.set(SystemClock.elapsedRealtime());
           }
         }catch(Throwable t){
+          readerFailed.set(true);
           log.error("PIPE","FIFO_READ_OR_STT_WRITE_FAILURE",t);
         }finally{
           readerDone.set(true);
@@ -993,39 +1002,71 @@ public final class GrowingCallEngine {
         }
       },"FFmpeg-PCM-Consumer-"+attempt);
       fifoReader.start();
+      // Never advance the AAC source cursor until FFmpeg AND the PCM
+      // consumer have both fully finished. Previously this returned success
+      // 3.5 seconds after FFmpeg exit even if the consumer was still writing
+      // to the slow 174M recognizer, allowing two readers to interleave.
       while(!stop){
-        if(complete.get()&&readerDone.get()){termination="FFMPEG_EXIT";break;}
-        if(complete.get() && SystemClock.elapsedRealtime()-begin>3500){
-          termination="FFMPEG_EXIT_FIFO_WAIT";break;
+        if(complete.get() && readerDone.get()){
+          termination=readerFailed.get()?"FIFO_READER_FAILED":"FFMPEG_EXIT_AND_FIFO_DRAINED";
+          break;
         }
-        long last=lastPcm.get();
-        long idleMs=last==0?SystemClock.elapsedRealtime()-begin:SystemClock.elapsedRealtime()-last;
-        if(idleMs>25000){
-          termination="NO_PCM_FOR_25_SECONDS";
-          log.event("FFMPEG","WATCHDOG_NO_PCM","attempt",attempt,
-            "noOutputMs",idleMs,"inputFileSize",currentSize,
-            "ffmpegCompleted",complete.get(),"pcmBytes",pcmBytes.get());
+        long now=SystemClock.elapsedRealtime();
+        long lastProgress=Math.max(readerProgressAt.get(),lastPcm.get());
+        long idleMs=now-Math.max(begin,lastProgress);
+        if(complete.get()&&!readerDone.get()){
+          long completedAt=ffmpegCompletedAt.get();
+          if(completedAt>0 && now-completedAt>120000){
+            termination="FIFO_DRAIN_TIMEOUT";
+            log.event("PIPE","READER_DRAIN_TIMEOUT",
+              "attempt",attempt,"afterFfmpegMs",now-completedAt,
+              "pcmBytes",pcmBytes.get(),"readerDone",readerDone.get());
+            break;
+          }
+        }else if(idleMs>90000){
+          termination="NO_PCM_OR_READER_PROGRESS_90_SECONDS";
+          log.event("FFMPEG","WATCHDOG_NO_READER_PROGRESS","attempt",attempt,
+            "idleMs",idleMs,"ffmpegCompleted",complete.get(),
+            "readerDone",readerDone.get(),"pcmBytes",pcmBytes.get());
           break;
         }
         Thread.sleep(100);
       }
       if(stop)termination="STOPPED";
-      log.event("FFMPEG","SESSION_STOP_REQUESTED","attempt",attempt,"why",termination,
-        "sessionId",ffmpeg.getSessionId());
-      FFmpegKit.cancel(ffmpeg.getSessionId());
-      releasePipeReader(chosenPipe);
-      if(fifoReader!=null)fifoReader.join(1700);
+      boolean drained=readerDone.get();
+      if(drained && !readerFailed.get() && complete.get() && returnCode.get()==0){
+        log.timing("PIPE","READER_DRAIN_ACKNOWLEDGED","attempt",attempt,
+          "totalPcmBytes",pcmBytes.get(),
+          "durationMs",SystemClock.elapsedRealtime()-begin);
+      }else{
+        log.event("PIPE","READER_DRAIN_NOT_CONFIRMED","attempt",attempt,
+          "termination",termination,"readerDone",drained,
+          "readerFailed",readerFailed.get(),"ffmpegCompleted",complete.get(),
+          "ffmpegExit",returnCode.get());
+      }
+      if(!complete.get() && ffmpeg!=null)FFmpegKit.cancel(ffmpeg.getSessionId());
+      if(!drained){
+        releasePipeReader(chosenPipe);
+        if(fifoReader!=null)fifoReader.join(10000);
+      }
       log.event("FFMPEG","SESSION_RESULT","attempt",attempt,"exit",returnCode.get(),
-        "termination",termination,"addedPcm",pcmBytes.get()-previousPcm,
+        "termination",termination,"readerDone",readerDone.get(),
+        "readerFailed",readerFailed.get(),
+        "addedPcm",pcmBytes.get()-previousPcm,
         "captions",resultCount.get(),"durationMs",SystemClock.elapsedRealtime()-begin);
-      return complete.get() && returnCode.get()==0?"FFMPEG_CLEAN_END":termination;
+      boolean clean=complete.get() && returnCode.get()==0 &&
+        readerDone.get() && !readerFailed.get() && !stop;
+      if(clean)return "FFMPEG_CLEAN_END";
+      if(!readerDone.get() || readerFailed.get())
+        return "FATAL_UNDRAINED_PCM_"+termination;
+      return termination;
     }catch(Throwable e){
       log.error("FFMPEG","ATTEMPT_EXCEPTION",e);
       return stop?"STOPPED":"EXCEPTION_"+e.getClass().getSimpleName();
     }finally{
       if(session!=null)FFmpegKit.cancel(session.getSessionId());
       if(fifo!=null){
-        releasePipeReader(fifo);
+        if(!readerDone.get())releasePipeReader(fifo);
         FFmpegKitConfig.closeFFmpegPipe(fifo);
       }
       fifo=null;ffmpeg=null;
@@ -1078,6 +1119,7 @@ public final class GrowingCallEngine {
     little32(out,seq);little32(out,samples);out.write(pcm);out.flush();
     long writeEndNs=SystemClock.elapsedRealtimeNanos();
     committedPcmBytes.addAndGet(pcm.length);
+    lastPcm.set(SystemClock.elapsedRealtime());
     log.timingAt(writeEndNs,"PCM","PIPE_WRITE_END","seq",seq,"attempt",attempt,
       "audioEndMs",committedPcmBytes.get()/32L,
       "writeDurationMs",(writeEndNs-writeBeginNs)/1000000.0);
