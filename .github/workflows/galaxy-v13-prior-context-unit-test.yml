@@ -1,0 +1,32 @@
+name: Galaxy v13 full prior utterance Korean prefix and short-pause native test
+on:
+  push:
+    branches: [feature/galaxy-v13-incremental-aac-pcm-cursor-20261111]
+    paths:
+      - '.github/workflows/galaxy-v13-prior-context-unit-test.yml'
+      - 'sherpa-original-launcher/native/prior_utterance_merge.h'
+      - 'sherpa-original-launcher/native/online_prior_speech_context.h'
+      - 'sherpa-original-launcher/native/test_prior_utterance_merge.cc'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-real-previous-utterance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile C++17 UTF-8 overlap and v7 short pause from real source
+        run: |
+          set -euo pipefail
+          g++ -O2 -std=c++17 -Wall -Wextra -Werror \
+            sherpa-original-launcher/native/test_prior_utterance_merge.cc \
+            -o /tmp/test-prior
+          /tmp/test-prior
+      - name: Verify no VAD gating or previous PCM replay in native stream
+        run: |
+          set -euo pipefail
+          grep -F 'priorContext.accept(wave,n,pcmSamples,lastRaw)' \
+            sherpa-original-launcher/native/korean_zipformer_online_cli.cc
+          grep -F 'ONLINE_CONTEXT_MERGE:' \
+            sherpa-original-launcher/native/online_prior_speech_context.h
