@@ -17,7 +17,7 @@ const ui={q:'',cat:[],min:1,max:10,sort:'votes',selected:'1',saved:new Set(load(
 const levelColor=n=>n<=2?'#0d9b7c':n<=4?'#659b27':n<=6?'#b87917':'#d65a30';
 function nav(active){
  return '<nav class="mzx-nav" aria-label="AI 과외 세부 메뉴">'+
- [['groupAITutor','문제집'],['groupMoonzipRoadmap','로드맵'],['groupMoonzipCompare','비교'],['groupTutorMine','내 AI 과외']].map(([id,label])=>
+ [['groupAITutor','문제집'],['groupTutorMine','내 AI 과외']].map(([id,label])=>
  '<button type="button" data-go="'+id+'" class="'+(id===active?'on':'')+'">'+label+'</button>').join('')+'</nav>';
 }
 function searchForm(){return '<form class="mzx-search" id="mzx-search-form"><input name="q" type="search" autocomplete="off" placeholder="문제집 검색" aria-label="문제집 시리즈명 또는 출판사 검색" value="'+esc(ui.q)+'"><button type="submit" aria-label="문제집 찾기">⌕</button></form>'}
@@ -40,12 +40,12 @@ function bookCard(book){
  '<span class="mzx-publisher">'+esc(book.publisher)+'</span>'+
  '<div class="mzx-book-actionline">'+
  act(ui.saved.has(book.id)?'▣ 저장됨':'▢ 저장','save',book.id,'mzx-lite-action'+(ui.saved.has(book.id)?' on':''))+
- act(ui.compare.has(book.id)?'✓ 비교중':'＋ 비교','toggleCompare',book.id,'mzx-lite-action')+'</div></div></div>'+
+ act('이 교재의 AI 과외 ›','detail',book.id,'mzx-lite-action mzx-info-action')+'</div></div></div>'+
  '<div class="mzx-book-analysis"><div class="mzx-score"><span>난이도 <small>(투표 '+book.votes+')</small></span>'+
  '<strong style="color:'+levelColor(book.score)+'">'+book.score.toFixed(1)+'</strong><em>/10</em></div>'+purpose(book)+'</div></article>';
 }
 function filters(){
- return '<div class="mzx-filterbox"><div class="mzx-filter-top"><b>필터</b>'+act('초기화','reset','','mzx-link')+'</div>'+
+ return '<div class="mzx-filterbox"><div class="mzx-filter-top"><b>필터</b><div>'+act('초기화','reset','','mzx-link')+act('닫기','filter','','mzx-link')+'</div></div>'+
  '<div class="mzx-filter-label"><b>난이도</b><small>'+ui.min+' ~ '+ui.max+'</small></div>'+
  '<div class="mzx-slider-row"><label>최소<input type="range" id="mzx-min" min="1" max="10" value="'+ui.min+'"></label>'+
  '<label>최대<input type="range" id="mzx-max" min="1" max="10" value="'+ui.max+'"></label></div>'+
@@ -77,11 +77,6 @@ function home(){
  '<div class="mzx-categories">'+DATA.categories.map(x=>'<button type="button" data-mzx="category" data-value="'+esc(x[1])+'"><span>'+x[2]+'</span><strong>'+x[0]+'</strong></button>').join('')+'</div>'+
  sec('난이도별 문제집 찾기','내 수준에 맞는 문제집을 찾아보세요')+
  '<div class="mzx-level-grid">'+DATA.levels.map(l=>'<button type="button" data-mzx="level" data-value="'+l[3]+','+l[4]+'"><b>'+l[0]+'</b><strong>'+l[1]+'</strong><small>'+l[2]+'</small></button>').join('')+'</div>'+
- sec('문제집 로드맵','강사와 학생이 직접 짠 문제집 학습 경로',act('모두 보기 →','route','groupMoonzipRoadmap','mzx-link'))+
- '<div class="mzx-roadmap-grid">'+DATA.roadmap.map((r,i)=>
- '<button type="button" class="mzx-roadmap-card" data-mzx="roadmap" data-value="'+i+'"><small>'+esc(r.author)+' · '+esc(r.subtitle)+'</small>'+
- '<strong>'+esc(r.title)+'</strong><p>'+esc(r.desc)+'</p>'+
- '<div>'+r.steps.slice(0,3).map((t,n)=>'<span>'+(n+1)+'단계 '+esc(t)+'</span>').join('')+'</div></button>').join('')+'</div>'+
  sec('실시간 인기 문제집','제공된 원본 화면의 11월 11일 기준 항목')+
  '<div class="mzx-popular">'+DATA.popular.map(([name,score],i)=>'<button type="button" data-mzx="query" data-value="'+esc(name)+'"><b>'+(i+1)+'</b>'+
  '<span>'+esc(name)+'</span><em>난이도 '+score.toFixed(1)+'</em></button>').join('')+'</div>'+
@@ -120,6 +115,7 @@ function catalogBridge(book){
 }
 function detail(){
  const b=DATA.series.find(x=>x.id===ui.selected)||DATA.series[1],linked=catalogBridge(b);
+ if(window.HITEL_CLASS_AI_FLOW?.renderSeries)return window.HITEL_CLASS_AI_FLOW.renderSeries(b);
  return shell('groupMoonzipSearch')+act('‹ 문제집 목록','route','groupMoonzipSearch','mzx-link')+
  '<div class="mzx-detail-intro">'+cover(b.image,b.name,'mzx-detail-cover')+'<div>'+tags(b.cats)+
  '<h2>'+esc(b.name)+'</h2><p>'+esc(b.publisher)+'</p><div class="mzx-detail-score" style="color:'+levelColor(b.score)+'">'+b.score.toFixed(1)+'<small>/10 · 투표 '+b.votes+'개</small></div></div></div>'+
@@ -164,8 +160,7 @@ groupPage=function(route){
  if(route==='groupAITutor')return home();
  if(route==='groupMoonzipSearch')return search();
  if(route==='groupMoonzipSeries')return detail();
- if(route==='groupMoonzipRoadmap')return roadmap();
- if(route==='groupMoonzipCompare')return compare();
+ if(route==='groupMoonzipRoadmap'||route==='groupMoonzipCompare')return search();
  return oldPage(route);
 };
 bottomFor=function(route){return ROUTES[route]?oldBottom('groupAITutor'):oldBottom(route)};
@@ -187,8 +182,7 @@ document.addEventListener('click',ev=>{
  if(a==='filter'){ui.showFilters=!ui.showFilters;refresh();return}
  if(a==='save'){ui.saved.has(v)?ui.saved.delete(v):ui.saved.add(v);
   try{localStorage.setItem('hitel.moonzip.bookshelf.v1',JSON.stringify([...ui.saved]))}catch{}refresh();return}
- if(a==='compareToggle'){if(ui.compare.has(v))ui.compare.delete(v);else if(ui.compare.size<3)ui.compare.add(v);
-  else {toast('최대 3개까지만 비교할 수 있습니다.');return}refresh();return}
+ if(a==='compareToggle'){toast('이 기능은 AI 학습반 연결로 통합되었습니다.');return}
 });
 document.addEventListener('submit',ev=>{
  if(ev.target?.id!=='mzx-search-form')return;
@@ -201,16 +195,12 @@ document.addEventListener('change',ev=>{
  if(el.hasAttribute?.('data-mzx-category')){
   const c=el.getAttribute('data-mzx-category');ui.cat=el.checked?[...new Set([...ui.cat,c])]:ui.cat.filter(x=>x!==c);refresh();return;
  }
- if(el.hasAttribute?.('data-mzx-cmp')){
-  const c=el.getAttribute('data-mzx-cmp');
-  if(el.checked){if(ui.compare.size>=3){toast('비교는 최대 3개 시리즈입니다.');refresh();return}ui.compare.add(c)}else ui.compare.delete(c);
-  refresh();return;
- }
+ if(el.hasAttribute?.('data-mzx-cmp')){toast('비교 화면은 AI 과외로 통합되었습니다.');return}
  if(el.id==='mzx-sort'){ui.sort=el.value;refresh();return}
  if(el.id==='mzx-min'){ui.min=Math.min(Number(el.value),ui.max);refresh();return}
  if(el.id==='mzx-max'){ui.max=Math.max(Number(el.value),ui.min);refresh();return}
 });
-window.HITEL_MOONZIP_INSPECT=()=>({screens:Object.keys(ROUTES),catalogCount:DATA.series.length,
+window.HITEL_MOONZIP_INSPECT=()=>({screens:['groupAITutor','groupMoonzipSearch','groupMoonzipSeries'],catalogCount:DATA.series.length,
 originalDisplayedCount:DATA.originalSeriesCount,origin:'user-provided HTML',live:false,
 filtered:results().length,saved:ui.saved.size,compare:ui.compare.size});
 render();
