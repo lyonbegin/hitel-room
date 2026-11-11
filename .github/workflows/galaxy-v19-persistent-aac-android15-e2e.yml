@@ -1,0 +1,203 @@
+name: Galaxy v19 continuous AAC 300ms streaming Android 15 E2E
+on:
+  push:
+    branches: [feature/galaxy-v19-follow-checkpoint-300ms-20261111]
+    paths:
+      - '.github/workflows/galaxy-v19-persistent-aac-android15-e2e.yml'
+      - 'sherpa-original-launcher/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-galaxy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare Android SDK and NDK (skip preinstalled; bound network waits)
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          NDK_COMPILER="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++"
+          if [ -x "$NDK_COMPILER" ] && [ -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            echo "REUSE_PREINSTALLED_ANDROID_SDK_NDK"
+          else
+            echo "INSTALL_MISSING_ANDROID_COMPONENTS"
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$NDK_COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Download verified Korean 174M Zipformer INT8 ONNX and Android runtimes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HF_HUB_DOWNLOAD_TIMEOUT: "150"
+          HF_HUB_DISABLE_TELEMETRY: "1"
+        run: |
+          set -euo pipefail
+          DST=sherpa-original-launcher/app/src/main
+          mkdir -p /tmp/sherpa-android /tmp/download "$DST/assets/sensevoice" "$DST/jniLibs/arm64-v8a" sherpa-original-launcher/app/libs
+          gh release download v1.12.26 -R k2-fsa/sherpa-onnx -p sherpa-onnx-v1.12.26-android.tar.bz2 -D /tmp/download
+          tar -xjf /tmp/download/sherpa-onnx-v1.12.26-android.tar.bz2 -C /tmp/sherpa-android
+          cp /tmp/sherpa-android/jniLibs/arm64-v8a/*.so "$DST/jniLibs/arm64-v8a/"
+          python3 -m pip install --disable-pip-version-check -q 'huggingface_hub>=0.36,<2'
+          python3 sherpa-original-launcher/native/download_korean_zipformer_174m.py
+          test -s "$DST/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so"
+          test -s "$DST/jniLibs/arm64-v8a/libonnxruntime.so"
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/download
+          cp /tmp/download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar
+          unzip -Z1 sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar | grep -Fx 'jni/arm64-v8a/libffmpegkit.so'
+          find "$DST/jniLibs/arm64-v8a" -maxdepth 1 -type f \( -name 'libav*.so' -o -name 'libsw*.so' -o -name 'libffmpegkit*.so' \) -delete
+
+      - name: Compile genuine streaming Zipformer C API native process
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/api/sherpa-onnx/c-api
+          curl -fLsS --retry 5 https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.12.26/sherpa-onnx/c-api/c-api.h -o /tmp/api/sherpa-onnx/c-api/c-api.h
+          DST=sherpa-original-launcher/app/src/main/jniLibs/arm64-v8a
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$DST/" || true
+          "$LLVM/aarch64-linux-android26-clang++" -std=c++17 -O2 -fPIE -pie \
+            -I/tmp/api sherpa-original-launcher/native/korean_zipformer_online_cli.cc \
+            -L"$DST" -lsherpa-onnx-c-api -Wl,--no-undefined \
+            -o "$DST/libsensevoice-stream.so"
+          "$LLVM/llvm-readelf" -h "$DST/libsensevoice-stream.so" | grep AArch64
+          "$LLVM/llvm-readelf" -d "$DST/libsensevoice-stream.so" | grep NEEDED
+      - name: Build Android native raw AAC frame recovery oracle
+        run: |
+          set -euo pipefail
+          ROOT=sherpa-original-launcher
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          mkdir -p /tmp/ffmpeg-headers /tmp/ffmpeg-arm
+          curl -fLsS --retry 5 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          FFMPEG_HEADERS="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          # FFmpeg's generated platform header is absent from its source archive.
+          # This Android ARM64 little-endian NDK target needs these public API flags.
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$FFMPEG_HEADERS/libavutil/avconfig.h"
+          unzip -qo "$ROOT/app/libs/ffmpeg-kit-min.aar" 'jni/arm64-v8a/libavcodec.so' 'jni/arm64-v8a/libavutil.so' -d /tmp/ffmpeg-arm
+          DST="$ROOT/app/src/main/jniLibs/arm64-v8a"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c99 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" "$ROOT/native/aac_mdat_recover_oracle.c" \
+            -L/tmp/ffmpeg-arm/jni/arm64-v8a -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-recover.so"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" "$ROOT/native/aac_mdat_follow.c" \
+            -L/tmp/ffmpeg-arm/jni/arm64-v8a -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-follow.so"
+          "$LLVM/llvm-readelf" -h "$DST/libaac-mdat-follow.so" | grep -F 'AArch64'
+          "$LLVM/llvm-readelf" -d "$DST/libaac-mdat-recover.so" | grep -E 'libav(codec|util).so'
+      - name: Compile identical STT C++ sources and AAC recovery for x86_64 emulator
+        run: |
+          set -euo pipefail
+          DST=sherpa-original-launcher/app/src/main/jniLibs/x86_64
+          mkdir -p "$DST" /tmp/ffmpeg-x86
+          cp /tmp/sherpa-android/jniLibs/x86_64/*.so "$DST/"
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/libc++_shared.so" "$DST/" || true
+          "$LLVM/x86_64-linux-android26-clang++" -std=c++17 -O2 -fPIE -pie \
+            -I/tmp/api sherpa-original-launcher/native/korean_zipformer_online_cli.cc \
+            -L"$DST" -lsherpa-onnx-c-api -Wl,--no-undefined \
+            -o "$DST/libsensevoice-stream.so"
+          unzip -qo sherpa-original-launcher/app/libs/ffmpeg-kit-min.aar \
+            'jni/x86_64/libavcodec.so' 'jni/x86_64/libavutil.so' -d /tmp/ffmpeg-x86
+          FFMPEG_HEADERS="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          "$LLVM/x86_64-linux-android26-clang" -O2 -std=c99 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" sherpa-original-launcher/native/aac_mdat_recover_oracle.c \
+            -L/tmp/ffmpeg-x86/jni/x86_64 -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-recover.so"
+          "$LLVM/x86_64-linux-android26-clang" -O2 -std=c11 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" sherpa-original-launcher/native/aac_mdat_follow.c \
+            -L/tmp/ffmpeg-x86/jni/x86_64 -lavcodec -lavutil \
+            -Wl,--no-undefined -o "$DST/libaac-mdat-follow.so"
+          "$LLVM/llvm-readelf" -h "$DST/libaac-mdat-follow.so" | grep -F 'X86-64'
+          "$LLVM/llvm-readelf" -h "$DST/libsensevoice-stream.so" | grep -F 'X86-64'
+          "$LLVM/llvm-readelf" -h "$DST/libaac-mdat-recover.so" | grep -F 'X86-64'
+          find "$DST" -maxdepth 1 -type f \( -name 'libav*.so' -o -name 'libsw*.so' -o -name 'libffmpegkit*.so' \) -delete
+          # Preserve previously distributed arm64-only v11: this is an
+          # independently built architecture-specific emulator test APK.
+          sed -i 's/abiFilters.add("arm64-v8a")/abiFilters.add("x86_64")/' \
+            sherpa-original-launcher/app/build.gradle.kts
+          grep -F 'abiFilters.add("x86_64")' sherpa-original-launcher/app/build.gradle.kts
+      - name: Verify incremental AAC cursor source and one-sided context branch history
+        run: |
+          set -euo pipefail
+          grep -F 'RECOVERY_CURSOR source=' sherpa-original-launcher/native/aac_mdat_recover_oracle.c
+          grep -F 'nextAacFrameSourceByte' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'SOURCE_CURSOR_COMMITTED' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'SOURCE_SEEK' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'STREAM_POLL_MS=300' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+          grep -F 'StreamingAacPcmDecoder' sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/GrowingCallEngine.java
+      - name: Build emulator-specific actual APK and verify signature and native libs
+        run: |
+          set -euo pipefail
+          gradle -p sherpa-original-launcher :app:assembleDebug --no-daemon --stacktrace
+          APK=sherpa-original-launcher/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.koreanzipformer.stream19'
+          for f in lib/x86_64/libaac-mdat-recover.so lib/x86_64/libaac-mdat-follow.so lib/x86_64/libsensevoice-stream.so lib/x86_64/libsherpa-onnx-c-api.so lib/x86_64/libonnxruntime.so assets/sensevoice/encoder.int8.onnx; do
+            unzip -Z1 "$APK" | grep -Fx "$f"
+          done
+          mkdir -p emulator-qa-v11
+          sha256sum "$APK" | tee emulator-qa-v11/x86_64-apk.sha256
+          cp "$APK" emulator-qa-v11/Galaxy-v19-emulator-x86_64.apk
+      - name: Generate real Korean speech AAC M4A reference fixture
+        run: |
+          set -euo pipefail
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6/test_wavs'
+          curl -fLsS --retry 5 --retry-delay 2 "$BASE/0.wav" -o /tmp/korean.wav
+          ffmpeg -hide_banner -loglevel error -y -stream_loop 4 -i /tmp/korean.wav \
+            -t 18 -ar 16000 -ac 1 -c:a aac -b:a 96k /tmp/ko_live_test.m4a
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,sample_rate \
+            -of default=noprint_wrappers=1 /tmp/ko_live_test.m4a | tee emulator-qa-v11/fixture.txt
+          sha256sum /tmp/korean.wav /tmp/ko_live_test.m4a | tee emulator-qa-v11/fixture.sha256
+          test "$(stat -c%s /tmp/ko_live_test.m4a)" -gt 10000
+      - name: Enable hardware acceleration in real KVM Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and run actual APK on Android 15; verify audio-to-UI and timeline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -e
+            adb wait-for-device
+            adb shell settings put system screen_off_timeout 1800000
+            adb shell input keyevent 82
+            adb install -r emulator-qa-v11/Galaxy-v19-emulator-x86_64.apk
+            adb shell mkdir -p /sdcard/Download
+            adb push /tmp/ko_live_test.m4a /sdcard/Download/ko_live_test.m4a
+            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/ko_live_test.m4a || true
+            python3 sherpa-original-launcher/ci/test_galaxy_latency_v11_emulator.py
+      - name: Upload all emulator evidence including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: galaxy-v19-source-seek-android15-e2e-evidence
+          path: emulator-qa-v11/
+          compression-level: 6
+          if-no-files-found: warn
+      - name: Require real emulator PASS (not a build-only assertion)
+        run: |
+          set -euo pipefail
+          test -s emulator-qa-v11/PASS.txt
+          grep -F 'native partial captions' emulator-qa-v11/PASS.txt
+          cat emulator-qa-v11/PASS.txt
