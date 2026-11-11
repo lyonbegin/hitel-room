@@ -13,7 +13,8 @@ for(const[id,title] of Object.entries(ROUTES)){
 }
 const oldPage=groupPage,oldBottom=bottomFor;
 const load=()=>{try{let x=JSON.parse(localStorage.getItem('hitel.moonzip.bookshelf.v1')||'[]');return Array.isArray(x)?x:[]}catch{return []}};
-const ui={q:'',cat:[],min:1,max:10,sort:'votes',selected:'1',saved:new Set(load()),compare:new Set(),roadmap:0,showFilters:false};
+const previousSelection=(()=>{try{return sessionStorage.getItem('hitel.moonzip.selected-series.v1')||'1'}catch{return'1'}})();
+const ui={q:'',cat:[],min:1,max:10,sort:'votes',selected:previousSelection,saved:new Set(load()),compare:new Set(),roadmap:0,showFilters:false};
 const levelColor=n=>n<=2?'#0d9b7c':n<=4?'#659b27':n<=6?'#b87917':'#d65a30';
 /* The entire AI tutoring page is one workbook-curation surface, not a personal tutor inventory. */
 function nav(){return ''}
@@ -137,7 +138,7 @@ function detail(){
  if(window.HITEL_CLASS_AI_FLOW?.renderSeries)return window.HITEL_CLASS_AI_FLOW.renderSeries(b);
  return shell('groupMoonzipSearch')+act('‹ 문제집 목록','route','groupMoonzipSearch','mzx-link')+
  '<div class="mzx-detail-intro">'+cover(b.image,b.name,'mzx-detail-cover')+'<div>'+tags(b.cats)+
- '<h2>'+esc(b.name)+'</h2><p>'+esc(b.publisher)+'</p><div class="mzx-detail-score" style="color:'+levelColor(b.score)+'">'+b.score.toFixed(1)+'<small>/10 · 투표 '+b.votes+'개</small></div></div></div>'+
+ '<h2>'+esc(b.name)+'</h2><p>'+esc(b.publisher||'원본 첫 화면에만 정보 있음')+'</p><div class="mzx-detail-score" style="color:'+levelColor(b.score)+'">'+b.score.toFixed(1)+'<small>/10'+(Number.isFinite(b.votes)?' · 투표 '+b.votes+'개':' · 첫 화면 표시')+'</small></div></div></div>'+
  sec('학습 목적 분포')+purpose(b)+
  '<div class="mzx-detail-tip"><strong>어떤 공부에 적합한 교재인가요?</strong><p>원본의 학습 분류는 '+esc(b.cats.join('·'))+
  '입니다. 투표에 따른 목적 분포를 참고하여 선택하세요. 현재 데이터만으로 개인 적합도를 단정할 수 없습니다.</p></div>'+
