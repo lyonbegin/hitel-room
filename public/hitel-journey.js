@@ -135,7 +135,7 @@ function create(){
  (book?'<div class="hj-panel"><small>선택한 교재·시리즈</small><b>'+esc(bookName)+'</b><p>학습반에 연결할 학습자료입니다. 실제 학년·학기·판본은 확인하셔야 합니다.</p></div>':'')+
  '<form id="hj-create" class="hj-form">'+
  '<label>반 이름<input name="name" maxlength="70" required placeholder="예: 중3 수학 이차방정식 완성반"></label>'+
- '<div class="hj-formrow"><label>구분<select name="institutionType"><option value="school">학교</option><option value="academy">학원</option></select></label><label>학년<select name="grade">'+['초4','초5','초6','중1','중2','중3','고1','고2','고3','제한 없음'].map(x=>'<option>'+x+'</option>').join('')+'</select></label></div>'+
+ '<div class="hj-formrow"><label>구분<select name="institutionType"><option value="school">학교</option><option value="academy">학원</option></select></label><label>학년<select name="grade">'+['초4','초5','초6','중1','중2','중3','고1','고2','고3','제한 없음'].map(x=>'<option'+(book?.grade===x?' selected':'')+'>'+x+'</option>').join('')+'</select></label></div>'+
  '<label>학교·학원명<input name="institutionName" maxlength="100" required placeholder="학교 또는 학원명"></label>'+
  '<div class="hj-formrow"><label>과목<select name="subject">'+SUBJECTS.map(x=>'<option'+(x===classSubject?' selected':'')+'>'+x+'</option>').join('')+'</select></label><label>학습 목표<select name="goalType">'+GOALS.map(x=>'<option'+(book&&x==='문제집 완성'?' selected':'')+'>'+x+'</option>').join('')+'</select></label></div>'+
  '<label>완성할 목표<input name="goalTitle" maxlength="150" required value="'+esc(bookName?bookName+' 학습 목표 완성':'')+'" placeholder="예: 쎈 수학 C단계 완성"></label>'+
@@ -361,6 +361,8 @@ function makeGroup(f){
  const seat=Number(v('capacity'));
  if(!Number.isInteger(seat)||seat<1||seat>5){toast('학습반 정원은 1~5명 중에서 선택해 주세요.');return}
  const selected=window.HITEL_CLASS_AI_FLOW?.pending?.()||null;
+ if(selected?.verified&&selected.grade&&selected.grade!==v('grade')){toast('선택한 교재의 학년과 학습반 학년이 다릅니다. 학년을 확인해 주세요.');return}
+ if(selected&&selected.subject!==v('subject')){toast('교재의 과목과 학습반 과목을 일치시켜 주세요.');return}
  const bookId=(selected?.verified&&selected.bookId&&selected.subject===v('subject'))?selected.bookId:'';
  const studyBook=selected&&v('bookTitle')===selected.name?{series: selected.name,publisher:selected.publisher||'',source:selected.source||'',
   verified:!!bookId,grade:selected.grade||'',term:selected.term||''}:null;
