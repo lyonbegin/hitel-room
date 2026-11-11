@@ -114,7 +114,7 @@ document.addEventListener('click',ev=>{
  const target=ev.target.closest?.('#phone button[data-hc]');if(!target)return;
  ev.preventDefault();ev.stopPropagation();
  const action=target.dataset.hc,value=target.dataset.v||'';
- if(action==='new'){choices.template=null;go('groupCreate');return;}
+ if(action==='new'){choices.template=null;window.HITEL_CLASS_AI_FLOW?.clearPending?.();go('groupCreate');return;}
  if(action==='template'){const t=templates.get(value);if(!t)return;choices.template=t;go('groupCreate');return;}
  if(action==='route'){if(value==='groupCreate')choices.template=null;go(value);return;}
  if(action==='filter'){choices.selectedCategory=value;render();return;}
