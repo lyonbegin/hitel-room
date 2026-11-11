@@ -111,7 +111,7 @@ public final class MainActivity extends Activity {
       "아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":recentCaption(text));
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
     if(latestPinnedCaption!=null)latestPinnedCaption.setText(
-      text.isEmpty()?"새 음성인식 결과 대기 중":recentCaptionTail(text,150));
+      text.isEmpty()?"새 음성인식 결과 대기 중":recentCaptionTail(text,48));
     if(live){
       final String expected=caption.getText().toString();
       final long setNs=SystemClock.elapsedRealtimeNanos();
@@ -348,7 +348,7 @@ public final class MainActivity extends Activity {
     caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":recentCaption(text));
     if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
     if(latestPinnedCaption!=null)latestPinnedCaption.setText(
-      text.isEmpty()?"새 음성인식 결과 대기 중":recentCaptionTail(text,150));
+      text.isEmpty()?"새 음성인식 결과 대기 중":recentCaptionTail(text,48));
     refreshButtons();
     refreshEventTail();
   }
