@@ -85,7 +85,9 @@ struct OnlinePriorSpeechContext {
       previousStartSample=completedStart;
       previousUtteranceText=thisText;
       lastGap=std::move(followingGap);
-      transcriptBeforeCurrent=merge(wholeRaw);
+      const std::string completedMerge=merge(wholeRaw);
+      previousExists=true;
+      transcriptBeforeCurrent=completedMerge;
       current.erase(current.begin(),current.begin()+end);
       currentStartSample=gap.endSamples;
       lastBoundaryEnd=gap.endSamples;
