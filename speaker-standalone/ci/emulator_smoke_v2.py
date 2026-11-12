@@ -64,7 +64,7 @@ run_as("mkdir","-p","files")
 run_as("cp","/data/local/tmp/standalone-first.bin","files/live-growing.m4a")
 uri="file:///data/user/0/"+APP+"/files/live-growing.m4a"
 print("START_FOREGROUND_SERVICE",flush=True)
-start=run_as("am","start-foreground-service",
+start=run_as("am","start-foreground-service","--user","0",
    "-n",COMPONENT,"-a","app.hitel.speakeronly.START",
    "--es","uri",uri,"--ez","folder","false","--ei","deviceId","-1",
    check=False)
@@ -95,7 +95,7 @@ for marker in ("usage=USAGE_MEDIA","capturePolicy=ALLOW_CAPTURE_BY_ALL"):
     if marker not in pre:
         print("WARNING usage marker missing in current log format:",marker,flush=True)
 print("STOP_SERVICE",flush=True)
-res=run_as("am","start-service","-n",COMPONENT,"-a","app.hitel.speakeronly.STOP",check=False)
+res=run_as("am","start-service","--user","0","-n",COMPONENT,"-a","app.hitel.speakeronly.STOP",check=False)
 print("STOP_RESULT",res.strip()[:800],flush=True)
 time.sleep(6)
 l=log("after-stop")
