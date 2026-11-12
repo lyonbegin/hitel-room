@@ -15,7 +15,7 @@ import android.util.Log;
 import android.telephony.TelephonyManager;
 import java.io.IOException;
 
-/** Background file monitoring and speaker output; deliberately contains no STT. */
+/** Background call recording watcher with direct 16kHz PCM to Sherpa Korean STT. */
 public final class SpeakerService extends Service {
   static final String START="app.hitel.speakeronly.START";
   static final String STOP="app.hitel.speakeronly.STOP";
@@ -25,6 +25,7 @@ public final class SpeakerService extends Service {
   static final String EX_FOLDER="folder";
   static final String EX_DEVICE="deviceId";
   static final String EX_STATUS="status";
+  static final String EX_TRANSCRIPT="transcript";
   static final String EX_DONE="finished";
   static final String CHANNEL="samsung_recording_audio";
   private volatile SpeakerEngine engine;
@@ -51,7 +52,7 @@ public final class SpeakerService extends Service {
       getSharedPreferences("speaker",MODE_PRIVATE).edit().putInt("routeId",outputId).apply();
       SpeakerEngine current=engine;
       if(current!=null)current.output(outputId);
-      else send("출력 장치 변경 완료 · 통화 이벤트 또는 녹음 검증 대기",false);
+      else send("직접 STT 모드 · 출력 장치 변경이 필요 없습니다.",false);
       return START_NOT_STICKY;
     }
     if(!START.equals(action))return START_NOT_STICKY;
@@ -73,7 +74,7 @@ public final class SpeakerService extends Service {
         .putString("detectedSource","").apply();
       journal.event("APP","AUTO_CALL_MONITOR_ARMED",
           "autoCallMode",autoCallMode,"deviceId",outputId,
-          "sttEnginePresent",false,"pcmRateHz",16000);
+          "sttEnginePresent",true,"pcmRateHz",16000,"speakerOutput",false);
       if(autoCallMode){
         // The foreground service remains armed while idle, so Android does not
         // have to start a new background foreground service on every call.
@@ -104,7 +105,7 @@ public final class SpeakerService extends Service {
     restartAfterCleanup=false;
     SamsungRecordAccessibility.cancelRequest();
     journal.event("TELEPHONY","CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",
-        "folderUri",folderUri.toString(),"modelDownload",false);
+        "folderUri",folderUri.toString(),"modelIncludedInApk",true);
     launchSession(true);
   }
 
@@ -113,13 +114,13 @@ public final class SpeakerService extends Service {
     restartAfterCleanup=false;
     SamsungRecordAccessibility.cancelRequest();
     journal.event("TELEPHONY","CALL_IDLE_STOP_OUTPUT",
-        "hadActiveAudioSession",engine!=null);
+        "hadActiveAudioSession",engine!=null,"sttStop",true);
     SpeakerEngine current=engine;
     if(current!=null){
-      send("통화 종료 이벤트 → 스피커 즉시 중지 · 로그 저장",false);
+      send("통화 종료 이벤트 → 직접 STT 종료·자막/로그 저장",false);
       current.stop();
     }else{
-      send("통화 종료 · 다음 통화 시작 이벤트 대기 · 스피커 꺼짐",false);
+      send("통화 종료 · 다음 통화 시작 이벤트 대기 · STT 유휴 상태",false);
     }
   }
 
@@ -131,7 +132,7 @@ public final class SpeakerService extends Service {
         .putString("lastRunId",session.id()).apply();
     session.event("CONTROL",callTriggered?"OFFHOOK_SESSION_STARTED":"MANUAL_DIAGNOSTIC_SESSION_STARTED",
         "callTriggered",callTriggered,"sourceUri",folderUri.toString(),
-        "sttProcessStarted",false);
+        "sttProcessStarted",true,"sttRoute","M4A_PCM_TO_ZIPFORMER");
     final SpeakerEngine[] holder=new SpeakerEngine[1];
     SpeakerEngine task=new SpeakerEngine(this,session,(message,finished)->{
       if(!finished){send(message,false);return;}
@@ -193,12 +194,12 @@ public final class SpeakerService extends Service {
         session.event("RECORDING","RECORDING_VERIFIED_BY_M4A_GROWTH",
             "filename",name,"bytes",bytes,"verified",true);
       }
-    });
+    },(transcript,isFinal)->sendCaption(session,transcript,isFinal));
     holder[0]=task;
     engine=task;
     send(callTriggered?
         "통화 시작 감지 · 같은 M4A 크기를 100ms 간격으로 3회 증가 확인 중":
-        "선택한 녹음 파일 수동 재생 시작",false);
+        "선택한 녹음 파일 직접 STT 시작",false);
     task.start(folderUri,callTriggered);
   }
 
@@ -213,9 +214,9 @@ public final class SpeakerService extends Service {
     SpeakerEngine current=engine;
     if(current!=null){
       current.stop();
-      send("자동 감시 해제 · 재생 정리 및 진단 ZIP 저장 중",false);
+      send("자동 감시 해제 · STT 결과 정리 및 진단 ZIP 저장 중",false);
     }else{
-      send("자동 감시 해제 · 스피커 종료",true);
+      send("자동 감시 해제 · STT 종료",true);
       finishService();
     }
   }
@@ -245,7 +246,7 @@ public final class SpeakerService extends Service {
     NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
     if(Build.VERSION.SDK_INT>=26){
       NotificationChannel channel=new NotificationChannel(CHANNEL,
-          "16kHz 통화녹음 음성 모니터",NotificationManager.IMPORTANCE_LOW);
+          "16kHz 통화녹음 직접 한국어 STT",NotificationManager.IMPORTANCE_LOW);
       manager.createNotificationChannel(channel);
     }
     PendingIntent view=PendingIntent.getActivity(this,1,
@@ -256,13 +257,27 @@ public final class SpeakerService extends Service {
        PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     Notification note=new Notification.Builder(this,CHANNEL)
         .setSmallIcon(android.R.drawable.ic_media_play)
-        .setContentTitle("통화 녹음 → 16kHz 스피커 실시간 재생")
-        .setContentText("선택한 출력 장치로 PCM 스트리밍 · STT 없음")
+        .setContentTitle("통화 녹음 → 16kHz 한국어 STT")
+        .setContentText("AAC → PCM 직접 한국어 Zipformer 인식 · 스피커 재생 없음")
         .setOngoing(true).setContentIntent(view)
         .addAction(android.R.drawable.ic_media_pause,"중지",stop).build();
     if(Build.VERSION.SDK_INT>=29)
       startForeground(2804,note,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
     else startForeground(2804,note);
+  }
+
+  private void sendCaption(TraceJournal session,String value,boolean finalSegment){
+    if(value==null)return;
+    getSharedPreferences("speaker",MODE_PRIVATE).edit()
+      .putString("lastTranscript",value).apply();
+    if(finalSegment){
+      session.event("STT","CAPTION_FINAL_SAVED","text",value,"length",value.length());
+      session.raw("transcript_final.txt",value);
+    }
+    Intent update=new Intent(EVENT).setPackage(getPackageName());
+    update.putExtra(EX_TRANSCRIPT,value);
+    update.putExtra(EX_DONE,false);
+    sendBroadcast(update);
   }
 
   private void send(String s,boolean done){
