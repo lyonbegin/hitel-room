@@ -1,4 +1,4 @@
-name: HITEL14 V25 one-tap Save opens Android log-folder picker
+name: HITEL14 V26 exact old USAGE_MEDIA AudioTrack opt-in plus three STT routes
 on:
   push:
     branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
@@ -17,6 +17,7 @@ on:
       - "flow-lab/V23FreshLogExport.java"
       - "flow-lab/HitelSafLogSaver.java"
       - "flow-lab/v19_user_selected_log_folder_v24.py"
+      - "flow-lab/v20_restore_proven_media_output_v26.py"
       - "speaker-standalone/**"
       - "sherpa-original-launcher/native/aac_mdat_follow.c"
   workflow_dispatch:
@@ -59,12 +60,13 @@ jobs:
           python3 flow-lab/v17_restore_native_app_picker_v22.py
           python3 flow-lab/v18_integrate_direct_pcm_stt_v23.py
           python3 flow-lab/v19_user_selected_log_folder_v24.py
+          python3 flow-lab/v20_restore_proven_media_output_v26.py
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'versionCode = 33' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 34' AndroidProject/app/build.gradle.kts
           grep -F 'app.hitel.callflowlab.v14.systempicker' AndroidProject/app/build.gradle.kts
-          grep -F 'HITEL14 V25 원클릭 로그 폴더 저장' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'HITEL14 V26 미디어 스피커 원본 복원' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SELF_MEDIA_TEST_QUEUED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'startActivityForResult(mgr.createScreenCaptureIntent(),' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -73,13 +75,22 @@ jobs:
           if grep -E 'SpeakerTargetPicker|addMatchingUid\(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java; then echo "ERROR: redundant custom app picker"; exit 1; fi
           echo "PASS_SYSTEM_NATIVE_SINGLE_APP_CHOICE_RESTORED"
           grep -F 'SpeakerCaptureLog.append(this' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
-          # NEGATIVE CONTRACT: never reintroduce recording-to-AudioTrack player.
-          if grep -RE 'RecordingFolderPlayback|GROWING_PLAYBACK|PcmSpeakerMonitor' AndroidProject/app/src/main --include='*.java' --include='AndroidManifest.xml'; then
-            echo 'ERROR: growing recording playback still present'; exit 1
+          # V26 opt-in: the previously verified source is restored, not the old playback SERVICE.
+          if grep -RE 'RecordingFolderPlayback|GROWING_PLAYBACK' AndroidProject/app/src/main --include='*.java' --include='AndroidManifest.xml'; then
+            echo 'ERROR: old recording playback service restored unexpectedly'; exit 1
           fi
+          PLAYER=AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmSpeakerMonitor.java
+          test -s "$PLAYER"
+          grep -F 'setUsage(AudioAttributes.USAGE_MEDIA)' "$PLAYER"
+          grep -F 'AudioAttributes.ALLOW_CAPTURE_BY_ALL' "$PLAYER"
+          grep -F 'new AudioTrack(attributes,format,capacity,AudioTrack.MODE_STREAM,0)' "$PLAYER"
+          grep -F 'if(ignoredOutputDevice==-2)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F 'mediaOutput.write(littleEndianPcm)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F 'startDirectRecordingMediaPlayback' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'android:allowAudioPlaybackCapture="true"' AndroidProject/app/src/main/AndroidManifest.xml
           test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackService.java
           test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackEngine.java
-          echo 'PASS_NO_RECORDING_TO_SPEAKER_PLAYER_AND_PRESERVED_V22'
+          echo 'PASS_V26_OPT_IN_PROVEN_MEDIA_PLAYER_AND_PRESERVED_V22_STT'
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
           grep -F 'DIRECT_ASR_FINAL' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
@@ -96,7 +107,8 @@ jobs:
           grep -F 'MessageDigest.getInstance("SHA-256")' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
           echo "PASS_MANUAL_SAF_LOG_FOLDER_PICKER_AND_VERIFIED_READBACK"
           grep -F 'DirectRecording' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F 'startDirectRecordingStt' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
-          if grep -E '(import android[.]media[.]AudioTrack|new AudioTrack[(]|PcmSpeakerMonitor[[:space:]])' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java; then echo 'ERROR: recording sent to speaker'; exit 1; fi
+          grep -F 'if(ignoredOutputDevice==-2)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F 'new PcmSpeakerMonitor(context,journal,-1,' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
           if grep -F 'android:name=".CallAccessibilityService"' AndroidProject/app/src/main/AndroidManifest.xml; then
             echo 'ERROR: old Text Call AccessibilityService remains enabled'; exit 1
@@ -138,7 +150,7 @@ jobs:
             -o "$ROOT/libaac-mdat-follow.so"
           "$LLVM/llvm-readelf" -h "$ROOT/libaac-mdat-follow.so" | grep -F 'AArch64'
           echo PASS_NATIVE_AAC_DIRECT_STT_ROUTE
-      - name: Compile V22 mic + output STT + third direct PCM STT (no recording playback)
+      - name: Compile V26 original mic + output STT + direct PCM STT and opt-in original AudioTrack
         run: bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
       - name: Verify APK signature, manifest, app ID and source unchanged
         run: |
@@ -159,8 +171,8 @@ jobs:
             echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
           fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.systempicker'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='33'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V25 원클릭 로그 폴더 저장'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='34'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V26 미디어 스피커 원본 복원'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
           if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
             echo 'ERROR: recording speaker player still in APK manifest'; exit 1
@@ -168,7 +180,7 @@ jobs:
           if unzip -Z1 "$APK" | grep -E 'RecordingFolderPlayback'; then
             echo 'ERROR: recording codec or player packed in APK'; exit 1
           fi
-          echo 'PASS_APK_HAS_3_STT_PATHS_BUT_NO_RECORDING_FILE_PLAYBACK'
+          echo 'PASS_APK_HAS_3_STT_PATHS_AND_OPT_IN_PROVEN_MEDIA_PLAYBACK'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libavcodec.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libavutil.so'
@@ -178,7 +190,7 @@ jobs:
       - name: Upload auditable APK and reconstructed sources
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-V25-one-tap-folder-save-APK
+          name: HITEL14-V26-original-media-player-3STT-APK
           path: |
             AndroidProject/app/build/outputs/apk/debug/*.apk
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -187,22 +199,23 @@ jobs:
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerCaptureLog.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmSpeakerMonitor.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/V23FreshLogExport.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           if-no-files-found: error
-      - name: Publish V23 integrated APK without altering the original V22 APK
+      - name: Publish V26 integrated APK without altering original V22/V25 APKs
         run: |
           set -euo pipefail
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.apk
-          (cd downloads && sha256sum HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.apk > HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.sha256)
+          cp "$APK" downloads/HITEL14_V26_Proven_MediaSpeaker_3STT.apk
+          (cd downloads && sha256sum HITEL14_V26_Proven_MediaSpeaker_3STT.apk > HITEL14_V26_Proven_MediaSpeaker_3STT.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.apk downloads/HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.sha256
-          git commit -m "build: publish HITEL14 V23 with direct PCM STT [skip ci]"
+          git add downloads/HITEL14_V26_Proven_MediaSpeaker_3STT.apk downloads/HITEL14_V26_Proven_MediaSpeaker_3STT.sha256
+          git commit -m "build: publish HITEL14 V26 with old MEDIA AudioTrack optional [skip ci]"
           git fetch origin feature/hitel14-v23-integrated-direct-pcm-stt-20261112
           git rebase origin/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
           git push origin HEAD:refs/heads/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
