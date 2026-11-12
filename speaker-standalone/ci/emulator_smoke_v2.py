@@ -72,7 +72,7 @@ print("START_RESULT",start.strip()[:800],flush=True)
 if "Error:" in start or "Exception" in start:
     raise RuntimeError("Cannot start private foreground service from same app UID: "+start)
 time.sleep(3)
-assert_log("SPEAKER_ONLY_SESSION","start")
+assert_log("MANUAL_DIAGNOSTIC_SESSION_STARTED","start")
 allbytes=f.read_bytes()
 pos=700
 for i in range(1,24):
