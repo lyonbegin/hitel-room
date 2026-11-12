@@ -93,7 +93,8 @@ jobs:
           echo "PASS_DIRECT_KOREAN_STT_WIRED_TO_ORIGINAL_16KHZ_PCM"
           grep -F 'SpeakerCaptureLog.append(this' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
           # No Samsung recording->speaker loop. The V5 module has only direct STT.
-          test ! -e AndroidProject/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+          grep -F 'class PcmSpeakerMonitor' AndroidProject/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+          if grep -F 'new PcmSpeakerMonitor(' AndroidProject/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java; then echo 'ERROR PCM routed through AudioTrack'; exit 1; fi
           test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackService.java
           echo "PASS_V23_NO_RECORDING_TO_SPEAKER_LOOP"
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
