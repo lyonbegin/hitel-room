@@ -1,49 +1,41 @@
-// v20 baseline: two independent, persistent sherpa-onnx recognizers.
-// Original AAC -> PCM Java transport is UNCHANGED. No greedy/beam A/B switch.
-// Adjacent 4-second windows overlap by 1 second. Each window is assigned
-// alternately to worker 0 or 1; each worker owns its OWN recognizer and stream.
-// All 16k PCM is delivered once to its primary window and once to the adjacent
-// window only for the deliberate 1-second context overlap.
-// This is a prototype: window text merging must be measured for accuracy.
+// v22 upstream-API parity experiment: one persistent Sherpa-ONNX OnlineStream.
+// Keep the existing Samsung M4A native follower, AAC MediaCodec and PCM pipe.
+// Every PCM sample enters the SAME official Sherpa-ONNX stream, in order.
+// Use Sherpa's own endpoint + stream reset, not 4s windows or text overlap merge.
+// A/B baseline against v22 before reintroducing concurrent recognizers.
 #include "sherpa-onnx/c-api/c-api.h"
 #include <algorithm>
-#include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <deque>
-#include <map>
-#include <set>
+#include <cmath>
 #include <mutex>
-#include <sstream>
 #include <string>
-#include <thread>
 #include <vector>
 #include <unistd.h>
 #include <time.h>
 
 namespace {
 constexpr uint64_t RATE=16000;
-constexpr uint64_t WINDOW=RATE*4;
-constexpr uint64_t STRIDE=RATE*3;
-constexpr size_t QUEUE_CAP=512; // bounded; NEVER silently drop input PCM.
-std::mutex outputMutex;
+constexpr double SPEECH_RMS_MIN=0.0030; // intentionally low: protect quiet Korean syllables
+constexpr double SPEECH_PEAK_MIN=0.0200;
+std::mutex printMutex;
 uint64_t bootNs(){
-  struct timespec t{};clock_gettime(CLOCK_BOOTTIME,&t);
+  timespec t{};clock_gettime(CLOCK_BOOTTIME,&t);
   return uint64_t(t.tv_sec)*1000000000ULL+uint64_t(t.tv_nsec);
 }
 void say(const char* format,...){
-  std::lock_guard<std::mutex> lock(outputMutex);
+  std::lock_guard<std::mutex> lock(printMutex);
   va_list args;va_start(args,format);vfprintf(stdout,format,args);va_end(args);
   putchar('\n');fflush(stdout);
 }
 bool readAll(void* memory,size_t count){
-  auto* bytes=static_cast<uint8_t*>(memory);size_t at=0;
+  uint8_t *b=static_cast<uint8_t*>(memory);
+  size_t at=0;
   while(at<count){
-    ssize_t n=read(STDIN_FILENO,bytes+at,count-at);
+    ssize_t n=read(STDIN_FILENO,b+at,count-at);
     if(n<=0)return false;
     at+=size_t(n);
   }
@@ -51,338 +43,201 @@ bool readAll(void* memory,size_t count){
 }
 uint32_t le32(const uint8_t* b){
   return uint32_t(b[0])|(uint32_t(b[1])<<8)|
-         (uint32_t(b[2])<<16)|(uint32_t(b[3])<<24);
+    (uint32_t(b[2])<<16)|(uint32_t(b[3])<<24);
 }
-std::string clean(std::string text){
-  for(char &c:text)if(c=='\r'||c=='\n'||c=='\t')c=' ';
-  return text;
+std::string clean(std::string t){
+  for(char &c:t)if(c=='\r'||c=='\n'||c=='\t')c=' ';
+  return t;
 }
-std::vector<std::string> tokens(const std::string& text){
-  std::istringstream in(text);std::string word;std::vector<std::string> out;
-  while(in>>word)out.push_back(word);
-  return out;
-}
-std::string normalized(std::string s){
-  // Preserve UTF-8 bytes and compare Korean words verbatim; strip ASCII punctuation.
-  s.erase(std::remove_if(s.begin(),s.end(),[](unsigned char c){
-    return c<128 && (c=='.'||c==','||c=='!'||c=='?'||c==':'||c==';');
-  }),s.end());return s;
-}
-std::string joinOverlap(const std::string& left,const std::string& right){
-  if(left.empty())return right;
-  if(right.empty())return left;
-  const auto a=tokens(left),b=tokens(right);
-  size_t common=0;
-  const size_t limit=std::min<size_t>({a.size(),b.size(),8});
-  for(size_t n=1;n<=limit;++n){
-    bool same=true;
-    for(size_t i=0;i<n;++i){
-      if(normalized(a[a.size()-n+i])!=normalized(b[i])){same=false;break;}
-    }
-    if(same)common=n;
+size_t utf16Length(const std::string& v,size_t bytes){
+  size_t units=0;
+  for(size_t i=0;i<bytes;){
+    const unsigned char lead=static_cast<unsigned char>(v[i]);
+    size_t n=1;
+    if((lead&0xF8)==0xF0){n=4;units+=2;}
+    else if((lead&0xF0)==0xE0){n=3;units++;}
+    else if((lead&0xE0)==0xC0){n=2;units++;}
+    else units++;
+    i+=std::min(n,bytes-i);
   }
-  std::string result=left;
-  for(size_t j=common;j<b.size();++j){result+=" ";result+=b[j];}
-  return result;
+  return units;
 }
-struct Task {
-  enum Type{DATA,END,QUIT} type=DATA;
-  int window=0;
-  uint32_t seq=0;
-  uint64_t globalEnd=0;
-  std::vector<float> pcm;
-};
-struct Segment{std::string text;bool done=false;};
-struct Manager;
-struct Worker{
-  Manager* parent=nullptr;
-  int id=0;
-  const SherpaOnnxOnlineRecognizer* recognizer=nullptr;
+size_t commonUtf8Prefix(const std::string& a,const std::string& b){
+  size_t k=0,limit=std::min(a.size(),b.size());
+  while(k<limit && a[k]==b[k])++k;
+  while(k>0&&k<b.size()&&
+       (static_cast<unsigned char>(b[k])&0xC0)==0x80)--k;
+  return k;
+}
+class SingleContinuousASR {
+  const SherpaOnnxOnlineRecognizer* rec=nullptr;
   const SherpaOnnxOnlineStream* stream=nullptr;
-  std::mutex mutex;
-  std::condition_variable cv;
-  std::deque<Task> jobs;
-  std::thread thread;
-  int activeWindow=-1;
-  std::string lastRaw;
-  uint64_t decodeCalls=0,decodeUs=0;
-  void start();
-  void enqueue(Task&& task);
-  void loop();
-  void beginWindow(int window);
-  void process(Task& job);
-  void endWindow();
-  void update(bool final);
-};
-struct Manager{
-  Worker workers[2];
-  std::mutex stateMutex,readyMutex;
-  std::condition_variable readyCv;
-  std::map<int,Segment> segments;
-  int ready=0;
-  bool error=false;
-  std::string lastPublished;
-  std::atomic<uint64_t> pcmSamples{0};
+  std::string lastPublished,committed;
+  uint32_t endpointCount=0;
+  uint64_t sourceSamples=0,acceptedSamples=0,skippedSamples=0;
+  uint64_t decodeCalls=0,decodeUs=0,mutedChunks=0,speechChunks=0;
   unsigned int hypotheses=0;
-  std::atomic<int> maxWindow{-1};
-  std::set<int> endedWindows;
-  std::string argv[4];
-  explicit Manager(int argc,char** a) {
-    (void)argc;
-    for(int i=0;i<4;++i)argv[i]=a[i+1];
-    for(int i=0;i<2;++i){workers[i].parent=this;workers[i].id=i;}
-  }
-  void signalReady(bool ok){
-    std::lock_guard<std::mutex> guard(readyMutex);
-    if(!ok)error=true;
-    ++ready;readyCv.notify_all();
-  }
-  bool launch(){
-    for(auto &w:workers)w.start();
-    std::unique_lock<std::mutex> lock(readyMutex);
-    readyCv.wait(lock,[this]{return ready==2;});
-    if(error){
-      lock.unlock();
-      for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
-      for(auto &w:workers)w.thread.join();
-      return false;
-    }
+  bool liveEdge=false;
+public:
+  explicit SingleContinuousASR(bool live):liveEdge(live){}
+  bool start(const char* tokens,const char* encoder,const char* decoder,const char* joiner){
+    SherpaOnnxOnlineRecognizerConfig config={};
+    config.feat_config.sample_rate=RATE;
+    config.feat_config.feature_dim=80;
+    config.model_config.transducer.encoder=encoder;
+    config.model_config.transducer.decoder=decoder;
+    config.model_config.transducer.joiner=joiner;
+    config.model_config.tokens=tokens;
+    config.model_config.num_threads=2; // One recognizer, two CPU threads only.
+    config.model_config.provider="cpu";
+    config.model_config.modeling_unit="cjkchar";
+    config.decoding_method="modified_beam_search";
+    config.max_active_paths=8;
+    // Official endpoint detection receives the actual PCM silence as well.
+    config.enable_endpoint=1;
+    config.rule1_min_trailing_silence=2.4f;
+    config.rule2_min_trailing_silence=1.2f;
+    config.rule3_min_utterance_length=300.0f;
+    const uint64_t begun=bootNs();
+    rec=SherpaOnnxCreateOnlineRecognizer(&config);
+    say("SINGLE_MODEL_READY:ok=%d:durationMs=%llu",rec?1:0,
+        (unsigned long long)((bootNs()-begun)/1000000));
+    if(!rec)return false;
+    stream=SherpaOnnxCreateOnlineStream(rec);
+    if(!stream)return false;
     say("STT_READY");
-    say("ONLINE_READY:model=korean-zipformer-174m-int8:parallel_workers=2:window_ms=4000:stride_ms=3000:overlap_ms=1000:decoding=modified_beam_search:threads_per_worker=2");
-    say("DUAL_READY:workers=2:independent_recognizers=true:independent_online_streams=true");
+    say("ONLINE_READY:model=korean-zipformer-174m-int8:recognizers=1:streams=1:mode=official_continuous:endpoint=enabled:decode_threads=2");
+    say("SINGLE_STREAM_CREATED:count=1:no_4s_split=1:no_secondary_worker=1");
+    say("OFFICIAL_ENDPOINT_READY:enabled=1:reset_on_endpoint=1");
     return true;
   }
-  void beginWindow(int w){
-    if(w<=maxWindow.load())return; // dispatched only in monotonic order.
-    // A single incoming PCM chunk may straddle one stride; do not omit it.
-    for(int id=maxWindow.load()+1;id<=w;++id){
-      Task t;t.type=Task::DATA;t.window=id;
-      // Empty start marker: process() creates new OnlineStream for this window.
-      workers[id%2].enqueue(std::move(t));
-      std::lock_guard<std::mutex> guard(stateMutex);
-      segments.emplace(id,Segment{});
+  void publish(const std::string& partial) {
+    std::string full=committed;
+    if(!partial.empty()){
+      if(!full.empty())full+=" ";
+      full+=partial;
     }
-    maxWindow.store(w);
-  }
-  void dispatch(uint32_t seq,const float* audio,uint32_t length){
-    const uint64_t first=pcmSamples.load(),last=first+length;
-    const uint64_t audioMs=last*1000/RATE;
-    say("ONLINE_TIMING:INPUT:%u:%llu:%llu:0",seq,
-        (unsigned long long)audioMs,(unsigned long long)bootNs());
-    const int highest=int((last-1)/STRIDE);
-    beginWindow(highest);
-    for(int w=std::max(0,highest-1);w<=highest;++w){
-      const uint64_t a=uint64_t(w)*STRIDE,b=a+WINDOW;
-      const uint64_t lo=std::max(a,first),hi=std::min(b,last);
-      if(hi>lo){
-        Task task;task.type=Task::DATA;task.window=w;task.seq=seq;
-        task.globalEnd=hi;
-        task.pcm.assign(audio+(lo-first),audio+(hi-first));
-        workers[w%2].enqueue(std::move(task));
-      }
-    }
-    // Complete any window when its last sample has been dispatched.
-    for(int w=std::max(0,highest-1);w<=highest;++w){
-      if(!endedWindows.count(w) && last>=uint64_t(w)*STRIDE+WINDOW){
-        Task task;task.type=Task::END;task.window=w;
-        workers[w%2].enqueue(std::move(task));
-        endedWindows.insert(w);
-      }
-    }
-    pcmSamples.store(last);
-    say("ONLINE_ACCEPTED:%u:%u",seq,length);
-  }
-  void markEnd(int w){
-    Task task;task.type=Task::END;task.window=w;
-    workers[w%2].enqueue(std::move(task));
-  }
-  void publish(int window,const std::string& raw,bool finished){
-    std::string full;
-    unsigned int seq=0;
-    {
-      std::lock_guard<std::mutex> guard(stateMutex);
-      Segment& s=segments[window];
-      if(raw!=s.text)s.text=raw;
-      if(finished)s.done=true;
-      for(int i=0;i<=maxWindow.load();++i){
-        auto it=segments.find(i);
-        if(it==segments.end())break;
-        full=joinOverlap(full,it->second.text);
-      }
-      if(full==lastPublished)return;
-      lastPublished=full;
-      seq=++hypotheses;
-    }
-    const auto now=bootNs(),audioMs=pcmSamples.load()*1000/RATE;
-    say("ONLINE_TIMING:LIVE:%u:%llu:%llu:0",seq,
-        (unsigned long long)audioMs,(unsigned long long)now);
+    if(full==lastPublished)return;
+    const std::string before=lastPublished;
+    lastPublished=full;
+    const size_t prefix=commonUtf8Prefix(before,full);
+    const size_t keep=utf16Length(before,prefix);
+    const std::string suffix=full.substr(prefix);
+    const unsigned int id=++hypotheses;
+    const uint64_t ns=bootNs(),audioMs=sourceSamples*1000/RATE;
+    say("ONLINE_TIMING:LIVE:%u:%llu:%llu:0",id,
+        (unsigned long long)audioMs,(unsigned long long)ns);
     say("ONLINE_HYPOTHESIS:%llu:%s",(unsigned long long)audioMs,full.c_str());
     say("ONLINE_LIVE:%llu:%s",(unsigned long long)audioMs,full.c_str());
-    const auto w=tokens(full);
-    if(!w.empty()){
-      const std::string tail=w.size()>1?w[w.size()-2]+" "+w.back():w.back();
-      say("ONLINE_LIVE_TAIL:%llu:%s",(unsigned long long)audioMs,tail.c_str());
+    say("ONLINE_EDIT:%llu:%zu:%s",(unsigned long long)audioMs,keep,suffix.c_str());
+  }
+  std::string getRaw(){
+    if(!stream)return {};
+    const auto* result=SherpaOnnxGetOnlineStreamResult(rec,stream);
+    if(!result)return {};
+    std::string raw=clean(result->text?result->text:"");
+    SherpaOnnxDestroyOnlineRecognizerResult(result);
+    return raw;
+  }
+  void commitEndpoint(){
+    const std::string raw=getRaw();
+    if(!raw.empty()){
+      if(!committed.empty())committed+=" ";
+      committed+=raw;
     }
-    say("DUAL_LIVE:window=%d:chars=%zu:workers=2",window,full.size());
+    endpointCount++;
+    say("OFFICIAL_ENDPOINT:count=%u:sourceMs=%llu:chars=%zu",
+      endpointCount,(unsigned long long)(sourceSamples*1000/RATE),raw.size());
+    SherpaOnnxOnlineStreamReset(rec,stream);
+    publish("");
+  }
+  void decode(uint32_t seq){
+    for(int i=0;i<1000 && SherpaOnnxIsOnlineStreamReady(rec,stream);++i){
+      const uint64_t before=bootNs();
+      SherpaOnnxDecodeOnlineStream(rec,stream);
+      const uint64_t end=bootNs();
+      const uint64_t us=(end-before)/1000;
+      ++decodeCalls;decodeUs+=us;
+      say("ONLINE_TIMING:DECODE:%u:%llu:%llu:%llu",seq,
+          (unsigned long long)(sourceSamples*1000/RATE),
+          (unsigned long long)end,(unsigned long long)us);
+      if(SherpaOnnxOnlineStreamIsEndpoint(rec,stream))commitEndpoint();
+      else publish(getRaw());
+    }
+  }
+  void dispatch(uint32_t seq,const std::vector<float>& pcm){
+    sourceSamples+=pcm.size();
+    const uint64_t endMs=sourceSamples*1000/RATE;
+    say("ONLINE_TIMING:INPUT:%u:%llu:%llu:0",seq,
+        (unsigned long long)endMs,(unsigned long long)bootNs());
+    // Feed every new sample into one continuous upstream stream.
+    // No ad-hoc energy gating, fixed windows, or re-decoding earlier PCM.
+    SherpaOnnxOnlineStreamAcceptWaveform(stream,RATE,pcm.data(),pcm.size());
+    acceptedSamples+=pcm.size();
+    say("OFFICIAL_PCM_ACCEPTED:seq=%u:sourceMs=%llu:samples=%zu",
+        seq,(unsigned long long)endMs,pcm.size());
+    decode(seq);
+    say("ONLINE_ACCEPTED:%u:%zu",seq,pcm.size());
   }
   void finish(){
-    // Close only windows still open. All full windows already received END.
-    for(int w=0;w<=maxWindow.load();++w){
-      if(!endedWindows.count(w))markEnd(w);
+    if(stream){
+      // Match upstream example: send a short tail then finalize the stream.
+      std::vector<float> tail(4800,0.f);
+      SherpaOnnxOnlineStreamAcceptWaveform(stream,RATE,tail.data(),tail.size());
+      SherpaOnnxOnlineStreamInputFinished(stream);
+      decode(0);
+      const std::string finalRaw=getRaw();
+      if(!finalRaw.empty()){
+        if(!committed.empty())committed+=" ";
+        committed+=finalRaw;
+      }
+      publish("");
     }
-    for(auto &w:workers){Task t;t.type=Task::QUIT;w.enqueue(std::move(t));}
-    for(auto &w:workers)w.thread.join();
-    std::string result;
-    {
-      std::lock_guard<std::mutex> guard(stateMutex);
-      for(int i=0;i<=maxWindow.load();++i)result=joinOverlap(result,segments[i].text);
-    }
-    if(!result.empty()){
-      say("STT_SEGMENT:1:%s",result.c_str());
+    if(!lastPublished.empty()){
+      say("STT_SEGMENT:1:%s",lastPublished.c_str());
       say("ONLINE_FINAL_FULL_TEXT:audioMs=%llu:chars=%zu",
-          (unsigned long long)(pcmSamples.load()*1000/RATE),result.size());
+          (unsigned long long)(sourceSamples*1000/RATE),lastPublished.size());
     }
-    say("ONLINE_FINISHED:pcmMs=%llu:hypotheses=%u:captions=%u:workers=2",
-        (unsigned long long)(pcmSamples.load()*1000/RATE),hypotheses,!result.empty()?1:0);
-    say("STT_FINISHED:%u",!result.empty()?1:0);
+    say("OFFICIAL_STREAM_FINISHED:pcmMs=%llu:acceptedMs=%llu:endpoints=%u:decodeCalls=%llu:decodeMs=%llu",
+        (unsigned long long)(sourceSamples*1000/RATE),
+        (unsigned long long)(acceptedSamples*1000/RATE),
+        endpointCount,(unsigned long long)decodeCalls,
+        (unsigned long long)(decodeUs/1000));
+    say("ONLINE_FINISHED:pcmMs=%llu:hypotheses=%u:captions=%u:workers=1",
+        (unsigned long long)(sourceSamples*1000/RATE),hypotheses,
+        !lastPublished.empty()?1:0);
+    say("STT_FINISHED:%u",!lastPublished.empty()?1:0);
+  }
+  ~SingleContinuousASR(){
+    if(stream)SherpaOnnxDestroyOnlineStream(stream);
+    if(rec)SherpaOnnxDestroyOnlineRecognizer(rec);
   }
 };
-void Worker::start(){thread=std::thread(&Worker::loop,this);}
-void Worker::enqueue(Task&& task){
-  std::unique_lock<std::mutex> lock(mutex);
-  const uint64_t start=bootNs();
-  cv.wait(lock,[this]{return jobs.size()<QUEUE_CAP;});
-  const auto waitMs=(bootNs()-start)/1000000;
-  if(waitMs>25)say("DUAL_QUEUE_BACKPRESSURE:worker=%d:waitMs=%llu:queue=%zu",id,
-                    (unsigned long long)waitMs,jobs.size());
-  jobs.emplace_back(std::move(task));
-  lock.unlock();cv.notify_one();
-}
-void Worker::beginWindow(int window){
-  if(activeWindow==window)return;
-  if(stream)endWindow();
-  stream=SherpaOnnxCreateOnlineStream(recognizer);
-  if(!stream){say("DUAL_FATAL:worker=%d:stream_create_failed",id);return;}
-  activeWindow=window;lastRaw.clear();
-  say("DUAL_WINDOW_STARTED:worker=%d:window=%d:fromMs=%d",
-      id,window,window*3000);
-}
-void Worker::update(bool final){
-  if(!stream)return;
-  auto* result=SherpaOnnxGetOnlineStreamResult(recognizer,stream);
-  if(!result)return;
-  const std::string raw=clean(result->text?result->text:"");
-  SherpaOnnxDestroyOnlineRecognizerResult(result);
-  if(raw!=lastRaw || final){
-    lastRaw=raw;
-    parent->publish(activeWindow,raw,final);
-  }
-}
-void Worker::process(Task& job){
-  if(job.window!=activeWindow)beginWindow(job.window);
-  if(!stream || job.pcm.empty())return;
-  const auto startNs=bootNs();
-  SherpaOnnxOnlineStreamAcceptWaveform(stream,RATE,job.pcm.data(),job.pcm.size());
-  say("DUAL_STAGE:ACCEPT:%d:%d:%u:%zu:%llu",id,activeWindow,job.seq,
-      job.pcm.size(),(unsigned long long)bootNs());
-  for(int i=0;i<1000 && SherpaOnnxIsOnlineStreamReady(recognizer,stream);++i){
-    const uint64_t begin=bootNs();
-    SherpaOnnxDecodeOnlineStream(recognizer,stream);
-    const uint64_t end=bootNs();
-    const uint64_t elapsedUs=(end-begin)/1000;
-    decodeCalls++;decodeUs+=elapsedUs;
-    say("ONLINE_TIMING:DECODE:%u:%llu:%llu:%llu",job.seq,
-        (unsigned long long)(job.globalEnd*1000/RATE),
-        (unsigned long long)end,(unsigned long long)elapsedUs);
-    say("DUAL_STAGE:DECODE:worker=%d:window=%d:durationUs=%llu",id,activeWindow,
-        (unsigned long long)elapsedUs);
-    update(false);
-  }
-  const auto elapsed=(bootNs()-startNs)/1000000;
-  if(elapsed>100)say("DUAL_PROCESS_FRAME:worker=%d:window=%d:durationMs=%llu",
-                     id,activeWindow,(unsigned long long)elapsed);
-}
-void Worker::endWindow(){
-  if(!stream)return;
-  std::vector<float> padding(16*640,0.f);
-  SherpaOnnxOnlineStreamAcceptWaveform(stream,RATE,padding.data(),padding.size());
-  SherpaOnnxOnlineStreamInputFinished(stream);
-  for(int i=0;i<1000 && SherpaOnnxIsOnlineStreamReady(recognizer,stream);++i){
-    const auto before=bootNs();
-    SherpaOnnxDecodeOnlineStream(recognizer,stream);
-    const auto after=bootNs();
-    decodeCalls++;decodeUs+=(after-before)/1000;
-    say("DUAL_STAGE:FINAL_DECODE:worker=%d:window=%d:durationUs=%llu",id,activeWindow,
-        (unsigned long long)((after-before)/1000));
-    update(false);
-  }
-  update(true);
-  say("DUAL_WINDOW_FINISHED:worker=%d:window=%d:decodeCalls=%llu:decodeTotalMs=%llu",
-      id,activeWindow,(unsigned long long)decodeCalls,(unsigned long long)(decodeUs/1000));
-  SherpaOnnxDestroyOnlineStream(stream);
-  stream=nullptr;activeWindow=-1;
-}
-void Worker::loop(){
-  SherpaOnnxOnlineRecognizerConfig config={};
-  config.feat_config.sample_rate=16000;
-  config.feat_config.feature_dim=80;
-  config.model_config.transducer.encoder=parent->argv[1].c_str();
-  config.model_config.transducer.decoder=parent->argv[2].c_str();
-  config.model_config.transducer.joiner=parent->argv[3].c_str();
-  config.model_config.tokens=parent->argv[0].c_str();
-  config.model_config.num_threads=2; // preserve EXACT v20 decoding settings.
-  config.model_config.provider="cpu";
-  config.model_config.modeling_unit="cjkchar";
-  config.decoding_method="modified_beam_search";
-  config.max_active_paths=8;
-  config.enable_endpoint=0;
-  const auto begin=bootNs();
-  recognizer=SherpaOnnxCreateOnlineRecognizer(&config);
-  say("DUAL_MODEL_READY:worker=%d:ok=%d:durationMs=%llu",id,recognizer?1:0,
-      (unsigned long long)((bootNs()-begin)/1000000));
-  parent->signalReady(recognizer!=nullptr);
-  if(!recognizer)return;
-  for(;;){
-    Task job;
-    {
-      std::unique_lock<std::mutex> lock(mutex);
-      cv.wait(lock,[this]{return !jobs.empty();});
-      job=std::move(jobs.front());jobs.pop_front();
-    }
-    cv.notify_one();
-    if(job.type==Task::QUIT)break;
-    if(job.type==Task::END){
-      if(activeWindow==job.window)endWindow();
-      continue;
-    }
-    process(job);
-  }
-  if(stream)endWindow();
-  say("DUAL_WORKER_DONE:worker=%d:decodeCalls=%llu:totalDecodeMs=%llu",id,
-      (unsigned long long)decodeCalls,(unsigned long long)(decodeUs/1000));
-  SherpaOnnxDestroyOnlineRecognizer(recognizer);
-}
 } // namespace
 int main(int argc,char** argv){
   setvbuf(stdout,nullptr,_IOLBF,0);
-  if(argc!=5){fprintf(stderr,"USAGE: dual_zipformer tokens encoder decoder joiner\n");return 2;}
-  Manager engine(argc,argv);
-  if(!engine.launch())return 3;
+  if(argc!=5 && argc!=6){
+    fprintf(stderr,"USAGE: single_zipformer tokens encoder decoder joiner [--live-edge]\n");
+    return 2;
+  }
+  if(argc==6 && strcmp(argv[5],"--live-edge"))return 2;
+  SingleContinuousASR engine(argc==6);
+  if(!engine.start(argv[1],argv[2],argv[3],argv[4]))return 3;
   int status=0;
   for(;;){
-    uint8_t h[8];
-    if(!readAll(h,sizeof(h))){status=5;break;}
-    const uint32_t seq=le32(h),n=le32(h+4);
+    uint8_t header[8];
+    if(!readAll(header,sizeof(header))){status=5;break;}
+    const uint32_t seq=le32(header),n=le32(header+4);
     if(seq==0&&n==0)break;
     if(seq==0||n==0||n>RATE*12){status=6;break;}
     std::vector<uint8_t> bytes(size_t(n)*2);
     if(!readAll(bytes.data(),bytes.size())){status=7;break;}
     std::vector<float> pcm(n);
     for(uint32_t i=0;i<n;++i){
-      const uint16_t u=uint16_t(bytes[2*i])|(uint16_t(bytes[2*i+1])<<8);
-      pcm[i]=static_cast<int16_t>(u)/32768.f;
+      const uint16_t raw=uint16_t(bytes[2*i])|(uint16_t(bytes[2*i+1])<<8);
+      pcm[i]=static_cast<int16_t>(raw)/32768.f;
     }
-    engine.dispatch(seq,pcm.data(),n);
+    engine.dispatch(seq,pcm);
   }
   engine.finish();
   return status;
