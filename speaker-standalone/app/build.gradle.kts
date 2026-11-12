@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.recording.speakeronly"
     minSdk = 26
     targetSdk = 28
-    versionCode = 3
-    versionName = "1.0.2-auto-telephony-growing-m4a"
+    versionCode = 4
+    versionName = "1.0.3-auto-record-event-gate"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
