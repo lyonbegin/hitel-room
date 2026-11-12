@@ -92,7 +92,7 @@ final class PcmDirectSherpaSink implements AutoCloseable {
             callback.accept("DIRECT_STATUS|16kHz PCM 직접 STT 준비 완료 · 스피커 재생 없음");
         }catch(Throwable ex){
             close();
-            throw ex;
+            throw new IllegalStateException("Sherpa direct PCM initialization failed",ex);
         }
     }
     void setOutputDevice(int ignored){
