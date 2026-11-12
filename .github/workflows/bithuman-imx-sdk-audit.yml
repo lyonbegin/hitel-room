@@ -1,0 +1,123 @@
+name: bitHuman Expression2 IMX SDK audit
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-imx-sdk-audit.yml
+      - tools/bithuman_audit/**
+      - docs/bithuman_android_sdk_constraints.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  artifact-inspection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+
+      - name: Java tools for public API extraction
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Unit tests
+        run: python3 -m unittest discover -s tools/bithuman_audit -p 'test_*.py' -v
+
+      - name: Download public SDK and sample avatar into temporary directory
+        shell: bash
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/bithuman" reports/bithuman
+          base="https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2"
+          if ! curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            -o "$RUNNER_TEMP/bithuman/expression2.aar" "$base/expression2-android-0.6.2.aar"; then
+            rm -f "$RUNNER_TEMP/bithuman/expression2.aar"
+            echo "::warning::AAR download unavailable"
+          fi
+          if ! curl --fail --location --retry 3 --connect-timeout 15 --max-time 120 \
+            -o "$RUNNER_TEMP/bithuman/expression2.pom" "$base/expression2-android-0.6.2.pom"; then
+            rm -f "$RUNNER_TEMP/bithuman/expression2.pom"
+            echo "::warning::POM download unavailable"
+          fi
+          if ! curl --fail --location --retry 3 --connect-timeout 15 --max-time 240 \
+            -o "$RUNNER_TEMP/bithuman/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'; then
+            rm -f "$RUNNER_TEMP/bithuman/wise-pup.imx"
+            echo "::warning::Public IMX download unavailable"
+          fi
+          ls -lh "$RUNNER_TEMP/bithuman"
+
+      - name: Inspect available artifacts
+        shell: bash
+        run: |
+          python3 tools/bithuman_audit/inspect.py \
+            --imx "$RUNNER_TEMP/bithuman/wise-pup.imx" \
+            --aar "$RUNNER_TEMP/bithuman/expression2.aar" \
+            --pom "$RUNNER_TEMP/bithuman/expression2.pom" \
+            --output reports/bithuman
+          cat reports/bithuman/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload metadata report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-structure-report
+          path: reports/bithuman
+          if-no-files-found: warn
+
+      - name: Remove third-party binaries
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/bithuman"
+
+  android-sample-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android command line SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install platform and build tools
+        run: sdkmanager "platforms;android-35" "build-tools;34.0.0" "platform-tools"
+
+      - name: Clone unmodified vendor hello app and pin SDK version
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/vendor-examples"
+          cd "$RUNNER_TEMP/vendor-examples/android/expression2-hello"
+          sed -i 's/expression2-android:0.6.1/expression2-android:0.6.2/g' app/build.gradle.kts
+          grep 'implementation("ai.bithuman:expression2-android:0.6.2")' app/build.gradle.kts
+
+      - name: Compile official native Android example (no API secret)
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/vendor-examples/android/expression2-hello"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest
+          mkdir -p "$GITHUB_WORKSPACE/reports/android-build"
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > "$GITHUB_WORKSPACE/reports/android-build/apk-sha256.txt"
+          stat -c '%n %s bytes' app/build/outputs/apk/debug/app-debug.apk > "$GITHUB_WORKSPACE/reports/android-build/apk-size.txt"
+          echo "Android example compiled; no API secret; rendering not tested." > "$GITHUB_WORKSPACE/reports/android-build/status.txt"
+
+      - name: Upload build proof, not third-party SDK binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-android-build-proof
+          path: reports/android-build
+          if-no-files-found: warn
