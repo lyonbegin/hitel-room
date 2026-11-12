@@ -63,21 +63,46 @@ public final class SpeakerService extends Service {
         "folderMode",folder,"deviceId",id,
         "sttEnginePresent",false,"pcmRateHz",16000);
       SpeakerEngine task=new SpeakerEngine(this,journal,(s,finished)->{
-        send(s,finished);
         if(finished){
+          // The engine already wrote its RUN_SUMMARY before this callback.
+          // Always save the ZIP to Downloads. This runs on the engine worker,
+          // never on the main UI thread, so the user need not tap Export.
+          TraceJournal completed=journal;
+          String result=s;
+          if(completed!=null){
+            try{
+              completed.event("JOURNAL","AUTO_EXPORT_START","runId",completed.id());
+              String saved=TraceJournal.saveToDownloads(this,completed.id());
+              result+=" · 진단 ZIP 자동 저장: "+saved;
+              getSharedPreferences("speaker",MODE_PRIVATE).edit()
+                .putString("lastExport",saved).apply();
+            }catch(Throwable error){
+              completed.error("JOURNAL","AUTO_EXPORT_FAILED",error);
+              result+=" · 로그 자동 저장 실패: "+error.getMessage();
+            }
+          }
           active=false;engine=null;
           getSharedPreferences("speaker",MODE_PRIVATE).edit()
              .putBoolean("active",false).apply();
+          send(result,true);
           stopForeground(true);
           stopSelf();
-        }
+        }else send(s,false);
       },id);
       engine=task;
       send("녹음 파일 스트리밍 연결 중 · STT 없음",false);
       task.start(Uri.parse(path),folder);
     }catch(Throwable t){
       Log.e("RecordingSpeaker","Could not start",t);
-      TraceJournal j=journal;if(j!=null)j.error("SERVICE","START_FAILED",t);
+      TraceJournal j=journal;
+      if(j!=null){
+        j.error("SERVICE","START_FAILED",t);
+        try{
+          String saved=TraceJournal.saveToDownloads(this,j.id());
+          getSharedPreferences("speaker",MODE_PRIVATE).edit()
+            .putString("lastExport",saved).apply();
+        }catch(Throwable error){j.error("JOURNAL","ERROR_EXPORT_FAILED",error);}
+      }
       active=false;
       getSharedPreferences("speaker",MODE_PRIVATE).edit()
          .putBoolean("active",false).apply();
