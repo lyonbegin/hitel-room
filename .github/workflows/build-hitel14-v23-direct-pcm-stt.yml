@@ -1,4 +1,4 @@
-name: HITEL14 V24 user-picked log folder with V22 and direct PCM STT
+name: HITEL14 V25 one-tap Save opens Android log-folder picker
 on:
   push:
     branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
@@ -62,9 +62,9 @@ jobs:
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'versionCode = 32' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 33' AndroidProject/app/build.gradle.kts
           grep -F 'app.hitel.callflowlab.v14.systempicker' AndroidProject/app/build.gradle.kts
-          grep -F 'HITEL14 V24 로그 폴더 직접 저장' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'HITEL14 V25 원클릭 로그 폴더 저장' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SELF_MEDIA_TEST_QUEUED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'startActivityForResult(mgr.createScreenCaptureIntent(),' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -87,6 +87,10 @@ jobs:
           grep -F 'HITEL14_LATEST_STT_LOG.zip' AndroidProject/app/src/main/java/app/hitel/samsungprobe/V23FreshLogExport.java
           grep -F 'HitelSafLogSaver.save(getApplicationContext(),snapshot)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'LOG_SAVE_FOLDER_PICK' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'Button speakerLogExport=btn("📁 로그 저장 · 폴더 선택",this::chooseManualLogFolder);' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'screen.addView(speakerLogExport,0,new LinearLayout.LayoutParams(-1,dp(62)));' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          if grep -F 'Button chooseLogFolder=' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then echo "ERROR: redundant picker button"; exit 1; fi
+          echo PASS_ONE_TAP_SAVE_BUTTON_ALWAYS_PINNED_TO_TOP
           grep -F 'DocumentFile.fromTreeUri' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
           grep -F 'resolver.openInputStream(file.getUri())' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
           grep -F 'MessageDigest.getInstance("SHA-256")' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
@@ -155,8 +159,8 @@ jobs:
             echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
           fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.systempicker'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='32'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V24 로그 폴더 직접 저장'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='33'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V25 원클릭 로그 폴더 저장'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
           if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
             echo 'ERROR: recording speaker player still in APK manifest'; exit 1
@@ -174,7 +178,7 @@ jobs:
       - name: Upload auditable APK and reconstructed sources
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-V24-selectable-folder-log-direct-PCM-APK
+          name: HITEL14-V25-one-tap-folder-save-APK
           path: |
             AndroidProject/app/build/outputs/apk/debug/*.apk
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -193,11 +197,11 @@ jobs:
           set -euo pipefail
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_V24_LogFolder_DirectPCM_STT.apk
-          (cd downloads && sha256sum HITEL14_V24_LogFolder_DirectPCM_STT.apk > HITEL14_V24_LogFolder_DirectPCM_STT.sha256)
+          cp "$APK" downloads/HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.apk
+          (cd downloads && sha256sum HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.apk > HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_V24_LogFolder_DirectPCM_STT.apk downloads/HITEL14_V24_LogFolder_DirectPCM_STT.sha256
+          git add downloads/HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.apk downloads/HITEL14_V25_OneTap_LogFolder_DirectPCM_STT.sha256
           git commit -m "build: publish HITEL14 V23 with direct PCM STT [skip ci]"
           git fetch origin feature/hitel14-v23-integrated-direct-pcm-stt-20261112
           git rebase origin/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
