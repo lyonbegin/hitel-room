@@ -6,7 +6,7 @@ Repo branch: feature/bithuman-expression2-imx-sdk-audit-20261112.
 
 ## What is implemented
 
-- tools/bithuman_audit/inspect.py: SHA256, container signature, ZIP contents, manifest candidates, AAR classes.jar, javap public API, ELF symbol inventory, Maven POM dependencies.
+- tools/bithuman_audit/artifact_audit.py: SHA256, container signature, ZIP contents, manifest candidates, AAR classes.jar, javap public API, ELF symbol inventory, Maven POM dependencies.
 - tools/bithuman_audit/test_inspect.py: completely offline mock-data tests.
 - .github/workflows/bithuman-imx-sdk-audit.yml: GitHub Actions downloads official public artifacts into temporary runner storage, generates metadata-only JSON and Markdown, compiles upstream Android sample without an API secret, reports build result.
 - Vendor IMX and SDK archives are NOT checked into this repository and are NOT uploaded as workflow artifacts.
@@ -48,7 +48,7 @@ GitHub Actions runs on push to this analysis branch. Find the workflow named "bi
 
 Local analysis after obtaining files:
 
-python3 tools/bithuman_audit/inspect.py --imx wise-pup.imx --aar expression2-android-0.6.2.aar --pom expression2-android-0.6.2.pom --output reports/bithuman
+python3 tools/bithuman_audit/artifact_audit.py --imx wise-pup.imx --aar expression2-android-0.6.2.aar --pom expression2-android-0.6.2.pom --output reports/bithuman
 
 Local smoke tests:
 
