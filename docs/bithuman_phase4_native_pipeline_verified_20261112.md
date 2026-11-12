@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-12 (KST/UTC); public Wise Pup sample, Android SDK 0.6.2, isolated internal analysis.
 **Branch:** feature/bithuman-expression2-imx-sdk-audit-20261112.
-**Status:** 53-frame CPU video generated and quantitatively verified. Standalone Android APK compiled; emulated Android execution is separately tracked.
+**Status:** 53-frame CPU video generated and quantitatively verified. Standalone Kotlin Android APK **compiled, installed and fully ran all 53 frames on the Android 14 API34 x86_64 Google APIs emulator** (run 43246265487, both jobs success).
 
 ## Actual evidence
 
@@ -13,7 +13,7 @@
 - Actual ARM64 JNI callgraph metadata and decompiler excerpts: https://github.com/lyonbegin/hitel-room/actions/runs/43244274511
 - Canonical seeded 14-frame comparison: https://github.com/lyonbegin/hitel-room/actions/runs/43244089540
 - Verified independent **53-frame** pipeline: https://github.com/lyonbegin/hitel-room/actions/runs/43245140384
-- Independent full-pipeline Android APK build/test workflow: https://github.com/lyonbegin/hitel-room/actions/runs/43246265487
+- Independent full-pipeline Android APK build AND successful Android emulator execution: https://github.com/lyonbegin/hitel-room/actions/runs/43246265487
 
 ## Exact native model data flow observed in ARM64 JNI decompilation
 
@@ -78,7 +78,39 @@ The app has:
 Build APK success as of run 43246265487, artifact:
 https://github.com/lyonbegin/hitel-room/actions/runs/43246265487/artifacts/13956654476
 
-IMPORTANT: Android runtime 53-frame execution should only be reported successful once the workflow's emulator job actually logs INDEPENDENT_ANDROID_PHASE4_PASS frames=53 and uploads valid first/last PNG images.
+## Android 14 E2E actual verification — PASSED
+
+- Workflow run: https://github.com/lyonbegin/hitel-room/actions/runs/43246265487
+- Build job: build-native-full-pipeline **success**.
+- Emulator job: prove-on-android14-emulator **success**.
+- Android 14 API34 x86_64 Google APIs with ro.product.cpu.abilist=x86_64,arm64-v8a.
+- APK: https://github.com/lyonbegin/hitel-room/actions/runs/43246265487/artifacts/13956654476
+- Full proof ZIP (ADB device properties, Logcat, screen screenshot, PNGs, memory): https://github.com/lyonbegin/hitel-room/actions/runs/43246265487/artifacts/13958480555
+- Logcat:
+  - PHASE4_START vendorSDK=NONE credentials=NONE
+  - ENC_TOK14_PASS
+  - STEP14_PASS
+  - DECODE_BATCH_PASS dec16 kept=16 total=16
+  - DECODE_BATCH_PASS dec16 kept=16 total=32
+  - DECODE_BATCH_PASS dec16 kept=16 total=48
+  - DECODE_BATCH_PASS dec8 kept=5 total=53
+  - INDEPENDENT_ANDROID_PHASE4_PASS frames=53 totalMs=42960
+  - REAL_ANDROID53_PHASE4_PASS
+- **53 actual RGB frames** rendered, Kotlin app screen displaying the generated Wise Pup avatar alongside status logs.
+- Valid first_frame.png 490,787 bytes and last_frame.png 461,245 bytes extracted through ADB run-as. Their PNG SHA-256 values are different, confirming exported frames are not byte-identical:
+  - first: d64f4754e4a3217f9b016ddd969a59912492dfa84bbf69afa27b8350db8598c0
+  - last: 712ee3e44019099a04186b2f8d3060c2fd5e6818b96e243affc175e456f846cb
+- Captured Android meminfo: app total PSS 300,352 KiB and RSS 358,044 KiB (this is a point-in-time dump after synthesis, not peak memory profiling).
+- Measured 42.96 sec is **full model computation for the 53-frame clip**, not 20fps live inference. 53 model frames at 20fps playback are 2.65 sec after computation; playback loop has a 50ms UI interval.
+- No actual spoken voice PCM used and no phoneme synchronization tested. Authentication-free public model computation does **not** reproduce a backend photo-to-IMX creator.
+
+## Remaining priorities after successful Android model runtime
+
+1. Replace synthetic audio with controlled real speech at 16kHz and inspect lip motion response.
+2. Test streaming chunk advancement and pipeline latencies instead of batch-generation followed by playback.
+3. Compare against original avatar output and eventually benchmark on actual ARM64 Android hardware.
+4. Identity creation for arbitrary new users remains an entirely separate unsolved pipeline.
+
 
 ## Unfinished technical scope
 
