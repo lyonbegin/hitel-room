@@ -95,11 +95,8 @@ public:
     config.max_active_paths=8;
     // Official endpoint detection receives the actual PCM silence as well.
     config.enable_endpoint=1;
-    // Samsung 300ms growing-M4A speech has a measured 0.42s pause.
-    // Upstream's default 1.2s trailing-silence rule missed that endpoint.
-    // Keep 300ms media transport separate from the actual ASR endpoint rules.
-    config.rule1_min_trailing_silence=0.55f; // no text, avoid false empty endpoints
-    config.rule2_min_trailing_silence=0.35f; // has text, capture shorter speech pauses
+    config.rule1_min_trailing_silence=2.4f;
+    config.rule2_min_trailing_silence=1.2f;
     config.rule3_min_utterance_length=300.0f;
     const uint64_t begun=bootNs();
     rec=SherpaOnnxCreateOnlineRecognizer(&config);
