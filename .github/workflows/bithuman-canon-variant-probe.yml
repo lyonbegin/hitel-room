@@ -1,0 +1,62 @@
+name: bitHuman Expression2 canon identity variant and decoder motion probe
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-canon-variant-probe.yml
+      - tools/bithuman_deep/canon_variant_experiment.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  run-public-model-cpu-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU inference and frame comparison tools
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 pillow numpy imageio-ffmpeg
+          python -m py_compile tools/bithuman_deep/canon_variant_experiment.py
+      - name: Download official public sample IMX
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expr2" reports/bithuman-canon-variants
+          curl -fLsS --retry 3 --connect-timeout 20 --max-time 270 \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2' \
+            -o "$RUNNER_TEMP/expr2/wise-pup.imx"
+          sha256sum "$RUNNER_TEMP/expr2/wise-pup.imx"
+      - name: Compare canon.bin and canon.f32 and real step tensor across 12 dec8 cases
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=8s 360s python -u \
+            tools/bithuman_deep/canon_variant_experiment.py \
+            --imx "$RUNNER_TEMP/expr2/wise-pup.imx" \
+            --out reports/bithuman-canon-variants
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("reports/bithuman-canon-variants/canon_variants_report.json")
+          d=json.loads(p.read_text())
+          assert d["status"]=="SUCCEEDED",d.get("status")
+          assert len(d["cases"])==12,len(d["cases"])
+          print("CANON_VARIANTS_PROBE_SUCCESS",len(d["cases"]))
+          print("CANON_SIMILARITY",d["canon_differences"]["cosine_similarity"])
+          for c in sorted(d["cases"],key=lambda x:x["rgb_mae_vs_idle"]):
+              print(c["case"],"MAE",c["rgb_mae_vs_idle"],"PSNR",c["rgb_psnr_vs_idle"],"pixelSTD",c["image_std"])
+          PY
+      - name: Upload comparative images and metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-canon-bin-vs-f32-real-step-comparison
+          path: reports/bithuman-canon-variants/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Delete temporary public model binaries
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expr2"
