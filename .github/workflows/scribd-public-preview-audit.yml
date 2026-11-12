@@ -1,0 +1,53 @@
+name: Scribd Public Preview Evidence (Small Batch)
+on:
+  workflow_dispatch:
+    inputs:
+      document_ids:
+        description: "Comma-separated Scribd document IDs (max 15)"
+        required: false
+        default: "810318131,870027531,516182254"
+      limit:
+        description: "Number of document pages (1-15)"
+        required: false
+        default: "3"
+  push:
+    branches:
+      - feature/scribd-preview-review-20261112
+    paths:
+      - .github/workflows/scribd-public-preview-audit.yml
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright and Chromium dependencies
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Install real Google Chrome
+        run: |
+          wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y /tmp/google-chrome.deb
+          google-chrome --version
+      - name: Capture public preview evidence via visible Chrome
+        env:
+          INPUT_DOC_IDS: "\${{ github.event.inputs.document_ids }}"
+          INPUT_LIMIT: "\${{ github.event.inputs.limit }}"
+        run: |
+          IDS="\${INPUT_DOC_IDS:-810318131,870027531,516182254}"
+          LIMIT="\${INPUT_LIMIT:-3}"
+          xvfb-run -a python tools/zocbo/scribd_preview_audit.py --ids "$IDS" --limit "$LIMIT"
+      - name: Save screenshots and status reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd-preview-evidence
+          path: scribd-preview-evidence/
+          if-no-files-found: warn
+          retention-days: 7
