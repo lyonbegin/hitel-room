@@ -56,6 +56,16 @@ def uixml(label):
             result.append({"text":text,"bounds":bounds,
                            "clickable":node.get("clickable"),"package":node.get("package")})
     print("UI",label,"; ".join(n["text"][:90] for n in result[:50]),flush=True)
+    # The Play Store AVD sometimes presents a Pixel Launcher ANR OVER HITEL14.
+    # Dismiss only that OS-level blocker; never alter HITEL14 or grant consent.
+    if any("Pixel Launcher isn't responding" in n["text"] for n in result):
+        close=next((n for n in result if n["text"]=="Close app"),None)
+        if close:
+            print("EMULATOR_SYSTEM_LAUNCHER_ANR_DISMISS",flush=True)
+            x1,y1,x2,y2=close["bounds"]
+            adb("shell","input","tap",str((x1+x2)//2),str((y1+y2)//2))
+            time.sleep(2)
+            return uixml(label+"-after-launcher-anr")
     return result
 def tap_node(node):
     x1,y1,x2,y2=node["bounds"]
