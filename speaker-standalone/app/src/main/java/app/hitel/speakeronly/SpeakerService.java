@@ -102,6 +102,7 @@ public final class SpeakerService extends Service {
     if(!active||shuttingDown||!autoCallMode)return;
     if(engine!=null){restartAfterCleanup=true;return;}
     restartAfterCleanup=false;
+    SamsungRecordAccessibility.cancelRequest();
     journal.event("TELEPHONY","CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",
         "folderUri",folderUri.toString(),"modelDownload",false);
     launchSession(true);
@@ -110,6 +111,7 @@ public final class SpeakerService extends Service {
   private synchronized void onCallEnded(){
     if(!active||shuttingDown||!autoCallMode)return;
     restartAfterCleanup=false;
+    SamsungRecordAccessibility.cancelRequest();
     journal.event("TELEPHONY","CALL_IDLE_STOP_OUTPUT",
         "hadActiveAudioSession",engine!=null);
     SpeakerEngine current=engine;
@@ -161,7 +163,31 @@ public final class SpeakerService extends Service {
         restartAfterCleanup=false;
         if(shouldRestart && gate!=null&&gate.isOffhook())onCallConnected();
       }
-    },outputId);
+    },outputId,new SpeakerEngine.RecordingStatusListener(){
+      @Override public void noRecordingEvidence(long waitingMs){
+        synchronized(SpeakerService.this){
+          if(shuttingDown||!active||!autoCallMode||engine!=holder[0]||
+             callEvents==null||!callEvents.isOffhook())return;
+        }
+        boolean available=SamsungRecordAccessibility.requestRecording(event->{
+          session.event("RECORD_UI",event,"waitingMs",waitingMs);
+          if("RECORD_START_BUTTON_TAPPED_NOT_YET_VERIFIED".equals(event))
+            send("삼성 녹음 시작 버튼 작동 · M4A 크기 증가 검증 대기",false);
+          else if("RECORDING_UI_INDICATES_ACTIVE".equals(event))
+            send("삼성 전화 UI에 녹음 중 표시 · M4A 크기 증가 검증 대기",false);
+        });
+        session.event("RECORDING","RECORDING_START_REQUEST",
+            "waitingMs",waitingMs,"accessibilityAvailable",available,
+            "verifiedRecording",false);
+        if(!available)
+          send("녹음 파일 증가 없음 · 접근성 보조를 허용하거나 삼성 전화 자동 녹음을 켜십시오.",false);
+      }
+      @Override public void confirmedRecording(String name,long bytes){
+        SamsungRecordAccessibility.cancelRequest();
+        session.event("RECORDING","RECORDING_VERIFIED_BY_M4A_GROWTH",
+            "filename",name,"bytes",bytes,"verified",true);
+      }
+    });
     holder[0]=task;
     engine=task;
     send(callTriggered?
@@ -174,6 +200,7 @@ public final class SpeakerService extends Service {
     if(shuttingDown)return;
     shuttingDown=true;
     active=false;
+    SamsungRecordAccessibility.cancelRequest();
     CallStateGate gate=callEvents;
     callEvents=null;
     if(gate!=null)gate.close();
@@ -199,6 +226,7 @@ public final class SpeakerService extends Service {
   }
 
   @Override public void onDestroy(){
+    SamsungRecordAccessibility.cancelRequest();
     CallStateGate gate=callEvents;
     callEvents=null;
     if(gate!=null)gate.close();
