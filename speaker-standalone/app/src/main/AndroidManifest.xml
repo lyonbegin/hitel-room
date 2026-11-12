@@ -5,7 +5,7 @@
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
   <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
   <application
-      android:label="녹음 중 M4A 자동 스피커"
+      android:label="녹음 중 M4A 직접 한국어 STT"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
       android:extractNativeLibs="true"
       android:allowBackup="false"
