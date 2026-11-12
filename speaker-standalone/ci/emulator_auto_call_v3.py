@@ -60,11 +60,20 @@ def main():
     seek("CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",18)
     # The invalid folder causes no live audio to be played. The app should
     # remain armed and never start arbitrary previously saved files.
+    beforeHangup=adb("logcat","-d","-v","time")
+    (OUT/"real-telephony-before-hangup.log").write_text(beforeHangup)
+    # The service also logs CALL_IDLE_STOP_OUTPUT at *initial* idle.
+    # Flush it before hangup so the test cannot pass on stale startup events.
+    adb("logcat","-c")
     cancel=adb("emu","gsm","cancel",number,check=False)
     print("EMULATOR_GSM_END",cancel,flush=True)
-    seek("CALL_IDLE_STOP_OUTPUT",18)
+    if "KO" in cancel or "ERROR" in cancel.upper():
+        raise RuntimeError("Emulator refused to end call: "+cancel)
+    seek("CALL_IDLE_STOP_OUTPUT",20)
+    seek("state=0",10)
     state=adb("logcat","-d","-v","time")
-    (OUT/"real-telephony-event-lifecycle.log").write_text(state)
+    (OUT/"real-telephony-after-hangup.log").write_text(state)
+    (OUT/"real-telephony-event-lifecycle.log").write_text(beforeHangup+"\n--- END EVENT ---\n"+state)
     own("am","start-service","--user","0",
       "-n",COMPONENT,"-a","app.hitel.speakeronly.STOP",check=False)
     time.sleep(1)
