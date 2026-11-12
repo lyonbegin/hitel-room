@@ -136,6 +136,14 @@ jobs:
           ffmpeg -nostdin -hide_banner -loglevel error -y -f lavfi -i "sine=frequency=523:sample_rate=48000:duration=9" -ac 1 -c:a aac -b:a 64k /tmp/hitel14-v19.m4a
           test "$(stat -c %s /tmp/hitel14-v19.m4a)" -gt 5000
           ffprobe -v error -show_entries stream=codec_name,sample_rate,channels -of default=noprint_wrappers=1 /tmp/hitel14-v19.m4a
+      - name: Grant KVM access for Android emulator hardware acceleration
+        run: |
+          set -euo pipefail
+          ls -l /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          echo "KVM_ACCELERATION_GRANTED"
       - name: Boot emulator; ACTUALLY install APK; interact with UI and growing recording
         uses: reactivecircus/android-emulator-runner@v2
         with:
