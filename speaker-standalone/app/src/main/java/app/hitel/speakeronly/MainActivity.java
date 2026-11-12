@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -34,7 +35,7 @@ public final class MainActivity extends Activity {
   private boolean folderMode;
   private int deviceId=-1;
   private TextView header,source,detectedSource,status,deviceSummary,explanation;
-  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton;
+  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton;
   private boolean receiverRegistered;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
@@ -83,13 +84,21 @@ public final class MainActivity extends Activity {
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
 
-    text(root,"2. 출력 장치 선택",17);
+    text(root,"2. 통화 중 녹음 자동 시작 설정",17);
+    accessibilityButton=button(root,"삼성 전화 녹음 시작 보조 활성화 (접근성 설정)");
+    text(root,"통화 연결 후 녹음 파일이 생성되지 않으면 삼성 전화 화면의 '녹음 시작' 버튼을 자동으로 누르도록 시도합니다. 최초 한 번 접근성 서비스 사용자가 직접 허용해야 합니다. 녹음 시작 버튼 작동 후에도 실제 M4A 크기가 증가해야만 스피커가 켜집니다.",12);
+    accessibilityButton.setOnClickListener(v->{
+      try{startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));}
+      catch(Exception e){status.setText("접근성 설정 열기 실패: "+e.getMessage());}
+    });
+
+    text(root,"3. 출력 장치 선택",17);
     outputButton=button(root,"출력 선택 · 내장 스피커 / 수화부 / 블루투스 / USB-C");
     deviceSummary=text(root,"출력 장치: 자동 / 내장 스피커 우선",15);
     text(root,"블루투스 이어폰·스피커 또는 USB-C 오디오를 연결하면 목록에서 선택할 수 있습니다. 실제 연결된 출력 경로는 아래 상태에 표시됩니다.",12);
     outputButton.setOnClickListener(v->showOutputs());
 
-    text(root,"3. 실시간 재생",17);
+    text(root,"4. 통화 이벤트 및 실시간 재생",17);
     startButton=button(root,"통화 이벤트 자동 감시 켜기 · OFFHOOK 시 재생");
     stopButton=button(root,"통화 이벤트 자동 감시 해제");
     startButton.setOnClickListener(v->start());
@@ -98,7 +107,7 @@ public final class MainActivity extends Activity {
     status.setTextIsSelectable(true);
     explanation=text(root,
       "진단 기준: 48,000Hz AAC → Android MediaCodec → 16,000Hz 모노 PCM → AudioTrack. 녹음 원본 파일은 수정하지 않습니다. 통화 중에는 Android 전화 오디오 정책에 따라 출력 장치 선택이 제한될 수 있어 요청한 장치와 실제 출력 장치를 별도로 기록합니다.",12);
-    text(root,"4. 실제 출력 경로 진단",17);
+    text(root,"5. 실제 출력 경로 진단",17);
     exportButton=button(root,"진단 ZIP 다운로드에 저장 · 실제 파일 확인");
     exportButton.setOnClickListener(v->export());
     openExportButton=button(root,"저장된 ZIP 직접 열기");
@@ -244,6 +253,10 @@ public final class MainActivity extends Activity {
   }
   private void updateButtons(){
     boolean running=active();
+    if(accessibilityButton!=null)
+      accessibilityButton.setText(SamsungRecordAccessibility.isAvailable()?
+        "삼성 통화 녹음 시작 보조 활성화됨 · 설정 열기":
+        "삼성 통화 녹음 시작 보조 활성화 필요 · 설정 열기");
     startButton.setEnabled(!running&&selected!=null);
     stopButton.setEnabled(running);
     fileButton.setEnabled(!running);
