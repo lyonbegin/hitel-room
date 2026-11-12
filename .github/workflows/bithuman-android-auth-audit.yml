@@ -1,0 +1,66 @@
+name: bitHuman Android API credential and metering read-only reverse-engineering
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-android-auth-audit.yml
+      - tools/bithuman_deep/audit_android_auth.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-real-sdk-authentication:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    env:
+      BITHUMAN_API_SECRET: ""
+      BITHUMAN_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Validate read-only analyzer
+        run: |
+          python3 -m py_compile tools/bithuman_deep/audit_android_auth.py
+          javap -version
+      - name: Fetch published Expression2 and Essence2 SDK binaries only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bithuman-auth" reports/bithuman-auth
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 140 \
+            -o "$RUNNER_TEMP/bithuman-auth/expression2.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 140 \
+            -o "$RUNNER_TEMP/bithuman-auth/essence2.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar'
+          sha256sum "$RUNNER_TEMP/bithuman-auth/"*.aar
+      - name: Audit Kotlin/JVM credential setters and session-metering call sites
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=8s 720s python3 \
+            tools/bithuman_deep/audit_android_auth.py \
+            --expression "$RUNNER_TEMP/bithuman-auth/expression2.aar" \
+            --essence "$RUNNER_TEMP/bithuman-auth/essence2.aar" \
+            --output reports/bithuman-auth
+          test -s reports/bithuman-auth/authentication_static_audit.json
+          test -s reports/bithuman-auth/authentication_static_audit.md
+          sed -n '1,80p' reports/bithuman-auth/authentication_static_audit.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive bytecode references and public method signatures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-official-android-api-authentication-static-analysis
+          path: reports/bithuman-auth/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Remove SDK binaries from runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/bithuman-auth"
