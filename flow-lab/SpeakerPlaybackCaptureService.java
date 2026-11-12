@@ -9,6 +9,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.content.pm.ApplicationInfo;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Handler;
@@ -28,6 +29,9 @@ public final class SpeakerPlaybackCaptureService extends Service
     public static final String KEY_DATA="data";
     public static final String KEY_KIND="kind";
     public static final String KEY_TEXT="text";
+    public static final String KEY_TARGET_UID="target_uid";
+    public static final String KEY_TARGET_PACKAGE="target_package";
+    public static final String KEY_TARGET_LABEL="target_label";
     private static final String CHANNEL="hitel-v14-speaker-capture";
     private static final int NOTIFY_ID=1415;
     private final Handler main=new Handler(Looper.getMainLooper());
@@ -121,6 +125,27 @@ public final class SpeakerPlaybackCaptureService extends Service
             MediaProjectionManager manager=
                 (MediaProjectionManager)getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if(manager==null)throw new IllegalStateException("MediaProjectionManager 없음");
+            int uid=command.getIntExtra(KEY_TARGET_UID,-1);
+            String pkg=command.getStringExtra(KEY_TARGET_PACKAGE);
+            String label=command.getStringExtra(KEY_TARGET_LABEL);
+            if(pkg==null)pkg="";
+            if(label==null||label.isEmpty())label="전체 앱";
+            if(!pkg.isEmpty()){
+                // Resolve the UID fresh at START: a stored UID must never
+                // be used if Android assigned a new UID after app reinstall.
+                ApplicationInfo appInfo=getPackageManager().getApplicationInfo(pkg,0);
+                uid=appInfo.uid;
+                if(uid<0)throw new IllegalStateException("선택 앱 UID를 확인할 수 없습니다.");
+            }else{
+                uid=-1;
+                label="전체 앱";
+            }
+            final int selectedUid=uid;
+            final String selectedLabel=label;
+            final String selectedPkg=pkg;
+            SpeakerCaptureLog.append(this,"CAPTURE_SELECTED_TARGET",
+                "package="+selectedPkg+" uid="+selectedUid+" label="+selectedLabel+
+                " (UI selection does not launch target app)");
             projection=manager.getMediaProjection(result,captureData);
             if(projection==null)throw new IllegalStateException("MediaProjection null");
             projection.registerCallback(new MediaProjection.Callback(){
@@ -132,8 +157,16 @@ public final class SpeakerPlaybackCaptureService extends Service
                     });
                 }
             },main);
-            speaker=new SpeakerPlaybackStt(this,projection,this);
-            emit("STATUS","원본 마이크 소스 변경 없이 출력음 캡처 시작");
+            speaker=new SpeakerPlaybackStt(this,projection,
+                selectedUid,selectedLabel,this);
+            emit("STATUS","선택된 출력음 캡처 대상: "+selectedLabel+
+                " · UID="+(selectedUid<0?"전체":selectedUid)+
+                " · 원본 마이크 STT는 변경하지 않음"+
+                (selectedPkg.toLowerCase(java.util.Locale.US).contains("dialer") ||
+                 selectedPkg.toLowerCase(java.util.Locale.US).contains("incallui") ||
+                 selectedPkg.equals("com.android.phone")
+                    ?" · 전화 통화 수신음은 스피커폰에서도 Android Playback Capture 대상 아님"
+                    :""));
             speaker.start();
         }catch(Throwable error){
             emit("STATUS","출력음 STT 시작 실패: "+error.toString());
