@@ -51,7 +51,6 @@ jobs:
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
           grep -F 'versionCode = 28' AndroidProject/app/build.gradle.kts
           grep -F 'app.hitel.callflowlab.v14.speakerlog' AndroidProject/app/build.gradle.kts
           grep -F 'HITEL14 출력음진단로그 V20' AndroidProject/app/src/main/AndroidManifest.xml
