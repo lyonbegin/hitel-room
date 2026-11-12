@@ -1,0 +1,156 @@
+name: V5 Galaxy growing M4A direct PCM to Korean Sherpa STT ARM64
+on:
+  push:
+    branches: [feature/standalone-growing-m4a-direct-korean-stt-20261112]
+    paths:
+      - 'speaker-standalone/**'
+      - 'sherpa-original-launcher/native/aac_mdat_follow.c'
+      - '.github/workflows/build-standalone-growing-m4a-direct-korean-stt-v5.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  speaker-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare NDK and compiler
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          COMPILER="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang"
+          if [ ! -x "$COMPILER" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Download original native AAC follower FFmpeg runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ffmpeg-download /tmp/ffmpeg-headers
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg             -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-download
+          curl -fLsS --retry 4 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          SOURCE="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$SOURCE/libavutil/avconfig.h"
+          ROOT=speaker-standalone/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$ROOT" /tmp/native
+          for NAME in libavcodec.so libavutil.so libswresample.so; do
+            unzip -p /tmp/ffmpeg-download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar "jni/arm64-v8a/$NAME" > "$ROOT/$NAME"
+            test -s "$ROOT/$NAME"
+          done
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$ROOT/"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie             -I"$SOURCE" sherpa-original-launcher/native/aac_mdat_follow.c             -L"$ROOT" -lavcodec -lavutil -Wl,--no-undefined             -o "$ROOT/libaac-mdat-follow.so"
+          "$LLVM/llvm-readelf" -h "$ROOT/libaac-mdat-follow.so" | grep -F 'AArch64'
+          "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'libavcodec.so'
+          echo "ORIGINAL_GROWING_M4A_NATIVE_AAC_LIBS_READY"
+          ls -lh "$ROOT"
+          ! find "$ROOT" -name '*sherpa*' -o -name '*onnx*' | grep .
+      - name: Regression test newest M4A 3 actual growth increments sampled at 100ms
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/growing-m4a-test
+          javac -d /tmp/growing-m4a-test \
+            speaker-standalone/app/src/main/java/app/hitel/speakeronly/GrowingM4aSelector.java \
+            speaker-standalone/ci/GrowingM4aSelectorTest.java
+          java -cp /tmp/growing-m4a-test app.hitel.speakeronly.GrowingM4aSelectorTest
+      - name: Verify original TELEPHONY call start/stop and positive M4A growth gate
+        run: |
+          set -euo pipefail
+          grep -F 'registerTelephonyCallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallStateGate.java
+          grep -F 'CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'CALL_IDLE_STOP_OUTPUT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'requiredPositiveGrowthEvents' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'android.permission.READ_PHONE_STATE' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'USAGE_MEDIA' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+      - name: Verify recording start controller is opt-in and evidence-based
+        run: |
+          set -euo pipefail
+          grep -F 'BIND_ACCESSIBILITY_SERVICE' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'requestRecording' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
+          grep -F 'RECORDING_GROWTH_CANDIDATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_CONTENT_CHANGED_EVENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'confirmedFileBytes' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          ! grep -E 'endCall\(|ANSWER_PHONE_CALLS|MODIFY_PHONE_STATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
+      - name: Bundle exact Korean INT8 Zipformer model (same version as proven file STT)
+        run: |
+          set -euo pipefail
+          mkdir -p speaker-standalone/app/src/main/assets/models
+          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6'
+          cd speaker-standalone/app/src/main/assets/models
+          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            curl --fail --location --retry 5 --retry-delay 5 --output "$name" "$BASE/$name"
+            test -s "$name"
+          done
+          test "$(stat -c %s encoder-epoch-99-avg-1.int8.onnx)" -gt 115000000
+          test "$(stat -c %s decoder-epoch-99-avg-1.onnx)" -gt 9500000
+          test "$(stat -c %s joiner-epoch-99-avg-1.int8.onnx)" -gt 2000000
+          test "$(stat -c %s tokens.txt)" -gt 50000
+          sha256sum *.onnx tokens.txt
+      - name: Verify direct PCM -> Sherpa code and build V5 (does not change V4)
+        run: |
+          set -euo pipefail
+          grep -F 'registerTelephonyCallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallStateGate.java
+          grep -F 'codec.feedAdtsFrame(adts,pcm->' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'target.accept(pcm)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'stream.acceptWaveform(normalized,RATE)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'DIRECT_FINAL_SEGMENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          if grep -E 'active.write\(pcm\)|sp.write\(pcm\)|speaker=new PcmSpeakerMonitor' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java; then
+            echo "ERROR: output still routed via AudioTrack instead of STT"; exit 1
+          fi
+          echo "PASS_DIRECT_STT_NO_AUDIO_CAPTURE_AND_NO_SPEAKER_LOOP"
+          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
+          APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.directstt'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='5'"
+          unzip -Z1 "$APK" > /tmp/direct-stt-apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so' /tmp/direct-stt-apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libavcodec.so' /tmp/direct-stt-apk-contents.txt
+          grep -Fx 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/direct-stt-apk-contents.txt
+          grep -Fx 'assets/models/decoder-epoch-99-avg-1.onnx' /tmp/direct-stt-apk-contents.txt
+          grep -Fx 'assets/models/joiner-epoch-99-avg-1.int8.onnx' /tmp/direct-stt-apk-contents.txt
+          grep -Fx 'assets/models/tokens.txt' /tmp/direct-stt-apk-contents.txt
+          unzip -Z1 "$APK" | grep -E 'lib/arm64-v8a/.*(sherpa|onnx)'
+          mkdir -p speaker-standalone/dist
+          cp "$APK" speaker-standalone/dist/HITEL_GrowingM4a_DirectKoreanStt_V5_ARM64.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_GrowingM4a_DirectKoreanStt_V5_ARM64.apk > SHA256.txt)
+          ls -lh speaker-standalone/dist/*.apk
+          echo "PASS_DIRECT_KOREAN_STT_MODEL_BUNDLED_AND_SIGNED"
+      - name: Upload standalone ARM64 APK
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HITEL-Galaxy-GrowingM4a-DirectKoreanSTT-V5-ARM64
+          path: speaker-standalone/dist/
+          if-no-files-found: warn
+
+
+      - name: Publish verified model-bundled APK as EXPERIMENTAL prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=speaker-standalone/dist/HITEL_GrowingM4a_DirectKoreanStt_V5_ARM64.apk
+          test -s "$APK"
+          TAG='hitel-growing-m4a-direct-korean-stt-v5-experimental-20261112'
+          gh release create "$TAG" "$APK" --repo lyonbegin/hitel-room \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'Experimental: Growing Samsung M4A -> Direct Sherpa Korean STT V5' \
+            --notes 'Uses V4 OFFHOOK/M4A growth AAC decoder, direct 16k mono PCM into bundled Sherpa-ONNX Zipformer; no speaker playback, no MediaProjection. Model included. CI build/signature only; live Samsung call recognition NOT verified.'
+          gh release view "$TAG" --repo lyonbegin/hitel-room --json url,assets
