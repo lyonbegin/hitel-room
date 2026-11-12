@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="record_accessibility_description">전화 연결 중 삼성 전화 앱에서 녹음이 시작되지 않았을 때, 화면에 표시된 통화 녹음 시작 버튼만 누릅니다. 녹음 중지나 통화 종료 버튼은 누르지 않습니다. 실제 녹음 여부는 파일 크기 증가를 다시 확인합니다.</string>
+</resources>
