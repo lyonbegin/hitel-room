@@ -1,0 +1,46 @@
+name: Publish already-built and verified HITEL14 V18 growing-call speaker APK
+on:
+  push:
+    branches: ["fix/hitel14-growing-file-live-speaker-v18-20261112"]
+    paths: [".github/workflows/publish-hitel14-growing-live-v18-verified-apk.yml"]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve signed APK from successful build steps of run 43169079028
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hitel18
+          gh run download 43169079028 --repo lyonbegin/hitel-room \
+            --name HITEL14-original-STT-plus-growing-call-folder-speaker-player \
+            --dir /tmp/hitel18
+          find /tmp/hitel18 -type f -ls
+          APK=$(find /tmp/hitel18 -type f -name '*.apk' -print -quit)
+          test -s "$APK"
+          # This exact hash came from verified Android build at 06:38:11Z.
+          echo "6659f70ee29c010a91d53cd9e7f51295794272394edfb8c9c8998bfa363c8a04  $APK" | sha256sum -c -
+          unzip -t "$APK" | tail -2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "app.hitel.callflowlab.v14.growing.live"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='25'"
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14_GrowingM4a_LiveSpeaker_V18.apk
+          (cd downloads && sha256sum HITEL14_GrowingM4a_LiveSpeaker_V18.apk > HITEL14_GrowingM4a_LiveSpeaker_V18.sha256)
+      - name: Publish exact verified APK without rebuild or modifying STT code
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14_GrowingM4a_LiveSpeaker_V18.apk downloads/HITEL14_GrowingM4a_LiveSpeaker_V18.sha256
+          git commit -m "build: publish verified V18 growing recording real-time speaker APK [skip ci]"
+          git fetch origin fix/hitel14-growing-file-live-speaker-v18-20261112
+          git rebase origin/fix/hitel14-growing-file-live-speaker-v18-20261112
+          git push origin HEAD:refs/heads/fix/hitel14-growing-file-live-speaker-v18-20261112
