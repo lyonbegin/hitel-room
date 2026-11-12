@@ -33,15 +33,18 @@ public final class MainActivity extends Activity {
   private Uri selected;
   private boolean folderMode;
   private int deviceId=-1;
-  private TextView header,source,status,deviceSummary,explanation;
-  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton;
+  private TextView header,source,detectedSource,status,deviceSummary,explanation;
+  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton;
   private boolean receiverRegistered;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
     @Override public void onReceive(Context c,Intent i){
       if(i==null||!SpeakerService.EVENT.equals(i.getAction()))return;
       String s=i.getStringExtra(SpeakerService.EX_STATUS);
-      if(s!=null)status.setText(s);
+      if(s!=null){
+        status.setText(s);
+        if(s.startsWith("녹음 중 파일 발견: "))detectedSource.setText(s);
+      }
       updateButtons();
     }
   };
@@ -66,14 +69,16 @@ public final class MainActivity extends Activity {
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
     int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);scroll.addView(root);
-    header=text(root,"녹음 파일 → 실시간 16kHz 스피커",21);
+    header=text(root,"녹음 중 최신 M4A → 실시간 16kHz 스피커",21);
     header.setTypeface(null,Typeface.BOLD);
     text(root,"이 앱은 STT 모델이 없습니다. 삼성 녹음파일이 커지는 동안 AAC를 16kHz PCM으로 변환해 미디어(USAGE_MEDIA)로 출력합니다. 다른 출력음 STT 앱의 단일 앱 선택 화면에서 이 앱을 선택할 수 있도록 허용했습니다.",13);
 
-    text(root,"1. 녹음 파일 또는 폴더 선택",17);
-    fileButton=button(root,"녹음 M4A 파일 직접 선택");
-    folderButton=button(root,"통화 녹음 폴더 선택 (새 파일 자동 감시)");
-    source=text(root,"녹음 입력이 선택되지 않았습니다.",13);
+    text(root,"1. 삼성 통화 녹음 폴더 지정 (최초 1회)",17);
+    folderButton=button(root,"통화녹음 폴더 선택 · 최신 증가 M4A 자동 감시");
+    fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
+    source=text(root,"녹음 폴더를 선택하십시오. 이후 실행에서는 저장된 폴더를 자동 감시합니다.",13);
+    detectedSource=text(root,"현재 녹음 중인 파일: 증가 확인 대기",14);
+    text(root,"녹음 폴더와 하위 폴더에서 최신 .m4a 크기가 연속해서 증가할 때만 자동으로 재생합니다. 완료된 과거 파일은 자동 재생하지 않습니다.",12);
     source.setTextIsSelectable(true);
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
@@ -85,7 +90,7 @@ public final class MainActivity extends Activity {
     outputButton.setOnClickListener(v->showOutputs());
 
     text(root,"3. 실시간 재생",17);
-    startButton=button(root,"실시간 16kHz 스피커 재생 시작");
+    startButton=button(root,"최신 증가 M4A 자동 감시 및 16kHz 재생");
     stopButton=button(root,"재생 중지");
     startButton.setOnClickListener(v->start());
     stopButton.setOnClickListener(v->stop());
@@ -94,10 +99,16 @@ public final class MainActivity extends Activity {
     explanation=text(root,
       "진단 기준: 48,000Hz AAC → Android MediaCodec → 16,000Hz 모노 PCM → AudioTrack. 녹음 원본 파일은 수정하지 않습니다. 통화 중에는 Android 전화 오디오 정책에 따라 출력 장치 선택이 제한될 수 있어 요청한 장치와 실제 출력 장치를 별도로 기록합니다.",12);
     text(root,"4. 실제 출력 경로 진단",17);
-    exportButton=button(root,"진단 ZIP 즉시 다운로드 저장 (종료 시에도 자동 저장)");
+    exportButton=button(root,"진단 ZIP 다운로드에 저장 · 실제 파일 확인");
     exportButton.setOnClickListener(v->export());
+    openExportButton=button(root,"저장된 ZIP 직접 열기");
+    openExportButton.setOnClickListener(v->openLastExport());
+    saveAsButton=button(root,"ZIP 저장 위치 직접 선택 (파일 관리자)");
+    saveAsButton.setOnClickListener(v->exportToSelectedLocation());
     setContentView(scroll);
-    if(selected!=null)source.setText((folderMode?"폴더: ":"파일: ")+selected);
+    if(selected!=null)source.setText((folderMode?"자동 감시 폴더: ":"직접 선택한 과거 파일: ")+selected);
+    String detected=getSharedPreferences("speaker",MODE_PRIVATE).getString("detectedSource","");
+    if(!detected.isEmpty())detectedSource.setText(detected);
     updateDeviceLabel();updateButtons();
   }
 
@@ -127,20 +138,33 @@ public final class MainActivity extends Activity {
       selected=uri;folderMode=requestCode==PICK_FOLDER;
       getSharedPreferences("speaker",MODE_PRIVATE).edit()
          .putString("sourceUri",uri.toString()).putBoolean("folder",folderMode).apply();
-      source.setText((folderMode?"폴더: ":"파일: ")+uri);
-      status.setText("선택 완료 · 출력 장치를 선택한 후 재생을 시작하십시오.");
+      source.setText((folderMode?"자동 감시 폴더: ":"직접 선택한 과거 파일: ")+uri);
+      detectedSource.setText(folderMode?"최신 M4A 크기 증가 확인 대기":"직접 파일 재생 · 실시간 감지 아님");
+      status.setText(folderMode?
+        "녹음 폴더 저장 완료 · 실행하면 최신 증가 M4A를 자동으로 찾습니다.":
+        "과거 파일 직접 선택됨 · 실시간 자동 감시를 원하시면 폴더를 선택하십시오.");
       updateButtons();
     }else if(requestCode==SAVE_ZIP){
       String id=getSharedPreferences("speaker",MODE_PRIVATE).getString("lastRunId","");
       if(id.isEmpty())return;
       File dir=new File(getFilesDir(),"diagnostics/run-"+id);
-      try(OutputStream stream=getContentResolver().openOutputStream(uri)){
-        if(stream==null)throw new java.io.IOException("출력 파일 생성 실패");
-        TraceJournal.zipDirectory(dir,stream,id);
-        status.setText("진단 기록 저장 완료 · 선택하신 ZIP 파일 위치");
+      try{
+        try(OutputStream stream=getContentResolver().openOutputStream(uri,"w")){
+          if(stream==null)throw new java.io.IOException("출력 파일 생성 실패");
+          TraceJournal.zipDirectory(dir,stream,id);
+        }
+        long bytes=-1;
+        try(android.os.ParcelFileDescriptor verify=getContentResolver().openFileDescriptor(uri,"r")){
+          if(verify==null)throw new java.io.IOException("저장된 ZIP을 다시 열 수 없습니다");
+          bytes=verify.getStatSize();
+        }
+        if(bytes<100)throw new java.io.IOException("저장된 ZIP 파일이 비어 있거나 없습니다: "+bytes);
         getSharedPreferences("speaker",MODE_PRIVATE).edit()
-          .putString("lastExport",String.valueOf(uri)).apply();
-      }catch(Exception e){status.setText("진단 ZIP 저장 오류: "+e.getMessage());}
+          .putString("lastExport","사용자 선택 위치 · 확인 "+bytes+"바이트")
+          .putString("lastExportUri",uri.toString())
+          .putLong("lastExportBytes",bytes).apply();
+        status.setText("선택한 위치에 ZIP 실제 저장 확인: "+bytes+"바이트");
+      }catch(Exception e){status.setText("진단 ZIP 저장 실패: "+e.getMessage());}
     }
   }
 
@@ -223,6 +247,12 @@ public final class MainActivity extends Activity {
     folderButton.setEnabled(!running);
     exportButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
       .getString("lastRunId","").isEmpty());
+    openExportButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
+      .getString("lastExportUri","").isEmpty());
+    saveAsButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
+      .getString("lastRunId","").isEmpty());
+    startButton.setText(folderMode?"최신 증가 M4A 자동 감시 및 16kHz 재생":
+      "선택한 M4A 직접 재생 (실시간 자동 감지 아님)");
   }
   private void start(){
     if(selected==null){status.setText("녹음 파일이나 폴더를 선택하십시오.");return;}
@@ -264,11 +294,13 @@ public final class MainActivity extends Activity {
     status.setText("진단 ZIP을 Downloads 폴더에 저장하고 있습니다.");
     new Thread(()->{
       try{
-        String location=TraceJournal.saveToDownloads(this,id);
+        TraceJournal.VerifiedExport saved=TraceJournal.saveToDownloads(this,id);
         getSharedPreferences("speaker",MODE_PRIVATE).edit()
-          .putString("lastExport",location).apply();
+          .putString("lastExport",saved.detail())
+          .putString("lastExportUri",saved.uri.toString())
+          .putLong("lastExportBytes",saved.bytes).apply();
         runOnUiThread(()->{
-          status.setText("진단 ZIP 저장 완료: "+location);
+          status.setText("진단 ZIP 검증 완료: "+saved.detail());
           updateButtons();
         });
       }catch(Throwable error){
@@ -281,6 +313,40 @@ public final class MainActivity extends Activity {
     },"Standalone-Diagnostic-Download-Export").start();
   }
 
+  private void exportToSelectedLocation(){
+    String id=getSharedPreferences("speaker",MODE_PRIVATE).getString("lastRunId","");
+    if(id.isEmpty()){status.setText("먼저 스트리밍을 실행하십시오.");return;}
+    Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+    intent.addCategory(Intent.CATEGORY_OPENABLE);
+    intent.setType("application/zip");
+    intent.putExtra(Intent.EXTRA_TITLE,"Galaxy-16kHz-AudioRoute-"+id+".zip");
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|
+        Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+    startActivityForResult(intent,SAVE_ZIP);
+  }
+
+  private void openLastExport(){
+    String address=getSharedPreferences("speaker",MODE_PRIVATE)
+        .getString("lastExportUri","");
+    if(address.isEmpty()){
+      status.setText("검증된 ZIP이 없습니다. 저장 후 다시 실행하십시오.");
+      return;
+    }
+    Uri uri=Uri.parse(address);
+    try{
+      try(android.os.ParcelFileDescriptor fd=getContentResolver().openFileDescriptor(uri,"r")){
+        if(fd==null||fd.getStatSize()<100)
+          throw new java.io.IOException("파일이 사라졌거나 비어 있습니다");
+      }
+      Intent open=new Intent(Intent.ACTION_VIEW);
+      open.setDataAndType(uri,"application/zip");
+      open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+      startActivity(Intent.createChooser(open,"실제 저장된 진단 ZIP 열기"));
+    }catch(Exception e){
+      status.setText("저장된 ZIP 열기 실패: "+e.getMessage());
+    }
+  }
+
   @Override protected void onStart(){
     super.onStart();
     IntentFilter filter=new IntentFilter(SpeakerService.EVENT);
@@ -289,7 +355,10 @@ public final class MainActivity extends Activity {
     receiverRegistered=true;
     String current=getSharedPreferences("speaker",MODE_PRIVATE).getString("status","대기 중");
     String savedZip=getSharedPreferences("speaker",MODE_PRIVATE).getString("lastExport","");
-    status.setText(savedZip.isEmpty()?current:current+"\n최근 진단 ZIP: "+savedZip);
+    status.setText(savedZip.isEmpty()?current:current+"\n검증된 진단 ZIP: "+savedZip);
+    String detected=getSharedPreferences("speaker",MODE_PRIVATE)
+      .getString("detectedSource","");
+    if(!detected.isEmpty())detectedSource.setText(detected);
     updateDeviceLabel();updateButtons();
   }
   @Override protected void onStop(){
