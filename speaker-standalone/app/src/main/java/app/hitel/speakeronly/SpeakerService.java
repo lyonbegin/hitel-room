@@ -72,10 +72,12 @@ public final class SpeakerService extends Service {
           if(completed!=null){
             try{
               completed.event("JOURNAL","AUTO_EXPORT_START","runId",completed.id());
-              String saved=TraceJournal.saveToDownloads(this,completed.id());
-              result+=" · 진단 ZIP 자동 저장: "+saved;
+              TraceJournal.VerifiedExport saved=TraceJournal.saveToDownloads(this,completed.id());
+              result+=" · 진단 ZIP 검증됨: "+saved.detail();
               getSharedPreferences("speaker",MODE_PRIVATE).edit()
-                .putString("lastExport",saved).apply();
+                .putString("lastExport",saved.detail())
+                .putString("lastExportUri",saved.uri.toString())
+                .putLong("lastExportBytes",saved.bytes).apply();
             }catch(Throwable error){
               completed.error("JOURNAL","AUTO_EXPORT_FAILED",error);
               result+=" · 로그 자동 저장 실패: "+error.getMessage();
@@ -98,9 +100,11 @@ public final class SpeakerService extends Service {
       if(j!=null){
         j.error("SERVICE","START_FAILED",t);
         try{
-          String saved=TraceJournal.saveToDownloads(this,j.id());
+          TraceJournal.VerifiedExport saved=TraceJournal.saveToDownloads(this,j.id());
           getSharedPreferences("speaker",MODE_PRIVATE).edit()
-            .putString("lastExport",saved).apply();
+            .putString("lastExport",saved.detail())
+            .putString("lastExportUri",saved.uri.toString())
+            .putLong("lastExportBytes",saved.bytes).apply();
         }catch(Throwable error){j.error("JOURNAL","ERROR_EXPORT_FAILED",error);}
       }
       active=false;
