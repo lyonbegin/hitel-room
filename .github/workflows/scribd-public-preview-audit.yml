@@ -37,11 +37,11 @@ jobs:
           google-chrome --version
       - name: Capture public preview evidence via visible Chrome
         env:
-          INPUT_DOC_IDS: "\${{ github.event.inputs.document_ids }}"
-          INPUT_LIMIT: "\${{ github.event.inputs.limit }}"
+          INPUT_DOC_IDS: "${{ github.event.inputs.document_ids }}"
+          INPUT_LIMIT: "${{ github.event.inputs.limit }}"
         run: |
-          IDS="\${INPUT_DOC_IDS:-810318131,870027531,516182254}"
-          LIMIT="\${INPUT_LIMIT:-3}"
+          IDS="${INPUT_DOC_IDS:-810318131,870027531,516182254}"
+          LIMIT="${INPUT_LIMIT:-3}"
           xvfb-run -a python tools/zocbo/scribd_preview_audit.py --ids "$IDS" --limit "$LIMIT"
       - name: Save screenshots and status reports
         if: always()
