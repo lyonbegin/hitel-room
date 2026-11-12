@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
+import android.view.View;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -27,7 +28,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Standalone Samsung growing recording PCM monitor. No STT UI or model. */
+/** Standalone Samsung growing recording -> direct Korean STT with live caption UI. */
 public final class MainActivity extends Activity {
   static final int PICK_FILE=41,PICK_FOLDER=42,SAVE_ZIP=43,BLUETOOTH_PERMISSION=44,PHONE_STATE_PERMISSION=45;
   private final Handler ui=new Handler(Looper.getMainLooper());
