@@ -93,12 +93,19 @@ jobs:
       - name: Generate real AAC-LC 48kHz growing-M4A input
         run: |
           set -euo pipefail
-          ffmpeg -nostdin -hide_banner -loglevel error -y \
+          # Ubuntu-24.04 image does not ship ffmpeg/ffprobe. Bundle a
+          # deterministic FFmpeg binary instead of assuming system packages.
+          python3 -m venv /tmp/standalone-ffmpeg
+          /tmp/standalone-ffmpeg/bin/pip -q install 'imageio-ffmpeg==0.6.0'
+          FFMPEG=$(/tmp/standalone-ffmpeg/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')
+          test -x "$FFMPEG"
+          "$FFMPEG" -nostdin -hide_banner -loglevel error -y \
             -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=10" \
             -ac 1 -c:a aac -b:a 64k /tmp/standalone-v2.m4a
           test "$(stat -c %s /tmp/standalone-v2.m4a)" -gt 10000
-          ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
-            -of default=noprint_wrappers=1 /tmp/standalone-v2.m4a
+          "$FFMPEG" -hide_banner -i /tmp/standalone-v2.m4a -f null - 2>&1 \
+            | tee /tmp/standalone-v2-input-probe.txt
+          grep -E 'Audio: aac .*48000 Hz, mono' /tmp/standalone-v2-input-probe.txt
       - name: Android 15 emulator accelerated boot permission
         run: |
           set -euo pipefail
