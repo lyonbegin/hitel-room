@@ -1,4 +1,4 @@
-name: HITEL14 V23 integrated original V22 plus direct Samsung 16kHz PCM STT
+name: HITEL14 V24 user-picked log folder with V22 and direct PCM STT
 on:
   push:
     branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
@@ -15,6 +15,8 @@ on:
       - "flow-lab/v18_integrate_direct_pcm_stt_v23.py"
       - "flow-lab/PcmDirectSherpaSink.java"
       - "flow-lab/V23FreshLogExport.java"
+      - "flow-lab/HitelSafLogSaver.java"
+      - "flow-lab/v19_user_selected_log_folder_v24.py"
       - "speaker-standalone/**"
       - "sherpa-original-launcher/native/aac_mdat_follow.c"
   workflow_dispatch:
@@ -56,12 +58,13 @@ jobs:
           python3 flow-lab/v16_capture_stt_durable_log.py
           python3 flow-lab/v17_restore_native_app_picker_v22.py
           python3 flow-lab/v18_integrate_direct_pcm_stt_v23.py
+          python3 flow-lab/v19_user_selected_log_folder_v24.py
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'versionCode = 31' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 32' AndroidProject/app/build.gradle.kts
           grep -F 'app.hitel.callflowlab.v14.systempicker' AndroidProject/app/build.gradle.kts
-          grep -F 'HITEL14 V23 PCM 직접 STT 통합' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'HITEL14 V24 로그 폴더 직접 저장' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SELF_MEDIA_TEST_QUEUED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'startActivityForResult(mgr.createScreenCaptureIntent(),' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -82,6 +85,12 @@ jobs:
           grep -F 'DIRECT_ASR_FINAL' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           grep -F 'V23FreshLogExport.save(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'HITEL14_LATEST_STT_LOG.zip' AndroidProject/app/src/main/java/app/hitel/samsungprobe/V23FreshLogExport.java
+          grep -F 'HitelSafLogSaver.save(getApplicationContext(),snapshot)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'LOG_SAVE_FOLDER_PICK' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'DocumentFile.fromTreeUri' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
+          grep -F 'resolver.openInputStream(file.getUri())' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
+          grep -F 'MessageDigest.getInstance("SHA-256")' AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
+          echo "PASS_MANUAL_SAF_LOG_FOLDER_PICKER_AND_VERIFIED_READBACK"
           grep -F 'DirectRecording' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F 'startDirectRecordingStt' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           if grep -E '(import android[.]media[.]AudioTrack|new AudioTrack[(]|PcmSpeakerMonitor[[:space:]])' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java; then echo 'ERROR: recording sent to speaker'; exit 1; fi
           grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
@@ -146,8 +155,8 @@ jobs:
             echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
           fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.systempicker'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='31'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V23 PCM 직접 STT 통합'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='32'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V24 로그 폴더 직접 저장'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
           if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
             echo 'ERROR: recording speaker player still in APK manifest'; exit 1
@@ -165,7 +174,7 @@ jobs:
       - name: Upload auditable APK and reconstructed sources
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-V23-integrated-direct-pcm-STT-APK
+          name: HITEL14-V24-selectable-folder-log-direct-PCM-APK
           path: |
             AndroidProject/app/build/outputs/apk/debug/*.apk
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -175,6 +184,7 @@ jobs:
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerCaptureLog.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/V23FreshLogExport.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/HitelSafLogSaver.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           if-no-files-found: error
@@ -183,11 +193,11 @@ jobs:
           set -euo pipefail
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_V23_Integrated_DirectPCM_STT.apk
-          (cd downloads && sha256sum HITEL14_V23_Integrated_DirectPCM_STT.apk > HITEL14_V23_Integrated_DirectPCM_STT.sha256)
+          cp "$APK" downloads/HITEL14_V24_LogFolder_DirectPCM_STT.apk
+          (cd downloads && sha256sum HITEL14_V24_LogFolder_DirectPCM_STT.apk > HITEL14_V24_LogFolder_DirectPCM_STT.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_V23_Integrated_DirectPCM_STT.apk downloads/HITEL14_V23_Integrated_DirectPCM_STT.sha256
+          git add downloads/HITEL14_V24_LogFolder_DirectPCM_STT.apk downloads/HITEL14_V24_LogFolder_DirectPCM_STT.sha256
           git commit -m "build: publish HITEL14 V23 with direct PCM STT [skip ci]"
           git fetch origin feature/hitel14-v23-integrated-direct-pcm-stt-20261112
           git rebase origin/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
