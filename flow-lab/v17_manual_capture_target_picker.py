@@ -51,7 +51,7 @@ patch('''    private void requestSpeakerPlayback(){''',
         SpeakerTargetPicker.Target selected=SpeakerTargetPicker.get(this);
         if(speakerSelectedTarget!=null)
             speakerSelectedTarget.setText("현재 선택: "+selected.display()+
-                (selected.isPhone()?"\n전화 통화 수신음은 스피커폰에서도 캡처 제외":""));
+                (selected.isPhone()?"\\n전화 통화 수신음은 스피커폰에서도 캡처 제외":""));
     }
     private void chooseSpeakerCaptureTarget(){
         SpeakerTargetPicker.show(this,selected->{
@@ -64,9 +64,9 @@ patch('''    private void requestSpeakerPlayback(){''',
             }
             if(speakerState!=null)
                 speakerState.setText("대상 선택 완료: "+selected.display()+
-                    "\n변경된 앱을 인식하려면 '선택 앱 출력음 STT 시작'을 누르십시오."+
+                    "\\n변경된 앱을 인식하려면 '선택 앱 출력음 STT 시작'을 누르십시오."+
                     (selected.isPhone()?
-                    "\n통화 상대 음성은 일반 미디어 캡처 불가; 스피커폰도 동일.":""));
+                    "\\n통화 상대 음성은 일반 미디어 캡처 불가; 스피커폰도 동일.":""));
         });
     }
     private void requestSpeakerPlayback(){''')
