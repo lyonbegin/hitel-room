@@ -42,7 +42,13 @@ public class NativeFlow extends GhidraScript {
             "Java_ai_bithuman_expression2_Native_pullToBuffer",
             "Java_ai_bithuman_expression2_Native_beginSegment",
             "Java_ai_bithuman_expression2_Native_endSegment",
-            "Java_ai_bithuman_expression2_Native_splitSignatures"
+            "Java_ai_bithuman_expression2_Native_splitSignatures",
+            "FUN_001a7a04",
+            "FUN_001a80dc",
+            "FUN_001a82f0",
+            "FUN_001a77c0",
+            "FUN_001a7db0",
+            "FUN_001acf1c"
         );
         List<Function> funcs=new ArrayList<>();
         for(Function f:currentProgram.getFunctionManager().getFunctions(true)){
@@ -105,7 +111,9 @@ public class NativeFlow extends GhidraScript {
                     if(f.getName().startsWith("Java_ai_bithuman_expression2_Native_") ||
                       Set.of("FUN_001a8404","FUN_001aa594","FUN_001a45a4","FUN_001a7fbc",
                         "FUN_001a7cfc","FUN_001a3608","FUN_001a62e0","FUN_001a5fdc",
-                        "FUN_001a6804","FUN_001a2e60").contains(f.getName())) {
+                        "FUN_001a6804","FUN_001a2e60",
+                        "FUN_001a7a04","FUN_001a80dc","FUN_001a82f0",
+                        "FUN_001a77c0","FUN_001a7db0","FUN_001acf1c").contains(f.getName())) {
                       extra.write("\n\n#### "+f.getName()+" @"+key+"\n");
                       extra.write(source.substring(0,Math.min(110000,source.length())));
                       extra.flush();
