@@ -7,6 +7,7 @@ quantitative comparisons and illustrative experiment PNGs, not a verified portra
 import argparse
 import hashlib
 import io
+import imageio_ffmpeg
 import json
 import subprocess
 import tempfile
@@ -21,7 +22,7 @@ from imx_v2 import parse, extract
 
 
 def video_first_frame(movie, target=(416,720)):
-    command=["ffmpeg","-loglevel","error","-i",str(movie),"-vf",
+    command=[imageio_ffmpeg.get_ffmpeg_exe(),"-loglevel","error","-i",str(movie),"-vf",
              "scale=416:720:flags=bicubic","-frames:v","1",
              "-f","image2pipe","-vcodec","png","-"]
     done=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=50)
