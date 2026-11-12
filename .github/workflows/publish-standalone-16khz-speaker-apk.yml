@@ -1,0 +1,50 @@
+name: Public direct download for standalone 16kHz speaker APK
+on:
+  push:
+    branches: [feature/standalone-16khz-recorder-speaker-route-20261112]
+    paths:
+      - '.github/workflows/publish-standalone-16khz-speaker-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-verified-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: lyonbegin/hitel-room
+      RELEASE_TAG: speaker-16khz-route-v1.0.0-20261112
+      ASSET_NAME: Galaxy-Standalone-16kHz-Speaker-Output-Router-ARM64.apk
+      APPROVED_SHA: bd1c22ca8369b7d14b20372a65f3d7466342528109962ad915a405a5c1ee400e
+    steps:
+      - name: Download already-successful independently built ARM64 APK
+        run: |
+          set -euo pipefail
+          mkdir -p release-apk
+          gh run download 43178236645 -R "$REPOSITORY"             -n Galaxy-Standalone-16kHz-Speaker-Output-Router-ARM64 -D release-apk
+          test -s "release-apk/$ASSET_NAME"
+          printf '%s  %s\n' "$APPROVED_SHA" "release-apk/$ASSET_NAME" | sha256sum -c -
+          unzip -t "release-apk/$ASSET_NAME" >/dev/null
+          unzip -Z1 "release-apk/$ASSET_NAME" | grep -F 'lib/arm64-v8a/libaac-mdat-follow.so'
+          if unzip -Z1 "release-apk/$ASSET_NAME" | grep -Ei 'sherpa|onnx|zipformer|sensevoice'; then
+            echo "REJECT STT library or model in standalone APK"; exit 1
+          fi
+          ls -lh "release-apk/$ASSET_NAME"
+      - name: Publish ONLY verified standalone APK to public GitHub Release
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" -R "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "release-apk/$ASSET_NAME" \
+              -R "$REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" "release-apk/$ASSET_NAME" \
+              -R "$REPOSITORY" \
+              --target 5b7c869b53c0c071363ef6541e58d405a2848634 \
+              --title 'Samsung Recording 16kHz Speaker Output Router v1.0.0' \
+              --notes 'Android ARM64 standalone 16kHz speaker monitor. No Sherpa, no speech recognition, no ONNX. Select built-in speaker, earpiece, connected Bluetooth or USB. Only app APK is published, never private recording or test evidence. SHA256: bd1c22ca8369b7d14b20372a65f3d7466342528109962ad915a405a5c1ee400e' \
+              --latest=false
+          fi
+          gh release view "$RELEASE_TAG" -R "$REPOSITORY" --json url,assets
+          echo "PUBLIC_APK_URL=https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/$ASSET_NAME"
