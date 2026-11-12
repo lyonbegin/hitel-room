@@ -1,0 +1,45 @@
+name: Publish verified standalone 16kHz auto-call V3 ARM64 APK
+on:
+  push:
+    branches: [fix/standalone-16khz-live-m4a-detection-verified-export-20261112]
+    paths: ['.github/workflows/publish-standalone-16khz-autocall-v3.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: lyonbegin/hitel-room
+      TAG: speaker-16khz-autocall-v3-20261112
+      ASSET: Galaxy-Standalone-16kHz-AutoCall-GrowingM4A-V3-ARM64.apk
+      VERIFIED_SHA: 9fa3952dfdfc5c77baedaac115232b2715a0fcda1dc17931c79ca74eeb3c2026
+    steps:
+      - name: Fetch independently built, signed V3 Android ARM64 APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 43205841958 -R "$REPO" \
+            -n Galaxy-Standalone-16kHz-AutoCall-GrowingM4A-V3-ARM64 -D dist
+          printf '%s  %s\n' "$VERIFIED_SHA" "dist/$ASSET" | sha256sum -c -
+          unzip -t "dist/$ASSET" >/dev/null
+          unzip -Z1 "dist/$ASSET" | grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so'
+          ! unzip -Z1 "dist/$ASSET" | grep -E 'onnx|sherpa|zipformer'
+          ls -l "dist/$ASSET"
+      - name: Publish public APK direct link without any private recordings
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$ASSET" -R "$REPO" --clobber
+          else
+            gh release create "$TAG" "dist/$ASSET" -R "$REPO" \
+              --target fix/standalone-16khz-live-m4a-detection-verified-export-20261112 \
+              --title '16kHz Samsung Recording Speaker Auto-Call V3 (ARM64)' \
+              --notes 'Experimental call-event controlled 16kHz standalone speaker. Arm once, READ_PHONE_STATE OFFHOOK starts verifying newest growing M4A (100ms checks, 3 positive growth events); IDLE stops and waits for the next call. Saved ZIP is verified by reopening; STT/ONNX is excluded. Real Samsung in-call playback and Bluetooth remain device-validation items. SHA256: 9fa3952dfdfc5c77baedaac115232b2715a0fcda1dc17931c79ca74eeb3c2026' \
+              --prerelease
+          fi
+          gh release view "$TAG" -R "$REPO" --json url,assets
+          echo "DIRECT_APK=https://github.com/$REPO/releases/download/$TAG/$ASSET"
