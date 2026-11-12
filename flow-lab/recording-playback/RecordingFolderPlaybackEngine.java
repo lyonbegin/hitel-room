@@ -112,50 +112,97 @@ final class RecordingFolderPlaybackEngine {
         }
         return listed;
     }
-    /** Baseline existing recordings first; select ONLY newly created/growing file. */
+    /**
+     * Samsung DocumentsProvider can be very slow when opening 36+ files:
+     * old logic did fstat on EVERY entry on EVERY 180ms scan, taking 40s for
+     * 25 iterations on real SM-F711N log 20261112_154308_054.
+     *
+     * Cheap tree metadata is collected for all entries. Expensive openFile
+     * + fstat is only done on up to 4 newest candidates. This also notices a
+     * file already being recorded when the user chooses the folder.
+     *
+     * Never play a completed old file simply because it exists. Select only
+     * a NEW file or one with OBSERVED increase in size/mtime/fstat since scan.
+     */
     private DocumentFile waitForGrowingFile()throws Exception{
         DocumentFile dir=DocumentFile.fromTreeUri(app,folderUri);
         if(dir==null||!dir.isDirectory())
             throw new IOException("삼성 통화 녹음 폴더로 사용할 수 없는 URI입니다.");
-        event("FOLDER_WATCH","통화 녹음 폴더 감시 시작 · 새로 생성되거나 증가하는 녹음파일을 기다립니다.");
-        HashMap<String,Long> baseline=new HashMap<>();
-        HashMap<String,Long> priorModified=new HashMap<>();
+        event("FOLDER_WATCH","녹음 폴더 감시 시작 · 목록 및 최신 파일 실제 증가량 확인");
+        HashMap<String,Long> baselineLength=new HashMap<>();
+        HashMap<String,Long> baselineModified=new HashMap<>();
+        HashMap<String,Long> actualLength=new HashMap<>();
+        long lastWaiting=0;
         int scans=0;
         while(!stop){
+            long scanBegin=SystemClock.elapsedRealtime();
             DocumentFile[] children=dir.listFiles();
-            DocumentFile choice=null;
-            long latest=-1;
-            for(DocumentFile f:children){
-                if(!f.isFile()||!audio(f))continue;
-                String key=f.getUri().toString();
-                long size=readableSize(f);
-                Long old=baseline.put(key,size);
-                long modified=f.lastModified();
-                Long oldModified=priorModified.put(key,modified);
-                // A real ongoing file may be visible but expose an unchanged
-                // or stale DocumentsProvider size. A changed mtime counts as
-                // activity; openDelta() will still demand ACTUAL new bytes.
-                if(scans>0 && (size>=1024 || modified>0) &&
-                   (old==null || old.longValue()!=size ||
-                    (oldModified!=null && oldModified.longValue()!=modified))){
-                    long mtime=f.lastModified();
-                    if(choice==null||mtime>=latest){choice=f;latest=mtime;}
+            java.util.ArrayList<DocumentFile> candidates=new java.util.ArrayList<>();
+            DocumentFile selected=null;
+            long selectedTime=Long.MIN_VALUE;
+            int files=0,changes=0;
+            for(DocumentFile file:children){
+                if(!file.isFile()||!audio(file))continue;
+                files++;
+                String key=file.getUri().toString();
+                long size=file.length();
+                long modified=file.lastModified();
+                Long before=baselineLength.put(key,size);
+                Long lastMod=baselineModified.put(key,modified);
+                if(scans>0 && size>=1024 &&
+                    (before==null || (size>before) ||
+                     (lastMod!=null && modified>lastMod))){
+                    changes++;
+                    if(selected==null||modified>=selectedTime){
+                        selected=file;
+                        selectedTime=modified;
+                    }
+                }
+                candidates.add(file);
+            }
+            if(selected!=null){
+                // New or changing file explicitly observed by SAF tree metadata.
+                long length=readableSize(selected); // expensive call once
+                if(length>=1024){
+                    selectedName=String.valueOf(selected.getName());
+                    event("FILE_SELECTED","녹음파일 생성/증가 감지: "+selectedName+
+                        " · 읽기 가능 바이트="+length+
+                        " · 스캔="+scans);
+                    return selected;
                 }
             }
-            if(choice!=null){
-                selectedName=String.valueOf(choice.getName());
-                event("FILE_SELECTED","증가하는 파일: "+selectedName+
-                    " · 현재 읽기 가능 바이트="+readableSize(choice));
-                return choice;
+
+            // DocumentFile.length() and lastModified() can be cached. Stat
+            // the latest 4 files (not all 36+) to see real in-progress growth.
+            candidates.sort((a,b)->Long.compare(b.lastModified(),a.lastModified()));
+            int checked=0;
+            for(DocumentFile candidate:candidates){
+                if(checked++>=4)break;
+                String key=candidate.getUri().toString();
+                long current=readableSize(candidate);
+                Long prior=actualLength.put(key,current);
+                if(scans>0&&prior!=null&&current>prior&&current>=1024){
+                    selectedName=String.valueOf(candidate.getName());
+                    event("FILE_SELECTED","실제 열린 파일 크기 증가 감지: "+
+                        selectedName+" · 이전="+prior+"B → "+current+"B"+
+                        " · 스캔="+scans);
+                    return candidate;
+                }
             }
             scans++;
-            if(scans%25==0)
-                event("FOLDER_WAITING","감시 중 · "+children.length+
-                    "개 항목 · 신규 파일/증가분 대기");
+            long now=SystemClock.elapsedRealtime();
+            if(scans==1 || now-lastWaiting>=4000){
+                lastWaiting=now;
+                event("FOLDER_WAITING","파일="+files+"개 · 최근 4개 실제 크기 확인"+
+                    " · 읽을 수 있는 증가분 미검출"+
+                    " · scan="+scans+" · scanDurationMs="+(now-scanBegin)+
+                    " · treeChanges="+changes);
+            }
             Thread.sleep(POLL_MS);
         }
         return null;
     }
+
     /** Source is not rewound for actual AAC decoding. Only missing source bytes
      * are appended to our private mirror; native follower is continuously open.
      * Safely supports a seekable PFD and an InputStream skip fallback.
