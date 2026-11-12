@@ -25,9 +25,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 pillow numpy
+          python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 pillow numpy imageio-ffmpeg
           python -m py_compile tools/bithuman_deep/test_decoder_channel_layout.py
-          ffmpeg -version | head -2
+          python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'
       - name: Download genuine public IMX
         shell: bash
         run: |
