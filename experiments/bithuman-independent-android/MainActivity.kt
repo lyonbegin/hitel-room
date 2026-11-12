@@ -41,7 +41,7 @@ class MainActivity : Activity() {
             setPadding(24, 30, 24, 30)
             text = "Independent LiteRT / Expression 2 encoder\n"
         }
-        val container = ScrollView(this).apply { addView(display) }
+        val container = ScrollView(this).apply { addView(this@MainActivity.display) }
         setContentView(container)
         Thread {
             try {
