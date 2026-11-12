@@ -1,0 +1,37 @@
+name: Inspect actual Android emulator screenshot from failed button test
+on:
+  push:
+    branches: ["fix/hitel14-growing-audio-output-diagnostics-v19-20261112"]
+    paths: [".github/workflows/inspect-hitel14-emulator-screenshot-v19.yml"]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  screenshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch ACTUAL screenshot from emulator test 43174252327
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hitel-screen
+          gh run download 43174252327 --repo lyonbegin/hitel-room --name HITEL14-v19-android15-actual-emulator-log --dir /tmp/hitel-screen
+          test -s /tmp/hitel-screen/w03-screen.png
+          ffmpeg -nostdin -hide_banner -loglevel error -y -i /tmp/hitel-screen/w03-screen.png -vf scale=450:-1 -q:v 9 /tmp/hitel-screen/w03-small.jpg
+          test -s /tmp/hitel-screen/w03-small.jpg
+          mkdir -p flow-lab/diagnostics
+          base64 -w0 /tmp/hitel-screen/w03-small.jpg > flow-lab/diagnostics/v19-emulator-w03-screenshot.jpg.b64
+          wc -c /tmp/hitel-screen/w03-screen.png /tmp/hitel-screen/w03-small.jpg flow-lab/diagnostics/v19-emulator-w03-screenshot.jpg.b64
+      - name: Publish screenshot evidence (only screenshot, not personal data)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flow-lab/diagnostics/v19-emulator-w03-screenshot.jpg.b64
+          git commit -m "test: actual emulator W03 screenshot for debugging button coordinates [skip ci]"
+          git fetch origin fix/hitel14-growing-audio-output-diagnostics-v19-20261112
+          git rebase origin/fix/hitel14-growing-audio-output-diagnostics-v19-20261112
+          git push origin HEAD:refs/heads/fix/hitel14-growing-audio-output-diagnostics-v19-20261112
