@@ -61,7 +61,13 @@ public final class SpeakerPlaybackCaptureService extends Service
         if("FINAL".equals(kind))LabStore.log("SPEAKER_STT_FINAL",text);
         else if("STATUS".equals(kind))LabStore.log("SPEAKER_STT_STATUS",text);
     }
-    @Override public void onStatus(String message){emit("STATUS",message);}
+    @Override public void onStatus(String message){
+        emit("STATUS",message);
+        if(message.startsWith("출력음 STT 세션 종료")||
+           message.startsWith("출력음 STT 종료")){
+            main.post(()->{if(!destroying)stopCapture(true);});
+        }
+    }
     @Override public void onPartial(String text){emit("PARTIAL",text);}
     @Override public void onFinal(String text){emit("FINAL",text);}
 
