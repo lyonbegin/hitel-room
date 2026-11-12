@@ -1,10 +1,9 @@
-name: HITEL14 V28 recorded Korean M4A playback capture STT vs YouTube
+name: HITEL14 V28 original app Korean playback STT vs YouTube
 on:
   push:
     branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
     paths:
       - ".github/workflows/test-hitel14-v28-playback-stt.yml"
-      - "flow-lab/ci/CaptureHarnessActivity.java"
       - "flow-lab/ci/test_hitel14_v28_playback_stt.py"
   workflow_dispatch:
 permissions:
@@ -62,16 +61,6 @@ jobs:
           python3 flow-lab/v21_fix_auto_folder_source_switch_v27.py
           python3 flow-lab/v22_default_monitor_route_picker_v28.py
           cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
-          cp flow-lab/ci/CaptureHarnessActivity.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/CaptureHarnessActivity.java
-          python3 - <<'PY'
-          from pathlib import Path
-          manifest=Path("AndroidProject/app/src/main/AndroidManifest.xml")
-          s=manifest.read_text()
-          assert s.count("</application>")==1
-          s=s.replace("</application>",'<activity android:name="app.hitel.samsungprobe.CaptureHarnessActivity" android:exported="true" />\n</application>')
-          manifest.write_text(s)
-          print("PASS_EMULATOR_ONLY_REAL_MEDIAPROJECTION_CONSENT_HARNESS")
-          PY
           grep -F 'versionCode = 36' AndroidProject/app/build.gradle.kts
           grep -F 'USAGE_MEDIA' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmSpeakerMonitor.java
           grep -F 'AUTO_MONITOR_ALREADY_ARMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
