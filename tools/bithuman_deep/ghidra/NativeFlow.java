@@ -5,6 +5,8 @@ import ghidra.app.script.GhidraScript;
 import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.listing.InstructionIterator;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -54,6 +56,9 @@ public class NativeFlow extends GhidraScript {
         for(Function f:funcs)queue.add(new Entry(f,0));
         Set<String> seen=new HashSet<>();
         int count=0,matchCount=0,ok=0;
+        String extraDest=System.getenv("BITHUMAN_JNI_PSEUDOCODE_OUT");
+        if(extraDest==null || extraDest.isEmpty())throw new IllegalArgumentException("BITHUMAN_JNI_PSEUDOCODE_OUT is missing");
+        BufferedWriter extra=new BufferedWriter(new FileWriter(extraDest));
         try(BufferedWriter writer=new BufferedWriter(new FileWriter(output))){
             writer.write("# bitHuman Expression 2 ARM64 JNI call-flow probe\n\n");
             writer.write("This is static function metadata from the official distributed Android .so.\n");
@@ -85,10 +90,26 @@ public class NativeFlow extends GhidraScript {
                         }
                     }
                 }
+                if(f.getName().equals("Java_ai_bithuman_expression2_Native_stepHistoryInputIndex")){
+                    extra.write("## STEP_HISTORY_INDEX_DISASSEMBLY\n");
+                    InstructionIterator it=currentProgram.getListing().getInstructions(f.getBody(),true);
+                    while(it.hasNext()) {
+                        Instruction instruction=it.next();
+                        extra.write(instruction.getAddress()+" "+instruction.toString()+"\n");
+                    }
+                }
                 DecompileResults decomp=decoder.decompileFunction(f,20,monitor);
                 if(decomp!=null && decomp.decompileCompleted() && decomp.getDecompiledFunction()!=null){
                     ok++;
                     String source=decomp.getDecompiledFunction().getC();
+                    if(f.getName().startsWith("Java_ai_bithuman_expression2_Native_") ||
+                      Set.of("FUN_001a8404","FUN_001aa594","FUN_001a45a4","FUN_001a7fbc",
+                        "FUN_001a7cfc","FUN_001a3608","FUN_001a62e0","FUN_001a5fdc",
+                        "FUN_001a6804","FUN_001a2e60").contains(f.getName())) {
+                      extra.write("\n\n#### "+f.getName()+" @"+key+"\n");
+                      extra.write(source.substring(0,Math.min(110000,source.length())));
+                      extra.flush();
+                    }
                     String[] lines=source.split("\n");
                     int matched=0;
                     for(int i=0;i<lines.length;i++){
@@ -113,6 +134,7 @@ public class NativeFlow extends GhidraScript {
             writer.write("- matching_clue_lines="+matchCount+"\n");
             writer.write("- Note: call graph is not proof of decoder channel semantics.\n");
         } finally {
+            extra.close();
             decoder.dispose();
         }
         println("BITHUMAN_JNI_GHIDRA_VISITED="+count+" DECOMPILED="+ok+" CLUES="+matchCount);
