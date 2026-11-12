@@ -94,7 +94,7 @@ for i in range(1,24):
     time.sleep(.22)
 time.sleep(5)
 assert_log("APPENDED_NEW_SOURCE_BYTES","mirror")
-assert_log("PCM_PLAYBACK_WRITE","pcm")
+assert_log("SPEAKER_TRACK_STARTED","pcm")
 assert_log("PLAYBACK_PROGRESS","output")
 pre=log("before-stop")
 for marker in ("usage=USAGE_MEDIA","capturePolicy=ALLOW_CAPTURE_BY_ALL"):
@@ -113,7 +113,12 @@ print("FILES_JSONL",files.strip()[:600],flush=True)
 assert "events.jsonl" in files,"JSONL log not persisted"
 events=run_as("sh","-c",f"cat /data/user/0/{APP}/files/diagnostics/run-*/events.jsonl",check=False)
 (OUT/"events.jsonl").write_text(events)
-assert "PCM_PLAYBACK_WRITE" in events,"JSONL missing audio event"
+latency=run_as("sh","-c",
+    f"cat /data/user/0/{APP}/files/diagnostics/run-*/latency-trace.jsonl",check=False)
+(OUT/"latency-trace.jsonl").write_text(latency)
+assert "PCM_PLAYBACK_WRITE" in latency,"AudioTrack writes missing in latency trace"
+assert "PLAYBACK_PROGRESS" in events,"Persistent speaker progress missing in events"
+assert "VERIFIED_DOWNLOADS_ZIP" in l,"Download ZIP was not independently reopened and verified"
 print("PASS_ANDROID15_REAL_PCM_TO_AUDIOTRACK_AND_PERSISTED_LOG",flush=True)
 if "진단 ZIP 자동 저장" in l:
     print("PASS_ANDROID15_AUTO_ZIP_USER_DOWNLOADS",flush=True)
