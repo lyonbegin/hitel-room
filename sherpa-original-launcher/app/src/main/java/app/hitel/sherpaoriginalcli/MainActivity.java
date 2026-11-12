@@ -38,7 +38,7 @@ public final class MainActivity extends Activity {
   Uri selected;
   boolean folderMode=false;
   TextView source,status,caption,latestTwo,logs,summary;
-  Button fileButton,folderButton,startButton,stopButton,exportButton,refreshButton;
+  Button fileButton,folderButton,startButton,speakerButton,stopButton,exportButton,refreshButton;
   volatile boolean receiverRegistered=false;
   volatile long lastLogRefreshNs=0;
   final StringBuilder liveText=new StringBuilder();
@@ -121,6 +121,7 @@ public final class MainActivity extends Activity {
       "삼성 전화앱에서 녹음을 시작하신 뒤 앱으로 돌아오지 않아도 백그라운드 감시가 계속됩니다.",12));
     root.addView(text("STEP 2 · 증가분 스트리밍 진단",17));
     startButton=button(root,"FFmpeg + 한국어 Zipformer 진단 시작");
+    speakerButton=button(root,"실시간 소리 확인 · 16kHz PCM 스피커 재생 (STT 제외)");
     stopButton=button(root,"진단 중지");
     status=text("대기 중",15);root.addView(status);
     root.addView(text("현재 말하는 내용 · 확정 대기 없이 즉시 표시",17));
@@ -142,7 +143,8 @@ public final class MainActivity extends Activity {
 
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
-    startButton.setOnClickListener(v->start());
+    startButton.setOnClickListener(v->start(false));
+    speakerButton.setOnClickListener(v->start(true));
     stopButton.setOnClickListener(v->stop());
     exportButton.setOnClickListener(v->export());
     refreshButton.setOnClickListener(v->refreshEventTail());
@@ -201,16 +203,20 @@ public final class MainActivity extends Activity {
       }
     }
   }
-  void start(){
+  void start(boolean speakerOnly){
     if(selected==null){status.setText("먼저 녹음 파일 또는 폴더를 선택하십시오.");return;}
     if(active()){status.setText("진단이 이미 실행 중입니다.");return;}
     try{
       Intent i=new Intent(this,GrowingCallService.class).setAction(GrowingCallService.START);
       i.putExtra(GrowingCallService.EX_URI,selected.toString());
       i.putExtra(GrowingCallService.EX_FOLDER,folderMode);
+      i.putExtra(GrowingCallService.EX_SPEAKER_ONLY,speakerOnly);
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);
       else startService(i);
-      status.setText("포그라운드 서비스 시작 요청 · 파일 감시 로그 기록 중");
+      status.setText(speakerOnly?
+        "16kHz PCM 스피커 재생 준비 중 · STT 모델을 실행하지 않습니다.":
+        "포그라운드 서비스 시작 요청 · 파일 감시 로그 기록 중");
+      if(speakerOnly)caption.setText("스피커 확인 모드: 자막 인식은 실행하지 않습니다.");
       ui.postDelayed(this::refreshButtons,850);
     }catch(Throwable e){
       Log.e("GrowingM4aDiag","Service start failed",e);
@@ -236,12 +242,15 @@ public final class MainActivity extends Activity {
   void refreshButtons(){
     boolean running=active();
     startButton.setEnabled(selected!=null&&!running);
+    speakerButton.setEnabled(selected!=null&&!running);
     stopButton.setEnabled(running);
     folderButton.setEnabled(!running);
     fileButton.setEnabled(!running);
     String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
     exportButton.setEnabled(!id.isEmpty());
-    summary.setText("세션: "+(id.isEmpty()?"없음":id)+" · 상태: "+(running?"실행 중":"종료 또는 대기"));
+    boolean speaker=getSharedPreferences("growing_diag",MODE_PRIVATE).getBoolean("speakerOnly",false);
+    summary.setText("세션: "+(id.isEmpty()?"없음":id)+" · 모드: "+(speaker?"16kHz 스피커 (STT 없음)":"STT")+
+      " · 상태: "+(running?"실행 중":"종료 또는 대기"));
   }
   void refreshEventTail(){
     String id=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("lastRunId","");
