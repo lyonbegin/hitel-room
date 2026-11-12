@@ -20,5 +20,5 @@ android {
 }
 dependencies {
   implementation("androidx.documentfile:documentfile:1.0.1")
-  implementation("com.github.k2-fsa:sherpa-onnx:1.12.26")
+  implementation("com.github.k2-fsa:sherpa-onnx:v1.12.26")
 }
