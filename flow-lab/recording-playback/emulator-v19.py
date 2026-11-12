@@ -57,7 +57,8 @@ def dump(stage):
     raise RuntimeError("Android UI hierarchy dump unavailable after 3 methods")
 def find(tree,term):
     for node in tree.iter("node"):
-        if term in node.attrib.get("text","") or term in node.attrib.get("content-desc",""):
+        if (term.casefold() in node.attrib.get("text","").casefold() or
+            term.casefold() in node.attrib.get("content-desc","").casefold()):
             return node
     return None
 def click(term,stage,optional=False):
