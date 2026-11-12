@@ -1,4 +1,4 @@
-name: bitHuman Expression2 REAL Android Emulator ABI verification
+name: bitHuman Expression2 and Essence2 REAL Android emulator ABI verification
 
 on:
   push:
@@ -16,7 +16,13 @@ permissions:
 jobs:
   android15-x86_64-proven-runner:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [expression2, essence2]
+    env:
+      BITHUMAN_MODEL: ${{ matrix.model }}
     steps:
       - name: Checkout HITEL verification scripts
         uses: actions/checkout@v4
@@ -25,7 +31,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Compile actual official Expression2 sample APK without an API secret
+      - name: Compile official model-specific APK without an API secret
         shell: bash
         run: bash tools/bithuman_audit/prepare_android_sample.sh
       - name: Enable KVM identical to prior successful run 42797639420
@@ -34,7 +40,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-      - name: Install actual ARM64 SDK APK on Android 15 x86_64 and verify ABI or launch
+      - name: Install ARM64 SDK APK on Android 15 x86_64, verify ABI and launch
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -49,13 +55,19 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bithuman-expression2-android15-x86_64-evidence
+          name: bithuman-${{ matrix.model }}-android15-x86_64-evidence
           path: reports/bithuman-emulator/
           if-no-files-found: warn
 
   android-arm64-system-image-experimental:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [expression2, essence2]
+    env:
+      BITHUMAN_MODEL: ${{ matrix.model }}
     steps:
       - name: Checkout HITEL verification scripts
         uses: actions/checkout@v4
@@ -64,7 +76,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Compile actual official Expression2 sample APK without an API secret
+      - name: Compile official model-specific APK without an API secret
         shell: bash
         run: bash tools/bithuman_audit/prepare_android_sample.sh
       - name: Try Android 11 ARM64 emulator using software emulation
@@ -82,6 +94,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bithuman-expression2-arm64-avd-evidence
+          name: bithuman-${{ matrix.model }}-arm64-avd-evidence
           path: reports/bithuman-emulator/
           if-no-files-found: warn
