@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""V24: independent, user-selected SAF log export with readback verification.
+"""V25: one-tap SAVE opens Android folder picker and auto-saves with readback verification.
 Apply strictly AFTER V23 patch chain. No STT engine source is modified.
 """
 from pathlib import Path
@@ -25,18 +25,16 @@ patch('''    private static final int DIRECT_FOLDER_PICK=1181;''',
     private static final int LOG_SAVE_FOLDER_PICK=1184;
     private TextView manualLogStatus;''')
 
+# The only SAVE button is pinned at the very top of the main screen.
+# It opens Android's native folder picker immediately; selection saves TXT.
+patch('''        Button speakerLogExport=btn("📦 3종 STT 최신 로그 ZIP 저장 (이전 ZIP 덮어쓰기)",
+            this::saveSpeakerDiagnosticZip);''',
+'''        Button speakerLogExport=btn("📁 로그 저장 · 폴더 선택",this::chooseManualLogFolder);''')
+patch('''        screen.addView(speakerLogExport,new LinearLayout.LayoutParams(-1,dp(52)));''',
+'''        screen.addView(speakerLogExport,0,new LinearLayout.LayoutParams(-1,dp(62)));''')
 patch('''        logPage.addView(logList,new LinearLayout.LayoutParams(-1,0,1));''',
-'''        line(logPage,"로그 저장 · 원하는 폴더 직접 선택");
-        manualLogStatus=label("저장 폴더 미선택 · STT가 멈춰도 TXT 로그는 저장할 수 있습니다.",12,true);
-        android.net.Uri priorLogFolder=HitelSafLogSaver.selectedFolder(this);
-        if(priorLogFolder!=null)
-            manualLogStatus.setText("선택한 로그 폴더: "+priorLogFolder);
-        logPage.addView(manualLogStatus,new LinearLayout.LayoutParams(-1,dp(58)));
-        Button chooseLogFolder=btn("① 로그 저장 폴더 선택",this::chooseManualLogFolder);
-        Button exportLogNow=btn("② 로그 TXT 지금 저장 · 확인",this::saveManualLogNow);
-        addButtonRow(logPage,chooseLogFolder,exportLogNow);
-        logPage.addView(label("저장 후 TXT를 실제로 다시 열어 내용과 SHA-256을 검사합니다. "+
-            "PCM·마이크·출력음 STT가 실패해도 실행 상태와 오류 기록을 담습니다.",11,false));
+'''        manualLogStatus=label("로그 저장 버튼을 누르면 폴더 선택창이 열립니다.",12,true);
+        screen.addView(manualLogStatus,1,new LinearLayout.LayoutParams(-1,dp(54)));
         logPage.addView(logList,new LinearLayout.LayoutParams(-1,0,1));''')
 
 patch('''    private void selectDirectRecordingFolder(){''',
@@ -128,20 +126,22 @@ w.write_text(s,encoding="utf-8")
 g=gradle.read_text(encoding="utf-8")
 assert 'versionCode = 31' in g
 assert '0.14.17-integrated-direct-pcm-v23' in g
-g=g.replace('versionCode = 31','versionCode = 32',1)
+g=g.replace('versionCode = 31','versionCode = 33',1)
 g=g.replace('0.14.17-integrated-direct-pcm-v23',
-            '0.14.18-selectable-saf-log-v24',1)
+            '0.14.19-one-tap-folder-save-v25',1)
 gradle.write_text(g,encoding="utf-8")
 m=manifest.read_text(encoding="utf-8")
 assert 'HITEL14 V23 PCM 직접 STT 통합' in m
 m=m.replace('HITEL14 V23 PCM 직접 STT 통합',
-            'HITEL14 V24 로그 폴더 직접 저장',1)
+            'HITEL14 V25 원클릭 로그 폴더 저장',1)
 manifest.write_text(m,encoding="utf-8")
 for name,old in preserved.items():
     assert (src/name).read_bytes()==old,"unexpected STT code change: "+name
 assert 'HitelSafLogSaver.save(getApplicationContext(),snapshot)' in s
 assert 'Intent.ACTION_OPEN_DOCUMENT_TREE' in s
 assert 'LOG_SAVE_FOLDER_PICK' in s
+assert 'Button chooseLogFolder' not in s
+assert 'Button exportLogNow' not in s
 assert (src/"HitelSafLogSaver.java").is_file()
 print("PASS: V24 log tab includes manual folder picker and verified TXT save")
 print("PASS: user folder selection immediately writes a diagnostic file")
