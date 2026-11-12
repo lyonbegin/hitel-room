@@ -143,8 +143,8 @@ final class SpeakerEngine {
     String rootId=DocumentsContract.getTreeDocumentId(directory);
     GrowingM4aSelector detector=new GrowingM4aSelector();
     log.event("FOLDER","LIVE_GROWTH_WATCH_STARTED",
-        "uri",directory.toString(),"pollMs",450,"maxDepth",3,
-        "rule","newest M4A that actually grows between consecutive scans");
+        "uri",directory.toString(),"pollMs",100,"requiredPositiveGrowthEvents",3,"maxDepth",3,
+        "rule","newest M4A with 3 positive size increases on 100ms checks");
     notifyState("최신 M4A 자동 검색 중 · 크기 증가 확인 후 재생합니다.",false);
     int scan=0;
     while(!stop){
@@ -155,7 +155,7 @@ final class SpeakerEngine {
         int t=Long.compare(y.modified,x.modified);
         return t!=0?t:y.name.compareTo(x.name);
       });
-      for(int i=0;i<Math.min(12,found.size());i++){
+      for(int i=0;i<Math.min(4,found.size());i++){
         GrowingM4aSelector.Entry e=found.get(i);
         long liveBytes=actualFileLength(Uri.parse(e.uri),e.bytes);
         found.set(i,new GrowingM4aSelector.Entry(
@@ -166,9 +166,10 @@ final class SpeakerEngine {
         Uri file=Uri.parse(d.growing.uri);
         log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
             "fileName",d.growing.name,"sizeBytes",d.growing.bytes,
-            "growthBytes",d.growthBytes,"lastModified",d.growing.modified,
+            "growthBytes",d.growthBytes,"positiveGrowthEvents",d.verifiedGrowthEvents,
+            "lastModified",d.growing.modified,
             "candidateCount",d.files,"uri",d.growing.uri);
-        notifyState("녹음 중 파일 발견: "+d.growing.name+" · 증가 "+
+        notifyState("녹음 중 파일 발견: "+d.growing.name+" · 100ms 검사에서 3회 증가 검증 · 증가 "+
             d.growthBytes+"바이트 → 16kHz 스트리밍 시작",false);
         return file;
       }
@@ -179,13 +180,14 @@ final class SpeakerEngine {
         }else{
           log.event("FOLDER","LATEST_M4A_NOT_GROWING",
               "fileName",d.latest.name,"sizeBytes",d.latest.bytes,
-              "lastModified",d.latest.modified,"candidateCount",d.files);
+              "lastModified",d.latest.modified,"verifiedGrowthEvents",d.verifiedGrowthEvents,
+              "candidateCount",d.files);
           notifyState("최신 파일: "+d.latest.name+" ("+d.latest.bytes+
-              "바이트) · 증가 확인 대기 · 과거 파일 재생 안 함",false);
+              "바이트) · 100ms 검사 "+d.verifiedGrowthEvents+"/3회 증가 확인 대기",false);
         }
       }
       scan++;
-      Thread.sleep(450);
+      Thread.sleep(100);
     }
     return null;
   }
