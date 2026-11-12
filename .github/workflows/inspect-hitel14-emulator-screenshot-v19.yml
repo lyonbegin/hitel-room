@@ -21,6 +21,8 @@ jobs:
           mkdir -p /tmp/hitel-screen
           gh run download 43174252327 --repo lyonbegin/hitel-room --name HITEL14-v19-android15-actual-emulator-log --dir /tmp/hitel-screen
           test -s /tmp/hitel-screen/w03-screen.png
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y ffmpeg >/dev/null
           ffmpeg -nostdin -hide_banner -loglevel error -y -i /tmp/hitel-screen/w03-screen.png -vf scale=450:-1 -q:v 9 /tmp/hitel-screen/w03-small.jpg
           test -s /tmp/hitel-screen/w03-small.jpg
           mkdir -p flow-lab/diagnostics
