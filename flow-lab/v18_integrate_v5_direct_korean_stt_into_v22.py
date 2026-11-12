@@ -32,7 +32,7 @@ originals={
 original_w03=w.read_text(encoding="utf-8")
 # The source V5 is the exact standalone module from successful signed release.
 names=("CallStateGate.java","DirectPcmKoreanStt.java","GrowingM4aSelector.java",
-       "LatencyTrace.java","MainActivity.java","SamsungRecordAccessibility.java",
+       "LatencyTrace.java","MainActivity.java","PcmSpeakerMonitor.java","SamsungRecordAccessibility.java",
        "SpeakerEngine.java","SpeakerService.java","StreamingAacPcmDecoder.java",
        "TraceJournal.java")
 sub.mkdir(parents=True)
@@ -41,7 +41,10 @@ for name in names:
     assert file.is_file(), f"Missing checked-out V5 source: {file}"
     shutil.copyfile(file,sub/name)
     assert (sub/name).read_bytes()==file.read_bytes()
-assert not (sub/"PcmSpeakerMonitor.java").exists(),"Do not copy speaker monitor into direct-STT variant"
+# V5's old output-picker UI still calls its STATIC device-label helpers.
+# Copying the class is needed to compile those dormant UI methods; the actual
+# SpeakerEngine must NEVER instantiate AudioTrack or route PCM through it.
+assert "new PcmSpeakerMonitor(" not in (sub/"SpeakerEngine.java").read_text()
 
 # Reuse only V5 accessibility service resource (not V5 launcher/activity).
 resource_src=source/"res/xml/samsung_record_accessibility.xml"
