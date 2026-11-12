@@ -28,6 +28,7 @@ final class SpeakerEngine {
   interface Callback {void state(String text,boolean finished);}
   interface RecordingStatusListener {
     void noRecordingEvidence(long waitingMs);
+    void recordingCandidate(String filename,long sizeBytes,int growthEvents);
     void confirmedRecording(String filename,long sizeBytes);
   }
   private final Context context;
@@ -193,6 +194,7 @@ final class SpeakerEngine {
       long started=SystemClock.elapsedRealtime();
       long nextRescan=0;
       long lastRecordRequest=0;
+      boolean candidateEventSent=false;
       while(!stop){
         long now=SystemClock.elapsedRealtime();
         if(changed.getAndSet(false)||now>=nextRescan){
@@ -212,6 +214,16 @@ final class SpeakerEngine {
               e.uri,e.name,liveBytes,e.modified));
         }
         GrowingM4aSelector.Decision d=detector.observe(snapshot);
+        if(!candidateEventSent && d.latest!=null &&
+           d.verifiedGrowthEvents>0){
+          candidateEventSent=true;
+          log.event("RECORDING","RECORDING_CANDIDATE_FILE_GROWTH",
+              "name",d.latest.name,"bytes",d.latest.bytes,
+              "growthEvents",d.verifiedGrowthEvents);
+          if(recordListener!=null)
+            recordListener.recordingCandidate(d.latest.name,d.latest.bytes,
+                d.verifiedGrowthEvents);
+        }
         if(d.growing!=null){
           Uri file=Uri.parse(d.growing.uri);
           log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
@@ -327,7 +339,8 @@ final class SpeakerEngine {
         try{t.join(1800);}catch(InterruptedException e){Thread.currentThread().interrupt();}}
       StreamingAacPcmDecoder dec=codec;
       if(dec!=null){try{
-          dec.finish(pcm->{PcmSpeakerMonitor sp=speaker;if(sp!=null)sp.write(pcm);pcmBytes+=pcm.length;});
+          if(!folder||pcmBytes>0)
+            dec.finish(pcm->{PcmSpeakerMonitor sp=speaker;if(sp!=null)sp.write(pcm);pcmBytes+=pcm.length;});
         }catch(Throwable e){log.error("AAC","FINAL_DRAIN_FAILURE",e);}
         dec.close();
       }
