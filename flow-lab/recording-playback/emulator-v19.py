@@ -118,30 +118,30 @@ folder=dump("saf_first")
 # DocumentsUI usually lists 'Documents' immediately or in navigation drawer.
 # Try direct Documents root then test folder.
 for term in ("Documents","문서"):
-    if find(folder,term):
+    if find(folder,term) is not None:
         click(term,"saf_documents")
         break
 folder=dump("saf_in_documents")
 if find(folder,"HITEL-Growing-M4A") is None:
-    if find(folder,"내부 저장소"):
+    if find(folder,"내부 저장소") is not None:
         click("내부 저장소","saf_storage")
-    elif find(folder,"Internal storage"):
+    elif find(folder,"Internal storage") is not None:
         click("Internal storage","saf_storage")
     folder=dump("saf_storage_root")
-    if find(folder,"Documents"):
+    if find(folder,"Documents") is not None:
         click("Documents","saf_documents_again")
 folder=dump("saf_folder_list")
 click("HITEL-Growing-M4A","select_hitel_test_folder")
 folder=dump("saf_inside")
 for text in ("Use this folder","이 폴더 사용"):
-    if find(folder,text):
+    if find(folder,text) is not None:
         click(text,"saf_use_folder")
         break
 else:
     raise AssertionError("SAF Use this folder control not found")
 permission=dump("saf_permission")
 for term in ("Allow","허용"):
-    if find(permission,term):
+    if find(permission,term) is not None:
         click(term,"saf_grant")
         break
 time.sleep(3)
