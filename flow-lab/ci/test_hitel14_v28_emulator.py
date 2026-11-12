@@ -56,13 +56,19 @@ assert "35" in adb("shell","getprop","ro.build.version.sdk")
 assert "x86_64" in adb("shell","getprop","ro.product.cpu.abi")
 apk=Path("AndroidProject/app/build/outputs/apk/debug/app-debug.apk")
 assert apk.stat().st_size>10000000,apk
-# Best-effort: exact production APK would be incompatible if ARM64-only.
+# Read production ABI from APK metadata without ever attempting to install
+# an incompatible ARM64 binary on an x86_64 emulator.
+import zipfile
 production=Path("downloads/HITEL14_V28_AutoCall_MediaRoute_3STT.apk")
 if production.is_file():
-    res=adb("install","-r",str(production),timeout=150,check=False)
-    (OUTPUT/"original-arm64-install-attempt.txt").write_text(res)
-    print("PRODUCTION_APK_INSTALL_ATTEMPT",res.strip()[:900],flush=True)
-r=adb("install","-r",str(apk),timeout=150)
+    with zipfile.ZipFile(production) as archive:
+        abis=sorted({x.split("/")[1] for x in archive.namelist()
+                     if x.startswith("lib/") and x.count("/")>=2})
+    print("PRODUCTION_APK_ABIS",abis,flush=True)
+    (OUTPUT/"production-apk-abis.txt").write_text(repr(abis))
+    if "x86_64" not in abis:
+        print("SKIP_PRODUCTION_APK_INSTALL_EXPECTED_CPU_ABI_MISMATCH",flush=True)
+r=adb("install","-r",str(apk),timeout=180)
 print("EMULATOR_X86_EQUIVALENT_APK_INSTALL",r.strip(),flush=True)
 assert "Success" in r
 for permission in ("android.permission.READ_PHONE_STATE","android.permission.RECORD_AUDIO","android.permission.BLUETOOTH_CONNECT"):
