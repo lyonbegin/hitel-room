@@ -226,7 +226,8 @@ ui=replace_once(ui,
     '''            SpeakerCaptureLog.append(this,"DIRECT_SOURCE_SELECTED",
                 "folder="+folder+"; uri="+uri);
             if(folder){
-                // Selecting the actual Call directory immediately arms the monitor.
+                // A newly selected folder must not be throttled by the old watch.
+                lastAutoArmMs=0;
                 armDefaultSamsungCallFolder();
             }
             return;''',"folder selection starts monitor")
@@ -288,6 +289,34 @@ ui=replace_once(ui,
         }
     }
     private void selectDirectRecordingFile(){''',"permission resume")
+# W03 already had this callback; remove our duplicate and extend the existing one.
+duplicate_start=ui.index('    @Override public void onRequestPermissionsResult(\n        int code,String[] permissions,int[] grantResults){')
+duplicate_end=ui.index('    private void selectDirectRecordingFile(){',duplicate_start)
+ui=ui[:duplicate_start]+ui[duplicate_end:]
+ui=replace_once(ui,
+    '''    @Override public void onRequestPermissionsResult(int req,String[] perm,int[] result){''',
+    '''    @Override public void onRequestPermissionsResult(int req,String[] perm,int[] result){
+        if(req==MEDIA_ROUTE_PERMISSION || req==1183 || (req==916 && callMediaLinkPending)){
+            super.onRequestPermissionsResult(req,perm,result);
+            boolean granted=result.length>0 &&
+                result[0]==android.content.pm.PackageManager.PERMISSION_GRANTED;
+            if(req==MEDIA_ROUTE_PERMISSION){
+                if(granted)showPcmMediaOutputDevices();
+                else if(pcmRouteSelectionState!=null)
+                    pcmRouteSelectionState.setText("블루투스 장치 표시 권한이 필요합니다.");
+            }else if(req==1183){
+                if(granted)armDefaultSamsungCallFolder();
+                else if(directSttStatus!=null)
+                    directSttStatus.setText("전화 상태 권한이 없어 자동 감시가 제한됩니다.");
+            }else if(req==916){
+                if(granted)requestSpeakerPlayback();
+                else{
+                    callMediaLinkPending=false;
+                    if(speakerState!=null)speakerState.setText("출력음 STT 오디오 권한이 필요합니다.");
+                }
+            }
+            return;
+        }''',"merge existing W03 permission override")
 ui_file.write_text(ui,encoding="utf-8")
 
 # 4. Required permissions for enumerating BT outputs are manifest declared.
