@@ -7,7 +7,7 @@ android {
     minSdk = 26
     targetSdk = 28
     versionCode = 3
-    versionName = "1.0.1-16k-media-capturable-log"
+    versionName = "1.0.2-auto-telephony-growing-m4a"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
