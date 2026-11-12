@@ -72,7 +72,7 @@ patch('''        log("SPEAKER_STT_CONSENT_REQUEST","Request Android MediaProject
         SpeakerCaptureLog.append(this,"CONSENT_REQUEST",
             "Android native single-app/full-display chooser; no custom app picker");
         captureSelectionStatus("Android 시스템 선택창 대기 (앱명은 공개 API로 확인 불가)");
-        // DO NOT use MediaProjectionConfig.createConfigForDefaultDisplay():
+        // DO NOT use Android's forced full-display-only configuration:
         // it explicitly disables app-window sharing on Android 14+.
         // The no-argument overload preserves Android's native user choice.
         startActivityForResult(mgr.createScreenCaptureIntent(),
