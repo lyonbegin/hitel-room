@@ -48,7 +48,8 @@ public class NativeFlow extends GhidraScript {
             "FUN_001a82f0",
             "FUN_001a77c0",
             "FUN_001a7db0",
-            "FUN_001acf1c"
+            "FUN_001acf1c",
+            "FUN_001a8500"
         );
         List<Function> funcs=new ArrayList<>();
         for(Function f:currentProgram.getFunctionManager().getFunctions(true)){
@@ -104,7 +105,7 @@ public class NativeFlow extends GhidraScript {
                         extra.write(instruction.getAddress()+" "+instruction.toString()+"\n");
                     }
                 }
-                DecompileResults decomp=decoder.decompileFunction(f,20,monitor);
+                DecompileResults decomp=decoder.decompileFunction(f, f.getName().equals("FUN_001a8500") ? 75 : 20,monitor);
                 if(decomp!=null && decomp.decompileCompleted() && decomp.getDecompiledFunction()!=null){
                     ok++;
                     String source=decomp.getDecompiledFunction().getC();
