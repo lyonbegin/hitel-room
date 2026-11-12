@@ -28,6 +28,8 @@ public final class GrowingCallEngine {
   final Context context;
   final TraceJournal log;
   final Callback callback;
+  final boolean speakerOnly;
+  volatile PcmSpeakerMonitor speaker;
   volatile boolean stop=false;
   volatile FFmpegSession ffmpeg;
   volatile Process sherpa;
@@ -68,9 +70,12 @@ public final class GrowingCallEngine {
   static final int WINDOW_SAMPLES=16000/5; // 200ms PCM transport, not recognition segmentation
   static final int WINDOW_BYTES=WINDOW_SAMPLES*2;
 
-  public GrowingCallEngine(Context context,TraceJournal log,Callback callback){
+  public GrowingCallEngine(Context context,TraceJournal log,Callback callback,boolean speakerOnly){
     this.context=context.getApplicationContext();
-    this.log=log;this.callback=callback;
+    this.log=log;this.callback=callback;this.speakerOnly=speakerOnly;
+  }
+  public GrowingCallEngine(Context context,TraceJournal log,Callback callback){
+    this(context,log,callback,false);
   }
   public void start(Uri uri,boolean isFolder){
     if(worker!=null)throw new IllegalStateException("Session already started");
@@ -88,7 +93,7 @@ public final class GrowingCallEngine {
     if(follower!=null && follower.isAlive())follower.destroy();
     // Do not destroy the recognizer here: the worker sends a clean EOF (0,0)
     // so Silero VAD can flush the final utterance and print its last caption.
-    log.event("CONTROL","VAD_GRACEFUL_FINAL_FLUSH_REQUESTED");
+    if(!speakerOnly)log.event("CONTROL","VAD_GRACEFUL_FINAL_FLUSH_REQUESTED");
     String path=fifo;
     if(path!=null){
       // FIFO reader can be waiting in open(), if ffmpeg failed before opening the write end.
@@ -112,11 +117,19 @@ public final class GrowingCallEngine {
       // Start the 174M model BEFORE waiting for a new Samsung call. In the
       // field trace cold model initialization took 13.79 seconds; overlap
       // that cost with idle folder monitoring, not with incoming speech.
-      log.timing("MODEL","PREWARM_BEGIN","beforeFileDiscovery",true);
-      nativeStart();
-      log.timing("MODEL","PREWARM_PROCESS_STARTED","nativeReady",false);
-      log.event("LATENCY","MODEL_PREWARM_STARTED","beforeFileDiscovery",true);
-      status("한국어 STT 모델 준비 중 · 녹음 파일 감시를 병행합니다");
+      if(speakerOnly){
+        speaker=new PcmSpeakerMonitor(log);
+        log.event("SPEAKER","SPEAKER_ONLY_MODE_SELECTED",
+          "sampleRateHz",16000,"bits",16,"channels",1,
+          "sttModelLaunched",false);
+        status("16kHz PCM 스피커 실시간 확인 · STT 미실행");
+      }else{
+        log.timing("MODEL","PREWARM_BEGIN","beforeFileDiscovery",true);
+        nativeStart();
+        log.timing("MODEL","PREWARM_PROCESS_STARTED","nativeReady",false);
+        log.event("LATENCY","MODEL_PREWARM_STARTED","beforeFileDiscovery",true);
+        status("한국어 STT 모델 준비 중 · 녹음 파일 감시를 병행합니다");
+      }
       Uri file=directoryMode?waitForGrowingFile(given):given;
       if(file==null)throw new IOException("파일을 발견하지 못했거나 감시를 중지했습니다.");
       activeUri=file;
@@ -147,6 +160,8 @@ public final class GrowingCallEngine {
       if(session!=null)FFmpegKit.cancel(session.getSessionId());
       Process p=sherpa;
       if(p!=null&&p.isAlive())p.destroyForcibly();
+      PcmSpeakerMonitor monitor=speaker;
+      if(monitor!=null){monitor.close();speaker=null;}
       log.event("CONTROL","END","reason",endReason,"pcmBytes",pcmBytes.get(),
         "pcmSeconds",pcmBytes.get()/32000.0,"uniquePcmSentBytes",committedPcmBytes.get(),"chunksSent",chunkCount.get(),
         "sttResults",resultCount.get(),"fileChanges",fileChangeCount,
@@ -674,21 +689,27 @@ public final class GrowingCallEngine {
     return null;
   }
   void processSource(Uri uri)throws Exception {
-    if(sherpa==null || !sherpa.isAlive())throw new IOException("Prewarmed online STT process not running");
+    if(!speakerOnly && (sherpa==null || !sherpa.isAlive()))
+      throw new IOException("Prewarmed online STT process not running");
     // The original v11 race let FFmpeg feed a cold native process. Its stdin
     // blocked while the 174M model loaded for 45s in the emulator; the FFmpeg
     // 25s no-PCM watchdog then aborted the M4A after only 4.07s of PCM.
     // Keep folder/recording discovery and mirroring alive, but do not launch
     // audio decoding until the recognizer has explicitly emitted ONLINE_READY.
-    final long gateBegin=SystemClock.elapsedRealtimeNanos();
-    log.timingAt(gateBegin,"MODEL","PREWARM_GATE_WAIT_BEGIN","recordingSelected",true);
-    boolean signalled=onlineModelReadyLatch.await(100,java.util.concurrent.TimeUnit.SECONDS);
-    if(stop){endReason="USER_STOP";return;}
-    if(!signalled||!onlineModelReady||sherpa==null||!sherpa.isAlive())
-      throw new IOException("174M recognizer did not become ONLINE_READY within 100s");
-    final long gateEnd=SystemClock.elapsedRealtimeNanos();
-    log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
-      "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
+    if(speakerOnly){
+      log.event("SPEAKER","SPEAKER_DECODER_START_NO_STT",
+        "sampleRateHz",16000,"sttProcessStarted",false);
+    }else{
+      final long gateBegin=SystemClock.elapsedRealtimeNanos();
+      log.timingAt(gateBegin,"MODEL","PREWARM_GATE_WAIT_BEGIN","recordingSelected",true);
+      boolean signalled=onlineModelReadyLatch.await(100,java.util.concurrent.TimeUnit.SECONDS);
+      if(stop){endReason="USER_STOP";return;}
+      if(!signalled||!onlineModelReady||sherpa==null||!sherpa.isAlive())
+        throw new IOException("174M recognizer did not become ONLINE_READY within 100s");
+      final long gateEnd=SystemClock.elapsedRealtimeNanos();
+      log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
+        "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
+    }
     String path=workingMirror==null?null:workingMirror.getAbsolutePath();
     // Samsung growing 3GP4+mdat: keep the SAME native AAC packet extractor,
     // Android MediaCodec, and Zipformer OnlineStream alive for the whole call.
@@ -895,7 +916,7 @@ public final class GrowingCallEngine {
       }finally{
         if(incrementalDecoder!=null){
           try{
-            if(!stop && sherpa!=null && sherpa.isAlive()){
+            if(!stop && (speakerOnly || (sherpa!=null && sherpa.isAlive()))){
               final int lastAttempt=attempt;
               incrementalDecoder.finish(pcm->{
                 sendChunk(pcm,lastAttempt);
@@ -1029,7 +1050,7 @@ public final class GrowingCallEngine {
         decoder.finish(pcm->{
           // Drain the codec's remaining <200ms PCM without making a new decoder.
           // Never re-input any earlier speech.
-          if(sherpa!=null && sherpa.isAlive()){
+          if(speakerOnly || (sherpa!=null && sherpa.isAlive())){
             sendChunk(pcm,(int)(endFrame+1),true);
             pcmBytes.addAndGet(pcm.length);
           }
@@ -1356,6 +1377,22 @@ public final class GrowingCallEngine {
   void sendChunk(byte[] pcm,int attempt)throws Exception{sendChunk(pcm,attempt,false);}
   void sendChunk(byte[] pcm,int attempt,boolean finalDrain)throws Exception{
     if(stop && !finalDrain)return;
+    if(speakerOnly){
+      PcmSpeakerMonitor monitor=speaker;
+      if(monitor==null)throw new IOException("16kHz speaker monitor is not initialized");
+      int seq=chunkCount.incrementAndGet();
+      final long now=SystemClock.elapsedRealtimeNanos();
+      log.timingAt(now,"PCM","SPEAKER_PCM_ACCEPTED",
+        "seq",seq,"samples",pcm.length/2,"source","PERSISTENT_AAC_DECODER",
+        "sampleRateHz",16000);
+      monitor.write(pcm);
+      committedPcmBytes.addAndGet(pcm.length);
+      lastPcm.set(SystemClock.elapsedRealtime());
+      if(seq%5==0)callback.onStatus(
+        "스피커 16kHz PCM 재생 중 · "+String.format(Locale.US,"%.1f",committedPcmBytes.get()/32000.0)+
+        "초 입력 ("+seq+"개 청크) · STT 미실행","");
+      return;
+    }
     Process p=sherpa;
     if(p==null||!p.isAlive())throw new IOException("SenseVoice native process exited");
     int samples=pcm.length/2;
