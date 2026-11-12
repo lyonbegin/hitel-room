@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory() as temp:
     temp=pathlib.Path(temp)
     finished=temp/"full.m4a"
     source=temp/"recording-in-progress.m4a"
-    helper=temp/"aac_mdat_follow"
+    helper=pathlib.Path(os.environ.get("HITEL_FOLLOW_BIN",str(temp/"aac_mdat_follow")))
     subprocess.run([
         "ffmpeg","-nostdin","-hide_banner","-loglevel","error","-y",
         "-f","lavfi","-i","sine=frequency=523:sample_rate=48000:duration=6",
