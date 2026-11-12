@@ -22,10 +22,11 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * ONLY: Samsung growing M4A via SAF -> seekable append mirror ->
  * upstream AAC packet follower -> one persistent Android MediaCodec ->
- * 48k to 16k PCM FIR -> AudioTrack. No STT/ASR/VAD/model code or dependency.
+ * 48k to 16k PCM FIR -> DIRECT sherpa-onnx Korean STT; no AudioTrack or MediaProjection.
  */
 final class SpeakerEngine {
   interface Callback {void state(String text,boolean finished);}
+  interface CaptionListener {void caption(String text,boolean finalSegment);}
   interface RecordingStatusListener {
     void noRecordingEvidence(long waitingMs);
     void recordingCandidate(String filename,long sizeBytes,int growthEvents);
@@ -34,6 +35,7 @@ final class SpeakerEngine {
   private final Context context;
   private final TraceJournal log;
   private final Callback callback;
+  private final CaptionListener captionListener;
   private final RecordingStatusListener recordListener;
   private volatile long confirmedFileBytes;
   private volatile long skippedPreLiveFrames;
@@ -48,7 +50,7 @@ final class SpeakerEngine {
   private volatile long pcmBytes;
   private volatile String endReason="NOT_STARTED";
   private volatile int requestedDeviceId;
-  private volatile PcmSpeakerMonitor speaker;
+  private volatile DirectPcmKoreanStt stt;
   private volatile StreamingAacPcmDecoder codec;
   private Thread worker;
   private Thread copier;
@@ -57,13 +59,13 @@ final class SpeakerEngine {
   static final long POLL_MS=250;
 
   SpeakerEngine(Context context,TraceJournal journal,Callback cb,int preferredId,
-                RecordingStatusListener listener){
+                RecordingStatusListener listener,CaptionListener captions){
     this.context=context.getApplicationContext();log=journal;callback=cb;
-    requestedDeviceId=preferredId;recordListener=listener;
+    requestedDeviceId=preferredId;recordListener=listener;captionListener=captions;
   }
   void start(Uri input,boolean folder){
     if(worker!=null)throw new IllegalStateException("already running");
-    worker=new Thread(()->run(input,folder),"Recording-PCM-Speaker");
+    worker=new Thread(()->run(input,folder),"Recording-PCM-Direct-Korean-STT");
     worker.start();
   }
   void stop(){
@@ -77,9 +79,7 @@ final class SpeakerEngine {
   boolean done(){return finished;}
   void output(int id){
     requestedDeviceId=id;
-    PcmSpeakerMonitor device=speaker;
-    if(device!=null)device.setOutputDevice(id);
-    else notifyState("출력 장치 설정됨 · 음성 PCM 수신 대기",false);
+    notifyState("직접 STT 모드에서는 출력 장치가 필요 없습니다.",false);
   }
   private void notifyState(String s,boolean end){
     if(log!=null)log.event("UI","MONITOR_STATUS","text",s,"finished",end);
@@ -296,9 +296,18 @@ final class SpeakerEngine {
   private void run(Uri input,boolean folder){
     String finalStatus;
     try{
-      log.event("APP","SPEAKER_ONLY_ENGINE_STARTED",
+      log.event("APP","DIRECT_KOREAN_STT_ENGINE_STARTED",
         "folder",folder,"nativeAbis",Arrays.toString(Build.SUPPORTED_ABIS),
-        "sttModel",false,"requestedOutputId",requestedDeviceId);
+        "sttModel",true,"speakerPlayback",false,"pcmRateHz",16000);
+      // Prewarm the ONNX model independently while watching for new M4A bytes.
+      // PCM is queued during initialization rather than silently discarded.
+      stt=new DirectPcmKoreanStt(context,log,new DirectPcmKoreanStt.Listener(){
+        @Override public void status(String message){notifyState(message,false);}
+        @Override public void caption(String text,boolean finalSegment){
+          if(captionListener!=null)captionListener.caption(text,finalSegment);
+        }
+      });
+      stt.start();
       selected=folder?waitForRecording(input):input;
       if(selected==null){endReason="USER_STOP";return;}
       log.event("SOURCE",folder?"LIVE_GROWING_RECORDING_SELECTED":"MANUAL_FILE_SELECTED",
@@ -310,8 +319,7 @@ final class SpeakerEngine {
       log.event("SOURCE","LIVE_PLAYBACK_CUTOFF",
           "sourceBytesAtVerification",confirmedFileBytes,
           "preLiveAudioWillBeSuppressed",folder);
-      speaker=new PcmSpeakerMonitor(context,log,requestedDeviceId,text->notifyState(text,false));
-      // AudioTrack is intentionally NOT created yet: wait until PCM arrives.
+      // Preserve original AAC decode and 16k FIR resampler, but no speaker track.
       codec=new StreamingAacPcmDecoder(log);
       copier=new Thread(()->{
         while(!stop){
@@ -324,13 +332,13 @@ final class SpeakerEngine {
         }
       },"Recording-M4A-SAF-Copier");
       copier.start();
-      notifyState("16kHz 음성 스트리밍 · 실제 PCM 입력 대기",false);
+      notifyState("16kHz PCM → Sherpa 한국어 STT 직접 전송 · 입력 대기",false);
       followPcm(mirror);
       endReason=stop?"USER_STOP":"AAC_FOLLOWER_EXIT";
     }catch(Throwable err){
       if(!stop){endReason="ERROR_"+err.getClass().getSimpleName();
-        log.error("SPEAKER","FATAL_ERROR",err);}
-      notifyState("음성 재생 오류: "+err.getClass().getSimpleName()+": "+err.getMessage(),false);
+        log.error("STT","DIRECT_PIPELINE_FATAL_ERROR",err);}
+      notifyState("직접 STT 오류: "+err.getClass().getSimpleName()+": "+err.getMessage(),false);
     }finally{
       stop=true;
       Process p=follower;
@@ -340,12 +348,19 @@ final class SpeakerEngine {
       StreamingAacPcmDecoder dec=codec;
       if(dec!=null){try{
           if(!folder||pcmBytes>0)
-            dec.finish(pcm->{PcmSpeakerMonitor sp=speaker;if(sp!=null)sp.write(pcm);pcmBytes+=pcm.length;});
+            dec.finish(pcm->{DirectPcmKoreanStt target=stt;if(target!=null)target.accept(pcm);pcmBytes+=pcm.length;});
         }catch(Throwable e){log.error("AAC","FINAL_DRAIN_FAILURE",e);}
         dec.close();
       }
-      PcmSpeakerMonitor sp=speaker;
-      if(sp!=null){sp.close();speaker=null;}
+      DirectPcmKoreanStt recognizer=stt;
+      if(recognizer!=null){
+        recognizer.finishAndWait();
+        log.event("STT","DIRECT_PCM_DRAIN_SUMMARY",
+            "pcmDurationMs",pcmBytes/32,"recognizedSamples",recognizer.recognizedSamples(),
+            "sttCompleted",recognizer.completed(),
+            "sttError",String.valueOf(recognizer.failure()));
+        stt=null;
+      }
       File temp=mirror;
       if(temp!=null){
         boolean deleted=temp.delete();
@@ -357,7 +372,7 @@ final class SpeakerEngine {
         "frames",receivedFrames,"sourceBytes",mirroredBytes);
       log.diagnosticSummary();
       finished=true;
-      finalStatus="종료 · "+endReason+" · 재생 "+String.format(Locale.US,"%.2f",pcmBytes/32000.0)+"초";
+      finalStatus="종료 · "+endReason+" · 직접 STT 입력 "+String.format(Locale.US,"%.2f",pcmBytes/32000.0)+"초";
       callback.state(finalStatus,true);
     }
   }
@@ -376,7 +391,7 @@ final class SpeakerEngine {
     follower=p;
     log.event("FOLLOW","PERSISTENT_PROCESS_STARTED",
        "path",elf.getName(),"mirrorBytes",mirroredBytes,
-       "sttProcessStarted",false);
+       "sttProcessStarted",true,"sttRoute","DIRECT_PCM_TO_SHERPA");
     stderr=new Thread(()->{
       try(BufferedReader reader=new BufferedReader(
           new InputStreamReader(p.getErrorStream(),StandardCharsets.UTF_8))){
@@ -410,12 +425,17 @@ final class SpeakerEngine {
             offset>=Math.max(0L,confirmedFileBytes-2048);
         codec.feedAdtsFrame(adts,pcm->{
           if(!inLiveWindow){skippedPreLiveFrames++;return;}
-          PcmSpeakerMonitor active=speaker;
-          if(active==null)throw new IOException("AudioTrack monitor stopped");
-          active.write(pcm);
+          DirectPcmKoreanStt target=stt;
+          if(target==null)throw new IOException("Direct STT sink not initialized");
+          target.accept(pcm);
           pcmBytes+=pcm.length;
-          if(pcmBytes/32000>lastStatusMs.get())
+          if(pcmBytes/32000>lastStatusMs.get()){
             lastStatusMs.set(pcmBytes/32000);
+            log.event("STT","DIRECT_PCM_SENT","pcmBytes",pcmBytes,
+              "audioSeconds",pcmBytes/32000.0,"modelReady",target.isReady(),
+              "queuedBytes",target.queuedBytes(),
+              "recognizedSamples",target.recognizedSamples());
+          }
         });
         prevSource=offset;
         receivedFrames++;
