@@ -1,0 +1,122 @@
+name: HITEL Independent Expression2 Android CPU inference APK + emulator
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-independent-android-encoder.yml
+      - experiments/bithuman-independent-android/**
+      - tools/bithuman_deep/imx_v2.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-independent-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 36
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare Android platform 35 and source-only Gradle scaffolding
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          if [ ! -x "$manager" ]; then
+            manager="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -1)"
+          fi
+          "$manager" "platforms;android-35" "build-tools;34.0.0" "platform-tools"
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/gradle-template"
+          mkdir -p "$GITHUB_WORKSPACE/build/native-apk"
+          project="$RUNNER_TEMP/gradle-template/android/expression2-hello"
+          cp experiments/bithuman-independent-android/app.build.gradle.kts "$project/app/build.gradle.kts"
+          cp experiments/bithuman-independent-android/AndroidManifest.xml "$project/app/src/main/AndroidManifest.xml"
+          cp experiments/bithuman-independent-android/MainActivity.kt "$project/app/src/main/java/com/example/x2hello/MainActivity.kt"
+          rm -rf "$project/app/src/test"
+          mkdir -p "$project/app/src/main/assets"
+          echo "$project" > "$GITHUB_WORKSPACE/build/native-apk/projectpath.txt"
+      - name: Download public Wise Pup IMX and extract genuine LiteRT encoder model
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bithuman-weights"
+          curl -fL --retry 3 --connect-timeout 15 --max-time 300 \
+            -o "$RUNNER_TEMP/bithuman-weights/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'
+          project="$(cat "$GITHUB_WORKSPACE/build/native-apk/projectpath.txt")"
+          python3 tools/bithuman_deep/imx_v2.py \
+            "$RUNNER_TEMP/bithuman-weights/wise-pup.imx" \
+            --extract combined_litert.tflite \
+            --output-dir "$project/app/src/main/assets"
+          test "$(stat -c %s "$project/app/src/main/assets/combined_litert.tflite")" = "158524428"
+          sha256sum "$project/app/src/main/assets/combined_litert.tflite"
+      - name: Build independent Google LiteRT app without vendor Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          project="$(cat "$GITHUB_WORKSPACE/build/native-apk/projectpath.txt")"
+          cd "$project"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug
+          apk="$project/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          cp "$apk" "$GITHUB_WORKSPACE/build/native-apk/hitel-independent-expression2-encoder.apk"
+          sha256sum "$apk"
+          unzip -Z1 "$apk" | grep -E '(lib/x86_64/|combined_litert.tflite)'
+          if unzip -Z1 "$apk" | grep -q '^lib/arm64-v8a/libexpr2jni.so'; then
+            echo "Unexpected vendor SDK JNI detected!" >&2
+            exit 1
+          fi
+          echo "Independent APK contains Google LiteRT and public TFLite model; no bitHuman SDK." > "$GITHUB_WORKSPACE/build/native-apk/README.txt"
+      - name: Upload self-contained independent emulator APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-expression2-independent-model-encoder-apk
+          path: build/native-apk/hitel-independent-expression2-encoder.apk
+          retention-days: 30
+          if-no-files-found: error
+      - name: Remove weights from ephemeral runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/bithuman-weights" "$RUNNER_TEMP/gradle-template"
+
+  android14-emulator-run:
+    needs: build-independent-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: hitel-expression2-independent-model-encoder-apk
+          path: build/native-apk/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and run actual model inference in Android 14 AVD
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
+          script: bash experiments/bithuman-independent-android/test_emulator.sh
+      - name: Upload device log and screenshot whether pass or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-independent-expression2-android14-actual-cpu-evidence
+          path: reports/independent-android/
+          retention-days: 30
+          if-no-files-found: warn
