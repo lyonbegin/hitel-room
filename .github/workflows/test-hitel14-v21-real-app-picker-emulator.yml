@@ -1,0 +1,77 @@
+name: HITEL14 V21 Android15 actual app-picker UI and no-foreground-launch
+on:
+  push:
+    branches: ["fix/hitel14-manual-app-selection-and-call-audio-diagnostics-20261112"]
+    paths:
+      - "flow-lab/emulator-v21-picker.py"
+      - ".github/workflows/test-hitel14-v21-real-app-picker-emulator.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  app-picker-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare original Android SDK
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Official original VoxSherpa source
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Assemble original microphone plus V21 UID-filtered STT
+        run: |
+          set -euo pipefail
+          tar -xJf flow-lab/v07_source.tar.xz
+          for p in v08_patch v08_overlay_patch v09_patch v09_live_patch v09_live_poll_patch v09_install_fix v10_connected_gate v11_connection_fix v12_no_overlay_front v13_accessibility_onboarding v14_log_tab_samsung_dictation v14_sherpa_ko_integration v14_voxsherpa_upstream_import v14_pinned_voice_controls v14_live_partial_streaming v14_release_model_on_stop v14_deep_stt_diagnostics v14_voice_access_audio_ab; do
+            python3 "flow-lab/${p}.py"
+          done
+          python3 flow-lab/v15_preserve_v14_add_playback.py
+          python3 flow-lab/v16_capture_stt_durable_log.py
+          python3 flow-lab/v17_manual_capture_target_picker.py
+          cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          sed -i 's/abiFilters += listOf("arm64-v8a")/abiFilters += listOf("x86_64")/' AndroidProject/app/build.gradle.kts
+          grep -F 'abiFilters += listOf("x86_64")' AndroidProject/app/build.gradle.kts
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+          bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+          APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.speakerselect'
+          echo "PASS_V21_X86_64_ANDROID_EMULATOR_APK_BUILT"
+      - name: Enable Android hardware virtualization
+        run: |
+          set -euo pipefail
+          ls -l /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Actual Android15 UI test - selected app remains closed
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: python3 flow-lab/emulator-v21-picker.py
+      - name: Persist true Android emulator screenshots and selection prefs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL14-v21-android15-real-picker-screen-capture
+          path: /tmp/hitel14-v21-picker/
+          if-no-files-found: warn
