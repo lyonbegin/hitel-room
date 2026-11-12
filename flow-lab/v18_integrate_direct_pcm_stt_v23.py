@@ -64,6 +64,8 @@ for name in ("GrowingM4aSelector","StreamingAacPcmDecoder","SpeakerEngine",
 
 shutil.copyfile("flow-lab/PcmDirectSherpaSink.java",
                 src/"PcmDirectSherpaSink.java")
+shutil.copyfile("flow-lab/V23FreshLogExport.java",
+                src/"V23FreshLogExport.java")
 res=base/"src/main/res/xml"
 res.mkdir(parents=True,exist_ok=True)
 shutil.copyfile(v5/"res/xml/samsung_record_accessibility.xml",
@@ -254,6 +256,11 @@ patch('''        if(!speakerReceiverRegistered){
         if(!speakerReceiverRegistered){
             IntentFilter filter=new IntentFilter(SpeakerPlaybackCaptureService.UPDATE);''')
 
+assert s.count("String saved=SpeakerCaptureLog.exportToDownloads(this);")==1
+s=s.replace("String saved=SpeakerCaptureLog.exportToDownloads(this);",
+            "String saved=V23FreshLogExport.save(this);",1)
+s=s.replace("📦 출력음 STT 진단 ZIP 즉시 저장 (다운로드)",
+            "📦 3종 STT 최신 로그 ZIP 저장 (이전 ZIP 덮어쓰기)",1)
 w.write_text(s,encoding="utf-8")
 m=manifest.read_text(encoding="utf-8")
 assert '<application' in m and 'android:label=' in m
@@ -302,6 +309,7 @@ assert "PcmSpeakerMonitor" not in (src/"SpeakerEngine.java").read_text()
 assert not (src/"PcmSpeakerMonitor.java").exists()
 assert "new AudioTrack(" not in (src/"PcmDirectSherpaSink.java").read_text()
 assert "DIRECT_FOLDER_PICK" in s and "SpeakerService.EVENT" in s
+assert "V23FreshLogExport.save(this)" in s
 print("PASS V23 direct PCM STT wiring, no AudioTrack/speaker replay")
 print("PASS V22 original mic/output/system picker/diagnostic sources SHA256 retained")
 for name,old in before.items():
