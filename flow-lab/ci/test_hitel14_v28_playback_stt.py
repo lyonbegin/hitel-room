@@ -85,6 +85,7 @@ def start_capture(case="local-file",source="screen"):
     print("START_HARNESS",res[-600:],flush=True)
     wait_log("NATIVE_CONSENT_REQUEST",15)
     # Android 15's native one-app/full-display picker; tap REAL system buttons.
+    source_selected=False
     for step in range(12):
         nodes=uixml("system-consent-"+case+"-"+str(step))
         if step==0:screenshot("system-consent-first-"+case)
@@ -93,9 +94,12 @@ def start_capture(case="local-file",source="screen"):
                 found=[n for n in nodes if w.lower() in n["text"].lower()]
                 if found:return found[0]
             return None
-        if source=="screen":
+        if source=="screen" and not source_selected:
             n=pick("Entire screen","전체 화면","화면 전체","Your entire screen")
-            if n:tap_node(n);continue
+            if n:
+                tap_node(n)
+                source_selected=True
+                continue
         if source=="youtube":
             n=pick("A single app","Share one app","앱 한 개","단일 앱","하나의 앱")
             if n:tap_node(n);continue
