@@ -1,0 +1,76 @@
+name: HITEL Dual Audio STT - standalone MIC and playback
+on:
+  push:
+    branches: ["feature/hitel14-dual-audio-stt-20261112"]
+    paths:
+      - "dual-stt/**"
+      - ".github/workflows/build-dual-audio-stt.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Reuse verified HITEL14 Gradle wrapper (VoxSherpa upstream pinned)
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Verify source separation and source availability
+        run: |
+          set -euo pipefail
+          git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
+          grep -F 'com.github.k2-fsa:sherpa-onnx:1.12.26' dual-stt/app/build.gradle.kts
+          grep -F 'AudioPlaybackCaptureConfiguration' dual-stt/app/src/main/java/app/hitel/dualaudiostt/KoreanStreamAsr.java
+          grep -F 'MediaRecorder.AudioSource.VOICE_RECOGNITION' dual-stt/app/src/main/java/app/hitel/dualaudiostt/KoreanStreamAsr.java
+          if grep -R -E 'CallAccessibilityService|com\.samsung\.android\.incallui|text_call_' dual-stt/app/src/main; then
+            echo "ERROR: Samsung Text Call dependency reintroduced into standalone APK"
+            exit 1
+          fi
+      - name: Use verified upstream Gradle wrapper distribution
+        run: |
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+          grep '^distributionUrl=' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+      - name: Compile independent Android APK
+        run: bash voxsherpa-upstream/gradlew -p dual-stt :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify installable APK, signature, package and mediaProjection service
+        run: |
+          set -euo pipefail
+          APK=$(find dual-stt/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.dualaudiostt'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'CaptureService'
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-DualAudioSTT-Android-APK
+          path: dual-stt/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Publish independently installable APK on this branch
+        run: |
+          set -euo pipefail
+          APK=$(find dual-stt/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14_DualAudioSTT.apk
+          (cd downloads && sha256sum HITEL14_DualAudioSTT.apk > HITEL14_DualAudioSTT.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14_DualAudioSTT.apk downloads/HITEL14_DualAudioSTT.sha256
+          git commit -m "build: publish dual audio STT APK [skip ci]"
+          git push origin HEAD:refs/heads/feature/hitel14-dual-audio-stt-20261112
