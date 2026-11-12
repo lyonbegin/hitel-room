@@ -2,6 +2,10 @@ package app.hitel.speakeronly;
 
 import android.content.Context;
 import android.content.ContentResolver;
+import android.database.ContentObserver;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.MediaStore;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
@@ -22,9 +26,16 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 final class SpeakerEngine {
   interface Callback {void state(String text,boolean finished);}
+  interface RecordingStatusListener {
+    void noRecordingEvidence(long waitingMs);
+    void confirmedRecording(String filename,long sizeBytes);
+  }
   private final Context context;
   private final TraceJournal log;
   private final Callback callback;
+  private final RecordingStatusListener recordListener;
+  private volatile long confirmedFileBytes;
+  private volatile long skippedPreLiveFrames;
   private final Object mirrorLock=new Object();
   private volatile boolean stop;
   private volatile boolean finished;
@@ -44,9 +55,10 @@ final class SpeakerEngine {
   private final AtomicLong lastStatusMs=new AtomicLong();
   static final long POLL_MS=250;
 
-  SpeakerEngine(Context context,TraceJournal journal,Callback cb,int preferredId){
+  SpeakerEngine(Context context,TraceJournal journal,Callback cb,int preferredId,
+                RecordingStatusListener listener){
     this.context=context.getApplicationContext();log=journal;callback=cb;
-    requestedDeviceId=preferredId;
+    requestedDeviceId=preferredId;recordListener=listener;
   }
   void start(Uri input,boolean folder){
     if(worker!=null)throw new IllegalStateException("already running");
@@ -142,54 +154,98 @@ final class SpeakerEngine {
       throw new IOException("통화 녹음 폴더 접근 실패. 폴더를 다시 선택하십시오.");
     String rootId=DocumentsContract.getTreeDocumentId(directory);
     GrowingM4aSelector detector=new GrowingM4aSelector();
-    log.event("FOLDER","LIVE_GROWTH_WATCH_STARTED",
-        "uri",directory.toString(),"pollMs",100,"requiredPositiveGrowthEvents",3,"maxDepth",3,
-        "rule","newest M4A with 3 positive size increases on 100ms checks");
-    notifyState("최신 M4A 자동 검색 중 · 크기 증가 확인 후 재생합니다.",false);
-    int scan=0;
-    while(!stop){
+    log.event("FOLDER","RECORDING_EVENT_WATCH_STARTED",
+        "uri",directory.toString(),"pollMs",100,"requiredPositiveGrowthEvents",3,
+        "eventSources","SAF_CONTENT_OBSERVER_AND_MEDIASTORE");
+    notifyState("통화 연결 · 녹음 시작/파일 변경 이벤트 감시 중",false);
+
+    final java.util.concurrent.atomic.AtomicBoolean changed=
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+    ContentObserver observer=new ContentObserver(new Handler(Looper.getMainLooper())){
+      @Override public void onChange(boolean selfChange){
+        changed.set(true);
+        log.event("FOLDER","RECORDING_CONTENT_CHANGED_EVENT","uri",directory.toString());
+      }
+      @Override public void onChange(boolean selfChange,Uri changedUri){
+        onChange(selfChange);
+      }
+    };
+    boolean registered=false;
+    try{
+      try{
+        context.getContentResolver().registerContentObserver(directory,true,observer);
+        registered=true;
+      }catch(Exception error){
+        log.event("FOLDER","TREE_OBSERVER_UNAVAILABLE",
+            "reason",error.getClass().getSimpleName());
+      }
+      try{
+        context.getContentResolver().registerContentObserver(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,true,observer);
+        registered=true;
+      }catch(Exception error){
+        log.event("FOLDER","MEDIASTORE_OBSERVER_UNAVAILABLE",
+            "reason",error.getClass().getSimpleName());
+      }
+
       List<GrowingM4aSelector.Entry> found=new ArrayList<>();
-      scanChildren(directory,rootId,0,new int[]{4000},found);
-      // Probe the latest files even if Android's media metadata is not refreshed.
-      found.sort((x,y)->{
-        int t=Long.compare(y.modified,x.modified);
-        return t!=0?t:y.name.compareTo(x.name);
-      });
-      for(int i=0;i<Math.min(4,found.size());i++){
-        GrowingM4aSelector.Entry e=found.get(i);
-        long liveBytes=actualFileLength(Uri.parse(e.uri),e.bytes);
-        found.set(i,new GrowingM4aSelector.Entry(
-            e.uri,e.name,liveBytes,e.modified));
-      }
-      GrowingM4aSelector.Decision d=detector.observe(found);
-      if(d.growing!=null){
-        Uri file=Uri.parse(d.growing.uri);
-        log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
-            "fileName",d.growing.name,"sizeBytes",d.growing.bytes,
-            "growthBytes",d.growthBytes,"positiveGrowthEvents",d.verifiedGrowthEvents,
-            "lastModified",d.growing.modified,
-            "candidateCount",d.files,"uri",d.growing.uri);
-        notifyState("녹음 중 파일 발견: "+d.growing.name+" · 100ms 검사에서 3회 증가 검증 · 증가 "+
-            d.growthBytes+"바이트 → 16kHz 스트리밍 시작",false);
-        return file;
-      }
-      if(scan%6==0){
-        if(d.latest==null){
-          log.event("FOLDER","NO_M4A_YET","scans",scan,"folderUri",directory.toString());
-          notifyState("폴더에서 M4A를 찾지 못했습니다 · 통화녹음 위치 확인 중",false);
-        }else{
-          log.event("FOLDER","LATEST_M4A_NOT_GROWING",
-              "fileName",d.latest.name,"sizeBytes",d.latest.bytes,
-              "lastModified",d.latest.modified,"verifiedGrowthEvents",d.verifiedGrowthEvents,
-              "candidateCount",d.files);
-          notifyState("최신 파일: "+d.latest.name+" ("+d.latest.bytes+
-              "바이트) · 100ms 검사 "+d.verifiedGrowthEvents+"/3회 증가 확인 대기",false);
+      int scan=0;
+      long started=SystemClock.elapsedRealtime();
+      long nextRescan=0;
+      long lastRecordRequest=0;
+      while(!stop){
+        long now=SystemClock.elapsedRealtime();
+        if(changed.getAndSet(false)||now>=nextRescan){
+          found=new ArrayList<>();
+          scanChildren(directory,rootId,0,new int[]{4000},found);
+          found.sort((x,y)->{
+            int t=Long.compare(y.modified,x.modified);
+            return t!=0?t:y.name.compareTo(x.name);
+          });
+          nextRescan=now+1000;
         }
+        List<GrowingM4aSelector.Entry> snapshot=new ArrayList<>(found);
+        for(int i=0;i<Math.min(4,snapshot.size());i++){
+          GrowingM4aSelector.Entry e=snapshot.get(i);
+          long liveBytes=actualFileLength(Uri.parse(e.uri),e.bytes);
+          snapshot.set(i,new GrowingM4aSelector.Entry(
+              e.uri,e.name,liveBytes,e.modified));
+        }
+        GrowingM4aSelector.Decision d=detector.observe(snapshot);
+        if(d.growing!=null){
+          Uri file=Uri.parse(d.growing.uri);
+          log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
+              "fileName",d.growing.name,"sizeBytes",d.growing.bytes,
+              "growthBytes",d.growthBytes,"positiveGrowthEvents",
+              d.verifiedGrowthEvents,"uri",d.growing.uri);
+          if(recordListener!=null)
+            recordListener.confirmedRecording(d.growing.name,d.growing.bytes);
+          notifyState("녹음 중 파일 발견: "+d.growing.name+
+              " · 100ms 검사 3회 크기 증가 확인",false);
+          return file;
+        }
+        if(recordListener!=null && now-started>=2500 &&
+           d.verifiedGrowthEvents==0 && now-lastRecordRequest>=5000){
+          lastRecordRequest=now;
+          log.event("FOLDER","NO_RECORDING_GROWTH_REQUEST_START",
+              "waitingMs",now-started,"files",d.files,
+              "latestFile",d.latest==null?"":d.latest.name);
+          recordListener.noRecordingEvidence(now-started);
+        }
+        if(scan%10==0){
+          if(d.latest==null)
+            notifyState("통화 연결 · 아직 녹음 파일 없음 · 녹음 시작 요청/대기",false);
+          else
+            notifyState("최신 M4A: "+d.latest.name+" ("+d.latest.bytes+
+                "바이트) · 증가 "+d.verifiedGrowthEvents+"/3회 확인 중",false);
+        }
+        scan++;
+        Thread.sleep(100);
       }
-      scan++;
-      Thread.sleep(100);
+      return null;
+    }finally{
+      if(registered)context.getContentResolver().unregisterContentObserver(observer);
     }
-    return null;
   }
 
   private void appendNewBytes(Uri file) throws Exception {
@@ -238,6 +294,10 @@ final class SpeakerEngine {
       mirror=new File(context.getCacheDir(),"recording-speaker-"+SystemClock.elapsedRealtime()+".m4a");
       if(!mirror.createNewFile())throw new IOException("Mirror already exists");
       appendNewBytes(selected);
+      confirmedFileBytes=folder?mirroredBytes:0;
+      log.event("SOURCE","LIVE_PLAYBACK_CUTOFF",
+          "sourceBytesAtVerification",confirmedFileBytes,
+          "preLiveAudioWillBeSuppressed",folder);
       speaker=new PcmSpeakerMonitor(context,log,requestedDeviceId,text->notifyState(text,false));
       // AudioTrack is intentionally NOT created yet: wait until PCM arrives.
       codec=new StreamingAacPcmDecoder(log);
@@ -333,7 +393,10 @@ final class SpeakerEngine {
         byte[] adts=new byte[n];
         try{input.readFully(adts);}
         catch(IOException e){if(stop)break;throw e;}
+        final boolean inLiveWindow=confirmedFileBytes==0 ||
+            offset>=Math.max(0L,confirmedFileBytes-2048);
         codec.feedAdtsFrame(adts,pcm->{
+          if(!inLiveWindow){skippedPreLiveFrames++;return;}
           PcmSpeakerMonitor active=speaker;
           if(active==null)throw new IOException("AudioTrack monitor stopped");
           active.write(pcm);
