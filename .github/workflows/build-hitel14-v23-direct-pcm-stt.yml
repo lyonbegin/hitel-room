@@ -1,4 +1,4 @@
-name: HITEL14 V26 exact old USAGE_MEDIA AudioTrack opt-in plus three STT routes
+name: HITEL14 V27 automatic Call folder source switch plus original media player
 on:
   push:
     branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
@@ -18,6 +18,7 @@ on:
       - "flow-lab/HitelSafLogSaver.java"
       - "flow-lab/v19_user_selected_log_folder_v24.py"
       - "flow-lab/v20_restore_proven_media_output_v26.py"
+      - "flow-lab/v21_fix_auto_folder_source_switch_v27.py"
       - "speaker-standalone/**"
       - "sherpa-original-launcher/native/aac_mdat_follow.c"
   workflow_dispatch:
@@ -61,12 +62,13 @@ jobs:
           python3 flow-lab/v18_integrate_direct_pcm_stt_v23.py
           python3 flow-lab/v19_user_selected_log_folder_v24.py
           python3 flow-lab/v20_restore_proven_media_output_v26.py
+          python3 flow-lab/v21_fix_auto_folder_source_switch_v27.py
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'versionCode = 34' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 35' AndroidProject/app/build.gradle.kts
           grep -F 'app.hitel.callflowlab.v14.systempicker' AndroidProject/app/build.gradle.kts
-          grep -F 'HITEL14 V26 미디어 스피커 원본 복원' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'HITEL14 V27 자동감시 소스 전환 수정' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SELF_MEDIA_TEST_QUEUED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'startActivityForResult(mgr.createScreenCaptureIntent(),' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -87,6 +89,14 @@ jobs:
           grep -F 'if(ignoredOutputDevice==-2)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           grep -F 'mediaOutput.write(littleEndianPcm)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           grep -F 'startDirectRecordingMediaPlayback' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'SOURCE_SWITCH_REQUESTED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
+          grep -F 'SOURCE_SWITCH_APPLY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
+          grep -F 'queueSourceSwitch(intent)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
+          grep -F 'pendingSourceSwitch!=null' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
+          grep -F 'new CallStateGate(this,journal,' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
+          grep -F 'LIVE_M4A_CONFIRMED_GROWING' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
+          if grep -F '통화 이벤트 자동 감시가 이미 실행 중입니다.' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java; then echo 'ERROR: old false already-running rejection remains'; exit 1; fi
+          echo PASS_V27_SOURCE_SWITCH_AND_LIVE_FOLDER_WATCH
           grep -F 'android:allowAudioPlaybackCapture="true"' AndroidProject/app/src/main/AndroidManifest.xml
           test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackService.java
           test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackEngine.java
@@ -171,8 +181,8 @@ jobs:
             echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
           fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.systempicker'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='34'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V26 미디어 스피커 원본 복원'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='35'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V27 자동감시 소스 전환 수정'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
           if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
             echo 'ERROR: recording speaker player still in APK manifest'; exit 1
@@ -190,7 +200,7 @@ jobs:
       - name: Upload auditable APK and reconstructed sources
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-V26-original-media-player-3STT-APK
+          name: HITEL14-V27-auto-folder-safe-source-switch-APK
           path: |
             AndroidProject/app/build/outputs/apk/debug/*.apk
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -205,17 +215,17 @@ jobs:
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           if-no-files-found: error
-      - name: Publish V26 integrated APK without altering original V22/V25 APKs
+      - name: Publish V27 integrated APK without altering original V22/V25/V26 APKs
         run: |
           set -euo pipefail
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_V26_Proven_MediaSpeaker_3STT.apk
-          (cd downloads && sha256sum HITEL14_V26_Proven_MediaSpeaker_3STT.apk > HITEL14_V26_Proven_MediaSpeaker_3STT.sha256)
+          cp "$APK" downloads/HITEL14_V27_AutoFolder_SafeSourceSwitch_3STT.apk
+          (cd downloads && sha256sum HITEL14_V27_AutoFolder_SafeSourceSwitch_3STT.apk > HITEL14_V27_AutoFolder_SafeSourceSwitch_3STT.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_V26_Proven_MediaSpeaker_3STT.apk downloads/HITEL14_V26_Proven_MediaSpeaker_3STT.sha256
-          git commit -m "build: publish HITEL14 V26 with old MEDIA AudioTrack optional [skip ci]"
+          git add downloads/HITEL14_V27_AutoFolder_SafeSourceSwitch_3STT.apk downloads/HITEL14_V27_AutoFolder_SafeSourceSwitch_3STT.sha256
+          git commit -m "build: publish HITEL14 V27 with automatic folder source switching [skip ci]"
           git fetch origin feature/hitel14-v23-integrated-direct-pcm-stt-20261112
           git rebase origin/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
           git push origin HEAD:refs/heads/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
