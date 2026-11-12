@@ -22,6 +22,7 @@ public final class GrowingCallService extends Service {
   public static final String EVENT="app.hitel.sherpaoriginalcli.GROWING_STATUS";
   public static final String EX_URI="sourceUri";
   public static final String EX_FOLDER="isFolder";
+  public static final String EX_SPEAKER_ONLY="speakerOnly";
   public static final String EX_STATUS="status";
   public static final String EX_TEXT="transcript";
   public static final String EX_CAPTION_SEQ="captionSeq";
@@ -52,14 +53,17 @@ public final class GrowingCallService extends Service {
       String raw=incoming.getStringExtra(EX_URI);
       if(raw==null||raw.isEmpty())throw new IllegalArgumentException("녹음 파일 또는 폴더를 선택하지 않았습니다.");
       boolean isFolder=incoming.getBooleanExtra(EX_FOLDER,false);
+      boolean speakerOnly=incoming.getBooleanExtra(EX_SPEAKER_ONLY,false);
       Uri uri=Uri.parse(raw);
       startForegroundNotification();
       journal=new TraceJournal(this);
       active=true;
       getSharedPreferences("growing_diag",MODE_PRIVATE).edit()
         .putString("lastRunId",journal.id()).putBoolean("active",true)
-        .putString("currentStatus","서비스 연결 중").putString("currentTranscript","").apply();
+        .putString("currentStatus","서비스 연결 중").putString("currentTranscript","")
+        .putBoolean("speakerOnly",speakerOnly).apply();
       journal.event("SERVICE","FOREGROUND_STARTED","uri",uri.toString(),"folder",isFolder,
+        "speakerOnly",speakerOnly,
         "targetSDK",getApplicationInfo().targetSdkVersion);
       engine=new GrowingCallEngine(this,journal,(status,transcript)->{
         sendStatus(status,transcript);
@@ -69,8 +73,9 @@ public final class GrowingCallService extends Service {
           stopForeground(true);
           stopSelf();
         }
-      });
-      sendStatus("FFmpeg/SenseVoice 성장 파일 진단 시작", "");
+      },speakerOnly);
+      sendStatus(speakerOnly?"16kHz PCM 실시간 스피커 확인 시작 · STT 미실행":
+        "FFmpeg/SenseVoice 성장 파일 진단 시작", "");
       engine.start(uri,isFolder);
     }catch(Throwable t){
       Log.e("GrowingM4aDiag","Failed to launch service",t);
