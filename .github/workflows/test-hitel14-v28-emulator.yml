@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: hitel14-v28-emulator-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   emulator:
     runs-on: ubuntu-24.04
@@ -98,6 +101,16 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='36'"
           unzip -l "$APK" | grep 'lib/x86_64/libaac-mdat-follow.so'
+      - name: Enable Linux KVM hardware acceleration for Android emulator
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            ls -l /dev/kvm
+            echo 'KVM_ACCELERATION_DEVICE_ENABLED'
+          else
+            echo 'KVM_DEVICE_UNAVAILABLE_EMULATOR_MAY_BE_SLOW'
+          fi
       - name: Boot actual Android 15 x86_64 Pixel emulator and execute runtime checks
         uses: reactivecircus/android-emulator-runner@v2
         with:
