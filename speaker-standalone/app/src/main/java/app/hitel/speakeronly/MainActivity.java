@@ -34,13 +34,15 @@ public final class MainActivity extends Activity {
   private Uri selected;
   private boolean folderMode;
   private int deviceId=-1;
-  private TextView header,source,detectedSource,status,deviceSummary,explanation;
+  private TextView header,source,detectedSource,status,deviceSummary,explanation,liveTranscript;
   private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton;
   private boolean receiverRegistered;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
     @Override public void onReceive(Context c,Intent i){
       if(i==null||!SpeakerService.EVENT.equals(i.getAction()))return;
+      String text=i.getStringExtra(SpeakerService.EX_TRANSCRIPT);
+      if(text!=null&&liveTranscript!=null)liveTranscript.setText(text);
       String s=i.getStringExtra(SpeakerService.EX_STATUS);
       if(s!=null){
         status.setText(s);
@@ -70,16 +72,16 @@ public final class MainActivity extends Activity {
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
     int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);scroll.addView(root);
-    header=text(root,"녹음 중 최신 M4A → 실시간 16kHz 스피커",21);
+    header=text(root,"녹음 중 최신 M4A → 한국어 STT 직접 인식",21);
     header.setTypeface(null,Typeface.BOLD);
-    text(root,"이 앱은 STT 모델이 없습니다. 삼성 녹음파일이 커지는 동안 AAC를 16kHz PCM으로 변환해 미디어(USAGE_MEDIA)로 출력합니다. 다른 출력음 STT 앱의 단일 앱 선택 화면에서 이 앱을 선택할 수 있도록 허용했습니다.",13);
+    text(root,"삼성 통화 녹음파일이 커지는 동안 AAC→16kHz PCM으로 변환해 같은 앱의 한국어 Sherpa-ONNX Zipformer에 직접 입력합니다. 스피커 재생·다른 앱 오디오 캡처·Android 단일 앱 선택이 필요 없습니다.",13);
 
     text(root,"1. 삼성 통화 녹음 폴더 지정 (최초 1회)",17);
     folderButton=button(root,"통화녹음 폴더 선택 · 최신 증가 M4A 자동 감시");
     fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
     source=text(root,"녹음 폴더를 선택하십시오. 이후 실행에서는 저장된 폴더를 자동 감시합니다.",13);
     detectedSource=text(root,"현재 녹음 중인 파일: 증가 확인 대기",14);
-    text(root,"통화 시작(OFFHOOK) 이벤트를 받으면 최신 .m4a를 100ms 간격으로 검사해 실제 크기 증가 3회를 확인합니다. 그때만 16kHz 출력하며 통화 종료(IDLE) 이벤트에는 즉시 중지합니다. 다음 통화까지 자동 대기합니다.",12);
+    text(root,"통화 시작(OFFHOOK) 이벤트를 받으면 최신 M4A 파일의 크기 증가를 3회 확인합니다. 이후 새 PCM만 STT에 전달하고 통화 종료(IDLE)에는 인식 결과를 마무리합니다.",12);
     source.setTextIsSelectable(true);
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
@@ -92,28 +94,37 @@ public final class MainActivity extends Activity {
       catch(Exception e){status.setText("접근성 설정 열기 실패: "+e.getMessage());}
     });
 
-    text(root,"3. 출력 장치 선택",17);
+    text(root,"3. 음성 출력 없음 (PCM을 직접 STT)",17);
     outputButton=button(root,"출력 선택 · 내장 스피커 / 수화부 / 블루투스 / USB-C");
     deviceSummary=text(root,"출력 장치: 자동 / 내장 스피커 우선",15);
-    text(root,"블루투스 이어폰·스피커 또는 USB-C 오디오를 연결하면 목록에서 선택할 수 있습니다. 실제 연결된 출력 경로는 아래 상태에 표시됩니다.",12);
+    text(root,"AudioTrack 스피커로 재생하지 않고 16kHz PCM을 STT에 직접 전달합니다. 원래의 출력 장치 선택 기능은 이 실험에서 사용하지 않습니다.",12);
     outputButton.setOnClickListener(v->showOutputs());
 
-    text(root,"4. 통화 이벤트 및 실시간 재생",17);
-    startButton=button(root,"통화 이벤트 자동 감시 켜기 · OFFHOOK 시 재생");
+    text(root,"4. 통화 이벤트 및 실시간 한국어 STT",17);
+    startButton=button(root,"통화 이벤트 자동 감시 켜기 · OFFHOOK 시 STT");
     stopButton=button(root,"통화 이벤트 자동 감시 해제");
     startButton.setOnClickListener(v->start());
     stopButton.setOnClickListener(v->stop());
     status=text(root,"대기 중",16);
+    text(root,"실시간 한국어 인식 결과",17);
+    liveTranscript=text(root,"아직 인식된 자막이 없습니다.",18);
+    liveTranscript.setTextIsSelectable(true);
+    liveTranscript.setMinLines(4);
+    liveTranscript.setText(getSharedPreferences("speaker",MODE_PRIVATE)
+      .getString("lastTranscript","아직 인식된 자막이 없습니다."));
     status.setTextIsSelectable(true);
     explanation=text(root,
-      "진단 기준: 48,000Hz AAC → Android MediaCodec → 16,000Hz 모노 PCM → AudioTrack. 녹음 원본 파일은 수정하지 않습니다. 통화 중에는 Android 전화 오디오 정책에 따라 출력 장치 선택이 제한될 수 있어 요청한 장치와 실제 출력 장치를 별도로 기록합니다.",12);
-    text(root,"5. 실제 출력 경로 진단",17);
+      "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → Zipformer OnlineStream.acceptWaveform() → partial/final 자막. AudioTrack 및 MediaProjection 미사용. 모델 포함 여부·PCM 큐·decode 회수·최종 인식 로그를 ZIP에 저장합니다.",12);
+    text(root,"5. PCM → STT 인식 진단",17);
     exportButton=button(root,"진단 ZIP 다운로드에 저장 · 실제 파일 확인");
     exportButton.setOnClickListener(v->export());
     openExportButton=button(root,"저장된 ZIP 직접 열기");
     openExportButton.setOnClickListener(v->openLastExport());
     saveAsButton=button(root,"ZIP 저장 위치 직접 선택 (파일 관리자)");
     saveAsButton.setOnClickListener(v->exportToSelectedLocation());
+    // The legacy output route picker is irrelevant for direct PCM STT.
+    outputButton.setVisibility(View.GONE);
+    deviceSummary.setVisibility(View.GONE);
     setContentView(scroll);
     if(selected!=null)source.setText((folderMode?"자동 감시 폴더: ":"직접 선택한 과거 파일: ")+selected);
     String detected=getSharedPreferences("speaker",MODE_PRIVATE).getString("detectedSource","");
@@ -267,9 +278,9 @@ public final class MainActivity extends Activity {
       .getString("lastExportUri","").isEmpty());
     saveAsButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
       .getString("lastRunId","").isEmpty());
-    startButton.setText(folderMode?"통화 이벤트 자동 감시 켜기 · 통화 중에만 출력":
-      "선택한 M4A 수동 재생 (통화 연동 제외)");
-    stopButton.setText(folderMode?"통화 자동 감시 해제":"수동 재생 중지");
+    startButton.setText(folderMode?"통화 이벤트 자동 감시 켜기 · 통화 중 PCM 직접 STT":
+      "선택한 M4A 파일 직접 한국어 STT (통화 연동 제외)");
+    stopButton.setText(folderMode?"통화 자동 감시 해제":"수동 STT 중지");
   }
   private void start(){
     if(selected==null){status.setText("녹음 파일이나 폴더를 선택하십시오.");return;}
@@ -289,14 +300,14 @@ public final class MainActivity extends Activity {
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);
       else startService(i);
       status.setText(folderMode?
-        "통화 상태 자동 감시 시작 · 통화 연결까지 스피커 꺼짐 · 연결 시 M4A 100ms×3회 증가 확인":
-        "수동 진단 재생 시작");
+        "통화 자동 감시 시작 · OFFHOOK 후 M4A 증가 확인 → PCM 직접 STT":
+        "수동 진단 직접 STT 시작");
       ui.postDelayed(this::updateButtons,600);
     }catch(Exception e){status.setText("실행 실패: "+e.getMessage());}
   }
   private void stop(){
     try{startService(new Intent(this,SpeakerService.class).setAction(SpeakerService.STOP));
-      status.setText("자동 감시 해제 및 스피커 중지 요청");}
+      status.setText("자동 감시 해제 및 한국어 STT 중지 요청");}
     catch(Exception e){status.setText("중지 실패: "+e.getMessage());}
     ui.postDelayed(this::updateButtons,800);
   }
