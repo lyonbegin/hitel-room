@@ -3,7 +3,7 @@
 set -uo pipefail
 MODEL="${BITHUMAN_MODEL:-expression2}"
 case "$MODEL" in
-  expression2) PACKAGE="$PACKAGE" ;;
+  expression2) PACKAGE="com.example.x2hello" ;;
   essence2) PACKAGE="com.example.e2hello" ;;
   *) echo "Unsupported model: $MODEL"; exit 2 ;;
 esac
