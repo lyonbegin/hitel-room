@@ -68,7 +68,7 @@ jobs:
           manifest=Path("AndroidProject/app/src/main/AndroidManifest.xml")
           s=manifest.read_text()
           assert s.count("</application>")==1
-          s=s.replace("</application>",'<activity android:name="app.hitel.samsungprobe.CaptureHarnessActivity" android:exported="true" />\\n</application>')
+          s=s.replace("</application>",'<activity android:name="app.hitel.samsungprobe.CaptureHarnessActivity" android:exported="true" />\n</application>')
           manifest.write_text(s)
           print("PASS_EMULATOR_ONLY_REAL_MEDIAPROJECTION_CONSENT_HARNESS")
           PY
