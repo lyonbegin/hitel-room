@@ -76,8 +76,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/ffmpeg-kit /tmp/ffmpeg-headers
-          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-x86_64-x86_64.aar -D /tmp/ffmpeg-kit
-          AAR=/tmp/ffmpeg-kit/ffmpeg-kit-min-6.0.4-x86_64-x86_64.aar
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-kit
+          AAR=/tmp/ffmpeg-kit/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar
           test -s "$AAR"
           unzip -qo "$AAR" 'jni/x86_64/*.so' -d /tmp/ffmpeg-kit/native
           DST=AndroidProject/app/src/main/jniLibs/x86_64
