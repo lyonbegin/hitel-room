@@ -1,0 +1,79 @@
+name: bitHuman Expression2 native JNI decoder-callflow research
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-jni-native-flow.yml
+      - tools/bithuman_deep/inspect_native_elf.py
+      - tools/bithuman_deep/ghidra/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-native-jni-research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download official public Android AAR, extract real ARM64 native library
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expr2" reports/bithuman-jni
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 150 \
+            -o "$RUNNER_TEMP/expr2/sdk.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          unzip -p "$RUNNER_TEMP/expr2/sdk.aar" 'jni/arm64-v8a/libexpr2jni.so' > "$RUNNER_TEMP/expr2/libexpr2jni.so"
+          sha256sum "$RUNNER_TEMP/expr2/libexpr2jni.so"
+          file "$RUNNER_TEMP/expr2/libexpr2jni.so"
+      - name: Build ABI, symbol, and meaningful ELF string audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/inspect_native_elf.py \
+            --aar "$RUNNER_TEMP/expr2/sdk.aar" \
+            --out reports/bithuman-jni
+          test -s reports/bithuman-jni/native_symbol_inventory.json
+          cat reports/bithuman-jni/native_symbol_inventory.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Download official Ghidra 12.2 and run headless JNI call-graph decompilation
+        shell: bash
+        env:
+          BITHUMAN_JNI_REPORT: ${{ github.workspace }}/reports/bithuman-jni/native_call_flow.md
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 30 --max-time 330 \
+            -o "$RUNNER_TEMP/expr2/ghidra.zip" \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip'
+          unzip -q "$RUNNER_TEMP/expr2/ghidra.zip" -d "$RUNNER_TEMP/expr2"
+          GHIDRA="$(find "$RUNNER_TEMP/expr2" -type f -name analyzeHeadless | head -1)"
+          test -n "$GHIDRA"
+          chmod +x "$GHIDRA"
+          mkdir -p "$RUNNER_TEMP/expr2/ghidra-projects"
+          timeout --signal=TERM --kill-after=10s 510s \
+            "$GHIDRA" "$RUNNER_TEMP/expr2/ghidra-projects" native-jni \
+              -import "$RUNNER_TEMP/expr2/libexpr2jni.so" \
+              -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+              -postScript NativeFlow.java \
+              -analysisTimeoutPerFile 390 -max-cpu 2 \
+              -deleteProject
+          test -s "$BITHUMAN_JNI_REPORT"
+          grep -E 'visited_functions|decompiled|matching_clue_lines' "$BITHUMAN_JNI_REPORT" | tail -5
+      - name: Upload analysis evidence only, even if Ghidra fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-expression2-native-jni-symbol-and-callgraph-report
+          path: reports/bithuman-jni/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Purge vendor library and temporary Ghidra installation
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expr2"
