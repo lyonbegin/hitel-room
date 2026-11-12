@@ -1,0 +1,67 @@
+name: bitHuman Expression2 36channel phase4 independent frame reconstruction
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-phase4-53frame-video.yml
+      - tools/bithuman_deep/decoder_phase4_reconstruction.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render-53-frames-using-real-public-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install independent public model CPU runtime
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 numpy pillow imageio-ffmpeg
+          python -m py_compile tools/bithuman_deep/decoder_phase4_reconstruction.py
+      - name: Download official public Wise Pup IMX without API secret
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bithuman-phase4" reports/bithuman-phase4
+          curl -fLsS --retry 3 --connect-timeout 20 --max-time 300 \
+            -o "$RUNNER_TEMP/bithuman-phase4/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'
+          sha256sum "$RUNNER_TEMP/bithuman-phase4/wise-pup.imx"
+      - name: Generate and validate 53 real TFLite RGB frames, H264 experimental video
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=8s 400s python -u \
+            tools/bithuman_deep/decoder_phase4_reconstruction.py \
+            --imx "$RUNNER_TEMP/bithuman-phase4/wise-pup.imx" \
+            --out reports/bithuman-phase4
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path("reports/bithuman-phase4")
+          data=json.loads((folder/"phase4_report.json").read_text())
+          assert data["status"]=="SUCCEEDED",data["status"]
+          assert data["frames"]==53
+          assert data["models"]["step"]==14
+          assert data["models"]["dec16"]==3
+          assert data["models"]["dec8"]==1
+          assert (folder/data["video_file"]).stat().st_size>1024
+          assert len(data["frames_sha256"])==53
+          assert len(set(data["frames_sha256"]))>1
+          print("PHASE4_53FRAME_VIDEO_VERIFIED",data["video_file"])
+          print("PHASE4_MAE",data["first_frame_mae_vs_idle"])
+          print("PHASE4_TEMPORAL_CHANGE",data["temporal_pixel_abs_change_mean"])
+          PY
+      - name: Publish video, contact sheet, and exact model-inference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-independent-phase4-53frame-video-prototype
+          path: reports/bithuman-phase4/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Clean public binary model from runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/bithuman-phase4"
