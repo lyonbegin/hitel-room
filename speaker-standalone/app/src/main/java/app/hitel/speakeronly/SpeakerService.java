@@ -36,6 +36,7 @@ public final class SpeakerService extends Service {
   private volatile Uri folderUri;
   private volatile int outputId=-1;
   private volatile TraceJournal sessionJournal;
+  private volatile boolean restartAfterCleanup;
 
   @Override public IBinder onBind(Intent intent){return null;}
 
@@ -99,7 +100,8 @@ public final class SpeakerService extends Service {
 
   private synchronized void onCallConnected(){
     if(!active||shuttingDown||!autoCallMode)return;
-    if(engine!=null)return;
+    if(engine!=null){restartAfterCleanup=true;return;}
+    restartAfterCleanup=false;
     journal.event("TELEPHONY","CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",
         "folderUri",folderUri.toString(),"modelDownload",false);
     launchSession(true);
@@ -107,6 +109,7 @@ public final class SpeakerService extends Service {
 
   private synchronized void onCallEnded(){
     if(!active||shuttingDown||!autoCallMode)return;
+    restartAfterCleanup=false;
     journal.event("TELEPHONY","CALL_IDLE_STOP_OUTPUT",
         "hadActiveAudioSession",engine!=null);
     SpeakerEngine current=engine;
@@ -154,7 +157,9 @@ public final class SpeakerService extends Service {
         send(result+" · 다음 통화 이벤트 대기",false);
         // An earlier call can end and a new call can start before cleanup.
         CallStateGate gate=callEvents;
-        if(gate!=null&&gate.isOffhook())onCallConnected();
+        boolean shouldRestart=restartAfterCleanup;
+        restartAfterCleanup=false;
+        if(shouldRestart && gate!=null&&gate.isOffhook())onCallConnected();
       }
     },outputId);
     holder[0]=task;
