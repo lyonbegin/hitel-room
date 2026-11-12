@@ -5,7 +5,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-module_file = Path(__file__).with_name("inspect.py")
+module_file = Path(__file__).with_name("artifact_audit.py")
 spec = importlib.util.spec_from_file_location("bithuman_artifact_audit", module_file)
 auditor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(auditor)
