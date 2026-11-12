@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -67,6 +68,8 @@ public final class RecordingFolderPlaybackActivity extends Activity {
         folderInfo=label("폴더 미선택",13);root.addView(folderInfo);
         root.addView(button("② 선택 폴더 감시·재생 시작",this::start));
         root.addView(button("감시·스피커 재생 중지",this::stop));
+        root.addView(button("🔊 현재 미디어 음량·통화 라우팅 확인",this::checkMediaVolume));
+        root.addView(button("🔊 미디어 볼륨 75%로 설정 (사용자 직접 선택)",this::raiseMediaVolume));
         status=label("상태 대기",14);root.addView(status);
         root.addView(label("③ 기존 스피커 STT에서 재생 앱을 선택하시면 됩니다. "+
             "이 기능 자체는 STT를 자동 시작하거나 입력 앱 선택을 변경하지 않습니다. "+
@@ -82,6 +85,27 @@ public final class RecordingFolderPlaybackActivity extends Activity {
         String selected=getSharedPreferences(PREF,MODE_PRIVATE).getString("folderUri","");
         folderInfo.setText(selected.isEmpty()?"폴더 미선택":"녹음 폴더: "+selected);
         status.setText(getSharedPreferences(PREF,MODE_PRIVATE).getString("lastStatus","실행 전"));
+    }
+    private void checkMediaVolume(){
+        AudioManager a=(AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if(a==null){status.setText("AudioManager를 사용할 수 없습니다.");return;}
+        String report="미디어 볼륨 "+a.getStreamVolume(AudioManager.STREAM_MUSIC)+
+            "/"+a.getStreamMaxVolume(AudioManager.STREAM_MUSIC)+
+            " · muted="+a.isStreamMute(AudioManager.STREAM_MUSIC)+
+            " · audioMode="+a.getMode()+
+            " · MODE_IN_CALL=2, MODE_IN_COMMUNICATION=3";
+        status.setText(report);
+        android.util.Log.i("HITEL-GrowingPlayback",report);
+    }
+    private void raiseMediaVolume(){
+        try{
+            AudioManager a=(AudioManager)getSystemService(Context.AUDIO_SERVICE);
+            if(a==null)throw new IllegalStateException("AudioManager 없음");
+            int max=a.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int wanted=Math.max(1,(int)Math.ceil(max*0.75));
+            a.setStreamVolume(AudioManager.STREAM_MUSIC,wanted,AudioManager.FLAG_SHOW_UI);
+            checkMediaVolume();
+        }catch(Throwable e){status.setText("미디어 음량 설정 실패: "+e);}
     }
     private void chooseFolder(){
         Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
