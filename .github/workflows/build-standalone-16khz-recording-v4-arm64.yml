@@ -1,0 +1,124 @@
+name: Standalone V4 Samsung recorder event / verified PCM ARM64
+on:
+  push:
+    branches: [fix/standalone-16khz-recording-event-auto-start-20261112]
+    paths:
+      - 'speaker-standalone/**'
+      - 'sherpa-original-launcher/native/aac_mdat_follow.c'
+      - '.github/workflows/build-standalone-16khz-recording-v4-arm64.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  speaker-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare NDK and compiler
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          COMPILER="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang"
+          if [ ! -x "$COMPILER" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Download minimal FFmpeg runtime (NO ONNX, NO Sherpa, NO STT)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ffmpeg-download /tmp/ffmpeg-headers
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg             -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-download
+          curl -fLsS --retry 4 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          SOURCE="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$SOURCE/libavutil/avconfig.h"
+          ROOT=speaker-standalone/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$ROOT" /tmp/native
+          for NAME in libavcodec.so libavutil.so libswresample.so; do
+            unzip -p /tmp/ffmpeg-download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar "jni/arm64-v8a/$NAME" > "$ROOT/$NAME"
+            test -s "$ROOT/$NAME"
+          done
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$ROOT/"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie             -I"$SOURCE" sherpa-original-launcher/native/aac_mdat_follow.c             -L"$ROOT" -lavcodec -lavutil -Wl,--no-undefined             -o "$ROOT/libaac-mdat-follow.so"
+          "$LLVM/llvm-readelf" -h "$ROOT/libaac-mdat-follow.so" | grep -F 'AArch64'
+          "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'libavcodec.so'
+          echo "STANDALONE_AAC_ONLY_NATIVE_LIBS"
+          ls -lh "$ROOT"
+          ! find "$ROOT" -name '*sherpa*' -o -name '*onnx*' | grep .
+      - name: Regression test newest M4A 3 actual growth increments sampled at 100ms
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/growing-m4a-test
+          javac -d /tmp/growing-m4a-test \
+            speaker-standalone/app/src/main/java/app/hitel/speakeronly/GrowingM4aSelector.java \
+            speaker-standalone/ci/GrowingM4aSelectorTest.java
+          java -cp /tmp/growing-m4a-test app.hitel.speakeronly.GrowingM4aSelectorTest
+      - name: Verify TELEPHONY event gated call lifecycle and no STT
+        run: |
+          set -euo pipefail
+          grep -F 'registerTelephonyCallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallStateGate.java
+          grep -F 'CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'CALL_IDLE_STOP_OUTPUT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'requiredPositiveGrowthEvents' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'android.permission.READ_PHONE_STATE' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'USAGE_MEDIA' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+      - name: Verify recording start controller is opt-in and evidence-based
+        run: |
+          set -euo pipefail
+          grep -F 'BIND_ACCESSIBILITY_SERVICE' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'requestRecording' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
+          grep -F 'RECORDING_GROWTH_CANDIDATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_CONTENT_CHANGED_EVENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'confirmedFileBytes' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          ! grep -E 'endCall\(|ANSWER_PHONE_CALLS|MODIFY_PHONE_STATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
+      - name: Build truly separate Android APK and reject any STT components
+        run: |
+          set -euo pipefail
+          grep -F '.setUsage(AudioAttributes.USAGE_MEDIA)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+          grep -F 'attrBuilder.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+          ! grep -q '.setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+          grep -F 'android:allowAudioPlaybackCapture="true"' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'TraceJournal.saveToDownloads(this,session.id())' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' speaker-standalone/app/src/main/java/app/hitel/speakeronly/TraceJournal.java
+          echo "PASS_CAPTURE_ELIGIBLE_MEDIA_AND_DURABLE_DOWNLOADS_LOG_SOURCE"
+          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
+          APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.speakeronly'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='4'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'allowAudioPlaybackCapture'
+          unzip -Z1 "$APK" > /tmp/speaker-apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so' /tmp/speaker-apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libavcodec.so' /tmp/speaker-apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libavutil.so' /tmp/speaker-apk-contents.txt
+          if grep -Ei 'sherpa|onnx|encoder|decoder-epoch|joiner|sensevoice|zipformer|stt-raw' /tmp/speaker-apk-contents.txt; then
+            echo 'ERROR: STT library/model leaked into standalone APK'; exit 1
+          fi
+          test "$(unzip -Z1 "$APK" | grep -c '^lib/arm64-v8a/')" -eq 5
+          mkdir -p speaker-standalone/dist
+          cp "$APK" speaker-standalone/dist/Galaxy-Standalone-16kHz-RecordingEvent-V4-ARM64.apk
+          sha256sum speaker-standalone/dist/*.apk | tee speaker-standalone/dist/SHA256.txt
+          ls -lh speaker-standalone/dist/*.apk
+          echo STANDALONE_NO_STT_APK_BUILD_PASS
+      - name: Upload standalone ARM64 APK
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Galaxy-Standalone-16kHz-RecordingEvent-V4-ARM64
+          path: speaker-standalone/dist/
+          if-no-files-found: warn
+
