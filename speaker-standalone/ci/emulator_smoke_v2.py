@@ -82,7 +82,7 @@ for i in range(1,24):
     tmp.write_bytes(piece)
     adb("push",str(tmp),"/data/local/tmp/standalone-chunk.bin")
     # append as the app's own UID: file grows while engine is running.
-    out=run_as("sh","-c","cat /data/local/tmp/standalone-chunk.bin >> files/live-growing.m4a")
+    out=run_as("sh","-c",f"cat /data/local/tmp/standalone-chunk.bin >> /data/user/0/{APP}/files/live-growing.m4a")
     pos+=len(piece)
     if i in (1,5,10,20):print("GROWING_SOURCE",i,pos,len(allbytes),flush=True)
     time.sleep(.22)
@@ -102,10 +102,10 @@ l=log("after-stop")
 for event in ("SESSION_END","RUN_SUMMARY"):
     assert event in l,"Not finalized: "+event
 # Direct file persistence test via app data, and automatic Download export.
-files=run_as("sh","-c","ls files/diagnostics/run-*/events.jsonl",check=False)
+files=run_as("sh","-c",f"ls /data/user/0/{APP}/files/diagnostics/run-*/events.jsonl",check=False)
 print("FILES_JSONL",files.strip()[:600],flush=True)
 assert "events.jsonl" in files,"JSONL log not persisted"
-events=run_as("sh","-c","cat files/diagnostics/run-*/events.jsonl",check=False)
+events=run_as("sh","-c",f"cat /data/user/0/{APP}/files/diagnostics/run-*/events.jsonl",check=False)
 (OUT/"events.jsonl").write_text(events)
 assert "PCM_PLAYBACK_WRITE" in events,"JSONL missing audio event"
 print("PASS_ANDROID15_REAL_PCM_TO_AUDIOTRACK_AND_PERSISTED_LOG",flush=True)
