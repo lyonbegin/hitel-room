@@ -58,8 +58,12 @@ public final class MainActivity extends Activity {
         "nativeToReceiverMs",nativeNs>0?(recvNs-nativeNs)/1000000.0:-1);
       if(message!=null)status.setText(message);
       if(text!=null){
-        caption.setText(text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text);
-        if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+        boolean speaker=getSharedPreferences("growing_diag",MODE_PRIVATE)
+          .getBoolean("speakerOnly",false);
+        caption.setText(speaker?
+          "스피커 재생 모드 · 16kHz PCM을 바로 출력 중입니다. STT 미실행":
+          (text.isEmpty()?"아직 PCM → STT 결과가 없습니다. 하단 로그에서 진단하십시오.":text));
+        if(latestTwo!=null)latestTwo.setText(speaker?"음성 확인 전용 · 자막 생성 안 함":lastTwoWords(text));
         if(live){
           final String expected=caption.getText().toString();
           final long setNs=SystemClock.elapsedRealtimeNanos();
@@ -285,8 +289,12 @@ public final class MainActivity extends Activity {
     String msg=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentStatus","대기 중");
     String text=getSharedPreferences("growing_diag",MODE_PRIVATE).getString("currentTranscript","");
     status.setText(msg);
-    caption.setText(text.isEmpty()?"아직 인식된 음성이 없습니다.":text);
-    if(latestTwo!=null)latestTwo.setText(lastTwoWords(text));
+    boolean speaker=getSharedPreferences("growing_diag",MODE_PRIVATE)
+      .getBoolean("speakerOnly",false);
+    caption.setText(speaker?"스피커 재생 모드 · STT 미실행":
+      (text.isEmpty()?"아직 인식된 음성이 없습니다.":text));
+    if(latestTwo!=null)latestTwo.setText(speaker?
+      "음성 확인 전용 · 자막 생성 안 함":lastTwoWords(text));
     refreshButtons();
     refreshEventTail();
   }
