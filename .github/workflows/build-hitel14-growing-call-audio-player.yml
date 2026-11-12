@@ -1,0 +1,125 @@
+name: HITEL14 add-on Samsung growing recording -> speaker audio
+on:
+  push:
+    branches: ["feature/hitel14-add-growing-call-audio-player-20261112"]
+    paths:
+      - "flow-lab/recording-playback/**"
+      - "flow-lab/v16_add_growing_recording_speaker_player.py"
+      - ".github/workflows/build-hitel14-growing-call-audio-player.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel14-growing-recording-player
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare official Android SDK 35 and NDK r27
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" || true
+          test -x "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang"
+      - name: Original v14 VoxSherpa source for exact rebuilding
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Reconstruct v14 + existing speaker STT, then ONLY add recording player
+        run: |
+          set -euo pipefail
+          tar -xJf flow-lab/v07_source.tar.xz
+          for p in v08_patch v08_overlay_patch v09_patch v09_live_patch v09_live_poll_patch v09_install_fix v10_connected_gate v11_connection_fix v12_no_overlay_front v13_accessibility_onboarding v14_log_tab_samsung_dictation v14_sherpa_ko_integration v14_voxsherpa_upstream_import v14_pinned_voice_controls v14_live_partial_streaming v14_release_model_on_stop v14_deep_stt_diagnostics v14_voice_access_audio_ab; do
+            python3 "flow-lab/${p}.py"
+          done
+          python3 flow-lab/v15_preserve_v14_add_playback.py
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/old-mic
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java | cut -d " " -f1 > /tmp/old-speaker
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java | cut -d " " -f1 > /tmp/old-speaker-service
+          python3 flow-lab/v16_add_growing_recording_speaker_player.py
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java | cut -d " " -f1 > /tmp/after-speaker
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java | cut -d " " -f1 > /tmp/after-speaker-service
+          cmp /tmp/old-mic /tmp/after-mic
+          cmp /tmp/old-speaker /tmp/after-speaker
+          cmp /tmp/old-speaker-service /tmp/after-speaker-service
+          cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          # Side-by-side install, keeping all existing APK data and signatures.
+          sed -i 's/applicationId = "app.hitel.callflowlab.v14"/applicationId = "app.hitel.callflowlab.v14.growing"/' AndroidProject/app/build.gradle.kts
+          grep -F 'applicationId = "app.hitel.callflowlab.v14.growing"' AndroidProject/app/build.gradle.kts
+          grep -F "RecordingFolderPlaybackActivity" AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F "RecordingFolderPlaybackService" AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F "android:extractNativeLibs=\"true\"" AndroidProject/app/src/main/AndroidManifest.xml
+      - name: Download the same FFmpegKit Android 6.0.4 native libraries as experiment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ffmpeg-kit /tmp/ffmpeg-headers
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-kit
+          AAR=/tmp/ffmpeg-kit/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar
+          test -s "$AAR"
+          unzip -qo "$AAR" 'jni/arm64-v8a/*.so' -d /tmp/ffmpeg-kit/native
+          DST=AndroidProject/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$DST"
+          cp /tmp/ffmpeg-kit/native/jni/arm64-v8a/*.so "$DST/"
+          test -s "$DST/libavcodec.so"
+          test -s "$DST/libavutil.so"
+          curl -fLsS --retry 5 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          FFMPEG_HEADERS=$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$FFMPEG_HEADERS/libavutil/avconfig.h"
+          LLVM="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          "$LLVM/aarch64-linux-android26-clang" -std=c99 -O2 -fPIE -pie \
+            -I"$FFMPEG_HEADERS" flow-lab/recording-playback/aac_mdat_follow.c \
+            -L"$DST" -lavcodec -lavutil -Wl,--no-undefined \
+            -o "$DST/libaac-mdat-follow.so"
+          cp "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$DST/" || true
+          "$LLVM/llvm-readelf" -h "$DST/libaac-mdat-follow.so" | grep AArch64
+          "$LLVM/llvm-readelf" -d "$DST/libaac-mdat-follow.so" | grep -E 'libav(codec|util).so'
+          sha256sum "$DST/libaac-mdat-follow.so"
+      - name: Build original app with ONLY new growing recording output module
+        run: |
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+          bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify signed installable APK and executable native AAC follower
+        run: |
+          set -euo pipefail
+          APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.growing'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'RecordingFolderPlaybackService'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libavcodec.so'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libavutil.so'
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL14-original-STT-plus-growing-call-folder-speaker-player
+          path: AndroidProject/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Publish separately installable APK to this branch
+        run: |
+          set -euo pipefail
+          APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14_GrowingRecording_SpeakerPlayback_Parallel.apk
+          (cd downloads && sha256sum HITEL14_GrowingRecording_SpeakerPlayback_Parallel.apk > HITEL14_GrowingRecording_SpeakerPlayback_Parallel.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14_GrowingRecording_SpeakerPlayback_Parallel.apk downloads/HITEL14_GrowingRecording_SpeakerPlayback_Parallel.sha256
+          git commit -m "build: publish original HITEL14 plus growing recording speaker player [skip ci]"
+          git fetch origin feature/hitel14-add-growing-call-audio-player-20261112
+          git rebase origin/feature/hitel14-add-growing-call-audio-player-20261112
+          git push origin HEAD:refs/heads/feature/hitel14-add-growing-call-audio-player-20261112
