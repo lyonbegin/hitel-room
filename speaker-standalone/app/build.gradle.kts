@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.speakeronly"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.recording.speakeronly"
+    applicationId = "app.hitel.recording.directstt"
     minSdk = 26
     targetSdk = 28
-    versionCode = 4
-    versionName = "1.0.3-auto-record-event-gate"
+    versionCode = 5
+    versionName = "1.0.4-direct-korean-stt-experiment"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
@@ -20,4 +20,5 @@ android {
 }
 dependencies {
   implementation("androidx.documentfile:documentfile:1.0.1")
+  implementation("com.github.k2-fsa:sherpa-onnx:1.12.26")
 }
