@@ -106,6 +106,56 @@ jobs:
               assert row.get("native_libraries"),name+" native libs missing"
           PY
           cat reports/bithuman-deep/analysis.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Cross-check independent IMX v2 index and member hashes against official CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          import tempfile
+          from pathlib import Path
+          sys.path.insert(0, "tools/bithuman_deep")
+          from imx_v2 import parse, extract, verify_member_hashes
+          data = json.loads(Path("reports/bithuman-deep/analysis.json").read_text())
+          report = {}
+          for model, fname in (("expression2", "wise-pup.imx"), ("essence2", "sofia-ramirez.imx")):
+              path = Path(os.environ["RUNNER_TEMP"]) / "bithuman-samples" / fname
+              got = parse(path)
+              official = data["imx"][model]["official_cli_json"]
+              extracted_list = [(m["name"], m["size_bytes"]) for m in got["members"]]
+              published_list = [(m["name"], m["size_bytes"]) for m in official["members"]]
+              assert got["version"] == official["format_version"] == 2
+              assert extracted_list == published_list, "Independent parser differs from vendor CLI for " + model
+              assert got["table_bytes"] + got["payload_bytes"] == got["file_size_bytes"]
+              assert got["index_gaps"] == 0 and got["trailing_bytes"] == 0
+              checks = verify_member_hashes(path, got)
+              assert checks["checked"] >= 1, "No hash-verifiable model members: " + model
+              assert not checks["mismatches"], str(checks)
+              candidate = "canon.bin" if model == "expression2" else "M.f32"
+              with tempfile.TemporaryDirectory() as tmp:
+                  copied = extract(path, got, candidate, Path(tmp))
+                  actual_sha = hashlib.sha256(copied.read_bytes()).hexdigest()
+                  member = next(m for m in got["members"] if m["name"] == candidate)
+                  assert copied.stat().st_size == member["size_bytes"]
+              report[model] = {
+                  "member_count": got["member_count"],
+                  "table_bytes": got["table_bytes"],
+                  "size_bytes": got["file_size_bytes"],
+                  "independent_index_matches_official_cli": True,
+                  "hash_verification": checks,
+                  "extracted_member": candidate,
+                  "extracted_member_sha256": actual_sha,
+              }
+              print(model, "MEMBER_TABLE_MATCH", got["member_count"],
+                    "HASHES_OK", checks["ok"], "/", checks["checked"],
+                    "EXTRACTED", candidate, actual_sha)
+          out = Path("reports/bithuman-deep/independent-imx-v2-validation.json")
+          out.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+          cat reports/bithuman-deep/independent-imx-v2-validation.json >> "$GITHUB_STEP_SUMMARY"
       - name: Publish verified metadata reports only
         if: always()
         uses: actions/upload-artifact@v4
