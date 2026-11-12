@@ -1,0 +1,120 @@
+name: HITEL14 V28 Android 15 real emulator runtime verification
+on:
+  push:
+    branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
+    paths:
+      - ".github/workflows/test-hitel14-v28-emulator.yml"
+      - "flow-lab/ci/test_hitel14_v28_emulator.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Prepare Android 15 SDK and test waveform
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -f lavfi -i 'sine=frequency=440:sample_rate=48000:duration=12' \
+            -ac 1 -c:a aac -b:a 64000 -f mp4 \
+            /tmp/hitel14-v28-test.m4a
+          file /tmp/hitel14-v28-test.m4a
+          test "$(stat -c%s /tmp/hitel14-v28-test.m4a)" -gt 10000
+      - uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Reconstruct exact V28 Java sources and switch only emulator ABI to x86_64
+        run: |
+          set -euo pipefail
+          tar -xJf flow-lab/v07_source.tar.xz
+          for p in v08_patch v08_overlay_patch v09_patch v09_live_patch v09_live_poll_patch v09_install_fix v10_connected_gate v11_connection_fix v12_no_overlay_front v13_accessibility_onboarding v14_log_tab_samsung_dictation v14_sherpa_ko_integration v14_voxsherpa_upstream_import v14_pinned_voice_controls v14_live_partial_streaming v14_release_model_on_stop v14_deep_stt_diagnostics v14_voice_access_audio_ab; do
+            python3 "flow-lab/${p}.py"
+          done
+          python3 flow-lab/v15_preserve_v14_add_playback.py
+          python3 flow-lab/v16_capture_stt_durable_log.py
+          python3 flow-lab/v17_restore_native_app_picker_v22.py
+          python3 flow-lab/v18_integrate_direct_pcm_stt_v23.py
+          python3 flow-lab/v19_user_selected_log_folder_v24.py
+          python3 flow-lab/v20_restore_proven_media_output_v26.py
+          python3 flow-lab/v21_fix_auto_folder_source_switch_v27.py
+          python3 flow-lab/v22_default_monitor_route_picker_v28.py
+          cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          grep -F 'versionCode = 36' AndroidProject/app/build.gradle.kts
+          grep -F 'USAGE_MEDIA' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmSpeakerMonitor.java
+          grep -F 'AUTO_MONITOR_ALREADY_ARMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
+          sed -i 's/abiFilters += listOf("arm64-v8a")/abiFilters += listOf("x86_64")/' AndroidProject/app/build.gradle.kts
+          grep -F 'abiFilters += listOf("x86_64")' AndroidProject/app/build.gradle.kts
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+      - name: Build x86_64 AAC follower with same original FFmpeg dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          COMPILER="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android26-clang"
+          if [ ! -x "$COMPILER" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" || true
+          fi
+          test -x "$COMPILER"
+          mkdir -p /tmp/ffmpeg-download /tmp/ffmpeg-headers
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-download
+          curl -fLsS --retry 4 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          SOURCE="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$SOURCE/libavutil/avconfig.h"
+          ROOT=AndroidProject/app/src/main/jniLibs/x86_64
+          mkdir -p "$ROOT"
+          for NAME in libavcodec.so libavutil.so libswresample.so; do
+            unzip -p /tmp/ffmpeg-download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar "jni/x86_64/$NAME" > "$ROOT/$NAME"
+            test -s "$ROOT/$NAME"
+          done
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/x86_64-linux-android/libc++_shared.so" "$ROOT/"
+          "$COMPILER" -O2 -std=c11 -fPIE -pie -I"$SOURCE" \
+            sherpa-original-launcher/native/aac_mdat_follow.c \
+            -L"$ROOT" -lavcodec -lavutil -Wl,--no-undefined \
+            -o "$ROOT/libaac-mdat-follow.so"
+          "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$ROOT/libaac-mdat-follow.so" | grep -F 'X86-64'
+      - name: Build x86_64 emulator-only HITEL14 V28 APK
+        run: |
+          set -euo pipefail
+          bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon
+          APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='36'"
+          unzip -l "$APK" | grep 'lib/x86_64/libaac-mdat-follow.so'
+      - name: Boot actual Android 15 x86_64 Pixel emulator and execute runtime checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: python3 flow-lab/ci/test_hitel14_v28_emulator.py
+      - name: Export real screenshots, logcat and verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel14-v28-android15-emulator-evidence
+          path: /tmp/hitel14-v28-emulator
+          if-no-files-found: warn
