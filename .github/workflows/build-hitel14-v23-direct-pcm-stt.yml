@@ -128,7 +128,8 @@ jobs:
           echo "PASS_MANUAL_SAF_LOG_FOLDER_PICKER_AND_VERIFIED_READBACK"
           grep -F 'DirectRecording' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F 'startDirectRecordingStt' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'if(ignoredOutputDevice==-2)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
-          grep -F 'new PcmSpeakerMonitor(context,journal,-1,' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F 'mediaOutput=new PcmSpeakerMonitor(context,journal,' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F 'getSharedPreferences("hitel_direct_output",Context.MODE_PRIVATE)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
           if grep -F 'android:name=".CallAccessibilityService"' AndroidProject/app/src/main/AndroidManifest.xml; then
             echo 'ERROR: old Text Call AccessibilityService remains enabled'; exit 1
