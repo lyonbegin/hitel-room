@@ -47,6 +47,7 @@ jobs:
         shell: bash
         env:
           BITHUMAN_JNI_REPORT: ${{ github.workspace }}/reports/bithuman-jni/native_call_flow.md
+          BITHUMAN_JNI_PSEUDOCODE_OUT: ${{ github.workspace }}/reports/bithuman-jni/native_selected_pseudocode.txt
         run: |
           set -euo pipefail
           curl --fail --location --retry 3 --connect-timeout 30 --max-time 330 \
