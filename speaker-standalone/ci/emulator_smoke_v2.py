@@ -59,6 +59,8 @@ print("PASS_ANDROID15_APP_INSTALLED_LAUNCHED_SCREENSHOT pid="+pid,flush=True)
 first=pathlib.Path("/tmp/standalone-first.bin")
 first.write_bytes(f.read_bytes()[:700])
 adb("push",str(first),"/data/local/tmp/standalone-first.bin")
+# A newly installed app can have shared_prefs but no files/ directory yet.
+run_as("mkdir","-p","files")
 run_as("cp","/data/local/tmp/standalone-first.bin","files/live-growing.m4a")
 uri="file:///data/user/0/"+APP+"/files/live-growing.m4a"
 print("START_FOREGROUND_SERVICE",flush=True)
