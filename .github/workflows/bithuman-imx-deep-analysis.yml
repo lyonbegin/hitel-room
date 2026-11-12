@@ -1,0 +1,120 @@
+name: bitHuman Expression2 and Essence2 IMX/JNI deep inspection
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-imx-deep-analysis.yml
+      - tools/bithuman_deep/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-with-official-cli:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    env:
+      BITHUMAN_API_SECRET: ""
+      BITHUMAN_API_KEY: ""
+    steps:
+      - name: Checkout analysis sources
+        uses: actions/checkout@v4
+      - name: JDK 17 for public Kotlin API inspection
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Offline analysis unit tests
+        run: |
+          python3 -m unittest discover -s tools/bithuman_deep -p 'test_*.py' -v
+          python3 -m py_compile tools/bithuman_deep/audit_models.py
+      - name: Install official bitHuman CLI for unauthenticated IMX open
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bithuman-cli" "$RUNNER_TEMP/bithuman-samples" reports/bithuman-deep
+          curl -fLsS --retry 3 --max-time 60 https://install.bithuman.ai -o "$RUNNER_TEMP/install-bithuman.sh"
+          BITHUMAN_INSTALL_DIR="$RUNNER_TEMP/bithuman-cli" timeout 300 sh "$RUNNER_TEMP/install-bithuman.sh"
+          BIN="$RUNNER_TEMP/bithuman-cli/bithuman"
+          if [ ! -x "$BIN" ]; then
+            BIN="$(find "$RUNNER_TEMP/bithuman-cli" "$HOME/.local/bin" -type f -name bithuman 2>/dev/null | head -1)"
+          fi
+          test -x "$BIN"
+          echo "BITHUMAN_CLI=$BIN" >> "$GITHUB_ENV"
+          "$BIN" --version
+      - name: Download both public IMX models with no API secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bithuman-samples"
+          curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 300 \
+            -o "$RUNNER_TEMP/bithuman-samples/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2' || true
+          curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 300 \
+            -o "$RUNNER_TEMP/bithuman-samples/sofia-ramirez.imx" \
+            'https://api.bithuman.ai/v1/agent/A52DHS2219/model/download?model=essence-2' || true
+          if [ ! -s "$RUNNER_TEMP/bithuman-samples/wise-pup.imx" ]; then
+            "$BITHUMAN_CLI" pull wise-pup
+            find "$HOME/.cache/bithuman/showcase" -type f -name '*wise*.imx' -exec cp '{}' "$RUNNER_TEMP/bithuman-samples/wise-pup.imx" ';'
+          fi
+          if [ ! -s "$RUNNER_TEMP/bithuman-samples/sofia-ramirez.imx" ]; then
+            "$BITHUMAN_CLI" pull sofia-ramirez
+            find "$HOME/.cache/bithuman/showcase" -type f -name '*sofia*.imx' -exec cp '{}' "$RUNNER_TEMP/bithuman-samples/sofia-ramirez.imx" ';'
+          fi
+          test -s "$RUNNER_TEMP/bithuman-samples/wise-pup.imx"
+          test -s "$RUNNER_TEMP/bithuman-samples/sofia-ramirez.imx"
+          file "$RUNNER_TEMP/bithuman-samples/"*.imx
+          sha256sum "$RUNNER_TEMP/bithuman-samples/"*.imx
+      - name: Fetch the corresponding Android SDK archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bithuman-sdk"
+          curl -fL --retry 3 --connect-timeout 20 --max-time 180 \
+            -o "$RUNNER_TEMP/bithuman-sdk/expression2.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          curl -fL --retry 3 --connect-timeout 20 --max-time 180 \
+            -o "$RUNNER_TEMP/bithuman-sdk/essence2.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar'
+          file "$RUNNER_TEMP/bithuman-sdk/"*.aar
+      - name: Run official CLI manifest and ABI/JNI static audits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/audit_models.py \
+            --cli "$BITHUMAN_CLI" \
+            --imx "expression2=$RUNNER_TEMP/bithuman-samples/wise-pup.imx" \
+            --imx "essence2=$RUNNER_TEMP/bithuman-samples/sofia-ramirez.imx" \
+            --aar "expression2=$RUNNER_TEMP/bithuman-sdk/expression2.aar" \
+            --aar "essence2=$RUNNER_TEMP/bithuman-sdk/essence2.aar" \
+            --out reports/bithuman-deep
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("reports/bithuman-deep/analysis.json").read_text())
+          for name,row in data["imx"].items():
+              print("IMX",name,"official cli exit",row.get("official_cli_exit"),"bytes",row.get("size_bytes"))
+              assert row["state"]=="FOUND",name+" IMX missing"
+              assert row.get("official_cli_exit")==0,name+" official open failed"
+          for name,row in data["aar"].items():
+              print("AAR",name,"bytes",row.get("size_bytes"),"native",list(row.get("native_libraries",{})))
+              assert row["state"]=="FOUND",name+" AAR missing"
+              assert row.get("java_classes"),name+" classes missing"
+              assert row.get("native_libraries"),name+" native libs missing"
+          PY
+          cat reports/bithuman-deep/analysis.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish verified metadata reports only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-expression-essence-imx-jni-official-manifest
+          path: reports/bithuman-deep/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Clean public vendor binaries from runner
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/bithuman-samples" "$RUNNER_TEMP/bithuman-sdk"
