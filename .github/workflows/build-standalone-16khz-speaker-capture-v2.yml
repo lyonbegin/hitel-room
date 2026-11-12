@@ -104,10 +104,14 @@ jobs:
           APK=speaker-standalone/dist/Galaxy-Standalone-16kHz-Speaker-Capturable-Media-Logs-V2-ARM64.apk
           test -s "$APK"
           sha256sum "$APK"
-          gh release create "$TAG" "$APK" -R lyonbegin/hitel-room \
-            --target "$GITHUB_SHA" \
-            --title 'Standalone Galaxy 16kHz MEDIA Capture + Durable Logs v1.0.1' \
-            --notes 'Corrects un-capturable USAGE_VOICE_COMMUNICATION to USAGE_MEDIA. Explicitly opts in to capture for target SDK 28; retains original growing M4A AAC playback engine. Diagnostic ZIP saved to Downloads automatically at end and manually by button. No STT engine/model bundled. Actual in-call device audio policy needs device validation.' \
-            --latest=false
+          if gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1; then
+            echo "V2 public release already exists; preserve published APK signature and tag."
+          else
+            gh release create "$TAG" "$APK" -R lyonbegin/hitel-room \
+              --target "$GITHUB_SHA" \
+              --title 'Standalone Galaxy 16kHz MEDIA Capture + Durable Logs v1.0.1' \
+              --notes 'Corrects un-capturable USAGE_VOICE_COMMUNICATION to USAGE_MEDIA. Explicitly opts in to capture for target SDK 28; retains original growing M4A AAC playback engine. Diagnostic ZIP saved to Downloads automatically at end and manually by button. No STT engine/model bundled. Actual in-call device audio policy needs device validation.' \
+              --latest=false
+          fi
           gh release view "$TAG" -R lyonbegin/hitel-room --json url,assets
           echo "APK=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/Galaxy-Standalone-16kHz-Speaker-Capturable-Media-Logs-V2-ARM64.apk"
