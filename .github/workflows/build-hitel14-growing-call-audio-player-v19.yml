@@ -7,7 +7,7 @@ on:
       - "flow-lab/v16_add_growing_recording_speaker_player.py"
       - "flow-lab/v17_pin_recording_player_entry.py"
       - "flow-lab/recording-playback/test_growing_native_follower.py"
-      - ".github/workflows/build-hitel14-growing-call-audio-player.yml"
+      - ".github/workflows/build-hitel14-growing-call-audio-player-v19.yml"
   workflow_dispatch:
 permissions:
   contents: write
