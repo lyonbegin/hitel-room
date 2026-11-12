@@ -57,6 +57,36 @@ def tap(term,tag):
             return
         time.sleep(1)
     raise AssertionError("Android UI control not found: "+term)
+def tap_row(term,tag):
+    # Click ONLY a real row in the AlertDialog ListView. Do not accidentally
+    # click the EditText search value or the "current selected" summary label.
+    for attempt in range(3):
+        root=hierarchy(tag+"_"+str(attempt))
+        candidates=[]
+        for element in root.iter("node"):
+            if element.attrib.get("class")!="android.widget.ListView":
+                continue
+            for child in element.iter("node"):
+                if child is element:continue
+                if child.attrib.get("class")!="android.widget.TextView":continue
+                t=child.attrib.get("text","")
+                if term not in t:continue
+                bounds=re.findall(r"\d+",child.attrib.get("bounds",""))
+                if len(bounds)==4:
+                    x,y,xx,yy=map(int,bounds)
+                    candidates.append(((x+xx)//2,(y+yy)//2,t))
+        if candidates:
+            x,y,label=candidates[0]
+            print("LIST_ROW_CLICK",term,x,y,label,flush=True)
+            adb("shell","input","tap",str(x),str(y))
+            time.sleep(1.6)
+            return
+        rows=[x.attrib.get("text","") for listNode in root.iter("node")
+              if listNode.attrib.get("class")=="android.widget.ListView"
+              for x in listNode.iter("node") if x.attrib.get("text")]
+        print("SEARCH_RESULT_ROWS",rows[:15],flush=True)
+        time.sleep(1)
+    raise AssertionError("ListView does not contain expected package: "+term)
 def target_launch_safe():
     stack=adb("shell","dumpsys","activity","activities")
     top="\n".join(line for line in stack.splitlines()
@@ -85,7 +115,7 @@ assert locate("앱 이름 또는 패키지 검색","filter-exists"),"search fiel
 assert locate("전체 앱","all-mode-visible"),"all capture source choice missing"
 print("PASS_CHOOSER_OPENED_WITHOUT_LAUNCHING_SOURCE_APP",flush=True)
 target_launch_safe()
-tap("전체 앱","select-all")
+tap_row("전체 앱 (UID 필터 없음)","select-all")
 image("all-selected")
 assert locate("현재 선택","selected-summary"),"current selection not visible"
 print("PASS_SELECTED_TARGET_CURRENTLY_VISIBLE",flush=True)
@@ -94,7 +124,7 @@ tap("앱 이름 또는 패키지 검색","search")
 adb("shell","input","text","HITEL14")
 time.sleep(2)
 image("picker-filtered")
-tap("HITEL14","select-own-app")
+tap_row(APP,"select-own-app")
 time.sleep(2)
 image("own-app-selected")
 selected=prefs()
@@ -105,7 +135,7 @@ assert locate("현재 선택","own-app-selection-summary")
 target_launch_safe()
 print("PASS_TARGET_CHANGED_PERSISTED_AND_NO_TARGET_APP_LAUNCH",flush=True)
 tap("출력음 캡처 대상 선택·변경","choose-again")
-tap("전체 앱","change-to-all")
+tap_row("전체 앱 (UID 필터 없음)","change-to-all")
 after=prefs()
 assert 'selected_package' in after and 'value=""' in after,after
 target_launch_safe()
