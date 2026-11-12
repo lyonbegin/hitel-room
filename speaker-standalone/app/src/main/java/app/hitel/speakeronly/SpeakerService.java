@@ -58,7 +58,8 @@ public final class SpeakerService extends Service {
       journal=new TraceJournal(this);
       getSharedPreferences("speaker",MODE_PRIVATE).edit()
         .putBoolean("active",true).putString("lastRunId",journal.id())
-        .putString("status","스피커 스트리밍 연결 중").apply();
+        .putString("status","스피커 스트리밍 연결 중")
+        .putString("detectedSource","").apply();
       journal.event("APP","SPEAKER_ONLY_SESSION",
         "folderMode",folder,"deviceId",id,
         "sttEnginePresent",false,"pcmRateHz",16000);
@@ -141,8 +142,11 @@ public final class SpeakerService extends Service {
   }
 
   private void send(String s,boolean done){
-    getSharedPreferences("speaker",MODE_PRIVATE).edit().putString("status",s)
-      .putBoolean("active",!done&&active).apply();
+    android.content.SharedPreferences.Editor prefs=
+        getSharedPreferences("speaker",MODE_PRIVATE).edit().putString("status",s)
+          .putBoolean("active",!done&&active);
+    if(s.startsWith("녹음 중 파일 발견: "))prefs.putString("detectedSource",s);
+    prefs.apply();
     Intent i=new Intent(EVENT).setPackage(getPackageName());
     i.putExtra(EX_STATUS,s).putExtra(EX_DONE,done);
     sendBroadcast(i);
