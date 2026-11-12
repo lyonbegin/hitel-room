@@ -122,3 +122,24 @@ https://github.com/lyonbegin/hitel-room/actions/runs/43246265487/artifacts/13956
 - Numerical bitwise equality to authorized SDK rendering is not claimed.
 
 These distinctions are necessary for reproducible research; successful model execution or RGB frame generation does not establish commercial-grade user-created avatar capability.
+
+
+## Offline spoken TTS input sensitivity test — PASSED (not final lip-sync fidelity)
+
+- Run https://github.com/lyonbegin/hitel-room/actions/runs/43248167341
+- Artifact with two spoken WAV + AAC/MP4 53-frame rendered videos:
+  https://github.com/lyonbegin/hitel-room/actions/runs/43248167341/artifacts/13957836816
+- Script: tools/bithuman_deep/probe_spoken_audio.py
+- GitHub workflow: .github/workflows/bithuman-spoken-audio-lipsync-probe.yml
+- Both speech phrases are generated locally with espeak-ng, then converted with ffmpeg to 16kHz mono Float32 with explicit 35200-sample pad/truncate. No network inference or vendor SDK is used.
+- Test A: "Papa mama papa baby." Input PCM RMS 0.0906808302; encoder SHA256 366aeb83ad703331f2de758a4199434fdf9a0ff2197f9fca0280f62e45002c04.
+- Test B: "Ooh, woo, ooh, woo." Input PCM RMS 0.0799395293; encoder SHA256 45918ab90fc33b39e3a51d995e6767b814a5cfeaac18b376faf50387a1b24b78.
+- Both yielded 53 actual RGB frames with phase4 decoding and corresponding playable audiovisual 2.65s MP4.
+- Measured mean absolute pixel difference between different utterances, on 0–255 scale:
+  - Whole video: **9.0252863**
+  - Heuristic mouth region x=[130,286], y=[322,527]: **9.1398828**
+  - Within test A mouth-region temporal change: **2.9063375**
+  - Within test B mouth-region temporal change: **2.5250062**
+- The two generated frame sequences are distinct, and two audio waveforms have different hashes.
+- **Pass scope:** independent public-model pipeline responds to *real synthesized spoken audio*, not merely to pure tones; no bitHuman SDK or API Secret is involved.
+- **Unproven:** precise audiovisual alignment, correct phoneme visemes, speaker mouth landmark motion and natural real-time rendering. Mouth ROI is a fixed approximate crop, not face tracking. Offline speech generated on Linux, whereas Android device test still uses synthetic tones.
