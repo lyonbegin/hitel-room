@@ -8,6 +8,7 @@
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
       android:extractNativeLibs="true"
       android:allowBackup="false"
+      android:allowAudioPlaybackCapture="true"
       android:supportsRtl="true">
     <activity android:name=".MainActivity" android:exported="true">
       <intent-filter>
