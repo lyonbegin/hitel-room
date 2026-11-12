@@ -58,14 +58,7 @@ jobs:
           disk-size: 1024M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 3072 -cores 2 -partition-size 1024
-          script: |
-            bash tools/bithuman_audit/probe_emulator_native_bridge.sh
-            rc=$?
-            echo '=== FINAL DEVICE ABI PROPERTIES ==='
-            cat reports/arm-bridge/properties.txt || true
-            echo '=== INSTALL RESULT ==='
-            cat reports/arm-bridge/adb-install.txt || true
-            exit "$rc"
+          script: bash tools/bithuman_audit/probe_emulator_native_bridge.sh
       - name: Always upload proof
         if: always()
         uses: actions/upload-artifact@v4
