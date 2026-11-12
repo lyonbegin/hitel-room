@@ -31,9 +31,17 @@ def dump(stage):
        ["adb","shell","uiautomator","dump","/dev/stdout"],
        ["adb","shell","-t","uiautomator","dump","/dev/tty"],
     ]
+    # Always preserve a real screenshot, even if UIAutomator XML cannot read.
+    try:
+        screenshot=subprocess.run(["adb","exec-out","screencap","-p"],
+                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20)
+        if screenshot.returncode==0 and screenshot.stdout.startswith(b"\x89PNG"):
+            (ROOT/(stage+".png")).write_bytes(screenshot.stdout)
+    except Exception as err:
+        print("SCREENSHOT_FAILED",str(err)[:180],flush=True)
     for cmd in attempts:
         try:
-            out=run(cmd,timeout=45,check=False)
+            out=run(cmd,timeout=16,check=False)
             m=re.search(r'(<\?xml[^>]*>.*?</hierarchy>)',out,re.S)
             if not m:m=re.search(r'(<hierarchy\b.*?</hierarchy>)',out,re.S)
             if m:
@@ -146,8 +154,8 @@ for partno in range(1,15):
     segment=Path(f"/tmp/hitel-part-{partno}.bin")
     segment.write_bytes(binary[begin:end])
     adb("push",str(segment),"/sdcard/hitel-part.bin")
-    adb("shell","sh","-c",
-        f"cat /sdcard/hitel-part.bin >> {directory}/test-call-growing.m4a")
+    # adb shell receives ONE raw shell command, so >> is processed inside Android.
+    adb("shell",f"cat /sdcard/hitel-part.bin >> {directory}/test-call-growing.m4a")
     time.sleep(0.33)
     if partno in (1,5,10):
         print("SOURCE_GROWTH_PROGRESS",partno,end,flush=True)
