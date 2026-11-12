@@ -104,14 +104,10 @@ def start_capture(case="local-file",source="self-app"):
     tab=next((n for n in start_tab if "마이크 · 출력음 STT" in n["text"]
         and n["clickable"]=="true"),None)
     if tab:tap_node(tab)
-    if find_existing_button("새 W03 기록 세션 시작",case+"-session"):
-        print("W03_EXISTING_SESSION_BUTTON_TAPPED",flush=True)
-        tab_nodes=uixml("w03-return-tab-"+case)
-        tab=next((n for n in tab_nodes if "마이크 · 출력음 STT" in n["text"]
-            and n["clickable"]=="true"),None)
-        if tab:tap_node(tab)
-    else:
-        print("W03_SESSION_BUTTON_NOT_VISIBLE_ALREADY_MAY_BE_RUNNING",flush=True)
+    # The original W03 session is already running upon activity launch; do NOT
+    # search the bottom 'new session' button and leave the scroll at the end.
+    # This keeps the pre-existing output STT button on the visible screen.
+    print("USE_EXISTING_W03_SESSION_WITHOUT_RESTART",flush=True)
     assert find_existing_button("출력음 STT 시작",case+"-capture"),\
         "Existing HITEL14 V28 output STT start button NOT FOUND; no fake harness"
     wait_log("CONSENT_REQUEST",25)
