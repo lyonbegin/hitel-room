@@ -1,6 +1,11 @@
 package app.hitel.speakeronly;
 
 import android.content.Context;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
@@ -96,6 +101,46 @@ public final class TraceJournal {
   }
   public synchronized void exportZip(OutputStream target)throws IOException {
     zipDirectory(directory,target,runId);
+  }
+
+  /**
+   * Publish complete, verifiable ZIP to the user's regular Downloads folder.
+   * User does NOT need to choose a destination in ACTION_CREATE_DOCUMENT.
+   * Works with MediaStore.Downloads from Android 10 (API29) onward.
+   * Unlike logcat, all diagnostic events are already persisted under
+   * files/diagnostics/run-<id>; publication makes them user-accessible.
+   */
+  public static String saveToDownloads(Context context,String id)throws IOException {
+    if(id==null||id.trim().isEmpty())throw new IOException("No diagnostic session ID");
+    File dir=new File(context.getFilesDir(),"diagnostics/run-"+id);
+    File events=new File(dir,"events.jsonl");
+    if(!events.isFile())throw new IOException("Diagnostic events file not found: "+events);
+    if(Build.VERSION.SDK_INT<29)
+      throw new IOException("Direct Download export requires Android 10+; choose a ZIP destination on older Android");
+    String filename="Galaxy-16kHz-AudioRoute-"+id+".zip";
+    ContentResolver resolver=context.getContentResolver();
+    ContentValues cv=new ContentValues();
+    cv.put(MediaStore.MediaColumns.DISPLAY_NAME,filename);
+    cv.put(MediaStore.MediaColumns.MIME_TYPE,"application/zip");
+    cv.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS);
+    cv.put(MediaStore.MediaColumns.IS_PENDING,1);
+    Uri uri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,cv);
+    if(uri==null)throw new IOException("Cannot create Downloads record for "+filename);
+    boolean complete=false;
+    try{
+      try(OutputStream out=resolver.openOutputStream(uri,"w")){
+        if(out==null)throw new IOException("Cannot write Downloads ZIP stream");
+        zipDirectory(dir,out,id);
+      }
+      ContentValues published=new ContentValues();
+      published.put(MediaStore.MediaColumns.IS_PENDING,0);
+      if(resolver.update(uri,published,null,null)<1)
+        throw new IOException("Cannot publish ZIP in Downloads");
+      complete=true;
+      return "Download/"+filename;
+    }finally{
+      if(!complete)resolver.delete(uri,null,null);
+    }
   }
   public static void zipDirectory(File directory,OutputStream target,String runId)throws IOException {
     // Flush all writes before packaging. ZIP is created and saved on device, never uploaded.
