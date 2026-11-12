@@ -3,6 +3,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+  <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
   <application
       android:label="녹음 중 M4A 자동 스피커"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
