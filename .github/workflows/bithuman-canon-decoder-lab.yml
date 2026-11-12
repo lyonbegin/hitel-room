@@ -1,0 +1,68 @@
+name: bitHuman canon.bin decoder channel placement experiments
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-canon-decoder-lab.yml
+      - tools/bithuman_deep/test_decoder_channel_layout.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canon-channel-layout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prepare CPU decoder test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 pillow numpy
+          python -m py_compile tools/bithuman_deep/test_decoder_channel_layout.py
+          ffmpeg -version | head -2
+      - name: Download genuine public IMX
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/bithuman-dec" reports/bithuman-decoder
+          curl -fL --retry 3 --connect-timeout 20 --max-time 300 \
+            -o "$RUNNER_TEMP/bithuman-dec/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'
+          sha256sum "$RUNNER_TEMP/bithuman-dec/wise-pup.imx"
+      - name: Run six decoder layouts with real canon.bin, compare actual idle.mp4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 210s python -u \
+            tools/bithuman_deep/test_decoder_channel_layout.py \
+            --imx "$RUNNER_TEMP/bithuman-dec/wise-pup.imx" \
+            --out reports/bithuman-decoder
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("reports/bithuman-decoder/decoder_placements.json").read_text())
+          assert d["status"]=="SUCCEEDED"
+          assert len(d["cases"])==6
+          assert all(case["output_finite"] for case in d["cases"])
+          for case in d["cases"]:
+            print("CASE",case["case"],"pixel_std",case["rgb"]["pixel_std"],
+                  "mae_vs_idle",case["rgb"]["mae_vs_idle"])
+          PY
+      - name: Archive experimental images and measured errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-expression2-canon-decoder-comparison-synthetic
+          path: reports/bithuman-decoder/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Remove vendor weights
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/bithuman-dec"
