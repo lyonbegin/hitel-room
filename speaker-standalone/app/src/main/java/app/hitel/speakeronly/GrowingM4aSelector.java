@@ -25,11 +25,19 @@ final class GrowingM4aSelector {
     final Entry growing;
     final long growthBytes;
     final int files;
-    Decision(Entry latest,Entry growing,long growthBytes,int files){
-      this.latest=latest;this.growing=growing;this.growthBytes=growthBytes;this.files=files;
+    final int verifiedGrowthEvents;
+    Decision(Entry latest,Entry growing,long growthBytes,int files,int verifiedGrowthEvents){
+      this.latest=latest;this.growing=growing;this.growthBytes=growthBytes;
+      this.files=files;this.verifiedGrowthEvents=verifiedGrowthEvents;
     }
   }
   private Map<String,Long> lastSizes=new HashMap<>();
+  private Map<String,Integer> growthEvents=new HashMap<>();
+  private Map<String,Integer> stagnantPolls=new HashMap<>();
+  static final int MIN_GROWTH_EVENTS=3;
+  // A Samsung recorder may append AAC every ~300ms even if sampled at 100ms.
+  // Count three distinct POSITIVE growth events, not three consecutive polls.
+  static final int STAGNANT_LIMIT_POLLS=30;
   static boolean isM4a(String name){
     return name!=null&&name.toLowerCase(Locale.ROOT).endsWith(".m4a");
   }
@@ -49,13 +57,35 @@ final class GrowingM4aSelector {
     };
     Collections.sort(candidates,newest);
     Entry growing=null;long growth=0;
+    int progress=0;
+    Map<String,Integer> nextEvents=new HashMap<>();
+    Map<String,Integer> nextStale=new HashMap<>();
     for(Entry e:candidates){
       Long previous=lastSizes.get(e.uri);
-      if(previous==null||e.bytes<=previous||e.bytes<512)continue;
-      if(growing==null){growing=e;growth=e.bytes-previous;}
+      int count=growthEvents.containsKey(e.uri)?growthEvents.get(e.uri):0;
+      int stale=stagnantPolls.containsKey(e.uri)?stagnantPolls.get(e.uri):0;
+      if(previous==null||e.bytes<previous||e.bytes<512){
+        count=0;stale=0;
+      }else if(e.bytes>previous){
+        count=Math.min(MIN_GROWTH_EVENTS,count+1);
+        stale=0;
+      }else{
+        stale++;
+        if(stale>STAGNANT_LIMIT_POLLS)count=0;
+      }
+      nextEvents.put(e.uri,count);
+      nextStale.put(e.uri,stale);
+      if(progress==0)progress=count;
+      if(growing==null && previous!=null && e.bytes>previous &&
+         count>=MIN_GROWTH_EVENTS){
+        growing=e;
+        growth=e.bytes-previous;
+      }
     }
     lastSizes=newSizes;
+    growthEvents=nextEvents;
+    stagnantPolls=nextStale;
     return new Decision(candidates.isEmpty()?null:candidates.get(0),
-                        growing,growth,candidates.size());
+                        growing,growth,candidates.size(),progress);
   }
 }
