@@ -1,0 +1,198 @@
+package app.hitel.samsungprobe;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioPlaybackCaptureConfiguration;
+import android.media.AudioRecord;
+import android.media.projection.MediaProjection;
+import android.os.Process;
+import android.os.SystemClock;
+import com.k2fsa.sherpa.onnx.OnlineModelConfig;
+import com.k2fsa.sherpa.onnx.OnlineRecognizer;
+import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig;
+import com.k2fsa.sherpa.onnx.OnlineStream;
+import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig;
+import java.io.File;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * ADDITIVE output-capture adapter. Original KoreanSherpaStt.java is NEVER modified.
+ * Feeds allowed media/game playback PCM to the same official sherpa-onnx model.
+ * Android AudioPlaybackCapture does not expose carrier telephony downlink audio.
+ */
+public final class SpeakerPlaybackStt {
+    public interface Listener {
+        void onStatus(String message);
+        void onPartial(String text);
+        void onFinal(String text);
+    }
+    private final Context context;
+    private final MediaProjection projection;
+    private final Listener listener;
+    private final AtomicBoolean active=new AtomicBoolean(false);
+    private volatile boolean stopped=false;
+    private volatile AudioRecord recorder;
+    private Thread thread;
+    private static final int RATE=16000;
+    private static final String[] MODEL={
+        "encoder-epoch-99-avg-1.int8.onnx",
+        "decoder-epoch-99-avg-1.onnx",
+        "joiner-epoch-99-avg-1.int8.onnx",
+        "tokens.txt"
+    };
+    private static final long[] MINIMUM={115000000L,9500000L,2000000L,50000L};
+
+    public SpeakerPlaybackStt(Context context,MediaProjection projection,Listener listener){
+        this.context=context.getApplicationContext();
+        this.projection=projection;
+        this.listener=listener;
+    }
+    public boolean isRunning(){return active.get();}
+    public void start(){
+        if(!active.compareAndSet(false,true))return;
+        stopped=false;
+        thread=new Thread(this::run,"HITEL-Speaker-Sherpa-STT");
+        thread.start();
+    }
+    public void stop(){
+        stopped=true;
+        AudioRecord a=recorder;
+        if(a!=null)try{a.stop();}catch(Throwable ignored){}
+    }
+    private void status(String message){listener.onStatus(message);}
+    private File existingOriginalModel(){
+        File dir=new File(context.getFilesDir(),"sherpa-ko-v1");
+        for(int i=0;i<MODEL.length;i++){
+            File f=new File(dir,MODEL[i]);
+            if(f.length()<MINIMUM[i])throw new IllegalStateException(
+                "기존 HITEL14 한국어 모델이 준비되지 않았습니다. 먼저 원본 마이크 STT를 시작해 모델 다운로드를 완료하십시오: "+MODEL[i]);
+        }
+        return dir;
+    }
+    private AudioRecord playbackRecorder(){
+        final int min=AudioRecord.getMinBufferSize(RATE,AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT);
+        if(min<=0)throw new IllegalStateException("PCM sample rate unsupported: "+min);
+        // The framework allows only playback usages permitted by the SOURCE app.
+        // USAGE_VOICE_COMMUNICATION is explicitly NOT capturable through this API.
+        AudioPlaybackCaptureConfiguration config=new AudioPlaybackCaptureConfiguration.Builder(projection)
+            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+            .addMatchingUsage(AudioAttributes.USAGE_GAME)
+            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+            .build();
+        AudioRecord a=new AudioRecord.Builder()
+            .setAudioPlaybackCaptureConfig(config)
+            .setAudioFormat(new AudioFormat.Builder()
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setSampleRate(RATE)
+                .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                .build())
+            .setBufferSizeInBytes(Math.max(8192,min*2))
+            .build();
+        if(a.getState()!=AudioRecord.STATE_INITIALIZED){
+            a.release();throw new IllegalStateException("Playback AudioRecord initialization failed");
+        }
+        return a;
+    }
+    private void run(){
+        OnlineRecognizer asr=null;
+        OnlineStream stream=null;
+        AudioRecord audio=null;
+        try{
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
+            if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                !=PackageManager.PERMISSION_GRANTED)
+                throw new SecurityException("RECORD_AUDIO 권한이 없습니다.");
+            File dir=existingOriginalModel();
+            status("HITEL14 기존 한국어 모델 로딩 중 (마이크 엔진 변경 없음)");
+            OnlineTransducerModelConfig transducer=new OnlineTransducerModelConfig();
+            transducer.setEncoder(new File(dir,MODEL[0]).getAbsolutePath());
+            transducer.setDecoder(new File(dir,MODEL[1]).getAbsolutePath());
+            transducer.setJoiner(new File(dir,MODEL[2]).getAbsolutePath());
+            OnlineModelConfig model=new OnlineModelConfig();
+            model.setTransducer(transducer);
+            model.setTokens(new File(dir,MODEL[3]).getAbsolutePath());
+            model.setModelType("zipformer");
+            model.setNumThreads(2);
+            model.setProvider("cpu");
+            OnlineRecognizerConfig cfg=new OnlineRecognizerConfig();
+            cfg.setModelConfig(model);
+            cfg.setEnableEndpoint(true);
+            asr=new OnlineRecognizer(null,cfg);
+            stream=asr.createStream("");
+            if(stopped)return;
+            audio=playbackRecorder();
+            recorder=audio;
+            audio.startRecording();
+            if(audio.getRecordingState()!=AudioRecord.RECORDSTATE_RECORDING)
+                throw new IllegalStateException("시스템 출력 캡처 장치가 녹음 상태에 진입하지 못했습니다.");
+            status("미디어/게임 출력음 캡처 시작 · 통화 수신음은 대상에서 제외");
+            short[] buffer=new short[1600];
+            String lastPartial="",lastFinal="";
+            long prevPartial=0,prevStats=SystemClock.elapsedRealtime();
+            long signalSamples=0;
+            double squares=0;
+            while(!stopped){
+                int n=audio.read(buffer,0,buffer.length,AudioRecord.READ_BLOCKING);
+                if(n<0){
+                    if(stopped)break;
+                    throw new IllegalStateException("AudioRecord.read="+n);
+                }
+                if(n==0)continue;
+                float[] samples=new float[n];
+                for(int i=0;i<n;i++){
+                    samples[i]=buffer[i]/32768f;
+                    squares+=samples[i]*samples[i];
+                }
+                signalSamples+=n;
+                stream.acceptWaveform(samples,RATE);
+                while(asr.isReady(stream))asr.decode(stream);
+                String partial=asr.getResult(stream).getText();
+                long now=SystemClock.elapsedRealtime();
+                if(partial!=null&&!partial.isBlank()&&!partial.equals(lastPartial)
+                    &&now-prevPartial>=120){
+                    lastPartial=partial;prevPartial=now;
+                    listener.onPartial(partial);
+                }
+                if(asr.isEndpoint(stream)){
+                    String text=asr.getResult(stream).getText();
+                    if(text!=null&&!text.isBlank()){
+                        lastFinal=text;
+                        listener.onFinal(text);
+                    }
+                    asr.reset(stream);
+                    lastPartial="";
+                }
+                if(now-prevStats>=3000){
+                    double rms=signalSamples>0?Math.sqrt(squares/signalSamples):0;
+                    status("출력음 RMS="+String.format(Locale.US,"%.5f",rms)+
+                        (rms<0.0005?" · 무음/보호된 앱/전화 음성 캡처 불가 가능":" · 신호 입력 확인"));
+                    signalSamples=0;squares=0;prevStats=now;
+                }
+            }
+            if(asr!=null&&stream!=null){
+                stream.inputFinished();
+                while(asr.isReady(stream))asr.decode(stream);
+                String tail=asr.getResult(stream).getText();
+                if(tail!=null&&!tail.isBlank()&&!tail.equals(lastFinal))listener.onFinal(tail);
+            }
+        }catch(Throwable ex){
+            if(!stopped)status("출력음 STT 실패: "+ex.getClass().getSimpleName()+": "+ex.getMessage());
+        }finally{
+            recorder=null;
+            if(audio!=null){
+                try{if(audio.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING)audio.stop();}
+                catch(Throwable ignored){}
+                try{audio.release();}catch(Throwable ignored){}
+            }
+            if(stream!=null)try{stream.release();}catch(Throwable ignored){}
+            if(asr!=null)try{asr.release();}catch(Throwable ignored){}
+            active.set(false);
+            status("출력음 STT 세션 종료 (마이크 STT 세션과 무관)");
+        }
+    }
+}
