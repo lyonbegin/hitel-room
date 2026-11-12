@@ -49,7 +49,9 @@ public class NativeFlow extends GhidraScript {
             "FUN_001a77c0",
             "FUN_001a7db0",
             "FUN_001acf1c",
-            "FUN_001a8500"
+            "FUN_001a8500",
+            "FUN_001a9f6c",
+            "FUN_001a9794"
         );
         List<Function> funcs=new ArrayList<>();
         for(Function f:currentProgram.getFunctionManager().getFunctions(true)){
@@ -105,7 +107,7 @@ public class NativeFlow extends GhidraScript {
                         extra.write(instruction.getAddress()+" "+instruction.toString()+"\n");
                     }
                 }
-                DecompileResults decomp=decoder.decompileFunction(f, f.getName().equals("FUN_001a8500") ? 75 : 20,monitor);
+                DecompileResults decomp=decoder.decompileFunction(f, (f.getName().equals("FUN_001a8500") || f.getName().equals("FUN_001a9f6c")) ? 75 : 20,monitor);
                 if(decomp!=null && decomp.decompileCompleted() && decomp.getDecompiledFunction()!=null){
                     ok++;
                     String source=decomp.getDecompiledFunction().getC();
@@ -114,7 +116,7 @@ public class NativeFlow extends GhidraScript {
                         "FUN_001a7cfc","FUN_001a3608","FUN_001a62e0","FUN_001a5fdc",
                         "FUN_001a6804","FUN_001a2e60",
                         "FUN_001a7a04","FUN_001a80dc","FUN_001a82f0",
-                        "FUN_001a77c0","FUN_001a7db0","FUN_001acf1c","FUN_001a8500").contains(f.getName())) {
+                        "FUN_001a77c0","FUN_001a7db0","FUN_001acf1c","FUN_001a8500","FUN_001a9f6c","FUN_001a9794").contains(f.getName())) {
                       extra.write("\n\n#### "+f.getName()+" @"+key+"\n");
                       extra.write(source.substring(0,Math.min(110000,source.length())));
                       extra.flush();
