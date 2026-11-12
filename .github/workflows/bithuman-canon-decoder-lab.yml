@@ -6,7 +6,7 @@ on:
       - feature/bithuman-expression2-imx-sdk-audit-20261112
     paths:
       - .github/workflows/bithuman-canon-decoder-lab.yml
-      - tools/bithuman_deep/test_decoder_channel_layout.py
+      - tools/bithuman_deep/decoder_channel_experiment.py
   workflow_dispatch:
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 pillow numpy imageio-ffmpeg
-          python -m py_compile tools/bithuman_deep/test_decoder_channel_layout.py
+          python -m py_compile tools/bithuman_deep/decoder_channel_experiment.py
           python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'
       - name: Download genuine public IMX
         shell: bash
@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=5s 210s python -u \
-            tools/bithuman_deep/test_decoder_channel_layout.py \
+            tools/bithuman_deep/decoder_channel_experiment.py \
             --imx "$RUNNER_TEMP/bithuman-dec/wise-pup.imx" \
             --out reports/bithuman-decoder
           python - <<'PY'
