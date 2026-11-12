@@ -182,6 +182,12 @@ public final class SpeakerService extends Service {
         if(!available)
           send("녹음 파일 증가 없음 · 접근성 보조를 허용하거나 삼성 전화 자동 녹음을 켜십시오.",false);
       }
+      @Override public void recordingCandidate(String name,long size,int growthEvents){
+        session.event("RECORDING","RECORDING_GROWTH_CANDIDATE",
+            "filename",name,"bytes",size,"growthEvents",growthEvents);
+        send("녹음 시작 후보 감지 · "+name+
+            " · 100ms 크기 증가 "+growthEvents+"/3회 검증 중",false);
+      }
       @Override public void confirmedRecording(String name,long bytes){
         SamsungRecordAccessibility.cancelRequest();
         session.event("RECORDING","RECORDING_VERIFIED_BY_M4A_GROWTH",
