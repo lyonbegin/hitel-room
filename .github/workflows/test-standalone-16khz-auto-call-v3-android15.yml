@@ -123,7 +123,7 @@ jobs:
           heap-size: 512M
           disable-animations: true
           emulator-boot-timeout: 900
-          script: python3 speaker-standalone/ci/emulator_smoke_v2.py
+          script: bash -c 'python3 speaker-standalone/ci/emulator_smoke_v2.py && python3 speaker-standalone/ci/emulator_auto_call_v3.py'
       - name: Upload real emulator screen, persistent logs and failure evidence
         if: always()
         uses: actions/upload-artifact@v4
