@@ -68,6 +68,13 @@ res=base/"src/main/res/xml"
 res.mkdir(parents=True,exist_ok=True)
 shutil.copyfile(v5/"res/xml/samsung_record_accessibility.xml",
                 res/"samsung_record_accessibility.xml")
+values=base/"src/main/res/values"
+values.mkdir(parents=True,exist_ok=True)
+(values/"hitel_direct_strings.xml").write_text(
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<resources><string name="record_accessibility_description">'
+    '삼성 통화녹음 시작 버튼 보조 (직접 PCM STT, 사용자가 허용)'
+    '</string></resources>\n',encoding="utf-8")
 
 s=w.read_text(encoding="utf-8")
 def patch(old,new):
