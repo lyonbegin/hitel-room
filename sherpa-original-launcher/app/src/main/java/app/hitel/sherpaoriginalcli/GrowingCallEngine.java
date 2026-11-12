@@ -458,7 +458,7 @@ public final class GrowingCallEngine {
     out.write((value>>16)&255);out.write((value>>24)&255);
   }
   File extract(String name,long min)throws Exception {
-    File dir=new File(context.getFilesDir(),"sensevoice-int8");
+    File dir=new File(context.getFilesDir(),"sherpa-hitel14-ko-20240616");
     if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("Cannot create model folder");
     File target=new File(dir,name);
     if(target.length()>=min){log.event("MODEL","REUSING","name",name,"bytes",target.length());return target;}
@@ -640,9 +640,9 @@ public final class GrowingCallEngine {
     if(!executable.isFile()||!executable.canExecute())
       throw new IOException("ARM64 SenseVoice stream CLI missing");
     File tokens=extract("tokens.txt",1000);
-    File encoder=extract("encoder.int8.onnx",1000000);
-    File decoder=extract("decoder.int8.onnx",100000);
-    File joiner=extract("joiner.int8.onnx",100000);
+    File encoder=extract("encoder-epoch-99-avg-1.int8.onnx",115000000);
+    File decoder=extract("decoder-epoch-99-avg-1.onnx",9500000);
+    File joiner=extract("joiner-epoch-99-avg-1.int8.onnx",2000000);
     ProcessBuilder pb=new ProcessBuilder(executable.getAbsolutePath(),
       tokens.getAbsolutePath(),encoder.getAbsolutePath(),
       decoder.getAbsolutePath(),joiner.getAbsolutePath());
@@ -685,7 +685,7 @@ public final class GrowingCallEngine {
     boolean signalled=onlineModelReadyLatch.await(100,java.util.concurrent.TimeUnit.SECONDS);
     if(stop){endReason="USER_STOP";return;}
     if(!signalled||!onlineModelReady||sherpa==null||!sherpa.isAlive())
-      throw new IOException("174M recognizer did not become ONLINE_READY within 100s");
+      throw new IOException("HITEL14 Korean Zipformer recognizer did not become ONLINE_READY within 100s");
     final long gateEnd=SystemClock.elapsedRealtimeNanos();
     log.timingAt(gateEnd,"MODEL","PREWARM_GATE_RELEASED",
       "waitDurationMs",(gateEnd-gateBegin)/1000000.0,"nativeAlive",sherpa.isAlive());
