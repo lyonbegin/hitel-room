@@ -284,33 +284,80 @@ else:
     print("YOUTUBE_REAL_APP_AVAILABLE",flush=True)
     # Phase 2's video is navigated through the ORIGINAL YouTube application.
     # No invented transcription or sound is accepted as evidence.
+    # Reject old STT events from the successful local-file comparison.
+    # A fresh logcat is essential: wait_log must see NEW consent/capture events.
+    adb("logcat","-c")
     start_capture("youtube-comparator","youtube")
-    link="https://www.youtube.com/results?search_query=korean+news"
-    res=adb("shell","am","start","-a","android.intent.action.VIEW",
-            "-d",link,"-p","com.google.android.youtube",check=False)
-    print("YOUTUBE_OPEN_RESULTS",res[-600:],flush=True)
+    print("YOUTUBE_NEW_PROJECTION_CAPTURE_VERIFIED",flush=True)
+    link="https://www.youtube.com/results?search_query=%ED%95%9C%EA%B5%AD%EC%96%B4+%EB%89%B4%EC%8A%A4"
+    def open_youtube_url():
+        return adb("shell","am","start","-a","android.intent.action.VIEW",
+                   "-d",link,"-p","com.google.android.youtube",check=False)
+    print("YOUTUBE_OPEN_RESULTS",open_youtube_url()[-600:],flush=True)
+    time.sleep(6)
+    # Google APIs images ship YouTube but may show first-run account onboarding.
+    # Tapping the REAL "Use without an account" control in YouTube is permitted.
+    account_prompt_handled=False
+    for step in range(6):
+        nodes=uixml("youtube-onboarding-"+str(step))
+        found=next((n for n in nodes if n["package"]=="com.google.android.youtube"
+             and any(t in n["text"] for t in
+                ["Use without an account","계정 없이 사용","Continue as guest",
+                 "Not now","나중에","No thanks"])),None)
+        if found:
+            tap_node(found)
+            account_prompt_handled=True
+            print("YOUTUBE_ACTUAL_ONBOARDING_TAPPED",found["text"],flush=True)
+            time.sleep(4)
+            continue
+        if any(n["package"]=="com.google.android.youtube"
+               and any(k in n["text"].lower() for k in
+                    ["home","search","뉴스","videos","추천","구독"]) for n in nodes):
+            break
+        time.sleep(2)
+    print("YOUTUBE_RESULTS_AFTER_ACCOUNT_PROMPT",open_youtube_url()[-600:],flush=True)
     time.sleep(12)
     screenshot("youtube-results")
     nodes=uixml("youtube-results")
     clicked=False
     for node in nodes:
         if (node["package"]=="com.google.android.youtube" and
-            any(w in node["text"].lower() for w in ["news","뉴스","kbs","sbs","mbc","한국"])):
+            any(w in node["text"].lower() for w in
+                 ["뉴스","kbs","sbs","mbc","한국","ytn","news"]) and
+            not any(k in node["text"].lower() for k in ["search","검색"])):
             tap_node(node)
             clicked=True
+            print("YOUTUBE_SEARCH_RESULT_CLICKED",node["text"][:160],flush=True)
             break
     if not clicked:
-        print("YOUTUBE_VIDEO_AUTO_OPEN_NOT_VERIFIED",flush=True)
+        print("YOUTUBE_VIDEO_SEARCH_RESULT_NOT_FOUND; DO_NOT_CLAIM_PLAYBACK",flush=True)
     time.sleep(18)
+    screenshot("youtube-playback-check")
+    media_session=adb("shell","dumpsys","media_session",check=False,timeout=55)
+    (OUT/"youtube-media-session.txt").write_text(media_session)
     log,speaker=inspect("youtube-result")
-    youtube_result={"app_present":True,"video_tap_attempt":clicked,
-       "positive_capture_rms":bool(re.search(r"출력음 RMS=0\\.(?!00000)[0-9]+",speaker)),
-       "asr_partials":re.findall(r"\|\s*SPEAKER_PARTIAL\s*\|\s*(.+)",speaker),
-       "asr_finals":re.findall(r"\|\s*SPEAKER_FINAL\s*\|\s*(.+)",speaker)}
+    # Durable speaker log contains prior local-file ASR. Only inspect the
+    # LAST post-consent segment to avoid false YouTube recognizer success.
+    marker=speaker.rfind("| CONSENT_REQUEST |")
+    youtube_log=speaker[marker:] if marker>=0 else ""
+    rms_values=[float(x) for x in re.findall(r"출력음 RMS=([0-9.]+)",youtube_log)]
+    finals=re.findall(r"\|\s*SPEAKER_FINAL\s*\|\s*(.+)",youtube_log)
+    partials=re.findall(r"\|\s*SPEAKER_PARTIAL\s*\|\s*(.+)",youtube_log)
+    youtube_result={
+        "app_present":True,
+        "native_single_app_selection":True,
+        "account_prompt_handled":account_prompt_handled,
+        "video_tap_attempt":clicked,
+        "youtube_media_session_present":"com.google.android.youtube" in media_session,
+        "capture_rms":rms_values,
+        "positive_capture_rms":any(v>0.001 for v in rms_values),
+        "asr_partials":partials,
+        "asr_finals":finals,
+        "old_local_file_asr_excluded":True
+    }
     (OUT/"youtube-result.json").write_text(json.dumps(youtube_result,ensure_ascii=False,indent=2))
     print("YOUTUBE_RESULT_JSON",json.dumps(youtube_result,ensure_ascii=False),flush=True)
-    if youtube_result["positive_capture_rms"] and (
-        youtube_result["asr_partials"] or youtube_result["asr_finals"]):
+    if clicked and youtube_result["positive_capture_rms"] and (partials or finals):
         print("PASS_YOUTUBE_APP_AUDIO_KOREAN_STT",flush=True)
     else:
         print("YOUTUBE_COMPARATOR_UNVERIFIED_DO_NOT_CLAIM_SUCCESS",flush=True)
