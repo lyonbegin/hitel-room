@@ -1,0 +1,25 @@
+name: Inspect original HITEL14 LabStore persistence and export reset points
+on:
+  push:
+    branches: ["fix/hitel14-v23-reset-logs-on-export-20261112"]
+    paths:
+      - ".github/workflows/inspect-hitel14-labstore-v23.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect original LabStore implementation
+        run: |
+          set -euo pipefail
+          tar -xJf flow-lab/v07_source.tar.xz
+          SRC=AndroidProject/app/src/main/java/app/hitel/samsungprobe
+          echo "=== FIND LABSTORE ==="
+          find AndroidProject -iname '*LabStore*' -print
+          echo "=== LABSTORE FULL SOURCE ==="
+          cat "$SRC/LabStore.java"
+          echo "=== W03 LOG UI + REFRESH ==="
+          grep -n -E -B8 -A32 'logAdapter|refreshLogs\(|logList|followLogs|endSession\(' "$SRC/W03ConsoleActivity.java" | head -450
