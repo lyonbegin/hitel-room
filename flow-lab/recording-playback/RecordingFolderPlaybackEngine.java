@@ -281,6 +281,7 @@ final class RecordingFolderPlaybackEngine {
                 }
             }
         }catch(Throwable ex){log.error("AUDIO","SPEAKER_ROUTE_REQUEST",ex);}
+        playback.setVolume(1.0f);
         playback.play();
         AudioDeviceInfo routed=playback.getRoutedDevice();
         AudioManager manager=(AudioManager)app.getSystemService(Context.AUDIO_SERVICE);
@@ -290,7 +291,10 @@ final class RecordingFolderPlaybackEngine {
             "AudioTrack PLAY · usage=MEDIA · preferred/routed="+
             (routed==null?"unknown":routed.getType())+
             " · mediaVolume="+volume+"/"+maxVolume+
-            " · audioMode="+manager.getMode());
+            " · mediaMuted="+manager.isStreamMute(AudioManager.STREAM_MUSIC)+
+            " · audioMode="+manager.getMode()+
+            " · playState="+playback.getPlayState()+
+            " · initialPlaybackHeadFrames="+Integer.toUnsignedLong(playback.getPlaybackHeadPosition()));
         return playback;
     }
     private void sendToSpeaker(byte[] pcm)throws Exception{
@@ -316,12 +320,24 @@ final class RecordingFolderPlaybackEngine {
             }
             double rms=count==0?0:Math.sqrt((double)sumSquares/count)/32768.0;
             AudioDeviceInfo routed=output.getRoutedDevice();
+            AudioManager manager=(AudioManager)app.getSystemService(Context.AUDIO_SERVICE);
+            long playedFrames=Integer.toUnsignedLong(output.getPlaybackHeadPosition());
+            long sentFrames=renderedBytes/2L; // 16-bit mono PCM
+            long queuedFrames=Math.max(0L,sentFrames-playedFrames);
             event("PCM_WRITTEN",
                 "실제 녹음 증가분→AudioTrack: "+
                 (renderedBytes/32000.0)+"초 · rms="+
                 String.format(Locale.US,"%.5f",rms)+
                 " · speakerRoute="+(routed==null?"unknown":routed.getType())+
-                " · playState="+output.getPlayState());
+                " · playState="+output.getPlayState()+
+                " · playbackHeadFrames="+playedFrames+
+                " · sentFrames="+sentFrames+
+                " · queuedMs="+(queuedFrames*1000L/OUTPUT_RATE)+
+                " · mediaVolume="+manager.getStreamVolume(AudioManager.STREAM_MUSIC)+
+                "/"+manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)+
+                " · mediaMuted="+manager.isStreamMute(AudioManager.STREAM_MUSIC)+
+                " · audioMode="+manager.getMode()+
+                " · underrunCount="+output.getUnderrunCount());
         }
     }
     private void followAndPlay()throws Exception{
