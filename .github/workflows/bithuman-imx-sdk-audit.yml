@@ -57,7 +57,7 @@ jobs:
       - name: Inspect available artifacts
         shell: bash
         run: |
-          python3 tools/bithuman_audit/inspect.py \
+          python3 tools/bithuman_audit/artifact_audit.py \
             --imx "$RUNNER_TEMP/bithuman/wise-pup.imx" \
             --aar "$RUNNER_TEMP/bithuman/expression2.aar" \
             --pom "$RUNNER_TEMP/bithuman/expression2.pom" \
@@ -89,11 +89,13 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Android command line SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install platform and build tools
-        run: sdkmanager "platforms;android-35" "build-tools;34.0.0" "platform-tools"
+      - name: Use preinstalled runner Android SDK
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
+          sdkmanager --list_installed | head -80
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
 
       - name: Clone unmodified vendor hello app and pin SDK version
         shell: bash
