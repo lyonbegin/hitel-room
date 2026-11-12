@@ -1,0 +1,123 @@
+name: HITEL14 REMOVE recording-file speaker playback (keep two STTs)
+on:
+  push:
+    branches: ["fix/hitel14-remove-recording-speaker-playback-20261112"]
+    paths:
+      - "flow-lab/v15_preserve_v14_add_playback.py"
+      - "flow-lab/SpeakerPlaybackStt.java"
+      - "flow-lab/SpeakerPlaybackCaptureService.java"
+      - ".github/workflows/build-hitel14-no-recording-speaker-output.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel14-remove-recording-output
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Restore EXACT original HITEL14 VoxSherpa dependency
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Build ORIGINAL v14 Java source from its exact patch chain
+        run: |
+          set -euo pipefail
+          tar -xJf flow-lab/v07_source.tar.xz
+          for p in v08_patch v08_overlay_patch v09_patch v09_live_patch v09_live_poll_patch v09_install_fix v10_connected_gate v11_connection_fix v12_no_overlay_front v13_accessibility_onboarding v14_log_tab_samsung_dictation v14_sherpa_ko_integration v14_voxsherpa_upstream_import v14_pinned_voice_controls v14_live_partial_streaming v14_release_model_on_stop v14_deep_stt_diagnostics v14_voice_access_audio_ab; do
+            python3 "flow-lab/${p}.py"
+          done
+          cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/original-mic.sha256
+          python3 flow-lab/v15_preserve_v14_add_playback.py
+          cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
+          diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
+          grep -F 'applicationId = "app.hitel.callflowlab.v14"' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 22' AndroidProject/app/build.gradle.kts
+          # Clear release identity: separate app, and NO recording-to-speaker module.
+          sed -i 's/applicationId = "app.hitel.callflowlab.v14"/applicationId = "app.hitel.callflowlab.v14.norecordplay"/' AndroidProject/app/build.gradle.kts
+          sed -i 's/versionCode = 22/versionCode = 27/' AndroidProject/app/build.gradle.kts
+          sed -i 's/0.14.8-original-mic-plus-playback/0.14.13-remove-recording-speaker-output/' AndroidProject/app/build.gradle.kts
+          sed -i 's/android:label="HITEL 통화 실시간 자막 v0.14 (한국어 STT)"/android:label="HITEL14 STT 녹음재생제거"/' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'app.hitel.callflowlab.v14.norecordplay' AndroidProject/app/build.gradle.kts
+          grep -F 'HITEL14 STT 녹음재생제거' AndroidProject/app/src/main/AndroidManifest.xml
+          # NEGATIVE CONTRACT: never import the Samsung recording folder player.
+          if grep -RE 'RecordingFolderPlayback|GrowingM4a|GrowingCallEngine|aac_mdat_follow|GROWING_PLAYBACK' AndroidProject/app/src/main --include='*.java' --include='AndroidManifest.xml'; then
+            echo 'ERROR: growing recording playback still present'; exit 1
+          fi
+          test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackService.java
+          test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackEngine.java
+          test ! -e AndroidProject/app/src/main/jniLibs/arm64-v8a/libaac-mdat-follow.so
+          echo 'PASS_NO_RECORDING_FOLDER_WATCHER_AND_NO_AUDIO_TRACK_PLAYER'
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
+          grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
+          if grep -F 'android:name=".CallAccessibilityService"' AndroidProject/app/src/main/AndroidManifest.xml; then
+            echo 'ERROR: old Text Call AccessibilityService remains enabled'; exit 1
+          fi
+          grep -F 'startKoreanSherpaSpeech' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'requestSpeakerPlayback' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
+      - name: Use verified Gradle 8.13 distribution mirror
+        run: |
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+      - name: Compile W03 with original mic plus OUTPUT-CAPTURE STT; NO recording audio playback
+        run: bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK signature, manifest, app ID and source unchanged
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.norecordplay'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='27'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 STT 녹음재생제거'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
+          if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
+            echo 'ERROR: recording speaker player still in APK manifest'; exit 1
+          fi
+          if unzip -Z1 "$APK" | grep -E 'aac-mdat-follow|libavcodec|RecordingFolderPlayback'; then
+            echo 'ERROR: recording codec or player packed in APK'; exit 1
+          fi
+          echo 'PASS_APK_HAS_SPEAKER_CAPTURE_STT_BUT_NO_RECORDING_FILE_PLAYBACK'
+          sha256sum "$APK"
+      - name: Upload auditable APK and reconstructed sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL14-no-recording-speaker-playback-APK
+          path: |
+            AndroidProject/app/build/outputs/apk/debug/*.apk
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
+          if-no-files-found: error
+      - name: Publish signed APK without modifying original HITEL14.apk
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          mkdir -p downloads
+          cp "$APK" downloads/HITEL14_STT_NoRecordingSpeakerPlayback.apk
+          (cd downloads && sha256sum HITEL14_STT_NoRecordingSpeakerPlayback.apk > HITEL14_STT_NoRecordingSpeakerPlayback.sha256)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads/HITEL14_STT_NoRecordingSpeakerPlayback.apk downloads/HITEL14_STT_NoRecordingSpeakerPlayback.sha256
+          git commit -m "build: publish original HITEL14 with additive speaker STT [skip ci]"
+          git fetch origin fix/hitel14-remove-recording-speaker-playback-20261112
+          git rebase origin/fix/hitel14-remove-recording-speaker-playback-20261112
+          git push origin HEAD:refs/heads/fix/hitel14-remove-recording-speaker-playback-20261112
