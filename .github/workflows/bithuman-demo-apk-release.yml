@@ -1,0 +1,68 @@
+name: bitHuman download-ready Android demo APKs
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-demo-apk-release.yml
+      - tools/bithuman_audit/patch_runtime_secret.py
+      - tools/bithuman_audit/prepare_android_sample.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apks:
+    name: Official SDK + runtime API key UI (${{ matrix.model }})
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [expression2, essence2]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BITHUMAN_MODEL: ${{ matrix.model }}
+      BITHUMAN_RUNTIME_SECRET_UI: "1"
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+      - name: Configure Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build official Android app with on-device credential prompt
+        shell: bash
+        run: bash tools/bithuman_audit/prepare_android_sample.sh
+      - name: Verify package APK ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/vendor/app/build/outputs/apk/debug/app-debug.apk"
+          unzip -Z1 "$APK" | grep '^lib/arm64-v8a/'
+          mkdir -p "reports/${BITHUMAN_MODEL}-distribution"
+          sha256sum "$APK" | tee "reports/${BITHUMAN_MODEL}-distribution/sha256.txt"
+          stat -c '%s bytes' "$APK" | tee "reports/${BITHUMAN_MODEL}-distribution/size.txt"
+          cat > "reports/${BITHUMAN_MODEL}-distribution/README.txt" <<EOF
+          Model: ${BITHUMAN_MODEL}
+          Official bitHuman SDK embedded; demo UI prompts for API key after launch.
+          API key not bundled; not persisted to disk by demo.
+          Requires physical arm64 Android phone, account/API Secret, and internet for initial model download.
+          Not tested for on-device rendering yet.
+          EOF
+      - name: Publish installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-${{ matrix.model }}-runtime-key-demo-apk
+          path: vendor/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish hashes and notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: bithuman-${{ matrix.model }}-distribution-report
+          path: reports/${{ matrix.model }}-distribution/
+          retention-days: 30
+          if-no-files-found: error
