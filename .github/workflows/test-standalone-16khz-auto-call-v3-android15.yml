@@ -75,7 +75,7 @@ jobs:
           APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.speakeronly'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='2'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='3'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'allowAudioPlaybackCapture'
           unzip -Z1 "$APK" > /tmp/speaker-apk-contents.txt
           grep -Fx 'lib/x86_64/libaac-mdat-follow.so' /tmp/speaker-apk-contents.txt
@@ -86,7 +86,7 @@ jobs:
           fi
           test "$(unzip -Z1 "$APK" | grep -c '^lib/x86_64/')" -eq 5
           mkdir -p speaker-standalone/dist
-          cp "$APK" speaker-standalone/dist/Galaxy-Standalone-16kHz-Speaker-Capturable-Media-Logs-V2-ARM64.apk
+          cp "$APK" speaker-standalone/dist/Galaxy-Standalone-16kHz-AutoCall-GrowingM4A-V3-x86_64-TEST.apk
           sha256sum speaker-standalone/dist/*.apk | tee speaker-standalone/dist/SHA256.txt
           ls -lh speaker-standalone/dist/*.apk
           echo STANDALONE_NO_STT_APK_BUILD_PASS
