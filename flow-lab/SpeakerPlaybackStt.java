@@ -33,6 +33,8 @@ public final class SpeakerPlaybackStt {
     private final Context context;
     private final MediaProjection projection;
     private final Listener listener;
+    private final int targetUid;
+    private final String targetName;
     private final AtomicBoolean active=new AtomicBoolean(false);
     private volatile boolean stopped=false;
     private volatile AudioRecord recorder;
@@ -46,9 +48,12 @@ public final class SpeakerPlaybackStt {
     };
     private static final long[] MINIMUM={115000000L,9500000L,2000000L,50000L};
 
-    public SpeakerPlaybackStt(Context context,MediaProjection projection,Listener listener){
+    public SpeakerPlaybackStt(Context context,MediaProjection projection,
+                              int targetUid,String targetName,Listener listener){
         this.context=context.getApplicationContext();
         this.projection=projection;
+        this.targetUid=targetUid;
+        this.targetName=targetName==null?"전체 앱":targetName;
         this.listener=listener;
     }
     public boolean isRunning(){return active.get();}
@@ -118,11 +123,16 @@ public final class SpeakerPlaybackStt {
         if(min<=0)throw new IllegalStateException("PCM sample rate unsupported: "+min);
         // The framework allows only playback usages permitted by the SOURCE app.
         // USAGE_VOICE_COMMUNICATION is explicitly NOT capturable through this API.
-        AudioPlaybackCaptureConfiguration config=new AudioPlaybackCaptureConfiguration.Builder(projection)
+        AudioPlaybackCaptureConfiguration.Builder builder=
+            new AudioPlaybackCaptureConfiguration.Builder(projection)
             .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
             .addMatchingUsage(AudioAttributes.USAGE_GAME)
-            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-            .build();
+            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN);
+        if(targetUid>=0)builder.addMatchingUid(targetUid);
+        AudioPlaybackCaptureConfiguration config=builder.build();
+        status("실제 오디오 캡처 필터: "+targetName+" · UID="+
+            (targetUid<0?"전체":targetUid)+
+            " · 허용 usage=MEDIA/GAME/UNKNOWN");
         AudioRecord a=new AudioRecord.Builder()
             .setAudioPlaybackCaptureConfig(config)
             .setAudioFormat(new AudioFormat.Builder()
@@ -172,7 +182,10 @@ public final class SpeakerPlaybackStt {
             audio.startRecording();
             if(audio.getRecordingState()!=AudioRecord.RECORDSTATE_RECORDING)
                 throw new IllegalStateException("시스템 출력 캡처 장치가 녹음 상태에 진입하지 못했습니다.");
-            status("미디어/게임 출력음 캡처 시작 · 통화 수신음은 대상에서 제외");
+            status("선택된 캡처 대상: "+targetName+
+                " · UID="+(targetUid<0?"전체":targetUid)+
+                " · 미디어/게임 출력음 캡처 시작" +
+                " (전화 통화 수신음은 스피커폰에서도 보호됨)");
             short[] buffer=new short[1600];
             String lastPartial="",lastFinal="";
             long prevPartial=0,prevStats=SystemClock.elapsedRealtime();
@@ -211,10 +224,15 @@ public final class SpeakerPlaybackStt {
                 }
                 if(now-prevStats>=3000){
                     double rms=signalSamples>0?Math.sqrt(squares/signalSamples):0;
-                    status("출력음 RMS="+String.format(Locale.US,"%.5f",rms)+
-                        (rms<0.0005
-                            ?" · 캡처 데이터 무음. 선택한 앱에서 실제 미디어 소리를 재생 중인지 확인하십시오. HITEL14 자신만 선택하면 자동 생성되는 소리가 없습니다."
-                            :" · 캡처 신호 입력 확인"));
+                    String classification=rms>=0.0005?
+                        "입력 신호 있음 · STT 처리 중":
+                        "캡처 음성 없음 · 앱에 재생 중인 허용 미디어가 없거나 보호 오디오";
+                    status("대상="+targetName+
+                        " · 출력음 RMS="+String.format(Locale.US,"%.5f",rms)+
+                        " · 상태="+classification+
+                        (rms<0.0005?
+                        " · 기본 전화앱의 통화 음성은 스피커폰에서도 이 API로 캡처할 수 없습니다."
+                        :""));
                     signalSamples=0;squares=0;prevStats=now;
                 }
             }
