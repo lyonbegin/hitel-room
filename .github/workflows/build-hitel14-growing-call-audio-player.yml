@@ -5,6 +5,7 @@ on:
     paths:
       - "flow-lab/recording-playback/**"
       - "flow-lab/v16_add_growing_recording_speaker_player.py"
+      - "flow-lab/v17_pin_recording_player_entry.py"
       - ".github/workflows/build-hitel14-growing-call-audio-player.yml"
   workflow_dispatch:
 permissions:
@@ -46,6 +47,9 @@ jobs:
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java | cut -d " " -f1 > /tmp/old-speaker
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java | cut -d " " -f1 > /tmp/old-speaker-service
           python3 flow-lab/v16_add_growing_recording_speaker_player.py
+          python3 flow-lab/v17_pin_recording_player_entry.py
+          grep -F 'screen.addView(callRecordingShortcut' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'versionCode = 24' AndroidProject/app/build.gradle.kts
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java | cut -d " " -f1 > /tmp/after-speaker
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java | cut -d " " -f1 > /tmp/after-speaker-service
@@ -54,8 +58,9 @@ jobs:
           cmp /tmp/old-speaker-service /tmp/after-speaker-service
           cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           # Side-by-side install, keeping all existing APK data and signatures.
-          sed -i 's/applicationId = "app.hitel.callflowlab.v14"/applicationId = "app.hitel.callflowlab.v14.growing"/' AndroidProject/app/build.gradle.kts
-          grep -F 'applicationId = "app.hitel.callflowlab.v14.growing"' AndroidProject/app/build.gradle.kts
+          sed -i 's/applicationId = "app.hitel.callflowlab.v14"/applicationId = "app.hitel.callflowlab.v14.growing.visible"/' AndroidProject/app/build.gradle.kts
+          sed -i 's/HITEL14 · 원본 마이크 STT + 출력음 STT/HITEL14 녹음폴더재생 V17/' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'applicationId = "app.hitel.callflowlab.v14.growing.visible"' AndroidProject/app/build.gradle.kts
           grep -F "RecordingFolderPlaybackActivity" AndroidProject/app/src/main/AndroidManifest.xml
           grep -F "RecordingFolderPlaybackService" AndroidProject/app/src/main/AndroidManifest.xml
           grep -F "android:extractNativeLibs=\"true\"" AndroidProject/app/src/main/AndroidManifest.xml
@@ -98,7 +103,9 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" | tail -2
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.growing'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.growing.visible'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='24'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 녹음폴더재생 V17'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'RecordingFolderPlaybackService'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libavcodec.so'
@@ -114,11 +121,11 @@ jobs:
           set -euo pipefail
           APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_GrowingRecording_SpeakerPlayback_Parallel.apk
-          (cd downloads && sha256sum HITEL14_GrowingRecording_SpeakerPlayback_Parallel.apk > HITEL14_GrowingRecording_SpeakerPlayback_Parallel.sha256)
+          cp "$APK" downloads/HITEL14_RecordingFolderPlayback_VisibleButton_V17.apk
+          (cd downloads && sha256sum HITEL14_RecordingFolderPlayback_VisibleButton_V17.apk > HITEL14_RecordingFolderPlayback_VisibleButton_V17.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_GrowingRecording_SpeakerPlayback_Parallel.apk downloads/HITEL14_GrowingRecording_SpeakerPlayback_Parallel.sha256
+          git add downloads/HITEL14_RecordingFolderPlayback_VisibleButton_V17.apk downloads/HITEL14_RecordingFolderPlayback_VisibleButton_V17.sha256
           git commit -m "build: publish original HITEL14 plus growing recording speaker player [skip ci]"
           git fetch origin feature/hitel14-add-growing-call-audio-player-20261112
           git rebase origin/feature/hitel14-add-growing-call-audio-player-20261112
