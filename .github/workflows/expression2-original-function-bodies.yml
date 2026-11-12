@@ -1,0 +1,113 @@
+name: Expression2 exact original SDK function-body evidence
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-original-function-bodies.yml
+      - tools/bithuman_deep/expression2_original_jvm_inventory.sh
+      - tools/bithuman_deep/ghidra/Expression2ExactAudit.java
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-original-kotlin-jvm-instructions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Get unmodified published Expression2 Android AAR only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expression2"
+          curl -fL --retry 3 --connect-timeout 20 --max-time 160 \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar' \
+            -o "$RUNNER_TEMP/expression2/original.aar"
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  '"$RUNNER_TEMP/expression2/original.aar" | sha256sum -c -
+      - name: Decode full original JVM method bytecode, no relevance filters or truncated snippets
+        run: |
+          set -euo pipefail
+          bash tools/bithuman_deep/expression2_original_jvm_inventory.sh \
+            "$RUNNER_TEMP/expression2/original.aar" reports/expression2-original-jvm
+          cat reports/expression2-original-jvm/README.md >> "$GITHUB_STEP_SUMMARY"
+          wc -l reports/expression2-original-jvm/class-names.txt
+          grep -Ei 'Native|Avatar|Meter|Credential|Audio' \
+            reports/expression2-original-jvm/class-names.txt | head -80 || true
+      - name: Archive JVM method instructions, but no original SDK binary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-complete-original-jvm-method-bytecode-analysis
+          path: reports/expression2-original-jvm
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Delete original AAR
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expression2"
+
+  inspect-original-arm64-function-instructions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Get unmodified Expression2 AAR and extract exact ARM64 ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expression2" reports/expression2-original-native
+          curl -fL --retry 3 --connect-timeout 20 --max-time 180 \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar' \
+            -o "$RUNNER_TEMP/expression2/original.aar"
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  '"$RUNNER_TEMP/expression2/original.aar" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/expression2/original.aar" \
+            'jni/arm64-v8a/libexpr2jni.so' > "$RUNNER_TEMP/expression2/libexpr2jni.so"
+          sha256sum "$RUNNER_TEMP/expression2/libexpr2jni.so" > \
+            reports/expression2-original-native/original-elf-sha256.txt
+          readelf -h "$RUNNER_TEMP/expression2/libexpr2jni.so" > \
+            reports/expression2-original-native/original-elf-header.txt
+          readelf -W --dyn-syms "$RUNNER_TEMP/expression2/libexpr2jni.so" > \
+            reports/expression2-original-native/original-dynamic-symbols.txt
+      - name: Ghidra exact ARM64 instruction listing and full function decompilations
+        shell: bash
+        env:
+          EXPR2_EXACT_AUDIT_DIR: ${{ github.workspace }}/reports/expression2-original-native
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 30 --max-time 360 \
+            -o "$RUNNER_TEMP/expression2/ghidra.zip" \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip'
+          unzip -q "$RUNNER_TEMP/expression2/ghidra.zip" -d "$RUNNER_TEMP/expression2"
+          GHIDRA="$(find "$RUNNER_TEMP/expression2" -type f -name analyzeHeadless | head -1)"
+          test -n "$GHIDRA"
+          chmod +x "$GHIDRA"
+          mkdir -p "$RUNNER_TEMP/expression2/ghidra-project"
+          timeout --signal=TERM --kill-after=12s 2000s \
+            "$GHIDRA" "$RUNNER_TEMP/expression2/ghidra-project" original-function-audit \
+            -import "$RUNNER_TEMP/expression2/libexpr2jni.so" \
+            -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+            -postScript Expression2ExactAudit.java \
+            -analysisTimeoutPerFile 500 -max-cpu 2 -deleteProject
+          test -s "$EXPR2_EXACT_AUDIT_DIR/SUMMARY.md"
+          cat "$EXPR2_EXACT_AUDIT_DIR/SUMMARY.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve exact instruction hashes, assembly and labeled decompiler output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-original-arm64-fully-indexed-call-closure
+          path: reports/expression2-original-native
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Delete vendor binary after analysis
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expression2"
