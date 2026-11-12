@@ -76,7 +76,9 @@ final class GrowingM4aSelector {
       nextEvents.put(e.uri,count);
       nextStale.put(e.uri,stale);
       if(progress==0)progress=count;
-      if(growing==null && previous!=null && e.bytes>previous &&
+      // A stale older recording must not win while a newer file is present.
+      if(growing==null && e==candidates.get(0) &&
+         previous!=null && e.bytes>previous &&
          count>=MIN_GROWTH_EVENTS){
         growing=e;
         growth=e.bytes-previous;
