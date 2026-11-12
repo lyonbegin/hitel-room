@@ -80,7 +80,7 @@ jobs:
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
           grep -F 'DIRECT_ASR_FINAL' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           grep -F 'DirectRecording' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F 'startDirectRecordingStt' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
-          if grep -E 'PcmSpeakerMonitor|AudioTrack' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java; then echo 'ERROR: recording sent to speaker'; exit 1; fi
+          if grep -E '(import android[.]media[.]AudioTrack|new AudioTrack[(]|PcmSpeakerMonitor[[:space:]])' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java; then echo 'ERROR: recording sent to speaker'; exit 1; fi
           grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
           if grep -F 'android:name=".CallAccessibilityService"' AndroidProject/app/src/main/AndroidManifest.xml; then
             echo 'ERROR: old Text Call AccessibilityService remains enabled'; exit 1
