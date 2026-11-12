@@ -994,10 +994,20 @@ public final class GrowingCallEngine {
       long lastCursor=-1;
       while(!stop){
         try{reader.readFully(head);}
-        catch(EOFException eof){
-          if(stop)break;
-          throw new IOException("Persistent AAC follower ended before recorder stop; exit="+
-            (p.isAlive()?"unknown":p.exitValue()),eof);
+        catch(IOException stoppedRead){
+          // Explicit STOP destroys the follower while this thread may be
+          // blocking on the pipe. Android reports InterruptedIOException,
+          // which is a normal cancellation, not lost or corrupt audio.
+          if(stop){
+            log.event("FOLLOW","EXPECTED_STOP_READER_UNBLOCKED",
+              "exception",stoppedRead.getClass().getSimpleName(),
+              "pcmBytes",committedPcmBytes.get());
+            break;
+          }
+          if(stoppedRead instanceof EOFException)
+            throw new IOException("Persistent AAC follower ended before recorder stop; exit="+
+              (p.isAlive()?"unknown":p.exitValue()),stoppedRead);
+          throw stoppedRead;
         }
         int n=(head[0]&255)|((head[1]&255)<<8)|
           ((head[2]&255)<<16)|((head[3]&255)<<24);
