@@ -68,7 +68,7 @@ public final class MainActivity extends Activity {
     root.setPadding(padding,padding,padding,padding);scroll.addView(root);
     header=text(root,"녹음 파일 → 실시간 16kHz 스피커",21);
     header.setTypeface(null,Typeface.BOLD);
-    text(root,"STT·음성 인식 모델이 전혀 없는 전용 앱입니다. 삼성 녹음 파일이 커지는 동안 새 AAC 프레임만 읽어서 스피커로 출력합니다.",13);
+    text(root,"이 앱은 STT 모델이 없습니다. 삼성 녹음파일이 커지는 동안 AAC를 16kHz PCM으로 변환해 미디어(USAGE_MEDIA)로 출력합니다. 다른 출력음 STT 앱의 단일 앱 선택 화면에서 이 앱을 선택할 수 있도록 허용했습니다.",13);
 
     text(root,"1. 녹음 파일 또는 폴더 선택",17);
     fileButton=button(root,"녹음 M4A 파일 직접 선택");
@@ -94,7 +94,7 @@ public final class MainActivity extends Activity {
     explanation=text(root,
       "진단 기준: 48,000Hz AAC → Android MediaCodec → 16,000Hz 모노 PCM → AudioTrack. 녹음 원본 파일은 수정하지 않습니다. 통화 중에는 Android 전화 오디오 정책에 따라 출력 장치 선택이 제한될 수 있어 요청한 장치와 실제 출력 장치를 별도로 기록합니다.",12);
     text(root,"4. 실제 출력 경로 진단",17);
-    exportButton=button(root,"장치 라우팅·PCM 재생 로그 ZIP 저장");
+    exportButton=button(root,"진단 ZIP 즉시 다운로드 저장 (종료 시에도 자동 저장)");
     exportButton.setOnClickListener(v->export());
     setContentView(scroll);
     if(selected!=null)source.setText((folderMode?"폴더: ":"파일: ")+selected);
@@ -137,7 +137,9 @@ public final class MainActivity extends Activity {
       try(OutputStream stream=getContentResolver().openOutputStream(uri)){
         if(stream==null)throw new java.io.IOException("출력 파일 생성 실패");
         TraceJournal.zipDirectory(dir,stream,id);
-        status.setText("진단 기록 저장 완료");
+        status.setText("진단 기록 저장 완료 · 선택하신 ZIP 파일 위치");
+        getSharedPreferences("speaker",MODE_PRIVATE).edit()
+          .putString("lastExport",String.valueOf(uri)).apply();
       }catch(Exception e){status.setText("진단 ZIP 저장 오류: "+e.getMessage());}
     }
   }
@@ -245,11 +247,38 @@ public final class MainActivity extends Activity {
   }
   private void export(){
     String id=getSharedPreferences("speaker",MODE_PRIVATE).getString("lastRunId","");
-    if(id.isEmpty())return;
-    Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-    i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
-    i.putExtra(Intent.EXTRA_TITLE,"Galaxy-16kHz-AudioRoute-"+id+".zip");
-    startActivityForResult(i,SAVE_ZIP);
+    if(id.isEmpty()){
+      status.setText("아직 진단 세션 기록이 없습니다. 실시간 재생을 한 번 시작하십시오.");
+      return;
+    }
+    if(Build.VERSION.SDK_INT<29){
+      // Android 8/9: use the original SAF destination selection, because
+      // MediaStore.Downloads direct writes were introduced in Android 10.
+      Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+      i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
+      i.putExtra(Intent.EXTRA_TITLE,"Galaxy-16kHz-AudioRoute-"+id+".zip");
+      startActivityForResult(i,SAVE_ZIP);
+      return;
+    }
+    exportButton.setEnabled(false);
+    status.setText("진단 ZIP을 Downloads 폴더에 저장하고 있습니다.");
+    new Thread(()->{
+      try{
+        String location=TraceJournal.saveToDownloads(this,id);
+        getSharedPreferences("speaker",MODE_PRIVATE).edit()
+          .putString("lastExport",location).apply();
+        runOnUiThread(()->{
+          status.setText("진단 ZIP 저장 완료: "+location);
+          updateButtons();
+        });
+      }catch(Throwable error){
+        Log.e("RecordingSpeaker","ZIP export failed",error);
+        runOnUiThread(()->{
+          status.setText("진단 ZIP 저장 실패: "+error.getMessage());
+          updateButtons();
+        });
+      }
+    },"Standalone-Diagnostic-Download-Export").start();
   }
 
   @Override protected void onStart(){
@@ -259,7 +288,8 @@ public final class MainActivity extends Activity {
     else registerReceiver(receiver,filter);
     receiverRegistered=true;
     String current=getSharedPreferences("speaker",MODE_PRIVATE).getString("status","대기 중");
-    status.setText(current);
+    String savedZip=getSharedPreferences("speaker",MODE_PRIVATE).getString("lastExport","");
+    status.setText(savedZip.isEmpty()?current:current+"\n최근 진단 ZIP: "+savedZip);
     updateDeviceLabel();updateButtons();
   }
   @Override protected void onStop(){
