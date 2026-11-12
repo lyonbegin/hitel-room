@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-  <application android:label="통화 녹음 FFmpeg STT 진단"
+  <application android:label="HITEL14 한국어 STT 실험"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
       android:extractNativeLibs="true"
       android:allowBackup="false"
