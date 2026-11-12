@@ -1,4 +1,4 @@
-// v22 upstream-API parity experiment: one persistent Sherpa-ONNX OnlineStream.
+// HITEL14-proven Korean Zipformer model + official one-OnlineStream API experiment.
 // Keep the existing Samsung M4A native follower, AAC MediaCodec and PCM pipe.
 // Every PCM sample enters the SAME official Sherpa-ONNX stream, in order.
 // Use Sherpa's own endpoint + stream reset, not 4s windows or text overlap merge.
@@ -90,14 +90,17 @@ public:
     config.model_config.tokens=tokens;
     config.model_config.num_threads=2; // One recognizer, two CPU threads only.
     config.model_config.provider="cpu";
+    config.model_config.model_type="zipformer";
     config.model_config.modeling_unit="cjkchar";
-    config.decoding_method="modified_beam_search";
-    config.max_active_paths=8;
+    // HITEL14 KoreanSherpaStt.java leaves decoding at the Sherpa default:
+    // greedy_search, rather than the v22 custom 8-path modified beam search.
+    config.decoding_method="greedy_search";
+    config.max_active_paths=4;
     // Official endpoint detection receives the actual PCM silence as well.
     config.enable_endpoint=1;
     config.rule1_min_trailing_silence=2.4f;
     config.rule2_min_trailing_silence=1.2f;
-    config.rule3_min_utterance_length=300.0f;
+    config.rule3_min_utterance_length=20.0f; // official v1.12.26 default, not v22's 300s override
     const uint64_t begun=bootNs();
     rec=SherpaOnnxCreateOnlineRecognizer(&config);
     say("SINGLE_MODEL_READY:ok=%d:durationMs=%llu",rec?1:0,
@@ -106,7 +109,8 @@ public:
     stream=SherpaOnnxCreateOnlineStream(rec);
     if(!stream)return false;
     say("STT_READY");
-    say("ONLINE_READY:model=korean-zipformer-174m-int8:recognizers=1:streams=1:mode=official_continuous:endpoint=enabled:decode_threads=2");
+    say("ONLINE_READY:model=sherpa-onnx-streaming-zipformer-korean-2024-06-16:recognizers=1:streams=1:mode=official_continuous:endpoint=enabled:decode=greedy_search:decode_threads=2");
+    say("HITEL14_MODEL_READY:encoder=int8:decoder=fp32:joiner=int8:source=k2-fsa:single_stream=1");
     say("SINGLE_STREAM_CREATED:count=1:no_4s_split=1:no_secondary_worker=1");
     say("OFFICIAL_ENDPOINT_READY:enabled=1:reset_on_endpoint=1");
     return true;
