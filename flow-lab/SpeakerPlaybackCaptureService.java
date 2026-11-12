@@ -57,9 +57,16 @@ public final class SpeakerPlaybackCaptureService extends Service
         i.setPackage(getPackageName());
         i.putExtra(KEY_KIND,kind);
         i.putExtra(KEY_TEXT,text);
+        // Store first, before broadcasts: W03 may be backgrounded or already
+        // exported, and LabStore only covers a running W03 session.
+        SpeakerCaptureLog.append(this,"SPEAKER_"+kind,text);
         sendBroadcast(i);
-        if("FINAL".equals(kind))LabStore.log("SPEAKER_STT_FINAL",text);
-        else if("STATUS".equals(kind))LabStore.log("SPEAKER_STT_STATUS",text);
+        try{
+            if("FINAL".equals(kind))LabStore.log("SPEAKER_STT_FINAL",text);
+            else if("STATUS".equals(kind))LabStore.log("SPEAKER_STT_STATUS",text);
+        }catch(Throwable error){
+            SpeakerCaptureLog.append(this,"W03_LOG_UNAVAILABLE",String.valueOf(error));
+        }
     }
     @Override public void onStatus(String message){
         emit("STATUS",message);
@@ -96,6 +103,10 @@ public final class SpeakerPlaybackCaptureService extends Service
             return START_NOT_STICKY;
         }
         if(!START.equals(command.getAction()))return START_NOT_STICKY;
+        SpeakerCaptureLog.append(this,"CAPTURE_REQUEST",
+            "MediaProjection single-app or entire-screen selection; source audio "+
+            "must be MEDIA/GAME/UNKNOWN produced by selected app. "+
+            "This HITEL14 diagnostic app does not play recordings.");
         try{
             startForeground(NOTIFY_ID,notification(),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
