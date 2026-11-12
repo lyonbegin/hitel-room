@@ -28,7 +28,7 @@ import java.util.List;
 
 /** Standalone Samsung growing recording PCM monitor. No STT UI or model. */
 public final class MainActivity extends Activity {
-  static final int PICK_FILE=41,PICK_FOLDER=42,SAVE_ZIP=43,BLUETOOTH_PERMISSION=44;
+  static final int PICK_FILE=41,PICK_FOLDER=42,SAVE_ZIP=43,BLUETOOTH_PERMISSION=44,PHONE_STATE_PERMISSION=45;
   private final Handler ui=new Handler(Looper.getMainLooper());
   private Uri selected;
   private boolean folderMode;
@@ -78,7 +78,7 @@ public final class MainActivity extends Activity {
     fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
     source=text(root,"녹음 폴더를 선택하십시오. 이후 실행에서는 저장된 폴더를 자동 감시합니다.",13);
     detectedSource=text(root,"현재 녹음 중인 파일: 증가 확인 대기",14);
-    text(root,"녹음 폴더와 하위 폴더에서 최신 .m4a 크기가 연속해서 증가할 때만 자동으로 재생합니다. 완료된 과거 파일은 자동 재생하지 않습니다.",12);
+    text(root,"통화 시작(OFFHOOK) 이벤트를 받으면 최신 .m4a를 100ms 간격으로 검사해 실제 크기 증가 3회를 확인합니다. 그때만 16kHz 출력하며 통화 종료(IDLE) 이벤트에는 즉시 중지합니다. 다음 통화까지 자동 대기합니다.",12);
     source.setTextIsSelectable(true);
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
@@ -90,8 +90,8 @@ public final class MainActivity extends Activity {
     outputButton.setOnClickListener(v->showOutputs());
 
     text(root,"3. 실시간 재생",17);
-    startButton=button(root,"최신 증가 M4A 자동 감시 및 16kHz 재생");
-    stopButton=button(root,"재생 중지");
+    startButton=button(root,"통화 이벤트 자동 감시 켜기 · OFFHOOK 시 재생");
+    stopButton=button(root,"통화 이벤트 자동 감시 해제");
     startButton.setOnClickListener(v->start());
     stopButton.setOnClickListener(v->stop());
     status=text(root,"대기 중",16);
@@ -233,6 +233,9 @@ public final class MainActivity extends Activity {
     if(code==BLUETOOTH_PERMISSION){
       if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)showOutputs();
       else status.setText("블루투스 출력 장치 이름을 조회하려면 블루투스 연결 권한이 필요합니다.");
+    }else if(code==PHONE_STATE_PERMISSION){
+      if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)start();
+      else status.setText("통화 자동 제어는 전화 상태 권한이 필요합니다. 전화번호나 통화기록은 읽지 않습니다.");
     }
   }
 
@@ -251,12 +254,19 @@ public final class MainActivity extends Activity {
       .getString("lastExportUri","").isEmpty());
     saveAsButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
       .getString("lastRunId","").isEmpty());
-    startButton.setText(folderMode?"최신 증가 M4A 자동 감시 및 16kHz 재생":
-      "선택한 M4A 직접 재생 (실시간 자동 감지 아님)");
+    startButton.setText(folderMode?"통화 이벤트 자동 감시 켜기 · 통화 중에만 출력":
+      "선택한 M4A 수동 재생 (통화 연동 제외)");
+    stopButton.setText(folderMode?"통화 자동 감시 해제":"수동 재생 중지");
   }
   private void start(){
     if(selected==null){status.setText("녹음 파일이나 폴더를 선택하십시오.");return;}
     if(active())return;
+    if(folderMode && Build.VERSION.SDK_INT>=23 &&
+        checkSelfPermission(Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED){
+      status.setText("전화 연결·종료 이벤트 감지를 위한 전화 상태 권한을 요청합니다.");
+      requestPermissions(new String[]{Manifest.permission.READ_PHONE_STATE},PHONE_STATE_PERMISSION);
+      return;
+    }
     Intent i=new Intent(this,SpeakerService.class)
         .setAction(SpeakerService.START)
         .putExtra(SpeakerService.EX_URI,selected.toString())
@@ -265,13 +275,15 @@ public final class MainActivity extends Activity {
     try{
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);
       else startService(i);
-      status.setText("실시간 16kHz PCM 스트리밍 시작 요청");
+      status.setText(folderMode?
+        "통화 상태 자동 감시 시작 · 통화 연결까지 스피커 꺼짐 · 연결 시 M4A 100ms×3회 증가 확인":
+        "수동 진단 재생 시작");
       ui.postDelayed(this::updateButtons,600);
     }catch(Exception e){status.setText("실행 실패: "+e.getMessage());}
   }
   private void stop(){
     try{startService(new Intent(this,SpeakerService.class).setAction(SpeakerService.STOP));
-      status.setText("스트리밍 종료 요청");}
+      status.setText("자동 감시 해제 및 스피커 중지 요청");}
     catch(Exception e){status.setText("중지 실패: "+e.getMessage());}
     ui.postDelayed(this::updateButtons,800);
   }
