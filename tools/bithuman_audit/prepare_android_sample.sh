@@ -20,6 +20,13 @@ git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$
 cd "$GITHUB_WORKSPACE/vendor/android/$PROJECT"
 sed -i "s/$MODULE:$FROM/$MODULE:$TO/g" app/build.gradle.kts
 grep -F "ai.bithuman:$MODULE:$TO" app/build.gradle.kts
+if [[ "${BITHUMAN_RUNTIME_SECRET_UI:-0}" == "1" ]]; then
+  case "$MODEL" in
+    expression2) main="app/src/main/java/com/example/x2hello/MainActivity.kt" ;;
+    essence2) main="app/src/main/java/com/example/e2hello/MainActivity.kt" ;;
+  esac
+  python3 "$GITHUB_WORKSPACE/tools/bithuman_audit/patch_runtime_secret.py" "$main"
+fi
 chmod +x ./gradlew
 ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon --max-workers=2
 mkdir -p "$GITHUB_WORKSPACE/vendor/app/build/outputs/apk/debug"
