@@ -7,6 +7,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Build;
+import android.os.Build;
 import android.os.SystemClock;
 import java.io.IOException;
 
@@ -90,9 +91,15 @@ final class PcmSpeakerMonitor implements AutoCloseable {
         AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT);
     if(min<=0)throw new IOException("AudioTrack 16kHz unsupported: "+min);
     int capacity=Math.max(min,RATE*2/4);
-    AudioAttributes attributes=new AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
+    // Android Playback Capture captures ONLY MEDIA/GAME/UNKNOWN usage.
+    // VOICE_COMMUNICATION (old code) is NEVER capturable, even if the user
+    // chooses this standalone app in the OS per-app selection dialog.
+    AudioAttributes.Builder attrBuilder=new AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_MEDIA)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
+    if(Build.VERSION.SDK_INT>=29)
+      attrBuilder.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+    AudioAttributes attributes=attrBuilder.build();
     AudioFormat format=new AudioFormat.Builder().setSampleRate(RATE)
         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
         .setEncoding(AudioFormat.ENCODING_PCM_16BIT).build();
@@ -113,7 +120,9 @@ final class PcmSpeakerMonitor implements AutoCloseable {
     track=next;
     log.event("SPEAKER","SPEAKER_TRACK_STARTED",
       "sampleRateHz",RATE,"pcmBits",16,"channels",1,
-      "usage","VOICE_COMMUNICATION","requestedDeviceId",requestedId,
+      "usage","USAGE_MEDIA","capturePolicy","ALLOW_CAPTURE_BY_ALL",
+      "manifestAudioCapture",true,"targetSdk",context.getApplicationInfo().targetSdkVersion,
+      "requestedDeviceId",requestedId,
       "selectedDevice",label(target),"preferenceAccepted",preferenceAccepted,
       "bufferBytes",capacity,"sttProcessStarted",false);
     reportRoute(true);
@@ -145,7 +154,10 @@ final class PcmSpeakerMonitor implements AutoCloseable {
           "requestedDeviceId",requestedId,
           "routedDeviceId",id,"actualRoute",route,
           "callMode",manager.getMode(),
-          "volume",manager.getStreamVolume(AudioManager.STREAM_VOICE_CALL));
+          "voiceCallVolume",manager.getStreamVolume(AudioManager.STREAM_VOICE_CALL),
+          "mediaVolume",manager.getStreamVolume(AudioManager.STREAM_MUSIC),
+          "mediaVolumeMax",manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+          "mediaMuted",manager.isStreamMute(AudioManager.STREAM_MUSIC));
       callback.status("16kHz 재생 중 · 실제 출력: "+route);
     }
   }
@@ -165,17 +177,26 @@ final class PcmSpeakerMonitor implements AutoCloseable {
     totalWritten+=pcm.length;
     writeCount++;
     long played=(track.getPlaybackHeadPosition()&0xffffffffL)*1000/RATE;
+    long energy=0;int samples=0;
+    for(int i=0;i+1<pcm.length;i+=2){
+      short v=(short)((pcm[i]&255)|((pcm[i+1]&255)<<8));
+      energy+=(long)v*v;samples++;
+    }
+    double rms=samples==0?0:Math.sqrt((double)energy/samples)/32768.0;
     log.timingAt(SystemClock.elapsedRealtimeNanos(),"SPEAKER","PCM_PLAYBACK_WRITE",
         "pcmBytes",pcm.length,"totalPcmBytes",totalWritten,
         "writtenAudioMs",totalWritten/32,"playedAudioMs",played,
         "writeDurationMs",(SystemClock.elapsedRealtimeNanos()-started)/1000000.0,
-        "playState",track.getPlayState(),"routeId",lastRoutedId);
+        "playState",track.getPlayState(),"routeId",lastRoutedId,
+        "pcmRms",rms,"mediaVolume",manager.getStreamVolume(AudioManager.STREAM_MUSIC));
     if(writeCount==1||writeCount%5==0){
       reportRoute(false);
       log.event("SPEAKER","PLAYBACK_PROGRESS",
           "chunks",writeCount,"writtenPcmBytes",totalWritten,
           "writtenAudioMs",totalWritten/32,
           "playedAudioMs",played,"playState",track.getPlayState(),
+          "audioUsage","USAGE_MEDIA","capturePolicy","ALLOW_CAPTURE_BY_ALL",
+          "pcmRms",rms,"mediaVolume",manager.getStreamVolume(AudioManager.STREAM_MUSIC),
           "actualRoute",label(track.getRoutedDevice()));
       callback.status("16kHz PCM: "+String.format(java.util.Locale.US,"%.1f",
             totalWritten/32000.0)+"초 · 실제 출력: "+label(track.getRoutedDevice()));
