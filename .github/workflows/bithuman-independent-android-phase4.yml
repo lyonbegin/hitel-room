@@ -1,0 +1,119 @@
+name: HITEL independently rendered Expression2 53-frame Android APK
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-independent-android-phase4.yml
+      - experiments/bithuman-independent-android/FullPhase4Activity.kt
+      - experiments/bithuman-independent-android/test_phase4_emulator.sh
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-native-full-pipeline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 38
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set Android 35 build toolchain
+        run: |
+          set -euo pipefail
+          manager="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          if [ ! -x "$manager" ]; then
+            manager="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -1)"
+          fi
+          "$manager" "platforms;android-35" "build-tools;34.0.0"
+      - name: Prepare independent native app project, not vendor SDK
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/gradle-template"
+          project="$RUNNER_TEMP/gradle-template/android/expression2-hello"
+          cp experiments/bithuman-independent-android/app.build.gradle.kts "$project/app/build.gradle.kts"
+          cp experiments/bithuman-independent-android/AndroidManifest.xml "$project/app/src/main/AndroidManifest.xml"
+          cp experiments/bithuman-independent-android/FullPhase4Activity.kt \
+            "$project/app/src/main/java/com/example/x2hello/MainActivity.kt"
+          rm -rf "$project/app/src/test"
+          mkdir -p "$project/app/src/main/assets" build/phase4
+          echo "$project" > build/phase4/project.txt
+      - name: Extract public TFLite model and canonical identity only
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --connect-timeout 20 --max-time 300 \
+            -o "$RUNNER_TEMP/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'
+          proj="$(cat build/phase4/project.txt)"
+          python3 tools/bithuman_deep/imx_v2.py "$RUNNER_TEMP/wise-pup.imx" \
+            --extract combined_litert.tflite --extract canon.bin \
+            --output-dir "$proj/app/src/main/assets"
+          test "$(stat -c %s "$proj/app/src/main/assets/combined_litert.tflite")" = "158524428"
+          test "$(stat -c %s "$proj/app/src/main/assets/canon.bin")" = "299520"
+          sha256sum "$proj/app/src/main/assets/"*
+      - name: Compile standalone Kotlin full 53-frame decoder
+        run: |
+          set -euo pipefail
+          proj="$(cat build/phase4/project.txt)"
+          cd "$proj"
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/build/phase4/independent-expression2-phase4.apk"
+          sha256sum "$GITHUB_WORKSPACE/build/phase4/independent-expression2-phase4.apk"
+          unzip -Z1 "$GITHUB_WORKSPACE/build/phase4/independent-expression2-phase4.apk" |
+            grep -E '(combined_litert.tflite|canon.bin|lib/x86_64/)' |
+            head -40
+          if unzip -Z1 "$GITHUB_WORKSPACE/build/phase4/independent-expression2-phase4.apk" |
+             grep -q 'libexpr2jni.so'; then
+            echo "Unexpected vendor SDK binary" >&2
+            exit 1
+          fi
+      - name: Upload independent installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-independent-expression2-phase4-53frame-android-apk
+          path: build/phase4/independent-expression2-phase4.apk
+          retention-days: 30
+          if-no-files-found: error
+      - name: Clean original model and project
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/wise-pup.imx" "$RUNNER_TEMP/gradle-template"
+
+  prove-on-android14-emulator:
+    needs: build-native-full-pipeline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: hitel-independent-expression2-phase4-53frame-android-apk
+          path: build/phase4/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and execute actual 53-frame LiteRT CPU model in Android 14 AVD
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
+          script: bash experiments/bithuman-independent-android/test_phase4_emulator.sh
+      - name: Save actual Android inference logs and generated frame PNGs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-independent-android14-53frame-inference-evidence
+          path: reports/bithuman-android-phase4/
+          retention-days: 30
+          if-no-files-found: warn
