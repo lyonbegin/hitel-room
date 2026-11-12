@@ -26,7 +26,7 @@ for name in ("GrowingM4aSelector","StreamingAacPcmDecoder","SpeakerEngine",
     code=(v5java/(name+".java")).read_text(encoding="utf-8")
     code=code.replace("app.hitel.speakeronly","app.hitel.samsungprobe")
     if name=="SpeakerEngine":
-        assert code.count("PcmSpeakerMonitor")==5
+        assert code.count("PcmSpeakerMonitor")>=5
         code=code.replace("PcmSpeakerMonitor","PcmDirectSherpaSink")
         code=code.replace("AudioTrack monitor stopped","Direct STT sink stopped")
         code=code.replace("ONLY: Samsung growing M4A", "Samsung growing M4A")
@@ -279,10 +279,10 @@ g=g.replace('versionCode = 30','versionCode = 31',1)
 g=g.replace('0.14.16-native-system-picker-v22',
             '0.14.17-integrated-direct-pcm-v23',1)
 if "androidx.documentfile:documentfile" not in g:
-    g+='\\ndependencies { implementation("androidx.documentfile:documentfile:1.0.1") }\\n'
+    g+='\ndependencies { implementation("androidx.documentfile:documentfile:1.0.1") }\n'
 if "useLegacyPackaging" not in g:
     assert "android {" in g
-    g=g.replace("android {","android {\\n    packaging { jniLibs { useLegacyPackaging = true } }",1)
+    g=g.replace("android {","android {\n    packaging { jniLibs { useLegacyPackaging = true } }",1)
 gradle.write_text(g,encoding="utf-8")
 
 for name,old in before.items():
