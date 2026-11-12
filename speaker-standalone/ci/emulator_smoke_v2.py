@@ -12,6 +12,7 @@ import subprocess
 import time
 import pathlib
 import sys
+import shlex
 
 APP="app.hitel.recording.speakeronly"
 COMPONENT=APP+"/app.hitel.speakeronly.SpeakerService"
@@ -35,6 +36,11 @@ def assert_log(event,stage):
     print("EVENT",event,"count",len(hits),"last",hits[-1][-400:] if hits else "NONE",flush=True)
     assert hits,"Missing Android service evidence: "+event
 def run_as(*a,check=True):
+    if len(a)==3 and a[0]=="sh" and a[1]=="-c":
+        # IMPORTANT: adb shell concatenates argv before the remote shell parses
+        # them. Without shlex quoting, ">>" runs as shell UID OUTSIDE run-as
+        # and cannot write to the app-private directory (Permission denied).
+        return adb("shell","run-as "+shlex.quote(APP)+" sh -c "+shlex.quote(a[2]),check=check)
     return adb("shell","run-as",APP,*a,check=check)
 
 APK="speaker-standalone/app/build/outputs/apk/debug/app-debug.apk"
