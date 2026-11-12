@@ -1,4 +1,4 @@
-name: HITEL14 V19 actual Android 15 emulator playback verification
+name: HITEL14 V19 Android 15 emulator real install and button
 on:
   push:
     branches: ["fix/hitel14-growing-audio-output-diagnostics-v19-20261112"]
@@ -148,7 +148,7 @@ jobs:
           heap-size: 512M
           disable-animations: true
           emulator-boot-timeout: 900
-          script: python3 flow-lab/recording-playback/emulator-v19.py
+          script: bash flow-lab/recording-playback/emulator-v19-quick.sh
       - name: Upload genuine Android emulator UI/logcat diagnostics
         if: always()
         uses: actions/upload-artifact@v4
