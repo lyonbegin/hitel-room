@@ -1,0 +1,214 @@
+name: HITEL14 V23 full V22 plus growing M4A direct Korean STT (ONE APK)
+on:
+  push:
+    branches: ["feature/hitel14-v22-integrated-direct-stt-v23-20261112"]
+    paths:
+      - "flow-lab/v15_preserve_v14_add_playback.py"
+      - "flow-lab/SpeakerPlaybackStt.java"
+      - "flow-lab/SpeakerPlaybackCaptureService.java"
+      - "flow-lab/SpeakerCaptureLog.java"
+      - "flow-lab/SpeakerPlaybackStt.java"
+      - "flow-lab/SpeakerPlaybackCaptureService.java"
+      - "flow-lab/v16_capture_stt_durable_log.py"
+      - "flow-lab/v17_restore_native_app_picker_v22.py"
+      - "flow-lab/v18_integrate_v5_direct_korean_stt_into_v22.py"
+      - ".github/workflows/build-hitel14-v23-v22-plus-direct-korean-stt.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hitel14-v23-three-paths-integrated
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Checkout exact successful V5 standalone direct STT source
+        uses: actions/checkout@v4
+        with:
+          repository: lyonbegin/hitel-room
+          ref: 377d7f02e129561b0cb887180a6c86f8db161e58
+          path: v5-source
+          persist-credentials: false
+      - name: Restore EXACT original HITEL14 VoxSherpa dependency
+        uses: actions/checkout@v4
+        with:
+          repository: CodeBySonu95/VoxSherpa-TTS
+          ref: 7f05a35762f033a39c3c8be0d3ff8db982737ea7
+          path: voxsherpa-upstream
+          persist-credentials: false
+      - name: Build ORIGINAL v14 Java source from its exact patch chain
+        run: |
+          set -euo pipefail
+          tar -xJf flow-lab/v07_source.tar.xz
+          for p in v08_patch v08_overlay_patch v09_patch v09_live_patch v09_live_poll_patch v09_install_fix v10_connected_gate v11_connection_fix v12_no_overlay_front v13_accessibility_onboarding v14_log_tab_samsung_dictation v14_sherpa_ko_integration v14_voxsherpa_upstream_import v14_pinned_voice_controls v14_live_partial_streaming v14_release_model_on_stop v14_deep_stt_diagnostics v14_voice_access_audio_ab; do
+            python3 "flow-lab/${p}.py"
+          done
+          cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/original-mic.sha256
+          python3 flow-lab/v15_preserve_v14_add_playback.py
+          python3 flow-lab/v16_capture_stt_durable_log.py
+          python3 flow-lab/v17_restore_native_app_picker_v22.py
+          cp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java /tmp/v22-mic-before.java
+          cp AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java /tmp/v22-output-before.java
+          cp AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java /tmp/v22-capture-before.java
+          cp AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerCaptureLog.java /tmp/v22-log-before.java
+          python3 flow-lab/v18_integrate_v5_direct_korean_stt_into_v22.py
+          cmp /tmp/v22-mic-before.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          cmp /tmp/v22-output-before.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
+          cmp /tmp/v22-capture-before.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
+          cmp /tmp/v22-log-before.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerCaptureLog.java
+          echo "PASS_MIC_OUTPUT_SYSTEM_PICKER_AND_EXISTING_V22_LOG_BYTE_FOR_BYTE_PRESERVED"
+          cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
+          diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
+          grep -F 'versionCode = 31' AndroidProject/app/build.gradle.kts
+          grep -F 'app.hitel.callflowlab.v14.integrated.directstt' AndroidProject/app/build.gradle.kts
+          grep -F 'HITEL14 V23 마이크 출력음 직접STT 통합' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'SELF_MEDIA_TEST_QUEUED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'startActivityForResult(mgr.createScreenCaptureIntent(),' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F '시스템 캡처 대상:' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          if grep -F 'MediaProjectionConfig.createConfigForDefaultDisplay()' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java; then echo "ERROR: single app option disabled"; exit 1; fi
+          if grep -E 'SpeakerTargetPicker|addMatchingUid\(' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java; then echo "ERROR: redundant custom app picker"; exit 1; fi
+          echo "PASS_SYSTEM_NATIVE_SINGLE_APP_CHOICE_RESTORED"
+          grep -F '③ 통화녹음 16kHz PCM' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'app.hitel.speakeronly.MainActivity' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'app.hitel.speakeronly.SpeakerService' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'app.hitel.speakeronly.SamsungRecordAccessibility' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'target.accept(pcm)' AndroidProject/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'stream.acceptWaveform(normalized,RATE)' AndroidProject/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          if grep -E 'sp.write\(pcm\)|speaker=new PcmSpeakerMonitor|active.write\(pcm\)' AndroidProject/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java; then
+            echo "ERROR: V5 still sends direct STT via speaker"; exit 1
+          fi
+          echo "PASS_DIRECT_KOREAN_STT_WIRED_TO_ORIGINAL_16KHZ_PCM"
+          grep -F 'SpeakerCaptureLog.append(this' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
+          # No Samsung recording->speaker loop. The V5 module has only direct STT.
+          test ! -e AndroidProject/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+          test ! -e AndroidProject/app/src/main/java/app/hitel/samsungprobe/RecordingFolderPlaybackService.java
+          echo "PASS_V23_NO_RECORDING_TO_SPEAKER_LOOP"
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+          sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
+          grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
+          if grep -F 'android:name=".CallAccessibilityService"' AndroidProject/app/src/main/AndroidManifest.xml; then
+            echo 'ERROR: old Text Call AccessibilityService remains enabled'; exit 1
+          fi
+          grep -F 'startKoreanSherpaSpeech' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'requestSpeakerPlayback' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          git -C voxsherpa-upstream rev-parse HEAD | grep -F '7f05a35762f033a39c3c8be0d3ff8db982737ea7'
+      - name: Reuse exact signed V5 offline Korean models and native AAC follower
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hitel-v5-release
+          gh release download hitel-growing-m4a-direct-korean-stt-v5-experimental-20261112 \
+            --repo lyonbegin/hitel-room \
+            -p HITEL_GrowingM4a_DirectKoreanStt_V5_ARM64.apk \
+            -D /tmp/hitel-v5-release
+          RELEASE=/tmp/hitel-v5-release/HITEL_GrowingM4a_DirectKoreanStt_V5_ARM64.apk
+          echo "345628105ac1f53136e6d97f13666b99f1835c10f8714df9e5927c9f812f23a6  $RELEASE" | sha256sum -c -
+          python3 - <<'PY'
+          import pathlib,shutil,zipfile
+          release=pathlib.Path("/tmp/hitel-v5-release/HITEL_GrowingM4a_DirectKoreanStt_V5_ARM64.apk")
+          root=pathlib.Path("AndroidProject/app/src/main")
+          libs=("libaac-mdat-follow.so","libavcodec.so","libavutil.so","libswresample.so")
+          models=("encoder-epoch-99-avg-1.int8.onnx","decoder-epoch-99-avg-1.onnx",
+                  "joiner-epoch-99-avg-1.int8.onnx","tokens.txt")
+          sizes={"encoder-epoch-99-avg-1.int8.onnx":115000000,
+                 "decoder-epoch-99-avg-1.onnx":9500000,
+                 "joiner-epoch-99-avg-1.int8.onnx":2000000,
+                 "tokens.txt":50000}
+          with zipfile.ZipFile(release) as apk:
+              for lib in libs:
+                  entry="lib/arm64-v8a/"+lib
+                  out=root/"jniLibs/arm64-v8a"/lib
+                  out.parent.mkdir(parents=True,exist_ok=True)
+                  with apk.open(entry) as reader,open(out,"wb") as writer:
+                      shutil.copyfileobj(reader,writer)
+                  assert out.stat().st_size>10000,(lib,out.stat().st_size)
+                  print("EXACT_V5_NATIVE",entry,out.stat().st_size)
+              for model in models:
+                  entry="assets/models/"+model
+                  out=root/"assets/models"/model
+                  out.parent.mkdir(parents=True,exist_ok=True)
+                  with apk.open(entry) as reader,open(out,"wb") as writer:
+                      shutil.copyfileobj(reader,writer)
+                  assert out.stat().st_size>sizes[model],(model,out.stat().st_size)
+                  print("EXACT_V5_MODEL",entry,out.stat().st_size)
+          print("PASS_REUSED_VERIFIED_V5_NATIVE_AAC_AND_INT8_KOREAN_MODEL")
+          PY
+      - name: Use verified Gradle 8.13 distribution mirror
+        run: |
+          sed -i 's#services.gradle.org/distributions/#repo.huaweicloud.com/gradle/#' voxsherpa-upstream/gradle/wrapper/gradle-wrapper.properties
+      - name: Compile SINGLE HITEL14 V23 app with original mic+output and third direct STT
+        run: bash voxsherpa-upstream/gradlew -p AndroidProject :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK signature, manifest, app ID and source unchanged
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.integrated.directstt'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='31'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V23 마이크 출력음 직접STT 통합'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'app.hitel.speakeronly.MainActivity'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'app.hitel.speakeronly.SpeakerService'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'app.hitel.speakeronly.SamsungRecordAccessibility'
+          unzip -Z1 "$APK" > /tmp/v23-contents.txt
+          for name in libaac-mdat-follow.so libavcodec.so libavutil.so; do
+            grep -Fx "lib/arm64-v8a/$name" /tmp/v23-contents.txt
+          done
+          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            grep -Fx "assets/models/$name" /tmp/v23-contents.txt
+          done
+          grep -E 'lib/arm64-v8a/.*(onnx|sherpa)' /tmp/v23-contents.txt
+          echo 'PASS_V23_SINGLE_APK_WITH_THREE_STT_MODES_AND_OFFLINE_MODEL'
+          unzip -Z1 "$APK" | grep 'classes[0-9]*.dex'
+          echo 'PASS_V23_V22_UNMODIFIED_PLUS_GROWING_RECORDING_DIRECT_PCM_STT'
+          sha256sum "$APK"
+      - name: Upload auditable APK and reconstructed sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL14-V23-three-path-integrated-ARM64-APK
+          path: |
+            AndroidProject/app/build/outputs/apk/debug/*.apk
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerCaptureLog.java
+            AndroidProject/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+            AndroidProject/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+            AndroidProject/app/src/main/AndroidManifest.xml
+          if-no-files-found: error
+      - name: Publish ONE integrated APK as experimental GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -s "$APK"
+          mkdir -p releases
+          cp "$APK" releases/HITEL14_V23_Integrated_Mic_Output_DirectKoreanSTT_ARM64.apk
+          (cd releases && sha256sum HITEL14_V23_Integrated_Mic_Output_DirectKoreanSTT_ARM64.apk > V23_SHA256.txt)
+          TAG=hitel14-v23-integrated-direct-korean-stt-20261112
+          gh release create "$TAG" \
+            releases/HITEL14_V23_Integrated_Mic_Output_DirectKoreanSTT_ARM64.apk \
+            releases/V23_SHA256.txt \
+            --repo lyonbegin/hitel-room --target "$GITHUB_SHA" \
+            --title 'HITEL14 V23 | V22 mic+output STT plus Samsung M4A direct Korean STT' \
+            --notes 'ONE APK. All V22 mic STT, output STT, native Android single-app/system choice and diagnostics intact; third in-app button launches V5 growing Samsung M4A->PCM16->direct Sherpa Korean STT. Uses offline Zipformer and native AAC. Separate package ID due ephemeral GitHub Actions debug signing. EXPERIMENTAL: Galaxy in-call direct STT not yet physically verified.' \
+            --prerelease --latest=false
+          gh release view "$TAG" --repo lyonbegin/hitel-room --json url,assets
