@@ -1,7 +1,10 @@
 package app.hitel.speakeronly;
 
 import android.content.Context;
+import android.content.ContentResolver;
+import android.database.Cursor;
 import android.net.Uri;
+import android.provider.DocumentsContract;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
@@ -70,38 +73,118 @@ final class SpeakerEngine {
     callback.state(s,end);
   }
 
-  private static boolean audioFile(DocumentFile f){
-    if(f==null||!f.isFile())return false;
-    String s=f.getName();
-    return s!=null&&(s.toLowerCase(Locale.ROOT).endsWith(".m4a")||
-       s.toLowerCase(Locale.ROOT).endsWith(".mp4")||
-       s.toLowerCase(Locale.ROOT).endsWith(".3gp"));
+  /** Iterate children through one DocumentsProvider query per directory,
+   * instead of one IPC per file via DocumentFile.length()/lastModified().
+   * Recursively include Samsung's Call/ subdirectory under Recordings/.
+   */
+  private void scanChildren(Uri treeUri,String documentId,int depth,int[] budget,
+                            List<GrowingM4aSelector.Entry> entries) throws Exception {
+    if(depth>3||budget[0]<=0)return;
+    Uri childUri=DocumentsContract.buildChildDocumentsUriUsingTree(treeUri,documentId);
+    String[] projection={
+      DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+      DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+      DocumentsContract.Document.COLUMN_MIME_TYPE,
+      DocumentsContract.Document.COLUMN_SIZE,
+      DocumentsContract.Document.COLUMN_LAST_MODIFIED
+    };
+    List<String> folders=new ArrayList<>();
+    try(Cursor c=context.getContentResolver().query(childUri,projection,null,null,null)){
+      if(c==null)throw new IOException("녹음 폴더 조회 실패: "+childUri);
+      int idIndex=c.getColumnIndexOrThrow(projection[0]);
+      int nameIndex=c.getColumnIndexOrThrow(projection[1]);
+      int typeIndex=c.getColumnIndexOrThrow(projection[2]);
+      int sizeIndex=c.getColumnIndexOrThrow(projection[3]);
+      int timeIndex=c.getColumnIndexOrThrow(projection[4]);
+      while(c.moveToNext()&&budget[0]>0){
+        --budget[0];
+        String id=c.getString(idIndex);
+        String name=c.getString(nameIndex);
+        String mime=c.getString(typeIndex);
+        if(DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)){
+          if(depth<3)folders.add(id);
+          continue;
+        }
+        if(!GrowingM4aSelector.isM4a(name))continue;
+        long size=c.isNull(sizeIndex)?0:Math.max(0,c.getLong(sizeIndex));
+        long modified=c.isNull(timeIndex)?0:c.getLong(timeIndex);
+        Uri file=DocumentsContract.buildDocumentUriUsingTree(treeUri,id);
+        entries.add(new GrowingM4aSelector.Entry(file.toString(),name,size,modified));
+      }
+    }
+    for(String folder:folders){
+      if(budget[0]<=0)break;
+      scanChildren(treeUri,folder,depth+1,budget,entries);
+    }
   }
+
+  /** Samsung providers can return a stale COLUMN_SIZE. For the newest M4A
+   * files use the ACTUAL open file-descriptor length on each poll.
+   */
+  private long actualFileLength(Uri file,long metadataSize){
+    try(ParcelFileDescriptor fd=context.getContentResolver().openFileDescriptor(file,"r")){
+      if(fd==null)return metadataSize;
+      long stat=fd.getStatSize();
+      if(stat>=0)return stat;
+      try(FileInputStream in=new FileInputStream(fd.getFileDescriptor())){
+        return Math.max(0,in.getChannel().size());
+      }
+    }catch(Exception e){
+      log.event("FOLDER","FILE_LENGTH_PROBE_FAILED",
+          "uri",file.toString(),"error",e.getClass().getSimpleName());
+      return metadataSize;
+    }
+  }
+
   private Uri waitForRecording(Uri directory) throws Exception {
-    DocumentFile tree=DocumentFile.fromTreeUri(context,directory);
-    if(tree==null||!tree.isDirectory())throw new IOException("선택한 폴더를 열 수 없습니다.");
-    HashMap<String,Long> baseline=new HashMap<>();
-    for(DocumentFile f:tree.listFiles())
-      if(audioFile(f))baseline.put(f.getUri().toString(),Math.max(0L,f.length()));
-    log.event("FOLDER","WATCH_STARTED","knownFiles",baseline.size(),
-       "policy","new or growing M4A since watch start");
-    notifyState("녹음 폴더 감시 중 · 새 통화 녹음 시작 대기",false);
+    DocumentFile root=DocumentFile.fromTreeUri(context,directory);
+    if(root==null||!root.isDirectory())
+      throw new IOException("통화 녹음 폴더 접근 실패. 폴더를 다시 선택하십시오.");
+    String rootId=DocumentsContract.getTreeDocumentId(directory);
+    GrowingM4aSelector detector=new GrowingM4aSelector();
+    log.event("FOLDER","LIVE_GROWTH_WATCH_STARTED",
+        "uri",directory.toString(),"pollMs",450,"maxDepth",3,
+        "rule","newest M4A that actually grows between consecutive scans");
+    notifyState("최신 M4A 자동 검색 중 · 크기 증가 확인 후 재생합니다.",false);
+    int scan=0;
     while(!stop){
-      DocumentFile best=null;long amount=0;
-      for(DocumentFile f:tree.listFiles()){
-        if(!audioFile(f))continue;
-        long size=f.length();
-        long previous=baseline.containsKey(f.getUri().toString())?
-          baseline.get(f.getUri().toString()):0L;
-        if(size>Math.max(128L,previous) && size-previous>amount){
-          amount=size-previous;best=f;
+      List<GrowingM4aSelector.Entry> found=new ArrayList<>();
+      scanChildren(directory,rootId,0,new int[]{4000},found);
+      // Probe the latest files even if Android's media metadata is not refreshed.
+      found.sort((x,y)->{
+        int t=Long.compare(y.modified,x.modified);
+        return t!=0?t:y.name.compareTo(x.name);
+      });
+      for(int i=0;i<Math.min(12,found.size());i++){
+        GrowingM4aSelector.Entry e=found.get(i);
+        long liveBytes=actualFileLength(Uri.parse(e.uri),e.bytes);
+        found.set(i,new GrowingM4aSelector.Entry(
+            e.uri,e.name,liveBytes,e.modified));
+      }
+      GrowingM4aSelector.Decision d=detector.observe(found);
+      if(d.growing!=null){
+        Uri file=Uri.parse(d.growing.uri);
+        log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
+            "fileName",d.growing.name,"sizeBytes",d.growing.bytes,
+            "growthBytes",d.growthBytes,"lastModified",d.growing.modified,
+            "candidateCount",d.files,"uri",d.growing.uri);
+        notifyState("녹음 중 파일 발견: "+d.growing.name+" · 증가 "+
+            d.growthBytes+"바이트 → 16kHz 스트리밍 시작",false);
+        return file;
+      }
+      if(scan%6==0){
+        if(d.latest==null){
+          log.event("FOLDER","NO_M4A_YET","scans",scan,"folderUri",directory.toString());
+          notifyState("폴더에서 M4A를 찾지 못했습니다 · 통화녹음 위치 확인 중",false);
+        }else{
+          log.event("FOLDER","LATEST_M4A_NOT_GROWING",
+              "fileName",d.latest.name,"sizeBytes",d.latest.bytes,
+              "lastModified",d.latest.modified,"candidateCount",d.files);
+          notifyState("최신 파일: "+d.latest.name+" ("+d.latest.bytes+
+              "바이트) · 증가 확인 대기 · 과거 파일 재생 안 함",false);
         }
       }
-      if(best!=null){
-        log.event("FOLDER","GROWING_RECORDING_SELECTED",
-          "uri",best.getUri().toString(),"bytes",best.length());
-        return best.getUri();
-      }
+      scan++;
       Thread.sleep(450);
     }
     return null;
@@ -148,6 +231,8 @@ final class SpeakerEngine {
         "sttModel",false,"requestedOutputId",requestedDeviceId);
       selected=folder?waitForRecording(input):input;
       if(selected==null){endReason="USER_STOP";return;}
+      log.event("SOURCE",folder?"LIVE_GROWING_RECORDING_SELECTED":"MANUAL_FILE_SELECTED",
+        "uri",selected.toString(),"folderDetection",folder);
       mirror=new File(context.getCacheDir(),"recording-speaker-"+SystemClock.elapsedRealtime()+".m4a");
       if(!mirror.createNewFile())throw new IOException("Mirror already exists");
       appendNewBytes(selected);
