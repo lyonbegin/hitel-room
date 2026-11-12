@@ -52,7 +52,7 @@ jobs:
           sed -i 's/applicationId = "app.hitel.callflowlab.v14"/applicationId = "app.hitel.callflowlab.v14.norecordplay"/' AndroidProject/app/build.gradle.kts
           sed -i 's/versionCode = 22/versionCode = 27/' AndroidProject/app/build.gradle.kts
           sed -i 's/0.14.8-original-mic-plus-playback/0.14.13-remove-recording-speaker-output/' AndroidProject/app/build.gradle.kts
-          sed -i 's/android:label="HITEL 통화 실시간 자막 v0.14 (한국어 STT)"/android:label="HITEL14 STT 녹음재생제거"/' AndroidProject/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="HITEL14 · 원본 마이크 STT + 출력음 STT"/android:label="HITEL14 STT 녹음재생제거"/' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'app.hitel.callflowlab.v14.norecordplay' AndroidProject/app/build.gradle.kts
           grep -F 'HITEL14 STT 녹음재생제거' AndroidProject/app/src/main/AndroidManifest.xml
           # NEGATIVE CONTRACT: never import the Samsung recording folder player.
