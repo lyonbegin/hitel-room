@@ -113,17 +113,26 @@ final class RecordingFolderPlaybackEngine {
         return listed;
     }
     /**
-     * Samsung DocumentsProvider can be very slow when opening 36+ files:
-     * old logic did fstat on EVERY entry on EVERY 180ms scan, taking 40s for
-     * 25 iterations on real SM-F711N log 20261112_154308_054.
-     *
-     * Cheap tree metadata is collected for all entries. Expensive openFile
-     * + fstat is only done on up to 4 newest candidates. This also notices a
-     * file already being recorded when the user chooses the folder.
-     *
-     * Never play a completed old file simply because it exists. Select only
-     * a NEW file or one with OBSERVED increase in size/mtime/fstat since scan.
+     * Samsung's DocumentsProvider may take ~40 seconds for 25 loops over
+     * 36 files if we open each file every scan (real user log W03_154308).
+     * Metadata is queried once per file, and file descriptors are probed
+     * for the two freshest files plus two rotating candidates each pass.
+     * Detects both a new recording and a preexisting recording that grows.
      */
+    private static final class FileSnapshot {
+        final DocumentFile file;
+        final String key;
+        final long size;
+        final long modified;
+        final String name;
+        FileSnapshot(DocumentFile file,String name,long size,long modified){
+            this.file=file;
+            this.key=file.getUri().toString();
+            this.name=name;
+            this.size=size;
+            this.modified=modified;
+        }
+    }
     private DocumentFile waitForGrowingFile()throws Exception{
         DocumentFile dir=DocumentFile.fromTreeUri(app,folderUri);
         if(dir==null||!dir.isDirectory())
@@ -137,65 +146,69 @@ final class RecordingFolderPlaybackEngine {
         while(!stop){
             long scanBegin=SystemClock.elapsedRealtime();
             DocumentFile[] children=dir.listFiles();
-            java.util.ArrayList<DocumentFile> candidates=new java.util.ArrayList<>();
-            DocumentFile selected=null;
-            long selectedTime=Long.MIN_VALUE;
-            int files=0,changes=0;
+            java.util.ArrayList<FileSnapshot> candidates=new java.util.ArrayList<>();
+            FileSnapshot selected=null;
+            int changes=0;
             for(DocumentFile file:children){
-                if(!file.isFile()||!audio(file))continue;
-                files++;
-                String key=file.getUri().toString();
+                String name=file.getName();
+                if(name==null)continue;
+                String lower=name.toLowerCase(Locale.US);
+                if(!(lower.endsWith(".m4a")||lower.endsWith(".3gp")||
+                     lower.endsWith(".mp4")||lower.endsWith(".aac")))continue;
+                if(!file.isFile())continue;
                 long size=file.length();
                 long modified=file.lastModified();
-                Long before=baselineLength.put(key,size);
-                Long lastMod=baselineModified.put(key,modified);
+                FileSnapshot snapshot=new FileSnapshot(file,name,size,modified);
+                Long before=baselineLength.put(snapshot.key,size);
+                Long priorTime=baselineModified.put(snapshot.key,modified);
                 if(scans>0 && size>=1024 &&
-                    (before==null || (size>before) ||
-                     (lastMod!=null && modified>lastMod))){
+                    (before==null || size>before ||
+                     (priorTime!=null && modified>priorTime))){
                     changes++;
-                    if(selected==null||modified>=selectedTime){
-                        selected=file;
-                        selectedTime=modified;
-                    }
+                    if(selected==null || modified>selected.modified)
+                        selected=snapshot;
                 }
-                candidates.add(file);
+                candidates.add(snapshot);
             }
             if(selected!=null){
-                // New or changing file explicitly observed by SAF tree metadata.
-                long length=readableSize(selected); // expensive call once
-                if(length>=1024){
-                    selectedName=String.valueOf(selected.getName());
-                    event("FILE_SELECTED","녹음파일 생성/증가 감지: "+selectedName+
-                        " · 읽기 가능 바이트="+length+
-                        " · 스캔="+scans);
-                    return selected;
+                long bytes=readableSize(selected.file);
+                if(bytes>=1024){
+                    selectedName=selected.name;
+                    event("FILE_SELECTED","신규/증가 파일: "+selectedName+
+                        " · 실제 열람 가능 "+bytes+"B · scan="+scans);
+                    return selected.file;
                 }
             }
-
-            // DocumentFile.length() and lastModified() can be cached. Stat
-            // the latest 4 files (not all 36+) to see real in-progress growth.
-            candidates.sort((a,b)->Long.compare(b.lastModified(),a.lastModified()));
-            int checked=0;
-            for(DocumentFile candidate:candidates){
-                if(checked++>=4)break;
-                String key=candidate.getUri().toString();
-                long current=readableSize(candidate);
-                Long prior=actualLength.put(key,current);
+            // Sort CACHED timestamps. Never invoke DocumentFile.lastModified
+            // from a sort comparator (each call is another SAF binder query).
+            candidates.sort((a,b)->{
+                int c=Long.compare(b.modified,a.modified);
+                return c!=0?c:b.name.compareToIgnoreCase(a.name);
+            });
+            java.util.HashSet<String> checked=new java.util.HashSet<>();
+            int total=candidates.size();
+            for(int slot=0;slot<4 && total>0;slot++){
+                // First two newest; next two rotate through all recordings.
+                int at=slot<2?Math.min(slot,total-1):
+                    (int)(((long)scans*2+slot-2)%total);
+                FileSnapshot candidate=candidates.get(at);
+                if(!checked.add(candidate.key))continue;
+                long current=readableSize(candidate.file);
+                Long prior=actualLength.put(candidate.key,current);
                 if(scans>0&&prior!=null&&current>prior&&current>=1024){
-                    selectedName=String.valueOf(candidate.getName());
-                    event("FILE_SELECTED","실제 열린 파일 크기 증가 감지: "+
-                        selectedName+" · 이전="+prior+"B → "+current+"B"+
-                        " · 스캔="+scans);
-                    return candidate;
+                    selectedName=candidate.name;
+                    event("FILE_SELECTED","실제 파일 크기 증가: "+selectedName+
+                        " · "+prior+"B → "+current+"B · scan="+scans);
+                    return candidate.file;
                 }
             }
             scans++;
             long now=SystemClock.elapsedRealtime();
             if(scans==1 || now-lastWaiting>=4000){
                 lastWaiting=now;
-                event("FOLDER_WAITING","파일="+files+"개 · 최근 4개 실제 크기 확인"+
-                    " · 읽을 수 있는 증가분 미검출"+
-                    " · scan="+scans+" · scanDurationMs="+(now-scanBegin)+
+                event("FOLDER_WAITING","녹음 후보="+total+"개 · 실제 길이 검사 대상=최대 4개"+
+                    " · 신규 증가분 미검출 · scan="+scans+
+                    " · scanDurationMs="+(now-scanBegin)+
                     " · treeChanges="+changes);
             }
             Thread.sleep(POLL_MS);
