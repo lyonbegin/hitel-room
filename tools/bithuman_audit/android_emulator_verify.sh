@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 # Execute inside an Android emulator. Real device/ABI/launch evidence only.
 set -uo pipefail
+MODEL="${BITHUMAN_MODEL:-expression2}"
+case "$MODEL" in
+  expression2) PACKAGE="$PACKAGE" ;;
+  essence2) PACKAGE="com.example.e2hello" ;;
+  *) echo "Unsupported model: $MODEL"; exit 2 ;;
+esac
 RESULTS="$GITHUB_WORKSPACE/reports/bithuman-emulator"
 APK="$GITHUB_WORKSPACE/vendor/app/build/outputs/apk/debug/app-debug.apk"
 mkdir -p "$RESULTS"
+echo "MODEL=$MODEL" > "$RESULTS/model.txt"
+echo "PACKAGE=$PACKAGE" >> "$RESULTS/model.txt"
 adb wait-for-device
 for property in ro.build.version.release ro.build.version.sdk ro.product.cpu.abi ro.product.cpu.abilist ro.dalvik.vm.native.bridge ro.hardware; do
   printf '%s=' "$property" >> "$RESULTS/emulator-props.txt"
@@ -36,16 +44,16 @@ if [[ "$status" != "0" ]]; then
   exit 1
 fi
 echo "ORIGINAL_SDK_SAMPLE_APK_INSTALLED" | tee -a "$RESULTS/verdict.txt"
-adb shell am force-stop com.example.x2hello >/dev/null 2>&1 || true
+adb shell am force-stop $PACKAGE >/dev/null 2>&1 || true
 adb logcat -c || true
-adb shell am start -n com.example.x2hello/.MainActivity > "$RESULTS/launch.txt" 2>&1 || true
+adb shell am start -n $PACKAGE/.MainActivity > "$RESULTS/launch.txt" 2>&1 || true
 sleep 5
 adb shell dumpsys activity activities > "$RESULTS/activities.txt" 2>&1 || true
 adb shell uiautomator dump /sdcard/window.xml > "$RESULTS/ui-dump-command.txt" 2>&1 || true
 adb pull /sdcard/window.xml "$RESULTS/window.xml" >/dev/null 2>&1 || true
 adb exec-out screencap -p > "$RESULTS/screenshot.png" || true
 adb logcat -d -v time -t 1500 > "$RESULTS/logcat.txt" || true
-adb shell dumpsys package com.example.x2hello > "$RESULTS/package.txt" || true
+adb shell dumpsys package $PACKAGE > "$RESULTS/package.txt" || true
 if grep -Eq 'No API secret|API secret|No API' "$RESULTS/window.xml" 2>/dev/null; then
   echo "LAUNCHED_UI_WITH_NO_API_CREDENTIAL_EXPECTED" | tee -a "$RESULTS/verdict.txt"
   exit 0
@@ -54,7 +62,7 @@ if grep -Eq 'Unable to start activity|FATAL EXCEPTION|UnsatisfiedLinkError|No im
   echo "NATIVE_OR_JAVA_LAUNCH_FAILURE" | tee -a "$RESULTS/verdict.txt"
   exit 1
 fi
-if grep -q 'com.example.x2hello' "$RESULTS/activities.txt"; then
+if grep -q '$PACKAGE' "$RESULTS/activities.txt"; then
   echo "APP_LAUNCHED_BUT_RENDER_UNVERIFIED_NO_CREDENTIAL" | tee -a "$RESULTS/verdict.txt"
   exit 0
 fi
