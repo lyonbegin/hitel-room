@@ -64,14 +64,53 @@ public final class SpeakerPlaybackStt {
         if(a!=null)try{a.stop();}catch(Throwable ignored){}
     }
     private void status(String message){listener.onStatus(message);}
-    private File existingOriginalModel(){
-        File dir=new File(context.getFilesDir(),"sherpa-ko-v1");
-        for(int i=0;i<MODEL.length;i++){
-            File f=new File(dir,MODEL[i]);
-            if(f.length()<MINIMUM[i])throw new IllegalStateException(
-                "기존 HITEL14 한국어 모델이 준비되지 않았습니다. 먼저 원본 마이크 STT를 시작해 모델 다운로드를 완료하십시오: "+MODEL[i]);
+    private static final Object MODEL_LOCK=new Object();
+    private static final String MODEL_ROOT="https://huggingface.co/k2-fsa/"+
+        "sherpa-onnx-streaming-zipformer-korean-2024-06-16"+
+        "/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6/";
+    /** Reuse original v14 model cache. If missing, download exact same pinned
+     * files with a speaker-specific staging suffix. Original mic source is
+     * untouched, and both flows use identical model weights. */
+    private File ensureOriginalModel() throws Exception {
+        synchronized(MODEL_LOCK){
+            File dir=new File(context.getFilesDir(),"sherpa-ko-v1");
+            if(!dir.exists()&&!dir.mkdirs())throw new IllegalStateException("model dir unavailable");
+            for(int i=0;i<MODEL.length;i++){
+                if(stopped)return dir;
+                File target=new File(dir,MODEL[i]);
+                if(target.length()>=MINIMUM[i])continue;
+                status("원본 한국어 모델 다운로드 "+(i+1)+"/4: "+MODEL[i]);
+                File tmp=new File(dir,MODEL[i]+".speaker.part");
+                if(tmp.exists()&&!tmp.delete())
+                    throw new IllegalStateException("stale speaker model temp file");
+                java.net.HttpURLConnection connection=(java.net.HttpURLConnection)
+                    new java.net.URL(MODEL_ROOT+MODEL[i]+"?download=true").openConnection();
+                connection.setConnectTimeout(30000);
+                connection.setReadTimeout(60000);
+                connection.setInstanceFollowRedirects(true);
+                connection.setRequestProperty("User-Agent","HITEL14-Speaker-STT/1");
+                try{
+                    if(connection.getResponseCode()!=200)
+                        throw new IllegalStateException("model HTTP "+connection.getResponseCode());
+                    try(java.io.InputStream input=connection.getInputStream();
+                        java.io.FileOutputStream output=new java.io.FileOutputStream(tmp)){
+                        byte[] bytes=new byte[131072];int n;
+                        while((n=input.read(bytes))!=-1){
+                            if(stopped)return dir;
+                            if(n>0)output.write(bytes,0,n);
+                        }
+                        output.getFD().sync();
+                    }
+                }finally{connection.disconnect();}
+                if(tmp.length()<MINIMUM[i])throw new IllegalStateException(
+                    "incomplete Korean model download: "+MODEL[i]);
+                if(target.exists()&&!target.delete())
+                    throw new IllegalStateException("cannot replace incomplete model");
+                if(!tmp.renameTo(target))
+                    throw new IllegalStateException("cannot finalize Korean model");
+            }
+            return dir;
         }
-        return dir;
     }
     private AudioRecord playbackRecorder(){
         final int min=AudioRecord.getMinBufferSize(RATE,AudioFormat.CHANNEL_IN_MONO,
@@ -102,12 +141,14 @@ public final class SpeakerPlaybackStt {
         OnlineRecognizer asr=null;
         OnlineStream stream=null;
         AudioRecord audio=null;
+        String failureDetail=null;
         try{
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
             if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 !=PackageManager.PERMISSION_GRANTED)
                 throw new SecurityException("RECORD_AUDIO 권한이 없습니다.");
-            File dir=existingOriginalModel();
+            File dir=ensureOriginalModel();
+            if(stopped)return;
             status("HITEL14 기존 한국어 모델 로딩 중 (마이크 엔진 변경 없음)");
             OnlineTransducerModelConfig transducer=new OnlineTransducerModelConfig();
             transducer.setEncoder(new File(dir,MODEL[0]).getAbsolutePath());
@@ -181,7 +222,10 @@ public final class SpeakerPlaybackStt {
                 if(tail!=null&&!tail.isBlank()&&!tail.equals(lastFinal))listener.onFinal(tail);
             }
         }catch(Throwable ex){
-            if(!stopped)status("출력음 STT 실패: "+ex.getClass().getSimpleName()+": "+ex.getMessage());
+            if(!stopped){
+                failureDetail=ex.getClass().getSimpleName()+": "+ex.getMessage();
+                status("출력음 STT 실패: "+failureDetail);
+            }
         }finally{
             recorder=null;
             if(audio!=null){
@@ -192,7 +236,8 @@ public final class SpeakerPlaybackStt {
             if(stream!=null)try{stream.release();}catch(Throwable ignored){}
             if(asr!=null)try{asr.release();}catch(Throwable ignored){}
             active.set(false);
-            status("출력음 STT 세션 종료 (마이크 STT 세션과 무관)");
+            status(failureDetail==null?"출력음 STT 세션 종료 (마이크 STT 세션과 무관)":
+                "출력음 STT 종료 · 실패: "+failureDetail);
         }
     }
 }
