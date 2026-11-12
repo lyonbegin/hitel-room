@@ -144,8 +144,12 @@ queries='''    <queries>
       <package android:name="app.hitel.recording.speakeronly"/>
     </queries>
 '''
-assert "<queries>" not in xml
-xml=xml.replace("    <application",queries+"    <application",1)
+# W03 already has a <queries> section for legacy dialer/TTS package
+# visibility; merge into it instead of failing or creating duplicate sections.
+if "</queries>" in xml:
+    xml=xml.replace("</queries>",queries.replace("    <queries>","").replace("    </queries>","")+"</queries>",1)
+else:
+    xml=xml.replace("    <application",queries+"    <application",1)
 assert 'HITEL14 출력음진단로그 V20' in xml
 xml=xml.replace('HITEL14 출력음진단로그 V20',
                 'HITEL14 캡처대상선택 V21',1)
