@@ -6,7 +6,7 @@ android {
     applicationId = "app.hitel.recording.speakeronly"
     minSdk = 26
     targetSdk = 28
-    versionCode = 2
+    versionCode = 3
     versionName = "1.0.1-16k-media-capturable-log"
     ndk { abiFilters.add("arm64-v8a") }
   }
