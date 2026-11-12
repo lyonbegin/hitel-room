@@ -46,8 +46,27 @@ def locate(term,stage):
                 x,y,xx,yy=map(int,m)
                 return ((x+xx)//2,(y+yy)//2,attrs.get("text",""))
     return None
+def close_system_launcher_anr(stage):
+    # On CI emulator Pixel Launcher sometimes ANRs after cold boot even
+    # though the test app itself is running. The system modal obscures all
+    # app controls; close ONLY the unresponsive launcher, not HITEL14.
+    root=hierarchy(stage)
+    texts=[n.attrib.get("text","") for n in root.iter("node")]
+    if not any("Launcher isn't responding" in t for t in texts):
+        return False
+    for n in root.iter("node"):
+        if n.attrib.get("text")=="Close app":
+            coords=list(map(int,re.findall(r"\d+",n.attrib.get("bounds",""))))
+            if len(coords)==4:
+                x=(coords[0]+coords[2])//2
+                y=(coords[1]+coords[3])//2
+                print("EMULATOR_DISMISS_PIXEL_LAUNCHER_ANR",x,y,flush=True)
+                adb("shell","input","tap",str(x),str(y))
+                time.sleep(2)
+                return True
+    raise AssertionError("Pixel Launcher ANR cannot be dismissed")
 def tap(term,tag):
-    for trial in range(3):
+    for trial in range(9):
         where=locate(term,tag+"_"+str(trial))
         if where:
             x,y,label=where
@@ -55,7 +74,8 @@ def tap(term,tag):
             adb("shell","input","tap",str(x),str(y))
             time.sleep(1.4)
             return
-        time.sleep(1)
+        if not close_system_launcher_anr(tag+"_launcher_anr_"+str(trial)):
+            time.sleep(2)
     raise AssertionError("Android UI control not found: "+term)
 def tap_row(term,tag):
     # Click ONLY a real row in the AlertDialog ListView. Do not accidentally
@@ -108,6 +128,7 @@ time.sleep(6)
 assert adb("shell","pidof",APP).strip(),"APP exited after launch"
 image("w03-first")
 print("PASS_W03_ACTIVITY_RUNNING",flush=True)
+close_system_launcher_anr("initial_launcher_anr")
 target_launch_safe()
 tap("출력음 캡처 대상 선택·변경","w03-select")
 image("selector-open")
