@@ -158,7 +158,7 @@ print("PASS_TARGET_CHANGED_PERSISTED_AND_NO_TARGET_APP_LAUNCH",flush=True)
 tap("출력음 캡처 대상 선택·변경","choose-again")
 tap_row("전체 앱 (UID 필터 없음)","change-to-all")
 after=prefs()
-assert 'selected_package' in after and 'value=""' in after,after
+assert '<string name="selected_package"></string>' in after or '<string name="selected_package" />' in after,after
 target_launch_safe()
 image("all-reselected")
 print("PASS_SWITCH_SELECTED_APP_BACK_TO_ALL_WITHOUT_LAUNCH",flush=True)
