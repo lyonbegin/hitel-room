@@ -180,6 +180,15 @@ def start_capture(case="local-file",source="self-app"):
             if n:
                 tap_node(n)
                 continue
+            if source=="youtube" and any(
+                "Share or record an app" in item["text"] for item in nodes):
+                # Real Android 15 picker shows YouTube at the BOTTOM of the
+                # vertically scrollable alphabetical app grid; previous test
+                # kept scanning its first screen without scrolling.
+                adb("shell","input","swipe","530","1840","530","840","450")
+                print("NATIVE_SYSTEM_APP_PICKER_SCROLL_TO_YOUTUBE",step,flush=True)
+                time.sleep(2)
+                continue
         if start_clicked and source=="screen":
             # May present an additional confirmation on Android 15.
             n=exact("Start now","Start sharing","지금 시작")
@@ -289,7 +298,9 @@ else:
     adb("logcat","-c")
     start_capture("youtube-comparator","youtube")
     print("YOUTUBE_NEW_PROJECTION_CAPTURE_VERIFIED",flush=True)
-    link="https://www.youtube.com/results?search_query=%ED%95%9C%EA%B5%AD%EC%96%B4+%EB%89%B4%EC%8A%A4"
+    # Verified real YouTube video featuring spoken Korean. A direct video
+    # opens its player instead of an unverified search-results item.
+    link="https://www.youtube.com/watch?v=1SGUXxrhq9M"
     def open_youtube_url():
         return adb("shell","am","start","-a","android.intent.action.VIEW",
                    "-d",link,"-p","com.google.android.youtube",check=False)
