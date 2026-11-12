@@ -147,6 +147,7 @@ public final class SpeakerPlaybackStt {
             if(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 !=PackageManager.PERMISSION_GRANTED)
                 throw new SecurityException("RECORD_AUDIO 권한이 없습니다.");
+            status("출력음 STT 준비: 한국어 모델 확인 중 · 아직 오디오 캡처 시작 전");
             File dir=ensureOriginalModel();
             if(stopped)return;
             status("HITEL14 기존 한국어 모델 로딩 중 (마이크 엔진 변경 없음)");
@@ -211,7 +212,9 @@ public final class SpeakerPlaybackStt {
                 if(now-prevStats>=3000){
                     double rms=signalSamples>0?Math.sqrt(squares/signalSamples):0;
                     status("출력음 RMS="+String.format(Locale.US,"%.5f",rms)+
-                        (rms<0.0005?" · 무음/보호된 앱/전화 음성 캡처 불가 가능":" · 신호 입력 확인"));
+                        (rms<0.0005
+                            ?" · 캡처 데이터 무음. 선택한 앱에서 실제 미디어 소리를 재생 중인지 확인하십시오. HITEL14 자신만 선택하면 자동 생성되는 소리가 없습니다."
+                            :" · 캡처 신호 입력 확인"));
                     signalSamples=0;squares=0;prevStats=now;
                 }
             }
