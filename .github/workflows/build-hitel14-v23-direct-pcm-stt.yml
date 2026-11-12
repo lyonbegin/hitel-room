@@ -14,6 +14,7 @@ on:
       - ".github/workflows/build-hitel14-v23-direct-pcm-stt.yml"
       - "flow-lab/v18_integrate_direct_pcm_stt_v23.py"
       - "flow-lab/PcmDirectSherpaSink.java"
+      - "flow-lab/V23FreshLogExport.java"
       - "speaker-standalone/**"
       - "sherpa-original-launcher/native/aac_mdat_follow.c"
   workflow_dispatch:
@@ -79,6 +80,8 @@ jobs:
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackStt.java
           grep -F 'DIRECT_ASR_FINAL' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F 'V23FreshLogExport.save(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'HITEL14_LATEST_STT_LOG.zip' AndroidProject/app/src/main/java/app/hitel/samsungprobe/V23FreshLogExport.java
           grep -F 'DirectRecording' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F 'startDirectRecordingStt' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           if grep -E '(import android[.]media[.]AudioTrack|new AudioTrack[(]|PcmSpeakerMonitor[[:space:]])' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java; then echo 'ERROR: recording sent to speaker'; exit 1; fi
           grep -F 'SpeakerPlaybackCaptureService' AndroidProject/app/src/main/AndroidManifest.xml
@@ -131,6 +134,17 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" | tail -2
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          # Same applicationId does NOT imply that the APK can update V22 in place.
+          # Compare real signer fingerprints from BOTH signed APK files.
+          SIGNER_V22=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs downloads/HITEL14_SystemNativeAppChoice_Status_V22.apk | grep -m1 'Signer #1 certificate SHA-256 digest' | awk '{print $NF}')
+          SIGNER_V23=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -m1 'Signer #1 certificate SHA-256 digest' | awk '{print $NF}')
+          echo "V22_SIGNER_SHA256=$SIGNER_V22"
+          echo "V23_SIGNER_SHA256=$SIGNER_V23"
+          if [ "$SIGNER_V22" = "$SIGNER_V23" ]; then
+            echo 'V23_IN_PLACE_UPGRADE_SIGNATURE_COMPATIBLE'
+          else
+            echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
+          fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.systempicker'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='31'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V23 PCM 직접 STT 통합'
@@ -160,6 +174,7 @@ jobs:
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerPlaybackCaptureService.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerCaptureLog.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+            AndroidProject/app/src/main/java/app/hitel/samsungprobe/V23FreshLogExport.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           if-no-files-found: error
