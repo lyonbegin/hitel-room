@@ -1,0 +1,23 @@
+plugins { id("com.android.application") }
+android {
+  namespace = "app.hitel.speakeronly"
+  compileSdk = 35
+  defaultConfig {
+    applicationId = "app.hitel.recording.speakeronly"
+    minSdk = 26
+    targetSdk = 28
+    versionCode = 1
+    versionName = "1.0.0-16k-speaker-route"
+    ndk { abiFilters.add("arm64-v8a") }
+  }
+  packaging {
+    jniLibs { useLegacyPackaging = true }
+  }
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+  }
+}
+dependencies {
+  implementation("androidx.documentfile:documentfile:1.0.1")
+}
