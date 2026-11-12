@@ -12,7 +12,7 @@ import time
 import xml.etree.ElementTree as ET
 
 APP="app.hitel.callflowlab.v14.systempicker"
-ACTIVITY=APP+"/app.hitel.samsungprobe.CaptureHarnessActivity"
+ACTIVITY=APP+"/app.hitel.samsungprobe.W03ConsoleActivity"
 SPEAKER=APP+"/app.hitel.samsungprobe.SpeakerService"
 OUTPUT=APP+"/app.hitel.samsungprobe.SpeakerPlaybackCaptureService"
 OUT=pathlib.Path("/tmp/v28-capture-comparison")
@@ -70,7 +70,7 @@ def screenshot(name):
 def wait_log(needle,seconds=45):
     end=time.monotonic()+seconds
     while time.monotonic()<end:
-        l=adb("logcat","-d","-s","HitelCaptureHarness:I","HITEL-SPEAKER-DIAG:I",
+        l=adb("logcat","-d","-s","HITEL-SPEAKER-DIAG:I",
               "GrowingM4aDiag:I","*:S",timeout=35)
         rows=[row for row in l.splitlines() if needle in row]
         if rows:
@@ -79,42 +79,107 @@ def wait_log(needle,seconds=45):
         time.sleep(1)
     inspect("missing-"+re.sub(r"\W+","-",needle)[:35])
     raise AssertionError("MISSING_ANDROID_RUNTIME_EVENT "+needle)
-def start_capture(case="local-file",source="screen"):
-    print("CAPTURE_CASE",case,source,flush=True)
-    res=adb("shell","am","start","-W","-n",ACTIVITY,"--es","testCase",case,timeout=60)
-    print("START_HARNESS",res[-600:],flush=True)
-    wait_log("NATIVE_CONSENT_REQUEST",15)
-    # Android 15's native one-app/full-display picker; tap REAL system buttons.
-    source_selected=False
-    for step in range(12):
-        nodes=uixml("system-consent-"+case+"-"+str(step))
-        if step==0:screenshot("system-consent-first-"+case)
-        def pick(*words):
-            for w in words:
-                found=[n for n in nodes if w.lower() in n["text"].lower()]
-                if found:return found[0]
-            return None
-        if source=="screen" and not source_selected:
-            n=pick("Entire screen","전체 화면","화면 전체","Your entire screen")
+def find_existing_button(word,case,scan_limit=12):
+    """Interact with the ORIGINAL HITEL14 W03 UI, scrolling through its native screen."""
+    for step in range(scan_limit):
+        nodes=uixml("w03-"+case+"-"+str(step))
+        choices=[n for n in nodes if word in n["text"] and
+                 n["package"]==APP and n["clickable"]=="true"]
+        if choices:
+            tap_node(choices[0])
+            return True
+        adb("shell","input","swipe","520","1830","520","610","420")
+        time.sleep(.7)
+    return False
+
+def start_capture(case="local-file",source="self-app"):
+    print("CAPTURE_CASE_EXISTING_V28_W03",case,source,flush=True)
+    res=adb("shell","am","start","-W","-n",ACTIVITY,timeout=60)
+    print("EXISTING_W03_ACTIVITY",res[-600:],flush=True)
+    time.sleep(3)
+    screenshot("existing-w03-"+case)
+    # Use the real W03 mic/playback tab, NOT an added test harness activity.
+    # Session creation is the existing W03 button: clicking it is idempotent.
+    start_tab=uixml("w03-tabs-"+case)
+    tab=next((n for n in start_tab if "마이크 · 출력음 STT" in n["text"]
+        and n["clickable"]=="true"),None)
+    if tab:tap_node(tab)
+    if find_existing_button("새 W03 기록 세션 시작",case+"-session"):
+        print("W03_EXISTING_SESSION_BUTTON_TAPPED",flush=True)
+        tab_nodes=uixml("w03-return-tab-"+case)
+        tab=next((n for n in tab_nodes if "마이크 · 출력음 STT" in n["text"]
+            and n["clickable"]=="true"),None)
+        if tab:tap_node(tab)
+    else:
+        print("W03_SESSION_BUTTON_NOT_VISIBLE_ALREADY_MAY_BE_RUNNING",flush=True)
+    assert find_existing_button("출력음 STT 시작",case+"-capture"),\
+        "Existing HITEL14 V28 output STT start button NOT FOUND; no fake harness"
+    wait_log("CONSENT_REQUEST",25)
+    screenshot("native-projection-consent-"+case)
+    # Android's REAL system dialog: default 'A single app', then Start,
+    # then system app-picker. Never tap dialog TITLE instead of Start BUTTON.
+    selected_source=False
+    start_clicked=False
+    selected_app=False
+    for step in range(22):
+        nodes=uixml("native-consent-"+case+"-"+str(step))
+        # Check service activation first, before clicking the next control.
+        state=adb("logcat","-d","-s","HITEL-SPEAKER-DIAG:I","*:S",timeout=30)
+        if "CAPTURE_SERVICE_START" in state:
+            break
+        def exact(*words):
+            return next((n for w in words for n in nodes
+                if n["text"].strip().lower()==w.lower()
+                and n["clickable"]=="true"),None)
+        def contains(*words):
+            return next((n for w in words for n in nodes
+                if w.lower() in n["text"].lower()
+                and n["clickable"]=="true"),None)
+        if source=="screen" and not selected_source:
+            n=exact("A single app","단일 앱","앱 하나")
             if n:
                 tap_node(n)
-                source_selected=True
+                selected_source=True
                 continue
-        if source=="youtube":
-            n=pick("A single app","Share one app","앱 한 개","단일 앱","하나의 앱")
+            n=exact("Entire screen","전체 화면","화면 전체")
+            if n:
+                tap_node(n)
+                selected_source=True
+                continue
+        # Start is a distinct clickable node; title starts with
+        # 'Start recording...' and MUST NOT be used as the tap target.
+        if not start_clicked:
+            n=exact("Start","Start now","Start sharing","지금 시작","공유 시작","시작")
+            if n:
+                tap_node(n)
+                start_clicked=True
+                continue
+        if start_clicked and source!="screen" and not selected_app:
+            name="YouTube" if source=="youtube" else "HITEL14"
+            n=contains(name)
+            if n:
+                tap_node(n)
+                selected_app=True
+                print("ANDROID_SYSTEM_SINGLE_APP_SELECTED",name,flush=True)
+                continue
+            n=exact("Share","공유","Share this app","이 앱 공유","Start","시작")
+            if n:
+                tap_node(n)
+                continue
+        if start_clicked and source=="screen":
+            # May present an additional confirmation on Android 15.
+            n=exact("Start now","Start sharing","지금 시작")
             if n:tap_node(n);continue
-            n=pick("YouTube")
-            if n:tap_node(n);continue
-        n=pick("Start recording","Start sharing","Share screen","지금 시작","공유 시작",
-               "Start now","녹화 시작","Next","다음")
-        if n:tap_node(n);continue
-        status=adb("logcat","-d","-s","HitelCaptureHarness:I","*:S",timeout=30)
-        if "REAL_CAPTURE_SERVICE_START_SENT" in status:break
-        time.sleep(2)
-    wait_log("REAL_CAPTURE_SERVICE_START_SENT",15)
-    wait_log("미디어/게임 출력음 캡처 시작",45)
-    screenshot("approved-"+case)
-    print("PASS_REAL_ANDROID_MEDIAPROJECTION_CONSENT_CAPTURE_STARTED",case,flush=True)
+        time.sleep(1)
+    try:
+        wait_log("CAPTURE_SERVICE_START",25)
+    except AssertionError:
+        screenshot("native-consent-stuck-"+case)
+        inspect("native-consent-error-"+case)
+        raise
+    wait_log("미디어/게임 출력음 캡처 시작",75)
+    screenshot("approved-existing-v28-"+case)
+    print("PASS_EXISTING_V28_W03_NATIVE_PROJECTION_CAPTURE_STARTED",case,flush=True)
 
 def stop_capture():
     r=own("am","start-service","-n",OUTPUT,"-a",
@@ -158,7 +223,7 @@ for name in MODEL:
     print("MODEL_SIDELoad",name,(MODEL_DIR/name).stat().st_size,flush=True)
 screenshot("installed-emulator-home")
 adb("logcat","-c")
-start_capture("local-file","screen")
+start_capture("local-file","self-app")
 play_recorded_file()
 end=time.monotonic()+100
 recognized=[]
@@ -205,7 +270,7 @@ else:
     print("YOUTUBE_REAL_APP_AVAILABLE",flush=True)
     # Phase 2's video is navigated through the ORIGINAL YouTube application.
     # No invented transcription or sound is accepted as evidence.
-    start_capture("youtube-comparator","screen")
+    start_capture("youtube-comparator","youtube")
     link="https://www.youtube.com/results?search_query=korean+news"
     res=adb("shell","am","start","-a","android.intent.action.VIEW",
             "-d",link,"-p","com.google.android.youtube",check=False)
