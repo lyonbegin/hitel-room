@@ -1,0 +1,63 @@
+name: bitHuman canonical-seeded temporal model and experimental MP4
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/bithuman-canon-temporal-probe.yml
+      - tools/bithuman_deep/canon_seeded_temporal_probe.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-model-temporal-cpu-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install independent CPU runtime and video tools
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir ai-edge-litert==2.3.0 numpy pillow imageio-ffmpeg
+          python -m py_compile tools/bithuman_deep/canon_seeded_temporal_probe.py
+      - name: Fetch public IMX model
+        run: |
+          mkdir -p "$RUNNER_TEMP/bitHuman-temp" reports/bithuman-temporal
+          curl -fLsS --retry 3 --connect-timeout 20 --max-time 300 \
+            -o "$RUNNER_TEMP/bitHuman-temp/wise-pup.imx" \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'
+          sha256sum "$RUNNER_TEMP/bitHuman-temp/wise-pup.imx"
+      - name: Run seeded audio model step 14 times and independently encode 3 short experimental clips
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 360s python -u \
+            tools/bithuman_deep/canon_seeded_temporal_probe.py \
+            --imx "$RUNNER_TEMP/bitHuman-temp/wise-pup.imx" \
+            --out reports/bithuman-temporal
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path("reports/bithuman-temporal")
+          data=json.loads((folder/"temporal_probe.json").read_text())
+          assert data["status"]=="SUCCEEDED",data["status"]
+          assert len(data["modes"])==3
+          for name,m in data["modes"].items():
+              assert m["frames"]==14
+              assert (folder/m["mp4"]).stat().st_size>1000
+              print("CLIP",name,"FRAMES",m["frames"],
+                    "DIFF_FIRST_FRAME",m["first_frame_mae_vs_idle"],
+                    "DIFF_BETWEEN_FRAMES",m["frame_temporal_pixel_mae_mean"])
+          PY
+      - name: Upload short generated MP4 clips, contact sheet, and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitHuman-expression2-canon-seeded-14frame-experiments
+          path: reports/bithuman-temporal/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Remove model binaries
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/bitHuman-temp"
