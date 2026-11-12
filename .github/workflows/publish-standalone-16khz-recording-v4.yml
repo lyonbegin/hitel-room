@@ -1,0 +1,44 @@
+name: Publish V4 Samsung recording event standalone ARM64 APK
+on:
+  push:
+    branches: [fix/standalone-16khz-recording-event-auto-start-20261112]
+    paths: ['.github/workflows/publish-standalone-16khz-recording-v4.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: lyonbegin/hitel-room
+      TAG: speaker-16khz-recording-event-v4-20261112
+      ASSET: Galaxy-Standalone-16kHz-RecordingEvent-V4-ARM64.apk
+    steps:
+      - name: Download APK from actual successful ARM64 build
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 43213386784 -R "$REPO" \
+            -n Galaxy-Standalone-16kHz-RecordingEvent-V4-ARM64 -D dist
+          test -s "dist/$ASSET"
+          unzip -t "dist/$ASSET" >/dev/null
+          unzip -Z1 "dist/$ASSET" | grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so'
+          ! unzip -Z1 "dist/$ASSET" | grep -Ei 'sherpa|onnx|zipformer|sensevoice'
+          sha256sum "dist/$ASSET" | tee dist/SHA256-V4.txt
+      - name: Publish explicitly experimental APK
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$ASSET" -R "$REPO" --clobber
+          else
+            gh release create "$TAG" "dist/$ASSET" -R "$REPO" \
+              --target fix/standalone-16khz-recording-event-auto-start-20261112 \
+              --title 'Standalone 16kHz Samsung Call Recording Event V4 (ARM64)' \
+              --notes 'Experimental V4 ARM64 APK. Opt-in AccessibilityService attempts to press RECORD START on the visible Samsung Phone in-call UI only when no growing recording is detected. A content observer and 100ms M4A checks require 3 positive growth events before playing PCM; earlier speech is suppressed. Build verified in CI; real Samsung in-call recording and audio playback are not yet hardware-verified.' \
+              --prerelease
+          fi
+          gh release view "$TAG" -R "$REPO" --json url,assets
+          echo "DIRECT_APK=https://github.com/$REPO/releases/download/$TAG/$ASSET"
