@@ -1,0 +1,80 @@
+name: Scribd Unresolved 814 Preview Audit
+on:
+  push:
+    branches:
+      - feature/scribd-814-playwright-20261112
+    paths:
+      - .github/workflows/scribd-814-preview-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  access-probe:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright and real Chrome
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+          wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y /tmp/google-chrome.deb
+          google-chrome --version
+      - name: Test 3 unresolved documents on visible Chrome
+        run: |
+          xvfb-run -a python tools/zocbo/scribd_814_preview_crawler.py --probe
+      - name: Decide whether real preview is accessible
+        id: gate
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          p = "scribd814-results/probe/summary.json"
+          d = json.load(open(p, encoding="utf-8"))
+          print("ready=" + ("true" if d["preview_visible"] > 0 else "false"))
+          PY
+      - name: Upload probe screenshots and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd814-probe
+          path: scribd814-results/probe/
+          if-no-files-found: warn
+          retention-days: 14
+  capture-all-if-accessible:
+    needs: access-probe
+    if: ${{ needs.access-probe.outputs.ready == 'true' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        batch: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright and real Chrome
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+          wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y /tmp/google-chrome.deb
+      - name: Review at most 50 public first previews
+        run: |
+          xvfb-run -a python tools/zocbo/scribd_814_preview_crawler.py --batch ${{ matrix.batch }} --batch-size 50
+      - name: Upload per-document preview evidence and status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd814-batch-${{ matrix.batch }}
+          path: scribd814-results/
+          if-no-files-found: warn
+          retention-days: 14
