@@ -254,7 +254,8 @@ ui=replace_once(ui,
             if(speakerState!=null)speakerState.setText("사용자가 출력음 캡처를 취소했습니다.");
             return;''',"cancel link state")
 ui=replace_once(ui,
-    '''            if(speakerState!=null)speakerState.setText("미디어 출력음 캡처 시작 요청 · 실제 신호 확인 대기");''',
+    '''            if(speakerState!=null)speakerState.setText(
+                "시스템 동의 완료 · 실제 출력음 입력 대기 (선택 앱명 미제공)");''',
     '''            if(speakerState!=null)speakerState.setText("미디어 출력음 캡처 시작 요청 · 실제 신호 확인 대기");
             if(callMediaLinkPending){
                 callMediaLinkPending=false;
