@@ -61,6 +61,8 @@ final class RecordingFolderPlaybackEngine {
     private volatile long renderedBytes=0;
     private volatile long sourceCursor=0;
     private volatile long lastWriteAt=0;
+    private volatile long lastSourceStatusAt=0;
+    private volatile long lastOutputStatusAt=0;
     private volatile String selectedName="";
 
     RecordingFolderPlaybackEngine(Context app,Uri folder,Listener callback) {
@@ -117,6 +119,7 @@ final class RecordingFolderPlaybackEngine {
             throw new IOException("삼성 통화 녹음 폴더로 사용할 수 없는 URI입니다.");
         event("FOLDER_WATCH","통화 녹음 폴더 감시 시작 · 새로 생성되거나 증가하는 녹음파일을 기다립니다.");
         HashMap<String,Long> baseline=new HashMap<>();
+        HashMap<String,Long> priorModified=new HashMap<>();
         int scans=0;
         while(!stop){
             DocumentFile[] children=dir.listFiles();
@@ -127,7 +130,14 @@ final class RecordingFolderPlaybackEngine {
                 String key=f.getUri().toString();
                 long size=readableSize(f);
                 Long old=baseline.put(key,size);
-                if(scans>0 && size>=1024 && (old==null||old.longValue()!=size)){
+                long modified=f.lastModified();
+                Long oldModified=priorModified.put(key,modified);
+                // A real ongoing file may be visible but expose an unchanged
+                // or stale DocumentsProvider size. A changed mtime counts as
+                // activity; openDelta() will still demand ACTUAL new bytes.
+                if(scans>0 && (size>=1024 || modified>0) &&
+                   (old==null || old.longValue()!=size ||
+                    (oldModified!=null && oldModified.longValue()!=modified))){
                     long mtime=f.lastModified();
                     if(choice==null||mtime>=latest){choice=f;latest=mtime;}
                 }
@@ -188,34 +198,52 @@ final class RecordingFolderPlaybackEngine {
             return fallback;
         }catch(Exception e){fallback.close();throw e;}
     }
-    /** One append-only mirror for the original native follower. */
+    /**
+     * Read the ACTUAL bytes available at the current source offset on every
+     * pass, NOT the potentially cached size returned by DocumentFile.length().
+     *
+     * The previous version used "available == mirroredBytes" as an early
+     * exit and therefore could stay silent forever on some Samsung SAF
+     * providers even while the recording file continued growing.
+     * This always reopens the source and reads only NEW bytes into the same
+     * append-only mirror; native aac_mdat_follow remains the original source.
+     */
     private synchronized void appendNewBytes(DocumentFile selected)throws Exception{
-        long available=readableSize(selected);
-        if(available<mirroredBytes)
-            throw new IOException("원본 녹음파일이 축소/교체되었습니다. 새 감시 세션을 시작해야 합니다.");
-        if(available==mirroredBytes || available<0)return;
-        long amount=available-mirroredBytes;
-        if(amount>50L*1024*1024)
-            throw new IOException("한 번의 파일 증가량이 50MB를 초과합니다.");
-        long remaining=amount;
-        try(InputStream in=openDelta(selected.getUri(),mirroredBytes);
+        long reported=readableSize(selected);
+        long offset=mirroredBytes;
+        long limit=512L*1024; // bounded work per 180 ms polling cycle
+        try(InputStream in=openDelta(selected.getUri(),offset);
             FileOutputStream out=new FileOutputStream(mirror,true)){
-            byte[] buffer=new byte[65536];
-            while(remaining>0 && !stop){
-                int n=in.read(buffer,0,(int)Math.min(buffer.length,remaining));
-                if(n<0)break;
-                if(n==0)continue;
+            byte[] buffer=new byte[32768];
+            while(limit>0 && !stop){
+                int n=in.read(buffer,0,(int)Math.min(buffer.length,limit));
+                if(n<0)break; // snapshot EOF; reopen at same cursor next poll
+                if(n==0)break;
                 out.write(buffer,0,n);
-                remaining-=n;
                 mirroredBytes+=n;
+                limit-=n;
             }
             out.flush();
         }
-        if(amount!=remaining){
+        long copied=mirroredBytes-offset;
+        if(copied>0){
             lastWriteAt=SystemClock.elapsedRealtime();
-            if(mirroredBytes<16384 || mirroredBytes%(256*1024)<amount)
-                log.event("MIRROR","APPENDED","newBytes",amount-remaining,
-                    "totalBytes",mirroredBytes,"file",selectedName);
+            log.event("MIRROR","SOURCE_DELTA_APPENDED","newBytes",copied,
+                "totalBytes",mirroredBytes,"providerSize",reported,
+                "recording",selectedName);
+            if(lastWriteAt-lastSourceStatusAt>=1500 || offset==0){
+                lastSourceStatusAt=lastWriteAt;
+                event("SOURCE_GROWING","녹음파일 증가분 "+copied+
+                    "B · 누적 "+mirroredBytes+"B · AAC 추출 대기");
+            }
+        }else{
+            long now=SystemClock.elapsedRealtime();
+            if(now-lastSourceStatusAt>4500){
+                lastSourceStatusAt=now;
+                event("SOURCE_NO_NEW_BYTES",
+                    "선택된 파일이 현재 읽을 수 있는 새 바이트를 제공하지 않습니다."+
+                    " providerSize="+reported+"; mirrored="+mirroredBytes);
+            }
         }
     }
     private AudioTrack makeOutput(){
@@ -254,6 +282,15 @@ final class RecordingFolderPlaybackEngine {
             }
         }catch(Throwable ex){log.error("AUDIO","SPEAKER_ROUTE_REQUEST",ex);}
         playback.play();
+        AudioDeviceInfo routed=playback.getRoutedDevice();
+        AudioManager manager=(AudioManager)app.getSystemService(Context.AUDIO_SERVICE);
+        int volume=manager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        int maxVolume=manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        event("AUDIO_ROUTE",
+            "AudioTrack PLAY · usage=MEDIA · preferred/routed="+
+            (routed==null?"unknown":routed.getType())+
+            " · mediaVolume="+volume+"/"+maxVolume+
+            " · audioMode="+manager.getMode());
         return playback;
     }
     private void sendToSpeaker(byte[] pcm)throws Exception{
@@ -267,16 +304,32 @@ final class RecordingFolderPlaybackEngine {
             offset+=n;
             renderedBytes+=n;
         }
-        if(renderedBytes<64000 || renderedBytes%(16000*8)<pcm.length)
-            event("PCM_PLAYING","16kHz · 누적 재생 전송 "+(renderedBytes/32000.0)+"초"+
-                " · AAC "+newAacFrames+"프레임");
+        long now=SystemClock.elapsedRealtime();
+        if(now-lastOutputStatusAt>1200 || renderedBytes<=6400){
+            lastOutputStatusAt=now;
+            long sumSquares=0;
+            int count=0;
+            for(int i=0;i+1<pcm.length;i+=2){
+                short v=(short)((pcm[i]&255)|((pcm[i+1]&255)<<8));
+                sumSquares+=(long)v*v;
+                count++;
+            }
+            double rms=count==0?0:Math.sqrt((double)sumSquares/count)/32768.0;
+            AudioDeviceInfo routed=output.getRoutedDevice();
+            event("PCM_WRITTEN",
+                "실제 녹음 증가분→AudioTrack: "+
+                (renderedBytes/32000.0)+"초 · rms="+
+                String.format(Locale.US,"%.5f",rms)+
+                " · speakerRoute="+(routed==null?"unknown":routed.getType())+
+                " · playState="+output.getPlayState());
+        }
     }
     private void followAndPlay()throws Exception{
         File helper=new File(app.getApplicationInfo().nativeLibraryDir,"libaac-mdat-follow.so");
         if(!helper.isFile()||!helper.canExecute())
             throw new IOException("원본 AAC 실시간 팔로워 실행파일 없음: "+helper);
         track=makeOutput();
-        event("PLAYER_READY","전화 녹음파일 증가분을 우리 앱의 미디어 스피커로 재생합니다.");
+        event("PLAYER_READY","AudioTrack 재생 장치 준비. 실제 AAC 프레임/PCM 입력을 기다립니다.");
         StreamingAacPcmDecoder decoder=new StreamingAacPcmDecoder(log);
         Process process=null;
         Thread stderr=null;
@@ -298,6 +351,7 @@ final class RecordingFolderPlaybackEngine {
                     while((line=r.readLine())!=null){
                         if(line.startsWith("AAC_FOLLOW_ERROR:"))event("AAC_FOLLOW_ERROR",line);
                         else if(line.startsWith("AAC_FOLLOW_READY:"))event("AAC_FOLLOW_READY",line);
+                        else if(line.startsWith("AAC_FOLLOW_STARTED:"))event("AAC_FOLLOW_STARTED",line);
                         else if(line.startsWith("AAC_FOLLOW_CURSOR:")){
                             log.event("AAC","CURSOR", "line",line);
                         }
@@ -309,6 +363,7 @@ final class RecordingFolderPlaybackEngine {
             stderr.start();
             DataInputStream input=new DataInputStream(
                 new BufferedInputStream(process.getInputStream(),65536));
+            event("AAC_WAIT","원본 AAC 팔로워 시작 · 녹음파일 증가분에서 유효한 AAC 프레임을 기다립니다.");
             byte[] head=new byte[12];
             long prev=-1;
             while(!stop){
