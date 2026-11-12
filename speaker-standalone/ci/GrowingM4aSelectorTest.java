@@ -3,40 +3,57 @@ package app.hitel.speakeronly;
 import java.util.Arrays;
 import java.util.Collections;
 
-/** Host-side deterministic regression tests; no Android runtime required. */
+/** Host-side regression: 100ms sampling, three distinct growth events,
+ * older larger completed files never auto-start, Samsung 300ms writes work.
+ */
 public final class GrowingM4aSelectorTest {
   static GrowingM4aSelector.Entry file(String path,long size,long modified){
     return new GrowingM4aSelector.Entry(path,path.substring(path.lastIndexOf('/')+1),size,modified);
   }
   static void check(boolean ok,String why){if(!ok)throw new AssertionError(why);}
-  public static void main(String[] argv){
-    GrowingM4aSelector selector=new GrowingM4aSelector();
-    final GrowingM4aSelector.Entry old=file("content://call/old.m4a",1200000,100);
-    final GrowingM4aSelector.Entry latest=file("content://call/new.m4a",10000,200);
-    var initial=selector.observe(Arrays.asList(old,latest));
-    check(initial.growing==null,"Must not play existing static file on first scan");
-    check("new.m4a".equals(initial.latest.name),"Newest first not largest");
-    check(selector.observe(Arrays.asList(old,latest)).growing==null,
-      "Must not play file without size growth on second scan");
-    var changing=selector.observe(Arrays.asList(old,file("content://call/new.m4a",12400,200)));
-    check(changing.growing!=null&&changing.growing.name.equals("new.m4a"),
-       "New M4A not selected when it grows");
-    check(changing.growthBytes==2400,"Growth must be exact");
-    var both=selector.observe(Arrays.asList(
-       file("content://call/old.m4a",1600000,100),
-       file("content://call/new.m4a",12800,200)));
-    check(both.growing!=null&&both.growing.name.equals("new.m4a"),
-       "Must select newest growing M4A even if older grows more");
-    selector.observe(Collections.singletonList(old));
-    check(selector.observe(Collections.singletonList(old)).growing==null,
-       "Existing completed M4A must not trigger playback");
-    var newFile=selector.observe(Arrays.asList(old,file("content://call/today.m4a",1024,1000)));
-    check(newFile.growing==null,"Newly discovered file must grow on another poll");
-    var growingNew=selector.observe(Arrays.asList(old,file("content://call/today.m4a",6144,1000)));
-    check(growingNew.growing!=null&&growingNew.growing.name.equals("today.m4a"),
-       "New file growth not detected");
-    check(!GrowingM4aSelector.isM4a("old.mp3"),"Only M4A accepted");
-    check(GrowingM4aSelector.isM4a("CALL.M4A"),"Case-insensitive .m4a required");
-    System.out.println("PASS_LIVE_M4A_NEWEST_ACTUALLY_GROWING_ONLY");
+  public static void main(String[] args){
+    GrowingM4aSelector detector=new GrowingM4aSelector();
+    var old=file("content://calls/old.m4a",1200000,100);
+    var recent=file("content://calls/current.m4a",10000,200);
+    var scan=detector.observe(Arrays.asList(old,recent));
+    check(scan.growing==null,"Past completed file must NOT play at baseline");
+    check(scan.latest.name.equals("current.m4a"),"Newest must win, not largest");
+    // 100ms samples; Samsung writes roughly every 300ms, so zero-growth
+    // observations between writes must not reset the three-event proof.
+    check(detector.observe(Arrays.asList(old,recent)).growing==null,"No growth at 100ms");
+    recent=file("content://calls/current.m4a",12200,200);
+    scan=detector.observe(Arrays.asList(old,recent));
+    check(scan.growing==null&&scan.verifiedGrowthEvents==1,"First growth is insufficient");
+    for(int i=0;i<2;i++)check(
+      detector.observe(Arrays.asList(old,recent)).growing==null,"100ms pause should not count");
+    recent=file("content://calls/current.m4a",14400,200);
+    scan=detector.observe(Arrays.asList(old,recent));
+    check(scan.growing==null&&scan.verifiedGrowthEvents==2,"Second growth insufficient");
+    for(int i=0;i<2;i++)check(
+      detector.observe(Arrays.asList(old,recent)).growing==null,"Stable 100ms read");
+    recent=file("content://calls/current.m4a",16600,200);
+    scan=detector.observe(Arrays.asList(
+      file("content://calls/old.m4a",1600000,100),recent));
+    check(scan.growing!=null&&scan.growing.name.equals("current.m4a"),
+      "Newest positively growing M4A must win even if older file grew much more");
+    check(scan.verifiedGrowthEvents==3,"Must verify three real positive size changes");
+    check(scan.growthBytes==2200,"Actual change bytes required");
+    // New file discovered mid-call starts at zero confirmations.
+    var latest=file("content://calls/now.m4a",3000,500);
+    check(detector.observe(Arrays.asList(old,latest)).growing==null,"New file one sample");
+    check(detector.observe(Arrays.asList(old,file("content://calls/now.m4a",5000,500))).growing==null,"New first growth");
+    check(detector.observe(Arrays.asList(old,file("content://calls/now.m4a",7000,500))).growing==null,"New second growth");
+    scan=detector.observe(Arrays.asList(old,file("content://calls/now.m4a",9000,500)));
+    check(scan.growing!=null&&scan.growing.name.equals("now.m4a"),"New third growth");
+    // A file stalled for over 3s must not reuse old growth confirmations.
+    detector.observe(Collections.singletonList(file("content://calls/stale.m4a",3000,800)));
+    detector.observe(Collections.singletonList(file("content://calls/stale.m4a",4000,800)));
+    detector.observe(Collections.singletonList(file("content://calls/stale.m4a",5000,800)));
+    for(int i=0;i<35;i++)detector.observe(Collections.singletonList(file("content://calls/stale.m4a",5000,800)));
+    scan=detector.observe(Collections.singletonList(file("content://calls/stale.m4a",6000,800)));
+    check(scan.growing==null&&scan.verifiedGrowthEvents==1,"Stagnant previous growths must expire");
+    check(!GrowingM4aSelector.isM4a("previous.mp3"),"Do not accept non M4A");
+    check(GrowingM4aSelector.isM4a("CALL.M4A"),"Case insensitive M4A");
+    System.out.println("PASS_100MS_THREE_DISTINCT_GROWTH_EVENTS_SAMSUNG_300MS_CADENCE");
   }
 }
