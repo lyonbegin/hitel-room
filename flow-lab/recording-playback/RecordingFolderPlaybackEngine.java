@@ -165,7 +165,7 @@ final class RecordingFolderPlaybackEngine {
                         seekable.close();
                         log.event("MIRROR","SEEK_UNAVAILABLE","offset",offset,"reason",String.valueOf(e));
                     }
-                }catch(Throwable e){
+                }catch(Exception e){
                     fd.close();
                     throw e;
                 }
