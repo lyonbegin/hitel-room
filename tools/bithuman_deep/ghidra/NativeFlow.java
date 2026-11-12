@@ -114,7 +114,7 @@ public class NativeFlow extends GhidraScript {
                         "FUN_001a7cfc","FUN_001a3608","FUN_001a62e0","FUN_001a5fdc",
                         "FUN_001a6804","FUN_001a2e60",
                         "FUN_001a7a04","FUN_001a80dc","FUN_001a82f0",
-                        "FUN_001a77c0","FUN_001a7db0","FUN_001acf1c").contains(f.getName())) {
+                        "FUN_001a77c0","FUN_001a7db0","FUN_001acf1c","FUN_001a8500").contains(f.getName())) {
                       extra.write("\n\n#### "+f.getName()+" @"+key+"\n");
                       extra.write(source.substring(0,Math.min(110000,source.length())));
                       extra.flush();
