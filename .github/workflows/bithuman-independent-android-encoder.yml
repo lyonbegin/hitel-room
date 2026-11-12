@@ -6,7 +6,10 @@ on:
       - feature/bithuman-expression2-imx-sdk-audit-20261112
     paths:
       - .github/workflows/bithuman-independent-android-encoder.yml
-      - experiments/bithuman-independent-android/**
+      - experiments/bithuman-independent-android/MainActivity.kt
+      - experiments/bithuman-independent-android/app.build.gradle.kts
+      - experiments/bithuman-independent-android/AndroidManifest.xml
+      - experiments/bithuman-independent-android/test_emulator.sh
       - tools/bithuman_deep/imx_v2.py
   workflow_dispatch:
 
