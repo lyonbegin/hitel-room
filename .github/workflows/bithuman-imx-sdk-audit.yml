@@ -62,7 +62,7 @@ jobs:
             --aar "$RUNNER_TEMP/bithuman/expression2.aar" \
             --pom "$RUNNER_TEMP/bithuman/expression2.pom" \
             --output reports/bithuman
-          cat reports/bithuman/report.md >> "$GITHUB_STEP_SUMMARY"
+          cat reports/bithuman/report.md | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload metadata report only
         if: always()
@@ -93,8 +93,14 @@ jobs:
         shell: bash
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          command -v sdkmanager
-          sdkmanager --list_installed | head -80
+          manager="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          if [ ! -x "$manager" ]; then
+            manager="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -1)"
+          fi
+          test -n "$manager"
+          echo "sdkmanager: $manager"
+          yes | "$manager" --licenses >/dev/null || true
+          "$manager" "platforms;android-35" "build-tools;34.0.0" "platform-tools"
           test -f "$ANDROID_HOME/platforms/android-35/android.jar"
 
       - name: Clone unmodified vendor hello app and pin SDK version
