@@ -152,7 +152,15 @@ def start_capture(case="local-file",source="self-app"):
                 continue
         if start_clicked and source!="screen" and not selected_app:
             name="YouTube" if source=="youtube" else "HITEL14"
-            n=contains(name)
+            # Android 15's system app chooser exposes app names as NON-clickable
+            # TextView children within CLICKABLE parent cards. The exact
+            # observed HITEL14 TextView bounds were [572,1776][778,1819].
+            # Tap the center of that original system card without requiring
+            # clickable=true on the label itself.
+            n=next((n for n in nodes if name.lower() in n["text"].lower()
+                    and n["package"]=="com.android.systemui"
+                    and n["bounds"][2]>n["bounds"][0]
+                    and n["bounds"][3]>n["bounds"][1]),None)
             if n:
                 tap_node(n)
                 selected_app=True
