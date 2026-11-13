@@ -1,0 +1,62 @@
+name: Expression2 original ARM64 native function grouping and relocation audit
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-native-group-audit.yml
+      - tools/bithuman_deep/expression2_native_group_audit.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyze-native-call-closures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read previously verified original Ghidra instruction inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-original-arm64-fully-indexed-call-closure
+          run-id: 43328017533
+          github-token: ${{ github.token }}
+          path: build/expression2-original-native
+      - name: Check original inventory and inspect native functional closures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/expression2-original-native/functions.tsv
+          test -s build/expression2-original-native/call-edges.tsv
+          test -d build/expression2-original-native/native-instruction-bytes
+          python3 -m py_compile tools/bithuman_deep/expression2_native_group_audit.py
+          python3 tools/bithuman_deep/expression2_native_group_audit.py \
+            --audit-root build/expression2-original-native \
+            --out reports/expression2-native-group-audit
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("reports/expression2-native-group-audit/group-relocation-audit.json")
+          d=json.loads(p.read_text())
+          assert d['functions_in_original_inventory']==1035,d
+          assert d['direct_call_edges_in_original_inventory']==2495,d
+          assert d['unique_reachable_functions_across_groups']==393,d
+          assert d['functions_shared_between_groups']==237,d
+          assert len(d['groups'])==6,d
+          assert d['original_binary_copied_into_new_so'] is False
+          assert d['authentication_modified'] is False
+          for g in d['groups'].values():
+              assert g['static_reachable_functions']>=180,g
+              assert g['address_or_branch_relocation_hazards']['pc_relative_branch']>100,g
+              assert g['address_or_branch_relocation_hazards']['indirect_branch_or_dispatch']>0,g
+          print("EXPR2_ORIGINAL_NATIVE_GROUPS_GROUNDED_SOURCE_AUDIT_PASS")
+          PY
+          cat reports/expression2-native-group-audit/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive function closure statistics (no vendor code)
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-functional-groups-relo-hazards-only
+          path: reports/expression2-native-group-audit/
+          retention-days: 14
+          if-no-files-found: error
