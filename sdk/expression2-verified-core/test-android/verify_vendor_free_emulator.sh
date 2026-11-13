@@ -4,11 +4,14 @@ OUT="$GITHUB_WORKSPACE/reports/expression2-vendor-free-verified-core"
 APK="$GITHUB_WORKSPACE/build/expr2-core/expression2-vendor-free-verified-core.apk"
 mkdir -p "$OUT"
 test -s "$APK"
-if unzip -Z1 "$APK" | grep -E '(libexpr2jni\.so|libLiteRt\.so|expression2-android|essence2-android)';then
+# Read the archive TO COMPLETION before grep -q. unzip | grep -q under
+# pipefail can SIGPIPE (141) on an otherwise valid APK member listing.
+unzip -Z1 "$APK" > "$OUT/apk-members.txt"
+if grep -E '(libexpr2jni\.so|libLiteRt\.so|expression2-android|essence2-android)' "$OUT/apk-members.txt";then
   echo 'VENDOR_BINARY_PRESENT: REJECT' | tee "$OUT/VERDICT.txt"
   exit 1
 fi
-unzip -Z1 "$APK" | grep -q 'lib/arm64-v8a/libexpression2_verified_core.so'
+grep -q 'lib/arm64-v8a/libexpression2_verified_core.so' "$OUT/apk-members.txt"
 adb wait-for-device
 adb install -r "$APK" | tee "$OUT/install.log"
 adb logcat -c
