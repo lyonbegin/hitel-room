@@ -24,3 +24,7 @@ Follow-on test commit `37977a0d0cdba95a63370028502eb9e02c2e4836` changes the CI 
 ## Engineering next action
 
 Original SDK rendering requires authorization through the SDK's documented session mechanism. A local model file, a successful native loader and constructed model object are insufficient to establish a rendering session. To continue without a vendor credential, an independent public-model engine can be tested separately, but it is not equivalent to declaring the official unmodified SDK running end-to-end. No fabricated success, mocked output, or undocumented bypass has been used.
+
+## Second run: strict full-render verdict
+
+[CI run 43407580595](https://github.com/lyonbegin/hitel-room/actions/runs/43407580595) reproduced all SDK installation/model/native library PASS stages. It then ended as **FAILURE** by design because `Expression2Avatar.create()` rejected the unauthenticated session. The actual SDK returned `Expression2Exception: refusing to serve: no API secret was found`. No real frame was returned. The corrected negative verdict and the logs are in CI artifact outputs. This distinguishes verified SDK model/library installation from unsuccessful original SDK rendering.
