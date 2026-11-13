@@ -34,6 +34,7 @@ class MainActivity: Activity() {
     private external fun candidatePreprocess(samples: FloatArray): FloatArray
     private external fun originalPcmGuardOracle(): String
     private external fun originalFeedStateOracle(): String
+    private external fun originalEndSegmentGuardOracle(): String
     private external fun originalFeedAccumulationOracle(): String
 
     private fun emit(message:String) {
@@ -229,6 +230,16 @@ class MainActivity: Activity() {
             "Original ARM64 accumulation buffer/status not matched"
         }
         emit("ORIGINAL_FEED_ACCUM_AB_COMPLETE")
+        val endReport=JSONObject(originalEndSegmentGuardOracle())
+        File(filesDir,"original_end_segment_guard_report.json").writeText(endReport.toString(2))
+        emit("ORIGINAL_END_BOUNDARY_RESULT cases="+endReport.getInt("case_count")+
+            " pass="+endReport.getInt("passed")+" fail="+endReport.getInt("failures"))
+        require(endReport.getInt("case_count")==11 &&
+                endReport.getInt("failures")==0 &&
+                endReport.getString("result")=="PASS") {
+            "Actual original ARM64 end segment boundary mismatch"
+        }
+        emit("ORIGINAL_END_BOUNDARY_AB_COMPLETE")
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }

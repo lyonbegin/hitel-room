@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_END_BOUNDARY|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -71,6 +71,21 @@ for c in d["cases"]:
     assert c["history_matches_16x"]=="YES",c
     assert c["original_step"]==0,c
 print("ORIGINAL_FUN_001A7FBC_FEED_STATE_ACTUAL_ARM64_PASS",d["passed"])
+PY
+adb exec-out run-as com.example.x2hello cat files/original_end_segment_guard_report.json > "$OUT/original_end_segment_guard_report.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+d=json.loads(Path("reports/expression2-original-oracle/original_end_segment_guard_report.json").read_text())
+assert d["original_rva"]=="0x001a8230"
+assert d["synthetic_backpressure_blocks_inference"] is True
+assert d["case_count"]==11 and d["passed"]==11 and d["failures"]==0,d
+assert len(d["cases"])==11
+for c in d["cases"]:
+    assert c["pass"] is True,c
+    assert c["original_return"]==1,c
+    assert c["sample"]==c["expected"],c
+print("EXPR2_ORIGINAL_ARM64_ENDSEGMENT_GUARD_PASS",d["passed"])
 PY
 adb exec-out run-as com.example.x2hello cat files/original_pcm_guard_report.json > "$OUT/original_pcm_guard_report.json"
 python3 - <<'PY'
