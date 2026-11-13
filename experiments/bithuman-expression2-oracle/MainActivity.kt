@@ -36,6 +36,7 @@ class MainActivity: Activity() {
     private external fun originalFeedStateOracle(): String
     private external fun originalEndSegmentGuardOracle(): String
     private external fun originalFramePopOracle(): String
+    private external fun originalFrameTransferOracle(): String
     private external fun originalFeedAccumulationOracle(): String
 
     private fun emit(message:String) {
@@ -251,6 +252,16 @@ class MainActivity: Activity() {
             "Original ARM64 native frame pop and ownership mismatch"
         }
         emit("ORIGINAL_FRAME_POP_AB_COMPLETE")
+        val transfer=JSONObject(originalFrameTransferOracle())
+        File(filesDir,"original_frame_transfer_report.json").writeText(transfer.toString(2))
+        emit("ORIGINAL_FRAME_TRANSFER_RESULT cases="+transfer.getInt("case_count")+
+            " pass="+transfer.getInt("passed")+" fail="+transfer.getInt("failures"))
+        require(transfer.getInt("case_count")==2 &&
+                transfer.getInt("failures")==0 &&
+                transfer.getString("status")=="PASS") {
+            "Original ARM64 backend staging -> native queue -> pull failed"
+        }
+        emit("ORIGINAL_FRAME_TRANSFER_AB_COMPLETE")
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }
