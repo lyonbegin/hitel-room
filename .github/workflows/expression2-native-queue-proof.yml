@@ -1,0 +1,61 @@
+name: Expression2 original native frame queue and pull memory proof
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-native-queue-proof.yml
+      - tools/bithuman_deep/verify_expression2_frame_queue.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-native-function-provenance-and-frame-queue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get original JVM instruction evidence from previous verified AAR audit
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-complete-original-jvm-method-bytecode-analysis
+          run-id: 43328017533
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reports/original-jvm
+      - name: Get original ARM64 machine instructions and reconstructed function bodies
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-original-arm64-fully-indexed-call-closure
+          run-id: 43328017533
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reports/original-native
+      - name: Verify actual original feed/pump/queue/pull/reset/end machine code and JVM methods
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/bithuman_deep/verify_expression2_frame_queue.py
+          python3 tools/bithuman_deep/verify_expression2_frame_queue.py \
+            --native reports/original-native \
+            --jvm reports/original-jvm \
+            --out reports/expression2-native-queue
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("reports/expression2-native-queue/native_frame_queue_contract.json")
+          d=json.loads(p.read_text())
+          assert len(d["original_arm64_function_checks"])==15
+          assert len(d["original_jvm_method_checks"])==7
+          assert len(d["native_direct_edges"])==14
+          assert d["source_derived_observations"]["native_frame_byte_size"]==1198080
+          print("ORIGINAL_EXPR2_FRAME_QUEUE_VERIFIED")
+          PY
+          cat reports/expression2-native-queue/native_frame_queue_contract.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive verified function hashes and exact bytecode source references, not vendor binary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-native-frame-queue-source-verified
+          path: reports/expression2-native-queue/
+          if-no-files-found: warn
+          retention-days: 30
