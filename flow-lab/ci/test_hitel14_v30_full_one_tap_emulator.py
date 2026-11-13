@@ -101,11 +101,17 @@ for step in range(45):
     if pick(nodes,("Allow","허용"),exact=True):
         tap(pick(nodes,("Allow","허용"),exact=True),"SAF_GRANT_PERSISTABLE_ACCESS")
         continue
-    if pick(nodes,("Call",),exact=True):
-        tap(pick(nodes,("Call",),exact=True),"SAF_CALL_FOLDER")
+    # Title rows are selectable folders; BREADCRUMB labels are not. A
+    # plain text match would keep tapping the current "Call" breadcrumb.
+    call_row=next((n for n in nodes if n["text"].casefold()=="call"
+                   and n["id"].endswith("/title")),None)
+    recordings_row=next((n for n in nodes if n["text"].casefold()=="recordings"
+                         and n["id"].endswith("/title")),None)
+    if call_row:
+        tap(call_row,"SAF_CALL_FOLDER_ROW")
         continue
-    if pick(nodes,("Recordings",),exact=True):
-        tap(pick(nodes,("Recordings",),exact=True),"SAF_RECORDINGS")
+    if recordings_row:
+        tap(recordings_row,"SAF_RECORDINGS_FOLDER_ROW")
         continue
     # EXACT text matching is essential: the root shows a "Can't use this
     # folder" notice whose substring otherwise looks like a USE button.
@@ -113,7 +119,7 @@ for step in range(45):
     if use and use["clickable"]=="true":
         heading=" ".join(n["text"] for n in nodes
                          if "breadcrumb" in n["id"]).casefold()
-        if "call" in heading or "recordings" in heading:
+        if "call" in heading:
             tap(use,"SAF_USE_THIS_RECORDING_FOLDER")
             continue
         print("ROOT_VOLUME_CANNOT_BE_GRANTED; navigate to Recordings/Call",
