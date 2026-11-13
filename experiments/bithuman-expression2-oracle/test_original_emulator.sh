@@ -53,6 +53,8 @@ for x in d["cases"]:
           "mae",x["mae"],"max",x["max_abs"],"ref_sha",x["original_sha256"])
 PY
 for case in silence impulse sine fixed_noise spoken_tts; do
+  adb exec-out run-as com.example.x2hello cat "files/$case"_input.f32 > "$OUT/$case"_input.f32
+  test "$(stat -c %s "$OUT/$case"_input.f32)" -eq 176000
   adb exec-out run-as com.example.x2hello cat "files/$case"_original.f32 > "$OUT/$case"_original.f32
   adb exec-out run-as com.example.x2hello cat "files/$case"_candidate.f32 > "$OUT/$case"_candidate.f32
   test "$(stat -c %s "$OUT/$case"_original.f32)" -eq 140800
