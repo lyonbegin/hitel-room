@@ -78,6 +78,40 @@ These addresses are ELF virtual addresses and not Ghidra image-base-adjusted add
 
 Function labels are analyst assignments based on earlier binary audits, not original vendor C++ source names.
 
+
+## Original function-to-function call graph (Ghidra P-code linked to FDE boundaries)
+
+These figures are from the actual 2,629-function original Ghidra P-code edge table, independently checked against Capstone call counts. They are **instruction sites**, not runtime call frequencies:
+
+- 10,865 direct CALL instructions and 1,304 CALLIND instructions.
+- 3,857 direct call instructions target exact original ELF FDE function entries.
+- 7,008 direct call instructions target addresses outside FDE ranges, including PLT/linkage entrypoints.
+- 1,304 indirect instructions occur in 432 FDE-owning functions. Their destination pointers have **not** all been resolved.
+- 2,767 unique static FDE-to-FDE links from 1,121 caller functions.
+
+Verified direct high-level connections (original Ghidra image addresses +0x100000, raw ELF addresses shown below):
+
+- JNI feed 0x724D8 -> native feed 0xA7FBC
+- Scheduler 0xA80DC -> source window 0xA8500
+- Source window 0xA8500 -> audio preprocessing 0xA9794, native frame staging 0xA7A04
+- Pump 0xA8404 -> scheduler 0xA80DC, frame staging 0xA7A04
+- Pump-for-pull 0xAA594 -> pump 0xA8404
+- JNI pull 0x72E7C -> native frame dequeue 0xAA40C
+
+An outgoing direct-call closure from the key function entrypoint includes 38 FDE functions for scheduler, 37 for source window, 40 for pump, and 41 for pull-wait pump. These *direct-call closures* do not include unresolved indirect dispatch, asynchronous backend callbacks, or dynamic reference ownership.
+
+## Ghidra vs Capstone remaining byte mismatch independently located
+
+At original ELF 0x1124C8 the original 4 bytes are **0C 00 00 14**,
+encoding an AArch64 unconditional B branch to **0x1124F8**.
+Capstone decoded it. DDisasm separately classified that precise 4-byte
+interval as code. Ghidra's default auto-analysis left it undefined,
+which accounts for the 135-vs-134 instruction mismatch in the original
+FDE beginning 0x112308. The original vendor binary was **never** changed.
+See https://github.com/lyonbegin/hitel-room/actions/runs/43528472810.
+A separate analysis-database-only Ghidra disassembly reconciliation is
+recorded at https://github.com/lyonbegin/hitel-room/actions/runs/43528724561.
+
 ## Gaps before claiming complete decomposition/reassembly
 
 1. Reconcile 1,731 FDE-matched vs 898 not auto-discovered by Dyninst; seed all 2,629 from original FDE and review extra Dyninst-only entries.
