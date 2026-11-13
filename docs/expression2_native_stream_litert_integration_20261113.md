@@ -59,15 +59,24 @@ The model runner is **not** the original JNI streaming scheduler; timing/latency
 | New independent 26-case PCM/tail/scheduler smoke, Android 14 | https://github.com/lyonbegin/hitel-room/actions/runs/43443944879 | PASS (26/26) |
 | Historical standalone Kotlin real LiteRT 53-frame rendering | https://github.com/lyonbegin/hitel-room/actions/runs/43246265487 | PASS (synthetic audio) |
 | Historical Python CPU phase4 53-frame test | https://github.com/lyonbegin/hitel-room/actions/runs/43245140384 | PASS (synthetic audio) |
-| Integrated native PCM → Kotlin LiteRT 53-frame test | https://github.com/lyonbegin/hitel-room/actions/runs/43444969601 | **Must read current run status/log before assigning PASS or FAIL** |
+| Integrated native PCM → Kotlin LiteRT 53-frame test | https://github.com/lyonbegin/hitel-room/actions/runs/43444969601 | **PASS: Android 14 emulator real 53 model frames from C++ 44,000-sample input** |
 
 Evidence for Android C++ pre-inference 26-case confirmation is the test log line:
 `EXPR2_STREAM_PREINFERENCE_SMOKE_PASS passed=26 failed=0`.
 
-The integrated APK should only PASS after the emulator proves *both*:
+The integrated APK has **PASSED** both emulator log assertions:
 `NATIVE_STREAM_INPUT_PASS pcm=44000 modelInput=35200` and
-`INDEPENDENT_ANDROID_PHASE4_PASS frames=53`.
-The integration run may require fixes; this document does not predeclare success.
+`INDEPENDENT_ANDROID_PHASE4_PASS frames=53 totalMs=24651`.
+The same log records encoder/tok14 and 14 step invocations, and decoder batch
+counts dec16(16,16,16) plus dec8(5) for 53 frames total.
+Final verdict: `REAL_ANDROID53_NATIVE_CPP_LITERT_PASS`.
+
+- Full integration execution: https://github.com/lyonbegin/hitel-room/actions/runs/43444969601
+- Emulator screenshots, first/last model frames and logcat artifact: https://github.com/lyonbegin/hitel-room/actions/runs/43444969601/artifacts/14046858649
+- Built independent model-bearing APK artifact: https://github.com/lyonbegin/hitel-room/actions/runs/43444969601/artifacts/14046788374
+
+The measured `totalMs=24651` covers a whole synthetic 53-frame generation pass,
+not a real-time FPS throughput guarantee or first-frame latency benchmark.
 
 ## Next gates (in order)
 
