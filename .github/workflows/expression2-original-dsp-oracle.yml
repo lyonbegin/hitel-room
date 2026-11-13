@@ -56,7 +56,7 @@ jobs:
           unzip -p "$RUNNER_TEMP/expression2-0.6.2.aar" 'jni/arm64-v8a/libexpr2jni.so' > "$app/src/main/jniLibs/arm64-v8a/libexpr2jni.so"
           unzip -p "$RUNNER_TEMP/expression2-0.6.2.aar" 'jni/arm64-v8a/libLiteRt.so' > "$app/src/main/jniLibs/arm64-v8a/libLiteRt.so"
           sha256sum "$app/src/main/jniLibs/arm64-v8a/"*.so
-          "$ARM64_NDK_COMPILER" -O2 -ffp-contract=off -fPIC -shared -std=c++17 \
+          "$ARM64_NDK_COMPILER" -O2 -fPIC -shared -std=c++17 \
             -Wno-unused-parameter \
             experiments/bithuman-expression2-oracle/OriginalPreprocessorJNI.cpp \
             -llog -ldl -o "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
