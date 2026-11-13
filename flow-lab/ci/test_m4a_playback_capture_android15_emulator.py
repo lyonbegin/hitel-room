@@ -84,14 +84,21 @@ try:
         nodes=controls(xml)
         important=[n for n in nodes if n["text"] or n["desc"]]
         print("CONSENT_UI",sweep,[(x["text"] or x["desc"])[:55] for x in important][-20:],flush=True)
-        # Android API 35: choose entire screen and explicitly approve capture.
-        candidates=[n for n in important if any(t in (n["text"]+" "+n["desc"]).lower() for t in
-            ("entire screen","full screen","전체 화면","전체 화면 공유"))]
+        # Pixel Android 15: spinner defaults to "A single app"; select "Entire screen".
+        # IMPORTANT: never match "Start recording ..." in the dialog title;
+        # click only the actual system confirmation BUTTON text "Start".
+        candidates=[n for n in important if n["text"].strip().lower() in
+                    ("entire screen","share entire screen","전체 화면")]
         if candidates and "entire" not in clicked:
             if click(candidates[-1]):clicked.add("entire");time.sleep(1);continue
-        candidates=[n for n in important if any(t in (n["text"]+" "+n["desc"]).lower() for t in
-            ("start now","지금 시작","start recording","start sharing","공유 시작","시작하기","start share"))]
-        if candidates:
+        candidates=[n for n in important if n["text"].strip().lower() in
+                    ("a single app","하나의 앱","단일 앱")]
+        if candidates and "spinner" not in clicked and "entire" not in clicked:
+            if click(candidates[-1]):clicked.add("spinner");time.sleep(1);continue
+        candidates=[n for n in important if n["class"].endswith("Button") and
+                    n["text"].strip().lower() in
+                    ("start","start now","지금 시작","start recording","공유 시작","시작하기")]
+        if candidates and "entire" in clicked:
             if click(candidates[-1]):time.sleep(2);continue
         time.sleep(1)
     else:
