@@ -1,0 +1,195 @@
+name: Expression2 original ARM64 machine-code five independent binary analyzers
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-five-tools-original-machine-code-audit.yml
+      - tools/bithuman_deep/five_tool_*
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+env:
+  AAR_URL: https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar
+  AAR_SHA: 067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584
+  SO_SHA: ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c
+
+jobs:
+  lief-capstone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --no-cache-dir lief capstone==5.0.6 pyelftools==0.32
+          mkdir -p build/original reports/five-tools/lief-capstone
+          python -m pip freeze > reports/five-tools/lief-capstone/versions.txt
+      - name: Verify original ELF
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 180 "$AAR_URL" -o build/original/source.aar
+          echo "$AAR_SHA  build/original/source.aar" | sha256sum -c
+          unzip -p build/original/source.aar jni/arm64-v8a/libexpr2jni.so > build/original/original.so
+          echo "$SO_SHA  build/original/original.so" | sha256sum -c
+      - name: Execute LIEF ELF analysis and Capstone all-FDE instruction audit
+        run: |
+          python tools/bithuman_deep/five_tool_lief_capstone.py \
+            --elf build/original/original.so --out reports/five-tools/lief-capstone
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-five-tool-lief-capstone
+          path: reports/five-tools/lief-capstone/
+          retention-days: 30
+      - if: always()
+        run: rm -rf build/original
+
+  ddisasm-gtirb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          set -euo pipefail
+          mkdir -p build/original reports/five-tools/ddisasm
+          curl -fLsS --retry 3 --max-time 180 "$AAR_URL" -o build/original/source.aar
+          echo "$AAR_SHA  build/original/source.aar" | sha256sum -c
+          unzip -p build/original/source.aar jni/arm64-v8a/libexpr2jni.so > build/original/original.so
+          echo "$SO_SHA  build/original/original.so" | sha256sum -c
+      - name: Actual DDisasm ARM64 ELF to GTIRB classification
+        run: |
+          set -euo pipefail
+          docker pull grammatech/ddisasm:latest
+          docker image inspect grammatech/ddisasm:latest --format '{{index .RepoDigests 0}}' \
+            > reports/five-tools/ddisasm/docker-image-digest.txt
+          timeout 1450s docker run --rm \
+            -v "$PWD/build/original:/original:ro" \
+            -v "$PWD/reports/five-tools/ddisasm:/output" \
+            grammatech/ddisasm:latest \
+            ddisasm /original/original.so --ir /output/original.gtirb
+          test -s reports/five-tools/ddisasm/original.gtirb
+      - name: Extract original code/data blocks symbols and complete static CFG from GTIRB
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir gtirb
+          python tools/bithuman_deep/five_tool_gtirb.py \
+            --ir reports/five-tools/ddisasm/original.gtirb \
+            --out reports/five-tools/ddisasm
+          rm reports/five-tools/ddisasm/original.gtirb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-five-tool-ddisasm-gtirb
+          path: reports/five-tools/ddisasm/
+          retention-days: 30
+      - if: always()
+        run: rm -rf build/original reports/five-tools/ddisasm/original.gtirb
+
+  dyninst-parseapi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dyninst parseAPI and compile static analysis executable
+        run: |
+          set -euo pipefail
+          mkdir -p build/dyninst reports/five-tools/dyninst
+          sudo apt-get update -qq
+          sudo apt-get install -y libdyninst-dev libelf-dev libdwarf-dev
+          dpkg-query -W 'libdyninst*' > reports/five-tools/dyninst/versions.txt
+          g++ -std=c++17 -O2 -I/usr/include/dyninst \
+            tools/bithuman_deep/five_tool_dyninst.cpp \
+            -lparseAPI -linstructionAPI -lsymtabAPI -lcommon \
+            -o build/dyninst/analysis
+      - name: Fetch original without modifications
+        run: |
+          set -euo pipefail
+          mkdir -p build/original
+          curl -fLsS --retry 3 --max-time 180 "$AAR_URL" -o build/original/source.aar
+          echo "$AAR_SHA  build/original/source.aar" | sha256sum -c
+          unzip -p build/original/source.aar jni/arm64-v8a/libexpr2jni.so > build/original/original.so
+          echo "$SO_SHA  build/original/original.so" | sha256sum -c
+      - name: Run Dyninst independent ARM64 function call and basic-block CFG analysis
+        run: |
+          OMP_NUM_THREADS=2 timeout 600s build/dyninst/analysis \
+            build/original/original.so reports/five-tools/dyninst
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-five-tool-dyninst-parseapi
+          path: reports/five-tools/dyninst/
+          retention-days: 30
+      - if: always()
+        run: rm -rf build/original
+
+  ghidra-raw-pcode:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43518753947
+          name: expression2-original-full-fde-pcode-memory-structure-vs-hitel-sdk
+          github-token: ${{ github.token }}
+          path: build/ghidra-proof
+      - name: Validate and reuse previous full original Ghidra 12.2 P-code analysis
+        run: |
+          set -euo pipefail
+          mkdir -p reports/five-tools/ghidra
+          F="$(find build/ghidra-proof -name pcode-summary.json | head -1)"
+          test -n "$F"
+          python - "$F" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          assert d["original_function_ranges"]==2629 and d["decoded_fde_ranges"]==2629
+          assert d["pcode_load"]==39397 and d["pcode_store"]==25488
+          print("GHIDRA_REAL_ORIGINAL_REFERENCE_PASS",d["original_function_ranges"])
+          PY
+          cp "$F" reports/five-tools/ghidra/pcode-summary.json
+          C="$(find build/ghidra-proof -name pcode-fde-coverage.tsv | head -1)"
+          test -n "$C"
+          cp "$C" reports/five-tools/ghidra/pcode-fde-coverage.tsv
+          echo 'source: https://github.com/lyonbegin/hitel-room/actions/runs/43518753947' \
+             > reports/five-tools/ghidra/source.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-five-tool-ghidra-original-pcode
+          path: reports/five-tools/ghidra/
+          retention-days: 30
+
+  cross-tool:
+    if: always()
+    needs: [lief-capstone, ddisasm-gtirb, dyninst-parseapi, ghidra-raw-pcode]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: expression2-five-tool-*
+          path: build/five-tool-inputs
+      - name: Cross-compare original ELF function boundaries and coverage without rewriting
+        run: |
+          set -euo pipefail
+          python tools/bithuman_deep/five_tool_cross_compare.py \
+            --root build/five-tool-inputs --out reports/five-tools/comparison
+          cat reports/five-tools/comparison/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+          cat > reports/five-tools/comparison/ci-job-verdict.txt <<'EOF'
+          LIEF-Capstone: ${{ needs.lief-capstone.result }}
+          DDisasm-GTIRB: ${{ needs.ddisasm-gtirb.result }}
+          Dyninst-ParseAPI: ${{ needs.dyninst-parseapi.result }}
+          Ghidra-Pcode: ${{ needs.ghidra-raw-pcode.result }}
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-five-tool-original-machine-code-comparison
+          path: reports/five-tools/comparison/
+          retention-days: 30
