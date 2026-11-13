@@ -5,7 +5,7 @@ Compare function symbols (.dynsym/.symtab), .eh_frame FDE ranges, and code
 pointers from relocated C++ data. Recompose original bytes using bounds
 from these tables; report unresolved ranges, without altering vendor code.
 """
-import argparse,collections,hashlib,json
+import argparse,collections,hashlib,json,struct
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import SymbolTableSection
@@ -56,6 +56,53 @@ def run(args):
                     fdes.append(dict(start=start,length=length))
         fde_starts={x["start"] for x in fdes}
         fde_intervals=[(x["start"],x["start"]+x["length"]) for x in fdes]
+        hdr=elf.get_section_by_name(".eh_frame_hdr")
+        unwind=elf.get_section_by_name(".eh_frame")
+        if hdr is None or unwind is None:
+            raise RuntimeError("Original function-address header missing")
+        hb=hdr.data()
+        version,enc_ptr,enc_count,enc_table=hb[:4]
+        # Standard Linux GNU exception search table:
+        # version=1, eh_frame_ptr=PCREL|SDATA4,
+        # FDE count=UDATA4, table entries=DATAREL|SDATA4.
+        if (version,enc_ptr,enc_count,enc_table)!=(1,0x1b,3,0x3b):
+            raise RuntimeError("Unhandled .eh_frame_hdr pointer encodings: "+
+                repr((version,enc_ptr,enc_count,enc_table)))
+        hbase=int(hdr["sh_addr"])
+        ehbase=int(unwind["sh_addr"])
+        ehptr=hbase+4+struct.unpack_from("<i",hb,4)[0]
+        if ehptr!=ehbase:
+            raise RuntimeError("Unwind header does not refer to .eh_frame")
+        table_count=struct.unpack_from("<I",hb,8)[0]
+        if len(hb)!=12+8*table_count:
+            raise RuntimeError("Unwind binary-search table has unexpected size")
+        header_entries=[]
+        for i in range(table_count):
+            offset=12+i*8
+            start=hbase+struct.unpack_from("<i",hb,offset)[0]
+            pointer=hbase+struct.unpack_from("<i",hb,offset+4)[0]
+            header_entries.append((start,pointer))
+        if table_count!=len(fdes):
+            raise RuntimeError("FDE index and unwind range count mismatch")
+        if [p[0] for p in header_entries]!=sorted(fde_starts):
+            raise RuntimeError("Unwind header function address index disagrees with FDEs")
+        fde_pointer_index={
+            (int(e["initial_location"]),ehbase+int(e.offset))
+            for e in dwarf.EH_CFI_entries() if isinstance(e,FDE)
+            and code_addr(int(e["initial_location"]))
+        }
+        if set(header_entries)!=fde_pointer_index:
+            raise RuntimeError("Header FDE offsets disagree with .eh_frame records")
+        address_index_verification={
+            "section":".eh_frame_hdr",
+            "header_length_bytes":len(hb),
+            "header_index_entries":table_count,
+            "pointer_encoding":"pcrel/sdata4",
+            "table_encoding":"datarel/sdata4",
+            "header_and_fde_start_address_sets_equal":True,
+            "header_and_fde_pointer_pairs_equal":True,
+            "sorted_address_table_verified":True
+        }
         ptrs=[]
         targets_by_section=collections.Counter()
         for tab in sections:
@@ -81,6 +128,7 @@ def run(args):
         full=bytearray(raw)
         partial=bytearray(raw)
         details=[]
+        gaps=[]
         total=0
         known=0
         piece_count=0
@@ -94,7 +142,13 @@ def run(args):
                 content=raw[offset:offset+stop-start]
                 is_known=any(a<=start and stop<=b for a,b in parts)
                 original_pieces.append((offset,content))
-                if not is_known:partial[offset:offset+len(content)]=bytes(len(content))
+                if not is_known:
+                    partial[offset:offset+len(content)]=bytes(len(content))
+                    gaps.append(dict(
+                        section=s["name"],virtual_start=hex(start),
+                        virtual_end_exclusive=hex(stop),bytes=stop-start,
+                        candidate_function_pointer_hits=sum(start<=p<stop for p in ptr_starts)
+                    ))
             for offset,content in reversed(original_pieces):
                 full[offset:offset+len(content)]=content
             piece_count+=len(original_pieces)
@@ -116,6 +170,7 @@ def run(args):
           "unique_pointer_targets":len(ptr_starts),
           "pointer_targets_by_section":dict(targets_by_section),
           "all_unique_address_seeds":len(symbol_starts|fde_starts|ptr_starts),
+          "eh_frame_hdr_verification":address_index_verification,
           "executable_bytes":total,
           "symbol_covered_bytes":count_source(sym_intervals),
           "unwind_covered_bytes":count_source(fde_intervals),
@@ -124,6 +179,7 @@ def run(args):
           "not_covered_difference_bytes_if_zeroed":different,
           "executable_pieces_split_at_address_table_ranges":piece_count,
           "section_details":details,
+          "not_covered_ranges":gaps,
           "reassembled_original_sha256":sha(full),
           "reassembled_original_byte_difference":0,
           "independent_new_so_built":False,
@@ -145,6 +201,8 @@ def run(args):
           "Unwind starts missing from symbol table: "+str(len(fde_starts-symbol_starts)),
           "Relocated code-pointer targets: "+str(len(ptr_starts)),
           "All candidate address seeds: "+str(len(symbol_starts|fde_starts|ptr_starts)),
+          "Verified function address index in .eh_frame_hdr: "+str(table_count),
+          "Header index matches unwind FDE pairs: YES",
           "Executable bytes: "+str(total),
           "Original bytes covered by symbol lengths: "+str(count_source(sym_intervals)),
           "Original bytes covered by unwind FDE ranges: "+str(count_source(fde_intervals)),
@@ -153,6 +211,7 @@ def run(args):
           "Unknown byte differences if absent: "+str(different),
           "Function-boundary code pieces: "+str(piece_count),
           "Full original-file recomposition difference: ZERO",
+          "Unclassified ranges: "+str(gaps),
           "This is byte-identity checking, not an independent new .so."]
         (args.out/"SUMMARY.md").write_text("\n".join(lines)+"\n")
         print("EXPR2_TABLE_FIRST_RECOMPOSITION_PASS",
