@@ -13,6 +13,9 @@ done
 sha256sum "$APK" > "$OUT/apk-sha256.txt"
 adb install -r "$APK" | tee "$OUT/install.log"
 adb logcat -c
+# Keep all early native bridge messages and crash evidence before the filtered poll.
+adb logcat -v time > "$OUT/complete-live.logcat" 2>&1 &
+LOGCAT_PID=$!
 adb shell am start -n com.example.x2hello/.MainActivity | tee "$OUT/launch.log"
 for i in $(seq 1 65); do
   adb logcat -d -v time -s EXPR2_ORACLE:I EXPR2_ORIGINAL_ORACLE:I '*:S' > "$OUT/differential.logcat" || true
@@ -20,12 +23,16 @@ for i in $(seq 1 65); do
   if grep -q ORIGINAL_ORACLE_FAILURE "$OUT/differential.logcat"; then break; fi
   sleep 2
 done
-adb logcat -d -v time -t 6000 > "$OUT/all.logcat" || true
+adb logcat -d -v time > "$OUT/all.logcat" || true
+adb logcat -b crash -d -v time > "$OUT/crash-buffer.logcat" || true
+kill "$LOGCAT_PID" 2>/dev/null || true
+sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
 grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
+  grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
   exit 1
 fi
