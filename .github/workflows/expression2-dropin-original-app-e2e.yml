@@ -1,0 +1,154 @@
+name: Expression2 independent SDK AAR integrated into unmodified original GitHub app
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-dropin-original-app-e2e.yml
+      - sdk/expression2-dropin/**
+      - sdk/expression2-verified-core/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-original-app-with-independent-sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android 35 and native toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)"
+          "$manager" "platforms;android-35" "build-tools;34.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Clone upstream original app and save full source fingerprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/upstream"
+          proj="$RUNNER_TEMP/upstream/android/expression2-hello"
+          mkdir -p build/expression2-dropin
+          git -C "$RUNNER_TEMP/upstream" rev-parse HEAD > build/expression2-dropin/upstream-commit.txt
+          (
+            cd "$proj"
+            find app/src -type f -print0 | sort -z | xargs -0 sha256sum
+          ) > build/expression2-dropin/original-app-source-before.sha256
+      - name: Add SDK module, change only Gradle dependency in upstream app
+        shell: bash
+        run: |
+          set -euo pipefail
+          proj="$RUNNER_TEMP/upstream/android/expression2-hello"
+          cp -a sdk/expression2-dropin "$proj/expression2-dropin"
+          mkdir -p "$proj/expression2-verified-core"
+          cp -a sdk/expression2-verified-core/src "$proj/expression2-verified-core/src"
+          cp -a sdk/expression2-verified-core/include "$proj/expression2-verified-core/include"
+          python3 - "$proj" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          app=p/"app/build.gradle.kts"
+          original=app.read_text()
+          needle='implementation("ai.bithuman:expression2-android:0.6.1")'
+          assert original.count(needle)==1, "Upstream SDK coordinate unexpectedly changed"
+          app.write_text(original.replace(needle,'implementation(project(":expression2-dropin"))'))
+          root=p/"build.gradle.kts"
+          root_src=root.read_text()
+          assert 'id("com.android.application") version "8.7.3" apply false' in root_src
+          root.write_text(root_src.replace(
+              'id("com.android.application") version "8.7.3" apply false',
+              'id("com.android.application") version "8.7.3" apply false\n'
+              '    id("com.android.library") version "8.7.3" apply false'))
+          settings=p/"settings.gradle.kts"
+          settings.write_text(settings.read_text()+'\ninclude(":expression2-dropin")\n')
+          print("SDK_DEPENDENCY_REPLACED_APP_KOTLIN_SOURCE_UNTOUCHED")
+          PY
+          (
+            cd "$proj"
+            find app/src -type f -print0 | sort -z | xargs -0 sha256sum
+          ) > build/expression2-dropin/original-app-source-after.sha256
+          cmp build/expression2-dropin/original-app-source-before.sha256 \
+              build/expression2-dropin/original-app-source-after.sha256
+          echo ORIGINAL_APP_ALL_SOURCE_ASSETS_BYTE_IDENTICAL
+      - name: Compile independent SDK AAR and original app APK
+        shell: bash
+        env:
+          # Only satisfies the original demo's BuildConfig nonblank check.
+          # It is NOT a vendor credential and is never transmitted for auth.
+          BITHUMAN_API_SECRET: HITEL_LOCAL_PUBLIC_MODEL_ONLY_NOT_A_VENDOR_SECRET
+        run: |
+          set -euo pipefail
+          proj="$RUNNER_TEMP/upstream/android/expression2-hello"
+          (
+            cd "$proj"
+            chmod +x gradlew
+            ./gradlew --no-daemon --max-workers=2 \
+                :expression2-dropin:assembleDebug :app:assembleDebug
+          )
+          cp "$proj/expression2-dropin/build/outputs/aar/expression2-dropin-debug.aar" \
+              build/expression2-dropin/hitel-expression2-independent.aar
+          cp "$proj/app/build/outputs/apk/debug/app-debug.apk" \
+              build/expression2-dropin/upstream-expression2-hello-sdk-replaced.apk
+          unzip -Z1 build/expression2-dropin/upstream-expression2-hello-sdk-replaced.apk \
+              > build/expression2-dropin/apk-members.txt
+          if grep -E 'libexpr2jni.so|ai.bithuman/expression2-android' \
+              build/expression2-dropin/apk-members.txt;then
+            echo PROPRIETARY_VENDOR_SDK_UNEXPECTED_IN_REPLACEMENT_APP
+            exit 1
+          fi
+          grep 'lib/arm64-v8a/libhitel_expression2_core.so' build/expression2-dropin/apk-members.txt
+          sha256sum build/expression2-dropin/hitel-expression2-independent.aar \
+              build/expression2-dropin/upstream-expression2-hello-sdk-replaced.apk \
+              > build/expression2-dropin/package-sha256.txt
+          echo ORIGINAL_GITHUB_APP_SDK_ONLY_REPLACEMENT_BUILD_PASS
+      - name: Upload independent AAR and original app build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-expression2-dropin-aar-and-original-app
+          path: build/expression2-dropin/
+          if-no-files-found: warn
+          retention-days: 30
+  run-actual-original-app-on-emulator:
+    needs: compile-original-app-with-independent-sdk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: hitel-expression2-dropin-aar-and-original-app
+          path: build/expression2-dropin/
+      - name: Enable KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and launch the EXACT upstream sample with only SDK swapped
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 4096
+          script: bash sdk/expression2-dropin/test-upstream-original-app.sh
+      - name: Publish raw emulator evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-expression2-original-app-emulator-log-evidence
+          path: reports/expression2-dropin/
+          if-no-files-found: warn
+          retention-days: 30
