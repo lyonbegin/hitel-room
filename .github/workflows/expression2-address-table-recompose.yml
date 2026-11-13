@@ -1,0 +1,69 @@
+name: Expression2 original ELF function-address-table-first reconstruction
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-address-table-recompose.yml
+      - tools/bithuman_deep/expression2_address_table_recompose.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  table-led-function-boundary-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install read-only ELF structure parser
+        shell: bash
+        run: python3 -m pip install --disable-pip-version-check pyelftools==0.32
+      - name: Download original vendor AAR and check exact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/original-expr2"
+          curl -fL --retry 3 --connect-timeout 25 --max-time 180 \
+            -o "$RUNNER_TEMP/original-expr2/original.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          echo "067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  $RUNNER_TEMP/original-expr2/original.aar" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/original-expr2/original.aar" \
+            'jni/arm64-v8a/libexpr2jni.so' > "$RUNNER_TEMP/original-expr2/original.so"
+          echo "ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c  $RUNNER_TEMP/original-expr2/original.so" | sha256sum -c -
+          readelf -WS "$RUNNER_TEMP/original-expr2/original.so" | grep -E 'eh_frame|dynsym|symtab|data.rel.ro|rela.dyn|text'
+      - name: Enumerate original SO address tables and reconstruct split code regions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/bithuman_deep/expression2_address_table_recompose.py
+          python3 tools/bithuman_deep/expression2_address_table_recompose.py \
+            --elf "$RUNNER_TEMP/original-expr2/original.so" \
+            --out reports/expression2-address-table-recompose
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("reports/expression2-address-table-recompose/audit.json").read_text())
+          assert d["original_elf_size"]==1188304,d
+          assert d["reassembled_original_byte_difference"]==0,d
+          assert d["symbol_function_unique_starts"]>0,d
+          assert d["unwind_FDE_unique_starts"]>0,d
+          assert d["executable_bytes"]>=680000,d
+          assert d["combined_symbol_and_unwind_covered_bytes"]>0,d
+          assert d["authentication_modified"] is False
+          print("EXPR2_ORIGINAL_FUNCTION_TABLES_REASSEMBLY_VERIFIED")
+          PY
+          cat reports/expression2-address-table-recompose/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive statistics and source references without exporting vendor binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-elf-address-tables-unwind-fde-pointer-targets-recomposition
+          path: reports/expression2-address-table-recompose/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Delete original binary from runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/original-expr2"
