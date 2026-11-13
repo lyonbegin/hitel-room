@@ -127,7 +127,9 @@ def start_capture(case="local-file",source="self-app"):
     selected_source=False
     start_clicked=False
     selected_app=False
-    for step in range(22):
+    app_tap_attempts=0
+    last_app_tap_step=-99
+    for step in range(28):
         nodes=uixml("native-consent-"+case+"-"+str(step))
         # Check service activation first, before clicking the next control.
         state=adb("logcat","-d","-s","HITEL-SPEAKER-DIAG:I","*:S",timeout=30)
@@ -172,9 +174,23 @@ def start_capture(case="local-file",source="self-app"):
                     and n["bounds"][2]>n["bounds"][0]
                     and n["bounds"][3]>n["bounds"][1]),None)
             if n:
-                tap_node(n)
-                selected_app=True
-                print("ANDROID_SYSTEM_SINGLE_APP_SELECTED",name,flush=True)
+                if not selected_app or step-last_app_tap_step>=3:
+                    # Tap the clickable app CARD's icon rather than the
+                    # label (a non-clickable child). Actual Android 15 XML:
+                    # label [302,1776][508,1819]; parent clickable card
+                    # android:id/item [270,1548][540,1894].
+                    cx=(n["bounds"][0]+n["bounds"][2])//2
+                    label_y=n["bounds"][1]
+                    icon_y=max(500,label_y-160)
+                    adb("shell","input","tap",str(cx),str(icon_y))
+                    print("ANDROID_SYSTEM_CLICKABLE_APP_CARD",name,
+                          "iconPoint",cx,icon_y,"attempt",app_tap_attempts+1,flush=True)
+                    app_tap_attempts+=1
+                    last_app_tap_step=step
+                    selected_app=True
+                    if app_tap_attempts>=5:
+                        raise AssertionError("SYSTEM_APP_PICKER_DID_NOT_RETURN_RESULT after 5 real card taps")
+                    time.sleep(2)
                 continue
             n=exact("Share","공유","Share this app","이 앱 공유","Start","시작")
             if n:
