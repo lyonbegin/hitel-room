@@ -38,6 +38,23 @@ public class Expression2InstructionGapAudit extends GhidraScript {
                     Long.toHexString(rva)+" bytes="+hex+" class="+category);
             }
         }
+        // Disassemble in the ANALYSIS DATABASE only, never patch original SO.
+        Address missing=toAddr(0x1124c8L+ghidraBase);
+        if(getInstructionAt(missing)!=null)
+            throw new IllegalStateException("Expected previously undefined 4-byte branch");
+        if(!disassemble(missing))
+            throw new IllegalStateException("Ghidra failed to define original AArch64 B branch");
+        Instruction recovered=getInstructionAt(missing);
+        if(recovered==null || recovered.getLength()!=4)
+            throw new IllegalStateException("Original instruction not recognized after targeted disassembly");
+        int after=0;
+        for(int off=0;off<range;off+=4)
+            if(getInstructionAt(toAddr(elfStart+ghidraBase+off))!=null)after++;
+        println("EXPR2_ORIGINAL_GHIDRA_TARGETED_DISASSEMBLY_PASS "+
+            "original_elf_va=0x1124c8 opcode=0c000014 "+
+            "instruction="+recovered.toString()+" recognized="+after+"/135 "+
+            "vendor_binary_modified=false");
+        if(after!=135)throw new IllegalStateException("Remaining undecoded 4-byte slot");
         println("EXPR2_FDE_HOLE_AUDIT_PASS recognized="+valid+
             " unrecognized="+undefined+" defined_data="+data+
             " expected_capstone_instructions=135");
