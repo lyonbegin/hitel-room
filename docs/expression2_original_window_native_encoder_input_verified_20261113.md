@@ -19,10 +19,13 @@ New files captured by existing Android oracle CI:
 - `stream_<case>_original_preprocessed.f32` (35,200 Float32 per case)
 - `stream_<case>_original_encoder_x3.f32` (35,200 Float32 per case)
 
-Six cases: `step0_threshold`, `step0_extra`, `step1_full`, `step2_full`, `step3_partial`, `step3_full`. The step1 full input is required to be byte-identical to previous `spoken_tts_input.f32`, and the original preprocessor output must also be byte-identical on the repeated invocation.
+Eight cases: `step0_threshold`, `step0_extra`, `step1_full`, `step2_full`, `step3_partial`, `step3_full`. The step1 full input is required to be byte-identical to previous `spoken_tts_input.f32`, and the original preprocessor output must also be byte-identical on the repeated invocation.
 
 **Critical distinction:** windows are assembled from *actual original machine instruction control flow*, but `FUN_001a8500` is **not invoked end to end** in this harness. Only `FUN_001a9794` executes in the original ARM64 binary. The original scheduler, encoder/tok14/step inference, backend async transfer, live `feed -> pump -> pull`, identity conditioning and live frame timing are **not** established by this test. The test APK remains a function verification tool, not a production talking-avatar SDK.
 
 ## Next gate
 
 Use the saved real source-window inputs to compare the original SDK's *actual* encoder/step intermediate tensors, including first-6 and later-8 token slices. Do not claim a full vendor-equivalent stream until original-runtime outputs and frame/PTS metadata match on identical PCM.
+## Active-tail sensitivity regression
+
+Two additional cases use identical audio before sample 25,600, but deliberately add nonzero dual-tone audio after that threshold. Step 0 must produce exactly the same original encoder-input Float32 bytes as the non-augmented reference, while step 1 must produce different bytes. Both conditions are asserted on Android output; this prevents a silent-tail input from concealing a mistaken window selection.

@@ -177,7 +177,7 @@ done
 # Verify actual original ARM64 preprocessor outputs on source-derived
 # FUN_001a8500 44,000-sample windows, including startup zero padding.
 adb exec-out run-as com.example.x2hello cat files/original_stream_window_report.json > "$OUT/original_stream_window_report.json"
-for name in step0_threshold step0_extra step1_full step2_full step3_partial step3_full; do
+for name in step0_threshold step0_extra step1_full step2_full step3_partial step3_full step0_active_tail step1_active_tail; do
   adb exec-out run-as com.example.x2hello cat "files/stream_${name}_window.f32" > "$OUT/stream_${name}_window.f32"
   adb exec-out run-as com.example.x2hello cat "files/stream_${name}_original_preprocessed.f32" > "$OUT/stream_${name}_original_preprocessed.f32"
   adb exec-out run-as com.example.x2hello cat "files/stream_${name}_original_encoder_x3.f32" > "$OUT/stream_${name}_original_encoder_x3.f32"
@@ -193,7 +193,8 @@ d=json.loads((root/"original_stream_window_report.json").read_text())
 assert d["source_window_rva"]=="0x001a8500",d
 assert d["executed_original_preprocessor_rva"]=="0x001a9794",d
 assert d["source_derived_not_runtime_full_inference"] is True
-assert d["case_count"]==6 and d["status"]=="PASS",d
+assert d["case_count"]==8 and d["status"]=="PASS",d
+assert d["active_tail_step0_invariant"] is True and d["active_tail_step1_sensitive"] is True,d
 expected={
     "step0_threshold":(0,25600,18400),
     "step0_extra":(0,25600,18400),
@@ -201,6 +202,8 @@ expected={
     "step2_full":(25600,44000,0),
     "step3_partial":(51200,28800,15200),
     "step3_full":(51200,44000,0),
+    "step0_active_tail":(0,25600,18400),
+    "step1_active_tail":(0,44000,0),
 }
 assert {x["name"] for x in d["cases"]}==set(expected)
 for case in d["cases"]:
@@ -227,6 +230,10 @@ for case in d["cases"]:
     print("ORIGINAL_STREAM_SOURCE_WINDOW_AND_NATIVE_DSP_PASS",name,
           "start",start,"copied",count,"pad",padding)
 # First fully observed 44k original input is the same original TTS reference.
+assert (root/"stream_step0_active_tail_window.f32").read_bytes()==(root/"stream_step0_extra_window.f32").read_bytes()
+assert (root/"stream_step0_active_tail_original_encoder_x3.f32").read_bytes()==(root/"stream_step0_extra_original_encoder_x3.f32").read_bytes()
+assert (root/"stream_step1_active_tail_window.f32").read_bytes()!=(root/"stream_step1_full_window.f32").read_bytes()
+assert (root/"stream_step1_active_tail_original_encoder_x3.f32").read_bytes()!=(root/"stream_step1_full_original_encoder_x3.f32").read_bytes()
 assert (root/"stream_step1_full_window.f32").read_bytes()==(root/"spoken_tts_input.f32").read_bytes()
 assert (root/"stream_step1_full_original_preprocessed.f32").read_bytes()==(root/"spoken_tts_original.f32").read_bytes()
 print("ORIGINAL_STREAM_PREPROCESSOR_SAME_PCM_REPRODUCIBLE_PASS",len(d["cases"]))

@@ -135,7 +135,8 @@ class MainActivity: Activity() {
     private fun originalStreamWindowProof() {
         data class Probe(
             val name: String, val step: Int, val available: Int,
-            val expectedStart: Int, val expectedCopy: Int
+            val expectedStart: Int, val expectedCopy: Int,
+            val activeTail: Boolean = false
         )
         val cases = arrayOf(
             Probe("step0_threshold", 0, 25600, 0, 25600),
@@ -143,15 +144,21 @@ class MainActivity: Activity() {
             Probe("step1_full", 1, 44000, 0, 44000),
             Probe("step2_full", 2, 69600, 25600, 44000),
             Probe("step3_partial", 3, 80000, 51200, 28800),
-            Probe("step3_full", 3, 96000, 51200, 44000)
+            Probe("step3_full", 3, 96000, 51200, 44000),
+            Probe("step0_active_tail", 0, 44000, 0, 25600, true),
+            Probe("step1_active_tail", 1, 44000, 0, 44000, true)
         )
         val seed = originalSpeech()
         val rows = JSONArray()
+        val encodedHashes = mutableMapOf<String,String>()
         for (probe in cases) {
             // The initial 44,000 samples are the identical TTS asset used by
             // the existing standalone original-vs-candidate DSP test.
             val pcm = FloatArray(probe.available) { i ->
-                if (i < seed.size) seed[i]
+                if (probe.activeTail && i >= 25600) {
+                    val t = (i - 25600) / 16000.0
+                    (0.19*sin(2.0*PI*421.0*t) + 0.04*sin(2.0*PI*837.0*t)).toFloat()
+                } else if (i < seed.size) seed[i]
                 else seed[i % seed.size] * (if (i < 70000) 0.75f else 1.25f)
             }
             val start = if (probe.step > 1) (probe.step - 1) * 25600 else 0
@@ -171,6 +178,7 @@ class MainActivity: Activity() {
             require(original.size == 35200 && original.all { it.isFinite() })
             val encoderInput = FloatArray(original.size) { original[it] * 3.0f }
             require(encoderInput.all { it.isFinite() })
+            encodedHashes[probe.name] = hash(encoderInput)
 
             // Existing independently reconstructed candidate: diagnostic only.
             // Its output is NOT substituted for the original encoder input.
@@ -204,6 +212,16 @@ class MainActivity: Activity() {
                 " step=" + probe.step + " copied=" + copied +
                 " pad=" + (window.size-copied) + " exact=" + exact)
         }
+        // A nonzero post-25,600 tail must have no effect on step 0,
+        // but it must change the original step-1 encoder input.
+        require(encodedHashes.getValue("step0_active_tail") ==
+                encodedHashes.getValue("step0_extra")) {
+            "Original first-step input unexpectedly depends on later PCM"
+        }
+        require(encodedHashes.getValue("step1_active_tail") !=
+                encodedHashes.getValue("step1_full")) {
+            "Original second-step input failed to observe active tail"
+        }
         val result = JSONObject()
             .put("source", "unmodified Expression2 0.6.2 ARM64 FUN_001a8500 window assembly")
             .put("source_window_rva", "0x001a8500")
@@ -213,6 +231,8 @@ class MainActivity: Activity() {
             .put("preprocessed_samples", 35200)
             .put("encoder_scale", 3)
             .put("case_count", cases.size)
+            .put("active_tail_step0_invariant", true)
+            .put("active_tail_step1_sensitive", true)
             .put("cases", rows)
             .put("status", "PASS")
         File(filesDir, "original_stream_window_report.json").writeText(result.toString(2))
