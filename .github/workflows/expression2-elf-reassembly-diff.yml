@@ -1,0 +1,92 @@
+name: Expression2 original ELF split and reassembly differential
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-elf-reassembly-diff.yml
+      - tools/bithuman_deep/expression2_elf_reassemble_diff.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  check-original-elf-roundtrip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original Ghidra instruction inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-original-arm64-fully-indexed-call-closure
+          run-id: 43328017533
+          github-token: ${{ github.token }}
+          path: build/original-function-audit
+      - name: Download original ELF section and relocation inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-native-code-data-constants-resources-relocations-audit
+          run-id: 43416563947
+          github-token: ${{ github.token }}
+          path: build/original-elf-info
+      - name: Download and verify genuine bitHuman ARM64 binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expression2-roundtrip"
+          curl -fL --retry 3 --connect-timeout 20 --max-time 180 \
+            -o "$RUNNER_TEMP/expression2-roundtrip/original.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          echo "067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  $RUNNER_TEMP/expression2-roundtrip/original.aar" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/expression2-roundtrip/original.aar" \
+            'jni/arm64-v8a/libexpr2jni.so' > "$RUNNER_TEMP/expression2-roundtrip/original.so"
+          echo "ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c  $RUNNER_TEMP/expression2-roundtrip/original.so" | sha256sum -c -
+          test -s build/original-function-audit/functions.tsv
+          test -s build/original-function-audit/call-edges.tsv
+          test -d build/original-function-audit/native-instruction-bytes
+          test -s build/original-elf-info/elf-components.json
+      - name: Split original ELF into independent pieces and reconstruct and compare
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/bithuman_deep/expression2_elf_reassemble_diff.py
+          python3 tools/bithuman_deep/expression2_elf_reassemble_diff.py \
+            --elf "$RUNNER_TEMP/expression2-roundtrip/original.so" \
+            --manifest build/original-elf-info/elf-components.json \
+            --ghidra build/original-function-audit \
+            --temp "$RUNNER_TEMP/expression2-roundtrip/parts" \
+            --report reports/expression2-reassembly-diff
+          cmp "$RUNNER_TEMP/expression2-roundtrip/original.so" \
+            "$RUNNER_TEMP/expression2-roundtrip/parts/reconstructed-layout-original.so"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('reports/expression2-reassembly-diff/differential.json').read_text())
+          f=d['full_structural_reassembly']
+          x=d['function_based_partial_reassembly']
+          assert f['parts']==32 and f['differing_bytes']==0,f
+          assert d['original_elf_size']==1188304,d
+          assert x['functions']==1035 and x['instructions']==65933,x
+          assert x['verified_code_bytes']==263732,x
+          assert x['total_executable_section_bytes']==689056,x
+          assert x['unaccounted_executable_bytes']==425324,x
+          assert x['byte_differences_if_unknown_code_omitted']==374878,x
+          assert x['wrong_original_function_bytes']==0,x
+          assert d['linkage']['direct_call_edges']==2495,d
+          assert d['linkage']['dynamic_relocations']==3787,d
+          assert d['vendor_auth_modified'] is False,d
+          print('EXPR2_ORIGINAL_SPLIT_REASSEMBLY_AND_FUNCTION_DIFFERENTIAL_PASS')
+          PY
+          cat reports/expression2-reassembly-diff/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive differential report only, no proprietary original bytes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-original-ELF-split-reassembly-verified-differential
+          path: reports/expression2-reassembly-diff/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Remove original AAR and reassembled proprietary binary
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expression2-roundtrip"
