@@ -109,8 +109,7 @@ interval as code. Ghidra's default auto-analysis left it undefined,
 which accounts for the 135-vs-134 instruction mismatch in the original
 FDE beginning 0x112308. The original vendor binary was **never** changed.
 See https://github.com/lyonbegin/hitel-room/actions/runs/43528472810.
-A separate analysis-database-only Ghidra disassembly reconciliation is
-recorded at https://github.com/lyonbegin/hitel-room/actions/runs/43528724561.
+An analysis-database-only Ghidra disassembly reconciliation **PASSED** at https://github.com/lyonbegin/hitel-room/actions/runs/43528724561: the original unchanged 0x1124C8 branch was defined and all **135/135** instructions in the FDE were subsequently recognized. The earlier mismatch was auto-analysis coverage, not an original byte difference.
 
 ## Gaps before claiming complete decomposition/reassembly
 
