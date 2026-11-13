@@ -68,15 +68,19 @@ jobs:
           ffmpeg -loglevel error -y -i "$RUNNER_TEMP/original-test.wav" \
               -ac 1 -ar 16000 -f f32le "$RUNNER_TEMP/original-speech.f32"
           python3 - <<'PY'
-          import numpy as np
+          import array
+          import os
+          import math
           from pathlib import Path
-          source=np.fromfile(__import__('os').environ["RUNNER_TEMP"]+'/original-speech.f32',dtype='<f4')
+          source=array.array('f')
+          source.frombytes(Path(os.environ["RUNNER_TEMP"]+'/original-speech.f32').read_bytes())
           if len(source)<44000:
-              source=np.pad(source,(0,44000-len(source)))
-          source=source[:44000].astype('<f4')
+              source.extend([0.0]*(44000-len(source)))
+          del source[44000:]
           app=Path('build/oracle/app-path.txt').read_text().strip()
-          source.tofile(Path(app)/'src/main/assets/voice-test.f32')
-          print("VOICE_EXACT_SAMPLES",len(source),"PCM_RMS",float(np.sqrt((source**2).mean())))
+          (Path(app)/'src/main/assets/voice-test.f32').write_bytes(source.tobytes())
+          print("VOICE_EXACT_SAMPLES",len(source),
+                "PCM_RMS",math.sqrt(sum(x*x for x in source)/len(source)))
           PY
       - name: Compile original-library oracle APK
         shell: bash
