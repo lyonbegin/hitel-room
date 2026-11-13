@@ -293,7 +293,7 @@ print("EMU_REGISTRY_CALL_STATES",
       [line.strip() for line in registry.splitlines()
         if "CallState" in line or "callState" in line][:12],flush=True)
 framework_active=("active" in radio.lower() or
-  bool(re.search(r"(?:mCallState|callState)\\s*[=:]\\s*2\\b",registry)))
+  bool(re.search(r"(?:mCallState|callState)\s*[=:]\s*2\b",registry)))
 print("FRAMEWORK_GSM_OFFHOOK_ACTIVE",framework_active,flush=True)
 # Independently test media playback during the accepted GSM call, even if the
 # original V28 call-monitor event is not registered on an unconfigured AVD.
