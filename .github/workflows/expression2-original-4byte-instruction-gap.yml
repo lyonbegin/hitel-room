@@ -1,0 +1,57 @@
+name: Expression2 original ARM64 exact four-byte undecoded instruction locator
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - tools/bithuman_deep/ghidra/Expression2InstructionGapAudit.java
+      - .github/workflows/expression2-original-4byte-instruction-gap.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ghidra-four-byte-gap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download exact original 0.6.2 ARM64 binary
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expression2" reports/expression2-insn-hole
+          curl -fLsS --retry 3 --max-time 180 \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar \
+            -o "$RUNNER_TEMP/expression2/original.aar"
+          echo "067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  $RUNNER_TEMP/expression2/original.aar" | sha256sum -c
+          unzip -p "$RUNNER_TEMP/expression2/original.aar" jni/arm64-v8a/libexpr2jni.so > "$RUNNER_TEMP/expression2/original.so"
+          echo "ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c  $RUNNER_TEMP/expression2/original.so" | sha256sum -c
+      - name: Ghidra 12.2 exact original instruction identity (no source rewrite)
+        env:
+          EXPR2_INSN_GAP_REPORT: ${{ github.workspace }}/reports/expression2-insn-hole/ghidra-4-byte-scan.tsv
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --max-time 360 -o "$RUNNER_TEMP/expression2/ghidra.zip" \
+            https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip
+          unzip -q "$RUNNER_TEMP/expression2/ghidra.zip" -d "$RUNNER_TEMP/expression2"
+          GHIDRA="$(find "$RUNNER_TEMP/expression2" -name analyzeHeadless -type f | head -1)"
+          test -n "$GHIDRA"
+          chmod +x "$GHIDRA"
+          mkdir -p "$RUNNER_TEMP/expression2/project"
+          timeout 400s "$GHIDRA" "$RUNNER_TEMP/expression2/project" hole \
+            -import "$RUNNER_TEMP/expression2/original.so" \
+            -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+            -postScript Expression2InstructionGapAudit.java \
+            -max-cpu 2 -analysisTimeoutPerFile 300 -deleteProject \
+            | tee reports/expression2-insn-hole/ghidra.log
+          test -s "$EXPR2_INSN_GAP_REPORT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-ghidra-four-byte-hole-proof
+          path: reports/expression2-insn-hole/
+          retention-days: 30
+      - if: always()
+        run: rm -rf "$RUNNER_TEMP/expression2"
