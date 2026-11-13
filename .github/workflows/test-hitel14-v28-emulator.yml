@@ -1,17 +1,18 @@
-name: HITEL14 V29 Android 15 one-tap UI and prior pipeline regression
+name: HITEL14 V30 independent-app Android 15 tap and PCM regression
 on:
   push:
-    branches: ["feature/hitel14-v29-one-button-diagnostics-20261113"]
+    branches: ["feature/hitel14-v30-parallel-ready-gated-20261113"]
     paths:
       - ".github/workflows/test-hitel14-v28-emulator.yml"
       - "flow-lab/ci/test_hitel14_v28_emulator.py"
       - "flow-lab/ci/test_hitel14_v29_one_tap_ui.py"
       - "flow-lab/v23_one_tap_call_test_diagnostics_v29.py"
+      - "flow-lab/v24_v30_parallel_install_capture_ready_gate.py"
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: hitel14-v29-emulator-${{ github.ref }}
+  group: hitel14-v30-emulator-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   emulator:
@@ -59,8 +60,9 @@ jobs:
           python3 flow-lab/v21_fix_auto_folder_source_switch_v27.py
           python3 flow-lab/v22_default_monitor_route_picker_v28.py
           python3 flow-lab/v23_one_tap_call_test_diagnostics_v29.py
+          python3 flow-lab/v24_v30_parallel_install_capture_ready_gate.py
           cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
-          grep -F 'versionCode = 37' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 38' AndroidProject/app/build.gradle.kts
           grep -F 'USAGE_MEDIA' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmSpeakerMonitor.java
           grep -F 'AUTO_MONITOR_ALREADY_ARMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           sed -i 's/abiFilters += listOf("arm64-v8a")/abiFilters += listOf("x86_64")/' AndroidProject/app/build.gradle.kts
@@ -102,7 +104,7 @@ jobs:
           APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='37'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='38'"
           unzip -l "$APK" | grep 'lib/x86_64/libaac-mdat-follow.so'
       - name: Enable Linux KVM hardware acceleration for Android emulator
         run: |
@@ -133,6 +135,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hitel14-v29-android15-one-tap-and-regression-evidence
+          name: hitel14-v30-android15-one-tap-and-regression-evidence
           path: /tmp/hitel14-v28-emulator
           if-no-files-found: warn
