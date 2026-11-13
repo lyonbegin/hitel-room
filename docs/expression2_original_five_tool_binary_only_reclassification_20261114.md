@@ -18,7 +18,7 @@
 | Capstone 5.0.6 | Entire FDE machine instruction decode, registers, memory operands, branch groups and direct call edges | 170,349 instructions, 681,396 bytes, zero undecoded FDE bytes, 51,639 memory operands |
 | LIEF | ELF sections, segments, symbols, imports, dependencies, dynamic and PLT/GOT relocations | 9 segments; 3,787 relocation records; 2,194 dynamic symbols |
 | DDisasm + GTIRB | Code/data block classification, inferred CFG edge types, symbols and auxiliary data | 45,023 code blocks; 5,583 data blocks; 78,375 CFG edges; 22,207 symbols |
-| Dyninst ParseAPI | Independent ELF function/block/call flow analysis | Pending verified output at document creation; upstream source compilation required (no Ubuntu Noble dev package) |
+| Dyninst ParseAPI | Independent ELF function/block/call flow analysis | Actual success: 2,173 inferred entries; 127,638 function-block memberships; 280,386 CFG edges; 44,356 call edges; 11,556 unresolved/sink edges |
 
 **Per-function cross-check**: all 2,629 original ELF FDE entry addresses exactly matched DDisasm CodeBlock starts. Capstone vs Ghidra direct and indirect call counts matched for all 2,629. Instruction count matched for 2,628/2,629; ELF 0x112308 has 135 Capstone vs 134 Ghidra decoded instructions, 4-byte difference. This discrepancy must be investigated.
 
@@ -80,10 +80,10 @@ Function labels are analyst assignments based on earlier binary audits, not orig
 
 ## Gaps before claiming complete decomposition/reassembly
 
-1. Complete Dyninst source-build CFG execution and reconcile each newly inferred function/block edge against FDE and GTIRB.
+1. Reconcile 1,731 FDE-matched vs 898 not auto-discovered by Dyninst; seed all 2,629 from original FDE and review extra Dyninst-only entries.
 2. Investigate one Ghidra 4-byte undecoded location within ELF function 0x112308.
 3. Restore every unresolved indirect branch/vtable/relocation target and cross-thread memory ownership; P-code operations alone do not establish runtime aliasing.
 4. Perform independent component-only ELF reassembly from archived source bytes/relocation information without initializing output from a copy of the original complete binary.
 5. Extend native analysis to JNI/JVM class interfaces and IMX model input-output graph for overall SDK behavior verification.
 
-**Verdict:** four tools have completed actual source-binary analysis. Strong static function-entry/call-count agreement is independently documented. Byte-exact independently relinked executable and SDK functional parity are **not proven**.
+**Verdict:** all five tools have completed actual analysis of the same original ARM64 ELF. Dyninst symbol-guided auto-discovery matched 1,731 of the 2,629 original FDE starts; 898 FDE starts not found and 442 Dyninst-only starts (including PLT) remain independently classified. An additional run seeds Dyninst with all 2,629 original FDE starts. Strong static function-entry/call-count agreement is independently documented. Byte-exact independently relinked executable and SDK functional parity are **not proven**.
