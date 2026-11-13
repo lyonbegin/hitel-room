@@ -29,3 +29,16 @@ Use the saved real source-window inputs to compare the original SDK's *actual* e
 ## Active-tail sensitivity regression
 
 Two additional cases use identical audio before sample 25,600, but deliberately add nonzero dual-tone audio after that threshold. Step 0 must produce exactly the same original encoder-input Float32 bytes as the non-augmented reference, while step 1 must produce different bytes. Both conditions are asserted on Android output; this prevents a silent-tail input from concealing a mistaken window selection.
+
+
+## Verified Android execution (not merely proposed)
+
+- [GitHub Actions #43384495476](https://github.com/lyonbegin/hitel-room/actions/runs/43384495476): **both build and Android emulator jobs SUCCESS**.
+- APK artifact: `14017504820`; numerical/logs artifact: `14018221066`.
+- Android 14 API34, x86_64 AVD with ARM64 `libndk_translation.so`.
+- `original_stream_window_report.json`: 8 cases, status PASS, `active_tail_step0_invariant=true`, `active_tail_step1_sensitive=true`.
+- Every tested original 35,200-Float32 preprocessor output was bit-exact against the existing candidate on these **eight** controlled windows (`candidate_bit_exact=35200`, `candidate_max_abs_diff=0`). This does not prove universal numerical equivalence.
+- Active-tail case output SHA-256 (x3 encoder input): initial step `d93d82040cdbe1f55014...` equals baseline; second step `4ef5275345b38f2ec7cf...` differs from unmodified second-step baseline `d93d82040cdbe1f55014...`.
+- Test APK SHA-256: `da72f40754f6748ab21bc9691634a8d6e33011972d457b5d707f18a43e9ebcd1`; matches the Android CI artifact's `apk-sha256.txt`.
+
+**Strict remaining gate:** authenticate-independent *real original runtime* execution of `FUN_001a8500` inference / asynchronous model outputs has NOT been demonstrated. The window preparation in this harness was source-derived; only `FUN_001a9794` was actually executed from the unmodified vendor binary. Rendering, worker queue, live 20fps and real-device proof remain pending. Essence 2 still not started.
