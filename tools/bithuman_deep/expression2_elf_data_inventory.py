@@ -89,7 +89,7 @@ def package_class(name):
     return "other_package_member"
 
 
-def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: Path | None):
+def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: Path | None, imx: Path | None):
     digest = hashlib.sha256(aar.read_bytes()).hexdigest()
     if digest != EXPECTED_AAR_SHA:
         raise ValueError("Original AAR SHA256 mismatch: " + digest)
@@ -219,6 +219,16 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
                     "size_bytes": path.stat().st_size,
                     "is_required_android_expression2_model": path.name in MODEL_NAMES,
                 })
+    imx_inventory = []
+    imx_integrity = None
+    if imx is not None:
+        # The 197MB original IMX is a SEPARATE model container, not part of the .so.
+        from imx_v2 import parse as parse_imx, verify_member_hashes
+        parsed = parse_imx(imx)
+        imx_inventory = parsed["members"]
+        imx_integrity = verify_member_hashes(imx, parsed)
+        if imx_integrity["mismatches"]:
+            raise ValueError("IMX manifest hash mismatch")
     total = collections.Counter()
     count = collections.Counter()
     for s in sections:
@@ -246,6 +256,8 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
                                   for k, v in references.items()},
         "full_aar_member_inventory": packaged,
         "separately_downloaded_model_files": model_members,
+        "original_imx_members": imx_inventory,
+        "original_imx_hash_verification": imx_integrity,
         "important_limits": [
             "Constants in ARM64 instruction immediate fields are code operands, not ELF .rodata objects.",
             "Data and code share references; section categorization is not complete function-to-data xref recovery.",
@@ -269,7 +281,8 @@ def summary(data):
         "- Dynamic imports: " + str(len(data["full_dynamic_imports"])),
         "- Dynamic exports: " + str(len(data["full_dynamic_exports"])),
         "- AAR packaged entries: " + str(len(data["full_aar_member_inventory"])),
-        "- Separately downloaded model files: " + str(len(data["separately_downloaded_model_files"])), "",
+        "- Separately downloaded model files: " + str(len(data["separately_downloaded_model_files"])),
+        "- Original IMX internal members: " + str(len(data["original_imx_members"])), "",
         "## ELF section classification", "",
         "| Component | Sections | Declared bytes |",
         "|---|---:|---:|",
@@ -298,6 +311,12 @@ def summary(data):
     lines += ["", "## Model files are separate from the .so and AAR", ""]
     for m in data["separately_downloaded_model_files"]:
         lines.append("- " + m["relative_path"] + ": " + str(m["size_bytes"]) + " bytes")
+    lines += ["", "## All original IMX container resources (separate from ELF)", "",
+              "| Resource member | Bytes |",
+              "|---|---:|"]
+    for member in data["original_imx_members"]:
+        lines.append("| " + member["name"].replace("|", "/") +
+                     " | " + str(member["size_bytes"]) + " |")
     lines += ["", "## Important technical boundaries", ""]
     for note in data["important_limits"]:
         lines.append("- " + note)
@@ -310,10 +329,11 @@ def main():
     p.add_argument("--elf", type=Path, required=True)
     p.add_argument("--functions", type=Path)
     p.add_argument("--model-root", type=Path)
+    p.add_argument("--imx", type=Path)
     p.add_argument("--output-dir", type=Path, required=True)
     args = p.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    data = inspect(args.aar, args.elf, args.functions, args.model_root)
+    data = inspect(args.aar, args.elf, args.functions, args.model_root, args.imx)
     (args.output_dir / "elf-components.json").write_text(
         json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     (args.output_dir / "SUMMARY.md").write_text(summary(data), encoding="utf-8")
@@ -322,7 +342,8 @@ def main():
           "relocations", len(data["full_relocations"]),
           "aar_entries", len(data["full_aar_member_inventory"]),
           "native_imports", len(data["full_dynamic_imports"]),
-          "native_exports", len(data["full_dynamic_exports"]))
+          "native_exports", len(data["full_dynamic_exports"]),
+          "imx_members", len(data["original_imx_members"]))
 
 
 if __name__ == "__main__":
