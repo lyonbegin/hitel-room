@@ -1,0 +1,128 @@
+name: Expression2 ORIGINAL ELF 2629-FDE Pcode memory reconstruction and SDK static differential
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-original-fde-pcode-reconstruction.yml
+      - tools/bithuman_deep/expression2_fde_structure_export.py
+      - tools/bithuman_deep/expression2_reassemble_structure_and_diff.py
+      - tools/bithuman_deep/ghidra/Expression2FdePcodeMemory.java
+      - sdk/expression2-dropin/**
+      - sdk/expression2-verified-core/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-fde-code-data-reassemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check analysis code syntax and install original ELF parser
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check pyelftools==0.32
+          python3 -m py_compile \
+            tools/bithuman_deep/expression2_fde_structure_export.py \
+            tools/bithuman_deep/expression2_reassemble_structure_and_diff.py
+      - name: Download exact unmodified original Expression2 0.6.2 AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expression2-structural" reports/expression2-original-static
+          curl --fail --location --retry 3 --connect-timeout 30 --max-time 180 \
+            -o "$RUNNER_TEMP/expression2-structural/original.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          echo "067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  $RUNNER_TEMP/expression2-structural/original.aar" \
+            | sha256sum --check --status
+          unzip -p "$RUNNER_TEMP/expression2-structural/original.aar" \
+            'jni/arm64-v8a/libexpr2jni.so' \
+            > "$RUNNER_TEMP/expression2-structural/original.so"
+          echo "ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c  $RUNNER_TEMP/expression2-structural/original.so" \
+            | sha256sum --check --status
+          echo "ORIGINAL_EXPRESSION2_AAR_AND_SO_IDENTITY_PASS"
+      - name: Split ALL original FDE functions and associate relocation state slots
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/expression2_fde_structure_export.py \
+            --elf "$RUNNER_TEMP/expression2-structural/original.so" \
+            --out reports/expression2-original-static/original-fde
+          test "$(($(wc -l < reports/expression2-original-static/original-fde/original-function-ranges.tsv) - 1))" -eq 2629
+          echo "ORIGINAL_FUNCTION_ADDRESS_FIRST_FDE_PARTITION_PASS"
+      - name: Download pinned Ghidra 12.2 and analyze exact original P-code LOAD STORE CALL
+        shell: bash
+        run: |
+          set -euo pipefail
+          export EXPR2_FDE_MAP="$GITHUB_WORKSPACE/reports/expression2-original-static/original-fde/original-function-ranges.tsv"
+          export EXPR2_PCODE_OUT="$GITHUB_WORKSPACE/reports/expression2-original-static/original-pcode"
+          mkdir -p "$EXPR2_PCODE_OUT"
+          curl --fail --location --retry 3 --connect-timeout 30 --max-time 360 \
+            -o "$RUNNER_TEMP/expression2-structural/ghidra.zip" \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip'
+          unzip -q "$RUNNER_TEMP/expression2-structural/ghidra.zip" \
+            -d "$RUNNER_TEMP/expression2-structural"
+          GHIDRA="$(find "$RUNNER_TEMP/expression2-structural" -name analyzeHeadless -type f | head -1)"
+          test -n "$GHIDRA"
+          chmod +x "$GHIDRA"
+          mkdir -p "$RUNNER_TEMP/expression2-structural/ghidra-projects"
+          timeout --signal=TERM --kill-after=12s 1500s \
+            "$GHIDRA" "$RUNNER_TEMP/expression2-structural/ghidra-projects" \
+            original-fde-pcode \
+            -import "$RUNNER_TEMP/expression2-structural/original.so" \
+            -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+            -postScript Expression2FdePcodeMemory.java \
+            -analysisTimeoutPerFile 500 -max-cpu 2 -deleteProject
+          test -s "$EXPR2_PCODE_OUT/pcode-summary.json"
+          cat "$EXPR2_PCODE_OUT/pcode-summary.json"
+      - name: Reassemble original call-memory-buffer topology and compare actual independent SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/expression2_reassemble_structure_and_diff.py \
+            --fde reports/expression2-original-static/original-fde/original-function-ranges.tsv \
+            --relocations reports/expression2-original-static/original-fde/original-data-relocation-links.tsv \
+            --pcode reports/expression2-original-static/original-pcode \
+            --out reports/expression2-original-static/comparison
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("reports/expression2-original-static")
+          fde=json.loads((root/"original-fde/original-fde-reassembly.json").read_text())
+          pcode=json.loads((root/"original-pcode/pcode-summary.json").read_text())
+          diff=json.loads((root/"comparison/original-reconstructed-architecture.json").read_text())
+          assert fde["fde_count"]==2629
+          assert fde["roundtrip_byte_difference"]==0
+          assert pcode["original_function_ranges"]==2629
+          assert pcode["focus_functions_decoded"]>=8
+          assert pcode["pcode_load"]>0 and pcode["pcode_store"]>0
+          assert len(diff["original_units"])==15
+          assert diff["first_static_structural_divergence"] is not None
+          assert diff["full_sdk_parity_proven"] is False
+          print("ORIGINAL_FUNCTION_MEMORY_STATIC_RECONSTRUCTION_AND_COMPARISON_PASS",
+             "FDE",fde["fde_count"],"PCODE_DECODED",pcode["decoded_fde_ranges"],
+             "LOAD",pcode["pcode_load"],"STORE",pcode["pcode_store"],
+             "FIRST_DIFFERENCE",diff["first_static_structural_divergence"]["unit"])
+          PY
+          cat reports/expression2-original-static/comparison/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload static analysis and comparison without binary/model secrets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-original-full-fde-pcode-memory-structure-vs-hitel-sdk
+          path: reports/expression2-original-static/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Remove source vendor binary and temporary Ghidra
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expression2-structural"
