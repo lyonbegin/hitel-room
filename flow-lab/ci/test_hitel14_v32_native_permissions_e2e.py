@@ -59,7 +59,11 @@ def tap(a):
 def has_permission(name):
     s=adb("shell","dumpsys","package",APP,timeout=40)
     match=re.search(r"android\.permission\."+name+r": granted=(true|false)",s)
-    if not match:raise AssertionError("Cannot read Android grant status "+name)
+    if not match:
+        # On an unlaunched fresh install Android may omit the entire runtime
+        # permission entry. Absence is NOT an approved permission.
+        print("FRESH_INSTALL_PERMISSION_ENTRY_NOT_YET_CREATED",name,flush=True)
+        return False
     return match.group(1)=="true"
 
 # This standalone full E2E test starts on a genuinely fresh emulator. The
