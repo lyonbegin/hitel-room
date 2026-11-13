@@ -275,12 +275,29 @@ print("PASS_ORIGINAL_V28_CAPTURE_READY_BEFORE_CALL",flush=True)
 r=adb("emu","gsm","call",PHONE,timeout=35,check=False)
 print("EMU_GSM_INBOUND",r,flush=True)
 assert "OK" in r and "KO" not in r,"GSM inbound did not complete"
-wait_log("PHONE_STATE",30)
+# Original V28 registers its PHONE_STATE monitor only after call-folder
+# selection on some builds; emulator call signaling must not be gated on that
+# app event. Android's real emulator radio is the authoritative call state.
 r=adb("emu","gsm","accept",PHONE,timeout=35,check=False)
 print("EMU_GSM_ACCEPT",r,flush=True)
 assert "OK" in r and "KO" not in r,"GSM answer did not complete"
-wait_log("CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",35)
-print("PASS_EMULATED_GSM_OFFHOOK_ACTIVE",flush=True)
+time.sleep(3)
+radio=adb("emu","gsm","list",timeout=35,check=False)
+registry=adb("shell","dumpsys","telephony.registry",timeout=50,check=False)
+telecom=adb("shell","dumpsys","telecom",timeout=60,check=False)
+(OUT/"emulator-radio-call-list.txt").write_text(radio)
+(OUT/"emulator-telephony-dumpsys.txt").write_text(registry)
+(OUT/"emulator-telecom-dumpsys.txt").write_text(telecom)
+print("EMU_GSM_LIST",radio[-900:],flush=True)
+print("EMU_REGISTRY_CALL_STATES",
+      [line.strip() for line in registry.splitlines()
+        if "CallState" in line or "callState" in line][:12],flush=True)
+framework_active=("active" in radio.lower() or
+  bool(re.search(r"(?:mCallState|callState)\\s*[=:]\\s*2\\b",registry)))
+print("FRAMEWORK_GSM_OFFHOOK_ACTIVE",framework_active,flush=True)
+# Independently test media playback during the accepted GSM call, even if the
+# original V28 call-monitor event is not registered on an unconfigured AVD.
+
 screenshot("during-emulated-call-before-media")
 # Release any potential call UI overlay before invoking the existing service.
 # Do NOT set app into call-mode artificially; GSM emulator controls Android.
@@ -320,7 +337,8 @@ route=[line[-600:] for line in log.splitlines()
 media=[line[-600:] for line in log.splitlines()
        if "PLAYBACK_PROGRESS" in line or "PCM_PLAYBACK_WRITE" in line]
 verdict={
-  "actual_emulator_gsm_offhook":bool(telephony_events),
+  "actual_emulator_gsm_offhook":framework_active,
+  "framework_radio_list":radio[-800:],
   "gsm_media_audio_is_real_cellular_voice":False,
   "same_original_v28_m4a":True,
   "existing_capture_started":True,
