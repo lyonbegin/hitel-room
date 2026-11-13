@@ -20,19 +20,6 @@ constexpr int kOriginalSamples=44000;
 constexpr int kOutputSamples=35200;
 constexpr uintptr_t kOriginalRVA=0x001a9794;
 constexpr uint32_t kOriginalFirstInstruction=0xd10283ff; // sub sp,sp,#0xa0
-struct AddressSearch {
-    uintptr_t base=0;
-    std::string so;
-};
-int callback(dl_phdr_info *info, size_t, void *arg) {
-    auto *a=static_cast<AddressSearch *>(arg);
-    if (info->dlpi_name && strstr(info->dlpi_name,"libexpr2jni.so")) {
-        a->base=static_cast<uintptr_t>(info->dlpi_addr);
-        a->so=info->dlpi_name;
-        return 1;
-    }
-    return 0;
-}
 void raise(JNIEnv *env,const std::string &message) {
     __android_log_print(ANDROID_LOG_ERROR,"EXPR2_ORIGINAL_ORACLE","%s",message.c_str());
     jclass type=env->FindClass("java/lang/IllegalStateException");
@@ -40,22 +27,39 @@ void raise(JNIEnv *env,const std::string &message) {
 }
 using OriginalProc = void(*)(float, const float *, int, float *);
 uintptr_t originalAddress(JNIEnv* env) {
-    AddressSearch found;
-    dl_iterate_phdr(callback,&found);
-    if(!found.base) {
-        raise(env,"ORIGINAL_NOT_LOADED: ARM64 libexpr2jni.so is absent from native linker list");
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE","ORACLE_ENTER_ADDRESS_LOOKUP");
+    // Use the *real published JNI export* as the unmodified ELF load-base anchor.
+    // This avoids unreliable dl_iterate_phdr behavior under Android NativeBridge.
+    void *handle=dlopen("libexpr2jni.so", RTLD_NOW|RTLD_NOLOAD);
+    if(!handle) handle=dlopen("libexpr2jni.so",RTLD_NOW);
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE",
+        "ORACLE_DLOPEN_RETURNED handle=%p",handle);
+    if(!handle){
+        raise(env,std::string("ORIGINAL_DLOPEN_FAILED: ")+(dlerror()?dlerror():"unknown"));
         return 0;
     }
-    const uintptr_t addr=found.base+kOriginalRVA;
+    void *feed=dlsym(handle,"Java_ai_bithuman_expression2_Native_feed");
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE",
+        "ORACLE_ORIGINAL_FEED_EXPORT pointer=%p",feed);
+    if(!feed){
+        raise(env,"ORIGINAL_JNI_EXPORT_NOT_FOUND");
+        return 0;
+    }
+    constexpr uintptr_t kKnownFeedRVA=0x001724d8;
+    uintptr_t base=reinterpret_cast<uintptr_t>(feed)-kKnownFeedRVA;
+    uintptr_t addr=base+kOriginalRVA;
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE",
+        "ORACLE_ADDRESS_CANDIDATE base=%p target=%p",
+        reinterpret_cast<void*>(base),reinterpret_cast<void*>(addr));
     uint32_t ins=0;
     memcpy(&ins,reinterpret_cast<const void*>(addr),sizeof(ins));
     if(ins!=kOriginalFirstInstruction){
-        raise(env,"ORIGINAL_CODE_IDENTITY_MISMATCH: unexpected first AArch64 instruction");
+        raise(env,"ORIGINAL_CODE_IDENTITY_MISMATCH: unexpected first ARM64 instruction");
         return 0;
     }
     __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE",
       "ORIGINAL_ADDRESS_PASS base=%p function=%p RVA=%lx instruction=%08x",
-      reinterpret_cast<void*>(found.base),reinterpret_cast<void*>(addr),
+      reinterpret_cast<void*>(base),reinterpret_cast<void*>(addr),
       static_cast<unsigned long>(kOriginalRVA),ins);
     return addr;
 }
@@ -130,13 +134,16 @@ std::vector<float> candidate(const std::vector<float>& source) {
 }
 extern "C" JNIEXPORT jfloatArray JNICALL
 Java_com_example_x2hello_MainActivity_originalPreprocess(JNIEnv* env,jobject,jfloatArray input){
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE","ORACLE_JNI_ENTER_ORIGINAL");
     auto src=readInput(env,input);
     if(env->ExceptionCheck())return nullptr;
     uintptr_t address=originalAddress(env);
     if(env->ExceptionCheck() || !address)return nullptr;
     std::vector<float> output(kOutputSamples,std::numeric_limits<float>::quiet_NaN());
     OriginalProc proc=reinterpret_cast<OriginalProc>(address);
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE","ORACLE_ENTER_ORIGINAL_FUNCTION");
     proc(1.25f,src.data(),kOriginalSamples,output.data());
+    __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE","ORACLE_RETURN_ORIGINAL_FUNCTION");
     for(float f:output){
         if(!std::isfinite(f)) {
             raise(env,"ORIGINAL_RETURNED_NAN_OR_INF");
