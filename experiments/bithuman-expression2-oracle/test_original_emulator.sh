@@ -49,6 +49,13 @@ assert d["result"]=="REFERENCE_EXECUTED_AND_COMPARED"
 assert len(d["cases"])==5
 for x in d["cases"]:
     assert x["count"]==35200 and x["nonfinite_count"]==0
+    # Source-of-truth requirement: original and candidate arrays must match
+    # numerically, not merely produce correctly sized shapes.
+    assert x["mae"] <= 1e-9, (x["case"],"MAE",x["mae"])
+    assert x["max_abs"] <= 1.2e-7, (x["case"],"MAX_ABS",x["max_abs"])
+    assert x["float_exact_count"] >= 34848, (x["case"],"EXACT",x["float_exact_count"])
+    if x["case"] in ("silence","impulse"):
+        assert x["bit_exact"], (x["case"],"MUST_MATCH_BITWISE")
     print("ORIGINAL_REFERENCE_REAL",x["case"],"exact",x["float_exact_count"],
           "mae",x["mae"],"max",x["max_abs"],"ref_sha",x["original_sha256"])
 PY
@@ -57,7 +64,9 @@ for case in silence impulse sine fixed_noise spoken_tts; do
   test "$(stat -c %s "$OUT/$case"_input.f32)" -eq 176000
   adb exec-out run-as com.example.x2hello cat "files/$case"_original.f32 > "$OUT/$case"_original.f32
   adb exec-out run-as com.example.x2hello cat "files/$case"_candidate.f32 > "$OUT/$case"_candidate.f32
+  adb exec-out run-as com.example.x2hello cat "files/$case"_input.f32 > "$OUT/$case"_input.f32
+  test "$(stat -c %s "$OUT/$case"_input.f32)" -eq 176000
   test "$(stat -c %s "$OUT/$case"_original.f32)" -eq 140800
   test "$(stat -c %s "$OUT/$case"_candidate.f32)" -eq 140800
 done
-echo ORIGINAL_REFERENCE_EXECUTED_BUT_PARITY_NEEDS_NUMERIC_EVIDENCE | tee "$OUT/VERDICT.txt"
+echo ORIGINAL_REFERENCE_NUMERIC_PARITY_TOLERANCE_PASS_NOT_BIT_EXACT | tee "$OUT/VERDICT.txt"
