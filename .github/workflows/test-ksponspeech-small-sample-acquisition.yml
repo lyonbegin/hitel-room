@@ -16,7 +16,7 @@ jobs:
           set -euo pipefail
           mkdir -p /tmp/kspon-real-samples
           python3 - <<'PY'
-          import requests, json, pathlib, hashlib, subprocess, urllib.parse, base64, os
+          import requests, json, pathlib, hashlib, subprocess, urllib.parse, base64, os, wave, shutil
           dest=pathlib.Path("/tmp/kspon-real-samples")
           session=requests.Session();session.headers.update({"User-Agent":"HITEL-KsponSpeech-small-sample-research/1.0"})
           diag=[]
@@ -51,10 +51,15 @@ jobs:
                           raw.write_bytes(response.content)
                       if raw.stat().st_size>15_000_000:
                           diag.append({"dataset":dataset,"row":i,"error":"sample >15MB"});raw.unlink();continue
-                      p=subprocess.run(["ffmpeg","-nostdin","-v","error","-y","-i",str(raw),"-ac","1","-ar","16000","-c:a","pcm_s16le",str(output)],capture_output=True,text=True,timeout=100)
-                      if p.returncode!=0:
-                          diag.append({"dataset":dataset,"row":i,"decode_error":p.stderr[:250]});continue
-                      probe=subprocess.run(["ffprobe","-v","error","-show_entries","stream=codec_name,sample_rate,channels:format=duration","-of","json",str(raw)],capture_output=True,text=True,timeout=20)
+                      try:
+                          with wave.open(str(raw),"rb") as w:
+                              original_meta={"sample_rate":w.getframerate(),"channels":w.getnchannels(),"bits_per_sample":w.getsampwidth()*8,"frames":w.getnframes(),"duration_sec":round(w.getnframes()/w.getframerate(),3)}
+                          if original_meta["sample_rate"]!=16000 or original_meta["channels"]!=1 or original_meta["bits_per_sample"]!=16:
+                              diag.append({"dataset":dataset,"row":i,"error":"Unexpected training WAV metadata","meta":original_meta});continue
+                          shutil.copyfile(raw,output)
+                          probe=type("Probe",(),{"stdout":json.dumps(original_meta)})()
+                      except Exception as err:
+                          diag.append({"dataset":dataset,"row":i,"wav_validation_error":repr(err)});continue
                       meta={"source_dataset":dataset,"row_index":record.get("row_idx",i),"id":row.get("id"),"transcript":row.get("Sentence") or row.get("sentence") or row.get("text"),"raw_sentence":row.get("raw_sentence"),"declared_source":row.get("source"),"duration_reported":row.get("duration"),"raw_sha256":hashlib.sha256(raw.read_bytes()).hexdigest(),"wav_sha256":hashlib.sha256(output.read_bytes()).hexdigest(),"original_probe":json.loads(probe.stdout or "{}"),"wav_file":output.name,"from_official_gated_repository":dataset=="jp1924/KsponSpeech"}
                       (dest/(output.stem+".json")).write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
                       print("ACTUAL_TRAINING_CORPUS_AUDIO_ACQUIRED",dataset,meta["id"],raw.stat().st_size,output.stat().st_size,flush=True)
