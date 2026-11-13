@@ -111,7 +111,7 @@ jobs:
           APK=AndroidProject/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='40'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='41'"
           unzip -l "$APK" | grep 'lib/x86_64/libaac-mdat-follow.so'
       - name: Enable Linux KVM hardware acceleration for Android emulator
         run: |
