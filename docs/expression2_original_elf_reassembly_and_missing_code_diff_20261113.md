@@ -1,3 +1,7 @@
+> **2026-11-13 수정:** 아래의 425,324바이트 수치는 '실제 함수가 누락되었다'는 뜻이 아니라, JNI 직접 호출 그래프에서 찾은 1,035개 함수만 사용했을 때의 범위입니다. 이후 원본 ELF의 .eh_frame_hdr 2,629개 주소 색인과 .eh_frame FDE 범위를 기준으로 재분해한 결과 실행 영역 689,056바이트 중 681,396바이트(98.89%)를 확인했고, 일반 .text의 미분류 영역은 **316바이트**입니다. 나머지 7,344바이트는 .plt 링크 스텁 영역입니다. 최신 원본 재검증: [Actions #43428318447](https://github.com/lyonbegin/hitel-room/actions/runs/43428318447). [수정된 보고서](expression2_function_index_fde_reassembly_corrected_20261113.md). 아래는 **이전 방식의 한계를 보여주는 비교 기준**으로만 보존합니다.
+
+---
+
 # Expression 2 original ELF split/recompose/difference verification — 2026-11-13
 
 Original AAR SHA256: 067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584
