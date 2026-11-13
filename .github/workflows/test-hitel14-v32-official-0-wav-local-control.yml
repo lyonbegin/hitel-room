@@ -1,0 +1,28 @@
+name: HITEL14 official Korean test speech 0.wav reference for local recognizer comparison
+on:
+  push:
+    branches: ["test/hitel14-v32-model-export-local-asr-20261113"]
+    paths: [".github/workflows/test-hitel14-v32-official-0-wav-local-control.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sample:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download official Korean model control speech, do not upload private call data
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hitel-0-wav-control
+          curl -fLsS --retry 5 --retry-delay 2 --connect-timeout 30 --max-time 100 \
+            'https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6/test_wavs/0.wav?download=true' \
+            -o /tmp/hitel-0-wav-control/official-model-0.wav
+          test $(stat -c%s /tmp/hitel-0-wav-control/official-model-0.wav) -gt 10000
+          file /tmp/hitel-0-wav-control/official-model-0.wav
+          sha256sum /tmp/hitel-0-wav-control/official-model-0.wav
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel14-ko-official-model-original-speech-0-wav-control
+          path: /tmp/hitel-0-wav-control/
+          retention-days: 1
