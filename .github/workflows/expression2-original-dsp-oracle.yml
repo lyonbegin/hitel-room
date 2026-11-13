@@ -62,6 +62,9 @@ jobs:
             experiments/bithuman-expression2-oracle/OriginalPcmGuardJNI.cpp \
             experiments/bithuman-expression2-oracle/OriginalFeedAccumulationJNI.cpp \
             experiments/bithuman-expression2-oracle/OriginalFeedStateJNI.cpp \
+            experiments/bithuman-expression2-oracle/OriginalVsDropinNativeStateJNI.cpp \
+            sdk/expression2-verified-core/src/expression2_stream_state.cpp \
+            sdk/expression2-verified-core/src/expression2_verified_core.cpp \
             experiments/bithuman-expression2-oracle/OriginalEndSegmentGuardJNI.cpp \
             experiments/bithuman-expression2-oracle/OriginalFramePopJNI.cpp \
             experiments/bithuman-expression2-oracle/OriginalFrameTransferJNI.cpp \

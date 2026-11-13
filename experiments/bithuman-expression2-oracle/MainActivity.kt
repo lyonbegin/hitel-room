@@ -38,6 +38,7 @@ class MainActivity: Activity() {
     private external fun originalFramePopOracle(): String
     private external fun originalFrameTransferOracle(): String
     private external fun originalFeedAccumulationOracle(): String
+    private external fun originalVsDropinNativeState(): String
 
     private fun emit(message:String) {
         Log.i(TAG,message)
@@ -375,6 +376,20 @@ class MainActivity: Activity() {
             "Original ARM64 backend staging -> native queue -> pull failed"
         }
         emit("ORIGINAL_FRAME_TRANSFER_AB_COMPLETE")
+        // Same-process head-to-head: original unmodified ARM64
+        // FUN_001a7fbc vs the actual independently compiled stream state.
+        val headToHead = JSONObject(originalVsDropinNativeState())
+        File(filesDir, "original_vs_dropin_native_state.json")
+            .writeText(headToHead.toString(2))
+        emit("ORIGINAL_CANDIDATE_MEMORY_COMPARE cases=" +
+            headToHead.getInt("total_cases") + " passed=" +
+            headToHead.getInt("passed_cases") + " failed=" +
+            headToHead.getInt("failed_cases") + " first_case=" +
+            headToHead.getInt("first_divergence_case_index") + " first_chunk=" +
+            headToHead.getInt("first_divergence_chunk_index"))
+        require(headToHead.getInt("failed_cases") == 0) {
+            "First original-vs-candidate native state divergence; see saved JSON"
+        }
         originalStreamWindowProof()
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }

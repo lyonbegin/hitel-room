@@ -238,4 +238,27 @@ assert (root/"stream_step1_full_window.f32").read_bytes()==(root/"spoken_tts_inp
 assert (root/"stream_step1_full_original_preprocessed.f32").read_bytes()==(root/"spoken_tts_original.f32").read_bytes()
 print("ORIGINAL_STREAM_PREPROCESSOR_SAME_PCM_REPRODUCIBLE_PASS",len(d["cases"]))
 PY
+# Actual original ARM64 native feed is invoked in the SAME PROCESS as the
+# independently compiled HITEL stream state. Zero divergence is required.
+adb exec-out run-as com.example.x2hello cat files/original_vs_dropin_native_state.json \
+    > "$OUT/original_vs_dropin_native_state.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+p=Path("reports/expression2-original-oracle/original_vs_dropin_native_state.json")
+d=json.loads(p.read_text())
+assert d["reference"]=="actual unmodified original ARM64 FUN_001a7fbc",d
+assert d["original_instruction_verified"] is True,d
+print("ACTUAL_ORIGINAL_AND_CANDIDATE_SAME_INPUT_CASES",d["total_cases"])
+for row in d["cases"]:
+    for step in row["states"]:
+        print("DIFF",row["case"],step["chunk"],"PCM",
+              step["orig_samples"],step["candidate_samples"],
+              "CAP",step["orig_capacity"],step["candidate_capacity"],
+              "EQUAL",step["match"])
+assert d["first_divergence_case_index"]==-1,d
+assert d["failed_cases"]==0 and d["conclusion"]=="PASS",d
+print("EXPR2_ORIGINAL_VS_INDEPENDENT_STREAM_MEMORY_PARITY_PASS")
+PY
+
 echo ORIGINAL_REFERENCE_NUMERIC_PARITY_TOLERANCE_PASS_NOT_BIT_EXACT | tee "$OUT/VERDICT.txt"
