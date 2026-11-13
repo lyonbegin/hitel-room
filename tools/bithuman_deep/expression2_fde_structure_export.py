@@ -17,6 +17,9 @@ from elftools.elf.sections import SymbolTableSection
 from elftools.dwarf.callframe import FDE
 
 EXPECTED_ELF_SHA256="ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c"
+# Ghidra imports this Android ARM64 shared object at image base 0x100000;
+# its FUN_001a7fbc labels refer to ELF virtual address 0x000a7fbc.
+GHIDRA_ANALYSIS_BASE=0x100000
 
 def h(x):
     return hashlib.sha256(x).hexdigest()
@@ -78,7 +81,7 @@ def main():
         with (args.out/"original-function-ranges.tsv").open("w",newline="") as output:
             w=csv.writer(output,delimiter="\t")
             w.writerow(["start_hex","end_hex","length_bytes","file_offset","section",
-                        "sha256","symbol","in_executable_section"])
+                        "sha256","symbol","in_executable_section","elf_start_hex","elf_end_hex","ghidra_image_base_hex"])
             for start,length in fdes:
                 sec=executable(start)
                 if not sec:
@@ -92,8 +95,8 @@ def main():
                     raise RuntimeError("FDE truncated")
                 digest=h(data)
                 symbol=next((n for n in symbols.get(start,[]) if n),"")
-                w.writerow([s_hex(start),s_hex(end),length,fileoff,
-                            sec.name,digest,symbol,"true"])
+                w.writerow([s_hex(start+GHIDRA_ANALYSIS_BASE),s_hex(end+GHIDRA_ANALYSIS_BASE),length,fileoff,
+                            sec.name,digest,symbol,"true",s_hex(start),s_hex(end),s_hex(GHIDRA_ANALYSIS_BASE)])
                 records.append(dict(start=s_hex(start),end=s_hex(end),
                     bytes=length,sha256=digest,section=sec.name,
                     symbol=symbol))
@@ -139,6 +142,8 @@ def main():
         (args.out/"original-fde-reassembly.json").write_text(json.dumps({
           "source":"verified original Expression2 0.6.2 ARM64 ELF",
           "original_so_sha256":h(raw),
+          "ghidra_import_base":s_hex(GHIDRA_ANALYSIS_BASE),
+          "elf_virtual_to_ghidra_analysis_address": "ghidra_addr = ELF_VA + 0x00100000",
           "fde_count":len(records),
           "fde_byte_ranges_sha256":h((args.out/"original-function-ranges.tsv").read_bytes()),
           "covered_fde_range_bytes_before_overlap":text_bytes,
