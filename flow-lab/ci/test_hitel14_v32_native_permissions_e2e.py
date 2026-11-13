@@ -62,6 +62,15 @@ def has_permission(name):
     if not match:raise AssertionError("Cannot read Android grant status "+name)
     return match.group(1)=="true"
 
+# This standalone full E2E test starts on a genuinely fresh emulator. The
+# Android application must be installed BEFORE trying to revoke its runtime
+# permissions; otherwise dumpsys package reports 'package not found'.
+apk=Path("AndroidProject/app/build/outputs/apk/debug/app-debug.apk")
+assert apk.stat().st_size>10000000, "V32_TEST_APK_MISSING"
+installed=adb("install","-r",str(apk),timeout=180)
+assert "Success" in installed,"V32_REAL_EMULATOR_APK_INSTALL_FAILED "+installed
+print("PASS_V32_REAL_FRESH_EMULATOR_APK_INSTALLED",flush=True)
+# The first-launch test next revokes/clears both runtime permissions.
 # The earlier old media regression test grants permissions for its own tests.
 # Reset them to prove that THIS version shows runtime dialogs without ADB grants.
 adb("shell","am","force-stop",APP,check=False)
