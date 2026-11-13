@@ -130,7 +130,7 @@ assert 'DIRECT_ASR_PARTIAL' in s
 assert 'DIRECT_PCM_PROGRESS' in s
 assert 'DIRECT_ASR_FINAL' in s
 assert 'DIRECT_ASR_FINAL_TAIL' in s
-assert s.count("return;")==sum(1 for x in s.splitlines() if x.strip()=="return;") # sanity
+assert '"sttInsidePlaybackSink",false' not in s, "V31 playback-only bypass remains"
 print("PASS_V32_MINUS2_WILL_TEE_ORIGINAL_M4A_PCM_TO_DIRECT_SHERPA_ASR")
 print("PASS_V32_ORIGINAL_AUDIO_TRACK_AND_3_STT_MODELS_PRESERVED")
 print("PASS_V32_DIRECT_ASR_PARTIAL_AND_FINAL_LOGGING")
