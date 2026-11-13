@@ -35,7 +35,7 @@ class MainActivity : Activity() {
             setPadding(24,24,24,24)
             text="Expression2 independently compiled functions / original output vectors\n"
         }
-        setContentView(ScrollView(this).apply{addView(display)})
+        setContentView(ScrollView(this).apply{addView(this@MainActivity.display)})
         Thread{
             try{
                 // Original libexpr2jni.so is deliberately not packaged or loaded.
