@@ -124,6 +124,8 @@ class MainActivity: Activity() {
         val rows=JSONArray()
         for(case in arrayOf("silence","impulse","sine","fixed_noise","spoken_tts")){
             val pcm=samples(case)
+            // Preserve exact input bytes for host-side reproduction of every diff.
+            saveFloats(case,"input",pcm)
             val startOriginal=System.nanoTime()
             val original=originalPreprocess(pcm)
             val originalMs=(System.nanoTime()-startOriginal)/1e6
