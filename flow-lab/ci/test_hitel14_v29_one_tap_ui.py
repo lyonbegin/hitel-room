@@ -7,7 +7,7 @@ Runs after the original V28 Android runtime regression test.
 """
 from pathlib import Path
 import subprocess,time,re,json,xml.etree.ElementTree as ET
-APP="app.hitel.callflowlab.v14.systempicker"
+APP="app.hitel.callflowlab.v30.onetap"
 ACTIVITY=APP+"/app.hitel.samsungprobe.W03ConsoleActivity"
 OUT=Path("/tmp/hitel14-v28-emulator")
 OUT.mkdir(parents=True,exist_ok=True)
@@ -56,4 +56,4 @@ verdict={"android_sdk":35,"button_tapped_on_real_w03":True,
          "one_tap_full_call_recording":"NOT_TESTED_ON_EMULATOR",
          "native_samsung_m4a":"NOT_AVAILABLE_ON_PIXEL_EMULATOR"}
 (OUT/"v29-one-tap-verdict.json").write_text(json.dumps(verdict,ensure_ascii=False,indent=2))
-print("PASS_V29_REAL_UI_SINGLE_TAP_ENTERS_NATIVE_SAF_SETUP",flush=True)
+print("PASS_V30_REAL_UI_SINGLE_TAP_ENTERS_NATIVE_SAF_SETUP",flush=True)
