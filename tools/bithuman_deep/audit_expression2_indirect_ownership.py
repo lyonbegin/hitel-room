@@ -57,16 +57,19 @@ def read_tsv(path):
         return list(csv.DictReader(f, delimiter="\t"))
 
 
-def method_body(source, name):
-    # Method boundaries in javap, not guessed from the Kotlin source.
+def method_bodies(source, name):
+    # Preserve every compiler-generated Kotlin/JVM overload and its exact signature.
     hs = list(re.finditer(r"(?m)^  (?:public|protected|private) [^\n;]+\([^;\n]*\);", source))
     candidates = []
     for i, h in enumerate(hs):
         if re.search(r"\b" + re.escape(name) + r"\(", h.group()):
-            candidates.append(source[h.start():hs[i + 1].start() if i + 1 < len(hs) else len(source)])
-    if len(candidates) != 1:
-        raise AssertionError("JVM overload/absence must be resolved explicitly: " + name)
-    return candidates[0]
+            candidates.append((
+                h.group().strip(),
+                source[h.start():hs[i + 1].start() if i + 1 < len(hs) else len(source)]
+            ))
+    if not candidates:
+        raise AssertionError("JVM method absent from original SDK: " + name)
+    return candidates
 
 
 def scan_instructions(native, row, with_sha=False):
@@ -175,19 +178,20 @@ def main(native, jvm, out):
     javap = (jvm / "classes" / ("%05d.javap.txt" % (names.index(cls) + 1))).read_text()
     jvm_data = []
     for name in JVM_METHODS:
-        body = method_body(javap, name)
-        jvm_data.append({
-            "method": name, "original_javap_body_sha256": hashlib.sha256(body.encode()).hexdigest(),
-            "has_queue_operations": bool(re.search(r"ArrayBlockingQueue\.(?:put|poll|take)", body)),
-            "has_native_feed": "Native.feed:" in body,
-            "has_native_pump": "Native.pump:" in body,
-            "has_native_pull": "Native.pullToBuffer:" in body,
-            "has_conditional_wait": "Condition.await:" in body,
-            "has_end_segment": "Native.endSegment:" in body,
-            "has_begin_segment": "Native.beginSegment:" in body,
-            "has_reset": "Native.reset:" in body,
-            "has_stamp": "Method stamp:" in body,
-        })
+        for signature, body in method_bodies(javap, name):
+            jvm_data.append({
+                "method": name, "original_jvm_signature": signature,
+                "original_javap_body_sha256": hashlib.sha256(body.encode()).hexdigest(),
+                "has_queue_operations": bool(re.search(r"ArrayBlockingQueue\.(?:put|poll|take)", body)),
+                "has_native_feed": "Native.feed:" in body,
+                "has_native_pump": "Native.pump:" in body,
+                "has_native_pull": "Native.pullToBuffer:" in body,
+                "has_conditional_wait": "Condition.await:" in body,
+                "has_end_segment": "Native.endSegment:" in body,
+                "has_begin_segment": "Native.beginSegment:" in body,
+                "has_reset": "Native.reset:" in body,
+                "has_stamp": "Method stamp:" in body,
+            })
 
     scoped = [
         {"function": by_addr[a]["name"], "address": a, "distance_from_focus": depth[a],
