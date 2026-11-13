@@ -139,6 +139,18 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
           script: bash experiments/bithuman-expression2-oracle/test_original_emulator.sh
+      - name: Inspect every original/candidate Float32 output and ULP discrepancy
+        if: always()
+        shell: bash
+        run: |
+          if test -s reports/expression2-original-oracle/original_differential_report.json &&
+             test -s reports/expression2-original-oracle/spoken_tts_input.f32; then
+            python3 tools/bithuman_deep/analyze_original_dsp_arrays.py \
+              --inputs reports/expression2-original-oracle \
+              --output reports/expression2-original-oracle/precise_ulp_comparison.json
+          else
+            echo 'No original input/output arrays; ULP analysis not applicable to failed emulator execution'
+          fi
       - name: Archive original/candidate float outputs and real differential statistics
         if: always()
         uses: actions/upload-artifact@v4
