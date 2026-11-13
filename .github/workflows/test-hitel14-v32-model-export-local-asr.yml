@@ -1,0 +1,53 @@
+name: HITEL14 pinned original Korean Sherpa ONNX model and local ASR runtime export
+on:
+  push:
+    branches:
+      - test/hitel14-v32-model-export-local-asr-20261113
+    paths:
+      - .github/workflows/test-hitel14-v32-model-export-local-asr.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download only the exact models referenced by HITEL14 V32
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hitel-local-asr/model /tmp/hitel-local-asr/wheels
+          BASE=https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6
+          for file in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
+            curl -fLsS --retry 5 --retry-delay 3 --connect-timeout 30 --max-time 360 "$BASE/$file?download=true" -o "/tmp/hitel-local-asr/model/$file"
+            test -s "/tmp/hitel-local-asr/model/$file"
+            sha256sum "/tmp/hitel-local-asr/model/$file"
+          done
+          test $(stat -c%s /tmp/hitel-local-asr/model/encoder-epoch-99-avg-1.int8.onnx) -gt 115000000
+          test $(stat -c%s /tmp/hitel-local-asr/model/decoder-epoch-99-avg-1.onnx) -gt 9500000
+          test $(stat -c%s /tmp/hitel-local-asr/model/joiner-epoch-99-avg-1.int8.onnx) -gt 2000000
+          test $(stat -c%s /tmp/hitel-local-asr/model/tokens.txt) -gt 50000
+          echo PASS_EXACT_V32_PINNED_MODEL_FILES
+      - name: Download matching Python 3.13 Linux x86_64 Sherpa runtime wheel
+        run: |
+          set -euo pipefail
+          python -m pip download --only-binary=:all: --dest /tmp/hitel-local-asr/wheels sherpa-onnx numpy scipy
+          ls -lh /tmp/hitel-local-asr/wheels
+          echo PASS_LOCAL_SHERPA_INSTALLABLE_WHEELS
+      - name: Generate artifact source and checksums
+        run: |
+          set -euo pipefail
+          (cd /tmp/hitel-local-asr && find model wheels -type f -print0 | sort -z | xargs -0 sha256sum) > /tmp/hitel-local-asr/SHA256SUMS
+          printf '%s\n' 'Original HITEL14 V32 pinned Korean Zipformer model files.' 'Model: k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16, pinned commit ba6078bca4daf3f0dd37f79d0ab505af71df14a6.' 'Run offline inference locally; no private call audio has been uploaded to GitHub.' > /tmp/hitel-local-asr/README.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel14-v32-pinned-sherpa-ko-python313-model-runtime
+          path: /tmp/hitel-local-asr/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
