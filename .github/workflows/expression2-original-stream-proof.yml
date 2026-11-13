@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/expression2-original-stream-proof.yml
       - tools/bithuman_deep/verify_expression2_original_stream.py
+      - tools/bithuman_deep/audit_expression2_indirect_ownership.py
   workflow_dispatch:
 
 permissions:
@@ -55,6 +56,25 @@ jobs:
           print('ORIGINAL_CODE_PROVENANCE_VERIFIED')
           PY
           cat reports/original-stream-contract/original-stream-contract.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Source-replay original native indirect branches and buffer lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/bithuman_deep/audit_expression2_indirect_ownership.py
+          python3 tools/bithuman_deep/audit_expression2_indirect_ownership.py \
+            --native reports/replayed-original-native \
+            --jvm reports/replayed-original-jvm \
+            --out reports/original-native-indirect-lifecycle
+          test -s reports/original-native-indirect-lifecycle/expression2-native-indirect-ownership-evidence.json
+          cat reports/original-native-indirect-lifecycle/expression2-native-indirect-ownership-evidence.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload source-derived indirect call and buffer-lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-original-native-indirect-lifecycle
+          path: reports/original-native-indirect-lifecycle/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Upload contract JSON and original-code evidence pointers (no vendor binary)
         if: always()
         uses: actions/upload-artifact@v4
