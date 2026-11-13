@@ -33,6 +33,7 @@ class MainActivity: Activity() {
     private external fun originalPreprocess(samples: FloatArray): FloatArray
     private external fun candidatePreprocess(samples: FloatArray): FloatArray
     private external fun originalPcmGuardOracle(): String
+    private external fun originalFeedStateOracle(): String
     private external fun originalFeedAccumulationOracle(): String
 
     private fun emit(message:String) {
@@ -204,6 +205,19 @@ class MainActivity: Activity() {
             "Real original PCM/guard differential mismatch"
         }
         emit("ORIGINAL_PCM_GUARD_AB_COMPLETE")
+        // Execute original unmodified ARM64 FUN_001a7fbc against a guarded
+        // synthetic state; only PCM accumulation and pre-inference state
+        // are verified, never the full model scheduler.
+        val feedReport=JSONObject(originalFeedStateOracle())
+        File(filesDir,"original_feed_state_report.json").writeText(feedReport.toString(2))
+        emit("ORIGINAL_FEED_STATE_RESULT cases="+feedReport.getInt("total_cases")+
+            " pass="+feedReport.getInt("passed")+" fail="+feedReport.getInt("failed"))
+        require(feedReport.getString("status")=="PASS" &&
+                feedReport.getInt("failed")==0 &&
+                feedReport.getInt("total_cases")==9){
+            "Original ARM64 feed-state oracle mismatch"
+        }
+        emit("ORIGINAL_FEED_STATE_AB_COMPLETE")
         // Execute actual unmodified ARM64 FUN_001a7fbc with source-derived
         // native state. Backpressure blocks model inference in these tests.
         val originalAccum=JSONObject(originalFeedAccumulationOracle())
