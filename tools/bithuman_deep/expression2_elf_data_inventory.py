@@ -89,6 +89,55 @@ def package_class(name):
     return "other_package_member"
 
 
+def section_at_address(address, sections):
+    for section in sections:
+        start = int(section["vaddr"], 16)
+        if start and start <= address < start + section["size_bytes"]:
+            return section["name"]
+    return None
+
+
+def scan_arm64_instruction_constants(section_objects, sections):
+    """Separate immediates embedded in instructions from .rodata constants.
+
+    ADRP records *candidate pages* only: a page hit is NOT a proven exact
+    function-to-data dependency without registering the subsequent ADD/LDR.
+    """
+    from capstone import Cs, CS_ARCH_ARM64, CS_MODE_ARM
+    from capstone.arm64_const import ARM64_OP_IMM, ARM64_OP_FP
+    decoder = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
+    decoder.detail = True
+    count = collections.Counter()
+    page_sections = collections.Counter()
+    for section in section_objects:
+        if not (int(section["sh_flags"]) & SHF_EXECINSTR):
+            continue
+        start = int(section["sh_addr"])
+        for ins in decoder.disasm(section.data(), start):
+            count["disassembled_instructions"] += 1
+            immediate = [op for op in ins.operands if op.type == ARM64_OP_IMM]
+            fp_constant = [op for op in ins.operands if op.type == ARM64_OP_FP]
+            if fp_constant: count["inline_float_immediates"] += len(fp_constant)
+            if immediate:
+                count["instructions_with_integer_or_address_immediates"] += 1
+                count["integer_or_address_immediate_operands"] += len(immediate)
+            if ins.mnemonic in ("adr", "adrp") and immediate:
+                count["pc_relative_address_instructions"] += 1
+                address = int(immediate[-1].imm)
+                if ins.mnemonic == "adrp":
+                    address &= ~0xfff
+                # ADRP's 4KiB target may span multiple sections, so count only
+                # candidate section where that *page base* falls.
+                name = section_at_address(address, sections)
+                page_sections[name or "unresolved_or_outside_sections"] += 1
+            elif ins.mnemonic.startswith(("b.", "cbz", "cbnz", "tbz", "tbnz")) or ins.mnemonic in ("b", "bl"):
+                if immediate: count["pc_relative_branch_target_immediates"] += 1
+    return {
+        "counts": dict(count),
+        "candidate_ADR_ADRP_page_sections_not_proven_xrefs": dict(page_sections),
+    }
+
+
 def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: Path | None, imx: Path | None):
     digest = hashlib.sha256(aar.read_bytes()).hexdigest()
     if digest != EXPECTED_AAR_SHA:
@@ -141,6 +190,7 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
                 "printable_string_count": len(STRING.findall(data)) if kind in ("readonly_constants", "writable_state") else 0,
                 "sample_strings": strings, "possible_embedded_signatures": signatures,
             })
+        instruction_constant_inventory = scan_arm64_instruction_constants(section_objects, sections)
         segments = []
         for idx, segment in enumerate(binary.iter_segments()):
             h = segment.header
@@ -175,6 +225,7 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
                     needed.append(tag.needed)
         relocations = []
         relocation_stats = collections.Counter()
+        relocation_targets = collections.Counter()
         for section in section_objects:
             if not isinstance(section, RelocationSection):
                 continue
@@ -187,9 +238,12 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
                 symbol = symtab.get_symbol(sym_id).name if sym_id and isinstance(symtab, SymbolTableSection) else ""
                 typ = int(relocation["r_info_type"])
                 relocation_stats[(section.name, typ)] += 1
+                resolved_target = section_at_address(int(relocation["r_offset"]), sections)
+                relocation_targets[resolved_target or "unmapped"] += 1
                 relocations.append({
                     "reloc_section": section.name,
                     "target_section_declared": target_name,
+                    "target_section_effective": resolved_target,
                     "offset": hex(int(relocation["r_offset"])),
                     "type_id": typ, "symbol": symbol,
                     "addend": int(relocation["r_addend"]) if relocation.is_RELA() else None,
@@ -239,6 +293,7 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
         "original_elf_sha256": hashlib.sha256(elf.read_bytes()).hexdigest(),
         "original_elf_size": elf.stat().st_size,
         "elf_sections": sections,
+        "instruction_immediate_constants": instruction_constant_inventory,
         "load_segments": segments,
         "categories": {
             k: {"description": CATEGORIES[k], "section_count": count[k], "size_bytes": total[k]}
@@ -247,6 +302,7 @@ def inspect(aar: Path, elf: Path, original_functions: Path | None, model_root: P
         "full_dynamic_imports": imported, "full_dynamic_exports": exported,
         "dynamic_dependencies": needed,
         "full_relocations": relocations,
+        "relocation_target_sections": dict(relocation_targets),
         "relocation_type_counts": [
             {"section": sect, "type_id": typ, "count": number}
             for (sect, typ), number in sorted(relocation_stats.items())
@@ -276,6 +332,9 @@ def summary(data):
         "- Original ELF: " + str(data["original_elf_size"]) + " bytes",
         "- Ghidra original functions: " + str(data["original_ghidra_function_count"]),
         "- ELF sections: " + str(len(data["elf_sections"])),
+        "- ARM64 decoded instructions: " + str(data["instruction_immediate_constants"]["counts"].get("disassembled_instructions", 0)),
+        "- Embedded numeric/address operands: " + str(data["instruction_immediate_constants"]["counts"].get("integer_or_address_immediate_operands", 0)),
+        "- Embedded floating constants: " + str(data["instruction_immediate_constants"]["counts"].get("inline_float_immediates", 0)),
         "- ELF segments: " + str(len(data["load_segments"])),
         "- Relocation entries: " + str(len(data["full_relocations"])),
         "- Dynamic imports: " + str(len(data["full_dynamic_imports"])),
@@ -296,6 +355,15 @@ def summary(data):
     for s in data["elf_sections"]:
         lines.append("| " + (s["name"] or "(null)") + " | " + s["category"] +
                      " | " + str(s["size_bytes"]) + " | " + s["vaddr"] + " |")
+    lines += ["", "## Relocations by TARGET section", "",
+              "| Target section | Entries |",
+              "|---|---:|"]
+    for name, number in sorted(data["relocation_target_sections"].items(),
+                               key=lambda item: -item[1]):
+        lines.append("| " + name + " | " + str(number) + " |")
+    lines += ["", "## Code immediates versus non-code data", ""]
+    for key, value in data["instruction_immediate_constants"]["counts"].items():
+        lines.append("- " + key + ": " + str(value))
     lines += ["", "## Runtime dependencies", ""]
     for name in data["dynamic_dependencies"]:
         lines.append("- " + name)
