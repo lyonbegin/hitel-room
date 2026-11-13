@@ -45,7 +45,7 @@ def main():
         w.writerow(["from","to","edge_type","direct","conditional"])
         for e in edges:
             label=e.label
-            w.writerow([hx(e.source.address),hx(e.target.address),
+            w.writerow([hx(getattr(e.source,'address',None)),hx(getattr(e.target,'address',None)),
                 str(label.type) if label else "unspecified",
                 str(label.direct) if label else "?",
                 str(label.conditional) if label else "?"])
