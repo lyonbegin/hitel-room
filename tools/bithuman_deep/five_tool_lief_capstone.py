@@ -83,7 +83,8 @@ def main():
                 if section is None:raise RuntimeError("FDE_OUT_OF_ELF_CODE "+ok(addr))
                 file_offset=int(section["sh_offset"])+addr-int(section["sh_addr"])
                 data=src[file_offset:file_offset+length]
-                n=0,decoded=0,dc=0,ic=0,ret=0,cbr=0,br=0,mem=0,reads=0,writes=0,first=None
+                n=decoded=dc=ic=ret=cbr=br=mem=reads=writes=0
+                first=None
                 # Disassemble the full FDE region, which may include compiler
                 # padding; unknown instructions are tracked, not misreported as code.
                 for ins in cs.disasm(data,addr):
