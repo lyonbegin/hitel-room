@@ -174,6 +174,7 @@ class MainActivity: Activity() {
                 .put("candidate_duration_ms",candidateMs)
                 .put("bit_exact",exact==original.size)
             rows.put(compare)
+            saveFloats(case,"input",pcm)
             saveFloats(case,"original",original)
             saveFloats(case,"candidate",candidate)
             emit("ORACLE_CASE "+case+" exact="+exact+"/35200"+
