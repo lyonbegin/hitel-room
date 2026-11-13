@@ -92,6 +92,7 @@ std::vector<float> candidate(const std::vector<float>& source) {
     constexpr int width=1120;
     constexpr int overlap=192;
     std::vector<float> out(kOutputSamples,0);
+    int previousSelectedSourceStart=0;
     for(int block=0;block<(kOutputSamples+width-1)/width;++block){
         int start=block*width;
         int count=std::min(width,kOutputSamples-start);
@@ -100,6 +101,10 @@ std::vector<float> candidate(const std::vector<float>& source) {
             continue;
         }
         // Original Ghidra source FUN_001a9794 scans offsets [-117,+117].
+        // Crucial source-code fact: FUN_001a9794 uses the previously selected
+        // source window plus 1120 as the overlap reference for this block.
+        // It does NOT compare against the fixed output block start.
+        const int sourceReference=previousSelectedSourceStart+width;
         int center=static_cast<int>(1.25f*static_cast<float>(start)+0.5f);
         float bestEnergy=std::numeric_limits<float>::infinity();
         int bestOffset=center;
@@ -107,7 +112,7 @@ std::vector<float> candidate(const std::vector<float>& source) {
             int trial=center+offset;
             float cost=0.0f;
             for(int j=0;j<overlap;++j){
-                float tgt=(start+j<kOriginalSamples)?q[start+j]:0.0f;
+                float tgt=(sourceReference+j<kOriginalSamples)?q[sourceReference+j]:0.0f;
                 float ref=(trial+j>=0 && trial+j<kOriginalSamples)?q[trial+j]:0.0f;
                 float d=ref-tgt;
                 cost+=d*d;
@@ -117,13 +122,14 @@ std::vector<float> candidate(const std::vector<float>& source) {
         for(int j=0;j<count;++j){
             float nxt=(bestOffset+j>=0 && bestOffset+j<kOriginalSamples)?q[bestOffset+j]:0.0f;
             if(j<overlap){
-                float prev=(start+j<kOriginalSamples)?q[start+j]:0.0f;
+                float prev=(sourceReference+j<kOriginalSamples)?q[sourceReference+j]:0.0f;
                 const float a=static_cast<float>(j)/192.0f;
                 out[start+j]=prev*(1.0f-a)+nxt*a;
             }else{
                 out[start+j]=nxt;
             }
         }
+        previousSelectedSourceStart=bestOffset;
     }
     for(float &v:out){
         double rounded=std::trunc(static_cast<double>(v)+0.5);
