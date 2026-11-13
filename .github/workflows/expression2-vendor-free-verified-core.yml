@@ -1,0 +1,169 @@
+name: Expression2 independently built source-verified native core against original ARM64 reference arrays
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-vendor-free-verified-core.yml
+      - sdk/expression2-verified-core/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compile-vendor-free-expression2-functions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Download unmodified original ARM64 reference output arrays already verified
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-real-original-native-vs-candidate-same-pcm-differential
+          run-id: 43348632922
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: build/expr2-fixtures/dsp
+      - name: Download Wise Pup original ARM64 canonical-history input/output arrays
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-real-wise-pup-canon-native-bitwise-differential
+          run-id: 43354589268
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: build/expr2-fixtures/canon
+      - name: Check actual reference input/output lengths and original sample hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          dsp=Path("build/expr2-fixtures/dsp")
+          canon=Path("build/expr2-fixtures/canon")
+          report=json.loads((dsp/"original_differential_report.json").read_text())
+          assert len(report["cases"])==5
+          for name in ["silence","impulse","sine","fixed_noise","spoken_tts"]:
+              assert (dsp/(name+"_input.f32")).stat().st_size==176000
+              assert (dsp/(name+"_original.f32")).stat().st_size==140800
+              print("ORIGINAL_DSP_VECTOR_VERIFIED",name)
+          actual=canon/"wise_pup_canon_input.bin"
+          assert actual.stat().st_size==299520
+          assert hashlib.sha256(actual.read_bytes()).hexdigest()=="cac1c9aeb8c80de4b46661784ffd3fa5f601bf0113fa543db00f1fa8ec2d94d5"
+          assert (canon/"wise_pup_canon_original_history.bin").stat().st_size==4792320
+          print("ORIGINAL_WISE_PUP_CANON_VECTOR_VERIFIED")
+          PY
+      - name: Install Android SDK NDK and reference-only Android project template
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)"
+          "$manager" "platforms;android-35" "build-tools;34.0.0"
+          compiler="$(find "$ANDROID_HOME/ndk" -name 'aarch64-linux-android26-clang++' -type f 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$compiler" ];then
+            "$manager" "ndk;27.2.12479018"
+            compiler="$(find "$ANDROID_HOME/ndk" -name 'aarch64-linux-android26-clang++' -type f | sort -V | tail -1)"
+          fi
+          test -x "$compiler"
+          echo "ARM64_NDK_COMPILER=$compiler" >> "$GITHUB_ENV"
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git \
+            "$RUNNER_TEMP/original-template"
+      - name: Build a new standalone ARM64 library with absolutely no original SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/original-template/android/expression2-hello/app"
+          cp experiments/bithuman-expression2-oracle/app.build.gradle.kts "$app/build.gradle.kts"
+          cp experiments/bithuman-independent-android/AndroidManifest.xml "$app/src/main/AndroidManifest.xml"
+          cp sdk/expression2-verified-core/test-android/MainActivity.kt \
+            "$app/src/main/java/com/example/x2hello/MainActivity.kt"
+          mkdir -p "$app/src/main/assets" build/expr2-core
+          rm -rf "$app/src/main/jniLibs"
+          mkdir -p "$app/src/main/jniLibs/arm64-v8a"
+          for name in silence impulse sine fixed_noise spoken_tts;do
+            cp "build/expr2-fixtures/dsp/$name"_input.f32 \
+              "$app/src/main/assets/dsp_$name"_input.f32
+            cp "build/expr2-fixtures/dsp/$name"_original.f32 \
+              "$app/src/main/assets/dsp_$name"_original.f32
+          done
+          cp build/expr2-fixtures/canon/wise_pup_canon_input.bin "$app/src/main/assets/"
+          cp build/expr2-fixtures/canon/wise_pup_canon_original_history.bin "$app/src/main/assets/"
+          "$ARM64_NDK_COMPILER" -O2 -ffp-contract=off -fPIC -shared -std=c++17 \
+            sdk/expression2-verified-core/src/expression2_verified_core.cpp \
+            -o "$app/src/main/jniLibs/arm64-v8a/libexpression2_verified_core.so"
+          NDK_SYSROOT="$(dirname "$(dirname "$ARM64_NDK_COMPILER")")/sysroot"
+          cp "$NDK_SYSROOT/usr/lib/aarch64-linux-android/libc++_shared.so" \
+            "$app/src/main/jniLibs/arm64-v8a/libc++_shared.so"
+          readelf -d "$app/src/main/jniLibs/arm64-v8a/libexpression2_verified_core.so" > \
+            build/expr2-core/native-dependencies.txt
+          if grep -Ei 'libexpr2jni|bithuman|LiteRt' build/expr2-core/native-dependencies.txt; then
+            echo 'VENDOR_SDK_DEPENDENCY_DETECTED';exit 1
+          fi
+          (
+            cd "$RUNNER_TEMP/original-template/android/expression2-hello"
+            chmod +x gradlew
+            ./gradlew --no-daemon --max-workers=2 :app:assembleDebug
+          )
+          cp "$app/build/outputs/apk/debug/app-debug.apk" \
+            build/expr2-core/expression2-vendor-free-verified-core.apk
+          unzip -Z1 build/expr2-core/expression2-vendor-free-verified-core.apk \
+            > build/expr2-core/apk-members.txt
+          if grep -Ei 'libexpr2jni|libLiteRt|expression2-android|essence2-android' \
+               build/expr2-core/apk-members.txt;then
+            echo 'VENDOR_BINARY_IN_STANDALONE_APK';exit 1
+          fi
+          grep 'lib/arm64-v8a/libexpression2_verified_core.so' build/expr2-core/apk-members.txt
+          sha256sum build/expr2-core/expression2-vendor-free-verified-core.apk
+          echo 'EXPR2_VENDOR_FREE_APK_BUILT_NO_VENDOR_SDK'
+      - name: Publish independent test APK and binary dependency manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-vendor-free-two-function-core-apk
+          path: build/expr2-core/
+          if-no-files-found: error
+          retention-days: 21
+      - name: Clean third-party template checkout
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/original-template"
+
+  compare-standalone-sdk-functions-to-original-reference-data:
+    needs: compile-vendor-free-expression2-functions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: expression2-vendor-free-two-function-core-apk
+          path: build/expr2-core
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Verify exactly matched original output arrays without loading the original SDK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
+          script: bash sdk/expression2-verified-core/test-android/verify_vendor_free_emulator.sh
+      - name: Publish vendor-free reference-parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-vendor-free-core-vs-real-original-bitwise-evidence
+          path: reports/expression2-vendor-free-verified-core/
+          if-no-files-found: warn
+          retention-days: 30
