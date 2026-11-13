@@ -132,10 +132,13 @@ s=replace_one(s,
     '''            if(folder){
                 // A newly selected folder must not be throttled by the old watch.
                 lastAutoArmMs=0;
-                armDefaultSamsungCallFolder();
                 if(oneTapTestPending){
+                    // Permission continuation owns this path; never request
+                    // READ_PHONE_STATE twice from the same SAF callback.
                     markOneTapStage("SAF_READY","통화녹음 폴더 선택 완료");
                     continueOneTapCallTest();
+                }else{
+                    armDefaultSamsungCallFolder();
                 }
             }
             return;''',
@@ -308,6 +311,7 @@ assert "▶ 테스트 시작 · 기본 전화 앱 자동 열기" in s
 assert "Intent.ACTION_DIAL" in s and "Intent.ACTION_CALL" not in s
 assert "READ_CALL_LOG" not in s
 assert "ONE_TAP_" in s and "PIPELINE_OFFHOOK" in service
+assert "Permission continuation owns this path" in s
 assert "FIRST_16KHZ_PCM_READY" in engine
 assert "M4A_MIRROR_READY" in engine
 assert "SESSION_CLOSED" in engine
