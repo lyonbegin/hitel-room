@@ -60,3 +60,26 @@ The above values were measured by actually invoking the unmodified original ARM6
 ## What is NOT proven
 
 This is verification of a single actual original audio preprocessing function. It does not yet prove byte-identical floating point operations in all cases, the entire vendor feed/pump/pull state machine, exact encoder frame timings, authentication, live speech lip sync, performance, or SDK-level parity.
+
+
+## Latest current branch verification: original NEON coefficient interpretation
+
+Current expression2-oracle candidate uses the source-derived Float32 coefficient 0.0052083335 instead of dividing by 192.0f. The last CI attempt deliberately disabled compiler floating-point contraction; this made original SDK numerical parity *worse*, so the change was reverted without lowering strict pass thresholds.
+
+Actual latest **both-job success**, with all five exact same-PCM numerical tests and original SDK JNI function invocation:
+https://github.com/lyonbegin/hitel-room/actions/runs/43347454776
+
+| Input | Latest bit-identical of 35,200 | Latest MAE | Maximum absolute error |
+|---|---:|---:|---:|
+| silence | 35,200 | 0 | 0 |
+| impulse | 35,200 | 0 | 0 |
+| sine | 35,038 | 2.7431683106855914e-10 | 5.9604644775390625e-8 |
+| fixed_noise | 35,086 | 1.9303777001120828e-10 | 5.9604644775390625e-8 |
+| spoken_tts | 35,151 | 8.2972374829379e-11 | 5.9604644775390625e-8 |
+
+- Latest downloadable original and candidate Float32 outputs, the exact source input PCM, reports, emulator logs:
+  https://github.com/lyonbegin/hitel-room/actions/runs/43347454776/artifacts/14001199663
+- Latest compiled original ARM64 reference function test APK:
+  https://github.com/lyonbegin/hitel-room/actions/runs/43347454776/artifacts/14002770858
+
+The earlier best strict-pass version 43346901381 with division by 192.0f had a *slightly higher bit-exact count*; the current coefficient expresses the original source decompiler's 0.0052083335 constant. Both versions remain strict-pass **numerical**, not all-bit-exact. Each code change must preserve a test report that truly invokes and compares to the unmodified SDK routine, never merely compare two independent implementations.
