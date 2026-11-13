@@ -35,6 +35,7 @@ class MainActivity: Activity() {
     private external fun originalPcmGuardOracle(): String
     private external fun originalFeedStateOracle(): String
     private external fun originalEndSegmentGuardOracle(): String
+    private external fun originalFramePopOracle(): String
     private external fun originalFeedAccumulationOracle(): String
 
     private fun emit(message:String) {
@@ -240,6 +241,16 @@ class MainActivity: Activity() {
             "Actual original ARM64 end segment boundary mismatch"
         }
         emit("ORIGINAL_END_BOUNDARY_AB_COMPLETE")
+        val frameReport=JSONObject(originalFramePopOracle())
+        File(filesDir,"original_frame_pop_report.json").writeText(frameReport.toString(2))
+        emit("ORIGINAL_FRAME_POP_RESULT cases="+frameReport.getInt("case_count")+
+            " pass="+frameReport.getInt("passed")+" fail="+frameReport.getInt("failures"))
+        require(frameReport.getInt("case_count")==4 &&
+                frameReport.getInt("failures")==0 &&
+                frameReport.getString("status")=="PASS") {
+            "Original ARM64 native frame pop and ownership mismatch"
+        }
+        emit("ORIGINAL_FRAME_POP_AB_COMPLETE")
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }

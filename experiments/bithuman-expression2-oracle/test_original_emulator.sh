@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_END_BOUNDARY|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_END_BOUNDARY|ORIGINAL_FRAME_POP|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -86,6 +86,22 @@ for c in d["cases"]:
     assert c["original_return"]==1,c
     assert c["sample"]==c["expected"],c
 print("EXPR2_ORIGINAL_ARM64_ENDSEGMENT_GUARD_PASS",d["passed"])
+PY
+adb exec-out run-as com.example.x2hello cat files/original_frame_pop_report.json > "$OUT/original_frame_pop_report.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+d=json.loads(Path("reports/expression2-original-oracle/original_frame_pop_report.json").read_text())
+assert d["original_pop_rva"]=="0x001aa40c"
+assert d["original_queue_count_rva"]=="0x001a84cc"
+assert d["frame_bytes"]==1198080
+assert d["case_count"]==4 and d["passed"]==4 and d["failures"]==0,d
+for x in d["cases"]:
+    assert x["pass"] is True,x
+    assert x["pop_return"]==1 and x["empty_return"]==0,x
+    assert x["image_exact"] is True and x["ownership_cleared"] is True,x
+    assert x["head_incremented"] is True and x["queue_empty"] is True,x
+print("EXPR2_ORIGINAL_ARM64_FRAME_POP_OWNERSHIP_PASS",d["passed"])
 PY
 adb exec-out run-as com.example.x2hello cat files/original_pcm_guard_report.json > "$OUT/original_pcm_guard_report.json"
 python3 - <<'PY'
