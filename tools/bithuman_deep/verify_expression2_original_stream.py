@@ -63,7 +63,7 @@ def main(jvm, native, out):
                  "Native.pullToBuffer:", "Method stamp:"],
         "pump": ["Native.pump:"],
         "resetState": ["Method enqueue:"],
-        "stamp": ["ptsBaseFrames", "lastIndex"],
+        "stamp": ["ptsBaseFrames", "lastIndex", "long 1000000l", "bipush        20", "Expression2Frame"],
     }
     checked = {key: verified_jvm_method(javap, key, frags) for key,frags in facts.items()}
     assert "sipush        1024" in javap
@@ -100,6 +100,15 @@ def main(jvm, native, out):
         "original_jvm_methods":checked,
         "native_jni_roots":root_data,"native_direct_edges":checked_edges,
         "original_input_queue_capacity":1024,"original_worker_poll_max_ms":5,
+        "original_frame_timestamp_contract":{
+            "source_function":"Expression2Avatar.stamp(long[])",
+            "model_frame_index":"meta[0]",
+            "clock_reset":"if lastIndex>=0 and newIndex<=lastIndex, ptsBaseFrames += lastIndex+1-newIndex",
+            "presentationTimeUs":"(ptsBaseFrames + meta[0]) * 1000000 / 20",
+            "audioSample":"meta[2]",
+            "isSpeech":"meta[3] != 0",
+            "verified_frame_duration_us":50000
+        },
         "original_audio_scheduler_sample_thresholds":{
             "initial":25600,"second":44000,
             "later":"index * 25600 + 18400",
@@ -124,6 +133,7 @@ def main(jvm, native, out):
            "- Kotlin input pending queue holds up to 1024 jobs, not 1024 frames.",
            "- Worker uses timed 5ms polling when utterance is open and invokes native pump on idle poll.",
            "- Native JNI feed/pump/pull entry points and their direct call links are checked against original function addresses and hashes.",
+           "- Original SDK timestamps frames using 50000us per output frame (20fps), adjusts the base when frame index restarts, and attaches audioSample / isSpeech from native metadata.",
            "- Original SDK is not the same as a custom static 53-frame batch renderer.",
            "",
            "## Not yet verified","","- Indirect JNI/native call dispatch, runtime A/V timing, complete buffer ownership and errors.",
