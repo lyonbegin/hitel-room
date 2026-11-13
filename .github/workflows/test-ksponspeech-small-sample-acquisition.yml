@@ -1,0 +1,79 @@
+name: Acquire three actual KsponSpeech training-corpus utterances with source evidence
+on:
+  push:
+    branches: ["test/ksponspeech-samples-acquisition-20261113"]
+    paths: [".github/workflows/test-ksponspeech-small-sample-acquisition.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  samples:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Attempt original dataset and provenance-identified public mirror, no credentials
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/kspon-real-samples
+          python3 - <<'PY'
+          import requests, json, pathlib, hashlib, subprocess, urllib.parse, base64, os
+          dest=pathlib.Path("/tmp/kspon-real-samples")
+          session=requests.Session();session.headers.update({"User-Agent":"HITEL-KsponSpeech-small-sample-research/1.0"})
+          diag=[]
+          for dataset in ("jp1924/KsponSpeech","PThi35/KsponSpeech"):
+              query="https://datasets-server.huggingface.co/rows"
+              args={"dataset":dataset,"config":"default","split":"train","offset":0,"length":3}
+              try:
+                  r=session.get(query,params=args,timeout=80)
+                  diag.append({"dataset":dataset,"url":r.url,"http":r.status_code,"response_prefix":r.text[:450] if r.status_code!=200 else ""})
+                  print("DATASET_REQUEST",dataset,r.status_code,r.url,flush=True)
+                  if not r.ok:continue
+                  rows=r.json().get("rows") or []
+                  for i,record in enumerate(rows[:3]):
+                      row=record.get("row") or {}
+                      audio=row.get("audio")
+                      src=None
+                      if isinstance(audio,list) and audio:src=(audio[0] or {}).get("src")
+                      if isinstance(audio,dict):src=audio.get("src") or audio.get("url")
+                      if not isinstance(src,str) or not src:
+                          diag.append({"dataset":dataset,"row":i,"audio_preview":str(audio)[:200],"error":"No audio src"});continue
+                      output=dest/f"sample_{len(list(dest.glob('sample_*.wav')))+1:02d}.wav"
+                      raw=dest/f"raw_{i}.audio"
+                      if src.startswith("data:"):
+                          raw.write_bytes(base64.b64decode(src.split(",",1)[1]))
+                      else:
+                          host=urllib.parse.urlparse(src).hostname or ""
+                          if not (host=="huggingface.co" or host.endswith(".huggingface.co") or host.endswith(".hf.co") or host=="hf.co"):
+                              diag.append({"dataset":dataset,"row":i,"error":"unexpected audio host "+host});continue
+                          response=session.get(src,timeout=100)
+                          print("AUDIO_REQUEST",dataset,i,response.status_code,len(response.content),flush=True)
+                          if not response.ok:continue
+                          raw.write_bytes(response.content)
+                      if raw.stat().st_size>15_000_000:
+                          diag.append({"dataset":dataset,"row":i,"error":"sample >15MB"});raw.unlink();continue
+                      p=subprocess.run(["ffmpeg","-nostdin","-v","error","-y","-i",str(raw),"-ac","1","-ar","16000","-c:a","pcm_s16le",str(output)],capture_output=True,text=True,timeout=100)
+                      if p.returncode!=0:
+                          diag.append({"dataset":dataset,"row":i,"decode_error":p.stderr[:250]});continue
+                      probe=subprocess.run(["ffprobe","-v","error","-show_entries","stream=codec_name,sample_rate,channels:format=duration","-of","json",str(raw)],capture_output=True,text=True,timeout=20)
+                      meta={"source_dataset":dataset,"row_index":record.get("row_idx",i),"id":row.get("id"),"transcript":row.get("sentence") or row.get("text"),"duration_reported":row.get("duration"),"raw_sha256":hashlib.sha256(raw.read_bytes()).hexdigest(),"wav_sha256":hashlib.sha256(output.read_bytes()).hexdigest(),"original_probe":json.loads(probe.stdout or "{}"),"wav_file":output.name,"from_official_gated_repository":dataset=="jp1924/KsponSpeech"}
+                      (dest/(output.stem+".json")).write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
+                      print("ACTUAL_TRAINING_CORPUS_AUDIO_ACQUIRED",dataset,meta["id"],raw.stat().st_size,output.stat().st_size,flush=True)
+                      raw.unlink()
+                  if list(dest.glob("sample_*.wav")):break
+              except Exception as exc:
+                  diag.append({"dataset":dataset,"exception":repr(exc)})
+                  print("REQUEST_EXCEPTION",dataset,repr(exc),flush=True)
+          (dest/"access-diagnostics.json").write_text(json.dumps(diag,ensure_ascii=False,indent=2),encoding="utf-8")
+          sample_count=len(list(dest.glob("sample_*.wav")))
+          (dest/"RESULT.txt").write_text("downloaded_wav_count="+str(sample_count)+"\nOriginal jp1924 repository can require agreement/login; do not interpret third-party mirrors as an authenticated original or hash-identical training split.\n",encoding="utf-8")
+          print("ACTUAL_CORPUS_SAMPLES_ACQUIRED_COUNT",sample_count,flush=True)
+          if not sample_count:raise SystemExit("NO_ACCESSIBLE_ORIGINAL_CORPUS_AUDIO_SAMPLE")
+          PY
+      - name: Upload small original-corpus comparison samples and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksponspeech-3-corpus-utterances-and-access-diagnostics
+          path: /tmp/kspon-real-samples
+          retention-days: 1
+          if-no-files-found: warn
