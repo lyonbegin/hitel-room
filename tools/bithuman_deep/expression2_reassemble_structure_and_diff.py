@@ -90,6 +90,7 @@ def main():
     bridge=source("expression2-dropin/src/main/cpp/native_bridge.cpp")
     core=source("expression2-verified-core/src/expression2_stream_state.cpp")
     cmake=source("expression2-dropin/src/main/cpp/CMakeLists.txt")
+    native_frames=source("expression2-verified-core/src/expression2_native_frame_queue.cpp")
     # Real-source tests, not fabricated properties of unobserved code paths.
     kotlin_pcm=re.search(r"FloatArray\((\d+)\)",avatar)
     candidate={
@@ -112,7 +113,18 @@ def main():
         "first_step_six_tokens_later_eight":check(
             r"if\s*\(first\)\s*0\s+until\s+6\s+else\s+6\s+until\s+14",runtime),
         "unbounded_kotlin_frame_queue":check(r"LinkedBlockingQueue<Pixels>\(\)",avatar),
-        "native_output_deque_used":check(r"expression2_stream_frame_pop",bridge),
+        "native_output_deque_used":(
+            "expression2_frame_pop" in bridge
+            and "expression2_native_frame_queue.cpp" in cmake
+            and "std::deque<NativePixels> ready" in native_frames),
+        "staged_to_ready_native_move":(
+            "std::move(queue->staged.front())" in native_frames
+            and "queue->staged.pop_front()" in native_frames),
+        "native_release_after_copy":(
+            "std::memcpy(out,owner.get()" in native_frames),
+        "backend_and_native_pump_separate_threads":not check(
+            r"frameStage\(nativeFrames,\s*emitted,\s*pixels\).*?"
+            r"framePump\(nativeFrames\)",avatar),
         "frame_416x720":check(r"Bitmap\.createBitmap\(416,\s*720",avatar),
     }
     # An explicit static delta with source-backed locations. Do not infer
@@ -150,9 +162,17 @@ def main():
       dict(order=12,unit="FUN_001a7a04->FUN_001aa40c/frame memory owner",
         original="async backend pointer transfer under native queue mutex; native buffer freed after copy",
         candidate="unbounded Kotlin LinkedBlockingQueue<IntArray> retained until bitmap pull",
-        differs=candidate["unbounded_kotlin_frame_queue"] and not
-            candidate["native_output_deque_used"],
+        differs=not (
+            candidate["native_output_deque_used"]
+            and candidate["staged_to_ready_native_move"]
+            and candidate["native_release_after_copy"]
+            and not candidate["unbounded_kotlin_frame_queue"]),
         candidate_sources=["Expression2Avatar.kt","native_bridge.cpp"]),
+      dict(order=13,unit="FUN_001a7a04/backend async pump scheduling",
+        original="async backend stages frames independently; native pump waits/transfers as capacity permits",
+        candidate="candidate producer stages and pumps synchronously inside render callback",
+        differs=not candidate["backend_and_native_pump_separate_threads"],
+        candidate_sources=["Expression2Avatar.kt","expression2_native_frame_queue.cpp"]),
     ]
     orig_nodes=[]
     for ordinal,(stage,address,name,memory) in enumerate(STAGES):
