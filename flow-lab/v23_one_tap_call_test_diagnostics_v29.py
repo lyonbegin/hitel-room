@@ -107,9 +107,6 @@ method=r'''    private void markOneTapStage(String stage,String detail){
             "MediaProjection 승인; 통화녹음 M4A 감시 요청; 기본 전화 앱 실행");
         try{
             Intent dial=new Intent(Intent.ACTION_DIAL);
-            if(dial.resolveActivity(getPackageManager())==null)
-                throw new android.content.ActivityNotFoundException(
-                    "기본 전화 앱을 열 수 없습니다.");
             startActivity(dial);
             markOneTapStage("DIALER_OPENED",
                 "번호 입력·발신만 하시면 OFFHOOK/M4A 증가를 자동 감지합니다.");
@@ -233,7 +230,7 @@ engine=eng.read_text(encoding="utf-8")
 engine=replace_one(engine,
     '''      selected=folder?waitForRecording(input):input;''',
     '''      selected=folder?waitForRecording(input):input;
-      log.event("PIPELINE","M4A_SOURCE_READY",
+      if(selected!=null)log.event("PIPELINE","M4A_SOURCE_READY",
           "folderMode",folder,"sourceUri",selected.toString(),
           "thread",Thread.currentThread().getName());''',
     "M4A selected")
@@ -251,19 +248,19 @@ engine=replace_one(engine,
     '''        codec.feedAdtsFrame(adts,pcm->{
           if(pcmBytes==0){
             log.event("PIPELINE","FIRST_16KHZ_PCM_READY",
-                "pcmBytes",pcm.length,"sourceCursor",offset,
-                "adtsBytes",adts.length,"audioRateHz",16000);
+                "pcmBytes",pcm.length,"adtsBytes",adts.length,
+                "audioRateHz",16000,"preLiveFrames",skippedPreLiveFrames);
             SpeakerCaptureLog.append(context,"PIPELINE_PCM_FIRST",
-                "pcmBytes="+pcm.length+";sourceOffset="+offset+
+                "pcmBytes="+pcm.length+";adtsBytes="+adts.length+
                 ";codec=AAC;outHz=16000");
           }''',
     "first PCM diagnostic")
 engine=replace_one(engine,
-    '''       log.event("APP","SESSION_END","reason",endReason,''',
-    '''       log.event("PIPELINE","SESSION_CLOSED",
-           "reason",endReason,"sourceBytes",mirroredBytes,
-           "adtsFrames",receivedFrames,"pcmBytes",pcmBytes);
-       log.event("APP","SESSION_END","reason",endReason,''',
+    '''      log.event("APP","SESSION_END","reason",endReason,''',
+    '''      log.event("PIPELINE","SESSION_CLOSED",
+          "reason",endReason,"sourceBytes",mirroredBytes,
+          "adtsFrames",receivedFrames,"pcmBytes",pcmBytes);
+      log.event("APP","SESSION_END","reason",endReason,''',
     "end diagnostic")
 eng.write_text(engine,encoding="utf-8")
 
