@@ -1,0 +1,21 @@
+name: Verify Real Railway Zocbo Live Bank Deployment
+on:
+  push:
+    branches: [feature/zocbo-dynamic-browser-audit-20261108]
+    paths:
+      - tools/zocbo/check_railway_live.py
+      - .github/workflows/zocbo-railway-live-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-railway:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify deployed version and public data API remotely
+        run: python tools/zocbo/check_railway_live.py

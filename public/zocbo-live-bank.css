@@ -1,0 +1,30 @@
+/* Actual dynamic Zocbo public metadata, constrained to the existing phone area */
+.zb-live-bank{width:100%;min-width:0;background:#fff;color:#202329;padding-bottom:24px}
+.zb-live-top{padding:15px 0 10px;border-bottom:1px solid #edf0f2}
+.zb-live-top h3{font-size:18px;line-height:1.4;font-weight:800;margin:0 0 7px}
+.zb-live-top p{font-size:11px;color:#6e7480;line-height:1.65;margin:0}
+.zb-live-chooser{padding:12px 0 9px}
+.zb-live-options{display:flex;gap:6px;overflow:auto;padding:5px 0;scrollbar-width:none}
+.zb-live-options button{flex:none;border:1px solid #dfe2e6;border-radius:11px;min-height:35px;padding:7px 11px;font-size:12px;background:white;color:#4f555e;cursor:pointer}
+.zb-live-options button.on{background:#30343b;color:white;border-color:#30343b;font-weight:700}
+.zb-live-search{margin-top:11px;padding:12px;width:100%;border:1px solid #e2e6ea;border-radius:10px;font-size:13px;outline-offset:3px}
+.zb-live-state{min-height:100px;padding:26px 10px;font-size:12px;line-height:1.75;color:#727984}
+.zb-live-count{display:flex;gap:8px;justify-content:space-between;align-items:center;border-bottom:1px solid #ebedf0;padding:13px 0}
+.zb-live-count b{font-size:13px}
+.zb-live-count small{font-size:10px;color:#9098a0;text-align:right}
+.zb-live-panel h4{font-size:14px;margin:18px 0 10px}
+.zb-live-units details{border:1px solid #e5e8ea;border-radius:9px;margin-bottom:7px;overflow:hidden}
+.zb-live-units summary{cursor:pointer;padding:15px 12px;font-size:12px;font-weight:700;list-style-position:inside}
+.zb-live-units details>div{border-top:1px solid #eff0f2;padding:0 12px}
+.zb-live-units details p{border-bottom:1px solid #f2f3f4;margin:0;padding:10px 3px;font-size:12px;color:#555c66}
+.zb-live-units details p:last-child{border:0}
+.zb-live-exam{padding:13px 2px;border-bottom:1px solid #eceef0;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.zb-live-exam div{min-width:0;flex:1}
+.zb-live-exam strong{font-size:12px;font-weight:650;display:block;line-height:1.5;overflow-wrap:anywhere}
+.zb-live-exam small{display:block;color:#9ba0a8;font-size:10px;margin-top:4px}
+.zb-live-exam a{font-size:11px;text-decoration:underline;white-space:nowrap;color:#515969}
+.zb-live-empty{font-size:12px;color:#858b96;line-height:1.7}
+.zb-live-bottom{display:grid;gap:8px;margin-top:18px}
+.zb-live-bottom button{min-height:40px;border:1px solid #d9dde2;border-radius:9px;background:white;color:#3a424c;font-size:12px}
+#phone .appscroll:has(> .zb-live-bank){overflow-x:hidden}
+@media(max-width:390px){.zb-live-options button{padding-inline:9px;font-size:11px}.zb-live-count{flex-wrap:wrap}}

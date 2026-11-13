@@ -1,0 +1,34 @@
+name: Zocbo Public Dynamic Mobile Source Browser Audit
+on:
+  push:
+    branches:
+      - feature/zocbo-dynamic-browser-audit-20261108
+    paths:
+      - tools/zocbo/browser_public_audit.py
+      - .github/workflows/zocbo-public-dynamic-browser-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-live-public-mobile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright Chromium
+        run: |
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Read original public DOM after JavaScript and inspect actual public AJAX metadata
+        run: python tools/zocbo/browser_public_audit.py
+      - name: Upload screenshot, response shapes and failures as evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-public-dynamic-browser-evidence
+          path: zocbo-browser-evidence/
+          retention-days: 7
+          if-no-files-found: warn
