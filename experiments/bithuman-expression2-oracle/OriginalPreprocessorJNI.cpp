@@ -123,7 +123,7 @@ std::vector<float> candidate(const std::vector<float>& source) {
             float nxt=(bestOffset+j>=0 && bestOffset+j<kOriginalSamples)?q[bestOffset+j]:0.0f;
             if(j<overlap){
                 float prev=(sourceReference+j<kOriginalSamples)?q[sourceReference+j]:0.0f;
-                const float a=static_cast<float>(j)/192.0f;
+                const float a=static_cast<float>(j)*0.0052083335f; // match original NEON coefficient generation
                 out[start+j]=prev*(1.0f-a)+nxt*a;
             }else{
                 out[start+j]=nxt;
