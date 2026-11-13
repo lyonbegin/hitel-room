@@ -221,9 +221,15 @@ def start_capture(case="local-file",source="self-app"):
     print("PASS_EXISTING_V28_W03_NATIVE_PROJECTION_CAPTURE_STARTED",case,flush=True)
 
 def stop_capture():
-    r=own("am","start-service","-n",OUTPUT,"-a",
-        "app.hitel.callflowlab.v14.SPEAKER_STOP",check=False)
-    print("STOP_CAPTURE",r[-350:],flush=True)
+    # CRITICAL: the previous run-as 'am start-service' was blocked by Android 15.
+    # Use the ORIGINAL V28 W03 UI's '출력음 STT 중지' button, with the app
+    # in the foreground. This is the product's actual stop behavior.
+    adb("shell","am","start","-W","-n",ACTIVITY,timeout=50)
+    time.sleep(1)
+    assert find_existing_button("출력음 STT 중지","real-existing-stop"),        "ORIGINAL_V28_STOP_BUTTON_NOT_FOUND"
+    wait_log("사용자 요청: 출력음 STT 중지",25)
+    wait_log("출력음 STT 세션 종료",50)
+    print("PASS_EXISTING_V28_CAPTURE_SERVICE_STOP_BUTTON",flush=True)
     time.sleep(2)
 def play_recorded_file():
     fixture=pathlib.Path("/tmp/hitel-ko-speech-repeat.m4a")
