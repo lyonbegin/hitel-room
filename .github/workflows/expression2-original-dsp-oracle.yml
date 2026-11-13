@@ -1,0 +1,140 @@
+name: Expression2 actual original ARM64 DSP oracle vs standalone candidate same PCM
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-original-dsp-oracle.yml
+      - experiments/bithuman-expression2-oracle/**
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  compile-original-sdk-function-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android platform and select installed NDK compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          if [ ! -x "$manager" ]; then
+            manager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)"
+          fi
+          "$manager" "platforms;android-35" "build-tools;34.0.0"
+          compiler="$(find "$ANDROID_HOME/ndk" -name 'aarch64-linux-android26-clang++' -type f 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$compiler" ]; then
+            "$manager" "ndk;27.2.12479018"
+            compiler="$(find "$ANDROID_HOME/ndk" -name 'aarch64-linux-android26-clang++' -type f | sort -V | tail -1)"
+          fi
+          test -x "$compiler"
+          echo "ARM64_NDK_COMPILER=$compiler" >> "$GITHUB_ENV"
+      - name: Prepare Android project with exact official original binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/original-template"
+          app="$RUNNER_TEMP/original-template/android/expression2-hello/app"
+          cp experiments/bithuman-expression2-oracle/app.build.gradle.kts "$app/build.gradle.kts"
+          cp experiments/bithuman-independent-android/AndroidManifest.xml "$app/src/main/AndroidManifest.xml"
+          cp experiments/bithuman-expression2-oracle/MainActivity.kt \
+             "$app/src/main/java/com/example/x2hello/MainActivity.kt"
+          rm -rf "$app/src/test"
+          mkdir -p "$app/src/main/assets" "$app/src/main/jniLibs/arm64-v8a" build/oracle
+          echo "$app" > build/oracle/app-path.txt
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 180 \
+            -o "$RUNNER_TEMP/expression2-0.6.2.aar" \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar'
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  '"$RUNNER_TEMP/expression2-0.6.2.aar" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/expression2-0.6.2.aar" 'jni/arm64-v8a/libexpr2jni.so' > "$app/src/main/jniLibs/arm64-v8a/libexpr2jni.so"
+          unzip -p "$RUNNER_TEMP/expression2-0.6.2.aar" 'jni/arm64-v8a/libLiteRt.so' > "$app/src/main/jniLibs/arm64-v8a/libLiteRt.so"
+          sha256sum "$app/src/main/jniLibs/arm64-v8a/"*.so
+          "$ARM64_NDK_COMPILER" -O2 -fPIC -shared -std=c++17 \
+            -Wno-unused-parameter \
+            experiments/bithuman-expression2-oracle/OriginalPreprocessorJNI.cpp \
+            -llog -ldl -o "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
+          file "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
+          # Store one original synthetic TTS reference at 16 kHz, Float32, 2.75s.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq espeak-ng ffmpeg
+          espeak-ng -v en-us -s 150 -w "$RUNNER_TEMP/original-test.wav" 'Papa mama papa baby.'
+          ffmpeg -loglevel error -y -i "$RUNNER_TEMP/original-test.wav" \
+              -ac 1 -ar 16000 -f f32le "$RUNNER_TEMP/original-speech.f32"
+          python3 - <<'PY'
+          import numpy as np
+          from pathlib import Path
+          source=np.fromfile(__import__('os').environ["RUNNER_TEMP"]+'/original-speech.f32',dtype='<f4')
+          if len(source)<44000:
+              source=np.pad(source,(0,44000-len(source)))
+          source=source[:44000].astype('<f4')
+          app=Path('build/oracle/app-path.txt').read_text().strip()
+          source.tofile(Path(app)/'src/main/assets/voice-test.f32')
+          print("VOICE_EXACT_SAMPLES",len(source),"PCM_RMS",float(np.sqrt((source**2).mean())))
+          PY
+      - name: Compile original-library oracle APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$(cat build/oracle/app-path.txt)"
+          project="$(dirname "$app")"
+          cd "$project"
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/build/oracle/expression2-original-preprocessor-oracle.apk"
+          sha256sum "$GITHUB_WORKSPACE/build/oracle/expression2-original-preprocessor-oracle.apk"
+          unzip -Z1 "$GITHUB_WORKSPACE/build/oracle/expression2-original-preprocessor-oracle.apk" |
+            grep -E 'libexpr2jni.so|libLiteRt.so|libexpression2_oracle.so|voice-test.f32'
+      - name: Publish test APK (original SDK binaries embedded unmodified)
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-unmodified-arm64-preprocessor-oracle-test-apk
+          path: build/oracle/expression2-original-preprocessor-oracle.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Clean transient SDK and source checkout
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/original-template" "$RUNNER_TEMP/expression2-0.6.2.aar" "$RUNNER_TEMP/original-test.wav" "$RUNNER_TEMP/original-speech.f32"
+
+  compare-reference-against-candidate-on-android:
+    needs: compile-original-sdk-function-oracle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: expression2-unmodified-arm64-preprocessor-oracle-test-apk
+          path: build/oracle
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Run original function and candidate with the exact same PCM
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
+          script: bash experiments/bithuman-expression2-oracle/test_original_emulator.sh
+      - name: Archive original/candidate float outputs and real differential statistics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-real-original-native-vs-candidate-same-pcm-differential
+          path: reports/expression2-original-oracle/
+          if-no-files-found: warn
+          retention-days: 30
