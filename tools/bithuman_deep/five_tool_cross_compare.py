@@ -48,8 +48,9 @@ def main():
     generated=list(a.root.rglob("ddisasm-gtirb-code-blocks.tsv"))
     grows=entries(generated[0]) if generated else []
     gt_start=sorted([intval(x["rva"]) for x in grows if x["rva"].startswith("0x")])
-    gt_end=[x+int(next((row["bytes"] for row in grows if intval(row["rva"])==x),0))
-            for x in gt_start] if len(gt_start)<20000 else []
+    gt_blocks={intval(x["rva"]):int(x["bytes"]) for x in grows
+               if x["rva"].startswith("0x")}
+    gt_end=[x+gt_blocks[x] for x in gt_start]
     generated=list(a.root.rglob("pcode-fde-coverage.tsv"))
     grow=entries(generated[0]) if generated else []
     gmap={int(x["start_hex"],16)-0x100000:x for x in grow}
@@ -85,6 +86,14 @@ def main():
         "dyninst_function_entries":len(dyn),"gtirb_code_blocks":len(grows),
         "ghidra_fde_coverage":len(grow),
         "comparison_table_rows":len(rows),
+        "ghidra_capstone_instruction_count_conflicts":[
+          {"fde_rva":x["fde_rva"],
+           "ghidra_count":x["ghidra_pcode_insns"],
+           "capstone_count":x["capstone_decoded_bytes"]}
+          for x in rows if x["ghidra_pcode_insns"] and
+            int(x["ghidra_pcode_insns"])*4!=int(x["capstone_decoded_bytes"])
+        ],
+        "ghidra_capstone_all_fde_instructions_identical":False,
         "critical_path_original_function_entries":list(map(hex,IMPORTANT)),
         "original_function_byte_equivalence_proven":False,
         "standalone_sdk_parity_proven":False,
