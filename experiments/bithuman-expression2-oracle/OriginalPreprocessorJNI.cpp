@@ -132,7 +132,7 @@ std::vector<float> candidate(const std::vector<float>& source) {
         previousSelectedSourceStart=bestOffset;
     }
     for(float &v:out){
-        double rounded=std::trunc(static_cast<double>(v)+0.5);
+        double rounded=std::floor(static_cast<double>(v)+0.5);
         rounded=std::max(-2147483648.0,std::min(2147483647.0,rounded*128.0));
         v=static_cast<float>(rounded * 4.656612873077393e-10);
     }
