@@ -44,9 +44,9 @@ jobs:
           from pathlib import Path
           p=Path("reports/expression2-native-queue/native_frame_queue_contract.json")
           d=json.loads(p.read_text())
-          assert len(d["original_arm64_function_checks"])==15
+          assert len(d["original_arm64_function_checks"])==18
           assert len(d["original_jvm_method_checks"])==7
-          assert len(d["native_direct_edges"])==14
+          assert len(d["native_direct_edges"])==16
           assert d["source_derived_observations"]["native_frame_byte_size"]==1198080
           print("ORIGINAL_EXPR2_FRAME_QUEUE_VERIFIED")
           PY
