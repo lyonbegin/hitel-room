@@ -91,21 +91,26 @@ def main():
     core=source("expression2-verified-core/src/expression2_stream_state.cpp")
     cmake=source("expression2-dropin/src/main/cpp/CMakeLists.txt")
     # Real-source tests, not fabricated properties of unobserved code paths.
+    kotlin_pcm=re.search(r"FloatArray\((\d+)\)",avatar)
     candidate={
         "feed_queue_copy":check(r"input.copyOfRange\(offset,\s*offset\s*\+\s*count\)",avatar),
         "worker_native_feed_call":check(r"expression2_stream_feed\s*\(",bridge) or check(
             r"Expression2Native\.feed\s*\(",avatar),
         "native_state_compiled_in_aar":("expression2_stream_state.cpp" in cmake),
-        "pcm_kotlin_capacity":int(re.search(r"FloatArray\((\d+)\)",avatar).group(1)),
+        "pcm_kotlin_capacity":int(kotlin_pcm.group(1)) if kotlin_pcm else None,
         "pcm_window_44000_only":check(r"while\s*\(used\s*>=\s*44000\)",avatar),
-        "first_window_25600_plus_padding":check(r"25600.*18400|18400.*25600",avatar),
+        "first_window_25600_plus_padding":(
+            "std::fill(output, output + output_samples, 0.f)" in core
+            and "desired_stop = (step + 1u) * 25600u" in core
+            and "step > 1u ? (step - 1u) * 25600u : 0u" in core),
         "native_vector_pcm_canonical_module_exists":check(r"std::vector<float>\s+pcm;",core),
         "canonical_native_reserve_64000":check(r"kInitialPcmCapacity\s*=\s*64000",core),
         "decoder_blocking_flush_latch":check(r"latch\.await\(\)",avatar),
-        "encoder_input_multiplied_x3":check(r"ready(?:\[\w+\])?\s*\*\s*3(?:\.0)?[fF]?",runtime)
-            or check(r"FloatArray\(ready\.size\).*ready\[.*\]\s*\*\s*3",runtime),
+        "encoder_input_multiplied_x3":check(
+            r"FloatArray\(prepared\.size\)\s*\{\s*prepared\[it\]\s*\*\s*3\.0f",runtime),
         "token_step_14_per_window":check(r"for\s*\(i\s+in\s+0\s+until\s+14\)",runtime),
-        "first_step_six_tokens_later_eight":check(r"(first|step)\s*\?.{0,60}6.{0,60}8|if\s*\(first\).{0,60}6.{0,60}8",runtime),
+        "first_step_six_tokens_later_eight":check(
+            r"if\s*\(first\)\s*0\s+until\s+6\s+else\s+6\s+until\s+14",runtime),
         "unbounded_kotlin_frame_queue":check(r"LinkedBlockingQueue<Pixels>\(\)",avatar),
         "native_output_deque_used":check(r"expression2_stream_frame_pop",bridge),
         "frame_416x720":check(r"Bitmap\.createBitmap\(416,\s*720",avatar),
@@ -115,10 +120,11 @@ def main():
     differences=[
       dict(order=2,unit="FUN_001a7fbc/native PCM owner",
         original="64,000-float native std::vector, native JNI feed path",
-        candidate="Kotlin FloatArray(65536) used by production AAR worker",
+        candidate="actual compiled native stream state when wired; otherwise separate Kotlin PCM",
         differs=not (candidate["worker_native_feed_call"] and
                     candidate["native_state_compiled_in_aar"] and
-                    candidate["pcm_kotlin_capacity"]==64000),
+                    candidate["pcm_kotlin_capacity"] is None and
+                    candidate["canonical_native_reserve_64000"]),
         candidate_sources=["Expression2Avatar.kt","native_bridge.cpp","CMakeLists.txt"]),
       dict(order=6,unit="FUN_001a80dc/scheduler",
         original="initial step eligible at 25,600 PCM and respects native outstanding capacity",
@@ -127,17 +133,17 @@ def main():
         candidate_sources=["Expression2Avatar.kt"]),
       dict(order=7,unit="FUN_001a8500/first audio window",
         original="first 25,600 PCM and 18,400 zero padding even when input longer",
-        candidate="first full 44,000 PCM used",
+        candidate="source-derived native window when streamNextWindow is wired; otherwise full 44k PCM",
         differs=not candidate["first_window_25600_plus_padding"],
         candidate_sources=["Expression2Avatar.kt"]),
       dict(order=8,unit="FUN_001a8500->FUN_001a9794/encoder tensor",
         original="multiply the 35,200 Float32 preprocessor output by 3.0",
-        candidate="direct unscaled Float32 to enc graph",
+        candidate="actual Float32 encoder scale taken from candidate runtime source",
         differs=not candidate["encoder_input_multiplied_x3"],
         candidate_sources=["Expression2Runtime.kt"]),
       dict(order=9,unit="original step0/step1+ token bank",
         original="first 6 motion tokens, subsequent 8 from index 6",
-        candidate="14 tokens per independently rendered 44k window",
+        candidate="candidate graph token bank selected by first/subsequent step",
         differs=candidate["token_step_14_per_window"] and not
             candidate["first_step_six_tokens_later_eight"],
         candidate_sources=["Expression2Runtime.kt"]),
