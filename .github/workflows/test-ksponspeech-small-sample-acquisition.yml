@@ -31,7 +31,7 @@ jobs:
                   rows=r.json().get("rows") or []
                   for i,record in enumerate(rows[:3]):
                       row=record.get("row") or {}
-                      audio=row.get("audio")
+                      audio=row.get("Audio") or row.get("audio")
                       src=None
                       if isinstance(audio,list) and audio:src=(audio[0] or {}).get("src")
                       if isinstance(audio,dict):src=audio.get("src") or audio.get("url")
@@ -55,7 +55,7 @@ jobs:
                       if p.returncode!=0:
                           diag.append({"dataset":dataset,"row":i,"decode_error":p.stderr[:250]});continue
                       probe=subprocess.run(["ffprobe","-v","error","-show_entries","stream=codec_name,sample_rate,channels:format=duration","-of","json",str(raw)],capture_output=True,text=True,timeout=20)
-                      meta={"source_dataset":dataset,"row_index":record.get("row_idx",i),"id":row.get("id"),"transcript":row.get("sentence") or row.get("text"),"duration_reported":row.get("duration"),"raw_sha256":hashlib.sha256(raw.read_bytes()).hexdigest(),"wav_sha256":hashlib.sha256(output.read_bytes()).hexdigest(),"original_probe":json.loads(probe.stdout or "{}"),"wav_file":output.name,"from_official_gated_repository":dataset=="jp1924/KsponSpeech"}
+                      meta={"source_dataset":dataset,"row_index":record.get("row_idx",i),"id":row.get("id"),"transcript":row.get("Sentence") or row.get("sentence") or row.get("text"),"raw_sentence":row.get("raw_sentence"),"declared_source":row.get("source"),"duration_reported":row.get("duration"),"raw_sha256":hashlib.sha256(raw.read_bytes()).hexdigest(),"wav_sha256":hashlib.sha256(output.read_bytes()).hexdigest(),"original_probe":json.loads(probe.stdout or "{}"),"wav_file":output.name,"from_official_gated_repository":dataset=="jp1924/KsponSpeech"}
                       (dest/(output.stem+".json")).write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding="utf-8")
                       print("ACTUAL_TRAINING_CORPUS_AUDIO_ACQUIRED",dataset,meta["id"],raw.stat().st_size,output.stat().st_size,flush=True)
                       raw.unlink()
