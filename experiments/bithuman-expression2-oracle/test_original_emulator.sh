@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -40,6 +40,32 @@ if [ "$(grep -c ORIGINAL_FUNCTION_INVOKED "$OUT/differential.logcat")" -lt 5 ]; 
   echo ORIGINAL_SDK_ORACLE_WRONG_CALL_COUNT > "$OUT/VERDICT.txt"
   exit 1
 fi
+adb exec-out run-as com.example.x2hello cat files/original_pcm_guard_report.json > "$OUT/original_pcm_guard_report.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+p=Path("reports/expression2-original-oracle/original_pcm_guard_report.json")
+r=json.loads(p.read_text())
+assert r["unmodified_arm64_original_executed"] is True
+assert r["original_append_rva"]=="0x001acf1c"
+assert r["original_schedule_rva"]=="0x001a80dc"
+assert r["append_case_count"]==11
+assert r["scheduler_guard_case_count"]==12
+assert r["append_failures"]==0 and r["scheduler_guard_failures"]==0
+assert r["status"]=="PASS"
+assert len(r["append_cases"])==11
+assert len(r["scheduler_guard_cases"])==12
+for c in r["append_cases"]:
+    assert c["byte_exact_and_capacity_equal"] is True,c
+    assert c["first_different_chunk"]==-1,c
+for c in r["scheduler_guard_cases"]:
+    assert c["guard_pass"] is True,c
+    assert c["original_return"]==1,c
+    assert c["step_before"]==c["step_after"],c
+print("ORIGINAL_PCM_APPEND_BIT_EXACT_PASS",len(r["append_cases"]),
+      "REAL_ORIGINAL_SCHEDULER_PRE_INFERENCE_GUARDS_PASS",
+      len(r["scheduler_guard_cases"]))
+PY
 adb exec-out run-as com.example.x2hello cat files/original_differential_report.json > "$OUT/original_differential_report.json"
 python3 - <<'PY'
 import json
