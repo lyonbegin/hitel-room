@@ -82,6 +82,9 @@ jobs:
             --ir reports/five-tools/ddisasm/original.gtirb \
             --out reports/five-tools/ddisasm
           rm reports/five-tools/ddisasm/original.gtirb
+      - name: Remove vendor code embedded in GTIRB before any artifact publication
+        if: always()
+        run: rm -f reports/five-tools/ddisasm/original.gtirb
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -105,7 +108,7 @@ jobs:
           # Build the actual upstream ParseAPI from source instead.
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build libboost-all-dev libelf-dev libdwarf-dev \
-            zlib1g-dev libtbb-dev libiberty-dev
+            zlib1g-dev libtbb-dev libiberty-dev libdw-dev
           git clone --depth 1 https://github.com/dyninst/dyninst.git build/dyninst/source
           git -C build/dyninst/source rev-parse HEAD \
             > reports/five-tools/dyninst/upstream-commit.txt
