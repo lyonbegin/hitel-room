@@ -96,9 +96,8 @@ for step in range(45):
         print("PASS_V30_REAL_SAF_FOLDER_RESULT_AND_PERMISSION_CONTINUATION",flush=True)
         break
     nodes=ui("saf-stage-"+str(step))
-    if pick(nodes,("Use this folder","이 폴더 사용","Use folder")):
-        tap(pick(nodes,("Use this folder","이 폴더 사용","Use folder")),"SAF_USE_THIS_FOLDER")
-        continue
+    # Navigate INTO Samsung's expected recording folder before requesting
+    # permission: Android disallows granting the storage-volume ROOT.
     if pick(nodes,("Allow","허용"),exact=True):
         tap(pick(nodes,("Allow","허용"),exact=True),"SAF_GRANT_PERSISTABLE_ACCESS")
         continue
@@ -108,6 +107,17 @@ for step in range(45):
     if pick(nodes,("Recordings",),exact=True):
         tap(pick(nodes,("Recordings",),exact=True),"SAF_RECORDINGS")
         continue
+    # EXACT text matching is essential: the root shows a "Can't use this
+    # folder" notice whose substring otherwise looks like a USE button.
+    use=pick(nodes,("USE THIS FOLDER","이 폴더 사용"),exact=True)
+    if use and use["clickable"]=="true":
+        heading=" ".join(n["text"] for n in nodes
+                         if "breadcrumb" in n["id"]).casefold()
+        if "call" in heading or "recordings" in heading:
+            tap(use,"SAF_USE_THIS_RECORDING_FOLDER")
+            continue
+        print("ROOT_VOLUME_CANNOT_BE_GRANTED; navigate to Recordings/Call",
+              heading,flush=True)
     if pick(nodes,("Internal storage","내부 저장소","sdk_gphone64_x86_64",
                    "Pixel","emulated")):
         tap(pick(nodes,("Internal storage","내부 저장소","sdk_gphone64_x86_64",
