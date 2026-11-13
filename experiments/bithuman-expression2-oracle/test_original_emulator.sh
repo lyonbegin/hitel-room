@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -56,6 +56,21 @@ for case in x["cases"]:
     assert case["no_inference_steps"] is True,case
     assert case["first_failed_chunk"]==-1,case
 print("EXPR2_ACTUAL_ORIGINAL_ACCUMULATION_BRANCH_PASS",x["case_count"],"CASES")
+PY
+adb exec-out run-as com.example.x2hello cat files/original_feed_state_report.json > "$OUT/original_feed_state_report.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+d=json.loads(Path("reports/expression2-original-oracle/original_feed_state_report.json").read_text())
+assert d["original_feed_rva"]=="0x001a7fbc"
+assert d["backend_inference_disabled_by_source_verified_capacity_guard"] is True
+assert d["total_cases"]==9 and d["passed"]==9 and d["failed"]==0, d
+for c in d["cases"]:
+    assert c["pass"] is True,c
+    assert c["first_failed_chunk"]==-1,c
+    assert c["history_matches_16x"]=="YES",c
+    assert c["original_step"]==0,c
+print("ORIGINAL_FUN_001A7FBC_FEED_STATE_ACTUAL_ARM64_PASS",d["passed"])
 PY
 adb exec-out run-as com.example.x2hello cat files/original_pcm_guard_report.json > "$OUT/original_pcm_guard_report.json"
 python3 - <<'PY'
