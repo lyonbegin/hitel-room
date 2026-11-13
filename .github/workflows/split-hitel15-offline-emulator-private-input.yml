@@ -1,0 +1,86 @@
+name: Split completed HITEL15 Android offline runtime artifact into transportable slices
+on:
+  push:
+    branches: ["test/hitel14-android15-audiorecord-sherpa-repro-20261114"]
+    paths: [".github/workflows/split-hitel15-offline-emulator-private-input.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  split:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Download previously VERIFIED built Android runtime (no user audio)
+        uses: actions/download-artifact@v4
+        with:
+          name: hitel15-private-m4a-android-emulator-model-apk
+          run-id: 43524290233
+          github-token: ${{ github.token }}
+          path: /tmp/hitel15-runtime-download
+      - name: SHA and split to <= 450MiB pieces
+        run: |
+          set -euo pipefail
+          ls -lh /tmp/hitel15-runtime-download
+          test -s /tmp/hitel15-runtime-download/hitel15-private-audio-lab.tar.zst
+          mkdir -p /tmp/hitel15-pieces
+          sha256sum /tmp/hitel15-runtime-download/hitel15-private-audio-lab.tar.zst | tee /tmp/hitel15-pieces/SHA256SUMS
+          split -b 450M -d -a 2 /tmp/hitel15-runtime-download/hitel15-private-audio-lab.tar.zst /tmp/hitel15-pieces/chunk-
+          ls -lh /tmp/hitel15-pieces
+          for x in /tmp/hitel15-pieces/chunk-*; do test $(stat -c%s "$x") -lt 536870912; done
+      - name: Export runtime piece 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-00
+          path: /tmp/hitel15-pieces/chunk-00
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime piece 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-01
+          path: /tmp/hitel15-pieces/chunk-01
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime piece 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-02
+          path: /tmp/hitel15-pieces/chunk-02
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime piece 03
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-03
+          path: /tmp/hitel15-pieces/chunk-03
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime piece 04
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-04
+          path: /tmp/hitel15-pieces/chunk-04
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime piece 05
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-05
+          path: /tmp/hitel15-pieces/chunk-05
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime piece 06
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-private-runtime-06
+          path: /tmp/hitel15-pieces/chunk-06
+          compression-level: 0
+          if-no-files-found: ignore
+      - name: Export runtime SHA manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel15-runtime-manifest
+          path: /tmp/hitel15-pieces/SHA256SUMS
+          if-no-files-found: error
