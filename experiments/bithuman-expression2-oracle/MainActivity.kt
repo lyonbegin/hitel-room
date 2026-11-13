@@ -32,6 +32,7 @@ class MainActivity: Activity() {
     private lateinit var display: TextView
     private external fun originalPreprocess(samples: FloatArray): FloatArray
     private external fun candidatePreprocess(samples: FloatArray): FloatArray
+    private external fun originalPcmGuardOracle(): String
 
     private fun emit(message:String) {
         Log.i(TAG,message)
@@ -187,6 +188,21 @@ class MainActivity: Activity() {
             .put("sample_rate",16000).put("input_samples",44000)
             .put("output_samples",35200).put("cases",rows)
         File(filesDir,"original_differential_report.json").writeText(report.toString(2))
+        // New source-gated experiment: execute original unmodified ARM64 PCM
+        // vector append and pre-inference scheduler guard functions. This is
+        // not a claim of full original feed/pump/pull state parity.
+        val pcmGuard=JSONObject(originalPcmGuardOracle())
+        File(filesDir,"original_pcm_guard_report.json").writeText(pcmGuard.toString(2))
+        val appendFailures=pcmGuard.getInt("append_failures")
+        val guardFailures=pcmGuard.getInt("scheduler_guard_failures")
+        emit("ORIGINAL_PCM_GUARD_RESULT append="+pcmGuard.getInt("append_case_count")+
+            " scheduler="+pcmGuard.getInt("scheduler_guard_case_count")+
+            " appendFail="+appendFailures+" schedulerFail="+guardFailures)
+        require(appendFailures==0 && guardFailures==0 &&
+                pcmGuard.getString("status")=="PASS"){
+            "Real original PCM/guard differential mismatch"
+        }
+        emit("ORIGINAL_PCM_GUARD_AB_COMPLETE")
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }
