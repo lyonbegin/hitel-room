@@ -118,4 +118,23 @@ assert result["real_pcm_speaker_track"] and result["real_media_playback"],\
        "V33_MEDIA_AUDIOTRACK_PLAYBACK_REGRESSED"
 assert result["direct_sherpa_initialized"],"V33_DIRECT_MODEL_INIT_MISSING"
 assert asr_partial or asr_final, "V33_SLOW_KOREAN_SPEECH_NO_CORRECTED_ASR_TEXT"
+# Actual on-screen W03 TextView is required, not only logcat recognition.
+ui_found=False
+for sweep in range(12):
+    adb("shell","uiautomator","dump","/sdcard/v33-subtitle.xml",timeout=60,check=False)
+    xml=adb("shell","cat","/sdcard/v33-subtitle.xml",timeout=45,check=False)
+    (OUT/f"w03-subtitle-scroll-{sweep}.xml").write_text(xml,encoding="utf-8")
+    if "PCM 직접 인식 중:" in xml and ("걔는" in xml or "괜찮" in xml):
+        print("PASS_V33_REAL_W03_TEXTVIEW_KOREAN_SUBTITLE",sweep,flush=True)
+        with (OUT/"v33-w03-subtitle.png").open("wb") as shot:
+            subprocess.run(["adb","exec-out","screencap","-p"],
+                           stdout=shot,timeout=45,check=True)
+        ui_found=True
+        break
+    adb("shell","input","swipe","510","1700","510","620","390",check=False)
+    time.sleep(0.75)
+result["actual_w03_textview_subtitle"]=ui_found
+(OUT/"v33-audio-text-verdict.json").write_text(
+    json.dumps(result,ensure_ascii=False,indent=2),encoding="utf-8")
+assert ui_found,"V33_RUNTIME_STT_TEXT_NOT_VISIBLE_IN_REAL_W03_UI"
 print("PASS_V33_REAL_KOREAN_M4A_PCM_TO_AUDIOTRACK_AND_DIRECT_ASR",flush=True)
