@@ -1,7 +1,7 @@
-name: HITEL14 V31 native first launch runtime permission and one-tap STT
+name: HITEL14 V32 direct M4A PCM Sherpa ASR plus original speaker
 on:
   push:
-    branches: ["fix/hitel14-v31-auto-permission-on-first-launch-20261113"]
+    branches: ["fix/hitel14-v32-direct-pcm-asr-with-speaker-20261113"]
     paths:
       - "flow-lab/v15_preserve_v14_add_playback.py"
       - "flow-lab/SpeakerPlaybackStt.java"
@@ -23,13 +23,14 @@ on:
       - "flow-lab/v23_one_tap_call_test_diagnostics_v29.py"
       - "flow-lab/v24_v30_parallel_install_capture_ready_gate.py"
       - "flow-lab/v25_v31_first_launch_native_runtime_permissions.py"
+      - "flow-lab/v26_v32_tee_speaker_pcm_into_direct_sherpa.py"
       - "speaker-standalone/**"
       - "sherpa-original-launcher/native/aac_mdat_follow.c"
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: hitel14-v31-first-launch-permission
+  group: hitel14-v32-direct-sherpa-live-pcm
   cancel-in-progress: true
 jobs:
   android:
@@ -71,12 +72,15 @@ jobs:
           python3 flow-lab/v23_one_tap_call_test_diagnostics_v29.py
           python3 flow-lab/v24_v30_parallel_install_capture_ready_gate.py
           python3 flow-lab/v25_v31_first_launch_native_runtime_permissions.py
+          python3 flow-lab/v26_v32_tee_speaker_pcm_into_direct_sherpa.py
+          grep -F '"sttInsidePlaybackSink",true' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
+          grep -F '"DIRECT_ASR_PARTIAL"' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmDirectSherpaSink.java
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'versionCode = 39' AndroidProject/app/build.gradle.kts
-          grep -F 'app.hitel.callflowlab.v31.autopermission' AndroidProject/app/build.gradle.kts
-          grep -F 'HITEL14 V31 자동 권한 안내 · 원클릭 STT' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'versionCode = 40' AndroidProject/app/build.gradle.kts
+          grep -F 'app.hitel.callflowlab.v32.directasr' AndroidProject/app/build.gradle.kts
+          grep -F 'HITEL14 V32 실시간 PCM 직접 STT' AndroidProject/app/src/main/AndroidManifest.xml
           grep -F 'ONE_TAP_START_REQUEST' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F '"ONE_TAP_"+stage' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'FIRST_16KHZ_PCM_READY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
           grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -199,9 +203,9 @@ jobs:
           else
             echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
           fi
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v31.autopermission'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='39'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V31 자동 권한 안내 · 원클릭 STT'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v32.directasr'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='40'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V32 실시간 PCM 직접 STT'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
           if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
             echo 'ERROR: recording speaker player still in APK manifest'; exit 1
@@ -219,7 +223,7 @@ jobs:
       - name: Upload auditable APK and reconstructed sources
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-V31-first-launch-permission-ARM64-APK
+          name: HITEL14-V32-direct-m4a-pcm-asr-ARM64-APK
           path: |
             AndroidProject/app/build/outputs/apk/debug/*.apk
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -234,17 +238,17 @@ jobs:
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           if-no-files-found: error
-      - name: Publish V31 parallel-install APK without altering prior versions
+      - name: Publish V32 parallel-install APK with decoded PCM direct recognition
         run: |
           set -euo pipefail
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_V31_AutoPermission_OneTap_3STT.apk
-          (cd downloads && sha256sum HITEL14_V31_AutoPermission_OneTap_3STT.apk > HITEL14_V31_AutoPermission_OneTap_3STT.sha256)
+          cp "$APK" downloads/HITEL14_V32_DirectM4A_PCM_STT_OneTap.apk
+          (cd downloads && sha256sum HITEL14_V32_DirectM4A_PCM_STT_OneTap.apk > HITEL14_V32_DirectM4A_PCM_STT_OneTap.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_V31_AutoPermission_OneTap_3STT.apk downloads/HITEL14_V31_AutoPermission_OneTap_3STT.sha256
-          git commit -m "build: publish HITEL14 V31 native startup permissions and one-tap readiness [skip ci]"
-          git fetch origin fix/hitel14-v31-auto-permission-on-first-launch-20261113
-          git rebase origin/fix/hitel14-v31-auto-permission-on-first-launch-20261113
-          git push origin HEAD:refs/heads/fix/hitel14-v31-auto-permission-on-first-launch-20261113
+          git add downloads/HITEL14_V32_DirectM4A_PCM_STT_OneTap.apk downloads/HITEL14_V32_DirectM4A_PCM_STT_OneTap.sha256
+          git commit -m "build: publish HITEL14 V32 same M4A PCM direct ASR and speaker [skip ci]"
+          git fetch origin fix/hitel14-v32-direct-pcm-asr-with-speaker-20261113
+          git rebase origin/fix/hitel14-v32-direct-pcm-asr-with-speaker-20261113
+          git push origin HEAD:refs/heads/fix/hitel14-v32-direct-pcm-asr-with-speaker-20261113
