@@ -35,7 +35,8 @@ uintptr_t originalAddress(JNIEnv* env) {
     __android_log_print(ANDROID_LOG_INFO,"EXPR2_ORIGINAL_ORACLE",
         "ORACLE_DLOPEN_RETURNED handle=%p",handle);
     if(!handle){
-        raise(env,std::string("ORIGINAL_DLOPEN_FAILED: ")+(dlerror()?dlerror():"unknown"));
+        const char *err=dlerror();
+        raise(env,std::string("ORIGINAL_DLOPEN_FAILED: ")+(err?err:"unknown"));
         return 0;
     }
     void *feed=dlsym(handle,"Java_ai_bithuman_expression2_Native_feed");
