@@ -1,15 +1,17 @@
-name: HITEL14 V28 Android 15 real emulator runtime verification
+name: HITEL14 V29 Android 15 one-tap UI and prior pipeline regression
 on:
   push:
-    branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
+    branches: ["feature/hitel14-v29-one-button-diagnostics-20261113"]
     paths:
       - ".github/workflows/test-hitel14-v28-emulator.yml"
       - "flow-lab/ci/test_hitel14_v28_emulator.py"
+      - "flow-lab/ci/test_hitel14_v29_one_tap_ui.py"
+      - "flow-lab/v23_one_tap_call_test_diagnostics_v29.py"
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: hitel14-v28-emulator-${{ github.ref }}
+  group: hitel14-v29-emulator-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   emulator:
@@ -56,8 +58,9 @@ jobs:
           python3 flow-lab/v20_restore_proven_media_output_v26.py
           python3 flow-lab/v21_fix_auto_folder_source_switch_v27.py
           python3 flow-lab/v22_default_monitor_route_picker_v28.py
+          python3 flow-lab/v23_one_tap_call_test_diagnostics_v29.py
           cmp AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
-          grep -F 'versionCode = 36' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 37' AndroidProject/app/build.gradle.kts
           grep -F 'USAGE_MEDIA' AndroidProject/app/src/main/java/app/hitel/samsungprobe/PcmSpeakerMonitor.java
           grep -F 'AUTO_MONITOR_ALREADY_ARMED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           sed -i 's/abiFilters += listOf("arm64-v8a")/abiFilters += listOf("x86_64")/' AndroidProject/app/build.gradle.kts
@@ -123,11 +126,13 @@ jobs:
           heap-size: 512M
           disable-animations: true
           emulator-boot-timeout: 900
-          script: python3 flow-lab/ci/test_hitel14_v28_emulator.py
+          script: |
+            python3 flow-lab/ci/test_hitel14_v28_emulator.py
+            python3 flow-lab/ci/test_hitel14_v29_one_tap_ui.py
       - name: Export real screenshots, logcat and verdict
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hitel14-v28-android15-emulator-evidence
+          name: hitel14-v29-android15-one-tap-and-regression-evidence
           path: /tmp/hitel14-v28-emulator
           if-no-files-found: warn
