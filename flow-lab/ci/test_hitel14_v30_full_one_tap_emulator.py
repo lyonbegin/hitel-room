@@ -137,7 +137,7 @@ for step in range(32):
         break
     nodes=ui("projection-stage-"+str(step))
     n=pick(nodes,("Entire screen","전체 화면","화면 전체"),exact=True)
-    if n:
+    if n and not entire:
         tap(n,"OS_ENTIRE_SCREEN")
         entire=True
         continue
@@ -164,7 +164,7 @@ while time.monotonic()<deadline:
     if "ONE_TAP_CAPTURE_FAILED" in log:
         raise AssertionError("V30_REAL_PLAYBACK_CAPTURE_FAILED "+log[-1300:])
     if "ONE_TAP_BOTH_ACTUALLY_READY" in log and "ONE_TAP_DIALER_OPENED" in log:
-        print("PASS_V30_CAPTURE_AUDI0_RECORD_AND_CALL_MONITOR_VERIFIED_BEFORE_DIAL",flush=True)
+        print("PASS_V30_CAPTURE_AUDIO_RECORD_AND_CALL_MONITOR_VERIFIED_BEFORE_DIAL",flush=True)
         break
     time.sleep(2)
 else:
