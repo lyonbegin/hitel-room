@@ -1,0 +1,65 @@
+name: Expression2 original function-level stream proof replay
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-original-stream-proof.yml
+      - tools/bithuman_deep/verify_expression2_original_stream.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-original-stream-from-actual-sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve prior verified unmodified Expression2 JVM bytecode artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-complete-original-jvm-method-bytecode-analysis
+          run-id: 43328017533
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reports/replayed-original-jvm
+      - name: Retrieve prior verified unmodified Expression2 ARM64 instruction artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-original-arm64-fully-indexed-call-closure
+          run-id: 43328017533
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reports/replayed-original-native
+      - name: Verify actual original code instructions, constants, native call edges
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/bithuman_deep/verify_expression2_original_stream.py
+          python3 tools/bithuman_deep/verify_expression2_original_stream.py \
+            --jvm reports/replayed-original-jvm \
+            --native reports/replayed-original-native \
+            --out reports/original-stream-contract
+          test -s reports/original-stream-contract/original-stream-contract.json
+          test -s reports/original-stream-contract/original-stream-contract.md
+          python3 - <<'PY'
+          import json
+          with open('reports/original-stream-contract/original-stream-contract.json') as f:
+              d = json.load(f)
+          assert len(d['original_jvm_methods']) == 13
+          assert len(d['native_jni_roots']) == 8
+          assert len(d['native_direct_edges']) == 9
+          assert d['original_arm64_instruction_count'] == 65933
+          print('ORIGINAL_CODE_PROVENANCE_VERIFIED')
+          PY
+          cat reports/original-stream-contract/original-stream-contract.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload contract JSON and original-code evidence pointers (no vendor binary)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-stream-original-bytecode-verified-contract
+          path: reports/original-stream-contract/
+          if-no-files-found: warn
+          retention-days: 30
