@@ -19,6 +19,13 @@ internal object Expression2Native {
     init { System.loadLibrary("hitel_expression2_core") }
     external fun preprocess(input44000: FloatArray): FloatArray
     external fun canonHistory(canon: ByteArray): ByteArray
+    external fun streamCreate(canon: ByteArray): Long
+    external fun streamFeed(handle: Long, chunk: FloatArray): Int
+    external fun streamEnd(handle: Long): Int
+    external fun streamNextWindow(handle: Long): FloatArray?
+    external fun streamFinishWindow(handle: Long): Int
+    external fun streamSnapshot(handle: Long): LongArray?
+    external fun streamDestroy(handle: Long)
 }
 
 internal class Expression2Runtime(private val model: Expression2Model) : AutoCloseable {
@@ -67,9 +74,12 @@ internal class Expression2Runtime(private val model: Expression2Model) : AutoClo
         require(input44000.size == 44000)
         val window = ++windowNumber
         trace("preprocess_begin", window)
-        val ready = Expression2Native.preprocess(input44000)
+        val prepared = Expression2Native.preprocess(input44000)
         trace("preprocess_done", window)
-        check(ready.size == 35200) { "Native audio preprocessing failed" }
+        check(prepared.size == 35200) { "Native audio preprocessing failed" }
+        // Original FUN_001a8500 multiplies the preprocessor's 35,200
+        // Float32 outputs by 3.0 before sending the encoder tensor.
+        val ready = FloatArray(prepared.size) { prepared[it] * 3.0f }
 
         val encoded = Array(1) { Array(55) { Array(12) { FloatArray(768) } } }
         val tokens = Array(1) { Array(14) { Array(16) { FloatArray(384) } } }
@@ -83,7 +93,9 @@ internal class Expression2Runtime(private val model: Expression2Model) : AutoClo
 
         trace("tok14_done", window)
         val sequence = ArrayList<FrameSpec>(56)
-        for (i in 0 until 14) {
+        // Original FUN_001a8500 uses six initial motion tokens;
+        // later windows use the last eight (token indices 6 through 13).
+        for (i in (if (first) 0 until 6 else 6 until 14)) {
             val token = Array(1) { Array(16) { c -> tokens[0][i][c].clone() } }
             val next = Array(1) { Array(16) { Array(90) { FloatArray(52) } } }
             trace("step_" + i + "_begin", window)

@@ -164,6 +164,37 @@ extern "C" int expression2_stream_preprocess_first_window(
        output,output_samples)==0 ? EXPR2_STREAM_OK : EXPR2_STREAM_INVALID_STATE;
 }
 
+extern "C" int expression2_stream_next_window(const Expr2StreamState* s,
+                                                float* output, size_t output_samples) {
+  if (!s || !output || output_samples != EXPR2_PREPROCESS_IN_SAMPLES)
+    return EXPR2_STREAM_INVALID_ARGUMENT;
+  std::lock_guard<std::mutex> lock(s->guard);
+  if (!threshold_reached(*s)) return EXPR2_STREAM_NOT_READY;
+  const uint64_t step = static_cast<uint64_t>(s->step);
+  if (step > std::numeric_limits<uint64_t>::max() / 25600u - 2u)
+    return EXPR2_STREAM_INVALID_STATE;
+  const uint64_t start = step > 1u ? (step - 1u) * 25600u : 0u;
+  const uint64_t desired_stop = (step + 1u) * 25600u;
+  const uint64_t end = std::min<uint64_t>(
+      s->pcm.size(), std::min<uint64_t>(desired_stop, start + output_samples));
+  std::fill(output, output + output_samples, 0.f);
+  if (end > start) {
+    std::memcpy(output, s->pcm.data() + static_cast<size_t>(start),
+                static_cast<size_t>(end - start) * sizeof(float));
+  }
+  return EXPR2_STREAM_OK;
+}
+
+extern "C" int expression2_stream_finish_window(Expr2StreamState* s) {
+  if (!s) return EXPR2_STREAM_INVALID_ARGUMENT;
+  std::lock_guard<std::mutex> lock(s->guard);
+  if (!threshold_reached(*s)) return EXPR2_STREAM_NOT_READY;
+  if (s->step == std::numeric_limits<int32_t>::max())
+    return EXPR2_STREAM_INVALID_STATE;
+  s->step++;
+  return EXPR2_STREAM_OK;
+}
+
 extern "C" int expression2_stream_reset(Expr2StreamState* s) {
   if (!s) return EXPR2_STREAM_INVALID_ARGUMENT;
   std::lock_guard<std::mutex> lock(s->guard);

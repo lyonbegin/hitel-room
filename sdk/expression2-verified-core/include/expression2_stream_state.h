@@ -42,6 +42,14 @@ int expression2_stream_copy_pcm(const Expr2StreamState* s, float* output, size_t
  * certification of original FUN_001a8500's encoder windowing semantics. */
 int expression2_stream_preprocess_first_window(const Expr2StreamState* s,
                                                float* output, size_t output_samples);
+/* Source-derived FUN_001a8500 window: step0 copies 25,600 then zeros,
+ * step1 copies 44,000 from offset0, subsequent steps slide by 25,600.
+ * Only readiness/PCM/copy semantics are source-grounded; no live backend
+ * scheduling/backpressure/renderer parity is claimed. */
+int expression2_stream_next_window(const Expr2StreamState* s,
+                                   float* output, size_t output_samples);
+/* A complete independent inference window must finish before advancing. */
+int expression2_stream_finish_window(Expr2StreamState* s);
 int expression2_stream_reset(Expr2StreamState* s);
 void expression2_stream_destroy(Expr2StreamState* s);
 #ifdef __cplusplus

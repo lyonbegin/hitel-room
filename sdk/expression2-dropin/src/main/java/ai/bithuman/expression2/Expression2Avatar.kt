@@ -7,7 +7,6 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -47,6 +46,9 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
     @Volatile private var emitted = 0L
 
     private val renderer = Expression2Runtime(model)
+    private val nativePcm = Expression2Native.streamCreate(model.canon).also {
+        check(it != 0L) { "Cannot initialize original-derived native PCM state" }
+    }
     private val worker = Thread({ runWorker() }, "expression2-render").apply {
         isDaemon = true
         priority = Thread.NORM_PRIORITY
@@ -108,56 +110,54 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
     }
 
     private fun runWorker() {
-        var pcm = FloatArray(65536)
-        var used = 0
         var first = true
         try {
-            fun append(samples: FloatArray) {
-                if (used + samples.size > pcm.size)
-                    pcm = pcm.copyOf(maxOf(pcm.size * 2, used + samples.size))
-                samples.copyInto(pcm, used)
-                used += samples.size
-                totalSamples += samples.size
-            }
-
             fun renderWindow(window: FloatArray) {
                 val wasFirst = first
-                android.util.Log.i("HITEL_EXPRESSION2", "worker_window_begin used=" + used + " first=" + wasFirst)
+                android.util.Log.i("HITEL_EXPRESSION2",
+                    "worker_window_begin first=" + wasFirst)
                 renderer.runWindow(window, wasFirst) { pixels ->
                     frames.put(Pixels(emitted++, pixels))
                 }
-                android.util.Log.i("HITEL_EXPRESSION2", "worker_window_done frames=" + emitted)
+                android.util.Log.i("HITEL_EXPRESSION2",
+                    "worker_window_done frames=" + emitted)
+                check(Expression2Native.streamFinishWindow(nativePcm) == 0) {
+                    "Native PCM step counter could not advance"
+                }
                 first = false
             }
-
-            fun processCompleteWindows() {
-                while (used >= 44000) {
-                    renderWindow(pcm.copyOfRange(0, 44000))
-                    val stride = 25600
-                    pcm.copyInto(pcm, 0, stride, used)
-                    used -= stride
+            fun processSourceDerivedWindows() {
+                while (true) {
+                    val window = Expression2Native.streamNextWindow(nativePcm) ?: break
+                    renderWindow(window)
                 }
             }
-
             while (true) {
                 when (val command = commands.take()) {
                     is Command.Audio -> {
-                        append(command.pcm)
-                        processCompleteWindows()
+                        check(Expression2Native.streamFeed(nativePcm, command.pcm) == 0) {
+                            "Native PCM append failed"
+                        }
+                        totalSamples += command.pcm.size
+                        val status = Expression2Native.streamSnapshot(nativePcm)
+                        android.util.Log.i("HITEL_EXPRESSION2",
+                            "native_pcm_samples=" + (status?.get(0) ?: -1) +
+                            " native_pcm_capacity=" + (status?.get(1) ?: -1) +
+                            " native_step=" + (status?.get(4) ?: -1))
+                        processSourceDerivedWindows()
                     }
                     is Command.Flush -> {
                         try {
+                            check(Expression2Native.streamEnd(nativePcm) == 0) {
+                                "Native PCM end segment failed"
+                            }
+                            processSourceDerivedWindows()
                             val expected = (totalSamples.toDouble() *
                                 FRAMES_PER_SECOND / SAMPLE_RATE).roundToInt().toLong()
-                            if (used > 0 && (totalSamples > 0L)) {
-                                val padded = FloatArray(44000)
-                                pcm.copyInto(padded, 0, 0, min(used, 44000))
-                                renderWindow(padded)
-                            }
-                            // Exact original window stitching and pad-frame behavior
-                            // remain unverified; do NOT report the count as parity.
-                            android.util.Log.i("HITEL_EXPRESSION2", "candidate frames=" + emitted +
-                                " expected20fps=" + expected + " inputSamples=" + totalSamples)
+                            android.util.Log.i("HITEL_EXPRESSION2",
+                                "candidate frames=" + emitted +
+                                " expected20fps=" + expected +
+                                " inputSamples=" + totalSamples)
                         } finally {
                             tailPending = false
                             command.completed.countDown()
@@ -175,6 +175,7 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
                 if (remaining is Command.Flush) remaining.completed.countDown()
             }
         } finally {
+            Expression2Native.streamDestroy(nativePcm)
             renderer.close()
         }
     }
