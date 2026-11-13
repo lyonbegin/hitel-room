@@ -17,7 +17,7 @@ adb logcat -c
 adb logcat -v time > "$OUT/complete-live.logcat" 2>&1 &
 LOGCAT_PID=$!
 adb shell am start -n com.example.x2hello/.MainActivity | tee "$OUT/launch.log"
-for i in $(seq 1 65); do
+for i in $(seq 1 110); do
   adb logcat -d -v time -s EXPR2_ORACLE:I EXPR2_ORIGINAL_ORACLE:I '*:S' > "$OUT/differential.logcat" || true
   if grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then break; fi
   if grep -q ORIGINAL_ORACLE_FAILURE "$OUT/differential.logcat"; then break; fi
@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_END_BOUNDARY|ORIGINAL_FRAME_POP|ORIGINAL_FRAME_TRANSFER|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_STREAM_WINDOW|ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_END_BOUNDARY|ORIGINAL_FRAME_POP|ORIGINAL_FRAME_TRANSFER|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -174,4 +174,61 @@ for case in silence impulse sine fixed_noise spoken_tts; do
   test "$(stat -c %s "$OUT/$case"_original.f32)" -eq 140800
   test "$(stat -c %s "$OUT/$case"_candidate.f32)" -eq 140800
 done
+# Verify actual original ARM64 preprocessor outputs on source-derived
+# FUN_001a8500 44,000-sample windows, including startup zero padding.
+adb exec-out run-as com.example.x2hello cat files/original_stream_window_report.json > "$OUT/original_stream_window_report.json"
+for name in step0_threshold step0_extra step1_full step2_full step3_partial step3_full; do
+  adb exec-out run-as com.example.x2hello cat "files/stream_${name}_window.f32" > "$OUT/stream_${name}_window.f32"
+  adb exec-out run-as com.example.x2hello cat "files/stream_${name}_original_preprocessed.f32" > "$OUT/stream_${name}_original_preprocessed.f32"
+  adb exec-out run-as com.example.x2hello cat "files/stream_${name}_original_encoder_x3.f32" > "$OUT/stream_${name}_original_encoder_x3.f32"
+done
+python3 - <<'PY'
+import json
+import hashlib
+import math
+import struct
+from pathlib import Path
+root=Path("reports/expression2-original-oracle")
+d=json.loads((root/"original_stream_window_report.json").read_text())
+assert d["source_window_rva"]=="0x001a8500",d
+assert d["executed_original_preprocessor_rva"]=="0x001a9794",d
+assert d["source_derived_not_runtime_full_inference"] is True
+assert d["case_count"]==6 and d["status"]=="PASS",d
+expected={
+    "step0_threshold":(0,25600,18400),
+    "step0_extra":(0,25600,18400),
+    "step1_full":(0,44000,0),
+    "step2_full":(25600,44000,0),
+    "step3_partial":(51200,28800,15200),
+    "step3_full":(51200,44000,0),
+}
+assert {x["name"] for x in d["cases"]}==set(expected)
+for case in d["cases"]:
+    name=case["name"]
+    start,count,padding=expected[name]
+    assert (case["start"],case["copied_samples"],case["zero_padded_samples"])==(start,count,padding),case
+    assert case["actual_original_arm64_preprocessor_invoked"] is True
+    assert case["actual_original_full_inference_invoked"] is False
+    assert case["output_samples"]==35200
+    sample=(root/f"stream_{name}_window.f32").read_bytes()
+    prep=(root/f"stream_{name}_original_preprocessed.f32").read_bytes()
+    enc=(root/f"stream_{name}_original_encoder_x3.f32").read_bytes()
+    assert len(sample)==176000 and len(prep)==len(enc)==140800,name
+    assert sample[count*4:]==bytes(padding*4),name
+    assert hashlib.sha256(sample).hexdigest()==case["window_sha256"],name
+    assert hashlib.sha256(prep).hexdigest()==case["original_preprocessed_sha256"],name
+    assert hashlib.sha256(enc).hexdigest()==case["original_encoder_x3_sha256"],name
+    # Exact round-to-Float32, same as original ARM64 fmul v1.4S by 3.0f.
+    source=struct.iter_unpack("<f",prep)
+    rendered=struct.iter_unpack("<f",enc)
+    for (x,),(y,) in zip(source,rendered):
+        assert math.isfinite(x) and math.isfinite(y)
+        assert struct.pack("<f",x*3.0)==struct.pack("<f",y),name
+    print("ORIGINAL_STREAM_SOURCE_WINDOW_AND_NATIVE_DSP_PASS",name,
+          "start",start,"copied",count,"pad",padding)
+# First fully observed 44k original input is the same original TTS reference.
+assert (root/"stream_step1_full_window.f32").read_bytes()==(root/"spoken_tts_input.f32").read_bytes()
+assert (root/"stream_step1_full_original_preprocessed.f32").read_bytes()==(root/"spoken_tts_original.f32").read_bytes()
+print("ORIGINAL_STREAM_PREPROCESSOR_SAME_PCM_REPRODUCIBLE_PASS",len(d["cases"]))
+PY
 echo ORIGINAL_REFERENCE_NUMERIC_PARITY_TOLERANCE_PASS_NOT_BIT_EXACT | tee "$OUT/VERDICT.txt"

@@ -126,6 +126,99 @@ class MainActivity: Activity() {
         }
     }
 
+
+    // Window offsets, zero padding, sample conversion and the 3x encoder-input
+    // scale are sourced from the unmodified ARM64 FUN_001a8500:
+    //   0x001a8598-0x001a8638 (see original instruction artifact 13992718722).
+    // This executes the actual FUN_001a9794 on source-derived windows.
+    // It does NOT claim that FUN_001a8500, the ML backend or render worker ran.
+    private fun originalStreamWindowProof() {
+        data class Probe(
+            val name: String, val step: Int, val available: Int,
+            val expectedStart: Int, val expectedCopy: Int
+        )
+        val cases = arrayOf(
+            Probe("step0_threshold", 0, 25600, 0, 25600),
+            Probe("step0_extra", 0, 44000, 0, 25600),
+            Probe("step1_full", 1, 44000, 0, 44000),
+            Probe("step2_full", 2, 69600, 25600, 44000),
+            Probe("step3_partial", 3, 80000, 51200, 28800),
+            Probe("step3_full", 3, 96000, 51200, 44000)
+        )
+        val seed = originalSpeech()
+        val rows = JSONArray()
+        for (probe in cases) {
+            // The initial 44,000 samples are the identical TTS asset used by
+            // the existing standalone original-vs-candidate DSP test.
+            val pcm = FloatArray(probe.available) { i ->
+                if (i < seed.size) seed[i]
+                else seed[i % seed.size] * (if (i < 70000) 0.75f else 1.25f)
+            }
+            val start = if (probe.step > 1) (probe.step - 1) * 25600 else 0
+            val desiredStop = (probe.step + 1) * 25600
+            val stop = minOf(pcm.size, desiredStop, start + 44000)
+            val copied = maxOf(0, stop - start)
+            require(start == probe.expectedStart && copied == probe.expectedCopy) {
+                "Source-derived original audio window offsets changed: " + probe.name
+            }
+            val window = FloatArray(44000)
+            if (copied > 0) System.arraycopy(pcm, start, window, 0, copied)
+            require((0 until copied).all { window[it].toRawBits() == pcm[start+it].toRawBits() })
+            require((copied until window.size).all { window[it].toRawBits() == 0f.toRawBits() })
+
+            // The actual unmodified vendor ARM64 preprocessor executes here.
+            val original = originalPreprocess(window)
+            require(original.size == 35200 && original.all { it.isFinite() })
+            val encoderInput = FloatArray(original.size) { original[it] * 3.0f }
+            require(encoderInput.all { it.isFinite() })
+
+            // Existing independently reconstructed candidate: diagnostic only.
+            // Its output is NOT substituted for the original encoder input.
+            val candidate = candidatePreprocess(window)
+            require(candidate.size == original.size)
+            var exact = 0
+            var maxAbs = 0.0
+            for (i in original.indices) {
+                if (original[i].toRawBits() == candidate[i].toRawBits()) exact++
+                maxAbs = maxOf(maxAbs, abs(original[i].toDouble()-candidate[i].toDouble()))
+            }
+            saveFloats("stream_" + probe.name, "window", window)
+            saveFloats("stream_" + probe.name, "original_preprocessed", original)
+            saveFloats("stream_" + probe.name, "original_encoder_x3", encoderInput)
+            rows.put(JSONObject()
+                .put("name", probe.name)
+                .put("step", probe.step)
+                .put("available_samples", probe.available)
+                .put("start", start)
+                .put("copied_samples", copied)
+                .put("zero_padded_samples", window.size-copied)
+                .put("window_sha256", hash(window))
+                .put("original_preprocessed_sha256", hash(original))
+                .put("original_encoder_x3_sha256", hash(encoderInput))
+                .put("output_samples", original.size)
+                .put("candidate_bit_exact", exact)
+                .put("candidate_max_abs_diff", maxAbs)
+                .put("actual_original_arm64_preprocessor_invoked", true)
+                .put("actual_original_full_inference_invoked", false))
+            emit("ORIGINAL_STREAM_WINDOW_CASE name=" + probe.name +
+                " step=" + probe.step + " copied=" + copied +
+                " pad=" + (window.size-copied) + " exact=" + exact)
+        }
+        val result = JSONObject()
+            .put("source", "unmodified Expression2 0.6.2 ARM64 FUN_001a8500 window assembly")
+            .put("source_window_rva", "0x001a8500")
+            .put("executed_original_preprocessor_rva", "0x001a9794")
+            .put("source_derived_not_runtime_full_inference", true)
+            .put("window_samples", 44000)
+            .put("preprocessed_samples", 35200)
+            .put("encoder_scale", 3)
+            .put("case_count", cases.size)
+            .put("cases", rows)
+            .put("status", "PASS")
+        File(filesDir, "original_stream_window_report.json").writeText(result.toString(2))
+        emit("ORIGINAL_STREAM_WINDOW_AB_COMPLETE cases=" + cases.size)
+    }
+
     private fun perform() {
         val rows=JSONArray()
         for(case in arrayOf("silence","impulse","sine","fixed_noise","spoken_tts")){
@@ -262,6 +355,7 @@ class MainActivity: Activity() {
             "Original ARM64 backend staging -> native queue -> pull failed"
         }
         emit("ORIGINAL_FRAME_TRANSFER_AB_COMPLETE")
+        originalStreamWindowProof()
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }
