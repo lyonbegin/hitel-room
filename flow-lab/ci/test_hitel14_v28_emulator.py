@@ -8,7 +8,7 @@ logcat and the app's real event journal, not source grep.
 """
 from pathlib import Path
 import re,shlex,subprocess,time,json,sys
-APP="app.hitel.callflowlab.v14.systempicker"
+APP="app.hitel.callflowlab.v30.onetap"
 SERVICE=APP+"/app.hitel.samsungprobe.SpeakerService"
 START="app.hitel.samsungprobe.START"
 STOP="app.hitel.samsungprobe.STOP"
@@ -59,7 +59,7 @@ assert apk.stat().st_size>10000000,apk
 # Read production ABI from APK metadata without ever attempting to install
 # an incompatible ARM64 binary on an x86_64 emulator.
 import zipfile
-production=Path("downloads/HITEL14_V28_AutoCall_MediaRoute_3STT.apk")
+production=Path("downloads/HITEL14_V30_Parallel_ReadyGate_3STT.apk")
 if production.is_file():
     with zipfile.ZipFile(production) as archive:
         abis=sorted({x.split("/")[1] for x in archive.namelist()
@@ -143,4 +143,4 @@ summary={"android_sdk":35,"emulator_abi":"x86_64",
          "bluetooth_hardware":"NOT_AVAILABLE_ON_EMULATOR",
          "korean_speech_recognition":"NOT_TESTED_WITH_TONE_FIXTURE"}
 (OUTPUT/"verification.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2))
-print("PASS_V28_EMULATOR_RUNTIME_SMOKE_ALL_ASSERTED_CHECKS",flush=True)
+print("PASS_V30_PARALLEL_ID_EMULATOR_RUNTIME_AND_LEGACY_PCM_CALL_GATES",flush=True)
