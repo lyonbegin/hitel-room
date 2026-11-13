@@ -35,6 +35,7 @@ class MainActivity: Activity() {
     private external fun originalPcmGuardOracle(): String
     private external fun originalFeedStateOracle(): String
     private external fun originalFeedAccumulationOracle(): String
+    private external fun originalFrameQueueOracle(): String
 
     private fun emit(message:String) {
         Log.i(TAG,message)
@@ -229,6 +230,16 @@ class MainActivity: Activity() {
             "Original ARM64 accumulation buffer/status not matched"
         }
         emit("ORIGINAL_FEED_ACCUM_AB_COMPLETE")
+        val queueReport=JSONObject(originalFrameQueueOracle())
+        File(filesDir,"original_queue_pop_report.json").writeText(queueReport.toString(2))
+        emit("ORIGINAL_QUEUE_POP_RESULT cases="+queueReport.getInt("case_count")+
+             " frames="+queueReport.getInt("frame_count")+
+             " failures="+queueReport.getInt("failures"))
+        require(queueReport.getString("status")=="PASS" &&
+                queueReport.getInt("failures")==0) {
+            "Real unmodified ARM64 frame dequeue/copy/ownership mismatch"
+        }
+        emit("ORIGINAL_QUEUE_POP_AB_COMPLETE")
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }

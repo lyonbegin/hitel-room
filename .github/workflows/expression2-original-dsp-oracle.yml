@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/bithuman-expression2-imx-sdk-audit-20261112
+      - feature/bithuman-expression2-original-frame-queue-oracle-20261113
     paths:
       - .github/workflows/expression2-original-dsp-oracle.yml
       - experiments/bithuman-expression2-oracle/**
@@ -62,6 +63,7 @@ jobs:
             experiments/bithuman-expression2-oracle/OriginalPcmGuardJNI.cpp \
             experiments/bithuman-expression2-oracle/OriginalFeedAccumulationJNI.cpp \
             experiments/bithuman-expression2-oracle/OriginalFeedStateJNI.cpp \
+            experiments/bithuman-expression2-oracle/OriginalFrameQueueJNI.cpp \
             -llog -ldl -o "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
           file "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
           # Android NDK clang++ links the JNI wrapper against the shared C++ runtime.

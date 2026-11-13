@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_FEED_STATE|ORIGINAL_QUEUE_POP|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -40,6 +40,25 @@ if [ "$(grep -c ORIGINAL_FUNCTION_INVOKED "$OUT/differential.logcat")" -lt 5 ]; 
   echo ORIGINAL_SDK_ORACLE_WRONG_CALL_COUNT > "$OUT/VERDICT.txt"
   exit 1
 fi
+adb exec-out run-as com.example.x2hello cat files/original_queue_pop_report.json > "$OUT/original_queue_pop_report.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+r=json.loads(Path("reports/expression2-original-oracle/original_queue_pop_report.json").read_text())
+assert r["original_rva"]=="0x001aa40c"
+assert r["original_function"]=="FUN_001aa40c"
+assert r["frame_bytes"]==1198080
+assert r["synthetic_queue"] and r["model_executed"] is False
+assert r["case_count"]==5 and len(r["cases"])==5
+assert r["frame_count"]==14
+assert r["failures"]==0 and r["status"]=="PASS"
+for case in r["cases"]:
+    assert case["requested"]==case["popped"],case
+    assert case["copy_metadata_ownership_exact"] is True,case
+    assert case["empty_pull_zero"] is True,case
+    assert case["first_failed_frame"]==-1,case
+print("REAL_ORIGINAL_ARM64_FRAME_POP_OWNERSHIP_PASS",r["case_count"],"CASES",r["frame_count"],"FRAMES")
+PY
 adb exec-out run-as com.example.x2hello cat files/original_feed_accumulation_report.json > "$OUT/original_feed_accumulation_report.json"
 python3 - <<'PY'
 import json
