@@ -1,0 +1,139 @@
+name: Expression2 original Wise Pup canon history function native differential proof
+
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-original-canon-oracle.yml
+      - experiments/bithuman-expression2-canon-oracle/**
+      - tools/bithuman_deep/fetch_expression2_canon_sample.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-original-canon-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Obtain verified original canon.bin from public Wise Pup Expression2 IMX
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/canon-oracle reports/expression2-original-canon-provenance
+          python3 tools/bithuman_deep/fetch_expression2_canon_sample.py \
+            --output "$RUNNER_TEMP/expression2-wise-pup"
+          cp "$RUNNER_TEMP/expression2-wise-pup/canon_provenance.json" \
+            reports/expression2-original-canon-provenance/canon_provenance.json
+          echo 'cac1c9aeb8c80de4b46661784ffd3fa5f601bf0113fa543db00f1fa8ec2d94d5  '"$RUNNER_TEMP/expression2-wise-pup/canon.bin" | sha256sum -c -
+          test "$(stat -c %s "$RUNNER_TEMP/expression2-wise-pup/canon.bin")" -eq 299520
+      - name: Install Android platform and NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)"
+          "$manager" "platforms;android-35" "build-tools;34.0.0"
+          compiler="$(find "$ANDROID_HOME/ndk" -name 'aarch64-linux-android26-clang++' -type f 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$compiler" ]; then
+            "$manager" "ndk;27.2.12479018"
+            compiler="$(find "$ANDROID_HOME/ndk" -name 'aarch64-linux-android26-clang++' -type f | sort -V | tail -1)"
+          fi
+          test -x "$compiler"
+          echo "ARM64_NDK_COMPILER=$compiler" >> "$GITHUB_ENV"
+      - name: Build A/B native original SDK function wrapper and untouched vendor binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git \
+            "$RUNNER_TEMP/original-template"
+          app="$RUNNER_TEMP/original-template/android/expression2-hello/app"
+          cp experiments/bithuman-expression2-oracle/app.build.gradle.kts "$app/build.gradle.kts"
+          cp experiments/bithuman-independent-android/AndroidManifest.xml "$app/src/main/AndroidManifest.xml"
+          cp experiments/bithuman-expression2-canon-oracle/MainActivity.kt \
+            "$app/src/main/java/com/example/x2hello/MainActivity.kt"
+          mkdir -p "$app/src/main/assets" "$app/src/main/jniLibs/arm64-v8a"
+          cp "$RUNNER_TEMP/expression2-wise-pup/canon.bin" "$app/src/main/assets/canon.bin"
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 180 \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar' \
+            -o "$RUNNER_TEMP/expression2-original.aar"
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  '"$RUNNER_TEMP/expression2-original.aar" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/expression2-original.aar" 'jni/arm64-v8a/libexpr2jni.so' \
+            > "$app/src/main/jniLibs/arm64-v8a/libexpr2jni.so"
+          unzip -p "$RUNNER_TEMP/expression2-original.aar" 'jni/arm64-v8a/libLiteRt.so' \
+            > "$app/src/main/jniLibs/arm64-v8a/libLiteRt.so"
+          "$ARM64_NDK_COMPILER" -O2 -fPIC -shared -std=c++17 \
+            experiments/bithuman-expression2-canon-oracle/OriginalCanonSeedJNI.cpp \
+            -llog -ldl -o "$app/src/main/jniLibs/arm64-v8a/libexpression2_canon_oracle.so"
+          NDK_SYSROOT="$(dirname "$(dirname "$ARM64_NDK_COMPILER")")/sysroot"
+          cp "$NDK_SYSROOT/usr/lib/aarch64-linux-android/libc++_shared.so" \
+            "$app/src/main/jniLibs/arm64-v8a/libc++_shared.so"
+          sha256sum "$app/src/main/jniLibs/arm64-v8a/"*.so
+          (
+            cd "$RUNNER_TEMP/original-template/android/expression2-hello"
+            chmod +x gradlew
+            ./gradlew --no-daemon --max-workers=2 :app:assembleDebug
+          )
+          cp "$app/build/outputs/apk/debug/app-debug.apk" \
+            build/canon-oracle/expression2-original-canon-oracle.apk
+          unzip -Z1 build/canon-oracle/expression2-original-canon-oracle.apk |
+            grep -E 'libexpr2jni.so|libLiteRt.so|libexpression2_canon_oracle.so|canon.bin'
+      - name: Publish ARM64 reference oracle test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-wise-pup-original-canon-oracle-apk
+          path: build/canon-oracle/expression2-original-canon-oracle.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish exact public sample model-member provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-wise-pup-canon-source-provenance
+          path: reports/expression2-original-canon-provenance/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Clean original SDK and large IMX asset working files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/original-template" "$RUNNER_TEMP/expression2-original.aar" "$RUNNER_TEMP/expression2-wise-pup"
+
+  run-original-canon-bitwise-differential:
+    needs: build-original-canon-oracle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: expression2-wise-pup-original-canon-oracle-apk
+          path: build/canon-oracle
+      - name: Enable KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Compare unmodified original ARM64 FUN_001a7db0 to candidate 4.79MB histories
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
+          script: bash experiments/bithuman-expression2-canon-oracle/test_canon_emulator.sh
+      - name: Publish source-versus-candidate original bytes / hashes / logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-real-wise-pup-canon-native-bitwise-differential
+          path: reports/expression2-original-canon/
+          if-no-files-found: warn
+          retention-days: 30
