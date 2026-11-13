@@ -320,36 +320,56 @@ else:
     adb("logcat","-c")
     start_capture("youtube-comparator","youtube")
     print("YOUTUBE_NEW_PROJECTION_CAPTURE_VERIFIED",flush=True)
-    # Verified real YouTube video featuring spoken Korean. A direct video
-    # opens its player instead of an unverified search-results item.
-    link="https://www.youtube.com/watch?v=1SGUXxrhq9M"
-    def open_youtube_url():
-        return adb("shell","am","start","-a","android.intent.action.VIEW",
-                   "-d",link,"-p","com.google.android.youtube",check=False)
-    print("YOUTUBE_OPEN_RESULTS",open_youtube_url()[-600:],flush=True)
-    time.sleep(6)
-    # Google APIs images ship YouTube but may show first-run account onboarding.
-    # Tapping the REAL "Use without an account" control in YouTube is permitted.
+    # Open the INSTALLED YouTube Android application through its LAUNCHER
+    # activity, not an https: VIEW intent (which routed to Chrome first-run).
+    launched=adb("shell","monkey","-p","com.google.android.youtube",
+                 "-c","android.intent.category.LAUNCHER","1",check=False)
+    print("YOUTUBE_NATIVE_LAUNCHER",launched[-700:],flush=True)
+    youtube_native=False
     account_prompt_handled=False
-    for step in range(6):
-        nodes=uixml("youtube-onboarding-"+str(step))
-        found=next((n for n in nodes if n["package"]=="com.google.android.youtube"
-             and any(t in n["text"] for t in
-                ["Use without an account","계정 없이 사용","Continue as guest",
-                 "Not now","나중에","No thanks"])),None)
-        if found:
-            tap_node(found)
-            account_prompt_handled=True
-            print("YOUTUBE_ACTUAL_ONBOARDING_TAPPED",found["text"],flush=True)
-            time.sleep(4)
-            continue
-        if any(n["package"]=="com.google.android.youtube"
-               and any(k in n["text"].lower() for k in
-                    ["home","search","뉴스","videos","추천","구독"]) for n in nodes):
-            break
+    search_submitted=False
+    for step in range(12):
+        nodes=uixml("youtube-native-onboarding-"+str(step))
+        pkgs={n["package"] for n in nodes}
+        if "com.android.chrome" in pkgs:
+            # Chrome may appear for Google account bootstrap. Dismiss the
+            # genuine Chrome first-run UI; DO NOT use Chrome as an audio source.
+            n=next((n for n in nodes if n["package"]=="com.android.chrome"
+                    and n["text"] in ("Use without an account",
+                                     "Continue without an account")),None)
+            if n:
+                tap_node(n)
+                account_prompt_handled=True
+                print("CHROME_FIRST_RUN_DISMISSED_NOT_YOUTUBE_AUDIO",flush=True)
+                launched=adb("shell","monkey","-p","com.google.android.youtube",
+                             "-c","android.intent.category.LAUNCHER","1",check=False)
+                time.sleep(5)
+                continue
+        if "com.google.android.youtube" in pkgs:
+            youtube_native=True
+            prompt=next((n for n in nodes if n["package"]=="com.google.android.youtube"
+                and any(term.lower() in n["text"].lower()
+                for term in ["No thanks","Not now","Skip","계정 없이","나중에","건너뛰기"])),None)
+            if prompt:
+                tap_node(prompt)
+                account_prompt_handled=True
+                continue
+            search=next((n for n in nodes if n["package"]=="com.google.android.youtube"
+                and n["clickable"]=="true"
+                and ("search" in n["text"].lower() or "검색" in n["text"])),None)
+            if search and not search_submitted:
+                tap_node(search)
+                time.sleep(1)
+                adb("shell","input","text","kbs%snews")
+                adb("shell","input","keyevent","66")
+                search_submitted=True
+                print("YOUTUBE_NATIVE_SEARCH_SUBMITTED kbs news",flush=True)
+                time.sleep(8)
+                break
         time.sleep(2)
-    print("YOUTUBE_RESULTS_AFTER_ACCOUNT_PROMPT",open_youtube_url()[-600:],flush=True)
-    time.sleep(12)
+    print("YOUTUBE_NATIVE_UI_CONFIRMED",youtube_native,
+          "SEARCH_SUBMITTED",search_submitted,flush=True)
+    time.sleep(4)
     screenshot("youtube-results")
     nodes=uixml("youtube-results")
     clicked=False
@@ -380,6 +400,8 @@ else:
         "app_present":True,
         "native_single_app_selection":True,
         "account_prompt_handled":account_prompt_handled,
+        "native_youtube_ui_confirmed":youtube_native,
+        "native_search_submitted":search_submitted,
         "video_tap_attempt":clicked,
         "youtube_media_session_present":"com.google.android.youtube" in media_session,
         "capture_rms":rms_values,
@@ -390,7 +412,7 @@ else:
     }
     (OUT/"youtube-result.json").write_text(json.dumps(youtube_result,ensure_ascii=False,indent=2))
     print("YOUTUBE_RESULT_JSON",json.dumps(youtube_result,ensure_ascii=False),flush=True)
-    if clicked and youtube_result["positive_capture_rms"] and (partials or finals):
+    if youtube_native and clicked and youtube_result["positive_capture_rms"] and (partials or finals):
         print("PASS_YOUTUBE_APP_AUDIO_KOREAN_STT",flush=True)
     else:
         print("YOUTUBE_COMPARATOR_UNVERIFIED_DO_NOT_CLAIM_SUCCESS",flush=True)
