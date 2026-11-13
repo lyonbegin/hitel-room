@@ -28,8 +28,11 @@ adb("shell","uiautomator","dump","/sdcard/v29-one-tap.xml",timeout=70)
 xml=adb("shell","cat","/sdcard/v29-one-tap.xml")
 (OUT/"v29-one-tap-before.xml").write_text(xml,encoding="utf-8")
 root=ET.fromstring(xml[xml.index("<?xml"):])
-matches=[n for n in root.iter("node") if "테스트 시작" in n.attrib.get("text","")]
-assert len(matches)==1, "V29 button must exist exactly once in actual W03 UI: "+str(len(matches))
+matches=[n for n in root.iter("node")
+         if n.attrib.get("text","").startswith("▶ 테스트 시작")
+         and n.attrib.get("clickable","")=="true"
+         and n.attrib.get("package","")==APP]
+assert len(matches)==1, "Only one real CLICKABLE W03 start button may exist: "+str(len(matches))
 node=matches[0]
 bounds=node.attrib.get("bounds","")
 nums=[int(x) for x in re.findall(r"\d+",bounds)]
