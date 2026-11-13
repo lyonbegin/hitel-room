@@ -83,7 +83,12 @@ def main():
         "reference":"Original Expression2 v0.6.2 ARM64 ELF only",
         "tool_evidence_present":present,"five_tools_all_executed":all(present.values()),
         "original_fde_rows_compared":len(rows),
-        "dyninst_function_entries":len(dyn),"gtirb_code_blocks":len(grows),
+        "dyninst_function_entries":len(dyn),
+        "dyninst_entries_matching_fde":len(dyn & set(cap)),
+        "original_fde_absent_in_dyninst":len(set(cap)-dyn),
+        "dyninst_extra_inferred_entries":len(dyn-set(cap)),
+        "gtirb_code_blocks":len(grows),
+        "ddisasm_codeblock_starts_matching_fde":len(set(cap)&set(gt_start)),
         "ghidra_fde_coverage":len(grow),
         "comparison_table_rows":len(rows),
         "ghidra_capstone_instruction_count_conflicts":[

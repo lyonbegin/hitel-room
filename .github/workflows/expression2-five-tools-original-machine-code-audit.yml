@@ -138,8 +138,13 @@ jobs:
           echo "$SO_SHA  build/original/original.so" | sha256sum -c
       - name: Run Dyninst independent ARM64 function call and basic-block CFG analysis
         run: |
+          python3 -m pip install --disable-pip-version-check pyelftools==0.32
+          python3 tools/bithuman_deep/expression2_fde_structure_export.py \
+            --elf build/original/original.so \
+            --out reports/five-tools/dyninst/fde-index
           OMP_NUM_THREADS=2 timeout 600s build/dyninst/analysis \
-            build/original/original.so reports/five-tools/dyninst
+            build/original/original.so reports/five-tools/dyninst \
+            reports/five-tools/dyninst/fde-index/original-function-ranges.tsv
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <vector>
 #include <map>
 #include <set>
 #include <string>
@@ -12,12 +14,32 @@ using namespace Dyninst;
 using namespace Dyninst::ParseAPI;
 
 int main(int argc,char** argv){
-    if(argc!=3){std::cerr<<"Usage: dyninst_probe original.so outdir\n";return 2;}
+    if(argc!=4){std::cerr<<"Usage: dyninst_probe original.so outdir original-fde.tsv\n";return 2;}
     const std::string elf=argv[1], out=argv[2];
     try{
         SymtabCodeSource source(elf.c_str());
         CodeObject code(&source);
         code.parse();
+        // Exhaustively seed the ORIGINAL 2,629 FDE entries. ParseAPI's
+        // symbol-only discovery misses internal functions in stripped ELF.
+        // This uses only the original ELF addresses, not reconstructed source.
+        std::ifstream index(argv[3]);
+        if(!index)throw std::runtime_error("Original FDE seed table missing");
+        std::string line;
+        std::getline(index,line); // header
+        size_t seededFdes=0;
+        while(std::getline(index,line)){
+            if(line.empty())continue;
+            std::istringstream row(line);
+            std::vector<std::string> columns;
+            std::string column;
+            while(std::getline(row,column,'\t'))columns.push_back(column);
+            if(columns.size()<11)throw std::runtime_error("Incomplete original FDE record");
+            const Address address=std::stoull(columns[8],nullptr,16);
+            code.parse(address,true);
+            ++seededFdes;
+        }
+        if(seededFdes!=2629)throw std::runtime_error("2629 original FDE seeds required");
         std::ofstream funcs(out+"/dyninst-function-blocks.tsv");
         std::ofstream edges(out+"/dyninst-cfg-edges.tsv");
         if(!funcs || !edges)return 3;
@@ -55,6 +77,7 @@ int main(int argc,char** argv){
         std::ofstream summary(out+"/dyninst-summary.json");
         summary<<"{\n"
              <<"  \"tool\": \"Dyninst ParseAPI\",\n"
+             <<"  \"original_fde_seeds\": "<<seededFdes<<",\n"
              <<"  \"found_functions\": "<<nfunc<<",\n"
              <<"  \"unique_function_start_addresses\": "<<entrypoints.size()<<",\n"
              <<"  \"function_block_memberships\": "<<nblock<<",\n"
