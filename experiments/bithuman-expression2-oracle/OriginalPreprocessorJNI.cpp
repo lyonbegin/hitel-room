@@ -82,9 +82,12 @@ jfloatArray toJava(JNIEnv *env,const std::vector<float>& output) {
 float quantized(float value) {
     // Candidate code separately reconstructed from observed ARM64 instructions.
     // Deliberately NOT assumed equivalent until numerical parity passes.
-    double raw=std::trunc(static_cast<double>(value)*2147483648.0);
-    raw=std::max(-2147483648.0,std::min(2147483647.0,raw));
-    return static_cast<float>(std::floor((raw+64.0)/128.0));
+    // Original ARM64 path multiplies in Float32 before converting to int64,
+    // saturates to signed 32-bit range, and truncates after (integer+64)/128.
+    float scaled=value*2147483648.0f;
+    const double integer=std::trunc(static_cast<double>(scaled));
+    const double clamped=std::max(-2147483648.0,std::min(2147483647.0,integer));
+    return static_cast<float>(std::trunc((clamped+64.0)*0.0078125));
 }
 std::vector<float> candidate(const std::vector<float>& source) {
     std::vector<float> q(kOriginalSamples);
@@ -123,7 +126,7 @@ std::vector<float> candidate(const std::vector<float>& source) {
             float nxt=(bestOffset+j>=0 && bestOffset+j<kOriginalSamples)?q[bestOffset+j]:0.0f;
             if(j<overlap){
                 float prev=(sourceReference+j<kOriginalSamples)?q[sourceReference+j]:0.0f;
-                const float a=static_cast<float>(j)/192.0f;
+                const float a=static_cast<float>(j)*0.0052083335f;
                 out[start+j]=prev*(1.0f-a)+nxt*a;
             }else{
                 out[start+j]=nxt;
@@ -132,7 +135,8 @@ std::vector<float> candidate(const std::vector<float>& source) {
         previousSelectedSourceStart=bestOffset;
     }
     for(float &v:out){
-        double rounded=std::floor(static_cast<double>(v)+0.5);
+        // Original SDK: trunc(v + 0.5) before applying the 128x scaling.
+        double rounded=std::trunc(static_cast<double>(v)+0.5);
         rounded=std::max(-2147483648.0,std::min(2147483647.0,rounded*128.0));
         v=static_cast<float>(rounded * 4.656612873077393e-10);
     }
