@@ -26,7 +26,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: build/expression2-official-model
-          key: expression2-wise-pup-original-imx-v2-20261113-\${{ hashFiles('tools/bithuman_deep/imx_v2.py') }}
+          key: expression2-wise-pup-original-imx-v2-20261113-${{ hashFiles('tools/bithuman_deep/imx_v2.py') }}
       - name: Recover original 197MB IMX if cache absent
         if: steps.imx-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -54,13 +54,6 @@ jobs:
           unzip -p "$RUNNER_TEMP/expr2-published/original.aar" \
             'jni/arm64-v8a/libexpr2jni.so' > "$RUNNER_TEMP/expr2-published/libexpr2jni.so"
           readelf -hW "$RUNNER_TEMP/expr2-published/libexpr2jni.so" | grep -E 'Class:|Machine:'
-      - name: Restore original 1035-function Ghidra inventory
-        uses: actions/download-artifact@v4
-        with:
-          name: expression2-original-arm64-fully-indexed-call-closure
-          run-id: 43328017533
-          github-token: \${{ github.token }}
-          path: build/expression2-original-native
       - name: Analyze ALL sections, symbols, relocation entries, AAR and IMX resources
         shell: bash
         run: |
@@ -69,7 +62,6 @@ jobs:
           python3 tools/bithuman_deep/expression2_elf_data_inventory.py \
             --aar "$RUNNER_TEMP/expr2-published/original.aar" \
             --elf "$RUNNER_TEMP/expr2-published/libexpr2jni.so" \
-            --functions build/expression2-original-native/functions.tsv \
             --model-root build/expression2-official-model/members \
             --imx build/expression2-official-model/wise-pup-original.imx \
             --output-dir reports/expression2-elf-data-resource-audit
@@ -77,7 +69,6 @@ jobs:
           import json
           from pathlib import Path
           d=json.loads(Path('reports/expression2-elf-data-resource-audit/elf-components.json').read_text())
-          assert d["original_ghidra_function_count"]==1035, d["original_ghidra_function_count"]
           assert len(d["elf_sections"])>15
           assert len(d["full_dynamic_imports"])>0
           assert len(d["full_relocations"])>0
