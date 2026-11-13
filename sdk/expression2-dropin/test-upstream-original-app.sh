@@ -10,7 +10,15 @@ adb shell am start -W -n com.example.x2hello/.MainActivity \
   2>&1 | tee "$report/launch.txt"
 echo ORIGINAL_APP_LAUNCHED_SDK_SWAPPED
 result=TIMEOUT
-for n in $(seq 1 180); do
+for n in $(seq 1 48); do
+  if (( n % 6 == 0 )); then
+    adb logcat -d -v brief -s HITEL_EXPRESSION2:I X2HELLO:I '*:S' \
+      | tail -35 | tee "$report/progress-$n.txt" || true
+    adb shell dumpsys meminfo com.example.x2hello \
+      > "$report/meminfo-$n.txt" || true
+    adb shell top -b -n 1 -o PID,CPU,RES,NAME \
+      > "$report/top-$n.txt" 2>&1 || true
+  fi
   adb logcat -d -v time > "$report/logcat-current.txt"
   if grep -q 'DONE_FRAMES [1-9]' "$report/logcat-current.txt"; then
     result=FRAMES_PRODUCED
@@ -27,6 +35,9 @@ for n in $(seq 1 180); do
   sleep 5
 done
 adb logcat -d -v time > "$report/full-logcat.txt"
+grep -E 'HITEL_EXPRESSION2|X2HELLO' "$report/full-logcat.txt" \
+  > "$report/sdk-trace.txt" || true
+tail -120 "$report/sdk-trace.txt" || true
 adb shell dumpsys meminfo com.example.x2hello > "$report/meminfo.txt" || true
 adb shell screencap -p /sdcard/expr2-original-ui.png || true
 adb pull /sdcard/expr2-original-ui.png "$report/screenshot.png" || true

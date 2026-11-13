@@ -71,6 +71,7 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
         checkActive()
         require(offset >= 0 && count >= 0 && offset <= input.size &&
             count <= input.size - offset) { "Invalid PCM slice" }
+        android.util.Log.i("HITEL_EXPRESSION2", "feed_enqueue_pcm=" + count)
         commands.put(Command.Audio(input.copyOfRange(offset, offset + count)))
     }
 
@@ -79,7 +80,9 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
         val latch = CountDownLatch(1)
         tailPending = true
         commands.put(Command.Flush(latch))
+        android.util.Log.i("HITEL_EXPRESSION2", "flush_wait_begin")
         latch.await()
+        android.util.Log.i("HITEL_EXPRESSION2", "flush_wait_done frames=" + emitted)
         checkFault()
     }
 
@@ -119,9 +122,11 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
 
             fun renderWindow(window: FloatArray) {
                 val wasFirst = first
+                android.util.Log.i("HITEL_EXPRESSION2", "worker_window_begin used=" + used + " first=" + wasFirst)
                 renderer.runWindow(window, wasFirst) { pixels ->
                     frames.put(Pixels(emitted++, pixels))
                 }
+                android.util.Log.i("HITEL_EXPRESSION2", "worker_window_done frames=" + emitted)
                 first = false
             }
 
@@ -162,6 +167,7 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
                 }
             }
         } catch (e: Throwable) {
+            android.util.Log.e("HITEL_EXPRESSION2", "worker_failed", e)
             fault.set(e)
             tailPending = false
             // Always unblock pending flush requests on failure.
