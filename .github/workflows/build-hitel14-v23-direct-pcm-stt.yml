@@ -1,7 +1,7 @@
-name: HITEL14 V28 default Call watch and selectable media output speaker
+name: HITEL14 V29 one-tap call STT test with phase diagnostics
 on:
   push:
-    branches: ["feature/hitel14-v23-integrated-direct-pcm-stt-20261112"]
+    branches: ["feature/hitel14-v29-one-button-diagnostics-20261113"]
     paths:
       - "flow-lab/v15_preserve_v14_add_playback.py"
       - "flow-lab/SpeakerPlaybackStt.java"
@@ -20,13 +20,14 @@ on:
       - "flow-lab/v20_restore_proven_media_output_v26.py"
       - "flow-lab/v21_fix_auto_folder_source_switch_v27.py"
       - "flow-lab/v22_default_monitor_route_picker_v28.py"
+      - "flow-lab/v23_one_tap_call_test_diagnostics_v29.py"
       - "speaker-standalone/**"
       - "sherpa-original-launcher/native/aac_mdat_follow.c"
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: hitel14-integrated-direct-pcm-v23
+  group: hitel14-v29-one-button-diagnostics
   cancel-in-progress: true
 jobs:
   android:
@@ -65,12 +66,15 @@ jobs:
           python3 flow-lab/v20_restore_proven_media_output_v26.py
           python3 flow-lab/v21_fix_auto_folder_source_switch_v27.py
           python3 flow-lab/v22_default_monitor_route_picker_v28.py
+          python3 flow-lab/v23_one_tap_call_test_diagnostics_v29.py
           cmp -s AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java flow-lab/KoreanSherpaStt.java
           sha256sum AndroidProject/app/src/main/java/app/hitel/samsungprobe/KoreanSherpaStt.java | cut -d " " -f1 > /tmp/after-mic.sha256
           diff -u /tmp/original-mic.sha256 /tmp/after-mic.sha256
-          grep -F 'versionCode = 36' AndroidProject/app/build.gradle.kts
+          grep -F 'versionCode = 37' AndroidProject/app/build.gradle.kts
           grep -F 'app.hitel.callflowlab.v14.systempicker' AndroidProject/app/build.gradle.kts
-          grep -F 'HITEL14 V28 통화녹음 자동 감시·출력 장치 선택' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'HITEL14 V29 원클릭 통화 STT 진단' AndroidProject/app/src/main/AndroidManifest.xml
+          grep -F 'ONE_TAP_START_REQUEST' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java || grep -F '"ONE_TAP_"+stage' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
+          grep -F 'FIRST_16KHZ_PCM_READY' AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
           grep -F 'SpeakerCaptureLog.exportToDownloads(this)' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'SELF_MEDIA_TEST_QUEUED' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
           grep -F 'startActivityForResult(mgr.createScreenCaptureIntent(),' AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -192,8 +196,8 @@ jobs:
             echo 'WARNING_V23_SIGNER_DIFFERS_FROM_V22_IN_PLACE_UPGRADE_NOT_POSSIBLE'
           fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.callflowlab.v14.systempicker'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='36'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V28 통화녹음 자동 감시·출력 장치 선택'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='37'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'HITEL14 V29 원클릭 통화 STT 진단'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'SpeakerPlaybackCaptureService'
           if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'RecordingFolderPlayback|mediaPlayback'; then
             echo 'ERROR: recording speaker player still in APK manifest'; exit 1
@@ -211,7 +215,7 @@ jobs:
       - name: Upload auditable APK and reconstructed sources
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL14-V28-auto-call-output-picker-APK
+          name: HITEL14-V29-one-tap-ARM64-APK
           path: |
             AndroidProject/app/build/outputs/apk/debug/*.apk
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/W03ConsoleActivity.java
@@ -226,17 +230,17 @@ jobs:
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerEngine.java
             AndroidProject/app/src/main/java/app/hitel/samsungprobe/SpeakerService.java
           if-no-files-found: error
-      - name: Publish V28 integrated APK without altering original V22/V25/V26/V27 APKs
+      - name: Publish V29 integrated APK without altering prior versions
         run: |
           set -euo pipefail
           APK=$(find AndroidProject/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           mkdir -p downloads
-          cp "$APK" downloads/HITEL14_V28_AutoCall_MediaRoute_3STT.apk
-          (cd downloads && sha256sum HITEL14_V28_AutoCall_MediaRoute_3STT.apk > HITEL14_V28_AutoCall_MediaRoute_3STT.sha256)
+          cp "$APK" downloads/HITEL14_V29_OneTap_CallPipeline_3STT.apk
+          (cd downloads && sha256sum HITEL14_V29_OneTap_CallPipeline_3STT.apk > HITEL14_V29_OneTap_CallPipeline_3STT.sha256)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads/HITEL14_V28_AutoCall_MediaRoute_3STT.apk downloads/HITEL14_V28_AutoCall_MediaRoute_3STT.sha256
-          git commit -m "build: publish HITEL14 V28 with default call monitoring and selectable media output [skip ci]"
-          git fetch origin feature/hitel14-v23-integrated-direct-pcm-stt-20261112
-          git rebase origin/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
-          git push origin HEAD:refs/heads/feature/hitel14-v23-integrated-direct-pcm-stt-20261112
+          git add downloads/HITEL14_V29_OneTap_CallPipeline_3STT.apk downloads/HITEL14_V29_OneTap_CallPipeline_3STT.sha256
+          git commit -m "build: publish HITEL14 V29 one-tap call monitor and diagnostic pipeline [skip ci]"
+          git fetch origin feature/hitel14-v29-one-button-diagnostics-20261113
+          git rebase origin/feature/hitel14-v29-one-button-diagnostics-20261113
+          git push origin HEAD:refs/heads/feature/hitel14-v29-one-button-diagnostics-20261113
