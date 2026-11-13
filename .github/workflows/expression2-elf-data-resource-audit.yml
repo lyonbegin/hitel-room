@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install pinned read-only ELF parser
-        run: python3 -m pip install pyelftools==0.32
+        run: python3 -m pip install pyelftools==0.32 capstone==5.0.6
       - name: Restore previously verified public Wise Pup IMX
         id: imx-cache
         uses: actions/cache/restore@v4
@@ -72,6 +72,9 @@ jobs:
           assert len(d["elf_sections"])>15
           assert len(d["full_dynamic_imports"])>0
           assert len(d["full_relocations"])>0
+          assert d["instruction_immediate_constants"]["counts"]["disassembled_instructions"] > 10000
+          assert d["instruction_immediate_constants"]["counts"]["integer_or_address_immediate_operands"] > 0
+          assert sum(d["relocation_target_sections"].values()) == len(d["full_relocations"])
           assert len(d["original_imx_members"])==17
           assert not d["original_imx_hash_verification"]["mismatches"]
           assert any(s["category"]=="code" for s in d["elf_sections"])
