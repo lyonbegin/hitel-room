@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import java.io.Closeable
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.roundToInt
 
@@ -35,10 +34,8 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
         data class Flush(val completed: CountDownLatch) : Command
         data object Stop : Command
     }
-    private data class Pixels(val index: Long, val content: IntArray)
 
     private val commands = ArrayBlockingQueue<Command>(1024)
-    private val frames = LinkedBlockingQueue<Pixels>()
     private val fault = AtomicReference<Throwable?>()
     @Volatile private var running = true
     @Volatile private var tailPending = false
@@ -49,6 +46,10 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
     private val nativePcm = Expression2Native.streamCreate(model.canon).also {
         check(it != 0L) { "Cannot initialize original-derived native PCM state" }
     }
+    private val nativeFrames = Expression2Native.frameQueueCreate().also {
+        check(it != 0L) { "Cannot initialize independent native output queue" }
+    }
+    private val bitmapPixels = IntArray(416 * 720)
     private val worker = Thread({ runWorker() }, "expression2-render").apply {
         isDaemon = true
         priority = Thread.NORM_PRIORITY
@@ -61,7 +62,7 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
     val acceleratorNote: String
         get() = "HITEL native verified preprocessor + independent IMX interpreter; original frame parity unverified"
 
-    val queuedFrames: Int get() = frames.size
+    val queuedFrames: Int get() = Expression2Native.frameCount(nativeFrames)
     val hasPendingTail: Boolean get() = tailPending
 
     fun newFrameBitmap(): Bitmap =
@@ -88,15 +89,17 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
         checkFault()
     }
 
-    fun pull(bitmap: Bitmap): Expression2Frame? {
+    @Synchronized fun pull(bitmap: Bitmap): Expression2Frame? {
         checkFault()
         require(bitmap.width == 416 && bitmap.height == 720 &&
             bitmap.config == Bitmap.Config.ARGB_8888) { "Bitmap must be 416x720 ARGB_8888" }
-        val frame = frames.poll() ?: return null
-        bitmap.setPixels(frame.content, 0, 416, 0, 0, 416, 720)
-        return Expression2Frame(frame.index,
-            frame.index * 1_000_000L / FRAMES_PER_SECOND,
-            frame.index * (SAMPLE_RATE / FRAMES_PER_SECOND), true)
+        val index = Expression2Native.framePop(nativeFrames, bitmapPixels)
+        if (index == -1L) return null
+        check(index >= 0) { "Native frame queue pop failed" }
+        bitmap.setPixels(bitmapPixels, 0, 416, 0, 0, 416, 720)
+        return Expression2Frame(index,
+            index * 1_000_000L / FRAMES_PER_SECOND,
+            index * (SAMPLE_RATE / FRAMES_PER_SECOND), true)
     }
 
     private fun checkFault() {
@@ -117,7 +120,13 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
                 android.util.Log.i("HITEL_EXPRESSION2",
                     "worker_window_begin first=" + wasFirst)
                 renderer.runWindow(window, wasFirst) { pixels ->
-                    frames.put(Pixels(emitted++, pixels))
+                    check(Expression2Native.frameStage(nativeFrames, emitted, pixels) == 0) {
+                        "Frame staging native copy failed"
+                    }
+                    check(Expression2Native.framePump(nativeFrames) == 0) {
+                        "Frame staging native ownership transfer failed"
+                    }
+                    emitted++
                 }
                 android.util.Log.i("HITEL_EXPRESSION2",
                     "worker_window_done frames=" + emitted)
@@ -185,7 +194,8 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
         running = false
         commands.put(Command.Stop)
         worker.join(10000)
-        frames.clear()
+        check(!worker.isAlive) { "Renderer has not terminated; native buffers retained" }
+        Expression2Native.frameQueueDestroy(nativeFrames)
     }
 
     companion object {

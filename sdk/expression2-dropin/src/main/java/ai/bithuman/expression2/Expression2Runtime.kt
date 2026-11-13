@@ -26,6 +26,12 @@ internal object Expression2Native {
     external fun streamFinishWindow(handle: Long): Int
     external fun streamSnapshot(handle: Long): LongArray?
     external fun streamDestroy(handle: Long)
+    external fun frameQueueCreate(): Long
+    external fun frameStage(handle: Long, index: Long, pixels: IntArray): Int
+    external fun framePump(handle: Long): Int
+    external fun framePop(handle: Long, pixels: IntArray): Long
+    external fun frameCount(handle: Long): Int
+    external fun frameQueueDestroy(handle: Long)
 }
 
 internal class Expression2Runtime(private val model: Expression2Model) : AutoCloseable {

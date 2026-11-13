@@ -5,6 +5,7 @@ add_library(hitel_expression2_core SHARED
     native_bridge.cpp
     ../../../../expression2-verified-core/src/expression2_verified_core.cpp
     ../../../../expression2-verified-core/src/expression2_stream_state.cpp
+    ../../../../expression2-verified-core/src/expression2_native_frame_queue.cpp
 )
 target_include_directories(hitel_expression2_core PRIVATE
     ../../../../expression2-verified-core/include

@@ -4,6 +4,7 @@
 #include <limits>
 #include "expression2_verified_core.h"
 #include "expression2_stream_state.h"
+#include "expression2_native_frame_queue.h"
 
 // This bridge calls only the independently built, original-vector-verified C++
 // routines. It never loads the proprietary libexpr2jni.so or vendor AAR.
@@ -125,4 +126,60 @@ extern "C" JNIEXPORT void JNICALL
 Java_ai_bithuman_expression2_Expression2Native_streamDestroy(
     JNIEnv*, jobject, jlong handle) {
     expression2_stream_destroy(state(handle));
+}
+
+
+// The independent SDK output is held in native uniquely-owned frames.
+// It reproduces the reference queue handoff and release *shape*, not the
+// original vendor's ML backend or async execution timing.
+namespace {
+Expr2NativeFrameQueue* outQueue(jlong handle) {
+    return reinterpret_cast<Expr2NativeFrameQueue*>(static_cast<uintptr_t>(handle));
+}
+}
+extern "C" JNIEXPORT jlong JNICALL
+Java_ai_bithuman_expression2_Expression2Native_frameQueueCreate(
+    JNIEnv*, jobject) {
+    return static_cast<jlong>(reinterpret_cast<uintptr_t>(expression2_frame_create()));
+}
+extern "C" JNIEXPORT jint JNICALL
+Java_ai_bithuman_expression2_Expression2Native_frameStage(
+    JNIEnv* env,jobject,jlong handle,jlong index,jintArray pixels){
+    if(!pixels || env->GetArrayLength(pixels)!=EXPR2_OUTPUT_FRAME_PIXELS)return -1;
+    std::vector<int32_t> copy(EXPR2_OUTPUT_FRAME_PIXELS);
+    env->GetIntArrayRegion(pixels,0,EXPR2_OUTPUT_FRAME_PIXELS,
+                            reinterpret_cast<jint*>(copy.data()));
+    if(env->ExceptionCheck())return -1;
+    return expression2_frame_stage(outQueue(handle),
+        static_cast<uint64_t>(index),copy.data(),copy.size());
+}
+extern "C" JNIEXPORT jint JNICALL
+Java_ai_bithuman_expression2_Expression2Native_framePump(
+    JNIEnv*,jobject,jlong handle){
+    return expression2_frame_pump(outQueue(handle));
+}
+extern "C" JNIEXPORT jlong JNICALL
+Java_ai_bithuman_expression2_Expression2Native_framePop(
+    JNIEnv* env,jobject,jlong handle,jintArray output){
+    if(!output || env->GetArrayLength(output)!=EXPR2_OUTPUT_FRAME_PIXELS)return -2;
+    std::vector<int32_t> pixels(EXPR2_OUTPUT_FRAME_PIXELS);
+    uint64_t index=0;
+    const int result=expression2_frame_pop(outQueue(handle),pixels.data(),
+                                           pixels.size(),&index);
+    if(result==1)return -1;
+    if(result!=0)return -2;
+    env->SetIntArrayRegion(output,0,EXPR2_OUTPUT_FRAME_PIXELS,
+                           reinterpret_cast<const jint*>(pixels.data()));
+    if(env->ExceptionCheck())return -2;
+    return static_cast<jlong>(index);
+}
+extern "C" JNIEXPORT jint JNICALL
+Java_ai_bithuman_expression2_Expression2Native_frameCount(
+    JNIEnv*,jobject,jlong handle){
+    return static_cast<jint>(expression2_frame_available(outQueue(handle)));
+}
+extern "C" JNIEXPORT void JNICALL
+Java_ai_bithuman_expression2_Expression2Native_frameQueueDestroy(
+    JNIEnv*,jobject,jlong handle){
+    expression2_frame_destroy(outQueue(handle));
 }
