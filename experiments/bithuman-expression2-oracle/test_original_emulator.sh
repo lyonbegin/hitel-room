@@ -30,7 +30,7 @@ sleep 1
 adb shell dumpsys meminfo com.example.x2hello > "$OUT/meminfo.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" || true
 cat "$OUT/device.txt"
-grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
+grep -E 'ORIGINAL_LIBRARIES_LOADED|ORIGINAL_ADDRESS_PASS|ORIGINAL_FUNCTION_INVOKED|ORACLE_CASE|ORIGINAL_PCM_GUARD|ORIGINAL_FEED_ACCUM|ORIGINAL_ORACLE_AB_COMPLETE|ORIGINAL_ORACLE_FAILURE' "$OUT/differential.logcat" || true
 if ! grep -q ORIGINAL_ORACLE_AB_COMPLETE "$OUT/differential.logcat"; then
   grep -E 'ORACLE_ENTER|ORACLE_ADDRESS|ORACLE_JNI|ORACLE_DLOPEN|ORACLE_ORIGINAL_FEED|fatal signal|SIGSEGV|FATAL EXCEPTION' "$OUT/complete-live.logcat" | tail -55 || true
   echo ORIGINAL_SDK_ORACLE_NOT_VERIFIED > "$OUT/VERDICT.txt"
@@ -40,6 +40,23 @@ if [ "$(grep -c ORIGINAL_FUNCTION_INVOKED "$OUT/differential.logcat")" -lt 5 ]; 
   echo ORIGINAL_SDK_ORACLE_WRONG_CALL_COUNT > "$OUT/VERDICT.txt"
   exit 1
 fi
+adb exec-out run-as com.example.x2hello cat files/original_feed_accumulation_report.json > "$OUT/original_feed_accumulation_report.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+x=json.loads(Path("reports/expression2-original-oracle/original_feed_accumulation_report.json").read_text())
+assert x["original_rva"]=="0x001a7fbc"
+assert x["actual_original_arm64_function"]=="FUN_001a7fbc"
+assert x["real_model_invoked"] is False
+assert x["case_count"]==6 and len(x["cases"])==6
+assert x["status"]=="PASS" and x["failures"]==0
+for case in x["cases"]:
+    assert case["buffer_content_size_capacity_equal"] is True,case
+    assert case["original_canon_history_exact"] is True,case
+    assert case["no_inference_steps"] is True,case
+    assert case["first_failed_chunk"]==-1,case
+print("EXPR2_ACTUAL_ORIGINAL_ACCUMULATION_BRANCH_PASS",x["case_count"],"CASES")
+PY
 adb exec-out run-as com.example.x2hello cat files/original_pcm_guard_report.json > "$OUT/original_pcm_guard_report.json"
 python3 - <<'PY'
 import json

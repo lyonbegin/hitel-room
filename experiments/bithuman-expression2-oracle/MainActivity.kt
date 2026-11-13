@@ -33,6 +33,7 @@ class MainActivity: Activity() {
     private external fun originalPreprocess(samples: FloatArray): FloatArray
     private external fun candidatePreprocess(samples: FloatArray): FloatArray
     private external fun originalPcmGuardOracle(): String
+    private external fun originalFeedAccumulationOracle(): String
 
     private fun emit(message:String) {
         Log.i(TAG,message)
@@ -203,6 +204,17 @@ class MainActivity: Activity() {
             "Real original PCM/guard differential mismatch"
         }
         emit("ORIGINAL_PCM_GUARD_AB_COMPLETE")
+        // Execute actual unmodified ARM64 FUN_001a7fbc with source-derived
+        // native state. Backpressure blocks model inference in these tests.
+        val originalAccum=JSONObject(originalFeedAccumulationOracle())
+        File(filesDir,"original_feed_accumulation_report.json").writeText(originalAccum.toString(2))
+        emit("ORIGINAL_FEED_ACCUM_RESULT cases="+originalAccum.getInt("case_count")+
+             " failures="+originalAccum.getInt("failures"))
+        require(originalAccum.getString("status")=="PASS" &&
+                originalAccum.getInt("failures")==0) {
+            "Original ARM64 accumulation buffer/status not matched"
+        }
+        emit("ORIGINAL_FEED_ACCUM_AB_COMPLETE")
         emit("ORIGINAL_ORACLE_AB_COMPLETE count="+rows.length()+" report=original_differential_report.json")
     }
 }
