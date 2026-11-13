@@ -61,6 +61,11 @@ jobs:
             experiments/bithuman-expression2-oracle/OriginalPreprocessorJNI.cpp \
             -llog -ldl -o "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
           file "$app/src/main/jniLibs/arm64-v8a/libexpression2_oracle.so"
+          # Android NDK clang++ links the JNI wrapper against the shared C++ runtime.
+          NDK_SYSROOT="$(dirname "$(dirname "$ARM64_NDK_COMPILER")")/sysroot"
+          cp "$NDK_SYSROOT/usr/lib/aarch64-linux-android/libc++_shared.so" \
+             "$app/src/main/jniLibs/arm64-v8a/libc++_shared.so"
+          test -s "$app/src/main/jniLibs/arm64-v8a/libc++_shared.so"
           # Store one original synthetic TTS reference at 16 kHz, Float32, 2.75s.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng ffmpeg
