@@ -101,10 +101,28 @@ jobs:
           set -euo pipefail
           mkdir -p build/dyninst reports/five-tools/dyninst
           sudo apt-get update -qq
-          sudo apt-get install -y libdyninst-dev libelf-dev libdwarf-dev
-          dpkg-query -W 'libdyninst*' > reports/five-tools/dyninst/versions.txt
-          g++ -std=c++17 -O2 -I/usr/include/dyninst \
+          # Noble's stock apt repositories do not ship libdyninst-dev.
+          # Build the actual upstream ParseAPI from source instead.
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libboost-all-dev libelf-dev libdwarf-dev \
+            zlib1g-dev libtbb-dev libiberty-dev
+          git clone --depth 1 https://github.com/dyninst/dyninst.git build/dyninst/source
+          git -C build/dyninst/source rev-parse HEAD \
+            > reports/five-tools/dyninst/upstream-commit.txt
+          cmake -S build/dyninst/source -B build/dyninst/build \
+            -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/dyninst-install" \
+            -DDYNINST_ENABLE_TESTS=OFF -DDYNINST_BUILD_DOCS=OFF \
+            -DDYNINST_ENABLE_CAPSTONE=OFF
+          cmake --build build/dyninst/build -j 3
+          cmake --install build/dyninst/build
+          PFX="$RUNNER_TEMP/dyninst-install"
+          find "$PFX" -name 'CodeObject.h' -o -name 'libparseAPI.so*' \
+            > reports/five-tools/dyninst/installed-files.txt
+          g++ -std=c++17 -O2 -I"$PFX/include" -I"$PFX/include/dyninst" \
             tools/bithuman_deep/five_tool_dyninst.cpp \
+            -L"$PFX/lib" -L"$PFX/lib64" \
+            -Wl,-rpath,"$PFX/lib" -Wl,-rpath,"$PFX/lib64" \
             -lparseAPI -linstructionAPI -lsymtabAPI -lcommon \
             -o build/dyninst/analysis
       - name: Fetch original without modifications
