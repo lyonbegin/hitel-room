@@ -48,6 +48,50 @@ LEXICAL = re.compile(
     r"FUN_001a9794|FUN_001aa40c|FUN_001a7a04|FUN_001a82f0|"
     r"FUN_001a8500|TfLiteSignatureRunnerInvoke", re.I
 )
+
+# Source-level gates: each literal must appear in the Ghidra reconstruction of
+# the exact original ARM64 function whose machine bytes are also rehashed.
+# These checks do NOT prove runtime equivalence or safe concurrent execution.
+SEMANTIC_MARKERS = {
+    "FUN_001a7fbc": [
+        "FUN_001a77c0(param_1,0)", "FUN_001a7db0(uVar1,uVar2)",
+        "operator_new(0x3e800)", "FUN_001acf1c(param_1 + 7",
+        "param_1[10] =", "param_1[0xb] =", "FUN_001a80dc(param_1,0,param_4)",
+    ],
+    "FUN_001a80dc": [
+        "lVar4 = 0x6400;", "lVar4 = 44000;", "0x47e0",
+        "param_1[10] < lVar4", "param_2 & 1",
+        "(double)param_1[10] / 800.0", "param_1[0x1a]",
+        "0x2c) <= iVar3 + (int)lVar4", "FUN_001a8500(param_1",
+    ],
+    "FUN_001a7a04": [
+        "condition_variable::wait", "lVar11 + 0x530", "lVar11 + 0x538",
+        "puVar7[4] = uVar12;", "puVar13[4] = 0;", "param_1[0x1a] = lVar11;",
+    ],
+    "FUN_001aa40c": [
+        "(param_1 + 0x7c)", "(param_1 + 0xd0) != 0",
+        "puVar5[4] = 0;", "*(long *)(param_1 + 0xd0) = *(long *)(param_1 + 0xd0) + -1;",
+        "memcpy(param_2,__src,0x124800)", "operator_delete(__src)",
+    ],
+    "FUN_001a8230": [
+        "(param_1 + 0x31) = 1;", "FUN_001a80dc(param_1,1);",
+        "FUN_001a82f0(param_1,param_3);",
+        "(param_1 + 0x30) = 0;", "(param_1 + 0x31) = 0;",
+    ],
+    "FUN_001a77c0": [
+        "FUN_001a7a04(param_1,1,0,&local_60);",
+        "param_1[10] = 0;", "param_1[8] = param_1[7];",
+        "param_1[0x1a] = 0;",
+    ],
+    "Java_ai_bithuman_expression2_Native_pullToBuffer": [
+        "+ 0x730", "+ 0x738", "0x1247ff < (long)this",
+        "FUN_001aa40c(param_3,lVar9,this",
+    ],
+    "Java_ai_bithuman_expression2_Native_feed": [
+        "+ 0x668", "FUN_001a7fbc(param_3,*plVar8,uVar14",
+    ],
+}
+
 INDIRECT = re.compile(r"^\s*(?:blr|br)\s+", re.I)
 VIRTUAL = re.compile(r"\(\s*\*\s*\(?\s*(?:code\s*\*)?\s*\*|vtable|virtual", re.I)
 
@@ -150,6 +194,10 @@ def main(native, jvm, out):
         pseudos = list((native / "decompiler-reconstruction-not-original").glob("*_" + addr + ".c"))
         assert len(pseudos) == 1, ("Ghidra pseudocode missing", name, addr)
         raw_lines = pseudos[0].read_text().splitlines()
+        original_pseudocode = "\n".join(raw_lines)
+        markers = SEMANTIC_MARKERS.get(name, [])
+        missing = [m for m in markers if m not in original_pseudocode]
+        assert not missing, ("Original semantic evidence missing", name, missing)
         hits = [
             {"line": i + 1, "reconstructed_code_excerpt": text.strip()[:260]}
             for i, text in enumerate(raw_lines) if LEXICAL.search(text)
@@ -166,6 +214,7 @@ def main(native, jvm, out):
                 for d in sorted(graph[addr])
             ],
             "indirect_register_sites": sites,
+            "source_gate_verified_original_function_markers": markers,
             "ghidra_reconstruction_matches": hits[:35],
             "ghidra_possible_function_pointer_matches": dispatch_hints[:20],
             "note": "Static candidate evidence only, not runtime or source-code identity",
@@ -261,6 +310,7 @@ def main(native, jvm, out):
     print("EXPR2_NATIVE_INDIRECT_OWNERSHIP_EVIDENCE_PASS",
           len(focus), "ORIGINAL_ARM64_SHA_VERIFIED",
           len(jvm_data), "JVM_METHODS",
+          len(SEMANTIC_MARKERS), "ORIGINAL_NATIVE_LIFECYCLE_SOURCE_GATES",
           output["global_register_indirect_branch_sites"], "REGISTER_INDIRECT_SITES",
           flush=True)
     for f in focus:
