@@ -1,0 +1,90 @@
+name: Expression2 official public IMX download, verify and cache
+on:
+  push:
+    branches:
+      - feature/bithuman-expression2-imx-sdk-audit-20261112
+    paths:
+      - .github/workflows/expression2-official-model-download.yml
+      - tools/bithuman_deep/imx_v2.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-original-public-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reuse original model data if cached
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: build/expression2-official-model
+          key: expression2-wise-pup-original-imx-v2-20261113-${{ hashFiles('tools/bithuman_deep/imx_v2.py') }}
+      - name: Download complete original public IMX from bitHuman server
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/expression2-official-model/members
+          curl -fL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 480 \
+            -o build/expression2-official-model/wise-pup-original.imx \
+            'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2'
+          python3 tools/bithuman_deep/imx_v2.py \
+            build/expression2-official-model/wise-pup-original.imx \
+            --extract combined_litert.tflite --extract canon.bin \
+            --output-dir build/expression2-official-model/members
+          (cd build/expression2-official-model && \
+            sha256sum wise-pup-original.imx members/combined_litert.tflite members/canon.bin > hashes.sha256)
+      - name: Verify complete IMX, required model members and cached byte identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=build/expression2-official-model
+          (cd "$root" && sha256sum -c hashes.sha256)
+          test "$(stat -c %s "$root/members/combined_litert.tflite")" -eq 158524428
+          test "$(stat -c %s "$root/members/canon.bin")" -eq 299520
+          python3 - <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          sys.path.insert(0,'tools/bithuman_deep')
+          from imx_v2 import parse, member_by_name, verify_member_hashes
+          root=Path('build/expression2-official-model')
+          imx=root/'wise-pup-original.imx'
+          table=parse(imx)
+          expected={'combined_litert.tflite':158524428,'canon.bin':299520}
+          assert table['format']=='IMX v2'
+          assert table['file_size_bytes']>sum(expected.values())
+          for name,size in expected.items():
+              member=member_by_name(table,name)
+              assert member['size_bytes']==size,(name,member)
+          integrity=verify_member_hashes(imx,table)
+          assert not integrity['mismatches'],integrity
+          digest=hashlib.sha256(imx.read_bytes()).hexdigest()
+          report={
+            'source':'public bitHuman Wise Pup Expression2 IMX',
+            'agent':'A23WJF0199',
+            'format':table['format'],
+            'size_bytes':table['file_size_bytes'],
+            'sha256':digest,
+            'members':table['members'],
+            'integrity':integrity,
+            'model_cache':'GitHub Actions cache only, not Git repository and not user APK',
+            'model_loaded_into_native_sdk':False,
+            'full_rendering_verified':False
+          }
+          (root/'inventory.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+          print('EXPR2_OFFICIAL_IMX_DOWNLOAD_AND_VERIFY_PASS',
+                'bytes',report['size_bytes'],'sha256',digest,
+                'members',table['member_count'],
+                'manifest_hashes_checked',integrity['checked'])
+          PY
+      - name: Publish small checksum and inventory proof only (no vendor binary or model files)
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-official-model-cache-integrity-manifest
+          path: |
+            build/expression2-official-model/hashes.sha256
+            build/expression2-official-model/inventory.json
+          if-no-files-found: error
+          retention-days: 14
