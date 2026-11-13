@@ -120,20 +120,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 2048
-          script: |
-            set -euo pipefail
-            mkdir -p reports/expr2-stream
-            adb install -r build/expr2-stream/expression2-preinference-stream-smoke.apk | tee reports/expr2-stream/install.log
-            adb logcat -c
-            adb shell am start -n com.example.x2hello/.MainActivity | tee reports/expr2-stream/launch.log
-            for i in $(seq 1 80);do
-              adb logcat -d -v time -s EXPR2_STREAM_SMOKE:I '*:S' > reports/expr2-stream/smoke.logcat || true
-              if grep -q 'EXPR2_STREAM_PREINFERENCE_SMOKE_' reports/expr2-stream/smoke.logcat;then break;fi
-              sleep 2
-            done
-            adb logcat -b crash -d -v time > reports/expr2-stream/crash.logcat || true
-            adb exec-out screencap -p > reports/expr2-stream/screenshot.png || true
-            grep -F 'EXPR2_STREAM_PREINFERENCE_SMOKE_PASS passed=26 failed=0' reports/expr2-stream/smoke.logcat
+          script: bash sdk/expression2-verified-core/test-android/verify_stream_emulator.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
