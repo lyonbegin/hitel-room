@@ -138,6 +138,25 @@ m=manifest.read_text(encoding="utf-8")
 if m.count("HITEL14 V32 실시간 PCM 직접 STT")!=1:raise AssertionError("V32 app label")
 m=m.replace("HITEL14 V32 실시간 PCM 직접 STT","HITEL14 V33 이중 속도 STT 진단")
 manifest.write_text(m,encoding="utf-8")
+# The W03 caption was buried in a 183px high scroll pane under tall fixed
+# control buttons on the actual Android 15 emulator. Update the existing
+# pinned one-tap status TextView too; do not add a new row or more controls.
+ui=src/"W03ConsoleActivity.java"
+u=ui.read_text(encoding="utf-8")
+before='''                if(directSttLive!=null)directSttLive.setText(
+                    "PCM 직접 인식 중: "+value.substring("DIRECT_PARTIAL|".length()));'''
+after='''                String directWord=value.substring("DIRECT_PARTIAL|".length());
+                if(directSttLive!=null)directSttLive.setText("PCM 직접 인식 중: "+directWord);
+                if(oneTapTestStatus!=null)oneTapTestStatus.setText("PCM 직접 인식 중: "+directWord);'''
+if u.count(before)!=1:raise AssertionError("V33 W03 partial TextView anchor="+str(u.count(before)))
+u=u.replace(before,after,1)
+beforeFinal='''                if(directSttLive!=null)directSttLive.setText("PCM 확정: "+text);'''
+afterFinal='''                if(directSttLive!=null)directSttLive.setText("PCM 확정: "+text);
+                if(oneTapTestStatus!=null)oneTapTestStatus.setText("PCM 확정: "+text);'''
+if u.count(beforeFinal)!=1:raise AssertionError("V33 W03 final TextView anchor="+str(u.count(beforeFinal)))
+u=u.replace(beforeFinal,afterFinal,1)
+ui.write_text(u,encoding="utf-8")
+print("PASS_V33_PINNED_W03_NATIVE_CAPTION_STATUS_UPDATE")
 print("PASS_V33_ORIGINAL_NORMAL_STREAM_PRESERVED")
 print("PASS_V33_FIR25_SECOND_STREAM_MODEL_WEIGHTS_SHARED")
 print("PASS_V33_RATE25_PARTIAL_FINAL_UI_EVENTS_AND_LOGS")
