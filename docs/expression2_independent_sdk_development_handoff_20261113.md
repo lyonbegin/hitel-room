@@ -1,3 +1,9 @@
+> **⚠️ 역사적 인계 문서 — 현행 개발 지침 아님 (2026-11-14 정정)**
+>
+> 이 문서의 C/C++ 독립 재구현 방침은 이후 사용자 지시에 따라 **원본 JVM 바이트코드 + 원본 ARM64 기계어 보존·직접 수정·AAR 재조립 방식으로 대체**되었습니다. 다음 채팅에서는 먼저 **[expression2_original_re_methodology_complete_handoff_20261114.md](expression2_original_re_methodology_complete_handoff_20261114.md)**를 읽으십시오. 아래 내용은 이전 진행 과정의 역사적 기록으로만 보관합니다.
+
+---
+
 # HITEL Expression 2 독립 Android SDK 개발 — 다음 채팅 인수인계서
 
 2026-11-13 기준 / Expression 2만 대상, Essence 2는 보류.
