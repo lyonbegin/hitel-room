@@ -1,5 +1,9 @@
 name: Expression2 original JVM+ARM64 reassembled APK Android emulator install smoke
 on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-original-reassembled-aar-emulator-smoke.yml
   workflow_dispatch:
 permissions:
   contents: read
