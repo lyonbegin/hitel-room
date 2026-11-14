@@ -1,0 +1,140 @@
+name: Expression2 original JVM text-only patch SDK AAR and official app APK
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - tools/bithuman_deep/expression2_patch_original_jvm_message.py
+      - .github/workflows/expression2-original-jvm-message-patch-aar-and-apk.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-jvm-constant-only-patched-aar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/original-assembled
+      - name: Change exactly the two original JVM constant-pool literal sites and repackage
+        run: |
+          set -euo pipefail
+          mkdir -p build/patched reports/expression2-jvm-message-patch
+          python3 tools/bithuman_deep/expression2_patch_original_jvm_message.py \
+            --source-aar build/original-assembled/Expression2_0.6.2_original_machine_code_reassembled.aar \
+            --output-aar build/patched/Expression2_0.6.2_JVM_all_error_text_patch_20261114.aar \
+            --report reports/expression2-jvm-message-patch/verification.json \
+            --temp "$RUNNER_TEMP/expr2-patched-bytecode"
+          unzip -t build/patched/Expression2_0.6.2_JVM_all_error_text_patch_20261114.aar
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("reports/expression2-jvm-message-patch/verification.json").read_text())
+          assert r["changed_jvm_classfiles"]==1
+          assert len(r["jvm_constant_pool_string_changes"])==2
+          assert r["changed_elf_bytes"]==0
+          assert r["changed_aar_file_entries"]==1
+          assert r["authentication_refusal_condition_preserved"] is True
+          print("EXPR2_ORIGINAL_AUTH_CHECK_UNMODIFIED_JVM_LITERAL_ONLY_CHANGE_VERIFIED")
+          PY
+          sha256sum build/patched/*.aar \
+            > reports/expression2-jvm-message-patch/patched-sdk-sha256.txt
+          cat reports/expression2-jvm-message-patch/verification.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: expression2-original-arm64-jvm-text-only-patched-sdk-aar
+          path: build/patched/Expression2_0.6.2_JVM_all_error_text_patch_20261114.aar
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-jvm-text-patch-class-and-elf-byte-diff-proof
+          path: reports/expression2-jvm-message-patch/
+          retention-days: 30
+
+  compile-official-sample-with-patched-aar:
+    needs: original-jvm-constant-only-patched-aar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: expression2-original-arm64-jvm-text-only-patched-sdk-aar
+          path: build/patched
+      - name: Preserve original vendor example app sources unchanged
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/upstream"
+          proj="$RUNNER_TEMP/upstream/android/expression2-hello"
+          mkdir -p reports/expression2-jvm-text-patched-app
+          git -C "$RUNNER_TEMP/upstream" rev-parse HEAD > reports/expression2-jvm-text-patched-app/upstream-revision.txt
+          (
+            cd "$proj"
+            find app/src -type f -print0 | sort -z | xargs -0 sha256sum
+          ) > reports/expression2-jvm-text-patched-app/source-before.sha256
+          mkdir -p "$proj/app/libs"
+          cp build/patched/Expression2_0.6.2_JVM_all_error_text_patch_20261114.aar "$proj/app/libs/"
+          python3 - "$proj/app/build.gradle.kts" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1])
+          original=p.read_text()
+          src='implementation("ai.bithuman:expression2-android:0.6.1")'
+          dst='implementation(files("libs/Expression2_0.6.2_JVM_all_error_text_patch_20261114.aar"))'
+          assert original.count(src)==1
+          p.write_text(original.replace(src,dst))
+          PY
+          (
+            cd "$proj"
+            find app/src -type f -print0 | sort -z | xargs -0 sha256sum
+          ) > reports/expression2-jvm-text-patched-app/source-after.sha256
+          cmp reports/expression2-jvm-text-patched-app/source-before.sha256 \
+            reports/expression2-jvm-text-patched-app/source-after.sha256
+          echo EXPR2_OFFICIAL_SAMPLE_APP_SOURCE_UNCHANGED
+      - name: Compile APK with only original JVM string replaced
+        run: |
+          set -euo pipefail
+          proj="$RUNNER_TEMP/upstream/android/expression2-hello"
+          cd "$proj"
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug \
+            | tee "$GITHUB_WORKSPACE/reports/expression2-jvm-text-patched-app/gradle-log.txt"
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/reports/expression2-jvm-text-patched-app/expression2-original-jvm-text-patch.apk"
+          python3 - "$GITHUB_WORKSPACE/reports/expression2-jvm-text-patched-app/expression2-original-jvm-text-patch.apk" <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import sys
+          src=Path(sys.argv[1])
+          with ZipFile(src) as z:
+            names=z.namelist()
+            assert "lib/arm64-v8a/libexpr2jni.so" in names
+            assert "lib/arm64-v8a/libLiteRt.so" in names
+            assert any(b"HITEL_EXPRESSION2_JVM_TEXT_PATCH_OK_20261114" in z.read(n) for n in names if n.endswith(".dex"))
+            assert z.testzip() is None
+            print("EXPR2_OFFICIAL_APP_DEX_CONTAINS_NEW_STRING_AND_ORIGINAL_ARM64_LIBRARIES_PASS")
+          PY
+          sha256sum app/build/outputs/apk/debug/app-debug.apk \
+            > "$GITHUB_WORKSPACE/reports/expression2-jvm-text-patched-app/patched-apk-sha256.txt"
+          echo EXPR2_OFFICIAL_ORIGINAL_APP_JVM_TEXT_PATCH_BUILD_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-official-app-original-jvm-text-patch-apk
+          path: reports/expression2-jvm-text-patched-app/
+          retention-days: 30
