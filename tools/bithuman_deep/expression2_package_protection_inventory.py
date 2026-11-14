@@ -22,10 +22,29 @@ def scan(filename):
         out["original_arm64_expr2_present"]="jni/arm64-v8a/libexpr2jni.so" in names or "lib/arm64-v8a/libexpr2jni.so" in names
         out["suspicious_marker_findings"]=[]
         total=0
+        nested_jvm_entries=0
         for n in names:
             if n.endswith("/") or (n.lower().endswith((".png",".jpg",".webp",".ttf",".woff",".mp4",".wav"))):continue
             content=z.read(n)
             total+=len(content)
+            # classes.jar is a nested ZIP: examining only its compressed byte
+            # stream can hide class and resource strings. Traverse its entries.
+            if n=="classes.jar":
+                with zipfile.ZipFile(io.BytesIO(content)) as nested:
+                    if nested.testzip() is not None:raise ValueError("CORRUPT_NESTED_JVM_JAR")
+                    for ent in nested.namelist():
+                        if ent.endswith("/"):continue
+                        nested_jvm_entries+=1
+                        value=nested.read(ent)
+                        entlow=ent.lower().encode()
+                        for marker in STRONG+WEAK:
+                            hits=[]
+                            if marker in entlow:hits.append("nested_entry_name")
+                            if marker in value.lower():hits.append("nested_file_contents")
+                            if hits:out["suspicious_marker_findings"].append({
+                               "entry":n+"!/"+ent,"marker":marker.decode(),
+                               "locations":hits,
+                               "strength":"APPSEALING_VENDOR_INDICATOR" if marker in STRONG else "GENERIC_HEURISTIC_NOT_PROOF"})
             name_low=n.lower().encode()
             for marker in STRONG+WEAK:
                 lower=marker.lower()
@@ -38,6 +57,7 @@ def scan(filename):
                        "entry":n,"marker":marker.decode(),"locations":locations,
                        "strength":"APPSEALING_VENDOR_INDICATOR" if marker in STRONG else "GENERIC_HEURISTIC_NOT_PROOF"})
         out["scanned_uncompressed_bytes"]=total
+        out["nested_jar_entries_scanned"]=nested_jvm_entries
         out["strong_vendor_marker_hits"]=sum(x["strength"]=="APPSEALING_VENDOR_INDICATOR" for x in out["suspicious_marker_findings"])
         out["weak_generic_marker_hits"]=sum(x["strength"]=="GENERIC_HEURISTIC_NOT_PROOF" for x in out["suspicious_marker_findings"])
         out["appsealing_proven_by_static_signature"]=out["strong_vendor_marker_hits"]>0
