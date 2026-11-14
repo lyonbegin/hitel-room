@@ -6,6 +6,7 @@ on:
       - .github/workflows/expression2-original-jvm-arm64-aar-assembly.yml
       - tools/bithuman_deep/Expression2OriginalJvmAsmAudit.java
       - tools/bithuman_deep/expression2_original_aar_repack_audit.py
+      - tools/bithuman_deep/expression2_original_native_fde_piece_assembly.py
       - tools/bithuman_deep/expression2_original_jvm_inventory.sh
   workflow_dispatch:
 permissions:
@@ -60,12 +61,21 @@ jobs:
             reports/expression2-jvm-native-reassembled/javap-class-coverage.tsv
           cp "$RUNNER_TEMP/expr2/javap/README.md" \
             reports/expression2-jvm-native-reassembled/javap-audit-readme.md
+      - name: Split all 2629 original ARM64 function ranges and ELF data into archived byte pieces, then rebuild
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check pyelftools==0.32
+          python3 tools/bithuman_deep/expression2_original_native_fde_piece_assembly.py \
+            --elf "$RUNNER_TEMP/expr2/original.so" \
+            --out reports/expression2-jvm-native-reassembled \
+            --temp "$RUNNER_TEMP/expr2/rebuild-native"
       - name: Split every original JAR class and ELF component and create a fresh AAR
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/expression2_original_aar_repack_audit.py \
             --aar "$RUNNER_TEMP/expr2/original.aar" \
             --asm-native-methods reports/expression2-jvm-native-reassembled/jvm-native-methods.tsv \
+            --native-reassembled "$RUNNER_TEMP/expr2/rebuild-native/reassembled-from-original-fde-machine-pieces.so" \
             --out reports/expression2-jvm-native-reassembled \
             --temp "$RUNNER_TEMP/expr2/rebuild"
           cat reports/expression2-jvm-native-reassembled/original-aar-reassembly-SUMMARY.md \
