@@ -1,0 +1,266 @@
+{
+  "version": "HITEL-EDU-2026-11-14-v3",
+  "title": "HITEL 학습 교재 카탈로그",
+  "counts": {
+    "series": 370,
+    "books": 1739,
+    "materials": 2154
+  },
+  "schema": {
+    "series": [
+      "id",
+      "title",
+      "cover",
+      "collected_count",
+      "complete",
+      "reference_url"
+    ],
+    "books": [
+      "id",
+      "series_id",
+      "title",
+      "cover",
+      "isbn",
+      "publisher",
+      "author",
+      "published_at",
+      "reference_url",
+      "school_level",
+      "grade",
+      "semester",
+      "subject",
+      "category",
+      "detail_checked"
+    ],
+    "materials": [
+      "id",
+      "title",
+      "reference_url",
+      "school_level",
+      "grade",
+      "semester",
+      "subject",
+      "category",
+      "material_type",
+      "related_book_id",
+      "related_series_id",
+      "relation_status",
+      "edition_warning",
+      "deep_reviewed"
+    ]
+  },
+  "categories": [
+    "전체",
+    "개념·기본",
+    "연산·기초",
+    "유형·연습",
+    "심화·탐구",
+    "학교·내신",
+    "수능·실전",
+    "정답·해설",
+    "기타·미분류"
+  ],
+  "files": [
+    {
+      "file": "chunk-001.json",
+      "type": "series",
+      "rows": 161
+    },
+    {
+      "file": "chunk-002.json",
+      "type": "series",
+      "rows": 162
+    },
+    {
+      "file": "chunk-003.json",
+      "type": "series",
+      "rows": 47
+    },
+    {
+      "file": "chunk-004.json",
+      "type": "books",
+      "rows": 90
+    },
+    {
+      "file": "chunk-005.json",
+      "type": "books",
+      "rows": 93
+    },
+    {
+      "file": "chunk-006.json",
+      "type": "books",
+      "rows": 90
+    },
+    {
+      "file": "chunk-007.json",
+      "type": "books",
+      "rows": 88
+    },
+    {
+      "file": "chunk-008.json",
+      "type": "books",
+      "rows": 92
+    },
+    {
+      "file": "chunk-009.json",
+      "type": "books",
+      "rows": 90
+    },
+    {
+      "file": "chunk-010.json",
+      "type": "books",
+      "rows": 88
+    },
+    {
+      "file": "chunk-011.json",
+      "type": "books",
+      "rows": 91
+    },
+    {
+      "file": "chunk-012.json",
+      "type": "books",
+      "rows": 87
+    },
+    {
+      "file": "chunk-013.json",
+      "type": "books",
+      "rows": 89
+    },
+    {
+      "file": "chunk-014.json",
+      "type": "books",
+      "rows": 86
+    },
+    {
+      "file": "chunk-015.json",
+      "type": "books",
+      "rows": 90
+    },
+    {
+      "file": "chunk-016.json",
+      "type": "books",
+      "rows": 88
+    },
+    {
+      "file": "chunk-017.json",
+      "type": "books",
+      "rows": 92
+    },
+    {
+      "file": "chunk-018.json",
+      "type": "books",
+      "rows": 92
+    },
+    {
+      "file": "chunk-019.json",
+      "type": "books",
+      "rows": 94
+    },
+    {
+      "file": "chunk-020.json",
+      "type": "books",
+      "rows": 86
+    },
+    {
+      "file": "chunk-021.json",
+      "type": "books",
+      "rows": 87
+    },
+    {
+      "file": "chunk-022.json",
+      "type": "books",
+      "rows": 88
+    },
+    {
+      "file": "chunk-023.json",
+      "type": "books",
+      "rows": 38
+    },
+    {
+      "file": "chunk-024.json",
+      "type": "materials",
+      "rows": 134
+    },
+    {
+      "file": "chunk-025.json",
+      "type": "materials",
+      "rows": 108
+    },
+    {
+      "file": "chunk-026.json",
+      "type": "materials",
+      "rows": 118
+    },
+    {
+      "file": "chunk-027.json",
+      "type": "materials",
+      "rows": 117
+    },
+    {
+      "file": "chunk-028.json",
+      "type": "materials",
+      "rows": 115
+    },
+    {
+      "file": "chunk-029.json",
+      "type": "materials",
+      "rows": 121
+    },
+    {
+      "file": "chunk-030.json",
+      "type": "materials",
+      "rows": 142
+    },
+    {
+      "file": "chunk-031.json",
+      "type": "materials",
+      "rows": 129
+    },
+    {
+      "file": "chunk-032.json",
+      "type": "materials",
+      "rows": 157
+    },
+    {
+      "file": "chunk-033.json",
+      "type": "materials",
+      "rows": 132
+    },
+    {
+      "file": "chunk-034.json",
+      "type": "materials",
+      "rows": 125
+    },
+    {
+      "file": "chunk-035.json",
+      "type": "materials",
+      "rows": 122
+    },
+    {
+      "file": "chunk-036.json",
+      "type": "materials",
+      "rows": 124
+    },
+    {
+      "file": "chunk-037.json",
+      "type": "materials",
+      "rows": 133
+    },
+    {
+      "file": "chunk-038.json",
+      "type": "materials",
+      "rows": 132
+    },
+    {
+      "file": "chunk-039.json",
+      "type": "materials",
+      "rows": 156
+    },
+    {
+      "file": "chunk-040.json",
+      "type": "materials",
+      "rows": 89
+    }
+  ],
+  "notice": "서지 및 검색 메타데이터. 교재 원문, AI 모델 학습, 외부 표지 이미지의 소유권이나 유효성을 의미하지 않습니다."
+}
