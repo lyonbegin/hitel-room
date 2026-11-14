@@ -2,7 +2,7 @@
 """Build the existing HITEL education UI as a static GitHub Pages project site.
 
 Only the deploy output is rewritten; the Railway source files are preserved.
-Server-only /api routes are deliberately NOT rewritten or mocked.
+A Pages-only adapter maps archived Zocbo JSON and reports missing live APIs honestly.
 """
 from __future__ import annotations
 
@@ -36,6 +36,11 @@ shutil.copytree(
     SOURCE, OUTPUT,
     ignore=shutil.ignore_patterns(".DS_Store", "__pycache__", "*.pyc"),
 )
+ADAPTER_SOURCE = ROOT / "tools" / "pages_zocbo_static_adapter.js"
+ADAPTER_NAME = "pages-zocbo-static-adapter.js"
+if not ADAPTER_SOURCE.is_file():
+    raise SystemExit("PAGES_BUILD_ERROR: missing static Zocbo API adapter")
+shutil.copyfile(ADAPTER_SOURCE, OUTPUT / ADAPTER_NAME)
 top_level = {p.name for p in SOURCE.iterdir()}
 counts = {"rewritten_files": 0, "rewritten_urls": 0}
 
@@ -87,7 +92,13 @@ for path in OUTPUT.rglob("*"):
         path.write_text(converted, encoding="utf-8")
 
 landing = (OUTPUT / ENTRY).read_text(encoding="utf-8")
+script_tag = f'<script src="{BASE}{ADAPTER_NAME}"></script>\n'
+if "<script src=" not in landing:
+    raise SystemExit("PAGES_BUILD_ERROR: cannot inject static API adapter")
+landing = landing.replace("<script src=", script_tag + "<script src=", 1)
+(OUTPUT / ENTRY).write_text(landing, encoding="utf-8")
 (OUTPUT / "index.html").write_text(landing, encoding="utf-8")
+print("PAGES_ZOCBO_STATIC_ADAPTER_OK: index + archived metadata; live queries disabled")
 (OUTPUT / ".nojekyll").write_text("", encoding="utf-8")
 
 missing = []
