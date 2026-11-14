@@ -1,0 +1,74 @@
+name: Expression2 original JVM+ARM64 reassembled APK Android emulator install smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  actual-emulator-install-launch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-reassembled-aar-official-sample-app-build-proof
+          github-token: ${{ github.token }}
+          path: build/reassembled-vendor-example
+      - name: Enable KVM on Ubuntu runner
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | \
+             sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and launch actual reassembled-SDK APK, no API secret
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 4096
+          script: |
+            set -euo pipefail
+            mkdir -p reports/expression2-reassembled-emulator
+            adb shell getprop ro.product.cpu.abilist \
+              | tee reports/expression2-reassembled-emulator/emulator-abi.txt
+            adb install -r build/reassembled-vendor-example/official-app-reassembled-sdk.apk \
+              2>&1 | tee reports/expression2-reassembled-emulator/install.txt
+            adb logcat -c
+            adb shell am start -W -n com.example.x2hello/.MainActivity \
+              2>&1 | tee reports/expression2-reassembled-emulator/launch.txt
+            sleep 12
+            adb logcat -d -v time \
+              > reports/expression2-reassembled-emulator/logcat.txt
+            adb shell pm path com.example.x2hello \
+              > reports/expression2-reassembled-emulator/installed-package-path.txt
+            adb shell screencap -p /sdcard/expression2-reassembled.png || true
+            adb pull /sdcard/expression2-reassembled.png reports/expression2-reassembled-emulator/screenshot.png || true
+            if grep -E 'FATAL EXCEPTION|UnsatisfiedLinkError|NoClassDefFoundError|VerifyError' \
+              reports/expression2-reassembled-emulator/logcat.txt; then
+              echo "RUNTIME_CLASS_OR_NATIVE_LOAD_FAILURE" | tee reports/expression2-reassembled-emulator/outcome.txt
+              exit 1
+            fi
+            echo "APK_INSTALLED_AND_APP_LAUNCHED_NO_FATAL_EXCEPTION" \
+              | tee reports/expression2-reassembled-emulator/outcome.txt
+            if grep -qi 'refusing to serve: no API secret was found' \
+              reports/expression2-reassembled-emulator/logcat.txt; then
+              echo 'ORIGINAL_VENDOR_API_SECRET_GATE_OBSERVED' \
+                >> reports/expression2-reassembled-emulator/outcome.txt
+            fi
+            echo 'REAL_AVATAR_MODEL_RENDERING_NOT_TESTED_OR_PROVEN' \
+              >> reports/expression2-reassembled-emulator/outcome.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-reassembled-aar-emulator-install-and-launch
+          path: reports/expression2-reassembled-emulator/
+          retention-days: 14
