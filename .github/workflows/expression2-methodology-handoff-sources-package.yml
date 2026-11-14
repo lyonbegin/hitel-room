@@ -1,0 +1,96 @@
+name: Expression2 full reverse-engineering methodology source handoff
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-methodology-handoff-sources-package.yml
+      - docs/expression2_original_re_methodology_complete_handoff_20261114.md
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package-all-original-re-scripts-and-docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect exact committed original ARM64 + JVM reverse engineering programs
+        run: |
+          set -euo pipefail
+          root=build/expression2-handoff
+          mkdir -p "$root"
+          cat > "$root/README-FIRST.md" <<'EOF'
+          # Expression2 reverse-engineering HANDOFF SOURCE PACKAGE
+
+          Start at docs/expression2_original_re_methodology_complete_handoff_20261114.md.
+          All included files are actual original GitHub repo sources and CI workflows.
+          This archive contains NO official vendor AAR/ELF, no IMX models, no API secret,
+          no passwords, and no third-party binary files.
+          Earlier independent Kotlin/C++ drop-in implementation is NOT the current
+          original-bytecode/machine-code-preserving SDK.
+          All included source text files are unmodified snapshot copies.
+          Git commit and per-file SHA256 list are included for reproducibility.
+          EOF
+          git rev-parse HEAD > "$root/GIT_COMMIT.txt"
+          cat > /tmp/expression2-source-filelist <<'EOF'
+          docs/expression2_original_re_methodology_complete_handoff_20261114.md
+          docs/expression2_original_machine_jvm_jni_final_sdk_build_verified_20261114.md
+          docs/expression2_original_five_tool_binary_only_reclassification_20261114.md
+          docs/expression2_original_jvm_message_constant_patch_reassembled_20261114.md
+          docs/bithuman_android_api_auth_bytecode_verified_20261113.md
+          docs/expression2_independent_sdk_development_handoff_20261113.md
+          tools/bithuman_deep/Expression2OriginalJvmAsmAudit.java
+          tools/bithuman_deep/expression2_original_jvm_inventory.sh
+          tools/bithuman_deep/audit_android_auth.py
+          tools/bithuman_deep/ghidra/Expression2FdePcodeMemory.java
+          tools/bithuman_deep/ghidra/Expression2ExactAudit.java
+          tools/bithuman_deep/ghidra/Expression2InstructionGapAudit.java
+          tools/bithuman_deep/ghidra/NativeFlow.java
+          tools/bithuman_deep/expression2_fde_structure_export.py
+          tools/bithuman_deep/five_tool_lief_capstone.py
+          tools/bithuman_deep/five_tool_gtirb.py
+          tools/bithuman_deep/five_tool_dyninst.cpp
+          tools/bithuman_deep/five_tool_cross_compare.py
+          tools/bithuman_deep/expression2_original_native_fde_piece_assembly.py
+          tools/bithuman_deep/expression2_original_aar_repack_audit.py
+          tools/bithuman_deep/expression2_patch_original_jvm_message.py
+          tools/bithuman_deep/expression2_address_table_recompose.py
+          tools/bithuman_deep/expression2_elf_reassemble_diff.py
+          tools/bithuman_deep/expression2_elf_data_inventory.py
+          tools/bithuman_deep/expression2_reassemble_structure_and_diff.py
+          .github/workflows/expression2-five-tools-original-machine-code-audit.yml
+          .github/workflows/expression2-original-4byte-instruction-gap.yml
+          .github/workflows/expression2-original-fde-pcode-reconstruction.yml
+          .github/workflows/expression2-original-function-bodies.yml
+          .github/workflows/expression2-original-jvm-arm64-aar-assembly.yml
+          .github/workflows/expression2-original-jvm-message-patch-aar-and-apk.yml
+          .github/workflows/expression2-original-reassembled-aar-emulator-smoke.yml
+          .github/workflows/expression2-official-sdk-emulator.yml
+          .github/workflows/bithuman-android-auth-audit.yml
+          .github/workflows/expression2-methodology-handoff-sources-package.yml
+          EOF
+          while IFS= read -r file; do
+            test -f "$file" || { echo "MISSING_HANDOFF_SOURCE:$file";exit 1; }
+            mkdir -p "$root/$(dirname "$file")"
+            cp "$file" "$root/$file"
+          done < /tmp/expression2-source-filelist
+          cp /tmp/expression2-source-filelist "$root/INCLUDED_SOURCE_FILES.txt"
+          (
+            cd "$root"
+            find docs tools .github -type f -print0 | sort -z | xargs -0 sha256sum \
+              > SHA256SUMS.txt
+          )
+          test "$(wc -l < "$root/INCLUDED_SOURCE_FILES.txt")" -eq 35
+          echo "EXPR2_REVERSE_ENGINEERING_METHOD_AND_ACTUAL_SOURCE_BUNDLE_PASS files=35"
+      - name: ZIP all methodology and code sources with original directory structure
+        run: |
+          set -euo pipefail
+          mkdir -p deliverables
+          (cd build && zip -q -r ../deliverables/Expression2_Original_Binary_JVM_JNI_Methodology_And_Scripts_20261114.zip expression2-handoff)
+          unzip -t deliverables/Expression2_Original_Binary_JVM_JNI_Methodology_And_Scripts_20261114.zip | tail -1
+          sha256sum deliverables/*.zip > deliverables/source-bundle-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: expression2-original-reverse-engineering-all-scripts-and-methodology-handoff
+          path: deliverables/
+          retention-days: 60
