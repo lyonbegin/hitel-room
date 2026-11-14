@@ -88,6 +88,7 @@ def main():
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--temp",type=Path,required=True)
     p.add_argument("--asm-native-methods",type=Path,required=True)
+    p.add_argument("--native-reassembled",type=Path,required=True)
     a=p.parse_args()
     raw=a.aar.read_bytes()
     if sha(raw)!=AAR_SHA:raise RuntimeError("OFFICIAL_AAR_SHA256_MISMATCH")
@@ -110,6 +111,9 @@ def main():
     jarPath=a.temp/"original-classes.jar"
     jarPath.write_bytes(jarBytes)
     nativePath=aar_parts/ARM_SO
+    rebuiltNative=a.native_reassembled.read_bytes()
+    if rebuiltNative!=soBytes or sha(rebuiltNative)!=SO_SHA:
+        raise RuntimeError("REBUILT_NATIVE_FDE_FUNCTION_ELF_NOT_BYTE_IDENTICAL")
     with zipfile.ZipFile(jarPath) as origjar:
         classes_info=origjar.infolist()
         jar_entries=content(origjar)
@@ -127,6 +131,7 @@ def main():
     # First AAR: assemble every original AAR entry from separate split files.
     # Source JAR byte stream remains exactly unchanged in this form.
     aar_entry_parts={n:(aar_parts/n).read_bytes() for n in aar_entries}
+    aar_entry_parts[ARM_SO]=rebuiltNative  # Original machine code from FDE/ELF file pieces, not an intact SO copy.
     recreated_aar=a.temp/"reassembled-original-entries.aar"
     make_zip(aar_entry_parts,original_info,recreated_aar)
     direct_compare=compare_exact_entries(a.aar,recreated_aar)
@@ -158,6 +163,7 @@ def main():
            "classes_jar_from_individual_class_and_resource_bytes":class_compare,
            "reassembled_aar_all_classfile_differences":0,
            "reassembled_aar_arm64_so_sha256":SO_SHA,
+           "arm64_elf_original_fde_and_data_piece_reassembly_injected":True,
            "reassembled_jar_archive_sha256":sha(independently_rebuilt.read_bytes()),
            "note":"ZIP byte-stream identity is a distinct question from every constituent class/machine-code/manifest/resource entry matching byte-for-byte."},
        "jni_linkage":mapping,
