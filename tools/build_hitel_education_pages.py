@@ -6,6 +6,7 @@ A Pages-only adapter maps archived Zocbo JSON and reports missing live APIs hone
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -41,6 +42,20 @@ ADAPTER_NAME = "pages-zocbo-static-adapter.js"
 if not ADAPTER_SOURCE.is_file():
     raise SystemExit("PAGES_BUILD_ERROR: missing static Zocbo API adapter")
 shutil.copyfile(ADAPTER_SOURCE, OUTPUT / ADAPTER_NAME)
+CATALOG_SOURCE = ROOT / "tools" / "education_catalog_v3"
+CATALOG_TARGET = OUTPUT / "data" / "catalog-v3"
+if not (CATALOG_SOURCE / "manifest.json").is_file():
+    raise SystemExit("PAGES_BUILD_ERROR: HITEL catalog manifest missing")
+CATALOG_MANIFEST = json.loads((CATALOG_SOURCE / "manifest.json").read_text(encoding="utf-8"))
+if CATALOG_MANIFEST.get("counts") != {"series": 370, "books": 1739, "materials": 2154}:
+    raise SystemExit("PAGES_BUILD_ERROR: catalog record totals do not match")
+CATALOG_PARTS = CATALOG_MANIFEST.get("files", [])
+if len(CATALOG_PARTS) != 40 or any(not (CATALOG_SOURCE / p["file"]).is_file() for p in CATALOG_PARTS):
+    raise SystemExit("PAGES_BUILD_ERROR: one or more catalog data partitions missing")
+CATALOG_TARGET.parent.mkdir(parents=True, exist_ok=True)
+shutil.copytree(CATALOG_SOURCE, CATALOG_TARGET, dirs_exist_ok=True)
+print("PAGES_HITEL_CATALOG_READY: series=370 books=1739 materials=2154 files=40")
+
 top_level = {p.name for p in SOURCE.iterdir()}
 counts = {"rewritten_files": 0, "rewritten_urls": 0}
 
