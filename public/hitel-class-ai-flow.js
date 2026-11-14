@@ -125,9 +125,9 @@ function applyGroup(id){
  if(p.grade&&g.grade&&p.grade!==g.grade){toast('학년이 다른 교재입니다. 학습반 학년에 맞는 교재를 선택해 주세요.');return}
  g.studyBook={series:p.series||p.name,publisher:p.publisher||'',source:p.source||'',verified:!!p.verified,grade:p.grade||'',term:p.term||''};
  g.bookTitle=p.name;
- if(p.verified&&p.bookId){
+ if((p.verified||p.ownedCatalog)&&p.bookId){
   g.bookId=p.bookId;g.bookShelf=[...new Set([...(g.bookShelf||[]),p.bookId])];
-  LIB.setBook(p.bookId);
+  if(!p.ownedCatalog)LIB.setBook(p.bookId);
  }else{
   g.bookId=''; // Do not imply an exact verified edition exists for a series-only selection.
  }
@@ -139,9 +139,32 @@ function openCatalogBook(id){
  cur.catalogId=b.id;cur.seriesId='';cur.editionId='';cur.origin='catalog';LIB.setBook(id);
  go('groupCoachProfile');
 }
+function chooseOwnedBook(item){
+ const id=String(item?.id||'').trim();
+ const name=String(item?.title||'').trim().slice(0,180);
+ const subject=String(item?.subject||'').trim().slice(0,50);
+ if(!id||!name||!subject){toast('교재 이름과 과목을 확인해 주세요.');return false}
+ const bookId='hitel:'+id;
+ if(!Array.isArray(model.customBooks))model.customBooks=[];
+ let book=model.customBooks.find(x=>x.id===bookId);
+ if(!book){
+  book={id:bookId,name,series:item.series||'',publisher:item.publisher||'',
+   image:item.cover||'',subject,grade:item.grade||'',term:item.semester||'',
+   type:item.kind==='materials'?'학습자료':'교재',localCatalog:true};
+  model.customBooks.push(book);
+ }
+ const grade=String(item.grade||'').slice(0,6),term=String(item.semester||'').slice(0,2);
+ cur.origin='owned';cur.catalogId='';cur.seriesId='';cur.editionId='';
+ cur.pending={name,series:item.series||name,publisher:item.publisher||'',subject,
+  source:'HITEL 자체 교재 목록',bookId,ownedCatalog:true,
+  verified:!!item.verified,grade,term};
+ WP.saveModel();
+ go('groupBookClassSelect');
+ return true;
+}
 function clearPending(){cur.pending=null}
 function pending(){return cur.pending&&{...cur.pending}}
-window.HITEL_CLASS_AI_FLOW={pending,clearPending,renderSeries,renderCatalogBook,openCatalogBook,inspect:()=>({
+window.HITEL_CLASS_AI_FLOW={pending,clearPending,chooseOwnedBook,renderSeries,renderCatalogBook,openCatalogBook,inspect:()=>({
  selectedSeries:cur.seriesId,selectedEdition:cur.editionId,selectedCatalog:cur.catalogId,
  pending:pending(),classCount:model.groups?.length||0,mode:'single-learning-class',paymentImplemented:false})};
 groupPage=function(route){
