@@ -366,9 +366,9 @@ function makeGroup(f){
  if(exam&&(exam.subject!==v('subject')||exam.grade&&exam.grade!==v('grade'))){toast('선택한 기출의 학년·과목과 학습반이 일치해야 합니다.');return}
  if(selected?.verified&&selected.grade&&selected.grade!==v('grade')){toast('선택한 교재의 학년과 학습반 학년이 다릅니다. 학년을 확인해 주세요.');return}
  if(selected&&selected.subject!==v('subject')){toast('교재의 과목과 학습반 과목을 일치시켜 주세요.');return}
- const bookId=(selected?.verified&&selected.bookId&&selected.subject===v('subject'))?selected.bookId:'';
+ const bookId=((selected?.verified||selected?.ownedCatalog)&&selected.bookId&&selected.subject===v('subject'))?selected.bookId:'';
  const studyBook=selected&&v('bookTitle')===selected.name?{series: selected.name,publisher:selected.publisher||'',source:selected.source||'',
-  verified:!!bookId,grade:selected.grade||'',term:selected.term||''}:null;
+  verified:!!selected.verified,grade:selected.grade||'',term:selected.term||''}:null;
  model.groups.push({id,name:v('name'),institutionType:type,institutionName:v('institutionName'),school:type==='school'?v('institutionName'):'',grade:v('grade'),subject:v('subject'),goalType:v('goalType'),goalTitle:v('goalTitle'),topics:v('topics'),courseStart:v('courseStart')||today(),courseDays:Number(v('courseDays'))||10,capacity:seat,
  bookId,bookTitle:v('bookTitle'),studyBook,bookShelf:bookId?[bookId]:[],coachId:'',coachName:'',trainerId:'',members:['나'],example:false,localDirectoryVisible:false});
  if(exam){
