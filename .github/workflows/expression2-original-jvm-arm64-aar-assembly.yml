@@ -1,0 +1,94 @@
+name: Expression2 original JVM ARM64 JNI AAR assembly full component proof
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-original-jvm-arm64-aar-assembly.yml
+      - tools/bithuman_deep/Expression2OriginalJvmAsmAudit.java
+      - tools/bithuman_deep/expression2_original_aar_repack_audit.py
+      - tools/bithuman_deep/expression2_original_jvm_inventory.sh
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  original-jvm-arm64-aar-assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download and verify official original SDK AAR
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expr2" reports/expression2-jvm-native-reassembled
+          curl -fLsS --retry 3 --max-time 180 \
+            'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar' \
+            -o "$RUNNER_TEMP/expr2/original.aar"
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  '"$RUNNER_TEMP/expr2/original.aar" | sha256sum -c
+          unzip -p "$RUNNER_TEMP/expr2/original.aar" classes.jar \
+            > "$RUNNER_TEMP/expr2/original-classes.jar"
+          unzip -p "$RUNNER_TEMP/expr2/original.aar" \
+            jni/arm64-v8a/libexpr2jni.so \
+            > "$RUNNER_TEMP/expr2/original.so"
+          echo 'ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c  '"$RUNNER_TEMP/expr2/original.so" | sha256sum -c
+      - name: Download checked ASM 9.7.1 analysis dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/expr2/asm"
+          for artifact in asm asm-tree; do
+            curl -fLsS --retry 3 --max-time 90 \
+              "https://repo.maven.apache.org/maven2/org/ow2/asm/$artifact/9.7.1/$artifact-9.7.1.jar" \
+              -o "$RUNNER_TEMP/expr2/asm/$artifact.jar"
+          done
+          javac -cp "$RUNNER_TEMP/expr2/asm/asm.jar:$RUNNER_TEMP/expr2/asm/asm-tree.jar" \
+            -d "$RUNNER_TEMP/expr2/asm" \
+            tools/bithuman_deep/Expression2OriginalJvmAsmAudit.java
+      - name: Full original bytecode class method invocation and native declaration inventory
+        run: |
+          set -euo pipefail
+          java -cp "$RUNNER_TEMP/expr2/asm:$RUNNER_TEMP/expr2/asm/asm.jar:$RUNNER_TEMP/expr2/asm/asm-tree.jar" \
+            Expression2OriginalJvmAsmAudit \
+            "$RUNNER_TEMP/expr2/original-classes.jar" \
+            reports/expression2-jvm-native-reassembled
+          bash tools/bithuman_deep/expression2_original_jvm_inventory.sh \
+            "$RUNNER_TEMP/expr2/original.aar" "$RUNNER_TEMP/expr2/javap"
+          cp "$RUNNER_TEMP/expr2/javap/jvm-class-coverage.tsv" \
+            reports/expression2-jvm-native-reassembled/javap-class-coverage.tsv
+          cp "$RUNNER_TEMP/expr2/javap/README.md" \
+            reports/expression2-jvm-native-reassembled/javap-audit-readme.md
+      - name: Split every original JAR class and ELF component and create a fresh AAR
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/expression2_original_aar_repack_audit.py \
+            --aar "$RUNNER_TEMP/expr2/original.aar" \
+            --asm-native-methods reports/expression2-jvm-native-reassembled/jvm-native-methods.tsv \
+            --out reports/expression2-jvm-native-reassembled \
+            --temp "$RUNNER_TEMP/expr2/rebuild"
+          cat reports/expression2-jvm-native-reassembled/original-aar-reassembly-SUMMARY.md \
+            >> "$GITHUB_STEP_SUMMARY"
+          cp "$RUNNER_TEMP/expr2/rebuild/reassembled-from-jvm-classes-and-arm64.aar" \
+            "$RUNNER_TEMP/expr2/Expression2_0.6.2_original_machine_code_reassembled.aar"
+          unzip -t "$RUNNER_TEMP/expr2/Expression2_0.6.2_original_machine_code_reassembled.aar"
+          sha256sum "$RUNNER_TEMP/expr2/Expression2_0.6.2_original_machine_code_reassembled.aar" \
+            > reports/expression2-jvm-native-reassembled/reassembled-aar-sha256.txt
+      - name: Publish read-only method and JNI verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-jvm-native-jni-original-component-audit
+          path: reports/expression2-jvm-native-reassembled/
+          retention-days: 30
+      - name: Publish fully reassembled original-bytecode AAR for controlled testing
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          path: ${{ runner.temp }}/expr2/Expression2_0.6.2_original_machine_code_reassembled.aar
+          retention-days: 7
+      - name: Remove official and reassembled SDKs from ephemeral workspace
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/expr2"
