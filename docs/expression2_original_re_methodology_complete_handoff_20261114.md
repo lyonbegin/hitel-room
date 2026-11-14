@@ -315,3 +315,29 @@ python3 tools/bithuman_deep/expression2_patch_original_jvm_message.py \
 > 원본 SDK를 소스언어로 변환하지 말고 **원본 JVM classfile과 ARM64 machine code에서 수정이 필요한 명령·데이터만 직접 바꾸십시오**. 변경 전후 클래스/기계어/리소스 해시를 전수 비교하고, JNI 연결과 공식 앱 APK 빌드까지 검증하십시오. 실제 ARM64 기기에서 유효한 이용 권한 하에 엔진 초기화·모델 추론·영상 프레임이 확인되기 전에는 렌더링 완성이라고 주장하지 마십시오. Essence 2는 진행하지 마십시오.
 
 **현 시점 판정:** 역공학·구성요소 분리·원본 바이트 무손실 재조립·원본 JVM 메시지 최소 수정·통합 AAR/APK 빌드는 실제 확인 완료. 실제 ARM64 기기 정상 세션·모델 영상 출력은 아직 미검증입니다.
+
+---
+
+## 18. 2026-11-14 추가 검증 — AppSealing 정적 검사와 실제 Android 오류 문구 실행
+
+**별도 상세 보고:** [expression2_original_sdk_protection_and_runtime_verification_20261114.md](expression2_original_sdk_protection_and_runtime_verification_20261114.md)
+
+- 원본 AAR과 원본/문구수정 APK의 AppSealing 관련 벤더 문자열·파일 표지 검사: **3개 모두 직접 식별 표지 0건**. 이는 보호 기능 자체의 부재를 의미하지 않습니다. CI [43551886233](https://github.com/lyonbegin/hitel-room/actions/runs/43551886233).
+- 이전 에뮬레이터 CI 43546980797 실패의 직접 원인은 **`/usr/bin/sh: set: Illegal option -o pipefail`**입니다. ADB 초기 연결 경고나 원본 ARM64 SDK 손상이 근본 원인이 아닙니다.
+- 별도 Bash 스크립트로 복구한 후 Android 14 x86_64 + **`libndk_translation.so`** 환경에 원본 재조립 APK·수정 APK를 각각 설치하고 MainActivity 실행에 **모두 성공**했습니다. CI [43551725719](https://github.com/lyonbegin/hitel-room/actions/runs/43551725719). 공식 샘플 UI의 API Secret 사전 안내 때문에 여기서는 `create()`까지 도달하지 않습니다.
+- 수정 JVM 문구의 **실제 SDK 실행 검증**을 위해 공개 원본 모델 파일 158,524,428B와 canon 299,520B를 Android에 설치하고, 원본 ARM64 `libexpr2jni.so` 로드 및 `Expression2Model.combined` 구성 후 실제 `Expression2Avatar.create()`를 호출했습니다.
+- **실제 예외 로그에 새 문자열 `HITEL_EXPRESSION2_JVM_TEXT_PATCH_OK_20261114: valid API secret is required.` 출력 PASS**. 원본 문자열은 같은 실행 로그에 나타나지 않았습니다. `RESULT.json`의 11개 검증 항목이 모두 true입니다. CI [43552151786](https://github.com/lyonbegin/hitel-room/actions/runs/43552151786).
+- **검증 결론:** **원본 기계어 보존 + JVM 문자열 두 상수 직접 수정 + 재조립 AAR + Android 네이티브 로드 + 원본 모델 객체 생성 + 실제 수정 예외 발생**을 재현했습니다. **유효한 API Secret 인증 성공/실제 프레임 렌더링은 여전히 미검증**입니다.
+
+### 새로 추가한 실행 코드·워크플로
+
+| 실제 파일 | 목적 |
+|---|---|
+| `tools/bithuman_deep/test_expression2_reassembled_apks_emulator.sh` | Bash 명시 실행, 두 APK 실설치·실행, ABI·native bridge·로그·화면 저장 |
+| `tools/bithuman_deep/expression2_package_protection_inventory.py` | 원본 AAR 내부 classes.jar까지 포함해 AppSealing 관련 정적 표지 확인 |
+| `tools/bithuman_deep/test_expression2_modified_literal_emulator.sh` | 원본 모델·네이티브 로드 후 수정 JVM 문자열이 실제 예외에 나타나는지 검증 |
+| `.github/workflows/expression2-original-reassembled-aar-emulator-smoke.yml` | 기존 에뮬레이터 실행 실패 수정 |
+| `.github/workflows/expression2-original-package-protection-signature-audit.yml` | 원본 AAR/두 APK 보호 지표 정적 감사 |
+| `.github/workflows/expression2-reassembled-jvm-message-real-runtime-e2e.yml` | 새 SDK의 실기기 유사 Android 실행 및 exception 검증 |
+
+**다음 개발 채팅에서 반드시 이 18장을 포함한 인계서를 기준으로 사용하십시오.** 기존 15장 표의 에뮬레이터 관련 '미검증' 설명 중 **설치/앱 실행 부분은 이제 PASS**, **원본 모델 SDK create() 진입/수정 예외도 PASS**이며 **정상 렌더링은 미검증**입니다.
