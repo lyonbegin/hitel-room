@@ -84,7 +84,18 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
     mark IXIO_LSPOSED_SCOPE FAIL
     tail -60 ixio-lab-results/lsposed-scope-config.log || true
   fi
-  if timeout --signal=TERM --kill-after=12s 1500 \
+  if [ "${IXIO_USE_UPSTREAM_AMDUMP:-0}" = 1 ]; then
+    echo "### UPSTREAM_AMDUMP_IXIO_ONLY"
+    if timeout --signal=TERM --kill-after=8s 700 \
+      bash tools/ixio/ixio_amdump_existing_tool_test.sh \
+        > ixio-lab-results/upstream-amdump-run.log 2>&1; then
+      mark IXIO_AMDUMP_CAPTURE SUCCESS_CHECK_CORE_FILES
+    else
+      mark IXIO_AMDUMP_CAPTURE FAILED_READ_IXIO_AMDUMP_LOG
+      tail -55 ixio-lab-results/upstream-amdump-run.log || true
+      fail=$((fail+1))
+    fi
+  elif timeout --signal=TERM --kill-after=12s 1500 \
     bash tools/ixio/ixio-runtime-capture.sh \
       > ixio-lab-results/ixio-capture-summary.log 2>&1; then
     mark IXIO_RUNTIME_CAPTURE PASS
