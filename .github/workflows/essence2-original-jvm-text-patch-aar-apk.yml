@@ -1,0 +1,117 @@
+name: Essence2 0.10.3 original JVM message patch and reassembled official APK
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-jvm-text-patch-aar-apk.yml
+      - tools/bithuman_deep/essence2_original_jvm_text_patch.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  essence2-original-jvm-minimal-binary-patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43712181851
+          name: essence2-0-10-3-original-bytecode-and-machine-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/essence2-original
+      - name: Rewrite only original Essence 2 JVM UTF8 constant without changing ARM64 code
+        run: |
+          set -euo pipefail
+          mkdir -p build/essence2-patched reports/essence2-patched
+          python3 tools/bithuman_deep/essence2_original_jvm_text_patch.py \
+            --source-aar build/essence2-original/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar \
+            --output-aar build/essence2-patched/Essence2_0.10.3_JVM_text_only_reassembled.aar \
+            --report reports/essence2-patched/verification.json \
+            --temp "$RUNNER_TEMP/essence2-binary-patch"
+          unzip -t build/essence2-patched/Essence2_0.10.3_JVM_text_only_reassembled.aar \
+            > reports/essence2-patched/patched-aar-zipcheck.txt
+          sha256sum build/essence2-patched/*.aar \
+            > reports/essence2-patched/patched-aar-sha256.txt
+          cat reports/essence2-patched/verification.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: essence2-original-arm64-jvm-text-only-modified-aar
+          path: build/essence2-patched/*.aar
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-utf8-only-patch-diff-and-hashes
+          path: reports/essence2-patched/
+          retention-days: 30
+  official-app-with-patched-original-essence2:
+    needs: essence2-original-jvm-minimal-binary-patch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: essence2-original-arm64-jvm-text-only-modified-aar
+          path: build/essence2-patched
+      - name: Replace only original SDK AAR in genuine vendor example app
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-patched-app
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/vendor"
+          project="$RUNNER_TEMP/vendor/android/essence2-hello"
+          git -C "$RUNNER_TEMP/vendor" rev-parse HEAD \
+            > reports/essence2-patched-app/upstream-commit.txt
+          (cd "$project" && find app/src -type f -print0 | sort -z | xargs -0 sha256sum) \
+            > reports/essence2-patched-app/src-before.sha256
+          mkdir -p "$project/app/libs"
+          cp build/essence2-patched/Essence2_0.10.3_JVM_text_only_reassembled.aar "$project/app/libs/"
+          python3 - "$project/app/build.gradle.kts" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]);data=p.read_text()
+          old='implementation("ai.bithuman:essence2-android:0.9.5")'
+          new='implementation(files("libs/Essence2_0.10.3_JVM_text_only_reassembled.aar"))'
+          assert data.count(old)==1
+          p.write_text(data.replace(old,new))
+          PY
+          (cd "$project" && find app/src -type f -print0 | sort -z | xargs -0 sha256sum) \
+            > reports/essence2-patched-app/src-after.sha256
+          cmp reports/essence2-patched-app/src-before.sha256 \
+            reports/essence2-patched-app/src-after.sha256
+          cd "$project"
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug | tee "$GITHUB_WORKSPACE/reports/essence2-patched-app/gradle-log.txt"
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/reports/essence2-patched-app/Essence2_0.10.3_JVM_text_only_sample.apk"
+          cd "$GITHUB_WORKSPACE"
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          apk="reports/essence2-patched-app/Essence2_0.10.3_JVM_text_only_sample.apk"
+          with ZipFile(apk) as z:
+            n=z.namelist()
+            assert z.testzip() is None
+            for lib in ("libe2u_jni.so","lible_jni.so","libonnxruntime.so","libc++_shared.so"):
+              assert "lib/arm64-v8a/"+lib in n,lib
+            assert any(b"HITEL_ESSENCE2_JVM_TEXT_PATCH_OK_20261115" in z.read(k) for k in n if k.endswith(".dex"))
+          print("ESSENCE2_ORIGINAL_JVM_EDIT_OFFICIAL_APP_APK_PASS")
+          PY
+          sha256sum reports/essence2-patched-app/*.apk \
+            > reports/essence2-patched-app/patched-apk-sha256.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-jvm-text-only-official-example-apk
+          path: reports/essence2-patched-app/
+          retention-days: 30
