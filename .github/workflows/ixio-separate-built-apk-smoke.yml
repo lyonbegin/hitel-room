@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh run download 43706533689 --repo "$GH_REPO" \
+          gh run download 43707483111 --repo "$GH_REPO" \
             --name ixio-standalone-apps-reassembled-android14 --dir .
           find .ixio-rebuild-output -maxdepth 3 -type f \
             -printf '%P %s bytes\n' | sort | tee downloaded-packages.txt
