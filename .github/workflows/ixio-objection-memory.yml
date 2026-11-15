@@ -58,6 +58,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
+            bash <<'IXIO_OBJECTION_BASH'
             set -uo pipefail
             export PATH="$PWD/.ixio-objection-venv/bin:$PATH"
             OUT=ixio-objection-results
@@ -122,6 +123,7 @@ jobs:
             rm -rf .ixio-objection-private
             echo "$found" > "$OUT/encrypted-output-count.txt"
             test "$found" -ge 1
+            IXIO_OBJECTION_BASH
       - name: Upload encrypted outputs and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
