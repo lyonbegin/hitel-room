@@ -61,6 +61,15 @@ jobs:
           print("ESSENCE2_ORIGINAL_PUBLIC_MODEL_SHA_AND_ALL_MEMBERS_PASS")
           PY
           cp build/essence2-sofia-public-model/sha256.txt reports/essence2-public-model/
+          python3 tools/bithuman_deep/imx_v2.py build/essence2-sofia-public-model/sofia-ramirez-original.imx \
+            --extract manifest.json --extract validate.json --output-dir reports/essence2-public-model/model-manifest
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for p in Path("reports/essence2-public-model/model-manifest").glob("*.json"):
+              doc=json.loads(p.read_text())
+              print("ESSENCE2_PUBLIC_MODEL_MANIFEST",p.name,str(doc)[:2000])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
