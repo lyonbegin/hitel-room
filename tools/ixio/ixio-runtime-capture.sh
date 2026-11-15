@@ -22,16 +22,32 @@ for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   adb shell 'logcat -c' || true
   adb shell am force-stop "$p" || true
   adb shell monkey -p "$p" 1 > "$d/first-launch.log" 2>&1 || true
-  # AppSealing transiently materializes restored DEX files on disk,
-  # then maps them into the live process (verified from /proc/PID/maps).
-  # Capture them BEFORE attaching Frida: the latter terminated both apps.
+  # Capture several runtime stages because AppSealing can spawn/restart the app
+  # and materialize different DEX segments as it initializes.
+  snapshot_payload() {
+    local at="$1"
+    local home="$d/local-dump/snapshot-${at}s"
+    mkdir -p "$home"
+    adb shell pidof "$p" > "$d/pid-at-${at}s.txt" 2>&1 || true
+    local pid
+    pid="$(head -1 "$d/pid-at-${at}s.txt" | awk '{print $1}')"
+    if [ -n "$pid" ]; then
+      adb shell su -c "cat /proc/$pid/maps" > "$d/maps-at-${at}s.txt" 2>&1 || true
+    fi
+    adb shell su -c "find /data/user/0/$p/app_payload_lib -maxdepth 5 -type f" \
+      > "$d/payload-files-${at}s.txt" 2>&1 || true
+    adb pull "/data/user/0/$p/app_payload_lib" "$home/app_payload_lib" \
+      > "$d/payload-pull-${at}s.log" 2>&1 || true
+  }
   sleep 1
-  adb shell su -c "find /data/user/0/$p/app_payload_lib -maxdepth 5 -type f" > "$d/payload-files-1s.txt" 2>&1 || true
-  adb pull "/data/user/0/$p/app_payload_lib" "$d/local-dump/app_payload_lib" > "$d/payload-pull-1s.log" 2>&1 || true
+  snapshot_payload 1
   sleep 2
-  adb shell pidof "$p" > "$d/pid-after-3sec.txt" 2>&1 || true
-  adb shell su -c "find /data/user/0/$p/app_payload_lib -maxdepth 5 -type f" > "$d/payload-files-3s.txt" 2>&1 || true
-  adb pull "/data/user/0/$p/app_payload_lib" "$d/local-dump/app_payload_lib" > "$d/payload-pull-3s.log" 2>&1 || true
+  snapshot_payload 3
+  sleep 4
+  snapshot_payload 7
+  sleep 5
+  snapshot_payload 12
+  adb shell pidof "$p" > "$d/pid-after-12sec.txt" 2>&1 || true
   adb shell 'logcat -d -t 2500 -v threadtime' > "$d/after-launch-logcat.txt" 2>&1 || true
   adb shell su -c "find /data/user/0/$p/apppeal_dump -type f" > "$d/apppealing-found.txt" 2>&1 || true
   adb pull "/data/user/0/$p/apppeal_dump" "$d/local-dump/apppeal_dump" > "$d/apppealing-pull.log" 2>&1 || true
