@@ -43,7 +43,8 @@ adb uninstall com.lguplus.aicallagent >/dev/null 2>&1 || true
 adb uninstall com.lguplus.callrecorder >/dev/null 2>&1 || true
 
 test_package() {
-  local group="$1" pkg="$2" installstatus="$LOG/$group-install.log"
+  local group="$1" pkg="$2"
+  local installstatus="$LOG/$group-install.log"
   adb logcat -c || true
   echo "### $group independent install" | tee "$LOG/$group-status.txt"
   if [ "$group" = main ]; then
