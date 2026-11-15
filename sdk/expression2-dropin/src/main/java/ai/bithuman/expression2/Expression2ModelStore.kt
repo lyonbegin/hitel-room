@@ -24,20 +24,53 @@ class Expression2ModelStore(context: Context) {
         }
         if (!dir.isDirectory && !dir.mkdirs()) error("Model cache directory unavailable")
         val modelFile = File(dir, "wise-pup-expression2.imx")
-        if (!modelFile.isFile || modelFile.length() != PUBLIC_BYTES) {
-            downloadPublicModel(modelFile)
+        val externallyStaged = File(
+            context.applicationContext.getExternalFilesDir(null),
+            "wise-pup-expression2.imx"
+        )
+        // An exact-hash public showcase IMX can be ADB-staged for offline tests.
+        // It remains vendor-free; never treats this file as SDK authorization.
+        val selected = if (externallyStaged.isFile) {
+            require(externallyStaged.length() == PUBLIC_BYTES) {
+                "Offline public IMX length mismatch"
+            }
+            require(sha256(externallyStaged) == PUBLIC_SHA) {
+                "Offline public IMX SHA-256 mismatch"
+            }
+            android.util.Log.i("HITEL_EXPRESSION2",
+                "HITEL_PUBLIC_IMX_LOCAL_VERIFIED source=external_app_files")
+            externallyStaged
+        } else {
+            if (!modelFile.isFile || modelFile.length() != PUBLIC_BYTES ||
+                sha256(modelFile) != PUBLIC_SHA) {
+                downloadPublicModel(modelFile)
+            }
+            modelFile
         }
-        val index = indexImx(modelFile)
+        val index = indexImx(selected)
         val graph = index["combined_litert.tflite"] ?: error("Missing combined_litert.tflite")
         val canonMember = index["canon.bin"] ?: error("Missing canon.bin")
         check(graph.length == 158524428L) { "Unexpected Expression2 graph size" }
         check(canonMember.length == 299520L) { "Unexpected Expression2 canonical state size" }
         val canon = ByteArray(canonMember.length.toInt())
-        RandomAccessFile(modelFile, "r").use { file ->
+        RandomAccessFile(selected, "r").use { file ->
             file.seek(canonMember.offset)
             file.readFully(canon)
         }
-        return Expression2Model(modelFile, graph.offset, graph.length, canon)
+        return Expression2Model(selected, graph.offset, graph.length, canon)
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { source ->
+            val block = ByteArray(1024 * 1024)
+            while (true) {
+                val n = source.read(block)
+                if (n < 0) break
+                if (n > 0) digest.update(block, 0, n)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
     }
 
     private fun downloadPublicModel(target: File) {
