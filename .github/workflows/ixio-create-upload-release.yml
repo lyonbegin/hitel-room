@@ -1,0 +1,28 @@
+name: IXIO Public APK Upload Release
+on:
+  push:
+    branches: [experiment/ixio-runtime-lab-20261115]
+    paths: ['.github/workflows/ixio-create-upload-release.yml', 'tools/ixio/input-apks/README.md']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  create-upload-target:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create user-facing APK upload release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view ixio-input-20261115 >/dev/null 2>&1; then
+            echo "RELEASE_ALREADY_EXISTS"
+          else
+            gh release create ixio-input-20261115 \
+              --target "${GITHUB_SHA}" \
+              --title "IXIO Android emulator APK inputs" \
+              --notes "Upload the original files 익시오_01.33.01.xapk and 익시오 통화녹음_02.02.00.apk as release assets. Both are verified by SHA-256 before installation."
+            echo "RELEASE_CREATED"
+          fi
+          gh release view ixio-input-20261115 --json url,assets
