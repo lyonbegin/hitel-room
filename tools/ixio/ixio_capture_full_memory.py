@@ -31,20 +31,42 @@ def cmd(*argv: str, check: bool = False) -> subprocess.CompletedProcess:
 
 
 def target_pids() -> dict[str, list[int]]:
-    # Inspect process names, including :remote/:service suffixes; don't select one PID.
-    p = cmd("adb", "shell", "ps", "-A", "-o", "PID,NAME")
-    if p.returncode:
-        raise RuntimeError("ps failed: " + p.stderr[-500:])
-    found: dict[str, list[int]] = {k: [] for k in PACKAGES}
-    for line in p.stdout.splitlines():
-        cols = line.strip().split()
-        if len(cols) < 2 or not cols[0].isdigit():
-            continue
-        pid, name = int(cols[0]), cols[-1]
+    # Start observing BEFORE we conclude no PID exists: monkey launch can return
+    # before the Android zygote has forked the application process.
+    import time
+    found: dict[str, set[int]] = {k: set() for k in PACKAGES}
+    first_observed = None
+    deadline = time.monotonic() + 8.0
+    last_error = ""
+    while time.monotonic() < deadline:
+        p = cmd("adb", "shell", "ps", "-A", "-o", "PID,NAME")
+        if p.returncode:
+            last_error = p.stderr[-500:]
+        else:
+            for line in p.stdout.splitlines():
+                cols = line.strip().split()
+                if len(cols) < 2 or not cols[0].isdigit():
+                    continue
+                pid, name = int(cols[0]), cols[-1]
+                for package in PACKAGES:
+                    if name == package or name.startswith(package + ":"):
+                        found[package].add(pid)
+        # Android toybox ps implementations can truncate NAME. Cross-check pidof.
         for package in PACKAGES:
-            if name == package or name.startswith(package + ":"):
-                found[package].append(pid)
-    return {k: sorted(set(v)) for k, v in found.items()}
+            check = cmd("adb", "shell", "pidof", package)
+            for val in check.stdout.split():
+                if val.isdigit():
+                    found[package].add(int(val))
+        if any(found.values()):
+            if first_observed is None:
+                first_observed = time.monotonic()
+            # Observe briefly for remote/service PIDs spawned after main PID.
+            if time.monotonic() - first_observed >= 1.0:
+                break
+        time.sleep(0.12)
+    if not any(found.values()) and last_error:
+        raise RuntimeError("Neither ps nor pidof found an app process: " + last_error)
+    return {k: sorted(v) for k, v in found.items()}
 
 
 def originals(base: Path, package: str) -> dict[str, Path]:
