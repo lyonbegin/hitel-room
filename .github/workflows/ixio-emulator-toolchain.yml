@@ -70,13 +70,13 @@ jobs:
             -O .ixio-inputs/main.xapk > ixio-lab-results/drive-main.log 2>&1
           main_dl=$?
           timeout 60 .ixio-tools/venv/bin/gdown --fuzzy \
-            'https://drive.google.com/file/d/1A2qnLzuEB2ZleTXWGTK3ewk2Mi7O3DSJ/view?usp=sharing' \
+            'https://drive.google.com/file/d/1B8_heOx8SOLTdri3AzoXIRBqExQYo6Ne/view?usp=sharing' \
             -O .ixio-inputs/recorder.apk > ixio-lab-results/drive-recorder.log 2>&1
           recorder_dl=$?
           if [ "$recorder_dl" -ne 0 ]; then
             for url in \
-              'https://drive.usercontent.google.com/download?id=1A2qnLzuEB2ZleTXWGTK3ewk2Mi7O3DSJ&export=download&confirm=t' \
-              'https://drive.google.com/uc?export=download&id=1A2qnLzuEB2ZleTXWGTK3ewk2Mi7O3DSJ&confirm=t'; do
+              'https://drive.usercontent.google.com/download?id=1B8_heOx8SOLTdri3AzoXIRBqExQYo6Ne&export=download&confirm=t' \
+              'https://drive.google.com/uc?export=download&id=1B8_heOx8SOLTdri3AzoXIRBqExQYo6Ne&confirm=t'; do
               rm -f .ixio-inputs/recorder.apk
               echo "TEST_RECORDER_DOWNLOAD_URL_ATTEMPT" >> ixio-lab-results/direct-download.log
               curl -LfsS --retry 1 --connect-timeout 15 --max-time 80 -A 'Mozilla/5.0' \
