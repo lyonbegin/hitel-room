@@ -65,6 +65,10 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
         python3 tools/ixio/ixio_jadx_semantic_probe.py \
           --sources "$raw/jadx-output" --output "$dest/semantic-jadx.json" \
           > "$dest/semantic-jadx.log" 2>&1 || true
+        python3 tools/ixio/ixio_static_calltrace_probe.py \
+          --sources "$raw/jadx-output" --group "$group" \
+          --output "$dest/ixio-calltrace.json" \
+          > "$dest/ixio-calltrace.log" 2>&1 || true
       fi
     else
       echo "JADX=no_recorder_dex" >> "$dest/status.env"
