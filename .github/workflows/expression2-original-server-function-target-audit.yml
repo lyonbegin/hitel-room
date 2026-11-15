@@ -84,6 +84,43 @@ jobs:
               matches=[row for row in lines if "// String " in row or "validateWithBody" in row or "beatWithBody" in row]
               for row in matches[:160]:print(row[:350])
           PY
+      - name: Recover original JSON wire templates and status parsing without guessing
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest=reports/expression2-original-server-target
+          javap -p -c -s -v -classpath /tmp/expr2-original.jar 'ai.bithuman.expression2.SelfHostMeter$Companion' > "$dest/SelfHostMeter-Companion-full.javap.txt"
+          javap -p -c -s -v -classpath /tmp/expr2-original.jar 'ai.bithuman.expression2.HttpBeatSink' > "$dest/HttpBeatSink-full.javap.txt"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          d=Path('reports/expression2-original-server-target')
+          for classname in ('SelfHostMeter-Companion','HttpBeatSink'):
+              data=(d/(classname+'-full.javap.txt')).read_text().splitlines()
+              results=[]
+              for token in ('BootstrapMethods:','private final java.lang.String','public final java.lang.String wireBody','public final java.lang.String validateBody','public final boolean isRejection','public final boolean isRetryable','public final boolean advertisesTail','public final java.lang.String apiBase','public final boolean isBithumanBase'):
+                  for n,row in enumerate(data):
+                      if token in row:
+                          # Method body context is limited by next public/private method header.
+                          if token == 'BootstrapMethods:':
+                              excerpt=data[n:n+90]
+                          else:
+                              excerpt=[]
+                              for line in data[n:n+250]:
+                                  if len(excerpt)>4 and re.match(r'^  (public|private|protected) ',line):break
+                                  excerpt.append(line)
+                          results.append((token,excerpt))
+                          break
+              target=d/(classname+'-relevant-contract.txt')
+              text=[]
+              for token,lines in results:
+                  text+=['=== '+token+' ===']+lines+['']
+              target.write_text('\n'.join(text))
+              print('ORIGINAL_CONTRACT',classname)
+              for line in text[:700]:
+                  if any(x in line for x in ('String ', 'Utf8', 'makeConcatWithConstants', 'descriptor:', 'BootstrapMethods:', 'Method ', 'areturn','ireturn','if_icmp','ifne','ifeq','status', 'meter_tail','valid','Content-Type','Authorization','/v1/')):
+                      print(line[:280])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
