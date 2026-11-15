@@ -11,12 +11,17 @@ adb install -r build/expression2-dropin/upstream-expression2-hello-sdk-replaced.
 if [[ -n "${EXPR2_PUBLIC_IMX_PATH:-}" ]]; then
   test -s "$EXPR2_PUBLIC_IMX_PATH"
   echo 'd2c70beaa48b73d40681366879599d4940f744b736105c030fe13c6852d626d9  '"$EXPR2_PUBLIC_IMX_PATH" | sha256sum -c
-  adb exec-in run-as com.example.x2hello sh -c \
-    'mkdir -p files/expression2-models && cat > files/expression2-models/wise-pup-expression2.imx' \
-    < "$EXPR2_PUBLIC_IMX_PATH"
-  adb exec-out run-as com.example.x2hello \
-    sha256sum files/expression2-models/wise-pup-expression2.imx \
-    > "$report/device-public-imx-sha256.txt"
+  # Ensure the Android OS creates the app-specific external-files path.
+  adb shell am start -W -n com.example.x2hello/.MainActivity \
+    > "$report/bootstrap-app-external-dir.txt" 2>&1
+  sleep 2
+  adb shell am force-stop com.example.x2hello
+  target='/sdcard/Android/data/com.example.x2hello/files/wise-pup-expression2.imx'
+  adb shell mkdir -p '/sdcard/Android/data/com.example.x2hello/files'
+  adb push "$EXPR2_PUBLIC_IMX_PATH" "$target" \
+    > "$report/model-adb-push.txt" 2>&1
+  adb shell ls -l "$target" > "$report/model-device-ls.txt"
+  adb shell sha256sum "$target" > "$report/device-public-imx-sha256.txt"
   grep -q '^d2c70beaa48b73d40681366879599d4940f744b736105c030fe13c6852d626d9 ' \
     "$report/device-public-imx-sha256.txt"
   echo 'EXPR2_PUBLIC_IMX_PRESEEDED_ORIGINAL_BYTES_PASS' | tee "$report/model-preseed.txt"
