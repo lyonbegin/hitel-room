@@ -35,6 +35,8 @@ jobs:
           curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/avdroot \
             https://github.com/ejfkdev/avdroot/releases/download/v0.1.1/avdroot_linux_amd64
           chmod +x .ixio-tools/avdroot
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/Magisk-v31.1.apk \
+            https://github.com/topjohnwu/Magisk/releases/download/v31.1/Magisk-v31.1.apk
           curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/LSPosed.zip \
             https://github.com/LSPosed/LSPosed/releases/download/v1.9.2/LSPosed-v1.9.2-7024-zygisk-release.zip
           curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/frida-server.xz \
@@ -50,8 +52,25 @@ jobs:
           .ixio-tools/venv/bin/pip install --disable-pip-version-check 'frida==17.26.3' 'frida-tools' \
             > ixio-lab-results/frida-pip.log 2>&1
           .ixio-tools/venv/bin/frida --version
-          sha256sum .ixio-tools/{avdroot,LSPosed.zip,frida-server,apppealing-debug.apk} \
+          sha256sum .ixio-tools/{avdroot,Magisk-v31.1.apk,LSPosed.zip,frida-server,apppealing-debug.apk} \
             > ixio-lab-results/tool-sha256.txt
+      - name: Fetch the two authorized test APKs only when private URLs are configured
+        shell: bash
+        env:
+          IXIO_MAIN_XAPK_URL: ${{ secrets.IXIO_MAIN_XAPK_URL }}
+          IXIO_RECORDER_APK_URL: ${{ secrets.IXIO_RECORDER_APK_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-inputs ixio-lab-results
+          if [ -n "$IXIO_MAIN_XAPK_URL" ] && [ -n "$IXIO_RECORDER_APK_URL" ]; then
+            curl -fsSL --retry 2 -o .ixio-inputs/main.xapk "$IXIO_MAIN_XAPK_URL"
+            curl -fsSL --retry 2 -o .ixio-inputs/recorder.apk "$IXIO_RECORDER_APK_URL"
+            printf '%s  %s\n' '4ec4793327930e72589c1d47e552e1e77f97ccf77db71c63c701934f2337a3fc' .ixio-inputs/main.xapk | sha256sum -c
+            printf '%s  %s\n' '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7' .ixio-inputs/recorder.apk | sha256sum -c
+            echo "BOTH_TARGET_INPUTS=VERIFIED" | tee -a ixio-lab-results/summary.env
+          else
+            echo "BOTH_TARGET_INPUTS=NOT_SUPPLIED_PRIVATE_URLS" | tee -a ixio-lab-results/summary.env
+          fi
       - name: Boot accelerated Android 14 emulator and install tooling
         uses: reactivecircus/android-emulator-runner@v2
         with:
