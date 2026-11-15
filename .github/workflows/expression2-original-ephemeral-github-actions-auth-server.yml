@@ -1,0 +1,106 @@
+name: Expression2 ORIGINAL JVM against ephemeral GitHub Actions authentication backend
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - tools/bithuman_deep/expression2_ephemeral_auth_fixture.py
+      - tools/bithuman_deep/Expression2OriginalBackendProbe.java
+      - tools/bithuman_deep/expression2_replace_original_api_base_getter.py
+      - .github/workflows/expression2-original-ephemeral-github-actions-auth-server.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-jvm-local-server-roundtrip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/original-reassembled
+      - name: Patch only ORIGINAL JVM getApiBaseUrl bytecode to temporary CI loopback endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/expression2-ci-original-backend build/expr2-ci-sdk
+          python3 tools/bithuman_deep/expression2_replace_original_api_base_getter.py \
+            --source-aar build/original-reassembled/Expression2_0.6.2_original_machine_code_reassembled.aar \
+            --output-aar build/expr2-ci-sdk/original-one-function-loopback-only.aar \
+            --report reports/expression2-ci-original-backend/one-function-jvm-patch-proof.json \
+            --base-url http://127.0.0.1:18762 \
+            --allow-test-endpoint
+          unzip -p build/expr2-ci-sdk/original-one-function-loopback-only.aar classes.jar > "$RUNNER_TEMP/expr2-ci-original-classes.jar"
+          sha256sum build/expr2-ci-sdk/original-one-function-loopback-only.aar \
+            > reports/expression2-ci-original-backend/one-function-aar-sha256.txt
+          echo ORIGINAL_ENGINE_NATIVE_AND_OTHER_JVM_METHODS_IDENTICAL_PASS
+      - name: Compile probe against ORIGINAL SDK binary, not recreated methods
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 90 \
+            'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.jar' \
+            -o "$RUNNER_TEMP/kotlin-stdlib.jar"
+          mkdir -p "$RUNNER_TEMP/original-client-classes"
+          javac -encoding UTF-8 \
+            -cp "$RUNNER_TEMP/expr2-ci-original-classes.jar:$RUNNER_TEMP/kotlin-stdlib.jar" \
+            -d "$RUNNER_TEMP/original-client-classes" \
+            tools/bithuman_deep/Expression2OriginalBackendProbe.java
+          echo ORIGINAL_JVM_EXACT_BINARY_PROBE_COMPILED_PASS
+      - name: Start GitHub Actions localhost backend, invoke original SDK transport and inspect real input/return variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -u tools/bithuman_deep/expression2_ephemeral_auth_fixture.py \
+            --host 127.0.0.1 --port 18762 \
+            --log reports/expression2-ci-original-backend/captured-request-fields.jsonl \
+            > reports/expression2-ci-original-backend/fixture-server.log 2>&1 &
+          backend_pid=$!
+          trap 'kill "$backend_pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import socket,time
+          for retry in range(50):
+              try:
+                  with socket.create_connection(("127.0.0.1",18762),timeout=1):
+                      print("EPHEMERAL_ACTIONS_AUTH_SERVER_LOCALHOST_READY")
+                      break
+              except OSError:
+                  time.sleep(.1)
+          else:
+              raise RuntimeError("ephemeral CI server did not bind")
+          PY
+          java -cp "$RUNNER_TEMP/original-client-classes:$RUNNER_TEMP/expr2-ci-original-classes.jar:$RUNNER_TEMP/kotlin-stdlib.jar" \
+            Expression2OriginalBackendProbe http://127.0.0.1:18762 \
+            | tee reports/expression2-ci-original-backend/original-jvm-http-roundtrip.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("reports/expression2-ci-original-backend")
+          events=[json.loads(line) for line in (p/"captured-request-fields.jsonl").read_text().splitlines()]
+          assert len(events) == 3, f"Original JVM must perform 2 good + 1 401 requests, got {len(events)}"
+          assert [x["path"] for x in events] == [
+              "/v1/auth/validate", "/v1/meter/beats", "/v1/auth/validate"
+          ]
+          assert [x["authenticated_synthetic_fixture"] for x in events] == [True,True,False]
+          assert all(x["content_type"] == "application/json" for x in events)
+          assert all(isinstance(x["json_field_types"],dict) for x in events)
+          assert all(x["authorization_scheme"] == "Bearer" for x in events)
+          print("ORIGINAL_HTTP_REQUEST_FIELD_TYPE_AND_STATUS_ROUNDTRIP_PASS")
+          print("EXACT_ORIGINAL_JVM_BODY_FIELDS_CAPTURED")
+          for event in events:print(json.dumps(event,ensure_ascii=False,sort_keys=True))
+          PY
+          echo EPHEMERAL_SERVER_IS_LOOPBACK_TEST_ONLY_NOT_PERMANENT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expr2-original-JVM-ephemeral-auth-server-exact-input-return-evidence
+          path: reports/expression2-ci-original-backend/
+          retention-days: 30
