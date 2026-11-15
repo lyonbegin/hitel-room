@@ -64,13 +64,24 @@ jobs:
             ixio-firebase-diagnostic/base.apk
           sign ixio-firebase-diagnostic/recorder-diag-unsigned.apk \
             ixio-firebase-diagnostic/recorder.apk
-          for src in "$main/"/signed-split_*.apk; do
-            sign "$src" "ixio-firebase-diagnostic/$(basename "$src")"
+          for n in 0 1 2; do
+            src="$main/signed-split_${n}.apk"
+            test -f "$src"
+            sign "$src" "ixio-firebase-diagnostic/signed-split_${n}.apk"
           done
           cp ixio-firebase-diagnostic/base.apk "$main/base.apk"
           cp ixio-firebase-diagnostic/recorder.apk \
             "$recorder/recorder-reassembled-signed.apk"
-          cp ixio-firebase-diagnostic/signed-split_*.apk "$main/"
+          # Never copy signing intermediate '*.apk.aligned.apk' files back.
+          find "$main" -maxdepth 1 -type f -name 'signed-split_*.apk.aligned.apk' -delete
+          for n in 0 1 2; do
+            cp "ixio-firebase-diagnostic/signed-split_${n}.apk" "$main/"
+          done
+          echo 'MAIN_SIGNED_APK_COUNT:'
+          find "$main" -maxdepth 1 -type f \
+            \( -name 'base.apk' -o -name 'signed-split_*.apk' \) -printf '%f\n' | sort
+          test "$(find "$main" -maxdepth 1 -type f \
+            \( -name 'base.apk' -o -name 'signed-split_*.apk' \) | wc -l)" = 4
           echo "DIAGNOSTIC_ONLY: FirebaseInitProvider omitted from manifest but original code bytes kept."
       - name: Run diagnostic apps separately on a clean Android 14 emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -89,9 +100,15 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for f in ixio-standalone-smoke/*-logcat.txt; do
-            echo "#### $f"
-            grep -A 35 'FATAL EXCEPTION' "$f" | head -100 || true
+          for group in main recorder; do
+            f="ixio-standalone-smoke/${group}-logcat.txt"
+            echo "#### APP STATUS: $group"
+            cat "ixio-standalone-smoke/${group}-status.txt" || true
+            cat "ixio-standalone-smoke/${group}-monkey-launch.txt" || true
+            echo "#### FATAL/PROCESS EVENTS: $group"
+            grep -E -A 30 'FATAL EXCEPTION|Fatal signal|Unable to|UnsatisfiedLinkError|ClassNotFoundException|NoClassDefFoundError|AndroidRuntime|Process com.lguplus|Force finishing activity|am_proc_died|com.lguplus.*died|app.*crashed' "$f" | head -180 || true
+            echo "#### APP LOG SUMMARY: $group"
+            grep -E 'Firebase|IXIApplication|IXIcallrecorderApplication|ActivityManager|ActivityTaskManager|AppSealing|InCallService|CallRecordingService' "$f" | tail -110 || true
           done
       - name: Upload startup diagnostic logs only
         if: always()
