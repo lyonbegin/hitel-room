@@ -37,11 +37,24 @@ done
 adb install -r "$APK" | tee "$OUT/install.txt"
 adb shell am start -n "$PKG/.MainActivity" > "$OUT/initial-start.txt"
 sleep 3
-TARGET="/sdcard/Android/data/$PKG/files/models"
+# Stage through an adb-readable temporary location, then copy as the TEST
+# app UID into its internal filesDir. This avoids scoped-storage FUSE races.
+TARGET="/data/local/tmp/expr2-ci-model-bridge"
 adb shell "mkdir -p '$TARGET'"
 adb push "$MODEL" "$TARGET/combined_litert.tflite" > "$OUT/push-model.txt"
 adb push "$CANON" "$TARGET/canon.bin" > "$OUT/push-canon.txt"
-adb shell ls -l "$TARGET" > "$OUT/model-files.txt"
+adb shell "chmod 0644 '$TARGET/combined_litert.tflite' '$TARGET/canon.bin'"
+adb shell run-as "$PKG" mkdir -p files/models
+adb shell run-as "$PKG" cp "$TARGET/combined_litert.tflite" files/models/combined_litert.tflite
+adb shell run-as "$PKG" cp "$TARGET/canon.bin" files/models/canon.bin
+adb shell run-as "$PKG" ls -l files/models > "$OUT/model-files.txt"
+adb shell run-as "$PKG" stat -c '%n=%s' files/models/combined_litert.tflite files/models/canon.bin \
+  > "$OUT/internal-model-size.txt"
+grep -q '158524428' "$OUT/internal-model-size.txt"
+grep -q '299520' "$OUT/internal-model-size.txt"
+adb shell sync
+sleep 2
+echo CI_ORIGINAL_MODEL_STAGED_IN_APP_FILES_DIR_PASS
 adb logcat -c
 adb shell am force-stop "$PKG"
 adb shell am start -n "$PKG/.MainActivity" | tee "$OUT/start.txt"
