@@ -1,0 +1,78 @@
+name: Essence2 actual original code Ghidra precise FDE gap instruction recovery
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-ghidra-fde-gap-recovery.yml
+      - tools/bithuman_deep/ghidra/Essence2OriginalGapRecover.java
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  recover-original-instruction-decoding-not-vendor-machine-code:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43714262977
+          name: essence2-original-ghidra-capstone-fde-gaps-data-vs-code
+          github-token: ${{ github.token }}
+          path: build/essence2-gaps
+      - name: Download official Essence2 native binaries verified by hash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/essence2-recover" build/original reports/essence2-original-gap-recovery
+          curl -fLsS --retry 3 --max-time 420 \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip' \
+            -o "$RUNNER_TEMP/essence2-recover/ghidra.zip"
+          unzip -q "$RUNNER_TEMP/essence2-recover/ghidra.zip" -d "$RUNNER_TEMP/essence2-recover"
+          curl -fLsS --retry 3 --max-time 300 \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar' \
+            -o build/original/source.aar
+          echo '49bdeafc6a29675058851c5f7336dacaa0518d5af5bc6130eece96af73513e67  build/original/source.aar' | sha256sum -c
+      - name: Fix only Ghidra analysis-DB original instruction classification
+        run: |
+          set -euo pipefail
+          GHIDRA="$(find "$RUNNER_TEMP/essence2-recover" -name analyzeHeadless -type f | head -1)"
+          test -n "$GHIDRA";chmod +x "$GHIDRA"
+          mkdir -p "$RUNNER_TEMP/essence2-recover/projects"
+          for lib in libe2u_jni.so lible_jni.so;do
+            unzip -p build/original/source.aar "jni/arm64-v8a/$lib" > "build/original/$lib"
+            export ESSENCE2_GAP_SITES="$GITHUB_WORKSPACE/build/essence2-gaps/$lib.gap-sites.tsv"
+            export ESSENCE2_GAP_FDES="$GITHUB_WORKSPACE/build/essence2-gaps/$lib.missing-fdes.tsv"
+            export ESSENCE2_RECOVERED_OUT="$GITHUB_WORKSPACE/reports/essence2-original-gap-recovery/$lib.recovered.tsv"
+            timeout --signal=TERM --kill-after=15s 950s \
+              "$GHIDRA" "$RUNNER_TEMP/essence2-recover/projects" "recover-$lib" \
+                -import "$GITHUB_WORKSPACE/build/original/$lib" \
+                -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+                -postScript Essence2OriginalGapRecover.java \
+                -analysisTimeoutPerFile 600 -max-cpu 2 -deleteProject
+            test -s "reports/essence2-original-gap-recovery/$lib.recovered.tsv"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import csv,json
+          result={}
+          for lib in ("libe2u_jni.so","lible_jni.so"):
+            with (Path("reports/essence2-original-gap-recovery")/(lib+".recovered.tsv")).open() as f:
+              rows=list(csv.DictReader(f,delimiter="\t"))
+            result[lib]={"previously_undefined_opcode_sites":len(rows),
+                "recovered":sum(x["ghidra_after"]=="INSTRUCTION" for x in rows),
+                "remaining_undefined":sum(x["ghidra_after"]!="INSTRUCTION" for x in rows)}
+            if result[lib]["remaining_undefined"]:raise RuntimeError("UNRECOVERED_GHIDRA_ORIGINAL_ELF_INSTRUCTIONS")
+          Path("reports/essence2-original-gap-recovery/RESULT.json").write_text(json.dumps(result,indent=2)+"\n")
+          print("ESSENCE2_ORIGINAL_GHIDRA_CAPSTONE_FINAL_INSTRUCTION_PARITY_PASS",result)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-ghidra-gap-recovered-exact-instructions
+          path: reports/essence2-original-gap-recovery
+          retention-days: 30
