@@ -5,6 +5,22 @@ mkdir -p "$report"
 adb shell getprop ro.product.cpu.abilist | tee "$report/device-abis.txt"
 adb install -r build/expression2-dropin/upstream-expression2-hello-sdk-replaced.apk \
   2>&1 | tee "$report/install.txt"
+# Seed the exact checksum-verified PUBLIC Wise Pup IMX from the host directly
+# into the test app's private cache. This avoids emulator DNS dependence and
+# keeps SDK authorization/session semantics separate from public model fetch.
+if [[ -n "${EXPR2_PUBLIC_IMX_PATH:-}" ]]; then
+  test -s "$EXPR2_PUBLIC_IMX_PATH"
+  echo 'd2c70beaa48b73d40681366879599d4940f744b736105c030fe13c6852d626d9  '"$EXPR2_PUBLIC_IMX_PATH" | sha256sum -c
+  adb exec-in run-as com.example.x2hello sh -c \
+    'mkdir -p files/expression2-models && cat > files/expression2-models/wise-pup-expression2.imx' \
+    < "$EXPR2_PUBLIC_IMX_PATH"
+  adb exec-out run-as com.example.x2hello \
+    sha256sum files/expression2-models/wise-pup-expression2.imx \
+    > "$report/device-public-imx-sha256.txt"
+  grep -q '^d2c70beaa48b73d40681366879599d4940f744b736105c030fe13c6852d626d9 ' \
+    "$report/device-public-imx-sha256.txt"
+  echo 'EXPR2_PUBLIC_IMX_PRESEEDED_ORIGINAL_BYTES_PASS' | tee "$report/model-preseed.txt"
+fi
 adb logcat -c
 adb shell am start -W -n com.example.x2hello/.MainActivity \
   2>&1 | tee "$report/launch.txt"
