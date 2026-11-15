@@ -6,6 +6,7 @@ on:
       - '.github/workflows/ixio-appsealing-runtime-validation.yml'
       - 'tools/ixio/ixio_runtime_payload_audit.sh'
       - 'tools/ixio/ixio_runtime_payload_verify.py'
+      - 'tools/ixio/ixio_jadx_semantic_probe.py'
       - 'tools/ixio/ixio-emulator-bootstrap.sh'
       - 'tools/ixio/dump-public-20261115.crt'
   workflow_dispatch:
@@ -90,7 +91,7 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: IXIO_USE_PAYLOAD_VERIFY=1 IXIO_SEPARATE_REASSEMBLE=0 bash tools/ixio/ixio-emulator-bootstrap.sh
+          script: IXIO_USE_PAYLOAD_VERIFY=1 IXIO_JADX_AUDIT=1 IXIO_SEPARATE_REASSEMBLE=0 bash tools/ixio/ixio-emulator-bootstrap.sh
       - name: Verify existing AppSealing payload files and AppPealing dumps for both apps
         shell: bash
         run: |
@@ -103,7 +104,8 @@ jobs:
           for group in main recorder; do
             test -s "ixio-lab-results/runtime-payload-audit/$group/validation-late.json"
           done
-          echo 'IXIO_APPSEALING_RUNTIME_AUDIT=BOTH_APPS_CAPTURED'
+          test -s ixio-lab-results/runtime-payload-audit/recorder/semantic-jadx.json
+          echo 'IXIO_APPSEALING_RUNTIME_AUDIT=BOTH_APPS_CAPTURED_JADX_RECORDER_ANALYZED'
       - name: Upload diagnostic logs (not proprietary APKs)
         if: always()
         uses: actions/upload-artifact@v4
