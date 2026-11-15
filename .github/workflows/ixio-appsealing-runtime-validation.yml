@@ -7,6 +7,7 @@ on:
       - 'tools/ixio/ixio_runtime_payload_audit.sh'
       - 'tools/ixio/ixio_runtime_payload_verify.py'
       - 'tools/ixio/ixio_jadx_semantic_probe.py'
+      - 'tools/ixio/ixio_static_calltrace_probe.py'
       - 'tools/ixio/ixio-emulator-bootstrap.sh'
       - 'tools/ixio/dump-public-20261115.crt'
   workflow_dispatch:
@@ -135,6 +136,8 @@ jobs:
           done
           test -s ixio-lab-results/runtime-payload-audit/recorder/semantic-jadx.json
           test -s ixio-lab-results/runtime-payload-audit/main/semantic-jadx.json
+          test -s ixio-lab-results/runtime-payload-audit/main/ixio-calltrace.json
+          test -s ixio-lab-results/runtime-payload-audit/recorder/ixio-calltrace.json
           grep -qx 'ENCRYPTED_APP_GROUPS=2' ixio-lab-results/memdumper-precise/status.env
           echo 'IXIO_APPSEALING_RUNTIME_AUDIT=BOTH_APPS_CAPTURED_JADX_RECORDER_ANALYZED'
       - name: Upload diagnostic logs (not proprietary APKs)
