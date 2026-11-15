@@ -36,7 +36,7 @@ jobs:
               source=.ixio-rebuild-output/recorder/recorder-reassembled-signed.apk
             fi
             "$AAPT" dump resources "$source" > "ixio-resource-audit/$pkg-aapt2-dump.txt"
-            "$AAPT" dump xmltree "$source" AndroidManifest.xml > "ixio-resource-audit/$pkg-manifest-tree.txt"
+            "$AAPT" dump xmltree --file AndroidManifest.xml "$source" > "ixio-resource-audit/$pkg-manifest-tree.txt"
           done
           python3 - <<'PY'
           import json,pathlib,re
