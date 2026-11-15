@@ -74,6 +74,17 @@ for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   fi
   adb shell su -c "find /data/user/0/$p/apppeal_dump -type f" > "$d/apppealing-found-final.txt" 2>&1 || true
   adb pull "/data/user/0/$p/apppeal_dump" "$d/local-dump/apppeal_dump" >> "$d/apppealing-pull.log" 2>&1 || true
+  # Keep only restored DEX bytes for independent per-app reconstruction.
+  if [ "${IXIO_SEPARATE_REASSEMBLE:-0}" = 1 ]; then
+    group=main
+    [ "$p" = com.lguplus.callrecorder ] && group=recorder
+    mkdir -p ".ixio-rebuild-input/$group"
+    while IFS= read -r -d '' dexfile; do
+      cp -f "$dexfile" ".ixio-rebuild-input/$group/$(basename "$dexfile")"
+    done < <(find "$d/local-dump/snapshot-12s" -type f -name '*.dex' -print0 2>/dev/null)
+    sha256sum ".ixio-rebuild-input/$group/"*.dex \
+      > "$d/restored-rebuild-input-sha256.txt" 2>/dev/null || true
+  fi
   python3 tools/ixio/package_runtime_dump.py "$p" "$d/local-dump" "$d" || true
   adb shell 'logcat -d -t 3500 -v threadtime' > "$d/final-logcat.txt" 2>&1 || true
   rm -rf "$d/local-dump"
