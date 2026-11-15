@@ -1,0 +1,153 @@
+name: IXIO Upstream MemDumper App-Only Memory Capture
+on:
+  push:
+    branches: [experiment/ixio-runtime-lab-20261115]
+    paths:
+      - '.github/workflows/ixio-thirdparty-memdumper.yml'
+      - 'tools/ixio/ixio_memdumper_existing_tool_test.sh'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ixio-android14-thirdparty-memdumper
+  cancel-in-progress: true
+jobs:
+  emulator-toolchain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify KVM availability
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Obtain pinned tooling and build AppPealing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-tools ixio-lab-results
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/avdroot \
+            https://github.com/ejfkdev/avdroot/releases/download/v0.1.1/avdroot_linux_amd64
+          chmod +x .ixio-tools/avdroot
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/Magisk-v30.7.apk \
+            https://github.com/topjohnwu/Magisk/releases/download/v30.7/Magisk-v30.7.apk
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/LSPosed.zip \
+            https://github.com/LSPosed/LSPosed/releases/download/v1.9.2/LSPosed-v1.9.2-7024-zygisk-release.zip
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/frida-server.xz \
+            https://github.com/frida/frida/releases/download/17.26.3/frida-server-17.26.3-android-x86_64.xz
+          xz --decompress .ixio-tools/frida-server.xz
+          chmod +x .ixio-tools/frida-server
+          git clone --depth 1 https://github.com/NPC2000/AppPealing-new.git .ixio-tools/apppealing-src
+          (cd .ixio-tools/apppealing-src && chmod +x gradlew && ./gradlew --no-daemon :app:assembleDebug) \
+            > ixio-lab-results/apppealing-build.log 2>&1
+          cp .ixio-tools/apppealing-src/app/build/outputs/apk/debug/app-debug.apk \
+            .ixio-tools/apppealing-debug.apk
+          python3 -m venv .ixio-tools/venv
+          .ixio-tools/venv/bin/pip install --disable-pip-version-check 'frida==17.26.3' 'frida-tools' 'clsdumper' \
+            > ixio-lab-results/frida-pip.log 2>&1
+          .ixio-tools/venv/bin/frida --version
+          sha256sum .ixio-tools/{avdroot,Magisk-v30.7.apk,LSPosed.zip,frida-server,apppealing-debug.apk} \
+            > ixio-lab-results/tool-sha256.txt
+      - name: Obtain and verify IXIO originals from public upload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-inputs ixio-lab-results
+          if [ -f 'tools/ixio/input-apks/main.xapk' ] && [ -f 'tools/ixio/input-apks/recorder.apk' ]; then
+            cp 'tools/ixio/input-apks/main.xapk' .ixio-inputs/main.xapk
+            cp 'tools/ixio/input-apks/recorder.apk' .ixio-inputs/recorder.apk
+          else
+            gh release download ixio-input-20261115 \
+              --repo "$GH_REPO" --pattern 'mmsimage.zip' --dir .ixio-inputs
+            python3 tools/ixio/verify_release_zip.py .ixio-inputs/mmsimage.zip .ixio-inputs \
+              | tee ixio-lab-results/release-zip-verification.json
+            rm -f .ixio-inputs/mmsimage.zip
+          fi
+          printf '%s  %s\n' '4ec4793327930e72589c1d47e552e1e77f97ccf77db71c63c701934f2337a3fc' .ixio-inputs/main.xapk | sha256sum -c
+          printf '%s  %s\n' '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7' .ixio-inputs/recorder.apk | sha256sum -c
+          echo 'IXIO_INPUTS=BOTH_SHA256_MATCH' | tee -a ixio-lab-results/summary.env
+      - name: Build upstream MemDumper with Android NDK x86_64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/kp7742/MemDumper.git .ixio-tools/memdumper-upstream
+          git -C .ixio-tools/memdumper-upstream rev-parse HEAD | tee ixio-lab-results/memdumper-upstream-commit.txt
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null || test -d "$SDK/ndk/27.2.12479018"
+          "$SDK/ndk/27.2.12479018/ndk-build" -C .ixio-tools/memdumper-upstream \
+            NDK_PROJECT_PATH=. APP_ABI=x86_64 -j2
+          find .ixio-tools/memdumper-upstream/libs .ixio-tools/memdumper-upstream/obj \
+            -type f -iname '*memdumper*' -print | tee ixio-lab-results/memdumper-built-files.txt
+          find .ixio-tools/memdumper-upstream/libs/x86_64 -type f \
+            \( -name 'memdumper' -o -name 'MemDumper' -o -name 'memdumper64' \) \
+            -exec cp {} .ixio-tools/memdumper \;
+          test -s .ixio-tools/memdumper
+          file .ixio-tools/memdumper | grep -Ei 'ELF 64-bit.*x86-64'
+      - name: Boot accelerated Android 14 emulator and install tooling
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: IXIO_USE_UPSTREAM_MEMDUMPER=1 IXIO_SEPARATE_REASSEMBLE=0 bash tools/ixio/ixio-emulator-bootstrap.sh
+      - name: Upload independently rebuilt signed APKs and reassembly comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-standalone-apps-reassembled-android14
+          include-hidden-files: true
+          path: |
+            .ixio-rebuild-output/
+            ixio-lab-results/separate-repack/
+            ixio-lab-results/separate-repack-test.log
+          if-no-files-found: warn
+          compression-level: 6
+      - name: Retain reusable encrypted DEX dumps as a dedicated GitHub Release
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          captured=(ixio-lab-results/com.lguplus.*/DEX_ENCRYPTED.cms)
+          if [ "${#captured[@]}" -eq 0 ]; then
+            echo "NO_ENCRYPTED_RUNTIME_DEX_TO_PUBLISH"
+            exit 0
+          fi
+          TAG=ixio-runtime-dex-20261115
+          gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO reusable encrypted in-memory DEX captures" \
+              --notes 'Only AES-256 CMS-encrypted runtime captures are published. The decryption key is not stored on GitHub.'
+          mkdir -p .ixio-public-dump-uploads
+          for item in "${captured[@]}"; do
+            pkg=$(basename "$(dirname "$item")")
+            cp "$item" ".ixio-public-dump-uploads/${pkg}.cms"
+            cp "$(dirname "$item")/dump-manifest.json" ".ixio-public-dump-uploads/${pkg}-manifest.json"
+          done
+          gh release upload "$TAG" --repo "$GH_REPO" .ixio-public-dump-uploads/* --clobber
+          gh release view "$TAG" --repo "$GH_REPO" --json url,assets
+      - name: Upload diagnostic logs (not proprietary APKs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-thirdparty-memdumper-app-memory-logs
+          path: ixio-lab-results/
+          if-no-files-found: warn
