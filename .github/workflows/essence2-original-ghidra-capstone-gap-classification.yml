@@ -1,0 +1,97 @@
+name: Essence2 original ELF targeted Ghidra vs Capstone FDE gap classification
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-ghidra-capstone-gap-classification.yml
+      - tools/bithuman_deep/ghidra/Essence2OriginalFdeGapAudit.java
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-exact-original-FDE-missing-instructions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43713144110
+          name: essence2-original-both-engines-five-tool-cross-comparison
+          github-token: ${{ github.token }}
+          path: build/essence2-cross
+      - name: Prepare precisely the two engine FDE ranges with a Ghidra/Capstone discrepancy
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-gaps build/original
+          python3 - <<'PY'
+          import csv,json
+          from pathlib import Path
+          result={}
+          for lib in ("libe2u_jni.so","lible_jni.so"):
+            path=Path("build/essence2-cross")/(lib+"-crosswalk.tsv")
+            with path.open() as f:rows=list(csv.DictReader(f,delimiter="\t"))
+            missing=[x for x in rows if x["whole_fde_decoding_agree"]!="True"]
+            with (Path("reports/essence2-gaps")/(lib+".missing-fdes.tsv")).open("w") as f:
+              w=csv.writer(f,delimiter="\t")
+              w.writerow(["fde_va","size_bytes"])
+              for x in missing:w.writerow([x["fde_elf_va"],x["size_bytes"]])
+            result[lib]={"incomplete_fde_ranges":len(missing),
+                         "capstone_missing_decode_bytes":sum(int(x["capstone_unknown_bytes"]) for x in missing),
+                         "ghidra_undecoded_bytes":sum(int(x["capstone_decoded_bytes"])-int(x["ghidra_decoded_bytes"]) for x in missing)}
+          (Path("reports/essence2-gaps")/"gaps-before.json").write_text(json.dumps(result,indent=2)+"\n")
+          print(result)
+          PY
+      - name: Fetch pinned original Ghidra and exact vendor SDK
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/essence2-gap"
+          curl -fLsS --retry 3 --max-time 420 \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip' \
+            -o "$RUNNER_TEMP/essence2-gap/ghidra.zip"
+          unzip -q "$RUNNER_TEMP/essence2-gap/ghidra.zip" -d "$RUNNER_TEMP/essence2-gap"
+          curl -fLsS --retry 3 --max-time 300 \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar' \
+            -o build/original/source.aar
+          echo '49bdeafc6a29675058851c5f7336dacaa0518d5af5bc6130eece96af73513e67  build/original/source.aar' | sha256sum -c
+      - name: Classify every raw 4-byte Ghidra gap as real original data or undefined
+        run: |
+          set -euo pipefail
+          GHIDRA="$(find "$RUNNER_TEMP/essence2-gap" -name analyzeHeadless -type f | head -1)"
+          test -n "$GHIDRA"; chmod +x "$GHIDRA"
+          mkdir -p "$RUNNER_TEMP/essence2-gap/projects"
+          for lib in libe2u_jni.so lible_jni.so;do
+            unzip -p build/original/source.aar "jni/arm64-v8a/$lib" > "build/original/$lib"
+            export ESSENCE2_GAP_INDEX="$GITHUB_WORKSPACE/reports/essence2-gaps/$lib.missing-fdes.tsv"
+            export ESSENCE2_GAP_OUT="$GITHUB_WORKSPACE/reports/essence2-gaps/$lib.gap-sites.tsv"
+            timeout --signal=TERM --kill-after=15s 950s \
+              "$GHIDRA" "$RUNNER_TEMP/essence2-gap/projects" "gap-$lib" \
+                -import "$GITHUB_WORKSPACE/build/original/$lib" \
+                -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+                -postScript Essence2OriginalFdeGapAudit.java \
+                -analysisTimeoutPerFile 600 -max-cpu 2 -deleteProject
+          done
+          python3 - <<'PY'
+          import csv,json,collections
+          from pathlib import Path
+          details={}
+          for lib in ("libe2u_jni.so","lible_jni.so"):
+            f=Path("reports/essence2-gaps")/(lib+".gap-sites.tsv")
+            with f.open() as x:rows=list(csv.DictReader(x,delimiter="\t"))
+            details[lib]={"missing_slots":len(rows),
+                "classification_counts":dict(collections.Counter(x["classification"] for x in rows)),
+                "example_first_gaps":rows[:10]}
+          Path("reports/essence2-gaps/gap-classes.json").write_text(json.dumps(details,indent=2)+"\n")
+          print("ESSENCE2_GHIDRA_GAP_CLASSES_VERIFIED",details)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-ghidra-capstone-fde-gaps-data-vs-code
+          path: reports/essence2-gaps
+          retention-days: 30
