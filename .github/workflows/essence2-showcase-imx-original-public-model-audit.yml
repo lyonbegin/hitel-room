@@ -28,8 +28,7 @@ jobs:
             -o build/essence2-sofia-public-model/sofia-ramirez-original.imx \
             'https://api.bithuman.ai/v1/agent/A52DHS2219/model/download?model=essence-2'
           test "$(stat -c%s build/essence2-sofia-public-model/sofia-ramirez-original.imx)" -gt 20000000
-          sha256sum build/essence2-sofia-public-model/sofia-ramirez-original.imx \
-            > build/essence2-sofia-public-model/sha256.txt
+          (cd build/essence2-sofia-public-model && sha256sum sofia-ramirez-original.imx > sha256.txt)
       - name: Analyze original source bytes, all original file members, and Android loading fit
         shell: bash
         run: |
