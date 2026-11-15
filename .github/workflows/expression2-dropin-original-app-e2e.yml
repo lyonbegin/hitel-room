@@ -126,6 +126,26 @@ jobs:
         with:
           name: hitel-expression2-dropin-aar-and-original-app
           path: build/expression2-dropin/
+      - name: Restore cached original public Wise Pup IMX for OFFLINE local emulator staging
+        id: public-model-cache
+        uses: actions/cache@v4
+        with:
+          path: build/expression2-official-model
+          key: expression2-wise-pup-original-imx-v2-20261113-${{ hashFiles('tools/bithuman_deep/imx_v2.py') }}
+      - name: Download public original IMX on cache miss and verify exact 197MB source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/expression2-official-model
+          file=build/expression2-official-model/wise-pup-original.imx
+          if [[ ! -s "$file" ]]; then
+            curl -fL --retry 4 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 600 \
+              'https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2' \
+              -o "$file"
+          fi
+          test "$(stat -c %s "$file")" -eq 197741350
+          echo 'd2c70beaa48b73d40681366879599d4940f744b736105c030fe13c6852d626d9  '"$file" | sha256sum -c
+          echo EXPRESSION2_OFFICIAL_PUBLIC_IMX_PRESTAGE_HOST_PASS
       - name: Enable KVM acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -143,7 +163,7 @@ jobs:
           disk-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 4096
-          script: bash sdk/expression2-dropin/test-upstream-original-app.sh
+          script: EXPR2_PUBLIC_IMX_PATH="$GITHUB_WORKSPACE/build/expression2-official-model/wise-pup-original.imx" bash sdk/expression2-dropin/test-upstream-original-app.sh
       - name: Publish raw emulator evidence even on failure
         if: always()
         uses: actions/upload-artifact@v4
