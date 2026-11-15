@@ -16,9 +16,9 @@ APPS={
 def replace_manifest_string_pool(chunk,indices,replacement):
     header,flags,start,style_start,offsets,strings,ends=rep.pool_parse(chunk)
     if flags & 256:
-        value=rep.elen8(len(replacement))+rep.elen8(len(replacement.encode()))+replacement.encode()+b"\\0"
+        value=rep.elen8(len(replacement))+rep.elen8(len(replacement.encode()))+replacement.encode()+b"\0"
     else:
-        value=rep.elen16(len(replacement))+replacement.encode("utf-16le")+b"\\0\\0"
+        value=rep.elen16(len(replacement))+replacement.encode("utf-16le")+b"\0\0"
     tail=style_start or len(chunk)
     raw=chunk[start:tail]
     # A target class name can already occur twice in the original string pool.
