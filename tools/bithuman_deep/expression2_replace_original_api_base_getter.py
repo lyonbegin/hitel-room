@@ -42,7 +42,7 @@ def u4(data, at):
 
 
 def cp_info(data):
-    assert data[:4] == b"\\xca\\xfe\\xba\\xbe", "not JVM classfile"
+    assert data[:4] == b"\xca\xfe\xba\xbe", "not JVM classfile"
     count = u2(data, 8)
     pos = 10
     names = {}
@@ -126,14 +126,14 @@ def replace_getter(original, endpoint):
     assert count + 2 <= 65535
     endpoint_utf8 = endpoint.encode("utf-8")
     assert len(endpoint_utf8) <= 65535
-    appended_cp = b"\\x01" + struct.pack(">H", len(endpoint_utf8)) + endpoint_utf8
-    appended_cp += b"\\x08" + struct.pack(">H", count)
+    appended_cp = b"\x01" + struct.pack(">H", len(endpoint_utf8)) + endpoint_utf8
+    appended_cp += b"\x08" + struct.pack(">H", count)
     new_string_index = count + 1
     # Replace original 4-byte Code body with the 4-byte new bytecode body.
     patched = bytearray(original[:8] + struct.pack(">H", count + 2)
                         + original[10:cp_end] + appended_cp + original[cp_end:])
     offset = old_at + len(appended_cp)
-    new_code = b"\\x13" + struct.pack(">H", new_string_index) + b"\\xb0"
+    new_code = b"\x13" + struct.pack(">H", new_string_index) + b"\xb0"
     assert bytes(patched[offset:offset+4]) == old_code
     patched[offset:offset+4] = new_code
     patched = bytes(patched)
