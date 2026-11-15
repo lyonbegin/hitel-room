@@ -40,6 +40,23 @@ class Api(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             return self.reply(400, {"error": "body_must_be_object"})
         token = self.headers.get("Authorization", "")
+        auth_ok = token == ("Bearer " + CI_TOKEN)
+        content_type = self.headers.get("Content-Type", "").split(";")[0].strip()
+        if self.path not in ("/v1/auth/validate", "/v1/meter/beats"):
+            return self.reply(404, {"error": "not_found"})
+        if content_type != "application/json":
+            return self.reply(415, {"error": "unsupported_media_type"})
+        record = {
+            "method": self.command, "path": self.path,
+            "content_type": content_type,
+            "authorization_scheme": token.split(" ", 1)[0] if token else "",
+            "authenticated_synthetic_fixture": auth_ok,
+            "json_field_types": fieldtypes(payload),
+            "bytes_received": len(body),
+        }
+        with self.server.log_lock:
+            with self.server.logfile.open("a", encoding="utf-8") as out:
+                out.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
         # Field contracts are taken from original JVM
         # SelfHostMeter$Companion.validateBody / wireBody output, not guessed.
         if self.path == "/v1/auth/validate":
@@ -61,23 +78,6 @@ class Api(BaseHTTPRequestHandler):
         for key in ("accrued", "tail"):
             if key in payload and payload[key] is not True:
                 return self.reply(422, {"error": "original_optional_flag_invalid", "field": key})
-        auth_ok = token == ("Bearer " + CI_TOKEN)
-        content_type = self.headers.get("Content-Type", "").split(";")[0].strip()
-        if self.path not in ("/v1/auth/validate", "/v1/meter/beats"):
-            return self.reply(404, {"error": "not_found"})
-        if content_type != "application/json":
-            return self.reply(415, {"error": "unsupported_media_type"})
-        record = {
-            "method": self.command, "path": self.path,
-            "content_type": content_type,
-            "authorization_scheme": token.split(" ", 1)[0] if token else "",
-            "authenticated_synthetic_fixture": auth_ok,
-            "json_field_types": fieldtypes(payload),
-            "bytes_received": len(body),
-        }
-        with self.server.log_lock:
-            with self.server.logfile.open("a", encoding="utf-8") as out:
-                out.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
         if not auth_ok:
             return self.reply(401, {"valid": False, "code": "INVALID_CI_FIXTURE_CREDENTIAL"})
         if self.path == "/v1/auth/validate":
