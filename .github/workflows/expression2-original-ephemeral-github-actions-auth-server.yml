@@ -6,6 +6,7 @@ on:
       - tools/bithuman_deep/expression2_ephemeral_auth_fixture.py
       - tools/bithuman_deep/Expression2OriginalBackendProbe.java
       - tools/bithuman_deep/expression2_replace_original_api_base_getter.py
+      - tools/bithuman_deep/expression2_replace_original_meter_api_base_method.py
       - .github/workflows/expression2-original-ephemeral-github-actions-auth-server.yml
   workflow_dispatch:
 permissions:
@@ -27,21 +28,26 @@ jobs:
           name: expression2-original-bytecode-and-arm64-reassembled-aar
           github-token: ${{ github.token }}
           path: build/original-reassembled
-      - name: Patch only ORIGINAL JVM getApiBaseUrl bytecode to temporary CI loopback endpoint
+      - name: Patch only actual ORIGINAL SelfHostMeter apiBase JVM method to temporary CI loopback endpoint
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p reports/expression2-ci-original-backend build/expr2-ci-sdk
-          python3 tools/bithuman_deep/expression2_replace_original_api_base_getter.py \
+          python3 tools/bithuman_deep/expression2_replace_original_meter_api_base_method.py \
             --source-aar build/original-reassembled/Expression2_0.6.2_original_machine_code_reassembled.aar \
             --output-aar build/expr2-ci-sdk/original-one-function-loopback-only.aar \
-            --report reports/expression2-ci-original-backend/one-function-jvm-patch-proof.json \
+            --report reports/expression2-ci-original-backend/actual-meter-apiBase-one-method-patch-proof.json \
             --base-url http://127.0.0.1:18762 \
             --allow-test-endpoint
           unzip -p build/expr2-ci-sdk/original-one-function-loopback-only.aar classes.jar > "$RUNNER_TEMP/expr2-ci-original-classes.jar"
           sha256sum build/expr2-ci-sdk/original-one-function-loopback-only.aar \
             > reports/expression2-ci-original-backend/one-function-aar-sha256.txt
           echo ORIGINAL_ENGINE_NATIVE_AND_OTHER_JVM_METHODS_IDENTICAL_PASS
+          unzip -p build/expr2-ci-sdk/original-one-function-loopback-only.aar classes.jar > "$RUNNER_TEMP/expr2-jvm-only.jar"
+          javap -p -c -cp "$RUNNER_TEMP/expr2-jvm-only.jar" 'ai.bithuman.expression2.SelfHostMeter$Companion' \
+            > reports/expression2-ci-original-backend/reassembled-companion-javap.txt
+          grep -F "http://127.0.0.1:18762" reports/expression2-ci-original-backend/reassembled-companion-javap.txt
+          echo ORIGINAL_ACTUAL_SERVER_FUNCTION_BYTECODE_STATIC_PASS
       - name: Compile probe against ORIGINAL SDK binary, not recreated methods
         shell: bash
         run: |
