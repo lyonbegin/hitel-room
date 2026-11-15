@@ -15,7 +15,7 @@ permissions:
   contents: write
 concurrency:
   group: ixio-android14-lab-20261115
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   emulator-toolchain:
     runs-on: ubuntu-24.04
