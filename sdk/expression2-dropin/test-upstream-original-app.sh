@@ -31,7 +31,9 @@ adb shell am start -W -n com.example.x2hello/.MainActivity \
   2>&1 | tee "$report/launch.txt"
 echo ORIGINAL_APP_LAUNCHED_SDK_SWAPPED
 result=TIMEOUT
-for n in $(seq 1 48); do
+# The CPU-only x86_64 LiteRT decoder may need longer than the old 240s limit.
+# Capture a real first decoded frame before waiting for the entire 13.87s sample.
+for n in $(seq 1 180); do
   if (( n % 6 == 0 )); then
     adb logcat -d -v brief -s HITEL_EXPRESSION2:I X2HELLO:I '*:S' \
       | tail -35 | tee "$report/progress-$n.txt" || true
@@ -43,6 +45,10 @@ for n in $(seq 1 48); do
   adb logcat -d -v time > "$report/logcat-current.txt"
   if grep -q 'DONE_FRAMES [1-9]' "$report/logcat-current.txt"; then
     result=FRAMES_PRODUCED
+    break
+  fi
+  if grep -q 'HITEL_FIRST_FRAME_CAPTURED .*nonUniform=true' "$report/logcat-current.txt"; then
+    result=FIRST_FRAME_CANDIDATE
     break
   fi
   if grep -q 'X2HELLO.*FAILED:' "$report/logcat-current.txt"; then
@@ -62,11 +68,27 @@ tail -120 "$report/sdk-trace.txt" || true
 adb shell dumpsys meminfo com.example.x2hello > "$report/meminfo.txt" || true
 adb shell screencap -p /sdcard/expr2-original-ui.png || true
 adb pull /sdcard/expr2-original-ui.png "$report/screenshot.png" || true
+# Persist the model's actual first decoded pixels, not the demo UI screenshot.
+frame='/sdcard/Android/data/com.example.x2hello/files/hitel-expression2-first-frame.png'
+if adb shell test -s "$frame"; then
+  adb pull "$frame" "$report/first-model-frame.png" || true
+  if [[ -s "$report/first-model-frame.png" ]]; then
+    sha256sum "$report/first-model-frame.png" > "$report/first-model-frame.sha256"
+  fi
+fi
 echo "$result" | tee "$report/result.txt"
 if [ "$result" = FRAMES_PRODUCED ]; then
   grep 'DONE_FRAMES' "$report/full-logcat.txt" | tail -5
   echo ORIGINAL_APP_REAL_MODEL_FRAMES_PRODUCED_CANDIDATE_FIDELITY_UNVERIFIED
   exit 0
+fi
+if [ "$result" = FIRST_FRAME_CANDIDATE ]; then
+  if [[ -s "$report/first-model-frame.png" ]]; then
+    echo "FIRST_MODEL_FRAME_PNG_CAPTURED_NONUNIFORM_PASS; FULL_SAMPLE_AND_VENDOR_PARITY_NOT_VERIFIED"
+    exit 0
+  fi
+  echo "FIRST_MODEL_FRAME_LOGGED_BUT_PNG_MISSING_FAIL"
+  exit 1
 fi
 echo "ORIGINAL_APP_E2E_NOT_PASSED: $result"
 exit 1

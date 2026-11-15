@@ -53,6 +53,10 @@ class Expression2Avatar private constructor(
         check(it != 0L) { "Cannot initialize independent native output queue" }
     }
     private val bitmapPixels = IntArray(416 * 720)
+    // First model-generated frame evidence is stored beside the verified local IMX.
+    // This does not alter the model graph, decoder inputs, or normal frame queue.
+    private val firstFrameEvidence = java.io.File(model.sourceFile.parentFile,
+        "hitel-expression2-first-frame.png")
     private val worker = Thread({ runWorker() }, "expression2-render").apply {
         isDaemon = true
         priority = Thread.NORM_PRIORITY
@@ -128,6 +132,42 @@ class Expression2Avatar private constructor(
                     }
                     check(Expression2Native.framePump(nativeFrames) == 0) {
                         "Frame staging native ownership transfer failed"
+                    }
+                    if (emitted == 0L) {
+                        // Record evidence immediately, independently of the demo's later flushTail().
+                        val baseline = pixels[0] and 0x00ffffff
+                        var differentPixels = 0
+                        var nonBlackPixels = 0
+                        var rollingHash = 1125899906842597L
+                        for (pixel in pixels) {
+                            val rgb = pixel and 0x00ffffff
+                            if (rgb != baseline) differentPixels++
+                            if (rgb != 0) nonBlackPixels++
+                            rollingHash = rollingHash * 31L + rgb.toLong()
+                        }
+                        try {
+                            val image = Bitmap.createBitmap(pixels, 416, 720,
+                                Bitmap.Config.ARGB_8888)
+                            try {
+                                firstFrameEvidence.outputStream().use { stream ->
+                                    check(image.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                                        "Cannot encode first model frame as PNG"
+                                    }
+                                }
+                            } finally {
+                                image.recycle()
+                            }
+                            android.util.Log.i("HITEL_EXPRESSION2",
+                                "HITEL_FIRST_FRAME_CAPTURED width=416 height=720" +
+                                " differentPixels=" + differentPixels +
+                                " nonBlackPixels=" + nonBlackPixels +
+                                " nonUniform=" + (differentPixels > 0 && nonBlackPixels > 0) +
+                                " rollingHash=" + rollingHash +
+                                " file=" + firstFrameEvidence.absolutePath)
+                        } catch (captureError: Exception) {
+                            android.util.Log.e("HITEL_EXPRESSION2",
+                                "HITEL_FIRST_FRAME_CAPTURE_FAILED", captureError)
+                        }
                     }
                     emitted++
                 }
