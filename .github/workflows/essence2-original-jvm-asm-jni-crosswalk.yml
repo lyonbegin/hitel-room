@@ -1,0 +1,78 @@
+name: Essence2 0.10.3 all original JVM ASM method and both engine JNI static mapping
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-jvm-asm-jni-crosswalk.yml
+      - tools/bithuman_deep/Essence2OriginalJvmAsmAudit.java
+      - tools/bithuman_deep/essence2_jvm_jni_crosswalk.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  essence2-original-jvm-and-jni:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Official original AAR source with pinned SHA
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/essence2" reports/essence2-jvm-jni
+          curl -fLsS --retry 3 --max-time 300 \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar' \
+            -o "$RUNNER_TEMP/essence2/source.aar"
+          echo "49bdeafc6a29675058851c5f7336dacaa0518d5af5bc6130eece96af73513e67  $RUNNER_TEMP/essence2/source.aar" | sha256sum -c
+          unzip -p "$RUNNER_TEMP/essence2/source.aar" classes.jar > "$RUNNER_TEMP/essence2/classes.jar"
+      - name: Compile ASM JVM original function graph visitor
+        run: |
+          set -euo pipefail
+          for pkg in asm asm-tree; do
+            curl -fLsS --retry 3 --max-time 120 \
+              "https://repo.maven.apache.org/maven2/org/ow2/asm/$pkg/9.7.1/$pkg-9.7.1.jar" \
+              -o "$RUNNER_TEMP/essence2/$pkg.jar"
+          done
+          javac -cp "$RUNNER_TEMP/essence2/asm.jar:$RUNNER_TEMP/essence2/asm-tree.jar" \
+            -d "$RUNNER_TEMP/essence2" \
+            tools/bithuman_deep/Essence2OriginalJvmAsmAudit.java
+      - name: Analyze every original JVM class method and JNI declaration
+        run: |
+          java -cp "$RUNNER_TEMP/essence2:$RUNNER_TEMP/essence2/asm.jar:$RUNNER_TEMP/essence2/asm-tree.jar" \
+            Essence2OriginalJvmAsmAudit "$RUNNER_TEMP/essence2/classes.jar" \
+            reports/essence2-jvm-jni
+      - name: Read real JNI export tables from all original ELF engines
+        run: |
+          python3 - "$RUNNER_TEMP/essence2/source.aar" reports/essence2-jvm-jni <<'PY'
+          import zipfile,subprocess,sys,json
+          from pathlib import Path
+          archive=zipfile.ZipFile(sys.argv[1]);dest=Path(sys.argv[2])
+          results=[]
+          for n in archive.namelist():
+            if not n.endswith(".so"):continue
+            f=Path("/tmp")/Path(n).name
+            f.write_bytes(archive.read(n))
+            p=subprocess.run(["readelf","-W","--dyn-syms",str(f)],capture_output=True,text=True,check=True)
+            exports=[l for l in p.stdout.splitlines() if " Java_" in l or " JNI_OnLoad" in l]
+            results.append({"path":n,"exports":exports})
+          (dest/"jni-all-native-exports.json").write_text(json.dumps(results,indent=2)+"\n")
+          PY
+      - name: JNI original declarations and all original native exported methods crosswalk
+        run: |
+          python3 tools/bithuman_deep/essence2_jvm_jni_crosswalk.py \
+            --native-methods reports/essence2-jvm-jni/jvm-native-methods.tsv \
+            --exports reports/essence2-jvm-jni/jni-all-native-exports.json \
+            --out reports/essence2-jvm-jni
+          cat reports/essence2-jvm-jni/jvm-asm-summary.json >> "$GITHUB_STEP_SUMMARY"
+          cat reports/essence2-jvm-jni/essence2-jvm-jni-crosswalk-summary.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-110-jvm-classes-all-methods-and-62-JNI-proof
+          path: reports/essence2-jvm-jni/
+          retention-days: 30
+      - if: always()
+        run: rm -rf "$RUNNER_TEMP/essence2"
