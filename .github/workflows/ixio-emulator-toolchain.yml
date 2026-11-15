@@ -10,6 +10,9 @@ on:
       - 'tools/ixio/enable_apppealing_scope.py'
       - 'tools/ixio/package_runtime_dump.py'
       - 'tools/ixio/ixio-runtime-capture.sh'
+      - 'tools/ixio/ixio_repack_separate.py'
+      - 'tools/ixio/ixio_dex_exact_reassemble.py'
+      - 'tools/ixio/ixio-test-separate-repack.sh'
   workflow_dispatch:
 permissions:
   contents: write
@@ -92,7 +95,18 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: bash tools/ixio/ixio-emulator-bootstrap.sh
+          script: IXIO_SEPARATE_REASSEMBLE=1 bash tools/ixio/ixio-emulator-bootstrap.sh
+      - name: Upload independently rebuilt signed APKs and reassembly comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-standalone-apps-reassembled-android14
+          path: |
+            .ixio-rebuild-output/
+            ixio-lab-results/separate-repack/
+            ixio-lab-results/separate-repack-test.log
+          if-no-files-found: warn
+          compression-level: 6
       - name: Retain reusable encrypted DEX dumps as a dedicated GitHub Release
         if: always()
         shell: bash
