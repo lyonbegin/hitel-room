@@ -7,9 +7,12 @@ on:
       - 'tools/ixio/ixio-emulator-bootstrap.sh'
       - 'tools/ixio/input-apks/**'
       - 'tools/ixio/verify_release_zip.py'
+      - 'tools/ixio/enable_apppealing_scope.py'
+      - 'tools/ixio/package_runtime_dump.py'
+      - 'tools/ixio/ixio-runtime-capture.sh'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: ixio-android14-lab-20261115
   cancel-in-progress: false
@@ -90,6 +93,33 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash tools/ixio/ixio-emulator-bootstrap.sh
+      - name: Retain reusable encrypted DEX dumps as a dedicated GitHub Release
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          captured=(ixio-lab-results/com.lguplus.*/DEX_ENCRYPTED.cms)
+          if [ "${#captured[@]}" -eq 0 ]; then
+            echo "NO_ENCRYPTED_RUNTIME_DEX_TO_PUBLISH"
+            exit 0
+          fi
+          TAG=ixio-runtime-dex-20261115
+          gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO reusable encrypted in-memory DEX captures" \
+              --notes 'Only AES-256 CMS-encrypted runtime captures are published. The decryption key is not stored on GitHub.'
+          mkdir -p .ixio-public-dump-uploads
+          for item in "${captured[@]}"; do
+            pkg=$(basename "$(dirname "$item")")
+            cp "$item" ".ixio-public-dump-uploads/${pkg}.cms"
+            cp "$(dirname "$item")/dump-manifest.json" ".ixio-public-dump-uploads/${pkg}-manifest.json"
+          done
+          gh release upload "$TAG" --repo "$GH_REPO" .ixio-public-dump-uploads/* --clobber
+          gh release view "$TAG" --repo "$GH_REPO" --json url,assets
       - name: Upload diagnostic logs (not proprietary APKs)
         if: always()
         uses: actions/upload-artifact@v4
