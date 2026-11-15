@@ -1,10 +1,12 @@
-name: IXIO Upstream MemDumper App-Only Memory Capture
+name: IXIO Upstream MemDumper Precise App-Only VMA Capture
 on:
   push:
     branches: [experiment/ixio-runtime-lab-20261115]
     paths:
       - '.github/workflows/ixio-thirdparty-memdumper.yml'
       - 'tools/ixio/ixio_memdumper_existing_tool_test.sh'
+      - 'tools/ixio/ixio_memdumper_precise_ranges.sh'
+      - 'tools/ixio/ixio_memdumper_plan_runner.sh'
   workflow_dispatch:
 permissions:
   contents: write
