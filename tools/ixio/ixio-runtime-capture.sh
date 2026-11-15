@@ -22,8 +22,16 @@ for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   adb shell 'logcat -c' || true
   adb shell am force-stop "$p" || true
   adb shell monkey -p "$p" 1 > "$d/first-launch.log" 2>&1 || true
-  sleep 3
+  # AppSealing transiently materializes restored DEX files on disk,
+  # then maps them into the live process (verified from /proc/PID/maps).
+  # Capture them BEFORE attaching Frida: the latter terminated both apps.
+  sleep 1
+  adb shell su -c "find /data/user/0/$p/app_payload_lib -maxdepth 5 -type f" > "$d/payload-files-1s.txt" 2>&1 || true
+  adb pull "/data/user/0/$p/app_payload_lib" "$d/local-dump/app_payload_lib" > "$d/payload-pull-1s.log" 2>&1 || true
+  sleep 2
   adb shell pidof "$p" > "$d/pid-after-3sec.txt" 2>&1 || true
+  adb shell su -c "find /data/user/0/$p/app_payload_lib -maxdepth 5 -type f" > "$d/payload-files-3s.txt" 2>&1 || true
+  adb pull "/data/user/0/$p/app_payload_lib" "$d/local-dump/app_payload_lib" > "$d/payload-pull-3s.log" 2>&1 || true
   adb shell 'logcat -d -t 2500 -v threadtime' > "$d/after-launch-logcat.txt" 2>&1 || true
   adb shell su -c "find /data/user/0/$p/apppeal_dump -type f" > "$d/apppealing-found.txt" 2>&1 || true
   adb pull "/data/user/0/$p/apppeal_dump" "$d/local-dump/apppeal_dump" > "$d/apppealing-pull.log" 2>&1 || true
