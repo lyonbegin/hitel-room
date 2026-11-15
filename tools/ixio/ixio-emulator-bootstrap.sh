@@ -14,7 +14,7 @@ adb shell getprop ro.dalvik.vm.native.bridge || true
 step ADB_ROOT adb root
 adb shell id || true
 if [ -x .ixio-tools/avdroot ]; then
-  step MAGISK_ROOT .ixio-tools/avdroot root --magisk .ixio-tools/Magisk-v31.1.apk --yes --timeout 8m
+  step MAGISK_ROOT .ixio-tools/avdroot root --magisk .ixio-tools/Magisk-v30.7.apk --yes --timeout 8m
   wait_boot || true
   adb shell su -c id || true
 else mark MAGISK_ROOT NO_BINARY; fi
