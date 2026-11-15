@@ -1,0 +1,48 @@
+name: Expression2 physical single APK install and localhost original SDK create smoke
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - tools/bithuman_deep/test_expr2_physical_single_apk_startup_emulator.sh
+      - .github/workflows/expression2-physical-single-apk-emulator-install-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  install-exact-physical-apk-original-create:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43770655381
+          name: expression2-original-arm64-real-android-one-click-install-apk
+          github-token: ${{ github.token }}
+          path: build/physical-single-apk
+      - name: Enable KVM for hardware-assisted x86 emulator with ARM64 NativeBridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install user-downloadable original SDK APK and check localhost auth to native create
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 4096
+          script: bash tools/bithuman_deep/test_expr2_physical_single_apk_startup_emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-physical-installable-apk-original-create-startup-proof
+          path: reports/expression2-real-device-apk-smoke/
+          retention-days: 30
