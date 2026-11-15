@@ -1,0 +1,74 @@
+name: IXIO Android 14 AppPealing Frida Lab Bootstrap
+on:
+  push:
+    branches: [experiment/ixio-runtime-lab-20261115]
+    paths:
+      - '.github/workflows/ixio-emulator-toolchain.yml'
+      - 'tools/ixio/ixio-emulator-bootstrap.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ixio-android14-lab-20261115
+  cancel-in-progress: false
+jobs:
+  emulator-toolchain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify KVM availability
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Obtain pinned tooling and build AppPealing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-tools ixio-lab-results
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/avdroot \
+            https://github.com/ejfkdev/avdroot/releases/download/v0.1.1/avdroot_linux_amd64
+          chmod +x .ixio-tools/avdroot
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/LSPosed.zip \
+            https://github.com/LSPosed/LSPosed/releases/download/v1.9.2/LSPosed-v1.9.2-7024-zygisk-release.zip
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/frida-server.xz \
+            https://github.com/frida/frida/releases/download/17.26.3/frida-server-17.26.3-android-x86_64.xz
+          xz --decompress .ixio-tools/frida-server.xz
+          chmod +x .ixio-tools/frida-server
+          git clone --depth 1 https://github.com/NPC2000/AppPealing-new.git .ixio-tools/apppealing-src
+          (cd .ixio-tools/apppealing-src && chmod +x gradlew && ./gradlew --no-daemon :app:assembleDebug) \
+            > ixio-lab-results/apppealing-build.log 2>&1
+          cp .ixio-tools/apppealing-src/app/build/outputs/apk/debug/app-debug.apk \
+            .ixio-tools/apppealing-debug.apk
+          python3 -m venv .ixio-tools/venv
+          .ixio-tools/venv/bin/pip install --disable-pip-version-check 'frida==17.26.3' 'frida-tools' \
+            > ixio-lab-results/frida-pip.log 2>&1
+          .ixio-tools/venv/bin/frida --version
+          sha256sum .ixio-tools/{avdroot,LSPosed.zip,frida-server,apppealing-debug.apk} \
+            > ixio-lab-results/tool-sha256.txt
+      - name: Boot accelerated Android 14 emulator and install tooling
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash tools/ixio/ixio-emulator-bootstrap.sh
+      - name: Upload diagnostic logs (not proprietary APKs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-android14-apppealing-frida-logs
+          path: ixio-lab-results/
+          if-no-files-found: warn
