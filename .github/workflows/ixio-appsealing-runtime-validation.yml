@@ -1,7 +1,7 @@
-name: IXIO AppSealing Runtime Payload and AppPealing DEX Validation
+name: IXIO Independent Memory and Function Analysis
 on:
   push:
-    branches: [experiment/ixio-freedump-20261116]
+    branches: [analysis/ixio-function-flow-20261116]
     paths:
       - '.github/workflows/ixio-appsealing-runtime-validation.yml'
       - 'tools/ixio/ixio_runtime_payload_audit.sh'
@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ixio-appsealing-runtime-validation
+  group: ixio-independent-function-analysis
   cancel-in-progress: true
 jobs:
   emulator-toolchain:
@@ -79,6 +79,33 @@ jobs:
           printf '%s  %s\n' '4ec4793327930e72589c1d47e552e1e77f97ccf77db71c63c701934f2337a3fc' .ixio-inputs/main.xapk | sha256sum -c
           printf '%s  %s\n' '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7' .ixio-inputs/recorder.apk | sha256sum -c
           echo 'IXIO_INPUTS=BOTH_SHA256_MATCH' | tee -a ixio-lab-results/summary.env
+      - name: Build upstream MemDumper using x86_64 ABI compatibility flag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/kp7742/MemDumper.git .ixio-tools/memdumper-upstream
+          git -C .ixio-tools/memdumper-upstream rev-parse HEAD | tee ixio-lab-results/memdumper-upstream-commit.txt
+          # Upstream Makefile lists ARM64 and ARMv7 only; add Android emulator
+          # x86_64 to the existing 64-bit source selection. Upstream C++ is unchanged.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path(".ixio-tools/memdumper-upstream/jni/Android.mk")
+          src = p.read_text()
+          old = "ifeq ($(TARGET_ARCH_ABI), arm64-v8a)"
+          assert old in src
+          p.write_text(src.replace(old, "ifneq ($(filter $(TARGET_ARCH_ABI),arm64-v8a x86_64),)"))
+          PY
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null || test -d "$SDK/ndk/27.2.12479018"
+          "$SDK/ndk/27.2.12479018/ndk-build" -C .ixio-tools/memdumper-upstream \
+            NDK_PROJECT_PATH=. APP_ABI=x86_64 -j2
+          find .ixio-tools/memdumper-upstream/libs .ixio-tools/memdumper-upstream/obj \
+            -type f -iname '*memdumper*' -print | tee ixio-lab-results/memdumper-built-files.txt
+          find .ixio-tools/memdumper-upstream/libs/x86_64 -type f \
+            \( -name 'memdumper' -o -name 'MemDumper' -o -name 'memdumper64' \) \
+            -exec cp {} .ixio-tools/memdumper \;
+          test -s .ixio-tools/memdumper
+          file .ixio-tools/memdumper | grep -Ei 'ELF 64-bit.*x86-64'
       - name: Boot accelerated Android 14 emulator and install tooling
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -91,7 +118,9 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: IXIO_USE_PAYLOAD_VERIFY=1 IXIO_JADX_AUDIT=1 IXIO_SEPARATE_REASSEMBLE=0 bash tools/ixio/ixio-emulator-bootstrap.sh
+          script: |
+            IXIO_USE_PAYLOAD_VERIFY=1 IXIO_JADX_AUDIT=1 IXIO_SEPARATE_REASSEMBLE=0 bash tools/ixio/ixio-emulator-bootstrap.sh
+            bash tools/ixio/ixio_memdumper_precise_ranges.sh
       - name: Verify existing AppSealing payload files and AppPealing dumps for both apps
         shell: bash
         run: |
@@ -105,11 +134,14 @@ jobs:
             test -s "ixio-lab-results/runtime-payload-audit/$group/validation-late.json"
           done
           test -s ixio-lab-results/runtime-payload-audit/recorder/semantic-jadx.json
+          test -s ixio-lab-results/runtime-payload-audit/main/semantic-jadx.json
+          grep -qx 'ENCRYPTED_APP_GROUPS=2' ixio-lab-results/memdumper-precise/status.env
           echo 'IXIO_APPSEALING_RUNTIME_AUDIT=BOTH_APPS_CAPTURED_JADX_RECORDER_ANALYZED'
       - name: Upload diagnostic logs (not proprietary APKs)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ixio-appsealing-payload-checksum-class-validation
+          name: ixio-independent-memory-and-function-evidence
           path: ixio-lab-results/
           if-no-files-found: warn
+

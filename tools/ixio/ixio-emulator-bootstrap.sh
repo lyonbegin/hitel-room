@@ -86,7 +86,7 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
   fi
   if [ "${IXIO_USE_PAYLOAD_VERIFY:-0}" = 1 ]; then
     echo "### APPSEALING_EXISTING_PAYLOAD_AND_APPPEALING_FILE_AUDIT"
-    if timeout --signal=TERM --kill-after=8s 350 \
+    if timeout --signal=TERM --kill-after=8s 1500 \
       bash tools/ixio/ixio_runtime_payload_audit.sh \
         > ixio-lab-results/runtime-payload-audit-run.log 2>&1; then
       mark IXIO_PAYLOAD_AUDIT SUCCESS_CHECK_VALIDATION
@@ -160,3 +160,4 @@ adb shell getprop ro.dalvik.vm.native.bridge > ixio-lab-results/nativebridge.txt
 adb shell getprop ro.product.cpu.abilist > ixio-lab-results/abilist.txt || true
 adb logcat -d -t 700 -s 'AppSealing:*' 'LSPosed:*' 'Frida:*' > ixio-lab-results/logcat_filtered.txt 2>&1 || true
 echo "STEPS_WITH_FAILURE=$fail" | tee -a ixio-lab-results/summary.env
+

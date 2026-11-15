@@ -40,7 +40,7 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
   done
   # Decompile the protected recorder payload with the upstream official JADX CLI.
   # Java source is kept ONLY in PRIVATE and encrypted before upload.
-  if [ "${IXIO_JADX_AUDIT:-0}" = 1 ] && [ "$group" = recorder ]; then
+  if [ "${IXIO_JADX_AUDIT:-0}" = 1 ] ; then
     if [ ! -x .ixio-tools/jadx/bin/jadx ]; then
       mkdir -p .ixio-tools
       curl --fail --location --retry 3 --silent --show-error \
@@ -51,11 +51,11 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
       chmod +x .ixio-tools/jadx/bin/jadx
     fi
     shopt -s nullglob
-    dex_files=("$raw/late/app_payload_lib/com_lguplus_callrecorder/"*.dex)
+    mapfile -t dex_files < <(find "$raw/late/app_payload_lib" -type f -name "*.dex" | sort)
     if [ "${#dex_files[@]}" -gt 0 ]; then
       set +e
-      timeout --signal=TERM --kill-after=10s 240 \
-        .ixio-tools/jadx/bin/jadx --no-res --threads-count 2 \
+      timeout --signal=TERM --kill-after=10s 600 \
+        .ixio-tools/jadx/bin/jadx --no-res --show-bad-code --threads-count 2 \
           -d "$raw/jadx-output" "${dex_files[@]}" \
           > "$dest/jadx.log" 2>&1
       jadx_rc=$?
@@ -91,3 +91,4 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
 done
 printf 'ENCRYPTED_APP_GROUPS=%s\n' "$success" | tee "$OUT/status.env"
 test "$success" -eq 2
+
