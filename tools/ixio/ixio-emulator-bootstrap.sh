@@ -46,6 +46,11 @@ if [ -f .ixio-tools/apppealing-debug.apk ]; then
   step APPPEALING_APK_INSTALL adb install -r .ixio-tools/apppealing-debug.apk
   adb shell pm path com.october.apppealing || true
 else mark APPPEALING_APK_INSTALL NO_APK; fi
+if [ -x .ixio-tools/ixio_vma_dump ]; then
+  adb push .ixio-tools/ixio_vma_dump /data/local/tmp/ixio_vma_dump >/dev/null
+  adb shell chmod 755 /data/local/tmp/ixio_vma_dump || true
+  mark IXIO_FULL_MEMORY_COLLECTOR INSTALLED
+else mark IXIO_FULL_MEMORY_COLLECTOR MISSING; fi
 if [ -f .ixio-tools/frida-server ]; then
   adb push .ixio-tools/frida-server /data/local/tmp/ixio-frida-server
   adb shell 'chmod 755 /data/local/tmp/ixio-frida-server' || true
@@ -79,7 +84,7 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
     mark IXIO_LSPOSED_SCOPE FAIL
     tail -60 ixio-lab-results/lsposed-scope-config.log || true
   fi
-  if timeout --signal=TERM --kill-after=12s 310 \
+  if timeout --signal=TERM --kill-after=12s 1500 \
     bash tools/ixio/ixio-runtime-capture.sh \
       > ixio-lab-results/ixio-capture-summary.log 2>&1; then
     mark IXIO_RUNTIME_CAPTURE PASS
