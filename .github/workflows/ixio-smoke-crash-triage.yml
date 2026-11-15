@@ -1,0 +1,68 @@
+name: IXIO Separate Original Bytecode Startup Crash Triage
+on:
+  push:
+    branches: [experiment/ixio-runtime-lab-20261115]
+    paths:
+      - '.github/workflows/ixio-smoke-crash-triage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download clean Android 14 emulator diagnostics
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh run download 43708163246 --repo "$GH_REPO" \
+            --name ixio-original-bytecode-separate-apk-android14-smoke-results --dir .
+          find ixio-standalone-smoke -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+      - name: Analyze exact startup exceptions per application
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,re
+          root=pathlib.Path('ixio-standalone-smoke')
+          report={}
+          for app,pkg in [('main','com.lguplus.aicallagent'),('recorder','com.lguplus.callrecorder')]:
+              fp=root/f'{app}-logcat.txt'
+              log=fp.read_text(errors='replace') if fp.exists() else ''
+              lines=log.splitlines()
+              blocks=[]
+              for i,line in enumerate(lines):
+                  if 'FATAL EXCEPTION' not in line and 'Fatal signal' not in line:
+                      continue
+                  block=lines[max(0,i-2):min(len(lines),i+85)]
+                  snippet='\n'.join(block)
+                  blocks.append({'line':i+1,'is_target':pkg in snippet,'trace':snippet})
+              status_file=root/f'{app}-status.txt'
+              status=status_file.read_text(errors='replace') if status_file.exists() else ''
+              package_fatals=[x for x in blocks if x['is_target']]
+              report[app]={'package':pkg,'status':status,'fatal_count_all':len(blocks),
+                           'fatal_count_target':len(package_fatals),
+                           'fatal_blocks_target':package_fatals[:6],
+                           'first_system_fatal':blocks[:1]}
+              print('\n========= '+app.upper()+' =========')
+              print('STATUS:\n'+status)
+              print('FATAL TOTAL',len(blocks),'TARGET',len(package_fatals))
+              for b in package_fatals[:4]:
+                  print('\nSTARTUP CRASH TRACE:\n'+b['trace'][:14000])
+              if not package_fatals:
+                  print('No target package in first 85 logcat lines after FATAL; show first trace as fallback.')
+                  for b in blocks[:1]:print(b['trace'][:10000])
+              for aux in [f'{app}-monkey-launch.txt',f'{app}-start-service.txt',f'{app}-resolve-activity.txt']:
+                  p=root/aux
+                  if p.exists():print('AUX',aux,':',p.read_text(errors='replace')[:1800])
+          pathlib.Path('ixio-startup-crash-triage.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Upload precise startup crash report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-two-app-original-bytecode-crash-triage
+          path: ixio-startup-crash-triage.json
+          if-no-files-found: warn
