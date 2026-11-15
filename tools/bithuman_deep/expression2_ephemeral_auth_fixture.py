@@ -37,6 +37,27 @@ class Api(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             return self.reply(400, {"error": "body_must_be_object"})
         token = self.headers.get("Authorization", "")
+        # Field contracts are taken from original JVM
+        # SelfHostMeter$Companion.validateBody / wireBody output, not guessed.
+        if self.path == "/v1/auth/validate":
+            required = {"product": str, "agent_code": str}
+        elif self.path == "/v1/meter/beats":
+            required = {
+                "session_id": str, "seq": int, "served_s": (int, float),
+                "talking_s": (int, float), "install_id": str,
+                "product": str, "billing_type": str, "deployment": str
+            }
+        else:
+            required = {}
+        for key, kind in required.items():
+            if key not in payload or not isinstance(payload[key], kind):
+                return self.reply(422, {"error": "original_json_field_type_invalid", "field": key})
+        for key in ("agent_code", "claim_id"):
+            if key in payload and not isinstance(payload[key], str):
+                return self.reply(422, {"error": "original_optional_field_type_invalid", "field": key})
+        for key in ("accrued", "tail"):
+            if key in payload and payload[key] is not True:
+                return self.reply(422, {"error": "original_optional_flag_invalid", "field": key})
         auth_ok = token == ("Bearer " + CI_TOKEN)
         content_type = self.headers.get("Content-Type", "").split(";")[0].strip()
         if self.path not in ("/v1/auth/validate", "/v1/meter/beats"):
