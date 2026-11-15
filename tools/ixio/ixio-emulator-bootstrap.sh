@@ -70,7 +70,14 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
     mark IXIO_LSPOSED_SCOPE FAIL
     tail -60 ixio-lab-results/lsposed-scope-config.log || true
   fi
-  bash tools/ixio/ixio-runtime-capture.sh > ixio-lab-results/ixio-capture-summary.log 2>&1 || true
+  if timeout --signal=TERM --kill-after=12s 310 \
+    bash tools/ixio/ixio-runtime-capture.sh \
+      > ixio-lab-results/ixio-capture-summary.log 2>&1; then
+    mark IXIO_RUNTIME_CAPTURE PASS
+  else
+    mark IXIO_RUNTIME_CAPTURE TIMEOUT_OR_ERROR
+    tail -65 ixio-lab-results/ixio-capture-summary.log || true
+  fi
 else
   mark IXIO_TARGET_INPUTS MISSING
 fi
