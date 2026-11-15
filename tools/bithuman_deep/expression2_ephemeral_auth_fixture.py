@@ -7,11 +7,14 @@ credentials and records only JSON field names/types, not secret values.
 """
 import argparse
 import json
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-CI_TOKEN = "EXPR2_CI_FIXTURE_ONLY_NOT_A_SECRET"
+CI_TOKEN = os.environ.get("EXPR2_CI_TOKEN", "EXPR2_CI_FIXTURE_ONLY_NOT_A_SECRET")
+if not CI_TOKEN or len(CI_TOKEN) > 256:
+    raise ValueError("CI token must be a nonempty short string")
 
 def fieldtypes(obj):
     if isinstance(obj, dict):
