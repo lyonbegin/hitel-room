@@ -35,8 +35,8 @@ jobs:
           curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/avdroot \
             https://github.com/ejfkdev/avdroot/releases/download/v0.1.1/avdroot_linux_amd64
           chmod +x .ixio-tools/avdroot
-          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/Magisk-v31.1.apk \
-            https://github.com/topjohnwu/Magisk/releases/download/v31.1/Magisk-v31.1.apk
+          curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/Magisk-v30.7.apk \
+            https://github.com/topjohnwu/Magisk/releases/download/v30.7/Magisk-v30.7.apk
           curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/LSPosed.zip \
             https://github.com/LSPosed/LSPosed/releases/download/v1.9.2/LSPosed-v1.9.2-7024-zygisk-release.zip
           curl --fail --location --retry 3 --silent --show-error -o .ixio-tools/frida-server.xz \
@@ -52,7 +52,7 @@ jobs:
           .ixio-tools/venv/bin/pip install --disable-pip-version-check 'frida==17.26.3' 'frida-tools' 'clsdumper' \
             > ixio-lab-results/frida-pip.log 2>&1
           .ixio-tools/venv/bin/frida --version
-          sha256sum .ixio-tools/{avdroot,Magisk-v31.1.apk,LSPosed.zip,frida-server,apppealing-debug.apk} \
+          sha256sum .ixio-tools/{avdroot,Magisk-v30.7.apk,LSPosed.zip,frida-server,apppealing-debug.apk} \
             > ixio-lab-results/tool-sha256.txt
       - name: Fetch the two authorized test APKs only when private URLs are configured
         shell: bash
