@@ -5,7 +5,16 @@ exec > >(tee -a ixio-lab-results/runtime.log) 2>&1
 fail=0
 mark() { printf '%s=%s\n' "$1" "$2" | tee -a ixio-lab-results/summary.env; }
 step() { label="$1"; shift; echo "### $label"; if "$@"; then mark "$label" PASS; else mark "$label" FAIL; fail=$((fail+1)); fi; }
-wait_boot() { adb wait-for-device && for i in $(seq 1 90); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ] && return 0; sleep 2; done; return 1; }
+wait_boot() {
+  timeout --signal=TERM --kill-after=3s 50 adb wait-for-device || return 1
+  for i in $(seq 1 90); do
+    local completed
+    completed="$(timeout 8 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" || true
+    [ "$completed" = 1 ] && return 0
+    sleep 2
+  done
+  return 1
+}
 step EMULATOR_BOOT wait_boot
 adb devices -l || true
 adb shell getprop ro.build.version.release || true
@@ -29,9 +38,9 @@ if adb shell su -c id 2>/dev/null | grep -q uid=0; then
   else mark LSPOSED_MODULE NO_ZIP; fi
   adb push .ixio-tools/enable-zygisk.sh /data/local/tmp/ixio-enable-zygisk.sh
   step ZYGISK_ENABLE adb shell su -c 'sh /data/local/tmp/ixio-enable-zygisk.sh'
-  adb reboot || true
-  wait_boot || true
-  adb shell su -c 'ls -la /data/adb/modules/' || true
+  timeout --signal=TERM --kill-after=3s 25 adb reboot || true
+  if wait_boot; then mark POST_ZYGISK_REBOOT PASS; else mark POST_ZYGISK_REBOOT FAIL; adb devices -l || true; fi
+  timeout 12 adb shell su -c 'ls -la /data/adb/modules/' || true
 else mark LSPOSED_MODULE SKIPPED_NO_SU; fi
 if [ -f .ixio-tools/apppealing-debug.apk ]; then
   step APPPEALING_APK_INSTALL adb install -r .ixio-tools/apppealing-debug.apk
