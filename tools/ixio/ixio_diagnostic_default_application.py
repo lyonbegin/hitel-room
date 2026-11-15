@@ -22,8 +22,11 @@ def patch_axml(blob,group):
         if not size or p+size>len(blob):raise ValueError("Invalid chunk")
         ch=blob[p:p+size];p+=size
         if ty==1:
-            ch,strings=rep.patch_pool(ch,"android.app.Application")
-            changed+=1
+            all_strings=rep.pool_parse(ch)[5]
+            matches=[s for s in all_strings if s==APPS[group]]
+            if matches:
+                ch,strings=rep.patch_pool(ch,"android.app.Application")
+                changed+=1
         blocks.append(ch)
     if changed!=1:raise ValueError("Expected a single binary XML string pool")
     ret=bytearray(blob[:8]+b"".join(blocks))
