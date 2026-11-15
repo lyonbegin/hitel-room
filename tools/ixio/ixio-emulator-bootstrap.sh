@@ -90,6 +90,17 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
 else
   mark IXIO_TARGET_INPUTS MISSING
 fi
+if [ "${IXIO_SEPARATE_REASSEMBLE:-0}" = 1 ]; then
+  echo "### REASSEMBLE_INDEPENDENT_IXIO_PACKAGES"
+  if bash tools/ixio/ixio-test-separate-repack.sh \
+    > ixio-lab-results/separate-repack-test.log 2>&1; then
+    mark IXIO_SEPARATE_REPACK_TEST SCRIPT_COMPLETED
+  else
+    mark IXIO_SEPARATE_REPACK_TEST FAIL
+    tail -100 ixio-lab-results/separate-repack-test.log || true
+    fail=$((fail+1))
+  fi
+fi
 for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   if adb shell pm path "$p" 2>/dev/null | grep -q package:; then
     mark "TARGET_$p" INSTALLED
