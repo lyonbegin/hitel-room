@@ -1,0 +1,55 @@
+name: Essence2 Galaxy Z Fold diagnostics APK actual Android UI launch and log-copy button
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-galaxy-fold-diagnostics-ui-smoke.yml
+      - tools/bithuman_deep/test_essence2_galaxy_fold_diagnostics_ui_smoke.sh
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android-install-launch-local-secret-dialog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43774916196
+          name: essence2-original-0-10-3-arm64-galaxy-fold-diagnostics-apk
+          github-token: ${{ github.token }}
+          path: build/essence2-installable-apk
+      - name: Verify APK source content exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-fold-diagnostics-ui-smoke
+          test -s 'build/essence2-installable-apk/Essence2_0.10.3_ARM64_Galaxy_Z_Fold_Diagnostics.apk'
+          sha256sum 'build/essence2-installable-apk/Essence2_0.10.3_ARM64_Galaxy_Z_Fold_Diagnostics.apk' \
+            > reports/essence2-fold-diagnostics-ui-smoke/apk-sha256.txt
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | \
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install original-SDK app and verify local API Secret prompt actually appears
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 3072 -cores 2 -partition-size 4096
+          script: bash tools/bithuman_deep/test_essence2_galaxy_fold_diagnostics_ui_smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-galaxy-fold-diagnostics-apk-ui-startup-log-copy-proof
+          path: reports/essence2-fold-diagnostics-ui-smoke/
+          retention-days: 30
