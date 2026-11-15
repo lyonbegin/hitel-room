@@ -10,6 +10,8 @@ on:
       - 'tools/ixio/enable_apppealing_scope.py'
       - 'tools/ixio/package_runtime_dump.py'
       - 'tools/ixio/ixio-runtime-capture.sh'
+      - 'tools/ixio/ixio_vma_dump.c'
+      - 'tools/ixio/ixio_capture_full_memory.py'
       - 'tools/ixio/ixio_repack_separate.py'
       - 'tools/ixio/ixio_dex_exact_reassemble.py'
       - 'tools/ixio/ixio-test-separate-repack.sh'
@@ -83,6 +85,15 @@ jobs:
           printf '%s  %s\n' '4ec4793327930e72589c1d47e552e1e77f97ccf77db71c63c701934f2337a3fc' .ixio-inputs/main.xapk | sha256sum -c
           printf '%s  %s\n' '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7' .ixio-inputs/recorder.apk | sha256sum -c
           echo 'IXIO_INPUTS=BOTH_SHA256_MATCH' | tee -a ixio-lab-results/summary.env
+      - name: Build Android x86_64 full-process memory collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null || test -d "$SDK/ndk/27.2.12479018"
+          COMPILER="$SDK/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android34-clang"
+          "$COMPILER" -std=c11 -O2 -Wall -Wextra tools/ixio/ixio_vma_dump.c -o .ixio-tools/ixio_vma_dump
+          file .ixio-tools/ixio_vma_dump
       - name: Boot accelerated Android 14 emulator and install tooling
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -95,7 +106,7 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: IXIO_SEPARATE_REASSEMBLE=1 bash tools/ixio/ixio-emulator-bootstrap.sh
+          script: IXIO_SEPARATE_REASSEMBLE=0 bash tools/ixio/ixio-emulator-bootstrap.sh
       - name: Upload independently rebuilt signed APKs and reassembly comparison
         if: always()
         uses: actions/upload-artifact@v4
