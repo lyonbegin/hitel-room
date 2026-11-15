@@ -4,6 +4,7 @@ on:
     branches: [experiment/ixio-runtime-lab-20261115]
     paths:
       - '.github/workflows/ixio-original-protected-baseline.yml'
+      - 'tools/ixio/ixio-original-protected-baseline.sh'
   workflow_dispatch:
 permissions:
   contents: read
