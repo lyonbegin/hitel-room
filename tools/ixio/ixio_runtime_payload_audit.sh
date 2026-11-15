@@ -15,6 +15,9 @@ adb wait-for-device
 success=0
 for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; do
   read -r pkg group <<< "$item"
+  if [ "${IXIO_TARGET_GROUP:-both}" != "both" ] && [ "$group" != "$IXIO_TARGET_GROUP" ]; then
+    continue
+  fi
   dest="$OUT/$group"
   raw="$PRIVATE/$group"
   mkdir -p "$dest" "$raw"
@@ -94,5 +97,9 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
   rm -rf "$raw" "$PRIVATE/$group.tar.gz"
 done
 printf 'ENCRYPTED_APP_GROUPS=%s\n' "$success" | tee "$OUT/status.env"
-test "$success" -eq 2
+if [ "${IXIO_TARGET_GROUP:-both}" = "both" ]; then
+  test "$success" -eq 2
+else
+  test "$success" -eq 1
+fi
 
