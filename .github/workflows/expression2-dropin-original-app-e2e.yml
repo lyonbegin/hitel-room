@@ -90,7 +90,7 @@ jobs:
             cd "$proj"
             chmod +x gradlew
             ./gradlew --no-daemon --max-workers=2 \
-                :expression2-dropin:assembleDebug :app:assembleDebug
+                :expression2-dropin:testDebugUnitTest :expression2-dropin:assembleDebug :app:assembleDebug
           )
           cp "$proj/expression2-dropin/build/outputs/aar/expression2-dropin-debug.aar" \
               build/expression2-dropin/hitel-expression2-independent.aar
