@@ -58,6 +58,21 @@ jobs:
           (root/"summary.json").write_text(json.dumps(data,indent=2,ensure_ascii=False))
           print(json.dumps(data,indent=2,ensure_ascii=False))
           PY
+          python3 - <<'PY'
+          import pathlib,re
+          for app in ("main","recorder"):
+            f=pathlib.Path(f"ixio-resource-audit/{app}-manifest-tree.txt")
+            lines=f.read_text(errors="replace").splitlines()
+            print("==== MANIFEST_COMPONENT_FACTORY_AND_APPLICATION",app,"====")
+            seen=0
+            for i,line in enumerate(lines):
+              if re.search(r'E: application\s',line):
+                print("\n".join(lines[i:i+30])[:7000])
+                seen+=1
+              elif any(x in line for x in ("appComponentFactory","AppSealing","zygotePreloadName","FirebaseInitProvider")):
+                print(line[:350])
+            print("APPLICATION_NODES",seen)
+          PY
           rm ixio-resource-audit/*-aapt2-dump.txt
       - name: Upload nonsecret resource existence audit
         if: always()
