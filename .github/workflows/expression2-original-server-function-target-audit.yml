@@ -1,0 +1,58 @@
+name: Expression2 original JVM server-function precise binary target audit
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-original-server-function-target-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-original-server-functions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download immutable original SDK and inspect JVM methods only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/expression2-original-server-target
+          curl -fLsS --retry 4 --max-time 150 'https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar' -o /tmp/expr2-original.aar
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  /tmp/expr2-original.aar' | sha256sum -c
+          unzip -p /tmp/expr2-original.aar classes.jar > /tmp/expr2-original.jar
+          echo 'e3c2a4bbf4a0e7f8e610c061f4d26317a97f16949d805b03ea73444d0a3ff751  /tmp/expr2-original.jar' | sha256sum -c
+          jar tf /tmp/expr2-original.jar > reports/expression2-original-server-target/class-inventory.txt
+          python3 - <<'PY'
+          import re,subprocess
+          from pathlib import Path
+          root=Path('reports/expression2-original-server-target')
+          classes=(root/'class-inventory.txt').read_text().splitlines()
+          relevant=[x[:-6].replace('/','.') for x in classes if x.endswith('.class') and re.search(r'(HttpBeatSink|MeterHost|SelfHostMeter|MeterLedger|Credential|Http|BeatSink)',x)]
+          results=[]
+          for name in relevant:
+              r=subprocess.run(['javap','-p','-c','-s','-v','-cp','/tmp/expr2-original.jar',name],capture_output=True,text=True)
+              assert r.returncode==0,(name,r.stderr)
+              target=root/(name.replace('.','_')+'.javap.txt')
+              target.write_text(r.stdout)
+              lines=r.stdout.splitlines()
+              hit=[(i+1,line.strip()) for i,line in enumerate(lines) if re.search(r'(?i)(https?://|/v1/|validate|beat\(|post\(|HttpURLConnection|new URL|URL:|secret|authorization|endpoint|host|openConnection|Json)',line)]
+              results.append((name,target.name,hit))
+          (root/'METHOD-INDEX.txt').write_text('\n'.join('\n# '+name+' '+file+'\n'+'\n'.join(f'{n}: {s}' for n,s in hits[:260]) for name,file,hits in results)+'\n')
+          print('ORIGINAL_JVM_RELEVANT_CLASSES',len(relevant),relevant)
+          for name,file,hits in results:
+              print('ORIGINAL_FUNCTION_CLASS',name,'MATCHES',len(hits))
+              for n,s in hits[:38]:print('ORIGINAL_FUNCTION_REFERENCE',n,s[:260])
+          assert any('HttpBeatSink' in name for name in relevant), 'Cannot locate vendor HttpBeatSink; no changes allowed'
+          print('ORIGINAL_HTTP_FUNCTION_INSPECTION_PASS; SDK_BYTES_CHANGED=0')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-jvm-http-beat-validator-raw-bytecode-audit
+          path: reports/expression2-original-server-target/
+          retention-days: 30
