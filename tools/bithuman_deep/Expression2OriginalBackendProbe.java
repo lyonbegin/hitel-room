@@ -35,18 +35,29 @@ public final class Expression2OriginalBackendProbe {
 
         System.out.println("CI_ORIGINAL_VALIDATE_BODY_JSON=" + validateBody);
         System.out.println("CI_ORIGINAL_BEAT_BODY_JSON=" + beatBody);
+        String tailBody =
+            SelfHostMeter.Companion.wireBody$expression2_release(
+                "11111111-1111-4111-8111-111111111111",
+                17, 0.70, 0.20,
+                "ci-install", "expression-2", "self-hosted-expression-2-model",
+                true, true, "ci-claim-id", "ci-agent");
+        System.out.println("CI_ORIGINAL_TAIL_BEAT_BODY_JSON=" + tailBody);
 
         HttpBeatSink allowed = new HttpBeatSink(effectiveBase, "EXPR2_CI_FIXTURE_ONLY_NOT_A_SECRET");
         Pair<Integer, String> valid = allowed.validateWithBody(validateBody);
         Pair<Integer, String> beat = allowed.beatWithBody(beatBody);
+        Pair<Integer, String> tail = allowed.beatWithBody(tailBody);
         expect(valid.getFirst().intValue() == 200, "validate did not return HTTP 200");
         expect(beat.getFirst().intValue() == 200, "beat did not return HTTP 200");
+        expect(tail.getFirst().intValue() == 200, "tail beat did not return HTTP 200");
         expect(valid.getSecond() != null && valid.getSecond().contains("valid"),
                "validate response body missing");
         expect(beat.getSecond() != null && beat.getSecond().contains("meter_tail"),
                "beat response body missing");
         System.out.println("CI_ORIGINAL_HTTP_VALIDATE_STATUS_AND_BODY_PASS " +
                            valid.getFirst() + " " + valid.getSecond());
+        System.out.println("CI_ORIGINAL_HTTP_TAIL_BODY_FLAG_MATCH=" +
+            SelfHostMeter.Companion.advertisesTail$expression2_release(tail.getSecond()));
         System.out.println("CI_ORIGINAL_HTTP_BEAT_STATUS_AND_BODY_PASS " +
                            beat.getFirst() + " " + beat.getSecond());
 
@@ -55,6 +66,12 @@ public final class Expression2OriginalBackendProbe {
         expect(unauthorized.getFirst().intValue() == 401, "expected HTTP 401");
         System.out.println("CI_ORIGINAL_HTTP_UNAUTHORIZED_STATUS_PASS " +
                            unauthorized.getFirst());
+        for (int status : new int[]{200, 400, 401, 402, 403, 408, 429, 500, 503}) {
+            boolean rejection = SelfHostMeter.Companion.isRejection$expression2_release(status);
+            boolean retry = SelfHostMeter.Companion.isRetryable$expression2_release(status);
+            System.out.println("CI_ORIGINAL_STATUS_PREDICATE status=" + status +
+                " rejection=" + rejection + " retryable=" + retry);
+        }
         System.out.println("CI_ORIGINAL_JVM_HTTP_CLIENT_EXACT_WIRE_ROUNDTRIP_PASS");
         if (effectiveMatches) {
             System.out.println("CI_ORIGINAL_METER_BACKEND_BASE_ROUTING_PASS");
