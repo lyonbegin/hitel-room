@@ -60,7 +60,8 @@ class Api(BaseHTTPRequestHandler):
         # Field contracts are taken from original JVM
         # SelfHostMeter$Companion.validateBody / wireBody output, not guessed.
         if self.path == "/v1/auth/validate":
-            required = {"product": str, "agent_code": str}
+            # Original validateBody(agentCode: String?) omits agent_code when null.
+            required = {"product": str}
         elif self.path == "/v1/meter/beats":
             required = {
                 "session_id": str, "seq": int, "served_s": (int, float),
