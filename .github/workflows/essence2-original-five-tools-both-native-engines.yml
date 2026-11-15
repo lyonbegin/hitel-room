@@ -1,0 +1,229 @@
+name: Essence2 original dual ARM64 engines five real independent binary analyzers
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-five-tools-both-native-engines.yml
+      - tools/bithuman_deep/essence2_five_tool_*
+      - tools/bithuman_deep/ghidra/Essence2FdePcodeMemory.java
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+env:
+  AAR_URL: https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar
+  AAR_SHA: 49bdeafc6a29675058851c5f7336dacaa0518d5af5bc6130eece96af73513e67
+
+jobs:
+  lief-capstone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Capstone/LIEF original ELF static analysis tools
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check lief capstone==5.0.6 pyelftools==0.32
+          mkdir -p build/source reports/essence2-five/lief-capstone
+          python3 -m pip freeze > reports/essence2-five/lief-capstone/versions.txt
+      - name: Analyze both original native engines without modification
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 300 "$AAR_URL" -o build/source/original.aar
+          echo "$AAR_SHA  build/source/original.aar" | sha256sum -c
+          for lib in libe2u_jni.so lible_jni.so;do
+            mkdir -p "reports/essence2-five/lief-capstone/$lib"
+            unzip -p build/source/original.aar "jni/arm64-v8a/$lib" > "build/source/$lib"
+            python3 tools/bithuman_deep/essence2_five_tool_lief_capstone.py \
+              --elf "build/source/$lib" --out "reports/essence2-five/lief-capstone/$lib"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-five-lief-capstone
+          path: reports/essence2-five/lief-capstone
+          retention-days: 30
+
+  ddisasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Actual DDisasm Docker GTIRB binary analysis on both ELF files
+        run: |
+          set -euo pipefail
+          mkdir -p build/source reports/essence2-five/ddisasm
+          curl -fLsS --retry 3 --max-time 300 "$AAR_URL" -o build/source/original.aar
+          echo "$AAR_SHA  build/source/original.aar" | sha256sum -c
+          docker pull grammatech/ddisasm:latest
+          docker image inspect grammatech/ddisasm:latest --format '{{index .RepoDigests 0}}' \
+            > reports/essence2-five/ddisasm/docker-digest.txt
+          python3 -m pip install --disable-pip-version-check gtirb
+          for lib in libe2u_jni.so lible_jni.so;do
+            mkdir -p "reports/essence2-five/ddisasm/$lib"
+            unzip -p build/source/original.aar "jni/arm64-v8a/$lib" > "build/source/$lib"
+            timeout 1300s docker run --rm \
+              -v "$PWD/build/source:/source:ro" \
+              -v "$PWD/reports/essence2-five/ddisasm/$lib:/result" \
+              grammatech/ddisasm:latest \
+              ddisasm "/source/$lib" --ir /result/original.gtirb
+            python3 tools/bithuman_deep/five_tool_gtirb.py \
+              --ir "reports/essence2-five/ddisasm/$lib/original.gtirb" \
+              --out "reports/essence2-five/ddisasm/$lib"
+            rm -f "reports/essence2-five/ddisasm/$lib/original.gtirb"
+          done
+      - name: Never upload vendor byte-bearing GTIRB blobs
+        if: always()
+        run: find reports/essence2-five/ddisasm -name '*.gtirb' -delete || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-five-ddisasm
+          path: reports/essence2-five/ddisasm
+          retention-days: 30
+
+  dyninst:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Dyninst ParseAPI from upstream source and Essence2 analyzer
+        run: |
+          set -euo pipefail
+          mkdir -p build/dyninst reports/essence2-five/dyninst
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build libboost-all-dev libelf-dev libdwarf-dev \
+            zlib1g-dev libtbb-dev libiberty-dev libdw-dev
+          git clone --depth 1 https://github.com/dyninst/dyninst.git build/dyninst/source
+          git -C build/dyninst/source rev-parse HEAD > reports/essence2-five/dyninst/upstream-commit.txt
+          cmake -S build/dyninst/source -B build/dyninst/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/dyninst-install" \
+            -DDYNINST_ENABLE_TESTS=OFF -DDYNINST_BUILD_DOCS=OFF -DDYNINST_ENABLE_CAPSTONE=OFF
+          cmake --build build/dyninst/build -j 3
+          cmake --install build/dyninst/build
+          PFX="$RUNNER_TEMP/dyninst-install"
+          g++ -std=c++17 -O2 -I"$PFX/include" -I"$PFX/include/dyninst" \
+            tools/bithuman_deep/essence2_five_tool_dyninst.cpp \
+            -L"$PFX/lib" -L"$PFX/lib64" \
+            -Wl,-rpath,"$PFX/lib" -Wl,-rpath,"$PFX/lib64" \
+            -lparseAPI -linstructionAPI -lsymtabAPI -lcommon \
+            -o build/dyninst/analysis
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43712181851
+          name: essence2-0-10-3-original-elf-jvm-reassembly-analysis-reports
+          github-token: ${{ github.token }}
+          path: build/essence2-static-inventory
+      - name: Run Dyninst on two original engines seeded from actual Essence 2 FDE ranges
+        run: |
+          set -euo pipefail
+          mkdir -p build/source
+          curl -fLsS --retry 3 --max-time 300 "$AAR_URL" -o build/source/original.aar
+          echo "$AAR_SHA  build/source/original.aar" | sha256sum -c
+          for lib in libe2u_jni.so lible_jni.so;do
+            mkdir -p "reports/essence2-five/dyninst/$lib"
+            unzip -p build/source/original.aar "jni/arm64-v8a/$lib" > "build/source/$lib"
+            OMP_NUM_THREADS=2 timeout 650s build/dyninst/analysis \
+              "build/source/$lib" "reports/essence2-five/dyninst/$lib" \
+              "build/essence2-static-inventory/jni_arm64-v8a_$lib.fde.tsv"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-five-dyninst
+          path: reports/essence2-five/dyninst
+          retention-days: 30
+
+  ghidra:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43712181851
+          name: essence2-0-10-3-original-elf-jvm-reassembly-analysis-reports
+          github-token: ${{ github.token }}
+          path: build/essence2-static-inventory
+      - name: Install pinned original Ghidra 12.2 analyzer
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/essence2-ghidra" reports/essence2-five/ghidra build/source
+          curl -fLsS --retry 3 --max-time 420 \
+            'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip' \
+            -o "$RUNNER_TEMP/essence2-ghidra/ghidra.zip"
+          unzip -q "$RUNNER_TEMP/essence2-ghidra/ghidra.zip" -d "$RUNNER_TEMP/essence2-ghidra"
+          curl -fLsS --retry 3 --max-time 300 "$AAR_URL" -o build/source/original.aar
+          echo "$AAR_SHA  build/source/original.aar" | sha256sum -c
+      - name: Actually run Ghidra P-code on both original FDE-indexed engines
+        run: |
+          set -euo pipefail
+          GHIDRA="$(find "$RUNNER_TEMP/essence2-ghidra" -name analyzeHeadless -type f | head -1)"
+          test -n "$GHIDRA"
+          chmod +x "$GHIDRA"
+          for lib in libe2u_jni.so lible_jni.so;do
+            mkdir -p "reports/essence2-five/ghidra/$lib" "$RUNNER_TEMP/essence2-ghidra/projects"
+            unzip -p build/source/original.aar "jni/arm64-v8a/$lib" > "build/source/$lib"
+            export ESSENCE2_FDE_MAP="$GITHUB_WORKSPACE/build/essence2-static-inventory/jni_arm64-v8a_$lib.fde.tsv"
+            export ESSENCE2_PCODE_OUT="$GITHUB_WORKSPACE/reports/essence2-five/ghidra/$lib"
+            timeout --signal=TERM --kill-after=15s 1100s \
+              "$GHIDRA" "$RUNNER_TEMP/essence2-ghidra/projects" "$lib-analysis" \
+              -import "$GITHUB_WORKSPACE/build/source/$lib" \
+              -scriptPath "$GITHUB_WORKSPACE/tools/bithuman_deep/ghidra" \
+              -postScript Essence2FdePcodeMemory.java \
+              -analysisTimeoutPerFile 600 -max-cpu 2 -deleteProject
+            test -s "reports/essence2-five/ghidra/$lib/pcode-summary.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-five-ghidra
+          path: reports/essence2-five/ghidra
+          retention-days: 30
+
+  cross-tool:
+    if: always()
+    needs: [lief-capstone, ddisasm, dyninst, ghidra]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: essence2-five-*
+          path: build/essence2-cross
+      - name: Cross-check actual original 5 tool outputs per original engine
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-five/comparison build/essence2-five-structured
+          for item in lief-capstone ddisasm dyninst ghidra;do
+            src="build/essence2-cross/essence2-five-$item"
+            test -d "$src"
+            ln -s "$GITHUB_WORKSPACE/$src" "build/essence2-five-structured/$item"
+          done
+          python3 tools/bithuman_deep/essence2_five_tool_cross_compare.py \
+            --root build/essence2-five-structured \
+            --out reports/essence2-five/comparison
+          cat reports/essence2-five/comparison/RESULT.json >> "$GITHUB_STEP_SUMMARY"
+          cat > reports/essence2-five/comparison/jobs.txt <<'EOF'
+          LIEF-Capstone: ${{ needs.lief-capstone.result }}
+          DDisasm-GTIRB: ${{ needs.ddisasm.result }}
+          Dyninst ParseAPI: ${{ needs.dyninst.result }}
+          Ghidra Raw P-code: ${{ needs.ghidra.result }}
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-both-engines-five-tool-cross-comparison
+          path: reports/essence2-five/comparison
+          retention-days: 30
