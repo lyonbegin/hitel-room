@@ -13,6 +13,37 @@ APPS={
  "recorder":"com.lguplus.callrecorder.IXIcallrecorderApplication",
 }
 
+def replace_manifest_string_pool(chunk,indices,replacement):
+    header,flags,start,style_start,offsets,strings,ends=rep.pool_parse(chunk)
+    if flags & 256:
+        value=rep.elen8(len(replacement))+rep.elen8(len(replacement.encode()))+replacement.encode()+b"\\0"
+    else:
+        value=rep.elen16(len(replacement))+replacement.encode("utf-16le")+b"\\0\\0"
+    tail=style_start or len(chunk)
+    raw=chunk[start:tail]
+    # A target class name can already occur twice in the original string pool.
+    # Replace from higher byte offsets to lower ones to preserve original ranges.
+    for index in sorted(indices,key=lambda i:offsets[i],reverse=True):
+        begin,end=offsets[index],ends[index]
+        raw=raw[:begin]+value+raw[end:]
+        delta=len(value)-(end-begin)
+        offsets=[v+delta if v>=end else v for v in offsets]
+    raw+=b"\\0"*((-len(raw))%4)
+    new_style=start+len(raw) if style_start else 0
+    head=bytearray(chunk[:start])
+    for i,v in enumerate(offsets):
+        struct.pack_into("<I",head,header+i*4,v)
+    struct.pack_into("<I",head,24,new_style)
+    new=bytes(head)+raw+(chunk[style_start:] if style_start else b"")
+    struct.pack_into("<I",head,4,len(new))
+    new=bytes(head)+raw+(chunk[style_start:] if style_start else b"")
+    result_strings=rep.pool_parse(new)[5]
+    if any(result_strings[i]!=replacement for i in indices):
+        raise ValueError("Application string patch verification failed")
+    if any(a!=b for i,(a,b) in enumerate(zip(result_strings,strings)) if i not in indices):
+        raise ValueError("Non-target manifest string modified")
+    return new
+
 def patch_axml(blob,group):
     if u16(blob,0)!=3 or u32(blob,4)!=len(blob):raise ValueError("Invalid AXML")
     p=8;blocks=[];changed=0
@@ -23,9 +54,9 @@ def patch_axml(blob,group):
         ch=blob[p:p+size];p+=size
         if ty==1:
             all_strings=rep.pool_parse(ch)[5]
-            matches=[s for s in all_strings if s==APPS[group]]
+            matches=[i for i,s in enumerate(all_strings) if s==APPS[group]]
             if matches:
-                ch,strings=rep.patch_pool(ch,"android.app.Application")
+                ch=replace_manifest_string_pool(ch,matches,"android.app.Application")
                 changed+=1
         blocks.append(ch)
     if changed!=1:raise ValueError("Expected a single binary XML string pool")
