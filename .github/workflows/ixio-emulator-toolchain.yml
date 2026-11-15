@@ -56,7 +56,7 @@ jobs:
           .ixio-tools/venv/bin/frida --version
           sha256sum .ixio-tools/{avdroot,Magisk-v30.7.apk,LSPosed.zip,frida-server,apppealing-debug.apk} \
             > ixio-lab-results/tool-sha256.txt
-      - name: Obtain IXIO originals from committed folder or GitHub Release
+      - name: Obtain and verify IXIO originals from public upload
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -64,28 +64,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .ixio-inputs ixio-lab-results
-          if [ -f 'tools/ixio/input-apks/익시오_01.33.01.xapk' ]; then
-            cp 'tools/ixio/input-apks/익시오_01.33.01.xapk' .ixio-inputs/main.xapk
-          elif [ -f 'tools/ixio/input-apks/main.xapk' ]; then
+          if [ -f 'tools/ixio/input-apks/main.xapk' ] && [ -f 'tools/ixio/input-apks/recorder.apk' ]; then
             cp 'tools/ixio/input-apks/main.xapk' .ixio-inputs/main.xapk
-          else
-            gh release download ixio-input-20261115 \
-              --repo "$GH_REPO" --pattern '익시오_01.33.01.xapk' --dir .ixio-inputs
-            mv .ixio-inputs/익시오_01.33.01.xapk .ixio-inputs/main.xapk
-          fi
-          if [ -f 'tools/ixio/input-apks/익시오 통화녹음_02.02.00.apk' ]; then
-            cp 'tools/ixio/input-apks/익시오 통화녹음_02.02.00.apk' .ixio-inputs/recorder.apk
-          elif [ -f 'tools/ixio/input-apks/recorder.apk' ]; then
             cp 'tools/ixio/input-apks/recorder.apk' .ixio-inputs/recorder.apk
           else
             gh release download ixio-input-20261115 \
-              --repo "$GH_REPO" --pattern '익시오 통화녹음_02.02.00.apk' --dir .ixio-inputs
-            mv '.ixio-inputs/익시오 통화녹음_02.02.00.apk' .ixio-inputs/recorder.apk
-          fi
-          if [ ! -f .ixio-inputs/main.xapk ] || [ ! -f .ixio-inputs/recorder.apk ]; then
-            echo 'PRIMARY_FILES_ABSENT_TRY_MMSIMAGE_ZIP'
-            gh release download ixio-input-20261115 --repo "$GH_REPO" --pattern 'mmsimage.zip' --dir .ixio-inputs
-            python3 tools/ixio/verify_release_zip.py .ixio-inputs/mmsimage.zip .ixio-inputs | tee ixio-lab-results/release-zip-verification.json
+              --repo "$GH_REPO" --pattern 'mmsimage.zip' --dir .ixio-inputs
+            python3 tools/ixio/verify_release_zip.py .ixio-inputs/mmsimage.zip .ixio-inputs \
+              | tee ixio-lab-results/release-zip-verification.json
             rm -f .ixio-inputs/mmsimage.zip
           fi
           printf '%s  %s\n' '4ec4793327930e72589c1d47e552e1e77f97ccf77db71c63c701934f2337a3fc' .ixio-inputs/main.xapk | sha256sum -c
