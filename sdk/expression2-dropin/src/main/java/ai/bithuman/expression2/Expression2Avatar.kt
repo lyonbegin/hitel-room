@@ -28,7 +28,10 @@ data class Expression2Frame(
     val isSpeech: Boolean
 )
 
-class Expression2Avatar private constructor(model: Expression2Model) : Closeable {
+class Expression2Avatar private constructor(
+    model: Expression2Model,
+    private val localSession: HitelSession
+) : Closeable {
     private sealed interface Command {
         data class Audio(val pcm: FloatArray) : Command
         data class Flush(val completed: CountDownLatch) : Command
@@ -192,21 +195,51 @@ class Expression2Avatar private constructor(model: Expression2Model) : Closeable
     override fun close() {
         if (!running) return
         running = false
-        commands.put(Command.Stop)
-        worker.join(10000)
-        check(!worker.isAlive) { "Renderer has not terminated; native buffers retained" }
-        Expression2Native.frameQueueDestroy(nativeFrames)
+        try {
+            commands.put(Command.Stop)
+            worker.join(10000)
+            check(!worker.isAlive) { "Renderer has not terminated; native buffers retained" }
+            Expression2Native.frameQueueDestroy(nativeFrames)
+        } finally {
+            localSession.close()
+            android.util.Log.i("HITEL_EXPRESSION2", "HITEL_OWN_SESSION_CLOSED")
+        }
     }
 
     companion object {
         const val SAMPLE_RATE = 16000
         const val FRAMES_PER_SECOND = 20
+
+        /**
+         * The owned createEngine() enters our independently compiled engine.
+         * It does not call the vendor createEngine(), MeterHost or SelfHostMeter.
+         */
+        private fun createEngine(model: Expression2Model, session: HitelSession): Expression2Avatar {
+            android.util.Log.i("HITEL_EXPRESSION2", "HITEL_OWN_CREATE_ENGINE_BEGIN")
+            val avatar = Expression2Avatar(model, session)
+            session.markEngineReady()
+            android.util.Log.i("HITEL_EXPRESSION2",
+                "HITEL_OWN_CREATE_ENGINE_PASS session=" + session.id +
+                " mode=independent_litert_not_vendor")
+            return avatar
+        }
+
         @JvmStatic
         fun create(context: Context, model: Expression2Model,
                    options: Expression2Options = Expression2Options()): Expression2Avatar {
             context.applicationContext // retain context validation but no UI
             options.hashCode()
-            return Expression2Avatar(model)
+            // First function-level replacement: our local session management,
+            // not a fabricated bitHuman authentication success result.
+            val session = HitelSessionManager.arm(model)
+            return try {
+                createEngine(model, session)
+            } catch (t: Throwable) {
+                session.abandon()
+                android.util.Log.e("HITEL_EXPRESSION2",
+                    "HITEL_OWN_CREATE_ENGINE_FAIL source=independent_local_only", t)
+                throw t
+            }
         }
     }
 }
