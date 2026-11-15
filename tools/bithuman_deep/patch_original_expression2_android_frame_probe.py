@@ -11,7 +11,7 @@ import sys
 assert len(sys.argv) == 2
 target = Path(sys.argv[1])
 source = target.read_text()
-anchor = '''                    if (frames == 1) {
+anchor = '''                        if (frames == 1) {
                             FileOutputStream(File(filesDir, "official-first-frame.png")).use { output ->
                                 dest.compress(Bitmap.CompressFormat.PNG, 100, output)
                             }
