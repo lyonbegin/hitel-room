@@ -50,6 +50,17 @@ jobs:
           assert any('HttpBeatSink' in name for name in relevant), 'Cannot locate vendor HttpBeatSink; no changes allowed'
           print('ORIGINAL_HTTP_FUNCTION_INSPECTION_PASS; SDK_BYTES_CHANGED=0')
           PY
+      - name: Inspect original Expression2Metering base URL getter and HTTP sink signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest=reports/expression2-original-server-target
+          javap -p -c -s -classpath /tmp/expr2-original.jar 'ai.bithuman.expression2.Expression2Metering' > "$dest/Expression2Metering-code.txt"
+          javap -p -c -s -classpath /tmp/expr2-original.jar 'ai.bithuman.expression2.HttpBeatSink' > "$dest/HttpBeatSink-code.txt"
+          echo '=== ORIGINAL EXPRESSION2 METERING BASE URL CODE ==='
+          cat "$dest/Expression2Metering-code.txt"
+          echo '=== ORIGINAL HTTP BEAT SINK REQUEST TARGET AND RETURN SIGNATURES ==='
+          grep -nE 'HttpBeatSink|validate|beat\(|post\(|Code:|descriptor:|URL|invok(e|es)|areturn|ireturn|return|json|bodyJson' "$dest/HttpBeatSink-code.txt" | head -n 130 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
