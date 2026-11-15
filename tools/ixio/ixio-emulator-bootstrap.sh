@@ -14,7 +14,7 @@ adb shell getprop ro.dalvik.vm.native.bridge || true
 step ADB_ROOT adb root
 adb shell id || true
 if [ -x .ixio-tools/avdroot ]; then
-  step MAGISK_ROOT .ixio-tools/avdroot root --yes --timeout 8m
+  step MAGISK_ROOT .ixio-tools/avdroot root --magisk .ixio-tools/Magisk-v31.1.apk --yes --timeout 8m
   wait_boot || true
   adb shell su -c id || true
 else mark MAGISK_ROOT NO_BINARY; fi
@@ -39,13 +39,44 @@ if [ -f .ixio-tools/apppealing-debug.apk ]; then
 else mark APPPEALING_APK_INSTALL NO_APK; fi
 if [ -f .ixio-tools/frida-server ]; then
   adb push .ixio-tools/frida-server /data/local/tmp/ixio-frida-server
-  adb shell su -c 'chmod 755 /data/local/tmp/ixio-frida-server' || true
-  adb shell 'su -c "/data/local/tmp/ixio-frida-server -D"' || true
+  adb shell 'chmod 755 /data/local/tmp/ixio-frida-server' || true
+  if ! adb shell 'pgrep -f ixio-frida-server' >/dev/null; then
+    adb shell '/data/local/tmp/ixio-frida-server -D' || true
+  fi
   sleep 5
   if [ -x .ixio-tools/venv/bin/frida-ps ]; then
     step FRIDA_USB_LIST .ixio-tools/venv/bin/frida-ps -U
   else mark FRIDA_USB_LIST NO_CLIENT; fi
 else mark FRIDA_USB_LIST NO_SERVER; fi
+if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
+  mkdir -p .ixio-inputs/main-splits
+  if unzip -qq -o .ixio-inputs/main.xapk -d .ixio-inputs/main-splits; then
+    step IXIO_MAIN_INSTALL adb install-multiple -r .ixio-inputs/main-splits/base.apk .ixio-inputs/main-splits/split_0.apk .ixio-inputs/main-splits/split_1.apk .ixio-inputs/main-splits/split_2.apk
+  else
+    mark IXIO_MAIN_INSTALL XAPK_EXTRACTION_FAILED
+  fi
+  step IXIO_RECORDER_INSTALL adb install -r .ixio-inputs/recorder.apk
+  adb shell pm list packages | grep -E 'com.lguplus.(aicallagent|callrecorder)' || true
+  for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
+    echo "### Launch $p"
+    adb shell monkey -p "$p" 1 || true
+    sleep 8
+    adb shell pidof "$p" || true
+    mkdir -p "ixio-lab-results/$p"
+    if [ -x .ixio-tools/venv/bin/clsdumper ]; then
+      (timeout 75 .ixio-tools/venv/bin/clsdumper "$p" --spawn -o "ixio-lab-results/$p/local-dump" -d > "ixio-lab-results/$p/dump-attempt.log" 2>&1 || true)
+      if [ -f "ixio-lab-results/$p/local-dump/metadata.json" ]; then
+        python3 -c 'import json,sys; p=sys.argv[1]; j=json.load(open(p)); print(json.dumps({"target":sys.argv[2],"metadata_keys":list(j.keys()),"dump_file_count":len(list(__import__("pathlib").Path(p).parent.glob("dex/*.dex")))}))' "ixio-lab-results/$p/local-dump/metadata.json" "$p" | tee "ixio-lab-results/$p/dump-summary.json" || true
+      fi
+      # Do not publish third-party proprietary DEX outputs in a public Actions artifact.
+      rm -rf "ixio-lab-results/$p/local-dump"
+    else
+      mark "DUMP_$p" CLSDUMPER_NOT_INSTALLED
+    fi
+  done
+else
+  mark IXIO_TARGET_INPUTS MISSING
+fi
 for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   if adb shell pm path "$p" 2>/dev/null | grep -q package:; then
     mark "TARGET_$p" INSTALLED
