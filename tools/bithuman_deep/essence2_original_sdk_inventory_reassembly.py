@@ -174,7 +174,13 @@ def main():
     with zipfile.ZipFile(io.BytesIO(reconstructed)) as z:
         if z.namelist()!=names:raise ValueError("AAR_MEMBER_NAMES_OR_ORDER_CHANGED")
         changed=[n for n in names if z.read(n)!=data.get(n,b"")]
-        if changed:raise ValueError("AAR_MEMBER_BYTES_CHANGED:"+str(changed))
+        if any(n!="classes.jar" for n in changed):
+            raise ValueError("NON_JVM_AAR_MEMBER_BYTES_CHANGED:"+str(changed))
+        with zipfile.ZipFile(io.BytesIO(z.read("classes.jar"))) as rebuilt_jar:
+            if rebuilt_jar.namelist()!=inner:
+                raise ValueError("REBUILT_JAR_MEMBER_NAMES_CHANGED")
+            if any(rebuilt_jar.read(n)!=c.get(n,b"") for n in inner):
+                raise ValueError("REBUILT_JAR_CLASS_OR_RESOURCE_BYTES_CHANGED")
     sdk=a.temp/"Essence2_0.10.3_original_JVM_ARM64_reassembled.aar"
     sdk.write_bytes(reconstructed)
     report={
@@ -183,7 +189,9 @@ def main():
       "source_aar_members":len(names),
       "jni_jvm_classes_jars":jvm_report,
       "arm64_native_libraries":native_results,
-      "original_aar_data_entry_differences":0,
+      "original_aar_non_jvm_entry_data_differences":0,
+      "original_jvm_jar_file_entry_data_differences":0,
+      "aar_container_entry_differences_due_to_repacked_jar":changed,
       "reassembled_aar_sha256":digest(reconstructed),
       "source_and_output_whole_zip_sha_equal":digest(original)==digest(reconstructed),
       "original_classfile_implementation_rewritten":False,
@@ -211,7 +219,8 @@ def main():
       f"- JVM classes: {len(classfiles)}\n"+
       f"- Native SO count: {len(original_natives)}\n"+
       f"- Reassembled AAR: {digest(reconstructed)}\n"+
-      "- Every original AAR member uncompressed bytes preserved: PASS\n"+
+      "- Every original non-JVM AAR member byte-preserved: PASS\n"+
+      "- Every original JVM JAR member uncompressed bytes preserved: PASS\n"+
       "- No credential or metering changes, no native source rewriting.\n"+
       "- E2U/Essence2 native engine inventory is in JSON; rendering untested.\n")
     print("ESSENCE2_ORIGINAL_SDK_REASSEMBLY_PASS",
