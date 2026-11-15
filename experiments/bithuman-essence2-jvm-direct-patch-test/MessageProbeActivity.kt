@@ -1,6 +1,5 @@
 package com.example.e2hello
 
-import ai.bithuman.elevate.BithumanCodes
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
@@ -22,13 +21,21 @@ class MainActivity : Activity() {
         Thread {
             try {
                 mark("ESSENCE2_PROBE_START abis="+android.os.Build.SUPPORTED_ABIS.joinToString())
-                val originalRecord = BithumanCodes.METERING_NO_CREDENTIAL
-                mark("ESSENCE2_METERING_CODE="+originalRecord.code)
-                mark("ESSENCE2_METERING_REFUSES="+originalRecord.refuses)
-                mark("ESSENCE2_METERING_MESSAGE="+originalRecord.message)
-                if (originalRecord.code!="metering_no_credential"
-                    || !originalRecord.refuses
-                    || originalRecord.message!="HITEL_ESSENCE2_JVM_TEXT_PATCH_OK_20261115: a valid API secret is required.") {
+                // Reflection avoids relying on Kotlin 'internal' visibility
+                // from a separate app module. Invokes the REAL SDK class.
+                val klass=Class.forName("ai.bithuman.elevate.BithumanCodes")
+                val instance=klass.getField("INSTANCE").get(null)
+                val originalRecord=klass.getMethod("getMETERING_NO_CREDENTIAL").invoke(instance)
+                val recordClass=originalRecord.javaClass
+                val code=recordClass.getMethod("getCode").invoke(originalRecord) as String
+                val refuses=recordClass.getMethod("getRefuses").invoke(originalRecord) as Boolean
+                val message=recordClass.getMethod("getMessage").invoke(originalRecord) as String
+                mark("ESSENCE2_METERING_CODE="+code)
+                mark("ESSENCE2_METERING_REFUSES="+refuses)
+                mark("ESSENCE2_METERING_MESSAGE="+message)
+                if (code!="metering_no_credential"
+                    || !refuses
+                    || message!="HITEL_ESSENCE2_JVM_TEXT_PATCH_OK_20261115: a valid API secret is required.") {
                     mark("ESSENCE2_JVM_ORIGINAL_CODE_MUTATED_OR_MARKER_NOT_PRESENT")
                 } else {
                     mark("ESSENCE2_JVM_PATCHED_CONSTANT_REAL_ART_RUNTIME_PASS")
