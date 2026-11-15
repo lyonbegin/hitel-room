@@ -84,7 +84,18 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
     mark IXIO_LSPOSED_SCOPE FAIL
     tail -60 ixio-lab-results/lsposed-scope-config.log || true
   fi
-  if [ "${IXIO_USE_FREEDUMP:-0}" = 1 ]; then
+  if [ "${IXIO_USE_PAYLOAD_VERIFY:-0}" = 1 ]; then
+    echo "### APPSEALING_EXISTING_PAYLOAD_AND_APPPEALING_FILE_AUDIT"
+    if timeout --signal=TERM --kill-after=8s 350 \
+      bash tools/ixio/ixio_runtime_payload_audit.sh \
+        > ixio-lab-results/runtime-payload-audit-run.log 2>&1; then
+      mark IXIO_PAYLOAD_AUDIT SUCCESS_CHECK_VALIDATION
+    else
+      mark IXIO_PAYLOAD_AUDIT FAILED_CHECK_LOGS
+      tail -80 ixio-lab-results/runtime-payload-audit-run.log || true
+      fail=$((fail+1))
+    fi
+  elif [ "${IXIO_USE_FREEDUMP:-0}" = 1 ]; then
     echo "### UPSTREAM_FREEDUMP_IXIO_APPS_ONLY"
     if timeout --signal=TERM --kill-after=8s 800 \
       bash tools/ixio/ixio_freedump_capture.sh \
