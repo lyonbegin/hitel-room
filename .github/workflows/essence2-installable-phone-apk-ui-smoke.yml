@@ -1,0 +1,54 @@
+name: Essence2 installable phone APK actual Android UI launch and local secret prompt smoke
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-installable-phone-apk-ui-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android-install-launch-local-secret-dialog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43722639581
+          name: essence2-official-installable-phone-apk-with-runtime-api-secret-ui
+          github-token: ${{ github.token }}
+          path: build/essence2-installable-apk
+      - name: Verify APK source content exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-installable-ui-smoke
+          test -s 'build/essence2-installable-apk/Essence2_0.10.3_ARM64_실기기_설치_키입력.apk'
+          sha256sum 'build/essence2-installable-apk/Essence2_0.10.3_ARM64_실기기_설치_키입력.apk' \
+            > reports/essence2-installable-ui-smoke/apk-sha256.txt
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | \
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install original-SDK app and verify local API Secret prompt actually appears
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 3072 -cores 2 -partition-size 4096
+          script: bash tools/bithuman_deep/test_essence2_installable_app_ui_smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-real-android-installable-apk-local-secret-dialog-ui-smoke-proof
+          path: reports/essence2-installable-ui-smoke/
+          retention-days: 30
