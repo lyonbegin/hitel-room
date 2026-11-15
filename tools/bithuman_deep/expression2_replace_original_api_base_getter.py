@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ORIGINAL_AAR_SHA = "067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584"
+REASSEMBLED_AAR_SHA = "2529f8f0a064b4c8e8a1bb6f5fdd4627143ba4e09e05bd506bee1540e68e1527"
 ORIGINAL_JAR_SHA = "e3c2a4bbf4a0e7f8e610c061f4d26317a97f16949d805b03ea73444d0a3ff751"
 NATIVE_SO_SHA = "ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c"
 LITERT_SO_SHA = "97355a36cb8ac7628cf407773291e98da79f3ef184cc43cb0e57dedf5f0c0637"
@@ -201,8 +202,8 @@ def main():
     args = p.parse_args()
     base_url = checked_endpoint(args.base_url, args.allow_test_endpoint)
     original = args.source_aar.read_bytes()
-    # Accept only the original published AAR as input; reassembled AAR members
-    # have identical uncompressed contents but a different whole-ZIP digest.
+    # Accept only pinned published/reassembled AAR variants; all original member bytes match.
+    assert sha(original) in (ORIGINAL_AAR_SHA, REASSEMBLED_AAR_SHA), "Original input AAR SHA-256 differs"
     with zipfile.ZipFile(io.BytesIO(original)) as src:
         original_jar = src.read("classes.jar")
         native = src.read("jni/arm64-v8a/libexpr2jni.so")
@@ -224,6 +225,7 @@ def main():
     proof = {
         "original_aar_sha256": sha(original),
         "original_published_aar_sha256_match": sha(original) == ORIGINAL_AAR_SHA,
+        "original_reassembled_aar_sha256_match": sha(original) == REASSEMBLED_AAR_SHA,
         "patched_aar_sha256": sha(patched),
         "endpoint": base_url,
         "static_test_endpoint_only": base_url == TEST_ENDPOINT,
