@@ -16,7 +16,8 @@ import java.security.MessageDigest
  * Wise Pup showcase. A private identity is NOT silently treated as Wise Pup.
  */
 class Expression2ModelStore(context: Context) {
-    private val dir = File(context.applicationContext.filesDir, "expression2-models")
+    private val appContext = context.applicationContext
+    private val dir = File(appContext.filesDir, "expression2-models")
 
     fun fetch(agentCode: String): Expression2Model {
         require(agentCode == PUBLIC_AGENT) {
@@ -24,13 +25,11 @@ class Expression2ModelStore(context: Context) {
         }
         if (!dir.isDirectory && !dir.mkdirs()) error("Model cache directory unavailable")
         val modelFile = File(dir, "wise-pup-expression2.imx")
-        val externallyStaged = File(
-            context.applicationContext.getExternalFilesDir(null),
-            "wise-pup-expression2.imx"
-        )
+        val externallyStaged = appContext.getExternalFilesDir(null)
+            ?.let { File(it, "wise-pup-expression2.imx") }
         // An exact-hash public showcase IMX can be ADB-staged for offline tests.
         // It remains vendor-free; never treats this file as SDK authorization.
-        val selected = if (externallyStaged.isFile) {
+        val selected = if (externallyStaged != null && externallyStaged.isFile) {
             require(externallyStaged.length() == PUBLIC_BYTES) {
                 "Offline public IMX length mismatch"
             }
