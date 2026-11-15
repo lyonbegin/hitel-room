@@ -1,0 +1,106 @@
+name: Essence2 0.10.3 original JVM Native ELF analysis and AAR byte-preserving reassembly
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-jvm-arm64-aar-reassembly.yml
+      - tools/bithuman_deep/essence2_original_sdk_inventory_reassembly.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-essence2-inventory-and-reassemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Fetch official Essence 2 Android 0.10.3 SDK and preserve exact source hashes
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/essence2" reports/essence2-original
+          curl -fLsS --retry 4 --max-time 300 \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar' \
+            -o "$RUNNER_TEMP/essence2/source.aar"
+          test "$(stat -c %s "$RUNNER_TEMP/essence2/source.aar")" -gt 100000
+          sha256sum "$RUNNER_TEMP/essence2/source.aar" \
+            > reports/essence2-original/official-aar-sha256.txt
+          unzip -t "$RUNNER_TEMP/essence2/source.aar" > reports/essence2-original/official-aar-zipcheck.txt
+          unzip -Z1 "$RUNNER_TEMP/essence2/source.aar" > reports/essence2-original/official-aar-member-names.txt
+          unzip -p "$RUNNER_TEMP/essence2/source.aar" classes.jar \
+             > "$RUNNER_TEMP/essence2/original-classes.jar"
+          sha256sum "$RUNNER_TEMP/essence2/original-classes.jar" \
+            > reports/essence2-original/official-classes-jar-sha256.txt
+      - name: Enumerate every original class and every original ELF, rebuild all original file pieces
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check pyelftools==0.32
+          python3 tools/bithuman_deep/essence2_original_sdk_inventory_reassembly.py \
+            --aar "$RUNNER_TEMP/essence2/source.aar" \
+            --out reports/essence2-original \
+            --temp "$RUNNER_TEMP/essence2/reconstruction"
+          test -s "$RUNNER_TEMP/essence2/reconstruction/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar"
+          unzip -t "$RUNNER_TEMP/essence2/reconstruction/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar" \
+            > reports/essence2-original/reassembled-aar-zipcheck.txt
+          sha256sum "$RUNNER_TEMP/essence2/reconstruction/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar" \
+            > reports/essence2-original/reassembled-aar-sha256.txt
+      - name: Enumerate original Kotlin/JVM bytecode with javap
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-original/javap
+          python3 - "$RUNNER_TEMP/essence2/original-classes.jar" "$GITHUB_WORKSPACE/reports/essence2-original/javap" <<'PY'
+          import zipfile,sys,subprocess,json,hashlib
+          from pathlib import Path
+          jar=Path(sys.argv[1]);out=Path(sys.argv[2])
+          classes=sorted(n[:-6].replace("/",".") for n in zipfile.ZipFile(jar).namelist() if n.endswith(".class"))
+          results=[]
+          for i,name in enumerate(classes):
+              p=subprocess.run(["javap","-p","-c","-s","-l","-cp",str(jar),name],capture_output=True,text=True)
+              if p.returncode:raise RuntimeError(name+": "+p.stderr)
+              (out/f"{i:05d}.txt").write_text(p.stdout)
+              results.append({"class":name,"file":f"{i:05d}.txt","sha256":hashlib.sha256(p.stdout.encode()).hexdigest()})
+          (out/"index.json").write_text(json.dumps(results,indent=2))
+          print("ESSENCE2_ORIGINAL_JAVAP_ALL_CLASSES_PASS",len(classes))
+          PY
+      - name: Analyze JNI symbols of all Native .so without assuming engine names
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/essence2/source.aar" "$GITHUB_WORKSPACE/reports/essence2-original" <<'PY'
+          import zipfile,subprocess,sys,json
+          from pathlib import Path
+          archive=zipfile.ZipFile(sys.argv[1]);dest=Path(sys.argv[2])
+          result=[]
+          for name in archive.namelist():
+            if not name.endswith(".so"):continue
+            target=Path("/tmp")/Path(name).name
+            target.write_bytes(archive.read(name))
+            data=subprocess.run(["readelf","-W","--dyn-syms",str(target)],text=True,capture_output=True)
+            if data.returncode:raise RuntimeError(name+":"+data.stderr)
+            exports=[ln for ln in data.stdout.splitlines() if " Java_" in ln or " JNI_OnLoad" in ln]
+            result.append({"path":name,"jni_export_lines":len(exports),"exports":exports})
+          (dest/"jni-all-native-exports.json").write_text(json.dumps(result,indent=2)+"\n")
+          print("ESSENCE2_JNI_ELF_EXPORTS_AUDITED",len(result))
+          PY
+      - name: Add summary
+        run: |
+          set -euo pipefail
+          cat reports/essence2-original/README.md >> "$GITHUB_STEP_SUMMARY"
+          cat reports/essence2-original/official-aar-sha256.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-0-10-3-original-elf-jvm-reassembly-analysis-reports
+          path: reports/essence2-original
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: essence2-0-10-3-original-bytecode-and-machine-reassembled-aar
+          path: ${{ runner.temp }}/essence2/reconstruction/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar
+          retention-days: 7
+      - name: Clean original vendor package
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/essence2"
