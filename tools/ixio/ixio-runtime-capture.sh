@@ -22,6 +22,19 @@ for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   adb shell 'logcat -c' || true
   adb shell am force-stop "$p" || true
   adb shell monkey -p "$p" 1 > "$d/first-launch.log" 2>&1 || true
+  # First: attempt full readable-memory capture for every target process.
+  # Do not filter/ignore DEX, native mappings, heap, JIT or file-backed ranges.
+  if [ -x .ixio-tools/ixio_vma_dump ]; then
+    timeout --signal=TERM --kill-after=3s 700 \
+      python3 tools/ixio/ixio_capture_full_memory.py \
+      --stage "launch-${p}" --out ixio-lab-results/full-memory \
+      > "$d/full-memory-capture.log" 2>&1
+    full_status=$?
+    echo "FULL_MEMORY_CAPTURE_${p}=$full_status" >> ixio-lab-results/summary.env
+    tail -8 "$d/full-memory-capture.log"
+  else
+    echo "FULL_MEMORY_CAPTURE_${p}=MISSING_NATIVE_COLLECTOR" >> ixio-lab-results/summary.env
+  fi
   # Capture several runtime stages because AppSealing can spawn/restart the app
   # and materialize different DEX segments as it initializes.
   snapshot_payload() {
@@ -74,6 +87,7 @@ for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
   fi
   adb shell su -c "find /data/user/0/$p/apppeal_dump -type f" > "$d/apppealing-found-final.txt" 2>&1 || true
   adb pull "/data/user/0/$p/apppeal_dump" "$d/local-dump/apppeal_dump" >> "$d/apppealing-pull.log" 2>&1 || true
+  # Restored DEX files below are secondary diagnostics, NOT the whole memory capture.
   # Keep only restored DEX bytes for independent per-app reconstruction.
   if [ "${IXIO_SEPARATE_REASSEMBLE:-0}" = 1 ]; then
     group=main
