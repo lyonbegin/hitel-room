@@ -28,6 +28,7 @@ METHOD_NAME = "getApiBaseUrl"
 METHOD_DESCRIPTOR = "()Ljava/lang/String;"
 ORIGINAL_CODE = bytes.fromhex("b2002fb0")  # getstatic #47; areturn
 TEST_ENDPOINT = "https://auth.example.invalid"
+CI_LOOPBACK_ENDPOINT = "http://127.0.0.1:18762"
 
 
 def sha(data):
@@ -184,11 +185,15 @@ def repack_zip(source, replacement_path, replacement):
 def checked_endpoint(text, allow_test):
     assert text and text == text.strip()
     parts = urlsplit(text)
-    assert parts.scheme == "https" and parts.hostname and parts.port in (None, 443)
-    assert not parts.username and not parts.password and not parts.query and not parts.fragment
+    is_test = text in (TEST_ENDPOINT, CI_LOOPBACK_ENDPOINT)
+    if is_test:
+        assert allow_test, "Test endpoint requires explicit --allow-test-endpoint"
+    else:
+        assert parts.scheme == "https" and parts.hostname and parts.port in (None, 443)
+    assert parts.hostname and not parts.username and not parts.password
+    assert not parts.query and not parts.fragment
     assert not parts.path or parts.path == "/" or (parts.path.startswith("/") and ".." not in parts.path)
     assert "bithuman.ai" not in parts.hostname.lower(), "Refusing original vendor server"
-    assert (text != TEST_ENDPOINT or allow_test), "Explicit --allow-test-endpoint required"
     return text.rstrip("/")
 
 
@@ -231,7 +236,7 @@ def main():
         "original_jvm_jar_zip_sha256": sha(original_jar),
         "patched_aar_sha256": sha(patched),
         "endpoint": base_url,
-        "static_test_endpoint_only": base_url == TEST_ENDPOINT,
+        "static_test_endpoint_only": base_url in (TEST_ENDPOINT, CI_LOOPBACK_ENDPOINT),
         "server_protocol_and_response_tested": False,
         "target_class": TARGET,
         "jvm_classfiles_changed": 1,
@@ -247,7 +252,7 @@ def main():
           "REPLACEMENT_CODE", details["replacement_jvm_code"])
     print("ARM64_NATIVE_CHANGED_BYTES=0 LITERT_CHANGED_BYTES=0")
     print("BACKEND_URL", base_url,
-          "STATIC_ONLY_NO_LIVE_SERVER" if base_url == TEST_ENDPOINT else "CUSTOM_BACKEND_CONFIGURED_BUT_NOT_TESTED")
+          "STATIC_ONLY_NO_LIVE_SERVER" if base_url in (TEST_ENDPOINT, CI_LOOPBACK_ENDPOINT) else "CUSTOM_BACKEND_CONFIGURED_BUT_NOT_TESTED")
 
 
 if __name__ == "__main__":
