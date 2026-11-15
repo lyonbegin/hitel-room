@@ -53,6 +53,15 @@ jobs:
               --ks-key-alias ixio --out "$dest" "$aligned"
             "$BT/apksigner" verify "$dest"
           }
+          # Reject invalid binary XML before signing or emulator installation.
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml \
+            ixio-default-application-diagnostic/main-unsigned.apk \
+            > ixio-default-application-diagnostic/main-axml.txt
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml \
+            ixio-default-application-diagnostic/recorder-unsigned.apk \
+            > ixio-default-application-diagnostic/recorder-axml.txt
+          grep -F 'android.app.Application' ixio-default-application-diagnostic/main-axml.txt
+          grep -F 'android.app.Application' ixio-default-application-diagnostic/recorder-axml.txt
           sign ixio-default-application-diagnostic/main-unsigned.apk \
             ixio-default-application-diagnostic/base.apk
           sign ixio-default-application-diagnostic/recorder-unsigned.apk \
