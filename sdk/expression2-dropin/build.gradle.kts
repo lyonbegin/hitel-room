@@ -24,4 +24,5 @@ android {
 dependencies {
     // Model interpreter, NOT the vendor expression2-android AAR.
     implementation("com.google.ai.edge.litert:litert:1.4.2")
+    testImplementation("junit:junit:4.13.2")
 }
