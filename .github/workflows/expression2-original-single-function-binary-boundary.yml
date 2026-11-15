@@ -1,0 +1,96 @@
+name: Expression2 original binary single-function entry-return boundary audit
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-original-single-function-binary-boundary.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-binary-entry-return-map:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify published original AAR and untouched ARM64 binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/expression2-original-single-function /tmp/expression2-one-method
+          curl -fsSL --retry 3 --max-time 180 \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.2/expression2-android-0.6.2.aar \
+            -o /tmp/expression2-one-method/original.aar
+          echo '067868a16a4b160a8d149d1cba4637298937b86292c9a563f89e22d004f4d584  /tmp/expression2-one-method/original.aar' | sha256sum -c
+          unzip -p /tmp/expression2-one-method/original.aar classes.jar > /tmp/expression2-one-method/classes.jar
+          unzip -p /tmp/expression2-one-method/original.aar jni/arm64-v8a/libexpr2jni.so > /tmp/expression2-one-method/libexpr2jni.so
+          unzip -p /tmp/expression2-one-method/original.aar jni/arm64-v8a/libLiteRt.so > /tmp/expression2-one-method/libLiteRt.so
+          echo 'e3c2a4bbf4a0e7f8e610c061f4d26317a97f16949d805b03ea73444d0a3ff751  /tmp/expression2-one-method/classes.jar' | sha256sum -c
+          echo 'ca589010eac4273dbb890b2353e16c4c3ef2bf97f629fd68fbf5444ae9a37d9c  /tmp/expression2-one-method/libexpr2jni.so' | sha256sum -c
+          echo '97355a36cb8ac7628cf407773291e98da79f3ef184cc43cb0e57dedf5f0c0637  /tmp/expression2-one-method/libLiteRt.so' | sha256sum -c
+          sha256sum /tmp/expression2-one-method/{original.aar,classes.jar,libexpr2jni.so,libLiteRt.so} > reports/expression2-original-single-function/original-sha256.txt
+          readelf -W --dyn-syms /tmp/expression2-one-method/libexpr2jni.so > reports/expression2-original-single-function/original-arm64-jni-exports.txt
+          echo ORIGINAL_BINARY_INPUTS_SHA256_PASS
+      - name: Read original JVM bytecode method offsets and native entry names without patching
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest=reports/expression2-original-single-function
+          jar=/tmp/expression2-one-method/classes.jar
+          javap -p -c -s -v -classpath "$jar" 'ai.bithuman.expression2.Expression2Avatar$Companion' > "$dest/Expression2Avatar-Companion.javap.txt"
+          javap -p -c -s -v -classpath "$jar" 'ai.bithuman.expression2.Expression2Avatar' > "$dest/Expression2Avatar.javap.txt"
+          javap -p -c -s -v -classpath "$jar" 'ai.bithuman.expression2.MeterHost' > "$dest/MeterHost.javap.txt"
+          javap -p -c -s -v -classpath "$jar" 'ai.bithuman.expression2.SelfHostMeter$Companion' > "$dest/SelfHostMeter-Companion.javap.txt"
+          if javap -p -c -s -v -classpath "$jar" 'ai.bithuman.expression2.Native' > "$dest/Native.javap.txt" 2> "$dest/Native.javap.stderr"; then
+            echo ORIGINAL_NATIVE_JVM_CLASS_FOUND
+          else
+            echo ORIGINAL_NATIVE_JVM_CLASS_NOT_AT_ASSUMED_NAME
+          fi
+          python3 - <<'PY'
+          import hashlib, json, re
+          from pathlib import Path
+          root=Path('reports/expression2-original-single-function')
+          main=(root/'Expression2Avatar-Companion.javap.txt').read_text()
+          targets=('MeterHost','createEngine','Native.create','SelfHostMeter')
+          lines=main.splitlines()
+          hits=[]
+          for n,line in enumerate(lines):
+              if re.search(r'^\s*\d+:\s+(?:invoke\w+|new|areturn|return|athrow|goto|if\w+)',line) and any(t in line for t in targets):
+                  hits.append({'line':n+1,'instruction':line.strip(),'context':lines[max(0,n-3):min(len(lines),n+3)]})
+          (root/'create-callsite-index.json').write_text(json.dumps(hits,indent=2,ensure_ascii=False)+'\n')
+          native=(root/'original-arm64-jni-exports.txt').read_text().splitlines()
+          exported=[line.strip() for line in native if 'Java_ai_bithuman_expression2_' in line]
+          (root/'original-jni-symbols.txt').write_text('\n'.join(exported)+'\n')
+          headings=['# Original Expression 2 binary one-function boundary (READ ONLY)','',
+            '- Original SDK: ai.bithuman:expression2-android:0.6.2',
+            '- All extracted input binaries verified against pinned SHA-256.',
+            '- ZERO changes to classes.jar / libexpr2jni.so / libLiteRt.so.',
+            '- Bytecode offsets are JVM method-relative, NOT ARM64 virtual addresses.',
+            '- JNI exported symbol addresses are ELF virtual addresses; runtime addresses require load base.',
+            '- This is a static call map, not an authorization bypass or rendering success.','',
+            '## Original Expression2Avatar$Companion invocation references', '']
+          headings += ['- '+x['instruction'] for x in hits] or ['- No matching invocation instruction found; inspect the full javap output.']
+          headings += ['', '## Native JNI exports',f'- Original exported Java_ai_bithuman_expression2 symbols: {len(exported)}','',
+            '## Validation','- No AAR generated, no classfile rewritten, no model inference executed.']
+          (root/'SUMMARY.md').write_text('\n'.join(headings)+'\n')
+          print('ORIGINAL_CREATE_CALLSITE_REFERENCES',len(hits))
+          for x in hits:print('ORIGINAL_JVM_INSTRUCTION',x['instruction'])
+          print('ORIGINAL_JNI_EXPORTS',len(exported))
+          assert len(exported)==28, f'Expected 28 original JNI exports, saw {len(exported)}'
+          assert any('createEngine' in x['instruction'] for x in hits), 'createEngine invoke not found in original companion'
+          assert any('MeterHost' in x['instruction'] for x in hits), 'MeterHost entry not found in original companion'
+          print('ORIGINAL_ONE_FUNCTION_BOUNDARY_STATIC_AUDIT_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-only-jvm-callsite-jni-address-map
+          path: reports/expression2-original-single-function/
+          retention-days: 30
+      - name: Remove source SDK binaries from transient workspace
+        if: always()
+        run: rm -rf /tmp/expression2-one-method
