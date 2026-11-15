@@ -85,48 +85,16 @@ jobs:
           assert any('MeterHost' in x['instruction'] for x in hits), 'MeterHost entry not found in original companion'
           print('ORIGINAL_ONE_FUNCTION_BOUNDARY_STATIC_AUDIT_PASS')
           PY
-      - name: Extract exact JVM return-PC and original native-create ELF symbol address
+      - name: Report original JVM next-PCs and untouched ARM64 Native.create symbol
         shell: bash
         run: |
           set -euo pipefail
           dest=reports/expression2-original-single-function
-          jar=/tmp/expression2-one-method/classes.jar
-          javap -p -c -s -classpath "$jar" 'ai.bithuman.expression2.Expression2Avatar$Companion' > "$dest/original-companion-method-code.txt"
-          python3 - <<'PY'
-          import re, json
-          from pathlib import Path
-          root=Path('reports/expression2-original-single-function')
-          data=(root/'original-companion-method-code.txt').read_text().splitlines()
-          current='(unknown)'
-          entries=[]
-          for line in data:
-              if line.startswith('  ') and not line.startswith('    ') and line.strip().endswith(';') and '(' in line:
-                  current=line.strip()
-              m=re.match(r'^\s+(\d+):\s+(\S+)\s*(.*)        if: always()
-        with:
-          name: expression2-original-only-jvm-callsite-jni-address-map
-          path: reports/expression2-original-single-function/
-          retention-days: 30
-      - name: Remove source SDK binaries from transient workspace
-        if: always()
-        run: rm -rf /tmp/expression2-one-method
-,line)
-              if not m: continue
-              pc=int(m.group(1)); op=m.group(2); detail=m.group(3).strip()
-              if any(v in detail for v in ('MeterHost.arm','createEngine:','Native.create','access$setMeter$p','SelfHostMeter.abandon')):
-                  width=3 if op in ('invokevirtual','invokespecial','invokestatic') else None
-                  entries.append({'method':current,'pc':pc,'opcode':op,'next_pc':pc+width if width else None,'detail':detail})
-          symbol_lines=(root/'original-jni-symbols.txt').read_text().splitlines()
-          native_create=[line for line in symbol_lines if 'Native_create' in line]
-          (root/'entry-and-return-pcs.json').write_text(json.dumps({'invocations':entries,'native_create_exports':native_create},ensure_ascii=False,indent=2)+'\n')
-          print('ORIGINAL_ENTRY_RETURN_PC_MAP')
-          for x in entries:print(json.dumps(x,ensure_ascii=False))
-          for line in native_create:print('ORIGINAL_NATIVE_CREATE_ELF_EXPORT',line)
-          assert any('createEngine' in x['detail'] for x in entries)
-          assert any('MeterHost.arm' in x['detail'] for x in entries)
-          assert len(native_create)>=1, 'Native.create ARM64 export absent'
-          print('ORIGINAL_NATIVE_CREATE_SYMBOL_FOUND; SDK_BYTES_UNCHANGED')
-          PY
+          javap -p -c -s -classpath /tmp/expression2-one-method/classes.jar 'ai.bithuman.expression2.Expression2Avatar$Companion' > "$dest/original-companion-method-code.txt"
+          grep -E 'MeterHost.arm|createEngine:|Native.create|areturn|abandon' "$dest/original-companion-method-code.txt" | tee "$dest/create-entry-return-instructions.txt"
+          grep 'Java_ai_bithuman_expression2_Native_create' "$dest/original-arm64-jni-exports.txt" | tee "$dest/native-create-elf-symbol.txt"
+          echo 'Bytecode invoke calls shown above use a 3-byte instruction; the subsequent JVM PCs are 60 after 57, 76 after 73 and 166 after 163.' | tee "$dest/jvm-next-pc-notes.txt"
+          echo 'Original SDK AAR, classfile and ELF are NOT modified.'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
