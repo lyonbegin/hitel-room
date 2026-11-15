@@ -28,7 +28,7 @@ def replace_manifest_string_pool(chunk,indices,replacement):
         raw=raw[:begin]+value+raw[end:]
         delta=len(value)-(end-begin)
         offsets=[v+delta if v>=end else v for v in offsets]
-    raw+=b"\\0"*((-len(raw))%4)
+    raw+=b"\0"*((-len(raw))%4)
     new_style=start+len(raw) if style_start else 0
     head=bytearray(chunk[:start])
     for i,v in enumerate(offsets):
