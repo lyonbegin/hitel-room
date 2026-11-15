@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           gh run download 43712844014 --repo "$GH_REPO" \
-            --name ixio-firebase-provider-isolated-original-bytecode-test --dir .
+            --name ixio-firebase-provider-isolated-original-bytecode-test --dir ixio-standalone-smoke
           ls -l ixio-standalone-smoke/{main,recorder}-{status,logcat}.txt
       - name: Isolate target crashes and process life events
         run: |
