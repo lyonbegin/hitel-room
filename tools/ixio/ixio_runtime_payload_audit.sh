@@ -38,6 +38,39 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
       > "$dest/validation-$step.log" 2>&1 || \
       echo "VALIDATION_$step=FAILED" >> "$dest/status.env"
   done
+  # Decompile the protected recorder payload with the upstream official JADX CLI.
+  # Java source is kept ONLY in PRIVATE and encrypted before upload.
+  if [ "${IXIO_JADX_AUDIT:-0}" = 1 ] && [ "$group" = recorder ]; then
+    if [ ! -x .ixio-tools/jadx/bin/jadx ]; then
+      mkdir -p .ixio-tools
+      curl --fail --location --retry 3 --silent --show-error \
+        "https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip" \
+        -o .ixio-tools/jadx-1.5.6.zip
+      mkdir -p .ixio-tools/jadx
+      unzip -qq .ixio-tools/jadx-1.5.6.zip -d .ixio-tools/jadx
+      chmod +x .ixio-tools/jadx/bin/jadx
+    fi
+    shopt -s nullglob
+    dex_files=("$raw/late/app_payload_lib/com_lguplus_callrecorder/"*.dex)
+    if [ "${#dex_files[@]}" -gt 0 ]; then
+      set +e
+      timeout --signal=TERM --kill-after=10s 240 \
+        .ixio-tools/jadx/bin/jadx --no-res --threads-count 2 \
+          -d "$raw/jadx-output" "${dex_files[@]}" \
+          > "$dest/jadx.log" 2>&1
+      jadx_rc=$?
+      set -e
+      printf "JADX_EXIT=%s\n" "$jadx_rc" >> "$dest/status.env"
+      if find "$raw/jadx-output" -type f -name "*.java" -print -quit 2>/dev/null | grep -q .; then
+        python3 tools/ixio/ixio_jadx_semantic_probe.py \
+          --sources "$raw/jadx-output" --output "$dest/semantic-jadx.json" \
+          > "$dest/semantic-jadx.log" 2>&1 || true
+      fi
+    else
+      echo "JADX=no_recorder_dex" >> "$dest/status.env"
+    fi
+    shopt -u nullglob
+  fi
   # Record AppPealing activation messages without publishing proprietary payload.
   adb shell su -c "logcat -d -v threadtime -s 'AppSealing:I' 'LSPosed:I'" \
     > "$dest/appsealing-lsposed-logcat.txt" 2>&1 || true
