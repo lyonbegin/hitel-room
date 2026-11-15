@@ -61,6 +61,29 @@ jobs:
           cat "$dest/Expression2Metering-code.txt"
           echo '=== ORIGINAL HTTP BEAT SINK REQUEST TARGET AND RETURN SIGNATURES ==='
           grep -nE 'HttpBeatSink|validate|beat\(|post\(|Code:|descriptor:|URL|invok(e|es)|areturn|ireturn|return|json|bodyJson' "$dest/HttpBeatSink-code.txt" | head -n 130 || true
+      - name: Extract exact original HTTP constructor and payload decoding JVM instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest=reports/expression2-original-server-target
+          echo ORIGINAL_HTTP_SINK_BEGIN
+          cat "$dest/HttpBeatSink-code.txt"
+          echo ORIGINAL_HTTP_SINK_END
+          javap -p -c -s -classpath /tmp/expr2-original.jar 'ai.bithuman.expression2.SelfHostMeter' > "$dest/SelfHostMeter-code.txt"
+          javap -p -c -s -classpath /tmp/expr2-original.jar 'ai.bithuman.expression2.SelfHostMeter$Companion' > "$dest/SelfHostMeter-Companion-code.txt"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("reports/expression2-original-server-target")
+          for filename in ("SelfHostMeter-code.txt","SelfHostMeter-Companion-code.txt"):
+              lines=(p/filename).read_text().splitlines()
+              print("ORIGINAL_METER_METHOD_DECLARATIONS",filename)
+              for row in lines:
+                  if (row.startswith("  public ") or row.startswith("  private ") or row.startswith("  protected ")) and "(" in row:
+                      print(row)
+              print("ORIGINAL_METER_JSON_STRING_OPERANDS",filename)
+              matches=[row for row in lines if "// String " in row or "validateWithBody" in row or "beatWithBody" in row]
+              for row in matches[:160]:print(row[:350])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
