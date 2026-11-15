@@ -101,6 +101,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ixio-standalone-apps-reassembled-android14
+          include-hidden-files: true
           path: |
             .ixio-rebuild-output/
             ixio-lab-results/separate-repack/
