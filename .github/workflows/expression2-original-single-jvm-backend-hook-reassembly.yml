@@ -1,0 +1,102 @@
+name: Expression2 ORIGINAL JVM single backend getter substitution and 2660-piece AAR reassembly
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - tools/bithuman_deep/expression2_replace_original_api_base_getter.py
+      - .github/workflows/expression2-original-single-jvm-backend-hook-reassembly.yml
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Authorized replacement backend base HTTPS URL; must implement original auth/beat JSON protocol"
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  single-function-original-audit-and-reassembly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      EXPRESSION2_CUSTOM_BASE_URL: ${{ github.event.inputs.api_base_url || 'https://auth.example.invalid' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Restore ORIGINAL JVM+ARM64 AAR reconstructed from 2660 original byte parts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/original-reassembled
+      - name: Insert only our replacement getApiBaseUrl JVM function code and repack original AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/expression2-single-jvm-backend-hook build/original-replaced
+          ls -la build/original-reassembled
+          sha256sum build/original-reassembled/Expression2_0.6.2_original_machine_code_reassembled.aar
+          python3 tools/bithuman_deep/expression2_replace_original_api_base_getter.py \
+            --source-aar build/original-reassembled/Expression2_0.6.2_original_machine_code_reassembled.aar \
+            --output-aar build/original-replaced/Expression2_0.6.2_original_machine_code_single_jvm_backend_hook.aar \
+            --report reports/expression2-single-jvm-backend-hook/binary-diff-proof.json \
+            --base-url "$EXPRESSION2_CUSTOM_BASE_URL" \
+            --allow-test-endpoint
+          unzip -t build/original-replaced/Expression2_0.6.2_original_machine_code_single_jvm_backend_hook.aar
+          unzip -p build/original-replaced/Expression2_0.6.2_original_machine_code_single_jvm_backend_hook.aar classes.jar > "$RUNNER_TEMP/expr2-jvm-replaced.jar"
+          javap -p -c -cp "$RUNNER_TEMP/expr2-jvm-replaced.jar" ai.bithuman.expression2.Expression2Metering \
+            > reports/expression2-single-jvm-backend-hook/Expression2Metering-patched-javap.txt
+          grep -F "$EXPRESSION2_CUSTOM_BASE_URL" reports/expression2-single-jvm-backend-hook/Expression2Metering-patched-javap.txt
+          sha256sum build/original-replaced/*.aar > reports/expression2-single-jvm-backend-hook/aar-sha256.txt
+          echo ORIGINAL_ARM64_SDK_SINGLE_JVM_GETTER_REASSEMBLY_PASS
+          if [[ "$EXPRESSION2_CUSTOM_BASE_URL" == 'https://auth.example.invalid' ]]; then
+            echo "STATIC_ONLY_INVALID_TEST_ENDPOINT; DO_NOT_USE_AS_LIVE_APP"
+          else
+            echo "NONTEST_BACKEND_URL_SET; LIVE_SERVER_RESPONSE_NOT_YET_VERIFIED"
+          fi
+      - name: Build official example APK from UNMODIFIED app/src with only rebuilt original AAR swapped
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/bithuman-examples"
+          project="$RUNNER_TEMP/bithuman-examples/android/expression2-hello"
+          cd "$project"
+          find app/src -type f -print0 | sort -z | xargs -0 sha256sum > "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/original-app-src-before.sha256"
+          mkdir -p app/libs
+          cp "$GITHUB_WORKSPACE/build/original-replaced/Expression2_0.6.2_original_machine_code_single_jvm_backend_hook.aar" app/libs/
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/build.gradle.kts')
+          s=p.read_text()
+          old='implementation("ai.bithuman:expression2-android:0.6.1")'
+          new='implementation(files("libs/Expression2_0.6.2_original_machine_code_single_jvm_backend_hook.aar"))'
+          assert s.count(old)==1, "Unexpected upstream SDK declaration"
+          p.write_text(s.replace(old,new))
+          PY
+          find app/src -type f -print0 | sort -z | xargs -0 sha256sum > "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/original-app-src-after.sha256"
+          cmp "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/original-app-src-before.sha256" "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/original-app-src-after.sha256"
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug \
+            | tee "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/gradle-build.log"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/expression2-original-single-jvm-backend-hook.apk"
+          sha256sum app/build/outputs/apk/debug/app-debug.apk \
+            > "$GITHUB_WORKSPACE/reports/expression2-single-jvm-backend-hook/apk-sha256.txt"
+          unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -F 'lib/arm64-v8a/libexpr2jni.so'
+          unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -F 'lib/arm64-v8a/libLiteRt.so'
+          echo ORIGINAL_SAMPLE_ONLY_ONE_SDK_AAR_REPLACED_BUILD_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-jvm-single-backend-function-diff-and-app-build
+          path: reports/expression2-single-jvm-backend-hook/
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: expression2-original-ARM64-single-JVM-backend-hook-AAR-STATIC-ONLY
+          path: build/original-replaced/Expression2_0.6.2_original_machine_code_single_jvm_backend_hook.aar
+          retention-days: 30
