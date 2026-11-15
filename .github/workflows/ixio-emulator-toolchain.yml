@@ -69,7 +69,17 @@ jobs:
             printf '%s  %s\n' '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7' .ixio-inputs/recorder.apk | sha256sum -c
             echo "BOTH_TARGET_INPUTS=VERIFIED" | tee -a ixio-lab-results/summary.env
           else
-            echo "BOTH_TARGET_INPUTS=NOT_SUPPLIED_PRIVATE_URLS" | tee -a ixio-lab-results/summary.env
+            echo "BOTH_TARGET_INPUTS=TRY_GOOGLE_PLAY_EXACT_VERSIONS" | tee -a ixio-lab-results/summary.env
+            if .ixio-tools/venv/bin/pip install --disable-pip-version-check 'goopdl==1.2.2' > ixio-lab-results/play-installer.log 2>&1; then
+              mkdir -p .ixio-inputs/play-main .ixio-inputs/play-recorder
+              (timeout 170 .ixio-tools/venv/bin/goopdl download com.lguplus.aicallagent -v 01.33.01 --splits -a arm64 -c KR -o .ixio-inputs/play-main --integrity-manifest ixio-lab-results/play-main-integrity.json > ixio-lab-results/play-main.log 2>&1) || true
+              (timeout 170 .ixio-tools/venv/bin/goopdl download com.lguplus.callrecorder -v 02.02.00 --splits -a arm64 -c KR -o .ixio-inputs/play-recorder --integrity-manifest ixio-lab-results/play-recorder-integrity.json > ixio-lab-results/play-recorder.log 2>&1) || true
+              find .ixio-inputs/play-main .ixio-inputs/play-recorder -type f -name '*.apk' -exec sha256sum {} + > ixio-lab-results/play-apk-hashes.txt || true
+              grep -q '83675e6c816a21057c1a49aadd203731be7e9e150b69a178492437d262a35caf' ixio-lab-results/play-apk-hashes.txt && echo "MAIN_BASE_ORIGINAL_MATCH=YES" || echo "MAIN_BASE_ORIGINAL_MATCH=NO"
+              grep -q '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7' ixio-lab-results/play-apk-hashes.txt && echo "RECORDER_ORIGINAL_MATCH=YES" || echo "RECORDER_ORIGINAL_MATCH=NO"
+            else
+              echo "GOOPDL_INSTALL=FAILED" | tee -a ixio-lab-results/summary.env
+            fi
           fi
       - name: Boot accelerated Android 14 emulator and install tooling
         uses: reactivecircus/android-emulator-runner@v2
