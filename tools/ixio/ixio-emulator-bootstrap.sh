@@ -51,86 +51,26 @@ else mark FRIDA_USB_LIST NO_SERVER; fi
 if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
   mkdir -p .ixio-inputs/main-splits
   if unzip -qq -o .ixio-inputs/main.xapk -d .ixio-inputs/main-splits; then
-    step IXIO_MAIN_INSTALL adb install-multiple -r .ixio-inputs/main-splits/base.apk .ixio-inputs/main-splits/split_0.apk .ixio-inputs/main-splits/split_1.apk .ixio-inputs/main-splits/split_2.apk
+    mapfile -d '' -t splits < <(find .ixio-inputs/main-splits -maxdepth 2 -type f -name '*.apk' -print0)
+    if [ "${#splits[@]}" -gt 0 ]; then
+      step IXIO_MAIN_INSTALL adb install-multiple -r "${splits[@]}"
+    else
+      mark IXIO_MAIN_INSTALL NO_APKS_IN_XAPK
+    fi
   else
     mark IXIO_MAIN_INSTALL XAPK_EXTRACTION_FAILED
   fi
   step IXIO_RECORDER_INSTALL adb install -r .ixio-inputs/recorder.apk
-  adb shell pm list packages | grep -E 'com.lguplus.(aicallagent|callrecorder)' || true
-  for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
-    echo "### Launch $p"
-    adb shell monkey -p "$p" 1 || true
-    sleep 8
-    adb shell pidof "$p" || true
-    mkdir -p "ixio-lab-results/$p"
-    if [ -x .ixio-tools/venv/bin/clsdumper ]; then
-      (timeout 75 .ixio-tools/venv/bin/clsdumper "$p" --spawn -o "ixio-lab-results/$p/local-dump" -d > "ixio-lab-results/$p/dump-attempt.log" 2>&1 || true)
-      if [ -f "ixio-lab-results/$p/local-dump/metadata.json" ]; then
-        python3 -c 'import json,sys; p=sys.argv[1]; j=json.load(open(p)); print(json.dumps({"target":sys.argv[2],"metadata_keys":list(j.keys()),"dump_file_count":len(list(__import__("pathlib").Path(p).parent.glob("dex/*.dex")))}))' "ixio-lab-results/$p/local-dump/metadata.json" "$p" | tee "ixio-lab-results/$p/dump-summary.json" || true
-      fi
-      if find "ixio-lab-results/$p/local-dump/dex" -type f -name '*.dex' -print -quit 2>/dev/null | grep -q .; then
-        tar -czf "ixio-lab-results/$p/local-dump.tar.gz" -C "ixio-lab-results/$p/local-dump" .
-        if openssl cms -encrypt -binary -aes256 \
-          -in "ixio-lab-results/$p/local-dump.tar.gz" \
-          -out "ixio-lab-results/$p/DEX_ENCRYPTED.cms" -outform DER \
-          -recip tools/ixio/dump-public-20261115.crt; then
-          mark "DEX_DUMP_$p" ENCRYPTED_FOR_USER_ONLY
-        else
-          mark "DEX_DUMP_$p" ENCRYPTION_FAILED
-          rm -f "ixio-lab-results/$p/DEX_ENCRYPTED.cms"
-        fi
-        rm -f "ixio-lab-results/$p/local-dump.tar.gz"
-      else
-        mark "DEX_DUMP_$p" NO_RUNTIME_DEX_FOUND
-      fi
-      # Never expose plaintext third-party DEX on a public GitHub Actions artifact.
-      rm -rf "ixio-lab-results/$p/local-dump"
-    else
-      mark "DUMP_$p" CLSDUMPER_NOT_INSTALLED
-    fi
-  done
-elif [ -d .ixio-inputs/play-main ] && [ -d .ixio-inputs/play-recorder ]; then
-  mapfile -d '' -t main_apks < <(find .ixio-inputs/play-main -type f -name '*.apk' -print0)
-  mapfile -d '' -t recorder_apks < <(find .ixio-inputs/play-recorder -type f -name '*.apk' -print0)
-  if [ "${#main_apks[@]}" -gt 0 ]; then
-    step IXIO_MAIN_PLAY_INSTALL adb install-multiple -r "${main_apks[@]}"
+  echo "### LSPosed module scope setup"
+  if python3 tools/ixio/enable_apppealing_scope.py \
+    > ixio-lab-results/lsposed-scope-config.log 2>&1; then
+    mark IXIO_LSPOSED_SCOPE PASS
+    wait_boot || true
   else
-    mark IXIO_MAIN_PLAY_INSTALL NO_VERSION_MATCH_DOWNLOAD
+    mark IXIO_LSPOSED_SCOPE FAIL
+    tail -60 ixio-lab-results/lsposed-scope-config.log || true
   fi
-  if [ "${#recorder_apks[@]}" -gt 0 ]; then
-    step IXIO_RECORDER_PLAY_INSTALL adb install-multiple -r "${recorder_apks[@]}"
-  else
-    mark IXIO_RECORDER_PLAY_INSTALL NO_VERSION_MATCH_DOWNLOAD
-  fi
-  for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
-    mkdir -p "ixio-lab-results/$p"
-    adb shell dumpsys package "$p" | grep -E 'versionName=|primaryCpuAbi=|versionCode=' | head -12 > "ixio-lab-results/$p/installed-package.txt" || true
-    adb shell monkey -p "$p" 1 || true
-    sleep 8
-    adb shell pidof "$p" || true
-    if [ -x .ixio-tools/venv/bin/clsdumper ]; then
-      (timeout 90 .ixio-tools/venv/bin/clsdumper "$p" --spawn -o "ixio-lab-results/$p/local-dump" -d > "ixio-lab-results/$p/dump-attempt.log" 2>&1 || true)
-      if [ -f "ixio-lab-results/$p/local-dump/metadata.json" ]; then
-        python3 -c 'import json,sys; p=sys.argv[1]; j=json.load(open(p)); print(json.dumps({"target":sys.argv[2],"metadata_keys":list(j.keys()),"dump_file_count":len(list(__import__("pathlib").Path(p).parent.glob("dex/*.dex")))}))' "ixio-lab-results/$p/local-dump/metadata.json" "$p" | tee "ixio-lab-results/$p/dump-summary.json" || true
-      fi
-      if find "ixio-lab-results/$p/local-dump/dex" -type f -name '*.dex' -print -quit 2>/dev/null | grep -q .; then
-        tar -czf "ixio-lab-results/$p/local-dump.tar.gz" -C "ixio-lab-results/$p/local-dump" .
-        if openssl cms -encrypt -binary -aes256 \
-          -in "ixio-lab-results/$p/local-dump.tar.gz" \
-          -out "ixio-lab-results/$p/DEX_ENCRYPTED.cms" -outform DER \
-          -recip tools/ixio/dump-public-20261115.crt; then
-          mark "DEX_DUMP_$p" ENCRYPTED_FOR_USER_ONLY
-        else
-          mark "DEX_DUMP_$p" ENCRYPTION_FAILED
-          rm -f "ixio-lab-results/$p/DEX_ENCRYPTED.cms"
-        fi
-        rm -f "ixio-lab-results/$p/local-dump.tar.gz"
-      else
-        mark "DEX_DUMP_$p" NO_RUNTIME_DEX_FOUND
-      fi
-      rm -rf "ixio-lab-results/$p/local-dump"
-    fi
-  done
+  bash tools/ixio/ixio-runtime-capture.sh > ixio-lab-results/ixio-capture-summary.log 2>&1 || true
 else
   mark IXIO_TARGET_INPUTS MISSING
 fi
