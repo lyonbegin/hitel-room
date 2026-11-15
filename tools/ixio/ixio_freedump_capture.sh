@@ -22,6 +22,12 @@ s = p.read_text()
 assert "from freedump.helper.logging import LOGGER" in s
 p.write_text(s.replace("from freedump.helper.logging import LOGGER",
                        "from freedump.helper.logging import LOGGER\nlogger = LOGGER", 1))
+# The caller attaches an already-running PID; spawn gating is unnecessary and
+# the Android 14 frida-server connection closes on this API call.
+s = p.read_text()
+assert "self.device.enable_spawn_gating()" in s
+p.write_text(s.replace("self.device.enable_spawn_gating()",
+                       "logger.info('[FREEDUMP] existing PID attach: skip spawn gating')"))
 p = src / "freedump/memory/fridajs/core.js"
 s = p.read_text()
 assert "Process.enumerateRangesSync(prot)" in s
@@ -72,6 +78,15 @@ for pair in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
     dest="$PRIVATE/$group-$pid"
     mkdir -p "$dest"
     echo "FREEDUMP_START app=$group pid=$pid"
+    if ! timeout 10 .ixio-tools/venv/bin/frida-ps -U > "$OUT/$group/frida-ready-$pid.log" 2>&1; then
+      echo "FRIDA_RESTART_REQUESTED pid=$pid" >> "$OUT/$group/frida-ready-$pid.log"
+      adb shell su -c "/data/local/tmp/ixio-frida-server -D" >> "$OUT/$group/frida-ready-$pid.log" 2>&1 || true
+      sleep 2
+    fi
+    if ! timeout 10 .ixio-tools/venv/bin/frida-ps -U >> "$OUT/$group/frida-ready-$pid.log" 2>&1; then
+      printf "PID_%s=FRIDA_UNAVAILABLE\n" "$pid" >> "$OUT/$group/status.env"
+      continue
+    fi
     set +e
     timeout --signal=TERM --kill-after=8s 165 \
       .ixio-tools/venv/bin/freedump -u -p "$pid" -o "$dest" \
