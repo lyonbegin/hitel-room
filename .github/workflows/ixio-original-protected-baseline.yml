@@ -1,0 +1,52 @@
+name: IXIO Original Protected APK vs Reconstructed Startup Baseline
+on:
+  push:
+    branches: [experiment/ixio-runtime-lab-20261115]
+    paths:
+      - '.github/workflows/ixio-original-protected-baseline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Obtain exact original IXIO packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-inputs ixio-original-baseline
+          gh release download ixio-input-20261115 --repo "$GH_REPO" --pattern 'mmsimage.zip' --dir .ixio-inputs
+          python3 tools/ixio/verify_release_zip.py .ixio-inputs/mmsimage.zip .ixio-inputs \
+            > ixio-original-baseline/original-input-sha256.json
+          mkdir -p .ixio-inputs/main-splits
+          unzip -q .ixio-inputs/main.xapk 'base.apk' 'split_*.apk' -d .ixio-inputs/main-splits
+      - name: Baseline launch original protected main/recorder separately
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash tools/ixio/ixio-original-protected-baseline.sh
+      - name: Upload original startup comparison baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-original-protected-app-startup-baseline
+          path: ixio-original-baseline/
+          if-no-files-found: warn
