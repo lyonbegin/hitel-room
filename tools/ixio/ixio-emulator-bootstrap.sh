@@ -68,7 +68,22 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
       if [ -f "ixio-lab-results/$p/local-dump/metadata.json" ]; then
         python3 -c 'import json,sys; p=sys.argv[1]; j=json.load(open(p)); print(json.dumps({"target":sys.argv[2],"metadata_keys":list(j.keys()),"dump_file_count":len(list(__import__("pathlib").Path(p).parent.glob("dex/*.dex")))}))' "ixio-lab-results/$p/local-dump/metadata.json" "$p" | tee "ixio-lab-results/$p/dump-summary.json" || true
       fi
-      # Do not publish third-party proprietary DEX outputs in a public Actions artifact.
+      if find "ixio-lab-results/$p/local-dump/dex" -type f -name '*.dex' -print -quit 2>/dev/null | grep -q .; then
+        tar -czf "ixio-lab-results/$p/local-dump.tar.gz" -C "ixio-lab-results/$p/local-dump" .
+        if openssl cms -encrypt -binary -aes256 \
+          -in "ixio-lab-results/$p/local-dump.tar.gz" \
+          -out "ixio-lab-results/$p/DEX_ENCRYPTED.cms" -outform DER \
+          -recip tools/ixio/dump-public-20261115.crt; then
+          mark "DEX_DUMP_$p" ENCRYPTED_FOR_USER_ONLY
+        else
+          mark "DEX_DUMP_$p" ENCRYPTION_FAILED
+          rm -f "ixio-lab-results/$p/DEX_ENCRYPTED.cms"
+        fi
+        rm -f "ixio-lab-results/$p/local-dump.tar.gz"
+      else
+        mark "DEX_DUMP_$p" NO_RUNTIME_DEX_FOUND
+      fi
+      # Never expose plaintext third-party DEX on a public GitHub Actions artifact.
       rm -rf "ixio-lab-results/$p/local-dump"
     else
       mark "DUMP_$p" CLSDUMPER_NOT_INSTALLED
@@ -97,6 +112,21 @@ elif [ -d .ixio-inputs/play-main ] && [ -d .ixio-inputs/play-recorder ]; then
       (timeout 90 .ixio-tools/venv/bin/clsdumper "$p" --spawn -o "ixio-lab-results/$p/local-dump" -d > "ixio-lab-results/$p/dump-attempt.log" 2>&1 || true)
       if [ -f "ixio-lab-results/$p/local-dump/metadata.json" ]; then
         python3 -c 'import json,sys; p=sys.argv[1]; j=json.load(open(p)); print(json.dumps({"target":sys.argv[2],"metadata_keys":list(j.keys()),"dump_file_count":len(list(__import__("pathlib").Path(p).parent.glob("dex/*.dex")))}))' "ixio-lab-results/$p/local-dump/metadata.json" "$p" | tee "ixio-lab-results/$p/dump-summary.json" || true
+      fi
+      if find "ixio-lab-results/$p/local-dump/dex" -type f -name '*.dex' -print -quit 2>/dev/null | grep -q .; then
+        tar -czf "ixio-lab-results/$p/local-dump.tar.gz" -C "ixio-lab-results/$p/local-dump" .
+        if openssl cms -encrypt -binary -aes256 \
+          -in "ixio-lab-results/$p/local-dump.tar.gz" \
+          -out "ixio-lab-results/$p/DEX_ENCRYPTED.cms" -outform DER \
+          -recip tools/ixio/dump-public-20261115.crt; then
+          mark "DEX_DUMP_$p" ENCRYPTED_FOR_USER_ONLY
+        else
+          mark "DEX_DUMP_$p" ENCRYPTION_FAILED
+          rm -f "ixio-lab-results/$p/DEX_ENCRYPTED.cms"
+        fi
+        rm -f "ixio-lab-results/$p/local-dump.tar.gz"
+      else
+        mark "DEX_DUMP_$p" NO_RUNTIME_DEX_FOUND
       fi
       rm -rf "ixio-lab-results/$p/local-dump"
     fi
