@@ -7,6 +7,7 @@ on:
       - 'tools/ixio/ixio_runtime_payload_audit.sh'
       - 'tools/ixio/ixio_runtime_payload_verify.py'
       - 'tools/ixio/ixio_jadx_semantic_probe.py'
+      - 'tools/ixio/ixio_jadx_error_diagnostics.py'
       - 'tools/ixio/ixio-emulator-bootstrap.sh'
       - 'tools/ixio/dump-public-20261115.crt'
   workflow_dispatch:
@@ -105,6 +106,8 @@ jobs:
             test -s "ixio-lab-results/runtime-payload-audit/$group/validation-late.json"
           done
           test -s ixio-lab-results/runtime-payload-audit/recorder/semantic-jadx.json
+          test -s ixio-lab-results/runtime-payload-audit/recorder/jadx-errors-auto.json
+          test -s ixio-lab-results/runtime-payload-audit/recorder/jadx-errors-simple.json
           echo 'IXIO_APPSEALING_RUNTIME_AUDIT=BOTH_APPS_CAPTURED_JADX_RECORDER_ANALYZED'
       - name: Upload diagnostic logs (not proprietary APKs)
         if: always()
