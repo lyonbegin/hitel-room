@@ -53,19 +53,42 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
     shopt -s nullglob
     dex_files=("$raw/late/app_payload_lib/com_lguplus_callrecorder/"*.dex)
     if [ "${#dex_files[@]}" -gt 0 ]; then
+      # Keep full debug logs private/encrypted. Publish categorized metadata only.
       set +e
-      timeout --signal=TERM --kill-after=10s 240 \
+      timeout --signal=TERM --kill-after=10s 195 \
         .ixio-tools/jadx/bin/jadx --no-res --threads-count 2 \
+          --log-level debug --comments-level debug --show-bad-code \
           -d "$raw/jadx-output" "${dex_files[@]}" \
-          > "$dest/jadx.log" 2>&1
+          > "$raw/jadx-detail.log" 2>&1
       jadx_rc=$?
       set -e
       printf "JADX_EXIT=%s\n" "$jadx_rc" >> "$dest/status.env"
+      grep -E "finished with errors|Loading finished with errors|done" "$raw/jadx-detail.log" | tail -n 12 > "$dest/jadx.log" || true
+      python3 tools/ixio/ixio_jadx_error_diagnostics.py \
+        --log "$raw/jadx-detail.log" --sources "$raw/jadx-output" \
+        --mode auto --output "$dest/jadx-errors-auto.json" \
+        > "$dest/jadx-errors-auto.log" 2>&1 || true
       if find "$raw/jadx-output" -type f -name "*.java" -print -quit 2>/dev/null | grep -q .; then
         python3 tools/ixio/ixio_jadx_semantic_probe.py \
           --sources "$raw/jadx-output" --output "$dest/semantic-jadx.json" \
           > "$dest/semantic-jadx.log" 2>&1 || true
       fi
+      # Distinguish malformed DEX from Java restructuring failures.
+      # JADX simple mode uses a linear representation of the bytecode.
+      set +e
+      timeout --signal=TERM --kill-after=10s 130 \
+        .ixio-tools/jadx/bin/jadx --no-res --threads-count 2 \
+          --log-level debug --decompilation-mode simple \
+          --comments-level debug --show-bad-code \
+          -d "$raw/jadx-simple-output" "${dex_files[@]}" \
+          > "$raw/jadx-simple-detail.log" 2>&1
+      simple_rc=$?
+      set -e
+      printf "JADX_SIMPLE_EXIT=%s\n" "$simple_rc" >> "$dest/status.env"
+      python3 tools/ixio/ixio_jadx_error_diagnostics.py \
+        --log "$raw/jadx-simple-detail.log" --sources "$raw/jadx-simple-output" \
+        --mode simple --output "$dest/jadx-errors-simple.json" \
+        > "$dest/jadx-errors-simple.log" 2>&1 || true
     else
       echo "JADX=no_recorder_dex" >> "$dest/status.env"
     fi
