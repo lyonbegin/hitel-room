@@ -1,0 +1,150 @@
+name: Essence2 ORIGINAL ARM64 Galaxy Z Fold phone APK with diagnostics and on-device API key
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-installable-phone-fold-diagnostics-apk.yml
+      - tools/bithuman_deep/essence2_physical_device_diagnostics_patch.py
+      - tools/bithuman_deep/essence2_official_sample_runtime_secret_patch.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build-installable-essence2-phone-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43712181851
+          name: essence2-0-10-3-original-bytecode-and-machine-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/original-essence2-aar
+      - name: Use unchanged original Essence 2 native/JVM SDK and actual official GitHub Android app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/essence2-installable-phone build/installable-essence2
+          SDK='build/original-essence2-aar/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar'
+          echo '00657a151cb697a546447152a4213df205cd0c455044c86f88e3bbb226cf7f3e  '"$SDK" | sha256sum -c
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/official-bithuman"
+          git -C "$RUNNER_TEMP/official-bithuman" rev-parse HEAD \
+            > reports/essence2-installable-phone/official-app-upstream-commit.txt
+          PROJECT="$RUNNER_TEMP/official-bithuman/android/essence2-hello"
+          APP="$PROJECT/app"
+          test -f "$APP/src/main/java/com/example/e2hello/MainActivity.kt"
+          (cd "$PROJECT" && find app/src -type f -print0 | sort -z | xargs -0 sha256sum) \
+            > reports/essence2-installable-phone/official-app-source-before.sha256
+          mkdir -p "$APP/libs"
+          cp "$SDK" "$APP/libs/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar"
+          # Keep the full official rendering code; add only a local credential prompt.
+          python3 tools/bithuman_deep/essence2_official_sample_runtime_secret_patch.py \
+            --file "$APP/src/main/java/com/example/e2hello/MainActivity.kt" \
+            --report reports/essence2-installable-phone/runtime-secret-ui-patch.json
+          python3 tools/bithuman_deep/essence2_physical_device_diagnostics_patch.py \
+            --file "$APP/src/main/java/com/example/e2hello/MainActivity.kt" \
+            --report reports/essence2-installable-phone/physical-diagnostics-ui-patch.json
+          # No API secrets in build inputs/flags, no changes in vendor SDK binaries.
+          python3 - "$APP/build.gradle.kts" <<'PY'
+          from pathlib import Path
+          import sys
+          path=Path(sys.argv[1])
+          source=path.read_text()
+          old='implementation("ai.bithuman:essence2-android:0.9.5")'
+          new='implementation(files("libs/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar"))'
+          if source.count(old)!=1:raise ValueError("OFFICIAL_SAMPLE_UNEXPECTED_SDK_DEPENDENCY")
+          path.write_text(source.replace(old,new))
+          # Original app must not inject any authentication secret into BuildConfig.
+          assert 'buildConfigField("String", "BITHUMAN_API_SECRET"' in source
+          PY
+          (cd "$PROJECT" && find app/src -type f -print0 | sort -z | xargs -0 sha256sum) \
+            > reports/essence2-installable-phone/official-app-source-after.sha256
+          python3 - <<'PY'
+          from pathlib import Path
+          bef=Path("reports/essence2-installable-phone/official-app-source-before.sha256").read_text().splitlines()
+          aft=Path("reports/essence2-installable-phone/official-app-source-after.sha256").read_text().splitlines()
+          changed=[b.split(None,1)[-1] for b,a in zip(bef,aft) if b!=a]
+          assert len(bef)==len(aft) and changed==['app/src/main/java/com/example/e2hello/MainActivity.kt'],changed
+          print("OFFICIAL_APP_ONLY_MAINACTIVITY_UI_CHANGED;SDK_UNMODIFIED")
+          PY
+          cp "$APP/build.gradle.kts" reports/essence2-installable-phone/app-build.gradle.kts.txt
+          (cd "$PROJECT" && chmod +x gradlew && ./gradlew --no-daemon --max-workers=2 :app:assembleDebug) \
+            | tee reports/essence2-installable-phone/gradle-build.log
+          cp "$APP/build/outputs/apk/debug/app-debug.apk" \
+            build/installable-essence2/Essence2_0.10.3_ARM64_Galaxy_Z_Fold_Diagnostics.apk
+          cp build/installable-essence2/*.apk reports/essence2-installable-phone/
+      - name: Verify signed installable APK manifest package API and four byte-exact original ARM64 DSOs
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK=build/original-essence2-aar/Essence2_0.10.3_original_JVM_ARM64_reassembled.aar
+          APK=build/installable-essence2/Essence2_0.10.3_ARM64_Galaxy_Z_Fold_Diagnostics.apk
+          unzip -t "$APK" > reports/essence2-installable-phone/zip-integrity.txt
+          unzip -Z1 "$APK" > reports/essence2-installable-phone/apk-entries.txt
+          python3 - "$SDK" "$APK" <<'PY'
+          import sys,zipfile,hashlib,json
+          sdk,apk=sys.argv[1:]
+          with zipfile.ZipFile(sdk) as a,zipfile.ZipFile(apk) as b:
+            libs={}
+            for name in ("libe2u_jni.so","lible_jni.so","libonnxruntime.so","libc++_shared.so"):
+              aarname="jni/arm64-v8a/"+name
+              apkname="lib/arm64-v8a/"+name
+              original=a.read(aarname)
+              embedded=b.read(apkname)
+              assert original==embedded,(name,"APP_MODIFIED_ORIGINAL_VENDOR_ELF")
+              libs[name]={"bytes":len(original),"sha256":hashlib.sha256(original).hexdigest()}
+            dex=[name for name in b.namelist() if name.endswith(".dex")]
+            assert dex and "AndroidManifest.xml" in b.namelist()
+            assert all(not name.startswith("lib/x86") for name in b.namelist())
+            r={"original_sdk_native_four_libraries_byte_identical":True,"libs":libs,
+               "dex_entries":len(dex),"android_manifest_present":True,
+               "api_secret_in_sdk_or_app_source":False,
+               "user_must_enter_valid_secret_on_device":True,
+               "no_vendor_sdk_code_modified":True,
+               "physical_device_install_test_performed":False,
+               "model_rendering_test_performed":False}
+            open("reports/essence2-installable-phone/binary-identity.json","w").write(json.dumps(r,indent=2)+"\n")
+            print("ESSENCE2_INSTALLABLE_APK_ORIGINAL_SDK_FOUR_SO_SHA_BYTE_IDENTICAL_PASS")
+          PY
+          echo "Essence2 APK: $(sha256sum "$APK")" > reports/essence2-installable-phone/APK_SHA256.txt
+          TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$TOOLS/apksigner" verify --verbose "$APK" \
+            > reports/essence2-installable-phone/apksigner-verify.txt
+          "$TOOLS/aapt" dump badging "$APK" \
+            > reports/essence2-installable-phone/aapt-badging.txt
+          grep -E "^package:|^sdkVersion:|^native-code:" reports/essence2-installable-phone/aapt-badging.txt \
+            | tee reports/essence2-installable-phone/install-profile.txt
+          cat reports/essence2-installable-phone/apksigner-verify.txt
+          cat > reports/essence2-installable-phone/설치_및_테스트_안내.txt <<'EOF'
+          Essence 2 0.10.3 ARM64 Android 실기기 설치 APK
+          - 파일: Essence2_0.10.3_ARM64_Galaxy_Z_Fold_Diagnostics.apk
+          - Android 10(API 29) 이상, arm64-v8a 프로세서 필요
+          - 기기에서 APK 다운로드 > 다운로드 파일 열기 > 알 수 없는 앱 설치 허용(필요시) > 설치
+          - 최초 실행 시 본인의 합법적인 bitHuman API Secret을 앱 내 입력창에 입력
+          - 원본 SDK 모델 준비, create, feed, 첫 프레임, 25프레임 단위 시간 측정
+          - 화면 상단 '진단 로그 복사' 버튼으로 기기에서 기록된 결과를 공유
+          - API Secret은 APK/BuildConfig/파일/공개 GitHub에 저장되지 않음. 앱 종료시 재입력 필요할 수 있음
+          - 공식 샘플이 Sofia Ramirez 모델(A52DHS2219)을 다운로드함. 충분한 Wi-Fi/저장공간 필요
+          - 이미지/음성 렌더링은 API Secret과 모델 접근 권한이 있어야 함. 무키 상태에서는 실제 렌더링 불가능
+          - 앱에는 공식 샘플 음성 파일이 포함되어 있음
+          - GitHub Actions에서 APK 빌드, 서명 검증, 네 개 ARM64 SO 원본 바이트 동일성 확인
+          - 실제 기기 설치/모델 렌더링은 아직 미검증. 테스트 결과/오류는 사용자 기기에서 확인 필요
+          EOF
+          cat reports/essence2-installable-phone/install-profile.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "## APK SHA256" >> "$GITHUB_STEP_SUMMARY"
+          cat reports/essence2-installable-phone/APK_SHA256.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "## Signing check" >> "$GITHUB_STEP_SUMMARY"
+          cat reports/essence2-installable-phone/apksigner-verify.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "ESSENCE2_ORIGINAL_GALAXY_FOLD_DIAGNOSTICS_ARM64_APK_BUILD_AND_SIGNATURE_PASS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-0-10-3-arm64-galaxy-fold-diagnostics-apk
+          path: reports/essence2-installable-phone/
+          retention-days: 60
