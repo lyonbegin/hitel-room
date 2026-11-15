@@ -72,6 +72,35 @@ adb exec-out screencap -p > "$OUT/screenshot.png" || true
 adb shell dumpsys meminfo "$PKG" > "$OUT/meminfo.txt" || true
 adb exec-out run-as "$PKG" cat files/official-first-frame.png > "$OUT/official-first-frame.png" 2>/dev/null || true
 if ! file "$OUT/official-first-frame.png" | grep -q 'PNG image data'; then rm -f "$OUT/official-first-frame.png";fi
+
+# Read back multiple ACTUAL original SDK Bitmap outputs, not test-generated images.
+for frame in 1 2 10 20 40; do
+  adb exec-out run-as "$PKG" cat "files/official-frame-$frame.png" \
+    > "$OUT/official-frame-$frame.png" 2>/dev/null || true
+done
+python3 - "$OUT" <<'PY'
+from pathlib import Path
+import hashlib,json,struct,sys
+root=Path(sys.argv[1])
+records=[]
+for n in (1,2,10,20,40):
+    path=root/f"official-frame-{n}.png"
+    if not path.is_file():continue
+    data=path.read_bytes()
+    if len(data)<24 or data[:8]!=b"\x89PNG\r\n\x1a\n":continue
+    width,height=struct.unpack(">II",data[16:24])
+    records.append({"frame_number":n,"width":width,"height":height,
+                    "png_bytes":len(data),"png_sha256":hashlib.sha256(data).hexdigest()})
+diversity=len({p["png_sha256"] for p in records})
+report={"kind":"original-SDK-JNI-frame-diversity",
+        "saved_original_frame_samples":records,"distinct_png_sha256":diversity,
+        "all_expected_frame_samples_captured":len(records)==5,
+        "all_dimensions_416x720":all((p["width"],p["height"])==(416,720) for p in records),
+        "animated_frames_not_identical":diversity>=2}
+(root/"FRAME_DIVERSITY.json").write_text(json.dumps(report,indent=2)+"\n")
+print("SDK_ORIGINAL_FRAME_DIVERSITY",json.dumps(report))
+PY
+
 grep -E 'SDK_PROBE_|SDK_ORIGINAL_|MODEL_ORIGINAL_|SDK_OFFICIAL_|SDK_CREDENTIAL|SDK_MODEL_' "$OUT/official.logcat" \
   | tee "$OUT/sdk-milestones.txt" || true
 python3 - "$OUT" <<'PY'
@@ -91,8 +120,17 @@ checks={
  "original_avatar_create_success":"SDK_OFFICIAL_CREATE_PASS" in logs,
  "first_frame_produced_by_original_arm64":"SDK_OFFICIAL_FIRST_FRAME_PASS" in logs and (p/"official-first-frame.png").is_file(),
  "original_render_pass":"SDK_OFFICIAL_RENDER_PASS" in logs,
+ "multiple_original_video_frames_distinct":False,
  "no_unexpected_app_exception":"SDK_PROBE_UNEXPECTED_FAIL" not in logs
 }
+diversity_path=p/"FRAME_DIVERSITY.json"
+if diversity_path.is_file():
+    diversity=json.loads(diversity_path.read_text())
+    checks["multiple_original_video_frames_distinct"]= (
+        diversity["all_expected_frame_samples_captured"]
+        and diversity["all_dimensions_416x720"]
+        and diversity["animated_frames_not_identical"]
+    )
 first=next((k for k,v in checks.items() if not v),None)
 result={
  "kind":"real-original-SDK-Android-emulator-with-matched-CI-test-credential",
