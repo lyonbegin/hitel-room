@@ -84,7 +84,19 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
     mark IXIO_LSPOSED_SCOPE FAIL
     tail -60 ixio-lab-results/lsposed-scope-config.log || true
   fi
-  if [ "${IXIO_USE_UPSTREAM_AMDUMP:-0}" = 1 ]; then
+  if [ "${IXIO_USE_UPSTREAM_MEMDUMPER:-0}" = 1 ]; then
+    echo "### UPSTREAM_MEMDUMPER_IXIO_APPS_ONLY"
+    if timeout --signal=TERM --kill-after=8s 700 \
+      bash tools/ixio/ixio_memdumper_existing_tool_test.sh \
+        > ixio-lab-results/upstream-memdumper-run.log 2>&1; then
+      mark IXIO_MEMDUMPER_CAPTURE SUCCESS_CHECK_OUTPUTS
+    else
+      mark IXIO_MEMDUMPER_CAPTURE FAILED_CHECK_LOGS
+      tail -60 ixio-lab-results/upstream-memdumper-run.log || true
+      fail=$((fail+1))
+    fi
+  elif [ "${IXIO_USE_UPSTREAM_AMDUMP:-0}" = 1 ]; then
+
     echo "### UPSTREAM_AMDUMP_IXIO_ONLY"
     if timeout --signal=TERM --kill-after=8s 700 \
       bash tools/ixio/ixio_amdump_existing_tool_test.sh \
