@@ -49,7 +49,7 @@ jobs:
           cp .ixio-tools/apppealing-src/app/build/outputs/apk/debug/app-debug.apk \
             .ixio-tools/apppealing-debug.apk
           python3 -m venv .ixio-tools/venv
-          .ixio-tools/venv/bin/pip install --disable-pip-version-check 'frida==17.26.3' 'frida-tools' \
+          .ixio-tools/venv/bin/pip install --disable-pip-version-check 'frida==17.26.3' 'frida-tools' 'clsdumper' \
             > ixio-lab-results/frida-pip.log 2>&1
           .ixio-tools/venv/bin/frida --version
           sha256sum .ixio-tools/{avdroot,Magisk-v31.1.apk,LSPosed.zip,frida-server,apppealing-debug.apk} \
