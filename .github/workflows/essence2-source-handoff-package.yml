@@ -1,0 +1,80 @@
+name: Essence2 official SDK original reverse engineering all source scripts and handoff package
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-source-handoff-package.yml
+      - docs/essence2_original_reverse_engineering_full_handoff_20261115.md
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  essence2-all-original-reverse-engineering-sources:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package actual committed programs, workflows and next-chat documentation
+        run: |
+          set -euo pipefail
+          root=build/essence2-handoff
+          mkdir -p "$root"
+          cat > /tmp/essence2-original-source-list.txt <<'EOF'
+          docs/essence2_original_reverse_engineering_full_handoff_20261115.md
+          tools/bithuman_deep/essence2_original_sdk_inventory_reassembly.py
+          tools/bithuman_deep/Essence2OriginalJvmAsmAudit.java
+          tools/bithuman_deep/essence2_jvm_jni_crosswalk.py
+          tools/bithuman_deep/essence2_five_tool_lief_capstone.py
+          tools/bithuman_deep/essence2_five_tool_dyninst.cpp
+          tools/bithuman_deep/five_tool_gtirb.py
+          tools/bithuman_deep/essence2_five_tool_cross_compare.py
+          tools/bithuman_deep/ghidra/Essence2FdePcodeMemory.java
+          tools/bithuman_deep/ghidra/Essence2OriginalFdeGapAudit.java
+          tools/bithuman_deep/ghidra/Essence2OriginalGapRecover.java
+          tools/bithuman_deep/essence2_original_jvm_text_patch.py
+          tools/bithuman_deep/test_essence2_direct_jvm_patch_android.sh
+          experiments/bithuman-essence2-jvm-direct-patch-test/MessageProbeActivity.kt
+          tools/bithuman_deep/expression2_package_protection_inventory.py
+          .github/workflows/essence2-original-jvm-arm64-aar-reassembly.yml
+          .github/workflows/essence2-original-jvm-asm-jni-crosswalk.yml
+          .github/workflows/essence2-original-five-tools-both-native-engines.yml
+          .github/workflows/essence2-original-ghidra-capstone-gap-classification.yml
+          .github/workflows/essence2-original-ghidra-fde-gap-recovery.yml
+          .github/workflows/essence2-reassembled-official-example-apk.yml
+          .github/workflows/essence2-original-jvm-text-patch-aar-apk.yml
+          .github/workflows/essence2-original-jvm-patch-real-android-runtime.yml
+          .github/workflows/essence2-original-aar-apk-protection-inventory.yml
+          .github/workflows/essence2-source-handoff-package.yml
+          EOF
+          while IFS= read -r path;do
+            test -s "$path" || { echo "MISSING_SOURCE:$path";exit 1; }
+            mkdir -p "$root/$(dirname "$path")"
+            cp "$path" "$root/$path"
+          done < /tmp/essence2-original-source-list.txt
+          test "$(wc -l < /tmp/essence2-original-source-list.txt)" -eq 25
+          cp /tmp/essence2-original-source-list.txt "$root/FILE_LIST.txt"
+          git rev-parse HEAD > "$root/GIT_COMMIT.txt"
+          cat > "$root/README-FIRST.md" <<'EOF'
+          # Essence2 ORIGINAL Android 0.10.3 binary preservation handoff
+
+          Read docs/essence2_original_reverse_engineering_full_handoff_20261115.md first.
+          Included: 25 actual original-research source code, CI workflows and method docs.
+          Vendor AAR/ELF, IMX avatar model files and credentials are NOT included.
+          The original AAR and a text-only modified AAR were separately rebuilt and
+          verified in Actions. No billing/credential bypass exists in this source.
+          EOF
+          (
+            cd "$root"
+            find docs tools .github experiments -type f -print0 | sort -z | xargs -0 sha256sum \
+              > SHA256SUMS.txt
+          )
+          mkdir -p deliverables
+          (cd build && zip -q -r ../deliverables/Essence2_0.10.3_original_reverse_engineering_all_sources_20261115.zip essence2-handoff)
+          unzip -t deliverables/Essence2_0.10.3_original_reverse_engineering_all_sources_20261115.zip | tail -1
+          sha256sum deliverables/*.zip > deliverables/SHA256.txt
+          echo ESSENCE2_ORIGINAL_SDK_FULL_SOURCE_HANDOFF_PACKAGE_PASS files=25
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-original-binary-asm-jni-five-tool-source-handoff
+          path: deliverables/
+          retention-days: 60
