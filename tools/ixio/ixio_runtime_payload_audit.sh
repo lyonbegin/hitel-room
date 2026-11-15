@@ -76,6 +76,11 @@ for item in "com.lguplus.aicallagent main" "com.lguplus.callrecorder recorder"; 
           --sources "$raw/jadx-output" --group "$group" \
           --output "$dest/split-roles.json" \
           > "$dest/split-roles.log" 2>&1 || true
+        if [ "$group" = recorder ]; then
+          python3 tools/ixio/ixio_recorder_caller_auth_probe.py \
+            --sources "$raw/jadx-output" --output "$dest/caller-auth.json" \
+            > "$dest/caller-auth.log" 2>&1 || true
+        fi
       fi
     else
       echo "JADX=no_recorder_dex" >> "$dest/status.env"
