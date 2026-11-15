@@ -28,8 +28,6 @@ def main():
     if not apks: raise RuntimeError("AppPealing package not installed")
     apk_path = apks[0]
     run("shell", "su", "-c", "ls -l " + DEVICE_DB)
-    # Freeze LSPosed's in-memory SQLite caches until the system reboots.
-    run("shell", "su", "-c", "killall -STOP lspd", check=False)
     with tempfile.TemporaryDirectory(prefix="ixio_scope_") as td:
         base = pathlib.Path(td)
         db_file = base / "modules_config.db"
@@ -59,6 +57,8 @@ def main():
         finally:
             db.close()
         run("push", str(db_file), "/data/local/tmp/ixio-lsposed-config.db")
+        # Pause LSPosed only during DB replacement, then reboot.
+        run("shell", "su", "-c", "killall -STOP lspd", check=False)
         run("shell", "su", "-c", "cp /data/local/tmp/ixio-lsposed-config.db " + DEVICE_DB + " && "
             "chmod 600 " + DEVICE_DB + " && "
             "rm -f " + DEVICE_DB + "-wal " + DEVICE_DB + "-shm && "
