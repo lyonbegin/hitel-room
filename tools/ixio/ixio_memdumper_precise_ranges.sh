@@ -8,6 +8,8 @@ RUNNER="/data/local/tmp/ixio-md-range-runner.sh"
 PRIVATE=".ixio-memdumper-precise-private"
 CERT="tools/ixio/dump-public-20261115.crt"
 mkdir -p "$OUT" "$PRIVATE"
+trap 'rm -rf "$PRIVATE"' EXIT
+trap 'exit 124' INT TERM
 test -s .ixio-tools/memdumper && test -f "$CERT" || exit 2
 adb push .ixio-tools/memdumper "$BIN" >/dev/null || exit 2
 adb push tools/ixio/ixio_memdumper_plan_runner.sh "$RUNNER" >/dev/null || exit 2
@@ -118,6 +120,13 @@ pathlib.Path(out).write_text(json.dumps({"planned":len(rows),
  "observations":rows},indent=2))
 print("VERIFIED",len(rows),"NONZERO_VALID",valid,"FILE_BYTES",compare,"EQUAL",exact)
 PY
+   # Forensic metadata only: inspect raw MemDumper chunks before they are
+   # encrypted and destroyed. No reconstructed code enters public artifacts.
+   python3 tools/ixio/ixio_memdumper_dex_scan.py \
+     --manifest "$metadata" --directory "$localdir" \
+     --output "$OUT/$group/dex-scan-$pid.json" --originals .ixio-inputs \
+     > "$OUT/$group/dex-scan-$pid.log" 2>&1 || \
+     echo "PID_$pid=DEX_SCAN_FAILED" >> "$OUT/$group/status.env"
  done
  rawdirs="$(find "$PRIVATE" -mindepth 1 -maxdepth 1 -type d -name "$group-*" -printf '%f ')" || true
  if test -n "$rawdirs"; then
