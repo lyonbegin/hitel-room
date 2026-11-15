@@ -74,6 +74,33 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
       mark "DUMP_$p" CLSDUMPER_NOT_INSTALLED
     fi
   done
+elif [ -d .ixio-inputs/play-main ] && [ -d .ixio-inputs/play-recorder ]; then
+  mapfile -d '' -t main_apks < <(find .ixio-inputs/play-main -type f -name '*.apk' -print0)
+  mapfile -d '' -t recorder_apks < <(find .ixio-inputs/play-recorder -type f -name '*.apk' -print0)
+  if [ "${#main_apks[@]}" -gt 0 ]; then
+    step IXIO_MAIN_PLAY_INSTALL adb install-multiple -r "${main_apks[@]}"
+  else
+    mark IXIO_MAIN_PLAY_INSTALL NO_VERSION_MATCH_DOWNLOAD
+  fi
+  if [ "${#recorder_apks[@]}" -gt 0 ]; then
+    step IXIO_RECORDER_PLAY_INSTALL adb install-multiple -r "${recorder_apks[@]}"
+  else
+    mark IXIO_RECORDER_PLAY_INSTALL NO_VERSION_MATCH_DOWNLOAD
+  fi
+  for p in com.lguplus.aicallagent com.lguplus.callrecorder; do
+    mkdir -p "ixio-lab-results/$p"
+    adb shell dumpsys package "$p" | grep -E 'versionName=|primaryCpuAbi=|versionCode=' | head -12 > "ixio-lab-results/$p/installed-package.txt" || true
+    adb shell monkey -p "$p" 1 || true
+    sleep 8
+    adb shell pidof "$p" || true
+    if [ -x .ixio-tools/venv/bin/clsdumper ]; then
+      (timeout 90 .ixio-tools/venv/bin/clsdumper "$p" --spawn -o "ixio-lab-results/$p/local-dump" -d > "ixio-lab-results/$p/dump-attempt.log" 2>&1 || true)
+      if [ -f "ixio-lab-results/$p/local-dump/metadata.json" ]; then
+        python3 -c 'import json,sys; p=sys.argv[1]; j=json.load(open(p)); print(json.dumps({"target":sys.argv[2],"metadata_keys":list(j.keys()),"dump_file_count":len(list(__import__("pathlib").Path(p).parent.glob("dex/*.dex")))}))' "ixio-lab-results/$p/local-dump/metadata.json" "$p" | tee "ixio-lab-results/$p/dump-summary.json" || true
+      fi
+      rm -rf "ixio-lab-results/$p/local-dump"
+    fi
+  done
 else
   mark IXIO_TARGET_INPUTS MISSING
 fi
