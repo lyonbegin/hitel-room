@@ -1,0 +1,51 @@
+name: Essence2 original 0.10.3 AAR and rebuilt APK protection/AppSealing indicator audit
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-aar-apk-protection-inventory.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-original-apk-protection-indicator-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43712753272
+          name: essence2-original-reassembled-aar-real-official-sample-apk-build-and-binary-proof
+          github-token: ${{ github.token }}
+          path: build/original-essence2-apk
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43713490280
+          name: essence2-original-jvm-text-only-official-example-apk
+          github-token: ${{ github.token }}
+          path: build/patched-essence2-apk
+      - name: Acquire and verify official Essence2 SDK
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/essence2" reports/essence2-protection
+          curl -fLsS --retry 3 --max-time 300 \
+            'https://maven.bithuman.ai/ai/bithuman/essence2-android/0.10.3/essence2-android-0.10.3.aar' \
+            -o "$RUNNER_TEMP/essence2/source.aar"
+          echo "49bdeafc6a29675058851c5f7336dacaa0518d5af5bc6130eece96af73513e67  $RUNNER_TEMP/essence2/source.aar" \
+            | sha256sum -c
+      - name: Scan original AAR nested JVM classes and both compiled APKs
+        run: |
+          python3 tools/bithuman_deep/expression2_package_protection_inventory.py \
+            --original-aar "$RUNNER_TEMP/essence2/source.aar" \
+            --unpatched-apk build/original-essence2-apk/Essence2_0.10.3_original_reassembled_sdk_sample.apk \
+            --patched-apk build/patched-essence2-apk/Essence2_0.10.3_JVM_text_only_sample.apk \
+            --out reports/essence2-protection
+          cat reports/essence2-protection/package-protection-SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-aar-and-apk-static-protection-signatures
+          path: reports/essence2-protection
+          retention-days: 30
