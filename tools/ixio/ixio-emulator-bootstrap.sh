@@ -87,7 +87,7 @@ if [ -f .ixio-inputs/main.xapk ] && [ -f .ixio-inputs/recorder.apk ]; then
   if [ "${IXIO_USE_UPSTREAM_MEMDUMPER:-0}" = 1 ]; then
     echo "### UPSTREAM_MEMDUMPER_IXIO_APPS_ONLY"
     if timeout --signal=TERM --kill-after=8s 700 \
-      bash tools/ixio/ixio_memdumper_existing_tool_test.sh \
+      bash tools/ixio/ixio_memdumper_precise_ranges.sh \
         > ixio-lab-results/upstream-memdumper-run.log 2>&1; then
       mark IXIO_MEMDUMPER_CAPTURE SUCCESS_CHECK_OUTPUTS
     else
