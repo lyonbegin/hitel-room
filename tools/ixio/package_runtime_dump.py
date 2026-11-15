@@ -26,9 +26,9 @@ def main() -> int:
         if len(rel) > 400 or file.stat().st_size > 150_000_000:
             continue
         head = file.open("rb").read(44)
-        is_dex = len(head) >= 40 and head[:4] == b"dex\\n" and head[7] == 0
+        is_dex = len(head) >= 40 and head[:4] == b"dex\n" and head[7] == 0
         is_cdex = head[:4] == b"cdex"
-        is_zip = head[:4] == b"PK\\x03\\x04"
+        is_zip = head[:4] == b"PK\x03\x04"
         raw = file.read_bytes()
         records.append({
             "relative_path": rel,
@@ -51,7 +51,7 @@ def main() -> int:
     (destination / "dump-manifest.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
     if not records:
         with (destination / "dump-status.txt").open("w") as out:
-            out.write("NO_RUNTIME_FILES_FOUND; no reusable memory dump was created.\\n")
+            out.write("NO_RUNTIME_FILES_FOUND; no reusable memory dump was created.\n")
         print(f"DEX_DUMP_{package}=NO_RUNTIME_FILES_FOUND")
         return 2
     temp_tar = destination / "runtime-dex-plaintext.tar.gz"
@@ -70,7 +70,7 @@ def main() -> int:
         return 3
     (destination / "encrypted-sha256.txt").write_text(
         hashlib.sha256(encrypted.read_bytes()).hexdigest()
-        + "  DEX_ENCRYPTED.cms\\n"
+        + "  DEX_ENCRYPTED.cms\n"
     )
     print(f"DEX_DUMP_{package}=ENCRYPTED_FILES={len(records)} VALID_DEX={report['valid_dex_or_cdex_count']}")
     return 0
