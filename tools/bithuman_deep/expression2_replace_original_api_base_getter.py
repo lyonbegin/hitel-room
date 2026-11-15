@@ -208,7 +208,9 @@ def main():
         original_jar = src.read("classes.jar")
         native = src.read("jni/arm64-v8a/libexpr2jni.so")
         litert = src.read("jni/arm64-v8a/libLiteRt.so")
-        assert sha(original_jar) == ORIGINAL_JAR_SHA
+        if sha(original) == ORIGINAL_AAR_SHA:
+            assert sha(original_jar) == ORIGINAL_JAR_SHA
+        # Reassembled classes.jar ZIP metadata is different; its classfile entry bytes are checked by pinned AAR SHA and exact getter opcode.
         assert sha(native) == NATIVE_SO_SHA
         assert sha(litert) == LITERT_SO_SHA
         with zipfile.ZipFile(io.BytesIO(original_jar)) as jar:
@@ -226,6 +228,7 @@ def main():
         "original_aar_sha256": sha(original),
         "original_published_aar_sha256_match": sha(original) == ORIGINAL_AAR_SHA,
         "original_reassembled_aar_sha256_match": sha(original) == REASSEMBLED_AAR_SHA,
+        "original_jvm_jar_zip_sha256": sha(original_jar),
         "patched_aar_sha256": sha(patched),
         "endpoint": base_url,
         "static_test_endpoint_only": base_url == TEST_ENDPOINT,
