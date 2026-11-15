@@ -91,11 +91,11 @@ jobs:
           from pathlib import Path
           p=Path("reports/expression2-ci-original-backend")
           events=[json.loads(line) for line in (p/"captured-request-fields.jsonl").read_text().splitlines()]
-          assert len(events) == 3, f"Original JVM must perform 2 good + 1 401 requests, got {len(events)}"
+          assert len(events) == 4, f"Original JVM must perform 3 good + 1 401 requests, got {len(events)}"
           assert [x["path"] for x in events] == [
-              "/v1/auth/validate", "/v1/meter/beats", "/v1/auth/validate"
+              "/v1/auth/validate", "/v1/meter/beats", "/v1/meter/beats", "/v1/auth/validate"
           ]
-          assert [x["authenticated_synthetic_fixture"] for x in events] == [True,True,False]
+          assert [x["authenticated_synthetic_fixture"] for x in events] == [True,True,True,False]
           assert all(x["content_type"] == "application/json" for x in events)
           assert all(isinstance(x["json_field_types"],dict) for x in events)
           assert all(x["authorization_scheme"] == "Bearer" for x in events)
@@ -104,6 +104,38 @@ jobs:
           for event in events:print(json.dumps(event,ensure_ascii=False,sort_keys=True))
           PY
           echo EPHEMERAL_SERVER_IS_LOOPBACK_TEST_ONLY_NOT_PERMANENT
+      - name: Build unmodified upstream Android example APK using the ONE-method-patched original AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/expr2-official-examples"
+          project="$RUNNER_TEMP/expr2-official-examples/android/expression2-hello"
+          cd "$project"
+          find app/src -type f -print0 | sort -z | xargs -0 sha256sum \
+            > "$GITHUB_WORKSPACE/reports/expression2-ci-original-backend/app-src-before.sha256"
+          mkdir -p app/libs
+          cp "$GITHUB_WORKSPACE/build/expr2-ci-sdk/original-one-function-loopback-only.aar" app/libs/
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/build.gradle.kts")
+          old='implementation("ai.bithuman:expression2-android:0.6.1")'
+          new='implementation(files("libs/original-one-function-loopback-only.aar"))'
+          data=p.read_text()
+          assert data.count(old)==1
+          p.write_text(data.replace(old,new))
+          PY
+          find app/src -type f -print0 | sort -z | xargs -0 sha256sum \
+            > "$GITHUB_WORKSPACE/reports/expression2-ci-original-backend/app-src-after.sha256"
+          cmp "$GITHUB_WORKSPACE/reports/expression2-ci-original-backend/app-src-before.sha256" \
+              "$GITHUB_WORKSPACE/reports/expression2-ci-original-backend/app-src-after.sha256"
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 :app:assembleDebug \
+            | tee "$GITHUB_WORKSPACE/reports/expression2-ci-original-backend/gradle-original-app-build.log"
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "$GITHUB_WORKSPACE/reports/expression2-ci-original-backend/CI_ONLY-original-SDK-single-backend-function.apk"
+          unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libexpr2jni.so'
+          unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libLiteRt.so'
+          echo ORIGINAL_VENDOR_APP_APK_ONLY_SINGLE_FUNCTION_AAR_SWAP_PASS
       - uses: actions/upload-artifact@v4
         if: always()
         with:
