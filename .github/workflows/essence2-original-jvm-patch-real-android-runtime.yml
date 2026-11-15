@@ -1,0 +1,77 @@
+name: Essence2 original JVM bytecode patch real Android ART and native libraries smoke
+on:
+  push:
+    branches: [feature/bithuman-essence2-original-binary-audit-20261115]
+    paths:
+      - .github/workflows/essence2-original-jvm-patch-real-android-runtime.yml
+      - tools/bithuman_deep/test_essence2_direct_jvm_patch_android.sh
+      - experiments/bithuman-essence2-jvm-direct-patch-test/MessageProbeActivity.kt
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  essence2-real-original-class-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43713490280
+          name: essence2-original-arm64-jvm-text-only-modified-aar
+          github-token: ${{ github.token }}
+          path: build/essence2-patched
+      - name: Build test APK using only original reassembled Essence2 SDK 0.10.3
+        run: |
+          set -euo pipefail
+          mkdir -p build/essence2-direct-runtime reports/essence2-direct-jvm-runtime
+          git clone --depth 1 https://github.com/bithuman-product/bithuman-examples.git "$RUNNER_TEMP/vendor"
+          project="$RUNNER_TEMP/vendor/android/essence2-hello"
+          cp experiments/bithuman-essence2-jvm-direct-patch-test/MessageProbeActivity.kt \
+            "$project/app/src/main/java/com/example/e2hello/MainActivity.kt"
+          mkdir -p "$project/app/libs"
+          cp build/essence2-patched/Essence2_0.10.3_JVM_text_only_reassembled.aar "$project/app/libs/"
+          python3 - "$project/app/build.gradle.kts" <<'PY'
+          from pathlib import Path
+          import sys
+          f=Path(sys.argv[1]);x=f.read_text()
+          original='implementation("ai.bithuman:essence2-android:0.9.5")'
+          replacement='implementation(files("libs/Essence2_0.10.3_JVM_text_only_reassembled.aar"))'
+          if x.count(original)!=1:raise ValueError("WRONG_ESSENCE2_EXAMPLE_DEPENDENCY")
+          f.write_text(x.replace(original,replacement))
+          PY
+          (cd "$project" && chmod +x gradlew && ./gradlew --no-daemon --max-workers=2 :app:assembleDebug) \
+            | tee reports/essence2-direct-jvm-runtime/gradle-build-log.txt
+          cp "$project/app/build/outputs/apk/debug/app-debug.apk" build/essence2-direct-runtime/app-debug.apk
+          sha256sum build/essence2-direct-runtime/app-debug.apk \
+            > reports/essence2-direct-jvm-runtime/apk-sha256.txt
+      - name: Enable KVM for emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | \
+             sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Actually execute modified vendor JVM constant inside Android ART
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 4096
+          script: bash tools/bithuman_deep/test_essence2_direct_jvm_patch_android.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-jvm-patched-real-android-runtime-log
+          path: reports/essence2-direct-jvm-runtime/
+          retention-days: 30
