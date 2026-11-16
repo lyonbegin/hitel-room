@@ -89,7 +89,7 @@ def main() -> None:
             matches=[n.attrib for n in nodes
                      if n.attrib.get("text","").strip()=="모든 전화"]
             if len(matches)==1:
-                m=re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
+                m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
                                matches[0].get("bounds",""))
                 if m:
                     x1,y1,x2,y2=map(int,m.groups())
@@ -119,7 +119,7 @@ def main() -> None:
     time.sleep(12)
     summary["connected"]=save("connected")
     summary["recorder_service_active_before_manual_toggle"]=bool(re.search(
-        r"com\\.lguplus\\.callrecorder/[^\\s}]*?(?:CallRecordingService|RecordService)",
+        r"com\.lguplus\.callrecorder/[^\s}]*?(?:CallRecordingService|RecordService)",
         (OUT/"connected-services.txt").read_text(errors="replace")
         if (OUT/"connected-services.txt").exists() else ""))
     print("IXIO_AUTO_RECORD_SERVICE_AT_CONNECTED",
