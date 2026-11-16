@@ -32,13 +32,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d6b445517d910af929a9effeed91141ec1164357
+          ref: ab3013528bb3f5a3b7699d767fd62c2844a31fde
           persist-credentials: false
       - name: Check RTL watcher syntax and allowed scope
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py
+          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py tools/bithuman_deep/rtl_galaxy_browser_automation.py
           ! grep -q -F 'Expression2Avatar.create(' tools/bithuman_deep/rtl_galaxy_rdb_probe.py
           echo ORIGINAL_SDK061_AND_APP_NOT_MODIFIED_FOR_RTL
       - name: Download EXACT previously verified full-flow original SDK 0.6.1 ARM64 APK
@@ -119,6 +119,24 @@ jobs:
               assert "developer.samsung.com" in pages[0].url, pages[0].url
               print("RTL_PLAYWRIGHT_SAME_BROWSER_CONNECTED")
           PY
+      - name: Start Samsung Galaxy Fold browser automation in the SAME Chrome as the operator
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Operator only handles Samsung account login and any 2FA.
+          # The helper controls device selection, reservation, RDB download,
+          # RDB Connect, and permitted web-client RSA confirmation afterwards.
+          # Chrome cookies/profile remain local to this ephemeral runner only.
+          nohup "$RUNNER_TEMP/rtl-py/bin/python" \
+            tools/bithuman_deep/rtl_galaxy_browser_automation.py \
+            --minutes 90 \
+            --rdb-file "$RUNNER_TEMP/rtl-runtime/rdb" \
+            > "$RUNNER_TEMP/rtl-browser-auto.log" 2>&1 < /dev/null &
+          echo "$!" > "$RUNNER_TEMP/rtl-browser-auto.pid"
+          sleep 3
+          kill -0 "$(cat "$RUNNER_TEMP/rtl-browser-auto.pid")"
+          echo RTL_BROWSER_AUTO_RUNNING_USER_ONLY_SAMSUNG_LOGIN
       - name: Preflight exit without publishing any browser
         if: env.RUN_MODE == 'preflight'
         shell: bash
@@ -174,16 +192,18 @@ jobs:
             echo
             echo "[Open exact Chrome on runner: ${URL}/vnc.html?autoconnect=true&resize=scale](${URL}/vnc.html?autoconnect=true&resize=scale)"
             echo
-            echo "Use RTL_VIEWER_EMAIL inbox PIN; log in to Samsung in the desktop."
-            echo "Reserve Galaxy Z Fold, click Remote Debug Bridge > Connect > Download Linux RDB."
-            echo "The GitHub runner automatically starts RDB after Chrome downloads the ZIP."
-            echo "Click Remote Debug Bridge > Connect AGAIN, and accept RSA debugging."
-            echo "When ADB connects, SDK061 full-flow APK auto installs, opens, and records filtered logs."
+            echo "**Only user action inside the remote Chrome: Samsung account login and 2FA.**"
+            echo "Browser Playwright automatically selects a Galaxy Z Fold, attempts reservation,"
+            echo "downloads the official Linux RDB ZIP inside THIS Chrome, requests RDB Connect,"
+            echo "and confirms labelled RSA Allow where supported by Samsung web client."
+            echo "Same Ubuntu starts RDB automatically and waits for its ADB bridge."
+            echo "After ADB connects, original SDK061 APK is installed, started and diagnosed without intervention."
+            echo "If Samsung changes its UI, automatic selectors may fail; logs will show the stage, never an invented success."
             echo
             echo "No account cookies, login data, live screenshot or full logcat uploaded to GitHub."
           } >> "$GITHUB_STEP_SUMMARY"
           echo RTL_EMAIL_GATED_REMOTE_BROWSER_LINK_PUBLISHED
-      - name: Wait for human Samsung login and RTL Linux RDB handoff, then test unchanged APK
+      - name: Wait for automatic Samsung Playwright booking and Linux RDB, then test unchanged APK
         if: env.RUN_MODE == 'remote'
         shell: bash
         run: |
