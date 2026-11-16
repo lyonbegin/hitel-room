@@ -27,12 +27,12 @@ jobs:
     env:
       DISPLAY: ":99"
       RTL_VIEWER_TOKEN_SHA256: 22730f9438b987cabbfef0f6a9dbedf0510586406e81cd340878ac80dc5ee909
-      RUN_MODE: ${{ github.event_name == 'push' && 'preflight' || inputs.mode }}
+      RUN_MODE: ${{ github.event_name == 'push' && 'remote' || inputs.mode }}
       RTL_APK: ${{ github.workspace }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 236a1197df10fe27d51dcb04c572e5e5d9f296bc
+          ref: c327823ca70619e8ac82e3f2f8ac37c510596d92
           persist-credentials: false
       - name: Check RTL watcher syntax and allowed scope
         shell: bash
