@@ -1,0 +1,126 @@
+name: IXIO Main Firebase-First Initialization Diagnostic
+on:
+  push:
+    branches: [experiment/ixio-main-firebase-bridge-20261116]
+    paths:
+      - '.github/workflows/ixio-main-firebase-bridge.yml'
+      - 'tools/ixio/ixio-main-firebase-bridge-smoke.sh'
+      - 'tools/ixio/ixio_main_context_audit.py'
+      - 'tools/ixio/ixio_diagnostic_default_application.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ixio-main-firebase-bridge-single
+  cancel-in-progress: true
+jobs:
+  main-only-context-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify KVM available
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Get already restored vendor main APK from previous successful signed packaging
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh run download 43707483111 --repo "$GH_REPO" \
+            --name ixio-standalone-apps-reassembled-android14 --dir .
+          test -s .ixio-rebuild-output/main/base.apk
+          for n in 0 1 2; do test -s ".ixio-rebuild-output/main/signed-split_$n.apk"; done
+          echo "RESTORED_MAIN_APK_SET=AVAILABLE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build two comparable main-only initialisation variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW=.ixio-bridge
+          SOURCE=.ixio-rebuild-output/main
+          mkdir -p "$RAW/framework" "$RAW/baseline" ixio-main-firebase-bridge-results
+          python3 tools/ixio/ixio_diagnostic_default_application.py main \
+            "$SOURCE/base.apk" "$RAW/framework/base-unsigned.apk"
+          python3 - <<'PY'
+          import copy, pathlib, re, zipfile
+          inp=pathlib.Path(".ixio-rebuild-output/main/base.apk")
+          out=pathlib.Path(".ixio-bridge/baseline/base-unsigned.apk")
+          with zipfile.ZipFile(inp) as source,zipfile.ZipFile(out,"w") as dest:
+            for info in source.infolist():
+              if re.fullmatch(r"META-INF/.*\.(?:RSA|EC|DSA|SF|MF)",info.filename,re.I):continue
+              dest.writestr(copy.copy(info),source.read(info))
+          for idx in range(3):
+            inp=pathlib.Path(f".ixio-rebuild-output/main/signed-split_{idx}.apk")
+            out=pathlib.Path(f".ixio-bridge/baseline/signed-split_{idx}-unsigned.apk")
+            with zipfile.ZipFile(inp) as source,zipfile.ZipFile(out,"w") as dest:
+              for info in source.infolist():
+                if re.fullmatch(r"META-INF/.*\.(?:RSA|EC|DSA|SF|MF)",info.filename,re.I):continue
+                dest.writestr(copy.copy(info),source.read(info))
+          PY
+          BT="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -x "$BT/apksigner"
+          keytool -genkeypair -noprompt -keystore "$RAW/test-key.jks" \
+            -storepass android -keypass android -alias ixio \
+            -keyalg RSA -keysize 2048 -validity 365 \
+            -dname 'CN=IXIO Firebase First Test Only' > /dev/null 2>&1
+          sign() {
+            local src="$1" dest="$2"
+            "$BT/zipalign" -p -f 4 "$src" "$src.aligned"
+            "$BT/apksigner" sign --ks "$RAW/test-key.jks" \
+              --ks-pass pass:android --key-pass pass:android \
+              --ks-key-alias ixio --out "$dest" "$src.aligned"
+            "$BT/apksigner" verify "$dest"
+          }
+          for variant in baseline framework; do
+            sign "$RAW/$variant/base-unsigned.apk" "$RAW/$variant/base.apk"
+            for n in 0 1 2; do
+              src="$RAW/baseline/signed-split_$n-unsigned.apk"
+              sign "$src" "$RAW/$variant/signed-split_$n.apk"
+            done
+            "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$RAW/$variant/base.apk" \
+              > "ixio-main-firebase-bridge-results/$variant-manifest.txt"
+            grep -F "FirebaseInitProvider" \
+              "ixio-main-firebase-bridge-results/$variant-manifest.txt"
+          done
+          grep -F 'android.app.Application' \
+            ixio-main-firebase-bridge-results/framework-manifest.txt
+          grep -F 'com.lguplus.aicallagent.IXIApplication' \
+            ixio-main-firebase-bridge-results/baseline-manifest.txt
+          echo "TWO_VALID_MAIN_APP_VARIANTS=SIGNED" >> "$GITHUB_STEP_SUMMARY"
+      - name: Test both application startup modes on clean Android 14
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash tools/ixio/ixio-main-firebase-bridge-smoke.sh
+      - name: Assert tests ran and post truthful results
+        if: always()
+        shell: bash
+        run: |
+          if [ -s ixio-main-firebase-bridge-results/compare.tsv ]; then
+            cat ixio-main-firebase-bridge-results/compare.tsv
+            cat ixio-main-firebase-bridge-results/compare.tsv >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload main-only context/factory Firebase crash logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-main-firebase-provider-before-application-diagnostic
+          path: ixio-main-firebase-bridge-results/
+          if-no-files-found: warn
