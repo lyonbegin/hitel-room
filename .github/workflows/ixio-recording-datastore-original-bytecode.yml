@@ -147,4 +147,38 @@ jobs:
                       re.search(r'(?i)(stt|speech|asr|acoustic|token|vocab|model|\.onnx$|\.tflite$|\.fst$|\.ort$|\.bin$|\.param$)',name)]
               print('IXIO_STT_ASSET_CANDIDATE_COUNT',len(assets))
               for name,size in assets[:70]: print('IXIO_STT_ASSET',size,name[:230])
+          # Decode only the two observed DEX owners of RecordFail and policy calls.
+          import subprocess
+          with zipfile.ZipFile(source) as archive:
+              for dex in ('classes17.dex','classes18.dex'):
+                  dexpath=Path('/tmp/ixio-bytecode')/dex
+                  dexpath.write_bytes(archive.read(dex))
+                  out=Path('/tmp/ixio-bytecode')/('smali-'+dex.split('.')[0])
+                  subprocess.run(['java','-Xmx2500m','-jar','/tmp/ixio-bytecode/baksmali.jar',
+                                  'd','--api','34','--jobs','3','-o',str(out),str(dexpath)],check=True)
+                  search_root=out/'com/lguplus/aicallagent'
+                  needles={
+                      'missing_model':'isModelFileNotFound',
+                      'record_fail':'RecordFail;-><init>',
+                      'record_flag_constructor':'RecordingAvailabilityParam;-><init>',
+                      'record_policy':'isRecordingAllowedByPolicy()Z',
+                      'stt_repo':'SpeechToTextRepository',
+                  }
+                  for label,token in needles.items():
+                      found=0
+                      for p in search_root.rglob('*.smali'):
+                          if found>=12: break
+                          lines=p.read_text(errors='replace').splitlines()
+                          indices=[i for i,line in enumerate(lines) if token in line]
+                          for idx in indices[:2]:
+                              if found>=12: break
+                              found+=1
+                              start=max((i for i in range(idx,-1,-1) if lines[i].startswith('.method ')),default=idx)
+                              end=next((i for i in range(idx+1,len(lines)) if lines[i].strip()=='.end method'),idx+20)
+                              print('IXIO_STT_ORIGINAL_OWNER',dex,label,p.relative_to(search_root),idx+1)
+                              print('IXIO_STT_ORIGINAL_METHOD',dex,label,lines[start][:300])
+                              for k in range(max(start,idx-15),min(idx+22,end+1)):
+                                  if lines[k].strip():
+                                      print('IXIO_STT_ORIGINAL_BYTECODE',dex,label,p.name,k+1,lines[k][:270])
+                      print('IXIO_STT_ORIGINAL_TOTAL',dex,label,found)
           PY
