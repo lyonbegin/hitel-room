@@ -63,8 +63,8 @@ jobs:
           import sys
           app=Path(sys.argv[1])
           pub=app/'pubspec.yaml';s=pub.read_text()
-          assert s.count('dependencies:\n')==1
-          pub.write_text(s.replace('dependencies:\n','dependencies:\n  bithuman:\n    path: packages/bithuman\n',1))
+          assert s.count('\ndependencies:\n')==1
+          pub.write_text(s.replace('\ndependencies:\n','\ndependencies:\n  bithuman:\n    path: packages/bithuman\n',1))
           plugin=app/'packages/bithuman/android/build.gradle'
           g=plugin.read_text()
           old="implementation 'ai.bithuman:expression2-android:0.6.1'"
@@ -72,7 +72,7 @@ jobs:
           g=g.replace(old,"implementation 'ai.hitel.reassembled:expression2-android:0.6.2'\n"+
               "    implementation 'com.qualcomm.qti:qnn-litert-delegate:2.49.0'\n"+
               "    implementation 'com.qualcomm.qti:qnn-runtime:2.49.0'",1)
-          needle='    repositories {\n        google()\n        mavenCentral()\n'
+          needle='rootProject.allprojects {\n    repositories {\n        google()\n        mavenCentral()\n'
           assert g.count(needle)==1,g.count(needle)
           g=g.replace(needle,needle+
                '        maven {\n            url = uri("${rootProject.projectDir}/local-sdk-maven")\n'+
