@@ -112,6 +112,14 @@ def main():
     if "Success" not in install:
         raise RuntimeError("Cannot install target single APK: "+install[:700])
     print("INSTALLED_APK_PATHS",adb("shell","pm","path",PKG).strip(),flush=True)
+    # Exactly the role requested by the original recorder onboarding.
+    # This is a disposable test emulator, not the user's real phone.
+    role_grant=adb("shell","cmd","role","add-role-holder",
+                   "android.app.role.DIALER",PKG,timeout=30)
+    print("IXIO_TEST_DEFAULT_DIALER_ROLE_COMMAND",role_grant.strip()[:350],flush=True)
+    role_holders=adb("shell","cmd","role","get-role-holders",
+                     "android.app.role.DIALER",timeout=25)
+    print("IXIO_TEST_DEFAULT_DIALER_ROLE_HOLDERS",role_holders.strip()[:350],flush=True)
     print("LAUNCH_RESULT",adb("shell","monkey","-p",PKG,"-c","android.intent.category.LAUNCHER","1").strip()[-350:],flush=True)
     time.sleep(16)  # allow Android launcher services to settle after first boot
     seen_error=False
@@ -227,6 +235,8 @@ def main():
         # This system dialog is from Settings, not PermissionController.
         if "Let app always run in background?" in joined and "익시오 통화녹음" in joined:
             action=choose(nodes,["Allow"],True)
+        if not action and "전화 받을 앱을" in joined and "익시오로 설정해주세요" in joined:
+            action=choose(nodes,["설정"],True)
         if not action and "통화 녹음 앱 이용 시 주의 사항" in joined:
             action=choose(nodes,["확인"],True)
         if not action and any("시작하기" in t for t in visible):
@@ -276,6 +286,7 @@ def main():
            "home_screen_seen":home_screen_seen,
            "recorder_process_pid":recorder_pid,
            "recorder_process_alive":bool(recorder_pid),
+           "default_dialer_role_holder":PKG in role_holders.split(),
            "recorder_setup_prompt_seen":recorder_setup_prompt_seen,
            "recorder_setup_button_taps":recorder_setup_taps}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
