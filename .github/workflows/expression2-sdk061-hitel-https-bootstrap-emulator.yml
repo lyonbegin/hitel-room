@@ -213,8 +213,9 @@ jobs:
             | grep -Fx 'lib/arm64-v8a/libflutter.so'
           grep -Fx 'lib/arm64-v8a/libexpr2jni.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
           grep -Fx 'lib/arm64-v8a/libLiteRt.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
-          AAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/ai.bithuman/expression2-android/0.6.1" \
-            -type f -name 'expression2-android-0.6.1.aar' -print -quit)"
+          # The pristine vendor AAR is preserved separately because Gradle resolves
+          # the temporary HITEL test coordinate instead of the vendor coordinate.
+          AAR="$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar"
           test -s "$AAR"
           sha256sum "$AAR" | tee "$GITHUB_WORKSPACE/pristine-proof/official-sdk061-maven-aar-sha256.txt"
           echo ORIGINAL_PLUGIN_2637_COMPILED_WITH_ORIGINAL_SDK_061_ARM64
