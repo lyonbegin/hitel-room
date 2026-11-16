@@ -138,6 +138,22 @@ jobs:
                   matches.append({'path':p.relative_to(root).as_posix(),'line':i+1,'nearby':near[-25:]})
           print('ORIGINAL_MISSING_ROUTE_MATCHES',json.dumps(matches,ensure_ascii=False))
           print('ORIGINAL_MISSING_ROUTE_COUNT',len(matches))
+          pkg=root/'classes16/com/lguplus/aicallagent/network/api/ixio'
+          for p in sorted(pkg.glob('*Config*Api.smali'))+sorted(pkg.glob('*Voip*Api.smali'))+sorted(pkg.glob('*MVoip*Api.smali')):
+              if not p.is_file():continue
+              lines=p.read_text(errors='replace').splitlines()
+              if any(k in p.name for k in ('RoamingConfig','AppConfig','MVoip','MVOIP','MVoip')) or any('value = "config"' in x for x in lines):
+                  print('ORIGINAL_RETROFIT_CONTRACT_FILE',p.name,'LINES',len(lines))
+                  for i,line in enumerate(lines[:280],1):
+                      if any(q in line for q in ('.method','Lretrofit2/http/','value =','Lcom/lguplus/','Lio/reactivex/','Lkotlin/coroutines/','Lcom/squareup/moshi/','signature')):
+                          print('ORIGINAL_RETROFIT_DECL',p.name,i,line.strip()[:270])
+          for p in pkg.glob('*.smali'):
+              lines=p.read_text(errors='replace').splitlines()
+              if any('value = "config"' in x or 'value = "/config"' in x for x in lines):
+                  print('ORIGINAL_CONFIG_ENDPOINT_FILE',p.name)
+                  for i,line in enumerate(lines[:240],1):
+                      if '.method' in line or 'value =' in line or 'Lretrofit2/http/' in line:
+                          print('ORIGINAL_CONFIG_DECL',i,line.strip()[:260])
           for pat in ('mvoip-onoff','roaming-call'):
               files=[]
               for p in root.rglob('*.smali'):
