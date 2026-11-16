@@ -279,6 +279,8 @@ jobs:
             echo 'true' > ixio-hitel-android-results/recorder-installed.txt
             echo 'CONTEXT_BRIDGED_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-hitel-emulator-onboarding.py
+            python3 tools/ixio/ixio-emulator-gsm-smoke.py
+            echo 'IXIO_EMULATOR_SYNTHETIC_GSM_PROBE_FINISHED=YES'
       - name: Compare actual original-app UI with HITEL API received request log
         if: always()
         shell: bash
@@ -310,6 +312,7 @@ jobs:
            'ui_home_screen_reached': ui.get('home_screen_seen',False),
            'recorder_setup_prompt_observed': ui.get('recorder_setup_prompt_seen',False),
            'recorder_setup_button_taps': ui.get('recorder_setup_button_taps',0),
+           'simulated_gsm_call_tested': (root/'gsm-call-smoke/result.json').exists(),
            'stt_audio_capture_verified': False,
            'notes':'No user data, no carrier enrollment. Only emulator host at 10.0.2.2:8000. No remote persistent server.'
           }
