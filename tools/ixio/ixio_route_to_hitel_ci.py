@@ -15,7 +15,7 @@ MARKER="HITEL_CI_BACKEND_URL_ONLY"
 
 def replace_method(path,descriptor,method_body):
     data=path.read_text(encoding="utf8")
-    pat=re.compile(r"(?ms)^\.method[^\n]*\b"+re.escape(descriptor)+r"\n.*?^\.end method$")
+    pat=re.compile(r"(?ms)^\.method[^\n]*[ \t]"+re.escape(descriptor)+r"\n.*?^\.end method$")
     matches=list(pat.finditer(data))
     if len(matches)!=1:
         raise ValueError(f"Expected exactly 1 {descriptor} in {path}: {len(matches)}")
