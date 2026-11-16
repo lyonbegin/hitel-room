@@ -65,6 +65,29 @@ jobs:
         run: |
           docker compose --env-file /dev/null -f deploy/g2/docker-compose.yml config --quiet
           echo 'G2_DOCKER_COMPOSE_CONFIG_VALID=YES'
+      - name: Build and run actual API Docker image with isolated test-only secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -f services/hitel-api/Dockerfile -t hitel-ixio-g2-api:ci .
+          docker run --detach --name hitel-ixio-g2-image-smoke \
+            --env HITEL_JWT_SECRET="$(openssl rand -hex 48)" \
+            --env HITEL_IXIO_COMPAT_ENABLED=true \
+            --env HITEL_IXIO_CI_FIXTURE_ENABLED=false \
+            --publish 127.0.0.1:18581:8000 hitel-ixio-g2-api:ci
+          trap 'docker rm --force hitel-ixio-g2-image-smoke >/dev/null 2>&1 || true' EXIT
+          for retry in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:18581/health > /tmp/hitel-ci-health.json 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          python3 - <<'PY'
+          import json,pathlib
+          d=json.loads(pathlib.Path('/tmp/hitel-ci-health.json').read_text())
+          assert isinstance(d,dict) and d
+          print('G2_API_CONTAINER_ACTUAL_HEALTH_200=YES')
+          PY
   deploy:
     name: Install FastAPI + automatic HTTPS on reachable G2 host
     needs: [preflight, tests]
@@ -110,7 +133,7 @@ jobs:
             git clone --depth 1 --branch experiment/ixio-hitel-backend-android-20261116 \
               https://github.com/lyonbegin/hitel-room.git "$repo"
           fi
-          git -C "$repo" fetch --depth 1 origin experiment/ixio-hitel-backend-android-20261116
+          git -C "$repo" fetch --depth 1 origin "$HITEL_COMMIT"
           git -C "$repo" checkout --detach "$HITEL_COMMIT"
           umask 077
           config="$base/hitel.env"
