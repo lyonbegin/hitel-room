@@ -1,0 +1,112 @@
+name: IXIO Exact CTN Crypto and Member Verification Smali Branches
+on:
+  push:
+    branches: [analysis/ixio-auth-api-bytecode-deep-20261116]
+    paths: ['.github/workflows/ixio-ctn-crypto-branch-proof.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  crypto-and-branches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Get original app class16 and class18 (no network access to carrier)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-crypto-private ixio-ctn-smali-report
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .ixio-crypto-private
+          for dex in classes16.dex classes18.dex; do
+            unzip -p .ixio-crypto-private/IXIO_Main_NoAppSealing_Single.apk "$dex" \
+              > ".ixio-crypto-private/$dex"
+            test -s ".ixio-crypto-private/$dex"
+          done
+      - name: Use official pinned baksmali to decode exact branch targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error \
+            https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar \
+            -o .ixio-crypto-private/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-crypto-private/baksmali.jar' | sha256sum -c -
+          for n in 16 18; do
+            java -Xmx2200m -jar .ixio-crypto-private/baksmali.jar \
+              disassemble --api 34 --jobs 2 \
+              --output ".ixio-crypto-private/smali$n" \
+              ".ixio-crypto-private/classes$n.dex" \
+              > "ixio-ctn-smali-report/disassemble$n.log" 2>&1
+          done
+      - name: Trace key acquisition and response-code branches without exposing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          paths=[
+             ("MemberVerificationRepositoryImpl",".ixio-crypto-private/smali18/com/lguplus/aicallagent/data/auth/MemberVerificationRepositoryImpl.smali"),
+             ("EncryptCtnUtil",".ixio-crypto-private/smali16/com/lguplus/aicallagent/util/EncryptCtnUtil.smali"),
+             ("ProvisioningManager",".ixio-crypto-private/smali16/com/lguplus/aicallagent/util/crypto/ProvisioningManager.smali"),
+          ]
+          want={
+            "MemberVerificationRepositoryImpl":("verifyCtn",),
+            "EncryptCtnUtil":("getDekBytes","encrypt","decrypt"),
+            "ProvisioningManager":("getDekForLoginUse",),
+          }
+          result={}
+          for name,path in paths:
+            p=Path(path)
+            if not p.exists():result[name]={"error":"CLASS_NOT_FOUND"};continue
+            source=p.read_text(errors='replace')
+            methods=re.findall(r'(?ms)^\.method[^\n]*\n.*?^\.end method$',source)
+            selected=[]
+            for block in methods:
+              head=block.splitlines()[0]
+              if not any(tag in head for tag in want[name]):continue
+              lines=[]
+              for i,l in enumerate(block.splitlines()):
+                x=l.strip()
+                if x.startswith(".method"):continue
+                if x.startswith(("invoke-","if-","return","throw","const-string")):
+                  if x.startswith("const-string"):
+                    # Only record nonsecret short status/protocol literals
+                    m=re.search(r'"([^"]*)"',x)
+                    if not m:continue
+                    literal=m.group(1)
+                    if len(literal)>35 or re.search(r'(?i)https?://|secret|key|token|bearer|password|ctn|phone',literal):
+                      x=re.sub(r'"[^"]*"','"[REDACTED]"',x)
+                  # status, branch label and callee are the evidence, not runtime data
+                  lines.append(x[:320])
+              selected.append({
+                "method":head, "conditional_opcodes":len(re.findall(r'(?m)^\s*if-\w+',block)),
+                "invoked_targets_and_conditions":lines[:135],
+              })
+            result[name]={"total_methods":len(methods),"relevant_methods":selected}
+          out=Path('ixio-ctn-smali-report/ctn-cryptography-and-verification-branches.json')
+          out.write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          for k,v in result.items():
+            print('CLASS',k,'METHODS',v.get('total_methods'),'ERROR',v.get('error'))
+            for m in v.get('relevant_methods',[]):
+              print('METHOD',m['method'],'CONDITIONALS',m['conditional_opcodes'])
+              for x in m['invoked_targets_and_conditions'][:85]:print('ASM',x)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-ctn-encryption-provisioning-and-registration-branch-bytecode
+          path: ixio-ctn-smali-report/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Remove private decompiled source and original APK
+        if: always()
+        run: rm -rf .ixio-crypto-private
