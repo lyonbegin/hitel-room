@@ -61,7 +61,7 @@ def main():
     assert '      if (secret.isEmpty) {\n' in s
     # Preserve the ORIGINAL app's full post-load flow. In particular, never
     # short-circuit _openSession() or insert an early return after avatar.load.
-    assert s.count('      await _openSession(avatar, secret);\\n') == 1
+    assert s.count('      await _openSession(avatar, secret);\n') == 1
     assert 'BithumanAvatar.load(agentDir, engine: _engine, apiSecret: secret)' in s
     path.write_text(s)
     args.report.parent.mkdir(parents=True,exist_ok=True)
