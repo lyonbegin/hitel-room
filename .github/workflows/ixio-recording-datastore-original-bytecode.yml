@@ -60,4 +60,30 @@ jobs:
                           print('RECORDER_ORIGINAL_CALLSITE',p.name,i+1)
                           for k in range(max(0,i-17),min(len(lines),i+19)):
                               print(f'RCALL {p.name}:{k+1}: {lines[k][:260]}')
+          # Exact decompiled branch for the actual original application
+          # log: [CallViewModel] Recording unavailable:
+          # RECORDING_POLICY_NOT_ALLOWED after tapping real in-call record UI.
+          interesting=('RECORDING_POLICY_NOT_ALLOWED','Recording unavailable',
+                       'isRecordingAllowed','RecordingPolicy','isRequiredCallRecorderApp')
+          found=0
+          for p in root.rglob('*.smali'):
+              if found>=55:break
+              raw=p.read_text(errors='replace').splitlines()
+              hits=[i for i,l in enumerate(raw) if any(q in l for q in interesting)]
+              if not hits:continue
+              for idx in hits[:7]:
+                  if found>=55:break
+                  found+=1
+                  method_start=max((i for i in range(idx,-1,-1) if raw[i].startswith('.method ')),default=-1)
+                  method_end=next((i for i in range(idx+1,len(raw)) if raw[i].strip()=='.end method'),min(idx+65,len(raw)-1))
+                  print('ORIGINAL_RECORDING_POLICY_CALLSITE',
+                        p.relative_to(root),idx+1,raw[idx].strip()[:280])
+                  if method_start!=-1:
+                      print('ORIGINAL_RECORDING_POLICY_METHOD',
+                            p.name,raw[method_start][:400])
+                  for k in range(max(method_start,idx-45),min(idx+68,method_end+1)):
+                      if raw[k].strip():
+                          print('ORIGINAL_RECORDING_POLICY_BYTECODE',
+                                p.name,k+1,raw[k][:270])
+          print('ORIGINAL_RECORDING_POLICY_HITS',found)
           PY
