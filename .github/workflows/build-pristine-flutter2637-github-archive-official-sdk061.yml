@@ -117,9 +117,9 @@ jobs:
           set -euo pipefail
           # Uses app/Gradle/Flutter-plugin/SDK with their original code,
           # original arm64 target, original Maven coordinate and session door.
-          flutter build apk --debug --split-per-abi --target-platform android-arm64 \
+          flutter build apk --debug --target-platform android-arm64 \
             2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/official-plugin2637-build.log"
-          APK=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          APK=build/app/outputs/flutter-apk/app-debug.apk
           test -s "$APK"
           cp "$APK" "$GITHUB_WORKSPACE/pristine-original-plugin2637-sdk061-arm64.apk"
           sha256sum "$APK" | tee "$GITHUB_WORKSPACE/pristine-proof/apk-sha256.txt"
@@ -171,7 +171,7 @@ jobs:
            'plugin':'Original archived GitHub Flutter 2.6.37 (not modified)',
            'sdk':'Official Maven ai.bithuman:expression2-android:0.6.1',
            'app':'Original bitHuman GitHub avatar_chat (tracked source not modified)',
-           'apk_abi':'arm64-v8a',
+           'apk_abi':'arm64-v8a (from original app ndk.abiFilters)',
            'adb_abi_override_used':False,
            'adb_install_success':'Success' in (p/'adb-install.txt').read_text(),
            'android_primary_abi':(re.search(r'primaryCpuAbi=([^\s]+)',pkg).group(1) if re.search(r'primaryCpuAbi=([^\s]+)',pkg) else 'unknown'),
