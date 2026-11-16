@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/ixio-prior
-          gh run download 43870939731 --repo "$GH_REPO" --name ixio-hitel-self-owned-local-api-emulator-evidence --dir /tmp/ixio-prior
+          gh run download 43873003513 --repo "$GH_REPO" --name ixio-hitel-self-owned-local-api-emulator-evidence --dir /tmp/ixio-prior
           find /tmp/ixio-prior -maxdepth 4 -type f -printf '%P %s bytes\n' | sort | head -90
       - name: Report precise HTTP endpoint status and post-login exception class
         shell: bash
@@ -54,6 +54,20 @@ jobs:
               print('FILTERED_LOGCAT_MATCHES',len(matches),'TOTAL',len(lines))
               for l in matches[-100:]:
                   print('LOGCAT_HTTP_FAILURE',safe(l))
+          for p in sorted(root.rglob('stage-*-visible.txt')):
+              print('STAGE_VISIBLE_FILE',p.name,repr(p.read_text(errors='replace')[:1250]))
+          for p in sorted(root.rglob('stage-*-ui.xml'))[-3:]:
+              import xml.etree.ElementTree as ET
+              try:
+                  tree=ET.parse(p)
+                  entries=[]
+                  for n in tree.iter('node'):
+                      a=n.attrib
+                      if a.get('clickable')=='true' or a.get('text') or a.get('content-desc'):
+                          entries.append({k:a.get(k) for k in ('package','class','text','content-desc','resource-id','bounds','clickable')})
+                  print('STAGE_XML_NODE_DETAIL',p.name,json.dumps(entries[-40:],ensure_ascii=False)[:6000])
+              except Exception as exc:
+                  print('STAGE_XML_READ_ERROR',p.name,repr(exc))
           xmls=list(root.rglob('*.xml'))
           print('UI_XML_COUNT',len(xmls))
           for p in sorted(xmls)[-2:]:
