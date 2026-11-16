@@ -182,3 +182,39 @@ def test_ci_only_appauth_redirect_matches_manifest_and_pkce(monkeypatch):
         denied = c.get("/hitel/qa/authorize",
                        params=params, follow_redirects=False)
         assert denied.status_code == 404
+
+
+def test_original_ixio_initialization_contracts_in_synthetic_qa_only(monkeypatch):
+    """Only the three paths observed as 404 in the original APK emulator run.
+
+    Shapes and key aliases are recovered from original Retrofit declarations
+    and kotlinx serialization DTOs; no real carrier features are asserted.
+    """
+    monkeypatch.setenv("HITEL_IXIO_COMPAT_ENABLED", "true")
+    monkeypatch.setenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "true")
+    with TestClient(main.app) as c:
+        config = c.get("/config", params={"os": "Android"})
+        assert config.status_code == 200, config.text
+        conf = config.json()
+        assert conf["code"] == "SUCCESS"
+        assert conf["data"]["isSignupBlocked"] is False
+        assert conf["data"]["recorderForceUpdate"] is False
+        assert "mVoIPurl_aos" in conf["data"]
+        assert "roaming_server_port" in conf["data"]
+        state = c.get("/mvoip-onoff/app")
+        assert state.status_code == 200
+        assert state.json() == {
+            "code": "SUCCESS", "message": "OK", "data": {"isMvoip": False}
+        }
+        countries = c.get("/v1/roaming-call/countries",
+                          params={"countryCode": "KR",
+                                  "includeUnopened": "true",
+                                  "withRecordingAllowed": "true"})
+        assert countries.status_code == 200
+        assert countries.json() == {
+            "code": "SUCCESS", "message": "OK", "data": {"countries": []}
+        }
+        monkeypatch.setenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false")
+        for endpoint in ("/config", "/mvoip-onoff/app",
+                         "/v1/roaming-call/countries"):
+            assert c.get(endpoint).status_code == 404
