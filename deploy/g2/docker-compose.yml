@@ -1,0 +1,47 @@
+name: hitel-ixio-g2
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: services/hitel-api/Dockerfile
+    restart: unless-stopped
+    environment:
+      HITEL_DATABASE_URL: sqlite:////app/data/hitel.sqlite3
+      HITEL_JWT_SECRET: ${HITEL_JWT_SECRET:?JWT signing secret is required}
+      HITEL_CORS_ORIGINS: https://lyonbegin.github.io
+      HITEL_IXIO_COMPAT_ENABLED: "true"
+      HITEL_IXIO_CI_FIXTURE_ENABLED: "false"
+      HITEL_IXIO_ALLOW_SELF_ENROLL: "false"
+    volumes:
+      - hitel_data:/app/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+  https:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      HITEL_API_DOMAIN: ${HITEL_API_DOMAIN:?DNS public domain is required}
+      HITEL_TLS_CONTACT_EMAIL: ${HITEL_TLS_CONTACT_EMAIL:?TLS contact email is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  hitel_data:
+  caddy_data:
+  caddy_config:
