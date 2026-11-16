@@ -1,0 +1,39 @@
+name: Verify public anonymous complete 235MB Expression2 QNN APK download and SHA256
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/verify-expression2-public-apk-full-download.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  anonymous-full-apk-download:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download full APK from public release URL with NO auth tokens or login
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://github.com/lyonbegin/hitel-room/releases/download/expression2-qnn-galaxy-zfold-test-20261116/Expression2_Original_ARM64_Real_Device_QNN_Accelerated_Test.apk'
+          FILE="$RUNNER_TEMP/Expression2_Original_ARM64_Real_Device_QNN_Accelerated_Test.apk"
+          curl --fail --location --silent --show-error \
+            --retry 4 --retry-delay 3 --retry-all-errors \
+            --connect-timeout 25 --max-time 480 \
+            "$URL" --output "$FILE"
+          test "$(stat -c%s "$FILE")" -eq 235574128
+          echo "a2ec3ea55be6bfcac0f152ab227f1e6d573afe6402d4ef09449e1977ceccaa57  $FILE" | sha256sum --check
+          python3 - "$FILE" <<'PY'
+          import sys,zipfile,hashlib
+          from pathlib import Path
+          f=Path(sys.argv[1])
+          with zipfile.ZipFile(f) as apk:
+              assert apk.testzip() is None
+              assert "lib/arm64-v8a/libexpr2jni.so" in apk.namelist()
+              assert "lib/arm64-v8a/libQnnTFLiteDelegate.so" in apk.namelist()
+          print('SUCCESS_PUBLIC_NO_LOGIN_FULL_APK_DOWNLOAD')
+          print('BYTES',f.stat().st_size)
+          print('SHA256',hashlib.sha256(f.read_bytes()).hexdigest())
+          print('GITHUB_RELEASE_PUBLIC_LINK', 'https://github.com/lyonbegin/hitel-room/releases/download/expression2-qnn-galaxy-zfold-test-20261116/Expression2_Original_ARM64_Real_Device_QNN_Accelerated_Test.apk')
+          PY
