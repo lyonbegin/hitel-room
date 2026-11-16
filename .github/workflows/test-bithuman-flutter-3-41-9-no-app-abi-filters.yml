@@ -119,7 +119,7 @@ jobs:
           python3 tools/bithuman_deep/expression2_replace_original_meter_api_base_method.py \
             --source-aar "$SDK" \
             --output-aar build/hitel-original-local-auto/original-SDK-one-JVM-local-test.aar \
-            --report reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/SDK_ONE_METHOD_DIFF.json \
+            --report reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/SDK_ONE_METHOD_DIFF.json \
             --base-url https://hitel-expression2-auth-production.up.railway.app
           MAVEN="$APP/android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.2"
           mkdir -p "$MAVEN"
@@ -238,7 +238,7 @@ jobs:
           # plugin dependency graph, SDK native bytes, model and HTTPS bridge.
           original_filter='        ndk { abiFilters += "arm64-v8a" }'
           assert gradle_updated.count(original_filter)==1, 'Original app ABI line changed'
-          gradle_updated=gradle_updated.replace(original_filter+'\n','',1)
+          gradle_updated='\n'.join(line for line in gradle_updated.split('\n') if original_filter not in line)
           assert 'abiFilters' not in gradle_updated
           appg.write_text(gradle_updated)
           print('EXACT_USER_REPORTED_FIX_APP_NDK_ABIFILTERS_REMOVED_TEMP_COPY_ONLY')
@@ -263,7 +263,7 @@ jobs:
             "no_hardcoded_demo_bearer":True,
             "real_device_gpu_inference_verified":False
           }
-          Path("reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/original-source-and-sdk-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          Path("reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/original-source-and-sdk-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
           print('ORIGINAL_APP_AND_PLUGIN_DEPENDENCY_WIRED_WITHOUT_GPU_OVERRIDE')
           PY
           (cd build/expression2-official-model && sha256sum -c hashes.sha256)
@@ -273,7 +273,7 @@ jobs:
             --canon build/expression2-official-model/members/canon.bin \
             --sample "$RUNNER_TEMP/bh-public-assets/android/expression2-hello/app/src/main/assets/speech.wav" \
             --public-helper tools/bithuman_deep/Expression2PublicHitelTest.kt \
-            --report reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/AUTO_PATCH_PROOF.json
+            --report reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/AUTO_PATCH_PROOF.json
           grep -Fq 'Expression2Avatar.create(context, combined)' \
             "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/Expression2LocalTest.kt"
           grep -Fq 'Expression2Credential.set(hitelCredential)' \
@@ -289,9 +289,9 @@ jobs:
           printf "%s" "$APP" > "$RUNNER_TEMP/bh-three-layer-app"
           printf "%s" "$PLUGIN" > "$RUNNER_TEMP/bh-three-layer-plugin"
           (cd "$APP" && flutter pub get)
-          cp "$APP/pubspec.yaml" reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/build-only-pubspec.yaml.txt
-          cp "$APP/android/build.gradle.kts" reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/build-only-root-gradle.kts.txt
-          cp "$APP/android/app/build.gradle.kts" reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/build-only-app-gradle.kts.txt
+          cp "$APP/pubspec.yaml" reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/build-only-pubspec.yaml.txt
+          cp "$APP/android/build.gradle.kts" reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/build-only-root-gradle.kts.txt
+          cp "$APP/android/app/build.gradle.kts" reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/build-only-app-gradle.kts.txt
 
       - name: Compile original Flutter avatar_chat UI with local SDK fixture and DEFAULT AUTO hardware
         shell: bash
@@ -306,7 +306,7 @@ jobs:
                  --dart-define=HITEL_ORIGINAL_LOCAL_TEST=true \
                  --dart-define=HITEL_EXPR2_PUBLIC_AUTH_BASE=https://hitel-expression2-auth-production.up.railway.app \
                  --dart-define=AGENT_CODE=A23WJF0199) \
-                2>&1 | tee -a reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/gradle-build.log; then
+                2>&1 | tee -a reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/gradle-build.log; then
                success=1
                break
             fi
@@ -314,9 +314,9 @@ jobs:
             sleep "$((15*attempt))"
           done
           test "$success" = 1
-          mkdir -p reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/apk
+          mkdir -p reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/apk
           cp "$APP/build/app/outputs/flutter-apk/app-debug.apk" \
-            reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk
+            reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk
 
       - name: Verify original engine bytes, local assets, auto-route code, and APK signature
         shell: bash
@@ -326,7 +326,7 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
           import hashlib,json
-          a=Path('reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk')
+          a=Path('reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk')
           sdk=Path('build/expression2-original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar')
           with ZipFile(a) as z, ZipFile(sdk) as o:
             names=set(z.namelist())
@@ -362,12 +362,12 @@ jobs:
             'public_release_allowed':False,
             'native_abi_verified_only_arm64':True,
             'physical_android_runtime_and_video_frame_verified':False}
-          Path('reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/APK_VERIFICATION.json').write_text(json.dumps(result,indent=2)+'\n')
+          Path('reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/APK_VERIFICATION.json').write_text(json.dumps(result,indent=2)+'\n')
           print('BIT_HUMAN_THREE_LAYER_ORIGINAL_APK_VERIFIED',json.dumps(result))
           PY
           TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$TOOLS/apksigner" verify --verbose \
-            reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk
+            reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk
           echo HITEL_PUBLIC_HTTPS_AUTO_BUILD_APK_SIGNATURE_VALID
       - name: Ensure HTTPS authorization metadata is embedded, no raw loopback, no CPU selector
         shell: bash
@@ -399,7 +399,7 @@ jobs:
         if: always()
         with:
           name: hitel-avatar-chat-flutter-3-41-9-no-app-abiFilters-experimental-apk
-          path: reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi-no-app-abi/
+          path: reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/
           retention-days: 30
       # No release until real ARM64 Android app startup and first original texture
       # have been verified separately. This action exposes an EXPERIMENTAL artifact
