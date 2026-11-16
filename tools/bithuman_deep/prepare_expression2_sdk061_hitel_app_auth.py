@@ -70,7 +70,8 @@ def main():
     args.report.parent.mkdir(parents=True,exist_ok=True)
     args.report.write_text(json.dumps({
       'original_app_main_dart_sha256':hashlib.sha256(orig.encode()).hexdigest(),
-      'sdk_061_and_plugin_2637_unchanged':True,
+      'app_auth_only_sdk_061_vendor_credential_still_unverified':True,
+      'plugin_2637_unmodified':True,
       'app_copy_only_debug_auth':True,
       'hitel_https_session_no_secret_embedded':True,
       'original_secret_is_empty_guard_preserved':True,
