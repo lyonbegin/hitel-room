@@ -1,0 +1,52 @@
+name: Fluiz 2.5.4 TMAP in-process addon DEX
+on:
+  push:
+    branches: [feature/fluiz-254-tmap-integrated-ui-20261117]
+    paths:
+      - 'tools/fluiz_tmap_extension/**'
+      - '.github/workflows/fluiz-tmap-addon-dex.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-addon-dex:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile UI provider and TMAP search service against Android 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -f "$SDK/platforms/android-35/android.jar"
+          test -x "$SDK/build-tools/35.0.0/d8"
+          mkdir -p build/tmap/classes build/tmap/dex
+          javac -encoding UTF-8 -source 8 -target 8 \
+            -cp "$SDK/platforms/android-35/android.jar" \
+            -d build/tmap/classes \
+            tools/fluiz_tmap_extension/src/app/hitel/tmap/*.java
+          "$SDK/build-tools/35.0.0/d8" \
+            --min-api 30 \
+            --lib "$SDK/platforms/android-35/android.jar" \
+            --output build/tmap/dex \
+            $(find build/tmap/classes -name '*.class')
+          mv build/tmap/dex/classes.dex build/tmap/classes6.dex
+          sha256sum build/tmap/classes6.dex | tee build/tmap/dex.sha256
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('build/tmap/classes6.dex')
+          assert p.read_bytes().startswith(b'dex\\n0')
+          print('DEX6_BUILT',p.stat().st_size)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fluiz-original-app-tmap-classes6
+          path: |
+            build/tmap/classes6.dex
+            build/tmap/dex.sha256
+          retention-days: 14
