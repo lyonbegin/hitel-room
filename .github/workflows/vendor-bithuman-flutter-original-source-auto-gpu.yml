@@ -1,0 +1,133 @@
+name: Vendor and compile original bitHuman Flutter source with HITEL Expression2 GPU route selector (NO APK)
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/vendor-bithuman-flutter-original-source-auto-gpu.yml
+      - tools/bithuman_deep/flutter_original_expression2/**
+permissions:
+  contents: write
+  actions: read
+jobs:
+  source-original-compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/reassembled-original-sdk
+
+      - name: Extract original published GitLab Flutter v2.6.40 SOURCE and apply strictly anchored HITEL SDK/route patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="build/reassembled-original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar"
+          test -s "$SDK"
+          echo "2529f8f0a064b4c8e8a1bb6f5fdd4627143ba4e09e05bd506bee1540e68e1527  $SDK" | sha256sum -c -
+          git -c http.version=HTTP/1.1 clone --depth 1 --single-branch --branch flutter-plugin-v2.6.40 \
+            https://gitlab.com/bithuman/sdk/homebrew-bithuman.git \
+            "$RUNNER_TEMP/official-bithuman"
+          EXACT="$(git -C "$RUNNER_TEMP/official-bithuman" rev-parse HEAD)"
+          test "$EXACT" = "9417e7c2d44dd4437bf1129cbc3f54921e1d7234"
+          DEST="sdk/bithuman/flutter-plugin"
+          if test -e "$DEST"; then
+            echo "ERROR: Refusing to replace existing tracked vendor source; update it by reviewed changes."
+            exit 2
+          fi
+          mkdir -p "$(dirname "$DEST")"
+          cp -a "$RUNNER_TEMP/official-bithuman/packages/flutter-plugin" "$DEST"
+          python3 tools/bithuman_deep/flutter_original_expression2/vendor_original_flutter_source.py \
+            "$DEST" \
+            tools/bithuman_deep/flutter_original_expression2/Expression2RouteSelector.kt \
+            reports/hitel-flutter-original-source/vendor-manifest.json
+          test -s "$DEST/LICENSE"
+          test -s "$DEST/android/src/main/kotlin/ai/bithuman/flutter/Expression2RouteSelector.kt"
+          grep -q 'Expression2RouteSelector.create(context, model)' \
+            "$DEST/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          test "$(find "$DEST" -type f | wc -l)" -ge 140
+          echo OFFICIAL_FLUTTER_SOURCE_VENDORED_1_TO_1_WITH_ONLY_FOUR_PATCHED_FILES
+
+      - name: Build SOURCE-ONLY Android/Kotlin integration test host with exact original reassembled AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$GITHUB_WORKSPACE/build/reassembled-original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar"
+          flutter create --platforms=android --org ai.hitel --project-name hitel_source_compile_host \
+            "$RUNNER_TEMP/hitel_source_compile_host"
+          HOST="$RUNNER_TEMP/hitel_source_compile_host"
+          MAVEN="$HOST/android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.2"
+          mkdir -p "$MAVEN"
+          cp "$SDK" "$MAVEN/expression2-android-0.6.2.aar"
+          cat > "$MAVEN/expression2-android-0.6.2.pom" <<'POM'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>ai.hitel.reassembled</groupId>
+            <artifactId>expression2-android</artifactId>
+            <version>0.6.2</version>
+            <packaging>aar</packaging>
+          </project>
+          POM
+          python3 - "$HOST" "$GITHUB_WORKSPACE/sdk/bithuman/flutter-plugin" <<'PY'
+          import sys
+          from pathlib import Path
+          host=Path(sys.argv[1]);plugin=Path(sys.argv[2])
+          pub=host/'pubspec.yaml';s=pub.read_text()
+          assert s.count('\ndependencies:\n')==1
+          pub.write_text(s.replace('\ndependencies:\n',
+            '\ndependencies:\n  bithuman:\n    path: "'+str(plugin)+'"\n',1))
+          gradle=host/'android/app/build.gradle.kts';s=gradle.read_text()
+          assert 'minSdk = flutter.minSdkVersion' in s
+          s=s.replace('minSdk = flutter.minSdkVersion',
+            'minSdk = 29\n        ndk { abiFilters += "arm64-v8a" }')
+          assert s.count('android {\n')==1
+          s=s.replace('android {\n',
+            'android {\n    packaging { jniLibs { useLegacyPackaging = true } }\n',1)
+          gradle.write_text(s)
+          PY
+          (cd "$HOST" && flutter pub get)
+          # Compile only the ORIGINAL Kotlin Flutter bridge and its reassembled SDK dependency.
+          # This is NOT assembleDebug, NOT flutter build apk, and creates NO INSTALLABLE APK.
+          (cd "$HOST/android" && chmod +x gradlew && \
+             ./gradlew --no-daemon --max-workers=2 :bithuman:compileDebugKotlin 2>&1) \
+             | tee reports/hitel-flutter-original-source/kotlin-source-only-compile.log
+          if find "$HOST" -type f -name '*.apk' | grep -q .; then
+            echo "Unexpected APK generated by SOURCE-ONLY workflow"; exit 3
+          fi
+          echo ORIGINAL_FLUTTER_PLUGIN_NATIVE_SOURCE_KOTLIN_COMPILE_PASS_NO_APK
+
+      - name: Commit original Flutter source tree with source adapter to the existing feature branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "hitel-source-bot"
+          git config user.email "hitel-source-bot@users.noreply.github.com"
+          git add sdk/bithuman/flutter-plugin
+          git add reports/hitel-flutter-original-source/vendor-manifest.json
+          git diff --cached --stat | tail -8
+          git diff --cached --quiet && { echo "Already committed"; exit 0; }
+          git commit -m "vendor: official bitHuman Flutter v2.6.40 source plus original Expression2 0.6.2 GPU auto-route"
+          git push origin "HEAD:feature/bithuman-expression2-imx-sdk-audit-20261112"
+          echo HITEL_FLUTTER_SOURCE_COMMITTED_TO_GITHUB_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-flutter-original-sdk-source-only-kotlin-proof-no-apk
+          path: reports/hitel-flutter-original-source/
+          retention-days: 30
