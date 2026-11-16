@@ -1,0 +1,75 @@
+name: IXIO Main Tap Start and Inspect Subscription Failure
+on:
+  push:
+    branches: [experiment/ixio-main-firebase-bridge-20261116]
+    paths:
+      - '.github/workflows/ixio-main-start-button-followup.yml'
+      - 'tools/ixio/ixio-main-start-button-followup.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ixio-main-actual-start-button-test
+  cancel-in-progress: true
+jobs:
+  tap-onboarding-start:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify host acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Acquire exact previous single APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-start-test
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .ixio-start-test
+          test -s .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+          sha256sum .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk > original-user-apk-sha256.txt
+      - name: Actually TAP onboarding start and inspect full failure path
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash tools/ixio/ixio-main-start-button-followup.sh
+      - name: Summarize visible UI and lifecycle
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          OUT=ixio-main-start-button-validation
+          cat "$OUT/status.env" 2>/dev/null | tee -a "$GITHUB_STEP_SUMMARY"
+          cat "$OUT/tap-coordinates.txt" "$OUT/error-dismiss-coordinates.txt" 2>/dev/null | tee -a "$GITHUB_STEP_SUMMARY"
+          cat "$OUT/emulator.txt" 2>/dev/null | tee -a "$GITHUB_STEP_SUMMARY"
+          for stage in before-tap after-tap-5s after-tap-17s after-tap-40s post-error-dismiss; do
+            echo "### $stage" >> "$GITHUB_STEP_SUMMARY"
+            head -70 "$OUT/$stage-nodes.txt" 2>/dev/null | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          echo "### Crash log blocks" >> "$GITHUB_STEP_SUMMARY"
+          cat "$OUT/crash-blocks.txt" 2>/dev/null | head -100 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload screenshots, UI XML, precise errors and crash logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-single-apk-after-tapping-start-button-evidence
+          path: |
+            ixio-main-start-button-validation/
+            original-user-apk-sha256.txt
+          retention-days: 7
+          if-no-files-found: error
