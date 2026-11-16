@@ -83,6 +83,29 @@ jobs:
           git -C "$GITHUB_WORKSPACE/original-upstream" diff --exit-code HEAD -- \
             app/avatar_chat/pubspec.yaml app/avatar_chat/lib/main.dart app/avatar_chat/android
           echo 'PUB_PACKAGE_GITHUB_ARCHIVED_PLUGIN_2637_RESOLVED_NO_ORIGINAL_SOURCE_CHANGES'
+      - name: Fix ONLY missing build-tool Kotlin Gradle plugin in disposable upstream checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('original-upstream/app/avatar_chat/android/app/build.gradle.kts')
+          original=p.read_text()
+          needle='    id("com.android.application")\n'
+          assert original.count(needle)==1, 'Original Gradle plugin anchor changed'
+          assert 'id("org.jetbrains.kotlin.android")' not in original
+          p.write_text(original.replace(needle, needle+'    id("org.jetbrains.kotlin.android")\n',1))
+          print('BUILD_ONLY_KOTLIN_PLUGIN_APPLIED_TO_TEMP_CLONE')
+          PY
+          # Exactly one build config file may differ in the disposable clone.
+          # Main Dart, original Flutter plugin and official 0.6.1 SDK untouched.
+          git -C original-upstream diff --check
+          git -C original-upstream diff -- app/avatar_chat/android/app/build.gradle.kts \
+            | tee pristine-proof/disposable-app-gradle-compatibility.patch
+          git -C original-upstream diff --name-only \
+            | tee pristine-proof/upstream-modified-tracked-files.txt
+          test "$(cat pristine-proof/upstream-modified-tracked-files.txt)" = "app/avatar_chat/android/app/build.gradle.kts"
+          echo 'ORIGINAL_DART_PLUGIN_SDK_AND_MODEL_UNTOUCHED_GRADLE_ONLY_COMPAT'
       - name: Build original ARM64 Flutter app and ORIGINAL Maven SDK 0.6.1
         working-directory: original-upstream/app/avatar_chat
         shell: bash
