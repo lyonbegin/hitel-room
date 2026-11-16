@@ -8,8 +8,13 @@ Native app traffic reaches this service over Railway TLS, not localhost.
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
+import json
 import os
 import re
+import secrets
 import time
 from collections import defaultdict, deque
 from typing import Any
@@ -25,6 +30,11 @@ ALLOWED_AGENTS = {
     if s.strip()
 }
 ALLOWED_PRODUCTS = {"expression-2"}
+DEMO_ENABLED = os.environ.get("HITEL_EXPR2_DEMO_ENABLED", "false").lower() == "true"
+DEMO_KEY = os.environ.get("HITEL_EXPR2_DEMO_SIGNING_KEY", "").encode("utf-8")
+_demo_rate: dict[str, deque[float]] = defaultdict(deque)
+if DEMO_ENABLED and len(DEMO_KEY) < 40:
+    raise RuntimeError("HITEL_EXPR2_DEMO_SIGNING_KEY must be >=40 bytes when demo is enabled")
 _rate: dict[str, deque[float]] = defaultdict(deque)
 _rate_lock = asyncio.Lock()
 app = FastAPI(title="HITEL Expression 2 Authorization", docs_url=None, redoc_url=None)
@@ -60,6 +70,56 @@ async def _payload(request: Request) -> dict[str, Any]:
         raise _error(422, "OBJECT_REQUIRED")
     return data
 
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+def _unb64(text: str) -> bytes:
+    return base64.urlsafe_b64decode(text + "=" * ((-len(text)) % 4))
+
+def _demo_token(agent: str, install_id: str) -> tuple[str,int]:
+    now = int(time.time())
+    exp = now + 3600
+    claims = {
+        "iss": "hitel-expression2-demo", "sub": hashlib.sha256(
+            install_id.encode("utf-8") + DEMO_KEY).hexdigest()[:32],
+        "aud": "hitel-expression2-public-sample",
+        "agent": agent, "iat": now, "exp": exp,
+        "nonce": secrets.token_hex(16)
+    }
+    part = _b64url(json.dumps(claims, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    signed = ("htdemo.v1." + part).encode("ascii")
+    signature = _b64url(hmac.new(DEMO_KEY, signed, hashlib.sha256).digest())
+    return signed.decode("ascii") + "." + signature, exp - now
+
+def _verify_demo_token(token: str) -> str:
+    if not DEMO_ENABLED or len(DEMO_KEY) < 40:
+        raise _error(401, "DEMO_SESSION_DISABLED")
+    parts = token.split(".")
+    if len(parts) != 4 or parts[:2] != ["htdemo", "v1"]:
+        raise _error(401, "INVALID_DEMO_SESSION")
+    if len(token) > 2048:
+        raise _error(401, "INVALID_DEMO_SESSION")
+    signed = ".".join(parts[:3]).encode("ascii")
+    signature = _b64url(hmac.new(DEMO_KEY, signed, hashlib.sha256).digest())
+    if not hmac.compare_digest(parts[3], signature):
+        raise _error(401, "INVALID_DEMO_SESSION")
+    try:
+        claim = json.loads(_unb64(parts[2]).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, TypeError):
+        raise _error(401, "INVALID_DEMO_SESSION") from None
+    now = int(time.time())
+    if (claim.get("iss") != "hitel-expression2-demo"
+            or claim.get("aud") != "hitel-expression2-public-sample"
+            or claim.get("agent") not in ALLOWED_AGENTS
+            or type(claim.get("exp")) is not int
+            or not now < claim["exp"] <= now + 3600
+            or type(claim.get("iat")) is not int
+            or claim["iat"] > now + 30
+            or not isinstance(claim.get("sub"), str)):
+        raise _error(401, "INVALID_DEMO_SESSION")
+    return "demo:" + claim["sub"]
+
 async def _verify_hitel_user(request: Request) -> str:
     authorization = request.headers.get("authorization", "")
     if not authorization.startswith("Bearer "):
@@ -67,6 +127,8 @@ async def _verify_hitel_user(request: Request) -> str:
     token = authorization[7:]
     if not (20 <= len(token) <= 8192) or any(c.isspace() for c in token):
         raise _error(401, "INVALID_HITEL_SESSION")
+    if token.startswith("htdemo."):
+        return _verify_demo_token(token)
     # Never accept known local CI markers as production credentials.
     if token.startswith("EXPR2_") or token.startswith("CI_"):
         raise _error(401, "TEST_CREDENTIAL_NOT_ACCEPTED")
@@ -109,6 +171,7 @@ def healthz() -> dict[str, Any]:
         "version": VERSION, "public_https": True,
         "upstream_configured": UPSTREAM.startswith("https://"),
         "licensed_vendor_entitlement": False,
+        "public_demo_enabled": DEMO_ENABLED,
     }
 
 @app.get("/", response_class=HTMLResponse)
@@ -122,10 +185,46 @@ def index() -> str:
         "<p>공개 HTTPS 연결이 마련되었습니다. 사용자·단말 인증은 HITEL 로그인 "
         "세션을 필요로 하며, 공개 주소가 곧 무제한 인증을 뜻하지 않습니다.</p>"
         "<p>상태 확인: <a href='/healthz'>/healthz</a></p>"
+        "<p>원본 공개 샘플용 임시 세션: <code>POST /v1/demo/session</code></p>"
         "<p>SDK 경로: <code>POST /v1/auth/validate</code>, "
         "<code>POST /v1/meter/beats</code></p>"
         "<p>기존 bitHuman 사업자의 별도 라이선스를 발급하지 않습니다.</p></html>"
     )
+
+
+@app.post("/v1/demo/session")
+async def public_demo_session(request: Request) -> JSONResponse:
+    """One-hour scoped token for the original public Wise Pup asset, not vendor licensing.
+
+    Each installation must request a new session over HTTPS. There is NO fixed
+    credential in the APK. This endpoint is restricted to a public sample model.
+    """
+    await _rate_limit(request)
+    if not DEMO_ENABLED:
+        raise _error(403, "DEMO_DISABLED")
+    data = await _payload(request)
+    agent = data.get("agent_code")
+    install_id = data.get("install_id")
+    if agent not in ALLOWED_AGENTS or agent != "A23WJF0199":
+        raise _error(403, "PUBLIC_AGENT_ONLY")
+    if not isinstance(install_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", install_id):
+        raise _error(422, "INSTALL_ID_INVALID")
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    async with _rate_lock:
+        d = _demo_rate[ip]
+        while d and now - d[0] > 3600:
+            d.popleft()
+        if len(d) >= 12:
+            raise _error(429, "DEMO_SESSION_HOURLY_LIMIT")
+        d.append(now)
+    token, ttl = _demo_token(agent, install_id)
+    return JSONResponse({
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": ttl,
+        "scope": "public-wise-pup-expression2-debug",
+    }, headers={"Cache-Control": "no-store"})
 
 @app.post("/v1/auth/validate")
 async def validate(request: Request) -> JSONResponse:
