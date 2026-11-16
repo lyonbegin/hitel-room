@@ -10,8 +10,12 @@ import base64
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import uuid
+from urllib.parse import urlencode
+
+from fastapi.responses import RedirectResponse
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -293,16 +297,51 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
         # manifest and OAuth deep-link routing. These are CI test-only values.
         return success({
             "baseUrl": "http://10.0.2.2:8000/",
-            "authUri": "/hitel/qa/authorize",
-            "tokenUri": "/auth-code",
+            "authUri": "hitel/qa/authorize",
+            "tokenUri": "auth-code",
             "scopes": ["openid", "profile"],
             "clientId": "hitel-ci-android",
-            "callbackUrl": "hitel-qa://auth/callback",
+            "callbackUrl": "com.lguplus.aicallagent:/oauth2redirect",
             "prompt": "login",
             "state": secrets.token_urlsafe(24),
             "login_hint": qa_phone,
             "loginType": "HITEL_INTERNAL_QA",
         })
+
+    @app.get("/hitel/qa/authorize")
+    def qa_authorize(redirect_uri: str, client_id: str, response_type: str,
+                     state: str, code_challenge: str, code_challenge_method: str,
+                     login_hint: str = "", nonce: str = "", scope: str = "",
+                     db: Session = Depends(db_dep)):
+        # This route exists ONLY inside the short-lived, synthetic member CI.
+        # It cannot authenticate a real carrier subscriber or a production user.
+        ensure_enabled()
+        if os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") != "true":
+            raise HTTPException(404, "CI authorization page unavailable")
+        expected_redirect = "com.lguplus.aicallagent:/oauth2redirect"
+        if not (hmac.compare_digest(redirect_uri, expected_redirect)
+                and hmac.compare_digest(client_id, "hitel-ci-android")
+                and response_type == "code"
+                and code_challenge_method == "S256"
+                and 16 <= len(state) <= 128
+                and re.fullmatch(r"[A-Za-z0-9_-]{43}", code_challenge)):
+            raise HTTPException(400, "Invalid HITEL QA authorization request")
+        qa_phone = os.getenv("HITEL_IXIO_CI_PHONE", "")
+        if not qa_phone or (login_hint and not hmac.compare_digest(login_hint, qa_phone)):
+            raise HTTPException(403, "Unknown CI fixture identity")
+        member = db.execute(select(member_class).where(
+            member_class.phone == qa_phone)).scalar_one_or_none()
+        if member is None:
+            raise HTTPException(403, "Synthetic CI member is not seeded")
+        auth_code = secrets.token_urlsafe(32)
+        db.add(CompatibilityAuthCode(
+            code_hash=hashlib.sha256(auth_code.encode()).hexdigest(),
+            user_id=member.id, state=state, challenge=code_challenge,
+            expires_at=clock() + timedelta(minutes=5),
+        ))
+        db.commit()
+        callback = expected_redirect + "?" + urlencode({"code": auth_code, "state": state})
+        return RedirectResponse(callback, status_code=302)
 
     @app.get("/login")
     def get_login_data(authorization: str=Header(default=""),
