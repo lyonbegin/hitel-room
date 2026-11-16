@@ -58,6 +58,16 @@ jobs:
           cd "$GITHUB_WORKSPACE/rtl-apk"
           echo 'dd08b098dee26477d12489f872482425d4a790766fa3cd2c56d6119253f39ba4  pristine-original-plugin2637-sdk061-arm64.apk' | sha256sum --check --status
           echo ORIGINAL_SDK061_FULLOWFLOW_APK_SHA256_PASS
+      - name: Check protected remote-viewer authentication configuration without exposing email
+        shell: bash
+        run: |
+          if [ -n "$RTL_VIEWER_EMAIL" ]; then
+            echo 'RTL_VIEWER_EMAIL_CONFIGURED=true'
+            echo 'RTL_VIEWER_EMAIL_CONFIGURED=true' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'RTL_VIEWER_EMAIL_CONFIGURED=false; no public VNC tunnel will open'
+            echo 'RTL_VIEWER_EMAIL_CONFIGURED=false' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Install Ubuntu virtual desktop, noVNC, Linux ADB and Playwright
         shell: bash
         run: |
