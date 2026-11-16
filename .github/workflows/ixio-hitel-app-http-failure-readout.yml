@@ -59,7 +59,7 @@ jobs:
           for p in sorted(xmls)[-2:]:
               print('LAST_XML_FILE',p.name)
           print('APP_PROCESS_LOGCAT_BEGIN')
-          app_lines=[x for x in (list(root.rglob('logcat-full.txt'))[0].read_text(errors='replace').splitlines() if list(root.rglob('logcat-full.txt')) else []) if re.search(r'\\s4719\\s',x)]
+          app_lines=[x for x in (list(root.rglob('logcat-full.txt'))[0].read_text(errors='replace').splitlines() if list(root.rglob('logcat-full.txt')) else []) if len(x.split())>2 and x.split()[2]=='4719']
           print('APP_PROCESS_LOGCAT_LINES',len(app_lines))
           for line in app_lines[-120:]:
               print('APP_PID_4719',safe(line))
@@ -102,10 +102,10 @@ jobs:
           from pathlib import Path
           import zipfile
           z=zipfile.ZipFile('/tmp/ixio-original-apk/IXIO_Main_NoAppSealing_Single.apk')
-          patterns=[b'mvoip-onoff',b'roaming-call',b'/config',b'getConfig']
+          patterns=[b'mvoip-onoff',b'roaming-call']
           selected=[]
           for name in z.namelist():
-              if not name.startswith('classes') or not name.endswith('.dex'):continue
+              if name!='classes16.dex':continue
               buf=z.read(name)
               matching=[p.decode() for p in patterns if p in buf]
               if matching:
@@ -122,15 +122,16 @@ jobs:
           from pathlib import Path
           import json
           root=Path('/tmp/ixio-contract-smali')
-          patterns=('mvoip-onoff','roaming-call','/config')
+          patterns=('mvoip-onoff','roaming-call','/config', 'getConfig', 'appConfig')
           matches=[]
           for p in root.rglob('*.smali'):
+              if '/com/lguplus/aicallagent/' not in '/'+p.as_posix():continue
               src=p.read_text(errors='replace').splitlines()
               for i,l in enumerate(src):
-                  if not any(x in l for x in patterns):continue
-                  if len(matches)>=100:break
+                  if not (('"' in l or '.method ' in l) and any(x in l for x in patterns)):continue
+                  if len(matches)>=90:break
                   near=[]
-                  for j in range(max(0,i-25),min(len(src),i+20)):
+                  for j in range(max(0,i-35),min(len(src),i+25)):
                       t=src[j].strip()
                       if t.startswith(('.method','.end method','.annotation','.end annotation','.field','.class','.super','value = ','const-string','L')) or any(x in t for x in patterns):
                           near.append(t[:220])
