@@ -1,0 +1,69 @@
+name: Toss Original User-Provided APKM Verified Android Installation
+on:
+  push:
+    branches: [feature/toss-five-tool-real-audit-20261116]
+    paths: ['.github/workflows/toss-uploaded-apkm-install.yml']
+permissions:
+  contents: read
+jobs:
+  install-user-provided-apkm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Transfer ORIGINAL user-provided APKM with byte-level SHA verification
+        run: |
+          set -euo pipefail
+          mkdir -p build/input reports/toss-original-install
+          curl -fLsS --retry 4 --retry-delay 2 --max-time 300 'https://sdmntprjapaneast.oaiusercontent.com/files/00000000-8934-8209-b0bb-c0af4df6407e/raw?se=2026-11-16T16%3A09%3A39Z&sp=r&sv=2026-06-06&sr=b&scid=b3315eef-6872-57b4-a097-ed4f75d86f5e&skoid=fe2e0858-51c5-47e9-acb7-46ebb9a0f396&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T00%3A47%3A18Z&ske=2026-11-17T00%3A47%3A18Z&sks=b&skv=2026-06-06&sig=VqtgCoNhOVzXy7ypNXVzm/ikyN7dLJnz2ZOV5gf%2Bg3s%3D' -o build/input/part00.bin
+          echo '723814f0541247b9e757482a3bc35f34e534a7c5d3487778e36a5cb6c6bbf456  build/input/part00.bin' | sha256sum -c -
+          curl -fLsS --retry 4 --retry-delay 2 --max-time 300 'https://sdmntprjapaneast.oaiusercontent.com/files/00000000-3158-8209-9b2c-af311b667430/raw?se=2026-11-16T16%3A09%3A25Z&sp=r&sv=2026-06-06&sr=b&scid=f2527097-e8f8-5218-b5af-1361d762e753&skoid=fe2e0858-51c5-47e9-acb7-46ebb9a0f396&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-15T17%3A08%3A12Z&ske=2026-11-16T17%3A08%3A12Z&sks=b&skv=2026-06-06&sig=cNT9DHMYYK2WjdsJUuGZAAdyrcyxqxcFT4E6/JMnSJA%3D' -o build/input/part01.bin
+          echo '8d6ada9747d2e80cac3cab3ad76078d942bb098a2d0b3c1be7c5c1f8bb0c25ed  build/input/part01.bin' | sha256sum -c -
+          curl -fLsS --retry 4 --retry-delay 2 --max-time 300 'https://sdmntprjapaneast.oaiusercontent.com/files/00000000-6614-8209-a756-aefd84df4bc0/raw?se=2026-11-16T16%3A09%3A25Z&sp=r&sv=2026-06-06&sr=b&scid=b4f308d3-e90a-5513-a33d-9f41f155ff76&skoid=fe2e0858-51c5-47e9-acb7-46ebb9a0f396&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-16T01%3A44%3A10Z&ske=2026-11-17T01%3A44%3A10Z&sks=b&skv=2026-06-06&sig=/l3sfQmQq/kEvKOeSXO2R/LTKDX5XYngeTkNyX%2BrJl8%3D' -o build/input/part02.bin
+          echo '364459e726bf311685d2aa9ae2748fcf65d2aabbcc98e64726279007237d346e  build/input/part02.bin' | sha256sum -c -
+          cat build/input/part0*.bin > build/input/original.apkm
+          echo '3757c1f52bf5ef47febd98266b81dd016174085278f5cd0db31cfa7526c70a95  build/input/original.apkm' | sha256sum -c -
+          unzip -t build/input/original.apkm > reports/toss-original-install/archive-test.txt
+          unzip -l build/input/original.apkm > reports/toss-original-install/apk-entries.txt
+          unzip -p build/input/original.apkm base.apk > build/input/base.apk
+          unzip -p build/input/original.apkm split_config.arm64_v8a.apk > build/input/split_config.arm64_v8a.apk
+          unzip -p build/input/original.apkm split_config.armeabi_v7a.apk > build/input/split_config.armeabi_v7a.apk
+          unzip -p build/input/original.apkm split_config.xxhdpi.apk > build/input/split_config.xxhdpi.apk
+          echo Original-APKM-SHA256-3757c1f52bf5ef47febd98266b81dd016174085278f5cd0db31cfa7526c70a95 > reports/toss-original-install/original-hash.txt
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install exact original Toss APK splits on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 4096
+          script: |
+            bash -e -o pipefail -c '
+              mkdir -p reports/toss-original-install
+              adb devices -l | tee reports/toss-original-install/adb-devices.txt
+              adb shell getprop ro.product.cpu.abilist | tee reports/toss-original-install/abis.txt
+              adb shell getprop ro.dalvik.vm.native.bridge | tee reports/toss-original-install/native-bridge.txt
+              adb shell wm density | tee reports/toss-original-install/density.txt
+              adb install-multiple -r build/input/base.apk build/input/split_config.arm64_v8a.apk build/input/split_config.xxhdpi.apk 2>&1 | tee reports/toss-original-install/install.log
+              adb shell pm path viva.republica.toss | tee reports/toss-original-install/package-paths.txt
+              adb shell monkey -p viva.republica.toss -c android.intent.category.LAUNCHER 1 | tee reports/toss-original-install/launch.txt
+              sleep 15
+              adb shell pidof viva.republica.toss | tee reports/toss-original-install/pid.txt || true
+              adb logcat -d -v time | grep -E "FATAL EXCEPTION|viva.republica.toss|UnsatisfiedLinkError|SecurityException" | tail -400 > reports/toss-original-install/logcat.txt || true
+              adb shell screencap -p /sdcard/toss.png
+              adb pull /sdcard/toss.png reports/toss-original-install/screenshot.png
+              echo TOSS_USER_ORIGINAL_INSTALL_TEST_DONE
+            '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toss-user-original-android-install-evidence
+          path: reports/toss-original-install/
+          retention-days: 30
