@@ -1,0 +1,82 @@
+name: Verify REAL original Flutter ARM64 APK installed on native Apple Silicon Android emulator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/test-avatar-chat-local-auto-native-arm64-macos.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  actual-native-arm64-android-flutter:
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43843304523
+          name: hitel-original-avatar-chat-local-original-sdk-AUTO-debug-apk
+          github-token: ${{ github.token }}
+          path: reports/hitel-avatar-chat-local-auto/
+      - name: Confirm native Apple Silicon runner and SAME previously-built ARM64 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -m
+          test "$(uname -m)" = arm64
+          APK=reports/hitel-avatar-chat-local-auto/apk/HITEL_Original_avatar_chat_Expression2_Local_AUTO_Debug.apk
+          test -s "$APK"
+          shasum -a 256 "$APK"
+          unzip -t "$APK" | tail -n 1
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libflutter.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libexpr2jni.so'
+          echo EXACT_ARM64_APK_READY_ON_NATIVE_APPLE_SILICON
+      - name: REAL Android arm64-v8a emulator installs Flutter and verifies SDK model/auth/first frame
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_5
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash tools/bithuman_deep/test_original_avatar_chat_local_auto_emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-avatar-chat-native-arm64-macos-real-install-evidence
+          path: reports/hitel-avatar-chat-local-auto/emulator/
+          retention-days: 30
+      - name: Publish APK only when native ARM64 emulator actual auth-create-texture PASS
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          grep -Fq REAL_ANDROID_CREATE_AND_FIRST_TEXTURE_FRAME_PASS reports/hitel-avatar-chat-local-auto/emulator/VERDICT.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('reports/hitel-avatar-chat-local-auto/emulator/RUNTIME_RESULT.json')
+          r=json.loads(p.read_text())
+          assert r['all_pass'] and all(r['checks'].values())
+          print('NATIVE_ARM64_FLUTTER_APP_REAL_DEVICE_EMULATOR_TEST_PASSED')
+          PY
+          TAG=hitel-avatar-chat-expression2-original-auto-nativearm64-tested-20261116
+          APK=reports/hitel-avatar-chat-local-auto/apk/HITEL_Original_avatar_chat_Expression2_Local_AUTO_Debug.apk
+          NOTES="DEBUG synthetic-local-auth evaluation only. Real Android 14 ARM64 emulator on macOS ARM64 Apple Silicon successfully installed this exact APK, received local test auth acceptance, created original Expression2 engine via SDK AUTO options and rendered its first original Flutter Texture frame. Original JNI and LiteRT unchanged; device GPU/NPU inference speed unverified, not licensed vendor entitlement. Includes local original public Wise Pup model, no user API Secret."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" \
+              --title "HITEL original Flutter avatar_chat - native ARM64 emulator runtime verified" \
+              --notes "$NOTES" --latest=false
+          fi
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$APK")"
+          echo "NATIVE_ARM64_VERIFIED_APK_URL=$URL"
+          curl -fLsS --retry 4 --max-time 540 "$URL" -o "$RUNNER_TEMP/public-nativearm.apk"
+          cmp -s "$APK" "$RUNNER_TEMP/public-nativearm.apk"
+          echo NATIVE_ARM64_TESTED_PUBLIC_FULL_DOWNLOAD_IDENTICAL_PASS
