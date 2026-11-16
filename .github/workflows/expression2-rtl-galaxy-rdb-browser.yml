@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ab3013528bb3f5a3b7699d767fd62c2844a31fde
+          ref: 3d49de2739698c342c4ee6c0508311438c996adb
           persist-credentials: false
       - name: Check RTL watcher syntax and allowed scope
         shell: bash
@@ -131,7 +131,7 @@ jobs:
           nohup "$RUNNER_TEMP/rtl-py/bin/python" \
             tools/bithuman_deep/rtl_galaxy_browser_automation.py \
             --minutes 90 \
-            --rdb-file "$RUNNER_TEMP/rtl-runtime/rdb" \
+            --rdb-file "$RUNNER_TEMP/rtl-runtime/rdb-ready" \
             > "$RUNNER_TEMP/rtl-browser-auto.log" 2>&1 < /dev/null &
           echo "$!" > "$RUNNER_TEMP/rtl-browser-auto.pid"
           sleep 3
@@ -208,6 +208,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'echo "Samsung Playwright automation stage log:"; tail -n 35 "$RUNNER_TEMP/rtl-browser-auto.log" || true' EXIT
           python3 tools/bithuman_deep/rtl_galaxy_rdb_probe.py \
             --downloads "$HOME/Downloads" \
             --runtime "$RUNNER_TEMP/rtl-runtime" \
