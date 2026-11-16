@@ -116,8 +116,9 @@ def main():
     time.sleep(16)  # allow Android launcher services to settle after first boot
     seen_error=False
     anr_count=0
+    chrome_welcome_retries=0
     stop_reason="EXHAUSTED_STEPS"
-    for i in range(24):
+    for i in range(30):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
         if any(q in joined for q in ("Pixel Launcher isn't responding","System UI isn't responding","Pixel 런처가 응답하지 않습니다","시스템 UI가 응답하지 않습니다")):
@@ -148,7 +149,8 @@ def main():
         # A clean emulator can open Chrome's own first-run setup instead of the
         # HITEL QA authorization page. Dismiss *browser* onboarding without
         # logging into Google or touching IXIO carrier service agreements.
-        chrome_visible=any(node.get("package","")=="com.android.chrome" for node in nodes)
+        chrome_visible=(any(node.get("package","")=="com.android.chrome" for node in nodes)
+                        or "Welcome to Chrome" in joined)
         if chrome_visible:
             browser_setup=choose(nodes,[
                 "Use without an account", "계정 없이 사용",
@@ -158,6 +160,14 @@ def main():
             if browser_setup:
                 tap(browser_setup,"CHROME_FIRST_RUN_NO_ACCOUNT")
                 continue
+            if "Welcome to Chrome" in joined:
+                chrome_welcome_retries+=1
+                print("CHROME_FIRST_RUN_LOADING",chrome_welcome_retries,flush=True)
+                if chrome_welcome_retries<=6:
+                    time.sleep(5)
+                    continue
+                stop_reason="CHROME_FIRST_RUN_STALLED"
+                break
         # Do not accept any carrier legal terms or account credentials.
         if any(q in joined for q in CONSENT_BLOCKS):
             print("STOP_BEFORE_TERMS_OR_LOGIN",joined[:850],flush=True)
