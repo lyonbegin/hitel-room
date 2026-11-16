@@ -1,0 +1,728 @@
+#!/usr/bin/env bash
+# bootstrap.sh — provision the bitHuman avatar UMBRELLA Flutter plugin (Layer 2).
+#
+# This repo (bithuman-avatar-plugin) is the app's SINGLE Flutter dependency. It
+# is engine-agnostic glue (BithumanAvatarPlugin + RealtimeAudioIO + Converse* +
+# the FlutterTexture) + the on-device brain libconverse, and it AGGREGATES N
+# engine SDKs (each a Layer-1 sdk/ in its own repo) statically (design §2.2).
+#
+# What it provisions:
+#   • libconverse.xcframework — the on-device conversation brain (llama.cpp +
+#     Supertonic). The ONE module-map xcframework (INVARIANT #1). Not an avatar
+#     engine — it stays the umbrella's own dependency, fetched here.
+#   • Each engine SDK, via the N-ENGINE LOOP: locate <engine>/sdk (a
+#     BITHUMAN_<ENGINE>_DIR dev override or a sibling checkout), run
+#     its own bootstrap (which fetches/extracts its native deps), then STAGE its
+#     surfaces under <plat>/Engines/<engine>/ so the podspec picks them up:
+#       Engines/<engine>/Classes/*.swift  ← compiled into the pod (one umbrella module)
+#       Engines/<engine>/include/*.h       ← folded into the pod umbrella (e.g. be_essence2.h)
+#       Engines/<engine>/Vendor/lib*.a     ← s.vendored_libraries (PLAIN STATIC LIB)
+#       Engines/<engine>/Vendor/*-resources ← s.resources
+#     INVARIANT #1: an engine's native core is a PLAIN STATIC .a, NEVER a 2nd
+#     module-map xcframework (libconverse keeps the single slot).
+#
+# Engines (M2): expression2 (REQUIRED — the default embody engine, source-only) +
+# essence2 (OPTIONAL on-device Essence2; a missing SDK / download degrades to
+# embody-only via the ESSENCE2_AVAILABLE gate). A 3rd engine = one line in ENGINES.
+#
+# expression2 is SOURCE-ONLY: its bootstrap fetches the embody CoreML MODEL bundle
+# (no static lib), which the umbrella stages to <plat>/Assets/embody — the FROZEN landing
+# Expression2Runtime/Expression2Engine probes via Bundle subdirectory "embody" and
+# the app's Runner "Bundle embody models" phase reads.
+#
+# Two modes:
+#   • SELF-CONTAINED (default): download + sha256-verify the embody models, the
+#     pinned libconverse release (LIBCONVERSE_*) and each engine's pinned binaries.
+#   • DEV override: BITHUMAN_SDK_DIR=/path/to/bithuman-models/models/essence-1
+#     symlinks libconverse from that checkout's sdk/swift/vendor surface; embody
+#     models load from ~/embody-ane at runtime; each engine SDK bootstrap runs
+#     in its own DEV mode.
+#
+# Nothing under <plat>/Frameworks/, <plat>/Engines/, or <plat>/Assets/embody/ is
+# committed. Re-running is safe. Apache-2.0; (c) bitHuman.
+
+set -euo pipefail
+
+PLUGIN_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+EXPRESSION2_VENDOR_TAG="${EXPRESSION2_VENDOR_TAG:-expression2-vendor-v1}"
+EXPRESSION2_VENDOR_REPO="${EXPRESSION2_VENDOR_REPO:-bithuman-models}"
+
+# The STATIC, non-SME2 ONNX Runtime 1.26.0 the essence2 (a2x) decoder's le_a2x
+# GEMM and libconverse's Supertonic voice run on. Built from source so it never emits
+# SME2 instructions (those SIGILL on the A19 / iPhone 17 CPU). Both pods vendor it as
+# Frameworks/onnxruntime.xcframework: the iOS pod the whole xcframework, the macOS pod
+# (from 2.6.39) its macos-arm64_x86_64 slice, a universal static archive built for
+# macOS 14.0. Through 2.6.38 macOS linked Homebrew's dylib instead (`brew install
+# onnxruntime`: ORT 1.27, built for macOS 15), so an app needed Homebrew at run time and
+# could not start on macOS 14. The public copy is
+# in the flutter-plugin-vendor release on https://downloads.bithuman.ai (below); the
+# private fallback is the engine release in the downloads host's private area (below).
+# A dev override (ORT_XCFRAMEWORK_DIR=/path/to/onnxruntime.xcframework) skips the download.
+ORT_VENDOR_TAG="${ORT_VENDOR_TAG:-essence2-ort-vendor-1.26.0}"
+ORT_VENDOR_REPO="${ORT_VENDOR_REPO:-bithuman-models}"
+
+# ===================================================== THE LIBCONVERSE PIN (2.6.37; 2.5.2 from 2.6.39)
+# The on-device conversation brain (LOCAL mode): llama.cpp b8110 linked statically
+# with its Metal shaders embedded + the Supertonic helper; ONNX Runtime is NOT merged
+# in (the app links it: the vendored static onnxruntime.xcframework, on iOS and, from
+# 2.6.39, on macOS). Three slices: macos-arm64 (every object minos macOS 14.0), ios-arm64 and
+# ios-arm64-simulator (every object minos iOS 16.4: llama.cpp's Accelerate BLAS imports
+# `cblas_sgemm$NEWLAPACK$ILP64`, iOS 16.4+). The podspecs read those floors from the
+# staged bytes.
+#
+# ★Through 2.6.36 libconverse came UNPINNED from the private `expression2-vendor-v1`
+# combined bundle (embody-vendor.tar.gz, 199 MB downloaded for a 7 MB framework): the
+# 2026-07-01 cut, whose macOS objects say minos 26.0 (so the pod declared macOS 26.0) and
+# whose llama.cpp came from Homebrew at link + run time. Now it is a named, digest-pinned
+# release like the engines; a mismatch is a refusal. The release is private: a clone
+# without access builds WITHOUT the brain (CONVERSE_AVAILABLE unset; localAudioStart /
+# localAudioStop / localPushText refuse by name), exactly as before.
+#
+# ★converse-apple-v2.5.2 (2.6.39): 2.5.1 with ONLY the macOS slice rebuilt against the ONNX
+# Runtime 1.26 headers of the static onnxruntime.xcframework above (iOS slices byte-identical).
+# 2.5.1's macOS slice was compiled against Homebrew's 1.27 headers: every Supertonic call asks
+# `OrtGetApiBase()->GetApi(27)`, which the static 1.26 runtime answers with NULL, so 2.5.1 linked
+# against it crashes when the voice loads. The macOS link is now that static 1.26, so the pin
+# is 2.5.2 or later (test/release_pins_test.dart).
+# LIBCONVERSE_XCF_ZIP=<path to libconverse.xcframework.zip> stages a candidate build.
+LIBCONVERSE_RELEASE="${LIBCONVERSE_RELEASE:-converse-apple-v2.5.2}"
+LIBCONVERSE_SHA256="${LIBCONVERSE_SHA256:-870088d7537237cae1f016e72b9e7df32fdd794633c039834f9943de5362cc20}"
+LIBCONVERSE_REPO="${LIBCONVERSE_REPO:-bithuman-models}"
+
+# ===================================================== WHERE THE BYTES COME FROM (2026-10)
+# Nothing in this script contacts a code host. Every download comes from https://downloads.bithuman.ai,
+# under the same pinned digests as before (the bytes are the same; only the host changed):
+#   public:  $BITHUMAN_DOWNLOADS_BASE/homebrew-bithuman/<tag>/<asset>   (no credential)
+#   private: $BITHUMAN_DOWNLOADS_PRIVATE_BASE/<repo>/<tag>/<asset>      with   Authorization: Bearer <token>
+# The private area holds the releases that are not public (the onnxruntime build's private twin,
+# the combined embody bundle, the on-device brain libconverse). It is read ONLY when a token is
+# set: $BITHUMAN_DOWNLOADS_TOKEN (developers and release hosts with access; never a customer; e.g.
+# export BITHUMAN_DOWNLOADS_TOKEN="$(cat ~/.config/bithuman-release/downloads.token)"). The token goes to curl through a
+# config on stdin, never on argv, and is never printed. Without a token nothing private is fetched.
+# The private base defaults to https://downloads.bithuman.ai on its own: pointing BITHUMAN_DOWNLOADS_BASE
+# at a mirror for the public bytes never sends the token to that mirror.
+#   BITHUMAN_REQUIRE_LOCAL_BRAIN=1   a build that must ship the on-device brain (a Live app release
+#                                    build) FAILS when libconverse cannot be staged, instead of
+#                                    building without it.
+# (Through 2.6.37 the public bytes came from the tap's release pages on the previous code host and the
+# private ones through that host's CLI; the downloads host serves the identical files, verified by sha256.)
+BITHUMAN_DOWNLOADS_BASE="${BITHUMAN_DOWNLOADS_BASE:-https://downloads.bithuman.ai}"
+BITHUMAN_DOWNLOADS_PRIVATE_BASE="${BITHUMAN_DOWNLOADS_PRIVATE_BASE:-https://downloads.bithuman.ai}"
+TAP_DOWNLOADS="${BITHUMAN_DOWNLOADS_BASE%/}/homebrew-bithuman"
+have_private() {
+    [ -n "$BITHUMAN_DOWNLOADS_PRIVATE_BASE" ] && [ -n "${BITHUMAN_DOWNLOADS_TOKEN:-}" ]
+}
+# private_fetch <repo> <tag> <asset> <dest-dir> [<pinned sha256>] -> 0 when the asset was fetched and
+# its digest agrees: with the PINNED digest when one is given, else with the release's own .sha256
+# sidecar. Fails closed: no token, a 401/403/404, or a digest mismatch is never an install.
+private_fetch() {
+    local repo="$1" tag="$2" name="$3" dir="$4" pin="${5:-}" f want got
+    have_private || return 1
+    command -v curl >/dev/null 2>&1 || return 1
+    local files=("$name"); [ -n "$pin" ] || files+=("$name.sha256")
+    for f in "${files[@]}"; do
+        printf 'header = "Authorization: Bearer %s"\n' "$BITHUMAN_DOWNLOADS_TOKEN" \
+            | curl -fsSL --retry 2 --proto '=https' -K - -o "$dir/$f" \
+                "${BITHUMAN_DOWNLOADS_PRIVATE_BASE%/}/$repo/$tag/$f" || return 1
+    done
+    if [ -n "$pin" ]; then want="$pin"; else want="$(awk '{print $1; exit}' "$dir/$name.sha256")"; fi
+    got="$(shasum -a 256 "$dir/$name" | cut -d' ' -f1)"
+    [ -n "$want" ] && [ "$want" = "$got" ] || die "sha256 MISMATCH for $name ($repo $tag, private area) — refusing to install
+  expected $want
+  actual   $got"
+    return 0
+}
+PRIVATE_HINT="developers and release hosts with access: set BITHUMAN_DOWNLOADS_TOKEN for the private area of $BITHUMAN_DOWNLOADS_PRIVATE_BASE"
+
+# ======================================================= THE APPLE ENGINE PIN
+# ★ A TAG OF THIS REPO MUST NAME AN ENGINE. The Android half already works this
+# way — android/build.gradle names `ai.bithuman:essence2-android:0.5.8`, an
+# immutable Maven coordinate committed beside the code that uses it, so
+# `flutter-plugin-v2.6.1` names exactly one Android engine forever. The Apple
+# half named none, and it cost us twice:
+#
+#   • THE BINARY. Until 2026-09-16 this script ran the engine SDK's own
+#     bootstrap with no engine coordinate, so the tag came from a DEFAULT in
+#     the PRIVATE repo — `LIBESSENCE2_RELEASE="${LIBESSENCE2_RELEASE-essence2-v1.2.0}"`,
+#     last rolled 2026-09-06 and never moved again. essence2-v1.2.0 is a
+#     PRE-RELEASE whose own title reads "superseded by essence2-v1.5.0", while
+#     Package.swift (the SwiftPM path, same repo, same engine) served
+#     essence2-v1.7.0. Two Apple paths, five releases apart, no gate between
+#     them. Measured on the published bytes 2026-09-16: the v1.2.0 slices carry
+#     0 `DriverCursor` and 0 `decoded IN PLACE`; the v1.7.0 slices carry 257 and
+#     1. Nothing that ran on a device that day linked v1.2.0 — every Apple build
+#     overrode the default by hand — but the pod's own committed assumptions
+#     were written for it: `s.resources` globbed `a2x_w2v.*.onnx`, a name only
+#     the v1.2.0-era archive ships, so the app carried no audio encoder at all
+#     and `be_essence2_create` returned -2 on the first macOS run that day.
+#
+#   • THE SOURCE. `locate_engine_sdk` takes a ref and both call sites omitted
+#     it, so the engine adapter Swift compiled into this pod came from
+#     bithuman-models main HEAD **at bootstrap time**, into gitignored
+#     directories, with no revision recorded anywhere. Two developers building
+#     the same tag a week apart got different engine code and neither could
+#     tell.
+#
+# So the coordinates live HERE, committed, immutable, beside the Android ones.
+# The digests are the sha256 of the release assets and are checked by the
+# engine SDK's bootstrap before anything is installed. `essence2Tag` in
+# Package.swift and `LIBESSENCE2_RELEASE` below name the SAME release, and
+# `scripts/check-apple-engine-pin.sh` refuses a commit where they do not — it
+# also refuses a `BITHUMAN_MODELS_REF` that is not a full commit sha, because a
+# branch name is not a pin. Roll the two together, never one alone.
+#
+# Env overrides stay honoured for development; the committed values are what a
+# tag ships.
+
+# (Through 2.6.19 a BITHUMAN_MODELS_REF pinned the private repository revision whose engine
+# ADAPTER SOURCE this pod compiled. Since 2.6.20 no engine source is fetched: see below.)
+
+# ★MOVED 2026-10-03 to essence2-v1.15.4 (bithuman-models #1826 + #1833, Swift package 2.20.3 / #200): the same engine
+# rebuilt at the package floor (every iOS device object minos 16.0, macOS 13.0) and refusing below iOS / macOS 26 at
+# be_essence2_create. With v1.15.3 (built for 26.0) an app at iOS 16 that linked it could not start below iOS 18.4.
+# Expression 2 / UnifiedModelHeader v2.20.3 with it (Expression2Download opens a cached avatar per credential).
+# The C interface is unchanged.
+# ★MOVED 2026-09-28 to essence2-v1.15.0 (bithuman-models #1621 @ 225c63782): on macOS the engine's licensing
+# and metering core leaves the archive for EngineCore (ENGINECORE_* below, staged by stage_enginecore). The C
+# interface gains ADDITIVE calls the adapter does not use, so BITHUMAN_MODELS_REF stays.
+# ★MOVED 2026-09-26 to essence2-v1.14.2 (bithuman-models #1542 @ 2a33fd99d): a long session's memory stays flat
+# (the audio-to-motion stage keeps a window, not the whole utterance). The C interface is unchanged.
+# ★MOVED 2026-09-26 to essence2-v1.14.1 (bithuman-models #1516 @ b4a331443): a Release engine cannot be switched
+# unmetered or pointed at another meter endpoint. The C interface is unchanged; BITHUMAN_MODELS_REF stays.
+# ★MOVED 2026-09-26 to essence2-v1.14.0 (bithuman-models #1473, essence2-apple-v1.14.0 @ 3485848d2): the engine's
+# meter names the install (a UUIDv4 in Application Support, not ""), and the C interface gains two ADDITIVE calls
+# (be_essence2_end_utterance, be_essence2_last_frame_kind) the adapter does not need, so BITHUMAN_MODELS_REF stays.
+# ★MOVED 2026-09-25 to essence2-v1.13.0 (bithuman-models #1461, essence2-apple-v1.13.0 @ 2cc2a334f): the
+# engine carries NO MLX, so an app with its own MLX pod links beside it under CocoaPods' -ObjC; the resources
+# archive has no .bundle any more (the *.bundle glob in the podspecs is empty, correctly). The C interface is
+# unchanged, so BITHUMAN_MODELS_REF (the engine ADAPTER source) stays where Expression2 v2.7.0 put it.
+# The essence-2 Apple ENGINE + its runtime RESOURCES. One release carries both.
+# Must equal `essence2Tag` in Package.swift; the digests must equal that file's
+# `libessence2.xcframework.zip` binaryTarget checksum and the release's own
+# resources sidecar. Passed to the engine SDK bootstrap explicitly below.
+LIBESSENCE2_RELEASE="${LIBESSENCE2_RELEASE:-essence2-v1.15.5}"
+LIBESSENCE2_SHA256="${LIBESSENCE2_SHA256:-97bb4549e421c281e05269ffbe949d7f7b2690d0c46e8d593d9ad54396e8cf41}"
+LIBESSENCE2_RESOURCES_RELEASE="${LIBESSENCE2_RESOURCES_RELEASE:-essence2-v1.15.5}"
+LIBESSENCE2_RESOURCES_SHA256="${LIBESSENCE2_RESOURCES_SHA256:-687041c1d82cf0a2f522ccbf6feb07f33e03dcc5dc0dd470c5404ec1cf1407cb}"
+
+# ★ENGINECORE (macOS only, from essence2-v1.15.0 / Expression2 v2.19.0). On macOS the Essence 2
+# archive and the Expression 2 framework no longer carry the engine's licensing and metering
+# core: both leave those symbols to the app's final link, which takes them ONCE from
+# EngineCore's plain static lib (libengine_core.a, macos-arm64 only). The iOS slices reference
+# nothing from it. It is linked whenever Expression 2 is (the plugin always links Expression 2),
+# so it is NOT skipped by BITHUMAN_SKIP_ESSENCE2. Must equal Package.swift's `essence2Tag` and
+# its EngineCore binaryTarget checksum (scripts/check-apple-engine-pin.sh A8).
+ENGINECORE_RELEASE="${ENGINECORE_RELEASE:-enginecore-v1.0.2}"
+ENGINECORE_SHA256="${ENGINECORE_SHA256:-1d3b6de3956bf6b287169331d0e12eb5b750d285c49bf5a9569cc38097fa5e50}"
+
+# The UnifiedModelHeader module, as a plain static .a per slice.
+#
+# ★WHY A POD THAT NEVER WRITES `import UnifiedModelHeader` HAS TO STAGE IT.
+# From essence2-v1.10.0 `libessence2.a` no longer DEFINES the UnifiedModelHeader
+# symbols — it was libtool'd from the engine's whole Swift closure and that
+# closure carried them, which made any app that linked BOTH published Apple
+# products collide on 112 duplicate symbols. The archive now REFERENCES them
+# (14 on ios-arm64 / macos-arm64, 6 on the simulator), so whatever links
+# libessence2.a must also link something that defines them, or the Runner app
+# fails at its FINAL link with
+#     "static UnifiedModelHeader.EngineLoaderRegistry.shared.getter : …",
+#       referenced from: libessence2.a[5](UnifiedEngineDispatch.o)
+# — a failure this pod's own build never shows, because a pod is compiled, not
+# linked.
+#
+# It goes in beside libessence2.a as a PLAIN STATIC LIB, which is exactly what
+# INVARIANT #1 in both podspecs demands and what their
+# `Engines/*/Vendor/*.a` glob already picks up — so neither podspec changes.
+# The bytes come from the same public tap release the SwiftPM
+# `UnifiedModelHeaderBinary` binaryTarget pins, at `expression2Tag`; the digest
+# below is that binaryTarget's checksum, and a mismatch is a refusal.
+# ★It read v2.6.3 (a8bf748c…) after Package.swift had moved to v2.6.4 (the Swift
+# SDK tag v2.14.1), so the plugin tag and the SDK tag named different
+# UnifiedModelHeader bytes — nothing compared them. scripts/check-apple-engine-pin.sh
+# now does (A6): these two values must equal `expression2Tag` and the
+# UnifiedModelHeaderBinary checksum in Package.swift.
+# ★THE EXPRESSION 2 ENGINE IS LINKED AS THE PUBLISHED BINARY (2.6.20, 2026-09-27). Through 2.6.19 this script
+# cloned the PRIVATE bithuman-models repo for the engine adapters' Swift source, so the iOS/macOS half
+# of every published plugin tag failed with a 404 for anyone outside the company. The plugin now links
+# the three xcframeworks the Swift package's `Expression2` product ships (Expression2,
+# BithumanEngineProtocol, UnifiedModelHeader), from the same tap release and checked against the same
+# checksums Package.swift pins; the Essence 2 adapter is the plugin's own (shared/Classes). No engine
+# source is fetched, from anywhere. X2_XCF_DIR=<dir holding the three zips> stages a candidate build.
+EXPRESSION2_RELEASE="${EXPRESSION2_RELEASE:-v2.20.4}"
+EXPRESSION2_SHA256="${EXPRESSION2_SHA256:-9a1e43b7c489e2043ea79a75803394f5053b31b0c6e81e3353b8e791484cf920}"
+BEP_SHA256="${BEP_SHA256:-53fee93549ca94282993cf8337ea41c7bc412a7fc7435ad3001a97675f6dfbbd}"
+UMH_RELEASE="${UMH_RELEASE:-v2.20.4}"
+UMH_SHA256="${UMH_SHA256:-c2a0e1c14dd6ad6136c7f50068b0641577484dd1408ba41ad2d31479da40e4ff}"
+
+# ---------------------------------------------------------------- PUBLIC vendor
+# The build outputs above also live on a PUBLIC, versioned, immutable release, so
+# a clone with no credential can fetch them. Digests are PINNED HERE, not read
+# from beside the download: a 200 means a server answered, not that the bytes are
+# the bytes, and a sidecar fetched from the same place as the asset is not an
+# independent check. The release also ships manifest.json (size + sha256 per
+# asset + the tar's full member list) for a human to verify against; this script
+# trusts the pin below.
+PUBLIC_VENDOR_TAG="${PUBLIC_VENDOR_TAG:-flutter-plugin-vendor-v1}"
+PUBLIC_VENDOR_BASE="${PUBLIC_VENDOR_BASE:-$TAP_DOWNLOADS/$PUBLIC_VENDOR_TAG}"
+PUBLIC_SHA_embody_models="c224f7174479db913fabe8823029e9bdeb70bde6efc49f11bfd0495010b8031f"
+PUBLIC_SHA_onnxruntime="7d631c161ae0d9c6f01095bcb5556d0b4f0205dc5111e6d2ddae82cc7050a7ed"
+
+# fetch_public <asset-name> <expected-sha256> <dest-dir> -> 0 on success
+# Anonymous (no gh, no token). Verifies the PINNED digest and REFUSES on mismatch
+# rather than installing bytes it cannot account for.
+fetch_public() {
+    local name="$1" want="$2" dir="$3"
+    command -v curl >/dev/null 2>&1 || return 1
+    curl -fsSL --retry 2 -o "$dir/$name" "$PUBLIC_VENDOR_BASE/$name" || return 1
+    local got; got="$(shasum -a 256 "$dir/$name" | cut -d' ' -f1)"
+    if [ "$got" != "$want" ]; then
+        die "sha256 MISMATCH for $name from $PUBLIC_VENDOR_TAG — refusing to install
+  expected $want
+  actual   $got"
+    fi
+    log "  $name verified against the pinned digest ($got)"
+    return 0
+}
+
+log()  { printf '\033[1;36m[bootstrap]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[bootstrap]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[1;31m[bootstrap]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Symlink target -> destination (relative), replacing existing links/dirs.
+relink() {
+    local target="$1" dest="$2"
+    [ -e "$target" ] || { warn "missing $target"; return 1; }
+    rm -rf "$dest"
+    mkdir -p "$(dirname "$dest")"
+    local rel_target
+    rel_target=$(python3 -c \
+        "import os, sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" \
+        "$target" "$(dirname "$dest")")
+    ln -s "$rel_target" "$dest"
+}
+
+# ------------------------------------------------- generic engine SDK locator
+# Every engine's Layer-1 sdk/ lives in the PRIVATE engine monorepo
+# bithuman-models under models/<engine>/sdk. Locate one
+# engine's sdk/ by: (1) BITHUMAN_<ENGINE>_DIR dev override, (2) a sibling
+# bithuman-models checkout next to this repo, (3) ONE shared shallow clone of
+# the monorepo into a cache AT $ref (serves every engine).
+# Sets ENGINE_SDK to the resolved sdk/ path (empty if not found), and
+# ENGINE_SDK_REV to the revision it actually resolved (or "unpinned: <reason>"
+# for 1 and 2, which are developer paths this script cannot pin).
+#   $1 = slug (EXPRESSION2|ESSENCE2)  $2 = models/ dir name (expression-2|essence-2)
+#   $3 = override env VALUE           $4 = ref (REQUIRED — the committed pin)
+
+# ---------------------------------------------- engine #1: expression2 (REQUIRED)
+# Source-only (pure Swift/CoreML). Its bootstrap fetches the embody CoreML model
+# bundle into its Vendor/embody (no static lib); the umbrella stages Classes into
+# Engines/expression2/Classes and the models into Assets/embody (FROZEN landing).
+# $1 = extra env to pass the engine bootstrap (e.g. EMBODY_VENDOR_SRC=...).
+# fetch_tap_zip <release> <file> <sha256> <dest dir>: a public tap release asset, sha256-checked.
+fetch_tap_zip() {
+    local rel="$1" name="$2" want="$3" dir="$4"
+    local url="$TAP_DOWNLOADS/$rel/$name"
+    curl -fsSL --retry 2 -o "$dir/$name" "$url" || die "could not fetch $url"
+    local got; got="$(shasum -a 256 "$dir/$name" | cut -d' ' -f1)"
+    [ "$got" = "$want" ] || die "sha256 MISMATCH for $name ($rel) — refusing to install
+  expected $want
+  actual   $got"
+}
+
+# The Expression 2 engine: the three binary xcframeworks the Swift package vends, into
+# {macos,ios}/Frameworks, plus the identity-agnostic embody graphs into {macos,ios}/Assets/embody.
+stage_expression2() {
+    local embody_src="${1:-}" dl z
+    dl="$(mktemp -d)"
+    if [ -n "${X2_XCF_DIR:-}" ]; then
+        log "Staging Expression 2 from X2_XCF_DIR=$X2_XCF_DIR (candidate)"
+        for z in Expression2 BithumanEngineProtocol UnifiedModelHeader; do
+            cp "$X2_XCF_DIR/$z.xcframework.zip" "$dl/" || die "X2_XCF_DIR has no $z.xcframework.zip"
+        done
+    else
+        log "Fetching Expression 2 $EXPRESSION2_RELEASE (Expression2 + BithumanEngineProtocol + UnifiedModelHeader) …"
+        fetch_tap_zip "$EXPRESSION2_RELEASE" Expression2.xcframework.zip "$EXPRESSION2_SHA256" "$dl"
+        fetch_tap_zip "$EXPRESSION2_RELEASE" BithumanEngineProtocol.xcframework.zip "$BEP_SHA256" "$dl"
+        fetch_tap_zip "$UMH_RELEASE" UnifiedModelHeader.xcframework.zip "$UMH_SHA256" "$dl"
+    fi
+    for z in Expression2 BithumanEngineProtocol UnifiedModelHeader; do
+        ( cd "$dl" && unzip -q -o "$z.xcframework.zip" ) || die "could not unzip $z.xcframework.zip"
+        [ -d "$dl/$z.xcframework" ] || die "$z.xcframework.zip did not contain $z.xcframework/"
+        for fw in "$MAC_FW" "$IOS_FW"; do
+            mkdir -p "$fw"; rm -rf "$fw/$z.xcframework"; cp -R "$dl/$z.xcframework" "$fw/$z.xcframework"
+        done
+    done
+    rm -rf "$dl" "$PLUGIN_ROOT/macos/Engines/expression2" "$PLUGIN_ROOT/ios/Engines/expression2"
+    log "  staged Expression2 / BithumanEngineProtocol / UnifiedModelHeader xcframeworks → {macos,ios}/Frameworks"
+    if [ -n "$embody_src" ] && [ -d "$embody_src" ]; then
+        for plat in macos ios; do
+            rm -rf "$PLUGIN_ROOT/$plat/Assets/embody"; mkdir -p "$PLUGIN_ROOT/$plat/Assets"
+            cp -R "$embody_src" "$PLUGIN_ROOT/$plat/Assets/embody"
+        done
+        log "  staged the identity-agnostic embody graphs → {macos,ios}/Assets/embody"
+    fi
+}
+
+# EngineCore (macOS only): its plain static lib into macos/Vendor/libengine_core.a, which the
+# macOS podspec vendors explicitly. Deliberately NOT under Engines/*/Vendor: that glob decides
+# whether Essence 2 is present (ESSENCE2_AVAILABLE) and probes engine libs for auth hooks, and
+# EngineCore is neither an avatar engine nor optional. ENGINECORE_XCF_ZIP=<path> stages a
+# candidate build (with X2_XCF_DIR, or ESSENCE2_XCF_DIR for a candidate Essence 2 engine).
+stage_enginecore() {
+    local dl lib; dl="$(mktemp -d)"
+    rm -f "$PLUGIN_ROOT/macos/Vendor/libengine_core.a"
+    if [ -n "${ENGINECORE_XCF_ZIP:-}" ]; then
+        log "Staging EngineCore from ENGINECORE_XCF_ZIP=$ENGINECORE_XCF_ZIP (candidate)"
+        cp "$ENGINECORE_XCF_ZIP" "$dl/EngineCore.xcframework.zip" || die "no $ENGINECORE_XCF_ZIP"
+    else
+        log "Fetching EngineCore $ENGINECORE_RELEASE (${ENGINECORE_SHA256:0:16}…) …"
+        fetch_tap_zip "$ENGINECORE_RELEASE" EngineCore.xcframework.zip "$ENGINECORE_SHA256" "$dl"
+    fi
+    ( cd "$dl" && unzip -q -o EngineCore.xcframework.zip ) || die "could not unzip EngineCore.xcframework.zip"
+    [ -d "$dl/EngineCore.xcframework/macos-arm64" ] || die "EngineCore.xcframework has no macos-arm64 slice"
+    lib="$dl/EngineCore.xcframework/macos-arm64/libengine_core.a"
+    [ -f "$lib" ] || die "EngineCore.xcframework/macos-arm64 has no libengine_core.a"
+    mkdir -p "$PLUGIN_ROOT/macos/Vendor"
+    cp "$lib" "$PLUGIN_ROOT/macos/Vendor/libengine_core.a"
+    rm -rf "$dl"
+    log "  staged EngineCore → macos/Vendor/libengine_core.a (the macOS link of Expression 2 and Essence 2)"
+}
+
+# The Essence 2 engine: its C library (libessence2.a per slice + be_essence2.h) and runtime
+# resources from the public tap release. The Swift adapter over it is the plugin's own
+# (shared/Classes/Essence2Engine.swift). Optional: without it the plugin builds embody-only.
+stage_essence2_plat() {  # $1=plat, $2=xcframework slice dir, $3=headers dir, $4=resources dir
+    local plat="$1" slice="$2" hdr="$3" res="$4"
+    local base="$PLUGIN_ROOT/$plat/Engines/essence2"
+    rm -rf "$base"; mkdir -p "$base/include" "$base/Vendor"
+    cp "$slice/libessence2.a" "$base/Vendor/libessence2.a"
+    cp "$hdr/be_essence2.h" "$base/include/"
+    [ -d "$res" ] && cp -R "$res" "$base/Vendor/essence2-resources"
+    log "  staged essence2 → $plat/Engines/essence2 (be_essence2.h + libessence2.a + resources)"
+}
+stage_essence2() {
+    rm -rf "$PLUGIN_ROOT/macos/Engines/essence2" "$PLUGIN_ROOT/ios/Engines/essence2"
+    [ "${BITHUMAN_SKIP_ESSENCE2:-0}" = "1" ] && { log "BITHUMAN_SKIP_ESSENCE2=1 — embody-only build"; return 0; }
+    local dl; dl="$(mktemp -d)"
+    if [ -n "${ESSENCE2_XCF_DIR:-}" ]; then
+        # A CANDIDATE engine (an unpublished build, e.g. before a pin move): the two archives a release
+        # carries, from a local directory. The pinned digests above are not what is staged then.
+        log "Staging Essence 2 from ESSENCE2_XCF_DIR=$ESSENCE2_XCF_DIR (candidate)"
+        cp "$ESSENCE2_XCF_DIR/libessence2.xcframework.zip" "$ESSENCE2_XCF_DIR/libessence2-resources.zip" "$dl/" \
+            || die "ESSENCE2_XCF_DIR has no libessence2.xcframework.zip + libessence2-resources.zip"
+    else
+        log "Fetching Essence 2 $LIBESSENCE2_RELEASE (${LIBESSENCE2_SHA256:0:16}…, resources ${LIBESSENCE2_RESOURCES_SHA256:0:16}…) …"
+        fetch_tap_zip "$LIBESSENCE2_RELEASE" libessence2.xcframework.zip "$LIBESSENCE2_SHA256" "$dl"
+        fetch_tap_zip "$LIBESSENCE2_RESOURCES_RELEASE" libessence2-resources.zip "$LIBESSENCE2_RESOURCES_SHA256" "$dl"
+    fi
+    ( cd "$dl" && unzip -q -o libessence2.xcframework.zip && mkdir -p res && unzip -q -o libessence2-resources.zip -d res ) \
+        || die "could not unzip the Essence 2 archives"
+    local x="$dl/libessence2.xcframework" res="$dl/res"
+    [ -d "$res/libessence2-resources" ] && res="$res/libessence2-resources"
+    stage_essence2_plat macos "$x/macos-arm64" "$x/macos-arm64/Headers" "$res"
+    stage_essence2_plat ios   "$x/ios-arm64"   "$x/ios-arm64/Headers"   "$res"
+    rm -rf "$dl"
+}
+
+case "$(uname -s)" in
+    Darwin) ;;
+    Linux)  log "Linux host — the Apple plugin builds on macOS only. Nothing to do."; exit 0 ;;
+    *)      die "unsupported host: $(uname -s) — only macOS and Linux are supported" ;;
+esac
+
+MAC_FW="$PLUGIN_ROOT/macos/Frameworks"
+IOS_FW="$PLUGIN_ROOT/ios/Frameworks"
+
+# ------------------------------- ORT (essence2 a2x decoder + Supertonic) for iOS and macOS
+# Stage the static, non-SME2 onnxruntime.xcframework into ios/Frameworks, then its macOS
+# slice into macos/Frameworks (stage_onnxruntime_macos). Both pods vendor it
+# unconditionally, so a fresh clone MUST have it or `pod install` fails. Fetched from the
+# public vendor release (digest pinned here), else the private area (sha256-verified, token
+# only), or from a local ORT_XCFRAMEWORK_DIR dev override. ONE download serves both
+# platforms: the macOS copy is taken from the bytes just verified, so there is no second pin.
+# A download failure FAILS LOUD (neither pod builds without it); re-running is safe.
+stage_onnxruntime() {
+    stage_onnxruntime_ios
+    stage_onnxruntime_macos
+}
+# The macOS pod vendors macos/Frameworks/onnxruntime.xcframework: the staged xcframework's
+# ONE macOS slice (macos-arm64_x86_64: a universal static archive, arm64 + x86_64, minos 14.0)
+# copied as is, under an Info.plist that lists that slice alone. The archive is the verified
+# bytes; only the iOS slices (108 MB the macOS build never reads) are left out.
+stage_onnxruntime_macos() {
+    local src="$IOS_FW/onnxruntime.xcframework" dest="$MAC_FW/onnxruntime.xcframework" out slice bin
+    [ -f "$src/Info.plist" ] || die "onnxruntime.xcframework is not staged in ios/Frameworks (no Info.plist)"
+    rm -rf "$dest"; mkdir -p "$dest"
+    out="$(python3 - "$src/Info.plist" "$dest/Info.plist" <<'PY'
+import plistlib, sys
+src, dst = sys.argv[1], sys.argv[2]
+with open(src, "rb") as f:
+    p = plistlib.load(f)
+mac = [l for l in p.get("AvailableLibraries", [])
+       if l.get("SupportedPlatform") == "macos" and not l.get("SupportedPlatformVariant")]
+if len(mac) != 1:
+    sys.exit("expected exactly one macOS library in %s, found %d" % (src, len(mac)))
+p["AvailableLibraries"] = mac
+with open(dst, "wb") as f:
+    plistlib.dump(p, f)
+print(mac[0]["LibraryIdentifier"])
+print(mac[0].get("BinaryPath", ""))
+PY
+)" || die "onnxruntime.xcframework: could not read its macOS slice"
+    slice="$(printf '%s\n' "$out" | sed -n 1p)"; bin="$(printf '%s\n' "$out" | sed -n 2p)"
+    [ -n "$slice" ] && [ -d "$src/$slice" ] || die "onnxruntime.xcframework has no macOS slice directory ('$slice')"
+    cp -R "$src/$slice" "$dest/$slice"     # -R copies the framework's Versions/Current symlinks as symlinks
+    [ -f "$dest/$slice/$bin" ] || die "onnxruntime.xcframework/$slice has no binary at '$bin'"
+    log "  staged onnxruntime.xcframework ($slice, static) → macos/Frameworks"
+}
+stage_onnxruntime_ios() {
+    local dest="$IOS_FW/onnxruntime.xcframework"
+    if [ -n "${ORT_XCFRAMEWORK_DIR:-}" ] && [ -d "$ORT_XCFRAMEWORK_DIR" ]; then
+        log "Staging onnxruntime.xcframework from ORT_XCFRAMEWORK_DIR=$ORT_XCFRAMEWORK_DIR"
+        rm -rf "$dest"; mkdir -p "$IOS_FW"; cp -R "$ORT_XCFRAMEWORK_DIR" "$dest"; return 0
+    fi
+    local dl; dl="$(mktemp -d)"
+    # PUBLIC first: no credential needed, so a clone works. Falls through to the
+    # private release only if the public fetch fails.
+    log "Fetching onnxruntime.xcframework from the public $PUBLIC_VENDOR_TAG …"
+    if fetch_public onnxruntime.xcframework.zip "$PUBLIC_SHA_onnxruntime" "$dl"; then
+        ( cd "$dl" && unzip -q -o onnxruntime.xcframework.zip )
+        [ -d "$dl/onnxruntime.xcframework" ] || die "onnxruntime.xcframework.zip did not contain onnxruntime.xcframework/"
+        rm -rf "$dest"; mkdir -p "$IOS_FW"; cp -R "$dl/onnxruntime.xcframework" "$dest"
+        rm -rf "$dl"
+        log "  staged onnxruntime.xcframework → ios/Frameworks (public $PUBLIC_VENDOR_TAG)"
+        return 0
+    fi
+    have_private \
+        || die "public fetch of onnxruntime.xcframework failed ($PUBLIC_VENDOR_BASE) — retry, or set ORT_XCFRAMEWORK_DIR=/path/to/onnxruntime.xcframework ($PRIVATE_HINT)"
+    warn "  public fetch failed — falling back to the private release"
+    log "Fetching onnxruntime.xcframework '$ORT_VENDOR_TAG' from the private area ($ORT_VENDOR_REPO) …"
+    private_fetch "$ORT_VENDOR_REPO" "$ORT_VENDOR_TAG" onnxruntime.xcframework.zip "$dl" \
+        || die "private fetch failed (tag $ORT_VENDOR_TAG, repo $ORT_VENDOR_REPO): check the downloads token"
+    log "  sha256 verified"
+    ( cd "$dl" && unzip -q -o onnxruntime.xcframework.zip )
+    [ -d "$dl/onnxruntime.xcframework" ] || die "onnxruntime.xcframework.zip did not contain onnxruntime.xcframework/"
+    rm -rf "$dest"; mkdir -p "$IOS_FW"; cp -R "$dl/onnxruntime.xcframework" "$dest"
+    rm -rf "$dl"
+    log "  staged onnxruntime.xcframework → ios/Frameworks (from $ORT_VENDOR_TAG)"
+}
+
+# ------------------------------------------------- Layer-0 protocol refresh (M0)
+# The shared engine interface (BithumanEngine + EngineId/EngineCapabilities/
+# AvatarRef) is committed IN-TREE at shared/Classes/Protocol/BithumanEngine.swift
+# (so the load-bearing protocol always builds offline). Its canonical home is the
+# bithuman-engine-protocol package; this best-effort hook refreshes the in-tree
+# copy from a dev checkout when one is provided. No-op otherwise.
+refresh_engine_protocol() {
+    local src=""
+    if [ -n "${BITHUMAN_PROTOCOL_DIR:-}" ]; then
+        src="$BITHUMAN_PROTOCOL_DIR/Sources/BithumanEngineProtocol/BithumanEngine.swift"
+    elif [ -f "$PLUGIN_ROOT/../bithuman-engine-protocol/Sources/BithumanEngineProtocol/BithumanEngine.swift" ]; then
+        src="$PLUGIN_ROOT/../bithuman-engine-protocol/Sources/BithumanEngineProtocol/BithumanEngine.swift"
+    fi
+    [ -n "$src" ] && [ -f "$src" ] || return 0
+    cp "$src" "$PLUGIN_ROOT/shared/Classes/Protocol/BithumanEngine.swift" \
+        && log "Refreshed Layer-0 BithumanEngine.swift from $src"
+}
+refresh_engine_protocol
+
+# ------------------------------------- THE ONNX RUNTIME C API GUARD (2.6.40)
+# The app links ONE static ONNX Runtime (1.26.0) on iOS and macOS, which serves its C API up to
+# version 26 (ORT_API_VERSION in its headers) and answers `OrtGetApiBase()->GetApi(N)` above that
+# with NULL. A library compiled against newer headers asks for a newer N and crashes the app on
+# its first ONNX Runtime call: libconverse converse-apple-v2.5.1's macOS slice asked for 27, a
+# crash when the voice loaded. So every staged library that calls ONNX Runtime (libconverse, from
+# its pin or LIBCONVERSE_RELEASE / LIBCONVERSE_SHA256 / LIBCONVERSE_XCF_ZIP / BITHUMAN_SDK_DIR, and
+# each engine's Engines/*/Vendor/*.a) is read, every slice and architecture, against the version
+# the staged runtime serves (ORT_XCFRAMEWORK_DIR included): scripts/check-ort-api-version.py. One
+# that asks for more is REFUSED by name and un-staged (libconverse: both platforms' copies; an
+# engine: its Engines/<engine> on both), so `pod install` cannot build that crash. A library whose
+# version cannot be read (LLVM bitcode from -flto, a linked library, a GetApi call whose version is
+# not a constant) is removed and fails the same way (fail closed, never a pass). A host that cannot
+# run the check (no objdump: the Xcode command line tools) fails here too.
+guard_ort_api() {
+    local ort="$IOS_FW/onnxruntime.xcframework" libs=() l rc=0 refused e
+    [ -d "$ort" ] || die "onnxruntime.xcframework is not staged in ios/Frameworks: nothing to check the libraries against"
+    [ -e "$MAC_FW/libconverse.xcframework" ] && libs+=("$MAC_FW/libconverse.xcframework")
+    for l in "$PLUGIN_ROOT"/macos/Engines/*/Vendor/*.a "$PLUGIN_ROOT"/ios/Engines/*/Vendor/*.a; do
+        [ -f "$l" ] && libs+=("$l")
+    done
+    [ ${#libs[@]} -gt 0 ] || return 0
+    log "Checking the ONNX Runtime C API version each staged library asks for …"
+    refused="$(mktemp)"
+    python3 "$PLUGIN_ROOT/scripts/check-ort-api-version.py" --ort "$ort" --ort "$MAC_FW/onnxruntime.xcframework" \
+        --refused-list "$refused" "${libs[@]}" || rc=$?
+    case "$rc" in
+        0) rm -f "$refused"; return 0 ;;
+        2|3) while IFS= read -r l; do
+               case "$l" in
+                   "$MAC_FW/libconverse.xcframework")
+                       rm -rf "$MAC_FW/libconverse.xcframework" "$IOS_FW/libconverse.xcframework" ;;
+                   "$PLUGIN_ROOT"/*/Engines/*/Vendor/*)
+                       e="${l#"$PLUGIN_ROOT"/*/Engines/}"; e="${e%%/*}"
+                       rm -rf "$PLUGIN_ROOT/macos/Engines/$e" "$PLUGIN_ROOT/ios/Engines/$e" ;;
+               esac
+           done < "$refused"
+           [ -s "$refused" ] || { rm -f "$refused"
+               die "could not check the ONNX Runtime C API version of the staged libraries (above; it needs python3 and objdump: xcode-select --install)"; }
+           rm -f "$refused"
+           [ "$rc" = 3 ] || die "CANNOT CHECK: the ONNX Runtime C API version a staged library asks for cannot be read (above: an LLVM bitcode / -flto build, a linked library, or a GetApi call whose version is not a constant), so it was removed again (fail closed). Stage plain static builds compiled against ONNX Runtime 1.26 headers (libconverse converse-apple-v2.5.2 or later): drop the override (LIBCONVERSE_RELEASE / LIBCONVERSE_SHA256 / LIBCONVERSE_XCF_ZIP / BITHUMAN_SDK_DIR / ESSENCE2_XCF_DIR) or point it at such a build, and run this script again"
+           die "REFUSED: a staged library asks ONNX Runtime for a C API version the staged runtime does not serve (above). It would crash the app on its first ONNX Runtime call, so it was removed again. Stage a build compiled against ONNX Runtime 1.26 headers (libconverse converse-apple-v2.5.2 or later): drop the override (LIBCONVERSE_RELEASE / LIBCONVERSE_SHA256 / LIBCONVERSE_XCF_ZIP / BITHUMAN_SDK_DIR / ESSENCE2_XCF_DIR) or point it at such a build, and run this script again" ;;
+        *) rm -f "$refused"
+           die "could not check the ONNX Runtime C API version of the staged libraries (above; it needs python3 and objdump: xcode-select --install)" ;;
+    esac
+}
+
+# ===================================================================== DEV mode
+if [ -n "${BITHUMAN_SDK_DIR:-}" ]; then
+    # BITHUMAN_SDK_DIR points at a bithuman-models models/essence-1 checkout dir
+    # (its sdk/swift/vendor surface is populated by a dev build).
+    SDK_VENDOR="$BITHUMAN_SDK_DIR/sdk/swift/vendor"
+    [ -d "$SDK_VENDOR" ] || die "BITHUMAN_SDK_DIR set but vendor surface not found at $SDK_VENDOR (expected a bithuman-models models/essence-1 checkout with a built sdk/swift/vendor)"
+    log "DEV mode — symlinking libconverse from $BITHUMAN_SDK_DIR (embody models come from ~/embody-ane/build_A42)"
+    relink "$SDK_VENDOR/libconverse.xcframework" "$MAC_FW/libconverse.xcframework"
+    relink "$SDK_VENDOR/libconverse.xcframework" "$IOS_FW/libconverse.xcframework"
+    stage_onnxruntime   # the static ORT (Essence 2's a2x decoder + Supertonic) for both pods
+
+    # N-engine loop (DEV): each engine SDK runs in its own DEV mode
+    # (BITHUMAN_SDK_DIR propagates). expression2 models → ~/embody-ane at runtime;
+    # essence2 libessence2 extracted from the SAME sibling SDK vendor surface.
+    stage_expression2
+    stage_enginecore
+    stage_essence2
+    guard_ort_api       # 2.6.40: nothing that asks ONNX Runtime for a newer C API than the staged one
+
+    log "Done (dev mode). Expression2Runtime will load models from ~/embody-ane/build_A42."
+    exit 0
+fi
+
+# ============================================================ SELF-CONTAINED mode
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+SRC="$TMP/embody-vendor"
+mkdir -p "$SRC"
+
+# 1a. The embody CoreML models — PUBLIC, digest-pinned, no credential.
+log "Fetching embody models from the public $PUBLIC_VENDOR_TAG …"
+if fetch_public embody-models.tar.gz "$PUBLIC_SHA_embody_models" "$TMP"; then
+    tar -xzf "$TMP/embody-models.tar.gz" -C "$SRC"
+    [ -d "$SRC/embody-models" ] || die "embody-models.tar.gz did not contain embody-models/"
+else
+    # Private fallback: the combined bundle (its own libconverse, the unpinned 2026-07-01 cut, is not used: 1b).
+    have_private \
+        || die "public fetch of the embody models failed ($PUBLIC_VENDOR_BASE) — retry later ($PRIVATE_HINT)"
+    log "  public fetch failed — falling back to '$EXPRESSION2_VENDOR_TAG' in the private area ($EXPRESSION2_VENDOR_REPO)"
+    private_fetch "$EXPRESSION2_VENDOR_REPO" "$EXPRESSION2_VENDOR_TAG" embody-vendor.tar.gz "$TMP" \
+        || die "private fetch failed (tag $EXPRESSION2_VENDOR_TAG, repo $EXPRESSION2_VENDOR_REPO): check the downloads token"
+    log "  sha256 verified"
+    tar -xzf "$TMP/embody-vendor.tar.gz" -C "$TMP"
+    [ -d "$SRC/embody-models" ] || die "bundle missing embody-models/"
+fi
+
+# 1b. libconverse.xcframework — the on-device conversation BRAIN, from its pinned release
+# (LIBCONVERSE_* above). It is SDK and is NOT public, so a clone without access simply does
+# not get it. That is a SUPPORTED configuration since the pod decides CONVERSE_AVAILABLE from
+# the staged bytes: the cloud realtime path, the avatar, both engines, lipsync, barge-in and
+# the idle loop all work without it; only localAudioStart/Stop/PushText are unavailable, and
+# they refuse by name. Bytes that DO arrive and do not match the pin are a refusal, never a
+# silent degrade. (The combined bundle's own libconverse — 1a's private fallback — is never
+# installed: it is the unpinned 2026-07-01 cut.)
+# brain_unavailable <why>: EVERY way libconverse can be missing ends here, so
+# BITHUMAN_REQUIRE_LOCAL_BRAIN=1 is fatal on all of them.
+brain_unavailable() {
+    [ "${BITHUMAN_REQUIRE_LOCAL_BRAIN:-0}" != "1" ] \
+        || die "BITHUMAN_REQUIRE_LOCAL_BRAIN=1 and libconverse $LIBCONVERSE_RELEASE could not be staged ($1) — this build must ship the on-device brain ($PRIVATE_HINT)"
+    warn "libconverse $LIBCONVERSE_RELEASE unavailable ($1) — building WITHOUT the on-device brain."
+    warn "  Unaffected: cloud realtime, the avatar, both engines, lipsync, barge-in, idle."
+    warn "  Unavailable: localAudioStart / localAudioStop / localPushText."
+    have_private || warn "  ($PRIVATE_HINT; BITHUMAN_REQUIRE_LOCAL_BRAIN=1 makes this fatal)"
+}
+stage_libconverse() {
+    local dl="$TMP/libconverse" zip
+    rm -rf "$MAC_FW/libconverse.xcframework" "$IOS_FW/libconverse.xcframework"
+    mkdir -p "$dl"
+    if [ -n "${LIBCONVERSE_XCF_ZIP:-}" ]; then
+        log "Staging libconverse from LIBCONVERSE_XCF_ZIP=$LIBCONVERSE_XCF_ZIP (candidate; the pinned digest is not what is staged)"
+        cp "$LIBCONVERSE_XCF_ZIP" "$dl/libconverse.xcframework.zip" || die "no $LIBCONVERSE_XCF_ZIP"
+    else
+        log "Fetching libconverse $LIBCONVERSE_RELEASE (${LIBCONVERSE_SHA256:0:16}…) from the private area ($LIBCONVERSE_REPO) …"
+        if ! have_private; then
+            brain_unavailable "no downloads token"; rm -rf "$dl"; return 0
+        fi
+        if ! private_fetch "$LIBCONVERSE_REPO" "$LIBCONVERSE_RELEASE" libconverse.xcframework.zip "$dl" "$LIBCONVERSE_SHA256"; then
+            brain_unavailable "the private area refused $LIBCONVERSE_REPO/$LIBCONVERSE_RELEASE"; rm -rf "$dl"; return 0
+        fi
+        zip="$dl/libconverse.xcframework.zip"
+        log "  sha256 verified against the pin (${LIBCONVERSE_SHA256:0:16}…)"
+    fi
+    ( cd "$dl" && unzip -q -o libconverse.xcframework.zip ) || die "could not unzip libconverse.xcframework.zip"
+    [ -d "$dl/libconverse.xcframework" ] || die "libconverse.xcframework.zip did not contain libconverse.xcframework/"
+    log "Installing libconverse.xcframework → macos/Frameworks (ios → symlink)"
+    mkdir -p "$MAC_FW" "$IOS_FW"
+    cp -R "$dl/libconverse.xcframework" "$MAC_FW/libconverse.xcframework"
+    relink "$MAC_FW/libconverse.xcframework" "$IOS_FW/libconverse.xcframework"
+    rm -rf "$dl"
+}
+stage_libconverse
+
+# 1c. onnxruntime.xcframework (static, non-SME2) — the runtime of the essence2 a2x decoder
+# and of libconverse's Supertonic voice. Staged to ios/Frameworks (sha256-verified) and its
+# macOS slice to macos/Frameworks (from 2.6.39 the macOS pod vendors it: no Homebrew ORT).
+stage_onnxruntime
+
+# 1d. Keep ONLY the identity-agnostic graphs of the embody bundle.
+#
+# ★THE VENDOR BUNDLE CARRIES A FACE THE PINNED ENGINE CANNOT START. Both vendor
+# releases this script reads (the public flutter-plugin-vendor-v1 tarball and
+# its private twin expression2-vendor-v1) were cut on 2026-07-01 from the A42
+# demo: w2v_frontend + audiotokenizer (shared) PLUS student_v4 + canon + idle.mp4
+# (one identity) + taehv_decode_T10 (the floor decoder retired 2026-08-11). They
+# carry NO dec_p2_v3_all, and since the 2026-08-11 taehv retirement the engine
+# at BITHUMAN_MODELS_REF refuses an identity without it. So the engine SDK's
+# startability gate refused this bundle on every run, `die`d, and stage_expression2
+# stopped AFTER `rm -rf Engines/expression2` and BEFORE copying the adapter
+# source — measured 2026-09-23 from a clean clone at flutter-plugin-v2.6.9:
+#     the staged embody bundle CANNOT START the current engine — missing: dec_p2_v3_all.mlpackage
+# and the app build then failed at `cannot find 'Expression2Engine' in scope`
+# (EngineRegistry.swift). That error is not an API mismatch between this pod and
+# the published Swift SDK: the engine source was never staged at all.
+#
+# The fix is the shape the gate already recognises as correct: the IDENTITY-FREE
+# bundle — the two identity-agnostic graphs and no face. Every identity reaches
+# the engine as a downloaded or app-bundled `.avatar`, which carries its own
+# student / dec_p2_v3_all / canon.f32 / idle.mp4 (the engine resolves those from
+# `activeAgentDir` first). The bundled A42 face could not render on this engine
+# anyway, so nothing that worked stops working; the app loses ~108 MB of bytes
+# it could never use (student 88.5 MB, taehv 19.7 MB). The tarball's digest pin
+# is unchanged — the bytes are still verified before anything is removed.
+reduce_to_shared_graphs() {  # $1 = extracted embody-models dir
+    local d="$1" m kept=0 dropped=""
+    for m in w2v_frontend_cpuAndNE.mlpackage audiotokenizer_cpuAndNE.mlpackage; do
+        [ -e "$d/$m" ] && kept=$((kept + 1))
+    done
+    [ "$kept" -eq 2 ] || die "the embody vendor bundle lacks an identity-agnostic graph (w2v_frontend / audiotokenizer) — $d holds: $(ls "$d" | tr '\n' ' ')"
+    for m in "$d"/*; do
+        case "$(basename "$m")" in
+            w2v_frontend_cpuAndNE.mlpackage|audiotokenizer_cpuAndNE.mlpackage|warm.wav) ;;
+            *) dropped="$dropped $(basename "$m")"; rm -rf "$m" ;;
+        esac
+    done
+    log "  embody bundle reduced to the identity-agnostic graphs (w2v_frontend + audiotokenizer)"
+    [ -z "$dropped" ] || log "    dropped (one identity the pinned engine cannot start, or retired):$dropped"
+}
+reduce_to_shared_graphs "$SRC/embody-models"
+
+# 2. N-engine loop. expression2 reuses the embody graphs downloaded in 1a
+# (EMBODY_VENDOR_SRC → no re-download); essence2 fetches its own
+# sha-pinned libessence2 release inside its SDK bootstrap.
+stage_expression2 "$SRC/embody-models"
+stage_enginecore
+stage_essence2
+
+# 3. Nothing staged above may ask ONNX Runtime for a C API version the staged runtime does not serve
+# (2.6.40; guard_ort_api).
+guard_ort_api
+
+log "Done. Self-contained — no sibling bithuman-sdk required."
+log "    the product app lives in bithuman-apps at apps/jarvis (it pins this plugin by tag)"

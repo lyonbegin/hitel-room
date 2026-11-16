@@ -1,0 +1,17 @@
+{
+  "upstream": "https://gitlab.com/bithuman/sdk/homebrew-bithuman",
+  "upstream_tag": "flutter-plugin-v2.6.40",
+  "upstream_sha": "9417e7c2d44dd4437bf1129cbc3f54921e1d7234",
+  "license": "Apache-2.0 original LICENSE retained",
+  "reassembled_sdk": "ai.hitel.reassembled:expression2-android:0.6.2",
+  "sdk_binary_sha256": "2529f8f0a064b4c8e8a1bb6f5fdd4627143ba4e09e05bd506bee1540e68e1527",
+  "original_native_engine_modified": false,
+  "vendor_auth_and_entitlement_modified": false,
+  "real_device_gpu_inference_verified": false,
+  "changed_files": {
+    "android/build.gradle": "a65acf50ffd4f2184c8ec027cbd5e929bcd9a7bc4de2ec6c4367fc7904f29a22",
+    "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt": "045852a72bce928aaa12678f998aa73651d5e2d30d02e72cff1eb0818e141b22",
+    "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt": "1b4079ad6b6b36a4abe0211e39cf612b2407f8a506f15c85ed085372355422f3",
+    "android/src/main/kotlin/ai/bithuman/flutter/Expression2RouteSelector.kt": "394f9b62d3c112501622475c77538236a82c4703cee013508d9be9c8024fe59f"
+  }
+}
