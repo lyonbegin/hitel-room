@@ -1,0 +1,126 @@
+name: IXIO Auth Bytecode Smali Disassemble and Reassemble Integrity Test
+on:
+  push:
+    branches: [analysis/ixio-auth-api-bytecode-deep-20261116]
+    paths: ['.github/workflows/ixio-auth-smali-reassembly.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  roundtrip-auth-dex:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download exact tested IXIO main classes18 DEX
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-roundtrip-private ixio-auth-smali-results
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .ixio-roundtrip-private
+          unzip -p .ixio-roundtrip-private/IXIO_Main_NoAppSealing_Single.apk classes18.dex \
+            > .ixio-roundtrip-private/classes18.dex
+          test -s .ixio-roundtrip-private/classes18.dex
+          sha256sum .ixio-roundtrip-private/classes18.dex > ixio-auth-smali-results/original-dex18.sha256
+      - name: Download pinned official baksmali and smali fat JARs
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error \
+            https://github.com/baksmali/smali/releases/download/v3.0.10/baksmali-3.0.10-fat-release.jar \
+            -o .ixio-roundtrip-private/baksmali.jar
+          curl -fL --retry 3 --silent --show-error \
+            https://github.com/baksmali/smali/releases/download/v3.0.10/smali-3.0.10-fat-release.jar \
+            -o .ixio-roundtrip-private/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-roundtrip-private/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534dbaed5a663c71d0c558c3ddce0af844a  .ixio-roundtrip-private/smali.jar' | sha256sum -c -
+      - name: Disassemble original DEX and assemble back with NO auth modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-roundtrip-private/classes18-smali
+          java -Xmx2500m -jar .ixio-roundtrip-private/baksmali.jar \
+            disassemble --api 34 --jobs 2 \
+            --output .ixio-roundtrip-private/classes18-smali \
+            .ixio-roundtrip-private/classes18.dex \
+            > ixio-auth-smali-results/disassembly.log 2>&1
+          test -s .ixio-roundtrip-private/classes18-smali/com/lguplus/aicallagent/data/auth/MemberVerificationRepositoryImpl.smali
+          java -Xmx2500m -jar .ixio-roundtrip-private/smali.jar \
+            assemble --api 34 --jobs 2 \
+            --output .ixio-roundtrip-private/classes18-roundtrip.dex \
+            .ixio-roundtrip-private/classes18-smali \
+            > ixio-auth-smali-results/reassembly.log 2>&1
+          test -s .ixio-roundtrip-private/classes18-roundtrip.dex
+          python3 - <<'PY'
+          import json,struct,pathlib,re
+          from pathlib import Path
+          o=Path('.ixio-roundtrip-private/classes18.dex').read_bytes()
+          n=Path('.ixio-roundtrip-private/classes18-roundtrip.dex').read_bytes()
+          get=lambda b,i:struct.unpack_from('<I',b,i)[0]
+          old_classes=get(o,0x60);new_classes=get(n,0x60)
+          old_methods=get(o,0x58);new_methods=get(n,0x58)
+          assert old_classes==new_classes,(old_classes,new_classes)
+          assert old_methods==new_methods,(old_methods,new_methods)
+          root=Path('.ixio-roundtrip-private/classes18-smali')
+          classes=[
+            'com/lguplus/aicallagent/data/auth/MemberVerificationRepositoryImpl',
+            'com/lguplus/aicallagent/data/auth/IxIOAuthRepositoryImpl',
+            'com/lguplus/aicallagent/data/init/login/IsLoginCheckRepository',
+            'com/lguplus/aicallagent/data/init/VasJoinRepository',
+          ]
+          info={}
+          for cls in classes:
+            p=root/(cls+'.smali')
+            if not p.exists():continue
+            s=p.read_text(errors='replace')
+            parts=re.findall(r'(?ms)^\.method[^\n]*\n.*?^\.end method$',s)
+            items=[]
+            for block in parts:
+              head=block.splitlines()[0]
+              if not re.search(r'(?i)verifyCtn|refreshToken|isTokenExpired|getLoginState|checkLoginState|isVasJoin|joinVas|getServiceFrom',head):continue
+              selected=[]
+              for line in block.splitlines():
+                line=line.strip()
+                if (line.startswith(('invoke-','if-','return','throw','.registers','.locals')) or
+                    'packed-switch' in line or 'sparse-switch' in line):
+                  line=re.sub(r'https?://\S+','[URL_REMOVED]',line)
+                  if any(t in line for t in ('Lcom/lguplus/','Ljava/lang','Lkotlin/','if-','return','throw')):
+                    selected.append(line[:340])
+              items.append({'method':head,'operations':selected[:110],
+                 'conditional_opcode_count':len(re.findall(r'(?m)^\s*if-\w+',block))})
+            info[cls]={'smali_method_count':len(parts),'selected_auth_methods':items}
+          report={'original_dex_class_defs':old_classes,'reassembled_class_defs':new_classes,
+                  'original_method_ids':old_methods,'reassembled_method_ids':new_methods,
+                  'same_class_and_method_counts':True,
+                  'original_bytes':len(o),'reassembled_bytes':len(n),
+                  'class_auth_method_samples':info,
+                  'limitations':'Roundtrip DEX structural verification only; rebuilt app behavioral parity not proven.'}
+          Path('ixio-auth-smali-results/reassembly-verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print('ROUNDTRIP_EXACT_CLASS_AND_METHOD_COUNTS',old_classes,old_methods)
+          for cls,data in info.items():
+            print('CLASS',cls,'methods',data['smali_method_count'])
+            for method in data['selected_auth_methods'][:10]:
+              print('  METHOD',method['method'],'CONDITIONAL_OPCODES',method['conditional_opcode_count'])
+              for x in method['operations'][:24]:print('   OP',x)
+          PY
+      - name: Publish reassembly verification and method-level instructions only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-auth-smali-original-to-assembled-dex-integrity
+          path: ixio-auth-smali-results/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Remove original DEX and reassembled proprietary files
+        if: always()
+        run: rm -rf .ixio-roundtrip-private
