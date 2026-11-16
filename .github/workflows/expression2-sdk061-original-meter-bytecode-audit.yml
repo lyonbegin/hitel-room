@@ -1,0 +1,64 @@
+name: Audit exact original Expression2 SDK 0.6.1 JVM auth contract before HITEL test integration
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-sdk061-original-meter-bytecode-audit.yml
+permissions:
+  contents: read
+jobs:
+  sdk061-original-classfile-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch exact published vendor 0.6.1 AAR and inspect JVM bytecode without rewriting
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/sdk061-original-auth
+          OUT="$GITHUB_WORKSPACE/reports/sdk061-original-auth"
+          curl -fLsS --retry 4 --retry-all-errors \
+            --retry-delay 3 --connect-timeout 25 --max-time 240 \
+            -o "$OUT/expression2-android-0.6.1.aar" \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.1/expression2-android-0.6.1.aar
+          sha256sum "$OUT/expression2-android-0.6.1.aar" > "$OUT/vendor-aar-sha256.txt"
+          unzip -t "$OUT/expression2-android-0.6.1.aar" > "$OUT/zip-verify.txt"
+          unzip -p "$OUT/expression2-android-0.6.1.aar" classes.jar > "$OUT/original-classes.jar"
+          sha256sum "$OUT/original-classes.jar" > "$OUT/jvm-jar-sha256.txt"
+          javap -classpath "$OUT/original-classes.jar" -p -c -s \
+            'ai.bithuman.expression2.SelfHostMeter$Companion' > "$OUT/actual-selfhostmeter-methods.txt"
+          javap -classpath "$OUT/original-classes.jar" -p -c -s \
+            'ai.bithuman.expression2.Expression2Avatar' > "$OUT/actual-avatar-methods.txt"
+          python3 - "$OUT" <<'PY'
+          from pathlib import Path
+          import json,sys
+          p=Path(sys.argv[1])
+          a=(p/'actual-selfhostmeter-methods.txt').read_text()
+          result={
+             'artifact':'original Maven ai.bithuman:expression2-android:0.6.1',
+             'classes_jar_extracted':True,
+             'selfhost_meter_companion_found':'SelfHostMeter' in a,
+             'api_base_getter_found':'apiBase' in a,
+             'arm_method_found':'arm$' in a,
+             'methods_examined_unmodified':True,
+             'vendor_sdk_patched':False,
+             'hitel_token_accepted_by_sdk':None,
+             'real_frames_generated':None,
+          }
+          (p/'original-sdk061-auth-audit-summary.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-original-sdk061-auth-bytecode-audit
+          path: |
+            reports/sdk061-original-auth/*txt
+            reports/sdk061-original-auth/*json
+          retention-days: 20
