@@ -21,8 +21,11 @@ RECORDER = "com.lguplus.callrecorder"
 def run(*args: str, timeout: int = 25) -> dict:
     try:
         p = subprocess.run(args, capture_output=True, text=True, timeout=timeout, errors="replace")
+        # Logcat can exceed 10 KB during a single call. Truncating the
+        # beginning hides the recorder's actual post-tap exception/events.
+        max_chars = 2_000_000 if "logcat" in args else 50_000
         return {"cmd": list(args), "returncode": p.returncode,
-                "output": (p.stdout + "\n" + p.stderr).strip()[:10000]}
+                "output": (p.stdout + "\n" + p.stderr).strip()[:max_chars]}
     except Exception as e:
         return {"cmd": list(args), "returncode": -1, "output": repr(e)}
 
@@ -111,10 +114,13 @@ def main() -> None:
     if summary["record_button_tapped"]:
         time.sleep(8)
         summary["record_toggle"]=save("record_toggle")
-    summary["recording_service_bound_after_toggle"]=(
-        "com.lguplus.callrecorder/.CallRecordingService" in
-        (OUT/"record_toggle-services.txt").read_text(errors="replace")
-        if (OUT/"record_toggle-services.txt").exists() else False)
+    recorder_services=(OUT/"record_toggle-services.txt").read_text(errors="replace") if (OUT/"record_toggle-services.txt").exists() else ""
+    summary["recording_service_bound_after_toggle"]=bool(re.search(
+        r"com\.lguplus\.callrecorder/(?:com\.lguplus\.callrecorder\.)?CallRecordingService",
+        recorder_services))
+    summary["recorder_incall_service_seen_after_toggle"]=bool(re.search(
+        r"com\.lguplus\.callrecorder/(?:com\.lguplus\.callrecorder\.)?InCallService",
+        recorder_services))
     print("IXIO_RECORDER_AIDL_SERVICE_AFTER_TOGGLE",
           summary["recording_service_bound_after_toggle"],flush=True)
     ended=adb("emu","gsm","cancel",NUMBER,timeout=17)
@@ -124,7 +130,7 @@ def main() -> None:
     full=adb("logcat","-d","-v","threadtime","-t","24000",timeout=33)["output"]
     (OUT/"logcat-simulated-call.txt").write_text(full,encoding="utf-8")
     keywords=re.compile(r"(?i)"+ "|".join([
-        r"com\\.lguplus\\.(?:aicallagent|callrecorder)",r"CallRecordingService",
+        r"com\.lguplus\.(?:aicallagent|callrecorder)",r"CallRecordingService",
         r"InCallService",r"RecordRepository",r"SpeechToTextRepository",
         r"SpeechInference",r"STT",r"AudioRecord",r"sherpa",
         r"VOICE_DOWNLINK",r"VOICE_UPLINK",r"AudioFlinger",
@@ -146,7 +152,7 @@ def main() -> None:
     print("IXIO_GSM_CALL_SMOKE_RESULT",json.dumps({
         k:summary[k] for k in ("simulated_call_requested","caller_screen_seen",
            "default_dialer_confirmed","recorder_process_after","main_process_after",
-           "filtered_log_lines","record_button_tapped","recording_service_bound_after_toggle","stt_verified")
+           "filtered_log_lines","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified")
     },ensure_ascii=False),flush=True)
     # A call simulator without real PCM cannot prove RX capture or STT.
     print("IXIO_REAL_RX_PCM_AND_STT_UNVERIFIED=YES",flush=True)
