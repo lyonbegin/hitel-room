@@ -53,8 +53,7 @@ jobs:
         with:
           path: docs/ixio-public-api
   deploy:
-    name: Deploy to existing GitHub Pages only when explicitly enabled
-    if: ${{ vars.HITEL_IXIO_ENABLE_PAGES_DEPLOY == 'true' && vars.HITEL_PUBLIC_API_BASE_URL != '' }}
+    name: Publish public GitHub Pages site
     needs: pages-static-build
     runs-on: ubuntu-24.04
     permissions:
@@ -65,6 +64,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy only with verified G2 URL and Pages opt-in
+      - name: Read existing GitHub Pages configuration
+        uses: actions/configure-pages@v5
+      - name: Publish static page (G2 API connectivity status remains explicit)
         id: deployment
         uses: actions/deploy-pages@v4
