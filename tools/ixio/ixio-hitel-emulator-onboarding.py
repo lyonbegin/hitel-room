@@ -129,6 +129,8 @@ def main():
     home_screen_seen=False
     recorder_setup_prompt_seen=False
     recorder_setup_taps=0
+    home_recorder_prompt_waits=0
+    recorder_fallback_launches=0
     stop_reason="EXHAUSTED_STEPS"
     for i in range(30):
         nodes,visible=snapshot(i)
@@ -169,6 +171,27 @@ def main():
         if all(label in joined for label in ("최근 기록", "연락처", "키패드", "디스커버")):
             home_screen_seen=True
             print("IXIO_AUTHENTICATED_HOME_SCREEN_OBSERVED",flush=True)
+            if (not recorder_setup_prompt_seen and
+                    not ("통화 녹음 및 AI 기능 사용을 위해" in joined and
+                         "설정을 완료해 주세요" in joined)):
+                # The recorder setup banner is asynchronously mounted
+                # after home tabs. The earlier run 43897982998 exited on
+                # first home UI snapshot before the banner appeared.
+                home_recorder_prompt_waits += 1
+                print("IXIO_HOME_RECORDER_BANNER_LOADING",
+                      home_recorder_prompt_waits,flush=True)
+                if home_recorder_prompt_waits <= 5:
+                    time.sleep(5)
+                    continue
+                if recorder_fallback_launches == 0:
+                    recorder_fallback_launches += 1
+                    launch=adb("shell","monkey","-p",
+                               "com.lguplus.callrecorder",
+                               "-c","android.intent.category.LAUNCHER","1",timeout=22)
+                    print("IXIO_RECORDER_FALLBACK_DIRECT_LAUNCH",
+                          launch[-260:],flush=True)
+                    time.sleep(7)
+                    continue
         if ("통화 녹음 및 AI 기능 사용을 위해" in joined and
                 "익시오 통화녹음" in joined and "설정을 완료해 주세요" in joined):
             recorder_setup_prompt_seen=True
@@ -288,7 +311,9 @@ def main():
            "recorder_process_alive":bool(recorder_pid),
            "default_dialer_role_holder":PKG in role_holders.split(),
            "recorder_setup_prompt_seen":recorder_setup_prompt_seen,
-           "recorder_setup_button_taps":recorder_setup_taps}
+           "recorder_setup_button_taps":recorder_setup_taps,
+           "home_recorder_prompt_waits":home_recorder_prompt_waits,
+           "recorder_fallback_launches":recorder_fallback_launches}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
     print("FINAL_DIAGNOSTIC",json.dumps(result,ensure_ascii=False),flush=True)
     for event in relevant[-60:]:
