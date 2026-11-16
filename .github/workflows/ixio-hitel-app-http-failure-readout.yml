@@ -114,7 +114,7 @@ jobs:
                   print('ORIGINAL_DEX_MATCH',name,matching,flush=True)
           Path('/tmp/ixio-contract-tools/selected-dex.txt').write_text('\n'.join(selected))
           PY
-          while read -r dex; do
+          while IFS= read -r dex || [[ -n "$dex" ]]; do
             [[ -n "$dex" ]] || continue
             java -Xmx2600m -jar /tmp/ixio-contract-tools/baksmali.jar d --api 34 --jobs 3 -o "/tmp/ixio-contract-smali/${dex%.dex}" "/tmp/ixio-contract-tools/$dex"
           done < /tmp/ixio-contract-tools/selected-dex.txt
