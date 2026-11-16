@@ -49,7 +49,24 @@ jobs:
               if any(p.lower() in line.lower() for p in patterns) or re.search(r'/(?:bhav|expression2|BithumanPlugin|AudioTrack|Flutter)',line):
                   line=re.sub(r'htdemo[.]v1[.][a-zA-Z0-9_-]+[.][a-zA-Z0-9_-]+','[HITEL_SHORTLIVED_TOKEN]',line)
                   print(f'APP [{i+1}] {line[:1300]}')
-          matches=[i for i,line in enumerate(lines) if any(p.lower() in line.lower() for p in patterns)]
+          # Critical: distinguish a Dart method-channel receipt from the
+          # feeder worker actually calling Expression2Avatar.feed(). No app
+          # changes; work only from the existing captured device log.
+          from collections import Counter
+          tags=['bhfeed','bhav','bhsplit','bhpark','bhstarve','BH_EXPR2_LOCAL_TEST',
+                'BithumanPlugin','bhdart','expression2','AudioTrack','flutter']
+          counts={tag:sum(1 for line in lines if tag.lower() in line.lower() and re2.search(r'\\(\\s*4392\\)',line)) for tag in tags}
+          print('=== APP PID 4392 EXACT PIPELINE TAG COUNTS ===',counts)
+          for tag in ['bhfeed','BithumanPlugin','bhpark','bhstarve','BH_EXPR2_LOCAL_TEST']:
+              hits=[(i,line) for i,line in enumerate(lines) if tag.lower() in line.lower() and re2.search(r'\\(\\s*4392\\)',line)]
+              print('===',tag,'COUNT',len(hits),'FIRST_AND_LAST ===')
+              for i,line in hits[:12]+hits[-12:]:
+                  line=re.sub(r'htdemo[.]v1[.][a-zA-Z0-9_-]+[.][a-zA-Z0-9_-]+','[HITEL_SHORTLIVED_TOKEN]',line)
+                  print(f'PIPELINE [{i+1}] {line[:1400]}')
+          print('=== EXACT SDK STATS COUNTERS LAST ===')
+          for i,line in [(i,l) for i,l in enumerate(lines) if 'bhav' in l and 'PROD where=' in l][-4:]:
+              print(f'SDK_STATES [{i+1}] {line[:1800]}')
+                    matches=[i for i,line in enumerate(lines) if any(p.lower() in line.lower() for p in patterns)]
           print('logcat lines',len(lines),'matches',len(matches))
           for i in matches[-35:]:
               line=lines[i]
