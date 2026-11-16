@@ -49,32 +49,7 @@ jobs:
           disable-animations: true
           disk-size: 8192M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
-          script: |
-            set -eu
-            OUT="$GITHUB_WORKSPACE/reports/original-flutter-android14-install"
-            APK="$GITHUB_WORKSPACE/reports/hitel-avatar-chat-public-https-auto/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_AUTO_Debug.apk"
-            PKG=ai.hitel.avatar_chat.localauto
-            mkdir -p "$OUT"
-            adb wait-for-device
-            adb shell getprop ro.product.cpu.abilist | tee "$OUT/abis.txt"
-            adb shell getprop ro.dalvik.vm.native.bridge | tee "$OUT/bridge.txt"
-            adb install -r "$APK" | tee "$OUT/installed.txt"
-            adb shell pm path "$PKG" | tee "$OUT/pm.txt"
-            adb logcat -c
-            adb shell am start -W -n "$PKG/ai.bithuman.example.avatar_chat.MainActivity" | tee "$OUT/started.txt"
-            sleep 35
-            adb logcat -d -v time > "$OUT/logcat.txt" || true
-            adb exec-out screencap -p > "$OUT/screenshot.png" || true
-            adb shell run-as "$PKG" cat app_flutter/boot_status.txt > "$OUT/boot.txt" 2>/dev/null || true
-            adb shell pidof "$PKG" > "$OUT/pid.txt" || true
-            grep -Fq Success "$OUT/installed.txt"
-            grep -Fq 'package:' "$OUT/pm.txt"
-            grep -Fq 'Status: ok' "$OUT/started.txt"
-            echo 'ORIGINAL_FLUTTER_APK_REAL_INSTALL_AND_ACTIVITY_LAUNCH_PASS'
-            echo '--- APP ACTUAL BOOT STAGES ---'
-            cat "$OUT/boot.txt" || true
-            echo '--- ENGINE / ERRORS ---'
-            grep -E 'BH_EXPR2_LOCAL_TEST|first frame on the texture|FATAL EXCEPTION|load failed|[Ll]ite[Rr]t|BithumanPlugin' "$OUT/logcat.txt" | tail -60 || true
+          script: bash tools/bithuman_deep/install_existing_original_flutter_apk_on_emulator.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
