@@ -1,0 +1,94 @@
+name: IXIO HITEL Post Token Original Bytecode Diagnostic
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: ['.github/workflows/ixio-hitel-posttoken-bytecode-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-auth-post-token:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Obtain precisely the original single APK and JADX 1.5.6
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-posttoken-private/apk .ixio-posttoken-private/jadx .ixio-posttoken-private/src ixio-posttoken-diagnostic
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-posttoken-private/apk
+          test -s .ixio-posttoken-private/apk/IXIO_Main_NoAppSealing_Single.apk
+          curl -fL --retry 3 -sS https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip -o .ixio-posttoken-private/jadx.zip
+          unzip -qq .ixio-posttoken-private/jadx.zip -d .ixio-posttoken-private/jadx
+          chmod +x .ixio-posttoken-private/jadx/bin/jadx
+      - name: Read original token parsing, post-OAuth state, and precise failure branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .ixio-posttoken-private/targets.txt <<'EOF'
+          com.lguplus.aicallagent.splash.viewmodel.LoginViewModel
+          com.lguplus.aicallagent.domain.init.usecase.AuthCodeUseCase
+          com.lguplus.aicallagent.util.AuthorizationUtil
+          com.lguplus.aicallagent.datastore.DatastoreHandler
+          com.lguplus.aicallagent.data.init.login.IsLoginCheckRepository
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.TokenData
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.MarketId
+          EOF
+          mkdir -p .ixio-posttoken-private/jobs
+          run_one() {
+            local cls="$1" name status
+            name="${cls##*.}"
+            set +e
+            timeout --signal=TERM --kill-after=4s 150 env JAVA_OPTS=-Xmx1650m \
+              .ixio-posttoken-private/jadx/bin/jadx --no-res --threads-count 1 \
+              --single-class "$cls" --single-class-output ".ixio-posttoken-private/src/$name.java" \
+              .ixio-posttoken-private/apk/IXIO_Main_NoAppSealing_Single.apk \
+              > ".ixio-posttoken-private/jobs/$name.log" 2>&1
+            status="$?"
+            set -e
+            echo "$name exit=$status bytes=$(stat -c '%s' ".ixio-posttoken-private/src/$name.java" 2>/dev/null || echo 0)" \
+              >> ixio-posttoken-diagnostic/status.txt
+            return 0
+          }
+          export -f run_one
+          cat .ixio-posttoken-private/targets.txt | xargs -P 2 -I '{}' bash -c 'run_one "$1"' _ '{}'
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          input=Path('.ixio-posttoken-private/src')
+          patterns=re.compile(r'(?i)authCode|authorization|decodeJwt|tokenData|accessToken|refreshToken|idToken|userId|\bsub\b|saveToken|marketId|failure|exception|service|registered|loginState')
+          out={}
+          for p in input.glob('*.java'):
+              lines=p.read_text(errors='replace').splitlines()
+              matches=[]
+              for index,line in enumerate(lines):
+                  if patterns.search(line) and len(matches)<160:
+                      # Original Java is not redistributed; record only bounded, summarized
+                      # statements required for auth compatibility and preserve line numbers.
+                      snippet=line.strip()
+                      if len(snippet)>220:snippet=snippet[:220]+'...'
+                      matches.append({'line':index+1,'statement':snippet})
+              out[p.stem]={'size':p.stat().st_size,'matched_statements':matches,
+                           'decompilation_incomplete':any('Method not decompiled' in ln for ln in lines)}
+          Path('ixio-posttoken-diagnostic/auth-relevant-calls.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
+          print('POSTTOKEN_RECON_CLASSES',list(out))
+          for name,stat in out.items():
+              print('CLASS',name,'matches',len(stat['matched_statements']),'incomplete',stat['decompilation_incomplete'])
+          PY
+          test -s ixio-posttoken-diagnostic/auth-relevant-calls.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-original-posttoken-branch-and-dto-diagnostic
+          path: ixio-posttoken-diagnostic/
+          retention-days: 5
+      - name: Destroy original APK and decompiled sources
+        if: always()
+        run: rm -rf .ixio-posttoken-private
