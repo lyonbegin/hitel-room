@@ -1,0 +1,156 @@
+name: Toss original ARM64 actual five-tool audit
+on:
+  push:
+    branches: [feature/toss-five-tool-real-audit-20261116]
+    paths: ['.github/workflows/toss-arm64-five-tool-audit.yml', 'tools/toss_five_tool/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+env:
+  ORIGINAL_SHA: 6cb2eac3c68e6a82ce2a5ea5aba86749eb8c609914392e125f6cdfbc208992f8
+jobs:
+  lief-capstone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore source
+        run: |
+          mkdir -p build/original reports/toss/lief-capstone
+          python - <<'PY'
+          import base64,zlib,pathlib
+          b=pathlib.Path('tools/toss_five_tool/input/libsurface_util_jni.so.zlib.b64').read_text()
+          pathlib.Path('build/original/original.so').write_bytes(zlib.decompress(base64.b64decode(b)))
+          PY
+          echo "$ORIGINAL_SHA  build/original/original.so" | sha256sum -c -
+          file build/original/original.so
+      - name: Execute real LIEF and Capstone on full .text
+        run: |
+          python -m pip install --no-cache-dir lief capstone==5.0.6 pyelftools==0.32
+          python tools/toss_five_tool/run_lief_capstone.py --elf build/original/original.so --out reports/toss/lief-capstone --sha "$ORIGINAL_SHA"
+          python -m pip freeze > reports/toss/lief-capstone/pip-versions.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toss-real-lief-capstone
+          path: reports/toss/lief-capstone/
+          retention-days: 30
+
+  ddisasm-gtirb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore original
+        run: |
+          mkdir -p build/original reports/toss/ddisasm
+          python3 - <<'PY'
+          import base64,zlib,pathlib
+          b=pathlib.Path('tools/toss_five_tool/input/libsurface_util_jni.so.zlib.b64').read_text()
+          pathlib.Path('build/original/original.so').write_bytes(zlib.decompress(base64.b64decode(b)))
+          PY
+          echo "$ORIGINAL_SHA  build/original/original.so" | sha256sum -c -
+      - name: Execute DDisasm GTIRB then real IR parser
+        run: |
+          docker pull grammatech/ddisasm:latest
+          docker image inspect grammatech/ddisasm:latest --format '{{index .RepoDigests 0}}' > reports/toss/ddisasm/docker-digest.txt
+          timeout 1200s docker run --rm -v "$PWD/build/original:/original:ro" -v "$PWD/reports/toss/ddisasm:/output" grammatech/ddisasm:latest ddisasm /original/original.so --ir /output/original.gtirb
+          test -s reports/toss/ddisasm/original.gtirb
+          python3 -m pip install --no-cache-dir gtirb
+          python3 tools/bithuman_deep/five_tool_gtirb.py --ir reports/toss/ddisasm/original.gtirb --out reports/toss/ddisasm
+          echo "TOSS_DDISASM_GTIRB_ACTUAL_PASS" > reports/toss/ddisasm/verdict.txt
+      - name: Exclude raw code-bearing IR from artifacts
+        if: always()
+        run: rm -f reports/toss/ddisasm/original.gtirb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toss-real-ddisasm-gtirb
+          path: reports/toss/ddisasm/
+          retention-days: 30
+
+  ghidra:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore exact original
+        run: |
+          mkdir -p build/original reports/toss/ghidra build/ghidra
+          python3 - <<'PY'
+          import base64,zlib,pathlib
+          b=pathlib.Path('tools/toss_five_tool/input/libsurface_util_jni.so.zlib.b64').read_text()
+          pathlib.Path('build/original/original.so').write_bytes(zlib.decompress(base64.b64decode(b)))
+          PY
+          echo "$ORIGINAL_SHA  build/original/original.so" | sha256sum -c -
+      - name: Download actual NSA Ghidra release
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request
+          req=urllib.request.Request('https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/latest',headers={'User-Agent':'toss-five-tool-audit'})
+          d=json.load(urllib.request.urlopen(req,timeout=30))
+          a=next((a for a in d['assets'] if a['name'].lower().endswith('.zip') and 'public' in a['name'].lower()),None)
+          if not a:raise RuntimeError('NO_GHIDRA_PUBLIC_RELEASE_ZIP')
+          open('build/ghidra/url.txt','w').write(a['browser_download_url'])
+          open('reports/toss/ghidra/version.txt','w').write(d['tag_name']+'\n'+a['name']+'\n')
+          PY
+          curl -fLsS --retry 3 --max-time 900 "$(cat build/ghidra/url.txt)" -o build/ghidra/ghidra.zip
+          unzip -q build/ghidra/ghidra.zip -d build/ghidra
+          find build/ghidra -name analyzeHeadless -type f
+      - name: Run actual Ghidra analysis and P-code script
+        run: |
+          mkdir -p build/ghidra/projects
+          TOOL="$(find build/ghidra -name analyzeHeadless -type f | head -1)"
+          test -n "$TOOL"
+          "$TOOL" build/ghidra/projects TossNative -import "$PWD/build/original/original.so" \
+            -scriptPath "$PWD/tools/toss_five_tool" \
+            -postScript TossGhidraAudit.java "$PWD/reports/toss/ghidra" \
+            -analysisTimeoutPerFile 900 -deleteProject \
+            2>&1 | tee reports/toss/ghidra/ghidra-headless.log
+          grep -q 'GHIDRA_REAL_PASS' reports/toss/ghidra/ghidra_summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toss-real-ghidra
+          path: reports/toss/ghidra/
+          retention-days: 30
+
+  dyninst:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore original
+        run: |
+          mkdir -p build/original reports/toss/dyninst
+          python3 - <<'PY'
+          import base64,zlib,pathlib
+          b=pathlib.Path('tools/toss_five_tool/input/libsurface_util_jni.so.zlib.b64').read_text()
+          pathlib.Path('build/original/original.so').write_bytes(zlib.decompress(base64.b64decode(b)))
+          PY
+          echo "$ORIGINAL_SHA  build/original/original.so" | sha256sum -c -
+      - name: Compile actual upstream Dyninst
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake ninja-build libboost-all-dev libelf-dev libdwarf-dev zlib1g-dev libtbb-dev libiberty-dev libdw-dev
+          git clone --depth 1 https://github.com/dyninst/dyninst.git build/dyninst-src
+          git -C build/dyninst-src rev-parse HEAD > reports/toss/dyninst/upstream-commit.txt
+          cmake -S build/dyninst-src -B build/dyninst-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/dyninst-install" -DDYNINST_ENABLE_TESTS=OFF -DDYNINST_BUILD_DOCS=OFF -DDYNINST_ENABLE_CAPSTONE=OFF
+          cmake --build build/dyninst-build -j 3
+          cmake --install build/dyninst-build
+          PFX="$RUNNER_TEMP/dyninst-install"
+          g++ -std=c++17 -O2 -I"$PFX/include" -I"$PFX/include/dyninst" tools/toss_five_tool/toss_dyninst.cpp -L"$PFX/lib" -L"$PFX/lib64" -Wl,-rpath,"$PFX/lib" -Wl,-rpath,"$PFX/lib64" -lparseAPI -linstructionAPI -lsymtabAPI -lcommon -o build/dyninst-analysis
+      - name: Actually run ParseAPI and record full CFG
+        run: |
+          OMP_NUM_THREADS=2 timeout 600s build/dyninst-analysis build/original/original.so reports/toss/dyninst
+          test -s reports/toss/dyninst/dyninst_summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toss-real-dyninst
+          path: reports/toss/dyninst/
+          retention-days: 30
