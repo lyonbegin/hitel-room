@@ -1,39 +1,39 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bithuman/bithuman.dart';
 
-// HITEL Galaxy phone probe for the REAL official bitHuman Flutter bridge.
-// Original Expression2 SDK and original Flutter Texture renderer stay in use.
-// The native hardware inventory does NOT prove that QNN can compile the model.
-void main() => runApp(const GalaxyExpression2App());
+// Original bitHuman Flutter SDK + original Expression2 0.6.2 local TEST fixture.
+// User inputs ZERO API secrets. APK ships original published public Wise Pup model
+// and bitHuman's own sample WAV, not a substitute or recreated SDK engine.
+void main() => runApp(const HitelLocalExpression2App());
 
-class GalaxyExpression2App extends StatelessWidget {
-  const GalaxyExpression2App({super.key});
+class HitelLocalExpression2App extends StatelessWidget {
+  const HitelLocalExpression2App({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'HITEL · Expression 2 GPU',
+        title: 'HITEL Expression 2 · GPU 원본 시험',
         theme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
-        home: const GalaxyExpression2Screen(),
+        home: const HitelLocalExpression2Screen(),
       );
 }
 
-class GalaxyExpression2Screen extends StatefulWidget {
-  const GalaxyExpression2Screen({super.key});
+class HitelLocalExpression2Screen extends StatefulWidget {
+  const HitelLocalExpression2Screen({super.key});
   @override
-  State<GalaxyExpression2Screen> createState() =>
-      _GalaxyExpression2ScreenState();
+  State<HitelLocalExpression2Screen> createState() =>
+      _HitelLocalExpression2ScreenState();
 }
 
-class _GalaxyExpression2ScreenState extends State<GalaxyExpression2Screen> {
+class _HitelLocalExpression2ScreenState
+    extends State<HitelLocalExpression2Screen> {
   static const _diagnostics = MethodChannel('ai.hitel.expression2.hardware');
-  final _agent = TextEditingController(text: 'A23WJF0199');
-  final _secret = TextEditingController();
   BithumanAvatar? _avatar;
-  String _status = '실제 Galaxy 하드웨어를 검사한 후 원본 SDK에 GPU·HTP·CPU 경로를 요청합니다.';
-  String _hardware = '기기 검사 버튼을 눌러 주십시오.';
+  String _hardware = '기기 환경 검사 중';
   String _logs = '';
+  String _status = 'API Secret 입력 없이 공개 원본 모델을 시험합니다.';
   bool _busy = false;
 
   @override
@@ -48,77 +48,119 @@ class _GalaxyExpression2ScreenState extends State<GalaxyExpression2Screen> {
         'inspectHardware',
       );
       if (!mounted) return;
-      final text = (map ?? {}).entries
-          .map((item) => '${item.key} = ${item.value}')
+      final detail = (map ?? {}).entries
+          .map((entry) => '${entry.key}: ${entry.value}')
           .join('\n');
-      setState(() {
-        _hardware = text.isEmpty ? '장치 정보 없음' : text;
-        _status = '하드웨어 검사 완료. 라이브러리 존재 여부는 모델 GPU 추론 성공과 다릅니다.';
-      });
-    } on PlatformException catch (error) {
-      if (mounted) setState(() => _hardware = '장치 검사 실패: ${error.message}');
+      setState(() => _hardware = detail);
+    } catch (error) {
+      if (mounted) setState(() => _hardware = '기기 검사 오류: $error');
     }
   }
 
-  Future<void> _getLogs() async {
+  Future<void> _readLogs() async {
     try {
       final result = await _diagnostics.invokeMethod<String>('readOwnLogs');
       if (!mounted) return;
       setState(() => _logs =
-          result?.trim().isNotEmpty == true ? result! : '아직 가속기 실행 로그가 없습니다.');
+          result?.trim().isNotEmpty == true ? result! : '기록된 시험 로그가 없습니다.');
     } catch (error) {
-      if (mounted) setState(() => _logs = '로그 조회 실패: $error');
+      if (mounted) setState(() => _logs = '로그 조회 오류: $error');
     }
   }
 
-  Future<void> _copyLogs() async {
-    await Clipboard.setData(
-      ClipboardData(text: '$_hardware\n$_status\n$_logs'),
-    );
+  Future<void> _copy() async {
+    await _readLogs();
+    await Clipboard.setData(ClipboardData(text:
+      '$_status\n---기기---\n$_hardware\n---SDK---\n$_logs'));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('기기 정보와 SDK 로그를 복사했습니다.')),
+        const SnackBar(content: Text('진단 로그를 복사했습니다.')),
       );
     }
   }
 
-  Future<void> _runOriginalSdk() async {
-    if (_busy) return;
-    final secret = _secret.text.trim();
-    final agent = _agent.text.trim();
-    if (secret.isEmpty || agent.isEmpty) {
-      setState(() {
-        _status = '실제 모델 추론 시험에는 정식 bitHuman API Secret이 필요합니다. '
-            '기기·GPU 라이브러리 검사는 인증 없이 가능합니다.';
-      });
-      return;
+  // Original vendor sample WAV is 16 kHz mono little-endian PCM16.
+  // Parse actual RIFF chunks rather than assuming a fixed 44-byte header.
+  Future<Int16List> _readOriginalSpeech() async {
+    final asset = await rootBundle.load('assets/speech.wav');
+    final bytes = asset.buffer.asUint8List(
+        asset.offsetInBytes, asset.lengthInBytes);
+    final bd = ByteData.sublistView(bytes);
+    if (bytes.length < 44 ||
+        String.fromCharCodes(bytes.sublist(0, 4)) != 'RIFF' ||
+        String.fromCharCodes(bytes.sublist(8, 12)) != 'WAVE') {
+      throw const FormatException('원본 speech.wav 헤더가 WAV 형식이 아닙니다.');
     }
+    int? dataStart, dataLength, sampleRate, channels, format, bits;
+    var off = 12;
+    while (off + 8 <= bytes.length) {
+      final tag = String.fromCharCodes(bytes.sublist(off, off + 4));
+      final size = bd.getUint32(off + 4, Endian.little);
+      final start = off + 8;
+      if (start + size > bytes.length) break;
+      if (tag == 'fmt ' && size >= 16) {
+        format = bd.getUint16(start, Endian.little);
+        channels = bd.getUint16(start + 2, Endian.little);
+        sampleRate = bd.getUint32(start + 4, Endian.little);
+        bits = bd.getUint16(start + 14, Endian.little);
+      } else if (tag == 'data') {
+        dataStart = start;
+        dataLength = size;
+      }
+      off = start + size + (size & 1);
+    }
+    if (format != 1 || channels != 1 || sampleRate != 16000 ||
+        bits != 16 || dataStart == null || dataLength == null) {
+      throw FormatException('원본 음성 형식 오류: format=$format '
+          'channels=$channels rate=$sampleRate bits=$bits');
+    }
+    final count = (dataLength ~/ 2).clamp(0, 32000);
+    final pcm = Int16List(count);
+    for (var i = 0; i < count; i++) {
+      pcm[i] = bd.getInt16(dataStart + i * 2, Endian.little);
+    }
+    return pcm;
+  }
+
+  Future<void> _test() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
-      _status = '원본 모델 다운로드·인증·가속기 경로 선택 중…';
+      _status = '테스트 서버·원본 모델 준비 중 (첫 실행 시 모델 약 159MB 복사)';
     });
     try {
-      final current = await BithumanAvatar.load(
-        agent,
-        engine: 'expression2',
-        apiSecret: secret,
+      // The Android Flutter plugin has an explicit test-only branch for
+      // A23WJF0199. No API secret is passed or requested.
+      final avatar = await BithumanAvatar.load(
+        'A23WJF0199', engine: 'expression2',
       );
-      _secret.clear();
       if (!mounted) {
-        await current.dispose();
+        await avatar.dispose();
         return;
       }
-      final previous = _avatar;
+      final old = _avatar;
       setState(() {
-        _avatar = current;
-        _status = '원본 Flutter Texture 연결 성공. '
-            '실제 선택한 GPU·HTP·CPU 경로는 「SDK 진단 로그」에서 확인하십시오.';
+        _avatar = avatar;
+        _status = '원본 SDK 생성 성공. 공개 원본 음성으로 2초간 추론 시험 중…';
       });
-      if (previous != null) await previous.dispose();
-      await _getLogs();
+      if (old != null) await old.dispose();
+      await avatar.audioStart(enableMic: false);
+      final pcm = await _readOriginalSpeech();
+      for (var start = 0; start < pcm.length; start += 640) {
+        final end = start + 640 < pcm.length ? start + 640 : pcm.length;
+        await avatar.pushAudio(Int16List.fromList(pcm.sublist(start, end)));
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+      await avatar.notifyTurnEnd();
+      if (mounted) {
+        setState(() => _status =
+          '원본 음성 입력 완료. GPU·HTP·CPU 경로 및 프레임 출력 결과를 확인합니다.');
+      }
+      await Future<void>.delayed(const Duration(seconds: 3));
+      await _readLogs();
     } catch (error) {
-      if (mounted) setState(() => _status = '원본 SDK 실행 실패: $error');
-      await _getLogs();
+      if (mounted) setState(() => _status = '시험 실패: $error');
+      await _readLogs();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -126,8 +168,6 @@ class _GalaxyExpression2ScreenState extends State<GalaxyExpression2Screen> {
 
   @override
   void dispose() {
-    _agent.dispose();
-    _secret.dispose();
     final avatar = _avatar;
     if (avatar != null) unawaited(avatar.dispose());
     super.dispose();
@@ -135,84 +175,47 @@ class _GalaxyExpression2ScreenState extends State<GalaxyExpression2Screen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('HITEL Expression 2 · Galaxy GPU')),
+        appBar: AppBar(title: const Text('HITEL · 원본 SDK GPU 시험')),
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(12),
             children: [
               SizedBox(
-                height: 250,
+                height: 280,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: _avatar == null
-                      ? const Center(child: Text(
-                          '원본 Flutter Texture 출력 대기\n'
-                          '아바타 로딩에는 정식 API Secret이 필요합니다.',
-                          textAlign: TextAlign.center,
-                        ))
+                      ? const Center(
+                          child: Text('bitHuman 공개 Wise Pup\n원본 Flutter Texture 대기',
+                            textAlign: TextAlign.center))
                       : Texture(textureId: _avatar!.textureId),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               FilledButton.icon(
-                onPressed: _inspect,
-                icon: const Icon(Icons.memory),
-                label: const Text('1. 갤럭시 GPU·NPU 환경 검사 (인증 불필요)'),
-              ),
-              const SizedBox(height: 8),
-              SelectableText(_hardware),
-              const Divider(height: 26),
-              TextField(
-                controller: _agent,
-                decoration: const InputDecoration(
-                  labelText: 'bitHuman 공개 에이전트 코드',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _secret,
-                obscureText: true,
-                enableSuggestions: false,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: '본인 bitHuman API Secret (APK에 저장하지 않음)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: _busy ? null : _runOriginalSdk,
+                onPressed: _busy ? null : _test,
                 icon: const Icon(Icons.play_arrow),
-                label: Text(_busy
-                    ? '원본 SDK 실행 중…'
-                    : '2. 원본 SDK GPU → HTP → CPU 추론 시험'),
+                label: Text(_busy ? '원본 SDK 시험 진행 중' :
+                    '원본 SDK 시험 시작 (API Secret 불필요)'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SelectableText(_status),
-              const Divider(height: 26),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _getLogs,
-                      child: const Text('SDK 진단 로그 갱신'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _copyLogs,
-                      child: const Text('로그 복사'),
-                    ),
-                  ),
-                ],
-              ),
+              const Divider(height: 22),
+              const Text('갤럭시 GPU·NPU 환경',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              SelectableText(_hardware),
+              const Divider(height: 22),
+              Row(children: [
+                Expanded(child: OutlinedButton(
+                  onPressed: _readLogs, child: const Text('로그 갱신'))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(
+                  onPressed: _copy, child: const Text('전체 로그 복사'))),
+              ]),
               SelectableText(_logs),
-              const SizedBox(height: 40),
             ],
           ),
         ),
