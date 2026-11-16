@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https:; base-uri 'none'; form-action 'none'">
+<title>HITEL IXIO 실기기 API 연결 점검</title>
+<style>
+:root{font-family:system-ui,-apple-system,'Malgun Gothic',sans-serif;line-height:1.6;color-scheme:light dark}
+body{max-width:720px;margin:0 auto;padding:28px 16px}
+main{border:1px solid #8886;border-radius:16px;padding:24px}
+h1{font-size:1.5rem;margin-top:0}
+label{display:block;font-weight:650;margin-top:18px}
+input,button{font:inherit;border-radius:8px;padding:10px}
+input{box-sizing:border-box;width:100%;border:1px solid #888}
+button{cursor:pointer;margin-top:14px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;border:1px solid #8888;border-radius:8px}
+small{opacity:.78}
+#status{font-weight:700}
+</style>
+</head>
+<body>
+<main>
+<h1>HITEL IXIO — 실기기 API 접속 점검</h1>
+<p>이 페이지는 GitHub Pages에서 열리며, 실제 인증 및 STT API는 별도 HTTPS 서버(G2)에서 실행됩니다. GitHub Pages는 API 서버나 중계 서버가 아닙니다.</p>
+<p id="status" role="status">연결 주소 확인 중입니다.</p>
+<label for="endpoint">G2 공개 HTTPS API 기본 주소</label>
+<input id="endpoint" type="url" autocomplete="url" inputmode="url" placeholder="https://실제로-배포된-api-호스트/" aria-describedby="hint">
+<small id="hint">GitHub Actions의 10.0.2.2/localhost 주소는 실제 휴대전화에서 사용할 수 없습니다. 실제 공개 HTTPS 주소만 입력하십시오.</small>
+<div><button id="check" type="button">/health 실제 연결 점검</button> <button id="copy" type="button">API 주소 복사</button></div>
+<pre id="result" aria-live="polite">연결 테스트 전입니다.</pre>
+<p><small>개인정보·전화번호·인증 토큰은 입력하지 마십시오. 테스트는 인증이 필요 없는 /health 요청만 수행합니다.</small></p>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+let configured='';
+function baseUrl(text){
+ const u=new URL(text);
+ if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!u.hostname) throw Error('공개 HTTPS 기본 주소만 허용합니다.');
+ if(/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/i.test(u.hostname)) throw Error('사설망/에뮬레이터 주소는 실기기용으로 사용할 수 없습니다.');
+ return u.href.replace(/\/+$/,'')+'/';
+}
+async function init(){
+ try{
+  const res=await fetch('config.json',{cache:'no-store'});
+  if(res.ok){const json=await res.json();configured=String(json.apiBaseUrl||'');}
+  if(configured){$('endpoint').value=configured;$('status').textContent='API 공개 주소가 설정되어 있습니다. 실제 접속 점검이 필요합니다.';}
+  else $('status').textContent='G2 공개 API 주소 미설정 — 아직 실기기 연결이 완성되지 않았습니다.';
+ }catch(e){$('status').textContent='서버 주소 설정을 불러올 수 없습니다.';}
+}
+$('check').addEventListener('click',async()=>{
+ $('result').textContent='실제 HTTPS /health 요청 중입니다.';
+ try{
+  const url=baseUrl($('endpoint').value);
+  const r=await fetch(new URL('health',url),{cache:'no-store',mode:'cors',credentials:'omit'});
+  const raw=await r.text();
+  $('result').textContent=JSON.stringify({url:new URL('health',url).href,status:r.status,ok:r.ok,body:raw.slice(0,1800)},null,2);
+  $('status').textContent=r.ok?'공개 HTTPS API 접속 확인됨 (로그인/STT 동작은 별도 검증 필요)':'API 서버에 접속했으나 HTTP 응답 오류';
+ }catch(e){$('status').textContent='접속 실패 또는 CORS 설정 오류';$('result').textContent=String(e);}
+});
+$('copy').addEventListener('click',async()=>{
+ try{const v=baseUrl($('endpoint').value);await navigator.clipboard.writeText(v);$('result').textContent='API 주소를 복사했습니다. APK는 이 API 주소를 직접 사용하도록 빌드해야 합니다.';}
+ catch(e){$('result').textContent=String(e);}
+});
+init();
+</script>
+</body>
+</html>
