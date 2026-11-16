@@ -117,7 +117,7 @@ def main():
     seen_error=False
     anr_count=0
     stop_reason="EXHAUSTED_STEPS"
-    for i in range(15):
+    for i in range(24):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
         if any(q in joined for q in ("Pixel Launcher isn't responding","System UI isn't responding","Pixel 런처가 응답하지 않습니다","시스템 UI가 응답하지 않습니다")):
@@ -144,7 +144,21 @@ def main():
                 snapshot(i+101)
             stop_reason="SERVICE_ERROR_OBSERVED_AND_DISMISS_TESTED"
             break
-        # Do not accept any legal or account credentials; this is not a carrier account.
+        # Chrome Custom Tabs is used during the original app login flow.
+        # A clean emulator can open Chrome's own first-run setup instead of the
+        # HITEL QA authorization page. Dismiss *browser* onboarding without
+        # logging into Google or touching IXIO carrier service agreements.
+        chrome_visible=any(node.get("package","")=="com.android.chrome" for node in nodes)
+        if chrome_visible:
+            browser_setup=choose(nodes,[
+                "Use without an account", "계정 없이 사용",
+                "Continue without an account", "계정 없이 계속",
+                "No thanks", "Not now", "나중에", "사용 안함",
+            ],True)
+            if browser_setup:
+                tap(browser_setup,"CHROME_FIRST_RUN_NO_ACCOUNT")
+                continue
+        # Do not accept any carrier legal terms or account credentials.
         if any(q in joined for q in CONSENT_BLOCKS):
             print("STOP_BEFORE_TERMS_OR_LOGIN",joined[:850],flush=True)
             stop_reason="LOGIN_OR_TERMS_SCREEN_REACHED"
