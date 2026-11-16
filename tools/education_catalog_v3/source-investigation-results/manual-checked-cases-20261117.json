@@ -1,0 +1,233 @@
+{
+ "1061417751": {
+  "result": "공식·서점 서지 후보 확보",
+  "book_candidate": "중등 수학 1-1 (내공의 힘) 2014년용",
+  "identifier": "9788966866717",
+  "reference_url": "https://books.google.com/books/about/%EC%A4%91%EB%93%B1_%EC%88%98%ED%95%99_1_1_340%EC%A0%9C_2014_%EB%82%B4%EA%B3%B5%EC%9D%98.html?id=rkIungEACAAJ",
+  "decision": "동일 판본 미확정",
+  "reason": "비상교육 2013 발행 중1-1 2014년용 도서. 파일 제목과 대상·시기 부합하나 실제 문서 ISBN/원문 미확인",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "766116101": {
+  "result": "출판사 공식 교재 후보 확보",
+  "book_candidate": "메가스터디 중학 영어 독해 Level 2",
+  "identifier": "9791129704320",
+  "reference_url": "https://www.megastudybooks.com/book/detail/329",
+  "decision": "동일 판본·제7문항 원문 미확정",
+  "reason": "중학 영어 독해 Level 2 정식 교재. 원본 제목의 문제-7은 발췌/교수자료일 가능성이 있어 본책과 혼동 금지",
+  "subject_from_reference": "영어",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1012496876": {
+  "result": "복수 판본 확인",
+  "book_candidate": "100발 100중 2-1 기말(과목·교과서별 여러 권)",
+  "identifier": "",
+  "reference_url": "https://www.bandinlunis.com/front/product/detailProduct.do?prodId=4065639",
+  "decision": "시리즈만 확인",
+  "reason": "중2-1 기말 영어도 교과서 출판사·저자별 다수 판본이 존재함. 과목·교과서 저자 없는 원본에 ISBN 임의 연결 금지",
+  "subject_from_reference": "",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1012496840": {
+  "result": "복수 판본 확인",
+  "book_candidate": "100발 100중 2-1 중간(과목·교과서별 여러 권)",
+  "identifier": "",
+  "reference_url": "https://www.bandibook.com/front/product/detailProduct.do?prodId=4065640",
+  "decision": "시리즈만 확인",
+  "reason": "중2-1 중간 역시 과목/교과서별 판본 불명. 정확한 과목·교과서 확인 전 ISBN 연결 불가",
+  "subject_from_reference": "",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "868841552": {
+  "result": "공식 시리즈 8권 확인",
+  "book_candidate": "EBS 2025 올림포스 전국연합학력평가 기출문제집",
+  "identifier": "",
+  "reference_url": "https://www.ebsi.co.kr/ebs/pot/potg/retrieveCourseDetailNw.ebs?bookId=LB00000005510",
+  "decision": "시리즈만 확인",
+  "reason": "EBS 2025 올림포스 전국연합 고1은 국어·영어·수학 등 과목별 다수 권종. 문서 제목에 과목이 없어 한 권으로 특정할 수 없음",
+  "subject_from_reference": "",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "852621758": {
+  "result": "EBS 공식 교재 후보 확보",
+  "book_candidate": "EBS 2026 수능 기출의 미래 수학Ⅰ",
+  "identifier": "EBS LB00000005638",
+  "reference_url": "https://cloud-www.ebsi.co.kr/ebs/pot/potg/retrieveCourseDetailNw.ebs?bookId=LB00000005638",
+  "decision": "동일 판본 미확정",
+  "reason": "EBS 2026학년도 수능 기출의 미래 수학Ⅰ 발행 2024-12-12, 고2/고3 대상으로 공식 교재 존재",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "981094374": {
+  "result": "출판사 공식 종이책 후보 확보",
+  "book_candidate": "2027 마더텅 수능기출문제집 수학Ⅰ",
+  "identifier": "종이책 9791175631182",
+  "reference_url": "https://www.toptutor.co.kr/book/book_view.jsp?cid=10&id=3907&pcid=114&tcid=1",
+  "decision": "종이책·전자책 구별 필요",
+  "reason": "종이책 ISBN은 9791175631182, eBook ISBN은 9791175631762. Scribd 원본이 어느 형태인지 불명",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1048084082": {
+  "result": "출판사 공식 교재 후보 확보",
+  "book_candidate": "2027 마더텅 수능기출문제집 수학Ⅱ",
+  "identifier": "마더텅 교재번호 3908",
+  "reference_url": "https://www.toptutor.co.kr/book/book_view.jsp?id=3908&pcid=114&tcid=1",
+  "decision": "ISBN 형식·원본 판본 미확정",
+  "reason": "종이책 공식 교재 확인; eBook 별도 ISBN 9791175631779 있음. 종이책 ISBN을 eBook ISBN으로 대체하면 안 됨",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "981094464": {
+  "result": "출판사 공식 교재 후보 확보",
+  "book_candidate": "2027 마더텅 수능기출문제집 수학Ⅱ",
+  "identifier": "마더텅 교재번호 3908",
+  "reference_url": "https://www.toptutor.co.kr/book/book_view.jsp?id=3908&pcid=114&tcid=1",
+  "decision": "ISBN 형식·원본 판본 미확정",
+  "reason": "종이책 공식 교재 확인; eBook 별도 ISBN 9791175631779 있음. 종이책 ISBN을 eBook ISBN으로 대체하면 안 됨",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "837859062": {
+  "result": "EBS 공식 교재 후보 확보",
+  "book_candidate": "EBS 올림포스 고난도 수학(상) 2015 개정",
+  "identifier": "EBS LB00000005038",
+  "reference_url": "https://www.ebsi.co.kr/ebs/pot/potg/retrieveCourseDetailNw.ebs?bookId=LB00000005038",
+  "decision": "발행 연도·교육과정 확인 필요",
+  "reason": "2015개정 2022-11-21 발행의 고1 수학(상). 원본 제목에는 개정판 연도가 명시되지 않음",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "769045821": {
+  "result": "EBS 공식 교재 후보 확보",
+  "book_candidate": "EBS 올림포스 고난도 수학(하) 2015 개정",
+  "identifier": "EBS LB00000005039",
+  "reference_url": "https://www.ebsi.co.kr/ebs/pot/potg/retrieveCourseDetailNw.ebs?bookId=LB00000005039",
+  "decision": "발행 연도·교육과정 확인 필요",
+  "reason": "2015개정 2022-11-21 발행의 고1 수학(하). 원본 제목에는 개정판 연도가 명시되지 않음",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1046772928": {
+  "result": "서점 서지 교재 후보 확보",
+  "book_candidate": "우공비Q+Q 중등 수학 1-1 발전+심화 (2026년용)",
+  "identifier": "9788928347872",
+  "reference_url": "https://www.yes24.com/product/goods/143380547",
+  "decision": "동일 판본 미확정",
+  "reason": "좋은책신사고 우공비Q+Q 중등 1-1 발전+심화 2026년용, 2025-03-07 발행. 학제·학기·수준 확정 서지",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1006897727": {
+  "result": "서점 서지 교재 후보 확보",
+  "book_candidate": "2026 이해원 N제 시즌2 수학1",
+  "identifier": "9791166768545",
+  "reference_url": "https://www.yes24.com/product/goods/149616811",
+  "decision": "동일 판본 미확정",
+  "reason": "2026 이해원 N제 시즌2 수학1 (2025 발행), 동일 제목의 2027판 별도 ISBN 9791176230629과 혼동 금지",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1021028042": {
+  "result": "출판사 공식 교재 후보 확보",
+  "book_candidate": "2027 마더텅 고교 국어 문법 500제",
+  "identifier": "종이책 9791175632790",
+  "reference_url": "https://www.toptutor.co.kr/book/book_view.jsp?id=4003&pcid=125&tcid=4",
+  "decision": "발췌·답표시 자료이므로 원본 미확정",
+  "reason": "교재 문법500제 공식 확인, PDF 원본은 답체크 O/X 버전인 점에 유의; eBook ISBN 9791175632844는 다른 상품형식",
+  "subject_from_reference": "국어",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1021028058": {
+  "result": "출판사 공식 교재 후보 확보",
+  "book_candidate": "2027 마더텅 고교 국어 문법 500제",
+  "identifier": "종이책 9791175632790",
+  "reference_url": "https://www.toptutor.co.kr/book/book_view.jsp?id=4003&pcid=125&tcid=4",
+  "decision": "발췌·답표시 자료이므로 원본 미확정",
+  "reason": "교재 문법500제 공식 확인, PDF 원본은 답체크 O/X 버전인 점에 유의; eBook ISBN 9791175632844는 다른 상품형식",
+  "subject_from_reference": "국어",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "720598802": {
+  "result": "동일 시리즈 서지 존재",
+  "book_candidate": "씨뮬 12th 전국연합 고2 3년간 기출모의고사",
+  "identifier": "",
+  "reference_url": "https://www.yes24.com/product/goods/123665654",
+  "decision": "정확한 과목 불명",
+  "reason": "씨뮬 12th 고2 전국연합 2024 수학 책이 존재하지만 원본이 과목을 표시하지 않아 해당 권종으로 확정 불가",
+  "subject_from_reference": "",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1061419299": {
+  "result": "원본 제목 기반 자료구분",
+  "book_candidate": "내공의 힘 중1-2 실전모의고사",
+  "identifier": "",
+  "reference_url": "",
+  "decision": "본책 아닌 실전모의고사 부속자료 가능",
+  "reason": "제목 자체가 실전모의고사(Color)이며 동일 시리즈 본책과 별개 항목으로 유지",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "839806889": {
+  "result": "원본 제목 기반 자료구분",
+  "book_candidate": "올림포스 고2 교사용 UNIT19",
+  "identifier": "",
+  "reference_url": "",
+  "decision": "교사용 수업자료로 보존",
+  "reason": "2024 EBS 올림포스 고2 Unit19 교사용 수업자료라고 명시; 수업용·교사용 자료 유지",
+  "subject_from_reference": "",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1014266476": {
+  "result": "원본 제목 기반 자료구분",
+  "book_candidate": "씨뮬 고1 모의고사 Word Test",
+  "identifier": "",
+  "reference_url": "",
+  "decision": "영어 단어 테스트 가능성·원문 미확인",
+  "reason": "Word Test Date/Name/Score 자료. 단독 교재 본책으로 등록하지 않고 부가자료로 유지",
+  "subject_from_reference": "영어",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "1018736284": {
+  "result": "원본 제목 기반 자료구분",
+  "book_candidate": "EBS 2025 올림포스 고2 5~6강",
+  "identifier": "",
+  "reference_url": "",
+  "decision": "단원 발췌로 보존",
+  "reason": "고2 2025 EBS 올림포스 기출문제집의 5~6강 단원 자료이므로 본책으로 취급 금지",
+  "subject_from_reference": "",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ },
+ "927349216": {
+  "result": "원본 제목 기반 자료구분",
+  "book_candidate": "내공의 힘 중1 테스트",
+  "identifier": "",
+  "reference_url": "",
+  "decision": "테스트 문서로 보존",
+  "reason": "내공의 힘 테스트 중1 1. 교재 본책과 별개 문서 가능성, 원문 미검증",
+  "subject_from_reference": "수학",
+  "source_pdf_exact_match": false,
+  "research_date": "2026-11-17"
+ }
+}
