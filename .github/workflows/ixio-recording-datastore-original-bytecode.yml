@@ -86,4 +86,21 @@ jobs:
                           print('ORIGINAL_RECORDING_POLICY_BYTECODE',
                                 p.name,k+1,raw[k][:270])
           print('ORIGINAL_RECORDING_POLICY_HITS',found)
+          # Trace the exact boolean supplied to the original gate.
+          # ctor args: (String phone, Long callTime, RecordingTrigger, boolean
+          # isRecordingAllowedByPolicy, boolean another condition).
+          c=0
+          for p in root.rglob('*.smali'):
+              if c>=14:break
+              src=p.read_text(errors='replace').splitlines()
+              for i,line in enumerate(src):
+                  if 'RecordingAvailabilityParam;-><init>(' not in line:continue
+                  c+=1
+                  print('POLICY_FLAG_PRODUCER',c,p.relative_to(root),i+1,line.strip()[:350])
+                  start=max(0,i-115);end=min(len(src),i+16)
+                  for n in range(start,end):
+                      if src[n].strip():
+                          print('POLICY_FLAG_PRODUCER_CODE',p.name,n+1,src[n][:310])
+              if c>=14:break
+          print('POLICY_FLAG_PRODUCER_COUNT',c)
           PY
