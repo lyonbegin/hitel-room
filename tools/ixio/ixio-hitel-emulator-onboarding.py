@@ -224,7 +224,9 @@ def main():
         action=None
         if any("시작하기" in t for t in visible):
             action=choose(nodes,["시작하기"],True)
-        elif "익시오 서비스 이용을 위한" in joined and "권한을 허용해 주세요" in joined:
+        elif (("익시오 서비스 이용을 위한" in joined or
+               "익시오 통화녹음 서비스 이용을 위한" in joined) and
+              "권한을 허용해 주세요" in joined):
             action=choose(nodes,["확인"],True)
         else:
             permission_apps=any("permissioncontroller" in node.get("package","").lower() for node in nodes)
@@ -245,6 +247,8 @@ def main():
         stop_reason="NON_AUTOMATABLE_SCREEN"
         break
     lastpid=adb("shell","pidof",PKG).strip()
+    recorder_pid=adb("shell","pidof","com.lguplus.callrecorder").strip()
+    print("IXIO_RECORDER_PROCESS_AFTER_ONBOARDING",recorder_pid or "NOT_RUNNING",flush=True)
     (OUT/"actions.json").write_text(json.dumps(ACTIONS,ensure_ascii=False,indent=2),encoding="utf8")
     log=adb("logcat","-d","-v","threadtime","-t","30000",timeout=30)
     (OUT/"logcat-full.txt").write_text(log,encoding="utf8")
@@ -263,6 +267,8 @@ def main():
            "emulator_launcher_anr_count":anr_count,
            "ui_stages":len(ACTIONS),
            "home_screen_seen":home_screen_seen,
+           "recorder_process_pid":recorder_pid,
+           "recorder_process_alive":bool(recorder_pid),
            "recorder_setup_prompt_seen":recorder_setup_prompt_seen,
            "recorder_setup_button_taps":recorder_setup_taps}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
