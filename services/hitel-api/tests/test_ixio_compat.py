@@ -121,7 +121,8 @@ def test_one_time_pkce_and_hitel_refresh_credential(monkeypatch):
                       headers={"Authorization":f"Bearer {x['data']['refreshToken']}"}).status_code == 403
         assert c.post("/autologin",json={"userId":user_id},
                       headers={"Authorization":f"Bearer {x['data']['accessToken']}"}).status_code == 401
-        assert c.get("/login").json()["code"] == "ERROR_NOT_CONFIGURED"
+        assert c.get("/login").status_code == 401
+        assert c.get("/login", headers=headers).json()["code"] == "ERROR_NOT_CONFIGURED"
 
 
 def test_ci_only_appauth_redirect_matches_manifest_and_pkce(monkeypatch):
