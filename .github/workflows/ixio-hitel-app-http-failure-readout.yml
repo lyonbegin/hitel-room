@@ -58,4 +58,31 @@ jobs:
           print('UI_XML_COUNT',len(xmls))
           for p in sorted(xmls)[-2:]:
               print('LAST_XML_FILE',p.name)
+          print('APP_PROCESS_LOGCAT_BEGIN')
+          app_lines=[x for x in (list(root.rglob('logcat-full.txt'))[0].read_text(errors='replace').splitlines() if list(root.rglob('logcat-full.txt')) else []) if re.match(r'^\\d\\d-\\d\\d\\s+\\d\\d:\\d\\d:\\d\\d\\.\\d+\\s+4719\\s+',x)]
+          print('APP_PROCESS_LOGCAT_LINES',len(app_lines))
+          for line in app_lines[-120:]:
+              print('APP_PID_4719',safe(line))
+          print('APP_PROCESS_LOGCAT_END')
+          PY
+
+      - name: Read original post-token source branch inspection evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-posttoken
+          gh run download 43858596459 --repo "$GH_REPO" --name ixio-original-posttoken-branch-and-dto-diagnostic --dir /tmp/ixio-posttoken
+          find /tmp/ixio-posttoken -type f -maxdepth 3 -printf 'FILE %P %s bytes\\n'
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('/tmp/ixio-posttoken')
+          for p in sorted(root.rglob('*')):
+              if not p.is_file():
+                  continue
+              data=p.read_text(errors='replace')
+              print('ORIGINAL_POSTTOKEN_FILE',p.name)
+              print(data[:13000])
           PY
