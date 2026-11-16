@@ -138,4 +138,14 @@ jobs:
                   matches.append({'path':p.relative_to(root).as_posix(),'line':i+1,'nearby':near[-25:]})
           print('ORIGINAL_MISSING_ROUTE_MATCHES',json.dumps(matches,ensure_ascii=False))
           print('ORIGINAL_MISSING_ROUTE_COUNT',len(matches))
+          for pat in ('mvoip-onoff','roaming-call'):
+              files=[]
+              for p in root.rglob('*.smali'):
+                  t=p.read_text(errors='replace')
+                  if pat in t:
+                      files.append(p.relative_to(root).as_posix())
+                      for j,l in enumerate(t.splitlines()):
+                          if pat in l:
+                              print('EXACT_RAW_LITERAL',pat,p.relative_to(root).as_posix(),j+1,l.strip()[:280])
+              print('ORIGINAL_EXACT_LITERAL_CLASSES',pat,files[:35],len(files))
           PY
