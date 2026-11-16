@@ -1,0 +1,203 @@
+name: Expression2 0.6.1 Galaxy Remote Test Lab Chrome plus Linux RDB
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "remote = operator logs in; preflight = check Chrome/noVNC locally only"
+        type: choice
+        options:
+          - remote
+          - preflight
+        default: remote
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/expression2-rtl-galaxy-rdb-browser.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: rtl-galaxy-rdb-browser
+  cancel-in-progress: false
+jobs:
+  same-ubuntu-chrome-samsung-rdb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      DISPLAY: ":99"
+      RTL_VIEWER_EMAIL: ${{ secrets.RTL_VIEWER_EMAIL }}
+      RUN_MODE: ${{ github.event_name == 'push' && 'preflight' || inputs.mode }}
+      RTL_APK: ${{ github.workspace }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d6b445517d910af929a9effeed91141ec1164357
+          persist-credentials: false
+      - name: Check RTL watcher syntax and allowed scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py
+          ! grep -q -F 'Expression2Avatar.create(' tools/bithuman_deep/rtl_galaxy_rdb_probe.py
+          echo ORIGINAL_SDK061_AND_APP_NOT_MODIFIED_FOR_RTL
+      - name: Download EXACT previously verified full-flow original SDK 0.6.1 ARM64 APK
+        if: env.RUN_MODE == 'remote'
+        uses: actions/download-artifact@v4
+        with:
+          name: expression2-sdk061-original-full-flow-galaxy-arm64-apk
+          repository: lyonbegin/hitel-room
+          run-id: 43961847988
+          github-token: ${{ github.token }}
+          path: ${{ github.workspace }}/rtl-apk
+      - name: Check original full-flow APK byte identity before installation
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/rtl-apk"
+          echo 'dd08b098dee26477d12489f872482425d4a790766fa3cd2c56d6119253f39ba4  pristine-original-plugin2637-sdk061-arm64.apk' | sha256sum --check --status
+          echo ORIGINAL_SDK061_FULLOWFLOW_APK_SHA256_PASS
+      - name: Install Ubuntu virtual desktop, noVNC, Linux ADB and Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            xvfb x11vnc openbox novnc websockify adb unzip x11-utils
+          command -v google-chrome || command -v google-chrome-stable
+          command -v adb
+          test -f /usr/share/novnc/vnc.html
+          python3 -m venv "$RUNNER_TEMP/rtl-py"
+          "$RUNNER_TEMP/rtl-py/bin/pip" install --quiet playwright
+          echo RTL_BROWSER_DEPENDENCIES_INSTALLED
+      - name: Open Chrome on SAME Ubuntu desktop shared by noVNC and Linux RDB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rtl-browser/Default" "$HOME/Downloads" "$RUNNER_TEMP/rtl-runtime"
+          cat > "$RUNNER_TEMP/rtl-browser/Default/Preferences" <<PREFS
+          {"download":{"default_directory":"$HOME/Downloads","prompt_for_download":false,"directory_upgrade":true}}
+          PREFS
+          Xvfb :99 -screen 0 1440x900x24 -nolisten tcp > "$RUNNER_TEMP/rtl-xvfb.log" 2>&1 &
+          for i in $(seq 1 30); do
+            xdpyinfo -display :99 >/dev/null 2>&1 && break
+            sleep 1
+          done
+          xdpyinfo -display :99 >/dev/null
+          openbox > "$RUNNER_TEMP/rtl-openbox.log" 2>&1 &
+          x11vnc -display :99 -nopw -localhost -forever -shared -rfbport 5900 \
+            > "$RUNNER_TEMP/rtl-x11vnc.log" 2>&1 &
+          websockify --web /usr/share/novnc 127.0.0.1:6080 127.0.0.1:5900 \
+            > "$RUNNER_TEMP/rtl-websockify.log" 2>&1 &
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable)"
+          "$CHROME" --user-data-dir="$RUNNER_TEMP/rtl-browser" \
+            --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 \
+            --no-first-run --no-default-browser-check --disable-dev-shm-usage \
+            --new-window https://developer.samsung.com/remote-test-lab \
+            > "$RUNNER_TEMP/rtl-chrome.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:6080/vnc.html >/dev/null 2>&1 \
+              && curl -fsS http://127.0.0.1:9222/json/version >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:6080/vnc.html -o /dev/null
+          curl -fsS http://127.0.0.1:9222/json/version -o /dev/null
+          echo RTL_SAME_RUNNER_CHROME_VNC_CDP_PRECHECK_PASS
+      - name: Verify Playwright connection to live Chrome CDP
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/rtl-py/bin/python" - <<'PY'
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              b = p.chromium.connect_over_cdp("http://127.0.0.1:9222",timeout=20000)
+              pages = [page for context in b.contexts for page in context.pages]
+              assert pages, "Chrome CDP opened without pages"
+              assert "developer.samsung.com" in pages[0].url, pages[0].url
+              print("RTL_PLAYWRIGHT_SAME_BROWSER_CONNECTED")
+          PY
+      - name: Preflight exit without publishing any browser
+        if: env.RUN_MODE == 'preflight'
+        shell: bash
+        run: |
+          echo 'Chrome + Playwright + Xvfb + noVNC localhost passed. No Samsung account or remote tunnel used.'
+          echo '## RTL noVNC local preflight: PASS' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Next: set RTL_VIEWER_EMAIL repository secret, then manual Run workflow -> remote.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify one-user email protection for remote browser
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,re
+          value=os.environ.get("RTL_VIEWER_EMAIL","")
+          if not re.fullmatch(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}",value):
+              raise SystemExit("RTL_VIEWER_EMAIL GitHub Actions repository secret required; refuse public VNC tunnel")
+          print("RTL_REMOTE_EMAIL_AUTH_REQUIRED_CONFIRMED")
+          PY
+      - name: Install official Cloudflare Quick Tunnel client
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          sudo dpkg -i "$RUNNER_TEMP/cloudflared.deb"
+          cloudflared --version
+          cloudflared tunnel --help | grep -q -- '--allowed-mail' || \
+            { echo 'Cloudflare email-gated quick tunnel not supported by installed binary'; exit 1; }
+      - name: Publish short-lived HTTPS noVNC link gated by viewer email OTP
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cloudflared tunnel --url http://127.0.0.1:6080 \
+            --allowed-mail "$RTL_VIEWER_EMAIL" \
+            > "$RUNNER_TEMP/rtl-cloudflared.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/rtl-cloudflared.pid"
+          URL=''
+          for i in $(seq 1 100); do
+            URL="$(grep -Eo 'https://[a-z0-9-]+[.]trycloudflare[.]com' "$RUNNER_TEMP/rtl-cloudflared.log" | head -n 1 || true)"
+            test -n "$URL" && break
+            kill -0 "$(cat "$RUNNER_TEMP/rtl-cloudflared.pid")" 2>/dev/null || \
+              { echo "Quick Tunnel exited before publishing URL"; exit 1; }
+            sleep 1
+          done
+          test -n "$URL" || { echo "No email-protected Quick Tunnel URL appeared"; exit 1; }
+          echo "::notice title=Samsung Galaxy RTL remote Chrome::${URL}/vnc.html?autoconnect=true&resize=scale"
+          {
+            echo "## Samsung RTL live Ubuntu Chrome (email OTP required)"
+            echo
+            echo "[Open exact Chrome on runner: ${URL}/vnc.html?autoconnect=true&resize=scale](${URL}/vnc.html?autoconnect=true&resize=scale)"
+            echo
+            echo "Use RTL_VIEWER_EMAIL inbox PIN; log in to Samsung in the desktop."
+            echo "Reserve Galaxy Z Fold, click Remote Debug Bridge > Connect > Download Linux RDB."
+            echo "The GitHub runner automatically starts RDB after Chrome downloads the ZIP."
+            echo "Click Remote Debug Bridge > Connect AGAIN, and accept RSA debugging."
+            echo "When ADB connects, SDK061 full-flow APK auto installs, opens, and records filtered logs."
+            echo
+            echo "No account cookies, login data, live screenshot or full logcat uploaded to GitHub."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo RTL_EMAIL_GATED_REMOTE_BROWSER_LINK_PUBLISHED
+      - name: Wait for human Samsung login and RTL Linux RDB handoff, then test unchanged APK
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/rtl_galaxy_rdb_probe.py \
+            --downloads "$HOME/Downloads" \
+            --runtime "$RUNNER_TEMP/rtl-runtime" \
+            --report "$GITHUB_WORKSPACE/rtl-sanitized-proof/galaxy-original-sdk061.json" \
+            --minutes 90
+      - name: Upload only restricted diagnostic summary (no Chrome sessions or raw device logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl-galaxy-sdk061-sanitized-summary
+          path: rtl-sanitized-proof/*.json
+          if-no-files-found: ignore
+          retention-days: 7
