@@ -1,0 +1,40 @@
+name: HITEL IXIO G2 Public Endpoint Discovery
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-g2-discover-public-endpoint.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    env:
+      REPOSITORY_VARIABLES: ${{ toJSON(vars) }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Inspect configured public endpoints and deployment targets without exposing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,urllib.parse
+          d=json.loads(os.getenv("REPOSITORY_VARIABLES") or "{}")
+          keywords=("G2","API","HITEL","PUBLIC","HOST","DOMAIN","TUNNEL","VPS","GATEWAY")
+          relevant={k:v for k,v in d.items() if any(w in k.upper() for w in keywords)}
+          print("MATCHED_REPO_VARIABLE_NAMES",sorted(relevant))
+          for name,value in sorted(relevant.items()):
+              if any(w in name.upper() for w in ("URL","HOST","DOMAIN","BASE")):
+                  try:
+                      p=urllib.parse.urlsplit(value)
+                      if p.scheme in ("https","http") and p.hostname and not p.username and not p.password and not p.query and not p.fragment:
+                          print("PUBLIC_ENDPOINT",name,p.scheme+"://"+p.netloc+p.path)
+                  except ValueError:
+                      continue
+          PY
+          echo "DEPLOYMENT_ENVIRONMENTS_BEGIN"
+          gh api "repos/${{ github.repository }}/deployments?per_page=60" --jq '[.[] | {environment,ref,created_at}] | unique_by(.environment,.ref) | .[:30]' || true
+          echo "DEPLOYMENT_ENVIRONMENTS_END"
+          echo "G2_RUNNER_LABEL_NAMES_BEGIN"
+          gh api "repos/${{ github.repository }}/actions/runners" --jq '{total_count,names:[.runners[].name],labels:([.runners[].labels[].name]|unique)}' || true
+          echo "G2_RUNNER_LABEL_NAMES_END"
