@@ -209,7 +209,8 @@ jobs:
             set -eu
             echo 'INSTALLING_VERIFIED_ORIGINAL_RECORDER_COMPANION'
             adb install -r .hitel-ixio-qa/recorder/recorder.apk
-            adb shell pm path com.lguplus.callrecorder
+            adb shell pm path com.lguplus.callrecorder | grep '^package:'
+            echo 'true' > ixio-hitel-android-results/recorder-installed.txt
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-hitel-emulator-onboarding.py
       - name: Compare actual original-app UI with HITEL API received request log
@@ -238,6 +239,12 @@ jobs:
            'ui_emulator_system_blocked': ui.get('stop_reason') == 'EMULATOR_SYSTEM_ANR_BLOCKED_TEST',
            'qa_seed_verify_request_count_including_preflight': n,
            'native_app_verify_ctn_network_request': n>=2,
+           'qa_pkce_token_exchange_success': 'HITEL_CI_PKCE_GRANT_RESULT=SUCCESS' in log,
+           'original_recorder_installed': (root/'recorder-installed.txt').exists(),
+           'ui_home_screen_reached': ui.get('home_screen_seen',False),
+           'recorder_setup_prompt_observed': ui.get('recorder_setup_prompt_seen',False),
+           'recorder_setup_button_taps': ui.get('recorder_setup_button_taps',0),
+           'stt_audio_capture_verified': False,
            'notes':'No user data, no carrier enrollment. Only emulator host at 10.0.2.2:8000. No remote persistent server.'
           }
           (root/'verification-status.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
@@ -265,7 +272,7 @@ jobs:
             ixio-main-permission-to-signup-evidence/
           retention-days: 7
           if-no-files-found: warn
-      - name: Require observed device-to-HITEL verification before calling the app fixed
+      - name: Require actual two-app HITEL auth-to-home proof (without claiming STT)
         shell: bash
         run: |
           python3 - <<'PY'
@@ -280,10 +287,15 @@ jobs:
             raise SystemExit('INTEGRATION_NOT_VERIFIED: Android app did not hit local HITEL verify-ctn')
           if j['signup_error_seen']:
             raise SystemExit('APP_STILL_BLOCKED: signup error shown after HITEL API exchange')
-          if j['ui_stop_reason'] != 'LOGIN_OR_TERMS_SCREEN_REACHED':
-            raise SystemExit('ONBOARDING_UI_NOT_VERIFIED: reached only '+str(j['ui_stop_reason']))
-          print('HITEL_QA_API_ROUTED_AND_AUTH_UI_REACHED=VERIFIED')
-          print('NOTE: Carrier service signup, real subscriber credentials, and full STT are not tested.')
+          if not j['qa_pkce_token_exchange_success']:
+            raise SystemExit('AUTH_NOT_VERIFIED: Android app never completed PKCE token exchange')
+          if not j['original_recorder_installed']:
+            raise SystemExit('RECORDER_NOT_INSTALLED: verified original recorder companion absent')
+          if not j['ui_home_screen_reached']:
+            raise SystemExit('IXIO_HOME_NOT_VERIFIED: stop='+str(j['ui_stop_reason']))
+          print('HITEL_QA_TWO_ORIGINAL_APPS_LOGIN_TO_HOME=VERIFIED')
+          print('RECORDER_SETUP_PROMPT_OBSERVED='+str(j['recorder_setup_prompt_observed']))
+          print('NOTE: Carrier signup, real subscriber credentials, call audio capture, and STT remain UNVERIFIED.')
           PY
       - name: Remove CI-only test assertion and data after test
         if: always()
