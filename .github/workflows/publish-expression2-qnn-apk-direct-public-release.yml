@@ -1,0 +1,95 @@
+name: Publish Expression2 Galaxy Z Fold QNN APK as direct public GitHub Release download
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/publish-expression2-qnn-apk-direct-public-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-expression2-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact original SDK ARM64 GPU/NPU APK produced by verified run 43771529181
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 43771529181
+          name: expression2-original-arm64-real-android-qnn-accelerated-apk
+          github-token: ${{ github.token }}
+          path: build/verified-expression2-qnn
+      - name: Verify standalone APK structure and complete SHA256 before public publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find build/verified-expression2-qnn -type f -name 'Expression2_Original_ARM64_Real_Device_QNN_Accelerated_Test.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          echo "$APK" > "$RUNNER_TEMP/expression2-downloadable-apk-path"
+          unzip -t "$APK" > /tmp/expr2-zfold-apk-unzip-integrity.txt
+          python3 - "$APK" <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          from zipfile import ZipFile
+          apk=Path(sys.argv[1])
+          with ZipFile(apk) as f:
+            names=set(f.namelist())
+            required=[
+              'lib/arm64-v8a/libexpr2jni.so',
+              'lib/arm64-v8a/libLiteRt.so',
+              'assets/combined_litert.tflite',
+              'assets/canon.bin'
+            ]
+            for member in required:assert member in names,member
+            qnn=[n for n in names if n.startswith('lib/arm64-v8a/') and 'Qnn' in n]
+            assert any('libQnnTFLiteDelegate.so' in n for n in qnn),qnn
+          sha=hashlib.sha256(apk.read_bytes()).hexdigest()
+          report={'apk':apk.name,'bytes':apk.stat().st_size,'sha256':sha,
+                  'original_engine_present':True,'original_model_present':True,
+                  'qnn_libraries_present':qnn,'online_download_test_pending':True}
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          assert apk.stat().st_size > 200_000_000
+          PY
+          echo APK_VERIFIED_BEFORE_RELEASE
+      - name: Publish public release asset as direct APK (no ChatGPT sandbox and no Actions artifact ZIP)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="expression2-qnn-galaxy-zfold-test-20261116"
+          APK="$(cat "$RUNNER_TEMP/expression2-downloadable-apk-path")"
+          NAME="$(basename "$APK")"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#$NAME" --clobber
+          else
+            gh release create "$TAG" "$APK#$NAME" \
+              --target "$GITHUB_SHA" \
+              --title "Expression 2 original SDK - Galaxy Z Fold QNN physical device test" \
+              --notes "Android ARM64 original Expression 2 SDK 0.6.2 test-only APK; original local model and Qualcomm QNN native runtimes included. Debug signed, unlicensed localhost synthetic test credentials, not official production service. Real phone acceleration has not been verified." \
+              --latest=false
+          fi
+          gh release view "$TAG" --json url,assets --jq '{url:.url,assets:[.assets[]|{name:.name,url:.url,size:.size}]}'
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$NAME"
+          echo "$URL" > "$RUNNER_TEMP/expression2-public-direct-url"
+          echo "PUBLIC_GITHUB_RELEASE_APK_URL=$URL"
+      - name: Verify anonymous HTTP download endpoint responds from GitHub public release CDN
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(cat "$RUNNER_TEMP/expression2-public-direct-url")"
+          curl -sS --retry 5 --retry-delay 3 --retry-all-errors -L -I \
+            --max-time 90 "$URL" -o "$RUNNER_TEMP/apk-public-http-headers.txt"
+          cat "$RUNNER_TEMP/apk-public-http-headers.txt"
+          python3 - "$RUNNER_TEMP/apk-public-http-headers.txt" <<'PY'
+          from pathlib import Path
+          import re,sys
+          head=Path(sys.argv[1]).read_text()
+          blocks=re.split(r'\r?\n\r?\n',head.strip())
+          final=next((b for b in reversed(blocks) if re.search(r'^HTTP/\S+\s+\d{3}',b,re.M)),'')
+          assert re.search(r'^HTTP/\S+\s+(200|206)\b',final,re.M), final
+          assert 'content-type: text/html' not in final.lower(), final
+          print('ANONYMOUS_GITHUB_PUBLIC_APK_HTTP_DOWNLOAD_ENDPOINT_PASS')
+          PY
