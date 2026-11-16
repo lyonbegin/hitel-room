@@ -272,6 +272,10 @@ jobs:
             echo 'INSTALLING_RECONSTRUCTED_RECORDER_CONTEXT_BRIDGE_COMPANION'
             adb install -r .hitel-ixio-qa/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder | grep '^package:'
+            adb shell cmd appops set com.lguplus.callrecorder AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore
+            adb shell cmd appops get com.lguplus.callrecorder AUTO_REVOKE_PERMISSIONS_IF_UNUSED | tee ixio-hitel-android-results/recorder-auto-revoke-status.txt
+            grep -q 'ignore' ixio-hitel-android-results/recorder-auto-revoke-status.txt
+            echo 'IXIO_RECORDER_UNUSED_PERMISSION_AUTO_REVOKE_DISABLED=YES'
             echo 'true' > ixio-hitel-android-results/recorder-installed.txt
             echo 'CONTEXT_BRIDGED_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-hitel-emulator-onboarding.py
