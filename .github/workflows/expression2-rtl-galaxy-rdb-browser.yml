@@ -158,6 +158,54 @@ jobs:
             http://127.0.0.1:6081/join/unauthorized-token)"
           test "$CODE" = 403
           echo RTL_PRIVATE_NOVNC_REJECTS_UNAUTHENTICATED_BROWSER_PASS
+      - name: Verify authorized capability cookie and private noVNC WebSocket bridge locally
+        if: env.RUN_MODE == 'preflight'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIGEST="$(printf %s 'local-preflight-only-not-real-capability' | sha256sum | cut -d' ' -f1)"
+          nohup "$RUNNER_TEMP/rtl-py/bin/python" \
+            tools/bithuman_deep/rtl_private_novnc_gateway.py \
+            --digest "$DIGEST" --listen 6082 \
+            > "$RUNNER_TEMP/rtl-gateway-preflight.log" 2>&1 < /dev/null &
+          for i in $(seq 1 25); do
+            curl -s -o /dev/null http://127.0.0.1:6082/ && break
+            sleep 1
+          done
+          "$RUNNER_TEMP/rtl-py/bin/python" - <<'PY'
+          import asyncio
+          from aiohttp import ClientSession, WSMsgType
+          async def main():
+              base="http://127.0.0.1:6082"
+              async with ClientSession() as s:
+                  r=await s.get(base+"/vnc.html")
+                  assert r.status==403,("public viewer should be denied",r.status)
+                  await r.release()
+                  r=await s.get(base+"/join/not-the-token",allow_redirects=False)
+                  assert r.status==403
+                  await r.release()
+                  r=await s.get(base+"/join/local-preflight-only-not-real-capability",allow_redirects=False)
+                  assert r.status==302,("join must redirect",r.status)
+                  assert r.headers["Location"].startswith("/vnc.html?")
+                  assert "HttpOnly" in r.headers["Set-Cookie"]
+                  assert "Secure" in r.headers["Set-Cookie"]
+                  cookie=r.cookies["rtl_private_viewer"].value
+                  await r.release()
+                  authenticated={"Cookie":"rtl_private_viewer="+cookie}
+                  r=await s.get(base+"/vnc.html",headers=authenticated)
+                  assert r.status==200,("authorized noVNC HTML should pass",r.status)
+                  assert "noVNC" in (await r.text()) or "vnc" in (await r.text())
+                  async with s.ws_connect(
+                      "ws://127.0.0.1:6082/websockify",
+                      protocols=["binary"],headers=authenticated,
+                      timeout=8
+                  ) as ws:
+                      msg=await ws.receive(timeout=8)
+                      assert msg.type==WSMsgType.BINARY
+                      assert msg.data.startswith(b"RFB "),msg.data[:20]
+                  print("RTL_PRIVATE_BROWSER_COOKIE_AND_WEBSOCKET_BRIDGE_PASS")
+          asyncio.run(main())
+          PY
       - name: Preflight exit without publishing any browser
         if: env.RUN_MODE == 'preflight'
         shell: bash
