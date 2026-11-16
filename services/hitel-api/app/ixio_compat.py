@@ -213,12 +213,18 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
             clock() > rec.expires_at.replace(tzinfo=timezone.utc) or
             not hmac.compare_digest(rec.challenge, digest) or
             not hmac.compare_digest(rec.state, request.state)):
+            if os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true":
+                print("HITEL_CI_PKCE_GRANT_RESULT=INVALID_OR_EXPIRED", flush=True)
             return fail("ERROR_INVALID_GRANT", "Invalid or expired HITEL authorization grant")
         member = db.get(member_class, rec.user_id)
         if member is None:
+            if os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true":
+                print("HITEL_CI_PKCE_GRANT_RESULT=UNKNOWN_MEMBER", flush=True)
             return fail("ERROR_INVALID_GRANT", "HITEL member not found")
         rec.used_at = clock()
         db.commit()
+        if os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true":
+            print("HITEL_CI_PKCE_GRANT_RESULT=SUCCESS", flush=True)
         return success(token_data(member.id))
 
     @app.post("/auth-code/corporation")
