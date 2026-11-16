@@ -1,4 +1,4 @@
-name: Original Expression2 SDK 0.6.1 + HITEL HTTPS test credential ARM64 emulator bootstrap
+name: Expression2 SDK 0.6.1 isolated HITEL HTTPS metering app and JVM test on Android ARM64
 on:
   workflow_dispatch:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/expression2-sdk061-hitel-https-bootstrap-emulator.yml
       - tools/bithuman_deep/prepare_expression2_sdk061_hitel_app_auth.py
+      - tools/bithuman_deep/expression2_sdk061_hitel_demo_meter_route.py
 permissions:
   contents: read
 jobs:
@@ -121,8 +122,77 @@ jobs:
           grep -Fq "BithumanAvatar.load(agentDir, engine: _engine, apiSecret: secret)" "$APP/lib/main.dart"
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/hitel-sdk061-debug-app-only.diff"
-          echo SDK061_HITEL_HTTPS_APP_ONLY_TEST_WITH_ORIGINAL_VENDOR_SDK
-      - name: Build original ARM64 Flutter app and ORIGINAL Maven SDK 0.6.1
+          echo SDK061_HITEL_HTTPS_APP_DEBUG_AND_JVM_ROUTE_TEST
+      - name: Build isolated SDK 0.6.1 with only original JVM metering base pointed to HITEL HTTPS test service
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/pristine-proof"
+          mkdir -p "$OUT" "$GITHUB_WORKSPACE/sdk061-test"
+          curl --fail --location --silent --show-error --retry 4 \
+            --retry-all-errors --retry-delay 3 \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.1/expression2-android-0.6.1.aar \
+            -o "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar"
+          curl --fail --location --silent --show-error --retry 4 \
+            --retry-all-errors --retry-delay 3 \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.1/expression2-android-0.6.1.pom \
+            -o "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.pom"
+          sha256sum "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar" > "$OUT/official-vendor-061-sha256.txt"
+          python3 tools/bithuman_deep/expression2_sdk061_hitel_demo_meter_route.py \
+            --source-aar "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar" \
+            --output-aar "$GITHUB_WORKSPACE/sdk061-test/hitel-auth-test-0.6.1.aar" \
+            --report "$OUT/sdk061-only-one-original-jvm-method-changed.json" \
+            --base-url https://hitel-expression2-auth-production.up.railway.app
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET,re
+          from zipfile import ZipFile
+          app=Path('original-upstream/app/avatar_chat')
+          maven=app/'android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.1'
+          maven.mkdir(parents=True,exist_ok=True)
+          source=Path('sdk061-test/hitel-auth-test-0.6.1.aar')
+          target=maven/'expression2-android-0.6.1.aar'
+          target.write_bytes(source.read_bytes())
+          pom=Path('sdk061-test/original-0.6.1.pom').read_text()
+          root=ET.fromstring(pom); ns=root.tag.partition('}')[0]+'}' if '}' in root.tag else ''
+          assert root.find(ns+'groupId').text=='ai.bithuman'
+          assert root.find(ns+'artifactId').text=='expression2-android'
+          assert root.find(ns+'version').text=='0.6.1'
+          edited,count=re.subn(r'(<groupId>\s*)ai\.bithuman(\s*</groupId>)',
+              r'\g<1>ai.hitel.reassembled\g<2>',pom,count=1)
+          assert count==1
+          (maven/'expression2-android-0.6.1.pom').write_text(edited)
+          gradle_file=app/'android/build.gradle.kts'
+          gradle=gradle_file.read_text()
+          anchor='        mavenCentral()\n'
+          assert gradle.count(anchor)==1
+          gradle=gradle.replace(anchor, anchor +
+            '        maven {\n'
+            '            url = uri(rootProject.projectDir.toString() + "/local-sdk-maven")\n'
+            '            content { includeGroup("ai.hitel.reassembled") }\n'
+            '        }\n', 1)
+          marker='subprojects {\n    project.evaluationDependsOn(":app")\n}\n'
+          assert gradle.count(marker)==1
+          extra='''
+          subprojects {
+              configurations.configureEach {
+                  resolutionStrategy.eachDependency {
+                      if (requested.group == "ai.bithuman" &&
+                          requested.name == "expression2-android") {
+                          useTarget("ai.hitel.reassembled:expression2-android:0.6.1")
+                          because("Debug-only own HTTPS sample session test; original ARM64 vendor libraries unchanged")
+                      }
+                  }
+              }
+          }
+          '''
+          gradle=gradle.replace(marker,marker+extra,1)
+          gradle_file.write_text(gradle)
+          with ZipFile(source) as z:
+              assert 'jni/arm64-v8a/libexpr2jni.so' in z.namelist()
+          print("SDK061_ONLY_METER_BASE_CHANGED_VENDOR_ARM64_BYTE_IDENTITY_PRESERVED")
+          PY
+      - name: Build ARM64 Flutter with original SDK 0.6.1 native engine and isolated HITEL JVM method test
         working-directory: original-upstream/app/avatar_chat
         shell: bash
         run: |
@@ -192,7 +262,7 @@ jobs:
           load_ok='boot:load:ok' in boot
           result={
            'plugin':'Original archived GitHub Flutter 2.6.37 (not modified)',
-           'sdk':'Official Maven ai.bithuman:expression2-android:0.6.1',
+           'sdk':'Original Maven SDK 0.6.1 ARM64 + one JVM metering endpoint method test only',
            'app':'Original avatar_chat with debug-only HITEL HTTPS session in disposable build copy',
            'apk_abi':'arm64-v8a (from original app ndk.abiFilters)',
            'adb_abi_override_used':True,
@@ -207,7 +277,7 @@ jobs:
            'actual_native_face_frame_count_measured':False,
            'face_frame_result':'BLOCKED_BEFORE_ENGINE_BY_NO_CREDENTIAL' if no_credential and not reached_load else ('ENGINE_LOAD_OK_FRAME_OUTPUT_NOT_MEASURED' if load_ok else 'UNKNOWN_REVIEW_BOOT_AND_LOGCAT'),
            'android_fatal_exception':'FATAL EXCEPTION' in log,
-           'credential_expected':'HITEL own short-lived HTTPS scoped demo session; NOT a vendor API secret',
+           'credential_expected':'HITEL short-lived HTTPS scoped sample session; original vendor entitlement not asserted',
            'diagnostics':[line[:460] for line in log.splitlines() if
              any(tag in line for tag in ['FATAL EXCEPTION','UnsatisfiedLinkError','dlopen failed',
                'Flutter initialization failed','metering_no_credential','AGENT_NOT_ENTITLED',
