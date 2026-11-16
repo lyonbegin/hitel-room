@@ -206,7 +206,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             echo 'INSTALLING_VERIFIED_ORIGINAL_RECORDER_COMPANION'
             adb install -r .hitel-ixio-qa/recorder/recorder.apk
             adb shell pm path com.lguplus.callrecorder
