@@ -33,8 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > .ixio-posttoken-private/targets.txt <<'EOF'
-          com.lguplus.aicallagent.util.AuthorizationUtil
-          com.lguplus.aicallagent.domain.init.usecase.AuthCodeUseCase
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.LoginKt
           EOF
           mkdir -p .ixio-posttoken-private/jobs
           run_one() {
@@ -62,7 +61,7 @@ jobs:
           from pathlib import Path
           import re,json
           input=Path('.ixio-posttoken-private/src')
-          patterns=re.compile(r'(?i)authCode|authorization|decodeJwt|tokenData|accessToken|refreshToken|idToken|userId|\bsub\b|saveToken|marketId|failure|exception|service|registered|loginState')
+          patterns=re.compile(r'(?i)authCode|authorization|decodeJwt|tokenData|isValidTokenData|isRequestIdentify|accessToken|refreshToken|idToken|userId|\bsub\b|saveToken|marketId|failure|exception|service|registered|loginState')
           out={}
           for p in input.glob('*.java'):
               lines=p.read_text(errors='replace').splitlines()
@@ -73,7 +72,8 @@ jobs:
                       # statements required for auth compatibility and preserve line numbers.
                       snippet=line.strip()
                       if len(snippet)>220:snippet=snippet[:220]+'...'
-                      matches.append({'line':index+1,'statement':snippet})
+                      matches.append({'line':index+1,'statement':snippet,
+                                      'surrounding':[w.strip()[:250] for w in lines[max(0,index-2):min(len(lines),index+5)]]})
               out[p.stem]={'size':p.stat().st_size,'matched_statements':matches,
                            'decompilation_incomplete':any('Method not decompiled' in ln for ln in lines)}
           Path('ixio-posttoken-diagnostic/auth-relevant-calls.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
@@ -81,8 +81,7 @@ jobs:
           for name,stat in out.items():
               print('CLASS',name,'matches',len(stat['matched_statements']),'incomplete',stat['decompilation_incomplete'])
           PY
-          test -s .ixio-posttoken-private/src/AuthorizationUtil.java
-          test -s .ixio-posttoken-private/src/AuthCodeUseCase.java
+          test -s .ixio-posttoken-private/src/LoginKt.java
           test -s ixio-posttoken-diagnostic/auth-relevant-calls.json
       - uses: actions/upload-artifact@v4
         if: always()
