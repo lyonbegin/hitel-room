@@ -31,7 +31,6 @@ services:
         condition: service_healthy
     environment:
       HITEL_API_DOMAIN: ${HITEL_API_DOMAIN:?DNS public domain is required}
-      HITEL_TLS_CONTACT_EMAIL: ${HITEL_TLS_CONTACT_EMAIL:?TLS contact email is required}
     ports:
       - "80:80"
       - "443:443"
