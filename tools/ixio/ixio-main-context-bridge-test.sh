@@ -24,6 +24,8 @@ sleep 8
 adb shell pidof "$PKG" > "$OUT/pid-16s.txt" 2>&1 || true
 adb logcat -d -v threadtime -t 12000 > "$OUT/logcat.txt" 2>&1 || true
 adb exec-out screencap -p > "$OUT/screen.png" 2>/dev/null || true
+adb shell dumpsys activity activities > "$OUT/activity-state.txt" 2>&1 || true
+adb shell dumpsys activity top > "$OUT/activity-top.txt" 2>&1 || true
 if [ -s "$OUT/pid-8s.txt" ]; then echo "PROCESS_8S=ALIVE";else echo "PROCESS_8S=DEAD";fi | tee -a "$OUT/status.env"
 if [ -s "$OUT/pid-16s.txt" ]; then echo "PROCESS_16S=ALIVE";else echo "PROCESS_16S=DEAD";fi | tee -a "$OUT/status.env"
 if grep -q 'HITEL_FB_BRIDGE.*FIREBASE_INITIALIZE_RETURNED=true' "$OUT/logcat.txt"; then
@@ -40,4 +42,9 @@ else
 fi
 grep -E -A 20 'HITEL_FB_BRIDGE|FATAL EXCEPTION|FirebaseInitProvider|FirebaseApp initialization successful' \
   "$OUT/logcat.txt" | head -n 150 > "$OUT/key-events.txt" || true
+if grep -E "mResumedActivity|topResumedActivity|Resumed: ActivityRecord" "$OUT/activity-state.txt" | grep -q "$PKG"; then
+  echo "FOREGROUND_ACTIVITY=TARGET" | tee -a "$OUT/status.env"
+else
+  echo "FOREGROUND_ACTIVITY=NOT_VERIFIED" | tee -a "$OUT/status.env"
+fi
 cat "$OUT/status.env"
