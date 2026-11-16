@@ -1,0 +1,70 @@
+name: IXIO Public API GitHub Pages Connection
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - 'docs/ixio-public-api/**'
+      - '.github/workflows/ixio-public-api-pages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ixio-public-pages
+  cancel-in-progress: true
+jobs:
+  pages-static-build:
+    name: Build public API connection page
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare Pages config with validated PUBLIC G2 HTTPS API address
+        env:
+          HITEL_PUBLIC_API_BASE_URL: ${{ vars.HITEL_PUBLIC_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ipaddress,json,os,pathlib,urllib.parse
+          target=pathlib.Path('docs/ixio-public-api')
+          assert (target/'index.html').is_file()
+          api=os.environ.get('HITEL_PUBLIC_API_BASE_URL','').strip()
+          if api:
+              u=urllib.parse.urlsplit(api)
+              if u.scheme!='https' or not u.hostname or u.username or u.password or u.query or u.fragment:
+                  raise SystemExit('HITEL_PUBLIC_API_BASE_URL must be a plain HTTPS base URL')
+              if u.hostname.lower() in ('localhost','10.0.2.2'):
+                  raise SystemExit('No local or emulator address allowed')
+              try:
+                  ip=ipaddress.ip_address(u.hostname)
+                  if not ip.is_global:
+                      raise SystemExit('Public API host must be globally reachable')
+              except ValueError:
+                  pass
+              api=urllib.parse.urlunsplit((u.scheme,u.netloc,u.path.rstrip('/')+'/', '', ''))
+          (target/'config.json').write_text(json.dumps({'apiBaseUrl':api},ensure_ascii=False),encoding='utf-8')
+          (target/'.nojekyll').touch()
+          print('PAGES_STATIC_SITE_VALIDATED=YES')
+          print('PUBLIC_G2_HTTPS_CONFIGURED='+('YES' if api else 'NO'))
+          PY
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/ixio-public-api
+  deploy:
+    name: Deploy to existing GitHub Pages only when explicitly enabled
+    if: ${{ vars.HITEL_IXIO_ENABLE_PAGES_DEPLOY == 'true' && vars.HITEL_PUBLIC_API_BASE_URL != '' }}
+    needs: pages-static-build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy only with verified G2 URL and Pages opt-in
+        id: deployment
+        uses: actions/deploy-pages@v4
