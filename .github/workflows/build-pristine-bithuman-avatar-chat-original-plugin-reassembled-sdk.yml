@@ -56,7 +56,13 @@ jobs:
           x=w.read_text()
           assert x.count('gradle-9.1.0-all.zip')==1
           w.write_text(x.replace('gradle-9.1.0-all.zip','gradle-9.3.1-all.zip'))
-          print("GRADLE_BUILD_WRAPPER_TEMPORARY_COMPATIBILITY_UPDATE_9.3.1")
+          settings=Path(sys.argv[1])/"android/settings.gradle.kts"
+          y=settings.read_text()
+          assert y.count('id("com.android.application") version "9.0.1"')==1
+          settings.write_text(y.replace(
+              'id("com.android.application") version "9.0.1"',
+              'id("com.android.application") version "9.1.1"'))
+          print("GRADLE_BUILD_WRAPPER_TEMPORARY_COMPATIBILITY_UPDATE_9.3.1_AGP_9.1.1")
           PY_GRADLE
           PLUGIN="$RUNNER_TEMP/bithuman-flutter-plugin-unmodified"
           cp -a "$PLUGIN_SOURCE" "$PLUGIN"
