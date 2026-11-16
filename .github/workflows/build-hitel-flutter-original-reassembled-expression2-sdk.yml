@@ -1,0 +1,231 @@
+name: HITEL original bitHuman Flutter app with byte-reassembled Expression2 Android SDK
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths: [.github/workflows/build-hitel-flutter-original-reassembled-expression2-sdk.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compile-original-sdk-flutter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/original-sdk
+      - name: Clone real bitHuman Flutter product plugin and install reconstructed SDK to app-local Maven
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/hitel-flutter-original
+          SDK=build/original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar
+          test -s "$SDK"
+          echo "2529f8f0a064b4c8e8a1bb6f5fdd4627143ba4e09e05bd506bee1540e68e1527  $SDK" | sha256sum -c -
+          git -c http.version=HTTP/1.1 clone --depth 1 --single-branch --branch flutter-plugin-v2.6.40 \
+            https://gitlab.com/bithuman/sdk/homebrew-bithuman.git "$RUNNER_TEMP/upstream-bithuman"
+          UPSTREAM_SHA="$(git -C "$RUNNER_TEMP/upstream-bithuman" rev-parse HEAD)"
+          test "$UPSTREAM_SHA" = 9417e7c2d44dd4437bf1129cbc3f54921e1d7234
+          printf "%s\n" "$UPSTREAM_SHA" > reports/hitel-flutter-original/upstream-plugin-commit.txt
+          flutter --version
+          flutter create --platforms=android --org ai.hitel --project-name hitel_flutter_original "$RUNNER_TEMP/hitel_flutter_original"
+          APP="$RUNNER_TEMP/hitel_flutter_original"
+          mkdir -p "$APP/packages"
+          cp -a "$RUNNER_TEMP/upstream-bithuman/packages/flutter-plugin" "$APP/packages/bithuman"
+          MAVEN="$APP/android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.2"
+          mkdir -p "$MAVEN"
+          cp "$SDK" "$MAVEN/expression2-android-0.6.2.aar"
+          cat > "$MAVEN/expression2-android-0.6.2.pom" <<'POM'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>ai.hitel.reassembled</groupId>
+            <artifactId>expression2-android</artifactId>
+            <version>0.6.2</version>
+            <packaging>aar</packaging>
+          </project>
+          POM
+          python3 - "$APP" <<'PY'
+          from pathlib import Path
+          import sys
+          app=Path(sys.argv[1])
+          pub=app/'pubspec.yaml';s=pub.read_text()
+          assert s.count('dependencies:\n')==1
+          pub.write_text(s.replace('dependencies:\n','dependencies:\n  bithuman:\n    path: packages/bithuman\n',1))
+          plugin=app/'packages/bithuman/android/build.gradle'
+          g=plugin.read_text()
+          old="implementation 'ai.bithuman:expression2-android:0.6.1'"
+          assert g.count(old)==1
+          g=g.replace(old,"implementation 'ai.hitel.reassembled:expression2-android:0.6.2'\n"+
+              "    implementation 'com.qualcomm.qti:qnn-litert-delegate:2.49.0'\n"+
+              "    implementation 'com.qualcomm.qti:qnn-runtime:2.49.0'",1)
+          needle='    repositories {\n        google()\n        mavenCentral()\n'
+          assert g.count(needle)==1,g.count(needle)
+          g=g.replace(needle,needle+
+               '        maven {\n            url = uri("${rootProject.projectDir}/local-sdk-maven")\n'+
+               '            content { includeGroup("ai.hitel.reassembled") }\n        }\n',1)
+          plugin.write_text(g)
+          gradle=app/'android/app/build.gradle.kts';b=gradle.read_text()
+          assert 'minSdk = flutter.minSdkVersion' in b
+          b=b.replace('minSdk = flutter.minSdkVersion','minSdk = 29\n        ndk { abiFilters += "arm64-v8a" }')
+          assert b.count('android {\n')==1
+          b=b.replace('android {\n','android {\n    packaging { jniLibs { useLegacyPackaging = true } }\n',1)
+          gradle.write_text(b)
+          manifest=app/'android/app/src/main/AndroidManifest.xml';m=manifest.read_text()
+          if 'android.permission.INTERNET' not in m:
+              m=m.replace('<application','<uses-permission android:name="android.permission.INTERNET" />\n    <application',1)
+          m=m.replace('android:label="hitel_flutter_original"','android:label="HITEL Flutter Original SDK"')
+          manifest.write_text(m)
+          PY
+          cat > "$APP/lib/main.dart" <<'DART'
+          import 'dart:async';
+          import 'package:flutter/material.dart';
+          import 'package:bithuman/bithuman.dart';
+
+          void main() => runApp(const HitelApp());
+          class HitelApp extends StatelessWidget {
+            const HitelApp({super.key});
+            @override
+            Widget build(BuildContext context) => MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'HITEL Original SDK Flutter',
+              theme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
+              home: const HitelScreen(),
+            );
+          }
+          class HitelScreen extends StatefulWidget {
+            const HitelScreen({super.key});
+            @override
+            State<HitelScreen> createState() => _HitelScreenState();
+          }
+          class _HitelScreenState extends State<HitelScreen> {
+            final _agent = TextEditingController(text: 'A23WJF0199');
+            final _secret = TextEditingController();
+            BithumanAvatar? _avatar;
+            bool _busy = false;
+            String _status = '정식 bitHuman Flutter 플러그인 → 저희 재조립 SDK 0.6.2';
+            Future<void> _load() async {
+              if (_busy) return;
+              final agent = _agent.text.trim();
+              final secret = _secret.text.trim();
+              if (agent.isEmpty || secret.isEmpty) {
+                setState(() => _status = '본인의 정식 bitHuman API Secret을 입력해 주십시오.');
+                return;
+              }
+              setState(() { _busy = true; _status = '원본 SDK 로딩 및 모델 준비 중'; });
+              try {
+                final loaded = await BithumanAvatar.load(
+                  agent, engine: 'expression2', apiSecret: secret,
+                );
+                _secret.clear();
+                if (!mounted) { await loaded.dispose(); return; }
+                final old = _avatar;
+                setState(() {
+                  _avatar = loaded;
+                  _status = '원본 엔진 + Flutter Texture 시작 성공 (textureId: ${loaded.textureId)';
+                });
+                if (old != null) await old.dispose();
+              } catch (e) {
+                if (mounted) setState(() => _status = '원본 SDK: $e');
+              } finally {
+                if (mounted) setState(() => _busy = false);
+              }
+            }
+            @override
+            void dispose() {
+              _agent.dispose(); _secret.dispose();
+              final avatar = _avatar;
+              if (avatar != null) unawaited(avatar.dispose());
+              super.dispose();
+            }
+            @override
+            Widget build(BuildContext context) => Scaffold(
+              appBar: AppBar(title: const Text('HITEL · bitHuman Flutter')),
+              body: SafeArea(child: Column(children: [
+                Expanded(child: Center(child: _avatar == null
+                  ? const Text('Expression 2 대기')
+                  : Texture(textureId: _avatar!.textureId))),
+                Padding(padding: const EdgeInsets.all(12), child: Column(children: [
+                  TextField(controller: _agent, decoration: const InputDecoration(
+                    labelText: '에이전트 코드', border: OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  TextField(controller: _secret, obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'bitHuman API Secret · 파일 저장 안 함',
+                      border: OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  FilledButton(onPressed: _busy ? null : _load,
+                    child: Text(_busy ? '엔진 생성 중' : '원본 SDK 시작')),
+                  const SizedBox(height: 8),
+                  SelectableText(_status, maxLines: 5),
+                ])),
+              ])),
+            );
+          }
+          DART
+          (cd "$APP" && flutter pub get)
+          cp "$APP/packages/bithuman/android/build.gradle" reports/hitel-flutter-original/plugin-build.gradle.txt
+          cp "$APP/lib/main.dart" reports/hitel-flutter-original/main.dart.txt
+          cp "$APP/android/app/build.gradle.kts" reports/hitel-flutter-original/app-gradle.txt
+          echo "$APP" > "$RUNNER_TEMP/hitel-app-path"
+          echo ORIGINAL_PLUGIN_WITH_HITEL_REASSEMBLED_ORIGINAL_SDK_WIRED
+      - name: Build actual Flutter APK targeting Galaxy arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(cat "$RUNNER_TEMP/hitel-app-path")"
+          (cd "$APP" && flutter build apk --debug --target-platform android-arm64 --no-pub 2>&1) \
+            | tee reports/hitel-flutter-original/flutter-build.log
+          mkdir -p reports/hitel-flutter-original/apk
+          cp "$APP/build/app/outputs/flutter-apk/app-debug.apk" \
+             reports/hitel-flutter-original/apk/HITEL_Original_BitHuman_Flutter_Expression2_0.6.2.apk
+      - name: Verify exact original JNI and QNN runtime packaged in Flutter APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib,json
+          sdk=Path('build/original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar')
+          apk=Path('reports/hitel-flutter-original/apk/HITEL_Original_BitHuman_Flutter_Expression2_0.6.2.apk')
+          with ZipFile(sdk) as a, ZipFile(apk) as b:
+              names=set(b.namelist());libhash={}
+              for lib in ('libexpr2jni.so','libLiteRt.so'):
+                  src=a.read('jni/arm64-v8a/'+lib)
+                  dest=b.read('lib/arm64-v8a/'+lib)
+                  assert src==dest,lib
+                  libhash[lib]=hashlib.sha256(src).hexdigest()
+              qnn=[n for n in names if n.startswith('lib/arm64-v8a/') and 'libQnn' in n]
+              assert any(n.endswith('libQnnTFLiteDelegate.so') for n in qnn)
+              assert any(n.endswith('libQnnGpu.so') for n in qnn)
+              assert b.testzip() is None
+              assert 'lib/arm64-v8a/libflutter.so' in names
+          report={'source':'official bitHuman Flutter v2.6.40 with gradle SDK coordinate replacement',
+                  'sdk':'original byte-reassembled Expression2 Android 0.6.2',
+                  'original_arm64_binary_byte_identical':True,'sdk_libs':libhash,
+                  'qnn_libraries_included':qnn,
+                  'apk_bytes':apk.stat().st_size,'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),
+                  'vendor_api_secret_required':True,'real_device_rendering_verified':False}
+          Path('reports/hitel-flutter-original/RESULT.json').write_text(json.dumps(report,indent=2)+'\n')
+          print('HITEL_ORIGINAL_FLUTTER_NATIVE_ENGINE_BYTE_IDENTITY_PASS',json.dumps(report))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-original-bithuman-flutter-sdk-0-6-2-apk-and-source
+          path: reports/hitel-flutter-original/
+          retention-days: 30
