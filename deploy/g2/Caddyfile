@@ -1,6 +1,3 @@
-{
-    email {$HITEL_TLS_CONTACT_EMAIL}
-}
 {$HITEL_API_DOMAIN} {
     encode zstd gzip
     reverse_proxy api:8000
