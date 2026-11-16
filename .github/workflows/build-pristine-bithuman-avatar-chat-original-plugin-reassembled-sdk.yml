@@ -1,0 +1,260 @@
+name: Build original bitHuman avatar_chat plus ORIGINAL Flutter plugin source and reassembled Expression2 SDK
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/build-pristine-bithuman-avatar-chat-original-plugin-reassembled-sdk.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  combine-three-unmodified-source-layers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/expression2-original-sdk
+      - name: Verify original Flutter source and original SDK; prepare ONLY dependency wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/bithuman-original-3layer-app
+          SDK="$GITHUB_WORKSPACE/build/expression2-original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar"
+          echo "2529f8f0a064b4c8e8a1bb6f5fdd4627143ba4e09e05bd506bee1540e68e1527  $SDK" | sha256sum -c -
+          APP_SOURCE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/github-examples/app/avatar_chat"
+          PLUGIN_SOURCE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          test -f "$APP_SOURCE/lib/main.dart"
+          test -f "$PLUGIN_SOURCE/LICENSE"
+          grep -Fq "ref: flutter-plugin-v2.6.37" "$APP_SOURCE/pubspec.yaml"
+          grep -Fq "try { Expression2Avatar.create(context, model) }" \
+            "$PLUGIN_SOURCE/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          if grep -Rl "Expression2RouteSelector" "$PLUGIN_SOURCE/android/src/main/kotlin"; then
+             echo "ERROR: pristine plugin unexpectedly contains HITEL GPU selector"; exit 2
+          fi
+          APP="$RUNNER_TEMP/bithuman-avatar-chat-original-sdk"
+          cp -a "$APP_SOURCE" "$APP"
+          PLUGIN="$RUNNER_TEMP/bithuman-flutter-plugin-unmodified"
+          cp -a "$PLUGIN_SOURCE" "$PLUGIN"
+          test "$(sha256sum "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt" | cut -d' ' -f1)" = \
+               "$(sha256sum "$PLUGIN_SOURCE/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt" | cut -d' ' -f1)"
+          test "$(sha256sum "$APP/lib/main.dart" | cut -d' ' -f1)" = \
+               "$(sha256sum "$APP_SOURCE/lib/main.dart" | cut -d' ' -f1)"
+          MAVEN="$APP/android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.2"
+          mkdir -p "$MAVEN"
+          cp "$SDK" "$MAVEN/expression2-android-0.6.2.aar"
+          cat > "$MAVEN/expression2-android-0.6.2.pom" <<'POM'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>ai.hitel.reassembled</groupId>
+            <artifactId>expression2-android</artifactId>
+            <version>0.6.2</version>
+            <packaging>aar</packaging>
+          </project>
+          POM
+
+          python3 - "$APP" "$PLUGIN" <<'PY'
+          from pathlib import Path
+          import json,sys,hashlib
+          app=Path(sys.argv[1]);plugin=Path(sys.argv[2])
+          pub=app/"pubspec.yaml"
+          p=pub.read_text()
+          original="""  bithuman:
+            git:
+              url: https://github.com/bithuman-product/homebrew-bithuman.git
+              path: packages/flutter-plugin
+              ref: flutter-plugin-v2.6.37"""
+          # Exact YAML anchor for official avatar_chat; do not edit Dart or plugin.
+          original="""  bithuman:
+            git:
+              url: https://github.com/bithuman-product/homebrew-bithuman.git
+              path: packages/flutter-plugin
+              ref: flutter-plugin-v2.6.37""".replace("    git:","    git:")
+          match="""  bithuman:
+              git:
+                url: https://github.com/bithuman-product/homebrew-bithuman.git
+                path: packages/flutter-plugin
+                ref: flutter-plugin-v2.6.37"""
+          # String above has intentionally varied whitespace. Use an anchored regex
+          # to replace ONLY the single dependency block, keeping the rest untouched.
+          import re
+          anchor=r'(?m)^  bithuman:\n    git:\n      url: https://github[.]com/bithuman-product/homebrew-bithuman[.]git\n      path: packages/flutter-plugin\n      ref: flutter-plugin-v2[.]6[.]37\n'
+          assert len(re.findall(anchor,p))==1
+          p=re.sub(anchor,'  bithuman:\n    path: "'+str(plugin)+'"\n',p,count=1)
+          pub.write_text(p)
+          g=app/"android/build.gradle.kts"
+          gradle=g.read_text()
+          old="""        mavenCentral()
+          """
+          assert gradle.count("        mavenCentral()\n")==1
+          gradle=gradle.replace("        mavenCentral()\n",
+            "        mavenCentral()\n"
+            "        maven {\n"
+            "            url = uri(\""+"$"+"{rootProject.projectDir}/local-sdk-maven\")\n"
+            "            content { includeGroup(\"ai.hitel.reassembled\") }\n"
+            "        }\n",1)
+          marker="subprojects {\n    project.evaluationDependsOn(\":app\")\n}\n"
+          assert gradle.count(marker)==1
+          gradle=gradle.replace(marker,marker+"""
+          // Build-only coordinate substitution: official Flutter plugin's original
+          // Kotlin/Dart files and 0.6.1 declared dependency are NOT modified.
+          subprojects {
+              configurations.configureEach {
+                  resolutionStrategy.eachDependency {
+                      if (requested.group == "ai.bithuman" &&
+                          requested.name == "expression2-android") {
+                          useTarget("ai.hitel.reassembled:expression2-android:0.6.2")
+                          because("The user's original-byte-reassembled SDK, unchanged")
+                      }
+                  }
+              }
+          }
+          """,1)
+          g.write_text(gradle)
+          appg=app/"android/app/build.gradle.kts"
+          orig=appg.read_text()
+          # The original 0.6.2 AAR is a local POM with no transitive deps;
+          # preserve original app Gradle source except these build dependencies.
+          appg.write_text(orig+"""
+          // Required published Qualcomm QNN runtime libraries normally supplied
+          // transitively by the vendor Maven POM. Do not modify bitHuman engine.
+          dependencies {
+              implementation("com.qualcomm.qti:qnn-litert-delegate:2.49.0")
+              implementation("com.qualcomm.qti:qnn-runtime:2.49.0")
+          }
+          """)
+          manifest={
+            "app_original_git_commit":"fea69e72515af7d05f384a9d2147ac0cc181b411",
+            "plugin_original_tag":"flutter-plugin-v2.6.37",
+            "plugin_original_commit":"590299fa8ed710803ea291d77d4f4d33ca30b5e0",
+            "plugin_dart_kotlin_source_modified":False,
+            "app_main_dart_modified":False,
+            "reassembled_original_sdk":"Expression2 Android 0.6.2",
+            "reassembled_sdk_sha256":hashlib.sha256(Path(sys.argv[1],"android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.2/expression2-android-0.6.2.aar").read_bytes()).hexdigest(),
+            "android_dependency_substitution":"ai.bithuman:expression2-android:0.6.1 -> ai.hitel.reassembled:expression2-android:0.6.2",
+            "new_gpu_selector":False,
+            "altered_sdk_native":False,
+            "test_fixture_injected":False,
+            "runtime_vendor_authentication_required":True,
+            "real_device_gpu_inference_verified":False
+          }
+          Path("reports/bithuman-original-3layer-app/original-source-and-sdk-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print('OFFICIAL_FLUTTER_APP_PLUGIN_AND_REASSEMBLED_ORIGINAL_SDK_WIRED_WITHOUT_SOURCE_PATCH')
+          PY
+          printf "%s" "$APP" > "$RUNNER_TEMP/bh-three-layer-app"
+          printf "%s" "$PLUGIN" > "$RUNNER_TEMP/bh-three-layer-plugin"
+          (cd "$APP" && flutter pub get)
+          cp "$APP/pubspec.yaml" reports/bithuman-original-3layer-app/build-only-pubspec.yaml.txt
+          cp "$APP/android/build.gradle.kts" reports/bithuman-original-3layer-app/build-only-root-gradle.kts.txt
+          cp "$APP/android/app/build.gradle.kts" reports/bithuman-original-3layer-app/build-only-app-gradle.kts.txt
+
+      - name: Compile ORIGINAL Flutter avatar_chat APK with unmodified plugin and user's unmodified original SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(cat "$RUNNER_TEMP/bh-three-layer-app")"
+          success=0
+          for attempt in 1 2 3 4; do
+            echo "AVATAR_CHAT_ORIGINAL_BUILD_ATTEMPT=$attempt"
+            if (cd "$APP" && flutter build apk --debug --target-platform android-arm64 \
+                --no-pub --dart-define=BH_ENGINE=expression2) \
+                2>&1 | tee -a reports/bithuman-original-3layer-app/gradle-build.log; then
+               success=1
+               break
+            fi
+            echo "BUILD_RETRY_ATTEMPT=$attempt (upstream Maven frequently replies HTTP 429)"
+            sleep "$((15*attempt))"
+          done
+          test "$success" = 1
+          mkdir -p reports/bithuman-original-3layer-app/apk
+          cp "$APP/build/app/outputs/flutter-apk/app-debug.apk" \
+            reports/bithuman-original-3layer-app/apk/bitHuman_Original_avatar_chat_Flutter_Plugin_2.6.37_Expression2_SDK_0.6.2.apk
+
+      - name: Verify genuine app, original SDK ARM64 bytes, QNN runtime and APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib,json
+          a=Path('reports/bithuman-original-3layer-app/apk/bitHuman_Original_avatar_chat_Flutter_Plugin_2.6.37_Expression2_SDK_0.6.2.apk')
+          sdk=Path('build/expression2-original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar')
+          with ZipFile(a) as z, ZipFile(sdk) as o:
+            names=set(z.namelist())
+            assert z.testzip() is None
+            for lib in ['libexpr2jni.so','libLiteRt.so']:
+              assert z.read('lib/arm64-v8a/'+lib)==o.read('jni/arm64-v8a/'+lib),lib
+            assert 'lib/arm64-v8a/libflutter.so' in names
+            assert 'lib/arm64-v8a/libQnnTFLiteDelegate.so' in names
+            assert 'lib/arm64-v8a/libQnnGpu.so' in names
+            qnn=[x for x in names if x.startswith('lib/arm64-v8a/libQnn')]
+          result={'file':a.name,
+            'bytes':a.stat().st_size,
+            'sha256':hashlib.sha256(a.read_bytes()).hexdigest(),
+            'source':'Unmodified bitHuman official avatar_chat + Flutter plugin 2.6.37 source',
+            'sdk':'original byte-reassembled Expression2 SDK 0.6.2',
+            'original_native_binary_identical':True,
+            'qnn_arm64_libraries':sorted(qnn),
+            'app_and_plugin_dart_kotlin_unmodified':True,
+            'no_additional_gpu_selector':True,
+            'vendor_original_auth_flow_unchanged':True,
+            'device_test_verified':False}
+          Path('reports/bithuman-original-3layer-app/APK_VERIFICATION.json').write_text(json.dumps(result,indent=2)+'\n')
+          print('BIT_HUMAN_THREE_LAYER_ORIGINAL_APK_VERIFIED',json.dumps(result))
+          PY
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$TOOLS/apksigner" verify --verbose \
+            reports/bithuman-original-3layer-app/apk/bitHuman_Original_avatar_chat_Flutter_Plugin_2.6.37_Expression2_SDK_0.6.2.apk
+          echo ORIGINAL_BIT_HUMAN_THREE_LAYER_APK_SIGNATURE_VALID
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bithuman-original-avatar-chat-original-flutter-plugin-reassembled-expression2-sdk-apk
+          path: reports/bithuman-original-3layer-app/
+          retention-days: 30
+      - name: Publish direct original source three-layer APK in GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=bitHuman-pristine-avatar-chat-plugin-2.6.37-expression2-sdk-0.6.2
+          APK=reports/bithuman-original-3layer-app/apk/bitHuman_Original_avatar_chat_Flutter_Plugin_2.6.37_Expression2_SDK_0.6.2.apk
+          NOTES="The ACTUAL unchanged official bitHuman avatar_chat Flutter app (bithuman-examples main commit fea69e7), the ACTUAL unchanged Flutter plugin v2.6.37 Dart/Kotlin source, and user's exact original-byte-reassembled Expression2 Android SDK 0.6.2 AAR. Build-only pubspec local path and Gradle dependency substitution replace 0.6.1 with 0.6.2. QNN runtime included. No custom GPU routing or localhost fixture, no modification to engine or model; original app's bitHuman credential requirements remain, and GPU inference on user's Galaxy remains unverified."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" \
+              --title "bitHuman ORIGINAL avatar_chat + ORIGINAL Flutter plugin + reassembled Expression2 SDK" \
+              --notes "$NOTES" --latest=false
+          fi
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$APK")"
+          echo "$URL" > "$RUNNER_TEMP/three-layer-public-url"
+          echo "BIT_HUMAN_ORIGINAL_THREE_LAYER_PUBLIC_APK_URL=$URL"
+      - name: Verify full direct APK downloaded anonymously is byte identical
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(cat "$RUNNER_TEMP/three-layer-public-url")"
+          SRC=reports/bithuman-original-3layer-app/apk/bitHuman_Original_avatar_chat_Flutter_Plugin_2.6.37_Expression2_SDK_0.6.2.apk
+          DST="$RUNNER_TEMP/third-party-full-download.apk"
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 4 \
+            --retry-all-errors --connect-timeout 30 --max-time 480 "$URL" -o "$DST"
+          cmp -s "$SRC" "$DST"
+          echo "BIT_HUMAN_ORIGINAL_THREE_LAYER_ANONYMOUS_FULL_APK_MATCH_PASS"
+          sha256sum "$SRC" "$DST"
