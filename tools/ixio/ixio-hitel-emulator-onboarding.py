@@ -166,24 +166,19 @@ def main():
             recorder_setup_prompt_seen=True
             # Exact observed clickable child: TextView '설정' at [910,498][964,546].
             # Never press the identically labeled bottom tab at y>=2190.
-            candidates=[]
-            for node in nodes:
-                if node.get("text","").strip() != "설정":
-                    continue
-                match=re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
-                                   node.get("bounds",""))
-                if not match:
-                    continue
-                x1,y1,x2,y2=map(int,match.groups())
-                if 300 <= (y1+y2)//2 <= 900:
-                    candidates.append(((x1+x2)//2,(y1+y2)//2,"설정"))
+            # Reuse verified choose() bounds parser; compare the y coordinate
+            # to distinguish the banner (y~522) from bottom tab (y~2260).
+            banner_setup=choose(nodes,["설정"],exact=True)
+            banner_setup=(banner_setup
+                          if banner_setup and 300 <= banner_setup[1] <= 900
+                          else None)
             if recorder_setup_taps >= 2:
                 print("RECORDER_SETUP_PROMPT_STILL_PRESENT_AFTER_TWO_TAPS",flush=True)
                 stop_reason="RECORDER_SETUP_SCREEN_REMAINS_UNCONFIGURED"
                 break
-            if candidates:
+            if banner_setup:
                 recorder_setup_taps+=1
-                tap(candidates[0],"OPEN_ORIGINAL_RECORDER_COMPANION_SETUP")
+                tap(banner_setup,"OPEN_ORIGINAL_RECORDER_COMPANION_SETUP")
                 continue
             stop_reason="RECORDER_SETUP_PROMPT_WITHOUT_BUTTON"
             break
