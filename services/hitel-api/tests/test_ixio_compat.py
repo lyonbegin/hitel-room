@@ -119,3 +119,62 @@ def test_one_time_pkce_and_hitel_refresh_credential(monkeypatch):
         assert c.post("/autologin",json={"userId":user_id},
                       headers={"Authorization":f"Bearer {x['data']['accessToken']}"}).status_code == 401
         assert c.get("/login").json()["code"] == "ERROR_NOT_CONFIGURED"
+
+
+def test_ci_only_appauth_redirect_matches_manifest_and_pkce(monkeypatch):
+    """Synthetic HITEL QA authorization: exact original APK redirect scheme."""
+    from urllib.parse import parse_qs, urlsplit
+    monkeypatch.setenv("HITEL_IXIO_COMPAT_ENABLED", "true")
+    monkeypatch.setenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "true")
+    phone = "010-1234-1204"
+    monkeypatch.setenv("HITEL_IXIO_CI_PHONE", main.kr_mobile(phone))
+    monkeypatch.setenv("HITEL_IXIO_CI_ASSERTION", "qa_fixture_" + "a" * 48)
+    codes = {}
+    async def fake_sms(to, code):
+        codes[to] = code
+    monkeypatch.setattr(main, "deliver_sms", fake_sms)
+    with TestClient(main.app) as c:
+        onboard(c, phone, codes)
+        cfg = c.get("/login").json()["data"]
+        assert cfg["authUri"] == "hitel/qa/authorize"
+        redirect = cfg["callbackUrl"]
+        assert redirect.startswith("com.lguplus.aicallagent:")
+        verifier = secrets.token_urlsafe(40)
+        challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+        state = secrets.token_urlsafe(24)
+        params = {
+            "redirect_uri": redirect,
+            "client_id": cfg["clientId"],
+            "response_type": "code",
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "login_hint": main.kr_mobile(phone),
+            "scope": "openid profile",
+        }
+        bad = c.get("/hitel/qa/authorize",
+                    params={**params, "redirect_uri": "hitel-qa://auth/callback"},
+                    follow_redirects=False)
+        assert bad.status_code == 400
+        good = c.get("/hitel/qa/authorize",
+                     params=params, follow_redirects=False)
+        assert good.status_code == 302
+        location = good.headers["location"]
+        assert location.startswith(redirect + "?")
+        parsed = parse_qs(urlsplit(location).query)
+        assert parsed["state"][0] == state
+        code = parsed["code"][0]
+        token = c.post("/auth-code", json={
+            "authCode": code, "state": state, "codeVerifier": verifier,
+        }).json()
+        assert token["code"] == "SUCCESS"
+        assert token["data"]["accessToken"]
+        reused = c.post("/auth-code", json={
+            "authCode": code, "state": state, "codeVerifier": verifier,
+        }).json()
+        assert reused["code"] == "ERROR_INVALID_GRANT"
+        monkeypatch.setenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false")
+        denied = c.get("/hitel/qa/authorize",
+                       params=params, follow_redirects=False)
+        assert denied.status_code == 404
