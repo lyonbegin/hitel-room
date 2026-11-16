@@ -1,0 +1,87 @@
+name: REAL Flutter ARM64 APK install and runtime test on Android 35 ARM translator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/test-avatar-chat-local-auto-api35-emulator-release.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  actual-arm64-flutter-emulator-install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43843304523
+          name: hitel-original-avatar-chat-local-original-sdk-AUTO-debug-apk
+          github-token: ${{ github.token }}
+          path: reports/hitel-avatar-chat-local-auto/
+      - name: Check extracted ORIGINAL fixed APK and Android manifest from previous build
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=reports/hitel-avatar-chat-local-auto/apk/HITEL_Original_avatar_chat_Expression2_Local_AUTO_Debug.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          unzip -t "$APK" | tail -n 1
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libflutter.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libexpr2jni.so'
+          echo "EXACT_PREVIOUS_SIGNED_APK_FOR_REAL_ANDROID_RUNTIME_RETEST_VERIFIED"
+      - name: Enable host KVM for Android 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: REAL ARM64 Flutter app install auth and first Texture frame on Android API35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash tools/bithuman_deep/test_original_avatar_chat_local_auto_emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-avatar-chat-actual-android35-install-and-original-sdk-runtime-proof
+          path: reports/hitel-avatar-chat-local-auto/emulator/
+          retention-days: 30
+      - name: Publish ONLY if actual Android install, auth, create, first Flutter texture all PASS
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          grep -q 'REAL_ANDROID_CREATE_AND_FIRST_TEXTURE_FRAME_PASS' reports/hitel-avatar-chat-local-auto/emulator/VERDICT.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          v=json.loads(Path('reports/hitel-avatar-chat-local-auto/emulator/RUNTIME_RESULT.json').read_text())
+          assert v['all_pass'] and all(v['checks'].values()),v
+          print('RUNTIME_VERIFICATION_CHECKS_ALL_TRUE')
+          PY
+          TAG=hitel-original-avatar-chat-expression2-local-auto-android35-tested-20261116
+          APK=reports/hitel-avatar-chat-local-auto/apk/HITEL_Original_avatar_chat_Expression2_Local_AUTO_Debug.apk
+          NOTES="DEBUG experimental only. Exact original Flutter avatar_chat UI and Expression2 0.6.2 native engine, local PUBLIC Wise Pup original model, local synthetic auth fixture, original SDK default AUTO hardware selection. This release was gated on REAL APK ADB installation, launch, localhost auth, original SDK engine create and first Flutter Texture frame on Android 35 x86_64 with ARM translation. Does not prove real Galaxy GPU or production entitlement."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" \
+              --title "HITEL original avatar_chat - Android installed and SDK AUTO verified" \
+              --notes "$NOTES" --latest=false
+          fi
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$APK")"
+          echo "RUNTIME_TESTED_APK_DIRECT_URL=$URL"
+          curl -fLsS --retry 4 --max-time 540 "$URL" -o "$RUNNER_TEMP/public-verified.apk"
+          cmp -s "$APK" "$RUNNER_TEMP/public-verified.apk"
+          echo RUNTIME_TESTED_PUBLIC_DOWNLOAD_HASH_MATCH_PASS
