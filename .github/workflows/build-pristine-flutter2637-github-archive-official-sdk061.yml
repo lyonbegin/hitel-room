@@ -161,12 +161,20 @@ jobs:
           adb shell pidof "$PKG" > "$OUT/original-app-pid.txt" || true
           adb logcat -d -v time > "$OUT/original-app-logcat.txt" || true
           adb exec-out screencap -p > "$OUT/original-app-screenshot.png" 2>/dev/null || true
+          # Read only the original app's own existing boot breadcrumb.
+          adb shell run-as "$PKG" cat app_flutter/boot_status.txt > "$OUT/original-app-boot-status.txt" 2> "$OUT/boot-status-read-error.txt" || true
+          adb shell uiautomator dump /sdcard/expr2-ui.xml > "$OUT/ui-dump-command.txt" 2>&1 || true
+          adb exec-out cat /sdcard/expr2-ui.xml > "$OUT/original-app-accessibility-ui.xml" 2>/dev/null || true
           python3 - "$OUT" <<'PY'
           import sys,json,re
           from pathlib import Path
           p=Path(sys.argv[1])
           log=(p/'original-app-logcat.txt').read_text(errors='replace')
           pkg=(p/'android-installed-package.txt').read_text(errors='replace')
+          boot=(p/'original-app-boot-status.txt').read_text(errors='replace') if (p/'original-app-boot-status.txt').exists() else ''
+          no_credential='boot:refuse=metering_no_credential' in boot
+          reached_load='boot:load:begin' in boot
+          load_ok='boot:load:ok' in boot
           result={
            'plugin':'Original archived GitHub Flutter 2.6.37 (not modified)',
            'sdk':'Official Maven ai.bithuman:expression2-android:0.6.1',
@@ -176,6 +184,13 @@ jobs:
            'adb_install_success':'Success' in (p/'adb-install.txt').read_text(),
            'android_primary_abi':(re.search(r'primaryCpuAbi=([^\s]+)',pkg).group(1) if re.search(r'primaryCpuAbi=([^\s]+)',pkg) else 'unknown'),
            'app_pid':(p/'original-app-pid.txt').read_text().strip(),
+           'upstream_boot_breadcrumb':boot.splitlines()[-30:],
+           'pre_engine_credential_refusal_observed':no_credential,
+           'upstream_avatar_load_called':reached_load,
+           'upstream_avatar_load_succeeded':load_ok,
+           'face_frames_possible_from_upstream_app':False if no_credential and not reached_load else None,
+           'actual_native_face_frame_count_measured':False,
+           'face_frame_result':'BLOCKED_BEFORE_ENGINE_BY_NO_CREDENTIAL' if no_credential and not reached_load else ('ENGINE_LOAD_OK_FRAME_OUTPUT_NOT_MEASURED' if load_ok else 'UNKNOWN_REVIEW_BOOT_AND_LOGCAT'),
            'android_fatal_exception':'FATAL EXCEPTION' in log,
            'credential_expected':'Not provided; original credential screen or refusal is expected',
            'diagnostics':[line[:460] for line in log.splitlines() if
