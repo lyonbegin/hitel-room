@@ -193,6 +193,68 @@ jobs:
             .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
           sha256sum .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk \
             > ixio-hitel-android-results/rebuilt-sha256.txt
+      - name: Repair only recorder AppSealing provider Context in previously reconstructed original-bytecode APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .hitel-ixio-qa/recorder-rebuilt .hitel-ixio-qa/recorder-smali
+          gh run download 43707483111 --repo "$GH_REPO" \
+            --name ixio-standalone-apps-reassembled-android14 \
+            --dir .hitel-ixio-qa/recorder-rebuilt
+          mapfile -t recorder_apks < <(find .hitel-ixio-qa/recorder-rebuilt -type f -name 'recorder-reassembled-signed.apk')
+          test "${#recorder_apks[@]}" -eq 1
+          cp "${recorder_apks[0]}" .hitel-ixio-qa/recorder/reconstructed-original-code.apk
+          unzip -p .hitel-ixio-qa/recorder/reconstructed-original-code.apk classes.dex \
+            > .hitel-ixio-qa/recorder/classes-original.dex
+          java -Xmx2500m -jar .hitel-ixio-qa/tools/baksmali.jar \
+            d --api 34 --jobs 3 \
+            -o .hitel-ixio-qa/recorder-smali .hitel-ixio-qa/recorder/classes-original.dex
+          python3 tools/ixio/ixio_recorder_provider_context_bridge.py \
+            --smali-root .hitel-ixio-qa/recorder-smali \
+            --report ixio-hitel-android-results/recorder-context-patch-report.json
+          java -Xmx2500m -jar .hitel-ixio-qa/tools/smali.jar \
+            a --api 34 --jobs 3 \
+            -o .hitel-ixio-qa/recorder/classes-bridged.dex .hitel-ixio-qa/recorder-smali
+          python3 - <<'PY'
+          import copy,hashlib,pathlib,re,zipfile
+          p=pathlib.Path('.hitel-ixio-qa/recorder')
+          source=p/'reconstructed-original-code.apk'
+          dest=p/'recorder-context-unsigned.apk'
+          dex=(p/'classes-bridged.dex').read_bytes()
+          with zipfile.ZipFile(source) as original,zipfile.ZipFile(dest,'w') as updated:
+              replacements=0
+              for entry in original.infolist():
+                  name=entry.filename
+                  if re.fullmatch(r'META-INF/.*\\.(?:RSA|EC|DSA|SF|MF)',name,re.I):continue
+                  data=original.read(name)
+                  if name=='classes.dex':
+                      data=dex
+                      replacements+=1
+                  updated.writestr(copy.copy(entry),data)
+              assert replacements==1
+          with zipfile.ZipFile(source) as original,zipfile.ZipFile(dest) as updated:
+              assert original.read('AndroidManifest.xml')==updated.read('AndroidManifest.xml')
+              old=set(original.namelist())
+              for name in old:
+                  if name.endswith('.dex') and name!='classes.dex':
+                      assert original.read(name)==updated.read(name),f'Unexpected DEX modification: {name}'
+          print('IXIO_RECORDER_ORIGINAL_AUDIO_AIDL_AND_PCM_DEX_UNMODIFIED=YES')
+          PY
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/zipalign" -p -f 4 \
+            .hitel-ixio-qa/recorder/recorder-context-unsigned.apk \
+            .hitel-ixio-qa/recorder/recorder-context-aligned.apk
+          "$BT/apksigner" sign --ks .hitel-ixio-qa/keys/ci-debug.jks \
+            --ks-pass pass:android --key-pass pass:android --ks-key-alias qa \
+            --out .hitel-ixio-qa/recorder/recorder-context-test-signed.apk \
+            .hitel-ixio-qa/recorder/recorder-context-aligned.apk
+          "$BT/apksigner" verify --verbose \
+            .hitel-ixio-qa/recorder/recorder-context-test-signed.apk
+          echo 'IXIO_RECORDER_CONTEXT_REBUILT_SIGNED=YES'
       - name: Real Android 14 install, click onboarding, grant permissions, inspect actual server calls
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -207,11 +269,11 @@ jobs:
           disable-animations: true
           script: |
             set -eu
-            echo 'INSTALLING_VERIFIED_ORIGINAL_RECORDER_COMPANION'
-            adb install -r .hitel-ixio-qa/recorder/recorder.apk
+            echo 'INSTALLING_RECONSTRUCTED_RECORDER_CONTEXT_BRIDGE_COMPANION'
+            adb install -r .hitel-ixio-qa/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder | grep '^package:'
             echo 'true' > ixio-hitel-android-results/recorder-installed.txt
-            echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
+            echo 'CONTEXT_BRIDGED_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-hitel-emulator-onboarding.py
       - name: Compare actual original-app UI with HITEL API received request log
         if: always()
