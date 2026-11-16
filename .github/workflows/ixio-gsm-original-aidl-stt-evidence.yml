@@ -190,4 +190,17 @@ jobs:
               for i,line in found[-105:]:
                   if re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',line):continue
                   print('AUTO_RECORD_DIAGNOSTIC_EVENT',i,line[:470])
+          # Read the latest live app PIDs rather than stale previous-run PIDs.
+          d=json.loads((root/'result.json').read_text(errors='replace'))
+          pidset={str(d.get('main_process_after','')).strip(),str(d.get('recorder_process_after','')).strip()}-{''}
+          srcfile=root/'logcat-simulated-call.txt'
+          if srcfile.exists():
+              entries=srcfile.read_text(errors='replace').splitlines()
+              pattern=r'(?i)originalCallAutoRecording|isRequiredCallRecorderApp|CallRecordingService|SpeechToTextRepository|AudioRecord|Permission Denial|SecurityException|bindService|record|STT|datastore|service.*error'
+              found=[line for line in entries if len(line.split())>=4 and line.split()[2] in pidset and re.search(pattern,line)]
+              print('IXIO_LATEST_APP_PIDS',sorted(pidset),'RELEVANT',len(found))
+              for line in found[-120:]:
+                  if not re.search(r'(?i)accessToken|refreshToken|Authorization|Bearer\s|phoneNumber=',line):
+                      print('IXIO_LATEST_APP_EVIDENCE',line[:520])
+          else: print('IXIO_LATEST_APP_LOG_NOT_FOUND')
           PY
