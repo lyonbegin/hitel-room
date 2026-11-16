@@ -1,0 +1,83 @@
+name: Install EXISTING original Flutter avatar APK on established Android14 x86 emulator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/install-existing-original-flutter-apk-on-android14.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  install-existing-apk-no-code-modifications:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43862430000
+          name: hitel-original-avatar-chat-public-https-AUTO-debug-experimental-apk
+          github-token: ${{ github.token }}
+          path: reports/hitel-avatar-chat-public-https-auto/
+      - name: Confirm original Flutter APK and native engine, no rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=reports/hitel-avatar-chat-public-https-auto/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_AUTO_Debug.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          unzip -t "$APK" | tail -n 1
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libflutter.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libexpr2jni.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libLiteRt.so'
+      - name: Enable original emulator KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Actual ADB install and launch (NO ABI override; NO CPU/GPU changes)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          disk-size: 8192M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: |
+            set -euo pipefail
+            OUT="$GITHUB_WORKSPACE/reports/original-flutter-android14-install"
+            APK="$GITHUB_WORKSPACE/reports/hitel-avatar-chat-public-https-auto/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_AUTO_Debug.apk"
+            PKG=ai.hitel.avatar_chat.localauto
+            mkdir -p "$OUT"
+            adb wait-for-device
+            adb shell getprop ro.product.cpu.abilist | tee "$OUT/abis.txt"
+            adb shell getprop ro.dalvik.vm.native.bridge | tee "$OUT/bridge.txt"
+            adb install -r "$APK" | tee "$OUT/installed.txt"
+            adb shell pm path "$PKG" | tee "$OUT/pm.txt"
+            adb logcat -c
+            adb shell am start -W -n "$PKG/ai.bithuman.example.avatar_chat.MainActivity" | tee "$OUT/started.txt"
+            sleep 35
+            adb logcat -d -v time > "$OUT/logcat.txt" || true
+            adb exec-out screencap -p > "$OUT/screenshot.png" || true
+            adb shell run-as "$PKG" cat app_flutter/boot_status.txt > "$OUT/boot.txt" 2>/dev/null || true
+            adb shell pidof "$PKG" > "$OUT/pid.txt" || true
+            grep -Fq Success "$OUT/installed.txt"
+            grep -Fq 'package:' "$OUT/pm.txt"
+            grep -Fq 'Status: ok' "$OUT/started.txt"
+            echo 'ORIGINAL_FLUTTER_APK_REAL_INSTALL_AND_ACTIVITY_LAUNCH_PASS'
+            echo '--- APP ACTUAL BOOT STAGES ---'
+            cat "$OUT/boot.txt" || true
+            echo '--- ENGINE / ERRORS ---'
+            grep -E 'BH_EXPR2_LOCAL_TEST|first frame on the texture|FATAL EXCEPTION|load failed|[Ll]ite[Rr]t|BithumanPlugin' "$OUT/logcat.txt" | tail -60 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-flutter-existing-apk-android14-install-log-evidence
+          path: reports/original-flutter-android14-install/
+          retention-days: 14
