@@ -1,0 +1,196 @@
+name: Compile archived GitHub Flutter plugin 2.6.37 with unmodified original SDK 0.6.1
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/build-pristine-flutter2637-github-archive-official-sdk061.yml
+permissions:
+  contents: read
+jobs:
+  compile-exact-archived-plugin-and-pristine-upstream-app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout GitHub archive of bitHuman original Flutter plugin 2.6.37
+        uses: actions/checkout@v4
+      - name: Clone original GitHub avatar_chat app without modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pristine-proof
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          git -C original-upstream rev-parse HEAD | tee pristine-proof/upstream-revision.txt
+          PLUGIN="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          test -f "$PLUGIN/pubspec.yaml"
+          test -f "$PLUGIN/android/build.gradle"
+          test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          test -f "$PLUGIN/e2e/mock_realtime/pubspec.yaml"
+          grep -Fxq 'version: 2.6.37' "$PLUGIN/pubspec.yaml"
+          grep -Fq "implementation 'ai.bithuman:expression2-android:0.6.1'" "$PLUGIN/android/build.gradle"
+          grep -Fq 'ref: flutter-plugin-v2.6.37' "$APP/pubspec.yaml"
+          git ls-files vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin \
+            | tee pristine-proof/archived-github-plugin-filelist.txt | wc -l
+          git ls-tree HEAD vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin \
+            | tee pristine-proof/github-plugin-tree.txt
+          (cd "$PLUGIN"; find . -type f ! -path './.dart_tool/*' -print0 | sort -z | xargs -0 sha256sum) \
+            > pristine-proof/archived-github-plugin-sha256.txt
+          (cd "$APP"; sha256sum pubspec.yaml lib/main.dart android/app/build.gradle.kts android/settings.gradle.kts \
+            android/gradle/wrapper/gradle-wrapper.properties) \
+            > pristine-proof/official-upstream-app-sha256.txt
+          echo 'ORIGINAL_FLUTTER_2637_SOURCES_FROM_GITHUB_ARCHIVE_IDENTIFIED_NO_CHANGES'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Compile original plugin Dart unit test without modifying source
+        shell: bash
+        working-directory: vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          flutter --version
+          flutter pub get 2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/plugin-2.6.37-pub-get.log"
+          flutter test --no-pub test/avatar_fit_test.dart 2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/plugin-dart-compile-test.log"
+          echo ORIGINAL_FLUTTER_PLUGIN_2637_DART_COMPILE_TEST_PASS
+      - name: Resolve original app dependency to SAME GitHub-archived plugin using only untracked pub override
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          PLUGIN="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          # Upstream pubspec.yaml still references no-longer-public homebrew GitHub.
+          # The original source remains byte-identical. Pub supports an untracked
+          # pubspec_overrides.yaml, used ONLY to supply archived GitHub files.
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          cd "$APP"
+          flutter pub get 2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/app-flutter-pub-get.log"
+          grep -Fq 'bithuman:' pubspec.lock
+          grep -Fq 'source: path' pubspec.lock
+          grep -Fq 'version: "2.6.37"' pubspec.lock
+          # Original source bytes unchanged; no HITEL model, plugin, or SDK patches.
+          sha256sum -c "$GITHUB_WORKSPACE/pristine-proof/official-upstream-app-sha256.txt"
+          git -C "$GITHUB_WORKSPACE/original-upstream" diff --exit-code HEAD -- \
+            app/avatar_chat/pubspec.yaml app/avatar_chat/lib/main.dart app/avatar_chat/android
+          echo 'PUB_PACKAGE_GITHUB_ARCHIVED_PLUGIN_2637_RESOLVED_NO_ORIGINAL_SOURCE_CHANGES'
+      - name: Build original ARM64 Flutter app and ORIGINAL Maven SDK 0.6.1
+        working-directory: original-upstream/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Uses app/Gradle/Flutter-plugin/SDK with their original code,
+          # original arm64 target, original Maven coordinate and session door.
+          flutter build apk --debug --split-per-abi --target-platform android-arm64 \
+            2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/official-plugin2637-build.log"
+          APK=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          test -s "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/pristine-original-plugin2637-sdk061-arm64.apk"
+          sha256sum "$APK" | tee "$GITHUB_WORKSPACE/pristine-proof/apk-sha256.txt"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | tee "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt" \
+            | grep -Fx 'lib/arm64-v8a/libflutter.so'
+          grep -Fx 'lib/arm64-v8a/libexpr2jni.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          grep -Fx 'lib/arm64-v8a/libLiteRt.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          AAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/ai.bithuman/expression2-android/0.6.1" \
+            -type f -name 'expression2-android-0.6.1.aar' -print -quit)"
+          test -s "$AAR"
+          sha256sum "$AAR" | tee "$GITHUB_WORKSPACE/pristine-proof/official-sdk061-maven-aar-sha256.txt"
+          echo ORIGINAL_PLUGIN_2637_COMPILED_WITH_ORIGINAL_SDK_061_ARM64
+      - name: Configure unchanged-APK emulator installation probe outside source
+        shell: bash
+        run: |
+          cat > "$GITHUB_WORKSPACE/pristine-install.sh" <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/pristine-proof"
+          APK="$GITHUB_WORKSPACE/pristine-original-plugin2637-sdk061-arm64.apk"
+          PKG=ai.bithuman.example.avatar_chat
+          adb wait-for-device
+          adb shell getprop ro.product.cpu.abilist | tee "$OUT/emulator-cpu-abis.txt"
+          adb shell getprop ro.dalvik.vm.native.bridge | tee "$OUT/emulator-native-bridge.txt"
+          set +e
+          adb install -r "$APK" > "$OUT/adb-install.txt" 2>&1
+          install_rc=$?
+          set -e
+          cat "$OUT/adb-install.txt"
+          if [ "$install_rc" -ne 0 ]; then echo APK_ADB_INSTALL_FAILED; exit "$install_rc"; fi
+          adb shell pm path "$PKG" | tee "$OUT/android-installed-path.txt"
+          adb shell dumpsys package "$PKG" > "$OUT/android-installed-package.txt"
+          adb logcat -c || true
+          adb shell am start -n "$PKG/ai.bithuman.example.avatar_chat.MainActivity" \
+            > "$OUT/android-start.txt" 2>&1 || true
+          cat "$OUT/android-start.txt"
+          sleep 40
+          adb shell pidof "$PKG" > "$OUT/original-app-pid.txt" || true
+          adb logcat -d -v time > "$OUT/original-app-logcat.txt" || true
+          adb exec-out screencap -p > "$OUT/original-app-screenshot.png" 2>/dev/null || true
+          python3 - "$OUT" <<'PY'
+          import sys,json,re
+          from pathlib import Path
+          p=Path(sys.argv[1])
+          log=(p/'original-app-logcat.txt').read_text(errors='replace')
+          pkg=(p/'android-installed-package.txt').read_text(errors='replace')
+          result={
+           'plugin':'Original archived GitHub Flutter 2.6.37 (not modified)',
+           'sdk':'Official Maven ai.bithuman:expression2-android:0.6.1',
+           'app':'Original bitHuman GitHub avatar_chat (tracked source not modified)',
+           'apk_abi':'arm64-v8a',
+           'adb_abi_override_used':False,
+           'adb_install_success':'Success' in (p/'adb-install.txt').read_text(),
+           'android_primary_abi':(re.search(r'primaryCpuAbi=([^\s]+)',pkg).group(1) if re.search(r'primaryCpuAbi=([^\s]+)',pkg) else 'unknown'),
+           'app_pid':(p/'original-app-pid.txt').read_text().strip(),
+           'android_fatal_exception':'FATAL EXCEPTION' in log,
+           'credential_expected':'Not provided; original credential screen or refusal is expected',
+           'diagnostics':[line[:460] for line in log.splitlines() if
+             any(tag in line for tag in ['FATAL EXCEPTION','UnsatisfiedLinkError','dlopen failed',
+               'Flutter initialization failed','metering_no_credential','AGENT_NOT_ENTITLED',
+               'BithumanAvatar','AndroidRuntime'])][-25:],
+          }
+          (p/'actual-emulator-result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          PY
+          SH
+          chmod +x "$GITHUB_WORKSPACE/pristine-install.sh"
+      - name: Enable KVM for original Android14 emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install exact ARM64 APK on Android14 emulator without ABI override
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash "$GITHUB_WORKSPACE/pristine-install.sh"
+      - name: Preserve GitHub source and original plugin build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-archived-plugin2637-original-sdk061-build-and-emulator-proof
+          path: pristine-proof/
+          retention-days: 20
+      - name: Preserve original ARM64 APK if compiled
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-archived-plugin2637-sdk061-arm64-original-apk
+          path: pristine-original-plugin2637-sdk061-arm64.apk
+          if-no-files-found: ignore
+          retention-days: 20
