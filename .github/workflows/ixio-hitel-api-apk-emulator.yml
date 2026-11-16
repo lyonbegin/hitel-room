@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/ixio-hitel-api-apk-emulator.yml'
       - 'tools/ixio/ixio_route_to_hitel_ci.py'
-      - 'tools/ixio/ixio-main-onboarding-permissions-controller.py'
+      - 'tools/ixio/ixio-hitel-emulator-onboarding.py'
       - 'services/hitel-api/**'
   workflow_dispatch:
 permissions:
@@ -183,12 +183,12 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          cores: 2
-          ram-size: 4096M
+          cores: 4
+          ram-size: 6144M
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: python3 tools/ixio/ixio-main-onboarding-permissions-controller.py
+          script: python3 tools/ixio/ixio-hitel-emulator-onboarding.py
       - name: Compare actual original-app UI with HITEL API received request log
         if: always()
         shell: bash
@@ -211,6 +211,8 @@ jobs:
            'signup_error_seen': ui.get('service_error_seen'),
            'ui_stop_reason': ui.get('stop_reason'),
            'ui_final_process_alive': ui.get('last_process_alive'),
+           'emulator_launcher_anr_count': ui.get('emulator_launcher_anr_count',0),
+           'ui_emulator_system_blocked': ui.get('stop_reason') == 'EMULATOR_SYSTEM_ANR_BLOCKED_TEST',
            'qa_seed_verify_request_count_including_preflight': n,
            'native_app_verify_ctn_network_request': n>=2,
            'notes':'No user data, no carrier enrollment. Only emulator host at 10.0.2.2:8000. No remote persistent server.'
@@ -240,6 +242,23 @@ jobs:
             ixio-main-permission-to-signup-evidence/
           retention-days: 7
           if-no-files-found: warn
+      - name: Require observed device-to-HITEL verification before calling the app fixed
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('ixio-hitel-android-results/verification-status.json')
+          assert p.exists(), 'Android UI and API evidence missing'
+          j=json.loads(p.read_text())
+          if j['ui_emulator_system_blocked']:
+            raise SystemExit('EMULATOR_SYSTEM_ANR: no device-level eligibility verdict')
+          if not j['native_app_verify_ctn_network_request']:
+            raise SystemExit('INTEGRATION_NOT_VERIFIED: Android app did not hit local HITEL verify-ctn')
+          if j['signup_error_seen']:
+            raise SystemExit('APP_STILL_BLOCKED: signup error shown after HITEL API exchange')
+          print('HITEL_LOCAL_DEVICE_API_ONBOARDING=VERIFIED')
+          PY
       - name: Remove CI-only test assertion and data after test
         if: always()
         run: rm -rf .hitel-ixio-qa .ixio-start-test
