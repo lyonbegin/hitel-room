@@ -368,8 +368,8 @@ jobs:
            'web_manifest_401_observed':'member=web_manifest.json returned HTTP 401' in boot,
            'web_manifest_fetched_logged':'fetched web_manifest.json' in log,
            'model_cache_kib_samples':[
-             int(m.group(1)) for line in (p/'model-cache-kib-poll.txt').read_text().splitlines()
-             if (m:=re.search(r'sample=\\d+\\s+(\\d+)\\s+files/expression2',line))
+             int(parts[1]) for line in (p/'model-cache-kib-poll.txt').read_text().splitlines()
+             if len(parts:=line.split()) >= 3 and parts[1].isdigit() and parts[2].endswith('files/expression2')
            ],
            'model_cache_du_last_lines':(p/'model-cache-dir-poll.txt').read_text(errors='replace').splitlines()[-25:],
            'anonymous_public_sample_only':True,
