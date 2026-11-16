@@ -40,7 +40,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p=Path('build/tmap/classes6.dex')
-          assert p.read_bytes().startswith(b'dex\\n0')
+          assert p.read_bytes()[:5] == bytes([100,101,120,10,48])
           print('DEX6_BUILT',p.stat().st_size)
           PY
       - uses: actions/upload-artifact@v4
