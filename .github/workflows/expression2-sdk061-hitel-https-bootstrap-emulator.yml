@@ -134,13 +134,20 @@ jobs:
           path="android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt"
           p=plugin/path
           original=(archive/path).read_bytes()
-          old=b'URL("https://api.bithuman.ai/v1/agent/'
-          new=b'URL("https://hitel-expression2-auth-production.up.railway.app/v1/agent/'
-          assert original.count(old)==2, f"Expected two URL() endpoint expressions, got {original.count(old)}"
-          patch=original.replace(old,new)
-          assert patch.count(old)==0 and patch.count(new)==2
-          assert original.count(b'https://api.bithuman.ai/v1/agent/')==3, 'Vendor source unexpectedly changed'
-          assert patch.count(b'https://api.bithuman.ai/v1/agent/')==1, 'Original comment must remain identical'
+          # Change ONLY the access-check platformDoor. Do not touch the
+          # actual model storeDoor/member download URL in the original plugin.
+          old=(b'fun platformDoor(code: String, model: String): URL =\n'
+               b'            URL("https://api.bithuman.ai/v1/agent/')
+          new=(b'fun platformDoor(code: String, model: String): URL =\n'
+               b'            URL("https://hitel-expression2-auth-production.up.railway.app/v1/agent/')
+          assert original.count(old)==1, f"Expected only one platformDoor auth URL: {original.count(old)}"
+          patch=original.replace(old,new,1)
+          assert patch.count(new)==1 and patch.count(old)==0
+          original_store=original.split(b'fun storeDoor(code: String, model: String): URL? {',1)[1]
+          changed_store=patch.split(b'fun storeDoor(code: String, model: String): URL? {',1)[1]
+          assert original_store==changed_store, 'Model storeDoor must remain byte-identical'
+          assert original.count(b'https://api.bithuman.ai/v1/agent/')==3
+          assert patch.count(b'https://api.bithuman.ai/v1/agent/')==2
           p.write_bytes(patch)
           kotlin=list(archive.glob("android/src/main/kotlin/**/*.kt"))
           for f in kotlin:
@@ -155,7 +162,8 @@ jobs:
             "sdk_version":"0.6.1",
             "sdk_only_method_changed":"SelfHostMeter$Companion.apiBase$expression2_release",
             "plugin_only_file_changed":path,
-            "plugin_only_auth_url_replacements":2,
+            "plugin_only_auth_url_replacements":1,
+            "original_storeDoor_model_download_unchanged":True,
             "original_plugin_Kotlin_others_identical":True,
             "original_plugin_BithumanPlugin_identical":True,
             "original_plugin_EntitlementWindow_sha256":hashlib.sha256(original).hexdigest(),
@@ -165,7 +173,7 @@ jobs:
             "native_061_inference_model_feed_output_unchanged":True,
           }
           Path("pristine-proof/sdk061-auth-only-plugin-proof.json").write_text(json.dumps(proof,indent=2)+"\n")
-          print("ORIGINAL_061_PLUGIN_ONLY_TWO_AUTH_SERVER_URLS_REPLACED")
+          print("SDK061_AUTH_PLATFORMDOOR_ONLY_CHANGED_MODEL_DOWNLOAD_UNTOUCHED")
           PY
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/sdk061-app-own-token-only.diff"
