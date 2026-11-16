@@ -135,7 +135,7 @@ jobs:
                 final old = _avatar;
                 setState(() {
                   _avatar = loaded;
-                  _status = '원본 엔진 + Flutter Texture 시작 성공 (textureId: ${loaded.textureId)';
+                  _status = '원본 엔진 + Flutter Texture 시작 성공 (textureId: ${loaded.textureId})';
                 });
                 if (old != null) await old.dispose();
               } catch (e) {
@@ -177,6 +177,7 @@ jobs:
           }
           DART
           (cd "$APP" && flutter pub get)
+          (cd "$APP" && dart analyze lib/main.dart)
           cp "$APP/packages/bithuman/android/build.gradle" reports/hitel-flutter-original/plugin-build.gradle.txt
           cp "$APP/lib/main.dart" reports/hitel-flutter-original/main.dart.txt
           cp "$APP/android/app/build.gradle.kts" reports/hitel-flutter-original/app-gradle.txt
