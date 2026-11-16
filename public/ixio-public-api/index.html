@@ -23,11 +23,11 @@ small{opacity:.78}
 <body>
 <main>
 <h1>HITEL IXIO — 실기기 API 접속 점검</h1>
-<p>이 페이지는 GitHub Pages에서 열리며, 실제 인증 및 STT API는 별도 HTTPS 서버(G2)에서 실행됩니다. GitHub Pages는 API 서버나 중계 서버가 아닙니다.</p>
+<p>이 페이지는 GitHub Pages에서 열리며, 이곳은 시험용 연결 점검 화면입니다. API는 GitHub Actions 등에서 실행하는 테스트 서버에 연결할 수 있으며, 서버가 실행 중인 동안에만 점검됩니다. GitHub Pages는 API를 직접 실행하지 않습니다.</p>
 <p id="status" role="status">연결 주소 확인 중입니다.</p>
-<label for="endpoint">G2 공개 HTTPS API 기본 주소</label>
-<input id="endpoint" type="url" autocomplete="url" inputmode="url" placeholder="https://실제로-배포된-api-호스트/" aria-describedby="hint">
-<small id="hint">GitHub Actions의 10.0.2.2/localhost 주소는 실제 휴대전화에서 사용할 수 없습니다. 실제 공개 HTTPS 주소만 입력하십시오.</small>
+<label for="endpoint">테스트용 HTTPS API 주소 (임시 주소 가능)</label>
+<input id="endpoint" type="url" autocomplete="url" inputmode="url" placeholder="https://테스트-중인-api-주소/" aria-describedby="hint">
+<small id="hint">GitHub Actions의 10.0.2.2/localhost 주소는 실제 휴대전화에서 사용할 수 없습니다. 외부에서 접속할 수 있는 HTTPS 주소를 사용하십시오. 고정 도메인이나 SSH 키 등록은 필요하지 않습니다.</small>
 <div><button id="check" type="button">/health 실제 연결 점검</button> <button id="copy" type="button">API 주소 복사</button></div>
 <pre id="result" aria-live="polite">연결 테스트 전입니다.</pre>
 <p><small>개인정보·전화번호·인증 토큰은 입력하지 마십시오. 테스트는 인증이 필요 없는 /health 요청만 수행합니다.</small></p>
@@ -47,7 +47,7 @@ async function init(){
   const res=await fetch('config.json',{cache:'no-store'});
   if(res.ok){const json=await res.json();configured=String(json.apiBaseUrl||'');}
   if(configured){$('endpoint').value=configured;$('status').textContent='API 공개 주소가 설정되어 있습니다. 실제 접속 점검이 필요합니다.';}
-  else $('status').textContent='G2 공개 API 주소 미설정 — 아직 실기기 연결이 완성되지 않았습니다.';
+  else $('status').textContent='테스트 서버 주소가 아직 연결되지 않았습니다. 서버가 실행되면 주소를 입력하여 바로 검사하실 수 있습니다.';
  }catch(e){$('status').textContent='서버 주소 설정을 불러올 수 없습니다.';}
 }
 $('check').addEventListener('click',async()=>{
