@@ -11,14 +11,15 @@ echo -e 'variant\tinstall\tfirebase\tprocess_8s\ttarget_crash' >> "$RESULT/compa
 adb wait-for-device
 adb shell getprop ro.build.version.release > "$RESULT/android-version.txt" || true
 
-for variant in framework baseline; do
+for variant in shell framework baseline; do
   pkg=com.lguplus.aicallagent
   out="$RESULT/$variant"
   mkdir -p "$out"
   adb uninstall "$pkg" > "$out/uninstall-before.txt" 2>&1 || true
   adb logcat -c || true
   mapfile -d '' -t apks < <(find "$ROOT/$variant" -type f \
-    \( -name 'base.apk' -o -name 'signed-split_*.apk' \) -print0 | sort -z)
+    \( -name 'base.apk' -o -name 'signed-split_[0-9].apk' \) -print0 | sort -z)
+  echo "APK_COUNT=${#apks[@]}" > "$out/apk-count.txt"
   test "${#apks[@]}" -eq 4
   if adb install-multiple "${apks[@]}" > "$out/install.txt" 2>&1; then
     installed=PASS
