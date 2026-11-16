@@ -111,12 +111,20 @@ def main():
         raise RuntimeError("Cannot install target single APK: "+install[:700])
     print("INSTALLED_APK_PATHS",adb("shell","pm","path",PKG).strip(),flush=True)
     print("LAUNCH_RESULT",adb("shell","monkey","-p",PKG,"-c","android.intent.category.LAUNCHER","1").strip()[-350:],flush=True)
-    time.sleep(5)
+    time.sleep(16)  # allow Android launcher services to settle after first boot
     seen_error=False
     stop_reason="EXHAUSTED_STEPS"
     for i in range(15):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
+        if any(q in joined for q in ("Pixel Launcher isn't responding","System UI isn't responding","Pixel 런처가 응답하지 않습니다","시스템 UI가 응답하지 않습니다")):
+            print("EMULATOR_SYSTEM_ANR_OBSERVED; dismissing system dialog and re-launching target",flush=True)
+            wait=choose(nodes,["Wait","대기","Close app","앱 닫기"],True)
+            if wait:
+                tap(wait,"DISMISS_EMULATOR_SYSTEM_ANR")
+            adb("shell","am","start","-n",PKG+"/.MainActivity",timeout=24)
+            time.sleep(8)
+            continue
         if any(q in joined for q in ERRORS):
             seen_error=True
             print("SERVICE_ERROR_EXACT_UI",joined[:1200],flush=True)
