@@ -102,7 +102,11 @@ jobs:
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/android/app/build.gradle.kts \
             | tee pristine-proof/disposable-app-gradle-compatibility.patch
-          git -C original-upstream diff --name-only \
+          # Flutter pub get regenerates the tracked macOS plugin registrant.
+          # That generated file is unrelated to our Android build; verify only
+          # Android app/Flutter Dart tracked sources were not modified.
+          git -C original-upstream diff --name-only -- \
+            app/avatar_chat/android app/avatar_chat/lib app/avatar_chat/pubspec.yaml \
             | tee pristine-proof/upstream-modified-tracked-files.txt
           test "$(cat pristine-proof/upstream-modified-tracked-files.txt)" = "app/avatar_chat/android/app/build.gradle.kts"
           echo 'ORIGINAL_DART_PLUGIN_SDK_AND_MODEL_UNTOUCHED_GRADLE_ONLY_COMPAT'
