@@ -5,6 +5,8 @@ on:
     branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
     paths:
       - .github/workflows/build-hitel-original-avatar-chat-public-https-auto.yml
+      - tools/bithuman_deep/prepare_original_avatar_chat_public_https.py
+      - tools/bithuman_deep/Expression2PublicHitelTest.kt
 permissions:
   contents: write
   actions: read
