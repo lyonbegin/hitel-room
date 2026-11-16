@@ -101,6 +101,22 @@ jobs:
             -o .hitel-ixio-qa/tools/smali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .hitel-ixio-qa/tools/baksmali.jar' | sha256sum -c -
           echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .hitel-ixio-qa/tools/smali.jar' | sha256sum -c -
+      - name: Obtain matching original IXIO call recorder companion from existing GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .hitel-ixio-qa/recorder
+          gh release download ixio-input-20261115 \
+            --repo "$GH_REPO" --pattern 'mmsimage.zip' \
+            --dir .hitel-ixio-qa/recorder
+          python3 tools/ixio/verify_release_zip.py \
+            .hitel-ixio-qa/recorder/mmsimage.zip .hitel-ixio-qa/recorder \
+            > ixio-hitel-android-results/companion-original-verification.json
+          echo '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7  .hitel-ixio-qa/recorder/recorder.apk' | sha256sum -c -
+          echo 'ORIGINAL_CALL_RECORDER_APK_SHA256_VERIFIED=YES'
       - name: Patch original Retrofit, CTN test proof and reassemble classes16 DEX
         shell: bash
         run: |
@@ -189,7 +205,13 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: python3 tools/ixio/ixio-hitel-emulator-onboarding.py
+          script: |
+            set -euo pipefail
+            echo 'INSTALLING_VERIFIED_ORIGINAL_RECORDER_COMPANION'
+            adb install -r .hitel-ixio-qa/recorder/recorder.apk
+            adb shell pm path com.lguplus.callrecorder
+            echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
+            python3 tools/ixio/ixio-hitel-emulator-onboarding.py
       - name: Compare actual original-app UI with HITEL API received request log
         if: always()
         shell: bash
