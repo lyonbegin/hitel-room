@@ -118,6 +118,9 @@ def main():
     anr_count=0
     chrome_welcome_retries=0
     blank_screen_retries=0
+    home_screen_seen=False
+    recorder_setup_prompt_seen=False
+    recorder_setup_taps=0
     stop_reason="EXHAUSTED_STEPS"
     for i in range(30):
         nodes,visible=snapshot(i)
@@ -152,6 +155,38 @@ def main():
                 stop_reason="EMULATOR_SYSTEM_ANR_BLOCKED_TEST"
                 break
             continue
+        # Distinguish a genuine IXIO home screen from an onboarding or
+        # Chrome placeholder. These labels were observed together in the
+        # two-original-APK emulator run (43876014433).
+        if all(label in joined for label in ("최근 기록", "연락처", "키패드", "디스커버")):
+            home_screen_seen=True
+            print("IXIO_AUTHENTICATED_HOME_SCREEN_OBSERVED",flush=True)
+        if ("통화 녹음 및 AI 기능 사용을 위해" in joined and
+                "익시오 통화녹음" in joined and "설정을 완료해 주세요" in joined):
+            recorder_setup_prompt_seen=True
+            # Exact observed clickable child: TextView '설정' at [910,498][964,546].
+            # Never press the identically labeled bottom tab at y>=2190.
+            candidates=[]
+            for node in nodes:
+                if node.get("text","").strip() != "설정":
+                    continue
+                match=re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
+                                   node.get("bounds",""))
+                if not match:
+                    continue
+                x1,y1,x2,y2=map(int,match.groups())
+                if 300 <= (y1+y2)//2 <= 900:
+                    candidates.append(((x1+x2)//2,(y1+y2)//2,"설정"))
+            if recorder_setup_taps >= 2:
+                print("RECORDER_SETUP_PROMPT_STILL_PRESENT_AFTER_TWO_TAPS",flush=True)
+                stop_reason="RECORDER_SETUP_SCREEN_REMAINS_UNCONFIGURED"
+                break
+            if candidates:
+                recorder_setup_taps+=1
+                tap(candidates[0],"OPEN_ORIGINAL_RECORDER_COMPANION_SETUP")
+                continue
+            stop_reason="RECORDER_SETUP_PROMPT_WITHOUT_BUTTON"
+            break
         if any(q in joined for q in ERRORS):
             seen_error=True
             print("SERVICE_ERROR_EXACT_UI",joined[:1200],flush=True)
@@ -231,7 +266,10 @@ def main():
            "last_process_alive":bool(lastpid),"fatal_lines":fatal[:20],
            "stop_reason":stop_reason,
            "emulator_launcher_anr_count":anr_count,
-           "ui_stages":len(ACTIONS)}
+           "ui_stages":len(ACTIONS),
+           "home_screen_seen":home_screen_seen,
+           "recorder_setup_prompt_seen":recorder_setup_prompt_seen,
+           "recorder_setup_button_taps":recorder_setup_taps}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
     print("FINAL_DIAGNOSTIC",json.dumps(result,ensure_ascii=False),flush=True)
     for event in relevant[-60:]:
