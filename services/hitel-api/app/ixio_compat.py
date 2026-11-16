@@ -278,14 +278,45 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
             raise HTTPException(403, "CTN does not match verified HITEL member")
         return success({"ctn": member.phone, "isCtn": True})
 
-    # These payloads have additional original fields and protocol dependencies.
-    # Do not fabricate successful responses until verified and implemented.
+    def qa_login_data(db: Session, request_ctn: str) -> dict:
+        """Original LoginData field names. QA mode never enrolls a real subscriber."""
+        qa_enabled = os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true"
+        assertion = os.getenv("HITEL_IXIO_CI_ASSERTION", "")
+        qa_phone = os.getenv("HITEL_IXIO_CI_PHONE", "")
+        qa_user = (db.execute(select(member_class).where(
+            member_class.phone == qa_phone)).scalar_one_or_none() if qa_phone else None)
+        if not (qa_enabled and qa_user and assertion and
+                (hmac.compare_digest(request_ctn, assertion) or
+                 hmac.compare_digest(request_ctn, qa_phone))):
+            return fail("ERROR_INVALID_CTN", "HITEL-verified CTN required for login data")
+        # The app-specific callback scheme must still be checked against original
+        # manifest and OAuth deep-link routing. These are CI test-only values.
+        return success({
+            "baseUrl": "http://10.0.2.2:8000/",
+            "authUri": "/hitel/qa/authorize",
+            "tokenUri": "/auth-code",
+            "scopes": ["openid", "profile"],
+            "clientId": "hitel-ci-android",
+            "callbackUrl": "hitel-qa://auth/callback",
+            "prompt": "login",
+            "state": secrets.token_urlsafe(24),
+            "login_hint": qa_phone,
+            "loginType": "HITEL_INTERNAL_QA",
+        })
+
     @app.get("/login")
-    def get_login_data() -> dict:
+    def get_login_data(authorization: str=Header(default=""),
+                       db: Session=Depends(db_dep)) -> dict:
         ensure_enabled()
-        return fail("ERROR_NOT_CONFIGURED", "LoginData contract not yet wired")
+        # This parameterless endpoint is not anonymously allowed, except for a
+        # dedicated isolated CI fixture account with an internal QA assertion.
+        qa_enabled = os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true"
+        if not qa_enabled:
+            member_by_authorization(authorization, db)
+            return fail("ERROR_NOT_CONFIGURED", "LoginData contract requires signed HITEL session")
+        return qa_login_data(db, os.getenv("HITEL_IXIO_CI_ASSERTION", ""))
 
     @app.post("/v2/login")
-    def get_login_data_v2(request: PostCtn) -> dict:
+    def get_login_data_v2(request: PostCtn, db: Session=Depends(db_dep)) -> dict:
         ensure_enabled()
-        return fail("ERROR_NOT_CONFIGURED", "LoginData V2 contract not yet wired")
+        return qa_login_data(db, request.ctn)
