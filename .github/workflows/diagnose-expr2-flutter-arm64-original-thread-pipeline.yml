@@ -1,0 +1,57 @@
+name: Diagnose immutable original Flutter Expression2 ARM64 first frame from live thread stacks
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/diagnose-expr2-flutter-arm64-original-thread-pipeline.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-sdk-actual-device-worker-stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43873205262
+          name: hitel-avatar-chat-flutter-3419-official-arm64-splitFilters-experimental-apk
+          github-token: ${{ github.token }}
+          path: reports/hitel-avatar-chat-flutter-3419-official-arm64-split/
+      - name: Assert original SDK and Flutter engine are both ARM64 before execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=reports/hitel-avatar-chat-flutter-3419-official-arm64-split/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter3419_Official_Arm64Split_Debug.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          unzip -Z1 "$APK" | grep -Fx lib/arm64-v8a/libflutter.so
+          unzip -Z1 "$APK" | grep -Fx lib/arm64-v8a/libexpr2jni.so
+          unzip -Z1 "$APK" | grep -Fx lib/arm64-v8a/libLiteRt.so
+      - name: Enable KVM acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Launch exact original APK and capture Java and native worker thread stacks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash tools/bithuman_deep/inspect_original_flutter_sdk_threads_android14.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-expression2-flutter-arm64-worker-threads-and-firstframe-proofs
+          path: reports/expr2-flutter-arm64-thread-diagnostic/
+          retention-days: 30
