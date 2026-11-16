@@ -148,6 +148,19 @@ def inspect_dex(name,b,out):
                         if target_idx<len(methods):
                             td,tn=methods[target_idx]
                             mod=group(td)
+                            if (desc in (
+                              "Lcom/lguplus/aicallagent/service/FCMService;",
+                              "Lcom/lguplus/aicallagent/domain/push/usecase/RegisterPushTokenUseCaseImpl;",
+                              "Lcom/lguplus/aicallagent/data/push/PushTokenRepositoryImpl;"
+                            ) or desc.startswith("Lcom/lguplus/aicallagent/service/FCMService$")):
+                                if any(t in (td+"/"+tn).lower() for t in (
+                                   "push","fcm","messaging","token","notification","registration",
+                                   "auth","repository","onmessagereceived","onnewtoken","summary")):
+                                    if len(out["firebase_push_and_own_backend_callgraph"])<180:
+                                        out["firebase_push_and_own_backend_callgraph"].append({
+                                          "caller_class":desc,"caller_method":caller,
+                                          "callee_class":td,"callee_method":tn,"dex":name
+                                        })
                             if mod:
                                 out["app_direct_invoke_counts"][mod]+=1
                                 if len(out["app_direct_invoke_examples"][mod])<110:
@@ -175,6 +188,7 @@ def main():
          "app_direct_invoke_counts":Counter(),
          "app_direct_invoke_examples":defaultdict(list),
          "app_classes_extending_firebase":[],
+         "firebase_push_and_own_backend_callgraph":[],
          "dex_inventory":[],
          "resource_key_presence":{},
          "firebase_manifest_components":[],
@@ -207,6 +221,7 @@ def main():
         "resource_key_presence":out["resource_key_presence"],
         "firebase_manifest_components":out["firebase_manifest_components"],
         "app_classes_extending_firebase":out["app_classes_extending_firebase"][:20],
+        "firebase_push_and_own_backend_callgraph":out["firebase_push_and_own_backend_callgraph"][:120],
         "app_direct_invoke_examples":{k:v[:16] for k,v in out["app_direct_invoke_examples"].items()},
     },ensure_ascii=False),flush=True)
 if __name__=="__main__":main()
