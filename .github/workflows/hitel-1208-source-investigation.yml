@@ -1,0 +1,104 @@
+name: HITEL 1208 Unresolved Source Investigation
+
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - .github/workflows/hitel-1208-source-investigation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: hitel-1208-source-investigation
+  cancel-in-progress: false
+
+jobs:
+  investigate:
+    name: Inspect documents batch ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [0,1,2,3,4,5,6,7,8,9,10,11]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ypt-study-group-learning-nav-20261108
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Investigate saved document links and public book catalogs
+        run: |
+          python tools/education_catalog_v3/investigate_source_links.py \
+            --shard '${{ matrix.shard }}' --total-shards 12 --workers 2 \
+            --output investigation-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-1208-source-batch-${{ matrix.shard }}
+          path: investigation-results/
+          retention-days: 14
+          if-no-files-found: warn
+
+  consolidate:
+    name: Validate and archive all 1208 investigation records
+    runs-on: ubuntu-latest
+    needs: investigate
+    if: always()
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ypt-study-group-learning-nav-20261108
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hitel-1208-source-batch-*
+          path: investigation-collected
+          merge-multiple: true
+      - name: Verify 1208 distinct IDs and summarize source accessibility
+        run: |
+          python - <<'PY'
+          import collections,json,pathlib,sys
+          source=pathlib.Path('tools/education_catalog_v3/investigation-1208-ids.txt').read_text().splitlines()
+          target=pathlib.Path('tools/education_catalog_v3/source-investigation-results')
+          target.mkdir(parents=True,exist_ok=True)
+          records=[]
+          for p in sorted(pathlib.Path('investigation-collected').glob('shard-??.jsonl')):
+              rows=[json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+              records.extend(rows)
+              (target/p.name).write_text(p.read_text(),encoding='utf8')
+          expected=set(source)
+          seen=[r['document_id'] for r in records]
+          unique=len(set(seen))
+          summary={
+            'target_count':len(source),'researched_count':len(records),
+            'unique_researched_count':unique,
+            'missing_ids':sorted(expected-set(seen)),
+            'unexpected_ids':sorted(set(seen)-expected),
+            'source_status':dict(collections.Counter(r['source_page_status'] for r in records)),
+            'bibliography_lookup_status':dict(collections.Counter(r['publisher_search_status'] for r in records)),
+            'candidate_records':sum(bool(r['external_candidates']) for r in records),
+            'exact_original_document_matches':0,
+            'caveat':'External title similarities and ISBN are candidate data only. Original Scribd content not verified.'
+          }
+          (target/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf8')
+          print('FINAL_REPORT:',json.dumps(summary,ensure_ascii=False))
+          if len(records)!=1208 or unique!=1208 or summary['missing_ids'] or summary['unexpected_ids']:
+              print('PARTIAL: one or more batches incomplete; retaining available evidence',file=sys.stderr)
+          PY
+      - name: Commit checked results to versioned HITEL research folder
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/education_catalog_v3/source-investigation-results/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Archive 1208-source live URL and public bibliography research'
+            git push origin HEAD:feature/ypt-study-group-learning-nav-20261108
+          fi
