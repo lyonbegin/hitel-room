@@ -114,6 +114,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          grep -qx "INSTALL=PASS" ixio-main-context-bridge-results/status.env
+          grep -qx "FIREBASE_BRIDGE=SUCCESS" ixio-main-context-bridge-results/status.env
+          grep -qx "PROCESS_16S=ALIVE" ixio-main-context-bridge-results/status.env
+          grep -qx "APP_CRASH=NONE_OBSERVED" ixio-main-context-bridge-results/status.env
           mkdir -p ixio-main-installable
           cp .ixio-bridge-fix/base.apk ixio-main-installable/base.apk
           for n in 0 1 2; do
