@@ -1,0 +1,127 @@
+name: Acquire untouched original bitHuman Flutter app and both plugins source for inspection
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/acquire-pristine-bithuman-flutter-app-plugin-sources.yml
+permissions:
+  contents: write
+jobs:
+  original-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Fetch ORIGINAL Flutter avatar_chat and both matching plugin tags, no modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=vendor/bithuman-pristine
+          test ! -e "$ROOT" || { echo "Pristine originals already exist - refuse to overwrite"; exit 2; }
+          mkdir -p "$ROOT" reports/bithuman-pristine-audit
+          git -c http.version=HTTP/1.1 clone --depth 1 --single-branch --branch main \
+            https://github.com/bithuman-product/bithuman-examples.git \
+            "$RUNNER_TEMP/bh-examples"
+          SHA="$(git -C "$RUNNER_TEMP/bh-examples" rev-parse HEAD)"
+          test "$SHA" = fea69e72515af7d05f384a9d2147ac0cc181b411
+          mkdir -p "$ROOT/github-examples"
+          git -C "$RUNNER_TEMP/bh-examples" archive HEAD app/avatar_chat \
+            | tar -xf - -C "$ROOT/github-examples"
+          echo "$SHA" > reports/bithuman-pristine-audit/examples-commit.txt
+          for TAG in flutter-plugin-v2.6.37 flutter-plugin-v2.6.40; do
+            git -c http.version=HTTP/1.1 clone --depth 1 --single-branch --branch "$TAG" \
+              https://gitlab.com/bithuman/sdk/homebrew-bithuman.git \
+              "$RUNNER_TEMP/bh-$TAG"
+            PSHA="$(git -C "$RUNNER_TEMP/bh-$TAG" rev-parse HEAD)"
+            printf '%s %s\n' "$TAG" "$PSHA" >> reports/bithuman-pristine-audit/plugin-commits.txt
+            if test "$TAG" = flutter-plugin-v2.6.40; then
+              test "$PSHA" = 9417e7c2d44dd4437bf1129cbc3f54921e1d7234
+            fi
+            mkdir -p "$ROOT/$TAG"
+            git -C "$RUNNER_TEMP/bh-$TAG" archive HEAD packages/flutter-plugin \
+              | tar -xf - -C "$ROOT/$TAG"
+          done
+          echo BH_OFFICIAL_FLUTTER_ALL_PRISTINE_SOURCE_CLONE_PASS
+      - name: Compare file-by-file source identity and search actual original GPU SDK wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,hashlib,json,re,subprocess
+          root=Path('vendor/bithuman-pristine')
+          originals={
+            'avatar_chat':(Path(os.environ['RUNNER_TEMP'])/'bh-examples','app/avatar_chat',root/'github-examples/app/avatar_chat'),
+            'plugin_2_6_37':(Path(os.environ['RUNNER_TEMP'])/'bh-flutter-plugin-v2.6.37','packages/flutter-plugin',root/'flutter-plugin-v2.6.37/packages/flutter-plugin'),
+            'plugin_2_6_40':(Path(os.environ['RUNNER_TEMP'])/'bh-flutter-plugin-v2.6.40','packages/flutter-plugin',root/'flutter-plugin-v2.6.40/packages/flutter-plugin')
+          }
+          assert 'ref: flutter-plugin-v2.6.37' in (root/'github-examples/app/avatar_chat/pubspec.yaml').read_text()
+          manifest={}; matches={}
+          pattern=re.compile(r'(?i)(Expression2Options|Expression2Avatar|Routing[.]|GPU_DECODER|HTP_DECODER|Accelerator[.]|qnnOptions|backend_type|QNN_OPTIONS|SOC_MODEL|SOC_MANUFACTURER|SUPPORTED_ABIS|Build[.]HARDWARE|vulkan|opengl|adreno|hexagon|gpu_delegate|libQnn|useHardwareBuffers|HardwareBuffer|SurfaceProducer|TextureRegistry|Impeller|lockHardwareCanvas|BH_ENGINE|ai[.]bithuman:expression2-android|gpu|htp|NPU)')
+          for label,(original,prefix,copied) in originals.items():
+            tracked=subprocess.check_output(['git','-C',str(original),'ls-files','-z','--',prefix]).decode().split('\0')
+            tracked=[x for x in tracked if x]
+            shas={};hits=[]
+            for path in tracked:
+              relative=Path(path).relative_to(prefix)
+              source=original/path;target=copied/relative
+              if source.is_symlink():
+                assert target.is_symlink() and source.readlink()==target.readlink(),path
+                shas[str(relative)]=hashlib.sha256(str(source.readlink()).encode()).hexdigest()
+              else:
+                assert target.is_file() and source.read_bytes()==target.read_bytes(),path
+                shas[str(relative)]=hashlib.sha256(target.read_bytes()).hexdigest()
+                if target.stat().st_size<=1000000 and target.suffix not in {'.png','.jpg','.jpeg','.pdf','.ttf','.woff','.jar','.zip','.gif'}:
+                  try: lines=target.read_text().splitlines()
+                  except UnicodeDecodeError: lines=[]
+                  for idx,line in enumerate(lines,1):
+                    if pattern.search(line):
+                      hits.append({'file':str(relative),'line':idx,'text':line.strip()[:400]})
+            assert len(tracked)>30,label
+            manifest[label]={'original_git_tracked_files':len(tracked),'verified_exact_sha256':shas}
+            matches[label]=hits
+            print('ORIGINAL_SOURCE_BYTE_IDENTICAL_PASS',label,len(tracked),'matching_lines',len(hits))
+          report=Path('reports/bithuman-pristine-audit')
+          (report/'verified-original-file-sha256.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          (report/'source-gpu-and-sdk-matches.json').write_text(json.dumps(matches,ensure_ascii=False,indent=2)+'\n')
+          with (report/'actual-original-source-analysis.md').open('w') as f:
+            f.write('# Actual unmodified bitHuman Flutter app and plugins source audit\n\n')
+            f.write('Official app source: https://github.com/bithuman-product/bithuman-examples/tree/main/app/avatar_chat\n')
+            f.write('Official plugin source: https://gitlab.com/bithuman/sdk/homebrew-bithuman\n')
+            f.write('App commits: '+(report/'examples-commit.txt').read_text()+'\n')
+            f.write('Flutter plugin tag commits:\n'+(report/'plugin-commits.txt').read_text()+'\n')
+            f.write('Original app requests flutter-plugin-v2.6.37; v2.6.40 is separate comparison.\n')
+            f.write('Every tracked file was compared byte-for-byte with the original checkout. No replacement GPU logic, SDK patch, key or APK added to these source trees.\n\n')
+            for label,hits in matches.items():
+              f.write('## '+label+' ('+str(len(hits))+' matching lines)\n\n')
+              chosen=[h for h in hits if
+                h['file'].endswith(('BithumanPlugin.kt','AvatarEngine.kt','build.gradle','pubspec.yaml','main.dart','MainActivity.kt')) or
+                re.search(r'Expression2Options|GPU_DECODER|HTP_DECODER|qnnOptions|backend_type|QNN_OPTIONS|SOC_MODEL|SOC_MANUFACTURER|libQnn|useHardwareBuffers',h['text'],re.I)]
+              for h in chosen[:250]:
+                f.write('- '+h['file']+':'+str(h['line'])+' | '+h['text'].replace(chr(96),chr(39))+'\n')
+              f.write('\n')
+            f.write('Interpretation: BH_ENGINE in the original app selects Expression2 versus Essence2, not GPU versus HTP. Flutter display GPU HardwareBuffer and original AI model inference backend must be considered separately. Source grep absence cannot prove no internal SDK automatic routing.\n')
+          print('BH_PRISTINE_FLUTTER_ORIGINAL_SOURCE_EXHAUSTIVE_SEARCH_PASS')
+          PY
+      - name: Push untouched original source snapshots and search report to existing branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "hitel-original-source-audit"
+          git config user.email "hitel-original-source-audit@users.noreply.github.com"
+          git add -f vendor/bithuman-pristine
+          git add -f reports/bithuman-pristine-audit
+          git diff --cached --stat | tail -10
+          test "$(git diff --cached --name-only | wc -l)" -gt 100
+          git commit -m "vendor: preserve untouched bitHuman official avatar_chat and Flutter plugins 2.6.37 2.6.40"
+          git push origin HEAD:feature/bithuman-expression2-imx-sdk-audit-20261112
+          echo BH_ORIGINAL_UNMODIFIED_FLUTTER_APP_PLUGIN_SOURCE_COMMIT_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bithuman-original-pristine-flutter-source-audit
+          path: reports/bithuman-pristine-audit
+          retention-days: 30
