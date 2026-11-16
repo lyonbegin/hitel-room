@@ -50,7 +50,7 @@ jobs:
           disk-size: 8192M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
           script: |
-            set -euo pipefail
+            set -eu
             OUT="$GITHUB_WORKSPACE/reports/original-flutter-android14-install"
             APK="$GITHUB_WORKSPACE/reports/hitel-avatar-chat-public-https-auto/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_AUTO_Debug.apk"
             PKG=ai.hitel.avatar_chat.localauto
