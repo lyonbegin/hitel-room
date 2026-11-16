@@ -96,7 +96,7 @@ def main() -> None:
                          n.attrib.get("text","").strip()=="통화 녹음")]
             choices.sort(key=lambda n:0 if n.get("content-desc","")=="통화 녹음" else 1)
             for node in choices:
-                m=re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
+                m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
                                node.get("bounds",""))
                 if not m:continue
                 x1,y1,x2,y2=map(int,m.groups())
