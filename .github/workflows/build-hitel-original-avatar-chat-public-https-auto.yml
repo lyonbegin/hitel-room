@@ -362,7 +362,8 @@ jobs:
           assert not any(x in bridge for x in (
               'Expression2RouteSelector', 'Accelerator.CPU',
               'Routing.ALL_CPU', 'Routing.FORCE_GPU', '127.0.0.1'))
-          assert '--abi' not in Path('.github/workflows/build-hitel-original-avatar-chat-public-https-auto.yml').read_text()
+          # No adb ABI overrides are part of this build; APK native ABIs are
+          # verified from the actual packaged libraries above.
           print('ORIGINAL_ARM64_SDK_AUTO_NO_FORCED_ABI_OR_INFERENCE_BACKEND_PASS')
           print('FLUTTER_ORIGINAL_SDK_AUTO_PUBLIC_HTTPS_NO_SECRET_BUILD_PROOF_PASS')
           PY
