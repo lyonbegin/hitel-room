@@ -1,0 +1,49 @@
+name: Inspect REAL Android Flutter install failure evidence 43843304523
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/inspect-hitel-avatar-install-failure-43843304523.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-runtime-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43843304523
+          name: hitel-original-avatar-chat-local-original-sdk-AUTO-debug-apk
+          github-token: ${{ github.token }}
+          path: build/hitel-emulator-failure
+      - name: Analyze actual Android crash log and boot status
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=build/hitel-emulator-failure/emulator
+          test -s "$E/full.logcat"
+          echo '===== ACTUAL_EMULATOR_RUNTIME_RESULT ====='
+          cat "$E/RUNTIME_RESULT.json"
+          echo '===== SDK_FILTERED_LOG ====='
+          tail -n 180 "$E/filtered.logcat"
+          echo '===== FATAL_ANDROID_RUNTIME STACKTRACES ====='
+          python3 - "$E/full.logcat" <<'PY'
+          import sys
+          from pathlib import Path
+          lines=Path(sys.argv[1]).read_text(errors='replace').splitlines()
+          indices=[i for i,l in enumerate(lines) if 'FATAL EXCEPTION' in l or 'Cleartext HTTP traffic' in l or 'refusing to serve' in l or 'Process: ai.hitel.avatar_chat.localauto' in l or 'BH_EXPR2_LOCAL_TEST' in l]
+          print('NUM_SUSPECT_LOG_LINES',len(indices))
+          for i in indices[:14]:
+            print('------ actual full.logcat lines',i+1,'through',min(i+32,len(lines)))
+            print('\n'.join(lines[max(0,i-3):min(len(lines),i+32)]))
+          PY
+          echo '===== APP_RUNTIME_BOOT_STATUS ====='
+          cat "$E/boot-status.txt" || true
+          echo '===== ACTUAL_START_PKG_PID ====='
+          cat "$E/pid.txt" || true
+          echo '===== ABIS ====='
+          cat "$E/abis.txt" "$E/native-bridge.txt"
