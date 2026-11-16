@@ -47,6 +47,17 @@ jobs:
           fi
           APP="$RUNNER_TEMP/bithuman-avatar-chat-original-sdk"
           cp -a "$APP_SOURCE" "$APP"
+          # Build tools only: Flutter stable requires Gradle >=9.3.1;
+          # original vendor app pins Gradle 9.1.0. Never edit vendored source.
+          python3 - "$APP" <<'PY_GRADLE'
+          from pathlib import Path
+          import sys
+          w=Path(sys.argv[1])/"android/gradle/wrapper/gradle-wrapper.properties"
+          x=w.read_text()
+          assert x.count('gradle-9.1.0-all.zip')==1
+          w.write_text(x.replace('gradle-9.1.0-all.zip','gradle-9.3.1-all.zip'))
+          print("GRADLE_BUILD_WRAPPER_TEMPORARY_COMPATIBILITY_UPDATE_9.3.1")
+          PY_GRADLE
           PLUGIN="$RUNNER_TEMP/bithuman-flutter-plugin-unmodified"
           cp -a "$PLUGIN_SOURCE" "$PLUGIN"
           test "$(sha256sum "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt" | cut -d' ' -f1)" = \
