@@ -1,0 +1,52 @@
+name: Diagnose original Flutter 3.41.9 ARM64 split first Texture frame after SDK create
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/diagnose-flutter3419-arm64split-first-frame.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyze-existing-emulator-artifact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43873832592
+          name: flutter3419-original-arm64split-real-android14-install-and-runtime-proof
+          github-token: ${{ github.token }}
+          path: evidence/
+      - name: Extract exact original Flutter play and SDK output progression, no source edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -lah evidence
+          echo '===== ORIGINAL FIRST RUN RESULT ====='
+          cat evidence/result.json
+          echo '===== FLUTTER DART BOOT TRACE ====='
+          cat evidence/flutter-boot.txt || true
+          echo '===== SDK/PLAYER/FRAMES/ALL WARNINGS ====='
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          lines=Path('evidence/logcat-full.txt').read_text(errors='replace').splitlines()
+          patterns=['BH_EXPR2_LOCAL_TEST','BithumanPlugin','bhdart','hitel:',
+                    'first frame','texture','avatar ready','player','bh-playout',
+                    'pushAudio','render','playout','egl','vulkan','Impeller',
+                    'Looper','skipped','timeout','StrictMode','draw','frame','ANR',
+                    'Fatal','fatal','Exception','Permission denied','denied','AudioTrack']
+          matches=[i for i,line in enumerate(lines) if any(p.lower() in line.lower() for p in patterns)]
+          print('logcat lines',len(lines),'matches',len(matches))
+          for i in matches[-270:]:
+              line=lines[i]
+              line=re.sub(r'htdemo[.]v1[.][a-zA-Z0-9_-]+[.][a-zA-Z0-9_-]+','[HITEL_SHORTLIVED_TOKEN]',line)
+              print(f'[{i+1}] {line[:1300]}')
+          PY
+          echo '===== APP PID ====='
+          cat evidence/pid.txt || true
+          echo '===== ANDROID PACKAGE PRIMARY ABI ====='
+          grep -E 'primaryCpuAbi|secondaryCpuAbi|nativeLibraryDir|use32bitAbi' evidence/installed-package.txt | head -30 || true
