@@ -43,7 +43,7 @@ jobs:
           app_pid='4392'
           import re as re2
           app_lines=[(i,line) for i,line in enumerate(lines)
-                     if re2.search(r'\\(\\s*'+app_pid+r'\\)',line)]
+                     if re2.search(r'\(\s*'+app_pid+r'\)',line)]
           print('APP_PROCESS_PID',app_pid,'MATCHES',len(app_lines))
           for i,line in app_lines:
               if any(p.lower() in line.lower() for p in patterns) or re.search(r'/(?:bhav|expression2|BithumanPlugin|AudioTrack|Flutter)',line):
