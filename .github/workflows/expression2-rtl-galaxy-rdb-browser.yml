@@ -28,7 +28,7 @@ jobs:
       DISPLAY: ":99"
       RTL_VIEWER_EMAIL: ${{ secrets.RTL_VIEWER_EMAIL }}
       RUN_MODE: ${{ github.event_name == 'push' && 'preflight' || inputs.mode }}
-      RTL_APK: ${{ runner.temp }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
+      RTL_APK: ${{ github.workspace }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,13 +48,13 @@ jobs:
           repository: lyonbegin/hitel-room
           run-id: 43961847988
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/rtl-apk
+          path: ${{ github.workspace }}/rtl-apk
       - name: Check original full-flow APK byte identity before installation
         if: env.RUN_MODE == 'remote'
         shell: bash
         run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP/rtl-apk"
+          cd "$GITHUB_WORKSPACE/rtl-apk"
           echo 'dd08b098dee26477d12489f872482425d4a790766fa3cd2c56d6119253f39ba4  pristine-original-plugin2637-sdk061-arm64.apk' | sha256sum --check --status
           echo ORIGINAL_SDK061_FULLOWFLOW_APK_SHA256_PASS
       - name: Install Ubuntu virtual desktop, noVNC, Linux ADB and Playwright
