@@ -1,0 +1,59 @@
+name: Install Flutter 3.41.9 no app ABI filters on established Android14 x86_64 emulator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/install-flutter3419-no-app-abi-android14-existing-emulator.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  real-android14-install-and-run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43871342475
+          name: hitel-avatar-chat-flutter-3-41-9-no-app-abiFilters-experimental-apk
+          github-token: ${{ github.token }}
+          path: reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/
+      - name: Verify original model, native ARM64 SDK, and Flutter Android engine packaged
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=reports/hitel-avatar-chat-flutter-3-41-9-no-app-abi/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter_3_41_9_NoAppAbiFilters_Debug.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          unzip -t "$APK" | tail -n1
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libflutter.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libexpr2jni.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libLiteRt.so'
+          echo 'ORIGINAL_FLUTTER_3419_NO_APP_ABIFILTER_APK_VALID'
+      - name: Enable KVM for established Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and execute EXACT APK on Android 14 x86_64 NativeBridge, no ABI overrides
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash tools/bithuman_deep/test_flutter_3419_no_app_abifilters_existing_emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flutter3419-app-abi-removed-real-android14-install-and-runtime-proof
+          path: reports/flutter3419-no-app-abi-android14-runtime/
+          retention-days: 30
