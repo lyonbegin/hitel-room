@@ -1,0 +1,145 @@
+name: HITEL IXIO G2 Permanent HTTPS API Deployment
+on:
+  workflow_dispatch:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - '.github/workflows/ixio-g2-https-deploy.yml'
+      - 'deploy/g2/**'
+      - 'services/hitel-api/**'
+permissions:
+  contents: read
+concurrency:
+  group: hitel-ixio-g2-public-api-deploy
+  cancel-in-progress: false
+jobs:
+  preflight:
+    name: G2 endpoint and SSH deployment prerequisites
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check actual G2 provisioning values (never print SSH secret contents)
+        env:
+          G2_HOST: ${{ secrets.HITEL_G2_SSH_HOST }}
+          G2_PRIVATE_KEY: ${{ secrets.HITEL_G2_SSH_PRIVATE_KEY }}
+          G2_KNOWN_HOSTS: ${{ secrets.HITEL_G2_SSH_KNOWN_HOSTS }}
+          G2_DOMAIN: ${{ vars.HITEL_G2_API_DOMAIN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$G2_HOST" ]] || missing+=(HITEL_G2_SSH_HOST)
+          [[ -n "$G2_PRIVATE_KEY" ]] || missing+=(HITEL_G2_SSH_PRIVATE_KEY)
+          [[ -n "$G2_KNOWN_HOSTS" ]] || missing+=(HITEL_G2_SSH_KNOWN_HOSTS)
+          [[ -n "$G2_DOMAIN" ]] || missing+=(HITEL_G2_API_DOMAIN)
+          if (("${#missing[@]}")); then
+            printf 'G2_DEPLOY_STATUS=BLOCKED_MISSING_G2_CONNECTION\n' | tee -a "$GITHUB_STEP_SUMMARY"
+            printf 'Required GitHub Actions secrets/variable names: %s\n' "${missing[*]}" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 2
+          fi
+          python3 - <<'PY'
+          import os,re
+          domain=os.environ["G2_DOMAIN"].strip().lower()
+          host=os.environ["G2_HOST"].strip()
+          if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,250}[a-z0-9])?",domain) or "." not in domain:
+              raise SystemExit("HITEL_G2_API_DOMAIN must be a public DNS hostname, without scheme/path/port")
+          if any(c in host for c in " /\\\t\n\r'\";|&$()"):
+              raise SystemExit("HITEL_G2_SSH_HOST must be a clean IP address or DNS hostname")
+          print("G2_CONNECTION_SETTINGS_PRESENT=YES")
+          PY
+  tests:
+    name: Validate HITEL compatibility API and container configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run API contract unit tests
+        run: |
+          python -m pip install -r services/hitel-api/requirements.txt
+          PYTHONPATH=services/hitel-api pytest -q services/hitel-api/tests/test_ixio_compat.py services/hitel-api/tests/test_api.py
+      - name: Validate G2 docker deployment composition
+        env:
+          HITEL_API_DOMAIN: localhost.invalid
+          HITEL_JWT_SECRET: local-build-validation-only-do-not-use-for-deployment-123456789
+        run: |
+          docker compose --env-file /dev/null -f deploy/g2/docker-compose.yml config --quiet
+          echo 'G2_DOCKER_COMPOSE_CONFIG_VALID=YES'
+  deploy:
+    name: Install FastAPI + automatic HTTPS on reachable G2 host
+    needs: [preflight, tests]
+    runs-on: ubuntu-latest
+    environment:
+      name: hitel-g2-api
+    steps:
+      - name: Provision trusted SSH connection
+        env:
+          G2_PRIVATE_KEY: ${{ secrets.HITEL_G2_SSH_PRIVATE_KEY }}
+          G2_KNOWN_HOSTS: ${{ secrets.HITEL_G2_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hitel-g2-ssh"
+          chmod 700 "$RUNNER_TEMP/hitel-g2-ssh"
+          python3 - <<'PY'
+          import os,pathlib
+          folder=pathlib.Path(os.environ["RUNNER_TEMP"])/"hitel-g2-ssh"
+          for name,value in (("id_ed25519",os.environ["G2_PRIVATE_KEY"]),("known_hosts",os.environ["G2_KNOWN_HOSTS"])):
+              f=folder/name
+              f.write_text(value.rstrip("\n")+"\n",encoding="utf-8")
+              f.chmod(0o600)
+          PY
+      - name: Install/upgrade G2 persistent API from fixed GitHub commit
+        shell: bash
+        env:
+          G2_HOST: ${{ secrets.HITEL_G2_SSH_HOST }}
+          G2_USER: ${{ vars.HITEL_G2_SSH_USER }}
+          G2_DOMAIN: ${{ vars.HITEL_G2_API_DOMAIN }}
+        run: |
+          set -euo pipefail
+          user="${G2_USER:-ubuntu}"
+          ssh -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=20 \
+            -i "$RUNNER_TEMP/hitel-g2-ssh/id_ed25519" \
+            -o UserKnownHostsFile="$RUNNER_TEMP/hitel-g2-ssh/known_hosts" \
+            "$user@$G2_HOST" \
+            "HITEL_COMMIT='$GITHUB_SHA' HITEL_DOMAIN='$G2_DOMAIN' bash -se" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/hitel-ixio-g2"
+          repo="$base/repository"
+          mkdir -p "$base"
+          if [[ ! -d "$repo/.git" ]]; then
+            git clone --depth 1 --branch experiment/ixio-hitel-backend-android-20261116 \
+              https://github.com/lyonbegin/hitel-room.git "$repo"
+          fi
+          git -C "$repo" fetch --depth 1 origin experiment/ixio-hitel-backend-android-20261116
+          git -C "$repo" checkout --detach "$HITEL_COMMIT"
+          umask 077
+          config="$base/hitel.env"
+          if [[ ! -f "$config" ]]; then
+            printf 'HITEL_JWT_SECRET=%s\n' "$(openssl rand -hex 48)" > "$config"
+          fi
+          if grep -q '^HITEL_API_DOMAIN=' "$config"; then
+            sed -i "s/^HITEL_API_DOMAIN=.*/HITEL_API_DOMAIN=$HITEL_DOMAIN/" "$config"
+          else
+            printf 'HITEL_API_DOMAIN=%s\n' "$HITEL_DOMAIN" >> "$config"
+          fi
+          docker compose --env-file "$config" -f "$repo/deploy/g2/docker-compose.yml" \
+            up --detach --build --remove-orphans --wait
+          echo 'G2_DOCKER_API_AND_HTTPS_STACK_STARTED=YES'
+          REMOTE
+      - name: Verify G2 HTTPS from external GitHub-hosted runner
+        env:
+          G2_DOMAIN: ${{ vars.HITEL_G2_API_DOMAIN }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 12 --retry-delay 5 \
+            --retry-all-errors --max-time 15 "https://${G2_DOMAIN}/health" \
+            -o "$RUNNER_TEMP/hitel-g2-health.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"hitel-g2-health.json"
+          d=json.loads(p.read_text(encoding="utf-8"))
+          if not isinstance(d,dict) or not d:
+              raise SystemExit("Empty G2 health payload")
+          print("PUBLIC_G2_API_HEALTH_HTTPS_200=YES")
+          PY
+          echo "PUBLIC_G2_API_URL=https://${G2_DOMAIN}/" >> "$GITHUB_STEP_SUMMARY"
