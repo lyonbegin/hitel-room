@@ -6,6 +6,7 @@ on:
       - '.github/workflows/ixio-hitel-api-apk-emulator.yml'
       - 'tools/ixio/ixio_route_to_hitel_ci.py'
       - 'tools/ixio/ixio-hitel-emulator-onboarding.py'
+      - 'tools/ixio/ixio-emulator-gsm-smoke.py'
       - 'services/hitel-api/**'
   workflow_dispatch:
 permissions:
