@@ -222,3 +222,13 @@ def create_interaction(body: InteractionInput, member: Member = Depends(member_f
 def list_interactions(member: Member = Depends(member_from_token), db: Session = Depends(session)) -> dict:
     records = db.execute(select(Interaction).where(Interaction.owner_id == member.id).order_by(Interaction.created_at.desc()).limit(50)).scalars().all()
     return {"interactions": [{"id": x.id, "status": x.status, "channel": x.channel, "purpose": x.purpose, "target": x.target} for x in records]}
+
+
+# IXIO-wire-shape compatibility is isolated from the existing HITEL API.
+# Its routes remain disabled until HITEL_IXIO_COMPAT_ENABLED=true is configured.
+from app.ixio_compat import install_compat
+
+install_compat(
+    app=app, base=Base, member_class=Member, db_dep=session,
+    member_dep=member_from_token, secret=SECRET, clock=utcnow,
+)
