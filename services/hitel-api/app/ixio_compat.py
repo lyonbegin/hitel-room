@@ -92,6 +92,61 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
     def fail(code: str, message: str) -> dict[str, Any]:
         return {"code": code, "message": message, "data": None}
 
+    # Original IXIO initialization calls these three Retrofit endpoints before
+    # enrollment. Responses follow the original recovered serialized DTO names.
+    # These deliberately return NO entitlement, no carrier services, and no
+    # proprietary assets. This is only for the isolated emulator QA fixture.
+    def ensure_qa_fixture() -> None:
+        ensure_enabled()
+        if os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") != "true":
+            raise HTTPException(404, "Synthetic IXIO initialization is disabled")
+
+    @app.get("/config")
+    def qa_app_config(os: str = "") -> dict:
+        ensure_qa_fixture()
+        # Exact Config DTO properties verified in the original APK. Nullable
+        # information not actually operated by HITEL remains null rather than
+        # offering fabricated subscriber capabilities or remote vendor URLs.
+        return success({
+            "mVoIPurl_aos": None,
+            "mVoIPurl_aos_internal": None,
+            "mVoIPurl_aos_roaming": None,
+            "roaming_server_port": None,
+            "vpDetection": None,
+            "privacyUrl": None,
+            "openLicenseUrl": None,
+            "promotionDueDate": None,
+            "recNoticeDefault": None,
+            "recNoticeSetting": None,
+            "recNotice": None,
+            "isGoogleOneOpened": False,
+            "isSignupBlocked": False,
+            "signupBlockedMessage": None,
+            "signupBlockedRoamingNotice": None,
+            "recorderLatestVersion": None,
+            "recorderForceUpdate": False,
+            "vasServices": None,
+            "privacyPolicyUrl": None,
+            "homeWifiCallGuideUrl": None,
+            "homeWifiCallHelpUrl": None,
+            "unleashUrl": None,
+        })
+
+    @app.get("/mvoip-onoff/app")
+    def qa_mvoip_join_state() -> dict:
+        ensure_qa_fixture()
+        # @SerialName("isMvoip") in original MVoipJoinData.
+        return success({"isMvoip": False})
+
+    @app.get("/v1/roaming-call/countries")
+    def qa_roaming_able_countries(countryCode: str = "",
+                                   includeUnopened: bool = False,
+                                   withRecordingAllowed: bool = False) -> dict:
+        ensure_qa_fixture()
+        # Original RoamingAbleCountriesInfo: List<RoamingAbleCountry>.
+        # No fabricated country support or call interception.
+        return success({"countries": []})
+
     def issue_jwt(member_id: str, kind: str, duration: timedelta) -> str:
         now = clock()
         issuer = "hitel-api" if kind == "access" else f"hitel-ixio-{kind}"
