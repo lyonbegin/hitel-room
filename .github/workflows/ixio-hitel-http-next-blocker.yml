@@ -1,0 +1,56 @@
+name: IXIO HITEL Actual Device HTTP and Next-Blocker Diagnosis
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: ['.github/workflows/ixio-hitel-http-next-blocker.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  interpret:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve actual second Android14 app run evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          mkdir -p .ixio-ci-evidence
+          gh run download 43844637010 --repo "$GH_REPO" \
+            --name ixio-hitel-self-owned-local-api-emulator-evidence \
+            --dir .ixio-ci-evidence
+          test -s .ixio-ci-evidence/ixio-hitel-android-results/server-access.log
+      - name: Report only HTTP path/status and app failure signal, no personal data
+        run: |
+          python3 - <<'PY'
+          import re,json
+          from pathlib import Path
+          root=Path('.ixio-ci-evidence')
+          p=root/'ixio-hitel-android-results/server-access.log'
+          txt=p.read_text(errors='replace')
+          print('### Server HTTP request line, no headers/bodies')
+          for l in txt.splitlines():
+            m=re.search(r'"(GET|POST|PUT|DELETE|PATCH) ([^ ?"]+)(?:\?[^"]*)? HTTP/[0-9.]+" (\d{3})',l)
+            if m:print('HTTP_VERIFIED',m.group(1),m.group(2),m.group(3))
+            if any(x in l for x in ('Traceback','ERROR','Exception','ResponseValidationError')):
+              print('SERVER_ERROR',l[:230])
+          status=root/'ixio-hitel-android-results/verification-status.json'
+          print('VERIFICATION_JSON',status.read_text()[:2300])
+          for name in ('result.json','logcat-filtered.txt','fatal-only.txt'):
+            p=root/'ixio-main-permission-to-signup-evidence'/name
+            if not p.exists():continue
+            if name=='result.json':print('ON_DEVICE_STATE',p.read_text()[:2200])
+            else:
+              lines=p.read_text(errors='replace').splitlines()
+              arr=[l for l in lines if any(t in l.lower() for t in
+                  ('http','error','401','403','404','500','service','login','auth','exception','crash','not connect','timeout'))]
+              print('APP_LOGCAT_RELEVANT',name,'LINES',len(arr))
+              for l in arr[-65:]:print('LOG',l[:240])
+          for p in sorted((root/'ixio-main-permission-to-signup-evidence').glob('stage-*-visible.txt')):
+            if 'stage-05' in p.name or 'stage-06' in p.name:
+              print('UI_LAST_STAGE',p.name,repr(p.read_text()[:1000]))
+          PY
