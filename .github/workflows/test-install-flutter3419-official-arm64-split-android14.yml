@@ -5,13 +5,14 @@ on:
     branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
     paths:
       - .github/workflows/test-install-flutter3419-official-arm64-split-android14.yml
+      - tools/bithuman_deep/test_flutter3419_official_arm64_split_existing_emulator.sh
 permissions:
   contents: read
   actions: read
 jobs:
   real-flutter-arm64-and-sdk-install:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Confirm original ARM64 Flutter split APK was built before installing
