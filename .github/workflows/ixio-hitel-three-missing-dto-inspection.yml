@@ -1,4 +1,4 @@
-name: IXIO Original Post-Auth Token Storage Contract Inspection
+name: IXIO Original MarketId Enum Contract Inspection
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -25,12 +25,7 @@ jobs:
           unzip -qq /tmp/ixio-dto/jadx.zip -d /tmp/ixio-dto/jadx
           chmod +x /tmp/ixio-dto/jadx/bin/jadx
           cat > /tmp/ixio-dto/classes.txt <<'EOF'
-          com.lguplus.aicallagent.datastore.extension.DataStoreExtensionKt
-          com.lguplus.aicallagent.datastore.DatastoreHandler
-          com.lguplus.aicallagent.network.api.ixio.IxIOMemberServiceApi
-          com.lguplus.aicallagent.model.api.dto.ixio.userservice.TokenData
-          com.lguplus.aicallagent.model.api.dto.ixio.userservice.InnerTokenData
-          com.lguplus.aicallagent.model.api.dto.ixio.userservice.LoginKt
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.MarketId
           EOF
           read_one() {
             local cl="$1" short="${1##*.}"
@@ -46,14 +41,14 @@ jobs:
           cat /tmp/ixio-dto/classes.txt | xargs -P 3 -I '{}' bash -c 'read_one "$1"' _ '{}'
           python3 - <<'PY'
           from pathlib import Path
-          import re,json
-          folder=Path('/tmp/ixio-dto/java')
-          keys=re.compile(r'(?i)@POST|@GET|@SerialName|tokenData|accessToken|refreshToken|idToken|tokenType|authCode|auth-code|saveToken|setToken|writeToken|readToken|dataStore|getDataStore|findCurrentValue|serialize|deserialize|@Body|@Query|@Header|java\\.lang\\.NullPointer|intrinsics\\.checkNotNull|LoginState|loginState|Continuation<|Common<')
-          for p in sorted(folder.glob('*.java')):
-              lines=p.read_text(errors='replace').splitlines()
-              hit=[(i+1,s.strip()[:300]) for i,s in enumerate(lines) if keys.search(s) and len(s)<950]
-              if p.name=='TokenData.java':
-                  for idx in (95,145,194,245,265):
-                      hit.append((idx,'CONSTRUCTOR_NEAR '+ ' | '.join(w.strip()[:155] for w in lines[max(0,idx-2):min(len(lines),idx+15)])))
-              print('EXACT_ORIGINAL_POSTLOGIN_CLASS',json.dumps({'class':p.stem,'lines':len(lines),'matched':hit[:130]},ensure_ascii=False))
+          p=Path('/tmp/ixio-dto/java/MarketId.java')
+          assert p.is_file(), 'MarketId exact enum source missing'
+          lines=p.read_text(errors='replace').splitlines()
+          print('ORIGINAL_MARKET_ID_TYPE_LENGTH',len(lines))
+          for i,line in enumerate(lines):
+              if any(x in line for x in ('enum MarketId', '@SerialName', ' = new MarketId', 'GOOGLE', 'ONE', 'APP', 'PLAY', 'MARKET', 'valueOf','@Metadata','getEntry','getDescriptor','valueOf','@Serializable','enum ')):
+                  print('ORIGINAL_MARKET_ID_ENUM',i+1,line.strip()[:550])
+          for i,line in enumerate(lines[:160]):
+              if i>5 and i<120 and len(line)<250:
+                  print('ORIGINAL_MARKET_ID_DETAIL',i+1,line.strip())
           PY
