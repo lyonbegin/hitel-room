@@ -39,9 +39,19 @@ jobs:
                     'pushAudio','render','playout','egl','vulkan','Impeller',
                     'Looper','skipped','timeout','StrictMode','draw','frame','ANR',
                     'Fatal','fatal','Exception','Permission denied','denied','AudioTrack']
+          # Isolate the ACTUAL app process (rather than incidental Google apps).
+          app_pid='4392'
+          import re as re2
+          app_lines=[(i,line) for i,line in enumerate(lines)
+                     if re2.search(r'\\(\\s*'+app_pid+r'\\)',line)]
+          print('APP_PROCESS_PID',app_pid,'MATCHES',len(app_lines))
+          for i,line in app_lines:
+              if any(p.lower() in line.lower() for p in patterns) or re.search(r'/(?:bhav|expression2|BithumanPlugin|AudioTrack|Flutter)',line):
+                  line=re.sub(r'htdemo[.]v1[.][a-zA-Z0-9_-]+[.][a-zA-Z0-9_-]+','[HITEL_SHORTLIVED_TOKEN]',line)
+                  print(f'APP [{i+1}] {line[:1300]}')
           matches=[i for i,line in enumerate(lines) if any(p.lower() in line.lower() for p in patterns)]
           print('logcat lines',len(lines),'matches',len(matches))
-          for i in matches[-270:]:
+          for i in matches[-35:]:
               line=lines[i]
               line=re.sub(r'htdemo[.]v1[.][a-zA-Z0-9_-]+[.][a-zA-Z0-9_-]+','[HITEL_SHORTLIVED_TOKEN]',line)
               print(f'[{i+1}] {line[:1300]}')
