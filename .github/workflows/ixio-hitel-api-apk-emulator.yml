@@ -257,7 +257,10 @@ jobs:
             raise SystemExit('INTEGRATION_NOT_VERIFIED: Android app did not hit local HITEL verify-ctn')
           if j['signup_error_seen']:
             raise SystemExit('APP_STILL_BLOCKED: signup error shown after HITEL API exchange')
-          print('HITEL_LOCAL_DEVICE_API_ONBOARDING=VERIFIED')
+          if j['ui_stop_reason'] != 'LOGIN_OR_TERMS_SCREEN_REACHED':
+            raise SystemExit('ONBOARDING_UI_NOT_VERIFIED: reached only '+str(j['ui_stop_reason']))
+          print('HITEL_QA_API_ROUTED_AND_AUTH_UI_REACHED=VERIFIED')
+          print('NOTE: Carrier service signup, real subscriber credentials, and full STT are not tested.')
           PY
       - name: Remove CI-only test assertion and data after test
         if: always()
