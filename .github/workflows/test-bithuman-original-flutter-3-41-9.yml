@@ -225,7 +225,15 @@ jobs:
               '"expression2" -> "ai.bithuman.example.avatar_chat"',
               '"expression2" -> "ai.hitel.avatar_chat.localauto"')
           assert gradle_updated!=gradle_original
+          # Flutter 3.41.9 uses the legacy Kotlin Gradle plugin DSL:
+          # the upstream app omitted it because newer Flutter/AGP can supply
+          # built-in Kotlin. Add only to disposable build copy, not vendor.
+          gradle_updated=gradle_updated.replace(
+              '    id("com.android.application")',
+              '    id("com.android.application")\\n    id("org.jetbrains.kotlin.android")',1)
+          assert gradle_updated.count('id("org.jetbrains.kotlin.android")')==1
           appg.write_text(gradle_updated)
+          print("TRIAL_3_41_9_LEGACY_KOTLIN_PLUGIN_APPLIED_TEMP_COPY_ONLY")
           # Public HTTPS needs no cleartext exception.
           assert "usesCleartextTraffic" not in (app/"android/app/src/main/AndroidManifest.xml").read_text()
           print("ORIGINAL_ANDROID_HTTPS_ONLY_MANIFEST_PRESERVED")
