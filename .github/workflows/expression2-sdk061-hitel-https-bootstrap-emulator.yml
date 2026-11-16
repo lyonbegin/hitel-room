@@ -134,11 +134,13 @@ jobs:
           path="android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt"
           p=plugin/path
           original=(archive/path).read_bytes()
-          old=b"https://api.bithuman.ai/v1/agent/"
-          new=b"https://hitel-expression2-auth-production.up.railway.app/v1/agent/"
-          assert original.count(old)==2, f"Expected exactly two native plugin entitlement URL endpoints, got {original.count(old)}"
+          old=b'URL("https://api.bithuman.ai/v1/agent/'
+          new=b'URL("https://hitel-expression2-auth-production.up.railway.app/v1/agent/'
+          assert original.count(old)==2, f"Expected two URL() endpoint expressions, got {original.count(old)}"
           patch=original.replace(old,new)
           assert patch.count(old)==0 and patch.count(new)==2
+          assert original.count(b'https://api.bithuman.ai/v1/agent/')==3, 'Vendor source unexpectedly changed'
+          assert patch.count(b'https://api.bithuman.ai/v1/agent/')==1, 'Original comment must remain identical'
           p.write_bytes(patch)
           kotlin=list(archive.glob("android/src/main/kotlin/**/*.kt"))
           for f in kotlin:
