@@ -1,0 +1,51 @@
+name: IXIO Main Auth Real DEX Prototypes and Invocations
+on:
+  push:
+    branches: [analysis/ixio-auth-api-bytecode-deep-20261116]
+    paths:
+      - '.github/workflows/ixio-auth-bytecode-map.yml'
+      - 'tools/ixio/ixio_auth_bytecode_method_map.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  decode-method-prototypes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download byte-identical tested main app APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-api-private ixio-auth-bytecode-report
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .ixio-api-private
+          test -s .ixio-api-private/IXIO_Main_NoAppSealing_Single.apk
+          sha256sum .ixio-api-private/IXIO_Main_NoAppSealing_Single.apk \
+            > ixio-auth-bytecode-report/input-sha256.txt
+      - name: Parse DEX prototypes and exact invoke references from auth classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ixio/ixio_auth_bytecode_method_map.py \
+            --apk .ixio-api-private/IXIO_Main_NoAppSealing_Single.apk \
+            --output ixio-auth-bytecode-report/method-map.json \
+            | tee ixio-auth-bytecode-report/summary.log
+          test -s ixio-auth-bytecode-report/method-map.json
+      - name: Publish static method names and call graph, no server secrets
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-auth-actual-dex-prototypes-and-calls
+          path: ixio-auth-bytecode-report/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Remove raw vendor APK
+        if: always()
+        run: rm -rf .ixio-api-private
