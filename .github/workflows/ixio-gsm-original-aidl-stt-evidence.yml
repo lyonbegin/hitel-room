@@ -174,4 +174,20 @@ jobs:
                   for line in m[-35:]:
                       if re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',line):continue
                       print('RECORDER_APP_KEY_EVENT',key,line[:470])
+          d=json.loads((root/'result.json').read_text(errors='replace'))
+          print('AUTO_RECORD_TEST_STEP',json.dumps({k:d.get(k) for k in
+              ('auto_record_setting_tap','recorder_service_active_before_manual_toggle',
+               'record_button_tapped','recording_service_bound_after_toggle',
+               'recorder_process_after','stt_verified')},ensure_ascii=False))
+          for stage in ('before','auto_record_selected','connected','record_toggle'):
+              print('AUTO_RECORD_UI_STAGE',stage,json.dumps(d.get(stage,{}).get('visible',[]),ensure_ascii=False)[:3500])
+          p=root/'logcat-simulated-call.txt'
+          if p.exists():
+              lines=p.read_text(errors='replace').splitlines()
+              regex=r'(?i)originalCallAutoRecording|isRequiredCallRecorderApp|isRecord|Recording|AudioRecord|SpeechToText|CallRecorder|com.lguplus.callrecorder|SecurityException|Permission Denial|Cancelled|Data is null|FATAL EXCEPTION'
+              found=[(i,line) for i,line in enumerate(lines) if re.search(regex,line)]
+              print('AUTO_RECORD_DIAGNOSTIC_LOG_MATCHES',len(found))
+              for i,line in found[-105:]:
+                  if re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',line):continue
+                  print('AUTO_RECORD_DIAGNOSTIC_EVENT',i,line[:470])
           PY
