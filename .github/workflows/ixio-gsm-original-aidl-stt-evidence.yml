@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/gsm-original
-          gh run download 43889791915 --repo "$GH_REPO" \
+          gh run download 43891669465 --repo "$GH_REPO" \
             --name ixio-hitel-self-owned-local-api-emulator-evidence \
             --dir /tmp/gsm-original
           python3 - <<'PY'
@@ -31,7 +31,7 @@ jobs:
           d=json.loads((root/'result.json').read_text(errors='replace'))
           print('SIMULATED_GSM_EVENTS',json.dumps(d['events'],ensure_ascii=False)[:3500])
           print('REAL_PSTN_OR_PCM_VERIFIED',d['real_pstn_call'],d['rx_pcm_verified'],d['tx_pcm_verified'],d['stt_verified'])
-          for stage in ('before','ringing','connected','after'):
+          for stage in ('before','ringing','connected','record_toggle','after'):
               x=d.get(stage,{})
               print('GSM_UI',stage,json.dumps(x.get('visible',[])[:50],ensure_ascii=False)[:6500])
               for kind in ('services','phone_services','telecom','audio'):
