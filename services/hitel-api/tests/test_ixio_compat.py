@@ -111,6 +111,11 @@ def test_one_time_pkce_and_hitel_refresh_credential(monkeypatch):
             "email","gender","birthdate","marketId","authUrl"
         }
         assert x["data"]["accessToken"] != x["data"]["refreshToken"]
+        # Original TokenData Kotlin constructor requires these five values
+        # to be NON-NULL, and MarketId serializer accepts only LGT or KBM.
+        assert all(x["data"][field] is not None for field in (
+            "name", "email", "gender", "birthdate", "marketId"))
+        assert x["data"]["marketId"] in {"LGT", "KBM"}
         assert c.post("/auth-code",json={"authCode":code,"state":state,
                      "codeVerifier":verifier}).json()["code"] == "ERROR_INVALID_GRANT"
         refreshed=c.post("/autologin",json={"userId":user_id},
