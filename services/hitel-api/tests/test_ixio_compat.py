@@ -81,6 +81,9 @@ def test_hitel_verified_ctn_enrollment_and_member_isolation(monkeypatch):
 
 
 def test_one_time_pkce_and_hitel_refresh_credential(monkeypatch):
+    # This test covers the real authenticated API contract, not the
+    # isolated GitHub Actions QA fixture enabled in the emulator job.
+    monkeypatch.setenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false")
     monkeypatch.setenv("HITEL_IXIO_COMPAT_ENABLED", "true")
     codes = {}
     async def fake_sms(to, code): codes[to] = code
