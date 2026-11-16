@@ -117,10 +117,28 @@ def main():
     seen_error=False
     anr_count=0
     chrome_welcome_retries=0
+    blank_screen_retries=0
     stop_reason="EXHAUSTED_STEPS"
     for i in range(30):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
+        if not visible:
+            # AppAuth/Chrome Custom Tab -> IXIO activity handoff may present
+            # a transient fully blank accessibility hierarchy while async
+            # post-login config/terms requests complete. A single 3-second
+            # capture is not evidence that IXIO is permanently blocked.
+            blank_screen_retries += 1
+            activity=adb("shell","dumpsys","activity","activities",timeout=14)
+            focus=next((line.strip()[:300] for line in activity.splitlines()
+                        if "topResumedActivity" in line or "mResumedActivity" in line),"unknown")
+            print("BLANK_UI_HANDOFF_OBSERVED",blank_screen_retries,
+                  "FOCUS",focus,flush=True)
+            if blank_screen_retries <= 8:
+                time.sleep(7)
+                continue
+            stop_reason="BLANK_UI_HANDOFF_TIMEOUT_AFTER_56_SECONDS"
+            break
+        blank_screen_retries=0
         if any(q in joined for q in ("Pixel Launcher isn't responding","System UI isn't responding","Pixel 런처가 응답하지 않습니다","시스템 UI가 응답하지 않습니다")):
             anr_count+=1
             print("EMULATOR_SYSTEM_ANR_OBSERVED",anr_count,flush=True)
