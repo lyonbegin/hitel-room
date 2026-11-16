@@ -109,6 +109,30 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: bash tools/ixio/ixio-main-context-bridge-test.sh
+      - name: Bundle verified installable main APK and required splits
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ixio-main-installable
+          cp .ixio-bridge-fix/base.apk ixio-main-installable/base.apk
+          for n in 0 1 2; do
+            cp ".ixio-bridge-fix/signed-split_$n.apk" "ixio-main-installable/signed-split_$n.apk"
+          done
+          (cd ixio-main-installable && sha256sum *.apk > SHA256SUMS.txt)
+          cat > ixio-main-installable/README-KO.txt <<'EOF'
+          익시오 메인 앱 Firebase Context Bridge — Android 14 검증용 재서명 빌드
+          원본 IXIApplication과 Firebase 라이브러리를 유지합니다.
+          AppSealing 대신 컨텍스트 보정용 Firebase 제공자를 사용합니다.
+          설치 시 base.apk 및 signed-split_0.apk, signed-split_1.apk, signed-split_2.apk를 반드시 함께 설치하십시오.
+          
+          adb install-multiple base.apk signed-split_0.apk signed-split_1.apk signed-split_2.apk
+          
+          주의: 시험용 서명이므로 원본 익시오 앱 위에 덮어쓰기 설치할 수 없습니다.
+          기존 앱 삭제 시 데이터가 소실될 수 있으므로, 백업 없이 삭제하지 마십시오.
+          Android 14 에뮬레이터에서 설치·Firebase·프로세스 유지가 확인된 빌드입니다.
+          실기기, 통화 음성 캡처, STT, 원본 녹음 앱과의 서명 연동은 아직 검증되지 않았습니다.
+          EOF
       - name: Summarize real bridge results
         if: always()
         shell: bash
@@ -118,6 +142,14 @@ jobs:
             cat ixio-main-context-bridge-results/status.env >> "$GITHUB_STEP_SUMMARY"
             cat ixio-main-context-bridge-results/key-events.txt | head -n 100 || true
           fi
+      - name: Upload main app installable test build (short retention)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-main-firebase-bridge-four-split-apks
+          path: ixio-main-installable/
+          retention-days: 1
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
