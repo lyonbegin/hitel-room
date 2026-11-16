@@ -74,7 +74,7 @@ async def proxy_http(request: web.Request) -> web.Response:
     if request.method not in ("GET", "HEAD"):
         return web.Response(status=405, headers=SECURE_HEADERS)
     url = ORIGIN + request.rel_url.path_qs
-    async with ClientSession() as client:
+    async with ClientSession(auto_decompress=False) as client:
         async with client.request(
             request.method, url, allow_redirects=False,
             timeout=__import__("aiohttp").ClientTimeout(total=30),
