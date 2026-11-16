@@ -1,0 +1,173 @@
+name: Original pristine bitHuman Flutter 2.6.37 SDK 0.6.1 ARM64 Android14 install
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/verify-upstream-untouched-avatar-chat-arm64-install.yml
+permissions:
+  contents: read
+jobs:
+  pristine-original-no-patches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Clone EXACT upstream bitHuman GitHub (do not use HITEL vendor or SDK)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p original-proof
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git upstream
+          git -C upstream remote -v | tee original-proof/upstream-origin.txt
+          git -C upstream rev-parse HEAD | tee original-proof/upstream-commit.txt
+          cd upstream/app/avatar_chat
+          sha256sum pubspec.yaml lib/main.dart android/app/build.gradle.kts android/build.gradle.kts android/settings.gradle.kts android/gradle/wrapper/gradle-wrapper.properties > "$GITHUB_WORKSPACE/original-proof/untouched-source-hashes.sha256"
+          grep -Fq 'url: https://github.com/bithuman-product/homebrew-bithuman.git' pubspec.yaml
+          grep -Fq 'ref: flutter-plugin-v2.6.37' pubspec.yaml
+          grep -Fq 'abiFilters += "arm64-v8a"' android/app/build.gradle.kts
+          echo 'UPSTREAM_ORIGINAL_FLUTTER_SOURCE_UNTOUCHED'
+      - name: Set up original Android Gradle JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Flutter toolchain compatible with original Dart minimum
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Obtain EXACT original Flutter plugin ref without any substitutions
+        working-directory: upstream/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version
+          # Resolves original GitHub plugin tag flutter-plugin-v2.6.37.
+          # Do not fallback to mirrored/vendor plugin if this fails.
+          flutter pub get 2>&1 | tee "$GITHUB_WORKSPACE/original-proof/flutter-pub-get.log"
+          grep -Fq "bithuman:" pubspec.lock
+          echo 'UPSTREAM_ORIGINAL_FLUTTER_PLUGIN_PIN_RESOLVED'
+      - name: Build only original Flutter arm64 APK, original Maven SDK, no code changes
+        working-directory: upstream/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The only options here select original Expression 2 default + official ARM64 APK.
+          # No rewritten Gradle, pubspec, Dart, Kotlin, SDK AAR, auth, or model.
+          flutter build apk --debug --split-per-abi --target-platform android-arm64 \
+            2>&1 | tee "$GITHUB_WORKSPACE/original-proof/flutter-build.log"
+          echo '--- UPSTREAM ORIGINAL SOURCE SHA256 ---'
+          (cd "$GITHUB_WORKSPACE/upstream/app/avatar_chat" && sha256sum -c "$GITHUB_WORKSPACE/original-proof/untouched-source-hashes.sha256")
+          test -z "$(git -C "$GITHUB_WORKSPACE/upstream" diff --name-only HEAD -- app/avatar_chat/pubspec.yaml app/avatar_chat/lib/main.dart app/avatar_chat/android)"
+          APK=build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          test -s "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/original-arm64.apk"
+          sha256sum "$APK" | tee "$GITHUB_WORKSPACE/original-proof/apk.sha256"
+          unzip -t "$APK" | tail -n 1
+          unzip -Z1 "$APK" | tee "$GITHUB_WORKSPACE/original-proof/apk-files.txt" | grep -F 'lib/arm64-v8a/libflutter.so'
+          grep -F 'lib/arm64-v8a/libexpr2jni.so' "$GITHUB_WORKSPACE/original-proof/apk-files.txt"
+          grep -F 'lib/arm64-v8a/libLiteRt.so' "$GITHUB_WORKSPACE/original-proof/apk-files.txt"
+          echo '--- ORIGINAL SDK 0.6.1 Maven AAR digest ---'
+          AAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/ai.bithuman/expression2-android/0.6.1" -type f -name 'expression2-android-0.6.1.aar' -print -quit)"
+          test -s "$AAR"
+          sha256sum "$AAR" | tee "$GITHUB_WORKSPACE/original-proof/original-maven-expression2-061.sha256"
+          unzip -Z1 "$AAR" | grep -F 'libexpr2jni.so'
+          unzip -Z1 "$AAR" | grep -F 'libLiteRt.so'
+          echo 'ORIGINAL_VENDOR_PLUGIN_2637_AND_MAVEN_SDK_061_ARM64_APK_BUILD_PASS'
+      - name: Prepare ADB original APK installation probe outside upstream source
+        shell: bash
+        run: |
+          cat > "$GITHUB_WORKSPACE/install-pristine-original.sh" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/original-proof"
+          APK="$GITHUB_WORKSPACE/original-arm64.apk"
+          PKG=ai.bithuman.example.avatar_chat
+          test -s "$APK"
+          adb wait-for-device
+          adb shell getprop sys.boot_completed | tee "$OUT/emulator-booted.txt"
+          adb shell getprop ro.product.cpu.abilist | tee "$OUT/emu-abi-list.txt"
+          adb shell getprop ro.dalvik.vm.native.bridge | tee "$OUT/native-bridge.txt"
+          echo '--- adb install -r: NOT --abi ---'
+          set +e
+          adb install -r "$APK" > "$OUT/adb-install.txt" 2>&1
+          RC=$?
+          set -e
+          cat "$OUT/adb-install.txt"
+          if [ "$RC" -ne 0 ]; then
+            echo "ORIGINAL_APK_INSTALL_FAILED_RC=$RC"
+            exit "$RC"
+          fi
+          adb shell pm path "$PKG" | tee "$OUT/android-pm-path.txt"
+          adb shell dumpsys package "$PKG" > "$OUT/android-package.txt"
+          adb logcat -c || true
+          adb shell am start -n "$PKG/ai.bithuman.example.avatar_chat.MainActivity" \
+              2>&1 | tee "$OUT/android-start.txt" || true
+          sleep 35
+          adb shell pidof "$PKG" > "$OUT/app-pid.txt" || true
+          adb logcat -d -v time > "$OUT/device-logcat.txt" || true
+          adb exec-out screencap -p > "$OUT/android-screenshot.png" 2>/dev/null || true
+          python3 - "$OUT" <<'PY'
+          from pathlib import Path
+          import json,sys,re
+          p=Path(sys.argv[1])
+          log=(p/'device-logcat.txt').read_text(errors='replace')
+          pkg=(p/'android-package.txt').read_text(errors='replace')
+          pid=(p/'app-pid.txt').read_text(errors='replace').strip()
+          errs=[l[:450] for l in log.splitlines() if
+                any(q in l for q in ['FATAL EXCEPTION','UnsatisfiedLinkError','dlopen failed',
+                  'NoClassDefFoundError','Flutter initialization failed','metering_no_credential',
+                  'BithumanAvatar','AGENT_NOT_ENTITLED','AndroidRuntime'])]
+          report={
+            'source':'https://github.com/bithuman-product/bithuman-examples.git app/avatar_chat original unpatched',
+            'plugin':'original GitHub tag flutter-plugin-v2.6.37, no copy or modification',
+            'sdk':'official ai.bithuman:expression2-android:0.6.1, no repackaging',
+            'apk_native_abi':'arm64-v8a via official Flutter --split-per-abi',
+            'adb_abi_force':False,
+            'adb_installed':'Success' in (p/'adb-install.txt').read_text(),
+            'android_primary_cpu_abi':re.search(r'primaryCpuAbi=([^\s]+)',pkg).group(1) if re.search(r'primaryCpuAbi=([^\s]+)',pkg) else 'unknown',
+            'app_pid_after_launch':pid,
+            'android_fatal_exception':'FATAL EXCEPTION' in log,
+            'runtime_diagnostics':errs[-35:],
+            'note':'No SDK entitlement secret given. A credential screen or refusal is a valid original outcome.'}
+          (p/'result.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+          echo ORIGINAL_APK_ADB_INSTALL_ATTEMPT_COMPLETED
+          BASH
+          chmod +x "$GITHUB_WORKSPACE/install-pristine-original.sh"
+      - name: Enable KVM for the same Android14 x86_64 NativeBridge emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install unmodified original ARM64 APK and launch on established emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash "$GITHUB_WORKSPACE/install-pristine-original.sh"
+      - name: Upload unmodified upstream build and emulator proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-upstream-flutter-plugin2637-official-sdk061-arm64-install-logs
+          path: original-proof/
+          retention-days: 14
+      - name: Upload actual original ARM64 APK if built
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-upstream-original-arm64-apk
+          path: original-arm64.apk
+          if-no-files-found: ignore
+          retention-days: 14
