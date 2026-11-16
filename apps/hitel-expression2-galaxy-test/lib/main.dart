@@ -36,6 +36,12 @@ class _GalaxyExpression2ScreenState extends State<GalaxyExpression2Screen> {
   String _logs = '';
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _inspect());
+  }
+
   Future<void> _inspect() async {
     try {
       final map = await _diagnostics.invokeMapMethod<String, dynamic>(
