@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-original-flutter-local-auto:
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 85
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -208,6 +208,18 @@ jobs:
               '"expression2" -> "ai.hitel.avatar_chat.localauto"')
           assert gradle_updated!=gradle_original
           appg.write_text(gradle_updated)
+          # DEBUG ONLY. The synthetic auth service binds to 127.0.0.1:18762.
+          # Android 9+ blocks cleartext HTTP by default, including loopback on this API.
+          # The formerly distributed APK omitted this and showed startup_failed.
+          # Do not change the immutable original vendored manifest.
+          android_manifest=app/"android/app/src/main/AndroidManifest.xml"
+          original_manifest=android_manifest.read_text()
+          assert original_manifest.count("<application")==1
+          assert "usesCleartextTraffic" not in original_manifest
+          fixed_manifest=original_manifest.replace(
+              "<application", '<application android:usesCleartextTraffic="true"',1)
+          android_manifest.write_text(fixed_manifest)
+          print("ANDROID_DEBUG_LOCALHOST_CLEARTEXT_PERMISSION_SET_FOR_ACTUAL_APP")
           manifest={
             "app_original_git_commit":"fea69e72515af7d05f384a9d2147ac0cc181b411",
             "plugin_original_tag":"flutter-plugin-v2.6.37",
@@ -311,7 +323,7 @@ jobs:
             'vendor_original_auth_flow_unchanged':False,
             'debug_local_test_auth_only':True,
             'default_sdk_auto_hardware_no_route_selector':True,
-            'device_test_verified':False}
+            'device_test_verified':'enforced by subsequent real Android emulator test before release'}
           Path('reports/hitel-avatar-chat-local-auto/APK_VERIFICATION.json').write_text(json.dumps(result,indent=2)+'\n')
           print('BIT_HUMAN_THREE_LAYER_ORIGINAL_APK_VERIFIED',json.dumps(result))
           PY
@@ -319,6 +331,27 @@ jobs:
           "$TOOLS/apksigner" verify --verbose \
             reports/hitel-avatar-chat-local-auto/apk/HITEL_Original_avatar_chat_Expression2_Local_AUTO_Debug.apk
           echo ORIGINAL_BIT_HUMAN_THREE_LAYER_APK_SIGNATURE_VALID
+      - name: Enable KVM for real Android emulator install test
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: ACTUAL Android emulator install and runtime gate BEFORE publication
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash tools/bithuman_deep/test_original_avatar_chat_local_auto_emulator.sh
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
