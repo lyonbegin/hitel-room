@@ -222,7 +222,12 @@ def main():
             stop_reason="LOGIN_OR_TERMS_SCREEN_REACHED"
             break
         action=None
-        if any("시작하기" in t for t in visible):
+        # The recorder companion explicitly asks Android for battery
+        # optimization exemption so its foreground recording service survives.
+        # This system dialog is from Settings, not PermissionController.
+        if "Let app always run in background?" in joined and "익시오 통화녹음" in joined:
+            action=choose(nodes,["Allow"],True)
+        if not action and any("시작하기" in t for t in visible):
             action=choose(nodes,["시작하기"],True)
         elif (("익시오 서비스 이용을 위한" in joined or
                "익시오 통화녹음 서비스 이용을 위한" in joined) and
