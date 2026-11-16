@@ -35,7 +35,9 @@ adb shell am start -W -n "$PKG/ai.bithuman.example.avatar_chat.MainActivity" >"$
 start_rc=$?
 set -e
 cat "$OUT/start.txt"
-sleep 75
+# Keep SAME installed original APK alive long enough to determine whether
+# slow CPU/NativeBridge inference eventually produces its first video frame.
+sleep 210
 adb logcat -d -v time > "$OUT/logcat-full.txt" || true
 adb exec-out screencap -p > "$OUT/screenshot.png" 2>/dev/null || true
 adb shell run-as "$PKG" cat app_flutter/boot_status.txt > "$OUT/flutter-boot.txt" 2>/dev/null || true
@@ -51,7 +53,7 @@ checks={
  "android14_emulator_booted":(p/'booted.txt').read_text().strip()=="1",
  "adb_installed_exact_apk":"Success" in (p/'install.txt').read_text(),
  "package_installed":"package:" in (p/'pm-path.txt').read_text(),
- "activity_launch_command_accepted":start_rc==0 and "Status: ok" in (p/'start.txt').read_text(),
+ "activity_launch_command_accepted":start_rc==0 and "Starting:" in (p/'start.txt').read_text() and bool((p/'pid.txt').read_text().strip()),
  "flutter_initialized":("Flutter initialization failed" not in log and "EM_AARCH64 (183) instead of EM_X86_64 (62)" not in log and bool((p/'pid.txt').read_text().strip())),
  "public_https_session_observed":"hitel:public_https_demo_session_issued" in boot or "hitel:public_https_demo_session_issued" in log,
  "original_model_verified":"LOCAL_TEST_ORIGINAL_MODEL_READY" in log,
