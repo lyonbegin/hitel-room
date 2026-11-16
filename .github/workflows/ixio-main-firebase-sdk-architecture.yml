@@ -1,0 +1,76 @@
+name: IXIO Main Firebase SDK Actual Uses vs Carrier API
+on:
+  push:
+    branches: [analysis/ixio-firebase-sdk-architecture-20261116]
+    paths:
+      - '.github/workflows/ixio-main-firebase-sdk-architecture.yml'
+      - 'tools/ixio/ixio_firebase_sdk_inventory.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: ixio-main-firebase-architecture-audit
+  cancel-in-progress: true
+jobs:
+  classify-sdk-and-actual-calls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download existing and UI-tested main APK (read-only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-firebase-private ixio-firebase-sdk-results
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .ixio-firebase-private
+          test -s .ixio-firebase-private/IXIO_Main_NoAppSealing_Single.apk
+          sha256sum .ixio-firebase-private/IXIO_Main_NoAppSealing_Single.apk \
+            > ixio-firebase-sdk-results/apk-sha256.txt
+      - name: Inventory manifest components and Firebase configuration KEY names only
+        run: |
+          set -euo pipefail
+          APK=.ixio-firebase-private/IXIO_Main_NoAppSealing_Single.apk
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" \
+            > .ixio-firebase-private/manifest-dump.txt
+          "$BT/aapt2" dump resources "$APK" \
+            > .ixio-firebase-private/resources-dump.txt 2>&1 || true
+          echo "MANIFEST_AND_RESOURCE_INDEX=CREATED" >> "$GITHUB_STEP_SUMMARY"
+      - name: Scan all restored DEX for Firebase modules and ACTUAL IXIO-owned invoke opcodes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/ixio/ixio_firebase_sdk_inventory.py \
+            --apk .ixio-firebase-private/IXIO_Main_NoAppSealing_Single.apk \
+            --resource-dump .ixio-firebase-private/resources-dump.txt \
+            --manifest-dump .ixio-firebase-private/manifest-dump.txt \
+            --out ixio-firebase-sdk-results/ixio-firebase-sdk-map.json \
+            | tee ixio-firebase-sdk-results/console-summary.txt
+          test -s ixio-firebase-sdk-results/ixio-firebase-sdk-map.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('ixio-firebase-sdk-results/ixio-firebase-sdk-map.json'))
+          print("FIREBASE_SDK_DEFINED_CLASS_COUNTS",x['sdk_defined_class_counts'])
+          print("ACTUAL_APP_FIREBASE_INVOKE_COUNTS",x['app_direct_invoke_counts'])
+          print("RESOURCE_KEY_NAMES_PRESENT",x['resource_key_presence'])
+          print("FIREBASE_COMPONENTS",x['firebase_manifest_components'])
+          print("APP_SUBCLASSES_OF_FIREBASE",x['app_classes_extending_firebase'][:10])
+          print("SEPARATE_VENDOR_API_REPOSITORIES",x['separate_telecom_and_ixio_api_class_paths'][:35])
+          PY
+      - name: Upload sanitized structural evidence, NOT proprietary APK or credentials
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-main-firebase-sdk-components-direct-calls-and-own-api-boundary
+          path: ixio-firebase-sdk-results/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Clean up private original input and raw resource values
+        if: always()
+        run: rm -rf .ixio-firebase-private
