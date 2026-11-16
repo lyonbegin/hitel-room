@@ -1,0 +1,344 @@
+name: Expression2 SDK 0.6.1 original full app flow Galaxy ARM64 build only
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/expression2-sdk061-original-flow-galaxy-arm64-build.yml
+permissions:
+  contents: read
+jobs:
+  compile-original-sdk061-and-full-avatar-chat-for-real-galaxy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout GitHub archive of bitHuman original Flutter plugin 2.6.37
+        uses: actions/checkout@v4
+      - name: Clone original GitHub avatar_chat app without modifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pristine-proof
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          git -C original-upstream rev-parse HEAD | tee pristine-proof/upstream-revision.txt
+          PLUGIN="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          test -f "$PLUGIN/pubspec.yaml"
+          test -f "$PLUGIN/android/build.gradle"
+          test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          test -f "$PLUGIN/e2e/mock_realtime/pubspec.yaml"
+          grep -Fxq 'version: 2.6.37' "$PLUGIN/pubspec.yaml"
+          grep -Fq "implementation 'ai.bithuman:expression2-android:0.6.1'" "$PLUGIN/android/build.gradle"
+          grep -Fq 'ref: flutter-plugin-v2.6.37' "$APP/pubspec.yaml"
+          git ls-files vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin \
+            | tee pristine-proof/archived-github-plugin-filelist.txt | wc -l
+          git ls-tree HEAD vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin \
+            | tee pristine-proof/github-plugin-tree.txt
+          (cd "$PLUGIN"; find . -type f ! -path './.dart_tool/*' -print0 | sort -z | xargs -0 sha256sum) \
+            > pristine-proof/archived-github-plugin-sha256.txt
+          (cd "$APP"; sha256sum pubspec.yaml lib/main.dart android/app/build.gradle.kts android/settings.gradle.kts \
+            android/gradle/wrapper/gradle-wrapper.properties) \
+            > pristine-proof/official-upstream-app-sha256.txt
+          echo 'ORIGINAL_FLUTTER_2637_SOURCES_FROM_GITHUB_ARCHIVE_IDENTIFIED_NO_CHANGES'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Compile original plugin Dart unit test without modifying source
+        shell: bash
+        working-directory: vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          flutter --version
+          flutter pub get 2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/plugin-2.6.37-pub-get.log"
+          flutter test --no-pub test/avatar_fit_test.dart 2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/plugin-dart-compile-test.log"
+          echo ORIGINAL_FLUTTER_PLUGIN_2637_DART_COMPILE_TEST_PASS
+      - name: Resolve original app dependency to SAME GitHub-archived plugin using only untracked pub override
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVED_PLUGIN="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          PLUGIN="$GITHUB_WORKSPACE/sdk061-test-plugin-copy"
+          cp -a "$ARCHIVED_PLUGIN" "$PLUGIN"
+          sha256sum "$ARCHIVED_PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt" > "$GITHUB_WORKSPACE/pristine-proof/archived-plugin-kotlin-sha256.txt"
+          test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          # Upstream pubspec.yaml still references no-longer-public homebrew GitHub.
+          # The original source remains byte-identical. Pub supports an untracked
+          # pubspec_overrides.yaml, used ONLY to supply archived GitHub files.
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          cd "$APP"
+          flutter pub get 2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/app-flutter-pub-get.log"
+          grep -Fq 'bithuman:' pubspec.lock
+          grep -Fq 'source: path' pubspec.lock
+          grep -Fq 'version: "2.6.37"' pubspec.lock
+          # Original source bytes unchanged; no HITEL model, plugin, or SDK patches.
+          sha256sum -c "$GITHUB_WORKSPACE/pristine-proof/official-upstream-app-sha256.txt"
+          git -C "$GITHUB_WORKSPACE/original-upstream" diff --exit-code HEAD -- \
+            app/avatar_chat/pubspec.yaml app/avatar_chat/lib/main.dart app/avatar_chat/android
+          echo 'PUB_PACKAGE_GITHUB_ARCHIVED_PLUGIN_2637_RESOLVED_NO_ORIGINAL_SOURCE_CHANGES'
+      - name: Fix ONLY missing build-tool Kotlin Gradle plugin in disposable upstream checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('original-upstream/app/avatar_chat/android/app/build.gradle.kts')
+          original=p.read_text()
+          needle='    id("com.android.application")\n'
+          assert original.count(needle)==1, 'Original Gradle plugin anchor changed'
+          assert 'id("org.jetbrains.kotlin.android")' not in original
+          p.write_text(original.replace(needle, needle+'    id("org.jetbrains.kotlin.android")\n',1))
+          print('BUILD_ONLY_KOTLIN_PLUGIN_APPLIED_TO_TEMP_CLONE')
+          PY
+          # Exactly one build config file may differ in the disposable clone.
+          # Main Dart, original Flutter plugin and official 0.6.1 SDK untouched.
+          git -C original-upstream diff --check
+          git -C original-upstream diff -- app/avatar_chat/android/app/build.gradle.kts \
+            | tee pristine-proof/disposable-app-gradle-compatibility.patch
+          # Flutter pub get regenerates the tracked macOS plugin registrant.
+          # That generated file is unrelated to our Android build; verify only
+          # Android app/Flutter Dart tracked sources were not modified.
+          git -C original-upstream diff --name-only -- \
+            app/avatar_chat/android app/avatar_chat/lib app/avatar_chat/pubspec.yaml \
+            | tee pristine-proof/upstream-modified-tracked-files.txt
+          test "$(cat pristine-proof/upstream-modified-tracked-files.txt)" = "app/avatar_chat/android/app/build.gradle.kts"
+          echo 'ORIGINAL_DART_PLUGIN_SDK_AND_MODEL_UNTOUCHED_GRADLE_ONLY_COMPAT'
+      - name: Preserve SDK 0.6.1 and select anonymous public sample model resolver only in disposable original plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          PLUGIN="$GITHUB_WORKSPACE/sdk061-test-plugin-copy"
+          python3 tools/bithuman_deep/prepare_expression2_sdk061_hitel_app_auth.py \
+            --app "$APP" \
+            --report "$GITHUB_WORKSPACE/pristine-proof/hitel-sdk061-auth-only-app-report.json"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          archive=Path("vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin")
+          plugin=Path("sdk061-test-plugin-copy")
+          path="android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt"
+          p=plugin/path
+          original=(archive/path).read_bytes()
+          # Change ONLY the access-check platformDoor. Do not touch the
+          # actual model storeDoor/member download URL in the original plugin.
+          old=(b'fun platformDoor(code: String, model: String): URL =\n'
+               b'            URL("https://api.bithuman.ai/v1/agent/')
+          new=(b'fun platformDoor(code: String, model: String): URL =\n'
+               b'            URL("https://hitel-expression2-auth-production.up.railway.app/v1/agent/')
+          assert original.count(old)==1, f"Expected only one platformDoor auth URL: {original.count(old)}"
+          patch=original.replace(old,new,1)
+          assert patch.count(new)==1 and patch.count(old)==0
+          original_store=original.split(b'fun storeDoor(code: String, model: String): URL? {',1)[1]
+          changed_store=patch.split(b'fun storeDoor(code: String, model: String): URL? {',1)[1]
+          assert original_store==changed_store, 'Model storeDoor must remain byte-identical'
+          assert original.count(b'https://api.bithuman.ai/v1/agent/')==3
+          assert patch.count(b'https://api.bithuman.ai/v1/agent/')==2
+          p.write_bytes(patch)
+          # Only public showcase sample + our scoped HITEL demo token: use the
+          # original SDK's empty-credential public model-door resolver, avoiding a vendor
+          # HTTP 401 caused by forwarding HITEL-only tokens to bitHuman.
+          # Do not change any other model code, SDK 0.6.1, or model files.
+          engine_path="android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          engine_original=(archive/engine_path).read_bytes()
+          engine_old=b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver(s))'
+          engine_new=(b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver('
+                      b'if (code == "A23WJF0199" && s.startsWith("htdemo.v1.")) "" else s))')
+          assert engine_original.count(engine_old)==1, f"Unexpected SDK store resolver source: {engine_original.count(engine_old)}"
+          engine_patched=engine_original.replace(engine_old,engine_new,1)
+          assert engine_patched.replace(engine_new,engine_old,1)==engine_original
+          (plugin/engine_path).write_bytes(engine_patched)
+          kotlin=list(archive.glob("android/src/main/kotlin/**/*.kt"))
+          for f in kotlin:
+              rel=f.relative_to(archive)
+              target=plugin/rel
+              assert target.exists(),rel
+              if str(rel) not in (path,engine_path):
+                  assert target.read_bytes()==f.read_bytes(),f"Unexpected Kotlin source change: {rel}"
+          assert (plugin/engine_path).read_bytes()==engine_patched
+          # Only a public sample's resolver credential argument changes;
+          # SDK native/model/renderer/PCM implementation stays pristine.
+          proof={
+            "sdk_version":"0.6.1",
+            "sdk_only_method_changed":"SelfHostMeter$Companion.apiBase$expression2_release",
+            "plugin_only_files_changed":[path,engine_path],
+            "plugin_only_auth_url_replacements":1,
+            "original_storeDoor_model_download_unchanged":True,
+            "original_plugin_Kotlin_others_identical":True,
+            "original_plugin_BithumanPlugin_exact_one_resolver_credential_expression_changed":True,
+            "public_sample_anonymous_model_fetch_only":True,
+            "all_private_model_resolvers_original":True,
+            "original_plugin_EntitlementWindow_sha256":hashlib.sha256(original).hexdigest(),
+            "debug_plugin_EntitlementWindow_sha256":hashlib.sha256(patch).hexdigest(),
+            "local_062_model_implementation_added":False,
+            "local_062_PCM_implementation_added":False,
+            "native_061_inference_model_feed_output_unchanged":True,
+          }
+          Path("pristine-proof/sdk061-auth-only-plugin-proof.json").write_text(json.dumps(proof,indent=2)+"\n")
+          print("SDK061_ONLY_PUBLIC_SAMPLE_ANON_MODEL_DOOR_RESOLVER_NO_SDK_MODIFICATIONS")
+          PY
+          git -C original-upstream diff --check
+          git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/sdk061-app-own-token-only.diff"
+      - name: Build isolated SDK 0.6.1 with only original JVM metering base pointed to HITEL HTTPS test service
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/pristine-proof"
+          mkdir -p "$OUT" "$GITHUB_WORKSPACE/sdk061-test"
+          curl --fail --location --silent --show-error --retry 4 \
+            --retry-all-errors --retry-delay 3 \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.1/expression2-android-0.6.1.aar \
+            -o "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar"
+          curl --fail --location --silent --show-error --retry 4 \
+            --retry-all-errors --retry-delay 3 \
+            https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.1/expression2-android-0.6.1.pom \
+            -o "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.pom"
+          sha256sum "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar" > "$OUT/official-vendor-061-sha256.txt"
+          python3 tools/bithuman_deep/expression2_sdk061_hitel_demo_meter_route.py \
+            --source-aar "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar" \
+            --output-aar "$GITHUB_WORKSPACE/sdk061-test/hitel-auth-test-0.6.1.aar" \
+            --report "$OUT/sdk061-only-one-original-jvm-method-changed.json" \
+            --base-url https://hitel-expression2-auth-production.up.railway.app
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET,re
+          from zipfile import ZipFile
+          app=Path('original-upstream/app/avatar_chat')
+          maven=app/'android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.1'
+          maven.mkdir(parents=True,exist_ok=True)
+          source=Path('sdk061-test/hitel-auth-test-0.6.1.aar')
+          target=maven/'expression2-android-0.6.1.aar'
+          target.write_bytes(source.read_bytes())
+          pom=Path('sdk061-test/original-0.6.1.pom').read_text()
+          root=ET.fromstring(pom); ns=root.tag.partition('}')[0]+'}' if '}' in root.tag else ''
+          assert root.find(ns+'groupId').text=='ai.bithuman'
+          assert root.find(ns+'artifactId').text=='expression2-android'
+          assert root.find(ns+'version').text=='0.6.1'
+          edited,count=re.subn(r'(<groupId>\s*)ai\.bithuman(\s*</groupId>)',
+              r'\g<1>ai.hitel.reassembled\g<2>',pom,count=1)
+          assert count==1
+          (maven/'expression2-android-0.6.1.pom').write_text(edited)
+          gradle_file=app/'android/build.gradle.kts'
+          gradle=gradle_file.read_text()
+          anchor='        mavenCentral()\n'
+          assert gradle.count(anchor)==1
+          gradle=gradle.replace(anchor, anchor +
+            '        maven {\n'
+            '            url = uri(rootProject.projectDir.toString() + "/local-sdk-maven")\n'
+            '            content { includeGroup("ai.hitel.reassembled") }\n'
+            '        }\n', 1)
+          marker='subprojects {\n    project.evaluationDependsOn(":app")\n}\n'
+          assert gradle.count(marker)==1
+          extra='''
+          subprojects {
+              configurations.configureEach {
+                  resolutionStrategy.eachDependency {
+                      if (requested.group == "ai.bithuman" &&
+                          requested.name == "expression2-android") {
+                          useTarget("ai.hitel.reassembled:expression2-android:0.6.1")
+                          because("Debug-only own HTTPS sample session test; original ARM64 vendor libraries unchanged")
+                      }
+                  }
+              }
+          }
+          '''
+          gradle=gradle.replace(marker,marker+extra,1)
+          gradle_file.write_text(gradle)
+          with ZipFile(source) as z:
+              assert 'jni/arm64-v8a/libexpr2jni.so' in z.namelist()
+          print("SDK061_ONLY_METER_BASE_CHANGED_VENDOR_ARM64_BYTE_IDENTITY_PRESERVED")
+          PY
+      - name: Build original SDK 0.6.1 with HITEL entitlement and anonymous Wise Pup model fetch
+        working-directory: original-upstream/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Uses app/Gradle/Flutter-plugin/SDK with their original code,
+          # original arm64 target, original Maven coordinate and session door.
+          flutter build apk --debug --target-platform android-arm64 \
+            --dart-define=HITEL_SDK061_AUTH_TEST=true \
+            --dart-define=HITEL_EXPR2_PUBLIC_AUTH_BASE=https://hitel-expression2-auth-production.up.railway.app \
+            --dart-define=AGENT_CODE=A23WJF0199 \
+            2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/official-plugin2637-build.log"
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          test -s "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/pristine-original-plugin2637-sdk061-arm64.apk"
+          sha256sum "$APK" | tee "$GITHUB_WORKSPACE/pristine-proof/apk-sha256.txt"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | tee "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt" \
+            | grep -Fx 'lib/arm64-v8a/libflutter.so'
+          grep -Fx 'lib/arm64-v8a/libexpr2jni.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          grep -Fx 'lib/arm64-v8a/libLiteRt.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          # The pristine vendor AAR is preserved separately because Gradle resolves
+          # the temporary HITEL test coordinate instead of the vendor coordinate.
+          AAR="$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar"
+          test -s "$AAR"
+          sha256sum "$AAR" | tee "$GITHUB_WORKSPACE/pristine-proof/official-sdk061-maven-aar-sha256.txt"
+          echo SDK061_ORIGINAL_NATIVE_AUTH_ENDPOINT_ONLY_APK_BUILT
+      - name: Prove original post-load app flow preserved with no early return
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,json,hashlib
+          orig=subprocess.check_output(
+            ["git","-C","original-upstream","show","HEAD:app/avatar_chat/lib/main.dart"],
+            text=True
+          )
+          new=Path("original-upstream/app/avatar_chat/lib/main.dart").read_text()
+          load='      final avatar = await BithumanAvatar.load(agentDir, engine: _engine, apiSecret: secret);'
+          open_call='      await _openSession(avatar, secret);'
+          assert orig.count(load)==1 and new.count(load)==1
+          assert orig.count(open_call)==1 and new.count(open_call)==1
+          orig_postload=orig.split(load,1)[1].split(open_call,1)[0]
+          test_postload=new.split(load,1)[1].split(open_call,1)[0]
+          assert orig_postload==test_postload, "Original post-load app behavior was modified"
+          assert 'sdk061_avatar_load_succeeded_no_paid_realtime' not in new
+          assert 'return; // No production Realtime' not in new
+          assert '_hitelRunOriginalSpeech' not in new
+          assert "if (_hitelSdk061AuthTest && Platform.isAndroid) {" not in new
+          result={
+            "sdk_version":"0.6.1",
+            "original_flutter_plugin":"2.6.37",
+            "original_BithumanAvatar_load_invocation_unmodified":True,
+            "original_post_load_code_byte_identical":True,
+            "original__openSession_call_preserved":True,
+            "unrequested_postload_return_present":False,
+            "unrequested_speech_injection_present":False,
+            "emulator_used":False,
+            "actual_galaxy_device_tested":False,
+            "original_vendor_realtime_credential_verified":False,
+            "apk_built":Path("pristine-original-plugin2637-sdk061-arm64.apk").exists()
+          }
+          out=Path("pristine-proof/galaxy-original-full-flow-proof.json")
+          out.write_text(json.dumps(result,indent=2)+"\n")
+          print(json.dumps(result,indent=2))
+          PY
+      - name: Upload full original-flow ARM64 APK for Galaxy USB install
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-sdk061-original-full-flow-galaxy-arm64-apk
+          path: pristine-original-plugin2637-sdk061-arm64.apk
+          if-no-files-found: error
+          retention-days: 20
+      - name: Upload build and original-flow integrity logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression2-sdk061-original-full-flow-build-proof
+          path: pristine-proof/
+          if-no-files-found: warn
+          retention-days: 20
