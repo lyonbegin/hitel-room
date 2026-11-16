@@ -1,0 +1,56 @@
+name: IXIO GSM Call Original AIDL and STT Evidence
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-gsm-original-aidl-stt-evidence.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read prior verified real emulator run, no APK rebuild
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gsm-original
+          gh run download 43889791915 --repo "$GH_REPO" \
+            --name ixio-hitel-self-owned-local-api-emulator-evidence \
+            --dir /tmp/gsm-original
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          root=Path('/tmp/gsm-original/ixio-hitel-android-results/gsm-call-smoke')
+          if not root.is_dir():
+              root=next(Path('/tmp/gsm-original').rglob('gsm-call-smoke'))
+          d=json.loads((root/'result.json').read_text(errors='replace'))
+          print('SIMULATED_GSM_EVENTS',json.dumps(d['events'],ensure_ascii=False)[:3500])
+          print('REAL_PSTN_OR_PCM_VERIFIED',d['real_pstn_call'],d['rx_pcm_verified'],d['tx_pcm_verified'],d['stt_verified'])
+          for stage in ('before','ringing','connected','after'):
+              x=d.get(stage,{})
+              print('GSM_UI',stage,json.dumps(x.get('visible',[])[:50],ensure_ascii=False)[:6500])
+              for kind in ('services','phone_services','telecom','audio'):
+                  p=root/f'{stage}-{kind}.txt'
+                  if not p.exists():continue
+                  lines=p.read_text(errors='replace').splitlines()
+                  pat={
+                    'services':r'(?i)CallRecordingService|InCallService|ServiceRecord|ConnectionRecord|com.lguplus|bound|binding|record',
+                    'phone_services':r'(?i)CallRecordingService|InCallService|ServiceRecord|ConnectionRecord|com.lguplus|bound|binding',
+                    'telecom':r'(?i)5550100|Call |CallState|RINGING|ACTIVE|DIALER|PhoneAccount|com.lguplus',
+                    'audio':r'(?i)VOICE_UPLINK|VOICE_DOWNLINK|recording|audio source|active record|UID|capture'
+                  }[kind]
+                  vals=[line[:360] for line in lines if re.search(pat,line)]
+                  print('GSM_DUMPSYS',stage,kind,'matched',len(vals),json.dumps(vals[-50:],ensure_ascii=False)[:8200])
+          p=root/'logcat-filtered.txt'
+          if p.exists():
+              s=p.read_text(errors='replace').splitlines()
+              print('GSM_LOGCAT_RELEVANT_LINES',len(s))
+              for line in s[-100:]:
+                  if re.search(r'(?i)CallRecording|InCallService|SpeechToText|Sherpa|AudioRecord|Permission|Telecom|Telephony|Error|Exception|AIDL|stt',line):
+                      print('GSM_LOGCAT_EVENT',line[:450])
+          PY
