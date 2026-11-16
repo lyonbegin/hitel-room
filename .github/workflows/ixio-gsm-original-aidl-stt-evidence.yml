@@ -53,4 +53,16 @@ jobs:
               for line in s[-100:]:
                   if re.search(r'(?i)CallRecording|InCallService|SpeechToText|Sherpa|AudioRecord|Permission|Telecom|Telephony|Error|Exception|AIDL|stt',line):
                       print('GSM_LOGCAT_EVENT',line[:450])
+          # Identify the precise original in-call recording control before tapping.
+          import xml.etree.ElementTree as ET
+          p=root/'connected.xml'
+          if p.exists():
+              tree=ET.parse(p)
+              for node in tree.iter('node'):
+                  a=node.attrib
+                  label=(a.get('text','')+' '+a.get('content-desc','')).strip()
+                  if '통화 녹음' in label or 'record' in label.lower():
+                      print('ORIGINAL_INCALL_RECORD_BUTTON',json.dumps({
+                          k:a.get(k) for k in ('text','content-desc','resource-id','class','bounds','clickable','enabled')
+                      },ensure_ascii=False))
           PY
