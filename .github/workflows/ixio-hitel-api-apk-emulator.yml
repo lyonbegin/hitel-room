@@ -43,6 +43,7 @@ jobs:
           echo "HITEL_IXIO_CI_ASSERTION=ixioqa_$(openssl rand -hex 40)" >> "$GITHUB_ENV"
           python -m pip install -q -r services/hitel-api/requirements.txt
           python -m compileall -q services/hitel-api/app
+          python -m pytest -q services/hitel-api/tests/test_ixio_compat.py
           echo "NO_REAL_SUBSCRIBER_DATA=true" >> "$GITHUB_STEP_SUMMARY"
       - name: Seed ONE verified synthetic HITEL member in isolated SQLite
         shell: bash
