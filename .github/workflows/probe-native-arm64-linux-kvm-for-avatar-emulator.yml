@@ -1,0 +1,34 @@
+name: Probe native Linux ARM64 KVM availability for Android emulator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/probe-native-arm64-linux-kvm-for-avatar-emulator.yml
+permissions:
+  contents: read
+jobs:
+  linux-arm64-kvm-host-probe:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 8
+    steps:
+      - name: Inspect actual ARM64 runner and virtualization only (no guessed compatibility)
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -a
+          uname -m
+          test "$(uname -m)" = aarch64
+          lscpu | head -35
+          if test -e /dev/kvm; then
+             ls -al /dev/kvm
+             test -r /dev/kvm && echo 'ARM64_KVM_READ_ACCESS'
+             test -w /dev/kvm && echo 'ARM64_KVM_WRITE_ACCESS'
+          else
+             echo 'ARM64_KVM_DEVICE_ABSENT'
+          fi
+          command -v qemu-system-aarch64 || true
+          command -v adb || true
+          df -h .
+          free -h
+          echo 'NATIVE_ARM64_RUNNER_HARDWARE_PROBE_COMPLETED'
