@@ -17,9 +17,10 @@ on:
 permissions:
   contents: read
   actions: read
+  statuses: write
 concurrency:
   group: rtl-galaxy-rdb-browser
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   same-ubuntu-chrome-samsung-rdb:
     runs-on: ubuntu-24.04
@@ -227,6 +228,8 @@ jobs:
       - name: Publish temporary tunnel to SHA256 capability-gated localhost viewer
         if: env.RUN_MODE == 'remote'
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           cloudflared tunnel --url http://127.0.0.1:6081 \
@@ -258,6 +261,20 @@ jobs:
             echo "No account cookies, login data, live screenshot or full logcat uploaded to GitHub."
           } >> "$GITHUB_STEP_SUMMARY"
           echo RTL_PRIVATE_CAPABILITY_GATED_REMOTE_BROWSER_BASE_PUBLISHED
+          # Publish ONLY random Cloudflare hostname as a public commit status
+          # target URL. The 320-bit viewer capability remains private in the
+          # owner's ChatGPT conversation and never enters GitHub source/logs.
+          STATUS_JSON="$(jq -nc --arg url "$URL" \
+            '{state:"pending",target_url:$url,context:"rtl/private-noVNC",description:"Capability-protected Samsung Galaxy RTL browser"}')"
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            --data "$STATUS_JSON" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            >/dev/null
+          echo RTL_PROTECTED_BROWSER_HOSTNAME_PUBLISHED_TO_COMMIT_STATUS
       - name: Wait for automatic Samsung Playwright booking and Linux RDB, then test unchanged APK
         if: env.RUN_MODE == 'remote'
         shell: bash
