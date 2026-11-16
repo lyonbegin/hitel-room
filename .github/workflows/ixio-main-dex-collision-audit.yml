@@ -1,0 +1,87 @@
+name: IXIO Main Firebase Startup and DEX Collision Audit
+on:
+  push:
+    branches: [experiment/ixio-main-firebase-bridge-20261116]
+    paths:
+      - '.github/workflows/ixio-main-dex-collision-audit.yml'
+      - 'tools/ixio/ixio_main_dex_overlap_probe.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyze-rebuilt-main:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download completed APK and startup evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh run download 43707483111 --repo "$GH_REPO" \
+            --name ixio-standalone-apps-reassembled-android14 --dir .
+          gh run download 43793956597 --repo "$GH_REPO" \
+            --name ixio-main-firebase-provider-before-application-diagnostic \
+            --dir ixio-triage-input
+          test -s .ixio-rebuild-output/main/base.apk
+          test -s ixio-triage-input/shell/logcat.txt
+      - name: Check all original and recovered DEX descriptor ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ixio-main-dex-audit
+          python3 tools/ixio/ixio_main_dex_overlap_probe.py \
+            --apk .ixio-rebuild-output/main/base.apk \
+            --out ixio-main-dex-audit/class-ownership.json \
+            | tee ixio-main-dex-audit/summary.log
+          python3 - <<'PY'
+          import json
+          j=json.load(open('ixio-main-dex-audit/class-ownership.json'))
+          print('DEX_COUNT',len(j['dex_inventory']))
+          print('CLASS_COLLISIONS',j['duplicate_class_descriptor_count'])
+          print('FIREBASE_GMS_COLLISIONS',j['duplicate_class_packages'].get('firebase_or_gms',0))
+          print('STARTUP_BASE_CLASSES',j['startup_class_owners_and_base_types'])
+          PY
+      - name: Analyze original AppSealing shell initialization vs Firebase
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ixio-main-dex-audit
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          root=Path('ixio-triage-input')
+          result={}
+          for variant in ('shell','framework','baseline'):
+            p=root/variant/'logcat.txt'
+            log=p.read_text(errors='replace') if p.exists() else ''
+            lines=log.splitlines()
+            relevant=[x for x in lines if any(key in x for key in (
+                'FirebaseInitProvider','FirebaseApp','AppSealing','IXIApplication',
+                'FATAL EXCEPTION','Unable to get provider','com.inka.',
+                'appsealing','StringResourceValueReader'
+            ))]
+            result[variant]={
+              'log_line_count':len(lines),
+              'important_events':relevant[:70],
+              'firebase_success': 'FirebaseApp initialization successful' in log,
+              'firebase_provider_crash':'Unable to get provider com.google.firebase.provider.FirebaseInitProvider' in log,
+              'appsealing_alert':'AppSealingAlertDialog' in log,
+              'ixio_oncreate_error':'Unable to create application com.lguplus.aicallagent.IXIApplication' in log,
+            }
+          Path('ixio-main-dex-audit/bootstrap-comparison.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          for k,v in result.items():
+            print('CASE',k,'Firebase OK',v['firebase_success'],'Firebase crash',v['firebase_provider_crash'],'Shell alert',v['appsealing_alert'])
+            for line in v['important_events'][:8]:print('EVENT',line[:250])
+          PY
+      - name: Upload structural diagnostics only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ixio-main-startup-classes-and-shell-firebase-analysis
+          path: ixio-main-dex-audit/
+          if-no-files-found: warn
