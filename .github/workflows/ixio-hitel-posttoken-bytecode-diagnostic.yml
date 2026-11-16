@@ -33,20 +33,15 @@ jobs:
         run: |
           set -euo pipefail
           cat > .ixio-posttoken-private/targets.txt <<'EOF'
-          com.lguplus.aicallagent.splash.viewmodel.LoginViewModel
-          com.lguplus.aicallagent.domain.init.usecase.AuthCodeUseCase
           com.lguplus.aicallagent.util.AuthorizationUtil
-          com.lguplus.aicallagent.datastore.DatastoreHandler
-          com.lguplus.aicallagent.data.init.login.IsLoginCheckRepository
-          com.lguplus.aicallagent.model.api.dto.ixio.userservice.TokenData
-          com.lguplus.aicallagent.model.api.dto.ixio.userservice.MarketId
+          com.lguplus.aicallagent.domain.init.usecase.AuthCodeUseCase
           EOF
           mkdir -p .ixio-posttoken-private/jobs
           run_one() {
             local cls="$1" name status
             name="${cls##*.}"
             set +e
-            timeout --signal=TERM --kill-after=4s 150 env JAVA_OPTS=-Xmx1650m \
+            timeout --signal=TERM --kill-after=4s 225 env JAVA_OPTS=-Xmx2700m \
               .ixio-posttoken-private/jadx/bin/jadx --no-res --threads-count 1 \
               --single-class "$cls" --single-class-output ".ixio-posttoken-private/src/$name.java" \
               .ixio-posttoken-private/apk/IXIO_Main_NoAppSealing_Single.apk \
@@ -55,10 +50,14 @@ jobs:
             set -e
             echo "$name exit=$status bytes=$(stat -c '%s' ".ixio-posttoken-private/src/$name.java" 2>/dev/null || echo 0)" \
               >> ixio-posttoken-diagnostic/status.txt
+            if [ "$status" != "0" ]; then
+              tail -n 18 ".ixio-posttoken-private/jobs/$name.log" | head -c 2500 \
+                > "ixio-posttoken-diagnostic/error-$name.txt"
+            fi
             return 0
           }
           export -f run_one
-          cat .ixio-posttoken-private/targets.txt | xargs -P 2 -I '{}' bash -c 'run_one "$1"' _ '{}'
+          cat .ixio-posttoken-private/targets.txt | xargs -P 1 -I '{}' bash -c 'run_one "$1"' _ '{}'
           python3 - <<'PY'
           from pathlib import Path
           import re,json
@@ -82,6 +81,8 @@ jobs:
           for name,stat in out.items():
               print('CLASS',name,'matches',len(stat['matched_statements']),'incomplete',stat['decompilation_incomplete'])
           PY
+          test -s .ixio-posttoken-private/src/AuthorizationUtil.java
+          test -s .ixio-posttoken-private/src/AuthCodeUseCase.java
           test -s ixio-posttoken-diagnostic/auth-relevant-calls.json
       - uses: actions/upload-artifact@v4
         if: always()
