@@ -20,7 +20,7 @@ jobs:
         with:
           run-id: 43849146906
           name: hitel-original-avatar-chat-public-https-AUTO-debug-experimental-apk
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           path: reports/hitel-avatar-chat-public-https-auto/
       - name: Verify previously-built APK on Apple Silicon host
         shell: bash
