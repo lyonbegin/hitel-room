@@ -1,0 +1,135 @@
+name: IXIO Main Exact Onboarding Next Branch Functions
+on:
+  push:
+    branches: [analysis/ixio-main-enrollment-control-flow-20261116]
+    paths:
+      - '.github/workflows/ixio-main-targeted-next-branch.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  trace-onboarding-result:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download exact previously UI-tested standalone main APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-recovered-private/input .ixio-recovered-private/tools ixio-targeted-branch-results
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .ixio-recovered-private/input
+          test -s .ixio-recovered-private/input/IXIO_Main_NoAppSealing_Single.apk
+          curl --fail --location --retry 3 --silent --show-error \
+            https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip \
+            -o .ixio-recovered-private/tools/jadx.zip
+          mkdir -p .ixio-recovered-private/tools/jadx
+          unzip -qq .ixio-recovered-private/tools/jadx.zip -d .ixio-recovered-private/tools/jadx
+          chmod +x .ixio-recovered-private/tools/jadx/bin/jadx
+          .ixio-recovered-private/tools/jadx/bin/jadx --help \
+            | grep -Ei 'single-class|single-class-output' > ixio-targeted-branch-results/jadx-single-class-help.txt
+      - name: Decompile exact relevant classes only (not full 19-dex app)
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=.ixio-recovered-private/input/IXIO_Main_NoAppSealing_Single.apk
+          JADX=.ixio-recovered-private/tools/jadx/bin/jadx
+          mkdir -p .ixio-recovered-private/target
+          classes=(
+            com.lguplus.aicallagent.domain.init.usecase.ResolveOnboardingLoginEntryUseCase
+            com.lguplus.aicallagent.domain.init.usecase.OnboardingLoginEntry
+            com.lguplus.aicallagent.data.init.login.IsLoginCheckRepository
+            com.lguplus.aicallagent.splash.startRoute.SignupNotCompletedDialogKt
+            com.lguplus.aicallagent.PermissionCompletionDestinationResolverKt
+            com.lguplus.aicallagent.domain.init.usecase.VerifyCtnUseCase
+          )
+          for cls in "${classes[@]}"; do
+            name="${cls##*.}"
+            set +e
+            timeout --signal=TERM --kill-after=10s 145 \
+              "$JADX" --no-res --threads-count 2 \
+              --single-class "$cls" \
+              --single-class-output ".ixio-recovered-private/target/$name.java" \
+              "$APK" > "ixio-targeted-branch-results/jadx-$name.log" 2>&1
+            ret="$?"
+            set -e
+            echo "TARGET=$cls EXIT=$ret OUTPUT=$name" \
+              | tee -a ixio-targeted-branch-results/decompile-status.txt
+            if [ -f ".ixio-recovered-private/target/$name.java" ]; then
+              wc -c ".ixio-recovered-private/target/$name.java" \
+                | tee -a ixio-targeted-branch-results/decompile-status.txt
+            fi
+          done
+      - name: Extract only conditions, method callers and return TYPEs from proprietary functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,re
+          root=Path('.ixio-recovered-private/target')
+          result={}
+          methods_to_check=('resolveByRegistration','resolvePreLoginTerms','invoke',
+             'getLoginState','checkLoginState','verifyCtn','SignupNotCompletedDialog',
+             'resolvePermissionCompletionDestination','getBlockedNotice')
+          for path in sorted(root.glob('*.java')):
+            data=path.read_text(errors='replace')
+            lines=data.splitlines()
+            methods=[]
+            current='class scope'
+            count=0
+            for i,line in enumerate(lines,1):
+              m=re.search(r'\b(?:public|private|protected|final|static)\b.*?\b([A-Za-z_$][A-Za-z0-9_$]*)\s*\(',line)
+              if m and len(line)<500:
+                current=m.group(1)
+              if not (any(x in line for x in (
+                   'OnboardingLoginEntry','verifyCtnUseCase','resolvePreLoginTerms',
+                   'Result.exceptionOrNull','isVasJoin','isAuthorizeCtn','SignupNotCompleted',
+                   'PermissionCompletionDestination','TokenValidation','VasServiceAuth',
+                   'getLoginState','loginState')) or
+                   any(current.lower()==x.lower() for x in methods_to_check)
+                       and any(x in line for x in ('if (','return ','throw '))):
+                continue
+              if len(methods)>75:break
+              line=re.sub(r'"(?:\\.|[^"\\])*"','"[STR_REMOVED]"',line.strip())
+              line=re.sub(r"'(?:\\.|[^'\\])*'","'[STR_REMOVED]'",line)
+              line=re.sub(r'https?://\S+','[URL_REMOVED]',line)
+              if len(line)>250:line=line[:250]+'…'
+              methods.append({'line':i,'nearest_method':current,'condition_or_call':line})
+            result[path.stem]={
+             'original_java_sha256':hashlib.sha256(data.encode()).hexdigest(),
+             'source_bytes':len(data),
+             'jadx_incomplete':'Method not decompiled' in data,
+             'method_identifiers':list(dict.fromkeys(
+                 re.findall(r'\b(?:public|private|protected|static)\b[^;\n{}]{0,220}?\b([A-Za-z_$][\w$]*)\s*\(',data)))[:90],
+             'relevant_control_lines':methods
+            }
+          out=Path('ixio-targeted-branch-results/targeted-control-graph.json')
+          out.write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          for key,val in result.items():
+            print('=== TARGET CLASS',key,'SOURCE_BYTES',val['source_bytes'],'===')
+            print('METHODS',val['method_identifiers'][:65])
+            for l in val['relevant_control_lines'][:45]:
+              print('  BRANCH',l['nearest_method'],l['condition_or_call'])
+          print('TARGETED_COMPLETE',len(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-main-recovered-onboarding-conditional-next-methods
+          path: ixio-targeted-branch-results/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Remove proprietary source and APK from runner
+        if: always()
+        run: rm -rf .ixio-recovered-private
