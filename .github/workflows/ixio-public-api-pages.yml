@@ -54,6 +54,15 @@ jobs:
           PY
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+      - name: Diagnose Pages source and deployment environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo 'PAGES_PUBLIC_SITE_SETTINGS_BEGIN'
+          gh api "repos/${{ github.repository }}/pages" --jq '{html_url,build_type,status,source,https_enforced}' || true
+          echo 'PAGES_ENVIRONMENT_RULES_BEGIN'
+          gh api "repos/${{ github.repository }}/environments/github-pages" --jq '{name,protection_rules,deployment_branch_policy}' || true
+          echo 'PAGES_PUBLIC_SITE_SETTINGS_END'
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
