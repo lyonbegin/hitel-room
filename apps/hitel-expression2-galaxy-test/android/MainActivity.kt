@@ -82,7 +82,7 @@ class MainActivity : FlutterActivity() {
         val output = p.inputStream.bufferedReader().use { it.readText() }
         val status = p.waitFor()
         if (status != 0) return "logcat failed (exit $status): $output"
-        val targets = listOf("BH_EXPR2_DEVICE_ROUTE", "BithumanPlugin", "Expression2",
+        val targets = listOf("BH_EXPR2_LOCAL_TEST", "BH_EXPR2_DEVICE_ROUTE", "EXPR2_LOCAL_FIXTURE", "BithumanPlugin", "Expression2",
             "QNN", "Qnn", "Gpu", "Delegate", "LiteRT")
         val matched = output.lineSequence().filter { line ->
             targets.any { line.contains(it) }
