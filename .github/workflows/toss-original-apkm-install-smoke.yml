@@ -1,0 +1,67 @@
+name: Toss original 5.285.0 APKM split reassembly install test
+on:
+  push:
+    branches: [feature/toss-five-tool-real-audit-20261116]
+    paths: ['.github/workflows/toss-original-apkm-install-smoke.yml', 'tools/toss_five_tool/try_fetch_exact_apkm_for_install.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install-exact-toss-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact original APKM is downloadable publicly, never substitute other builds
+        run: |
+          python -m pip install requests
+          python tools/toss_five_tool/try_fetch_exact_apkm_for_install.py
+          echo '3757c1f52bf5ef47febd98266b81dd016174085278f5cd0db31cfa7526c70a95  /tmp/toss_exact.apkm' | sha256sum -c -
+          mkdir -p reports/toss-apkm-emulator
+          python - <<'PY'
+          import zipfile,hashlib,os
+          with zipfile.ZipFile('/tmp/toss_exact.apkm') as z:
+            assert z.testzip() is None
+            for n in ['base.apk','split_config.arm64_v8a.apk','split_config.xxhdpi.apk']:
+              z.extract(n,'/tmp/toss_parts')
+          print('EXACT_APKM_EXTRACTED')
+          PY
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install same original base and ARM64 density splits on Android 14 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2
+          script: |
+            bash -eo pipefail -c '
+              mkdir -p reports/toss-apkm-emulator
+              adb devices -l | tee reports/toss-apkm-emulator/adb.txt
+              adb shell getprop ro.product.cpu.abilist | tee reports/toss-apkm-emulator/abi.txt
+              adb shell getprop ro.dalvik.vm.native.bridge | tee reports/toss-apkm-emulator/native-bridge.txt
+              adb install-multiple -r /tmp/toss_parts/base.apk /tmp/toss_parts/split_config.arm64_v8a.apk /tmp/toss_parts/split_config.xxhdpi.apk 2>&1 | tee reports/toss-apkm-emulator/install.log
+              adb shell pm path viva.republica.toss | tee reports/toss-apkm-emulator/package-path.txt
+              adb shell monkey -p viva.republica.toss -c android.intent.category.LAUNCHER 1 | tee reports/toss-apkm-emulator/launch.txt
+              sleep 10
+              adb shell pidof viva.republica.toss | tee reports/toss-apkm-emulator/pid.txt || true
+              adb logcat -d -v time | grep -E "FATAL EXCEPTION|viva.republica.toss|UnsatisfiedLinkError" | tail -300 > reports/toss-apkm-emulator/logcat-filtered.txt || true
+              adb shell screencap -p /sdcard/toss_launch.png
+              adb pull /sdcard/toss_launch.png reports/toss-apkm-emulator/screenshot.png
+              echo ORIGINAL_TOSS_APKM_INSTALL_TEST_EXECUTED
+            '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toss-original-apkm-emulator-install-evidence
+          path: reports/toss-apkm-emulator/
+          retention-days: 14
