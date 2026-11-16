@@ -44,7 +44,7 @@ def replace_manifest_string_pool(chunk,indices,replacement):
         raise ValueError("Non-target manifest string modified")
     return new
 
-def patch_axml(blob,group):
+def patch_axml(blob,group,replacement="android.app.Application"):
     if u16(blob,0)!=3 or u32(blob,4)!=len(blob):raise ValueError("Invalid AXML")
     p=8;blocks=[];changed=0
     rep.ORIGINAL_APPLICATION=APPS[group]
@@ -56,7 +56,7 @@ def patch_axml(blob,group):
             all_strings=rep.pool_parse(ch)[5]
             matches=[i for i,s in enumerate(all_strings) if s==APPS[group]]
             if matches:
-                ch=replace_manifest_string_pool(ch,matches,"android.app.Application")
+                ch=replace_manifest_string_pool(ch,matches,replacement)
                 changed+=1
         blocks.append(ch)
     if changed!=1:raise ValueError("Expected a single binary XML string pool")
@@ -69,17 +69,18 @@ def main():
     parser.add_argument("group",choices=APPS)
     parser.add_argument("input_apk")
     parser.add_argument("output_unsigned_apk")
+    parser.add_argument("--application-class",default="android.app.Application")
     args=parser.parse_args()
     with zipfile.ZipFile(args.input_apk) as src,zipfile.ZipFile(args.output_unsigned_apk,"w") as out:
         for item in src.infolist():
             if re.fullmatch(r"META-INF/.*\.(?:RSA|EC|DSA|SF|MF)",item.filename,re.I):continue
             data=src.read(item)
             if item.filename=="AndroidManifest.xml":
-                data=patch_axml(data,args.group)
+                data=patch_axml(data,args.group,args.application_class)
             out.writestr(copy.copy(item),data)
     with zipfile.ZipFile(args.input_apk) as src,zipfile.ZipFile(args.output_unsigned_apk) as out:
         for n in out.namelist():
             if n!="AndroidManifest.xml" and src.read(n)!=out.read(n):
                 raise ValueError("Unexpected source data changed: "+n)
-    print("DIAGNOSTIC_FRAMEWORK_APPLICATION=PASS",args.group)
+    print("DIAGNOSTIC_APPLICATION_CLASS=PASS",args.group,args.application_class)
 if __name__=="__main__":main()
