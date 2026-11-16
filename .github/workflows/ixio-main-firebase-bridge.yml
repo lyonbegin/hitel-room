@@ -41,15 +41,18 @@ jobs:
           test -s .ixio-rebuild-output/main/base.apk
           for n in 0 1 2; do test -s ".ixio-rebuild-output/main/signed-split_$n.apk"; done
           echo "RESTORED_MAIN_APK_SET=AVAILABLE" >> "$GITHUB_STEP_SUMMARY"
-      - name: Build two comparable main-only initialisation variants
+      - name: Build three comparable main-only initialisation variants
         shell: bash
         run: |
           set -euo pipefail
           RAW=.ixio-bridge
           SOURCE=.ixio-rebuild-output/main
-          mkdir -p "$RAW/framework" "$RAW/baseline" ixio-main-firebase-bridge-results
+          mkdir -p "$RAW/framework" "$RAW/baseline" "$RAW/shell" ixio-main-firebase-bridge-results
           python3 tools/ixio/ixio_diagnostic_default_application.py main \
             "$SOURCE/base.apk" "$RAW/framework/base-unsigned.apk"
+          python3 tools/ixio/ixio_diagnostic_default_application.py main \
+            "$SOURCE/base.apk" "$RAW/shell/base-unsigned.apk" \
+            --application-class com.inka.appsealing.AppSealingApplication
           python3 - <<'PY'
           import copy, pathlib, re, zipfile
           inp=pathlib.Path(".ixio-rebuild-output/main/base.apk")
@@ -80,7 +83,7 @@ jobs:
               --ks-key-alias ixio --out "$dest" "$src.aligned"
             "$BT/apksigner" verify "$dest"
           }
-          for variant in baseline framework; do
+          for variant in baseline framework shell; do
             sign "$RAW/$variant/base-unsigned.apk" "$RAW/$variant/base.apk"
             for n in 0 1 2; do
               src="$RAW/baseline/signed-split_$n-unsigned.apk"
@@ -95,8 +98,10 @@ jobs:
             ixio-main-firebase-bridge-results/framework-manifest.txt
           grep -F 'com.lguplus.aicallagent.IXIApplication' \
             ixio-main-firebase-bridge-results/baseline-manifest.txt
-          echo "TWO_VALID_MAIN_APP_VARIANTS=SIGNED" >> "$GITHUB_STEP_SUMMARY"
-      - name: Test both application startup modes on clean Android 14
+          grep -F 'com.inka.appsealing.AppSealingApplication' \
+            ixio-main-firebase-bridge-results/shell-manifest.txt
+          echo "THREE_VALID_MAIN_APP_VARIANTS=SIGNED" >> "$GITHUB_STEP_SUMMARY"
+      - name: Test all three initialization modes on clean Android 14
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
