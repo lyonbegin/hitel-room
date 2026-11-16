@@ -1,0 +1,63 @@
+name: IXIO Exact Call Recording DataStore Bytecode
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-recording-datastore-original-bytecode.yml]
+  workflow_dispatch:
+permissions: {contents: read, actions: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Read original IXIO DataStore call recording smali for exact patch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-bytecode/original /tmp/ixio-bytecode/smali
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir /tmp/ixio-bytecode/original
+          unzip -p /tmp/ixio-bytecode/original/IXIO_Main_NoAppSealing_Single.apk classes16.dex > /tmp/ixio-bytecode/classes16.dex
+          curl -fsSL --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o /tmp/ixio-bytecode/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  /tmp/ixio-bytecode/baksmali.jar' | sha256sum -c -
+          java -Xmx2500m -jar /tmp/ixio-bytecode/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-bytecode/smali /tmp/ixio-bytecode/classes16.dex
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('/tmp/ixio-bytecode/smali/com/lguplus/aicallagent')
+          exact=[
+              root/'datastore/extension/DataStoreExtensionKt.smali',
+              root/'datastore/DatastoreHandler.smali',
+              root/'datastore/DatastoreHandler$getOriginalCallAutoRecording$2.smali',
+              root/'datastore/IxIDataStoreRepository.smali',
+              root/'incall/call/service/InCallServiceImpl$handleCallRecorderAppNotification$1.smali',
+          ]
+          for p in exact:
+              print('RECORDER_SMALI_CLASS',p.relative_to(root),p.exists())
+              if not p.exists():continue
+              lines=p.read_text(errors='replace').splitlines()
+              starts=[i for i,l in enumerate(lines) if l.startswith('.method ') and
+                  (('findCurrentValue(' in l) or ('getOriginalCallAutoRecording(' in l) or
+                   ('invokeSuspend(' in l and '$2' in p.name) or
+                   ('invokeSuspend(' in l and 'Notification' in p.name))]
+              if '$getOriginalCallAutoRecording$2' in p.name:
+                  starts=[i for i,l in enumerate(lines) if l.startswith('.method ') and 'invokeSuspend(' in l]
+              for start in starts[:4]:
+                  end=next((k for k in range(start+1,len(lines)) if lines[k].strip()=='.end method'),min(len(lines),start+170))
+                  print('RECORDER_EXACT_METHOD_START',p.name,start+1,'LINES',end-start+1)
+                  print('RECORDER_EXACT_METHOD_BODY_BEGIN',p.name)
+                  for i,l in enumerate(lines[start:min(end+1,start+250)],start+1):
+                      print(f'RSMALI {p.name}:{i}: {l[:300]}')
+                  print('RECORDER_EXACT_METHOD_BODY_END',p.name)
+              if 'handleCallRecorderAppNotification' in p.name:
+                  for i,l in enumerate(lines):
+                      if any(x in l for x in ('getOriginalCallAutoRecording','findCurrentValue','CancellationException')):
+                          print('RECORDER_ORIGINAL_CALLSITE',p.name,i+1)
+                          for k in range(max(0,i-17),min(len(lines),i+19)):
+                              print(f'RCALL {p.name}:{k+1}: {lines[k][:260]}')
+          PY
