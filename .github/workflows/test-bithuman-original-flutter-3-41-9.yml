@@ -230,7 +230,7 @@ jobs:
           # built-in Kotlin. Add only to disposable build copy, not vendor.
           gradle_updated=gradle_updated.replace(
               '    id("com.android.application")',
-              '    id("com.android.application")\\n    id("org.jetbrains.kotlin.android")',1)
+              '    id("com.android.application")'+chr(10)+'    id("org.jetbrains.kotlin.android")',1)
           assert gradle_updated.count('id("org.jetbrains.kotlin.android")')==1
           appg.write_text(gradle_updated)
           print("TRIAL_3_41_9_LEGACY_KOTLIN_PLUGIN_APPLIED_TEMP_COPY_ONLY")
