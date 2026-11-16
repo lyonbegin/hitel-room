@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/gsm-original
-          gh run download 43893313416 --repo "$GH_REPO" \
+          gh run download 43896051121 --repo "$GH_REPO" \
             --name ixio-hitel-self-owned-local-api-emulator-evidence \
             --dir /tmp/gsm-original
           python3 - <<'PY'
@@ -138,4 +138,24 @@ jobs:
               for detail in latest[-100:]:
                   if re.search(r'(?i)Authorization|Bearer\\s+|accessToken|refreshToken',detail):continue
                   print('ACTUAL_IXIO_APP_LOG',detail[:500])
+          # Report the real after-patch exceptions without dumping the whole log.
+          patch_root=Path('/tmp/gsm-original')
+          for patch in patch_root.rglob('smali-patch-report.json'):
+              data=json.loads(patch.read_text())
+              for m in data.get('patched_smali_methods',[]):
+                  if 'findCurrentValue' in m.get('method',''):
+                      print('RECORDER_DATASTORE_FALLBACK_PRESENT_IN_DEX_BUILD',m)
+          p=root/'logcat-simulated-call.txt'
+          if p.exists():
+              full=p.read_text(errors='replace').splitlines()
+              regex=r'(?i)Data is null|getOriginalCallAutoRecording|handleCallRecorderAppNotification|CallRecordingService|IllegalStateException|CancellationException|SecurityException|Permission Denial|recording.*failed|recorder.*failed|receiver.*error|SpeechToText'
+              selected=[(i,x) for i,x in enumerate(full) if re.search(regex,x)]
+              print('RECORDER_AFTER_FIX_LOGCAT_LINES',len(full))
+              print('RECORDER_AFTER_FIX_RELEVANT_COUNT',len(selected))
+              for i,line in selected[:130]:
+                  if re.search('(?i)Authorization|Bearer\\s+|accessToken|refreshToken|phoneNumber=',line):continue
+                  print('RECORDER_AFTER_FIX_EVENT',i,line[:450])
+          d=json.loads((root/'result.json').read_text(errors='replace'))
+          print('RECORDER_AFTER_FIX_TEST_RESULT',json.dumps({k:d.get(k) for k in
+                ('record_button_tapped','recording_service_bound_after_toggle','recorder_incall_service_seen_after_toggle','stt_verified','simulated_call_requested')},ensure_ascii=False))
           PY
