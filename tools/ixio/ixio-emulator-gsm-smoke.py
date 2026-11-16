@@ -83,6 +83,40 @@ def main() -> None:
     print("GSM_SIMULATED_ACCEPT",accept["returncode"],accept["output"][:350],flush=True)
     time.sleep(12)
     summary["connected"]=save("connected")
+    # Trigger the real in-call recording control (not just the settings
+    # screen). Original UI XML from run 43889791915 proves the icon bounds
+    # [144,1691][218,1765]. Select by semantic content-desc on THIS run.
+    summary["record_button_tapped"]=False
+    xml=OUT/"connected.xml"
+    if xml.exists():
+        try:
+            nodes=list(ET.parse(xml).getroot().iter("node"))
+            choices=[n.attrib for n in nodes
+                     if (n.attrib.get("content-desc","").strip()=="통화 녹음" or
+                         n.attrib.get("text","").strip()=="통화 녹음")]
+            choices.sort(key=lambda n:0 if n.get("content-desc","")=="통화 녹음" else 1)
+            for node in choices:
+                m=re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
+                               node.get("bounds",""))
+                if not m:continue
+                x1,y1,x2,y2=map(int,m.groups())
+                if not (300<y1<2300 and x2>x1 and y2>y1):continue
+                tx,ty=(x1+x2)//2,(y1+y2)//2
+                tapped=adb("shell","input","tap",str(tx),str(ty),timeout=10)
+                summary["record_button_tapped"]=tapped["returncode"]==0
+                print("IXIO_REAL_INCALL_RECORD_BUTTON_TAPPED",summary["record_button_tapped"],"x",tx,"y",ty,flush=True)
+                break
+        except Exception as exc:
+            print("IXIO_RECORD_BUTTON_INSPECT_ERROR",repr(exc),flush=True)
+    if summary["record_button_tapped"]:
+        time.sleep(8)
+        summary["record_toggle"]=save("record_toggle")
+    summary["recording_service_bound_after_toggle"]=(
+        "com.lguplus.callrecorder/.CallRecordingService" in
+        (OUT/"record_toggle-services.txt").read_text(errors="replace")
+        if (OUT/"record_toggle-services.txt").exists() else False)
+    print("IXIO_RECORDER_AIDL_SERVICE_AFTER_TOGGLE",
+          summary["recording_service_bound_after_toggle"],flush=True)
     ended=adb("emu","gsm","cancel",NUMBER,timeout=17)
     summary["events"].append({"name":"gsm_cancel","result":ended})
     time.sleep(3)
@@ -112,7 +146,7 @@ def main() -> None:
     print("IXIO_GSM_CALL_SMOKE_RESULT",json.dumps({
         k:summary[k] for k in ("simulated_call_requested","caller_screen_seen",
            "default_dialer_confirmed","recorder_process_after","main_process_after",
-           "filtered_log_lines","stt_verified")
+           "filtered_log_lines","record_button_tapped","recording_service_bound_after_toggle","stt_verified")
     },ensure_ascii=False),flush=True)
     # A call simulator without real PCM cannot prove RX capture or STT.
     print("IXIO_REAL_RX_PCM_AND_STT_UNVERIFIED=YES",flush=True)
