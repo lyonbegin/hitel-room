@@ -103,4 +103,29 @@ jobs:
                           print('POLICY_FLAG_PRODUCER_CODE',p.name,n+1,src[n][:310])
               if c>=14:break
           print('POLICY_FLAG_PRODUCER_COUNT',c)
+          # Focus only on call policy parameter construction and model-missing diagnostics.
+          needle_map={
+              'policy_flag_reader':'->isRecordingAllowedByPolicy()Z',
+              'recording_param_constructor':'RecordingAvailabilityParam;-><init>',
+              'model_missing_flag':'isModelFileNotFound',
+              'record_fail_constructor':'RecordFail;-><init>',
+              'roaming_policy':'GetIsRecordingAllowedUseCase;->isRecordingAllowed',
+          }
+          for label,needle in needle_map.items():
+              total=0
+              for p in root.rglob('*.smali'):
+                  if total>=14: break
+                  lines=p.read_text(errors='replace').splitlines()
+                  hits=[i for i,line in enumerate(lines) if needle in line]
+                  for idx in hits[:2]:
+                      if total>=14: break
+                      total+=1
+                      method_start=max((k for k in range(idx,-1,-1) if lines[k].startswith('.method ')),default=idx)
+                      method_end=next((k for k in range(idx+1,len(lines)) if lines[k].strip()=='.end method'),idx+24)
+                      print('IXIO_FOCUSED_POLICY_HIT',label,p.relative_to(root),idx+1)
+                      print('IXIO_FOCUSED_POLICY_METHOD',lines[method_start][:330])
+                      for n in range(max(method_start,idx-18),min(idx+22,method_end+1)):
+                          if lines[n].strip() and not lines[n].strip().startswith('.annotation'):
+                              print('IXIO_FOCUSED_POLICY_BYTECODE',label,p.name,n+1,lines[n][:270])
+              print('IXIO_FOCUSED_POLICY_TOTAL',label,total)
           PY
