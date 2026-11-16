@@ -1,4 +1,4 @@
-name: Expression2 SDK 0.6.1 auth-endpoint-only HITEL HTTPS emulator test
+name: Expression2 SDK 0.6.1 public Wise Pup anonymous model door emulator test
 on:
   workflow_dispatch:
   push:
@@ -116,7 +116,7 @@ jobs:
             | tee pristine-proof/upstream-modified-tracked-files.txt
           test "$(cat pristine-proof/upstream-modified-tracked-files.txt)" = "app/avatar_chat/android/app/build.gradle.kts"
           echo 'ORIGINAL_DART_PLUGIN_SDK_AND_MODEL_UNTOUCHED_GRADLE_ONLY_COMPAT'
-      - name: Apply ONLY authentication endpoint substitutions to disposable original plugin
+      - name: Preserve SDK 0.6.1 and select anonymous public sample model resolver only in disposable original plugin
         shell: bash
         run: |
           set -euo pipefail
@@ -149,23 +149,39 @@ jobs:
           assert original.count(b'https://api.bithuman.ai/v1/agent/')==3
           assert patch.count(b'https://api.bithuman.ai/v1/agent/')==2
           p.write_bytes(patch)
+          # Only public showcase sample + our scoped HITEL demo token: use the
+          # original SDK's anonymous model-door resolver, avoiding a vendor
+          # HTTP 401 caused by forwarding HITEL-only tokens to bitHuman.
+          # Do not change any other model code, SDK 0.6.1, or model files.
+          engine_path="android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          engine_original=(archive/engine_path).read_bytes()
+          engine_old=b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver(s))'
+          engine_new=(b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver('
+                      b'if (code == "A23WJF0199" && s.startsWith("htdemo.v1.")) null else s))')
+          assert engine_original.count(engine_old)==1, f"Unexpected SDK store resolver source: {engine_original.count(engine_old)}"
+          engine_patched=engine_original.replace(engine_old,engine_new,1)
+          assert engine_patched.replace(engine_new,engine_old,1)==engine_original
+          (plugin/engine_path).write_bytes(engine_patched)
           kotlin=list(archive.glob("android/src/main/kotlin/**/*.kt"))
           for f in kotlin:
               rel=f.relative_to(archive)
               target=plugin/rel
               assert target.exists(),rel
-              if str(rel)!=path:
+              if str(rel) not in (path,engine_path):
                   assert target.read_bytes()==f.read_bytes(),f"Unexpected Kotlin source change: {rel}"
-          # No app or plugin changes to model-store, feed, output, textures, hardware route.
-          assert (plugin/"android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt").read_bytes()==(archive/"android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt").read_bytes()
+          assert (plugin/engine_path).read_bytes()==engine_patched
+          # Only a public sample's resolver credential argument changes;
+          # SDK native/model/renderer/PCM implementation stays pristine.
           proof={
             "sdk_version":"0.6.1",
             "sdk_only_method_changed":"SelfHostMeter$Companion.apiBase$expression2_release",
-            "plugin_only_file_changed":path,
+            "plugin_only_files_changed":[path,engine_path],
             "plugin_only_auth_url_replacements":1,
             "original_storeDoor_model_download_unchanged":True,
             "original_plugin_Kotlin_others_identical":True,
-            "original_plugin_BithumanPlugin_identical":True,
+            "original_plugin_BithumanPlugin_exact_one_resolver_credential_expression_changed":True,
+            "public_sample_anonymous_model_fetch_only":True,
+            "all_private_model_resolvers_original":True,
             "original_plugin_EntitlementWindow_sha256":hashlib.sha256(original).hexdigest(),
             "debug_plugin_EntitlementWindow_sha256":hashlib.sha256(patch).hexdigest(),
             "local_062_model_implementation_added":False,
@@ -173,7 +189,7 @@ jobs:
             "native_061_inference_model_feed_output_unchanged":True,
           }
           Path("pristine-proof/sdk061-auth-only-plugin-proof.json").write_text(json.dumps(proof,indent=2)+"\n")
-          print("SDK061_AUTH_PLATFORMDOOR_ONLY_CHANGED_MODEL_DOWNLOAD_UNTOUCHED")
+          print("SDK061_ONLY_PUBLIC_SAMPLE_ANON_MODEL_DOOR_RESOLVER_NO_SDK_MODIFICATIONS")
           PY
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/sdk061-app-own-token-only.diff"
@@ -246,7 +262,7 @@ jobs:
               assert 'jni/arm64-v8a/libexpr2jni.so' in z.namelist()
           print("SDK061_ONLY_METER_BASE_CHANGED_VENDOR_ARM64_BYTE_IDENTITY_PRESERVED")
           PY
-      - name: Build original SDK 0.6.1 and Flutter plugin with authentication URLs only changed
+      - name: Build original SDK 0.6.1 with HITEL entitlement and anonymous Wise Pup model fetch
         working-directory: original-upstream/app/avatar_chat
         shell: bash
         run: |
@@ -318,7 +334,7 @@ jobs:
           hitel_token='hitel:public_https_demo_session_issued' in boot
           original_sdk_auth_denial='BithumanEntitlementException' in boot or 'UNAUTHORIZED' in boot
           result={
-           'plugin':'Original archived GitHub Flutter 2.6.37 (not modified)',
+           'plugin':'Archived Flutter 2.6.37 with only HITEL platformDoor and Wise Pup anonymous resolver test changes',
            'sdk':'Original Maven SDK 0.6.1 ARM64 unchanged; JVM meter endpoint getter only redirected',
            'app':'Original avatar_chat with debug-only HITEL HTTPS token acquisition only',
            'apk_abi':'arm64-v8a (from original app ndk.abiFilters)',
@@ -332,6 +348,9 @@ jobs:
            'upstream_avatar_load_succeeded':load_ok,
            'hitel_own_https_token_issued':hitel_token,
            'vendor_entitlement_refusal_observed':original_sdk_auth_denial,
+           'web_manifest_401_observed':'member=web_manifest.json returned HTTP 401' in boot,
+           'web_manifest_fetched_logged':'fetched web_manifest.json' in log,
+           'anonymous_public_sample_only':True,
            'original_native_texture_frame_log_seen':'first frame on the texture' in log,
            'original_native_sdk_frame_log_seen':'first speech frame hostMs=' in log,
            'face_frames_possible_from_upstream_app':False if no_credential and not reached_load else None,
@@ -379,7 +398,9 @@ jobs:
           assert d['adb_install_success'], 'ADB installation failed'
           assert d['hitel_own_https_token_issued'], 'HITEL HTTPS auth was never obtained'
           assert d['upstream_avatar_load_called'], 'Unmodified SDK loader was not called'
-          print("HITEL_SESSION_AND_ORIGINAL_061_LOADER_CALLED")
+          assert not d['web_manifest_401_observed'], 'Public Wise Pup web_manifest.json still rejected with HTTP 401'
+          print("HITEL_SESSION_AND_ORIGINAL_061_PUBLIC_MODEL_MANIFEST_NOT_REJECTED")
+          print("web_manifest_fetched:",d["web_manifest_fetched_logged"])
           print("sdk_load_success:",d["upstream_avatar_load_succeeded"])
           print("vendor_entitlement_refusal:",d["vendor_entitlement_refusal_observed"])
           print("texture_first_frame_logged:",d["original_native_texture_frame_log_seen"])
@@ -389,14 +410,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: expression2-sdk061-auth-only-hitel-emulator-proof
+          name: expression2-sdk061-wise-pup-anonymous-model-emulator-proof
           path: pristine-proof/
           retention-days: 20
       - name: Preserve original ARM64 APK if compiled
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: expression2-sdk061-auth-only-hitel-arm64-apk
+          name: expression2-sdk061-wise-pup-anonymous-model-arm64-apk
           path: pristine-original-plugin2637-sdk061-arm64.apk
           if-no-files-found: ignore
           retention-days: 20
