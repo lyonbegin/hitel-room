@@ -21,8 +21,12 @@ jobs:
           from pathlib import Path
           base="https://api.bithuman.ai/v1/agent/A23WJF0199/model/download?model=expression-2&member=web_manifest.json"
           out=[]
-          for label,url in [("sdk_exact_member",base),("public_member_redirect_false",base+"&redirect=false")]:
-              req=urllib.request.Request(url,headers={"Accept":"application/json","User-Agent":"HITEL-Expression2-anonymous-manifest-probe/1.0"},method="GET")
+          for label,url,extra_headers in [
+              ("sdk_exact_member",base,{}),
+              ("public_member_redirect_false",base+"&redirect=false",{}),
+              ("empty_sdk_api_secret",base,{"api-secret":""}),
+          ]:
+              req=urllib.request.Request(url,headers={"Accept":"application/json","User-Agent":"HITEL-Expression2-anonymous-manifest-probe/1.0",**extra_headers},method="GET")
               try:
                   with urllib.request.urlopen(req,timeout=30) as r:
                       body=r.read(1024*1024+1)
@@ -50,7 +54,7 @@ jobs:
           report={"agent":"A23WJF0199","sdk_version_under_test":"0.6.1","credentials_sent":False,"SDK_or_app_modified":False,"checks":out}
           Path("proof/public-anonymous-manifest.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n")
           print(json.dumps(report,ensure_ascii=False,indent=2))
-          assert len(out)==2
+          assert len(out)==3
           PY
       - name: Save public manifest HTTP status evidence
         if: always()
