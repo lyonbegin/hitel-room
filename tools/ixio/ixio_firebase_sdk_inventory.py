@@ -112,6 +112,11 @@ def inspect_dex(name,b,out):
         if own and super_idx!=0xffffffff and group(types[super_idx]):
             if len(out["app_classes_extending_firebase"])<60:
                 out["app_classes_extending_firebase"].append({"app_class":desc,"firebase_super":types[super_idx],"dex":name})
+        if own and any(segment in desc for segment in (
+            "/data/api/ixio/","/network/","/data/auth/","/data/init/login/",
+            "/data/init/","/data/api/","/data/ai/")):
+            if len(out["separate_telecom_and_ixio_api_class_paths"])<160:
+                out["separate_telecom_and_ixio_api_class_paths"].append(desc)
         if not own:continue
         class_data_off=u32(b,at+24)
         if not class_data_off:continue
