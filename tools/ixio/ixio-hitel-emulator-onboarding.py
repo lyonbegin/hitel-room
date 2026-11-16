@@ -227,6 +227,8 @@ def main():
         # This system dialog is from Settings, not PermissionController.
         if "Let app always run in background?" in joined and "익시오 통화녹음" in joined:
             action=choose(nodes,["Allow"],True)
+        if not action and "통화 녹음 앱 이용 시 주의 사항" in joined:
+            action=choose(nodes,["확인"],True)
         if not action and any("시작하기" in t for t in visible):
             action=choose(nodes,["시작하기"],True)
         elif (("익시오 서비스 이용을 위한" in joined or
