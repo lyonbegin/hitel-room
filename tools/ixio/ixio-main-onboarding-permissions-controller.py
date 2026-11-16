@@ -20,6 +20,7 @@ APK=".ixio-start-test/IXIO_Main_NoAppSealing_Single.apk"
 ACTIONS=[]
 ERRORS=[
     "서비스에 가입할 수 없","가입할 수 없","가입이 불가능",
+    "서비스 가입을 완료할 수 없",
     "서비스를 이용할 수 없","가입할 수 없습니다",
     "지원하지 않는 단말","서비스 이용 불가","가입 대상이 아",
     "현재 가입이 불가","이용 대상이 아","지원하지 않는 기기",
@@ -128,10 +129,12 @@ def main():
         if any(q in joined for q in ERRORS):
             seen_error=True
             print("SERVICE_ERROR_EXACT_UI",joined[:1200],flush=True)
-            t=choose(nodes,["확인","닫기","알겠습니다","OK","취소"],True)
+            t=choose(nodes,["앱 종료","확인","닫기","알겠습니다","OK","취소"],True)
             if t:
                 tap(t,"DISMISS_EXISTING_SERVICE_ERROR")
                 snapshot(i+100)
+                time.sleep(5)
+                snapshot(i+101)
             stop_reason="SERVICE_ERROR_OBSERVED_AND_DISMISS_TESTED"
             break
         # Do not accept any legal or account credentials; this is not a carrier account.
