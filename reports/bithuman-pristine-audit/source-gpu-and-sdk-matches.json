@@ -1,0 +1,3473 @@
+{
+  "avatar_chat": [
+    {
+      "file": "README.md",
+      "line": 11,
+      "text": "| **Android** | **builds** — `flutter build apk` | every engine it needs is a public coordinate on bitHuman's Maven repository (`https://maven.bithuman.ai`, which the plugin declares), resolved anonymously by Gradle: `ai.bithuman:expression2-android` and `ai.bithuman:essence2-android`, both pulled in by the plugin this app pins. |"
+    },
+    {
+      "file": "README.md",
+      "line": 23,
+      "text": "On Android that tag resolves `ai.bithuman:essence2-android` and `ai.bithuman:expression2-android`"
+    },
+    {
+      "file": "README.md",
+      "line": 50,
+      "text": "`BH_ENGINE` is a **compile-time** dart-define, so an expression-2 build and an essence-2"
+    },
+    {
+      "file": "README.md",
+      "line": 67,
+      "text": "flutter build macos --release --dart-define=BH_ENGINE=expression2 \\"
+    },
+    {
+      "file": "README.md",
+      "line": 73,
+      "text": "flutter build macos --release --dart-define=BH_ENGINE=essence2 \\"
+    },
+    {
+      "file": "README.md",
+      "line": 183,
+      "text": "| `ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --dart-define=BH_ENGINE=essence2` | `ai.bithuman.example.avatar_chat.essence2` | bitHuman Essence-2 |"
+    },
+    {
+      "file": "android/app/build.gradle.kts",
+      "line": 8,
+      "text": "// (the `BH_ENGINE` dart-define), so a single package id means installing one model"
+    },
+    {
+      "file": "android/app/build.gradle.kts",
+      "line": 17,
+      "text": "//     ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --dart-define=BH_ENGINE=essence2"
+    },
+    {
+      "file": "android/app/build.gradle.kts",
+      "line": 42,
+      "text": "// The Hexagon (QNN) delegate opens its libraries by PATH from the native-library"
+    },
+    {
+      "file": "android/app/src/main/AndroidManifest.xml",
+      "line": 18,
+      "text": "android:windowSoftInputMode=\"adjustNothing\">"
+    },
+    {
+      "file": "android/settings.gradle.kts",
+      "line": 5,
+      "text": "file(\"local.properties\").inputStream().use { properties.load(it) }"
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 292,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 307,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 309,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 330,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 344,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 346,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 366,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "ios/Runner.xcodeproj/project.pbxproj",
+      "line": 367,
+      "text": "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist\","
+    },
+    {
+      "file": "ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme",
+      "line": 82,
+      "text": "enableGPUValidationMode = \"1\""
+    },
+    {
+      "file": "ios/Runner/Info.plist",
+      "line": 52,
+      "text": "<key>UIApplicationSupportsIndirectInputEvents</key>"
+    },
+    {
+      "file": "lib/dev_levers.dart",
+      "line": 19,
+      "text": "/// (which identity), `BH_ENGINE` (which model), `BH_MIC` (a speaker-only session is a"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 154,
+      "text": "const _engineSlug = String.fromEnvironment('BH_ENGINE', defaultValue: 'expression2');"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 202,
+      "text": "final _input = TextEditingController();"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 203,
+      "text": "final _keyInput = TextEditingController();"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 435,
+      "text": "final k = _keyInput.text.trim();"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 559,
+      "text": "final t = _input.text.trim();"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 561,
+      "text": "_input.clear();"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 595,
+      "text": "? _RefusalView(refusal: _refusal!, needsKey: _needsKey, controller: _keyInput,"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 655,
+      "text": "controller: _input,"
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 708,
+      "text": "decoration: InputDecoration("
+    },
+    {
+      "file": "lib/main.dart",
+      "line": 711,
+      "text": "border: const OutlineInputBorder(),"
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 342,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 344,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 359,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 360,
+      "text": "Flutter/ephemeral/FlutterInputs.xcfilelist,"
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 362,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 379,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 381,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 401,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 402,
+      "text": "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist\","
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 418,
+      "text": "inputFileListPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/project.pbxproj",
+      "line": 420,
+      "text": "inputPaths = ("
+    },
+    {
+      "file": "macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme",
+      "line": 80,
+      "text": "enableGPUValidationMode = \"1\""
+    },
+    {
+      "file": "macos/Runner/Configs/AppInfo.xcconfig",
+      "line": 14,
+      "text": "// The engine is a compile-time dart-define (BH_ENGINE), so an expression-2 build and"
+    },
+    {
+      "file": "macos/Runner/Configs/AppInfo.xcconfig",
+      "line": 26,
+      "text": "//   flutter build macos --release --dart-define=BH_ENGINE=essence2 ..."
+    },
+    {
+      "file": "macos/Runner/DebugProfile.entitlements",
+      "line": 14,
+      "text": "<key>com.apple.security.device.audio-input</key>"
+    },
+    {
+      "file": "macos/Runner/Release.entitlements",
+      "line": 14,
+      "text": "<key>com.apple.security.device.audio-input</key>"
+    },
+    {
+      "file": "test/window_contract_test.dart",
+      "line": 27,
+      "text": "expect(manifest, contains('android:windowSoftInputMode=\"adjustNothing\"'),"
+    }
+  ],
+  "plugin_2_6_37": [
+    {
+      "file": "ARCHITECTURE.md",
+      "line": 51,
+      "text": "| **GPU** | `engine/gpu/` torch CUDA fp16 (`Expression2GpuEngine`) | `?model=embody-gpu` | bitHuman cloud (GPU) | cloud serving (platform) |"
+    },
+    {
+      "file": "ARCHITECTURE.md",
+      "line": 63,
+      "text": "`light` = `gpu` + `ane` + `cpu` (distilled)."
+    },
+    {
+      "file": "ARCHITECTURE.md",
+      "line": 67,
+      "text": "| **light · GPU** | `engine/light/gpu/` le_a2x + m4b director, ORT-CUDA | `?model=elevate-gpu-light` | bitHuman cloud (GPU) | cloud serving (platform) |"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 80,
+      "text": "`downloadExpression2Avatar`, `downloadExpression2Agent`, `downloadEssence2Bundle`). It is a"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 105,
+      "text": "whoever called next: `downloadAgentImx` its `<cacheDir>/<id>.imx`, `downloadExpression2Avatar` and"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 141,
+      "text": "trailing slash, for any code). `downloadExpression2Avatar` and `downloadExpression2Agent` take `apiSecret` and"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 254,
+      "text": "* **An installed Essence 2 avatar opens in about 3 s (Android).** The engine keeps its compiled GPU programs per device"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 271,
+      "text": "do not include its idle clip, `expression2-android` installs none (`Expression2Avatar.idleLoopUnavailableReason`"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 283,
+      "text": "the phone has been busy for a while and caps its GPU, the engine renders the character's 720p output and scales it"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 484,
+      "text": "* **The avatar texture is a SurfaceProducer (Android).** Under Impeller a SurfaceTexture cost"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 568,
+      "text": "removed the mic tap unconditionally; on an engine that never had an input, `engine.inputNode`"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 569,
+      "text": "instantiates one and binds the input device synchronously on the platform (= UI) thread, which never"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 570,
+      "text": "returned (sampled on an M4 iMac: `AVAudioIOUnit_OSX::EnableInputDevice` →"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 615,
+      "text": "* **Android:** unchanged — `ai.bithuman:essence2-android` 0.8.1 and `ai.bithuman:expression2-android` 0.5.2."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 637,
+      "text": "`ai.bithuman:expression2-android` 0.5.1 -> **0.5.2**."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 644,
+      "text": "zero-copy delivery: the GPU renders each frame into a hardware buffer (32 of them, the SDK's"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 646,
+      "text": "with a hardware canvas. Before, every frame was read back from the GPU, copied into a `ByteBuffer`,"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 649,
+      "text": "engine bytes with and without it): process CPU **1.65-1.73 cores vs 1.84-1.85**, GPU busy"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 652,
+      "text": "A device without the SDK's GPU compositor keeps the copy path and logs why."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 654,
+      "text": "* **Android:** `ai.bithuman:expression2-android` 0.5.0 -> **0.5.1** and `essence2-android` 0.8.0 carry the"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 684,
+      "text": "* **Android:** `ai.bithuman:expression2-android` 0.4.10 -> **0.5.0**: the first frame of each stream is"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 712,
+      "text": "* **Android:** `ai.bithuman:essence2-android` **0.5.14 → 0.5.15** and `ai.bithuman:expression2-android`"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 725,
+      "text": "* **Android:** `ai.bithuman:expression2-android` **0.4.8 → 0.4.9** (its first on-device session"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 751,
+      "text": "* **`downloadExpression2Avatar`**: a download that is a zip still goes through `unzip`; anything"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 807,
+      "text": "* `ai.bithuman:expression2-android` **0.4.7 → 0.4.8**. 0.4.8's POM declares the Qualcomm Hexagon"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 823,
+      "text": "`libQnnTFLiteDelegate.so` is present."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 871,
+      "text": "And the reader (#948): the bundle's native CoreML model now takes a 5th input `lip_delivery` from"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 874,
+      "text": "still the 4-input package beside a template (every served bundle today) is REFUSED by name and"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 876,
+      "text": "re-published with the 5-input package."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1207,
+      "text": "pins `ai.bithuman:expression2-android:0.4.7` and `ai.bithuman:essence2-android:0.5.7`."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1291,
+      "text": "* **Android engine pin → `ai.bithuman:expression2-android:0.4.7`.** 2.4.0 pinned 0.4.6"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1337,
+      "text": "`ai.bithuman:expression2-android` AAR (pinned 0.4.6 — Maven Central carries 0.4.1 at"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1351,
+      "text": "set `packaging { jniLibs { useLegacyPackaging = true } }` or the Hexagon delegate"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1469,
+      "text": "* Also on this branch: **USM unsharp-mask sharpen** (`EMBODY_SHARPEN`, GPU-parity"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1486,
+      "text": "nested under `audio.input` / `audio.output`, `voice` lives inside"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1487,
+      "text": "`audio.output`, `turn_detection` inside `audio.input`, format"
+    },
+    {
+      "file": "README.md",
+      "line": 120,
+      "text": "`ai.bithuman:expression2-android` on Android."
+    },
+    {
+      "file": "README.md",
+      "line": 246,
+      "text": "| `downloadExpression2Avatar(code, avatarUrl, cacheDir, {apiSecret, allowedHosts})` | An Expression 2 avatar, verified and expanded into `cacheDir/<code>/`; returns the directory. |"
+    },
+    {
+      "file": "README.md",
+      "line": 270,
+      "text": "| `commitInputAudio()` | End-of-turn marker for non-VAD push-to-talk flows. |"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 3,
+      "text": "// The engines are the PUBLISHED `ai.bithuman:expression2-android` and"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 26,
+      "text": "// The Qualcomm Hexagon NPU delegate + runtime (com.qualcomm.qti:qnn-litert-delegate and"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 122,
+      "text": "implementation 'ai.bithuman:expression2-android:0.6.1'"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 194,
+      "text": "// 0.8.0 (2026-09-26): useHardwareBuffers takes up to 32 slots (was 16), which the zero-copy"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 212,
+      "text": "// 0.9.2 (2026-10-02, maven.bithuman.ai only): ADAPTIVE 720p WHILE THROTTLED. On a phone that caps its GPU"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 219,
+      "text": "// its compiled GPU programs per device + driver and prepares the teeth data during the credential check; Flip5:"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 244,
+      "text": "// The Hexagon (QNN) delegate opens its libraries by PATH from the app's native-library"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 8,
+      "text": "//   expression-2 (`ai.bithuman:expression2-android`)  20 fps, 416x720 portrait."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 34,
+      "text": "import ai.bithuman.expression2.Expression2Avatar"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 48,
+      "text": "* essence2-android 0.8.0): [bitmap] is a HARDWARE bitmap over the GPU buffer the engine rendered"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 126,
+      "text": "class Expression2Engine(private val avatar: Expression2Avatar) : AvatarEngine {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 130,
+      "text": "override val fps = Expression2Avatar.FRAMES_PER_SECOND"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 143,
+      "text": "* [Expression2Avatar.idleLoop] (`idleLoopUnavailableReason` says why; BithumanPlugin logs it once at"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 217,
+      "text": "* three times on the CPU: the SDK reads the finished frame back from the GPU into a ByteBuffer"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 220,
+      "text": "* times a second. With `useHardwareBuffers` the GPU renders straight into a HardwareBuffer,"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 225,
+      "text": "override val hardwareFrames: Boolean = zeroCopy && runCatching { avatar.useHardwareBuffers(HW_SLOTS) }"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 394,
+      "text": "val hf: Essence2HardwareFrame? = if (hardwareFrames) avatar.pullHardwareBuffer() else null"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 475,
+      "text": "val bmp = Bitmap.wrapHardwareBuffer(hf.buffer, SRGB) ?: run { hf.close(); return null }"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 528,
+      "text": "val hf = avatar.idleHardwareBuffer() ?: return null"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 529,
+      "text": "val bmp = Bitmap.wrapHardwareBuffer(hf.buffer, SRGB) ?: run { hf.close(); return null }"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt",
+      "line": 238,
+      "text": "// instead of a copy of it — a hardware Bitmap over the GPU buffer it was rendered into — and"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt",
+      "line": 869,
+      "text": "// `this Expression2Avatar is closed`. Whoever creates the engine calls close —"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarStats.kt",
+      "line": 54,
+      "text": "/** End of input -> first presented frame of the reply, and -> first audio sample. */"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarStats.kt",
+      "line": 58,
+      "text": "* End of input -> the FIRST BYTE of the agent's voice arriving from the cloud."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 8,
+      "text": "// Engines: expression-2 through the published `ai.bithuman:expression2-android` AAR and"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 20,
+      "text": "// frames (a Flutter SurfaceProducer) and the channel glue around it."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 34,
+      "text": "import ai.bithuman.expression2.Expression2Avatar"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 57,
+      "text": "import io.flutter.view.TextureRegistry"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 74,
+      "text": "private lateinit var textureRegistry: TextureRegistry"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 103,
+      "text": "val entry: TextureRegistry.SurfaceProducer,"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 149,
+      "text": "* with zero-copy delivery, a GPU draw of the engine's own buffer: a hardware Bitmap needs"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 151,
+      "text": "* a Surface connects to one producer API, CPU or GPU."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 166,
+      "text": "val canvas = try { if (hwCanvas) surface.lockHardwareCanvas() else surface.lockCanvas(null) } catch (e: Exception) {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 198,
+      "text": "private fun newTexture(): Pair<TextureRegistry.SurfaceProducer, TextureGate> {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 199,
+      "text": "val entry = textureRegistry.createSurfaceProducer()"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 205,
+      "text": "entry.setCallback(object : TextureRegistry.SurfaceProducer.Callback {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 238,
+      "text": "textureRegistry = binding.textureRegistry"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 262,
+      "text": "* ImageReaderSurfaceProducer.onImage (\"FlutterJNI is not attached to native\")."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 421,
+      "text": "// ★ A SurfaceProducer, not a SurfaceTexture. Under Impeller (Vulkan, the"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 427,
+      "text": "// ImageReader whose buffers Impeller imports as they are. The draw is unchanged: the"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 521,
+      "text": "try { Expression2Avatar.create(context, model) } catch (e: Exception) {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt",
+      "line": 207,
+      "text": "(c.errorStream ?: c.inputStream)?.use { s ->"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/LoadCredentials.kt",
+      "line": 9,
+      "text": "* they are created: the meter arms in `Expression2Avatar.create` / `Essence2Avatar.create` and bills every"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/ModelRejection.kt",
+      "line": 47,
+      "text": "* [t], thrown by `Expression2Avatar.create`, as a model refusal — or null. The engine's"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/Pcm16kTo24k.kt",
+      "line": 8,
+      "text": "// Linear interpolation, 2 samples in -> 3 out. The state carries across chunks (up to two input"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/Pcm16kTo24k.kt",
+      "line": 15,
+      "text": "/** Input samples not yet converted (0..2): the next output triple starts at carry[0]. */"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/Pcm16kTo24k.kt",
+      "line": 27,
+      "text": "// Output m sits at input position m * 2/3: x[i], x[i + 2/3], x[i + 4/3] for each pair."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/StillFrame.kt",
+      "line": 2,
+      "text": "// idle clip (its manifest did not list idle.mp4) installs no idle member: `Expression2Avatar.idleLoop`"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 6,
+      "text": "// FlutterRenderer$ImageReaderSurfaceProducer.onImage, after Back on the call screen (Galaxy S24,"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 7,
+      "text": "// 1 run in 4, 2026-09-30). The avatar's texture (a SurfaceProducer: an ImageReader) was released"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 27,
+      "text": "* Flutter allows a SurfaceProducer to be released on and the one the presenter draws on, so a draw"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 36,
+      "text": "* The producer took its surface away (SurfaceProducer.Callback.onSurfaceCleanup) and has not"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/EntitlementWindowTest.kt",
+      "line": 63,
+      "text": "val r = c.getInputStream().bufferedReader(Charsets.ISO_8859_1)"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/ModelRejectionTest.kt",
+      "line": 45,
+      "text": "assertNull(ModelRejection.essence2(CreateStepRefused(\"the GPU queue could not start\")))"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 31,
+      "text": "// Input 0, 300, 600, 900 at positions 0..3; outputs sit at 0, 2/3, 4/3, 2, 8/3, 10/3."
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 44,
+      "text": "val input = le(*IntArray(997) { k -> ((k * 7919) % 65536) - 32768 })"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 45,
+      "text": "val whole = Pcm16kTo24k().let { it.process(input) + it.flush() }"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 50,
+      "text": "while (i < input.size) {"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 51,
+      "text": "val end = minOf(input.size, i + cut)"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 52,
+      "text": "out += c.process(input.copyOfRange(i, end))"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/TextureGateTest.kt",
+      "line": 82,
+      "text": "s.producer.gate.surfaceGone = true       // SurfaceProducer.Callback.onSurfaceCleanup"
+    },
+    {
+      "file": "docs/TRANSPORT.md",
+      "line": 23,
+      "text": "| **AEC** | **Apple VP-IO** (`setVoiceProcessingEnabled(true)` on input+output node) | **Apple VP-IO** (managed by libwebrtc's iOS ADM) | platform `AcousticEchoCanceler` (API ≥ 29) over `VOICE_COMMUNICATION`; libwebrtc AEC3 as software backstop | Apple VP-IO |"
+    },
+    {
+      "file": "docs/TRANSPORT.md",
+      "line": 74,
+      "text": "input+output, speaker + lipsync fed the same chunks (shared clock), the"
+    },
+    {
+      "file": "docs/TRANSPORT.md",
+      "line": 150,
+      "text": "user input, so **every** `speech_started` is a spurious barge), installs"
+    },
+    {
+      "file": "e2e/README.md",
+      "line": 25,
+      "text": "GPU, no key."
+    },
+    {
+      "file": "e2e/README.md",
+      "line": 190,
+      "text": "director's CoreML load (CPU — no ANE/GPU on sim) are all REAL; the talking"
+    },
+    {
+      "file": "e2e/README.md",
+      "line": 334,
+      "text": "stream is silent (tests don't depend on real mic input)."
+    },
+    {
+      "file": "e2e/mock_realtime/bin/serve.dart",
+      "line": 11,
+      "text": "// input_audio_buffer.commit, with a barge round if speech is appended"
+    },
+    {
+      "file": "e2e/mock_realtime/bin/serve.dart",
+      "line": 56,
+      "text": "case 'input_audio_buffer.commit':"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 10,
+      "text": "//                     input_audio_buffer.speech_started / speech_stopped,"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 13,
+      "text": "//                     input_audio_buffer.append / commit"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 110,
+      "text": "/// (e.g. a stream of input_audio_buffer.append)."
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 181,
+      "text": "void sendSpeechStarted() => send({'type': 'input_audio_buffer.speech_started'});"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 183,
+      "text": "void sendSpeechStopped() => send({'type': 'input_audio_buffer.speech_stopped'});"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 186,
+      "text": "'type': 'conversation.item.input_audio_transcription.completed',"
+    },
+    {
+      "file": "e2e/scenarios/gate_metrics.py",
+      "line": 412,
+      "text": "for p in args.inputs:"
+    },
+    {
+      "file": "e2e/scenarios/gate_metrics.py",
+      "line": 474,
+      "text": "p.add_argument(\"inputs\", nargs=\"+\")"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 1027,
+      "text": "scriHvt9OO+Y9bI5mE4nuBFde9IllIiCFSZqGzG7qFshISvYD06fWvGxWuR51jIjK+FTzJlFXHtP"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 1357,
+      "text": "ijhDPwGFpUenPUayvOUiaPd7nNgsPgohyC0zrL/FgZkxdMF1ccW+sfAjRfSda/wZY52jvATGGAsl"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2434,
+      "text": "MIICOjCCAcGgAwIBAgIQQvLM2htpN0RfFf51KBC49DAKBggqhkjOPQQDAzBfMQswCQYDVQQGEwJH"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2504,
+      "text": "9+Rbu7nzifmPQdjH5FCQNYA+HLhNkNPU98OwoX6EyneSMSy4kLGCenROmxMmtNVQZlR4rmA="
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2845,
+      "text": "lWGG2Pmic4ruri+W7mjNPU0oQvlFKzIbRlUWaqZLKfm7lVa/Rh3sHZMdwGWyH6FDrlaeoLGPaxK3"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2884,
+      "text": "BQADggIBAKwsKUF9+lz1GpUYvyypiqkkVHX1uECry6gkUSsYP2OprphWKwVDIqO310aewCoSPY6W"
+    },
+    {
+      "file": "ios/bithuman.podspec",
+      "line": 291,
+      "text": "pod_xcconfig['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) BH_ENGINE_AUTH_HOOKS=1' if auth_hooks"
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 469,
+      "text": "///     the mic input → no self-talk feedback loop"
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 868,
+      "text": "/// [downloadExpression2Avatar], which states the rule. A refusal, or a door that"
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 1003,
+      "text": "Future<String> downloadExpression2Avatar("
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 1158,
+      "text": "/// Expression 2 character is an `.avatar`: use [downloadExpression2Avatar]."
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 1306,
+      "text": "/// rule [downloadExpression2Avatar] states. Pass [apiSecret], the signed-in account's key (no key: only"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 24,
+      "text": "//     `output_modalities`, nested `audio.input.*` / `audio.output.*`."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 25,
+      "text": "//     The old beta shape (top-level `modalities`/`voice`/`input_audio_format`)"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 282,
+      "text": "// monologue, so the run is continuous agent speech with ZERO user input"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 524,
+      "text": "/// `conversation.item.input_audio_transcription.completed`."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 754,
+      "text": "// `audio.input` / `audio.output`; turn_detection lives inside"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 755,
+      "text": "// `audio.input`. PCM16 mono @ 24 kHz both directions."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 766,
+      "text": "'input': {"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 800,
+      "text": "// with the bot's words, mic is leaking into input."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1003,
+      "text": "'type': 'input_audio_buffer.append',"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1022,
+      "text": "void commitInputAudio() {"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1023,
+      "text": "_send({'type': 'input_audio_buffer.commit'});"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1029,
+      "text": "/// `input_audio_buffer.speech_started` path) BEFORE adding the user's text and"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1053,
+      "text": "{'type': 'input_text', 'text': t},"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1058,
+      "text": "// Typed input is a committed user turn with no speech_stopped event — emit"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1287,
+      "text": "case 'conversation.item.input_audio_transcription.completed':"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1337,
+      "text": "case 'input_audio_buffer.speech_started':"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1371,
+      "text": "case 'input_audio_buffer.speech_stopped':"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1389,
+      "text": "//   - input_audio_buffer_commit_empty: server VAD didn't hear"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1393,
+      "text": "code.contains('input_audio_buffer_commit_empty') ||"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 81,
+      "text": "/// with ZERO user input. Under that protocol every"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 82,
+      "text": "/// `input_audio_buffer.speech_started` the server reports is by"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 337,
+      "text": "// audio-related moved under `session.audio.{input,output}.*`,"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 353,
+      "text": "'input': {"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 416,
+      "text": "// current session config so we don't need to repeat audio.input.*"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 490,
+      "text": "case 'input_audio_buffer.speech_started':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 496,
+      "text": "case 'input_audio_buffer.speech_stopped':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 506,
+      "text": "case 'conversation.item.input_audio_transcription.completed':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 513,
+      "text": "case 'conversation.item.input_audio_transcription.delta':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 520,
+      "text": "case 'conversation.item.input_audio_transcription.failed':"
+    },
+    {
+      "file": "lib/realtime_transport.dart",
+      "line": 219,
+      "text": "// Typed input is a committed user turn → the session emits userStopped"
+    },
+    {
+      "file": "lib/realtime_transport.dart",
+      "line": 352,
+      "text": "// iOS WebRTC text input isn't wired yet (would send over the data channel);"
+    },
+    {
+      "file": "lib/realtime_transport.dart",
+      "line": 524,
+      "text": "// (parity with a spoken turn and with cloud typed input). The native pushText"
+    },
+    {
+      "file": "lib/src/agent_imx.dart",
+      "line": 15,
+      "text": "// Expression 2 character is a `.avatar`, not an `.imx`: use `downloadExpression2Avatar`."
+    },
+    {
+      "file": "lib/src/dev_levers.dart",
+      "line": 15,
+      "text": "/// monologues, no user input) and `BH_MIC_FILE` (a recorded voice injected into the"
+    },
+    {
+      "file": "lib/src/dev_levers.dart",
+      "line": 30,
+      "text": "/// run is continuous agent speech with zero user input (both transports)."
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 5,
+      "text": "// `<cacheDir>/<id>.imx`, `downloadExpression2Avatar` / `downloadExpression2Agent` their"
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 213,
+      "text": "publicDoor = publicDoor ?? (door == null ? bithumanPublicDoor : _noPublicDoor);"
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 595,
+      "text": "Uri? bithumanPublicDoor(String code, String family) {"
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 604,
+      "text": "/// The gate the top-level installers use (`downloadExpression2Avatar`, `downloadExpression2Agent`,"
+    },
+    {
+      "file": "lib/src/spoken_captions.dart",
+      "line": 63,
+      "text": "/// [busy] (every 50 ms is plenty), and every input re-evaluates at once."
+    },
+    {
+      "file": "lib/ui_kit.dart",
+      "line": 265,
+      "text": "// ─── INPUT ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "file": "lib/ui_kit.dart",
+      "line": 283,
+      "text": "decoration: InputDecoration("
+    },
+    {
+      "file": "lib/ui_kit.dart",
+      "line": 284,
+      "text": "isDense: true, border: InputBorder.none,"
+    },
+    {
+      "file": "macos/bithuman.podspec",
+      "line": 296,
+      "text": "pod_xcconfig['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) BH_ENGINE_AUTH_HOOKS=1' if auth_hooks"
+    },
+    {
+      "file": "scripts/bootstrap.sh",
+      "line": 353,
+      "text": "# A CANDIDATE engine (an unpublished build, e.g. before a pin move): the two archives a release"
+    },
+    {
+      "file": "scripts/stress-webrtc-iphone.sh",
+      "line": 3,
+      "text": "# (tasks #56/#62). Continuous agent speech, no user input — any server-VAD"
+    },
+    {
+      "file": "scripts/stress-webrtc-metrics.py",
+      "line": 6,
+      "text": "BITHUMAN_DEV_STRESS session — continuous agent speech, ZERO user input — so"
+    },
+    {
+      "file": "scripts/stress-webrtc-metrics.py",
+      "line": 14,
+      "text": "with zero user input every one is spurious)"
+    },
+    {
+      "file": "scripts/stress-webrtc-metrics.py",
+      "line": 85,
+      "text": "# the native barge line. Zero user input → every one is spurious."
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 11,
+      "text": "// dark backdrop (CoreImage, one GPU blend per 384x384 head frame at ≤25 fps)."
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 228,
+      "text": "kCIInputImageKey: img,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 229,
+      "text": "kCIInputBackgroundImageKey: bg,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 230,
+      "text": "kCIInputMaskImageKey: mask,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 248,
+      "text": "\"inputCenter\": CIVector(x: r, y: r),"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 249,
+      "text": "\"inputRadius0\": r - 2,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 250,
+      "text": "\"inputRadius1\": r,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 251,
+      "text": "\"inputColor0\": CIColor.white,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 252,
+      "text": "\"inputColor1\": CIColor.black,"
+    },
+    {
+      "file": "shared/Classes/BHObjCException.h",
+      "line": 3,
+      "text": "// AVAudioEngine's installTap / connect / disconnectNodeInput / removeTap /"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 99,
+      "text": "private var registrarTextures: FlutterTextureRegistry? {"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 207,
+      "text": "guard let textureRegistry = registrarTextures else {"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 209,
+      "text": "message: \"no FlutterTextureRegistry available\","
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 251,
+      "text": "let textureId = textureRegistry.register(texture)"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 253,
+      "text": "texture.registry = textureRegistry"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 282,
+      "text": "textureRegistry.unregisterTexture(textureId)"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 653,
+      "text": "// instead of starting the input node under denied permission — that is what"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 655,
+      "text": "// denied app a live-looking but silent input bus, and VP-IO can't init on"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 714,
+      "text": "// Called from Dart the moment input_audio_buffer.speech_started"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 985,
+      "text": "weak var registry: FlutterTextureRegistry?"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2790,
+      "text": "private func resampleTo16k(_ input: [Float], inRate: Double) -> [Float] {"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2791,
+      "text": "if inRate == 16000 || input.isEmpty { return input }"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2794,
+      "text": "let outLen = input.count / ir; var out = [Float](repeating: 0, count: outLen); let inv = 1.0/Float(ir)"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2795,
+      "text": "for i in 0..<outLen { var s: Float = 0; for j in 0..<ir { s += input[i*ir+j] }; out[i] = s*inv }"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2798,
+      "text": "let outLen = Int(Double(input.count)/ratio); if outLen <= 0 { return [] }"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2800,
+      "text": "for i in 0..<outLen { let sp = Double(i)*ratio; let idx = Int(sp); let f = Float(sp-Double(idx)); out[i] = idx+1 < input.count ? input[idx]*(1-f)+input[idx+1]*f : input[idx] }"
+    },
+    {
+      "file": "shared/Classes/ConverseSession.swift",
+      "line": 76,
+      "text": "cfg.llm_gpu_layers = -1"
+    },
+    {
+      "file": "shared/Classes/DeviceAuthShim.m",
+      "line": 14,
+      "text": "// BH_ENGINE_AUTH_HOOKS=1, and the same shim starts registering the"
+    },
+    {
+      "file": "shared/Classes/DeviceAuthShim.m",
+      "line": 41,
+      "text": "#if BH_ENGINE_AUTH_HOOKS"
+    },
+    {
+      "file": "shared/Classes/DeviceAuthShim.m",
+      "line": 60,
+      "text": "#if BH_ENGINE_AUTH_HOOKS"
+    },
+    {
+      "file": "shared/Classes/Essence2PluginEngine.swift",
+      "line": 112,
+      "text": "// ESSENCE2_SKIP_AHEAD from the staged libessence2.a's symbols (as it does BH_ENGINE_AUTH_HOOKS), so"
+    },
+    {
+      "file": "shared/Classes/Essence2PluginEngine.swift",
+      "line": 159,
+      "text": "/// Release the engine; the last usage report is flushed, then its GPU work drains."
+    },
+    {
+      "file": "shared/Classes/LocalConverseController.swift",
+      "line": 256,
+      "text": "/// LOCAL-mode typed input: commit a user message to the brain as if it had"
+    },
+    {
+      "file": "shared/Classes/LocalConverseController.swift",
+      "line": 264,
+      "text": "// input stacks onto the reply the agent is still giving."
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 31,
+      "text": "// on BOTH the input and output node gives us Apple's VP-IO aggregate:"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 72,
+      "text": "// the OpenAI native 24 kHz Int16 format; the mixer takes that input"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 99,
+      "text": "// Float32 input. Routing Int16 through the mixer on macOS produces"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 728,
+      "text": "// speaker-only: we never touch engine.inputNode, so macOS never asks for"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 731,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 742,
+      "text": "try input.setVoiceProcessingEnabled(true)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 744,
+      "text": "applyUplinkGain(input)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 750,
+      "text": "input.voiceProcessingOtherAudioDuckingConfiguration ="
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 761,
+      "text": "// fails -10875 because VP-IO requires its input bus to match its"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 769,
+      "text": "let outBusFormat = output.inputFormat(forBus: 0)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 802,
+      "text": "NSLog(\"[av-latency] outputLatency=%.1f ms  inputLatency=%.1f ms  ioBuffer=%.1f ms  sr=%.0f  route=%@\","
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 803,
+      "text": "session.outputLatency * 1000, session.inputLatency * 1000,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 963,
+      "text": "/// connect, disconnectNodeInput, removeTap, attach, …). Swift do/catch cannot"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 979,
+      "text": "// macOS has no AVAudioSession route notifications. AVAudioEngine binds the input tap"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 982,
+      "text": "// strands audio on the old device. We watch the Core Audio default input/output device"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 988,
+      "text": "// input tap + the mixer→output connection + engine start/stop. It NEVER touches"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 997,
+      "text": "private var halInputListenerInstalled = false"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1005,
+      "text": "private var defaultInputAddr = AudioObjectPropertyAddress("
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1006,
+      "text": "mSelector: kAudioHardwarePropertyDefaultInputDevice,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1020,
+      "text": "// Authoritative default input/output device changes (fire even when the engine"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1028,
+      "text": "if AudioObjectAddPropertyListenerBlock(sys, &defaultInputAddr, swapQueue, block) == noErr {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1029,
+      "text": "halInputListenerInstalled = true"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1043,
+      "text": "if halInputListenerInstalled {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1044,
+      "text": "AudioObjectRemovePropertyListenerBlock(sys, &defaultInputAddr, swapQueue, block)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1045,
+      "text": "halInputListenerInstalled = false"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1105,
+      "text": "try guardAV(\"removeTap(pre-swap)\") { engine.inputNode.removeTap(onBus: 0) }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1135,
+      "text": "let outReady = formatValid(output.inputFormat(forBus: 0))"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1136,
+      "text": "let inReady  = !startedWithMic || formatValid(engine.inputNode.outputFormat(forBus: 0))"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1162,
+      "text": "try engine.inputNode.setVoiceProcessingEnabled(true)   // Swift-throwing"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1164,
+      "text": "applyUplinkGain(engine.inputNode)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1169,
+      "text": "let newOut = output.inputFormat(forBus: 0)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1171,
+      "text": "try guardAV(\"disconnectNodeInput(output)\") {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1172,
+      "text": "engine.disconnectNodeInput(output, bus: 0)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1176,
+      "text": "// boundary and must be pinned to the device's input-bus rate; `nil`"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1181,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1182,
+      "text": "try guardAV(\"removeTap(input)\") {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1183,
+      "text": "input.removeTap(onBus: 0)      // defensive: VP-IO toggle can re-create the node WITH a tap"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1193,
+      "text": "try guardAV(\"installTap(input)\") {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1194,
+      "text": "input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buf, _ in"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1209,
+      "text": "_ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) }   // never re-raise (we're recovering)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1218,
+      "text": "_ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1252,
+      "text": "/// Apply the row's gain policy to the input node. Called at graph bring-up AND on"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1254,
+      "text": "private func applyUplinkGain(_ input: AVAudioInputNode) {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1255,
+      "text": "if !vpioAgc { input.isVoiceProcessingAGCEnabled = false }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1282,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1294,
+      "text": "input.isVoiceProcessingEnabled ? 1 : 0,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1296,
+      "text": "input.isVoiceProcessingAGCEnabled ? 1 : 0,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1298,
+      "text": "input.outputFormat(forBus: 0).sampleRate,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1299,
+      "text": "output.inputFormat(forBus: 0).sampleRate,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1300,
+      "text": "Int(input.outputFormat(forBus: 0).channelCount),"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1369,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1374,
+      "text": "input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buf, _ in"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1421,
+      "text": "if micActive { _ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) }; micActive = false }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1444,
+      "text": "// ★ONLY WHEN THE MIC WAS ON (2026-09-28). `engine.inputNode` is not a getter on"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1445,
+      "text": "// macOS: on an engine that never had an input it INSTANTIATES one and binds the"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1446,
+      "text": "// input device, synchronously, on this (the Flutter platform = UI) thread. In a"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1448,
+      "text": "// an M4 iMac: main thread parked in AVAudioIOUnit_OSX::EnableInputDevice ->"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1451,
+      "text": "if micActive { _ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) } }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1670,
+      "text": "///      Realtime WebSocket as `input_audio_buffer.append`."
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1684,
+      "text": "// ch=9 multi-channel-input quirk (which channel actually has the user's"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1685,
+      "text": "// voice) seen on the macOS VP-IO input bus."
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1710,
+      "text": "// source has > 2 channels on macOS (observed: ch=9 from the VP-IO input"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1723,
+      "text": "// VP-IO on M-series presents a multi-channel input bus (ch=9 observed) where"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1845,
+      "text": "// lipsync gets no input) so the cancelled response can't keep playing"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 36,
+      "text": "private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 81,
+      "text": "// drop the oldest pending input rather than growing without limit. These"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 85,
+      "text": "let (inputSeq, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream("
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 87,
+      "text": "self.inputBuilder = inputBuilder"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 95,
+      "text": "try await analyzer.start(inputSequence: inputSeq)"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 120,
+      "text": "inputBuilder.yield(AnalyzerInput(buffer: converted))"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 124,
+      "text": "inputBuilder.finish()"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 125,
+      "text": "try? await analyzer.finalizeAndFinishThroughEndOfInput()"
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 3,
+      "text": "// ★WHY THIS FILE EXISTS (2.6.11). Until 2.6.10 `downloadExpression2Avatar`"
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 93,
+      "text": "group('downloadExpression2Avatar', () {"
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 96,
+      "text": "final dir = await withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 113,
+      "text": "withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 126,
+      "text": "final dir = await withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 139,
+      "text": "() => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 150,
+      "text": "await withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 162,
+      "text": "withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/e2e/echo_onset_guard_test.dart",
+      "line": 69,
+      "text": "final before = conn.eventsOfType('input_audio_buffer.append').length;"
+    },
+    {
+      "file": "test/e2e/echo_onset_guard_test.dart",
+      "line": 74,
+      "text": "while (conn.eventsOfType('input_audio_buffer.append').length < before + chunks.length) {"
+    },
+    {
+      "file": "test/e2e/echo_onset_guard_test.dart",
+      "line": 79,
+      "text": ".eventsOfType('input_audio_buffer.append')"
+    },
+    {
+      "file": "test/e2e/headless_voice_host_test.dart",
+      "line": 148,
+      "text": "final append = await conn.nextEventOfType('input_audio_buffer.append',"
+    },
+    {
+      "file": "test/e2e/headless_voice_host_test.dart",
+      "line": 156,
+      "text": "expect(conn.eventsOfType('input_audio_buffer.append').length, 1,"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 111,
+      "text": "final input = audio['input'] as Map<String, dynamic>;"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 115,
+      "text": "expect((input['format'] as Map)['rate'], 24000);"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 116,
+      "text": "final vad = input['turn_detection'] as Map<String, dynamic>;"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 274,
+      "text": "// Unmuted: a mic chunk becomes input_audio_buffer.append, verbatim b64."
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 277,
+      "text": "final append = await conn.nextEventOfType('input_audio_buffer.append',"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 284,
+      "text": "conn.eventsOfType('input_audio_buffer.append').length;"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 287,
+      "text": "expect(conn.eventsOfType('input_audio_buffer.append').length,"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 294,
+      "text": "conn.eventsOfType('input_audio_buffer.append').length =="
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 8,
+      "text": "// Every cache path is covered: `downloadAgentImx` (the `.imx`), `downloadExpression2Avatar` and"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 455,
+      "text": "// ───────────────────────────────── downloadExpression2Avatar / downloadExpression2Agent (the directory)"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 485,
+      "text": "downloadExpression2Avatar(code, 'https://example.invalid/$code.avatar', tmp.path, apiSecret: key);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 489,
+      "text": "for (final (name, open) in [('downloadExpression2Avatar', avatar), ('downloadExpression2Agent', legacy)]) {"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 852,
+      "text": "expect(await downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other), dir);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 860,
+      "text": "await expectLater(downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 865,
+      "text": "await expectLater(downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 884,
+      "text": "expect(await downloadExpression2Avatar(pub, x, tmp.path, apiSecret: _other), dir);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 892,
+      "text": "expect(await downloadExpression2Avatar(pub, x, tmp.path, apiSecret: _other), dir);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 898,
+      "text": "await expectLater(downloadExpression2Avatar(pub, x, tmp.path, apiSecret: _other), _refused(false),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 924,
+      "text": "await downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _owner);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 927,
+      "text": "await expectLater(downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 944,
+      "text": "expect(bithumanPublicDoor('A11PUB0001', 'expression-2').toString(),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 946,
+      "text": "expect(bithumanPublicDoor('A11PUB0001', 'essence-2').toString(),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 948,
+      "text": "expect(bithumanPublicDoor('A11PUB0001', ''), isNull, reason: 'an .imx: the container rule only');"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 949,
+      "text": "expect(DoorGate().publicDoor('A11PUB0001', 'expression-2'), bithumanPublicDoor('A11PUB0001', 'expression-2'));"
+    }
+  ],
+  "plugin_2_6_40": [
+    {
+      "file": "ARCHITECTURE.md",
+      "line": 51,
+      "text": "| **GPU** | `engine/gpu/` torch CUDA fp16 (`Expression2GpuEngine`) | `?model=embody-gpu` | bitHuman cloud (GPU) | cloud serving (platform) |"
+    },
+    {
+      "file": "ARCHITECTURE.md",
+      "line": 63,
+      "text": "`light` = `gpu` + `ane` + `cpu` (distilled)."
+    },
+    {
+      "file": "ARCHITECTURE.md",
+      "line": 67,
+      "text": "| **light · GPU** | `engine/light/gpu/` le_a2x + m4b director, ORT-CUDA | `?model=elevate-gpu-light` | bitHuman cloud (GPU) | cloud serving (platform) |"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 20,
+      "text": "`downloadAgentImx`, `downloadExpression2Avatar`, `downloadExpression2Agent`, `downloadEssence2Bundle` and, on"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 240,
+      "text": "`downloadExpression2Avatar`, `downloadExpression2Agent`, `downloadEssence2Bundle`). It is a"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 265,
+      "text": "whoever called next: `downloadAgentImx` its `<cacheDir>/<id>.imx`, `downloadExpression2Avatar` and"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 301,
+      "text": "trailing slash, for any code). `downloadExpression2Avatar` and `downloadExpression2Agent` take `apiSecret` and"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 414,
+      "text": "* **An installed Essence 2 avatar opens in about 3 s (Android).** The engine keeps its compiled GPU programs per device"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 431,
+      "text": "do not include its idle clip, `expression2-android` installs none (`Expression2Avatar.idleLoopUnavailableReason`"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 443,
+      "text": "the phone has been busy for a while and caps its GPU, the engine renders the character's 720p output and scales it"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 644,
+      "text": "* **The avatar texture is a SurfaceProducer (Android).** Under Impeller a SurfaceTexture cost"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 728,
+      "text": "removed the mic tap unconditionally; on an engine that never had an input, `engine.inputNode`"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 729,
+      "text": "instantiates one and binds the input device synchronously on the platform (= UI) thread, which never"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 730,
+      "text": "returned (sampled on an M4 iMac: `AVAudioIOUnit_OSX::EnableInputDevice` →"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 775,
+      "text": "* **Android:** unchanged — `ai.bithuman:essence2-android` 0.8.1 and `ai.bithuman:expression2-android` 0.5.2."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 797,
+      "text": "`ai.bithuman:expression2-android` 0.5.1 -> **0.5.2**."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 804,
+      "text": "zero-copy delivery: the GPU renders each frame into a hardware buffer (32 of them, the SDK's"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 806,
+      "text": "with a hardware canvas. Before, every frame was read back from the GPU, copied into a `ByteBuffer`,"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 809,
+      "text": "engine bytes with and without it): process CPU **1.65-1.73 cores vs 1.84-1.85**, GPU busy"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 812,
+      "text": "A device without the SDK's GPU compositor keeps the copy path and logs why."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 814,
+      "text": "* **Android:** `ai.bithuman:expression2-android` 0.5.0 -> **0.5.1** and `essence2-android` 0.8.0 carry the"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 844,
+      "text": "* **Android:** `ai.bithuman:expression2-android` 0.4.10 -> **0.5.0**: the first frame of each stream is"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 872,
+      "text": "* **Android:** `ai.bithuman:essence2-android` **0.5.14 → 0.5.15** and `ai.bithuman:expression2-android`"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 885,
+      "text": "* **Android:** `ai.bithuman:expression2-android` **0.4.8 → 0.4.9** (its first on-device session"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 911,
+      "text": "* **`downloadExpression2Avatar`**: a download that is a zip still goes through `unzip`; anything"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 967,
+      "text": "* `ai.bithuman:expression2-android` **0.4.7 → 0.4.8**. 0.4.8's POM declares the Qualcomm Hexagon"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 983,
+      "text": "`libQnnTFLiteDelegate.so` is present."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1031,
+      "text": "And the reader (#948): the bundle's native CoreML model now takes a 5th input `lip_delivery` from"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1034,
+      "text": "still the 4-input package beside a template (every served bundle today) is REFUSED by name and"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1036,
+      "text": "re-published with the 5-input package."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1367,
+      "text": "pins `ai.bithuman:expression2-android:0.4.7` and `ai.bithuman:essence2-android:0.5.7`."
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1451,
+      "text": "* **Android engine pin → `ai.bithuman:expression2-android:0.4.7`.** 2.4.0 pinned 0.4.6"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1497,
+      "text": "`ai.bithuman:expression2-android` AAR (pinned 0.4.6 — Maven Central carries 0.4.1 at"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1511,
+      "text": "set `packaging { jniLibs { useLegacyPackaging = true } }` or the Hexagon delegate"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1629,
+      "text": "* Also on this branch: **USM unsharp-mask sharpen** (`EMBODY_SHARPEN`, GPU-parity"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1646,
+      "text": "nested under `audio.input` / `audio.output`, `voice` lives inside"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "line": 1647,
+      "text": "`audio.output`, `turn_detection` inside `audio.input`, format"
+    },
+    {
+      "file": "README.md",
+      "line": 139,
+      "text": "`ai.bithuman:expression2-android` on Android."
+    },
+    {
+      "file": "README.md",
+      "line": 265,
+      "text": "| `downloadExpression2Avatar(code, avatarUrl, cacheDir, {apiSecret, allowedHosts})` | An Expression 2 avatar, verified and expanded into `cacheDir/<code>/`; returns the directory. |"
+    },
+    {
+      "file": "README.md",
+      "line": 299,
+      "text": "| `commitInputAudio()` | End-of-turn marker for non-VAD push-to-talk flows. |"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 3,
+      "text": "// The engines are the PUBLISHED `ai.bithuman:expression2-android` and"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 26,
+      "text": "// The Qualcomm Hexagon NPU delegate + runtime (com.qualcomm.qti:qnn-litert-delegate and"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 122,
+      "text": "implementation 'ai.bithuman:expression2-android:0.6.1'"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 194,
+      "text": "// 0.8.0 (2026-09-26): useHardwareBuffers takes up to 32 slots (was 16), which the zero-copy"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 212,
+      "text": "// 0.9.2 (2026-10-02, maven.bithuman.ai only): ADAPTIVE 720p WHILE THROTTLED. On a phone that caps its GPU"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 219,
+      "text": "// its compiled GPU programs per device + driver and prepares the teeth data during the credential check; Flip5:"
+    },
+    {
+      "file": "android/build.gradle",
+      "line": 244,
+      "text": "// The Hexagon (QNN) delegate opens its libraries by PATH from the app's native-library"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 8,
+      "text": "//   expression-2 (`ai.bithuman:expression2-android`)  20 fps, 416x720 portrait."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 34,
+      "text": "import ai.bithuman.expression2.Expression2Avatar"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 48,
+      "text": "* essence2-android 0.8.0): [bitmap] is a HARDWARE bitmap over the GPU buffer the engine rendered"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 126,
+      "text": "class Expression2Engine(private val avatar: Expression2Avatar) : AvatarEngine {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 130,
+      "text": "override val fps = Expression2Avatar.FRAMES_PER_SECOND"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 143,
+      "text": "* [Expression2Avatar.idleLoop] (`idleLoopUnavailableReason` says why; BithumanPlugin logs it once at"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 217,
+      "text": "* three times on the CPU: the SDK reads the finished frame back from the GPU into a ByteBuffer"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 220,
+      "text": "* times a second. With `useHardwareBuffers` the GPU renders straight into a HardwareBuffer,"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 225,
+      "text": "override val hardwareFrames: Boolean = zeroCopy && runCatching { avatar.useHardwareBuffers(HW_SLOTS) }"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 394,
+      "text": "val hf: Essence2HardwareFrame? = if (hardwareFrames) avatar.pullHardwareBuffer() else null"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 475,
+      "text": "val bmp = Bitmap.wrapHardwareBuffer(hf.buffer, SRGB) ?: run { hf.close(); return null }"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 528,
+      "text": "val hf = avatar.idleHardwareBuffer() ?: return null"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt",
+      "line": 529,
+      "text": "val bmp = Bitmap.wrapHardwareBuffer(hf.buffer, SRGB) ?: run { hf.close(); return null }"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt",
+      "line": 238,
+      "text": "// instead of a copy of it — a hardware Bitmap over the GPU buffer it was rendered into — and"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt",
+      "line": 869,
+      "text": "// `this Expression2Avatar is closed`. Whoever creates the engine calls close —"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarStats.kt",
+      "line": 54,
+      "text": "/** End of input -> first presented frame of the reply, and -> first audio sample. */"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/AvatarStats.kt",
+      "line": 58,
+      "text": "* End of input -> the FIRST BYTE of the agent's voice arriving from the cloud."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 8,
+      "text": "// Engines: expression-2 through the published `ai.bithuman:expression2-android` AAR and"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 20,
+      "text": "// frames (a Flutter SurfaceProducer) and the channel glue around it."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 34,
+      "text": "import ai.bithuman.expression2.Expression2Avatar"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 57,
+      "text": "import io.flutter.view.TextureRegistry"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 74,
+      "text": "private lateinit var textureRegistry: TextureRegistry"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 103,
+      "text": "val entry: TextureRegistry.SurfaceProducer,"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 149,
+      "text": "* with zero-copy delivery, a GPU draw of the engine's own buffer: a hardware Bitmap needs"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 151,
+      "text": "* a Surface connects to one producer API, CPU or GPU."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 166,
+      "text": "val canvas = try { if (hwCanvas) surface.lockHardwareCanvas() else surface.lockCanvas(null) } catch (e: Exception) {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 198,
+      "text": "private fun newTexture(): Pair<TextureRegistry.SurfaceProducer, TextureGate> {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 199,
+      "text": "val entry = textureRegistry.createSurfaceProducer()"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 205,
+      "text": "entry.setCallback(object : TextureRegistry.SurfaceProducer.Callback {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 238,
+      "text": "textureRegistry = binding.textureRegistry"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 262,
+      "text": "* ImageReaderSurfaceProducer.onImage (\"FlutterJNI is not attached to native\")."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 421,
+      "text": "// ★ A SurfaceProducer, not a SurfaceTexture. Under Impeller (Vulkan, the"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 427,
+      "text": "// ImageReader whose buffers Impeller imports as they are. The draw is unchanged: the"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt",
+      "line": 522,
+      "text": "try { Expression2Avatar.create(context, model) } catch (e: Exception) {"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt",
+      "line": 239,
+      "text": "(c.errorStream ?: c.inputStream)?.use { s ->"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/LoadCredentials.kt",
+      "line": 9,
+      "text": "* they are created: the meter arms in `Expression2Avatar.create` / `Essence2Avatar.create` and bills every"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/ModelRejection.kt",
+      "line": 47,
+      "text": "* [t], thrown by `Expression2Avatar.create`, as a model refusal — or null. The engine's"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/Pcm16kTo24k.kt",
+      "line": 8,
+      "text": "// Linear interpolation, 2 samples in -> 3 out. The state carries across chunks (up to two input"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/Pcm16kTo24k.kt",
+      "line": 15,
+      "text": "/** Input samples not yet converted (0..2): the next output triple starts at carry[0]. */"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/Pcm16kTo24k.kt",
+      "line": 27,
+      "text": "// Output m sits at input position m * 2/3: x[i], x[i + 2/3], x[i + 4/3] for each pair."
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/StillFrame.kt",
+      "line": 2,
+      "text": "// idle clip (its manifest did not list idle.mp4) installs no idle member: `Expression2Avatar.idleLoop`"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 6,
+      "text": "// FlutterRenderer$ImageReaderSurfaceProducer.onImage, after Back on the call screen (Galaxy S24,"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 7,
+      "text": "// 1 run in 4, 2026-09-30). The avatar's texture (a SurfaceProducer: an ImageReader) was released"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 27,
+      "text": "* Flutter allows a SurfaceProducer to be released on and the one the presenter draws on, so a draw"
+    },
+    {
+      "file": "android/src/main/kotlin/ai/bithuman/flutter/TextureGate.kt",
+      "line": 36,
+      "text": "* The producer took its surface away (SurfaceProducer.Callback.onSurfaceCleanup) and has not"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/EntitlementWindowTest.kt",
+      "line": 69,
+      "text": "val r = c.getInputStream().bufferedReader(Charsets.ISO_8859_1)"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/ModelRejectionTest.kt",
+      "line": 45,
+      "text": "assertNull(ModelRejection.essence2(CreateStepRefused(\"the GPU queue could not start\")))"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 31,
+      "text": "// Input 0, 300, 600, 900 at positions 0..3; outputs sit at 0, 2/3, 4/3, 2, 8/3, 10/3."
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 44,
+      "text": "val input = le(*IntArray(997) { k -> ((k * 7919) % 65536) - 32768 })"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 45,
+      "text": "val whole = Pcm16kTo24k().let { it.process(input) + it.flush() }"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 50,
+      "text": "while (i < input.size) {"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 51,
+      "text": "val end = minOf(input.size, i + cut)"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/Pcm16kTo24kTest.kt",
+      "line": 52,
+      "text": "out += c.process(input.copyOfRange(i, end))"
+    },
+    {
+      "file": "android/src/test/kotlin/ai/bithuman/flutter/TextureGateTest.kt",
+      "line": 82,
+      "text": "s.producer.gate.surfaceGone = true       // SurfaceProducer.Callback.onSurfaceCleanup"
+    },
+    {
+      "file": "docs/TRANSPORT.md",
+      "line": 23,
+      "text": "| **AEC** | **Apple VP-IO** (`setVoiceProcessingEnabled(true)` on input+output node) | **Apple VP-IO** (managed by libwebrtc's iOS ADM) | platform `AcousticEchoCanceler` (API ≥ 29) over `VOICE_COMMUNICATION`; libwebrtc AEC3 as software backstop | Apple VP-IO |"
+    },
+    {
+      "file": "docs/TRANSPORT.md",
+      "line": 74,
+      "text": "input+output, speaker + lipsync fed the same chunks (shared clock), the"
+    },
+    {
+      "file": "docs/TRANSPORT.md",
+      "line": 150,
+      "text": "user input, so **every** `speech_started` is a spurious barge), installs"
+    },
+    {
+      "file": "e2e/README.md",
+      "line": 25,
+      "text": "GPU, no key."
+    },
+    {
+      "file": "e2e/README.md",
+      "line": 190,
+      "text": "director's CoreML load (CPU — no ANE/GPU on sim) are all REAL; the talking"
+    },
+    {
+      "file": "e2e/README.md",
+      "line": 334,
+      "text": "stream is silent (tests don't depend on real mic input)."
+    },
+    {
+      "file": "e2e/mock_realtime/bin/serve.dart",
+      "line": 11,
+      "text": "// input_audio_buffer.commit, with a barge round if speech is appended"
+    },
+    {
+      "file": "e2e/mock_realtime/bin/serve.dart",
+      "line": 56,
+      "text": "case 'input_audio_buffer.commit':"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 10,
+      "text": "//                     input_audio_buffer.speech_started / speech_stopped,"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 13,
+      "text": "//                     input_audio_buffer.append / commit"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 110,
+      "text": "/// (e.g. a stream of input_audio_buffer.append)."
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 181,
+      "text": "void sendSpeechStarted() => send({'type': 'input_audio_buffer.speech_started'});"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 183,
+      "text": "void sendSpeechStopped() => send({'type': 'input_audio_buffer.speech_stopped'});"
+    },
+    {
+      "file": "e2e/mock_realtime/lib/mock_realtime.dart",
+      "line": 186,
+      "text": "'type': 'conversation.item.input_audio_transcription.completed',"
+    },
+    {
+      "file": "e2e/scenarios/gate_metrics.py",
+      "line": 412,
+      "text": "for p in args.inputs:"
+    },
+    {
+      "file": "e2e/scenarios/gate_metrics.py",
+      "line": 474,
+      "text": "p.add_argument(\"inputs\", nargs=\"+\")"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 1027,
+      "text": "scriHvt9OO+Y9bI5mE4nuBFde9IllIiCFSZqGzG7qFshISvYD06fWvGxWuR51jIjK+FTzJlFXHtP"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 1357,
+      "text": "ijhDPwGFpUenPUayvOUiaPd7nNgsPgohyC0zrL/FgZkxdMF1ccW+sfAjRfSda/wZY52jvATGGAsl"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2434,
+      "text": "MIICOjCCAcGgAwIBAgIQQvLM2htpN0RfFf51KBC49DAKBggqhkjOPQQDAzBfMQswCQYDVQQGEwJH"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2504,
+      "text": "9+Rbu7nzifmPQdjH5FCQNYA+HLhNkNPU98OwoX6EyneSMSy4kLGCenROmxMmtNVQZlR4rmA="
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2845,
+      "text": "lWGG2Pmic4ruri+W7mjNPU0oQvlFKzIbRlUWaqZLKfm7lVa/Rh3sHZMdwGWyH6FDrlaeoLGPaxK3"
+    },
+    {
+      "file": "ios/Assets/cacert.pem",
+      "line": 2884,
+      "text": "BQADggIBAKwsKUF9+lz1GpUYvyypiqkkVHX1uECry6gkUSsYP2OprphWKwVDIqO310aewCoSPY6W"
+    },
+    {
+      "file": "ios/bithuman.podspec",
+      "line": 291,
+      "text": "pod_xcconfig['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) BH_ENGINE_AUTH_HOOKS=1' if auth_hooks"
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 489,
+      "text": "///     the mic input → no self-talk feedback loop"
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 888,
+      "text": "/// [downloadExpression2Avatar], which states the rule. A refusal, or a door that"
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 1031,
+      "text": "Future<String> downloadExpression2Avatar("
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 1186,
+      "text": "/// Expression 2 character is an `.avatar`: use [downloadExpression2Avatar]."
+    },
+    {
+      "file": "lib/bithuman.dart",
+      "line": 1338,
+      "text": "/// rule [downloadExpression2Avatar] states. Pass [apiSecret], the signed-in account's key (no key: only"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 24,
+      "text": "//     `output_modalities`, nested `audio.input.*` / `audio.output.*`."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 25,
+      "text": "//     The old beta shape (top-level `modalities`/`voice`/`input_audio_format`)"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 282,
+      "text": "// monologue, so the run is continuous agent speech with ZERO user input"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 524,
+      "text": "/// `conversation.item.input_audio_transcription.completed`."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 754,
+      "text": "// `audio.input` / `audio.output`; turn_detection lives inside"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 755,
+      "text": "// `audio.input`. PCM16 mono @ 24 kHz both directions."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 766,
+      "text": "'input': {"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 800,
+      "text": "// with the bot's words, mic is leaking into input."
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1003,
+      "text": "'type': 'input_audio_buffer.append',"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1022,
+      "text": "void commitInputAudio() {"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1023,
+      "text": "_send({'type': 'input_audio_buffer.commit'});"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1029,
+      "text": "/// `input_audio_buffer.speech_started` path) BEFORE adding the user's text and"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1053,
+      "text": "{'type': 'input_text', 'text': t},"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1058,
+      "text": "// Typed input is a committed user turn with no speech_stopped event — emit"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1287,
+      "text": "case 'conversation.item.input_audio_transcription.completed':"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1337,
+      "text": "case 'input_audio_buffer.speech_started':"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1371,
+      "text": "case 'input_audio_buffer.speech_stopped':"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1389,
+      "text": "//   - input_audio_buffer_commit_empty: server VAD didn't hear"
+    },
+    {
+      "file": "lib/bithuman_realtime.dart",
+      "line": 1393,
+      "text": "code.contains('input_audio_buffer_commit_empty') ||"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 81,
+      "text": "/// with ZERO user input. Under that protocol every"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 82,
+      "text": "/// `input_audio_buffer.speech_started` the server reports is by"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 337,
+      "text": "// audio-related moved under `session.audio.{input,output}.*`,"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 353,
+      "text": "'input': {"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 416,
+      "text": "// current session config so we don't need to repeat audio.input.*"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 490,
+      "text": "case 'input_audio_buffer.speech_started':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 496,
+      "text": "case 'input_audio_buffer.speech_stopped':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 506,
+      "text": "case 'conversation.item.input_audio_transcription.completed':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 513,
+      "text": "case 'conversation.item.input_audio_transcription.delta':"
+    },
+    {
+      "file": "lib/openai_webrtc_session.dart",
+      "line": 520,
+      "text": "case 'conversation.item.input_audio_transcription.failed':"
+    },
+    {
+      "file": "lib/realtime_transport.dart",
+      "line": 219,
+      "text": "// Typed input is a committed user turn → the session emits userStopped"
+    },
+    {
+      "file": "lib/realtime_transport.dart",
+      "line": 352,
+      "text": "// iOS WebRTC text input isn't wired yet (would send over the data channel);"
+    },
+    {
+      "file": "lib/realtime_transport.dart",
+      "line": 524,
+      "text": "// (parity with a spoken turn and with cloud typed input). The native pushText"
+    },
+    {
+      "file": "lib/src/agent_imx.dart",
+      "line": 15,
+      "text": "// Expression 2 character is a `.avatar`, not an `.imx`: use `downloadExpression2Avatar`."
+    },
+    {
+      "file": "lib/src/dev_levers.dart",
+      "line": 15,
+      "text": "/// monologues, no user input) and `BH_MIC_FILE` (a recorded voice injected into the"
+    },
+    {
+      "file": "lib/src/dev_levers.dart",
+      "line": 30,
+      "text": "/// run is continuous agent speech with zero user input (both transports)."
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 5,
+      "text": "// `<cacheDir>/<id>.imx`, `downloadExpression2Avatar` / `downloadExpression2Agent` their"
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 255,
+      "text": "publicDoor = publicDoor ?? (door == null ? bithumanPublicDoor : _noPublicDoor);"
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 654,
+      "text": "Uri? bithumanPublicDoor(String code, String family) {"
+    },
+    {
+      "file": "lib/src/door_gate.dart",
+      "line": 663,
+      "text": "/// The gate the top-level installers use (`downloadExpression2Avatar`, `downloadExpression2Agent`,"
+    },
+    {
+      "file": "lib/src/model_preparing.dart",
+      "line": 58,
+      "text": "/// Thrown by `downloadAgentImx`, `downloadExpression2Avatar`, `downloadExpression2Agent`, `downloadEssence2Bundle`"
+    },
+    {
+      "file": "lib/src/spoken_captions.dart",
+      "line": 63,
+      "text": "/// [busy] (every 50 ms is plenty), and every input re-evaluates at once."
+    },
+    {
+      "file": "lib/ui_kit.dart",
+      "line": 265,
+      "text": "// ─── INPUT ──────────────────────────────────────────────────────────────────"
+    },
+    {
+      "file": "lib/ui_kit.dart",
+      "line": 283,
+      "text": "decoration: InputDecoration("
+    },
+    {
+      "file": "lib/ui_kit.dart",
+      "line": 284,
+      "text": "isDense: true, border: InputBorder.none,"
+    },
+    {
+      "file": "macos/bithuman.podspec",
+      "line": 318,
+      "text": "pod_xcconfig['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) BH_ENGINE_AUTH_HOOKS=1' if auth_hooks"
+    },
+    {
+      "file": "scripts/bootstrap.sh",
+      "line": 409,
+      "text": "# A CANDIDATE engine (an unpublished build, e.g. before a pin move): the two archives a release"
+    },
+    {
+      "file": "scripts/stress-webrtc-iphone.sh",
+      "line": 3,
+      "text": "# (tasks #56/#62). Continuous agent speech, no user input — any server-VAD"
+    },
+    {
+      "file": "scripts/stress-webrtc-metrics.py",
+      "line": 6,
+      "text": "BITHUMAN_DEV_STRESS session — continuous agent speech, ZERO user input — so"
+    },
+    {
+      "file": "scripts/stress-webrtc-metrics.py",
+      "line": 14,
+      "text": "with zero user input every one is spurious)"
+    },
+    {
+      "file": "scripts/stress-webrtc-metrics.py",
+      "line": 85,
+      "text": "# the native barge line. Zero user input → every one is spurious."
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 11,
+      "text": "// dark backdrop (CoreImage, one GPU blend per 384x384 head frame at ≤25 fps)."
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 228,
+      "text": "kCIInputImageKey: img,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 229,
+      "text": "kCIInputBackgroundImageKey: bg,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 230,
+      "text": "kCIInputMaskImageKey: mask,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 248,
+      "text": "\"inputCenter\": CIVector(x: r, y: r),"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 249,
+      "text": "\"inputRadius0\": r - 2,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 250,
+      "text": "\"inputRadius1\": r,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 251,
+      "text": "\"inputColor0\": CIColor.white,"
+    },
+    {
+      "file": "shared/Classes/AvatarPiP.swift",
+      "line": 252,
+      "text": "\"inputColor1\": CIColor.black,"
+    },
+    {
+      "file": "shared/Classes/BHObjCException.h",
+      "line": 3,
+      "text": "// AVAudioEngine's installTap / connect / disconnectNodeInput / removeTap /"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 99,
+      "text": "private var registrarTextures: FlutterTextureRegistry? {"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 207,
+      "text": "guard let textureRegistry = registrarTextures else {"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 209,
+      "text": "message: \"no FlutterTextureRegistry available\","
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 251,
+      "text": "let textureId = textureRegistry.register(texture)"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 253,
+      "text": "texture.registry = textureRegistry"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 282,
+      "text": "textureRegistry.unregisterTexture(textureId)"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 653,
+      "text": "// instead of starting the input node under denied permission — that is what"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 655,
+      "text": "// denied app a live-looking but silent input bus, and VP-IO can't init on"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 714,
+      "text": "// Called from Dart the moment input_audio_buffer.speech_started"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 985,
+      "text": "weak var registry: FlutterTextureRegistry?"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2790,
+      "text": "private func resampleTo16k(_ input: [Float], inRate: Double) -> [Float] {"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2791,
+      "text": "if inRate == 16000 || input.isEmpty { return input }"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2794,
+      "text": "let outLen = input.count / ir; var out = [Float](repeating: 0, count: outLen); let inv = 1.0/Float(ir)"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2795,
+      "text": "for i in 0..<outLen { var s: Float = 0; for j in 0..<ir { s += input[i*ir+j] }; out[i] = s*inv }"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2798,
+      "text": "let outLen = Int(Double(input.count)/ratio); if outLen <= 0 { return [] }"
+    },
+    {
+      "file": "shared/Classes/BithumanAvatarPlugin.swift",
+      "line": 2800,
+      "text": "for i in 0..<outLen { let sp = Double(i)*ratio; let idx = Int(sp); let f = Float(sp-Double(idx)); out[i] = idx+1 < input.count ? input[idx]*(1-f)+input[idx+1]*f : input[idx] }"
+    },
+    {
+      "file": "shared/Classes/ConverseSession.swift",
+      "line": 76,
+      "text": "cfg.llm_gpu_layers = -1"
+    },
+    {
+      "file": "shared/Classes/DeviceAuthShim.m",
+      "line": 14,
+      "text": "// BH_ENGINE_AUTH_HOOKS=1, and the same shim starts registering the"
+    },
+    {
+      "file": "shared/Classes/DeviceAuthShim.m",
+      "line": 41,
+      "text": "#if BH_ENGINE_AUTH_HOOKS"
+    },
+    {
+      "file": "shared/Classes/DeviceAuthShim.m",
+      "line": 60,
+      "text": "#if BH_ENGINE_AUTH_HOOKS"
+    },
+    {
+      "file": "shared/Classes/Essence2PluginEngine.swift",
+      "line": 112,
+      "text": "// ESSENCE2_SKIP_AHEAD from the staged libessence2.a's symbols (as it does BH_ENGINE_AUTH_HOOKS), so"
+    },
+    {
+      "file": "shared/Classes/Essence2PluginEngine.swift",
+      "line": 159,
+      "text": "/// Release the engine; the last usage report is flushed, then its GPU work drains."
+    },
+    {
+      "file": "shared/Classes/LocalConverseController.swift",
+      "line": 256,
+      "text": "/// LOCAL-mode typed input: commit a user message to the brain as if it had"
+    },
+    {
+      "file": "shared/Classes/LocalConverseController.swift",
+      "line": 264,
+      "text": "// input stacks onto the reply the agent is still giving."
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 31,
+      "text": "// on BOTH the input and output node gives us Apple's VP-IO aggregate:"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 72,
+      "text": "// the OpenAI native 24 kHz Int16 format; the mixer takes that input"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 99,
+      "text": "// Float32 input. Routing Int16 through the mixer on macOS produces"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 728,
+      "text": "// speaker-only: we never touch engine.inputNode, so macOS never asks for"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 731,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 742,
+      "text": "try input.setVoiceProcessingEnabled(true)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 744,
+      "text": "applyUplinkGain(input)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 750,
+      "text": "input.voiceProcessingOtherAudioDuckingConfiguration ="
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 761,
+      "text": "// fails -10875 because VP-IO requires its input bus to match its"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 769,
+      "text": "let outBusFormat = output.inputFormat(forBus: 0)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 802,
+      "text": "NSLog(\"[av-latency] outputLatency=%.1f ms  inputLatency=%.1f ms  ioBuffer=%.1f ms  sr=%.0f  route=%@\","
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 803,
+      "text": "session.outputLatency * 1000, session.inputLatency * 1000,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 963,
+      "text": "/// connect, disconnectNodeInput, removeTap, attach, …). Swift do/catch cannot"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 979,
+      "text": "// macOS has no AVAudioSession route notifications. AVAudioEngine binds the input tap"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 982,
+      "text": "// strands audio on the old device. We watch the Core Audio default input/output device"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 988,
+      "text": "// input tap + the mixer→output connection + engine start/stop. It NEVER touches"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 997,
+      "text": "private var halInputListenerInstalled = false"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1005,
+      "text": "private var defaultInputAddr = AudioObjectPropertyAddress("
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1006,
+      "text": "mSelector: kAudioHardwarePropertyDefaultInputDevice,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1020,
+      "text": "// Authoritative default input/output device changes (fire even when the engine"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1028,
+      "text": "if AudioObjectAddPropertyListenerBlock(sys, &defaultInputAddr, swapQueue, block) == noErr {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1029,
+      "text": "halInputListenerInstalled = true"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1043,
+      "text": "if halInputListenerInstalled {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1044,
+      "text": "AudioObjectRemovePropertyListenerBlock(sys, &defaultInputAddr, swapQueue, block)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1045,
+      "text": "halInputListenerInstalled = false"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1105,
+      "text": "try guardAV(\"removeTap(pre-swap)\") { engine.inputNode.removeTap(onBus: 0) }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1135,
+      "text": "let outReady = formatValid(output.inputFormat(forBus: 0))"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1136,
+      "text": "let inReady  = !startedWithMic || formatValid(engine.inputNode.outputFormat(forBus: 0))"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1162,
+      "text": "try engine.inputNode.setVoiceProcessingEnabled(true)   // Swift-throwing"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1164,
+      "text": "applyUplinkGain(engine.inputNode)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1169,
+      "text": "let newOut = output.inputFormat(forBus: 0)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1171,
+      "text": "try guardAV(\"disconnectNodeInput(output)\") {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1172,
+      "text": "engine.disconnectNodeInput(output, bus: 0)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1176,
+      "text": "// boundary and must be pinned to the device's input-bus rate; `nil`"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1181,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1182,
+      "text": "try guardAV(\"removeTap(input)\") {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1183,
+      "text": "input.removeTap(onBus: 0)      // defensive: VP-IO toggle can re-create the node WITH a tap"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1193,
+      "text": "try guardAV(\"installTap(input)\") {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1194,
+      "text": "input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buf, _ in"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1209,
+      "text": "_ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) }   // never re-raise (we're recovering)"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1218,
+      "text": "_ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1252,
+      "text": "/// Apply the row's gain policy to the input node. Called at graph bring-up AND on"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1254,
+      "text": "private func applyUplinkGain(_ input: AVAudioInputNode) {"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1255,
+      "text": "if !vpioAgc { input.isVoiceProcessingAGCEnabled = false }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1282,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1294,
+      "text": "input.isVoiceProcessingEnabled ? 1 : 0,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1296,
+      "text": "input.isVoiceProcessingAGCEnabled ? 1 : 0,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1298,
+      "text": "input.outputFormat(forBus: 0).sampleRate,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1299,
+      "text": "output.inputFormat(forBus: 0).sampleRate,"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1300,
+      "text": "Int(input.outputFormat(forBus: 0).channelCount),"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1369,
+      "text": "let input = engine.inputNode"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1374,
+      "text": "input.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buf, _ in"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1421,
+      "text": "if micActive { _ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) }; micActive = false }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1444,
+      "text": "// ★ONLY WHEN THE MIC WAS ON (2026-09-28). `engine.inputNode` is not a getter on"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1445,
+      "text": "// macOS: on an engine that never had an input it INSTANTIATES one and binds the"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1446,
+      "text": "// input device, synchronously, on this (the Flutter platform = UI) thread. In a"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1448,
+      "text": "// an M4 iMac: main thread parked in AVAudioIOUnit_OSX::EnableInputDevice ->"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1451,
+      "text": "if micActive { _ = bh_tryRun { self.engine.inputNode.removeTap(onBus: 0) } }"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1670,
+      "text": "///      Realtime WebSocket as `input_audio_buffer.append`."
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1684,
+      "text": "// ch=9 multi-channel-input quirk (which channel actually has the user's"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1685,
+      "text": "// voice) seen on the macOS VP-IO input bus."
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1710,
+      "text": "// source has > 2 channels on macOS (observed: ch=9 from the VP-IO input"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1723,
+      "text": "// VP-IO on M-series presents a multi-channel input bus (ch=9 observed) where"
+    },
+    {
+      "file": "shared/Classes/RealtimeAudioIO.swift",
+      "line": 1845,
+      "text": "// lipsync gets no input) so the cancelled response can't keep playing"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 36,
+      "text": "private let inputBuilder: AsyncStream<AnalyzerInput>.Continuation"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 81,
+      "text": "// drop the oldest pending input rather than growing without limit. These"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 85,
+      "text": "let (inputSeq, inputBuilder) = AsyncStream<AnalyzerInput>.makeStream("
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 87,
+      "text": "self.inputBuilder = inputBuilder"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 95,
+      "text": "try await analyzer.start(inputSequence: inputSeq)"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 120,
+      "text": "inputBuilder.yield(AnalyzerInput(buffer: converted))"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 124,
+      "text": "inputBuilder.finish()"
+    },
+    {
+      "file": "shared/Classes/SpeechPipeline.swift",
+      "line": 125,
+      "text": "try? await analyzer.finalizeAndFinishThroughEndOfInput()"
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 3,
+      "text": "// ★WHY THIS FILE EXISTS (2.6.11). Until 2.6.10 `downloadExpression2Avatar`"
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 93,
+      "text": "group('downloadExpression2Avatar', () {"
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 96,
+      "text": "final dir = await withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 113,
+      "text": "withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 126,
+      "text": "final dir = await withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 139,
+      "text": "() => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 150,
+      "text": "await withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/avatar_install_test.dart",
+      "line": 162,
+      "text": "withBody(notAZip, () => downloadExpression2Avatar("
+    },
+    {
+      "file": "test/e2e/echo_onset_guard_test.dart",
+      "line": 69,
+      "text": "final before = conn.eventsOfType('input_audio_buffer.append').length;"
+    },
+    {
+      "file": "test/e2e/echo_onset_guard_test.dart",
+      "line": 74,
+      "text": "while (conn.eventsOfType('input_audio_buffer.append').length < before + chunks.length) {"
+    },
+    {
+      "file": "test/e2e/echo_onset_guard_test.dart",
+      "line": 79,
+      "text": ".eventsOfType('input_audio_buffer.append')"
+    },
+    {
+      "file": "test/e2e/headless_voice_host_test.dart",
+      "line": 148,
+      "text": "final append = await conn.nextEventOfType('input_audio_buffer.append',"
+    },
+    {
+      "file": "test/e2e/headless_voice_host_test.dart",
+      "line": 156,
+      "text": "expect(conn.eventsOfType('input_audio_buffer.append').length, 1,"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 111,
+      "text": "final input = audio['input'] as Map<String, dynamic>;"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 115,
+      "text": "expect((input['format'] as Map)['rate'], 24000);"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 116,
+      "text": "final vad = input['turn_detection'] as Map<String, dynamic>;"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 274,
+      "text": "// Unmuted: a mic chunk becomes input_audio_buffer.append, verbatim b64."
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 277,
+      "text": "final append = await conn.nextEventOfType('input_audio_buffer.append',"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 284,
+      "text": "conn.eventsOfType('input_audio_buffer.append').length;"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 287,
+      "text": "expect(conn.eventsOfType('input_audio_buffer.append').length,"
+    },
+    {
+      "file": "test/e2e/realtime_session_mock_test.dart",
+      "line": 294,
+      "text": "conn.eventsOfType('input_audio_buffer.append').length =="
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 8,
+      "text": "// Every cache path is covered: `downloadAgentImx` (the `.imx`), `downloadExpression2Avatar` and"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 455,
+      "text": "// ───────────────────────────────── downloadExpression2Avatar / downloadExpression2Agent (the directory)"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 485,
+      "text": "downloadExpression2Avatar(code, 'https://example.invalid/$code.avatar', tmp.path, apiSecret: key);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 489,
+      "text": "for (final (name, open) in [('downloadExpression2Avatar', avatar), ('downloadExpression2Agent', legacy)]) {"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 852,
+      "text": "expect(await downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other), dir);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 860,
+      "text": "await expectLater(downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 865,
+      "text": "await expectLater(downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 884,
+      "text": "expect(await downloadExpression2Avatar(pub, x, tmp.path, apiSecret: _other), dir);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 892,
+      "text": "expect(await downloadExpression2Avatar(pub, x, tmp.path, apiSecret: _other), dir);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 898,
+      "text": "await expectLater(downloadExpression2Avatar(pub, x, tmp.path, apiSecret: _other), _refused(false),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 924,
+      "text": "await downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _owner);"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 927,
+      "text": "await expectLater(downloadExpression2Avatar(pub, 'https://example.invalid/x.avatar', tmp.path, apiSecret: _other),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 944,
+      "text": "expect(bithumanPublicDoor('A11PUB0001', 'expression-2').toString(),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 946,
+      "text": "expect(bithumanPublicDoor('A11PUB0001', 'essence-2').toString(),"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 948,
+      "text": "expect(bithumanPublicDoor('A11PUB0001', ''), isNull, reason: 'an .imx: the container rule only');"
+    },
+    {
+      "file": "test/entitlement_gate_test.dart",
+      "line": 949,
+      "text": "expect(DoorGate().publicDoor('A11PUB0001', 'expression-2'), bithumanPublicDoor('A11PUB0001', 'expression-2'));"
+    },
+    {
+      "file": "test/model_preparing_test.dart",
+      "line": 314,
+      "text": "test('downloadExpression2Avatar / downloadExpression2Agent / downloadEssence2Bundle: preparing, nothing fetched', () async {"
+    },
+    {
+      "file": "test/model_preparing_test.dart",
+      "line": 315,
+      "text": "await expectLater(downloadExpression2Avatar(_code, 'https://example.invalid/$_code.avatar', tmp.path, apiSecret: _owner),"
+    }
+  ]
+}
