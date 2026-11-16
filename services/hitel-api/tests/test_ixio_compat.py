@@ -52,7 +52,7 @@ def test_hitel_verified_ctn_enrollment_and_member_isolation(monkeypatch):
         b_headers = {"Authorization": f"Bearer {b}"}
         assert c.post("/v1/members/verify-ctn",
                       json={"ctn": "untrusted-ciphertext-attempt"}).json()["code"] == "ERROR_INVALID_CTN"
-        assert c.get("/hitel/ixio/ctn-proof").status_code == 401
+        assert c.post("/hitel/ixio/ctn-proof").status_code == 401
         proof = c.post("/hitel/ixio/ctn-proof", headers=a_headers).json()
         assert proof["encoding"] == "HITEL_JWT_CTN_PROOF"
         response = c.post("/v1/members/verify-ctn",
