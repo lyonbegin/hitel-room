@@ -301,6 +301,13 @@ jobs:
             for lib in ['libexpr2jni.so','libLiteRt.so']:
               assert z.read('lib/arm64-v8a/'+lib)==o.read('jni/arm64-v8a/'+lib),lib
             assert 'lib/arm64-v8a/libflutter.so' in names
+            # Correct original app for physical ARM64 Android. Never package a
+            # substitute x86_64 Flutter runtime as a cross-ABI workaround.
+            native_abis={p.split('/')[1] for p in names
+                         if p.startswith('lib/') and p.endswith('.so')}
+            assert native_abis=={'arm64-v8a'}, f'Unexpected mixed native ABIs: {native_abis}'
+            assert not any(p.startswith(('lib/x86/', 'lib/x86_64/', 'lib/armeabi-v7a/'))
+                           for p in names), 'Mixed-ABI Flutter or SDK detected'
             assert 'assets/combined_litert.tflite' in names
             assert 'assets/canon.bin' in names
             assert hashlib.sha256(z.read('assets/combined_litert.tflite')).hexdigest()=='f809722b65e933aacf2c577725e45aaba576fae84b4d17658d67d6d018a512ba'
@@ -323,7 +330,10 @@ jobs:
             'vendor_original_auth_flow_unchanged':False,
             'hitel_public_https_scoped_debug_session':True,
             'default_sdk_auto_hardware_no_route_selector':True,
-            'device_test_verified':'enforced by subsequent real Android emulator test before release'}
+            'device_test_verified':False,
+            'public_release_allowed':False,
+            'native_abi_verified_only_arm64':True,
+            'physical_android_runtime_and_video_frame_verified':False}
           Path('reports/hitel-avatar-chat-public-https-auto/APK_VERIFICATION.json').write_text(json.dumps(result,indent=2)+'\n')
           print('BIT_HUMAN_THREE_LAYER_ORIGINAL_APK_VERIFIED',json.dumps(result))
           PY
@@ -345,6 +355,15 @@ jobs:
           assert p['localhost_auth_used'] is False
           assert p['custom_cpu_route_injected'] is False
           assert p['custom_gpu_npu_route_injected'] is False
+          original=Path('vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt').read_text()
+          assert 'Expression2Avatar.create(context, model)' in original
+          bridge=Path('tools/bithuman_deep/Expression2PublicHitelTest.kt').read_text()
+          assert 'Expression2Avatar.create(context, combined)' in bridge
+          assert not any(x in bridge for x in (
+              'Expression2RouteSelector', 'Accelerator.CPU',
+              'Routing.ALL_CPU', 'Routing.FORCE_GPU', '127.0.0.1'))
+          assert '--abi' not in Path('.github/workflows/build-hitel-original-avatar-chat-public-https-auto.yml').read_text()
+          print('ORIGINAL_ARM64_SDK_AUTO_NO_FORCED_ABI_OR_INFERENCE_BACKEND_PASS')
           print('FLUTTER_ORIGINAL_SDK_AUTO_PUBLIC_HTTPS_NO_SECRET_BUILD_PROOF_PASS')
           PY
       - uses: actions/upload-artifact@v4
