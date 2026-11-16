@@ -208,7 +208,8 @@ def main() -> None:
                 time.sleep(3)
                 if started.poll() is not None:
                     raise RuntimeError("Samsung RDB executable exited immediately; see locally captured diagnostic")
-                print("SAMSUNG_RDB_PROCESS_RUNNING: click Remote Debug Bridge > Connect in SAME Chrome", flush=True)
+                (args.runtime / "rdb-ready").write_text("local-RDB-listener-ready\\n")
+                print("SAMSUNG_RDB_PROCESS_RUNNING: SAME CHROME Playwright will click RDB Connect", flush=True)
         if started is not None and started.poll() is not None:
             raise RuntimeError("Samsung RDB exited before ADB connection")
         devices = connected_adb() if started else []
