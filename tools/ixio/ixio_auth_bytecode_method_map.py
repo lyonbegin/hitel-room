@@ -27,6 +27,14 @@ def decode_sig(t):
     return primitives.get(t,t)
 
 PATTERNS=[
+    (95,r"/IxIOSetupWizardApi;"),
+    (90,r"/MemberVerificationRemoteSource(?:Impl|;)"),
+    (85,r"/VerifyCtn(?:RequestRQ|ResponseRS|RS);"),
+    (80,r"/(?:PostCtn|PostTokenData|PostUserId|InnerTokenData);"),
+    (80,r"/EncryptCtnUtil;"),
+    (75,r"/AuthorizeCtnUseCase;"),
+    (70,r"/AuthorizationUtil;"),
+    (75,r"/VasJoinRepository;"),
     (70,r"/VerifyCtnUseCase(?:\$|;)"),
     (70,r"/ResolveOnboardingLoginEntryUseCase(?:\$|;)"),
     (75,r"/MemberVerificationRepository(?:Impl|\$|;)"),
