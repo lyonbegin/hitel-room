@@ -226,6 +226,32 @@ async def public_demo_session(request: Request) -> JSONResponse:
         "scope": "public-wise-pup-expression2-debug",
     }, headers={"Cache-Control": "no-store"})
 
+@app.get("/v1/agent/{code}/model/download")
+async def expression2_public_test_entitlement_door(code: str, request: Request) -> JSONResponse:
+    """Auth-only compatibility with original 2.6.37 Flutter entitlement GET.
+
+    This route grants only the owned public sample test session. It never
+    supplies model files, rewrites the SDK, or represents vendor entitlement.
+    A model *member* request is not an auth check and remains unavailable here.
+    """
+    await _rate_limit(request)
+    if code != "A23WJF0199" or code not in ALLOWED_AGENTS:
+        raise _error(403, "PUBLIC_AGENT_ONLY")
+    if request.query_params.get("model") != "expression-2":
+        raise _error(422, "UNSUPPORTED_PRODUCT")
+    if request.query_params.get("redirect") != "false":
+        raise _error(422, "ORIGINAL_AUTH_DOOR_REDIRECT_FALSE_REQUIRED")
+    if request.query_params.get("member") is not None:
+        raise _error(404, "MODEL_ARTIFACT_NOT_HOSTED")
+    token = request.headers.get("api-secret", "")
+    if not token.startswith("htdemo.v1."):
+        raise _error(401, "HITEL_SAMPLE_SESSION_REQUIRED")
+    _verify_demo_token(token)
+    return JSONResponse({"valid": True, "agent_code": code,
+                         "model": "expression-2", "scope": "public-sample-auth-only"},
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.post("/v1/auth/validate")
 async def validate(request: Request) -> JSONResponse:
     await _rate_limit(request)
