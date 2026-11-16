@@ -103,6 +103,26 @@ jobs:
           p=root/'logcat-simulated-call.txt'
           if p.exists():
               full=p.read_text(errors='replace').splitlines()
+              print('RECORDER_ERROR_LOGCAT_LINES',len(full))
+              def sanitize(value):
+                  value=re.sub(r'(?i)(Bearer\\s+)[\\w.\-]+',r'\\1[redacted]',value)
+                  value=re.sub(r'(?i)(accessToken|refreshToken|idToken)([=:]\\s*)[^\\s,]+',r'\\1\\2[redacted]',value)
+                  return value[:700]
+              known_marker='InCallServiceImpl.kt:881'
+              hits=[i for i,line in enumerate(full) if known_marker in line or 'handleCallRecorderAppNotification' in line]
+              print('RECORDER_881_HIT_COUNT',len(hits),'MATCHES',hits[:15])
+              for i in hits[:8]:
+                  print('RECORDER_881_EXCEPTION_BLOCK_AT',i)
+                  for n in range(max(0,i-28),min(len(full),i+13)):
+                      if not re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',full[n]):
+                          print('RECORDER_881_NEARBY',n,sanitize(full[n]))
+              for pid in ('4638','6664'):
+                  app=[line for line in full if re.search(r'^\\d\\d-\\d\\d\\s+\\d\\d:\\d\\d:\\d\\d\\.\\d+\\s+'+pid+r'\\s+',line)]
+                  print('RECORDER_APP_PID_COUNT',pid,len(app))
+                  for line in app[-100:]:
+                      if re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',line):continue
+                      print('RECORDER_APP_PID_EVENT',pid,sanitize(line))
+
               for i,line in enumerate(full):
                   if ('InCallServiceImpl.kt:881' in line or
                       'handleCallRecorderAppNotification' in line or
