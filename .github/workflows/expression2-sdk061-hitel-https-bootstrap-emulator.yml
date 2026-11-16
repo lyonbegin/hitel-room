@@ -313,7 +313,24 @@ jobs:
           adb shell am start -n "$PKG/ai.bithuman.example.avatar_chat.MainActivity" \
             > "$OUT/android-start.txt" 2>&1 || true
           cat "$OUT/android-start.txt"
-          sleep 40
+          # Observe ONLY the original model store's download progress. The
+          # previous 40-second sample expired before a 158 MB first-run download.
+          : > "$OUT/model-cache-kib-poll.txt"
+          : > "$OUT/model-cache-dir-poll.txt"
+          sleep 30
+          for iteration in $(seq 1 24); do
+            printf 'sample=%s ' "$iteration" >> "$OUT/model-cache-kib-poll.txt"
+            adb shell run-as "$PKG" du -sk files/expression2 \
+              >> "$OUT/model-cache-kib-poll.txt" 2>/dev/null || echo "not_present" >> "$OUT/model-cache-kib-poll.txt"
+            adb shell run-as "$PKG" cat app_flutter/boot_status.txt \
+              > "$OUT/boot-status-poll-latest.txt" 2>/dev/null || true
+            if grep -Eq 'boot:load:ok|boot:error=' "$OUT/boot-status-poll-latest.txt"; then
+              echo "MODEL_LOAD_FINISHED_OR_FAILED_AT_SAMPLE=$iteration"
+              break
+            fi
+            sleep 10
+          done
+          adb shell run-as "$PKG" du -ak files/expression2 > "$OUT/model-cache-dir-poll.txt" 2>/dev/null || true
           adb shell pidof "$PKG" > "$OUT/original-app-pid.txt" || true
           adb logcat -d -v time > "$OUT/original-app-logcat.txt" || true
           adb exec-out screencap -p > "$OUT/original-app-screenshot.png" 2>/dev/null || true
@@ -350,6 +367,11 @@ jobs:
            'vendor_entitlement_refusal_observed':original_sdk_auth_denial,
            'web_manifest_401_observed':'member=web_manifest.json returned HTTP 401' in boot,
            'web_manifest_fetched_logged':'fetched web_manifest.json' in log,
+           'model_cache_kib_samples':[
+             int(m.group(1)) for line in (p/'model-cache-kib-poll.txt').read_text().splitlines()
+             if (m:=re.search(r'sample=\\d+\\s+(\\d+)\\s+files/expression2',line))
+           ],
+           'model_cache_du_last_lines':(p/'model-cache-dir-poll.txt').read_text(errors='replace').splitlines()[-25:],
            'anonymous_public_sample_only':True,
            'original_native_texture_frame_log_seen':'first frame on the texture' in log,
            'original_native_sdk_frame_log_seen':'first speech frame hostMs=' in log,
@@ -401,6 +423,8 @@ jobs:
           assert not d['web_manifest_401_observed'], 'Public Wise Pup web_manifest.json still rejected with HTTP 401'
           print("HITEL_SESSION_AND_ORIGINAL_061_PUBLIC_MODEL_MANIFEST_NOT_REJECTED")
           print("web_manifest_fetched:",d["web_manifest_fetched_logged"])
+          print("model_cache_kib_samples:",d["model_cache_kib_samples"])
+          assert d["model_cache_kib_samples"] or d["upstream_avatar_load_succeeded"], 'Model cache and boot progress not measurable'
           print("sdk_load_success:",d["upstream_avatar_load_succeeded"])
           print("vendor_entitlement_refusal:",d["vendor_entitlement_refusal_observed"])
           print("texture_first_frame_logged:",d["original_native_texture_frame_log_seen"])
