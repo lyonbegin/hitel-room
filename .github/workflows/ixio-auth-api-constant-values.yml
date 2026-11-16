@@ -1,0 +1,85 @@
+name: IXIO Original VerifyCTN API Literal Constant Extraction
+on:
+  push:
+    branches: [analysis/ixio-auth-api-bytecode-deep-20261116]
+    paths: ['.github/workflows/ixio-auth-api-constant-values.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  resolve-annotations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Download exact prior IXIO main code
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-const-private/apk .ixio-const-private/jadx ixio-api-const-results
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-const-private/apk
+          curl -fL --retry 3 --silent --show-error \
+            https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip \
+            -o .ixio-const-private/jadx.zip
+          unzip -qq .ixio-const-private/jadx.zip -d .ixio-const-private/jadx
+          chmod +x .ixio-const-private/jadx/bin/jadx
+      - name: Recover declaration of VerifyCtnV1.API used in Retrofit POST annotation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-const-private/decompiled
+          apk=.ixio-const-private/apk/IXIO_Main_NoAppSealing_Single.apk
+          jadx=.ixio-const-private/jadx/bin/jadx
+          for class in \
+            'com.lguplus.aicallagent.network.api.ixio.IxIOMemberServiceConst$VerifyCtnV1' \
+            'com.lguplus.aicallagent.network.api.ixio.IxIOMemberServiceConst' \
+            'com.lguplus.aicallagent.network.api.ixio.IxIOMemberServiceConst$GetCtn' ;do
+            name="${class##*.}"
+            set +e
+            timeout 105 env JAVA_OPTS=-Xmx2000m "$jadx" \
+               --no-res --threads-count 1 --single-class "$class" \
+               --single-class-output ".ixio-const-private/decompiled/$name.java" "$apk" \
+               > ".ixio-const-private/$name.log" 2>&1
+            code="$?"
+            set -e
+            echo "$class EXIT=$code" | tee -a ixio-api-const-results/status.txt
+          done
+      - name: Report API path symbols and only relative URI literal values
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          names=('VerifyCtnV1','GetCtn','TermV3','GetLoginData')
+          result={}
+          for p in Path('.ixio-const-private/decompiled').glob('*.java'):
+            source=p.read_text(errors='replace')
+            found=[]
+            for i,l in enumerate(source.splitlines(),1):
+              if any(x in l for x in ('class VerifyCtnV1','class GetCtn','class TermV3','String API','API =','@POST','@GET')):
+                line=l.strip()
+                line=re.sub(r'https?://[^"\s]+','[FULL_URL_REDACTED]',line)
+                if len(line)<250 and len(found)<55:found.append({'line':i,'declaration':line})
+            result[p.stem]={'source_bytes':len(source),'api_constant_declarations':found}
+          Path('ixio-api-const-results/api-relative-constants.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          for k,v in result.items():
+            print('CLASS',k,'bytes',v['source_bytes'])
+            for x in v['api_constant_declarations']:print('API_CONST',x['line'],x['declaration'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-auth-verify-ctn-retrofit-api-constant
+          path: ixio-api-const-results/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Remove decrypted original classes
+        if: always()
+        run: rm -rf .ixio-const-private
