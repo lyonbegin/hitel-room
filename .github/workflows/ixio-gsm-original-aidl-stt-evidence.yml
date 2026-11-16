@@ -158,4 +158,20 @@ jobs:
           d=json.loads((root/'result.json').read_text(errors='replace'))
           print('RECORDER_AFTER_FIX_TEST_RESULT',json.dumps({k:d.get(k) for k in
                 ('record_button_tapped','recording_service_bound_after_toggle','recorder_incall_service_seen_after_toggle','stt_verified','simulated_call_requested')},ensure_ascii=False))
+          p=root/'logcat-simulated-call.txt'
+          if p.exists():
+              full=p.read_text(errors='replace').splitlines()
+              failures=[i for i,line in enumerate(full) if 'CancellationException: Data is null' in line]
+              print('RECORDER_REMAINING_DATASTORE_FAILURES',len(failures))
+              for i in failures[:12]:
+                  print('RECORDER_DATASTORE_STACK_START',i)
+                  for line in full[i:min(i+17,len(full))]:
+                      if re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',line):continue
+                      print('RECORDER_DATASTORE_STACK_LINE',line[:420])
+              for key in ('SpeechToTextRepository','CallRecorder','callrecorder','recording','Recorder','STT','AudioRecord'):
+                  m=[line for line in full if key in line and (' 5017 ' in line or ' 7125 ' in line)]
+                  print('RECORDER_APP_KEY_EVENTS',key,'count',len(m))
+                  for line in m[-35:]:
+                      if re.search(r'(?i)Authorization|Bearer\\s|accessToken|refreshToken|phoneNumber=',line):continue
+                      print('RECORDER_APP_KEY_EVENT',key,line[:470])
           PY
