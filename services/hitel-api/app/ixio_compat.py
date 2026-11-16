@@ -41,8 +41,8 @@ class PostTokenData(BaseModel):
 
 
 class ProductCode(BaseModel):
-    # Field name from original DTO must be confirmed by static contract audit.
-    productCode: str = Field(min_length=1, max_length=80)
+    # Exact original ProductCode field verified in recovered DTO.
+    prodCd: str = Field(min_length=1, max_length=80)
 
 
 class PKCEStart(BaseModel):
@@ -78,10 +78,8 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
     product_code = os.getenv("HITEL_IXIO_PRODUCT_CODE", "HITEL_DEVELOPMENT")
     # Explicit development purpose; production provisioning should be controlled
     # by an internal operator, not by a user-controlled "join" request alone.
-    enabled = os.getenv("HITEL_IXIO_COMPAT_ENABLED", "false").lower() == "true"
-
     def ensure_enabled() -> None:
-        if not enabled:
+        if os.getenv("HITEL_IXIO_COMPAT_ENABLED", "false").lower() != "true":
             raise HTTPException(503, "IXIO compatibility routes are disabled")
 
     def success(data: Any) -> dict[str, Any]:
@@ -106,6 +104,13 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
             "accessToken": issue_jwt(member_id, "access", timedelta(minutes=30)),
             "refreshToken": issue_jwt(member_id, "refresh", timedelta(days=7)),
             "idToken": issue_jwt(member_id, "id", timedelta(minutes=30)),
+            "tokenType": "Bearer",
+            "name": None,
+            "email": None,
+            "gender": None,
+            "birthdate": None,
+            "marketId": None,
+            "authUrl": None,
         }
 
     def member_by_authorization(auth: str, db: Session, refresh: bool=False) -> Any:
@@ -220,15 +225,20 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
                     db: Session=Depends(db_dep)) -> dict:
         ensure_enabled()
         member = member_by_authorization(authorization, db)
-        return success({"isJoined": product_membership(db, member.id) is not None})
+        return success({"isJoined": product_membership(db, member.id) is not None,
+                        "deviceSeed": None, "isPufKms": None})
 
     @app.post("/v2/service")
     def post_service(request: ProductCode, authorization: str=Header(default=""),
                      db: Session=Depends(db_dep)) -> dict:
         ensure_enabled()
         member = member_by_authorization(authorization, db)
-        if request.productCode != product_code:
+        if request.prodCd != product_code:
             return fail("ERROR_UNKNOWN_PRODUCT", "Product is not enabled in HITEL")
+        if (product_membership(db, member.id) is None and
+            os.getenv("HITEL_IXIO_ALLOW_SELF_ENROLL", "false").lower() != "true"):
+            return fail("ERROR_ENROLLMENT_REQUIRES_APPROVAL",
+                        "HITEL service enrollment needs operator approval")
         if product_membership(db, member.id) is None:
             db.add(CompatibilityService(id=str(uuid.uuid4()),
                         user_id=member.id, product_code=product_code))
@@ -254,7 +264,7 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
         # Never disclose a different subscriber's phone via this endpoint.
         if not hmac.compare_digest(request.ctn, member.phone):
             raise HTTPException(403, "CTN does not match verified HITEL member")
-        return success({"ctn": member.phone})
+        return success({"ctn": member.phone, "isCtn": True})
 
     # These payloads have additional original fields and protocol dependencies.
     # Do not fabricate successful responses until verified and implemented.
