@@ -1,0 +1,58 @@
+name: IXIO Main Targeted Branch Final Return Readout
+on:
+  push:
+    branches: [analysis/ixio-main-enrollment-control-flow-20261116]
+    paths:
+      - '.github/workflows/ixio-onboarding-return-readout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  print-selected-branch-summary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download previously decompiled branch-only summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-branch-readout
+          gh run download 43808539339 --repo "$GH_REPO" \
+            --name ixio-main-recovered-onboarding-conditional-next-methods \
+            --dir .ixio-branch-readout
+          test -s .ixio-branch-readout/targeted-control-graph.json
+      - name: Print exact sanitized success/failure return terms
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          j=json.load(open('.ixio-branch-readout/targeted-control-graph.json'))
+          for name in ('PermissionCompletionDestinationResolverKt',
+                       'ResolveOnboardingLoginEntryUseCase',
+                       'VerifyCtnUseCase',
+                       'IsLoginCheckRepository',
+                       'SignupNotCompletedDialogKt'):
+            if name not in j:continue
+            q=j[name]
+            print('CLASS',name,'bytes',q['source_bytes'],'JADX_INCOMPLETE',q['jadx_incomplete'])
+            for x in q['relevant_control_lines']:
+              c=x['condition_or_call']
+              if 'Metadata(' in c or 'compiled from' in c:continue
+              if name=='ResolveOnboardingLoginEntryUseCase' and (
+                x['nearest_method'] in ('invoke','resolveByRegistration','resolvePreLoginTerms') or
+                'OnboardingLoginEntry.' in c):
+                print('PATH',x['nearest_method'],'LINE',x['line'],'EXPR',c)
+              elif name=='PermissionCompletionDestinationResolverKt':
+                print('PATH',x['nearest_method'],'LINE',x['line'],'EXPR',c)
+              elif name=='VerifyCtnUseCase' and any(s in c for s in ('verifyCtn','Result.','exception','return ')):
+                print('PATH',x['nearest_method'],'LINE',x['line'],'EXPR',c)
+              elif name=='IsLoginCheckRepository' and any(s in c for s in (
+                'getLoginState','isTokenExist','isAllValid','checkLoginState','loginState')):
+                print('PATH',x['nearest_method'],'LINE',x['line'],'EXPR',c)
+          PY
