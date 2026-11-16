@@ -26,19 +26,19 @@ jobs:
     timeout-minutes: 120
     env:
       DISPLAY: ":99"
-      RTL_VIEWER_EMAIL: ${{ secrets.RTL_VIEWER_EMAIL }}
+      RTL_VIEWER_TOKEN_SHA256: 22730f9438b987cabbfef0f6a9dbedf0510586406e81cd340878ac80dc5ee909
       RUN_MODE: ${{ github.event_name == 'push' && 'preflight' || inputs.mode }}
       RTL_APK: ${{ github.workspace }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 3d49de2739698c342c4ee6c0508311438c996adb
+          ref: 236a1197df10fe27d51dcb04c572e5e5d9f296bc
           persist-credentials: false
       - name: Check RTL watcher syntax and allowed scope
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py tools/bithuman_deep/rtl_galaxy_browser_automation.py
+          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py tools/bithuman_deep/rtl_galaxy_browser_automation.py tools/bithuman_deep/rtl_private_novnc_gateway.py
           ! grep -q -F 'Expression2Avatar.create(' tools/bithuman_deep/rtl_galaxy_rdb_probe.py
           echo ORIGINAL_SDK061_AND_APP_NOT_MODIFIED_FOR_RTL
       - name: Download EXACT previously verified full-flow original SDK 0.6.1 ARM64 APK
@@ -58,16 +58,6 @@ jobs:
           cd "$GITHUB_WORKSPACE/rtl-apk"
           echo 'dd08b098dee26477d12489f872482425d4a790766fa3cd2c56d6119253f39ba4  pristine-original-plugin2637-sdk061-arm64.apk' | sha256sum --check --status
           echo ORIGINAL_SDK061_FULLOWFLOW_APK_SHA256_PASS
-      - name: Check protected remote-viewer authentication configuration without exposing email
-        shell: bash
-        run: |
-          if [ -n "$RTL_VIEWER_EMAIL" ]; then
-            echo 'RTL_VIEWER_EMAIL_CONFIGURED=true'
-            echo 'RTL_VIEWER_EMAIL_CONFIGURED=true' >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'RTL_VIEWER_EMAIL_CONFIGURED=false; no public VNC tunnel will open'
-            echo 'RTL_VIEWER_EMAIL_CONFIGURED=false' >> "$GITHUB_STEP_SUMMARY"
-          fi
       - name: Install Ubuntu virtual desktop, noVNC, Linux ADB and Playwright
         shell: bash
         run: |
@@ -79,7 +69,7 @@ jobs:
           command -v adb
           test -f /usr/share/novnc/vnc.html
           python3 -m venv "$RUNNER_TEMP/rtl-py"
-          "$RUNNER_TEMP/rtl-py/bin/pip" install --quiet playwright
+          "$RUNNER_TEMP/rtl-py/bin/pip" install --quiet playwright aiohttp
           echo RTL_BROWSER_DEPENDENCIES_INSTALLED
       - name: Open Chrome on SAME Ubuntu desktop shared by noVNC and Linux RDB
         shell: bash
@@ -147,25 +137,34 @@ jobs:
           sleep 3
           kill -0 "$(cat "$RUNNER_TEMP/rtl-browser-auto.pid")"
           echo RTL_BROWSER_AUTO_RUNNING_USER_ONLY_SAMSUNG_LOGIN
+      - name: Start private one-click noVNC gateway on localhost, reject every unauthorized access
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only the SHA-256 of an independent high-entropy capability is
+          # public. The original secret is NEVER included in source or logs.
+          nohup "$RUNNER_TEMP/rtl-py/bin/python" \
+            tools/bithuman_deep/rtl_private_novnc_gateway.py \
+            --digest "$RTL_VIEWER_TOKEN_SHA256" --listen 6081 \
+            > "$RUNNER_TEMP/rtl-private-gateway.log" 2>&1 < /dev/null &
+          echo "$!" > "$RUNNER_TEMP/rtl-private-gateway.pid"
+          for i in $(seq 1 25); do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:6081/vnc.html || true)"
+            [ "$CODE" = 403 ] && break
+            sleep 1
+          done
+          test "${CODE:-}" = 403
+          CODE="$(curl -s -o /dev/null -w '%{http_code}' \
+            http://127.0.0.1:6081/join/unauthorized-token)"
+          test "$CODE" = 403
+          echo RTL_PRIVATE_NOVNC_REJECTS_UNAUTHENTICATED_BROWSER_PASS
       - name: Preflight exit without publishing any browser
         if: env.RUN_MODE == 'preflight'
         shell: bash
         run: |
           echo 'Chrome + Playwright + Xvfb + noVNC localhost passed. No Samsung account or remote tunnel used.'
           echo '## RTL noVNC local preflight: PASS' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Next: set RTL_VIEWER_EMAIL repository secret, then manual Run workflow -> remote.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Verify one-user email protection for remote browser
-        if: env.RUN_MODE == 'remote'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os,re
-          value=os.environ.get("RTL_VIEWER_EMAIL","")
-          if not re.fullmatch(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}",value):
-              raise SystemExit("RTL_VIEWER_EMAIL GitHub Actions repository secret required; refuse public VNC tunnel")
-          print("RTL_REMOTE_EMAIL_AUTH_REQUIRED_CONFIRMED")
-          PY
+          echo 'Secure one-click capability gateway verified. No secrets/email/PC install needed; operator only signs into Samsung.' >> "$GITHUB_STEP_SUMMARY"
       - name: Install official Cloudflare Quick Tunnel client
         if: env.RUN_MODE == 'remote'
         shell: bash
@@ -176,15 +175,13 @@ jobs:
             -o "$RUNNER_TEMP/cloudflared.deb"
           sudo dpkg -i "$RUNNER_TEMP/cloudflared.deb"
           cloudflared --version
-          cloudflared tunnel --help | grep -q -- '--allowed-mail' || \
-            { echo 'Cloudflare email-gated quick tunnel not supported by installed binary'; exit 1; }
-      - name: Publish short-lived HTTPS noVNC link gated by viewer email OTP
+          cloudflared tunnel --help >/dev/null
+      - name: Publish temporary tunnel to SHA256 capability-gated localhost viewer
         if: env.RUN_MODE == 'remote'
         shell: bash
         run: |
           set -euo pipefail
-          cloudflared tunnel --url http://127.0.0.1:6080 \
-            --allowed-mail "$RTL_VIEWER_EMAIL" \
+          cloudflared tunnel --url http://127.0.0.1:6081 \
             > "$RUNNER_TEMP/rtl-cloudflared.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/rtl-cloudflared.pid"
           URL=''
@@ -195,12 +192,12 @@ jobs:
               { echo "Quick Tunnel exited before publishing URL"; exit 1; }
             sleep 1
           done
-          test -n "$URL" || { echo "No email-protected Quick Tunnel URL appeared"; exit 1; }
-          echo "::notice title=Samsung Galaxy RTL remote Chrome::${URL}/vnc.html?autoconnect=true&resize=scale"
+          test -n "$URL" || { echo "No Quick Tunnel URL appeared"; exit 1; }
+          echo "::notice title=Samsung Galaxy RTL private gateway base URL::${URL}"
           {
-            echo "## Samsung RTL live Ubuntu Chrome (email OTP required)"
+            echo "## Samsung RTL live Ubuntu Chrome (private one-click capability required)"
             echo
-            echo "[Open exact Chrome on runner: ${URL}/vnc.html?autoconnect=true&resize=scale](${URL}/vnc.html?autoconnect=true&resize=scale)"
+            echo "Chrome gateway base: ${URL} (not accessible without privately delivered one-click capability)"
             echo
             echo "**Only user action inside the remote Chrome: Samsung account login and 2FA.**"
             echo "Browser Playwright automatically selects a Galaxy Z Fold, attempts reservation,"
@@ -212,7 +209,7 @@ jobs:
             echo
             echo "No account cookies, login data, live screenshot or full logcat uploaded to GitHub."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo RTL_EMAIL_GATED_REMOTE_BROWSER_LINK_PUBLISHED
+          echo RTL_PRIVATE_CAPABILITY_GATED_REMOTE_BROWSER_BASE_PUBLISHED
       - name: Wait for automatic Samsung Playwright booking and Linux RDB, then test unchanged APK
         if: env.RUN_MODE == 'remote'
         shell: bash
