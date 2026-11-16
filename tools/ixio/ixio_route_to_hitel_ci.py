@@ -103,6 +103,66 @@ def main():
     header=".method public final "+sig
     method=header+"\n    .registers 3\n    const-string v0, "+json.dumps(arg.qa_assertion)+"\n    return-object v0\n.end method"
     modified.append(replace_method(files["ctn"],sig,method))
+    # The original IXIO getOriginalCallAutoRecording() is a suspend
+    # Boolean preference getter. Original DataStoreExtensionKt.findCurrentValue()
+    # throws CancellationException("Data is null") if the key has never been
+    # initialized. Exact original Smali confirmed via 43895270945 and the
+    # real call stack via 43894867674. Only this one missing-key case gets a
+    # conservative FALSE fallback; stored true/false and other keys unchanged.
+    ds_file=root/"datastore/extension/DataStoreExtensionKt.smali"
+    ds_src=ds_file.read_text(encoding="utf8")
+    ds_pat=re.compile(
+        r"(?ms)^\\.method public static final findCurrentValue\\("
+        r"Landroidx/datastore/preferences/core/Preferences\\$Key;"
+        r"Landroidx/datastore/core/DataStore;"
+        r"Lkotlin/coroutines/Continuation;\\)Ljava/lang/Object;\\n"
+        r".*?^\\.end method$"
+    )
+    ds_matches=list(ds_pat.finditer(ds_src))
+    if len(ds_matches)!=1:
+        raise ValueError(f"Original generic preference getter absent/ambiguous: {len(ds_matches)}")
+    ds_method=ds_matches[0].group(0)
+    target_before=(
+        "    :goto_5e\\n"
+        "    check-cast p2, Landroidx/datastore/preferences/core/Preferences;\\n"
+    )
+    capture_key=(
+        "    :goto_5e\\n"
+        "    move-object v4, p0\\n"
+        "    check-cast p2, Landroidx/datastore/preferences/core/Preferences;\\n"
+    )
+    missing_before=(
+        "    :cond_69\\n"
+        "    new-instance p0, Ljava/util/concurrent/CancellationException;\\n"
+    )
+    missing_after=(
+        "    :cond_69\\n"
+        "    # HITEL emulator fixture: only absent original auto-recording preference.\\n"
+        "    sget-object v0, Lcom/lguplus/aicallagent/datastore/CommonType$OriginalCallAutoRecording;->INSTANCE:Lcom/lguplus/aicallagent/datastore/CommonType$OriginalCallAutoRecording;\\n"
+        "    invoke-virtual {v0}, Lcom/lguplus/aicallagent/datastore/CommonType$OriginalCallAutoRecording;->getKey()Landroidx/datastore/preferences/core/Preferences$Key;\\n"
+        "    move-result-object v0\\n"
+        "    invoke-virtual {v0, v4}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z\\n"
+        "    move-result v0\\n"
+        "    if-eqz v0, :hitel_ci_other_missing_preference\\n"
+        "    sget-object v0, Ljava/lang/Boolean;->FALSE:Ljava/lang/Boolean;\\n"
+        "    return-object v0\\n"
+        "    :hitel_ci_other_missing_preference\\n"
+        "    new-instance p0, Ljava/util/concurrent/CancellationException;\\n"
+    )
+    if ds_method.count(target_before)!=1 or ds_method.count(missing_before)!=1:
+        raise ValueError("Original preference getter labels/exception block changed")
+    if ds_method.count("    .registers 8")!=1:
+        raise ValueError("Unexpected original method register count")
+    updated_ds_method=ds_method.replace(target_before,capture_key).replace(missing_before,missing_after)
+    updated_ds_src=(ds_src[:ds_matches[0].start()]+updated_ds_method+
+                    ds_src[ds_matches[0].end():])
+    ds_file.write_text(updated_ds_src,encoding="utf8")
+    modified.append({
+        "file":str(ds_file),
+        "method":"findCurrentValue(Preferences.Key,DataStore,Continuation):Object",
+        "change":"missing OriginalCallAutoRecording only => Boolean.FALSE; all other keys and saved values unchanged",
+        "original_cancellation_path_preserved":True
+    })
     arg.report.parent.mkdir(parents=True,exist_ok=True)
     arg.report.write_text(json.dumps({
       "test_scope":"GitHub Actions emulator only; no external host or real user",
