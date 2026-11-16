@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/gsm-original
-          gh run download 43896051121 --repo "$GH_REPO" \
+          gh run download 43899336970 --repo "$GH_REPO" \
             --name ixio-hitel-self-owned-local-api-emulator-evidence \
             --dir /tmp/gsm-original
           python3 - <<'PY'
