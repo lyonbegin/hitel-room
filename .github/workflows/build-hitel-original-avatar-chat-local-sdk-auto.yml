@@ -114,21 +114,30 @@ jobs:
             -o "$MAVEN/vendor-original.pom"
           python3 - "$MAVEN" <<'PY_POM'
           from pathlib import Path
-          import sys,xml.etree.ElementTree as ET
-          root=Path(sys.argv[1]);pom=root/'vendor-original.pom'
-          tree=ET.parse(pom);element=tree.getroot()
-          ns=element.tag.partition('}')[0]+'}' if '}' in element.tag else ''
+          import re,sys,xml.etree.ElementTree as ET
+          root=Path(sys.argv[1])
+          text=(root/'vendor-original.pom').read_text()
+          # Preserve vendor XML verbatim except for its FIRST project groupId:
+          # ElementTree serialization creates ns0:project, rejected by Gradle POM parser.
+          base=ET.fromstring(text)
+          ns=base.tag.partition('}')[0]+'}' if '}' in base.tag else ''
+          assert base.tag.endswith('project'),base.tag
           def child(tag):
-              e=element.find(ns+tag)
+              e=base.find(ns+tag)
               assert e is not None, f'Upstream POM lacks {tag}'
               return e
           assert child('groupId').text=='ai.bithuman'
           assert child('artifactId').text=='expression2-android'
           assert child('version').text=='0.6.2'
-          assert element.find(ns+'dependencies') is not None, 'Vendor POM transitive dependencies unavailable'
-          child('groupId').text='ai.hitel.reassembled'
-          tree.write(root/'expression2-android-0.6.2.pom',encoding='UTF-8',xml_declaration=True)
-          print('SDK_UPSTREAM_MAVEN_TRANSITIVE_METADATA_PRESERVED_NO_MANUAL_QNN_DEPENDENCIES')
+          assert base.find(ns+'dependencies') is not None, 'Vendor POM dependencies unavailable'
+          patched,n=re.subn(
+              r'(<groupId>\s*)ai\.bithuman(\s*</groupId>)',
+              r'\g<1>ai.hitel.reassembled\g<2>',text,count=1)
+          assert n==1 and '<ns0:project' not in patched
+          verified=ET.fromstring(patched)
+          assert verified.tag.endswith('project')
+          (root/'expression2-android-0.6.2.pom').write_text(patched)
+          print('VENDOR_POM_ROOT_AND_TRANSITIVE_DEPENDENCIES_PRESERVED_NO_MANUAL_QNN')
           PY_POM
 
           python3 - "$APP" "$PLUGIN" <<'PY'
