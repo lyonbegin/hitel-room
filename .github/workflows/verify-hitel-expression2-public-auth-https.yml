@@ -1,0 +1,80 @@
+name: Verify live HITEL Expression2 PUBLIC HTTPS auth and short-lived demo session
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/verify-hitel-expression2-public-auth-https.yml
+permissions:
+  contents: read
+jobs:
+  check-public-live-endpoint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify real Railway public HTTPS, short-lived scoped auth and server rejection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,secrets,time,urllib.request,urllib.error,ssl
+          BASE='https://hitel-expression2-auth-production.up.railway.app'
+          context=ssl.create_default_context()
+          def req(path,body=None,token=None):
+              headers={'Accept':'application/json'}
+              if body is not None:
+                  headers['Content-Type']='application/json'
+              if token is not None:
+                  headers['Authorization']='Bearer '+token
+              data=json.dumps(body).encode() if body is not None else None
+              request=urllib.request.Request(BASE+path,data=data,headers=headers)
+              try:
+                  with urllib.request.urlopen(request,context=context,timeout=12) as r:
+                      return r.status,json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  try: j=json.loads(e.read())
+                  except Exception: j={}
+                  return e.code,j
+          last=None
+          for attempt in range(12):
+              try:
+                  status,h=req('/healthz')
+                  if status==200 and h.get('ok') and h.get('public_demo_enabled') and h.get('upstream_configured'):
+                      break
+                  last=(status,h)
+              except Exception as e:last=repr(e)
+              time.sleep(5)
+          else:raise AssertionError(('PUBLIC_HTTPS_HEALTH_NOT_READY',last))
+          print('HITEL_PUBLIC_TLS_HTTPS_HEALTH_PASS',h['service'])
+          # No authentication request may receive a synthetic success.
+          status,j=req('/v1/auth/validate',{'product':'expression-2'})
+          assert status==401,(status,j)
+          print('HITEL_PUBLIC_ANONYMOUS_DENIED_401_PASS')
+          status,j=req('/v1/auth/validate',{'product':'expression-2'},'EXPR2_PHYSICAL_DEVICE_LOCAL_FIXTURE_NOT_VENDOR_SECRET')
+          assert status==401,(status,j)
+          print('HITEL_PUBLIC_OLD_FIXED_TEST_TOKEN_REJECTED_PASS')
+          # Fresh per-installation demo credential, only allowed PUBLIC Wise Pup.
+          status,j=req('/v1/demo/session',{'agent_code':'A23WJF0199','install_id':secrets.token_urlsafe(24)})
+          assert status==200,(status,j)
+          token=j['access_token']
+          assert token.startswith('htdemo.v1.') and 0<j['expires_in']<=3600
+          print('HITEL_PUBLIC_SHORT_LIVED_SCOPED_DEMO_TOKEN_ISSUED_PASS')
+          status,j=req('/v1/auth/validate',{'product':'expression-2','agent_code':'A23WJF0199'},token)
+          assert status==200 and j.get('valid') is True and j.get('meter_tail') is True,(status,j)
+          print('HITEL_PUBLIC_ORIGINAL_SDK_AUTH_VALIDATE_CONTRACT_PASS')
+          status,j=req('/v1/meter/beats',{
+              'product':'expression-2','session_id':secrets.token_hex(16),
+              'seq':1,'served_s':1.0,'talking_s':0.5,
+              'install_id':secrets.token_hex(16),'billing_type':'demo',
+              'deployment':'android'},token)
+          assert status==200 and j.get('meter_tail') is True,(status,j)
+          print('HITEL_PUBLIC_ORIGINAL_SDK_METER_CONTRACT_PASS')
+          status,j=req('/v1/demo/session',{'agent_code':'PRIVATE_AGENT_NOT_ALLOWED','install_id':secrets.token_urlsafe(24)})
+          assert status==403,(status,j)
+          print('HITEL_PUBLIC_PRIVATE_AGENT_NOT_ALLOWED_PASS')
+          status,j=req('/v1/auth/validate',{'product':'expression-2','agent_code':'A23WJF0199'},token+'.tamper')
+          assert status==401,(status,j)
+          print('HITEL_PUBLIC_INVALID_SIGNATURE_REJECTED_PASS')
+          print('HITEL_PUBLIC_EXPRESSION2_HTTPS_E2E_CONTRACT_ALL_PASS')
+          PY
