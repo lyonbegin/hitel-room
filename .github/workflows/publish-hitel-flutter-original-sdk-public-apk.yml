@@ -1,0 +1,78 @@
+name: Publish HITEL official bitHuman Flutter + reassembled original SDK as public APK direct download
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths: [.github/workflows/publish-hitel-flutter-original-sdk-public-apk.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-public-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43799474255
+          name: hitel-original-bithuman-flutter-sdk-0-6-2-apk-and-source
+          github-token: ${{ github.token }}
+          path: build/flutter-sdk-proof
+      - name: Verify genuine Flutter build artifact and exact output SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          find build/flutter-sdk-proof -maxdepth 3 -type f -printf '%p %s bytes\n'
+          APK="$(find build/flutter-sdk-proof -type f -name HITEL_Original_BitHuman_Flutter_Expression2_0.6.2.apk -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          echo "$APK" > "$RUNNER_TEMP/original-flutter-apk-path"
+          python3 - "$APK" <<'PY'
+          import sys,zipfile,hashlib,json
+          from pathlib import Path
+          apk=Path(sys.argv[1]);reports=Path('build/flutter-sdk-proof')
+          report=json.loads(next(reports.rglob('RESULT.json')).read_text())
+          calculated=hashlib.sha256(apk.read_bytes()).hexdigest()
+          assert report['apk_sha256']==calculated, (report['apk_sha256'],calculated)
+          assert report['apk_bytes']==apk.stat().st_size
+          assert report['original_arm64_binary_byte_identical'] is True
+          with zipfile.ZipFile(apk) as z:
+            names=set(z.namelist())
+            assert z.testzip() is None
+            for lib in ['libexpr2jni.so','libLiteRt.so','libQnnGpu.so','libQnnTFLiteDelegate.so','libflutter.so']:
+              assert any(x.endswith('/'+lib) for x in names),lib
+          print('HITEL_ORIGINAL_FLUTTER_REASSEMBLED_SDK_APK_VERIFIED',calculated,apk.stat().st_size)
+          PY
+      - name: Create public GitHub Release with direct APK asset (not Actions ZIP and not ChatGPT sandbox)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK="$(cat "$RUNNER_TEMP/original-flutter-apk-path")"
+          TAG="hitel-flutter-original-expression2-sdk-20261116"
+          TITLE="HITEL Flutter 2.6.40 + byte-reassembled original Expression2 SDK 0.6.2 (Galaxy Android arm64)"
+          NOTES="Android ARM64 Flutter APK compiled from authentic bitHuman GitLab flutter-plugin-v2.6.40 using the user's exact byte-reassembled original Expression2 SDK 0.6.2 in place of the upstream 0.6.1 Maven dependency. Original JNI/LiteRT binaries SHA-identical; QNN GPU and delegate libraries included. This is a developer test app requiring the user's authorized bitHuman API Secret and model download. On-device GPU acceleration and rendering are NOT YET verified. No keys embedded in APK."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title "$TITLE" \
+              --notes "$NOTES" --latest=false
+          fi
+          echo "PUBLIC_APK=https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$APK")"
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$APK")" > "$RUNNER_TEMP/hitel-public-url"
+      - name: Independent anonymous full download of public APK; compare exact byte-level SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(cat "$RUNNER_TEMP/hitel-public-url")"
+          SRC="$(cat "$RUNNER_TEMP/original-flutter-apk-path")"
+          DST="$RUNNER_TEMP/anonymous-flutter-download.apk"
+          curl --fail --location --silent --show-error \
+            --retry 4 --retry-delay 3 --retry-all-errors --connect-timeout 25 \
+            --max-time 480 "$URL" -o "$DST"
+          test "$(stat -c%s "$DST")" -eq "$(stat -c%s "$SRC")"
+          test "$(sha256sum "$DST" | cut -d' ' -f1)" = "$(sha256sum "$SRC" | cut -d' ' -f1)"
+          echo "HITEL_FLUTTER_GALAXY_PUBLIC_NO_LOGIN_FULL_APK_DOWNLOAD_PASS"
+          echo "$URL"
+          sha256sum "$SRC" "$DST"
