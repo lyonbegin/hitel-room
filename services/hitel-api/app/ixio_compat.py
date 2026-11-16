@@ -164,11 +164,14 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
             "refreshToken": issue_jwt(member_id, "refresh", timedelta(days=7)),
             "idToken": issue_jwt(member_id, "id", timedelta(minutes=30)),
             "tokenType": "Bearer",
-            "name": None,
-            "email": None,
-            "gender": None,
-            "birthdate": None,
-            "marketId": None,
+            "name": "",
+            "email": "",
+            "gender": "",
+            "birthdate": "",
+            # Original serialized MarketId enum accepts only LGT or KBM.
+            # LGT denotes the wire format only; this does not assert
+            # actual carrier identity, enrollment, or subscriber access.
+            "marketId": "LGT",
             "authUrl": None,
         }
 
