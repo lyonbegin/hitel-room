@@ -150,14 +150,14 @@ jobs:
           assert patch.count(b'https://api.bithuman.ai/v1/agent/')==2
           p.write_bytes(patch)
           # Only public showcase sample + our scoped HITEL demo token: use the
-          # original SDK's anonymous model-door resolver, avoiding a vendor
+          # original SDK's empty-credential public model-door resolver, avoiding a vendor
           # HTTP 401 caused by forwarding HITEL-only tokens to bitHuman.
           # Do not change any other model code, SDK 0.6.1, or model files.
           engine_path="android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
           engine_original=(archive/engine_path).read_bytes()
           engine_old=b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver(s))'
           engine_new=(b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver('
-                      b'if (code == "A23WJF0199" && s.startsWith("htdemo.v1.")) null else s))')
+                      b'if (code == "A23WJF0199" && s.startsWith("htdemo.v1.")) "" else s))')
           assert engine_original.count(engine_old)==1, f"Unexpected SDK store resolver source: {engine_original.count(engine_old)}"
           engine_patched=engine_original.replace(engine_old,engine_new,1)
           assert engine_patched.replace(engine_new,engine_old,1)==engine_original
