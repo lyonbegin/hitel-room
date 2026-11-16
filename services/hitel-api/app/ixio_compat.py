@@ -154,6 +154,18 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
     @app.post("/v1/members/verify-ctn")
     def verify_ctn(request: VerifyCtnRequestRQ, db: Session=Depends(db_dep)) -> dict:
         ensure_enabled()
+        # CI emulator-only assertion: bound to ONE pre-seeded HITEL QA account.
+        # Never enabled in production, and never accepts arbitrary phone input.
+        if os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true":
+            qa_assertion = os.getenv("HITEL_IXIO_CI_ASSERTION", "")
+            qa_phone = os.getenv("HITEL_IXIO_CI_PHONE", "")
+            if (len(qa_assertion) >= 32 and qa_phone and
+                    hmac.compare_digest(request.ctn, qa_assertion)):
+                qa_user = db.execute(select(member_class).where(
+                    member_class.phone == qa_phone)).scalar_one_or_none()
+                if qa_user is not None:
+                    return success({"isRegistered": True})
+                return fail("ERROR_QA_MEMBER_NOT_FOUND", "QA member not enrolled")
         try:
             claims = jwt.decode(
                 request.ctn, secret, algorithms=["HS256"],
