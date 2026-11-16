@@ -1,0 +1,41 @@
+name: IXIO GitHub Pages Public HTTPS Smoke Test
+on:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - .github/workflows/ixio-pages-public-http-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Verify actual public HTTPS page and config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check published site, existing homepage, and IXIO page
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://lyonbegin.github.io/hitel-room/'
+          ixio="${base}ixio-public-api/"
+          echo "PUBLIC_SITE=$base"
+          echo "PUBLIC_IXIO_PAGE=$ixio"
+          for attempt in $(seq 1 15); do
+            code="$(curl -L -sS --max-time 15 -o /tmp/ixio-page.html -w '%{http_code}' "${ixio}?probe=${GITHUB_RUN_ID}-${attempt}" || true)"
+            if [[ "$code" == "200" ]] && grep -q 'HITEL IXIO' /tmp/ixio-page.html; then
+              echo "PUBLIC_IXIO_HTTP_200=YES"
+              break
+            fi
+            echo "IXIO_PUBLIC_HTTP_PENDING attempt=$attempt response=$code"
+            sleep 5
+          done
+          test -s /tmp/ixio-page.html
+          grep -q 'HITEL IXIO' /tmp/ixio-page.html || { echo 'ERROR: IXIO page content missing'; exit 1; }
+          curl -fsSL --max-time 20 "${ixio}config.json?probe=${GITHUB_RUN_ID}" -o /tmp/ixio-public-config.json
+          python3 -m json.tool /tmp/ixio-public-config.json > /dev/null
+          echo 'PUBLIC_IXIO_CONFIG_JSON_200=YES'
+          curl -fsSL --max-time 20 "${base}?probe=${GITHUB_RUN_ID}" -o /tmp/preserved-homepage.html
+          test -s /tmp/preserved-homepage.html
+          echo 'EXISTING_HOME_HTTP_200=YES'
+          echo 'VERIFIED_IXIO_PUBLIC_URL=https://lyonbegin.github.io/hitel-room/ixio-public-api/'
