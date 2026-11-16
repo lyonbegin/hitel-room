@@ -1,0 +1,105 @@
+name: Audit bitHuman actual GitLab Flutter plugin 2.6.40 Android GPU NPU routing and native engine calls
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/audit-bithuman-gitlab-flutter-plugin-gpu-selection.yml
+permissions:
+  contents: read
+jobs:
+  audit-full-upstream:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone entire ORIGINAL public GitLab repository pinned to exact tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/gitlab-flutter-gpu
+          GIT_TERMINAL_PROMPT=0 git -c http.version=HTTP/1.1 clone --depth 1 --single-branch \
+            --branch flutter-plugin-v2.6.40 \
+            https://gitlab.com/bithuman/sdk/homebrew-bithuman.git \
+            "$RUNNER_TEMP/original-bithuman-flutter"
+          git -C "$RUNNER_TEMP/original-bithuman-flutter" rev-parse HEAD | tee reports/gitlab-flutter-gpu/upstream-commit.txt
+          git -C "$RUNNER_TEMP/original-bithuman-flutter" status --short > reports/gitlab-flutter-gpu/original-status.txt
+          git -C "$RUNNER_TEMP/original-bithuman-flutter" ls-files > reports/gitlab-flutter-gpu/full-repository-file-list.txt
+          test -f "$RUNNER_TEMP/original-bithuman-flutter/packages/flutter-plugin/android/build.gradle"
+          echo UPSTREAM_GITLAB_FULL_REPOSITORY_CLONE_PASS
+      - name: Analyze ALL original tracked code for GPU device capability checks and SDK configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/original-bithuman-flutter" reports/gitlab-flutter-gpu <<'PY'
+          from pathlib import Path
+          import re,sys,json,hashlib,collections
+          root=Path(sys.argv[1]);out=Path(sys.argv[2])
+          tracked=(out/'full-repository-file-list.txt').read_text().splitlines()
+          # Search all text files, not just Kotlin. Distinguish native Android bridge, Dart, iOS, docs, other folders.
+          patt=re.compile(r'(?i)(expression2options|expression2avatar|essence2avatar|qnn|qualcomm|adreno|hexagon|vulkan|opengl|egl|gles|gpudelegate|gpu_delegate|gpu.decoder|htp|nnapi|accelerator|routing|render.*backend|backend.*render|supportedabis|soc_model|soc_manufacturer|Build\.SOC|GPU|HardwareBuffer|textureid|TextureRegistry|gpuOptions)')
+          matches=[];scanned=0
+          for rel in tracked:
+            p=root/rel
+            if not p.is_file() or p.stat().st_size>2_000_000:continue
+            try: src=p.read_text()
+            except(UnicodeError,ValueError):continue
+            scanned+=1
+            lines=src.splitlines()
+            hits=[]
+            for idx,line in enumerate(lines):
+              if patt.search(line):
+                hits.append({'line':idx+1,'text':line[:600],
+                  'context_before':lines[max(0,idx-2):idx],
+                  'context_after':lines[idx+1:min(len(lines),idx+3)]})
+            if hits:
+              matches.append({'file':rel,'hits':hits})
+          (out/'all-repository-gpu-search.json').write_text(json.dumps(matches,indent=2,ensure_ascii=False)+'\n')
+          with (out/'all-repository-gpu-search.md').open('w') as f:
+            f.write('# Original bitHuman GitLab Flutter plugin source search (complete repo)\n\n')
+            f.write(f'Tag: flutter-plugin-v2.6.40. Commit: {(out/"upstream-commit.txt").read_text().strip()}\n')
+            f.write(f'Tracked files: {len(tracked)}; decoded source files: {scanned}; files containing matches: {len(matches)}\n\n')
+            for m in matches:
+              f.write('## '+m['file']+'\n')
+              for hit in m['hits']:
+                f.write(f"- L{hit['line']}: "+hit['text'].strip()+'\n')
+              f.write('\n')
+          top=collections.Counter()
+          for m in matches:
+            if m['file'].startswith('packages/flutter-plugin/android/'):bucket='plugin_android'
+            elif m['file'].startswith('packages/flutter-plugin/lib/'):bucket='plugin_dart'
+            elif m['file'].startswith('packages/flutter-plugin/'):bucket='plugin_other'
+            else:bucket='other_repository'
+            top[bucket]+=len(m['hits'])
+          (out/'summary.json').write_text(json.dumps({
+            'upstream_gitlab':'https://gitlab.com/bithuman/sdk/homebrew-bithuman',
+            'tag':'flutter-plugin-v2.6.40',
+            'commit':(out/'upstream-commit.txt').read_text().strip(),
+            'tracked_files':len(tracked),'decoded_files':scanned,
+            'matching_files':len(matches),'counts_by_area':top,
+            'plugin_android_matched_files':[x['file'] for x in matches if x['file'].startswith('packages/flutter-plugin/android/')],
+            'plugin_dart_matched_files':[x['file'] for x in matches if x['file'].startswith('packages/flutter-plugin/lib/')]
+          },indent=2)+'\n')
+          print('BIT_HUMAN_ALL_REPOSITORY_SEARCH_SUMMARY', (out/'summary.json').read_text())
+          for m in matches:
+            if m['file'].startswith('packages/flutter-plugin/android/'):
+              print('BIT_HUMAN_PLUGIN_ANDROID_MATCH',m['file'],[(x['line'],x['text'].strip()[:200]) for x in m['hits']][:110])
+          PY
+      - name: Publish the full original plugin source snapshot and human-readable audit report
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C "$RUNNER_TEMP/original-bithuman-flutter" \
+            -czf reports/gitlab-flutter-gpu/original-bitHuman-flutter-plugin-v2.6.40.tar.gz \
+            packages/flutter-plugin
+          sha256sum reports/gitlab-flutter-gpu/original-bitHuman-flutter-plugin-v2.6.40.tar.gz \
+            > reports/gitlab-flutter-gpu/plugin-source-archive-sha256.txt
+          test -s reports/gitlab-flutter-gpu/all-repository-gpu-search.md
+          echo BIT_HUMAN_GITLAB_FLUTTER_SOURCE_ARCHIVE_READY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-bithuman-gitlab-flutter-2-6-40-full-plugin-and-gpu-audit
+          path: reports/gitlab-flutter-gpu
+          retention-days: 30
