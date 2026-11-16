@@ -1,0 +1,58 @@
+name: IXIO Missing API Original DTO Exact Inspection
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-hitel-three-missing-dto-inspection.yml]
+  workflow_dispatch:
+permissions: {contents: read, actions: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Extract original Retrofit JSON DTO fields (no arbitrary response guesses)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-dto/apk /tmp/ixio-dto/jadx /tmp/ixio-dto/java
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir /tmp/ixio-dto/apk
+          curl -fL --retry 3 -sS https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip -o /tmp/ixio-dto/jadx.zip
+          unzip -qq /tmp/ixio-dto/jadx.zip -d /tmp/ixio-dto/jadx
+          chmod +x /tmp/ixio-dto/jadx/bin/jadx
+          cat > /tmp/ixio-dto/classes.txt <<'EOF'
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.config.Config
+          com.lguplus.aicallagent.model.api.dto.ixio.roaming.RoamingAbleCountriesInfo
+          com.lguplus.aicallagent.model.api.dto.ixio.mvoip.MVoipJoinData
+          com.lguplus.aicallagent.model.api.dto.ixio.Common
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.TokenData
+          com.lguplus.aicallagent.network.api.ixio.IxIOAppConfigApi
+          EOF
+          read_one() {
+            local cl="$1" short="${1##*.}"
+            timeout 160 env JAVA_OPTS=-Xmx2400m /tmp/ixio-dto/jadx/bin/jadx \
+              --no-res --threads-count 1 \
+              --single-class "$cl" \
+              --single-class-output "/tmp/ixio-dto/java/$short.java" \
+              /tmp/ixio-dto/apk/IXIO_Main_NoAppSealing_Single.apk \
+              >"/tmp/ixio-dto/$short.log" 2>&1 || true
+            test -s "/tmp/ixio-dto/java/$short.java" || echo "DTO_DECOMPILATION_MISSING $cl"
+          }
+          export -f read_one
+          cat /tmp/ixio-dto/classes.txt | xargs -P 3 -I '{}' bash -c 'read_one "$1"' _ '{}'
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          folder=Path('/tmp/ixio-dto/java')
+          keys=re.compile(r'(?i)^\s*(?:private\s+final|private\s+|public\s+final|public\s+static\s+final|@SerialName|@GET|@POST|@Query|String\s+API|Object\s+getConfig|getConfig\(|getMVoip|RoamingAble|JsonNames|SerialDescriptor|serializer\()|accessToken|refreshToken|idToken|tokenType|\.getData\(')
+          for p in sorted(folder.glob('*.java')):
+              lines=p.read_text(errors='replace').splitlines()
+              hit=[(i+1,s.strip()[:320]) for i,s in enumerate(lines) if keys.search(s) and len(s)<680]
+              if p.name=='IxIOAppConfigApi.java':
+                  hit=[(i+1,s.strip()[:320]) for i,s in enumerate(lines) if 'getConfig' in s or '@GET' in s or '@Query' in s]
+              print('ORIGINAL_DTO_FIELDS',json.dumps({'class':p.stem,'lines':len(lines),'declarations':hit[:130]},ensure_ascii=False))
+          PY
