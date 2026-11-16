@@ -59,10 +59,10 @@ jobs:
           for p in sorted(xmls)[-2:]:
               print('LAST_XML_FILE',p.name)
           print('APP_PROCESS_LOGCAT_BEGIN')
-          app_lines=[x for x in (list(root.rglob('logcat-full.txt'))[0].read_text(errors='replace').splitlines() if list(root.rglob('logcat-full.txt')) else []) if len(x.split())>2 and x.split()[2]=='4719']
+          app_lines=[x for x in (list(root.rglob('logcat-full.txt'))[0].read_text(errors='replace').splitlines() if list(root.rglob('logcat-full.txt')) else []) if len(x.split())>2 and x.split()[2]=='4774']
           print('APP_PROCESS_LOGCAT_LINES',len(app_lines))
-          for line in app_lines[-120:]:
-              print('APP_PID_4719',safe(line))
+          for line in app_lines[-180:]:
+              print('APP_PID_4774',safe(line))
           print('APP_PROCESS_LOGCAT_END')
           PY
 
