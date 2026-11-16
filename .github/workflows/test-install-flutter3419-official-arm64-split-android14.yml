@@ -1,0 +1,78 @@
+name: Install official Flutter ARM64 split APK on existing Android14 NativeBridge emulator
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/test-install-flutter3419-official-arm64-split-android14.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  real-flutter-arm64-and-sdk-install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm original ARM64 Flutter split APK was built before installing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 72); do
+            artifact_count="$(gh api 'repos/lyonbegin/hitel-room/actions/runs/43873205262/artifacts?per_page=30' \
+              --jq '[.artifacts[] | select(.name=="hitel-avatar-chat-flutter-3419-official-arm64-splitFilters-experimental-apk" and .expired==false)] | length')"
+            if [ "$artifact_count" = 1 ]; then
+              echo ORIGINAL_FLUTTER_ARM64_SPLIT_APK_ARTIFACT_AVAILABLE
+              break
+            fi
+            if [ "$attempt" -eq 72 ]; then echo 'EXACT_ARM64_FLUTTER_SPLIT_APK_NOT_AVAILABLE'; exit 6; fi
+            sleep 10
+          done
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43873205262
+          name: hitel-avatar-chat-flutter-3419-official-arm64-splitFilters-experimental-apk
+          github-token: ${{ github.token }}
+          path: reports/hitel-avatar-chat-flutter-3419-official-arm64-split/
+      - name: Confirm Flutter native engine and native Expression2 SDK are both ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=reports/hitel-avatar-chat-flutter-3419-official-arm64-split/apk/HITEL_Original_avatar_chat_Expression2_Public_HTTPS_Flutter3419_Official_Arm64Split_Debug.apk
+          test -s "$APK"
+          sha256sum "$APK"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libflutter.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libexpr2jni.so'
+          unzip -Z1 "$APK" | grep -F 'lib/arm64-v8a/libLiteRt.so'
+          if unzip -Z1 "$APK" | grep -E '^lib/(x86|x86_64|armeabi-v7a)/.*[.]so$'; then
+            echo 'NOT_A_PURE_ARM64_SPLIT_PACKAGE'; exit 7
+          fi
+          echo ORIGINAL_FLUTTER_ENGINE_AND_SDK_BOTH_NATIVE_ARM64_PASS
+      - name: Enable KVM for established Android 14 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Install and execute exact ARM64 Flutter APK without ABI override
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disk-size: 8192M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 2 -partition-size 8192
+          script: bash tools/bithuman_deep/test_flutter3419_official_arm64_split_existing_emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flutter3419-original-arm64split-real-android14-install-and-runtime-proof
+          path: reports/flutter3419-official-arm64-split-android14-runtime/
+          retention-days: 30
