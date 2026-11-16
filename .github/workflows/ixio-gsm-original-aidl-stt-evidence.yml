@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/gsm-original
-          gh run download 43891669465 --repo "$GH_REPO" \
+          gh run download 43893313416 --repo "$GH_REPO" \
             --name ixio-hitel-self-owned-local-api-emulator-evidence \
             --dir /tmp/gsm-original
           python3 - <<'PY'
@@ -82,4 +82,22 @@ jobs:
                       chain.append({k:b.get(k) for k in ('text','content-desc','class','bounds','clickable','enabled','checked','selected')})
                       current=parents.get(current)
                   print('INCALL_RECORD_UI_ANCESTOR',stage,json.dumps(chain,ensure_ascii=False)[:5500])
+          # The previous smoke script accidentally truncated Logcat at 10KB.
+          # Latest run captures a larger window, enabling true post-click diagnosis.
+          p=root/'logcat-simulated-call.txt'
+          if p.exists():
+              lines=p.read_text(errors='replace').splitlines()
+              print('LATEST_GSM_FULL_LOGCAT_TOTAL_LINES',len(lines))
+              app_pat=re.compile(r'^11-16\\s+15:(?:13|14):\\d+\\.\\d+\\s+(?:4638|6664)\\s+')
+              error_pat=re.compile(r'(?i)CallRecordingService|AudioRecord|InCallService|CAPTURE_AUDIO_OUTPUT|SpeechInference|sherpa|recordrepository|audiorecord|SecurityException|Permission Denial|RecordingStrategy|FATAL EXCEPTION|ERROR.*record')
+              apps=[line for line in lines if app_pat.search(line)]
+              strong=[line for line in lines if error_pat.search(line) and ('15:13:' in line or '15:14:' in line)]
+              print('GSM_APP_PROCESS_LOG_LINE_COUNT',len(apps))
+              print('GSM_STRONG_RECORDING_LOG_LINE_COUNT',len(strong))
+              for line in apps[-140:]:
+                  if re.search(r'(?i)accessToken|refreshToken|Authorization|Bearer\\s|phoneNumber=',line):continue
+                  print('GSM_APP_PID_EVENT',line[:470])
+              for line in strong[-110:]:
+                  if re.search(r'(?i)accessToken|refreshToken|Authorization|Bearer\\s|phoneNumber=',line):continue
+                  print('GSM_RECORDING_EVENT',line[:470])
           PY
