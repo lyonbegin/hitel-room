@@ -59,26 +59,24 @@ def main():
       '          : await _resolveSecret();\n'
       "      if (_hitelSdk061AuthTest) await _mark('hitel:sdk061_app_secret_nonempty=' + secret.isNotEmpty.toString());\n")
     assert '      if (secret.isEmpty) {\n' in s
-    s=once(s,'      await _openSession(avatar, secret);\n',
-      '      if (_hitelSdk061AuthTest && Platform.isAndroid) {\n'
-      "        await _mark('hitel:sdk061_avatar_load_succeeded_no_paid_realtime');\n"
-      '        return;\n'
-      '      }\n'
-      '      await _openSession(avatar, secret);\n')
+    # Preserve the ORIGINAL app's full post-load flow. In particular, never
+    # short-circuit _openSession() or insert an early return after avatar.load.
+    assert s.count('      await _openSession(avatar, secret);\\n') == 1
     assert 'BithumanAvatar.load(agentDir, engine: _engine, apiSecret: secret)' in s
     path.write_text(s)
     args.report.parent.mkdir(parents=True,exist_ok=True)
     args.report.write_text(json.dumps({
       'original_app_main_dart_sha256':hashlib.sha256(orig.encode()).hexdigest(),
       'app_auth_only_sdk_061_vendor_credential_still_unverified':True,
-      'plugin_2637_unmodified':True,
+      'plugin_2637_unmodified_by_this_app_preparer':True,
       'app_copy_only_debug_auth':True,
       'hitel_https_session_no_secret_embedded':True,
       'original_secret_is_empty_guard_preserved':True,
       'original_BithumanAvatar_load_preserved':True,
       'vendor_entitlement_not_modified':True,
-      'paid_realtime_session_disabled_for_test':True,
-      'face_frames_not_proven':True
+      'original_openSession_call_preserved':True,
+      'test_only_early_return_inserted':False,
+      'face_frames_not_proven_by_build_only':True
     },indent=2)+'\n')
     print('HITEL_SDK061_APP_HTTPS_AUTH_TEST_PREPARED')
 
