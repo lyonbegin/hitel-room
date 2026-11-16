@@ -1,12 +1,6 @@
 name: Expression2 SDK 0.6.1 public Wise Pup anonymous model door emulator test
 on:
   workflow_dispatch:
-  push:
-    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
-    paths:
-      - .github/workflows/expression2-sdk061-hitel-https-bootstrap-emulator.yml
-      - tools/bithuman_deep/prepare_expression2_sdk061_hitel_app_auth.py
-      - tools/bithuman_deep/expression2_sdk061_hitel_demo_meter_route.py
 permissions:
   contents: read
 jobs:
