@@ -74,6 +74,38 @@ def main() -> None:
     initial_role=adb("shell","cmd","role","get-role-holders","android.app.role.DIALER")
     summary["default_dialer_confirmed"] = MAIN in initial_role["output"].split()
     summary["before"]=save("before")
+    # The original call-recording settings UI was observed in the real
+    # emulator run: "통화 자동 녹음", "모든 전화", "선택 전화".
+    # Previously the original app logged originalCallAutoRecording:false.
+    # Select "모든 전화" via its actual accessibility node before the fake
+    # call. This is a disposable emulator and a synthetic GSM number only.
+    summary["auto_record_setting_tap"]=False
+    prior=summary["before"].get("visible",[])
+    settings_xml=OUT/"before.xml"
+    if ("통화 자동 녹음" in prior and "모든 전화" in prior
+            and settings_xml.exists()):
+        try:
+            nodes=ET.parse(settings_xml).getroot().iter("node")
+            matches=[n.attrib for n in nodes
+                     if n.attrib.get("text","").strip()=="모든 전화"]
+            if len(matches)==1:
+                m=re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
+                               matches[0].get("bounds",""))
+                if m:
+                    x1,y1,x2,y2=map(int,m.groups())
+                    if 250 < y1 < 1000 and x2>x1 and y2>y1:
+                        pressed=adb("shell","input","tap",str((x1+x2)//2),
+                                    str((y1+y2)//2),timeout=12)
+                        summary["auto_record_setting_tap"]=pressed["returncode"]==0
+                        print("IXIO_ORIGINAL_AUTO_RECORD_ALL_CALLS_TAPPED",
+                              summary["auto_record_setting_tap"],"bounds",
+                              matches[0].get("bounds"),flush=True)
+                        time.sleep(3)
+                        summary["auto_record_selected"]=save("auto_record_selected")
+        except Exception as exc:
+            print("IXIO_ORIGINAL_AUTO_RECORD_UI_ERROR",repr(exc),flush=True)
+    else:
+        print("IXIO_ORIGINAL_AUTO_RECORD_SETTINGS_NOT_VISIBLE",repr(prior),flush=True)
     # Cold emulator TELEPHONY fake call, no network connection is made.
     adb("logcat","-c")
     incoming=adb("emu","gsm","call",NUMBER,timeout=17)
@@ -86,12 +118,18 @@ def main() -> None:
     print("GSM_SIMULATED_ACCEPT",accept["returncode"],accept["output"][:350],flush=True)
     time.sleep(12)
     summary["connected"]=save("connected")
+    summary["recorder_service_active_before_manual_toggle"]=bool(re.search(
+        r"com\\.lguplus\\.callrecorder/[^\\s}]*?(?:CallRecordingService|RecordService)",
+        (OUT/"connected-services.txt").read_text(errors="replace")
+        if (OUT/"connected-services.txt").exists() else ""))
+    print("IXIO_AUTO_RECORD_SERVICE_AT_CONNECTED",
+          summary["recorder_service_active_before_manual_toggle"],flush=True)
     # Trigger the real in-call recording control (not just the settings
     # screen). Original UI XML from run 43889791915 proves the icon bounds
     # [144,1691][218,1765]. Select by semantic content-desc on THIS run.
     summary["record_button_tapped"]=False
     xml=OUT/"connected.xml"
-    if xml.exists():
+    if xml.exists() and not summary["recorder_service_active_before_manual_toggle"]:
         try:
             nodes=list(ET.parse(xml).getroot().iter("node"))
             choices=[n.attrib for n in nodes
@@ -152,7 +190,7 @@ def main() -> None:
     print("IXIO_GSM_CALL_SMOKE_RESULT",json.dumps({
         k:summary[k] for k in ("simulated_call_requested","caller_screen_seen",
            "default_dialer_confirmed","recorder_process_after","main_process_after",
-           "filtered_log_lines","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified")
+           "filtered_log_lines","auto_record_setting_tap","recorder_service_active_before_manual_toggle","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified")
     },ensure_ascii=False),flush=True)
     # A call simulator without real PCM cannot prove RX capture or STT.
     print("IXIO_REAL_RX_PCM_AND_STT_UNVERIFIED=YES",flush=True)
