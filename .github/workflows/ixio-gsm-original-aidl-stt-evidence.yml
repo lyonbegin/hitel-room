@@ -65,4 +65,21 @@ jobs:
                       print('ORIGINAL_INCALL_RECORD_BUTTON',json.dumps({
                           k:a.get(k) for k in ('text','content-desc','resource-id','class','bounds','clickable','enabled')
                       },ensure_ascii=False))
+          for stage in ('before','connected','record_toggle'):
+              p=root/f'{stage}.xml'
+              if not p.exists():continue
+              tree=ET.parse(p)
+              parents={child:parent for parent in tree.iter() for child in parent}
+              for node in tree.iter('node'):
+                  a=node.attrib
+                  label=(a.get('text','')+' '+a.get('content-desc','')).strip()
+                  if not any(w in label for w in ('통화 녹음','모든 전화','선택 전화')):continue
+                  chain=[]
+                  current=node
+                  for _ in range(7):
+                      if current is None:break
+                      b=current.attrib
+                      chain.append({k:b.get(k) for k in ('text','content-desc','class','bounds','clickable','enabled','checked','selected')})
+                      current=parents.get(current)
+                  print('INCALL_RECORD_UI_ANCESTOR',stage,json.dumps(chain,ensure_ascii=False)[:5500])
           PY
