@@ -128,4 +128,23 @@ jobs:
                           if lines[n].strip() and not lines[n].strip().startswith('.annotation'):
                               print('IXIO_FOCUSED_POLICY_BYTECODE',label,p.name,n+1,lines[n][:270])
               print('IXIO_FOCUSED_POLICY_TOTAL',label,total)
+          # Find owning DEX for policy, recording result and local STT model types.
+          import zipfile
+          source=Path('/tmp/ixio-bytecode/original/IXIO_Main_NoAppSealing_Single.apk')
+          tokens=['RecordingAvailabilityParam','RECORDING_POLICY_NOT_ALLOWED',
+                  'isModelFileNotFound','RecordFail','SpeechToTextRepository',
+                  'GetIsRecordingAllowedUseCaseImpl']
+          with zipfile.ZipFile(source) as archive:
+              names=archive.namelist()
+              all_dex=[name for name in names if re.fullmatch(r'classes(?:\d+)?\.dex',name)]
+              print('IXIO_DEX_COUNT',len(all_dex))
+              for name in all_dex:
+                  blob=archive.read(name)
+                  found=[term for term in tokens if term.encode('utf-8') in blob]
+                  if found: print('IXIO_STT_DEX_STRING_MATCH',name,found)
+              assets=[(name,archive.getinfo(name).file_size) for name in names if
+                      name.startswith(('assets/','res/raw/')) and
+                      re.search(r'(?i)(stt|speech|asr|acoustic|token|vocab|model|\.onnx$|\.tflite$|\.fst$|\.ort$|\.bin$|\.param$)',name)]
+              print('IXIO_STT_ASSET_CANDIDATE_COUNT',len(assets))
+              for name,size in assets[:70]: print('IXIO_STT_ASSET',size,name[:230])
           PY
