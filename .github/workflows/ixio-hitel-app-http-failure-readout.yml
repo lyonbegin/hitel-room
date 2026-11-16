@@ -36,7 +36,7 @@ jobs:
                   u=urllib.parse.urlsplit(url)
                   result.append((method,u.path,status))
               print('APP_AND_PREFLIGHT_HTTP_SEQUENCE',json.dumps(result,ensure_ascii=False))
-              print('ENDPOINT_COUNTS',json.dumps(dict(collections.Counter((a,b,c) for a,b,c in result)),default=str))
+              print('ENDPOINT_COUNTS',json.dumps([{'method':a,'path':b,'status':c,'count':n} for (a,b,c),n in collections.Counter((a,b,c) for a,b,c in result).items()],default=str))
               print('CI_PKCE_MARKERS',[x.strip() for x in s.splitlines() if 'HITEL_CI_PKCE_GRANT_RESULT=' in x])
           ui=list(root.rglob('app-ui-result.json'))
           for p in ui:
