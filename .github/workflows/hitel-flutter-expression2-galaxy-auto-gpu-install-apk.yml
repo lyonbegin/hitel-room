@@ -1,0 +1,196 @@
+name: HITEL original Flutter SDK Galaxy automatic GPU probe install APK and public direct download
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths:
+      - .github/workflows/hitel-flutter-expression2-galaxy-auto-gpu-install-apk.yml
+      - apps/hitel-expression2-galaxy-test/**
+      - sdk/bithuman/flutter-plugin/android/**
+permissions:
+  contents: write
+  actions: read
+jobs:
+  compile-package-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43546359857
+          name: expression2-original-bytecode-and-arm64-reassembled-aar
+          github-token: ${{ github.token }}
+          path: build/original-sdk
+      - name: Generate Galaxy ARM64 Flutter wrapper using COMMITTED official bitHuman Flutter plugin source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reports/hitel-flutter-galaxy-autogpu
+          SDK="$GITHUB_WORKSPACE/build/original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar"
+          echo "2529f8f0a064b4c8e8a1bb6f5fdd4627143ba4e09e05bd506bee1540e68e1527  $SDK" | sha256sum -c -
+          grep -Fq "Expression2RouteSelector.create(context, model)" \
+            sdk/bithuman/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt
+          grep -Fq "routing = Routing.GPU_DECODER" \
+            sdk/bithuman/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter/Expression2RouteSelector.kt
+          grep -Fq "routing = Routing.HTP_DECODER" \
+            sdk/bithuman/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter/Expression2RouteSelector.kt
+          grep -Fq "ROUTE_FIRST_FRAME_PASS" \
+            sdk/bithuman/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt
+          test -s sdk/bithuman/flutter-plugin/LICENSE
+          flutter create --platforms=android --org ai.hitel \
+            --project-name hitel_expression2_gpu \
+            "$RUNNER_TEMP/hitel_expression2_gpu"
+          APP="$RUNNER_TEMP/hitel_expression2_gpu"
+          MAVEN="$APP/android/local-sdk-maven/ai/hitel/reassembled/expression2-android/0.6.2"
+          mkdir -p "$MAVEN"
+          cp "$SDK" "$MAVEN/expression2-android-0.6.2.aar"
+          cat > "$MAVEN/expression2-android-0.6.2.pom" <<'POM'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>ai.hitel.reassembled</groupId>
+            <artifactId>expression2-android</artifactId>
+            <version>0.6.2</version>
+            <packaging>aar</packaging>
+          </project>
+          POM
+          cp apps/hitel-expression2-galaxy-test/lib/main.dart "$APP/lib/main.dart"
+          cp apps/hitel-expression2-galaxy-test/android/MainActivity.kt \
+            "$APP/android/app/src/main/kotlin/ai/hitel/hitel_expression2_gpu/MainActivity.kt"
+          python3 - "$APP" "$GITHUB_WORKSPACE/sdk/bithuman/flutter-plugin" <<'PY'
+          from pathlib import Path
+          import sys
+          app=Path(sys.argv[1]);plugin=Path(sys.argv[2])
+          assert (plugin/'pubspec.yaml').is_file()
+          pub=app/'pubspec.yaml'
+          s=pub.read_text()
+          assert s.count('\ndependencies:\n')==1
+          pub.write_text(s.replace('\ndependencies:\n',
+             '\ndependencies:\n  bithuman:\n    path: "'+str(plugin)+'"\n',1))
+          g=app/'android/app/build.gradle.kts'
+          s=g.read_text()
+          assert 'minSdk = flutter.minSdkVersion' in s
+          s=s.replace('minSdk = flutter.minSdkVersion',
+            'minSdk = 29\n        ndk { abiFilters += "arm64-v8a" }')
+          assert s.count('android {\n')==1
+          s=s.replace('android {\n',
+            'android {\n    packaging { jniLibs { useLegacyPackaging = true } }\n',1)
+          g.write_text(s)
+          mpath=app/'android/app/src/main/AndroidManifest.xml'
+          m=mpath.read_text()
+          assert '<application' in m
+          if 'android.permission.INTERNET' not in m:
+            m=m.replace('<application',
+              '<uses-permission android:name="android.permission.INTERNET" />\n    <application',1)
+          m=m.replace('android:label="hitel_expression2_gpu"',
+            'android:label="HITEL Expression 2 GPU"')
+          mpath.write_text(m)
+          assert 'Expression2RouteSelector.create' in (plugin/'android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt').read_text()
+          PY
+          (cd "$APP" && flutter pub get && dart analyze lib/main.dart)
+          cp "$APP/android/app/build.gradle.kts" reports/hitel-flutter-galaxy-autogpu/app-gradle-checked.txt
+          cp "$APP/pubspec.yaml" reports/hitel-flutter-galaxy-autogpu/app-pubspec-checked.yaml
+          printf "%s\n" "$GITHUB_SHA" > reports/hitel-flutter-galaxy-autogpu/source-commit.txt
+          echo "$APP" > "$RUNNER_TEMP/hitel-galaxy-app-path"
+          echo ORIGINAL_FLUTTER_PLUGIN_SOURCE_APK_WRAPPER_DART_ANALYSIS_PASS
+      - name: Compile Galaxy ARM64 APK with original 0.6.2 SDK and GPU auto-route
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(cat "$RUNNER_TEMP/hitel-galaxy-app-path")"
+          (cd "$APP" && flutter build apk --debug --target-platform android-arm64 --no-pub) \
+            2>&1 | tee reports/hitel-flutter-galaxy-autogpu/flutter-android-build.log
+          APK_SRC="$APP/build/app/outputs/flutter-apk/app-debug.apk"
+          test -s "$APK_SRC"
+          mkdir -p reports/hitel-flutter-galaxy-autogpu/apk
+          cp "$APK_SRC" \
+            reports/hitel-flutter-galaxy-autogpu/apk/HITEL_Expression2_Flutter_Galaxy_AutoGPU_20261116.apk
+      - name: Verify APK ORIGINAL native SDK byte identity, Qualcomm GPU backends and Android manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          sdk=Path('build/original-sdk/Expression2_0.6.2_original_machine_code_reassembled.aar')
+          apk=Path('reports/hitel-flutter-galaxy-autogpu/apk/HITEL_Expression2_Flutter_Galaxy_AutoGPU_20261116.apk')
+          with zipfile.ZipFile(sdk) as origin,zipfile.ZipFile(apk) as installed:
+            names=set(installed.namelist())
+            for name in ('libexpr2jni.so','libLiteRt.so'):
+              assert installed.read('lib/arm64-v8a/'+name)==origin.read('jni/arm64-v8a/'+name),name
+            for name in ('libQnnGpu.so','libQnnTFLiteDelegate.so','libflutter.so'):
+              assert 'lib/arm64-v8a/'+name in names,name
+            assert installed.testzip() is None
+            qnn=sorted(n for n in names if n.startswith('lib/arm64-v8a/libQnn'))
+            assert qnn,qnn
+          manifest=Path('reports/hitel-flutter-galaxy-autogpu/VERIFICATION.json')
+          verified={
+            'apk_name':apk.name,
+            'apk_size_bytes':apk.stat().st_size,
+            'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),
+            'source_commit':Path('reports/hitel-flutter-galaxy-autogpu/source-commit.txt').read_text().strip(),
+            'based_on_original_flutter_source':'sdk/bithuman/flutter-plugin',
+            'original_sdk_version':'0.6.2',
+            'original_sdk_native_byte_identical':True,
+            'qnn_arm64_libraries':qnn,
+            'gpu_selector_compiled':True,
+            'debug_signed':True,
+            'phone_gpu_inference_verified':False,
+            'no_vendor_key_embedded':True,
+            'device_inventory_requires_key':False,
+            'real_model_inference_requires_authorized_vendor_secret':True
+          }
+          manifest.write_text(json.dumps(verified,ensure_ascii=False,indent=2)+'\n')
+          print('HITEL_GALAXY_AUTO_GPU_INSTALLABLE_APK_NATIVE_BINARY_PASS')
+          print(manifest.read_text())
+          PY
+          SDK_BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -x "$SDK_BUILD_TOOLS/apksigner"
+          "$SDK_BUILD_TOOLS/apksigner" verify --verbose \
+            reports/hitel-flutter-galaxy-autogpu/apk/HITEL_Expression2_Flutter_Galaxy_AutoGPU_20261116.apk
+          echo HITEL_GALAXY_GPU_AUTOROUTE_APK_ANDROID_SIGNATURE_VALID
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel-original-flutter-galaxy-gpu-auto-route-apk
+          path: reports/hitel-flutter-galaxy-autogpu/
+          retention-days: 30
+      - name: Publish direct public APK release (no ZIP or ChatGPT sandbox)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="hitel-original-expression2-flutter-galaxy-autogpu-20261116"
+          APK="reports/hitel-flutter-galaxy-autogpu/apk/HITEL_Expression2_Flutter_Galaxy_AutoGPU_20261116.apk"
+          NOTES="Source: sdk/bithuman/flutter-plugin based on official bitHuman Flutter 2.6.40. Uses exact byte-reassembled original Expression2 Android SDK 0.6.2. Device capability inspection on app open (no credential), QNN Adreno GPU -> Hexagon HTP -> CPU route selection for authorized original SDK inference. Real model rendering requires a user-provided authorized bitHuman API Secret; no secret embedded. Actual Galaxy GPU inference NOT verified until user runs the app; the native QNN libs alone do not prove GPU success."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" \
+              --title "HITEL Expression 2 Original Flutter GPU Auto Route Galaxy Test" \
+              --notes "$NOTES" --latest=false
+          fi
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$APK")"
+          echo "$URL" > "$RUNNER_TEMP/hitel-galaxy-public-url"
+          echo "HITEL_GALAXY_DIRECT_APK_URL=$URL"
+      - name: Validate public download WITHOUT GitHub account by full APK SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(cat "$RUNNER_TEMP/hitel-galaxy-public-url")"
+          SOURCE="reports/hitel-flutter-galaxy-autogpu/apk/HITEL_Expression2_Flutter_Galaxy_AutoGPU_20261116.apk"
+          DEST="$RUNNER_TEMP/public-download.apk"
+          curl --fail --location --silent --show-error --retry 4 --retry-delay 3 \
+            --retry-all-errors --connect-timeout 25 --max-time 480 "$URL" -o "$DEST"
+          cmp -s "$SOURCE" "$DEST"
+          echo "HITEL_GALAXY_ANONYMOUS_PUBLIC_FULL_APK_SHA256_PASS"
+          sha256sum "$SOURCE" "$DEST"
