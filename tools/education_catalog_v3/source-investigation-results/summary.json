@@ -1,0 +1,17 @@
+{
+  "target_count": 1208,
+  "researched_count": 1208,
+  "unique_researched_count": 1208,
+  "missing_ids": [],
+  "unexpected_ids": [],
+  "source_status": {
+    "access_challenge": 1208
+  },
+  "bibliography_lookup_status": {
+    "google_books_http_429": 1141,
+    "insufficient_query": 67
+  },
+  "candidate_records": 0,
+  "exact_original_document_matches": 0,
+  "caveat": "External title similarities and ISBN are candidate data only. Original Scribd content not verified."
+}
