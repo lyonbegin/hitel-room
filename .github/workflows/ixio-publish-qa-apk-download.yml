@@ -1,0 +1,40 @@
+name: IXIO HITEL Signed QA APK Direct Download
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-publish-qa-apk-download.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact signed APK from completed emulator build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-apk
+          gh run download 43899336970 --repo "$GH_REPO" --name IXIO_HITEL_Local_Auth_QA_Single_APK --dir /tmp/ixio-apk
+          test -s /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
+          stat -c 'APK_SIZE_BYTES=%s' /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
+          sha256sum /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
+      - name: Publish direct APK download as one GitHub Release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ixio-hitel-qa-apk-20261117
+          apk=/tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO HITEL signed single APK - installation QA" --notes "Signed single APK from verified Android 14 emulator build 43899336970. Note: it connects to the emulator-only 10.0.2.2:8000 test API; actual-phone call recording and STT are unverified. Existing recorder companion is not included."
+          fi
+          gh release upload "$tag" "$apk" --repo "$GH_REPO" --clobber
+          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Auth_CI_Single.apk") | {name: .name, size: .size, url: .url}'
+          echo "DIRECT_APK_URL=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Auth_CI_Single.apk"
