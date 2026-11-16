@@ -31,6 +31,36 @@ jobs:
           python-version: '3.12'
       - name: Build static Pages site without modifying source
         run: python tools/build_hitel_education_pages.py
+      - name: Inject actual G2 public HTTPS endpoint in IXIO page without replacing existing education site
+        env:
+          HITEL_G2_API_DOMAIN: ${{ vars.HITEL_G2_API_DOMAIN }}
+          HITEL_PUBLIC_API_BASE_URL: ${{ vars.HITEL_PUBLIC_API_BASE_URL }}
+        run: |
+          python3 - <<'PY'
+          import ipaddress,json,os,pathlib,re,urllib.parse
+          path=pathlib.Path('_pages_site/ixio-public-api/config.json')
+          if not path.is_file():
+              raise SystemExit('Missing IXIO public subpage config.json')
+          url=os.getenv('HITEL_PUBLIC_API_BASE_URL','').strip()
+          domain=os.getenv('HITEL_G2_API_DOMAIN','').strip()
+          if not url and domain:
+              if not re.fullmatch(r'[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?',domain) or '.' not in domain:
+                  raise SystemExit('Invalid G2 API domain')
+              url='https://'+domain+'/'
+          if url:
+              u=urllib.parse.urlsplit(url)
+              if u.scheme!='https' or not u.hostname or u.username or u.password or u.query or u.fragment:
+                  raise SystemExit('Public HITEL API must be a clean HTTPS base URL')
+              try:
+                  ip=ipaddress.ip_address(u.hostname)
+                  if not ip.is_global:
+                      raise SystemExit('G2 public API cannot be a private IP')
+              except ValueError:
+                  pass
+              url=urllib.parse.urlunsplit((u.scheme,u.netloc,u.path.rstrip('/')+'/', '', ''))
+          path.write_text(json.dumps({'apiBaseUrl':url},ensure_ascii=False),encoding='utf-8')
+          print('IXIO_PAGES_G2_PUBLIC_HTTPS_CONFIGURED='+('YES' if url else 'NO'))
+          PY
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
