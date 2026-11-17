@@ -81,6 +81,32 @@ jobs:
           test -n "$url" || { cat /tmp/ixio-tunnel.log; exit 1; }
           curl --max-time 20 -fsS "$url/health" | grep -q '"ok":true'
           echo "HITEL_PUBLIC_API_URL=$url/" >> "$GITHUB_ENV"
+          echo "HITEL_IXIO_PUBLIC_QA_BASE_URL=$url/" >> "$GITHUB_ENV"
+          # The API was started before cloudflared assigned its hostname.
+          # Restart it with the actual HTTPS base URL so /login returns
+          # the same host that the patched APK DEX uses.
+          kill "$(cat .hitel-ixio-qa/test/server.pid)"
+          for n in $(seq 1 40); do
+            if ! curl --max-time 1 -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          export HITEL_IXIO_PUBLIC_QA_BASE_URL="$url/"
+          nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > .hitel-ixio-qa/test/hitel-api.log 2>&1 < /dev/null &
+          echo $! > .hitel-ixio-qa/test/server.pid
+          for n in $(seq 1 60); do
+            if curl --max-time 5 -fsS "$url/health" | grep -q '"ok":true'; then break; fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import os,httpx
+          url=os.environ["HITEL_IXIO_PUBLIC_QA_BASE_URL"]
+          response=httpx.get(url+"login",timeout=30)
+          assert response.status_code==200,(response.status_code,response.text[:300])
+          login=response.json()["data"]
+          assert login["baseUrl"]==url,(login["baseUrl"],url)
+          assert login["authUri"]=="hitel/qa/authorize"
+          print("IXIO_LOGIN_PUBLIC_HTTPS_URL_CORRECT",url)
+          PY
           echo "EXTERNAL_HTTPS_HEALTH=SUCCESS"
       - name: Download exact original single APK and pinned DEX tools
         shell: bash
@@ -196,6 +222,8 @@ jobs:
               r=c.get(u+p)
               assert r.status_code==200,(p,r.status_code,r.text[:150])
               print('PUBLIC_API_OK',p)
+              if p == 'login':
+                assert r.json()['data']['baseUrl'] == u, ('ORIGINAL_LOGIN_STILL_EMULATOR_ONLY',r.json()['data']['baseUrl'],u)
             r=c.post(u+'v1/members/verify-ctn',json={'ctn':os.environ['HITEL_IXIO_CI_ASSERTION']})
             assert r.status_code==200 and r.json().get('data',{}).get('isRegistered') is True,(r.status_code,r.text[:150])
             print('PUBLIC_QA_MEMBER_VERIFIED')
@@ -211,15 +239,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-hitel-public-https-test-20261117
-          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/IXIO_HITEL_Public_HTTPS_Test.apk
+          tag=ixio-hitel-public-https-login-fixed-20261117
+          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/IXIO_HITEL_Public_HTTPS_Login_Fixed.apk
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO HITEL public HTTPS QA APK" --notes "Short-lived synthetic-account test only, not production carrier login."
           fi
-          gh release upload "$tag" /tmp/IXIO_HITEL_Public_HTTPS_Test.apk --repo "$GH_REPO" --clobber
+          gh release upload "$tag" /tmp/IXIO_HITEL_Public_HTTPS_Login_Fixed.apk --repo "$GH_REPO" --clobber
           gh release edit "$tag" --repo "$GH_REPO" --notes "Temporary test backend: $HITEL_PUBLIC_API_URL . Expires when workflow stops in approximately 90 minutes. Synthetic test identity only; call recording and STT unverified."
-          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Public_HTTPS_Test.apk") | {name: .name, size: .size, url: .url}'
-          echo "DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Public_HTTPS_Test.apk"
+          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Public_HTTPS_Login_Fixed.apk") | {name: .name, size: .size, url: .url}'
+          echo "DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Public_HTTPS_Login_Fixed.apk"
       - name: Keep external HTTPS QA API running during immediate real-device test
         shell: bash
         run: |
