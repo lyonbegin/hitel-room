@@ -20,21 +20,21 @@ permissions:
   statuses: write
 concurrency:
   group: rtl-galaxy-rdb-browser
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   same-ubuntu-chrome-samsung-rdb:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       DISPLAY: ":99"
-      RTL_VIEWER_TOKEN_SHA256: 22730f9438b987cabbfef0f6a9dbedf0510586406e81cd340878ac80dc5ee909
-      RUN_MODE: ${{ github.event_name == 'push' && 'preflight' || inputs.mode }}
+      RTL_VIEWER_TOKEN_SHA256: 157c092d08e3dcef5349475e3c54ff5eafc5cb16ee6f0b57eb6705ad0dbc1df1
+      RUN_MODE: ${{ github.event_name == 'push' && 'remote' || inputs.mode }}
       RTL_APK: ${{ github.workspace }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
       RTL_BROWSER_STAGE_FILE: ${{ github.workspace }}/rtl-browser-stage.txt
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 8262182d43904398980353ea87a43ac755c4ccc9
+          ref: 58aef9ca9eb86521439852f1345f11ba2def372b
           persist-credentials: false
       - name: Check RTL watcher syntax and allowed scope
         shell: bash
