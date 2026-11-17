@@ -422,4 +422,11 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
     @app.post("/v2/login")
     def get_login_data_v2(request: PostCtn, db: Session=Depends(db_dep)) -> dict:
         ensure_enabled()
+        # Optional isolated QA discovery: publishing the public PKCE login
+        # configuration is NOT a verification of CTN or subscriber identity.
+        # Actual login still requires the OAuth authorization-code exchange.
+        # No production requests use this branch.
+        if (os.getenv("HITEL_IXIO_CI_FIXTURE_ENABLED", "false") == "true"
+                and os.getenv("HITEL_IXIO_CI_PUBLIC_LOGIN_DISCOVERY", "false") == "true"):
+            return qa_login_data(db, os.getenv("HITEL_IXIO_CI_ASSERTION", ""))
         return qa_login_data(db, request.ctn)
