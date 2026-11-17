@@ -105,7 +105,7 @@ jobs:
             if not p.exists():continue
             txt=p.read_text(errors='replace')
             methods=[]
-            for part in txt.split('.method ')[1:]:
+            for part in src.split('.method ')[1:]:
               fragment='.method '+part
               if '.end method' in fragment:
                 methods.append(fragment.split('.end method',1)[0]+'.end method')
