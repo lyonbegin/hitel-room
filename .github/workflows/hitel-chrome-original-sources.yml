@@ -1,0 +1,46 @@
+name: HITEL Google Chrome Original Source URL Audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - .github/workflows/hitel-chrome-original-sources.yml
+      - tools/education_catalog_v3/chrome_original_links_probe.py
+permissions:
+  contents: read
+jobs:
+  check-original-urls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ypt-study-group-learning-nav-20261108
+      - name: Install official Google Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      - name: Verify actual Google Chrome
+        run: |
+          google-chrome --version || google-chrome-stable --version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright driver
+        run: python -m pip install --disable-pip-version-check playwright==1.56.0
+      - name: Open 10 EXACT saved original Scribd URLs in Chrome
+        run: python tools/education_catalog_v3/chrome_original_links_probe.py --limit 10 --out hitel-chrome-original-check
+      - name: Print Chrome results
+        if: always()
+        run: |
+          if [ -f hitel-chrome-original-check/summary.json ]; then cat hitel-chrome-original-check/summary.json; fi
+          if [ -f hitel-chrome-original-check/rows.csv ]; then head -c 2000 hitel-chrome-original-check/rows.csv; fi
+      - name: Upload direct-link screenshots and checked titles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-saved-urls-google-chrome-smoke
+          path: hitel-chrome-original-check/
+          retention-days: 14
+          if-no-files-found: warn
