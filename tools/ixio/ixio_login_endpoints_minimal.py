@@ -29,7 +29,7 @@ TARGETS = {
         "postAutoLogin": ("POST", "autologin"),
     },
 }
-AUTH_GATE_METHOD = "resolveByRegistration(Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+AUTH_GATE_METHOD = "invoke(Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
 
 
 def sha(data: bytes) -> str:
@@ -72,12 +72,13 @@ def patch_entry(source: str) -> str:
         raise AssertionError(f"Original login enrollment gate absent or ambiguous: {len(found)}")
     m = found[0]
     header = m.group().splitlines()[0]
-    # This only chooses the actual browser login ENTRY over the carrier's
-    # pre-login subscription-eligibility check. It does not issue tokens,
-    # mark a subscriber as enrolled, or modify encryption or vendor services.
+    # Original invoke() first checks setup-wizard terms and default-SIM number,
+    # and without a usable SIM returns OnboardingLoginEntry.Blocked before OAuth.
+    # Route straight to the ORIGINAL browser Login entry; never claim verified
+    # membership, never issue a token, and leave the original DEK/CTN crypto intact.
     new_method = (
         header + "\n"
-        "    .registers 4\n"
+        "    .registers 2\n"
         "    sget-object v0, Lcom/lguplus/aicallagent/domain/init/usecase/OnboardingLoginEntry$Login;->INSTANCE:"
         "Lcom/lguplus/aicallagent/domain/init/usecase/OnboardingLoginEntry$Login;\n"
         "    return-object v0\n"
@@ -119,7 +120,7 @@ def main() -> None:
     after_gate = patch_entry(before_gate)
     gate.write_text(after_gate, encoding="utf8")
     records.append({"file": ENTRY, "method": AUTH_GATE_METHOD,
-                    "effect": "route pre-login registration decision to original browser Login entry"})
+                    "effect": "route pre-login invoke() to the original browser Login entry; preserve registration verifier unchanged"})
 
     current = {p: sha(p.read_bytes()) for p in watched}
     modified = {str(p.relative_to(args.smali16 if p in files16 else args.smali15))
