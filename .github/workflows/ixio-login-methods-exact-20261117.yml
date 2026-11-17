@@ -52,7 +52,11 @@ jobs:
             if not p.is_file():continue
             src=p.read_text(errors='replace')
             print('HEADER',src.splitlines()[0])
-            methods=re.findall(r'(?ms)^\.method[^\n]*\n.*?^\.end method$',src)
+            methods=[]
+            for part in txt.split('.method ' )[1:]:
+              fragment='.method '+part
+              if '.end method' in fragment:
+                methods.append(fragment.split('.end method',1)[0]+'.end method')
             for i,m in enumerate(methods):
               head=m.splitlines()[0]
               if 'Api.smali' in path:
@@ -105,7 +109,7 @@ jobs:
               head=m.splitlines()[0]
               if 'resolveByRegistration' in head or ' invoke(' in head or 'getCtn' in head:
                 print('EXACT_GATE_METHOD',head)
-                for line in m.splitlines()[:170]:
+                for line in m.splitlines()[:220]:
                   if len(line)>400:continue
                   print('GATE_ASM',line)
           PY
