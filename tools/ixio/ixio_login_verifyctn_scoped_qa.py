@@ -78,10 +78,10 @@ def main()->None:
     # Baksmali may preserve blank lines between instruction and move-result.
     # Match precisely this one original login-only coroutine callsite.
     pattern=re.compile(
-        r"(?m)^    invoke-virtual \\{p2, p1, v1\\}, "
-        r"Lcom/lguplus/aicallagent/util/EncryptCtnUtil;->encrypt\\("
-        r"Ljava/lang/String;Lkotlin/coroutines/Continuation;\\)Ljava/lang/Object;"
-        r"\\n(?:[ \\t]*\\n)*    move-result-object p2"
+        r"(?m)^    invoke-virtual \{p2, p1, v1\}, "
+        r"Lcom/lguplus/aicallagent/util/EncryptCtnUtil;->encrypt\("
+        r"Ljava/lang/String;Lkotlin/coroutines/Continuation;\)Ljava/lang/Object;"
+        r"\n(?:[ \t]*\n)*    move-result-object p2"
     )
     matches=list(pattern.finditer(block))
     if len(matches)!=1:
