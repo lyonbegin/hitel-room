@@ -59,6 +59,11 @@ def safe_click(locator, label: str) -> bool:
     except (PlaywrightError, PlaywrightTimeout):
         return False
 
+def exact_text(frame, label):
+    """Find a Samsung control whose accessible text is within a non-button span."""
+    return frame.get_by_text(re.compile("^" + re.escape(label) + "$", re.I), exact=True)
+
+
 def visible_pages(browser):
     return [
         page for ctx in browser.contexts for page in ctx.pages
@@ -96,9 +101,27 @@ def rdb_phase(browser, rdb_file: Path, flag: dict) -> bool:
             # in SAME Chrome so the worker can launch official Linux ELF.
             if flag.get("connect_request") and not rdb_file.exists():
                 for role in ("link", "button"):
-                    if safe_click(roles(frame, role, RDB_DOWNLOAD), "RDB_DOWNLOAD_REQUEST"):
-                        flag["download"] = True
+                    locator=roles(frame,role,RDB_DOWNLOAD)
+                    try:
+                        if locator.count()!=1 or not locator.is_visible(timeout=1500):
+                            continue
+                        with page.expect_download(timeout=12000) as d:
+                            locator.click(timeout=2500)
+                        download=d.value
+                        if not download.suggested_filename.lower().endswith(".zip"):
+                            mark("RDB_DOWNLOAD_NONZIP_REJECTED")
+                            continue
+                        target=Path.home()/"Downloads"/"samsung-rdb.zip"
+                        target.parent.mkdir(parents=True,exist_ok=True)
+                        download.save_as(str(target))
+                        mark("RDB_ZIP_DOWNLOADED_IN_LINUX_RUNNER")
+                        flag["download"]=True
                         return True
+                    except (PlaywrightError,PlaywrightTimeout) as exc:
+                        # Chrome may have handled download directly.
+                        mark("RDB_DOWNLOAD_EVENT_UNCONFIRMED")
+                        print("RTL_RDB_DOWNLOAD_TYPE="+type(exc).__name__,flush=True)
+                        continue
 
             # The helper process launches extracted RDB after Chrome
             # downloads the ZIP. Then connect again from the SAME page.
@@ -168,14 +191,23 @@ def booking_phase(browser, flag: dict) -> bool:
         # These are website bootstrap actions; after RDB connects, all app work uses Linux ADB.
         if flag.get("fold_selected") and not flag.get("region_selected"):
             for frame in frames(page):
-                for role in ("button","radio","option","listitem"):
+                for role in ("button","radio","option","listitem","link"):
                     for pattern in (
                         re.compile(r"^South Korea$",re.I),
-                        re.compile(r"^Korea$",re.I),
-                        re.compile(r"^Seoul$",re.I),
+                        re.compile(r"^Korea(?:, Republic of)?$",re.I),
+                        re.compile(r"^Seoul(?:,? Korea)?$",re.I),
                     ):
                         if safe_click(roles(frame,role,pattern),"REGION_SELECTED"):
                             flag["region_selected"]=True
+                            return True
+                for label in ("Seoul","South Korea","Korea","Korea, Republic of"):
+                    if safe_click(exact_text(frame,label),"REGION_SELECTED"):
+                        flag["region_selected"]=True
+                        return True
+                for role in ("combobox","button","link"):
+                    for label in ("Location","Select Location","Select Region","Region"):
+                        if safe_click(roles(frame,role,re.compile("^"+re.escape(label)+"$",re.I)),
+                                      "REGION_SELECTOR_OPENED"):
                             return True
                 for item in frame.locator("select").all()[:4]:
                     try:
@@ -194,11 +226,20 @@ def booking_phase(browser, flag: dict) -> bool:
 
         if flag.get("fold_selected") and not flag.get("duration_selected"):
             for frame in frames(page):
-                for role in ("radio","option","button"):
-                    if safe_click(roles(frame,role,re.compile(r"^(30\s*min(utes)?|0:30|30)$",re.I)),
+                for role in ("radio","option","button","link"):
+                    if safe_click(roles(frame,role,re.compile(r"^(30\s*min(utes)?|30\s*m|0:30|30)$",re.I)),
                                   "THIRTY_MINUTE_SESSION"):
                         flag["duration_selected"]=True
                         return True
+                for label in ("30 minutes","30 mins","30 min","30m","30"):
+                    if safe_click(exact_text(frame,label),"THIRTY_MINUTE_SESSION"):
+                        flag["duration_selected"]=True
+                        return True
+                for role in ("combobox","button"):
+                    for label in ("Duration","Select Duration","Usage Time","Reservation Time","Time"):
+                        if safe_click(roles(frame,role,re.compile("^"+re.escape(label)+"$",re.I)),
+                                      "DURATION_SELECTOR_OPENED"):
+                            return True
                 for item in frame.locator("select").all()[:4]:
                     try:
                         candidates=[
@@ -220,10 +261,14 @@ def booking_phase(browser, flag: dict) -> bool:
             for frame in frames(page):
                 for name in (re.compile(r"^Start$",re.I),re.compile(r"^Start Testing$",re.I),
                              re.compile(r"^Reserve(?: Now)?$",re.I),re.compile(r"^Book(?: Now)?$",re.I)):
-                    for role in ("button", "link"):
+                    for role in ("button", "link", "menuitem"):
                         if safe_click(roles(frame, role, name), "FOLD_RESERVE_REQUESTED"):
                             flag["reserve_requested"] = True
                             return True
+                for label in ("Start","Reserve","Reserve Now","Start Testing"):
+                    if safe_click(exact_text(frame,label),"FOLD_RESERVE_REQUESTED"):
+                        flag["reserve_requested"]=True
+                        return True
 
         # Reservation may require selecting a session length. Prefer 30 min.
         if flag.get("reserve_requested") and not flag.get("duration_selected"):
