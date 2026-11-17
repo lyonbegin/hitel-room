@@ -1,4 +1,4 @@
-name: IXIO Original APK Public HTTPS Real Phone QA
+name: IXIO One Web Login URL Original Services Public HTTPS QA
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -133,7 +133,7 @@ jobs:
             -o .hitel-ixio-qa/tools/smali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .hitel-ixio-qa/tools/baksmali.jar' | sha256sum -c -
           echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .hitel-ixio-qa/tools/smali.jar' | sha256sum -c -
-      - name: Patch original Retrofit, CTN test proof and reassemble classes16 DEX
+      - name: Patch ONE shared web-login service URL, CTN test proof and reassemble DEX
         shell: bash
         run: |
           set -euo pipefail
@@ -145,6 +145,16 @@ jobs:
             --qa-assertion "$HITEL_IXIO_CI_ASSERTION" \
             --base-url "$HITEL_PUBLIC_API_URL" \
             --report ixio-hitel-android-results/smali-patch-report.json
+          python3 - <<'PY'
+          import json
+          p='ixio-hitel-android-results/smali-patch-report.json'
+          d=json.load(open(p))
+          assert d['patched_method_count']==2, d
+          assert d['single_member_service_host_getter'] is True
+          assert d['protected_original_sha256']==d['protected_after_sha256']
+          assert len([x for x in d['patched_smali_methods'] if x['method'].startswith('getMemberServiceApiURL')])==1
+          print('ONE_SHARED_MEMBER_SERVICE_URL_AND_ORIGINAL_OTHER_SERVICES=VERIFIED')
+          PY
           java -Xmx2500m -jar .hitel-ixio-qa/tools/smali.jar \
             a --api 34 --jobs 3 \
             -o .hitel-ixio-qa/apk/classes16-hitel.dex .hitel-ixio-qa/smali16 \
@@ -239,15 +249,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-hitel-public-https-login-fixed-20261117
-          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/IXIO_HITEL_Public_HTTPS_Login_Fixed.apk
+          tag=ixio-hitel-one-weblogin-original-services-20261117
+          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/IXIO_HITEL_One_WebLogin_OriginalServices.apk
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO HITEL public HTTPS QA APK" --notes "Short-lived synthetic-account test only, not production carrier login."
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO one shared web-login URL original-services QA APK" --notes "Short-lived synthetic-account test only, not production carrier login."
           fi
-          gh release upload "$tag" /tmp/IXIO_HITEL_Public_HTTPS_Login_Fixed.apk --repo "$GH_REPO" --clobber
-          gh release edit "$tag" --repo "$GH_REPO" --notes "Temporary test backend: $HITEL_PUBLIC_API_URL . Expires when workflow stops in approximately 90 minutes. Synthetic test identity only; call recording and STT unverified."
-          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Public_HTTPS_Login_Fixed.apk") | {name: .name, size: .size, url: .url}'
-          echo "DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Public_HTTPS_Login_Fixed.apk"
+          gh release upload "$tag" /tmp/IXIO_HITEL_One_WebLogin_OriginalServices.apk --repo "$GH_REPO" --clobber
+          gh release edit "$tag" --repo "$GH_REPO" --notes "ONE member-service URL getter patched, original other API/STT/model routes intact. Temporary external QA backend: $HITEL_PUBLIC_API_URL . Stops with workflow in approximately 90 minutes. Not a permanent login server. Synthetic QA identity only; real phone login, call recording and STT unverified."
+          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_One_WebLogin_OriginalServices.apk") | {name: .name, size: .size, url: .url}'
+          echo "DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_One_WebLogin_OriginalServices.apk"
       - name: Keep external HTTPS QA API running during immediate real-device test
         shell: bash
         run: |
