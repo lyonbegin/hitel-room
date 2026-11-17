@@ -1,4 +1,4 @@
-name: Expression2 HITEL reassembled SDK 0.6.1 Galaxy local model Railway WSS build
+name: Expression2 HITEL offline Android local Wise Pup and in-process Dart mock
 on:
   workflow_dispatch:
   push:
@@ -144,6 +144,16 @@ jobs:
             --app "$APP" \
             --model-root "$GITHUB_WORKSPACE/build/expression2-official-model/members" \
             --report "$GITHUB_WORKSPACE/pristine-proof/sdk061-hitel-local-model-proof.json"
+          python3 tools/bithuman_deep/prepare_expression2_sdk061_offline_loopback.py \
+            --archive "$ARCHIVE" \
+            --plugin "$PLUGIN" \
+            --app "$APP" \
+            --report "$GITHUB_WORKSPACE/pristine-proof/sdk061-hitel-offline-loopback-proof.json"
+          (cd "$APP" && flutter pub get)
+          dart analyze "$APP/lib/hitel_offline_runtime.dart" "$APP/lib/main.dart"
+          ! grep -ER 'hitel-expression2-(auth|dart-realtime)-production\.up\.railway\.app' \
+            "$APP/lib" "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt"
+          echo PASS_ANDROID_OFFLINE_NO_RAILWAY_REFERENCE_IN_APP
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/sdk061-app-own-token-only.diff"
       - name: Build isolated SDK 0.6.1 with only original JVM metering base pointed to HITEL HTTPS test service
@@ -165,7 +175,8 @@ jobs:
             --source-aar "$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar" \
             --output-aar "$GITHUB_WORKSPACE/sdk061-test/hitel-auth-test-0.6.1.aar" \
             --report "$OUT/sdk061-only-one-original-jvm-method-changed.json" \
-            --base-url https://hitel-expression2-auth-production.up.railway.app
+            --base-url http://127.0.0.1:18762 \
+             --allow-offline-loopback
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET,re
@@ -215,7 +226,7 @@ jobs:
               assert 'jni/arm64-v8a/libexpr2jni.so' in z.namelist()
           print("SDK061_ONLY_METER_BASE_CHANGED_VENDOR_ARM64_BYTE_IDENTITY_PRESERVED")
           PY
-      - name: Build HITEL reassembled SDK 0.6.1 with bundled verified Wise Pup model and Railway WSS
+      - name: Build offline HITEL reassembled SDK 0.6.1 with local Wise Pup and in-process mock
         working-directory: original-upstream/app/avatar_chat
         shell: bash
         run: |
@@ -224,9 +235,7 @@ jobs:
           # original arm64 target, original Maven coordinate and session door.
           flutter build apk --debug --target-platform android-arm64 \
             --dart-define=HITEL_SDK061_AUTH_TEST=true \
-            --dart-define=HITEL_EXPR2_PUBLIC_AUTH_BASE=https://hitel-expression2-auth-production.up.railway.app \
             --dart-define=AGENT_CODE=A23WJF0199 \
-            --dart-define='BITHUMAN_REALTIME_WS_URL=wss://hitel-expression2-dart-realtime-production.up.railway.app/v1/realtime?model=gpt-realtime-mini' \
             2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/official-plugin2637-build.log"
           APK=build/app/outputs/flutter-apk/app-debug.apk
           test -s "$APK"
@@ -247,7 +256,7 @@ jobs:
           AAR="$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar"
           test -s "$AAR"
           sha256sum "$AAR" | tee "$GITHUB_WORKSPACE/pristine-proof/official-sdk061-maven-aar-sha256.txt"
-          echo SDK061_HITEL_REASSEMBLED_ARM64_LOCAL_MODEL_RAILWAY_APK_BUILT
+          echo SDK061_HITEL_OFFLINE_ARM64_LOCAL_MODEL_LOCAL_MOCK_APK_BUILT
       - name: Prove original post-load app flow preserved with no early return
         shell: bash
         run: |
@@ -304,24 +313,24 @@ jobs:
           if-no-files-found: warn
           retention-days: 20
 
-      - name: Publish separate updated APK as public HTTPS GitHub Release
+      - name: Publish offline measurement Galaxy APK to GitHub Releases (NOT Railway)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag=hitel-expression2-railway-local-model-20261117
-          asset=HITEL_Expression2_061_LocalWisePup_Railway_Galaxy_ARM64.apk
+          tag=hitel-expression2-offline-local-mock-20261117
+          asset=HITEL_Expression2_061_OFFLINE_LocalWisePup_Galaxy_ARM64.apk
           cp pristine-original-plugin2637-sdk061-arm64.apk "$asset"
-          sha256sum "$asset" | tee pristine-proof/local-model-release-apk-sha256.txt
+          sha256sum "$asset" | tee pristine-proof/offline-release-apk-sha256.txt
           if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$tag" "$asset" --repo "${{ github.repository }}" --clobber
           else
             gh release create "$tag" "$asset" --repo "${{ github.repository }}" --target "$GITHUB_SHA" --latest=false \
-              --title "HITEL Expression2 0.6.1 local Wise Pup model + Railway WSS" \
-              --notes "Android ARM64 debug APK, HITEL-reassembled Expression2 SDK 0.6.1, both verified original Wise Pup public IMX model members embedded offline, existing HITEL HTTPS entitlement/meter route, original ARM64 native and LiteRT unchanged. Vendor entitlement and live Galaxy lip-sync not yet established."
+              --title "HITEL Expression 2 OFFLINE ARM64 — local model, local Dart mock" \
+              --notes "MEASUREMENT/DEBUG BUILD ONLY. Original Wise Pup 0.6.1 model packaged locally. In-process original Dart mock on Android 127.0.0.1 only. No Railway. This does NOT implement real AI chat or confirm vendor licensing."
           fi
           url="https://github.com/${{ github.repository }}/releases/download/$tag/$asset"
-          printf 'PUBLIC_LOCAL_MODEL_APK_URL=%s\n' "$url"
+          printf 'PUBLIC_OFFLINE_APK_URL=%s\n' "$url"
           curl --fail --silent --show-error --location --head --retry 5 --retry-all-errors --retry-delay 3 "$url" | grep -E 'HTTP/[0-9.]+ 200'
-          echo PASS_PUBLIC_LOCAL_MODEL_APK_DIRECT_HTTPS_DOWNLOAD
+          echo PASS_PUBLIC_OFFLINE_APK_DIRECT_HTTPS_DOWNLOAD
