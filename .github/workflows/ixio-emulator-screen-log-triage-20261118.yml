@@ -1,0 +1,85 @@
+name: IXIO Emulator First Failure Screen and Logcat Triage 20261118
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-emulator-screen-log-triage-20261118.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  investigate-original-login-failure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve actual failed APK test UI, screenshots and logcat
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-20261118-triage/evidence
+          gh run download 44064290160 --repo "$GH_REPO" \
+            --name IXIO_PreRelease_LoginOnly_OriginalURLs_Android14_Evidence \
+            --dir .ixio-20261118-triage/evidence
+          test -s .ixio-20261118-triage/evidence/logcat-full.txt
+          test -s .ixio-20261118-triage/evidence/result.json
+      - name: Correlate first failing screen with app process and logcat
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          p=Path('.ixio-20261118-triage/evidence')
+          result=json.loads((p/'result.json').read_text())
+          actions=json.loads((p/'actions.json').read_text())
+          print('EMULATOR_RESULT',json.dumps(result,ensure_ascii=False))
+          for step in actions:print('UI_STEP',json.dumps(step,ensure_ascii=False)[:700])
+          log=(p/'logcat-full.txt').read_text(errors='replace').splitlines()
+          app_pid=next((x['pid'] for x in actions if x.get('pid')),None)
+          print('APP_PROCESS_PID',app_pid,'LOG_ROWS',len(log))
+          screens=[x['stage'] for x in actions if
+            any('서비스 가입을 완료할 수 없어요' in v or
+                '서비스 연결이 원활하지 않아요' in v for v in x['visible'])]
+          print('FAILURE_STAGES',screens)
+          rx=re.compile(r'(?i)(lguplus|aicallagent|ixio|CTN|DEK|Provisioning|verify.?ctn|login|retrofit|HTTP|certificate|SSL|socket|unknownhost|invalid|onboarding|registration|subscription|authorization|FATAL EXCEPTION|unauthorized|denied|securityexception)')
+          pat=re.compile(r'^\d\d-\d\d\s+(\d\d:\d\d:\d\d)\.\d+\s+(\d+)\s+\d+\s+([VDIWEF])\s+([^:]+):')
+          chosen=[]
+          for line in log:
+            m=pat.match(line)
+            if not m:continue
+            clock,pid,level,tag=m.groups()
+            if not ('10:27:00'<=clock<='10:27:45'):continue
+            if pid==app_pid or (level in 'EWF' and rx.search(line)):
+              if rx.search(line):
+                safe=re.sub(r'(?i)(bearer\s+)\S+',r'\1[REDACTED]',line)
+                safe=re.sub(r'(?i)((?:ctn|phone|secret|token|password|assertion)=)\S+',r'\1[REDACTED]',safe)
+                chosen.append(safe[:650])
+          print('RELEVANT_COUNT',len(chosen))
+          for x in chosen[-150:]:print('APP_TRACE',x)
+          report={
+            'source_run':44064290160,'installed':result['installed'],
+            'action_count':len(actions),'failure_stages':screens,
+            'error_text':next((v for x in actions for v in x['visible']
+              if '서비스 가입을 완료할 수 없어요' in v or '서비스 연결이 원활하지 않아요' in v),None),
+            'app_pid':app_pid,'recorder_running':result['recorder_process_alive'],
+            'home_reached':result['home_screen_seen'],
+            'oauth_browser_reached':result['stop_reason']=='LOGIN_OR_TERMS_SCREEN_REACHED',
+            'app_trace':chosen[-200:],
+            'not_yet_verified':['Server-side request trace not uploaded in original run',
+                                'Real-device actual account authentication not tested',
+                                'Exact first failing request URL not yet established']
+          }
+          (p/'first-failure-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print('TRIAGE_REPORT_WRITTEN=YES')
+          PY
+      - name: Upload original screenshots and analysis JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_20261118_FirstFailure_Screens_Logs_JSON
+          path: .ixio-20261118-triage/evidence/
+          retention-days: 7
