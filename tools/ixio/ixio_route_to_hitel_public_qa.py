@@ -33,7 +33,8 @@ def main():
     ap.add_argument("--base-url",default=DEFAULT)
     ap.add_argument("--report",type=pathlib.Path,required=True)
     arg=ap.parse_args()
-    if not re.fullmatch(r"https://[a-z0-9-]+\\.trycloudflare\\.com/",arg.base_url):\n        raise ValueError("Public QA build requires the exact Cloudflare quick-tunnel HTTPS URL")
+    if not re.fullmatch(r"https://[a-z0-9-]+\.trycloudflare\.com/",arg.base_url):
+        raise ValueError("Public QA build requires the exact Cloudflare quick-tunnel HTTPS URL")
     if len(arg.qa_assertion)<32 or not arg.qa_assertion.isascii():raise ValueError("Short or invalid CI assertion")
     root=arg.root/"com/lguplus/aicallagent"
     files={
