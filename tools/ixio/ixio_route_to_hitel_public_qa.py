@@ -27,7 +27,7 @@ def main() -> None:
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args()
-    if not re.fullmatch(r"https://[a-z0-9-]+\\.trycloudflare\\.com/", args.base_url):
+    if not re.fullmatch(r"https://[a-z0-9-]+\.trycloudflare\.com/", args.base_url):
         raise ValueError("Public HTTPS QA address expected")
     root = args.root
     files = sorted(root.rglob("*.smali"))
@@ -38,7 +38,7 @@ def main() -> None:
         raise FileNotFoundError(target)
     original_hash = {str(p.relative_to(root)): digest(p) for p in files}
     original_source = target.read_text(encoding="utf-8")
-    pattern = re.compile(r"(?ms)^\\.method[^\\n]*[ \\t]" + re.escape(METHOD) + r"\\n.*?^\\.end method$")
+    pattern = re.compile(r"(?ms)^\.method[^\n]*[ \t]" + re.escape(METHOD) + r"\n.*?^\.end method$")
     matches = list(pattern.finditer(original_source))
     if len(matches) != 1:
         raise AssertionError(f"Expected one exact auth getBaseUrl(), got {len(matches)}")
