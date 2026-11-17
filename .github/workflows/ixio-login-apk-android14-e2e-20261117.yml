@@ -1,4 +1,4 @@
-name: IXIO Original Crypto Login Entry Fix - Android14 E2E Proof
+name: IXIO Original Crypto Login Entry - GMS Warmup Android14 Retest
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -46,23 +46,28 @@ jobs:
           disable-animations: true
           script: |
             set -eu
+            echo 'ANDROID_EMULATOR_GMS_WARMUP_BEGIN'
+            sleep 55
+            adb shell getprop sys.boot_completed
+            adb shell pidof com.google.android.gms.persistent || true
+            echo 'ANDROID_EMULATOR_GMS_WARMUP_DONE'
             python3 tools/ixio/ixio-hitel-emulator-onboarding.py
       - name: Require original browser login screen or actual home without signup failure
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-            import json
-            from pathlib import Path
-            x=json.loads(Path('ixio-main-permission-to-signup-evidence/result.json').read_text())
-            print('REGRESSION_RESULT',json.dumps(x,ensure_ascii=False))
-            assert x['installed'] is True
-            assert not x['service_error_seen'],'REGRESSION: previous signup error returned'
-            assert not x['fatal_lines'],'REGRESSION: IXIO crashed'
-            assert x['last_process_alive'],'REGRESSION: IXIO app stopped'
-            assert x['stop_reason']=='LOGIN_OR_TERMS_SCREEN_REACHED' or x.get('home_screen_seen') is True,('Not on login or home screen',x)
-            print('WEB_LOGIN_OR_ORIGINAL_HOME_OBSERVED=YES')
-            PY
+          import json
+          from pathlib import Path
+          x=json.loads(Path('ixio-main-permission-to-signup-evidence/result.json').read_text())
+          print('REGRESSION_RESULT',json.dumps(x,ensure_ascii=False))
+          assert x['installed'] is True
+          assert not x['service_error_seen'],'REGRESSION: previous signup error returned'
+          assert not x['fatal_lines'],'REGRESSION: IXIO fatal crash'
+          assert x['last_process_alive'],'REGRESSION: IXIO app process stopped'
+          assert x['stop_reason']=='LOGIN_OR_TERMS_SCREEN_REACHED' or x.get('home_screen_seen') is True, ('Not on login or home screen',x)
+          print('WEB_LOGIN_OR_ORIGINAL_HOME_OBSERVED=YES')
+          PY
       - name: Upload all actual UI screens and logcat for verification
         if: always()
         uses: actions/upload-artifact@v4
