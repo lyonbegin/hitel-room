@@ -1,8 +1,8 @@
-name: IXIO Original Crypto Login Entry Fix - Signed APK QA
+name: IXIO Old Login Reuse + All Vendor URLs Original - Verified APK
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
-    paths: [.github/workflows/ixio-hitel-public-qa-apk.yml]
+    paths: [.github/workflows/ixio-hitel-public-qa-apk.yml, tools/ixio/ixio_login_endpoints_minimal.py]
   workflow_dispatch:
 permissions:
   contents: write
@@ -256,10 +256,51 @@ jobs:
             assert 'classes18.dex' in z.namelist()
           print('SIGNED_APK_PUBLIC_URL_IN_DEX_OK')
           PY
+      - name: Android14 original UI login regression test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            sleep 40
+            python3 tools/ixio/ixio-hitel-emulator-onboarding.py
+      - name: Require original browser login or original home without old signup error
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('ixio-main-permission-to-signup-evidence/result.json')
+          assert p.is_file(), 'Missing emulator screen evidence'
+          d=json.loads(p.read_text())
+          print('LOGIN_ONLY_ORIGINAL_URLS_EMULATOR_RESULT',json.dumps(d,ensure_ascii=False))
+          assert d['installed'], 'Cannot install APK'
+          assert not d['service_error_seen'], 'Original signup connection failure repeated'
+          assert not d['fatal_lines'], 'App crash'
+          assert d['last_process_alive'], 'App process unexpectedly stopped'
+          assert d['home_screen_seen'] or d['stop_reason']=='LOGIN_OR_TERMS_SCREEN_REACHED', 'Browser OAuth/login UI not reached'
+          print('ORIGINAL_BROWSER_LOGIN_ENTRY_REACHED=YES')
+          PY
+      - name: Keep emulator screenshots and original logcat even on test failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_PreRelease_LoginOnly_OriginalURLs_Android14_Evidence
+          path: ixio-main-permission-to-signup-evidence/
+          retention-days: 7
       - name: Publish externally reachable HTTPS QA APK as artifact for user download
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO_LoginEntry_OriginalCrypto_Fixed_20261117
+          name: IXIO_LoginReuse_AllOtherOriginalURLs_20261117
           path: .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
           retention-days: 3
           if-no-files-found: error
@@ -270,25 +311,25 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-login-entry-original-crypto-fixed-20261117
+          tag=ixio-login-reuse-all-original-urls-20261117
           apk=.hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
-          target=.hitel-ixio-qa/apk/IXIO_HITEL_LoginEntry_OriginalCrypto_20261117.apk
+          target=.hitel-ixio-qa/apk/IXIO_HITEL_LoginReuse_OriginalURLs_20261117.apk
           cp "$apk" "$target"
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
-              --title "IXIO HITEL Login Entry Fixed - Original Crypto All Other Services" \
-              --notes "Original IXIO onboarding invoke() now routes to the original web Login entry without blocking on carrier SIM or CTN provisioning. Four named login Retrofit method annotations use temporary HITEL public HTTPS QA. Original EncryptCtnUtil, AES, DEK provisioning, member service nonlogin endpoints, STT, recorder, AI model handling, UI and original ZIP asset contents preserved. Test-only temporary backend: NOT persistent; sign-in requires actual OAuth. Verify on actual device."
+              --title "IXIO HITEL Login Reuse with Original Vendor URLs" \
+              --notes "Retains original OAuth/AppAuth PKCE and native login code from the prior successful flow. Only four exact login Retrofit annotations send to a temporary HITEL QA endpoint; in the pre-login original coroutine, a single Blocked outcome for missing SIM routes to the original Login entry. Original nonlogin URLs, CTN DEK AES methods, model files, STT, recording and APK assets stay byte-identical. Android14 UI regression must pass before publishing. Temporary test backend may expire."
           fi
           gh release upload "$tag" "$target" --repo "$GH_REPO" --clobber
           gh release view "$tag" --repo "$GH_REPO" --json assets \
-            --jq '.assets[] | select(.name == "IXIO_HITEL_LoginEntry_OriginalCrypto_20261117.apk") | {name: .name, size: .size, url: .url}'
-          echo "PUBLIC_DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_LoginEntry_OriginalCrypto_20261117.apk"
-      - name: Keep external HTTPS QA API running during immediate real-device test
+            --jq '.assets[] | select(.name == "IXIO_HITEL_LoginReuse_OriginalURLs_20261117.apk") | {name: .name, size: .size, url: .url}'
+          echo "PUBLIC_DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_LoginReuse_OriginalURLs_20261117.apk"
+      - name: Keep temporary test HTTPS login reachable for inspection
         shell: bash
         run: |
           set -euo pipefail
-          echo "TEMPORARY_PUBLIC_API_ACTIVE=$HITEL_PUBLIC_API_URL"
-          for minute in $(seq 1 90); do
-            curl --max-time 10 -fsS "${HITEL_PUBLIC_API_URL}health" >/dev/null || { echo "API_HEALTH_FAILED_AT=$minute"; exit 1; }
+          echo "TEMPORARY_QA_LOGIN_SERVER=$HITEL_PUBLIC_API_URL"
+          for minute in $(seq 1 20); do
+            curl --max-time 10 -fsS "${HITEL_PUBLIC_API_URL}health" >/dev/null || exit 1
             sleep 60
           done
