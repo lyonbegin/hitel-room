@@ -1,0 +1,42 @@
+name: IXIO Login Exact Android UI Failure Logcat Triage
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-login-e2e-logcat-triage.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  triage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read exact failing emulator evidence without changing app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-logcat-evidence
+          gh run download 44055570492 --repo "$GH_REPO" --name IXIO_LoginOnly_Android14_ActualUI_Evidence_20261117 --dir .ixio-logcat-evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          root=Path('.ixio-logcat-evidence')
+          for p in root.rglob('result.json'):
+            print('SCREEN_RESULT',p.read_text()[:1800])
+          files=list(root.rglob('logcat-full.txt'))
+          print('FULL_LOG_FILES',len(files))
+          for f in files:
+            l=f.read_text(errors='replace').splitlines()
+            begin=[x for x in l if re.search(r'(09:28:(3[5-9]|4[0-9]|5[0-9])|09:29:0[0-5])',x)]
+            keys=re.compile(r'(?i)lguplus|aicallagent|ixio|login|log.?in|signup|onboard|enroll|retrofit|okhttp|http|network|exception|unknownhost|ssl|auth|token|ctn|config|mvoip|service|error|fatal|denied')
+            matching=[x for x in begin if keys.search(x)]
+            print('LOGCAT_TOTAL',len(l),'TARGET_WINDOW',len(begin),'MATCHED',len(matching))
+            for row in matching[-260:]:
+              row=re.sub(r'(?i)(Bearer\s+)[A-Za-z0-9_\-.]+',r'\1[REDACTED]',row)
+              row=re.sub(r'(?i)(token|secret|password|ctn)([=:]\s*)[A-Za-z0-9_\-.]{10,}',r'\1\2[REDACTED]',row)
+              print('ANDROID_LOG',row[:370])
+          PY
