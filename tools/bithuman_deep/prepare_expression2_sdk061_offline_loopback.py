@@ -49,40 +49,18 @@ def main():
     text=text[:begin]+replacement+text[end:]
     text=once(text,'  BithumanAvatar? _avatar;\n',
       '  BithumanAvatar? _avatar;\n'
-      '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n'
-      '  bool _resumingOffline = false;\n'
-      '  int _lifecycleSerial = 0;\n',
+      '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n',
       'offline app state')
-    begin=text.index('  void didChangeAppLifecycleState(AppLifecycleState state) {')
-    end=text.index('  /// Measurement runs only:',begin)
-    replacement="""  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final avatar = _avatar;
-    if (avatar == null) return;
-    final serial = ++_lifecycleSerial;
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
-      final session = _session;
-      _session = null;
-      if (session != null) unawaited(session.stop());
-      unawaited(avatar.setIdleHold(true));
-      _mark('lifecycle:offline-background');
-    } else if (state == AppLifecycleState.resumed) {
-      if (_session != null || _secret.isEmpty || _resumingOffline) return;
-      _resumingOffline = true;
-      unawaited(() async {
-        try {
-          await avatar.setIdleHold(false);
-          if (!mounted || serial != _lifecycleSerial) return;
-          await _mark('lifecycle:offline-player-ready');
-          await _openSession(avatar, _secret);
-        } catch (e) {
-          await _mark('lifecycle:offline-resume-failed=$e');
-        } finally { _resumingOffline = false; }
-      }());
-    }
-  }
+    # Do NOT modify the original app background/foreground flow.
+    # The upstream main.dart lifecycle is preserved without any replacement.
+    lifecycle_begin = text.index('  void didChangeAppLifecycleState(AppLifecycleState state) {')
+    lifecycle_end = text.index('  /// Measurement runs only:', lifecycle_begin)
+    original_lifecycle = text[lifecycle_begin:lifecycle_end]
+    assert 'a.setIdleHold(false);' in original_lifecycle
+    assert '_openSession(a, _secret).catchError' in original_lifecycle
+    assert '_resumingOffline' not in text
+    assert '_lifecycleSerial' not in text
 
-"""
-    text=text[:begin]+replacement+text[end:]
     text=once(text,'    _avatar?.dispose();\n',
       '    _avatar?.dispose();\n'
       '    unawaited(_offline.close());\n'
@@ -92,6 +70,8 @@ def main():
     assert '      await _openSession(avatar, secret);' in text
     assert 'hitel-expression2-auth-production.up.railway.app' not in text
     assert 'hitel-expression2-dart-realtime-production.up.railway.app' not in text
+    assert text[text.index('  void didChangeAppLifecycleState(AppLifecycleState state) {'):
+                text.index('  /// Measurement runs only:')] == original_lifecycle
     dart.write_text(text)
 
     # Existing HITEL gateway route becomes same-device test listener.
