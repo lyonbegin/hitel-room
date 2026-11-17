@@ -1,0 +1,43 @@
+name: HITEL Essence2 5 Android store catalogs vs original IMX proof
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-five-android-model-gap-proof.yml
+      - tools/bithuman_deep/essence2_android_catalog_vs_imx_audit.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  validate-original-android-runtime-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve previous five full IMX verified public member inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p essence2-android-gap
+          gh run download 44200923075 \
+            --repo lyonbegin/hitel-room \
+            --name essence2-five-models-original-full-download-sha256-member-audit \
+            --dir essence2-android-gap
+          test -s essence2-android-gap/original-five-imx-member-table.json
+      - name: Compare official Android store member contracts against IMX membership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/essence2_android_catalog_vs_imx_audit.py \
+            --imx-report essence2-android-gap/original-five-imx-member-table.json \
+            --output essence2-android-gap/five-android-store-versus-imx-gaps.json
+          echo PASS_ALL_5_ESSENCE2_ANDROID_STORE_CATALOGS_REAL_METADATA
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-five-android-store-catalog-vs-imx-gap-proof
+          path: essence2-android-gap/five-android-store-versus-imx-gaps.json
+          retention-days: 14
