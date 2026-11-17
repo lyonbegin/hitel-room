@@ -163,17 +163,6 @@ def booking_phase(browser, flag: dict) -> bool:
                         if safe_click(roles(frame, role, name), "GALAXY_FOLD_SELECT"):
                             flag["fold_selected"] = True
                             return True
-            # Known Samsung official landing page for Galaxy Z series.
-            # Navigate only after user has passed Samsung sign-in gate
-            # and the start-testing navigation has happened.
-            if flag.get("start_testing") and not flag.get("fold_page_opened"):
-                try:
-                    page.goto(FOLD_FAMILY, wait_until="domcontentloaded", timeout=20000)
-                    flag["fold_page_opened"] = True
-                    print("RTL_BROWSER_ACTION_GALAXY_FOLD_PAGE_OPEN", flush=True)
-                    return True
-                except (PlaywrightError, PlaywrightTimeout):
-                    pass
 
         # Samsung requires device location and reservation duration before Start.
         # These are website bootstrap actions; after RDB connects, all app work uses Linux ADB.
@@ -206,7 +195,7 @@ def booking_phase(browser, flag: dict) -> bool:
         if flag.get("fold_selected") and not flag.get("duration_selected"):
             for frame in frames(page):
                 for role in ("radio","option","button"):
-                    if safe_click(roles(frame,role,re.compile(r"^(30\\s*min(utes)?|0:30|30)$",re.I)),
+                    if safe_click(roles(frame,role,re.compile(r"^(30\s*min(utes)?|0:30|30)$",re.I)),
                                   "THIRTY_MINUTE_SESSION"):
                         flag["duration_selected"]=True
                         return True
@@ -214,7 +203,7 @@ def booking_phase(browser, flag: dict) -> bool:
                     try:
                         candidates=[
                             o.get_attribute("value") for o in item.locator("option").all()
-                            if re.search(r"^(30\\s*min(utes)?|0:30|30)$",o.inner_text().strip(),re.I)
+                            if re.search(r"^(30\s*min(utes)?|0:30|30)$",o.inner_text().strip(),re.I)
                             and o.get_attribute("value")
                         ]
                         if candidates:
