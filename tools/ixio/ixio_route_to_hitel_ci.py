@@ -35,8 +35,8 @@ PROTECTED = (
 def replace_exact_method(path: pathlib.Path, descriptor: str, replacement: str) -> dict:
     data = path.read_text(encoding="utf-8")
     pattern = re.compile(
-        r"(?ms)^\\.method[^\\n]*[ \\t]" + re.escape(descriptor)
-        + r"\\n.*?^\\.end method$"
+        r"(?ms)^\.method[^\n]*[ \t]" + re.escape(descriptor)
+        + r"\n.*?^\.end method$"
     )
     matches = list(pattern.finditer(data))
     if len(matches) != 1:
