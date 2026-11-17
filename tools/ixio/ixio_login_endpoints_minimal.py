@@ -3,8 +3,8 @@
 
 No other vendor endpoint host, storage, CTN/DEK cryptography, AI/STT, or recorder
 method is modified. Only Retrofit annotations for named login methods are
-redirected to the HITEL public QA endpoint. The enrollment decision can be
-routed to HITEL login (not marked as verified); actual browser OAuth must follow.
+redirected to the HITEL public QA endpoint. The original onboarding, registration and CTN handling is retained except for
+one login UI fallback when no SIM number exists; real OAuth is still required.
 """
 from __future__ import annotations
 
@@ -64,28 +64,35 @@ def patch_annotation(source: str, name: str, verb: str,
 
 
 def patch_entry(source: str) -> str:
-    found = list(re.finditer(
-        r"(?ms)^\.method[^\n]*[ \t]" + re.escape(AUTH_GATE_METHOD)
-        + r"\n.*?^\.end method$", source,
-    ))
-    if len(found) != 1:
-        raise AssertionError(f"Original login enrollment gate absent or ambiguous: {len(found)}")
-    m = found[0]
-    header = m.group().splitlines()[0]
-    # Original invoke() first checks setup-wizard terms and default-SIM number,
-    # and without a usable SIM returns OnboardingLoginEntry.Blocked before OAuth.
-    # Route straight to the ORIGINAL browser Login entry; never claim verified
-    # membership, never issue a token, and leave the original DEK/CTN crypto intact.
-    new_method = (
-        header + "\n"
-        "    .registers 2\n"
-        "    sget-object v0, Lcom/lguplus/aicallagent/domain/init/usecase/OnboardingLoginEntry$Login;->INSTANCE:"
-        "Lcom/lguplus/aicallagent/domain/init/usecase/OnboardingLoginEntry$Login;\n"
-        "    return-object v0\n"
-        ".end method"
-    )
-    return source[:m.start()] + new_method + source[m.end():]
+    """Preserve original onboarding coroutine, change only its BLOCKED login exit.
 
+    Unlike the previous QA build, do not replace the entire login use case or
+    alter CTN/enrollment processing. A missing SIM can open the existing login
+    interface; actual membership and tokens are still validated by OAuth.
+    """
+    m = exact_method(source, "invoke")
+    original = m.group()
+    # The original method ends with this fallback when a default voice SIM
+    # number is unavailable. The existing Login entry is unmodified.
+    blocked = (
+        "    sget-object p0, Lcom/lguplus/aicallagent/domain/init/usecase/"
+        "OnboardingLoginEntry$Blocked;->INSTANCE:Lcom/lguplus/aicallagent/"
+        "domain/init/usecase/OnboardingLoginEntry$Blocked;"
+    )
+    login = (
+        "    sget-object p0, Lcom/lguplus/aicallagent/domain/init/usecase/"
+        "OnboardingLoginEntry$Login;->INSTANCE:Lcom/lguplus/aicallagent/"
+        "domain/init/usecase/OnboardingLoginEntry$Login;"
+    )
+    if original.count(blocked) != 1:
+        raise AssertionError(
+            "Original no-SIM Login/Blocked fallback changed; refusing patch"
+        )
+    # Only a single exit opcode changes. All terms, registration, CTN,
+    # Coroutine and SIM-handling instructions remain original.
+    updated = original.replace(blocked, login, 1)
+    assert updated.replace(login, blocked, 1) == original
+    return source[:m.start()] + updated + source[m.end():]
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -120,7 +127,7 @@ def main() -> None:
     after_gate = patch_entry(before_gate)
     gate.write_text(after_gate, encoding="utf8")
     records.append({"file": ENTRY, "method": AUTH_GATE_METHOD,
-                    "effect": "route pre-login invoke() to the original browser Login entry; preserve registration verifier unchanged"})
+                    "effect": "preserve original onboarding invoke() and change only missing-SIM Blocked return into existing Login entry"})
 
     current = {p: sha(p.read_bytes()) for p in watched}
     modified = {str(p.relative_to(args.smali16 if p in files16 else args.smali15))
