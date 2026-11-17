@@ -1,0 +1,59 @@
+name: Publish HITEL Expression2 Railway Galaxy APK as public direct download
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/expression2-publish-railway-galaxy-apk-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: hitel-expression2-railway-wss-20261117
+      RELEASE_ASSET: HITEL_Expression2_Railway_Dart_WSS_Galaxy_ARM64_20261117.apk
+      VERIFIED_SHA256: 114528a3f4155dbf849fb612fd81f90b7e9b1889931663ea1b10069983eb2d17
+    steps:
+      - name: Download already-built, successful Galaxy APK artifact from run 44030522932
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download 44030522932 --repo "${{ github.repository }}" --name expression2-sdk061-original-full-flow-galaxy-arm64-apk --dir ./downloaded
+          test -f ./downloaded/pristine-original-plugin2637-sdk061-arm64.apk
+          cp ./downloaded/pristine-original-plugin2637-sdk061-arm64.apk "./${RELEASE_ASSET}"
+          echo "${VERIFIED_SHA256}  ${RELEASE_ASSET}" | sha256sum -c -
+          echo "PASS_APK_ORIGINAL_RAILWAY_WSS_BUILD_SHA256"
+      - name: Publish public GitHub Release and direct APK asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "${RELEASE_TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" "./${RELEASE_ASSET}" --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" "./${RELEASE_ASSET}" \
+              --repo "${{ github.repository }}" \
+              --target feature/bithuman-expression2-imx-sdk-audit-20261112 \
+              --title "HITEL Expression 2 Galaxy ARM64 — Railway Dart WebSocket (2026-11-17)" \
+              --notes "Android ARM64 test/debug APK using the previously verified HITEL Railway original Dart mock realtime WebSocket. Original Expression2 SDK 0.6.1 model and inference. This is NOT production AI or proven Galaxy lip-sync. SHA256: ${VERIFIED_SHA256}." \
+              --latest=false
+          fi
+          url="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${RELEASE_ASSET}"
+          printf 'PUBLIC_APK_URL=%s\n' "${url}"
+          printf 'PUBLIC_APK_SHA256=%s\n' "${VERIFIED_SHA256}"
+          gh release view "${RELEASE_TAG}" --repo "${{ github.repository }}" --json url,assets
+      - name: Verify public HTTPS download endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${RELEASE_ASSET}"
+          curl --fail --silent --show-error --location --head --retry 5 --retry-delay 3 --retry-all-errors "${url}" > headers.txt
+          grep -q '^HTTP/.* 200' headers.txt
+          echo 'PASS_PUBLIC_GITHUB_APK_DOWNLOAD_HTTP_200'
