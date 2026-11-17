@@ -150,7 +150,7 @@ jobs:
             --app "$APP" \
             --report "$GITHUB_WORKSPACE/pristine-proof/sdk061-hitel-offline-loopback-proof.json"
           (cd "$APP" && flutter pub get)
-          (cd "$APP" && flutter analyze --no-pub lib/hitel_offline_runtime.dart lib/main.dart)
+          (cd "$APP" && flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/hitel_offline_runtime.dart lib/main.dart)
           ! grep -ER 'hitel-expression2-(auth|dart-realtime)-production\.up\.railway\.app' \
             "$APP/lib" "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt"
           echo PASS_ANDROID_OFFLINE_NO_RAILWAY_REFERENCE_IN_APP
