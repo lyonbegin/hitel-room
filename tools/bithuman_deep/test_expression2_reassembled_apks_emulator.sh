@@ -79,6 +79,16 @@ for variant in original patched; do
     exit 1
   fi
   echo "ACTIVITY_LAUNCH_NO_DETECTED_FATAL_EXCEPTION" >> "$dir/$variant/outcome.txt"
+  # The official unmodified expression2-hello MainActivity immediately returns
+  # from renderOnce() when BuildConfig.BITHUMAN_API_SECRET is blank.
+  # Successful APK installation/Activity launch is NOT evidence of Native.create,
+  # model initialization, JNI calls, or actual face-frame rendering.
+  if grep -Eiq 'X2HELLO.*No API secret' "$dir/$variant/full-logcat.txt"; then
+    echo "OFFICIAL_SAMPLE_NO_SECRET_GUARD_OBSERVED_BEFORE_ENGINE_CREATE" >> "$dir/$variant/outcome.txt"
+    echo "SDK_NATIVE_CREATE_NOT_EXERCISED_BY_THIS_NO_CREDENTIAL_SMOKE" >> "$dir/$variant/outcome.txt"
+  else
+    echo "SDK_ENGINE_CREATE_STATUS_NOT_VERIFIED_BY_THIS_SMOKE" >> "$dir/$variant/outcome.txt"
+  fi
   if [[ "$variant" == "patched" ]] && grep -Fq 'HITEL_EXPRESSION2_JVM_TEXT_PATCH_OK_20261114' "$dir/$variant/full-logcat.txt";then
     echo "PATCHED_JVM_ERROR_LOG_OBSERVED" >> "$dir/$variant/outcome.txt"
   fi
@@ -90,7 +100,7 @@ echo "SDK_ORIGINAL_APK_INSTALL_SUCCESS_COUNT=$count"
 echo "ACTIVITY_LAUNCH_SUCCESS_COUNT=$launched"
 echo "EXPECTED_ARM64_UNSUPPORTED_INSTALL_COUNT=$expected_unsupported"
 echo "HOST_EMULATOR_ARCH=x86_64"
-echo "NOTE=SDK_RUNTIME_AND_MODEL_RENDERING_ARE_NOT_PROVEN_ON_ARM64"
+echo "NOTE=ACTIVITY_LAUNCH_IS_NOT_SDK_NATIVE_CREATE; NO_CREDENTIAL_SMOKE_CANNOT_PROVE_MODEL_FRAMES"
 } | tee "$dir/SUMMARY.txt"
 if [[ "$expected_unsupported" -gt 0 ]]; then
   echo "EMULATOR_ABI_LIMITATION_EXPLICITLY_REPORTED"
