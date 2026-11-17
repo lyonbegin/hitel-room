@@ -1,4 +1,4 @@
-name: Expression2 SDK 0.6.1 original full app flow Galaxy ARM64 build only
+name: Expression2 HITEL reassembled SDK 0.6.1 Galaxy local model Railway WSS build
 on:
   workflow_dispatch:
   push:
@@ -6,7 +6,7 @@ on:
     paths:
       - .github/workflows/expression2-sdk061-original-flow-galaxy-arm64-build.yml
 permissions:
-  contents: read
+  contents: write
 jobs:
   compile-original-sdk061-and-full-avatar-chat-for-real-galaxy:
     runs-on: ubuntu-24.04
@@ -114,6 +114,20 @@ jobs:
             | tee pristine-proof/upstream-modified-tracked-files.txt
           test "$(cat pristine-proof/upstream-modified-tracked-files.txt)" = "app/avatar_chat/android/app/build.gradle.kts"
           echo 'ORIGINAL_DART_PLUGIN_SDK_AND_MODEL_UNTOUCHED_GRADLE_ONLY_COMPAT'
+      - uses: actions/cache/restore@v4
+        id: original-public-wise-pup
+        with:
+          path: build/expression2-official-model
+          key: expression2-wise-pup-original-imx-v2-20261113-0237e14e3d56e660137fe5252d5b7904ec9418f9de079153957de50d918a883e
+      - name: Verify previously captured original public model cache, never fetch from vendor
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.original-public-wise-pup.outputs.cache-hit }}" = true
+          (cd build/expression2-official-model && sha256sum -c hashes.sha256)
+          test "$(stat -c %s build/expression2-official-model/members/combined_litert.tflite)" = 158524428
+          test "$(stat -c %s build/expression2-official-model/members/canon.bin)" = 299520
+          echo 'PASS_ALREADY_CACHED_ORIGINAL_PUBLIC_MODEL_SHA256'
       - name: Instrument app boot stages and preserve SDK 0.6.1 original model/inference flow
         shell: bash
         run: |
@@ -124,71 +138,12 @@ jobs:
           python3 tools/bithuman_deep/prepare_expression2_sdk061_hitel_app_auth.py \
             --app "$APP" \
             --report "$GITHUB_WORKSPACE/pristine-proof/hitel-sdk061-auth-only-app-report.json"
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib,json
-          archive=Path("vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin")
-          plugin=Path("sdk061-test-plugin-copy")
-          path="android/src/main/kotlin/ai/bithuman/flutter/EntitlementWindow.kt"
-          p=plugin/path
-          original=(archive/path).read_bytes()
-          # Change ONLY the access-check platformDoor. Do not touch the
-          # actual model storeDoor/member download URL in the original plugin.
-          old=(b'fun platformDoor(code: String, model: String): URL =\n'
-               b'            URL("https://api.bithuman.ai/v1/agent/')
-          new=(b'fun platformDoor(code: String, model: String): URL =\n'
-               b'            URL("https://hitel-expression2-auth-production.up.railway.app/v1/agent/')
-          assert original.count(old)==1, f"Expected only one platformDoor auth URL: {original.count(old)}"
-          patch=original.replace(old,new,1)
-          assert patch.count(new)==1 and patch.count(old)==0
-          original_store=original.split(b'fun storeDoor(code: String, model: String): URL? {',1)[1]
-          changed_store=patch.split(b'fun storeDoor(code: String, model: String): URL? {',1)[1]
-          assert original_store==changed_store, 'Model storeDoor must remain byte-identical'
-          assert original.count(b'https://api.bithuman.ai/v1/agent/')==3
-          assert patch.count(b'https://api.bithuman.ai/v1/agent/')==2
-          p.write_bytes(patch)
-          # Only public showcase sample + our scoped HITEL demo token: use the
-          # original SDK's empty-credential public model-door resolver, avoiding a vendor
-          # HTTP 401 caused by forwarding HITEL-only tokens to bitHuman.
-          # Do not change any other model code, SDK 0.6.1, or model files.
-          engine_path="android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
-          engine_original=(archive/engine_path).read_bytes()
-          engine_old=b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver(s))'
-          engine_new=(b'3L * 1024 * 1024 * 1024, Expression2ModelStore.MeteredDoorResolver('
-                      b'if (code == "A23WJF0199" && s.startsWith("htdemo.v1.")) "" else s))')
-          assert engine_original.count(engine_old)==1, f"Unexpected SDK store resolver source: {engine_original.count(engine_old)}"
-          engine_patched=engine_original.replace(engine_old,engine_new,1)
-          assert engine_patched.replace(engine_new,engine_old,1)==engine_original
-          (plugin/engine_path).write_bytes(engine_patched)
-          kotlin=list(archive.glob("android/src/main/kotlin/**/*.kt"))
-          for f in kotlin:
-              rel=f.relative_to(archive)
-              target=plugin/rel
-              assert target.exists(),rel
-              if str(rel) not in (path,engine_path):
-                  assert target.read_bytes()==f.read_bytes(),f"Unexpected Kotlin source change: {rel}"
-          assert (plugin/engine_path).read_bytes()==engine_patched
-          # Only a public sample's resolver credential argument changes;
-          # SDK native/model/renderer/PCM implementation stays pristine.
-          proof={
-            "sdk_version":"0.6.1",
-            "sdk_only_method_changed":"SelfHostMeter$Companion.apiBase$expression2_release",
-            "plugin_only_files_changed":[path,engine_path],
-            "plugin_only_auth_url_replacements":1,
-            "original_storeDoor_model_download_unchanged":True,
-            "original_plugin_Kotlin_others_identical":True,
-            "original_plugin_BithumanPlugin_exact_one_resolver_credential_expression_changed":True,
-            "public_sample_anonymous_model_fetch_only":True,
-            "all_private_model_resolvers_original":True,
-            "original_plugin_EntitlementWindow_sha256":hashlib.sha256(original).hexdigest(),
-            "debug_plugin_EntitlementWindow_sha256":hashlib.sha256(patch).hexdigest(),
-            "local_062_model_implementation_added":False,
-            "local_062_PCM_implementation_added":False,
-            "native_061_inference_model_feed_output_unchanged":True,
-          }
-          Path("pristine-proof/sdk061-auth-only-plugin-proof.json").write_text(json.dumps(proof,indent=2)+"\n")
-          print("SDK061_ONLY_PUBLIC_SAMPLE_ANON_MODEL_DOOR_RESOLVER_NO_SDK_MODIFICATIONS")
-          PY
+          python3 tools/bithuman_deep/prepare_expression2_sdk061_hitel_local_model.py \
+            --archive "$ARCHIVE" \
+            --plugin "$PLUGIN" \
+            --app "$APP" \
+            --model-root "$GITHUB_WORKSPACE/build/expression2-official-model/members" \
+            --report "$GITHUB_WORKSPACE/pristine-proof/sdk061-hitel-local-model-proof.json"
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/sdk061-app-own-token-only.diff"
       - name: Build isolated SDK 0.6.1 with only original JVM metering base pointed to HITEL HTTPS test service
@@ -260,7 +215,7 @@ jobs:
               assert 'jni/arm64-v8a/libexpr2jni.so' in z.namelist()
           print("SDK061_ONLY_METER_BASE_CHANGED_VENDOR_ARM64_BYTE_IDENTITY_PRESERVED")
           PY
-      - name: Build original SDK 0.6.1 with HITEL entitlement and anonymous Wise Pup model fetch
+      - name: Build HITEL reassembled SDK 0.6.1 with bundled verified Wise Pup model and Railway WSS
         working-directory: original-upstream/app/avatar_chat
         shell: bash
         run: |
@@ -282,12 +237,17 @@ jobs:
             | grep -Fx 'lib/arm64-v8a/libflutter.so'
           grep -Fx 'lib/arm64-v8a/libexpr2jni.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
           grep -Fx 'lib/arm64-v8a/libLiteRt.so' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          grep -Fx 'assets/hitel_expression2_public/combined_litert.tflite' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          grep -Fx 'assets/hitel_expression2_public/canon.bin' "$GITHUB_WORKSPACE/pristine-proof/apk-contents.txt"
+          test "$(unzip -p "$APK" assets/hitel_expression2_public/combined_litert.tflite | sha256sum | cut -d' ' -f1)" = f809722b65e933aacf2c577725e45aaba576fae84b4d17658d67d6d018a512ba
+          test "$(unzip -p "$APK" assets/hitel_expression2_public/canon.bin | sha256sum | cut -d' ' -f1)" = cac1c9aeb8c80de4b46661784ffd3fa5f601bf0113fa543db00f1fa8ec2d94d5
+          echo PASS_APK_BUNDLED_MODEL_ASSETS_SHA256_MATCH_ORIGINAL
           # The pristine vendor AAR is preserved separately because Gradle resolves
           # the temporary HITEL test coordinate instead of the vendor coordinate.
           AAR="$GITHUB_WORKSPACE/sdk061-test/original-0.6.1.aar"
           test -s "$AAR"
           sha256sum "$AAR" | tee "$GITHUB_WORKSPACE/pristine-proof/official-sdk061-maven-aar-sha256.txt"
-          echo SDK061_ORIGINAL_NATIVE_AUTH_ENDPOINT_ONLY_APK_BUILT
+          echo SDK061_HITEL_REASSEMBLED_ARM64_LOCAL_MODEL_RAILWAY_APK_BUILT
       - name: Prove original post-load app flow preserved with no early return
         shell: bash
         run: |
@@ -343,3 +303,25 @@ jobs:
           path: pristine-proof/
           if-no-files-found: warn
           retention-days: 20
+
+      - name: Publish separate updated APK as public HTTPS GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=hitel-expression2-railway-local-model-20261117
+          asset=HITEL_Expression2_061_LocalWisePup_Railway_Galaxy_ARM64.apk
+          cp pristine-original-plugin2637-sdk061-arm64.apk "$asset"
+          sha256sum "$asset" | tee pristine-proof/local-model-release-apk-sha256.txt
+          if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$tag" "$asset" --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$tag" "$asset" --repo "${{ github.repository }}" --target "$GITHUB_SHA" --latest=false \
+              --title "HITEL Expression2 0.6.1 local Wise Pup model + Railway WSS" \
+              --notes "Android ARM64 debug APK, HITEL-reassembled Expression2 SDK 0.6.1, both verified original Wise Pup public IMX model members embedded offline, existing HITEL HTTPS entitlement/meter route, original ARM64 native and LiteRT unchanged. Vendor entitlement and live Galaxy lip-sync not yet established."
+          fi
+          url="https://github.com/${{ github.repository }}/releases/download/$tag/$asset"
+          printf 'PUBLIC_LOCAL_MODEL_APK_URL=%s\n' "$url"
+          curl --fail --silent --show-error --location --head --retry 5 --retry-all-errors --retry-delay 3 "$url" | grep -E 'HTTP/[0-9.]+ 200'
+          echo PASS_PUBLIC_LOCAL_MODEL_APK_DIRECT_HTTPS_DOWNLOAD
