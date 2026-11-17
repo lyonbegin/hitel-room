@@ -14,7 +14,7 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from tools.bithuman_deep.imx_v2 import parse, read_json_member, verify_member_hashes
+from imx_v2 import parse, read_json_member, verify_member_hashes
 
 SAMPLES = (
     ("A52DHS2219", "Sofia Ramirez"),
