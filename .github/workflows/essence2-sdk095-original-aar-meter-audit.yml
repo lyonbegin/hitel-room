@@ -1,0 +1,62 @@
+name: HITEL Essence2 SDK 0.9.5 pristine AAR audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-sdk095-original-aar-meter-audit.yml
+permissions:
+  contents: read
+jobs:
+  inspect-original-essence2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Inspect exact public original Essence2 SDK 0.9.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p essence2-sdk095-proof
+          cd essence2-sdk095-proof
+          BASE=https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5
+          curl -fL --retry 4 --retry-all-errors "$BASE/essence2-android-0.9.5.aar" -o pristine.aar
+          curl -fL --retry 4 --retry-all-errors "$BASE/essence2-android-0.9.5.pom" -o original.pom
+          unzip -t pristine.aar | tail -1
+          unzip -p pristine.aar classes.jar > classes.jar
+          sha256sum pristine.aar classes.jar > original-hashes.sha256
+          unzip -Z1 pristine.aar > aar-members.txt
+          jar tf classes.jar > classes.txt
+          grep -Ei 'essence2|meter|credential|model|store|session|entitlement' classes.txt > relevant-classes.txt || true
+          echo ORIGINAL_ESSENCE2_RELEVANT_CLASSES
+          head -100 relevant-classes.txt
+          grep -E '^ai/bithuman/essence2/.*(Credential|Meter|ModelStore|Session|Avatar).*\.class$' relevant-classes.txt | grep -v '\$' | while read -r path; do
+            cls="$(echo "$path" | sed 's/\.class$//;s,/,.,g')"
+            echo "----- BEGIN $cls -----"
+            javap -classpath classes.jar -p -c "$cls" || true
+            echo "----- END $cls -----"
+          done > relevant-disassembly.txt
+          echo ORIGINAL_ESSENCE2_ENTRYPOINT_SIGNATURES
+          grep -E '^  (public|private|protected|static)' relevant-disassembly.txt | head -100 || true
+          if unzip -Z1 pristine.aar | grep -Fxq 'jni/arm64-v8a/lible_jni.so'; then
+            unzip -p pristine.aar jni/arm64-v8a/lible_jni.so > lible_jni.so
+            sha256sum lible_jni.so >> original-hashes.sha256
+            echo PASS_ORIGINAL_ARM64_JNI_FOUND
+          fi
+          echo PASS_ESSENCE2_ORIGINAL_095_AAR_JVM_NATIVE_INVENTORY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-sdk095-pristine-aar-audit
+          path: |
+            essence2-sdk095-proof/relevant-classes.txt
+            essence2-sdk095-proof/relevant-disassembly.txt
+            essence2-sdk095-proof/original-hashes.sha256
+            essence2-sdk095-proof/aar-members.txt
+            essence2-sdk095-proof/original.pom
+          retention-days: 14
