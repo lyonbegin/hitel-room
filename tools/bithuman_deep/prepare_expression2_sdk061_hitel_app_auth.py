@@ -13,20 +13,20 @@ method=r"""
     const base=String.fromEnvironment('HITEL_EXPR2_PUBLIC_AUTH_BASE',
         defaultValue:'https://hitel-expression2-auth-production.up.railway.app');
     if (!base.startsWith('https://')) throw const FormatException('HTTPS required');
-    var installId=await _keychain.read(key:'hitel_expression2_install_id');
+    var installId=await _keychain.read(key:'hitel_expression2_install_id').timeout(const Duration(seconds:12));
     if (installId==null || installId.length<16) {
       final r=Random.secure();
       installId=base64UrlEncode(List<int>.generate(24,(_)=>r.nextInt(256))).replaceAll('=','');
-      await _keychain.write(key:'hitel_expression2_install_id',value:installId);
+      await _keychain.write(key:'hitel_expression2_install_id',value:installId).timeout(const Duration(seconds:12));
     }
     final client=HttpClient()..connectionTimeout=const Duration(seconds:15);
     try {
-      final req=await client.postUrl(Uri.parse(base+'/v1/demo/session'));
+      final req=await client.postUrl(Uri.parse(base+'/v1/demo/session')).timeout(const Duration(seconds:20));
       req.followRedirects=false;
       req.headers.contentType=ContentType.json;
       req.write(jsonEncode({'agent_code':'A23WJF0199','install_id':installId}));
-      final res=await req.close();
-      final body=await utf8.decoder.bind(res).join();
+      final res=await req.close().timeout(const Duration(seconds:20));
+      final body=await utf8.decoder.bind(res).join().timeout(const Duration(seconds:20));
       if (res.statusCode!=200) throw StateError('HITEL HTTP '+res.statusCode.toString());
       final data=jsonDecode(body);
       if (data is! Map || data['token_type']!='bearer' ||
@@ -58,6 +58,27 @@ def main():
       '          ? await _hitelAcquireHttpsSampleSession()\n'
       '          : await _resolveSecret();\n'
       "      if (_hitelSdk061AuthTest) await _mark('hitel:sdk061_app_secret_nonempty=' + secret.isNotEmpty.toString());\n")
+    # Debug-only, user-visible progress: do not alter the vendor's inference or model functions.
+    s=once(s, "    await _mark('boot:start');\\n",
+      "    await _mark('boot:start');\\n"
+      "    if (mounted) setState(() => _status = '1/3: HITEL session authentication...');\\n")
+    s=once(s, "      final secret = _hitelSdk061AuthTest && Platform.isAndroid\\n",
+      "      await _mark('hitel:session:begin');\\n"
+      "      final secret = _hitelSdk061AuthTest && Platform.isAndroid\\n")
+    s=once(s, "          ? await _hitelAcquireHttpsSampleSession()\\n",
+      "          ? await _hitelAcquireHttpsSampleSession().timeout(const Duration(seconds:90))\\n")
+    s=once(s, "      await BithumanAvatar.setExpression2AgentDir(agentDir);\\n",
+      "      if (mounted) setState(() => _status = '2/3: Preparing Expression 2 model...');\\n"
+      "      await BithumanAvatar.setExpression2AgentDir(agentDir);\\n")
+    s=once(s, "      await _mark('boot:load:begin');\\n",
+      "      if (mounted) setState(() => _status = '3/3: Loading model and native renderer...');\\n"
+      "      Timer(const Duration(minutes: 3), () {\\n"
+      "        if (mounted && _avatar == null && _refusal == null) {\\n"
+      "          setState(() => _status = 'Model/native initialization still pending after 3 minutes');\\n"
+      "          _mark('hitel:avatar_load_exceeds_3min');\\n"
+      "        }\\n"
+      "      });\\n"
+      "      await _mark('boot:load:begin');\\n")
     assert '      if (secret.isEmpty) {\n' in s
     # Preserve the ORIGINAL app's full post-load flow. In particular, never
     # short-circuit _openSession() or insert an early return after avatar.load.
