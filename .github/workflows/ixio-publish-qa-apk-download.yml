@@ -19,10 +19,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/ixio-apk
-          gh run download 43899336970 --repo "$GH_REPO" --name IXIO_HITEL_Local_Auth_QA_Single_APK --dir /tmp/ixio-apk
+          gh run download 44032917734 --repo "$GH_REPO" --name IXIO_HITEL_Local_Auth_QA_Single_APK --dir /tmp/ixio-apk
           test -s /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
-          stat -c 'APK_SIZE_BYTES=%s' /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
-          sha256sum /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
+          mv /tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/ixio-apk/IXIO_HITEL_Auth_Only_Restored_20261117.apk
+          stat -c 'APK_SIZE_BYTES=%s' /tmp/ixio-apk/IXIO_HITEL_Auth_Only_Restored_20261117.apk
+          sha256sum /tmp/ixio-apk/IXIO_HITEL_Auth_Only_Restored_20261117.apk
       - name: Publish direct APK download as one GitHub Release asset
         shell: bash
         env:
@@ -30,11 +31,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-hitel-qa-apk-20261117
-          apk=/tmp/ixio-apk/IXIO_HITEL_Auth_CI_Single.apk
+          tag=ixio-hitel-auth-only-restored-20261117
+          apk=/tmp/ixio-apk/IXIO_HITEL_Auth_Only_Restored_20261117.apk
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO HITEL signed single APK - installation QA" --notes "Signed single APK from verified Android 14 emulator build 43899336970. Note: it connects to the emulator-only 10.0.2.2:8000 test API; actual-phone call recording and STT are unverified. Existing recorder companion is not included."
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO HITEL signed single APK - installation QA" --notes "Authentication-only original-service-restored test APK from run 44032917734. DEX reassembly, APK build and signing passed; full emulator auth-to-home integration test FAILED. Emulator-only 10.0.2.2:8000 auth test; on real phones this local auth endpoint will not work. Original non-auth vendor services are preserved, but their live operation is not verified. Not a production APK. Recorder companion not included."
           fi
           gh release upload "$tag" "$apk" --repo "$GH_REPO" --clobber
-          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Auth_CI_Single.apk") | {name: .name, size: .size, url: .url}'
-          echo "DIRECT_APK_URL=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Auth_CI_Single.apk"
+          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Auth_Only_Restored_20261117.apk") | {name: .name, size: .size, url: .url}'
+          echo "DIRECT_APK_URL=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Auth_Only_Restored_20261117.apk"
