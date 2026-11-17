@@ -1,0 +1,231 @@
+name: IXIO Original APK Public HTTPS Real Phone QA
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-hitel-public-qa-apk.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  external-server-and-signed-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 140
+    env:
+      PYTHONPATH: services/hitel-api
+      HITEL_DATABASE_URL: sqlite:///./.hitel-ixio-qa/hitel-ci.sqlite3
+      HITEL_IXIO_COMPAT_ENABLED: 'true'
+      HITEL_IXIO_CI_FIXTURE_ENABLED: 'true'
+      HITEL_IXIO_CI_PHONE: '01077776666'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prepare ephemeral one-run QA account, secret, and local API
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .hitel-ixio-qa/test .hitel-ixio-qa/keys
+          echo "HITEL_JWT_SECRET=ixio-local-ci-$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "HITEL_IXIO_CI_ASSERTION=ixioqa_$(openssl rand -hex 40)" >> "$GITHUB_ENV"
+          python -m pip install -q -r services/hitel-api/requirements.txt
+          python -m compileall -q services/hitel-api/app
+          python -m pytest -q services/hitel-api/tests/test_ixio_compat.py
+          echo "NO_REAL_SUBSCRIBER_DATA=true" >> "$GITHUB_STEP_SUMMARY"
+      - name: Seed ONE verified synthetic HITEL member in isolated SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from app.main import Base,Member,engine,SessionLocal
+          import os,uuid
+          Base.metadata.create_all(engine)
+          with SessionLocal() as db:
+            db.add(Member(id=str(uuid.uuid4()),phone=os.environ['HITEL_IXIO_CI_PHONE']))
+            db.commit()
+          print('HITEL_SYNTHETIC_TEST_MEMBER_SEEDED=YES')
+          PY
+          python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+            > .hitel-ixio-qa/test/hitel-api.log 2>&1 &
+          echo $! > .hitel-ixio-qa/test/server.pid
+          for n in $(seq 1 35);do
+            if curl --fail --silent http://127.0.0.1:8000/health > .hitel-ixio-qa/test/health.json;then break;fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8000/health \
+            | python3 -c 'import json,sys;print("HITEL_API_HEALTH",json.load(sys.stdin))'
+          python3 - <<'PY'
+          import httpx,os
+          r=httpx.post('http://127.0.0.1:8000/v1/members/verify-ctn',
+             json={'ctn':os.environ['HITEL_IXIO_CI_ASSERTION']},timeout=8)
+          assert r.status_code==200,(r.status_code,r.text[:100])
+          j=r.json()
+          assert j.get('code')=='SUCCESS' and j.get('data',{}).get('isRegistered') is True,j
+          print('OWN_HITEL_API_QA_MEMBER_VERIFIED=YES')
+          PY
+      - name: Expose isolated test API via temporary public HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+          chmod +x /tmp/cloudflared
+          nohup /tmp/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8000 > /tmp/ixio-tunnel.log 2>&1 < /dev/null &
+          url=""
+          for n in $(seq 1 100); do
+            url="$(grep -om1 -E 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/ixio-tunnel.log || true)"
+            if [[ -n "$url" ]] && curl --max-time 8 -fsS "$url/health" | grep -q '"ok":true'; then break; fi
+            sleep 2
+          done
+          test -n "$url" || { cat /tmp/ixio-tunnel.log; exit 1; }
+          curl --max-time 20 -fsS "$url/health" | grep -q '"ok":true'
+          echo "HITEL_PUBLIC_API_URL=$url/" >> "$GITHUB_ENV"
+          echo "EXTERNAL_HTTPS_HEALTH=SUCCESS"
+      - name: Download exact original single APK and pinned DEX tools
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .hitel-ixio-qa/apk .hitel-ixio-qa/tools ixio-hitel-android-results
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK \
+            --dir .hitel-ixio-qa/apk
+          test -s .hitel-ixio-qa/apk/IXIO_Main_NoAppSealing_Single.apk
+          unzip -p .hitel-ixio-qa/apk/IXIO_Main_NoAppSealing_Single.apk classes16.dex \
+            > .hitel-ixio-qa/apk/classes16-original.dex
+          test -s .hitel-ixio-qa/apk/classes16-original.dex
+          sha256sum .hitel-ixio-qa/apk/IXIO_Main_NoAppSealing_Single.apk \
+             > ixio-hitel-android-results/original-base-sha256.txt
+          curl -fL --retry 3 -sS \
+            https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar \
+            -o .hitel-ixio-qa/tools/baksmali.jar
+          curl -fL --retry 3 -sS \
+            https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar \
+            -o .hitel-ixio-qa/tools/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .hitel-ixio-qa/tools/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .hitel-ixio-qa/tools/smali.jar' | sha256sum -c -
+      - name: Patch original Retrofit, CTN test proof and reassemble classes16 DEX
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx2500m -jar .hitel-ixio-qa/tools/baksmali.jar \
+            d --api 34 --jobs 3 \
+            -o .hitel-ixio-qa/smali16 .hitel-ixio-qa/apk/classes16-original.dex
+          python3 tools/ixio/ixio_route_to_hitel_public_qa.py \
+            --root .hitel-ixio-qa/smali16 \
+            --qa-assertion "$HITEL_IXIO_CI_ASSERTION" \
+            --base-url "$HITEL_PUBLIC_API_URL" \
+            --report ixio-hitel-android-results/smali-patch-report.json
+          java -Xmx2500m -jar .hitel-ixio-qa/tools/smali.jar \
+            a --api 34 --jobs 3 \
+            -o .hitel-ixio-qa/apk/classes16-hitel.dex .hitel-ixio-qa/smali16 \
+            > ixio-hitel-android-results/smali-assembly.log 2>&1
+          test -s .hitel-ixio-qa/apk/classes16-hitel.dex
+          python3 - <<'PY'
+          import pathlib,struct,json
+          p=pathlib.Path('.hitel-ixio-qa/apk')
+          old=(p/'classes16-original.dex').read_bytes()
+          new=(p/'classes16-hitel.dex').read_bytes()
+          at=lambda data,off:struct.unpack_from('<I',data,off)[0]
+          for name,offset in [('classes',0x60),('methods',0x58)]:
+            assert at(old,offset)==at(new,offset), (name,at(old,offset),at(new,offset))
+          print('HITEL_DEX_REASSEMBLY_CLASS_METHOD_IDS=UNCHANGED')
+          PY
+      - name: Create exactly ONE signed IXIO APK (not a split APK bundle)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy,pathlib,re,zipfile
+          root=pathlib.Path('.hitel-ixio-qa/apk')
+          src=root/'IXIO_Main_NoAppSealing_Single.apk'
+          dest=root/'IXIO_HITEL_Auth_CI_Unsigned.apk'
+          modified=0
+          with zipfile.ZipFile(src,'r') as z,zipfile.ZipFile(dest,'w') as out:
+            for info in z.infolist():
+              name=info.filename
+              if re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',name,re.I):continue
+              raw=z.read(name)
+              if name=='classes16.dex':
+                raw=(root/'classes16-hitel.dex').read_bytes()
+                modified+=1
+              out.writestr(copy.copy(info),raw)
+          assert modified==1,modified
+          with zipfile.ZipFile(src) as a,zipfile.ZipFile(dest) as b:
+            assert a.read('AndroidManifest.xml')==b.read('AndroidManifest.xml')
+            for n in ('classes15.dex','classes17.dex','classes18.dex','classes19.dex'):
+              assert a.read(n)==b.read(n),n
+          print('ONLY_CLASSES16_REPLACED=YES')
+          PY
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt \
+            -keystore .hitel-ixio-qa/keys/ci-debug.jks \
+            -storepass android -keypass android -alias qa \
+            -keyalg RSA -keysize 2048 -validity 365 \
+            -dname 'CN=IXIO HITEL GitHub Actions Emulator CI Only' >/dev/null 2>&1
+          "$BT/zipalign" -p -f 4 \
+            .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Unsigned.apk \
+            .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Aligned.apk
+          "$BT/apksigner" sign --ks .hitel-ixio-qa/keys/ci-debug.jks \
+            --ks-pass pass:android --key-pass pass:android --ks-key-alias qa \
+            --out .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk \
+            .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Aligned.apk
+          "$BT/apksigner" verify --verbose .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
+          "$BT/zipalign" -c -p 4 .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk \
+            > ixio-hitel-android-results/rebuilt-manifest.txt
+          grep 'usesCleartextTraffic.*true' ixio-hitel-android-results/rebuilt-manifest.txt
+          mkdir -p .ixio-start-test
+          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk \
+            .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+          sha256sum .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk \
+            > ixio-hitel-android-results/rebuilt-sha256.txt
+      - name: Verify HTTPS auth and exact embedded APK API address
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,zipfile,httpx
+          u=os.environ['HITEL_PUBLIC_API_URL']
+          with httpx.Client(timeout=20) as c:
+            for p in ('health','login','config','mvoip-onoff/app'):
+              r=c.get(u+p)
+              assert r.status_code==200,(p,r.status_code,r.text[:150])
+              print('PUBLIC_API_OK',p)
+            r=c.post(u+'v1/members/verify-ctn',json={'ctn':os.environ['HITEL_IXIO_CI_ASSERTION']})
+            assert r.status_code==200 and r.json().get('data',{}).get('isRegistered') is True,(r.status_code,r.text[:150])
+            print('PUBLIC_QA_MEMBER_VERIFIED')
+          with zipfile.ZipFile('.hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk') as z:
+            assert u.encode() in z.read('classes16.dex')
+            assert 'classes18.dex' in z.namelist()
+          print('SIGNED_APK_PUBLIC_URL_IN_DEX_OK')
+          PY
+      - name: Upload direct-download APK to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ixio-hitel-public-https-test-20261117
+          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/IXIO_HITEL_Public_HTTPS_Test.apk
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO HITEL public HTTPS QA APK" --notes "Short-lived synthetic-account test only, not production carrier login."
+          fi
+          gh release upload "$tag" /tmp/IXIO_HITEL_Public_HTTPS_Test.apk --repo "$GH_REPO" --clobber
+          gh release edit "$tag" --repo "$GH_REPO" --notes "Temporary test backend: $HITEL_PUBLIC_API_URL . Expires when workflow stops in approximately 90 minutes. Synthetic test identity only; call recording and STT unverified."
+          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_Public_HTTPS_Test.apk") | {name: .name, size: .size, url: .url}'
+          echo "DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Public_HTTPS_Test.apk"
+      - name: Keep external HTTPS QA API running during immediate real-device test
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TEMPORARY_PUBLIC_API_ACTIVE=$HITEL_PUBLIC_API_URL"
+          for minute in $(seq 1 90); do
+            curl --max-time 10 -fsS "${HITEL_PUBLIC_API_URL}health" >/dev/null || { echo "API_HEALTH_FAILED_AT=$minute"; exit 1; }
+            sleep 60
+          done
