@@ -256,6 +256,10 @@ jobs:
             assert 'classes18.dex' in z.namelist()
           print('SIGNED_APK_PUBLIC_URL_IN_DEX_OK')
           PY
+      - name: Prepare emulator accelerator
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
       - name: Android14 original UI login regression test
         uses: reactivecircus/android-emulator-runner@v2
         with:
