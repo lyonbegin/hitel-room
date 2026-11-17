@@ -1,0 +1,80 @@
+name: HITEL GitHub Hosted Visible Chrome (Xvfb) Original URL Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/ypt-study-group-learning-nav-20261108
+    paths:
+      - .github/workflows/hitel-github-hosted-headed-chrome.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hitel-github-hosted-headed-chrome-probe
+  cancel-in-progress: false
+
+jobs:
+  headed-chrome-saved-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout the exact saved Scribd source URLs and crawler
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ypt-study-group-learning-nav-20261108
+      - name: Install actual Google Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      - name: Install Linux virtual DISPLAY for headed Chrome
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth
+          command -v xvfb-run
+          command -v google-chrome || command -v google-chrome-stable
+          google-chrome --version || google-chrome-stable --version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python Playwright controller only
+        run: python -m pip install --disable-pip-version-check playwright==1.56.0
+      - name: Open 10 saved ORIGINAL Scribd links using HEADFUL Google Chrome
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          echo "BROWSER_MODE: channel=chrome HEADFUL headless=False; virtual DISPLAY=Xvfb; github-hosted Linux, not user PC"
+          xvfb-run -a -s "-screen 0 1440x900x24 -ac" \
+            python tools/education_catalog_v3/chrome_original_links_probe.py \
+              --limit 10 \
+              --headed \
+              --out hitel-github-headed-chrome-results
+      - name: Verify the script REALLY launched headed Chrome and 10 saved document IDs
+        if: always()
+        shell: bash
+        run: |
+          if [ -f hitel-github-headed-chrome-results/summary.json ]; then
+            cat hitel-github-headed-chrome-results/summary.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('hitel-github-headed-chrome-results/summary.json').read_text())
+          assert s["headless"] is False, "Headless Chrome incorrectly used"
+          assert s["checked"]==10, "10 URLs were not checked"
+          assert s["used_saved_original_urls"] is True
+          print("HEADED_CHROME_VERIFIED 10 direct existing original URLs, no PC client")
+          PY
+            head -n 11 hitel-github-headed-chrome-results/rows.csv
+          else
+            echo "No summary produced: headed Chrome execution failed before completion"
+          fi
+      - name: Upload actual screenshot files and individual rendered page evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-github-hosted-headed-chrome-10-actual-screenshots
+          path: hitel-github-headed-chrome-results/
+          retention-days: 7
+          if-no-files-found: warn
