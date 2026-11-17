@@ -1,4 +1,4 @@
-name: IXIO Login Exact Android UI Failure Logcat Triage
+name: IXIO Login Entry Launch Home Process Triage
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -20,7 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .ixio-logcat-evidence
-          gh run download 44055570492 --repo "$GH_REPO" --name IXIO_LoginOnly_Android14_ActualUI_Evidence_20261117 --dir .ixio-logcat-evidence
+          gh run download 44057166331 --repo "$GH_REPO" --name IXIO_LoginEntry_OriginalCrypto_Android14_Evidence_20261117 --dir .ixio-logcat-evidence
           python3 - <<'PY'
           from pathlib import Path
           import json,re
@@ -31,15 +31,15 @@ jobs:
           print('FULL_LOG_FILES',len(files))
           for f in files:
             lines=f.read_text(errors='replace').splitlines()
-            start_time='09:28:30'
-            end_time='09:28:55'
-            print('APP_PID=4392','LINES_TOTAL',len(lines))
+            start_time='09:39:05'
+            end_time='09:39:30'
+            print('APP_PID=4310_OR_6188','LINES_TOTAL',len(lines))
             for line in lines:
               m=re.match(r'^\d\d-\d\d +(\d\d:\d\d:\d\d)\.\d+ +(\d+) +(\d+) +([VDIWEF]) +([^:]+):',line)
               if not m:continue
               clock,pid,tid,level,tag=m.groups()
               if not start_time <= clock <= end_time:continue
-              if pid=='4392' or (level in ('E','F') and re.search(r'IXIO|aicallagent|lguplus|AndroidRuntime|ActivityTaskManager',line,re.I)):
+              if pid in ('4310','6188') or re.search(r'(ActivityTaskManager|ActivityManager|WindowManager|crash|Process|am_proc|Force finishing|PermissionManager)',line,re.I) and ('aicallagent' in line or '4310' in line or '6188' in line):
                 safe=re.sub(r'(?i)(Bearer\s+)[A-Za-z0-9_\-.]+',r'\1[REDACTED]',line)
                 safe=re.sub(r'(?i)(token|secret|password|ctn)([=:]\s*)[A-Za-z0-9_\-.]{10,}',r'\1\2[REDACTED]',safe)
                 print('APP_AND_ERROR',safe[:500])
