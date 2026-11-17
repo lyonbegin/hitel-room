@@ -33,6 +33,8 @@ def main():
     dart=app/'lib/main.dart'
     text=dart.read_text()
     text=once(text,"import 'dart:async';\n","import 'dart:async';\nimport 'hitel_offline_runtime.dart';\n",'local runtime import')
+    text=once(text,"import 'dart:convert';\n","",'no longer use network JSON auth code')
+    text=once(text,"import 'dart:math';\n","",'no longer use cloud session nonce generator')
     begin=text.index('  // Debug-only HITEL HTTPS session; not a bitHuman entitlement.')
     end=text.index('  Future<void> _boot() async {',begin)
     replacement="""  // HITEL first-party localhost measurement mode; no remote cloud.
