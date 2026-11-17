@@ -71,3 +71,44 @@ jobs:
                   print('SERVER_METHOD',head)
                   for line in m.splitlines()[:28]:print(' CODE',line.strip()[:240])
           PY
+
+      - name: Locate original onboarding decision bytecode in all DEX files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in $(seq 1 19); do
+            p="classes$n.dex"
+            if [ "$n" = 1 ]; then p=classes.dex; fi
+            if ! unzip -Z1 .ixio-original-auth-test/IXIO_Main_NoAppSealing_Single.apk | grep -Fxq "$p"; then continue; fi
+            unzip -p .ixio-original-auth-test/IXIO_Main_NoAppSealing_Single.apk "$p" > ".ixio-original-auth-test/$p"
+            if strings -a ".ixio-original-auth-test/$p" | grep -q 'ResolveOnboardingLoginEntryUseCase'; then
+              echo "ONBOARDING_OWNER_DEX=$p"
+              out=".ixio-original-auth-test/smali-extra-$n"
+              java -Xmx2600m -jar .ixio-original-auth-test/baksmali.jar d --api 34 --jobs 3 -o "$out" ".ixio-original-auth-test/$p"
+              OUT="$out" python3 - <<'PY'
+          import os,re
+          from pathlib import Path
+          root=Path(os.environ["OUT"])/"com/lguplus/aicallagent"
+          for rel in ('domain/init/usecase/ResolveOnboardingLoginEntryUseCase.smali',
+                      'domain/init/usecase/OnboardingLoginEntry$Login.smali',
+                      'domain/init/usecase/OnboardingLoginEntry$Blocked.smali',
+                      'domain/init/usecase/VerifyCtnUseCase.smali'):
+            p=root/rel
+            print('ACTUAL_ENTRY_CLASS',rel,'EXISTS',p.exists())
+            if not p.exists():continue
+            txt=p.read_text(errors='replace')
+            methods=re.findall(r'(?ms)^\\.method[^\\n]*\\n.*?^\\.end method$',txt)
+            for m in methods:
+              head=m.splitlines()[0]
+              if 'resolveByRegistration' in head or ' invoke(' in head or 'getCtn' in head:
+                print('EXACT_GATE_METHOD',head)
+                for line in m.splitlines()[:170]:
+                  if len(line)>400:continue
+                  print('GATE_ASM',line)
+          PY
+              break
+            fi
+          done
