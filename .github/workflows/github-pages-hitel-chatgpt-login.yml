@@ -1,0 +1,50 @@
+name: Publish HITEL ChatGPT login (GitHub Pages only)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "hitel-chatgpt-login/**"
+      - ".github/workflows/github-pages-hitel-chatgpt-login.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "github-pages-hitel-room"
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish static site without Railway
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the existing HITEL web app before adding the login page
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --ignore-scripts
+          npx vite build --base=/hitel-room/
+          mkdir -p dist/hitel-chatgpt-login
+          cp hitel-chatgpt-login/index.html dist/hitel-chatgpt-login/index.html
+          touch dist/.nojekyll
+          test -s dist/index.html
+          test -s dist/hitel-chatgpt-login/index.html
+          echo PASS_GITHUB_PAGES_STATIC_LOGIN_PAGE_BUILT
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
