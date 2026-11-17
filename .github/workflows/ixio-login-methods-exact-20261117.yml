@@ -104,7 +104,11 @@ jobs:
             print('ACTUAL_ENTRY_CLASS',rel,'EXISTS',p.exists())
             if not p.exists():continue
             txt=p.read_text(errors='replace')
-            methods=re.findall(r'(?ms)^\\.method[^\\n]*\\n.*?^\\.end method$',txt)
+            methods=[]
+            for part in txt.split('.method ')[1:]:
+              fragment='.method '+part
+              if '.end method' in fragment:
+                methods.append(fragment.split('.end method',1)[0]+'.end method')
             for m in methods:
               head=m.splitlines()[0]
               if 'resolveByRegistration' in head or ' invoke(' in head or 'getCtn' in head:
