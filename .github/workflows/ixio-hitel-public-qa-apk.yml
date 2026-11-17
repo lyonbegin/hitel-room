@@ -196,7 +196,7 @@ jobs:
             for n in ('classes15.dex','classes17.dex','classes18.dex','classes19.dex'):
               assert a.read(n)==b.read(n),n
           with zipfile.ZipFile(src) as a, zipfile.ZipFile(dest) as b:
-            skip=lambda n:n=='classes16.dex' or re.fullmatch(r'META-INF/.*\\.(RSA|EC|DSA|SF|MF)',n,re.I)
+            skip=lambda n:n=='classes16.dex' or re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',n,re.I)
             originals={n for n in a.namelist() if not skip(n)}
             rebuilt={n for n in b.namelist() if not skip(n)}
             assert originals==rebuilt,('apk entries changed',originals^rebuilt)
