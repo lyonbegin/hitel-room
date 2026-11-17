@@ -1,0 +1,131 @@
+name: IXIO Original Auth AppAuth DeepLink and Token Source Audit
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-original-appauth-source-audit.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Obtain original IXIO DEX and decompiler without modifying APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-auth-original/apk /tmp/ixio-auth-original/jadx /tmp/ixio-auth-original/java ixio-original-auth-source-audit
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir /tmp/ixio-auth-original/apk
+          test -s /tmp/ixio-auth-original/apk/IXIO_Main_NoAppSealing_Single.apk
+          sha256sum /tmp/ixio-auth-original/apk/IXIO_Main_NoAppSealing_Single.apk > ixio-original-auth-source-audit/source-apk-sha256.txt
+          curl -fLsS --retry 3 https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip -o /tmp/ixio-auth-original/jadx.zip
+          unzip -qq /tmp/ixio-auth-original/jadx.zip -d /tmp/ixio-auth-original/jadx
+          chmod +x /tmp/ixio-auth-original/jadx/bin/jadx
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml /tmp/ixio-auth-original/apk/IXIO_Main_NoAppSealing_Single.apk > /tmp/ixio-auth-original/manifest.txt
+      - name: Reconstruct original app authentication and deep-link entry-point methods
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/ixio-auth-original/targets.txt <<'EOF'
+          com.lguplus.aicallagent.model.init.AuthRequestData
+          com.lguplus.aicallagent.model.init.IxiORequestTokenType
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.LoginData
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.WebLoginUrl
+          com.lguplus.aicallagent.model.api.dto.ixio.userservice.TokenData
+          com.lguplus.aicallagent.dip.domain.auth.usecase.AuthorizeAccountUseCaseImpl
+          com.lguplus.aicallagent.dip.domain.auth.usecase.AuthorizeCtnUseCaseImpl
+          com.lguplus.aicallagent.dip.domain.auth.usecase.TokenValidationUseCaseImpl
+          com.lguplus.aicallagent.domain.auth.IxIOAuthUseCaseImpl
+          com.lguplus.aicallagent.data.auth.TokenRepositoryImpl
+          com.lguplus.aicallagent.data.auth.IxIOAuthRepositoryImpl
+          com.lguplus.aicallagent.data.api.ixio.IxIOTokenRequestRepository
+          com.lguplus.aicallagent.data.init.login.IsLoginCheckRepository
+          com.lguplus.aicallagent.data.init.VasJoinRepository
+          com.lguplus.aicallagent.domain.init.usecase.ResolveOnboardingLoginEntryUseCase
+          com.lguplus.aicallagent.model.init.AuthRequestData
+          com.lguplus.aicallagent.datastore.IxIDataStoreRepository
+          com.lguplus.aicallagent.network.api.ixio.IxIOMemberServiceApi
+          com.lguplus.aicallagent.network.client.RetrofitServiceFactory
+          com.lguplus.aicallagent.util.AuthorizationUtil
+          EOF
+          mkdir -p /tmp/ixio-auth-original/jobs
+          run_one() {
+            cls="$1"; filename="${cls//./_}"
+            set +e
+            timeout --signal=TERM --kill-after=4s 130 env JAVA_OPTS=-Xmx1800m /tmp/ixio-auth-original/jadx/bin/jadx \
+              --no-res --threads-count 1 --single-class "$cls" \
+              --single-class-output "/tmp/ixio-auth-original/java/$filename.java" \
+              /tmp/ixio-auth-original/apk/IXIO_Main_NoAppSealing_Single.apk \
+              > "/tmp/ixio-auth-original/jobs/$filename.log" 2>&1
+            result="$?"
+            set -e
+            printf '%s,%s,%s\n' "$cls" "$result" "$(stat -c '%s' "/tmp/ixio-auth-original/java/$filename.java" 2>/dev/null || echo 0)" \
+              > "/tmp/ixio-auth-original/jobs/$filename.status"
+          }
+          export -f run_one
+          sort -u /tmp/ixio-auth-original/targets.txt | xargs -P 3 -I '{}' bash -c 'run_one "$1"' _ '{}'
+          cat /tmp/ixio-auth-original/jobs/*.status > ixio-original-auth-source-audit/decompile-status.csv
+          cat ixio-original-auth-source-audit/decompile-status.csv
+          test "$(find /tmp/ixio-auth-original/java -name '*.java' -size +10c | wc -l)" -ge 12
+      - name: Map exact original class, signature, invocation, URI and DTO model fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,hashlib
+          root=Path('/tmp/ixio-auth-original')
+          out=Path('ixio-original-auth-source-audit')
+          words=re.compile(r'(?i)appauth|authorization(service|request|response|exception)?|oauth|pkce|code.?challenge|code.?verifier|nonce|state|redirect|callback|deep.?link|intent|customtabs|login|auth.?uri|auth.?code|token|jwt|refresh|serialize|datastore|browser|pendingintent|verifyctn|joinvas|isvasjoin|baseurl|getlogin|web.?login|postservice|getservice|clientid|scope|onboarding')
+          methodpat=re.compile(r'(?m)^\s*(?:(?:public|private|protected|static|final|synchronized|abstract|native|override|suspend)\s+){0,6}[\w<>,.?\[\]$]+(?:\s+[\w<>,.?\[\]$]+){0,2}\s+([A-Za-z_$][\w$]*)\s*\([^\n]{0,420}\)\s*(?:\{|;)')
+          result={}
+          for f in sorted((root/'java').glob('*.java')):
+            s=f.read_text(errors='replace')
+            lines=s.splitlines()
+            candidates=[]
+            for i,line in enumerate(lines,1):
+              if len(line)>900 or not words.search(line):continue
+              if re.search(r'@Metadata\(|\bd1\s*=|\bd2\s*=|Intrinsics\.checkNotNull|toString\(\)',line):continue
+              if ('http://' in line or 'https://' in line) and any(w in line.lower() for w in ('token','secret','client')):continue
+              if len(candidates)>=115:break
+              if any(t in line for t in ('private ','public ','Object ','return ','@POST','@GET','@SerialName','invoke','new ','startActivity','getString','getData','if (','throw ',' = ','.put(','.get(','check','AuthorizationService','TokenRequest','getIntent','getData')):
+                candidates.append({'line':i,'operation':line.strip()[:380]})
+            methods=[{'name':m.group(1),'signature':m.group(0).strip()[:420]} for m in methodpat.finditer(s) if words.search(m.group(0))][:90]
+            imports=[x.strip()[:240] for x in lines[:100] if ('import ' in x and words.search(x))][:45]
+            result[f.stem]={
+              'source_sha256':hashlib.sha256(s.encode()).hexdigest(),
+              'jadx_incomplete':'Method not decompiled' in s,
+              'methods':methods,'auth_imports':imports,'key_source_lines':candidates,
+            }
+          manifest=(root/'manifest.txt').read_text(errors='replace').splitlines()
+          matched=[{'line':i+1,'value':x.strip()[:350]} for i,x in enumerate(manifest) if re.search(r'(?i)appauth|oauth|deep.?link|redirect|scheme|host|browsable|intent-filter|android:name\(0x',x)]
+          (out/'original-auth-class-method-flow.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          (out/'original-redirect-manifest-index.json').write_text(json.dumps(matched[:150],ensure_ascii=False,indent=2))
+          print('ORIGINAL_AUTH_JADX_CLASSES',len(result),'DECOMPILE_INCOMPLETE',[x for x,v in result.items() if v['jadx_incomplete']])
+          for key in sorted(result):
+            v=result[key];print('ORIGINAL_CLASS',key,'METHODS',','.join(x['name'] for x in v['methods'][:26]))
+            for x in v['key_source_lines'][:14]:print('SOURCE',key,x['line'],x['operation'][:215])
+          print('MANIFEST_AUTH_ENTRY_HITS',len(matched))
+          for x in matched[:22]:print('MANIFEST',x['line'],x['value'])
+          PY
+          test -s ixio-original-auth-source-audit/original-auth-class-method-flow.json
+      - name: Publish only original code-level audit, no modified APK
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-original-appauth-deeplink-token-original-source-audit
+          path: ixio-original-auth-source-audit/
+          retention-days: 7
+      - name: Remove decoded source and third-party APK from runner
+        if: always()
+        run: rm -rf /tmp/ixio-auth-original
