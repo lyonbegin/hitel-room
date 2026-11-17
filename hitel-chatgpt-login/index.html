@@ -80,5 +80,10 @@ async function connect(){
 }
 btn.onclick=connect;
 connect();
+let attempts=0;
+const watcher=setInterval(()=>{
+ if(!btn.disabled || attempts++>=18){clearInterval(watcher);return}
+ connect();
+},12000);
 </script>
 </body></html>
