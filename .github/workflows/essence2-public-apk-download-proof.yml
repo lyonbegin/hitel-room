@@ -1,0 +1,28 @@
+name: Verify public Essence2 five-sample APK direct HTTPS and SHA256
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-public-apk-download-proof.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Fetch exact public GitHub Release APK without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL=https://github.com/lyonbegin/hitel-room/releases/download/hitel-essence2-five-samples-original-sdk-20261118/HITEL_Essence2_FiveSamples_Galaxy_ARM64.apk
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors \
+            --connect-timeout 30 --max-time 600 "$URL" -o essence2-release.apk
+          test "$(stat -c %s essence2-release.apk)" = 162911941
+          echo "6b461eacadf0b90d26151dc95c89f37f964bc9d9038a1d699bda71a942ed9bc4  essence2-release.apk" | sha256sum --check --status
+          unzip -t essence2-release.apk | tail -1
+          unzip -Z1 essence2-release.apk | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          unzip -Z1 essence2-release.apk | grep -Fx 'lib/arm64-v8a/libflutter.so'
+          echo PUBLIC_HTTPS_ESSENCE2_APK_FULL_DOWNLOAD_SHA256_ARM64_OK
