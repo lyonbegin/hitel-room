@@ -28,18 +28,19 @@ jobs:
     env:
       DISPLAY: ":99"
       RTL_VIEWER_TOKEN_SHA256: 22730f9438b987cabbfef0f6a9dbedf0510586406e81cd340878ac80dc5ee909
-      RUN_MODE: ${{ github.event_name == 'push' && 'remote' || inputs.mode }}
+      RUN_MODE: ${{ github.event_name == 'push' && 'preflight' || inputs.mode }}
       RTL_APK: ${{ github.workspace }}/rtl-apk/pristine-original-plugin2637-sdk061-arm64.apk
+      RTL_BROWSER_STAGE_FILE: ${{ github.workspace }}/rtl-browser-stage.txt
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: c327823ca70619e8ac82e3f2f8ac37c510596d92
+          ref: 7389bd9c52d10fbbef206ee1096f9d5e8131f25b
           persist-credentials: false
       - name: Check RTL watcher syntax and allowed scope
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py tools/bithuman_deep/rtl_galaxy_browser_automation.py tools/bithuman_deep/rtl_private_novnc_gateway.py
+          python3 -m py_compile tools/bithuman_deep/rtl_galaxy_rdb_probe.py tools/bithuman_deep/rtl_galaxy_browser_automation.py tools/bithuman_deep/rtl_private_novnc_gateway.py tools/bithuman_deep/rtl_stage_status.py
           ! grep -q -F 'Expression2Avatar.create(' tools/bithuman_deep/rtl_galaxy_rdb_probe.py
           echo ORIGINAL_SDK061_AND_APP_NOT_MODIFIED_FOR_RTL
       - name: Download EXACT previously verified full-flow original SDK 0.6.1 ARM64 APK
@@ -225,6 +226,20 @@ jobs:
           sudo dpkg -i "$RUNNER_TEMP/cloudflared.deb"
           cloudflared --version
           cloudflared tunnel --help >/dev/null
+      - name: Start GitHub live phase reporting for the Linux RDB/ADB flow
+        if: env.RUN_MODE == 'remote'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          nohup "$RUNNER_TEMP/rtl-py/bin/python" \
+            tools/bithuman_deep/rtl_stage_status.py \
+            > "$RUNNER_TEMP/rtl-stage-status.log" 2>&1 < /dev/null &
+          echo "$!" > "$RUNNER_TEMP/rtl-stage-status.pid"
+          sleep 2
+          kill -0 "$(cat "$RUNNER_TEMP/rtl-stage-status.pid")"
+          echo RTL_LINUX_RDB_PHASE_PUBLISHER_STARTED
       - name: Publish temporary tunnel to SHA256 capability-gated localhost viewer
         if: env.RUN_MODE == 'remote'
         shell: bash
