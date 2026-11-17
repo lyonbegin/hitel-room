@@ -91,7 +91,10 @@ def patch_entry(source: str) -> str:
     # Only a single exit opcode changes. All terms, registration, CTN,
     # Coroutine and SIM-handling instructions remain original.
     updated = original.replace(blocked, login, 1)
-    assert updated.replace(login, blocked, 1) == original
+    # Original invoke() already contains an earlier Login.INSTANCE branch.
+    # Reverse only the exact newly appended fallback, not the first Login.
+    assert updated.count(login) == original.count(login) + 1
+    assert updated == original.replace(blocked, login, 1)
     return source[:m.start()] + updated + source[m.end():]
 
 def main() -> None:
