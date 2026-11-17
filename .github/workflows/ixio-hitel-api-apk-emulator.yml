@@ -1,4 +1,4 @@
-name: IXIO Main Reassembled to HITEL API - GitHub Actions Emulator
+name: IXIO One Shared Web Login URL - GitHub Actions Emulator
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -118,7 +118,7 @@ jobs:
             > ixio-hitel-android-results/companion-original-verification.json
           echo '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7  .hitel-ixio-qa/recorder/recorder.apk' | sha256sum -c -
           echo 'ORIGINAL_CALL_RECORDER_APK_SHA256_VERIFIED=YES'
-      - name: Patch original Retrofit, CTN test proof and reassemble classes16 DEX
+      - name: Patch ONE shared web-login URL, QA CTN proof and reassemble DEX
         shell: bash
         run: |
           set -euo pipefail
@@ -129,6 +129,14 @@ jobs:
             --root .hitel-ixio-qa/smali16 \
             --qa-assertion "$HITEL_IXIO_CI_ASSERTION" \
             --report ixio-hitel-android-results/smali-patch-report.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('ixio-hitel-android-results/smali-patch-report.json'))
+          assert d['patched_method_count']==2, d
+          assert d['single_member_service_host_getter'] is True
+          assert d['protected_original_sha256']==d['protected_after_sha256']
+          print('ONE_SHARED_MEMBER_SERVICE_URL_AND_ORIGINAL_OTHER_SERVICES=VERIFIED')
+          PY
           java -Xmx2500m -jar .hitel-ixio-qa/tools/smali.jar \
             a --api 34 --jobs 3 \
             -o .hitel-ixio-qa/apk/classes16-hitel.dex .hitel-ixio-qa/smali16 \
