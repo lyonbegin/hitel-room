@@ -271,6 +271,7 @@ jobs:
             --dart-define=HITEL_SDK061_AUTH_TEST=true \
             --dart-define=HITEL_EXPR2_PUBLIC_AUTH_BASE=https://hitel-expression2-auth-production.up.railway.app \
             --dart-define=AGENT_CODE=A23WJF0199 \
+            --dart-define='BITHUMAN_REALTIME_WS_URL=wss://hitel-expression2-dart-realtime-production.up.railway.app/v1/realtime?model=gpt-realtime-mini' \
             2>&1 | tee "$GITHUB_WORKSPACE/pristine-proof/official-plugin2637-build.log"
           APK=build/app/outputs/flutter-apk/app-debug.apk
           test -s "$APK"
