@@ -1,0 +1,67 @@
+name: IXIO Login Only - Android14 E2E Regression Screenshot Proof
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-login-apk-android14-e2e-20261117.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  test-original-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable hardware-accelerated Android emulator
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Download exact signed APK from original-preserving build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-start-test
+          gh run download 44055107513 --repo "$GH_REPO" --name IXIO_LoginAPIs_OriginalCrypto_QA_20261117 --dir .ixio-start-test
+          test -s .ixio-start-test/IXIO_HITEL_Auth_CI_Single.apk
+          mv .ixio-start-test/IXIO_HITEL_Auth_CI_Single.apk .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/apksigner" verify --verbose .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+          sha256sum .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+      - name: Install and inspect original IXIO UI on Android 14 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            python3 tools/ixio/ixio-hitel-emulator-onboarding.py
+            python3 - <<'PY'
+            import json
+            from pathlib import Path
+            x=json.loads(Path('ixio-main-permission-to-signup-evidence/result.json').read_text())
+            print('REGRESSION_RESULT',json.dumps(x,ensure_ascii=False))
+            assert x['installed'] is True
+            assert not x['service_error_seen'],'REGRESSION: previous signup error returned'
+            assert not x['fatal_lines'],'REGRESSION: IXIO crashed'
+            assert x['last_process_alive'],'REGRESSION: IXIO app stopped'
+            print('NO_SIGNUP_FAILURE_DIALOG_DETECTED=YES')
+            PY
+      - name: Upload all actual UI screens and logcat for verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_LoginOnly_Android14_ActualUI_Evidence_20261117
+          path: ixio-main-permission-to-signup-evidence/
+          retention-days: 7
