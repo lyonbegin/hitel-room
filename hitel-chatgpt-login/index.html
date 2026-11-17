@@ -1,124 +1,84 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>HITEL · GitHub Chrome 로그인</title>
+<title>HITEL · ChatGPT 로그인</title>
 <style>
-:root{color-scheme:light;--bg:#f3f6fb;--panel:#fff;--ink:#15283e;--muted:#536981;--line:#dee5ed;--blue:#185c8d}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--ink)}
-main{max-width:720px;margin:auto;padding:22px 14px 60px}h1{font-size:clamp(22px,4vw,29px);line-height:1.3;letter-spacing:-.04em;margin:10px 0}
-section{background:var(--panel);border:1px solid var(--line);border-radius:15px;margin:14px 0;padding:18px}
-p{line-height:1.65;margin:10px 0;color:var(--muted)}
-h2{font-size:17px;margin:0 0 9px}
-.tag{display:inline-block;background:#e9f0f8;border-radius:8px;padding:6px 10px;font-size:12px;color:#28567e;font-weight:650}
-.button{display:block;width:100%;border:0;background:var(--blue);color:white;font-size:16px;font-weight:700;
-border-radius:10px;padding:15px 16px;text-align:center;text-decoration:none;cursor:pointer;margin:10px 0}
-.button.alt{background:#ebf2fa;color:#235b8e}.button[hidden]{display:none}
-.status{background:#f0f5fb;padding:14px;border-radius:9px;color:#234e73;line-height:1.65}
-.steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.step{padding:13px;border-radius:9px;background:#f6f8fc;line-height:1.6}
-.step strong{display:block}
-small{color:#6b7e91;line-height:1.6;display:block;margin:8px 0}
-@media(max-width:580px){.steps{grid-template-columns:1fr}}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#182a40;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+main{max-width:540px;padding:28px 18px 48px;margin:0 auto}
+h1{font-size:26px;letter-spacing:-.04em;margin:4px 0 13px}
+p{line-height:1.7;color:#54687e}
+section{background:white;border:1px solid #e0e5eb;border-radius:16px;padding:22px;margin:20px 0}
+button,a.button{display:block;width:100%;padding:16px;border:0;border-radius:11px;background:#155889;color:white;
+font-size:17px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
+button:disabled{background:#aebdca;cursor:not-allowed}
+#state{padding:15px 0;font-size:16px;font-weight:600;line-height:1.7;color:#264866}
+small{display:block;line-height:1.7;color:#697c90;margin-top:15px}
+a.secondary{display:block;color:#255d8b;font-size:14px;margin-top:16px;text-align:center}
 </style>
 </head>
 <body><main>
-<span class="tag">GitHub Pages · Railway 사용 안 함</span>
-<h1>ChatGPT 두 계정 · 원격 Chrome 로그인</h1>
-<p>계정 A와 B를 처음 한 번씩 직접 로그인하시면 GitHub Actions가
-각각의 Chrome 로그인 프로필을 암호화해 저장합니다.
-이 페이지 자체는 <b>GitHub Pages 정적 웹페이지</b>이므로 서버 비용이 발생하지 않습니다.</p>
+<h1>ChatGPT 계정 로그인</h1>
+<p>휴대전화에서 원격 Chrome에 로그인하시면 됩니다. Railway는 사용하지 않습니다.</p>
 <section>
-<h2>원격 noVNC 연결</h2>
-<div id="status" class="status" role="status">GitHub Actions 실행 상태를 확인합니다.</div>
-<a id="open" class="button" hidden href="#" target="_blank" rel="noopener noreferrer">원격 Chrome noVNC 열기</a>
-<button class="button alt" type="button" id="refresh">실행 상태 다시 확인</button>
-<small>보호된 접속 권한은 이 페이지의 공개 소스에 저장되지 않습니다.
-개인용 링크에서만 확인할 수 있습니다.</small>
+<div id="state" role="status">원격 Chrome 연결을 확인하고 있습니다.</div>
+<button id="connect" type="button" disabled>원격 Chrome 열기</button>
+<small>로그인 화면에서 계정 A를 로그인하고 <b>저장</b>을 누르시면 계정 B로 바뀝니다.
+두 계정 모두 Google·ChatGPT 공식 화면에서 직접 로그인하십니다.</small>
 </section>
-<section>
-<h2>원격 Chrome 사용법</h2>
-<div class="steps">
-<div class="step"><strong>① ChatGPT 계정 A</strong>
-원격 Chrome에서 Google 또는 OpenAI로 로그인하신 뒤
-<b>A 로그인 확인·저장</b>을 누르십시오.</div>
-<div class="step"><strong>② ChatGPT 계정 B</strong>
-A 저장 후 B용 Chrome이 열립니다. 다른 계정으로 로그인하신 뒤
-<b>B 로그인 확인·저장</b>을 누르십시오.</div>
-</div>
-<p>HITEL이 비밀번호나 인증번호를 받지 않습니다. 공식 Google·ChatGPT 로그인 창에서 직접 입력하십니다.</p>
-</section>
-<section>
-<h2>원격 Chrome이 실행 중이지 않을 때</h2>
-<p>GitHub Actions에서 임시 Chrome을 실행할 수 있습니다. GitHub에 로그인된 상태에서
-아래 링크의 <b>Run workflow</b>를 선택하십시오.
-이 과정은 GitHub Pages의 정적 버튼으로 인증 없이 대신할 수 없습니다.</p>
-<a class="button alt" href="https://github.com/lyonbegin/procureflow/actions/workflows/hitel-two-account-manual-login.yml"
-target="_blank" rel="noopener noreferrer">GitHub Actions에서 Chrome 실행</a>
-<small>임시 Chrome은 GitHub Actions 실행이 끝나면 종료됩니다. 링크가 만료된 경우 새로 실행하셔야 합니다.</small>
-</section>
+<a class="secondary" id="actions" href="https://github.com/lyonbegin/procureflow/actions/workflows/hitel-two-account-manual-login.yml"
+target="_blank" rel="noopener noreferrer">원격 Chrome 실행 상태 확인 (GitHub Actions)</a>
 </main>
 <script>
 "use strict";
-const GITHUB="https://api.github.com/repos/lyonbegin/procureflow";
+const API="https://api.github.com/repos/lyonbegin/procureflow";
 const FLOW="hitel-two-account-manual-login.yml";
-const statusNode=document.getElementById("status");
-const openNode=document.getElementById("open");
-// The access secret arrives ONLY in the fragment of the user's private link.
-// Never publish it in HTML, source control, GitHub Actions logs, query strings,
-// analytics or backend responses.
-const parsed=new URLSearchParams(location.hash.replace(/^#/,""));
-let access=parsed.get("access");
-if(access && !/^[A-Za-z0-9_-]{40,120}$/.test(access))access=null;
+const state=document.getElementById("state");
+const btn=document.getElementById("connect");
+let privateToken="";
+const fragment=new URLSearchParams(location.hash.replace(/^#/,""));
+const value=fragment.get("access");
+if(value && /^[a-zA-Z0-9_-]{48,110}$/.test(value)){
+ privateToken=value;
+ try{sessionStorage.setItem("hitel_chrome_access",value)}catch{}
+}else{
+ try{privateToken=sessionStorage.getItem("hitel_chrome_access")||""}catch{}
+}
 if(location.hash)history.replaceState(null,"",location.pathname+location.search);
-function approvedGrant(value){
- try{const u=new URL(value);
-   return u.protocol==="https:" &&
-    /^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname) &&
-    u.pathname==="/grant" && !u.search && !u.hash &&
-    !u.username && !u.password;
- }catch{return false}
+function safeGrant(raw){
+ try{const u=new URL(raw);return u.protocol==="https:" &&
+ /^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname) &&
+ u.pathname==="/grant" && !u.search && !u.hash && !u.username && !u.password}
+ catch{return false}
 }
-async function readJson(url){
- const r=await fetch(url,{headers:{"Accept":"application/vnd.github+json"},cache:"no-store"});
- if(!r.ok)throw Error("GitHub 조회 HTTP "+r.status);
- return await r.json();
+async function getJson(path){
+ const r=await fetch(API+path,{headers:{"Accept":"application/vnd.github+json"},cache:"no-store"});
+ if(!r.ok)throw Error("GitHub 상태 확인 오류");
+ return r.json()
 }
-async function refresh(){
- openNode.hidden=true;
- statusNode.textContent="GitHub Actions 원격 Chrome 상태를 확인 중입니다.";
+async function connect(){
+ btn.disabled=true;
  try{
-  const data=await readJson(GITHUB+"/actions/workflows/"+FLOW+"/runs?per_page=5");
-  const running=(data.workflow_runs||[]).filter(r=>r.status==="in_progress" && /^[0-9a-f]{40}$/.test(r.head_sha));
-  let target=null;
-  for(const run of running.slice(0,3)){
-   const details=await readJson(GITHUB+"/commits/"+run.head_sha+"/status");
-   const found=(details.statuses||[]).find(x=>x.context==="hitel-two-manual-chrome-logins");
-   if(found && found.state==="pending" && approvedGrant(found.target_url)){
-    target=found.target_url;break;
-   }
+  const runs=await getJson("/actions/workflows/"+FLOW+"/runs?per_page=4");
+  let url="";
+  for(const run of (runs.workflow_runs||[])){
+   if(run.status!=="in_progress" || !/^[a-f0-9]{40}$/.test(run.head_sha))continue;
+   const res=await getJson("/commits/"+run.head_sha+"/status");
+   const found=(res.statuses||[]).find(x=>x.context==="hitel-two-manual-chrome-logins");
+   if(found?.state==="pending" && safeGrant(found.target_url)){url=found.target_url;break}
   }
-  if(!target){
-   statusNode.textContent="현재 사용 가능한 원격 Chrome이 없습니다. 아래 GitHub Actions에서 새 실행을 시작하시면 됩니다.";
-   return;
-  }
-  if(!access){
-   statusNode.textContent="GitHub Chrome은 실행 중입니다. 하지만 이 브라우저에는 개인용 접속 권한이 없습니다. 개인용 링크로 열어 주십시오.";
-   return;
-  }
-  openNode.href=target+"#access="+encodeURIComponent(access);
-  openNode.hidden=false;
-  statusNode.textContent="원격 Chrome이 실행 중입니다. 위의 noVNC 버튼으로 연결하실 수 있습니다.";
- }catch(e){
-   statusNode.textContent="GitHub 실행 상태를 읽지 못했습니다: "+e.message;
- }
+  if(!url){state.textContent="현재 원격 Chrome이 실행되어 있지 않습니다.";return}
+  if(!privateToken){state.textContent="개인 접속 권한이 포함된 링크로 열어 주십시오.";return}
+  const target=url+"#access="+encodeURIComponent(privateToken);
+  btn.disabled=false;
+  btn.onclick=()=>location.assign(target);
+  state.textContent="원격 Chrome에 연결할 수 있습니다.";
+  // A personal link opens the screen directly; the button remains as fallback.
+  if(value && privateToken===value)location.assign(target);
+ }catch(e){state.textContent="연결 상태를 확인할 수 없습니다. 다시 열어 주십시오."}
 }
-document.getElementById("refresh").addEventListener("click",refresh);
-refresh();
-// GitHub unauthenticated API rate limits; only one lookup per minute.
-setInterval(refresh,60000);
+btn.onclick=connect;
+connect();
 </script>
-</body>
-</html>
+</body></html>
