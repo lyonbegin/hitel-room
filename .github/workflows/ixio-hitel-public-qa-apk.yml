@@ -1,4 +1,4 @@
-name: IXIO Original Crypto and Four Login APIs - Signed APK QA
+name: IXIO Original Crypto Login Entry Fix - Signed APK QA
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -259,7 +259,7 @@ jobs:
       - name: Publish externally reachable HTTPS QA APK as artifact for user download
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO_LoginAPIs_OriginalCrypto_QA_20261117
+          name: IXIO_LoginEntry_OriginalCrypto_Fixed_20261117
           path: .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
           retention-days: 3
           if-no-files-found: error
@@ -270,19 +270,19 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-login-api-original-crypto-20261117
+          tag=ixio-login-entry-original-crypto-fixed-20261117
           apk=.hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
-          target=.hitel-ixio-qa/apk/IXIO_HITEL_LoginAPI_OriginalCrypto_20261117.apk
+          target=.hitel-ixio-qa/apk/IXIO_HITEL_LoginEntry_OriginalCrypto_20261117.apk
           cp "$apk" "$target"
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
-              --title "IXIO HITEL Login API Only - Original Other Services" \
-              --notes "One original IxIOAuthServer.getBaseUrl() changed to a temporary public HITEL test HTTPS endpoint. EncryptCtnUtil.encrypt(), shared member URL, enrollment/SetupWizard, app settings, audio recording, STT, model assets and all other APK entries remain original. Exact isolated synthetic login server runs only while build workflow is alive. User-device login not validated."
+              --title "IXIO HITEL Login Entry Fixed - Original Crypto All Other Services" \
+              --notes "Original IXIO onboarding invoke() now routes to the original web Login entry without blocking on carrier SIM or CTN provisioning. Four named login Retrofit method annotations use temporary HITEL public HTTPS QA. Original EncryptCtnUtil, AES, DEK provisioning, member service nonlogin endpoints, STT, recorder, AI model handling, UI and original ZIP asset contents preserved. Test-only temporary backend: NOT persistent; sign-in requires actual OAuth. Verify on actual device."
           fi
           gh release upload "$tag" "$target" --repo "$GH_REPO" --clobber
           gh release view "$tag" --repo "$GH_REPO" --json assets \
-            --jq '.assets[] | select(.name == "IXIO_HITEL_LoginAPI_OriginalCrypto_20261117.apk") | {name: .name, size: .size, url: .url}'
-          echo "PUBLIC_DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_LoginAPI_OriginalCrypto_20261117.apk"
+            --jq '.assets[] | select(.name == "IXIO_HITEL_LoginEntry_OriginalCrypto_20261117.apk") | {name: .name, size: .size, url: .url}'
+          echo "PUBLIC_DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_LoginEntry_OriginalCrypto_20261117.apk"
       - name: Keep external HTTPS QA API running during immediate real-device test
         shell: bash
         run: |
