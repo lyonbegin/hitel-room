@@ -1,0 +1,73 @@
+name: IXIO Original Login Endpoint and Pre-Login Branch Exact Readout
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-login-methods-exact-20261117.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-login-structure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Retrieve ORIGINAL reconstructed APK and decode ONLY original classes16 DEX
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-original-auth-test
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-original-auth-test
+          unzip -p .ixio-original-auth-test/IXIO_Main_NoAppSealing_Single.apk classes16.dex > .ixio-original-auth-test/classes16.dex
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-original-auth-test/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-original-auth-test/baksmali.jar' | sha256sum -c -
+          java -Xmx2600m -jar .ixio-original-auth-test/baksmali.jar d --api 34 --jobs 3 -o .ixio-original-auth-test/smali16 .ixio-original-auth-test/classes16.dex
+      - name: Print exact original Smali login API annotations and entry decision opcodes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('.ixio-original-auth-test/smali16/com/lguplus/aicallagent')
+          files=[
+            'network/api/ixio/IxIOMemberServiceApi.smali',
+            'network/api/ixio/IxIOAuthApi.smali',
+            'network/client/ixio/IxIOSetupWizardServer.smali',
+            'network/client/ixio/IxIOAuthServer.smali',
+            'network/client/ixio/IxIOMemberServiceServer.smali',
+            'domain/init/usecase/ResolveOnboardingLoginEntryUseCase.smali',
+            'domain/init/usecase/OnboardingLoginEntry$Login.smali',
+            'domain/init/usecase/OnboardingLoginEntry$Blocked.smali',
+          ]
+          for path in files:
+            p=root/path
+            print('ORIGINAL_FILE',path,'FOUND',p.is_file(),flush=True)
+            if not p.is_file():continue
+            src=p.read_text(errors='replace')
+            print('HEADER',src.splitlines()[0])
+            methods=re.findall(r'(?ms)^\.method[^\n]*\n.*?^\.end method$',src)
+            for i,m in enumerate(methods):
+              head=m.splitlines()[0]
+              if 'Api.smali' in path:
+                annotations=[x.strip() for x in m.splitlines() if 'retrofit2/http/' in x or 'value = ' in x]
+                if annotations:print('API_METHOD',head,'ANNOTATIONS',repr(annotations[:8]))
+              elif 'OnboardingLoginEntry$' in path:
+                print('ENTRY_METHOD',head,'COUNT',len(m.splitlines()))
+              elif 'ResolveOnboarding' in path:
+                print('BRANCH_METHOD',head,'LINES',len(m.splitlines()))
+                for line in m.splitlines():
+                  line=line.strip()
+                  if any(k in line for k in ('OnboardingLoginEntry$','VerifyCtnUseCase','resolveByRegistration','getCOROUTINE_SUSPENDED','Blocked','Login;->INSTANCE','getCtn','goto')):
+                    print(' BRANCH_OPCODE',line[:280])
+              elif 'Server.smali' in path:
+                if 'getBaseUrl()' in head:
+                  print('SERVER_METHOD',head)
+                  for line in m.splitlines()[:28]:print(' CODE',line.strip()[:240])
+          PY
