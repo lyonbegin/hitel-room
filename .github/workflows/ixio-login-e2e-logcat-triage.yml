@@ -30,13 +30,17 @@ jobs:
           files=list(root.rglob('logcat-full.txt'))
           print('FULL_LOG_FILES',len(files))
           for f in files:
-            l=f.read_text(errors='replace').splitlines()
-            begin=[x for x in l if re.search(r'(09:28:(3[5-9]|4[0-9]|5[0-9])|09:29:0[0-5])',x)]
-            keys=re.compile(r'(?i)lguplus|aicallagent|ixio|login|log.?in|signup|onboard|enroll|retrofit|okhttp|http|network|exception|unknownhost|ssl|auth|token|ctn|config|mvoip|service|error|fatal|denied')
-            matching=[x for x in begin if keys.search(x)]
-            print('LOGCAT_TOTAL',len(l),'TARGET_WINDOW',len(begin),'MATCHED',len(matching))
-            for row in matching[-260:]:
-              row=re.sub(r'(?i)(Bearer\s+)[A-Za-z0-9_\-.]+',r'\1[REDACTED]',row)
-              row=re.sub(r'(?i)(token|secret|password|ctn)([=:]\s*)[A-Za-z0-9_\-.]{10,}',r'\1\2[REDACTED]',row)
-              print('ANDROID_LOG',row[:370])
+            lines=f.read_text(errors='replace').splitlines()
+            start_time='09:28:30'
+            end_time='09:28:55'
+            print('APP_PID=4392','LINES_TOTAL',len(lines))
+            for line in lines:
+              m=re.match(r'^\d\d-\d\d +(\d\d:\d\d:\d\d)\.\d+ +(\d+) +(\d+) +([VDIWEF]) +([^:]+):',line)
+              if not m:continue
+              clock,pid,tid,level,tag=m.groups()
+              if not start_time <= clock <= end_time:continue
+              if pid=='4392' or (level in ('E','F') and re.search(r'IXIO|aicallagent|lguplus|AndroidRuntime|ActivityTaskManager',line,re.I)):
+                safe=re.sub(r'(?i)(Bearer\s+)[A-Za-z0-9_\-.]+',r'\1[REDACTED]',line)
+                safe=re.sub(r'(?i)(token|secret|password|ctn)([=:]\s*)[A-Za-z0-9_\-.]{10,}',r'\1\2[REDACTED]',safe)
+                print('APP_AND_ERROR',safe[:500])
           PY
