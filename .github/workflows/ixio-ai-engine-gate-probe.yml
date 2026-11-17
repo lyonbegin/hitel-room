@@ -1,0 +1,99 @@
+name: IXIO AI Engine Screen Gate - Exact Branch Probe
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-ai-engine-gate-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Download exactly the user's publicly released test APK from run 44041954297
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-gate/apk .ixio-gate/dex .ixio-gate/tools ixio-ai-gate-results
+          gh run download 44041954297 --repo "$GH_REPO" --name IXIO_One_WebLogin_OriginalServices_PublicHTTPS_APK --dir .ixio-gate/apk
+          test -s .ixio-gate/apk/IXIO_HITEL_Auth_CI_Single.apk
+          unzip -Z1 .ixio-gate/apk/IXIO_HITEL_Auth_CI_Single.apk | grep -E '^classes[0-9]*.dex$' > ixio-ai-gate-results/dex-names.txt
+          while IFS= read -r x; do unzip -p .ixio-gate/apk/IXIO_HITEL_Auth_CI_Single.apk "$x" > ".ixio-gate/dex/$x"; done < ixio-ai-gate-results/dex-names.txt
+      - name: Search ALL original DEXes for model download screen and navigation classes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,pathlib
+          files=sorted(pathlib.Path('.ixio-gate/dex').glob('classes*.dex'))
+          out=pathlib.Path('ixio-ai-gate-results/dex-string-hits.txt')
+          pattern=re.compile(rb'(AiModel|ModelDownload|DownloadModel|ModelCheck|EngineDownload|DownloadEngine|AiEngine|ModelFile|AiDownload|ModelRequired|AiSetup|model_download|DownloadScreen|OnDeviceModel|modelStatus|ModelStatus)',re.I)
+          with out.open('w') as f:
+            for p in files:
+              data=p.read_bytes()
+              hits=[]
+              for m in pattern.finditer(data):
+                a=max(0,data.rfind(b'\0',max(0,m.start()-250),m.start())+1)
+                b=data.find(b'\0',m.end(),min(len(data),m.end()+400))
+                if b<0:b=min(len(data),m.end()+180)
+                value=data[a:b].decode('utf8','replace').strip()
+                if value and len(value)<450 and value not in hits:hits.append(value)
+              print('DEX',p.name,'MODEL_GATE_STRING_HITS',len(hits),file=f)
+              for x in hits[:170]:print('  ',x[:350],file=f)
+          print(out.read_text()[:35000])
+          PY
+      - name: Disassemble DEX classes relevant to AI model checking and its routes
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-gate/tools/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-gate/tools/baksmali.jar' | sha256sum -c -
+          for dex in .ixio-gate/dex/classes*.dex; do
+            if strings -a "$dex" | grep -Eiq 'AiModel|ModelDownload|DownloadModel|ModelCheck|EngineDownload|DownloadEngine|AiEngine|ModelRequired|DownloadScreen'; then
+              n="$(basename "$dex" .dex)"
+              echo "DISASSEMBLING $n"
+              java -Xmx3000m -jar .ixio-gate/tools/baksmali.jar d --api 34 --jobs 3 -o ".ixio-gate/smali-$n" "$dex"
+            fi
+          done
+      - name: Find actual gate branch and next destination without modifying models or server
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          roots=list(Path('.ixio-gate').glob('smali-*'))
+          paths=[p for r in roots for p in r.rglob('*.smali')]
+          out=Path('ixio-ai-gate-results/smali-gate-hits.txt')
+          needles=('AiModelCheck','ModelDownload','DownloadModel','EngineDownload','DownloadEngine','AiEngine','modelDownload','downloadModel','AiModel','isModelDownload','isModelExists','ModelNot','ModelStatus','AiSetting','AiModelSetting')
+          high=[]
+          with out.open('w') as f:
+            for p in paths:
+              s=p.read_text(errors='replace')
+              hits=[(i,l) for i,l in enumerate(s.splitlines(),1) if any(w.lower() in l.lower() for w in needles)]
+              if not hits:continue
+              rank=(sum(1 for _,l in hits if 'ModelDownload' in l or 'AiModel' in l or 'DownloadModel' in l)+1)*(min(len(hits),60)+1)
+              high.append((rank,str(p),len(hits)))
+              print('CLASS',p,'HITS',len(hits),file=f)
+              lns=s.splitlines()
+              for i,l in hits[:45]:
+                lo=max(0,i-5);hi=min(len(lns),i+6)
+                print('  AT',i, ' | '.join(f'{j+1}:{lns[j][:240]}' for j in range(lo,hi)),file=f)
+          high.sort(reverse=True)
+          Path('ixio-ai-gate-results/ranked-classes.txt').write_text('\n'.join(str(x) for x in high[:100]))
+          print('SMALI_FILES',len(paths),'CLASSES_WITH_GATE_REFERENCES',len(high))
+          print('RANKED_CANDIDATES')
+          for rank,p,count in high[:45]:print(rank,count,p)
+          print('GATE_REF_SAMPLES')
+          print(out.read_text()[:50000])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-exact-model-download-screen-branch-probe
+          path: ixio-ai-gate-results/
+          retention-days: 3
