@@ -1,0 +1,41 @@
+name: HITEL Essence2 original SDK 095 single-method local meter repack proof
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-sdk095-single-meter-method-repack-proof.yml
+      - tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py
+permissions:
+  contents: read
+jobs:
+  verify-byte-exact-native-and-one-meter-method:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch unmodified published Essence2 0.9.5 and patch exactly one method
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p essence2-sdk095-meter-proof
+          BASE=https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5
+          curl -fLsS --retry 4 --retry-all-errors \
+            "$BASE/essence2-android-0.9.5.aar" \
+            -o essence2-sdk095-meter-proof/vendor-original-0.9.5.aar
+          python3 tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py \
+            --source-aar essence2-sdk095-meter-proof/vendor-original-0.9.5.aar \
+            --output-aar essence2-sdk095-meter-proof/hitel-local-meter-test-0.9.5.aar \
+            --report essence2-sdk095-meter-proof/one-method-native-identity.json \
+            --base-url http://127.0.0.1:18762 --allow-offline-loopback
+          unzip -t essence2-sdk095-meter-proof/hitel-local-meter-test-0.9.5.aar | tail -1
+          cmp \
+            <(unzip -p essence2-sdk095-meter-proof/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
+            <(unzip -p essence2-sdk095-meter-proof/hitel-local-meter-test-0.9.5.aar jni/arm64-v8a/lible_jni.so)
+          echo PASS_ESSENCE2_NATIVE_ARM64_BYTE_EXACT_SINGLE_JVM_METHOD_CHANGED
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-sdk095-single-meter-method-proof
+          path: essence2-sdk095-meter-proof/one-method-native-identity.json
+          retention-days: 14
