@@ -44,7 +44,7 @@ def mark(stage):
     if stage not in STAGES:
         STAGES.add(stage)
         STAGE_FILE.parent.mkdir(parents=True,exist_ok=True)
-        STAGE_FILE.write_text(stage+"\\n")
+        STAGE_FILE.write_text(stage)
         print("RTL_STAGE_"+stage,flush=True)
 
 
