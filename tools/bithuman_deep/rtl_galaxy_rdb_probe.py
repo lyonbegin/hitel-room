@@ -263,6 +263,25 @@ def main() -> None:
             return
         time.sleep(8)
     mark("LINUX_RDB_ADB_CONNECT_TIMEOUT")
+    try:
+        last_stage=STAGE_FILE.read_text().strip()
+        if not re.fullmatch(r"[A-Z0-9_]{4,64}",last_stage):
+            last_stage="UNKNOWN"
+    except OSError:
+        last_stage="UNKNOWN"
+    write_summary(args.report,{
+        "utc":datetime.now(timezone.utc).isoformat(),
+        "result":"RDB_CONNECT_TIMEOUT",
+        "original_sdk061_apk_sha256_verified":True,
+        "galaxy_device_reserved":False if last_stage=="WAITING_FOR_SAMSUNG_RTL_OR_LOGIN" else None,
+        "galaxy_reservation_confirmed":False,
+        "linux_rdb_package_detected":rdb.exists(),
+        "linux_rdb_process_started":started is not None,
+        "samsung_adb_device_connected":False,
+        "apk_installed":False,
+        "last_sanitized_stage":last_stage,
+        "note":"No raw Samsung browser state, private account data or RDB transport logs exported"
+    })
     raise TimeoutError("No Samsung RDB device connected within operator reservation window")
 
 
