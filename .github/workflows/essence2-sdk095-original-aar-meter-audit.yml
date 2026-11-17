@@ -35,7 +35,32 @@ jobs:
           grep -Ei 'essence2|meter|credential|model|store|session|entitlement' classes.txt > relevant-classes.txt || true
           echo ORIGINAL_ESSENCE2_RELEVANT_CLASSES
           head -100 relevant-classes.txt
-          grep -E '^ai/bithuman/essence2/.*(Credential|Meter|ModelStore|Session|Avatar).*\.class$' relevant-classes.txt | grep -v '\$' | while read -r path; do
+          grep -E '^ai/bithuman/elevate/.*(Credential|Meter|ModelStore|Session|Avatar).*\.class relevant-classes.txt | grep -v '\$' | while read -r path; do
+            cls="$(echo "$path" | sed 's/\.class$//;s,/,.,g')"
+            echo "----- BEGIN $cls -----"
+            javap -classpath classes.jar -p -c "$cls" || true
+            echo "----- END $cls -----"
+          done > relevant-disassembly.txt
+          echo ORIGINAL_ESSENCE2_ENTRYPOINT_SIGNATURES
+          grep -E '^  (public|private|protected|static)' relevant-disassembly.txt | head -100 || true
+          if unzip -Z1 pristine.aar | grep -Fxq 'jni/arm64-v8a/lible_jni.so'; then
+            unzip -p pristine.aar jni/arm64-v8a/lible_jni.so > lible_jni.so
+            sha256sum lible_jni.so >> original-hashes.sha256
+            echo PASS_ORIGINAL_ARM64_JNI_FOUND
+          fi
+          echo PASS_ESSENCE2_ORIGINAL_095_AAR_JVM_NATIVE_INVENTORY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-sdk095-pristine-aar-audit
+          path: |
+            essence2-sdk095-proof/relevant-classes.txt
+            essence2-sdk095-proof/relevant-disassembly.txt
+            essence2-sdk095-proof/original-hashes.sha256
+            essence2-sdk095-proof/aar-members.txt
+            essence2-sdk095-proof/original.pom
+          retention-days: 14
+ relevant-classes.txt | grep -v '\$' | while read -r path; do
             cls="$(echo "$path" | sed 's/\.class$//;s,/,.,g')"
             echo "----- BEGIN $cls -----"
             javap -classpath classes.jar -p -c "$cls" || true
