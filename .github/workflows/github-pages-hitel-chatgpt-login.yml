@@ -3,7 +3,7 @@ name: Publish HITEL ChatGPT login (GitHub Pages only)
 on:
   push:
     branches:
-      - main
+      - gh-pages
     paths:
       - "hitel-chatgpt-login/**"
       - ".github/workflows/github-pages-hitel-chatgpt-login.yml"
