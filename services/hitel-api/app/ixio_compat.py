@@ -360,7 +360,7 @@ def install_compat(*, app: Any, base: Any, member_class: Any,
         # The app-specific callback scheme must still be checked against original
         # manifest and OAuth deep-link routing. These are CI test-only values.
         return success({
-            "baseUrl": "http://10.0.2.2:8000/",
+            "baseUrl": os.getenv("HITEL_IXIO_PUBLIC_QA_BASE_URL", "http://10.0.2.2:8000/"),
             "authUri": "hitel/qa/authorize",
             "tokenUri": "auth-code",
             "scopes": ["openid", "profile"],
