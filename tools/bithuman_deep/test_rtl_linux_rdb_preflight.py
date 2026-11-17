@@ -64,6 +64,33 @@ class LinuxRdbDistributionTest(unittest.TestCase):
 
 
 class GalaxyReservationSelectorTest(unittest.TestCase):
+    def test_existing_manual_fold_selection_is_detected(self):
+        from playwright.sync_api import sync_playwright
+        auto=load("rtl_galaxy_browser_automation")
+        with sync_playwright() as p:
+            b=p.chromium.connect_over_cdp("http://127.0.0.1:9222",timeout=20000)
+            page=b.contexts[0].new_page()
+            try:
+                page.set_content("""
+                <html><body>
+                  <h1>Galaxy Z Fold8</h1>
+                  <section role="dialog" aria-label="Reserve Galaxy Z Fold8">
+                    <button>Seoul</button>
+                    <button>30 minutes</button>
+                    <button>Start</button>
+                  </section>
+                </body></html>
+                """)
+                auto.visible_pages=lambda _:[page]
+                stage={}
+                self.assertTrue(auto.booking_phase(b,stage))
+                self.assertTrue(stage.get("fold_selected"))
+                self.assertTrue(auto.booking_phase(b,stage))
+                self.assertTrue(stage.get("region_selected"))
+                print("RTL_MANUAL_FOLD_SELECTION_DETECTED_PASS",flush=True)
+            finally:
+                page.close()
+
     def test_reservation_region_duration_start(self):
         from playwright.sync_api import sync_playwright
         auto=load("rtl_galaxy_browser_automation")
