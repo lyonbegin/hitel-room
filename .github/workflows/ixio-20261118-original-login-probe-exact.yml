@@ -1,0 +1,95 @@
+name: IXIO Original Exact Login Verification Callsite and Endpoint Audit
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-20261118-original-login-probe-exact.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-bytecode:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Retrieve pinned original APK and baksmali
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-original-probe
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-original-probe
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-original-probe/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-original-probe/baksmali.jar' | sha256sum -c -
+          for n in 15 16 18; do
+            unzip -p .ixio-original-probe/IXIO_Main_NoAppSealing_Single.apk "classes$n.dex" > ".ixio-original-probe/classes$n.dex"
+            java -Xmx2200m -jar .ixio-original-probe/baksmali.jar d --api 34 --jobs 3 -o ".ixio-original-probe/smali$n" ".ixio-original-probe/classes$n.dex"
+          done
+      - name: Print exact login verification original bytecode and backend URLs with sensitive strings redacted
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          base=Path('.ixio-original-probe')
+          wanted=[
+            (18,'com/lguplus/aicallagent/data/auth/MemberVerificationRepositoryImpl.smali',['verifyCtn']),
+            (15,'com/lguplus/aicallagent/domain/init/usecase/ResolveOnboardingLoginEntryUseCase.smali',['invoke','resolveByRegistration']),
+            (16,'com/lguplus/aicallagent/network/client/ixio/IxIOSetupWizardServer.smali',['getBaseUrl']),
+            (16,'com/lguplus/aicallagent/network/client/ixio/IxIOMemberServiceServer.smali',['getBaseUrl']),
+            (16,'com/lguplus/aicallagent/network/api/ixio/IxIOSetupWizardApi.smali',['verifyCtn']),
+            (16,'com/lguplus/aicallagent/network/member/MemberVerificationRemoteSourceImpl.smali',['verifyCtn']),
+            (16,'com/lguplus/aicallagent/network/api/ixio/IxIOAuthApi.smali',['postAutoLogin']),
+            (16,'com/lguplus/aicallagent/network/IXIBuildConfig$Api.smali',['getMemberServiceApiURL','getAuthServerURL']),
+          ]
+          report={}
+          for n,rel,want in wanted:
+            p=base/f'smali{n}'/rel
+            key=f'{n}:{rel}'
+            if not p.exists():
+              print('SOURCE_ABSENT',key)
+              report[key]={'exists':False}
+              continue
+            raw=p.read_text(errors='replace')
+            blocks=re.findall(r'(?ms)^\.method[^\n]*\n.*?^\.end method$',raw)
+            selected=[]
+            for block in blocks:
+              header=block.splitlines()[0]
+              if not any(re.search(r'\b'+re.escape(q)+r'(?:[-(]|$)',header) for q in want):continue
+              kept=[]
+              for line in block.splitlines():
+                x=line.strip()
+                if x.startswith('const-string'):
+                  # No data or encrypted URL secrets in diagnostics
+                  x=re.sub(r'"[^"]*"','"[ORIGINAL_LITERAL_REDACTED]"',x)
+                if x.startswith('.annotation') or x.startswith('value ='):
+                  x=re.sub(r'"[^"]*"','"[ORIGINAL_LITERAL_REDACTED]"',x)
+                if x.startswith(('.line','.local','.restart','.param','.prologue')):continue
+                kept.append(x[:250])
+              print('METHOD_BEGIN',key,header,'LINES',len(kept))
+              for x in kept[:240]:print('OP',x)
+              selected.append({'header':header,'instructions':kept[:300]})
+            report[key]={'exists':True,'selected':selected}
+          # Also locate which smali class references the targeted Retrofit verifyCtn path.
+          matches=[]
+          for n in (15,16,18):
+            root=base/f'smali{n}'
+            for path in root.rglob('*.smali'):
+              txt=path.read_text(errors='replace')
+              if 'MemberVerificationRemoteSource;->verifyCtn' in txt or 'Lretrofit2/http/POST;\n    value = "v1/members/verify-ctn"' in txt:
+                matches.append({'dex':n,'path':str(path.relative_to(root))})
+          print('ORIGINAL_VERIFY_CTN_REFERRERS',json.dumps(matches[:50]))
+          report['references']=matches
+          Path('ixio-exact-original-login-callsite-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ixio-20261118-original-auth-callsite-audit-json
+          path: ixio-exact-original-login-callsite-report.json
+          retention-days: 7
