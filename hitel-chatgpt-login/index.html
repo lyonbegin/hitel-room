@@ -73,6 +73,8 @@ async function check(){
    go.href=entry.target_url+"#access="+encodeURIComponent(auth);
    go.textContent="원격 Chrome 열기";
    status.textContent="원격 Chrome이 준비되었습니다.";
+   // Personal mobile link: enter the protected noVNC screen in one tap.
+   if(permitted)location.replace(go.href);
    return;
   }
   go.href="https://github.com/lyonbegin/procureflow/actions/workflows/"+flow;
