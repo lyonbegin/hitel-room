@@ -59,26 +59,26 @@ def main():
       '          : await _resolveSecret();\n'
       "      if (_hitelSdk061AuthTest) await _mark('hitel:sdk061_app_secret_nonempty=' + secret.isNotEmpty.toString());\n")
     # Debug-only, user-visible progress: do not alter the vendor's inference or model functions.
-    s=once(s, "    await _mark('boot:start');\\n",
-      "    await _mark('boot:start');\\n"
-      "    if (mounted) setState(() => _status = '1/3: HITEL session authentication...');\\n")
-    s=once(s, "      final secret = _hitelSdk061AuthTest && Platform.isAndroid\\n",
-      "      await _mark('hitel:session:begin');\\n"
-      "      final secret = _hitelSdk061AuthTest && Platform.isAndroid\\n")
-    s=once(s, "          ? await _hitelAcquireHttpsSampleSession()\\n",
-      "          ? await _hitelAcquireHttpsSampleSession().timeout(const Duration(seconds:90))\\n")
-    s=once(s, "      await BithumanAvatar.setExpression2AgentDir(agentDir);\\n",
-      "      if (mounted) setState(() => _status = '2/3: Preparing Expression 2 model...');\\n"
-      "      await BithumanAvatar.setExpression2AgentDir(agentDir);\\n")
-    s=once(s, "      await _mark('boot:load:begin');\\n",
-      "      if (mounted) setState(() => _status = '3/3: Loading model and native renderer...');\\n"
-      "      Timer(const Duration(minutes: 3), () {\\n"
-      "        if (mounted && _avatar == null && _refusal == null) {\\n"
-      "          setState(() => _status = 'Model/native initialization still pending after 3 minutes');\\n"
-      "          _mark('hitel:avatar_load_exceeds_3min');\\n"
-      "        }\\n"
-      "      });\\n"
-      "      await _mark('boot:load:begin');\\n")
+    s=once(s, "    await _mark('boot:start');\n",
+      "    await _mark('boot:start');\n"
+      "    if (mounted) setState(() => _status = '1/3: HITEL session authentication...');\n")
+    s=once(s, "      final secret = _hitelSdk061AuthTest && Platform.isAndroid\n",
+      "      await _mark('hitel:session:begin');\n"
+      "      final secret = _hitelSdk061AuthTest && Platform.isAndroid\n")
+    s=once(s, "          ? await _hitelAcquireHttpsSampleSession()\n",
+      "          ? await _hitelAcquireHttpsSampleSession().timeout(const Duration(seconds:90))\n")
+    s=once(s, "      await BithumanAvatar.setExpression2AgentDir(agentDir);\n",
+      "      if (mounted) setState(() => _status = '2/3: Preparing Expression 2 model...');\n"
+      "      await BithumanAvatar.setExpression2AgentDir(agentDir);\n")
+    s=once(s, "      await _mark('boot:load:begin');\n",
+      "      if (mounted) setState(() => _status = '3/3: Loading model and native renderer...');\n"
+      "      Timer(const Duration(minutes: 3), () {\n"
+      "        if (mounted && _avatar == null && _refusal == null) {\n"
+      "          setState(() => _status = 'Model/native initialization still pending after 3 minutes');\n"
+      "          _mark('hitel:avatar_load_exceeds_3min');\n"
+      "        }\n"
+      "      });\n"
+      "      await _mark('boot:load:begin');\n")
     assert '      if (secret.isEmpty) {\n' in s
     # Preserve the ORIGINAL app's full post-load flow. In particular, never
     # short-circuit _openSession() or insert an early return after avatar.load.
