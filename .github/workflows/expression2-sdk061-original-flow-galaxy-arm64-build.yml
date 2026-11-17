@@ -1,4 +1,4 @@
-name: Expression2 HITEL offline Android local Wise Pup and in-process Dart mock
+name: Expression2 HITEL offline ORIGINAL player/lifecycle Android full APK
 on:
   workflow_dispatch:
   push:
@@ -52,7 +52,6 @@ jobs:
       - name: Compile original plugin Dart unit test without modifying source
         shell: bash
         working-directory: vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin
-        continue-on-error: true
         run: |
           set -euo pipefail
           flutter --version
@@ -156,6 +155,63 @@ jobs:
           echo PASS_ANDROID_OFFLINE_NO_RAILWAY_REFERENCE_IN_APP
           git -C original-upstream diff --check
           git -C original-upstream diff -- app/avatar_chat/lib/main.dart > "$GITHUB_WORKSPACE/pristine-proof/sdk061-app-own-token-only.diff"
+      - name: Verify byte-exact original client playback and resume behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          root=Path('vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin')
+          copy=Path('sdk061-test-plugin-copy')
+          orig_kt=(root/'android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt').read_bytes()
+          test_kt=(copy/'android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt').read_bytes()
+          def kt_method(src, begin, end):
+              assert src.count(begin)==1, (begin,src.count(begin))
+              return src.split(begin,1)[1].split(end,1)[0]
+          resume_start=b'    private fun resume(s: AvatarSession) {'
+          resume_end=b'    /** Platform thread. */'
+          hold_start=b'            "setIdleHold" -> {'
+          hold_end=b'            // --- Apple-only surface'
+          resume_0=kt_method(orig_kt,resume_start,resume_end)
+          resume_1=kt_method(test_kt,resume_start,resume_end)
+          hold_0=kt_method(orig_kt,hold_start,hold_end)
+          hold_1=kt_method(test_kt,hold_start,hold_end)
+          assert resume_0==resume_1,'ERROR native resume was modified'
+          assert hold_0==hold_1,'ERROR native idle hold was modified'
+          plugin_dart='lib/bithuman.dart'
+          a=(root/plugin_dart).read_bytes()
+          b=(copy/plugin_dart).read_bytes()
+          assert a==b,'ERROR original bithuman.dart was modified'
+          upstream=subprocess.check_output(
+              ['git','-C','original-upstream','show','HEAD:app/avatar_chat/lib/main.dart'])
+          new=Path('original-upstream/app/avatar_chat/lib/main.dart').read_bytes()
+          start=b'  void didChangeAppLifecycleState(AppLifecycleState state) {'
+          end=b'  /// Measurement runs only:'
+          lifecycle_0=kt_method(upstream,start,end)
+          lifecycle_1=kt_method(new,start,end)
+          assert lifecycle_0==lifecycle_1,'ERROR upstream main.dart lifecycle was modified'
+          assert b'127.0.0.1' in Path('original-upstream/app/avatar_chat/lib/hitel_offline_runtime.dart').read_bytes()
+          assert b'Expression2Model.combined(modelFile, canonFile, code)' in test_kt
+          sha=lambda blob:hashlib.sha256(blob).hexdigest()
+          proof={
+            'original_native_resume_sha256':sha(resume_0),
+            'original_native_resume_restored_identical':True,
+            'original_native_setIdleHold_sha256':sha(hold_0),
+            'original_native_setIdleHold_restored_identical':True,
+            'original_flutter_plugin_bithuman_sha256':sha(a),
+            'original_flutter_plugin_bithuman_restored_entire_file':True,
+            'original_app_lifecycle_sha256':sha(lifecycle_0),
+            'original_app_lifecycle_restored_identical':True,
+            'model_local_and_offline_server_preserved':True,
+            'real_device_runtime_tested':False
+          }
+          Path('pristine-proof/original-client-behavior-byte-identical.json').write_text(
+              json.dumps(proof,indent=2)+'\n')
+          print('PASS_EXACT_ORIGINAL_NATIVE_RESUME_AND_IDLEHOLD')
+          print('PASS_EXACT_ORIGINAL_BITHUMAN_DART_ENTIRE_FILE')
+          print('PASS_EXACT_ORIGINAL_MAIN_DART_LIFECYCLE')
+          PY
       - name: Build isolated SDK 0.6.1 with only original JVM metering base pointed to HITEL HTTPS test service
         shell: bash
         run: |
@@ -319,18 +375,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag=hitel-expression2-offline-local-mock-20261117
-          asset=HITEL_Expression2_061_OFFLINE_LocalWisePup_Galaxy_ARM64.apk
+          tag=hitel-expression2-offline-original-player-20261117
+          asset=HITEL_Expression2_061_OFFLINE_OriginalPlayer_Galaxy_ARM64.apk
           cp pristine-original-plugin2637-sdk061-arm64.apk "$asset"
           sha256sum "$asset" | tee pristine-proof/offline-release-apk-sha256.txt
           if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$tag" "$asset" --repo "${{ github.repository }}" --clobber
           else
             gh release create "$tag" "$asset" --repo "${{ github.repository }}" --target "$GITHUB_SHA" --latest=false \
-              --title "HITEL Expression 2 OFFLINE ARM64 — local model, local Dart mock" \
-              --notes "MEASUREMENT/DEBUG BUILD ONLY. Original Wise Pup 0.6.1 model packaged locally. In-process original Dart mock on Android 127.0.0.1 only. No Railway. This does NOT implement real AI chat or confirm vendor licensing."
+              --title "HITEL Expression 2 OFFLINE ARM64 — original native player and Dart lifecycle" \
+              --notes "MEASUREMENT/DEBUG BUILD ONLY. Original Wise Pup 0.6.1 model packaged locally. Original vendor BithumanPlugin.kt resume/setIdleHold, bithuman.dart fully byte-identical, upstream main.dart lifecycle byte-identical. In-process original Dart mock on Android 127.0.0.1 only. No Railway. This does NOT implement real AI chat or confirm vendor licensing."
           fi
           url="https://github.com/${{ github.repository }}/releases/download/$tag/$asset"
           printf 'PUBLIC_OFFLINE_APK_URL=%s\n' "$url"
           curl --fail --silent --show-error --location --head --retry 5 --retry-all-errors --retry-delay 3 "$url" | grep -E 'HTTP/[0-9.]+ 200'
-          echo PASS_PUBLIC_OFFLINE_APK_DIRECT_HTTPS_DOWNLOAD
+          echo PASS_PUBLIC_OFFLINE_ORIGINAL_PLAYER_APK_DIRECT_HTTPS_DOWNLOAD
