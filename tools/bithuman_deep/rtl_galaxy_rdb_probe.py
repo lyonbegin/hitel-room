@@ -26,6 +26,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 PKG = "ai.bithuman.example.avatar_chat"
+STAGE_FILE=Path(os.environ.get("RTL_BROWSER_STAGE_FILE","/tmp/rtl-browser-stage.txt"))
+def mark(stage):
+    STAGE_FILE.parent.mkdir(parents=True,exist_ok=True)
+    STAGE_FILE.write_text(stage+"\\n")
+    print("RTL_LINUX_STAGE_"+stage,flush=True)
+
 EXPECTED_SHA256 = "dd08b098dee26477d12489f872482425d4a790766fa3cd2c56d6119253f39ba4"
 
 
@@ -105,15 +111,18 @@ def read_boot(serial: str) -> str:
 
 def collect_probe(serial: str, report: Path, seconds: int = 240) -> dict:
     cmd("adb", "-s", serial, "logcat", "-c")
+    mark("RDB_ADB_DEVICE_CONNECTED")
     print("RTL_ADB_CONNECTED; original APK installation starting", flush=True)
     install = cmd("adb", "-s", serial, "install", "-r",
                   os.environ["RTL_APK"], timeout=180)
     if install.returncode != 0:
         raise RuntimeError("ADB install failed: " + scrub(install.stderr[-1500:]))
+    mark("SDK061_APK_INSTALLED")
     print("RTL_APK_INSTALL_OK", flush=True)
     run = cmd("adb", "-s", serial, "shell", "monkey", "-p", PKG, "1", timeout=30)
     if run.returncode != 0:
         raise RuntimeError("App launch failed: " + scrub(run.stderr[-1000:]))
+    mark("SDK061_APP_LAUNCHED")
     print("RTL_APP_LAUNCH_REQUESTED", flush=True)
     boot = ""
     last_stage = ""
@@ -171,6 +180,7 @@ def collect_probe(serial: str, report: Path, seconds: int = 240) -> dict:
       ]
     }
     write_summary(report, result)
+    mark("SDK061_REAL_GALAXY_PROBE_REPORTED")
     print("RTL_GALAXY_SDK061_PROBE_FINISHED summary=" + str(report), flush=True)
     print(json.dumps({k: v for k, v in result.items() if
                       k not in ("boot_events", "sdk_specific_log_lines")},
@@ -199,6 +209,7 @@ def main() -> None:
         if started is None:
             filename = detect_rdb(args.downloads, rdb)
             if filename:
+                mark("OFFICIAL_LINUX_RDB_VERIFIED")
                 print("SAMSUNG_RDB_LINUX_ELF_VERIFIED from browser download", flush=True)
                 with (args.runtime / "rdb-stderr.log").open("wb") as err:
                     # Avoid leaking the RDB protocol/session payload to Actions logs.
@@ -209,6 +220,7 @@ def main() -> None:
                 if started.poll() is not None:
                     raise RuntimeError("Samsung RDB executable exited immediately; see locally captured diagnostic")
                 (args.runtime / "rdb-ready").write_text("local-RDB-listener-ready\\n")
+                mark("OFFICIAL_LINUX_RDB_RUNNING")
                 print("SAMSUNG_RDB_PROCESS_RUNNING: SAME CHROME Playwright will click RDB Connect", flush=True)
         if started is not None and started.poll() is not None:
             raise RuntimeError("Samsung RDB exited before ADB connection")
@@ -219,6 +231,7 @@ def main() -> None:
             collect_probe(devices[0], args.report)
             return
         time.sleep(8)
+    mark("LINUX_RDB_ADB_CONNECT_TIMEOUT")
     raise TimeoutError("No Samsung RDB device connected within operator reservation window")
 
 
