@@ -294,12 +294,20 @@ jobs:
           lines=backend.split("DEVICE_UI_TEST_START_20261118")
           testing=lines[-1] if len(lines)>1 else ""
           accesses=[]
-          pat=re.compile(r'"(GET|POST|PUT|DELETE|PATCH) (/[^s?"]+)(?:?[^"]+)? HTTP/[0-9.]+" (d{3})')
+          # Parse uvicorn access lines without regex. Drop all URL query strings
+          # and never include tokens, client IPs, request bodies or headers.
           for line in testing.splitlines():
-            m=pat.search(line)
-            if m:
-              method,path,code=m.groups()
-              accesses.append({"method":method,"path":path,"http_status":int(code)})
+            parts=line.split('"')
+            if len(parts)<3: continue
+            request=parts[1].split()
+            rest=parts[2].strip().split()
+            if len(request)!=3 or not rest: continue
+            method,url,_protocol=request
+            if method not in ("GET","POST","PUT","DELETE","PATCH"): continue
+            if not rest[0].isdigit(): continue
+            path=url.split("?",1)[0]
+            accesses.append({"method":method,"path":path,
+                             "http_status":int(rest[0])})
           counts=collections.Counter((x['method'],x['path'],x['http_status']) for x in accesses)
           verified={
             "scenario":"Original IXIO APK with only login endpoints changed, installed into Android14 emulator",
