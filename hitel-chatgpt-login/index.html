@@ -1,89 +1,90 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>HITEL · ChatGPT 로그인</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#182a40;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
-main{max-width:540px;padding:28px 18px 48px;margin:0 auto}
-h1{font-size:26px;letter-spacing:-.04em;margin:4px 0 13px}
-p{line-height:1.7;color:#54687e}
-section{background:white;border:1px solid #e0e5eb;border-radius:16px;padding:22px;margin:20px 0}
-button,a.button{display:block;width:100%;padding:16px;border:0;border-radius:11px;background:#155889;color:white;
-font-size:17px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
-button:disabled{background:#aebdca;cursor:not-allowed}
-#state{padding:15px 0;font-size:16px;font-weight:600;line-height:1.7;color:#264866}
-small{display:block;line-height:1.7;color:#697c90;margin-top:15px}
-a.secondary{display:block;color:#255d8b;font-size:14px;margin-top:16px;text-align:center}
+*{box-sizing:border-box}body{margin:0;background:#f5f7fa;color:#172e46;
+font:16px system-ui,-apple-system,"Noto Sans KR",sans-serif}
+main{max-width:540px;margin:0 auto;padding:32px 18px}
+h1{font-size:25px;letter-spacing:-.04em;margin:7px 0 20px}
+p{line-height:1.7;color:#607287;margin:11px 0}
+.status{background:#fff;border:1px solid #dce6ef;border-radius:14px;padding:18px;
+line-height:1.6;font-weight:650;margin:18px 0}
+a.primary{display:block;padding:17px 14px;border-radius:12px;text-align:center;
+font-weight:750;color:white;background:#165a8d;text-decoration:none;font-size:18px}
+a.secondary{display:block;color:#215e90;text-align:center;font-size:14px;
+padding:15px;text-decoration:underline}
+small{display:block;margin-top:26px;color:#72869a;line-height:1.7}
 </style>
 </head>
 <body><main>
 <h1>ChatGPT 계정 로그인</h1>
-<p>휴대전화에서 원격 Chrome에 로그인하시면 됩니다. Railway는 사용하지 않습니다.</p>
-<section>
-<div id="state" role="status">원격 Chrome 연결을 확인하고 있습니다.</div>
-<button id="connect" type="button" disabled>원격 Chrome 열기</button>
-<small>로그인 화면에서 계정 A를 로그인하고 <b>저장</b>을 누르시면 계정 B로 바뀝니다.
-두 계정 모두 Google·ChatGPT 공식 화면에서 직접 로그인하십니다.</small>
-</section>
-<a class="secondary" id="actions" href="https://github.com/lyonbegin/procureflow/actions/workflows/hitel-two-account-manual-login.yml"
-target="_blank" rel="noopener noreferrer">원격 Chrome 실행 상태 확인 (GitHub Actions)</a>
+<p>원격 Chrome에서 계정 A와 B를 차례로 로그인하고
+<strong>로그인 확인 · 저장</strong> 버튼만 누르시면 됩니다.</p>
+<div class="status" id="status" role="status">GitHub 원격 Chrome 상태를 확인하고 있습니다.</div>
+<a id="go" class="primary" href="https://github.com/lyonbegin/procureflow/actions/workflows/hitel-two-account-manual-login.yml"
+target="_blank" rel="noopener noreferrer">GitHub에서 Chrome 실행</a>
+<a id="refresh" class="secondary" href="#">연결 상태 다시 확인</a>
+<small>Railway는 사용하지 않습니다. 이 페이지는 GitHub Pages, 실제 원격 Chrome은 GitHub Actions에서 실행합니다.
+Google 비밀번호·인증번호는 공식 로그인 화면에서 직접 입력합니다.</small>
 </main>
 <script>
 "use strict";
-const API="https://api.github.com/repos/lyonbegin/procureflow";
-const FLOW="hitel-two-account-manual-login.yml";
-const state=document.getElementById("state");
-const btn=document.getElementById("connect");
-let privateToken="";
-const fragment=new URLSearchParams(location.hash.replace(/^#/,""));
-const value=fragment.get("access");
-if(value && /^[a-zA-Z0-9_-]{48,110}$/.test(value)){
- privateToken=value;
- try{sessionStorage.setItem("hitel_chrome_access",value)}catch{}
-}else{
- try{privateToken=sessionStorage.getItem("hitel_chrome_access")||""}catch{}
-}
-if(location.hash)history.replaceState(null,"",location.pathname+location.search);
-function safeGrant(raw){
- try{const u=new URL(raw);return u.protocol==="https:" &&
- /^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname) &&
- u.pathname==="/grant" && !u.search && !u.hash && !u.username && !u.password}
- catch{return false}
-}
-async function getJson(path){
- const r=await fetch(API+path,{headers:{"Accept":"application/vnd.github+json"},cache:"no-store"});
- if(!r.ok)throw Error("GitHub 상태 확인 오류");
- return r.json()
-}
-async function connect(){
- btn.disabled=true;
+const api="https://api.github.com/repos/lyonbegin/procureflow";
+const flow="hitel-two-account-manual-login.yml";
+const go=document.getElementById("go");
+const status=document.getElementById("status");
+const refresh=document.getElementById("refresh");
+// Personal access is in the link fragment ONLY: never in GitHub Pages source.
+const auth=new URLSearchParams(location.hash.substring(1)).get("access")||"";
+const permitted=/^[A-Za-z0-9_-]{40,120}$/.test(auth);
+function trusted(url){
  try{
-  const runs=await getJson("/actions/workflows/"+FLOW+"/runs?per_page=4");
-  let url="";
-  for(const run of (runs.workflow_runs||[])){
-   if(run.status!=="in_progress" || !/^[a-f0-9]{40}$/.test(run.head_sha))continue;
-   const res=await getJson("/commits/"+run.head_sha+"/status");
-   const found=(res.statuses||[]).find(x=>x.context==="hitel-two-manual-chrome-logins");
-   if(found?.state==="pending" && safeGrant(found.target_url)){url=found.target_url;break}
-  }
-  if(!url){state.textContent="현재 원격 Chrome이 실행되어 있지 않습니다.";return}
-  if(!privateToken){state.textContent="개인 접속 권한이 포함된 링크로 열어 주십시오.";return}
-  const target=url+"#access="+encodeURIComponent(privateToken);
-  btn.disabled=false;
-  btn.onclick=()=>location.assign(target);
-  state.textContent="원격 Chrome에 연결할 수 있습니다.";
-  // A personal link opens the screen directly; the button remains as fallback.
-  if(value && privateToken===value)location.assign(target);
- }catch(e){state.textContent="연결 상태를 확인할 수 없습니다. 다시 열어 주십시오."}
+  const u=new URL(url);
+  return u.protocol==="https:" &&
+    /^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname) &&
+    u.pathname==="/grant" && !u.search && !u.hash;
+ }catch{return false}
 }
-btn.onclick=connect;
-connect();
-let attempts=0;
-const watcher=setInterval(()=>{
- if(!btn.disabled || attempts++>=18){clearInterval(watcher);return}
- connect();
-},12000);
+async function get(url){
+ const r=await fetch(url,{cache:"no-store",headers:{"Accept":"application/vnd.github+json"}});
+ if(!r.ok)throw Error("GitHub 조회 실패");
+ return r.json();
+}
+let checking=false;
+async function check(){
+ if(checking)return;
+ checking=true;
+ try{
+  const runs=await get(api+"/actions/workflows/"+flow+"/runs?per_page=4");
+  for(const run of (runs.workflow_runs||[])){
+   if(run.status!=="in_progress" || !/^[0-9a-f]{40}$/.test(run.head_sha))continue;
+   const details=await get(api+"/commits/"+run.head_sha+"/status");
+   const entry=(details.statuses||[]).find(s=>
+     s.context==="hitel-two-manual-chrome-logins");
+   if(!entry||entry.state!=="pending"||!trusted(entry.target_url))continue;
+   if(!permitted){
+    status.textContent="원격 Chrome이 실행 중입니다. 개인용 접속 링크에서 열어 주십시오.";
+    return;
+   }
+   go.href=entry.target_url+"#access="+encodeURIComponent(auth);
+   go.textContent="원격 Chrome 열기";
+   status.textContent="원격 Chrome이 준비되었습니다.";
+   return;
+  }
+  go.href="https://github.com/lyonbegin/procureflow/actions/workflows/"+flow;
+  go.textContent="GitHub에서 Chrome 실행";
+  status.textContent="원격 Chrome이 꺼져 있습니다.";
+ }catch(e){
+  status.textContent="연결 확인에 실패했습니다. GitHub Actions에서 실행 상태를 확인해 주십시오.";
+ }finally{checking=false}
+}
+refresh.onclick=e=>{e.preventDefault();check()};
+check();
+setInterval(check,90000);
 </script>
-</body></html>
+</body>
+</html>
