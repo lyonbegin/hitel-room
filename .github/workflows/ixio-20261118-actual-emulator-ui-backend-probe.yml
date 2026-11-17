@@ -260,9 +260,14 @@ jobs:
         run: |
           test -c /dev/kvm
           sudo chmod a+rw /dev/kvm
-      - name: Mark exactly where Android automatic UI test starts in HITEL server access log
+      - name: Snapshot server log size and verify log parser with a known HTTP health request
+        shell: bash
         run: |
-          echo 'DEVICE_UI_TEST_START_20261118' >> .hitel-ixio-qa/test/hitel-api.log
+          set -euo pipefail
+          test -s .hitel-ixio-qa/test/hitel-api.log
+          stat -c %s .hitel-ixio-qa/test/hitel-api.log > .hitel-ixio-qa/test/ui-start-offset.txt
+          curl --max-time 15 --fail --silent --show-error "${HITEL_PUBLIC_API_URL}health" >/dev/null
+          echo "KNOWN_LOG_TRACE_CONTROL_REQUEST_SENT=YES"
       - name: Android14 emulator automatic screen navigation and permission approval
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -290,9 +295,10 @@ jobs:
           out.mkdir(exist_ok=True)
           d=json.loads((out/"result.json").read_text(encoding="utf-8"))
           print("ACTUAL_EMULATOR_UI_OUTCOME",json.dumps(d,ensure_ascii=False))
-          backend=Path(".hitel-ixio-qa/test/hitel-api.log").read_text(errors="replace")
-          lines=backend.split("DEVICE_UI_TEST_START_20261118")
-          testing=lines[-1] if len(lines)>1 else ""
+          backend_bytes=Path(".hitel-ixio-qa/test/hitel-api.log").read_bytes()
+          offset=int(Path(".hitel-ixio-qa/test/ui-start-offset.txt").read_text().strip())
+          assert 0<=offset<=len(backend_bytes),("Invalid log offset",offset,len(backend_bytes))
+          testing=backend_bytes[offset:].decode("utf-8",errors="replace")
           accesses=[]
           # Parse uvicorn access lines without regex. Drop all URL query strings
           # and never include tokens, client IPs, request bodies or headers.
@@ -308,7 +314,10 @@ jobs:
             path=url.split("?",1)[0]
             accesses.append({"method":method,"path":path,
                              "http_status":int(rest[0])})
-          counts=collections.Counter((x['method'],x['path'],x['http_status']) for x in accesses)
+          control=[x for x in accesses if x['method']=="GET" and x['path']=="/health" and x['http_status']==200]
+          assert control,("Known health request not found in backend log; cannot trust HTTP counts",len(testing),len(accesses))
+          app_accesses=[x for x in accesses if x['path']!="/health"]
+          counts=collections.Counter((x['method'],x['path'],x['http_status']) for x in app_accesses)
           verified={
             "scenario":"Original IXIO APK with only login endpoints changed, installed into Android14 emulator",
             "apk_installed":d["installed"],
@@ -320,16 +329,18 @@ jobs:
             "failure_stop_reason":d["stop_reason"],
             "app_process_alive":d["last_process_alive"],
             "app_fatal_exceptions":d["fatal_lines"],
-            "hitel_device_request_total":len(accesses),
+            "hitel_server_log_parser_health_control_seen":len(control)>0,
+            "hitel_device_request_total":len(app_accesses),
             "hitel_device_request_counts":[{"method":a,"path":b,"status":code,"count":n}
               for (a,b,code),n in sorted(counts.items())],
-            "hitel_device_login_requests":[x for x in accesses
+            "hitel_device_login_requests":[x for x in app_accesses
               if x["path"] in ("/login","/v2/login","/auth-code","/autologin","/v1/members/verify-ctn")],
             "limitations":["HTTP request paths to original vendor domains are not visible from encrypted HTTPS unless app logging exposes them",
                            "Automated test uses synthetic HITEL QA fixture, not a real user identity",
                            "Legal subscriber terms and real telephony activation must not be auto-approved"]
           }
           (out/"network-and-screen-correlation.json").write_text(json.dumps(verified,ensure_ascii=False,indent=2))
+          print("HITEL_SERVER_LOG_CONTROL_SEEN",len(control))
           print("HITEL_SERVER_DEVICE_REQUESTS",json.dumps(verified["hitel_device_request_counts"],ensure_ascii=False))
           print("FIRST_FAILURE",json.dumps(verified["error_screens"][:1],ensure_ascii=False))
           print("EVIDENCE_CAPTURE_FINISHED=YES")
