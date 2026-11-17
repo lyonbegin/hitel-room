@@ -29,7 +29,7 @@ PKG = "ai.bithuman.example.avatar_chat"
 STAGE_FILE=Path(os.environ.get("RTL_BROWSER_STAGE_FILE","/tmp/rtl-browser-stage.txt"))
 def mark(stage):
     STAGE_FILE.parent.mkdir(parents=True,exist_ok=True)
-    STAGE_FILE.write_text(stage+"\\n")
+    STAGE_FILE.write_text(stage)
     print("RTL_LINUX_STAGE_"+stage,flush=True)
 
 EXPECTED_SHA256 = "dd08b098dee26477d12489f872482425d4a790766fa3cd2c56d6119253f39ba4"
