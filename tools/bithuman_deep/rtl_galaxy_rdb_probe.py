@@ -54,31 +54,60 @@ def digest(file: Path) -> str:
 
 
 def detect_rdb(downloads: Path, target: Path):
-    """Pick only a valid ZIP with one Linux RDB binary. No path extraction."""
-    for path in sorted(downloads.glob("*.zip"), key=lambda x: x.stat().st_mtime,
-                       reverse=True):
-        if not path.is_file() or path.name.endswith(".crdownload"):
+    """Safely unpack the official Linux RDB distribution, including its libraries.
+
+    Some Samsung RDB ZIPs bundle support libraries next to their executable:
+    extracting only the ELF executable can silently break RDB. No path escapes,
+    symlinks, excessive sizes or unsupported architectures are permitted.
+    Returns a verified ELF x86_64 executable path, not a claimed connection.
+    """
+    for archive in sorted(downloads.glob("*.zip"),
+                          key=lambda p: p.stat().st_mtime, reverse=True):
+        if not archive.is_file():
             continue
         try:
-            with zipfile.ZipFile(path) as z:
-                entries = [i for i in z.infolist() if
-                           not i.is_dir() and
-                           (i.filename.replace("\\", "/").split("/")[-1] == "rdb")]
-                if len(entries) != 1:
+            with zipfile.ZipFile(archive) as z:
+                items = [i for i in z.infolist() if not i.is_dir()]
+                if not items or len(items) > 300 or sum(i.file_size for i in items) > 200_000_000:
                     continue
-                info = entries[0]
-                if info.file_size < 10000 or info.file_size > 80_000_000:
+                dest_root = (target.parent / "official-samsung-rdb").resolve()
+                entries = []
+                unsafe = False
+                for item in items:
+                    name = item.filename.replace("\\\\", "/")
+                    bits = name.split("/")
+                    unix_mode = (item.external_attr >> 16)
+                    if (name.startswith("/") or "\x00" in name or
+                        ":" in bits[0] or ".." in bits or
+                        (unix_mode & 0o170000) == 0o120000 or
+                        item.file_size > 80_000_000):
+                        unsafe = True
+                        break
+                    destination = (dest_root / name).resolve()
+                    if destination == dest_root or not destination.is_relative_to(dest_root):
+                        unsafe = True
+                        break
+                    entries.append((item,destination))
+                if unsafe:
                     continue
-                binary = z.read(info)
-                if not binary.startswith(b"\x7fELF"):
+                binaries = []
+                for info,destination in entries:
+                    if destination.name.lower() == "rdb":
+                        data = z.read(info)
+                        if (len(data) >= 20 and data[:4] == b"\\x7fELF" and
+                            data[4] == 2 and int.from_bytes(data[18:20],"little") == 62):
+                            binaries.append((info,destination))
+                if len(binaries)!=1:
                     continue
-                if binary[4] != 2:  # ELF 64 bit
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(binary)
-                target.chmod(0o700)
-                return path.name
-        except (zipfile.BadZipFile, OSError, RuntimeError):
+                for info,destination in entries:
+                    destination.parent.mkdir(parents=True,exist_ok=True)
+                    destination.write_bytes(z.read(info))
+                    if info.filename == binaries[0][0].filename:
+                        destination.chmod(0o700)
+                    else:
+                        destination.chmod(0o600)
+                return binaries[0][1]
+        except (zipfile.BadZipFile, OSError, RuntimeError, ValueError):
             continue
     return None
 
@@ -207,13 +236,15 @@ def main() -> None:
     print("SAMSUNG_RTL_WAIT_FOR_OPERATOR: login, reserve Fold, download official Linux RDB ZIP", flush=True)
     while time.monotonic() < deadline:
         if started is None:
-            filename = detect_rdb(args.downloads, rdb)
-            if filename:
+            rdb_executable = detect_rdb(args.downloads, rdb)
+            if rdb_executable:
                 mark("OFFICIAL_LINUX_RDB_VERIFIED")
-                print("SAMSUNG_RDB_LINUX_ELF_VERIFIED from browser download", flush=True)
+                print("SAMSUNG_RDB_LINUX_ELF_X86_64_AND_PACKAGE_VERIFIED", flush=True)
                 with (args.runtime / "rdb-stderr.log").open("wb") as err:
-                    # Avoid leaking the RDB protocol/session payload to Actions logs.
-                    started = subprocess.Popen([str(rdb)], cwd=args.runtime,
+                    # Keep accompanying Samsung RDB libraries next to the binary.
+                    # Never export the RDB transport/session data to GitHub.
+                    started = subprocess.Popen([str(rdb_executable)],
+                                               cwd=rdb_executable.parent,
                                                stdout=err, stderr=subprocess.STDOUT,
                                                start_new_session=True)
                 time.sleep(3)
