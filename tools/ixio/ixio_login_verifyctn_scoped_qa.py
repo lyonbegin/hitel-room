@@ -75,15 +75,21 @@ def main()->None:
     src=p_caller.read_text()
     m=only_method(src,"verifyCtn-gIAlu-s")
     block=m.group()
-    occurrences=block.count(ORIGINAL_ENCRYPT)
-    if occurrences!=1:
-        raise AssertionError(("Exactly one original login encryption CALLSITE required",occurrences))
-    # Replace just the original one-callsite coroutine encryption invocation.
-    # No global encryption methods, interface routing, vendor URLs or other
-    # MemberVerificationRepositoryImpl instructions are changed.
+    # Baksmali may preserve blank lines between instruction and move-result.
+    # Match precisely this one original login-only coroutine callsite.
+    pattern=re.compile(
+        r"(?m)^    invoke-virtual \\{p2, p1, v1\\}, "
+        r"Lcom/lguplus/aicallagent/util/EncryptCtnUtil;->encrypt\\("
+        r"Ljava/lang/String;Lkotlin/coroutines/Continuation;\\)Ljava/lang/Object;"
+        r"\\n(?:[ \\t]*\\n)*    move-result-object p2"
+    )
+    matches=list(pattern.finditer(block))
+    if len(matches)!=1:
+        raise AssertionError(("Exactly one original login crypto CALLSITE required",len(matches)))
+    original_call=matches[0].group()
     const="    const-string p2, "+json.dumps(args.qa_assertion)
-    patched=block.replace(ORIGINAL_ENCRYPT,const,1)
-    if patched.replace(const,ORIGINAL_ENCRYPT,1)!=block:
+    patched=pattern.sub(lambda _:const,block,count=1)
+    if patched.replace(const,original_call,1)!=block:
         raise AssertionError("Unexpected mutation in original repository method")
     p_caller.write_text(src[:m.start()]+patched+src[m.end():])
 
