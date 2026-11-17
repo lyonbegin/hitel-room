@@ -242,22 +242,13 @@ jobs:
             assert 'classes18.dex' in z.namelist()
           print('SIGNED_APK_PUBLIC_URL_IN_DEX_OK')
           PY
-      - name: Upload direct-download APK to GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          tag=ixio-hitel-one-weblogin-original-services-20261117
-          cp .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk /tmp/IXIO_HITEL_One_WebLogin_OriginalServices.apk
-          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" --title "IXIO one shared web-login URL original-services QA APK" --notes "Short-lived synthetic-account test only, not production carrier login."
-          fi
-          gh release upload "$tag" /tmp/IXIO_HITEL_One_WebLogin_OriginalServices.apk --repo "$GH_REPO" --clobber
-          gh release edit "$tag" --repo "$GH_REPO" --notes "ONE member-service URL getter patched, original other API/STT/model routes intact. Temporary external QA backend: $HITEL_PUBLIC_API_URL . Stops with workflow in approximately 90 minutes. Not a permanent login server. Synthetic QA identity only; real phone login, call recording and STT unverified."
-          gh release view "$tag" --repo "$GH_REPO" --json assets --jq '.assets[] | select(.name == "IXIO_HITEL_One_WebLogin_OriginalServices.apk") | {name: .name, size: .size, url: .url}'
-          echo "DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_One_WebLogin_OriginalServices.apk"
+      - name: Publish externally reachable HTTPS QA APK as artifact for user download
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_One_WebLogin_OriginalServices_PublicHTTPS_APK
+          path: .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
+          retention-days: 3
+          if-no-files-found: error
       - name: Keep external HTTPS QA API running during immediate real-device test
         shell: bash
         run: |
