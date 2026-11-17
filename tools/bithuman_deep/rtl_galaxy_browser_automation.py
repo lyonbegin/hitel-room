@@ -204,11 +204,13 @@ def booking_phase(browser, flag: dict) -> bool:
                     if safe_click(exact_text(frame,label),"REGION_SELECTED"):
                         flag["region_selected"]=True
                         return True
-                for role in ("combobox","button","link"):
-                    for label in ("Location","Select Location","Select Region","Region"):
-                        if safe_click(roles(frame,role,re.compile("^"+re.escape(label)+"$",re.I)),
-                                      "REGION_SELECTOR_OPENED"):
-                            return True
+                if not flag.get("region_selector_attempted"):
+                    for role in ("combobox","button","link"):
+                        for label in ("Location","Select Location","Select Region","Region"):
+                            if safe_click(roles(frame,role,re.compile("^"+re.escape(label)+"$",re.I)),
+                                          "REGION_SELECTOR_OPENED"):
+                                flag["region_selector_attempted"]=True
+                                return True
                 for item in frame.locator("select").all()[:4]:
                     try:
                         candidates=[
@@ -235,11 +237,13 @@ def booking_phase(browser, flag: dict) -> bool:
                     if safe_click(exact_text(frame,label),"THIRTY_MINUTE_SESSION"):
                         flag["duration_selected"]=True
                         return True
-                for role in ("combobox","button"):
-                    for label in ("Duration","Select Duration","Usage Time","Reservation Time","Time"):
-                        if safe_click(roles(frame,role,re.compile("^"+re.escape(label)+"$",re.I)),
-                                      "DURATION_SELECTOR_OPENED"):
-                            return True
+                if not flag.get("duration_selector_attempted"):
+                    for role in ("combobox","button"):
+                        for label in ("Duration","Select Duration","Usage Time","Reservation Time","Time"):
+                            if safe_click(roles(frame,role,re.compile("^"+re.escape(label)+"$",re.I)),
+                                          "DURATION_SELECTOR_OPENED"):
+                                flag["duration_selector_attempted"]=True
+                                return True
                 for item in frame.locator("select").all()[:4]:
                     try:
                         candidates=[
