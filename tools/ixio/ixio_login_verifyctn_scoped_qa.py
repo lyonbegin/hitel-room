@@ -25,7 +25,7 @@ ORIGINAL_ENCRYPT=(
 )
 
 def only_method(src:str,method:str)->re.Match[str]:
-    pattern=r"(?ms)^\\.method[^\\n]*[ \\t]"+re.escape(method)+r"\\([^)]*\\)[^\\n]*\\n.*?^\\.end method$"
+    pattern=r"(?ms)^\.method[^\n]*[ \t]"+re.escape(method)+r"\([^)]*\)[^\n]*\n.*?^\.end method$"
     found=list(re.finditer(pattern,src))
     if len(found)!=1:raise AssertionError((method,"method count",len(found)))
     return found[0]
@@ -41,7 +41,7 @@ def main()->None:
     ap.add_argument("--qa-assertion",required=True)
     ap.add_argument("--report",type=Path,required=True)
     args=ap.parse_args()
-    if not re.fullmatch(r"https://[a-z0-9-]+\\.trycloudflare\\.com/",args.base_url):
+    if not re.fullmatch(r"https://[a-z0-9-]+\.trycloudflare\.com/",args.base_url):
         raise ValueError("Only temporary HTTPS isolated QA backend supported")
     if not re.fullmatch(r"ixioqa_[0-9a-f]{80}",args.qa_assertion):
         raise ValueError("An isolated random, 80-char test assertion is required")
@@ -60,7 +60,7 @@ def main()->None:
     m=only_method(src,"verifyCtn")
     block=m.group()
     # Do not change the other Retrofit setup-wizard functions.
-    post=re.compile(r'(?ms)(\\.annotation runtime Lretrofit2/http/POST;\\n\\s+value = )"([^"]+)"(\\n\\s+\\.end annotation)')
+    post=re.compile(r'(?ms)(\.annotation runtime Lretrofit2/http/POST;\n\s+value = )"([^"]+)"(\n\s+\.end annotation)')
     matches=list(post.finditer(block))
     if len(matches)!=1:
         raise AssertionError(f"VerifyCtn POST annotations: {len(matches)}")
