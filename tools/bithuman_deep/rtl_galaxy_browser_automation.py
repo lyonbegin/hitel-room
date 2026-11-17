@@ -86,16 +86,24 @@ def rdb_phase(browser, rdb_file: Path, flag: dict) -> bool:
         for frame in frames(page):
             # The Samsung RTC page's sidebar RDB menu is not account login UI.
             if not flag.get("menu"):
-                for role in ("button", "link", "menuitem"):
+                for role in ("button", "link", "menuitem", "tab"):
                     if safe_click(roles(frame, role, RDB_MENU), "RDB_MENU"):
                         flag["menu"] = True
                         return True
+                # Samsung's current RTL sidebar can be non-semantic text
+                # (not accessible as a button/link). Match the visible label.
+                if safe_click(frame.get_by_text(RDB_MENU, exact=True), "RDB_MENU"):
+                    flag["menu"] = True
+                    return True
 
             if flag.get("menu") and not flag.get("connect_request"):
                 for role in ("button", "link"):
                     if safe_click(roles(frame, role, RDB_CONNECT), "RDB_CONNECT_REQUEST"):
                         flag["connect_request"] = True
                         return True
+                if safe_click(frame.get_by_text(RDB_CONNECT, exact=True), "RDB_CONNECT_REQUEST"):
+                    flag["connect_request"]=True
+                    return True
 
             # Once RDB connect shows the ZIP download pop-up, download
             # in SAME Chrome so the worker can launch official Linux ELF.
@@ -130,6 +138,9 @@ def rdb_phase(browser, rdb_file: Path, flag: dict) -> bool:
                     if safe_click(roles(frame, role, RDB_CONNECT), "RDB_CONNECT_FINAL"):
                         flag["second_connect"] = True
                         return True
+                if safe_click(frame.get_by_text(RDB_CONNECT, exact=True), "RDB_CONNECT_FINAL"):
+                    flag["second_connect"]=True
+                    return True
 
             if rdb_file.exists() and flag.get("second_connect"):
                 # Samsung RTL may render the phone's RSA approval as its
