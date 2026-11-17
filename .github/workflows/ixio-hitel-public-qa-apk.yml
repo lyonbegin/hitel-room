@@ -1,4 +1,4 @@
-name: IXIO One Web Login URL Original Services Public HTTPS QA
+name: IXIO Login Only Original Services and Crypto - Signed Direct APK QA
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -133,7 +133,7 @@ jobs:
             -o .hitel-ixio-qa/tools/smali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .hitel-ixio-qa/tools/baksmali.jar' | sha256sum -c -
           echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .hitel-ixio-qa/tools/smali.jar' | sha256sum -c -
-      - name: Patch ONE shared web-login service URL, CTN test proof and reassemble DEX
+      - name: Patch ONLY IxIOAuthServer URL and assert all other original Smali unchanged
         shell: bash
         run: |
           set -euo pipefail
@@ -142,18 +142,19 @@ jobs:
             -o .hitel-ixio-qa/smali16 .hitel-ixio-qa/apk/classes16-original.dex
           python3 tools/ixio/ixio_route_to_hitel_public_qa.py \
             --root .hitel-ixio-qa/smali16 \
-            --qa-assertion "$HITEL_IXIO_CI_ASSERTION" \
             --base-url "$HITEL_PUBLIC_API_URL" \
             --report ixio-hitel-android-results/smali-patch-report.json
           python3 - <<'PY'
           import json
-          p='ixio-hitel-android-results/smali-patch-report.json'
-          d=json.load(open(p))
-          assert d['patched_method_count']==2, d
-          assert d['single_member_service_host_getter'] is True
-          assert d['protected_original_sha256']==d['protected_after_sha256']
-          assert len([x for x in d['patched_smali_methods'] if x['method'].startswith('getMemberServiceApiURL')])==1
-          print('ONE_SHARED_MEMBER_SERVICE_URL_AND_ORIGINAL_OTHER_SERVICES=VERIFIED')
+          d=json.load(open('ixio-hitel-android-results/smali-patch-report.json'))
+          assert d['changed_class_count'] == 1,d
+          assert d['changed_classes'] == ['com/lguplus/aicallagent/network/client/ixio/IxIOAuthServer.smali'],d
+          assert d['changed_method'] == 'getBaseUrl()Ljava/lang/String;',d
+          for key in ('original_crypto_ctn_unchanged','original_global_urls_unchanged',
+                      'original_setup_wizard_unchanged','original_member_service_unchanged',
+                      'original_Aes256_unchanged'):
+              assert d[key] is True,(key,d)
+          print('ORIGINAL_CTN_CRYPTO_RECORDER_STT_URLS_PRESERVED=YES')
           PY
           java -Xmx2500m -jar .hitel-ixio-qa/tools/smali.jar \
             a --api 34 --jobs 3 \
@@ -161,13 +162,13 @@ jobs:
             > ixio-hitel-android-results/smali-assembly.log 2>&1
           test -s .hitel-ixio-qa/apk/classes16-hitel.dex
           python3 - <<'PY'
-          import pathlib,struct,json
+          import pathlib,struct
           p=pathlib.Path('.hitel-ixio-qa/apk')
           old=(p/'classes16-original.dex').read_bytes()
           new=(p/'classes16-hitel.dex').read_bytes()
           at=lambda data,off:struct.unpack_from('<I',data,off)[0]
           for name,offset in [('classes',0x60),('methods',0x58)]:
-            assert at(old,offset)==at(new,offset), (name,at(old,offset),at(new,offset))
+              assert at(old,offset)==at(new,offset),(name,at(old,offset),at(new,offset))
           print('HITEL_DEX_REASSEMBLY_CLASS_METHOD_IDS=UNCHANGED')
           PY
       - name: Create exactly ONE signed IXIO APK (not a split APK bundle)
@@ -194,6 +195,14 @@ jobs:
             assert a.read('AndroidManifest.xml')==b.read('AndroidManifest.xml')
             for n in ('classes15.dex','classes17.dex','classes18.dex','classes19.dex'):
               assert a.read(n)==b.read(n),n
+          with zipfile.ZipFile(src) as a, zipfile.ZipFile(dest) as b:
+            skip=lambda n:n=='classes16.dex' or re.fullmatch(r'META-INF/.*\\.(RSA|EC|DSA|SF|MF)',n,re.I)
+            originals={n for n in a.namelist() if not skip(n)}
+            rebuilt={n for n in b.namelist() if not skip(n)}
+            assert originals==rebuilt,('apk entries changed',originals^rebuilt)
+            for n in originals:
+              assert a.read(n)==b.read(n),('original asset changed',n)
+          print('EVERY_OTHER_ORIGINAL_APK_ENTRY_UNCHANGED=YES')
           print('ONLY_CLASSES16_REPLACED=YES')
           PY
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
@@ -245,10 +254,30 @@ jobs:
       - name: Publish externally reachable HTTPS QA APK as artifact for user download
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO_One_WebLogin_OriginalServices_PublicHTTPS_APK
+          name: IXIO_LoginOnly_AllOtherOriginal_CTN_Restored_20261117
           path: .hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
           retention-days: 3
           if-no-files-found: error
+      - name: Publish EXACT signed login-only APK as public GitHub Release direct download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ixio-login-only-all-original-20261117
+          apk=.hitel-ixio-qa/apk/IXIO_HITEL_Auth_CI_Single.apk
+          target=.hitel-ixio-qa/apk/IXIO_HITEL_LoginOnly_AllOriginal_20261117.apk
+          cp "$apk" "$target"
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO HITEL Login Only - All Other Original Functionality" \
+              --notes "One original IxIOAuthServer.getBaseUrl() changed to a temporary public HITEL test HTTPS endpoint. EncryptCtnUtil.encrypt(), shared member URL, enrollment/SetupWizard, app settings, audio recording, STT, model assets and all other APK entries remain original. Exact isolated synthetic login server runs only while build workflow is alive. User-device login not validated."
+          fi
+          gh release upload "$tag" "$target" --repo "$GH_REPO" --clobber
+          gh release view "$tag" --repo "$GH_REPO" --json assets \
+            --jq '.assets[] | select(.name == "IXIO_HITEL_LoginOnly_AllOriginal_20261117.apk") | {name: .name, size: .size, url: .url}'
+          echo "PUBLIC_DIRECT_APK=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_LoginOnly_AllOriginal_20261117.apk"
       - name: Keep external HTTPS QA API running during immediate real-device test
         shell: bash
         run: |
