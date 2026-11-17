@@ -142,6 +142,38 @@ def rdb_phase(browser, rdb_file: Path, flag: dict) -> bool:
     return False
 
 
+def manually_selected_fold(page) -> bool:
+    """Detect an already-selected Fold without relying on a button click made by Playwright.
+
+    Selecting a Fold tile manually opens preference controls. Do not confuse
+    a general device catalog listing (with many Fold tiles) with a selection.
+    Only observe visible text/control semantics; never read passwords/cookies.
+    """
+    for frame in frames(page):
+        try:
+            # A reservation dialog is sufficient only if it names a Fold.
+            dialogs=frame.get_by_role("dialog").filter(has_text=FOLD)
+            if dialogs.count()==1 and dialogs.is_visible(timeout=1000):
+                return True
+
+            headings=frame.get_by_role("heading",name=FOLD)
+            if headings.count()!=1 or not headings.is_visible(timeout=1000):
+                continue
+
+            # An actual device preference form includes the Start/Reserve
+            # control plus location or duration. A catalog page may have
+            # multiple Fold names but should not satisfy these together.
+            start=frame.get_by_role("button",name=re.compile(r"^(Start|Reserve|Book)(?: Now)?$",re.I))
+            preference=frame.get_by_text(
+                re.compile(r"^(Location|Select Location|Duration|Select Duration|Usage Time|Reservation Time)$",re.I)
+            )
+            if start.count()>=1 and preference.count()>=1:
+                return True
+        except (PlaywrightError,PlaywrightTimeout):
+            continue
+    return False
+
+
 def booking_phase(browser, flag: dict) -> bool:
     pages = visible_pages(browser)
     if not pages:
@@ -154,6 +186,13 @@ def booking_phase(browser, flag: dict) -> bool:
             return False
 
     for page in reversed(pages):
+        # Crucial: the operator may have selected the Fold personally via noVNC.
+        # That action does not call safe_click() and does not set fold_selected.
+        if not flag.get("fold_selected") and manually_selected_fold(page):
+            flag["fold_selected"]=True
+            mark("MANUAL_GALAXY_FOLD_SELECTION_DETECTED")
+            return True
+
         if not flag.get("start_testing"):
             for frame in frames(page):
                 for label in ("Get Started", "START TESTING", "Start Testing", "Start testing"):
