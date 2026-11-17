@@ -67,7 +67,9 @@ async function check(){
      s.context==="hitel-two-manual-chrome-logins");
    if(!entry||entry.state!=="pending"||!trusted(entry.target_url))continue;
    if(!permitted){
-    status.textContent="원격 Chrome이 실행 중입니다. 개인용 접속 링크에서 열어 주십시오.";
+    go.href="https://github.com/lyonbegin/procureflow/actions/runs/"+run.id;
+    go.textContent="원격 Chrome 실행 상태 보기";
+    status.textContent="Chrome은 실행 중이지만 이 링크에는 원격 접속 권한이 없습니다.";
     return;
    }
    go.href=entry.target_url+"#access="+encodeURIComponent(auth);
