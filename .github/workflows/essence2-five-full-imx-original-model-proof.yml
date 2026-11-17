@@ -1,0 +1,28 @@
+name: HITEL Essence2 verify 5 complete official IMX payloads
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-five-full-imx-original-model-proof.yml
+      - tools/bithuman_deep/verify_essence2_original_imx_five.py
+permissions:
+  contents: read
+jobs:
+  verify-five-original-models:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all five public Essence2 IMX files and verify actual bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/verify_essence2_original_imx_five.py \
+            --report essence2-proof/original-five-imx-member-table.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-five-models-original-full-download-sha256-member-audit
+          path: essence2-proof/original-five-imx-member-table.json
+          retention-days: 14
