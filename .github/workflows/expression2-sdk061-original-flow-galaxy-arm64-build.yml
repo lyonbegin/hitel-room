@@ -114,7 +114,7 @@ jobs:
             | tee pristine-proof/upstream-modified-tracked-files.txt
           test "$(cat pristine-proof/upstream-modified-tracked-files.txt)" = "app/avatar_chat/android/app/build.gradle.kts"
           echo 'ORIGINAL_DART_PLUGIN_SDK_AND_MODEL_UNTOUCHED_GRADLE_ONLY_COMPAT'
-      - name: Preserve SDK 0.6.1 and select anonymous public sample model resolver only in disposable original plugin
+      - name: Instrument app boot stages and preserve SDK 0.6.1 original model/inference flow
         shell: bash
         run: |
           set -euo pipefail
