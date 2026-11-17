@@ -1,0 +1,52 @@
+name: Expression2 HITEL 0.6.1 local-model API and cached model preflight
+on:
+  push:
+    branches: [feature/bithuman-expression2-imx-sdk-audit-20261112]
+    paths: [.github/workflows/expression2-sdk061-local-model-api-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe-original-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache/restore@v4
+        id: imx-cache
+        with:
+          path: build/expression2-official-model
+          key: expression2-wise-pup-original-imx-v2-20261113-0237e14e3d56e660137fe5252d5b7904ec9418f9de079153957de50d918a883e
+      - name: Inspect authoritative original cached model
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "MODEL_CACHE_HIT=${{ steps.imx-cache.outputs.cache-hit }}"
+          test "${{ steps.imx-cache.outputs.cache-hit }}" = true
+          test -s build/expression2-official-model/wise-pup-original.imx
+          test -s build/expression2-official-model/members/combined_litert.tflite
+          test -s build/expression2-official-model/members/canon.bin
+          (cd build/expression2-official-model && sha256sum -c hashes.sha256)
+          stat -c '%n %s' build/expression2-official-model/members/{combined_litert.tflite,canon.bin}
+          sha256sum build/expression2-official-model/members/{combined_litert.tflite,canon.bin}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Inspect exact SDK 0.6.1 JVM signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-all-errors --retry-delay 2 -o original-061.aar https://maven.bithuman.ai/ai/bithuman/expression2-android/0.6.1/expression2-android-0.6.1.aar
+          unzip -p original-061.aar classes.jar > classes-061.jar
+          javap -classpath classes-061.jar -p ai.bithuman.expression2.Expression2Model | tee local-model-api.txt
+          javap -classpath classes-061.jar -p ai.bithuman.expression2.Expression2Avatar | grep -E 'create\(|getModel\(|getWidth\(' | tee -a local-model-api.txt
+          grep -F 'Expression2Model combined(java.io.File, java.io.File)' local-model-api.txt
+          echo 'PASS_ORIGINAL_061_HAS_TWO_FILE_LOCAL_MODEL_FACTORY'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expression2-061-local-model-api-preflight
+          path: local-model-api.txt
+          if-no-files-found: warn
+          retention-days: 7
