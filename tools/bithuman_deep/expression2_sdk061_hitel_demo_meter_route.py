@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 from expression2_replace_original_meter_api_base_method import TARGET, replace_one_original_method
-from expression2_replace_original_api_base_getter import checked_endpoint, repack_zip, sha
+from expression2_replace_original_api_base_getter import checked_endpoint, repack_zip, sha, CI_LOOPBACK_ENDPOINT
 
 def main():
     p=argparse.ArgumentParser()
@@ -18,8 +18,11 @@ def main():
     p.add_argument('--output-aar',type=Path,required=True)
     p.add_argument('--report',type=Path,required=True)
     p.add_argument('--base-url',default='https://hitel-expression2-auth-production.up.railway.app')
+    p.add_argument('--allow-offline-loopback',action='store_true')
     args=p.parse_args()
-    endpoint=checked_endpoint(args.base_url,False)
+    endpoint=checked_endpoint(args.base_url,args.allow_offline_loopback)
+    if args.allow_offline_loopback:
+        assert endpoint==CI_LOOPBACK_ENDPOINT, 'Only the pinned loopback test endpoint is allowed'
     original=args.source_aar.read_bytes()
     with zipfile.ZipFile(io.BytesIO(original)) as z:
         names=z.namelist()
