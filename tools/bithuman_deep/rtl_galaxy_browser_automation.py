@@ -17,6 +17,7 @@ import argparse
 import os
 import re
 import time
+from datetime import datetime,timezone
 from pathlib import Path
 from playwright.sync_api import sync_playwright, Error as PlaywrightError, TimeoutError as PlaywrightTimeout
 
@@ -36,6 +37,16 @@ RDB_MENU = re.compile(r"^Remote Debug Bridge$", re.I)
 RDB_CONNECT = re.compile(r"^Connect$", re.I)
 RDB_DOWNLOAD = re.compile(r"^Download$", re.I)
 FOLD = re.compile(r"Galaxy\s*Z\s*Fold\s*(8|7|6|5)?", re.I)
+STAGE_FILE=Path(os.environ.get("RTL_BROWSER_STAGE_FILE","/tmp/rtl-browser-stage.txt"))
+STAGES=set()
+def mark(stage):
+    if not re.fullmatch(r"[A-Z0-9_]{4,64}",stage): return
+    if stage not in STAGES:
+        STAGES.add(stage)
+        STAGE_FILE.parent.mkdir(parents=True,exist_ok=True)
+        STAGE_FILE.write_text(stage+"\\n")
+        print("RTL_STAGE_"+stage,flush=True)
+
 
 def safe_click(locator, label: str) -> bool:
     try:
@@ -43,6 +54,7 @@ def safe_click(locator, label: str) -> bool:
             return False
         locator.click(timeout=2500)
         print("RTL_BROWSER_ACTION_" + label, flush=True)
+        mark(label)
         return True
     except (PlaywrightError, PlaywrightTimeout):
         return False
@@ -121,7 +133,7 @@ def booking_phase(browser, flag: dict) -> bool:
     for page in reversed(pages):
         if not flag.get("start_testing"):
             for frame in frames(page):
-                for label in ("START TESTING", "Start Testing", "Start testing"):
+                for label in ("Get Started", "START TESTING", "Start Testing", "Start testing"):
                     for role in ("button", "link"):
                         if safe_click(
                             roles(frame, role, re.compile("^" + re.escape(label) + "$", re.I)),
@@ -163,11 +175,62 @@ def booking_phase(browser, flag: dict) -> bool:
                 except (PlaywrightError, PlaywrightTimeout):
                     pass
 
+        # Samsung requires device location and reservation duration before Start.
+        # These are website bootstrap actions; after RDB connects, all app work uses Linux ADB.
+        if flag.get("fold_selected") and not flag.get("region_selected"):
+            for frame in frames(page):
+                for role in ("button","radio","option","listitem"):
+                    for pattern in (
+                        re.compile(r"^South Korea$",re.I),
+                        re.compile(r"^Korea$",re.I),
+                        re.compile(r"^Seoul$",re.I),
+                    ):
+                        if safe_click(roles(frame,role,pattern),"REGION_SELECTED"):
+                            flag["region_selected"]=True
+                            return True
+                for item in frame.locator("select").all()[:4]:
+                    try:
+                        candidates=[
+                            o.get_attribute("value") for o in item.locator("option").all()
+                            if re.search(r"korea|seoul",o.inner_text(),re.I)
+                            and o.get_attribute("value")
+                        ]
+                        if candidates:
+                            item.select_option(value=candidates[0],timeout=2500)
+                            flag["region_selected"]=True
+                            mark("REGION_SELECTED")
+                            return True
+                    except (PlaywrightError,PlaywrightTimeout):
+                        pass
+
+        if flag.get("fold_selected") and not flag.get("duration_selected"):
+            for frame in frames(page):
+                for role in ("radio","option","button"):
+                    if safe_click(roles(frame,role,re.compile(r"^(30\\s*min(utes)?|0:30|30)$",re.I)),
+                                  "THIRTY_MINUTE_SESSION"):
+                        flag["duration_selected"]=True
+                        return True
+                for item in frame.locator("select").all()[:4]:
+                    try:
+                        candidates=[
+                            o.get_attribute("value") for o in item.locator("option").all()
+                            if re.search(r"^(30\\s*min(utes)?|0:30|30)$",o.inner_text().strip(),re.I)
+                            and o.get_attribute("value")
+                        ]
+                        if candidates:
+                            item.select_option(value=candidates[0],timeout=2500)
+                            flag["duration_selected"]=True
+                            mark("THIRTY_MINUTE_SESSION")
+                            return True
+                    except (PlaywrightError,PlaywrightTimeout):
+                        pass
+
         # Automatic booking is attempted ONLY when a specific Fold has
         # been selected. No blind booking of unrelated devices.
         if flag.get("fold_selected") and not flag.get("reserve_requested"):
             for frame in frames(page):
-                for name in BOOK_ACTIONS:
+                for name in (re.compile(r"^Start$",re.I),re.compile(r"^Start Testing$",re.I),
+                             re.compile(r"^Reserve(?: Now)?$",re.I),re.compile(r"^Book(?: Now)?$",re.I)):
                     for role in ("button", "link"):
                         if safe_click(roles(frame, role, name), "FOLD_RESERVE_REQUESTED"):
                             flag["reserve_requested"] = True
@@ -214,10 +277,17 @@ def run(minutes: int, rdb_file: Path):
                     continue
                 # If no buttons were safely identified, keep the remote
                 # desktop available and retry when the page changes.
-                if time.monotonic() - last_heartbeat > 180:
+                if time.monotonic() - last_heartbeat > 90:
                     last_heartbeat = time.monotonic()
-                    print("RTL_BROWSER_AUTO_WAITING_FOR_LOGGED_IN_REMOTE_LAB_UI",
-                          flush=True)
+                    if stage.get("fold_selected") and not stage.get("reserve_requested"):
+                        mark("FOLD_SELECTED_RESERVATION_UI_UNMATCHED")
+                    elif stage.get("reserve_requested") and not stage.get("reserve_confirmed"):
+                        mark("FOLD_RESERVATION_REQUESTED_RDB_PENDING")
+                    elif stage.get("second_connect"):
+                        mark("RDB_CONNECT_REQUESTED_ADB_PENDING")
+                    else:
+                        mark("WAITING_FOR_SAMSUNG_RTL_OR_LOGIN")
+                    print("RTL_BROWSER_HEARTBEAT_RDB_FIRST",flush=True)
             except (PlaywrightError, PlaywrightTimeout) as err:
                 print("RTL_BROWSER_TRANSIENT_ERROR_TYPE=" + type(err).__name__,
                       flush=True)
