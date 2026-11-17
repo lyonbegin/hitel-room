@@ -152,7 +152,60 @@ def main() -> None:
     assert b'val store = Expression2ModelStore(' not in patched.split(
         b'private fun loadExpression2(', 1)[1].split(b'private fun loadEssence2(', 1)[0]
     assert b'val model = Expression2Model.combined(modelFile, canonFile, code)' in patched
+    # Native resume must not acknowledge the method channel before its new
+    # player has actually started. The original method returned immediately
+    # even when the old background thread was still winding down for ~2 seconds;
+    # audio reached the Flutter channel and was irreversibly dropped.
+    patched = once(patched,
+        b'                } else resume(s)\n                result.success(null)\n',
+        b'                } else resume(s) { ready ->\n'
+        b'                    if (ready) result.success(null)\n'
+        b'                    else result.error("resume_failed", "avatar player not ready", null)\n'
+        b'                }\n'
+        b'                if (hold) result.success(null)\n',
+        "native resume reports when player ready")
+    patched = once(patched,
+        b'private fun resume(s: AvatarSession) {',
+        b'private fun resume(s: AvatarSession, done: (Boolean) -> Unit) {',
+        "native resume completion callback")
+    patched = once(patched,
+        b'        if (s.player != null || s.resuming || s.stopped.get()) return\n',
+        b'        if (s.player != null) { done(true); return }\n'
+        b'        if (s.resuming || s.stopped.get()) { done(false); return }\n',
+        "native resume only succeeds when player exists")
+    patched = once(patched,
+        b'        if (s.users.awaitStopped(0)) return startPlayer(s)\n',
+        b'        if (s.users.awaitStopped(0)) { startPlayer(s); done(true); return }\n',
+        "native immediately resumed player completion")
+    patched = once(patched,
+        b'                if (s.stopped.get() || s.held || s.player != null || s.users.isClosing) return@post\n',
+        b'                if (s.stopped.get() || s.held || s.player != null || s.users.isClosing) {\n'
+        b'                    done(false); return@post\n'
+        b'                }\n',
+        "native suppressed resume result on cancelled resume")
+    patched = once(patched,
+        b'                if (!quiet) { Log.e(TAG, "released: the held player never returned; no fresh player"); return@post }\n'
+        b'                startPlayer(s)\n',
+        b'                if (!quiet) {\n'
+        b'                    Log.e(TAG, "released: the held player never returned; no fresh player")\n'
+        b'                    done(false); return@post\n'
+        b'                }\n'
+        b'                startPlayer(s)\n'
+        b'                done(true)\n',
+        "native late resume completion")
     dest.write_bytes(patched)
+
+    # Preserve original Dart API except for the resume error propagation:
+    # a failed resume must not silently proceed into an audio session.
+    dart_path = "lib/bithuman.dart"
+    dart_original = (args.archive / dart_path).read_bytes()
+    dart_patched = once(dart_original,
+        b'    } catch (_) {/* older native side without setIdleHold */}\n',
+        b'    } catch (_) {\n'
+        b'      if (!hold) rethrow; // Never start speech after failed Android resume.\n'
+        b'    }\n',
+        "Dart propagate failed resume on Android")
+    (args.plugin / dart_path).write_bytes(dart_patched)
 
     # Only TWO original plugin Kotlin classes may differ. Do not touch the SDK
     # AAR's ARM64 machine code, inference, data, native renderer or meter gate.
@@ -171,7 +224,9 @@ def main() -> None:
         "original_vendor_inference_native_modified": False,
         "existing_hitel_jvm_meter_route_preserved": True,
         "existing_hitel_entitlement_check_preserved": True,
-        "plugin_changes": [ENTITLEMENT_PATH, ENGINE_PATH],
+        "plugin_changes": [ENTITLEMENT_PATH, ENGINE_PATH, "lib/bithuman.dart"],
+        "resume_channel_completion_waits_for_native_player": True,
+        "dart_release_failure_not_silenced": True,
         "unchanged_plugin_kotlin_count": unchanged_count,
         "model_fetch_vendor_http_removed_for_public_demo": True,
         "model_source": "original public Wise Pup IMX previously cached in GitHub Actions",
