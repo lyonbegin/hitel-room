@@ -1,0 +1,116 @@
+name: HITEL Essence2 five samples original SDK Galaxy ARM64
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-five-samples-original-sdk-galaxy-arm64.yml
+      - tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py
+      - tools/bithuman_deep/essence2_five_sample_catalog_preflight.py
+permissions:
+  contents: write
+jobs:
+  build-original-essence2-galaxy-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone upstream app and copy immutable plugin
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          test -f "$APP/lib/main.dart"
+          test -f "$APP/android/app/build.gradle.kts"
+          grep -Fq "implementation 'ai.bithuman:essence2-android:0.9.5'" "$ARCHIVE/android/build.gradle"
+          mkdir -p essence2-proof
+          git -C original-upstream rev-parse HEAD > essence2-proof/upstream-commit.txt
+          (cd "$ARCHIVE" && sha256sum android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt android/build.gradle lib/bithuman.dart) > essence2-proof/pristine-plugin-sha256.txt
+          cp -a "$ARCHIVE" "$GITHUB_WORKSPACE/essence2-test-plugin-copy"
+          echo PASS_ORIGINAL_FLUTTER_SDK_2637_ESSENCE2_095
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+
+      - name: Verify five public model and Android catalog grants
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/essence2_five_sample_catalog_preflight.py \
+            essence2-proof/five-sample-model-grants.json
+
+      - name: Patch only disposable app sample selector
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          PLUGIN="$GITHUB_WORKSPACE/essence2-test-plugin-copy"
+          python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-proof/patch-scope.json"
+          (cd "$PLUGIN" && sha256sum -c "$GITHUB_WORKSPACE/essence2-proof/pristine-plugin-sha256.txt")
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('original-upstream/app/avatar_chat/android/app/build.gradle.kts')
+          s=p.read_text()
+          anchor='    id("com.android.application")\n'
+          assert s.count(anchor)==1 and 'id("org.jetbrains.kotlin.android")' not in s
+          p.write_text(s.replace(anchor,anchor+'    id("org.jetbrains.kotlin.android")\n',1))
+          PY
+          echo PASS_ESSENCE2_ORIGINAL_SDK_UNMODIFIED_APP_SELECTOR_ONLY
+
+      - name: Compile original SDK and selected-sample app
+        working-directory: original-upstream/app/avatar_chat
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart
+          flutter build apk --debug --target-platform android-arm64 \
+            --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
+            2>&1 | tee "$GITHUB_WORKSPACE/essence2-proof/flutter-build.log"
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-proof/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/libflutter.so' "$GITHUB_WORKSPACE/essence2-proof/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-proof/apk-members.txt"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_FiveSamples_Galaxy_ARM64.apk"
+          sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-proof/apk-sha256.txt"
+          echo PASS_ESSENCE2_ORIGINAL_SDK_ARM64_APK_COMPILED
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel-essence2-five-samples-original-sdk-galaxy-arm64
+          path: |
+            HITEL_Essence2_FiveSamples_Galaxy_ARM64.apk
+            essence2-proof/
+          retention-days: 14
+
+      - name: Publish debug APK with explicit authentication caveat
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-five-samples-original-sdk-20261118
+          ASSET=HITEL_Essence2_FiveSamples_Galaxy_ARM64.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" --target "$GITHUB_SHA" \
+              --title "HITEL Essence 2 five samples - original Android SDK" \
+              --notes "ARM64 debug test APK. Five official public Essence 2 sample codes; each downloaded on demand using the original vendor Essence2ModelStore. Original Flutter plugin 2.6.37 / essence2-android 0.9.5 and native JNI retained. A legitimate bitHuman API secret is REQUIRED for rendering; enter it on the device. Not an independent offline/auth replacement; not yet physically tested on Galaxy Z Flip3."
+          fi
+          gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_FiveSamples_Galaxy_ARM64.apk") | .size' | grep -E '^[1-9][0-9]+$'
+          echo PASS_PUBLIC_HTTPS_GITHUB_RELEASE_ASSET_RECORDED
