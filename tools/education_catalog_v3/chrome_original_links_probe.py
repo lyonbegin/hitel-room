@@ -51,6 +51,7 @@ def meta(page,selector):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--limit",type=int,default=10)
+    parser.add_argument("--headed",action="store_true",help="Use installed Chrome in interactive Windows desktop")
     parser.add_argument("--out",default="hitel-chrome-original-check")
     args=parser.parse_args()
     assert 1<=args.limit<=1208
@@ -59,7 +60,7 @@ def main():
     items=inputs(args.limit)
     rows=[]
     with sync_playwright() as p:
-        browser=p.chromium.launch(channel="chrome",headless=True,args=["--disable-dev-shm-usage"])
+        browser=p.chromium.launch(channel="chrome",headless=not args.headed,args=["--disable-dev-shm-usage"])
         context=browser.new_context(viewport={"width":1365,"height":850},locale="ko-KR")
         for seq,(docid,url) in enumerate(items,1):
             page=context.new_page()
@@ -101,7 +102,7 @@ def main():
     with (out/"rows.csv").open("w",encoding="utf-8-sig",newline="") as f:
         w=csv.DictWriter(f,fieldnames=FIELDS);w.writeheader();w.writerows(rows)
     counts={key:sum(r["classification"]==key for r in rows) for key in sorted(set(r["classification"] for r in rows))}
-    summary={"test":"actual_google_chrome","headless":True,"used_saved_original_urls":True,
+    summary={"test":"actual_google_chrome","headless":not args.headed,"used_saved_original_urls":True,
              "not_requests":True,"checked":len(rows),"status_counts":counts,"run_time":datetime.now(timezone.utc).isoformat(),
              "source_documents_verified":counts.get("preview_visible",0),
              "note":"A visible title alone does not verify complete content or edition; screenshot and body retained."}
