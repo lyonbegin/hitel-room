@@ -74,7 +74,7 @@ def detect_rdb(downloads: Path, target: Path):
                 entries = []
                 unsafe = False
                 for item in items:
-                    name = item.filename.replace("\\\\", "/")
+                    name = item.filename.replace("\\", "/")
                     bits = name.split("/")
                     unix_mode = (item.external_attr >> 16)
                     if (name.startswith("/") or "\x00" in name or
@@ -94,7 +94,7 @@ def detect_rdb(downloads: Path, target: Path):
                 for info,destination in entries:
                     if destination.name.lower() == "rdb":
                         data = z.read(info)
-                        if (len(data) >= 20 and data[:4] == b"\\x7fELF" and
+                        if (len(data) >= 20 and data[:4] == b"\x7fELF" and
                             data[4] == 2 and int.from_bytes(data[18:20],"little") == 62):
                             binaries.append((info,destination))
                 if len(binaries)!=1:
