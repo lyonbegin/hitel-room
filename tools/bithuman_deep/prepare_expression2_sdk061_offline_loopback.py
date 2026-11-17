@@ -28,8 +28,8 @@ def main():
     assert (package/'lib/mock_realtime.dart').read_bytes()==(args.archive/'e2e/mock_realtime/lib/mock_realtime.dart').read_bytes()
     (app/'lib/hitel_offline_runtime.dart').write_text(RUNTIME)
     spec=app/'pubspec.yaml'
-    spec.write_text(once(spec.read_text(),'dependencies:\n',
-      'dependencies:\n  mock_realtime:\n    path: offline_mock_pkg\n','local pub dependency'))
+    spec.write_text(once(spec.read_text(),'\ndependencies:\n',
+      '\ndependencies:\n  mock_realtime:\n    path: offline_mock_pkg\n','local pub dependency'))
     dart=app/'lib/main.dart'
     text=dart.read_text()
     text=once(text,"import 'dart:async';\n","import 'dart:async';\nimport 'hitel_offline_runtime.dart';\n",'local runtime import')
