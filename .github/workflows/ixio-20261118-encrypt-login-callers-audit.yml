@@ -44,6 +44,7 @@ jobs:
               'MemberVerificationRemoteSource;->verifyCtn(',
               'GetLoginDataUseCase;',
               'CtnRepository;->getEncryptedCtn(',
+              'CtnRepository;->getEncryptedCtn$default(',
               'CtnRepositoryImpl;->getEncryptedCtn(',
               'IxIOUserServiceRepository;->getLoginUrlV2(',
               'IxIOUserServiceRepository;->getLoginUrl(',
@@ -77,7 +78,10 @@ jobs:
           for x in result:
             print('CALLSITE_CLASS',x['dex'],x['class'])
             print('CALLSITE_METHOD',x['method'])
-            for y in x['calls']:print('CALLSITE_OPCODE',y['opcode'])
+            for y in x['calls']:
+              print('CALLSITE_OPCODE',y['opcode'])
+              if 'LogInUseCase.smali' in x['class']:
+                print('LOGIN_USECASE_SURROUNDING',json.dumps(y['context'],ensure_ascii=False))
           PY
       - uses: actions/upload-artifact@v4
         with:
