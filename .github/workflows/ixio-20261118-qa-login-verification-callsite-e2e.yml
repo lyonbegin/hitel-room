@@ -1,4 +1,4 @@
-name: IXIO Original URLs Plus Prior HITEL Login VerifyCtn Scoped QA Emulator E2E
+name: IXIO Original URLs, Prior HITEL VerifyCtn and LogInUseCase Test QA Emulator E2E
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
@@ -152,6 +152,7 @@ jobs:
             --base-url "$HITEL_PUBLIC_API_URL" \
             --report ixio-hitel-android-results/login-only-changes.json
           python3 tools/ixio/ixio_login_verifyctn_scoped_qa.py \
+            --smali15 .hitel-ixio-qa/smali15 \
             --smali16 .hitel-ixio-qa/smali16 \
             --smali18 .hitel-ixio-qa/smali18 \
             --base-url "$HITEL_PUBLIC_API_URL" \
@@ -160,7 +161,7 @@ jobs:
           python3 - <<'PY'
           import json
           d=json.load(open('ixio-hitel-android-results/login-only-verifyctn-qa.json'))
-          assert d['modified_file_count']==2
+          assert d['modified_file_count']==3
           assert d['all_other_url_methods_original'] is True
           assert d['global_ctn_aes_dek_original'] is True
           assert d['public_release_permitted'] is False
