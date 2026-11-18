@@ -130,6 +130,53 @@ def main() -> None:
     print("GSM_SIMULATED_ACCEPT",accept["returncode"],accept["output"][:350],flush=True)
     time.sleep(12)
     summary["connected"]=save("connected")
+    # The emulator's GSM modem has delivered the call to IXIO's genuine
+    # InCallService, but its original CallActivity may remain backgrounded.
+    # Probe the genuine, system-created ongoing-call notification instead of
+    # force-starting a private Activity or changing original IXIO bytecode.
+    summary["call_notification_probe_attempted"]=True
+    summary["call_notification_expanded"]=False
+    summary["call_notification_tapped"]=False
+    expand=adb("shell","cmd","statusbar","expand-notifications",timeout=12)
+    summary["call_notification_expanded"]=expand["returncode"]==0
+    print("IXIO_SYSTEM_CALL_NOTIFICATION_SHADE_OPENED",
+          summary["call_notification_expanded"],flush=True)
+    if summary["call_notification_expanded"]:
+        time.sleep(2)
+        shade=save("call_notification_shade")
+        print("IXIO_SYSTEM_CALL_NOTIFICATION_LABELS",
+              repr(shade.get("visible",[]))[:1200],flush=True)
+        shade_xml=OUT/"call_notification_shade.xml"
+        if shade_xml.exists():
+            try:
+                nodes=[n.attrib for n in ET.parse(shade_xml).getroot().iter("node")]
+                match=re.compile(r"(?i)(ongoing call|return to call|통화 중|"
+                                 r"진행 중인 통화|통화로 돌아가기|5550100)")
+                candidates=[]
+                for n in nodes:
+                    label=" ".join((n.get("text",""),n.get("content-desc",""))).strip()
+                    if match.search(label) and n.get("clickable")=="true":
+                        b=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+                                       n.get("bounds",""))
+                        if b:
+                            a1,b1,a2,b2=map(int,b.groups())
+                            if 0<=a1<a2<=1300 and 30<=b1<b2<=2300:
+                                candidates.append((n,label,(a1+a2)//2,(b1+b2)//2))
+                if len(candidates)==1:
+                    _,label,x,y=candidates[0]
+                    action=adb("shell","input","tap",str(x),str(y),timeout=12)
+                    summary["call_notification_tapped"]=action["returncode"]==0
+                    print("IXIO_GENUINE_SYSTEM_CALL_NOTIFICATION_TAPPED",
+                          summary["call_notification_tapped"],label[:120],flush=True)
+            except Exception as exc:
+                summary["call_notification_probe_error"]=repr(exc)
+    if not summary["call_notification_tapped"]:
+        adb("shell","cmd","statusbar","collapse",timeout=12)
+    time.sleep(2)
+    summary["after_notification_probe"]=save("after_notification_probe")
+    print("IXIO_AFTER_SYSTEM_CALL_NOTIFICATION",
+          repr(summary["after_notification_probe"].get("visible",[]))[:1200],
+          flush=True)
     summary["recorder_service_active_before_manual_toggle"]=bool(re.search(
         r"com\.lguplus\.callrecorder/[^\s}]*?(?:CallRecordingService|RecordService)",
         (OUT/"connected-services.txt").read_text(errors="replace")
@@ -140,7 +187,7 @@ def main() -> None:
     # screen). Original UI XML from run 43889791915 proves the icon bounds
     # [144,1691][218,1765]. Select by semantic content-desc on THIS run.
     summary["record_button_tapped"]=False
-    xml=OUT/"connected.xml"
+    xml=OUT/("after_notification_probe.xml" if summary["call_notification_tapped"] else "connected.xml")
     if xml.exists() and not summary["recorder_service_active_before_manual_toggle"]:
         try:
             nodes=list(ET.parse(xml).getroot().iter("node"))
@@ -196,14 +243,14 @@ def main() -> None:
        any(t in " ".join(summary.get(stage,{}).get("visible",[])) for t in
            ("5550100","통화 중","수신 전화","Incoming call","Calling","Answer",
             "음소거","통화 녹음","스피커","녹음"))
-       for stage in ("ringing","connected"))
+       for stage in ("ringing","connected","after_notification_probe"))
     summary["simulated_call_requested"]= incoming["returncode"]==0
     summary["stt_verified"]=False
     (OUT/"result.json").write_text(json.dumps(summary,indent=2,ensure_ascii=False),encoding="utf-8")
     print("IXIO_GSM_CALL_SMOKE_RESULT",json.dumps({
         k:summary[k] for k in ("simulated_call_requested","caller_screen_seen",
            "default_dialer_confirmed","recorder_process_after","main_process_after",
-           "filtered_log_lines","auto_record_setting_tap","recorder_service_active_before_manual_toggle","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified")
+           "filtered_log_lines","auto_record_setting_tap","recorder_service_active_before_manual_toggle","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified","call_notification_expanded","call_notification_tapped")
     },ensure_ascii=False),flush=True)
     # A call simulator without real PCM cannot prove RX capture or STT.
     print("IXIO_REAL_RX_PCM_AND_STT_UNVERIFIED=YES",flush=True)
