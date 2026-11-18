@@ -93,6 +93,15 @@ def main():
 """
     dart=once(dart, "  Future<void> _boot() async {\n",
         method+"  Future<void> _boot() async {\n", "local test session")
+    # The mock edition must not claim a vendor secret is required on its chooser.
+    dart=once(dart,
+        "'The original SDK requires a valid bitHuman API secret to render. '",
+        "'Local synthetic test: no vendor API key is used. '",
+        "honest mock-mode UI description")
+    dart=once(dart,
+        "'No secret is embedded in this APK.'",
+        "'The vendor license and real face output still need verification.'",
+        "separate synthetic test from licensed playback")
     dart=once(dart, "      final secret = await _resolveSecret();\n",
         "      final secret = await _hitelAcquireLocalSampleSession();\n",
         "replace only app supplied session token for mock APK")
