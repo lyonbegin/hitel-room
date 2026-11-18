@@ -175,11 +175,25 @@ internal object HitelEssence2PublicAndroidBundle {
         while (namesIterator.hasNext()) names.add(namesIterator.next())
         names.sort()
         if (names.size < 20) throw IOException("Incomplete vendor Android model file inventory")
-        val all = listOf("manifest.json") + names
+        // Optional adaptive-720p source is required to exercise the original
+        // vendor's GPU thermal-throttle downshift on Galaxy Flip devices.
+        // Fetch all vendor-declared optional members without rewriting them.
+        val optional = catalog.optJSONObject("optional")
+        val optionalNames = mutableListOf<String>()
+        if (optional != null) {
+            val items = optional.keys()
+            while (items.hasNext()) optionalNames.add(items.next())
+            optionalNames.sort()
+        }
+        fun meta(name: String): JSONObject =
+            if (files.has(name)) files.getJSONObject(name)
+            else optional?.getJSONObject(name)
+                ?: throw IOException("Android member absent from vendor catalog")
+        val all = listOf("manifest.json") + names + optionalNames
         var total = 0L
         for (name in all) {
             val size = if (name == "manifest.json") catalog.getLong("manifest_bytes")
-                       else files.getJSONObject(name).getLong("bytes")
+                       else meta(name).getLong("bytes")
             if (size <= 0 || size > 1000000000L) throw IOException("Invalid model file length")
             total += size
         }
@@ -187,9 +201,9 @@ internal object HitelEssence2PublicAndroidBundle {
         for (name in all) {
             checkCancel()
             val size = if (name == "manifest.json") catalog.getLong("manifest_bytes")
-                       else files.getJSONObject(name).getLong("bytes")
+                       else meta(name).getLong("bytes")
             val expected = if (name == "manifest.json") catalog.getString("manifest_sha256")
-                           else files.getJSONObject(name).getString("sha256")
+                           else meta(name).getString("sha256")
             if (!shaPattern.matches(expected)) throw IOException("Invalid vendor SHA-256")
             val target = safeMember(root, name)
             if (exact(target, size, expected)) {
@@ -205,7 +219,7 @@ internal object HitelEssence2PublicAndroidBundle {
         val donors = catalog.getInt("n_donors")
         if (donors <= 0) throw IOException("Invalid original donor count")
         android.util.Log.i("HITEL_Essence2", "Verified local model " + code +
-            ": " + names.size + " Android members, " + completed + " bytes")
+            ": " + names.size + " required, " + optionalNames.size + " optional Android members, " + completed + " bytes")
         return HitelEssence2BundleFactory.fromVerifiedOriginalAndroidFiles(code, root, donors)
     }
 }
