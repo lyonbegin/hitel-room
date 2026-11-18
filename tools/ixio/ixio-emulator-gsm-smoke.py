@@ -106,6 +106,18 @@ def main() -> None:
             print("IXIO_ORIGINAL_AUTO_RECORD_UI_ERROR",repr(exc),flush=True)
     else:
         print("IXIO_ORIGINAL_AUTO_RECORD_SETTINGS_NOT_VISIBLE",repr(prior),flush=True)
+    # Switch foreground from recorder's auto-recording settings to the ORIGINAL
+    # IXIO default dialer BEFORE the simulated GSM call. Previously Telecom
+    # confirmed InCallServiceImpl bound and call ACTIVE while the recorder
+    # settings Activity remained over the in-call UI, hiding record controls.
+    print("ORIGINAL_RECORDER_TO_MAIN_DIALER_FOREGROUND_BEGIN",flush=True)
+    main_launch=adb("shell","monkey","-p",MAIN,"-c",
+                    "android.intent.category.LAUNCHER","1",timeout=25)
+    summary["main_dialer_foreground_request"]=main_launch
+    print("MAIN_DIALER_FOREGROUND_LAUNCH",main_launch["returncode"],
+          main_launch["output"][-360:],flush=True)
+    time.sleep(4)
+    summary["main_foreground"]=save("main_foreground")
     # Cold emulator TELEPHONY fake call, no network connection is made.
     adb("logcat","-c")
     incoming=adb("emu","gsm","call",NUMBER,timeout=17)
@@ -182,7 +194,8 @@ def main() -> None:
     summary["main_process_after"] = adb("shell","pidof",MAIN)["output"]
     summary["caller_screen_seen"] = any(
        any(t in " ".join(summary.get(stage,{}).get("visible",[])) for t in
-           ("5550100","통화 중","수신 전화","Incoming call","Calling","Answer"))
+           ("5550100","통화 중","수신 전화","Incoming call","Calling","Answer",
+            "음소거","통화 녹음","스피커","녹음"))
        for stage in ("ringing","connected"))
     summary["simulated_call_requested"]= incoming["returncode"]==0
     summary["stt_verified"]=False
