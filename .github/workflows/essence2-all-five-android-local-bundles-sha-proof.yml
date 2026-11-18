@@ -1,0 +1,42 @@
+name: HITEL Essence2 all five original Android local bundle full verification
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-all-five-android-local-bundles-sha-proof.yml
+permissions:
+  contents: read
+jobs:
+  verify-all-five-official-android-native-model-directories:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild all five exact original Android model bundles and verify every SHA
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/reassemble_essence2_android_original_bundles.py \
+            --work build/essence2-five-original-android-verification \
+            --report essence2-proof/all-five-full-original-android-bundle-sha.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          doc=json.loads(Path('essence2-proof/all-five-full-original-android-bundle-sha.json').read_text())
+          assert doc['verified_complete_android_bundles']==5
+          assert len({m['code'] for m in doc['models']})==5
+          for m in doc['models']:
+            assert m['original_android_member_count']==25
+            assert len(m['members_identical_to_imx'])==22
+            assert len(m['members_fetched_from_android_store'])==3
+            assert m['all_android_members_have_catalog_sha256']
+            assert not m['vendor_sdk_runtime_license_validated']
+            print('PASS_COMPLETE_ORIGINAL_ANDROID_MODEL_'+m['code'])
+          print('PASS_ESSENCE2_ALL_FIVE_ORIGINAL_ANDROID_MODEL_DIRECTORIES_SHA_VERIFIED')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-all-five-original-android-model-bundles-hashes-only
+          path: essence2-proof/all-five-full-original-android-bundle-sha.json
+          retention-days: 14
