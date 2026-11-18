@@ -1,0 +1,66 @@
+name: HITEL Essence2 physical ARM64 APK Android 11 translated emulator smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-galaxy-arm64-translated-emulator-smoke.yml
+      - tools/bithuman_deep/essence2_android_emulator_smoke.sh
+permissions:
+  contents: read
+jobs:
+  android-arm64-emulator-original-native-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch exact public HITEL five-sample original native ARM64 APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-five-samples-synthetic-local-test-20261118
+          APK=HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk
+          URL=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors \
+            --connect-timeout 30 --max-time 650 "$URL" -o "$APK"
+          EXPECTED=$(gh api "repos/lyonbegin/hitel-room/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name == "HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk") | .digest' \
+            | sed 's/^sha256://')
+          test "${#EXPECTED}" = 64
+          echo "$EXPECTED  $APK" | sha256sum --check
+          test "$(stat -c %s "$APK")" -gt 150000000
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          echo PASS_EMULATOR_TEST_INPUT_PUBLIC_ARM64_APK_SHA256_VERIFIED
+
+      - name: Enable nested virtualization for Android 11 Google APIs emulator
+        shell: bash
+        run: |
+          if test -e /dev/kvm; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo NO_KVM_DEVICE; exit 2
+          fi
+
+      - name: Launch original native ARM64 APK on Android 11 ARM-translating x86_64 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data
+          script: bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk essence2-emulator-proof
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-arm64-translated-android-emulator-screenshot-and-runtime-logs
+          path: essence2-emulator-proof/
+          retention-days: 14
