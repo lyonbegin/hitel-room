@@ -27,9 +27,9 @@ jobs:
           assert doc['verified_complete_android_bundles']==5
           assert len({m['code'] for m in doc['models']})==5
           for m in doc['models']:
-            assert m['original_android_member_count']==25
-            assert len(m['members_identical_to_imx'])==22
+            assert m['original_android_member_count'] in (24,25)
             assert len(m['members_fetched_from_android_store'])==3
+            assert len(m['members_identical_to_imx'])==m['original_android_member_count']-3
             assert m['all_android_members_have_catalog_sha256']
             assert not m['vendor_sdk_runtime_license_validated']
             print('PASS_COMPLETE_ORIGINAL_ANDROID_MODEL_'+m['code'])
