@@ -382,19 +382,14 @@ jobs:
             echo "IXIO_ORIGINAL_CALL_RECORDER_INSTALL_START"
             adb install -r .hitel-ixio-qa/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder | grep '^package:'
+            adb shell cmd appops set com.lguplus.callrecorder AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore
+            adb shell cmd appops get com.lguplus.callrecorder AUTO_REVOKE_PERMISSIONS_IF_UNUSED
             echo "IXIO_ORIGINAL_CALL_RECORDER_INSTALLED=YES"
             python3 tools/ixio/ixio-emulator-full-auto-evidence-20261118.py
             echo "IXIO_GSM_SMOKE_TEST_START"
-            set +e
             python3 tools/ixio/ixio-emulator-gsm-smoke.py
-            gsm_rc=$?
-            set -e
-            echo "$gsm_rc" > ixio-20261118-emulator-full-auto-evidence/gsm-smoke-exit-code.txt
-            if [ "$gsm_rc" != 0 ]; then
-              echo "IXIO_GSM_SMOKE_FAILED_WITH_CODE=$gsm_rc"
-            else
-              echo "IXIO_GSM_SMOKE_TEST_FINISHED=YES"
-            fi
+            echo 0 > ixio-20261118-emulator-full-auto-evidence/gsm-smoke-exit-code.txt
+            echo "IXIO_GSM_SMOKE_TEST_FINISHED=YES"
       - name: Analyze actual emulator result and correlate synthetic HITEL access log (no secrets)
         shell: bash
         run: |
