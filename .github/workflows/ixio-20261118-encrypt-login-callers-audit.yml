@@ -1,0 +1,79 @@
+name: IXIO Original all EncryptCtnUtil Login Callers Exact Smali Audit
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-20261118-encrypt-login-callers-audit.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  read-original-auth-callers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Original pristine reconstructed APK and pinned Baksmali
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-call-audit
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-call-audit
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-call-audit/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-call-audit/baksmali.jar' | sha256sum -c -
+          for num in 15 16 18;do
+            unzip -p .ixio-call-audit/IXIO_Main_NoAppSealing_Single.apk "classes$num.dex" > ".ixio-call-audit/classes$num.dex"
+            java -Xmx2500m -jar .ixio-call-audit/baksmali.jar d --api 34 --jobs 3 -o ".ixio-call-audit/smali$num" ".ixio-call-audit/classes$num.dex"
+          done
+      - name: Inventory actual original calls to CTN encrypt, provisioning, verify and login
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          base=Path('.ixio-call-audit')
+          patterns=(
+              'EncryptCtnUtil;->encrypt(',
+              'ProvisioningManager;->getDekForLoginUse-',
+              'IxIOMemberServiceApi;->getLoginData',
+              'IxIOSetupWizardApi;->verifyCtn(',
+              'MemberVerificationRemoteSource;->verifyCtn(',
+              'GetLoginDataUseCase;',
+          )
+          result=[]
+          for n in (15,16,18):
+            for p in (base/f'smali{n}').rglob('*.smali'):
+              raw=p.read_text(errors='replace')
+              if not any(q in raw for q in patterns):continue
+              for block in raw.split('.method ')[1:]:
+                if '.end method' not in block:continue
+                m='.method '+block.split('.end method',1)[0]+'.end method'
+                if not any(q in m for q in patterns):continue
+                lines=m.splitlines()
+                refs=[]
+                for i,line in enumerate(lines):
+                  if any(q in line for q in patterns):
+                    # Only static method signature, labels and callsite register arguments.
+                    surrounding=lines[max(i-3,0):i+4]
+                    # Do not expose original literals or potential secrets.
+                    surrounding=[re.sub(r'const-string[^\n]*','const-string [REDACTED]',x.strip())[:300] for x in surrounding]
+                    refs.append({'line':i,'opcode':line.strip()[:260],'context':surrounding})
+                item={'dex':n,'class':str(p.relative_to(base/f'smali{n}')),
+                      'method':m.splitlines()[0],'calls':refs}
+                result.append(item)
+          Path('ixio-login-callers-exact.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print('ORIGINAL_LOGIN_CALLER_METHODS',len(result))
+          for x in result:
+            print('CALLSITE_CLASS',x['dex'],x['class'])
+            print('CALLSITE_METHOD',x['method'])
+            for y in x['calls']:print('CALLSITE_OPCODE',y['opcode'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_20261118_Original_All_CTNCrypto_LoginCaller_Class_Method_Map
+          path: ixio-login-callers-exact.json
+          retention-days: 7
