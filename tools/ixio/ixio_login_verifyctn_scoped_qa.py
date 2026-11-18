@@ -16,6 +16,7 @@ from pathlib import Path
 
 API="com/lguplus/aicallagent/network/api/ixio/IxIOSetupWizardApi.smali"
 CALLER="com/lguplus/aicallagent/data/auth/MemberVerificationRepositoryImpl.smali"
+LOGIN_USECASE="com/lguplus/aicallagent/domain/init/usecase/LogInUseCase.smali"
 ORIGINAL_POST="v1/members/verify-ctn"
 ORIGINAL_ENCRYPT=(
     "    invoke-virtual {p2, p1, v1}, "
@@ -35,6 +36,7 @@ def digest(p:Path)->str:
 
 def main()->None:
     ap=argparse.ArgumentParser()
+    ap.add_argument("--smali15",type=Path,required=True)
     ap.add_argument("--smali16",type=Path,required=True)
     ap.add_argument("--smali18",type=Path,required=True)
     ap.add_argument("--base-url",required=True)
@@ -45,15 +47,17 @@ def main()->None:
         raise ValueError("Only temporary HTTPS isolated QA backend supported")
     if not re.fullmatch(r"ixioqa_[0-9a-f]{80}",args.qa_assertion):
         raise ValueError("An isolated random, 80-char test assertion is required")
-    root16=args.smali16;root18=args.smali18
+    root15=args.smali15;root16=args.smali16;root18=args.smali18
+    files15=list(root15.rglob("*.smali"))
     files16=list(root16.rglob("*.smali"))
     files18=list(root18.rglob("*.smali"))
-    if len(files16)<1000 or len(files18)<1000:
+    if len(files15)<1000 or len(files16)<1000 or len(files18)<1000:
         raise AssertionError("Incomplete original DEX decoding")
-    originals={p:digest(p) for p in files16+files18}
+    originals={p:digest(p) for p in files15+files16+files18}
+    p_login=root15/LOGIN_USECASE
     p_api=root16/API
     p_caller=root18/CALLER
-    if p_api not in originals or p_caller not in originals:
+    if p_login not in originals or p_api not in originals or p_caller not in originals:
         raise FileNotFoundError("Original IXIO login verification classes missing")
 
     src=p_api.read_text()
@@ -93,9 +97,34 @@ def main()->None:
         raise AssertionError("Unexpected mutation in original repository method")
     p_caller.write_text(src[:m.start()]+patched+src[m.end():])
 
-    modified=[str(p.relative_to(root16 if p in files16 else root18))
-              for p in files16+files18 if digest(p)!=originals[p]]
-    expected={API,CALLER}
+    # Only LogInUseCase.invoke() consumes the test assertion for /v2/login.
+    # Keep generic GetEncryptedCtnUseCase, CtnRepository, EncryptCtnUtil
+    # and all other original consumer methods entirely unchanged.
+    src=p_login.read_text()
+    m=only_method(src,"invoke")
+    block=m.group()
+    login_call=re.compile(
+        r"(?m)^    invoke-virtual \{p1, v0\}, "
+        r"Lcom/lguplus/aicallagent/domain/ixio/usecase/GetEncryptedCtnUseCase;->invoke"
+        r"\(Lkotlin/coroutines/Continuation;\)Ljava/lang/Object;"
+        r"\n(?:[ \t]*\n)*    move-result-object p1"
+    )
+    found=list(login_call.finditer(block))
+    if len(found)!=1:
+        raise AssertionError(("Exactly one LogInUseCase GetEncryptedCtn callsite required",len(found)))
+    original_call=found[0].group()
+    const_login="    const-string p1, "+json.dumps(args.qa_assertion)
+    patched=login_call.sub(lambda _:const_login,block,count=1)
+    if patched.replace(const_login,original_call,1)!=block:
+        raise AssertionError("Unexpected original LogInUseCase mutation")
+    p_login.write_text(src[:m.start()]+patched+src[m.end():])
+
+    modified=[]
+    for p in files15+files16+files18:
+        if digest(p)!=originals[p]:
+            root=root15 if p in files15 else root16 if p in files16 else root18
+            modified.append(str(p.relative_to(root)))
+    expected={LOGIN_USECASE,API,CALLER}
     if set(modified)!=expected:raise AssertionError(("Other code changed",modified))
     crypto=root16/"com/lguplus/aicallagent/util/EncryptCtnUtil.smali"
     if crypto not in originals or digest(crypto)!=originals[crypto]:
@@ -106,6 +135,7 @@ def main()->None:
         "original_verify_ctn_path":ORIGINAL_POST,
         "changed_method_1":"IxIOSetupWizardApi.verifyCtn() POST annotation only",
         "changed_method_2":"MemberVerificationRepositoryImpl.verifyCtn-gIAlu-s() synthetic QA assertion at original encryption callsite only",
+        "changed_method_3":"LogInUseCase.invoke() synthetic QA assertion at original GetEncryptedCtnUseCase callsite only",
         "modified_source_files":sorted(modified),
         "modified_file_count":len(modified),
         "all_other_url_methods_original":True,
