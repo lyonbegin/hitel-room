@@ -1,0 +1,67 @@
+name: IXIO Active GSM Notification Shade Actual XML and Screenshot Evidence Triage
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-20261118-notification-ui-xml-real-evidence.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  examine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact combined UI simulator result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-notif-triage
+          gh run download 44212635729 --repo "$GH_REPO" --name IXIO_20261118_Login_Home_OriginalRecorder_GSM_EmulatorEvidence --dir .ixio-notif-triage
+          find .ixio-notif-triage -type f | grep -E 'call_notification_shade|gsm-call-smoke/result.json|connected.xml' | head -25
+      - name: Inspect actual saved UI hierarchy and PNG dimensions; never infer a clickable button
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,xml.etree.ElementTree as ET,struct
+          root=Path('.ixio-notif-triage')
+          smokes=list(root.rglob('gsm-call-smoke/result.json'))
+          assert len(smokes)==1,('Expected one exact GSM result',len(smokes))
+          p=smokes[0].parent
+          data=json.loads(smokes[0].read_text())
+          for k in ('call_notification_expanded','call_notification_tapped','caller_screen_seen','record_button_tapped','recorder_service_active_before_manual_toggle','recording_service_bound_after_toggle','main_process_after','recorder_process_after'):
+            print('CHECK',k,data.get(k))
+          for stage in ('main_foreground','ringing','connected','call_notification_shade','after_notification_probe'):
+            xml=p/f'{stage}.xml'
+            png=p/f'{stage}.png'
+            print('UI_STAGE',stage,'xml_exists',xml.exists(),'xml_bytes',xml.stat().st_size if xml.exists() else -1,'png_exists',png.exists())
+            if png.is_file():
+              b=png.read_bytes()
+              print('PNG',stage,len(b),struct.unpack('>II',b[16:24]) if b.startswith(b'\\x89PNG') else 'INVALID')
+            if xml.is_file():
+              src=xml.read_text(errors='replace')
+              print('XML_RAW_PREFIX',stage,src[:500].replace('\n',' '))
+              try:
+                doc=ET.fromstring(src)
+                nodes=list(doc.iter('node'))
+                print('XML_NODE_COUNTS',stage,len(nodes),'all_clickable',sum(n.get('clickable')=='true' for n in nodes))
+                for node in nodes:
+                  d=node.attrib
+                  if d.get('text') or d.get('content-desc'):
+                    label=(' '.join([d.get('text',''),d.get('content-desc','')])).strip()
+                    print('XML_LABEL',stage,label[:160], 'clickable',d.get('clickable'), 'pkg',d.get('package','')[:80],'bounds',d.get('bounds',''))
+              except Exception as e:
+                print('XML_PARSE_ERROR',stage,repr(e))
+          summary={'source_run':44212635729,'actual_gsm_result':{k:data.get(k) for k in ('call_notification_expanded','call_notification_tapped','caller_screen_seen','record_button_tapped','recording_service_bound_after_toggle')}}
+          (root/'actual-notification-shade-diagnostic.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_20261118_Notification_Actual_XML_PNG_Triage
+          path: .ixio-notif-triage/actual-notification-shade-diagnostic.json
+          retention-days: 7
