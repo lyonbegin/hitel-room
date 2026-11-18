@@ -2,7 +2,7 @@ name: IXIO Original Login Auth Home plus Original Recorder Companion Android14 G
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
-    paths: [.github/workflows/ixio-20261118-login-original-recorder-combined-emulator.yml]
+    paths: [.github/workflows/ixio-20261118-login-original-recorder-combined-emulator.yml, tools/ixio/ixio-emulator-gsm-smoke.py]
   workflow_dispatch:
 permissions:
   contents: read
