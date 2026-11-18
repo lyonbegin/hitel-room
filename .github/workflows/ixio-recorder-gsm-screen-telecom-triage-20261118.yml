@@ -57,6 +57,33 @@ jobs:
           for line in m[-100:]:
             safe=re.sub(r'(?i)(Bearer\s+)\S+',r'\1[REDACTED]',line)
             print('LOG',safe[:340])
+          # Distinguish Telecom receiving a fake call from launching a visible
+          # in-call Activity. Printing only static method names and event lines,
+          # redacting dialed numbers and authorization data.
+          import itertools
+          detail=[]
+          for line in lines:
+            if not ('00:54:36' in line or '00:54:37' in line or '00:54:38' in line or
+                    '00:54:39' in line or '00:54:40' in line or '00:54:41' in line or
+                    '00:54:42' in line or '00:54:43' in line or '00:54:44' in line or
+                    '00:54:45' in line or '00:54:46' in line or '00:54:47' in line or
+                    '00:54:48' in line or '00:54:49' in line or '00:54:50' in line or
+                    '00:54:51' in line or '00:54:52' in line or '00:54:53' in line or
+                    '00:54:54' in line or '00:54:55' in line or '00:54:56' in line or
+                    '00:54:57' in line or '00:54:58' in line or '00:54:59' in line or
+                    '00:55:00' in line or '00:55:01' in line or '00:55:02' in line): continue
+            if any(t in line for t in (
+                ' 5825 ', 'ActivityTaskManager', 'InCallService', 'NotificationService',
+                'ActivityManager', 'InCallActivity', 'startActivity',
+                'callrecorder', 'onCallAdded', 'onStateChanged',
+                'Telecom', 'CallRecording', 'InCall on',
+            )):
+              msg=re.sub(r'(?i)(tel:)[+0-9-]+',r'\\1[REDACTED]',line)
+              msg=re.sub(r'(?i)(Bearer[ \\t]+)[A-Za-z0-9_.-]+',r'\\1[REDACTED]',msg)
+              if 'oemPrivate' in msg:continue
+              detail.append(msg[:600])
+          print('IN_CALL_FOREGROUND_LOG_LINES',len(detail))
+          for row in detail[-180:]:print('CALL_SCREEN_EVENT',row)
           summary={
             'source_run':44210464668,
             'main_home_verified':True,
