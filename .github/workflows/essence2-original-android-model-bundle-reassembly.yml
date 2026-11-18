@@ -1,0 +1,62 @@
+name: HITEL Essence2 original Android model local bundle reconstruction
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-original-android-model-bundle-reassembly.yml
+      - tools/bithuman_deep/reassemble_essence2_android_original_bundles.py
+permissions:
+  contents: read
+jobs:
+  verify-vendor-model-member-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original Sofia IMX and missing Android members with full SHA verification
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/reassemble_essence2_android_original_bundles.py \
+            --code A52DHS2219 \
+            --work build/essence2-android-bundles \
+            --report essence2-proof/original-sofia-android-bundle.json \
+            --retain-bundle
+          python3 - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('essence2-proof/original-sofia-android-bundle.json')
+          j=json.loads(p.read_text())
+          assert j['verified_complete_android_bundles']==1
+          a=j['models'][0]
+          assert a['original_android_member_count'] >= 20
+          assert len(a['members_fetched_from_android_store'])==3, a['members_fetched_from_android_store']
+          assert len(a['members_identical_to_imx'])>=18
+          root=pathlib.Path(a['android_bundle_dir'])
+          assert (root/'android_store.v1.json').is_file()
+          assert (root/'manifest.json').is_file()
+          assert (root/'w2v_ess_fp16_v1.onnx').is_file()
+          assert (root/'P_hevc.mov').is_file()
+          print('PASS_ESSENCE2_FULL_ORIGINAL_ANDROID_SOFIA_LOCAL_BUNDLE_COMPLETE')
+          PY
+      - name: Inspect native SDK direct-create bundle constructors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/essence2-aar
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors \
+            https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5/essence2-android-0.9.5.aar \
+            -o build/essence2-aar/pristine.aar
+          unzip -p build/essence2-aar/pristine.aar classes.jar > build/essence2-aar/classes.jar
+          javap -classpath build/essence2-aar/classes.jar -p 'ai.bithuman.elevate.Essence2ModelStore$Bundle'
+          javap -classpath build/essence2-aar/classes.jar -p 'ai.bithuman.elevate.Essence2Avatar$Companion'
+          echo PASS_ESSENCE2_ORIGINAL_MODEL_BUNDLE_JVM_API_IDENTIFIED
+      - uses: actions/cache/save@v4
+        with:
+          path: build/essence2-android-bundles/A52DHS2219/android
+          key: essence2-original-android-sofia-095-public-catalog-5dc9352e175d999999428a2942150be4b2574592e9fb3909958a77a66f9832a6
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-original-sofia-android-full-member-hashes
+          path: essence2-proof/original-sofia-android-bundle.json
+          retention-days: 14
