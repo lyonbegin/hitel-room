@@ -51,6 +51,8 @@ jobs:
               'UserServiceRepository;->getLoginUrlV2(',
               'UserServiceRepository;->getLoginUrl(',
               'GetLoginUrlUseCase;->',
+              'GetEncryptedCtnUseCase;->invoke(',
+              'GetEncryptedCtnUseCase;->',
           )
           result=[]
           for n in (15,16,18):
@@ -66,7 +68,7 @@ jobs:
                 for i,line in enumerate(lines):
                   if any(q in line for q in patterns):
                     # Only static method signature, labels and callsite register arguments.
-                    surrounding=lines[max(i-3,0):i+4]
+                    surrounding=lines[max(i-9,0):i+15]
                     # Do not expose original literals or potential secrets.
                     surrounding=[re.sub(r'const-string[^\n]*','const-string [REDACTED]',x.strip())[:300] for x in surrounding]
                     refs.append({'line':i,'opcode':line.strip()[:260],'context':surrounding})
