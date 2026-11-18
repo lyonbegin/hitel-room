@@ -34,6 +34,11 @@ jobs:
           echo "$EXPECTED  $APK" | sha256sum --check
           test "$(stat -c %s "$APK")" -gt 150000000
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | tee essence2-public-package-badging.txt
+          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" essence2-public-package-badging.txt
+          echo PASS_EMULATOR_TEST_INPUT_SEPARATE_ESSENCE2_APPLICATION_ID
           echo PASS_EMULATOR_TEST_INPUT_PUBLIC_ARM64_APK_SHA256_VERIFIED
 
       - name: Enable nested virtualization for Android 11 Google APIs emulator
