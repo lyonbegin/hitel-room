@@ -62,6 +62,8 @@ else
   X=360
   Y=745
 fi
+echo "PRE_TAP_LOCAL_BOOT_PATHS:"
+adb shell run-as "$PACKAGE" find . -name boot_status.txt -type f || true
 echo "TAPPING ESSENCE2 SAMPLE BUTTON X=$X Y=$Y"
 adb shell input tap "$X" "$Y"
 for i in 1 2 3 4 5 6; do
@@ -69,7 +71,9 @@ for i in 1 2 3 4 5 6; do
     echo "AFTER_TAP_SECONDS=$((i*20)) PROCESS=$(adb shell pidof "$PACKAGE" | tr -d '\r')"
 done
 adb exec-out screencap -p > "$OUT/essence2-after-tap.png" || true
-adb shell run-as "$PACKAGE" sh -c 'find . -name boot_status.txt -type f' \
+# Pass find arguments directly through run-as; sh -c loses -name/-type under
+# adb's shell quoting rules and previously listed directories instead of logs.
+adb shell run-as "$PACKAGE" find . -name boot_status.txt -type f \
     > "$OUT/boot-status-paths.txt" 2>&1 || true
 while IFS= read -r path; do
   if [[ "$path" == *boot_status.txt ]]; then
