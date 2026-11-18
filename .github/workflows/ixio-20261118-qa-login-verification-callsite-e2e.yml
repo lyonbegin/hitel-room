@@ -2,7 +2,7 @@ name: IXIO Original URLs Plus Prior HITEL Login VerifyCtn Scoped QA Emulator E2E
 on:
   push:
     branches: [experiment/ixio-hitel-backend-android-20261116]
-    paths: [.github/workflows/ixio-20261118-qa-login-verification-callsite-e2e.yml]
+    paths: [.github/workflows/ixio-20261118-qa-login-verification-callsite-e2e.yml, tools/ixio/ixio_login_verifyctn_scoped_qa.py]
   workflow_dispatch:
 permissions:
   contents: read
