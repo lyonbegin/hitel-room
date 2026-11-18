@@ -24,7 +24,8 @@ fi
 adb shell logcat -c
 adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 \
     > "$OUT/launch-result.txt" 2>&1 || true
-sleep 12
+sleep 55
+# ARM64 translation delays Flutter's first rendered chooser; never tap a splash screen.
 adb exec-out screencap -p > "$OUT/essence2-chooser.png" || true
 adb shell uiautomator dump /sdcard/essence2-ui.xml \
     > "$OUT/uiautomator-result.txt" 2>&1 || true
@@ -66,7 +67,7 @@ echo "PRE_TAP_LOCAL_BOOT_PATHS:"
 adb shell run-as "$PACKAGE" find . -name boot_status.txt -type f || true
 echo "TAPPING ESSENCE2 SAMPLE BUTTON X=$X Y=$Y"
 adb shell input tap "$X" "$Y"
-for i in 1 2 3 4 5 6; do
+for i in 1 2 3 4 5 6 7 8 9; do
     sleep 20
     echo "AFTER_TAP_SECONDS=$((i*20)) PROCESS=$(adb shell pidof "$PACKAGE" | tr -d '\r')"
 done
@@ -110,5 +111,6 @@ if grep -Eq 'boot:load:ok|avatar ready.*essence-2' \
      "$OUT/boot-status.txt" "$OUT/selected-native-logcat.txt" 2>/dev/null; then
   echo "PASS_ESSENCE2_ORIGINAL_NATIVE_AVATAR_LOADED_IN_ANDROID_EMULATOR"
 else
-  echo "ESSENCE2_EMULATOR_LAUNCHED_BUT_RENDER_NOT_YET_CONFIRMED"
+  echo "FAIL_ESSENCE2_EMULATOR_NATIVE_RENDER_NOT_CONFIRMED_AFTER_MODEL_BOOT"
+  exit 14
 fi
