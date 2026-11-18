@@ -206,6 +206,6 @@ internal object HitelEssence2PublicAndroidBundle {
         if (donors <= 0) throw IOException("Invalid original donor count")
         android.util.Log.i("HITEL_Essence2", "Verified local model " + code +
             ": " + names.size + " Android members, " + completed + " bytes")
-        return Essence2ModelStore.Bundle(code, root, donors)
+        return HitelEssence2BundleFactory.fromVerifiedOriginalAndroidFiles(code, root, donors)
     }
 }
