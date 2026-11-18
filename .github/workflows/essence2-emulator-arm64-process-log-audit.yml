@@ -1,0 +1,35 @@
+name: HITEL Essence2 native-ABI emulator second-failure exact log
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-emulator-arm64-process-log-audit.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-real-arm64-emulator-log:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analyze forced ARM64 ABI emulator runtime exact failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p forensic
+          gh run download 44212602592 --repo lyonbegin/hitel-room \
+            --name essence2-arm64-translated-android-emulator-screenshot-and-runtime-logs \
+            --dir forensic
+          for i in install-result.txt launch-result.txt boot-status-paths.txt boot-status.txt; do
+            echo "----- $i -----"
+            test -f "forensic/$i" && cat "forensic/$i" | head -45 || true
+          done
+          echo EXACT_APP_FLUTTER_NATIVE_LINKER_LOGS
+          grep -E 'FlutterJNI|FlutterLoader|AndroidRuntime|UnsatisfiedLinkError|EM_AARCH64|EM_X86_64|FATAL EXCEPTION|ai.bithuman.example.avatar_chat' \
+            forensic/selected-native-logcat.txt | tail -100 || true
+          echo PASS_SECOND_ANDROID_EMULATOR_ARTIFACT_FORENSIC_READ
