@@ -81,12 +81,18 @@ jobs:
           set -euo pipefail
           flutter pub get
           flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart
-          flutter build apk --debug --target-platform android-arm64 \
+          ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug --target-platform android-arm64 \
             --dart-define=BH_ENGINE=essence2 \
             --dart-define=BH_MIC=false \
             2>&1 | tee "$GITHUB_WORKSPACE/essence2-local-proof/flutter-build.log"
           APK=build/app/outputs/flutter-apk/app-debug.apk
           test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-proof/android-apk-package.txt"
+          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-proof/android-apk-package.txt"
+          grep -Fq "application-label:'bitHuman Essence-2'" "$GITHUB_WORKSPACE/essence2-local-proof/android-apk-package.txt"
+          echo PASS_ESSENCE2_SEPARATE_ANDROID_APP_ID_AND_LABEL
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-proof/apk-members.txt"
           grep -Fxq "lib/arm64-v8a/lible_jni.so" "$GITHUB_WORKSPACE/essence2-local-proof/apk-members.txt"
