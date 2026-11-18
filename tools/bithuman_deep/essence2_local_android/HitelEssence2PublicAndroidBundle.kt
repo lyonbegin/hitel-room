@@ -216,7 +216,8 @@ internal object HitelEssence2PublicAndroidBundle {
                 }
             }
         }
-        val donors = catalog.getInt("n_donors")
+        // Official android_store.v1.json nests donor count under borrow.
+        val donors = catalog.getJSONObject("borrow").getInt("n_donors")
         if (donors <= 0) throw IOException("Invalid original donor count")
         android.util.Log.i("HITEL_Essence2", "Verified local model " + code +
             ": " + names.size + " required, " + optionalNames.size + " optional Android members, " + completed + " bytes")
