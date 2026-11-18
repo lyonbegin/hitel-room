@@ -1,0 +1,40 @@
+name: HITEL Essence2 emulator previous failure artifact forensic report
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-emulator-failure-forensic.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  summarize-original-emulator-artifact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch actual Android 11 emulator artifact and print forensic data
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p emulator-forensic
+          gh run download 44211645063 --repo lyonbegin/hitel-room \
+            --name essence2-arm64-translated-android-emulator-screenshot-and-runtime-logs \
+            --dir emulator-forensic
+          echo VERIFIED_EMULATOR_ARTIFACT_CONTENTS
+          find emulator-forensic -maxdepth 2 -type f -printf '%P %s bytes\n'
+          for item in install-result.txt launch-result.txt uiautomator-result.txt \
+                      essence2-ui.xml boot-status-paths.txt boot-status.txt \
+                      selected-native-logcat.txt; do
+            p="emulator-forensic/$item"
+            if test -f "$p"; then
+              echo "---- $item ----"
+              head -100 "$p" | cut -c1-300
+            fi
+          done
+          file emulator-forensic/*.png || true
+          echo PASS_ESSENCE2_EMULATOR_FAILURE_FORENSIC_ARTIFACT_EXAMINED
