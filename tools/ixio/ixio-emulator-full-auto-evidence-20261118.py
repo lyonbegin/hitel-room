@@ -216,6 +216,24 @@ def main():
                 continue
             stop_reason="RECORDER_SETUP_PROMPT_WITHOUT_BUTTON"
             break
+        # Original recorder requests Android's "unused-app permission deletion"
+        # opt-out. Match the original consent screen exactly on this disposable
+        # emulator and apply only the corresponding Android app-op (not app code).
+        if "사용하지 않는 앱 권한 삭제" in joined and "익시오 통화녹음" in joined:
+            adb("shell","cmd","appops","set","com.lguplus.callrecorder",
+                "AUTO_REVOKE_PERMISSIONS_IF_UNUSED","ignore",timeout=25)
+            status=adb("shell","cmd","appops","get","com.lguplus.callrecorder",
+                       "AUTO_REVOKE_PERMISSIONS_IF_UNUSED",timeout=25)
+            print("ORIGINAL_RECORDER_AUTO_REVOKE_STATUS",status.strip()[:500],flush=True)
+            if "ignore" not in status:
+                stop_reason="RECORDER_ANDROID_UNUSED_APP_PERMISSION_SETTING_FAILED"
+                break
+            button=choose(nodes,["닫기"],True)
+            if button:
+                tap(button,"DISMISS_RECORDER_UNUSED_APP_PERMISSION_PROMPT_AFTER_SET")
+                continue
+            stop_reason="RECORDER_UNUSED_APP_PERMISSION_PROMPT_CANNOT_DISMISS"
+            break
         if any(q in joined for q in ERRORS):
             seen_error=True
             error_screens.append({"stage":f"stage-{i:02d}", "text":joined[:900]})
