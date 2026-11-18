@@ -43,6 +43,13 @@ jobs:
               'IxIOSetupWizardApi;->verifyCtn(',
               'MemberVerificationRemoteSource;->verifyCtn(',
               'GetLoginDataUseCase;',
+              'CtnRepository;->getEncryptedCtn(',
+              'CtnRepositoryImpl;->getEncryptedCtn(',
+              'IxIOUserServiceRepository;->getLoginUrlV2(',
+              'IxIOUserServiceRepository;->getLoginUrl(',
+              'UserServiceRepository;->getLoginUrlV2(',
+              'UserServiceRepository;->getLoginUrl(',
+              'GetLoginUrlUseCase;->',
           )
           result=[]
           for n in (15,16,18):
