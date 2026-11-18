@@ -20,7 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .ixio-recorder-triage
-          gh run download 44208861772 --repo "$GH_REPO" --name IXIO_20261118_Login_Home_OriginalRecorder_GSM_EmulatorEvidence --dir .ixio-recorder-triage
+          gh run download 44210464668 --repo "$GH_REPO" --name IXIO_20261118_Login_Home_OriginalRecorder_GSM_EmulatorEvidence --dir .ixio-recorder-triage
           find .ixio-recorder-triage -type f -name 'result.json' -print
       - name: Analyze emulator call answer state and in-call recorder controls
         run: |
@@ -38,10 +38,10 @@ jobs:
             print('CHECK',k,repr(obj.get(k)))
           for event in obj.get('events',[]):
             print('GSM_EVENT',event.get('name'),event.get('result',{}).get('returncode'),str(event.get('result',{}).get('output',''))[:200])
-          for stage in ('before','auto_record_selected','ringing','connected','record_toggle','after'):
+          for stage in ('before','auto_record_selected','main_foreground','ringing','connected','record_toggle','after'):
             d=obj.get(stage,{})
             print('UI_STAGE',stage,'TEXT',repr(d.get('visible',[]))[:2200])
-            for f in (f'{stage}-telecom.txt',f'{stage}-services.txt',f'{stage}-phone_services.txt',f'{stage}-role.txt'):
+            for f in (f'{stage}-telecom.txt',f'{stage}-services.txt',f'{stage}-phone_services.txt',f'{stage}-role.txt',f'{stage}.xml'):
               path=p/f
               if not path.is_file():continue
               lines=path.read_text(errors='replace').splitlines()
@@ -58,7 +58,7 @@ jobs:
             safe=re.sub(r'(?i)(Bearer\s+)\S+',r'\1[REDACTED]',line)
             print('LOG',safe[:340])
           summary={
-            'source_run':44208861772,
+            'source_run':44210464668,
             'main_home_verified':True,
             'original_recorder_installed':True,
             'recorder_setup_auto_completed':True,
