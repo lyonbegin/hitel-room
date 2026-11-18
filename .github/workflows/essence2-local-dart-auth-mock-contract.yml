@@ -1,0 +1,58 @@
+name: HITEL Essence2 five-sample local synthetic auth fixture Dart contract test
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-local-dart-auth-mock-contract.yml
+      - tools/bithuman_deep/essence2_local_android/hitel_local_fixture_test.dart
+      - tools/bithuman_deep/prepare_essence2_local_debug_loopback.py
+permissions:
+  contents: read
+jobs:
+  verify-local-debug-protocol:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Recreate original application and synthetic local debug path
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          cp -a "$ARCHIVE" "$GITHUB_WORKSPACE/essence2-plugin-test-copy"
+          PLUGIN="$GITHUB_WORKSPACE/essence2-plugin-test-copy"
+          mkdir -p essence2-fixture-proof "$APP/test"
+          python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-fixture-proof/sample-ui.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_android_model.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --source-kotlin "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt" \
+            --report "$GITHUB_WORKSPACE/essence2-fixture-proof/model-loader.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_debug_loopback.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --report "$GITHUB_WORKSPACE/essence2-fixture-proof/test-session.json"
+          cp tools/bithuman_deep/essence2_local_android/hitel_local_fixture_test.dart \
+            "$APP/test/hitel_local_fixture_test.dart"
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          echo PASS_ORIGINAL_APP_ESSENCE2_LOCAL_FIXTURE_TEST_ASSEMBLED
+      - name: Execute all five public identities auth and meter local HTTP tests
+        working-directory: original-upstream/app/avatar_chat
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter test --no-pub test/hitel_local_fixture_test.dart
+          echo PASS_ESSENCE2_FIVE_LOCAL_SYNTHETIC_AUTH_METER_DART_PROTOCOL
