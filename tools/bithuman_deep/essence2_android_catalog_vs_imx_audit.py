@@ -41,6 +41,14 @@ def audit(imx_report):
         catalog = fetch_json(url)
         if catalog.get("agent") != code or catalog.get("format") != "essence2_android_store.v1":
             raise ValueError(code + ": wrong Android catalog identity/format")
+        borrow = catalog.get("borrow")
+        if not isinstance(borrow, dict) or not isinstance(borrow.get("n_donors"), int) or borrow["n_donors"] <= 0:
+            raise ValueError(code + ": missing original borrow.n_donors required for Essence2 Bundle")
+        if "n_donors" in catalog:
+            raise ValueError(code + ": unexpected root n_donors; importer schema must use borrow")
+        optional = catalog.get("optional") or {}
+        if not isinstance(optional, dict):
+            raise ValueError(code + ": invalid optional model members")
         files = catalog.get("files")
         if not isinstance(files, dict) or not files:
             raise ValueError(code + ": empty Android store catalog")
@@ -69,6 +77,8 @@ def audit(imx_report):
             "android_required_members_absent_from_imx": missing,
             "absent_member_total_bytes": missing_bytes,
             "overlapping_member_size_mismatches": mismatch,
+            "official_borrow_n_donors": borrow["n_donors"],
+            "optional_android_members": sorted(optional),
             "android_catalog_verified": True,
             "android_model_members_downloaded": False,
             "local_android_bundle_installed": False,
