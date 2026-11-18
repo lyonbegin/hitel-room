@@ -137,6 +137,9 @@ def main() -> None:
     summary["call_notification_probe_attempted"]=True
     summary["call_notification_expanded"]=False
     summary["call_notification_tapped"]=False
+    summary["call_notification_in_system_dump"]=False
+    summary["call_notification_telecom_active"]=False
+    summary["call_notification_tap_method"]=None
     expand=adb("shell","cmd","statusbar","expand-notifications",timeout=12)
     summary["call_notification_expanded"]=expand["returncode"]==0
     print("IXIO_SYSTEM_CALL_NOTIFICATION_SHADE_OPENED",
@@ -166,6 +169,7 @@ def main() -> None:
                     _,label,x,y=candidates[0]
                     action=adb("shell","input","tap",str(x),str(y),timeout=12)
                     summary["call_notification_tapped"]=action["returncode"]==0
+                    summary["call_notification_tap_method"]="UIAUTOMATOR_XML"
                     print("IXIO_GENUINE_SYSTEM_CALL_NOTIFICATION_TAPPED",
                           summary["call_notification_tapped"],label[:120],flush=True)
             except Exception as exc:
