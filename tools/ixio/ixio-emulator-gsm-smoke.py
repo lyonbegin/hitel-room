@@ -170,6 +170,49 @@ def main() -> None:
                           summary["call_notification_tapped"],label[:120],flush=True)
             except Exception as exc:
                 summary["call_notification_probe_error"]=repr(exc)
+    # In Android 14 this actual Pixel_6 emulator successfully captured the
+    # IXIO "Ongoing call" notification in PNG, yet uiautomator dump returned
+    # no XML for the SystemUI notification shade (proved in run 44212635729).
+    # A screen-backed coordinate may be used ONLY for this exact emulator size,
+    # while the identical active synthetic telecom call is present. Never tap
+    # the red "Hang Up" action (which is far below the notification title).
+    if not summary["call_notification_tapped"]:
+        image_file=OUT/"call_notification_shade.png"
+        active_call=(OUT/"connected-telecom.txt").read_text(errors="replace")
+        notice_dump=adb("shell","dumpsys","notification","--noredact",timeout=20)
+        summary["call_notification_in_system_dump"] = (
+            "com.lguplus.aicallagent" in notice_dump["output"]
+        )
+        summary["call_notification_telecom_active"] = (
+            "state=ACTIVE" in active_call and "com.lguplus.aicallagent" in active_call
+        )
+        screenshot_dimensions=None
+        if image_file.is_file():
+            content=image_file.read_bytes()
+            if content.startswith(bytes.fromhex("89504e470d0a1a0a")) and len(content)>=24:
+                import struct
+                screenshot_dimensions=struct.unpack(">II",content[16:24])
+        summary["call_notification_screenshot_dimensions"]=screenshot_dimensions
+        allow_screen_fallback=(
+            not (OUT/"call_notification_shade.xml").exists()
+            and screenshot_dimensions==(1080,2400)
+            and summary["call_notification_telecom_active"]
+            and summary["call_notification_in_system_dump"]
+        )
+        print("IXIO_NOTIFICATION_VERIFIED_SCREEN_FALLBACK_GUARDS",
+              "dims",screenshot_dimensions,
+              "telecom_active",summary["call_notification_telecom_active"],
+              "android_notif_present",summary["call_notification_in_system_dump"],
+              "allowed",allow_screen_fallback,flush=True)
+        if allow_screen_fallback:
+            # Verified screen from 44212635729: title at original pixel
+            # x~250..750,y~630..755; hangup action centered near y~840.
+            x,y=570,685
+            tap_result=adb("shell","input","tap",str(x),str(y),timeout=12)
+            summary["call_notification_tapped"]=tap_result["returncode"]==0
+            summary["call_notification_tap_method"]="EXACT_VERIFIED_PIX6_CALL_TITLE_570_685"
+            print("IXIO_VERIFIED_REAL_CALL_NOTIFICATION_TITLE_TAPPED",
+                  summary["call_notification_tapped"],x,y,flush=True)
     if not summary["call_notification_tapped"]:
         adb("shell","cmd","statusbar","collapse",timeout=12)
     time.sleep(2)
@@ -250,7 +293,7 @@ def main() -> None:
     print("IXIO_GSM_CALL_SMOKE_RESULT",json.dumps({
         k:summary[k] for k in ("simulated_call_requested","caller_screen_seen",
            "default_dialer_confirmed","recorder_process_after","main_process_after",
-           "filtered_log_lines","auto_record_setting_tap","recorder_service_active_before_manual_toggle","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified","call_notification_expanded","call_notification_tapped")
+           "filtered_log_lines","auto_record_setting_tap","recorder_service_active_before_manual_toggle","record_button_tapped","recording_service_bound_after_toggle","recorder_incall_service_seen_after_toggle","stt_verified","call_notification_expanded","call_notification_tapped","call_notification_in_system_dump","call_notification_tap_method")
     },ensure_ascii=False),flush=True)
     # A call simulator without real PCM cannot prove RX capture or STT.
     print("IXIO_REAL_RX_PCM_AND_STT_UNVERIFIED=YES",flush=True)
