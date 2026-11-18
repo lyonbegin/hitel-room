@@ -1,0 +1,187 @@
+name: HITEL Essence2 local TEST auth original SDK 0.9.5 five samples ARM64
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-five-local-mock-original-sdk-arm64.yml
+      - tools/bithuman_deep/prepare_essence2_local_debug_loopback.py
+      - tools/bithuman_deep/prepare_essence2_local_android_model.py
+      - tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt
+      - tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py
+permissions:
+  contents: write
+jobs:
+  build-original-essence2-with-local-test-meter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy official app and archived original SDK source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          mkdir -p essence2-local-mock-proof
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          cp -a "$ARCHIVE" "$GITHUB_WORKSPACE/essence2-local-mock-plugin"
+          test -f "$ARCHIVE/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          echo PASS_PRISTINE_ESSENCE2_ANDROID_PLUGIN
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+
+      - name: Assemble five-sample local Android bundle loader and debug mock
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
+          python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sample-ui.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_android_model.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --source-kotlin "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-original-model.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_debug_loopback.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-synthetic-auth.json"
+          cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
+          cmp "$ARCHIVE/android/build.gradle" "$PLUGIN/android/build.gradle"
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          echo PASS_ESSENCE2_PUBLIC_MODEL_LOCAL_TEST_APP_CONFIGURED
+
+      - name: Repack original SDK with ONLY one JVM meter URL getter changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p essence2-sdk-local
+          BASE=https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5
+          curl -fLsS --retry 4 --retry-all-errors "$BASE/essence2-android-0.9.5.aar" \
+            -o essence2-sdk-local/vendor-original-0.9.5.aar
+          curl -fLsS --retry 4 --retry-all-errors "$BASE/essence2-android-0.9.5.pom" \
+            -o essence2-sdk-local/vendor-original-0.9.5.pom
+          python3 tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py \
+            --source-aar essence2-sdk-local/vendor-original-0.9.5.aar \
+            --output-aar essence2-sdk-local/hitel-local-test-meter-0.9.5.aar \
+            --report essence2-local-mock-proof/one-meter-method-only.json \
+            --base-url http://127.0.0.1:18762 --allow-offline-loopback
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          app=Path('original-upstream/app/avatar_chat')
+          sdk=Path('essence2-sdk-local')
+          maven=app/'android/local-sdk-maven/ai/hitel/reassembled/essence2-android/0.9.5'
+          maven.mkdir(parents=True,exist_ok=True)
+          (maven/'essence2-android-0.9.5.aar').write_bytes(
+            (sdk/'hitel-local-test-meter-0.9.5.aar').read_bytes())
+          pom=(sdk/'vendor-original-0.9.5.pom').read_text()
+          edited,count=re.subn(r'(<groupId>\s*)ai\.bithuman(\s*</groupId>)',
+               r'\g<1>ai.hitel.reassembled\g<2>',pom,count=1)
+          assert count==1
+          (maven/'essence2-android-0.9.5.pom').write_text(edited)
+          build=app/'android/build.gradle.kts'
+          text=build.read_text()
+          anchor='        mavenCentral()\n'
+          assert text.count(anchor)==1
+          text=text.replace(anchor,anchor+
+            '        maven {\n'+
+            '            url = uri(rootProject.projectDir.toString() + "/local-sdk-maven")\n'+
+            '            content { includeGroup("ai.hitel.reassembled") }\n'+
+            '        }\n',1)
+          marker='subprojects {\n    project.evaluationDependsOn(":app")\n}\n'
+          assert text.count(marker)==1
+          extra=('\nsubprojects {\n'+
+            '    configurations.configureEach {\n'+
+            '        resolutionStrategy.eachDependency {\n'+
+            '            if (requested.group == "ai.bithuman" &&\n'+
+            '                requested.name == "essence2-android") {\n'+
+            '                useTarget("ai.hitel.reassembled:essence2-android:0.9.5")\n'+
+            '                because("Only the local debug meter endpoint changes; original native unchanged")\n'+
+            '            }\n'+
+            '        }\n'+
+            '    }\n'+
+            '}\n')
+          build.write_text(text.replace(marker,marker+extra,1))
+          p=app/'android/app/build.gradle.kts'
+          t=p.read_text()
+          kotlin='    id("com.android.application")\n'
+          assert t.count(kotlin)==1 and 'id("org.jetbrains.kotlin.android")' not in t
+          p.write_text(t.replace(kotlin,kotlin+'    id("org.jetbrains.kotlin.android")\n',1))
+          print("PASS_LOCAL_ESSENCE2_AAR_JVM_METER_PATCH_INSTALLED")
+          PY
+          cmp \
+            <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
+            <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
+          echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
+
+      - name: Compile fully assembled five-sample Android debug APK
+        shell: bash
+        working-directory: original-upstream/app/avatar_chat
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart
+          flutter build apk --debug --target-platform android-arm64 \
+            --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
+            2>&1 | tee "$GITHUB_WORKSPACE/essence2-local-mock-proof/flutter-build.log"
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk"
+          sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
+          echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
+
+      - name: Verify installed APK JNI is byte-identical to original vendor AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp \
+            <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
+            <(unzip -p HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk lib/arm64-v8a/lible_jni.so)
+          echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel-essence2-five-sample-local-mock-original-native-apk
+          path: |
+            HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk
+            essence2-local-mock-proof/*.json
+            essence2-local-mock-proof/apk-sha256.txt
+          retention-days: 14
+
+      - name: Publish debug-only APK and verify full external HTTPS download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-five-samples-synthetic-local-test-20261118
+          APK=HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" \
+              --title "HITEL Essence2 five public sample local synthetic test only" \
+              --notes "Test APK: five public sample identities; original native Essence2 Android 0.9.5 unmodified. Public Android model members downloaded and SHA-256 verified on-device. Localhost 127.0.0.1 synthetic entitlement/meter and mock realtime used ONLY for development; it is not vendor-licensed playback, real AI or production billing, and Galaxy Z Flip3 rendered output has not been tested."
+          fi
+          URL=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK
+          curl -fLsS --retry 3 --retry-all-errors --max-time 600 "$URL" -o /tmp/essence2-local-mock-external.apk
+          cmp "$APK" /tmp/essence2-local-mock-external.apk
+          echo PASS_ESSENCE2_LOCAL_SYNTHETIC_TEST_APK_PUBLIC_HTTPS_SHA256_BYTE_EQUAL
