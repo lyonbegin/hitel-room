@@ -39,6 +39,10 @@ jobs:
           print('ACTUAL_HTTP_REQUESTS',json.dumps(req['hitel_device_request_counts']))
           logs=(root/'logcat-full.txt').read_text(errors='replace').splitlines()
           regex=re.compile(r'^dd-dds+(dd:dd:dd).d+s+(d+)s+d+s+([VDIWEF])s+([^:]+):s*(.*)')
+          print('LOGCAT_FIRST_LINES',repr(logs[:4]))
+          print('LOGCAT_LAST_LINES',repr(logs[-4:]))
+          print('TARGET_PID_RAW_SAMPLES',[line[:360] for line in logs if ' 5914 ' in line][-35:])
+          print('ORIGINAL_ERROR_STRING_SAMPLES',[line[:360] for line in logs if 'lus.aicallagent' in line or 'Unauthorized' in line or 'device_wrapped_dek' in line][-40:])
           ranges=[]
           highlights=[]
           for line in logs:
