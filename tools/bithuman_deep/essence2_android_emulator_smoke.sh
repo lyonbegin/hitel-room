@@ -4,7 +4,7 @@
 set -euo pipefail
 APK="${1:?APK path}"
 OUT="${2:?proof folder}"
-PACKAGE="ai.bithuman.example.avatar_chat"
+PACKAGE="ai.bithuman.example.avatar_chat.essence2"
 mkdir -p "$OUT"
 echo "EMULATOR_ABIS=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
 echo "EMULATOR_SDK=$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
@@ -12,10 +12,11 @@ echo "APK_SIZE=$(stat -c '%s' "$APK")"
 adb shell wm size 720x1280 || true
 adb shell wm density 320 || true
 set +e
-adb install -r "$APK" > "$OUT/install-result.txt" 2>&1
+adb install --abi arm64-v8a -r "$APK" > "$OUT/install-result.txt" 2>&1
 installed=$?
 set -e
 cat "$OUT/install-result.txt"
+adb shell dumpsys package "$PACKAGE" | grep -E "primaryCpuAbi|secondaryCpuAbi" | head -8 || true
 if [ "$installed" -ne 0 ]; then
   echo "FAIL_EMULATOR_ARM64_INSTALL_NOT_SUPPORTED"
   exit 12
