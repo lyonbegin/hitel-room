@@ -1,0 +1,135 @@
+name: HITEL Essence2 five models on-device local Android importer ARM64
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-five-local-original-sdk-arm64.yml
+      - tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py
+      - tools/bithuman_deep/prepare_essence2_local_android_model.py
+      - tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt
+permissions:
+  contents: write
+jobs:
+  compile-and-verify-original-native-local-model-loader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone original avatar app and preserve pristine plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          mkdir -p essence2-local-proof
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          PLUGIN="$GITHUB_WORKSPACE/essence2-local-plugin-copy"
+          cp -a "$ARCHIVE" "$PLUGIN"
+          sha256sum "$ARCHIVE/lib/bithuman.dart" > essence2-local-proof/original-plugin-dart-sha256.txt
+          sha256sum "$ARCHIVE/android/build.gradle" > essence2-local-proof/original-gradle-sha256.txt
+          echo PASS_ORIGINAL_PLUGIN_ARCHIVE_COPIED
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+
+      - name: Patch only sample chooser and Android model fetch closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          PLUGIN="$GITHUB_WORKSPACE/essence2-local-plugin-copy"
+          python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-proof/five-original-samples-ui.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_android_model.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --source-kotlin "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt" \
+            --report "$GITHUB_WORKSPACE/essence2-local-proof/local-bundle-original-sdk-scope.json"
+          cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
+          cmp "$ARCHIVE/android/build.gradle" "$PLUGIN/android/build.gradle"
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('original-upstream/app/avatar_chat/android/app/build.gradle.kts')
+          s=p.read_text()
+          anchor='    id("com.android.application")\n'
+          assert s.count(anchor)==1 and 'id("org.jetbrains.kotlin.android")' not in s
+          p.write_text(s.replace(anchor,anchor+'    id("org.jetbrains.kotlin.android")\n',1))
+          PY
+          echo PASS_ESSENCE2_FIVE_LOCAL_ANDROID_MODELS_READY_FOR_BUILD
+
+      - name: Compile Android ARM64 with original vendor native model engine
+        shell: bash
+        working-directory: original-upstream/app/avatar_chat
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart
+          flutter build apk --debug --target-platform android-arm64 \
+            --dart-define=BH_ENGINE=essence2 \
+            --dart-define=BH_MIC=false \
+            2>&1 | tee "$GITHUB_WORKSPACE/essence2-local-proof/flutter-build.log"
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-proof/apk-members.txt"
+          grep -Fxq "lib/arm64-v8a/lible_jni.so" "$GITHUB_WORKSPACE/essence2-local-proof/apk-members.txt"
+          grep -Fxq "lib/arm64-v8a/libflutter.so" "$GITHUB_WORKSPACE/essence2-local-proof/apk-members.txt"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_FivePublicLocalModels_ARM64.apk"
+          sha256sum "$APK" | tee "$GITHUB_WORKSPACE/essence2-local-proof/apk-sha256.txt"
+          echo PASS_ESSENCE2_FIVE_LOCAL_ANDROID_SAMPLE_APK_COMPILED
+
+      - name: Prove original native JNI unchanged byte for byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors \
+            https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5/essence2-android-0.9.5.aar \
+            -o essence2-local-proof/pristine-vendor.aar
+          cmp \
+            <(unzip -p essence2-local-proof/pristine-vendor.aar jni/arm64-v8a/lible_jni.so) \
+            <(unzip -p HITEL_Essence2_FivePublicLocalModels_ARM64.apk lib/arm64-v8a/lible_jni.so)
+          echo PASS_ESSENCE2_ORIGINAL_NATIVE_JNI_BYTE_EXACT_APK
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-five-local-android-model-original-native-apk
+          path: |
+            HITEL_Essence2_FivePublicLocalModels_ARM64.apk
+            essence2-local-proof/*.json
+            essence2-local-proof/*sha256.txt
+          retention-days: 14
+
+      - name: Publish to GitHub and verify external HTTPS full APK download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-five-public-local-models-20261118
+          APK=HITEL_Essence2_FivePublicLocalModels_ARM64.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" \
+              --title "HITEL Essence2 five models - on-device SHA verified original Android bundle" \
+              --notes "Five original public Essence 2 model identities selectable in one ARM64 APK. Each first use downloads its original Android-store manifest and 25 SHA-256-verified members into app-private cache. Native original BitHuman essence2-android 0.9.5 lible_jni.so is unchanged. A legitimate BitHuman runtime credential is REQUIRED: this APK does not bypass vendor licensing, and physical Flip3 rendering is NOT yet confirmed."
+          fi
+          URL=https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            --connect-timeout 30 --max-time 600 "$URL" -o /tmp/essence2-external.apk
+          cmp "$APK" /tmp/essence2-external.apk
+          echo PASS_PUBLIC_HTTPS_EXTERNAL_APK_COMPLETE_BYTES_IDENTICAL
