@@ -61,7 +61,12 @@ def prepare(app, plugin, archive, source_kotlin, report):
     dest = plugin / ADDITIONAL
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(source_kotlin.read_bytes())
-    assert "Essence2ModelStore.Bundle(code, root, donors)" in dest.read_text()
+    assert "HitelEssence2BundleFactory.fromVerifiedOriginalAndroidFiles(code, root, donors)" in dest.read_text()
+    java_src = source_kotlin.with_name("HitelEssence2BundleFactory.java")
+    java_dest = plugin / "android/src/main/java/ai/bithuman/flutter/HitelEssence2BundleFactory.java"
+    java_dest.parent.mkdir(parents=True, exist_ok=True)
+    java_dest.write_bytes(java_src.read_bytes())
+    assert "new Essence2ModelStore.Bundle(code, directory, donorCount)" in java_dest.read_text()
     assert 'https://api.bithuman.ai/v1/agent/' in dest.read_text()
     dart = (app / "lib/main.dart").read_text()
     assert "const _engineSlug = String.fromEnvironment('BH_ENGINE', defaultValue: 'essence2');" in dart
