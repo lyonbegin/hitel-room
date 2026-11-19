@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1522"><meta name="referrer" content="no-referrer">
+<title>HITEL · API 종합 관제</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1521;--card:#142333;--surface:#1a2e40;--line:#2c4355;--ink:#eff6fe;--muted:#9bb2c4;--aqua:#63d8c8;--green:#77e3ab;--amber:#ffd080;--red:#ff9497;--blue:#8fbfff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 72% -10%,#233e58 0,transparent 42%),var(--bg);color:var(--ink);font:14px/1.58 system-ui,-apple-system,"Malgun Gothic",sans-serif}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button,input,select{font:inherit;border-radius:8px;color:var(--ink);border:1px solid var(--line);background:#1b3043;padding:8px 11px}button{cursor:pointer}button:hover{background:#294257}
+header,main,footer{max-width:1440px;margin:0 auto;padding-left:24px;padding-right:24px}header{padding-top:30px;padding-bottom:20px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.brand{font-size:11px;letter-spacing:2px;color:var(--aqua);font-weight:750}h1{font-size:clamp(23px,3vw,32px);letter-spacing:-.5px;margin:0 0 6px;line-height:1.25}h2{font-size:17px;margin:0}p{margin:7px 0}.muted{color:var(--muted)}.controls{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.pill{border:1px solid var(--line);padding:7px 11px;border-radius:99px;background:#182c3e;font-size:12px;white-space:nowrap}
+main{padding-bottom:38px}.notice{border:1px solid var(--line);background:#18293b;border-radius:11px;padding:12px 15px;margin-bottom:16px}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:17px}.metric,.panel{background:rgba(20,35,51,.98);border:1px solid var(--line);border-radius:14px;min-width:0}.metric{padding:17px 14px}.metric .label{font-size:12px;color:var(--muted)}.metric .value{font-size:27px;font-weight:760;line-height:1.2;margin-top:8px}.metric .sub{font-size:11px;color:var(--muted);margin-top:5px}.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}.blue{color:var(--blue)}
+.layout{display:grid;grid-template-columns:1.06fr .94fr;gap:16px}.panel{padding:18px;margin-bottom:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:13px;flex-wrap:wrap}.scroll{overflow:auto;max-height:480px}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:13px}th,td{padding:10px 8px;border-bottom:1px solid #293b4e;text-align:left;vertical-align:middle}th{color:var(--muted);font-weight:620}tr:last-child td{border-bottom:0}tbody tr:hover{background:#1a3042}.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:3px 8px;border:1px solid var(--line);border-radius:6px;font-size:11px;white-space:nowrap}.tag.ok{color:var(--green);border-color:#326b5b}.tag.fail{color:var(--red);border-color:#80565b}.tag.run{color:var(--amber);border-color:#7f6847}.tag.unknown{color:var(--muted)}.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}.wrap{overflow-wrap:anywhere;word-break:break-word}
+.entry{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #26394c}.entry:last-child{border-bottom:0}.entry strong{font-weight:650}.entry small{color:var(--muted)}.filters{display:flex;gap:8px;flex-wrap:wrap}.filters input{width:210px;max-width:100%}
+.item-title{font-weight:670}.empty{padding:20px;text-align:center;color:var(--muted)}.progress{height:6px;background:#2b4257;border-radius:9px;overflow:hidden;margin-top:7px}.progress>div{background:var(--aqua);height:100%;min-width:0}
+footer{padding-bottom:27px;color:var(--muted);font-size:12px}
+@media(max-width:1100px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.layout{grid-template-columns:1fr}}
+@media(max-width:620px){header,main,footer{padding-left:12px;padding-right:12px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:12px}.metric .value{font-size:23px}.panel{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+<div><div class="brand">HITEL · API OBSERVABILITY</div><h1>ChatGPT API 종합 관제</h1><p class="muted">전체 이용 프로그램 · 대화방 · GitHub 작업 · Chrome 연결을 한눈에 확인합니다.</p></div>
+<div class="controls"><span id="conn" class="pill">● 확인 중</span><span class="pill" id="age">수집 대기</span><select id="interval" aria-label="화면 갱신 간격"><option value="15000">15초</option><option value="30000" selected>30초</option><option value="60000">1분</option><option value="0">자동 갱신 중지</option></select><button id="refresh" type="button">지금 새로고침</button></div>
+</header>
+<main>
+<div class="notice" id="notice" role="status">GitHub Pages 무료 정적 관제 페이지입니다. GitHub Actions가 기존 HITEL API의 공개 상태만 수집합니다. 새 Railway 배포는 하지 않습니다.</div>
+<section class="metrics">
+<div class="metric"><div class="label">HITEL API</div><div class="value" id="api">–</div><div class="sub">공개 상태 응답</div></div>
+<div class="metric"><div class="label">Chrome 작업자</div><div class="value" id="worker">–</div><div class="sub">연결 상태</div></div>
+<div class="metric"><div class="label">확인된 공개 대화방</div><div class="value" id="rooms">–</div><div class="sub">API 목록 기준</div></div>
+<div class="metric"><div class="label">연결된 대화방</div><div class="value good" id="linked">–</div><div class="sub">ChatGPT 대화 ID 확정</div></div>
+<div class="metric"><div class="label">진행 중 Actions</div><div class="value warn" id="running">–</div><div class="sub">등록된 저장소 기준</div></div>
+<div class="metric"><div class="label">최근 Actions 실패</div><div class="value bad" id="failures">–</div><div class="sub">조회된 최근 실행 중</div></div>
+</section>
+
+<div class="layout">
+<div>
+<section class="panel">
+<div class="panel-head"><h2>프로그램·서비스별 종합 현황</h2><span class="muted" id="servicesCount">등록 서비스 확인 중</span></div>
+<div class="scroll"><table><thead><tr><th>프로그램 / 저장소</th><th class="num">대화방</th><th class="num">연결된 방</th><th>최근 GitHub 실행</th><th>링크</th></tr></thead><tbody id="serviceRows"><tr><td colspan="5" class="empty">조회 중</td></tr></tbody></table></div>
+<p class="muted" style="font-size:12px">대화방에 프로그램 식별자가 없는 기존 API는 등록된 방 이름 규칙으로만 분류하며, 확정할 수 없는 방은 ‘소속 미확인’으로 표시합니다.</p>
+</section>
+<section class="panel">
+<div class="panel-head"><h2>대화방 전체 목록</h2><div class="filters"><input id="search" aria-label="방 검색" placeholder="이름·프로그램 검색"></div></div>
+<div class="scroll"><table><thead><tr><th>추정 프로그램</th><th>대화방 이름</th><th>상태</th></tr></thead><tbody id="roomRows"><tr><td colspan="3" class="empty">조회 중</td></tr></tbody></table></div>
+</section>
+</div>
+<div>
+<section class="panel"><div class="panel-head"><h2>Chrome · 자동 기동</h2><a href="https://github.com/lyonbegin/procureflow/actions/workflows/hitel-integration-bridge-live-qa.yml" target="_blank" rel="noopener noreferrer">워커 실행 기록</a></div><div id="workerDetails" class="muted">확인 중</div></section>
+<section class="panel"><div class="panel-head"><h2>GitHub Actions 실행 현황</h2><span id="githubAt" class="muted">조회 중</span></div>
+<div class="scroll"><table><thead><tr><th>프로그램 / 워크플로</th><th>상태</th><th>실행 시각</th><th>상세</th></tr></thead><tbody id="actionRows"><tr><td colspan="4" class="empty">조회 중</td></tr></tbody></table></div>
+</section>
+<section class="panel"><div class="panel-head"><h2>상태 갱신 및 데이터 범위</h2><a href="https://github.com/lyonbegin/hitel-room/actions" target="_blank" rel="noopener noreferrer">수집 Actions</a></div>
+<div class="entry"><span>GitHub Pages 정적 자료</span><strong id="sourceAt">–</strong></div>
+<div class="entry"><span>GitHub 상태 API 직접 조회</span><strong id="apiAt">–</strong></div>
+<div class="entry"><span>정적 자료 갱신 주기</span><strong>최소 5분 간격 예약</strong></div>
+<div class="entry"><span>대화 본문·계정 정보</span><strong>수집하지 않음</strong></div>
+<div class="entry"><span>개별 질문 성공·실패 건수</span><strong>현 공개 API에서 조회 불가</strong></div>
+<p class="muted" style="font-size:12px">GitHub Pages는 서버가 아니므로 실시간 WebSocket을 직접 중계하지 않습니다. 이 화면의 시각은 실제 마지막 자료 수집 시각입니다. 누락된 값은 0으로 표시하지 않습니다.</p></section>
+</div>
+</div>
+<section class="panel">
+<div class="panel-head"><h2>추가 서비스 연결</h2><a href="https://github.com/lyonbegin/hitel-room/blob/main/hitel-api-monitor/services.json" target="_blank" rel="noopener noreferrer">서비스 등록 설정</a></div>
+<p>새 프로그램은 <code>hitel-api-monitor/services.json</code>에 저장소와 대화방 이름 접두어만 등록하시면 관제 표에 자동으로 추가됩니다. <strong>기존 Railway API 수정이나 재배포는 하지 않습니다.</strong> 대화 본문은 조회하지 않으며, API가 공개하는 상태 및 GitHub 워크플로 기록만 집계합니다.</p>
+</section>
+</main>
+<footer>HITEL 통합 관제 · GitHub Pages 정적 페이지 · <a href="https://github.com/lyonbegin/hitel-room" target="_blank" rel="noopener noreferrer">소스 저장소</a></footer>
+<script>
+"use strict";
+const q=id=>document.getElementById(id);
+const endpoints={snapshot:"data/status.json",services:"services.json"};
+const repos=["lyonbegin/procureflow","lyonbegin/hitel-scribd-runner","lyonbegin/hitel-room"];
+const cache={runs:[],githubAt:null,serviceList:[],rooms:[],snapshot:null};
+let timer=null,loading=false,lastGithubRequest=0;
+function fmt(v){return Number(v||0).toLocaleString("ko-KR")}
+function time(v){const d=v?new Date(v):null;return d&&!isNaN(d)?d.toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}
+function text(tag,v,cls){const e=document.createElement(tag);e.textContent=String(v===undefined||v===null?"—":v);if(cls)e.className=cls;return e}
+function td(tr,v,cls){const el=text("td",v,cls);tr.appendChild(el);return el}
+function fill(id,rows,count){const target=q(id);target.replaceChildren();if(!rows.length){let tr=text("tr"),cell=td(tr,"표시할 자료가 없습니다.","empty");cell.colSpan=count;target.appendChild(tr);return}rows.forEach(tr=>target.appendChild(tr))}
+function statusType(v){if(v==="success"||v==="completed")return ["성공","ok"];if(v==="failure"||v==="failed"||v==="cancelled")return [v==="cancelled"?"취소":"실패","fail"];if(v==="in_progress"||v==="queued"||v==="pending"||v==="waiting")return ["진행/대기","run"];return [v||"미확인","unknown"]}
+function tag(v){const a=statusType(v);return text("span",a[0],"tag "+a[1])}
+function groupOf(room){const name=String(room.room_name||"").toLowerCase();for(const s of cache.serviceList){for(const prefix of (s.room_prefixes||[])){if(name.startsWith(String(prefix).toLowerCase()))return s.id}}return "unassigned"}
+function allRooms(){return cache.rooms||[]}
+function serviceRows(){
+ const rooms=allRooms(), rows=[];
+ for(const s of cache.serviceList){
+  const r=text("tr"),these=rooms.filter(x=>groupOf(x)===s.id),runs=cache.runs.filter(x=>x.repo===s.repository);
+  td(r,s.name+" ("+s.id+")");td(r,fmt(these.length),"num");td(r,fmt(these.filter(x=>x.conversation_linked).length),"num");
+  const recent=runs[0];const col=td(r,"");col.appendChild(recent?tag(recent.conclusion||recent.status):tag("미조회"));
+  const link=td(r,"");if(s.repository){const a=text("a","저장소");a.href="https://github.com/"+s.repository;a.target="_blank";a.rel="noopener noreferrer";link.appendChild(a)}
+  rows.push(r)
+ }
+ const others=rooms.filter(x=>groupOf(x)==="unassigned");
+ if(others.length){let r=text("tr");td(r,"소속 미확인");td(r,fmt(others.length),"num");td(r,fmt(others.filter(x=>x.conversation_linked).length),"num");td(r,"서비스 이름 확인 불가","muted");td(r,"—");rows.push(r)}
+ fill("serviceRows",rows,5);q("servicesCount").textContent=cache.serviceList.length+"개 등록된 서비스";
+}
+function roomRows(){
+ const keyword=q("search").value.trim().toLowerCase();const rows=[];
+ for(const x of allRooms()){
+  const type=groupOf(x);const service=cache.serviceList.find(s=>s.id===type);
+  const label=service?service.name+" (이름 규칙)":"소속 미확인";
+  if(keyword&&!String(x.room_name||"").toLowerCase().includes(keyword)&&!label.toLowerCase().includes(keyword))continue;
+  const r=text("tr");td(r,label,"muted");const name=td(r,x.room_name||"이름 없음","wrap");name.title=x.room_id||"";
+  const st=td(r,"");st.appendChild(x.conversation_linked?tag("success"):tag("미연결"));rows.push(r)
+ }
+ fill("roomRows",rows,3)
+}
+function actionRows(){
+ const rows=[];for(const x of cache.runs.slice(0,36)){let r=text("tr");td(r,x.repo.split("/")[1]+" · "+x.name,"wrap");td(r,"").appendChild(tag(x.conclusion||x.status));td(r,time(x.created_at),"muted");const c=td(r,"");const a=text("a","보기");a.href=x.url;a.target="_blank";a.rel="noopener noreferrer";c.appendChild(a);rows.push(r)}fill("actionRows",rows,4)
+}
+function render(){
+ const snap=cache.snapshot||{},sources=snap.sources||{},status=sources.status?.data||{},worker=sources.worker?.data||{};
+ const apiOkay=Boolean(sources.status?.ok),online=apiOkay&&Boolean(status.worker_connected);
+ const a=q("api");a.textContent=apiOkay?"정상":"조회 실패";a.className="value "+(apiOkay?"good":"bad");
+ const b=q("worker");b.textContent=apiOkay?(online?"연결됨":"미연결"):"미확인";b.className="value "+(online?"good":"warn");
+ q("conn").textContent=apiOkay?"● HITEL 서버 응답 정상":"● HITEL 서버 상태 미확인";
+ q("conn").style.color=apiOkay?"var(--green)":"var(--amber)";
+ q("age").textContent="수집 "+time(snap.collected_at);
+ q("rooms").textContent=sources.rooms?.ok?fmt(cache.rooms.length):"–";
+ q("linked").textContent=sources.rooms?.ok?fmt(cache.rooms.filter(x=>x.conversation_linked).length):"–";
+ q("running").textContent=cache.runs.length?fmt(cache.runs.filter(x=>["in_progress","queued","pending","waiting"].includes(x.status)).length):"–";
+ q("failures").textContent=cache.runs.length?fmt(cache.runs.filter(x=>x.conclusion==="failure").length):"–";
+ q("notice").textContent="읽기 전용 관제 · Chrome과 공개 대화방 상태는 "+time(snap.collected_at)+"에 수집되었습니다. GitHub 실행 기록은 별도 조회합니다. 계정과 대화 본문은 수집하지 않습니다.";
+ q("workerDetails").textContent=apiOkay?"HITEL API 정상 · Chrome "+(online?"연결됨":"미연결")+" · 자동 기동 "+(worker.auto_start_configured?"설정됨":"상태 확인 필요")+" · 기동 상태 "+(worker.launch_status||"조회 불가")+" · 미처리 대기열 "+(typeof worker.pending_verified_chat_jobs==="number"?fmt(worker.pending_verified_chat_jobs):"조회 불가"):"HITEL 상태 조회 실패. "+(sources.status?.error||"공개 API 응답 없음");
+ q("sourceAt").textContent=time(snap.collected_at);q("apiAt").textContent=time(cache.githubAt);
+ q("githubAt").textContent=cache.githubAt?"GitHub 조회 "+time(cache.githubAt):"GitHub 조회 전";
+ roomRows();serviceRows();actionRows()
+}
+async function getJSON(url,timeout){
+ const ctrl=new AbortController(),timeoutId=setTimeout(()=>ctrl.abort(),timeout||15000);
+ try{const r=await fetch(url,{cache:"no-store",signal:ctrl.signal,headers:{"Accept":"application/json"}});if(!r.ok)throw Error("HTTP "+r.status);return await r.json()}finally{clearTimeout(timeoutId)}
+}
+async function refreshGithub(force){
+ if(!force&&Date.now()-lastGithubRequest<120000)return;
+ lastGithubRequest=Date.now();
+ const results=await Promise.allSettled(repos.map(r=>getJSON("https://api.github.com/repos/"+r+"/actions/runs?per_page=30",13000)));
+ const found=[];
+ for(let i=0;i<results.length;i++){
+  if(results[i].status!=="fulfilled")continue;
+  const runs=results[i].value.workflow_runs||[];
+  for(const run of runs){
+   const name=String(run.name||"");if(!/hitel|chatgpt|relay|api|scribd/i.test(name))continue;
+   found.push({repo:repos[i],id:run.id,name:name,status:run.status,conclusion:run.conclusion,created_at:run.created_at,url:"https://github.com/"+repos[i]+"/actions/runs/"+run.id})
+  }
+ }
+ if(found.length){cache.runs=found.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));cache.githubAt=Date.now()}
+}
+async function refresh(){
+ if(loading)return;loading=true;q("refresh").disabled=true;
+ try{
+  const data=await getJSON(endpoints.snapshot+"?ts="+Date.now());
+  cache.snapshot=data;
+  if(data.sources?.rooms?.ok)cache.rooms=Array.isArray(data.sources.rooms.data?.rooms)?data.sources.rooms.data.rooms:[];
+  if(!cache.serviceList.length){try{const m=await getJSON(endpoints.services+"?ts="+Date.now());cache.serviceList=Array.isArray(m.services)?m.services:[]}catch(e){}}
+  await refreshGithub(false);render()
+ }catch(e){q("conn").textContent="● 관제 자료 오류";q("conn").style.color="var(--red)";q("age").textContent=String(e.message||e)}
+ finally{loading=false;q("refresh").disabled=false}
+}
+q("search").addEventListener("input",roomRows);
+q("refresh").addEventListener("click",()=>{lastGithubRequest=0;refresh()});
+q("interval").addEventListener("change",()=>{if(timer)clearInterval(timer);const t=Number(q("interval").value);timer=t?setInterval(refresh,t):null});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
+timer=setInterval(refresh,30000);refresh();
+</script>
+</body></html>
