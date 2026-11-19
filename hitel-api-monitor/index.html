@@ -72,7 +72,7 @@ footer{padding-bottom:27px;color:var(--muted);font-size:12px}
 <script>
 "use strict";
 const q=id=>document.getElementById(id);
-const endpoints={snapshot:"data/status.json",services:"services.json"};
+const endpoints={snapshot:"https://raw.githubusercontent.com/lyonbegin/hitel-room/gh-pages/hitel-api-monitor/data/status.json",services:"services.json"};
 const repos=["lyonbegin/procureflow","lyonbegin/hitel-scribd-runner","lyonbegin/hitel-room"];
 const cache={runs:[],githubAt:null,serviceList:[],rooms:[],snapshot:null};
 let timer=null,loading=false,lastGithubRequest=0;
