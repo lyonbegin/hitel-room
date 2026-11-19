@@ -71,7 +71,7 @@ echo "PRE_TAP_LOCAL_BOOT_PATHS:"
 adb shell run-as "$PACKAGE" find . -name boot_status.txt -type f || true
 echo "TAPPING ESSENCE2 SAMPLE BUTTON X=$X Y=$Y"
 adb shell input tap "$X" "$Y"
-for i in 1 2 3 4 5 6 7 8 9; do
+for i in $(seq 1 42); do
     sleep 10
     pid="$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
     echo "AFTER_TAP_SECONDS=$((i*10)) PROCESS=$pid"
@@ -81,6 +81,17 @@ for i in 1 2 3 4 5 6 7 8 9; do
       adb shell dumpsys activity processes > "$OUT/processes-at-exit.txt" 2>&1 || true
       adb exec-out screencap -p > "$OUT/essence2-at-exit.png" || true
       break
+    fi
+    if [ "$((i%6))" -eq 0 ]; then
+      adb exec-out screencap -p > "$OUT/essence2-at-$((i*10))s.png" || true
+      adb shell run-as "$PACKAGE" cat ./app_flutter/boot_status.txt > "$OUT/boot-status-checkpoint.txt" 2>/dev/null || true
+      echo "CHECKPOINT_${i}_BOOT:"
+      tail -6 "$OUT/boot-status-checkpoint.txt" || true
+      if grep -q 'boot:load:ok' "$OUT/boot-status-checkpoint.txt"; then
+        echo "PASS_ESSENCE2_NATIVE_LOAD_READY_AT_$((i*10))_SECONDS"
+        sleep 45
+        break
+      fi
     fi
     if [ "$i" -eq 1 ]; then
        adb exec-out screencap -p > "$OUT/essence2-at-10s.png" || true
