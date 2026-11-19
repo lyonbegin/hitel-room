@@ -64,7 +64,7 @@ jobs:
             const results=Object.assign(first,{snapshotRequestsAfterStart:count,errors});
             console.log("LIVE_BROWSER_RESULT",JSON.stringify(results));
             if(results.cards.length!==2||!results.cards.some(x=>x.includes("교재 분류"))||
-                !results.cards.some(x=>x.includes("HITEL API")))
+                !results.cards.some(x=>x.includes("A그룹 주식전략")))
               throw Error("MISSING_TWO_PROGRAM_CARDS");
             if(!results.polling.includes("3초"))throw Error("POLLING_LABEL_MISSING");
             if(!results.rooms)throw Error("PUBLIC_NAMED_ROOMS_NOT_RENDERED");
