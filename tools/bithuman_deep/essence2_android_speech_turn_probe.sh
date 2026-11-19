@@ -61,10 +61,26 @@ if [ "$rc" -ne 0 ]; then
 fi
 read -r X Y < "$OUT/text-box-coordinates.txt"
 echo "TAP_ORIGINAL_CHAT_INPUT=$X,$Y"
+# Source root cause: AutoHidingChrome hides the entire PromptCapsule after
+# Motion.chromeIdle. UIAutomator dump and screenshot take longer than that
+# timeout, so tapping the stale screenshot sent the tap to the FACE instead
+# of the hidden input. Reveal and focus consecutively without intervening I/O.
+adb shell input tap 360 550
+sleep 0.25
 adb shell input tap "$X" "$Y"
-sleep 3
-adb exec-out screencap -p > "$OUT/speech-input-focused.png" || true
+sleep 1
 adb shell dumpsys input_method > "$OUT/input-method-focus.txt" 2>&1 || true
+if ! grep -Eq 'mInputShown=true|mShowRequested=true|mImeWindowVis=.*visible' "$OUT/input-method-focus.txt"; then
+  echo IME_NOT_VISIBLE_AFTER_FIRST_TAP_REPEAT_IMMEDIATELY
+  adb shell input tap 360 550
+  sleep 0.2
+  adb shell input tap "$X" "$Y"
+  sleep 1
+  adb shell dumpsys input_method > "$OUT/input-method-focus.txt" 2>&1 || true
+fi
+adb exec-out screencap -p > "$OUT/speech-input-focused.png" || true
+echo "IME_STATE:"
+grep -E 'mInputShown|mShowRequested|mCurFocusedWindow' "$OUT/input-method-focus.txt" | tail -5 || true
 # The original PromptCapsule is single-line with onSubmitted -> _send.
 adb shell input text 'HITEL%sessence%stwo%sspeech%stest'
 sleep 2
