@@ -156,7 +156,7 @@ function renderCard(p){
 }
 function render(){
  const snap=state.snapshot,dt=snap?.collected_at,ok=goodTime(dt);
- $("poll").textContent=state.fetching?"● 새 자료 확인 중":"● 3초마다 자동 확인"+(state.lastChecked?" · 마지막 요청 "+time(state.lastChecked):"");
+ $("poll").textContent="● 3초마다 자동 확인"+(state.fetching?" · 확인 중":state.lastChecked?" · 마지막 요청 "+time(state.lastChecked):"");
  $("snapshotTime").textContent=dt?"HITEL 상태 수집 "+age(dt)+(ok?"":" · 자료 오래됨"):"HITEL 수집 전";
  const times=Object.values(state.directAt).filter(Boolean);const directLast=times.length?Math.max(...times.map(t=>Date.parse(t))):null;
  $("githubTime").textContent=directLast?"GitHub 조회 "+age(directLast):snap?.actions?.ok?"GitHub 수집 "+age(dt):"GitHub 확인 중";
@@ -203,6 +203,17 @@ async function githubTick(force){
 $("refresh").addEventListener("click",()=>{snapshotTick();githubTick(true)});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){snapshotTick();githubTick(false)}});
 setInterval(()=>{snapshotTick();githubTick(false)},3000);
+// Populate first paint from the deployment artifact, without treating it as live.
+// The regularly polled raw GitHub snapshot remains the authoritative fresh source.
+(async()=>{
+ try{
+  const snap=await getJSON("data/status.json?startup="+Date.now(),10000);
+  if(snap&&snap.sources&&snap.collected_at&&(!state.snapshot||
+      Date.parse(snap.collected_at)>Date.parse(state.snapshot.collected_at))){
+   state.snapshot=snap;render();
+  }
+ }catch(e){/* A missing local fallback never stops live polling. */}
+})();
 snapshotTick();githubTick(true);render();
 </script>
 </body></html>
