@@ -9,6 +9,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pathlib
+import os
+import re
 import sys
 import time
 import urllib.error
@@ -87,6 +89,79 @@ def sanitize_rooms(raw: dict) -> dict:
     return {"rooms": safe, "reported_count": len(rooms),
             "is_truncated": len(rooms) > len(safe)}
 
+
+def collect_github_actions() -> dict:
+    """Read only PUBLIC GitHub Actions metadata for configured programs.
+
+    GitHub runs are not proof that a ChatGPT reply is being generated.
+    Never report a run name as a verified ChatGPT room name.
+    """
+    config_path = pathlib.Path(__file__).with_name("services.json")
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        services = config.get("services", [])
+    except (OSError, ValueError, TypeError):
+        services = []
+    token = os.getenv("GH_TOKEN", "").strip()
+    runs = {}
+    errors = []
+    checked_repos = []
+    for item in services[:10]:
+        if not isinstance(item, dict):
+            continue
+        repo = item.get("repository", "")
+        if not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+            continue
+        checked_repos.append(repo)
+        for suffix in ("?per_page=40&status=in_progress",
+                       "?per_page=30&status=queued",
+                       "?per_page=30"):
+            url = "https://api.github.com/repos/" + repo + "/actions/runs" + suffix
+            headers = {"Accept": "application/vnd.github+json",
+                       "User-Agent": "HITEL-Pages-Monitor-ReadOnly/2.0",
+                       "X-GitHub-Api-Version": "2022-11-28"}
+            if token:
+                headers["Authorization"] = "Bearer " + token
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=12) as response:
+                    body = response.read(900_001)
+                    if len(body) > 900_000:
+                        raise ValueError("too_large")
+                    payload = json.loads(body)
+                for row in payload.get("workflow_runs", []):
+                    if not isinstance(row, dict) or not isinstance(row.get("id"), int):
+                        continue
+                    address = str(row.get("html_url", ""))
+                    if not address.startswith("https://github.com/" + repo + "/actions/runs/"):
+                        continue
+                    entry = {
+                        "run_id": row["id"], "repo": repo,
+                        "program": str(item.get("name", repo))[:70],
+                        "workflow": str(row.get("name", ""))[:120],
+                        "task": str(row.get("display_title", ""))[:200],
+                        "status": str(row.get("status", "unknown"))[:24],
+                        "conclusion": str(row.get("conclusion") or "")[:32],
+                        "created_at": row.get("created_at"),
+                        "run_started_at": row.get("run_started_at"),
+                        "updated_at": row.get("updated_at"),
+                        "url": address,
+                    }
+                    runs[str(row["id"])] = entry
+            except (urllib.error.HTTPError, urllib.error.URLError, OSError,
+                    ValueError, TimeoutError, TypeError) as exc:
+                errors.append({"repo": repo, "type": type(exc).__name__})
+    statuses = {"in_progress", "queued", "pending", "waiting", "requested"}
+    results = list(runs.values())
+    active = sorted([r for r in results if r["status"] in statuses],
+                    key=lambda r: r["created_at"] or "", reverse=True)[:40]
+    recent = sorted([r for r in results if r["status"] not in statuses],
+                    key=lambda r: r["created_at"] or "", reverse=True)[:14]
+    return {"ok": bool(runs), "active": active, "recent": recent,
+            "repos": checked_repos, "errors": errors[:12],
+            "note": "GitHub Actions status only; not ChatGPT room job state"}
+
+
 def build() -> dict:
     sources = {}
     methods = {
@@ -109,12 +184,15 @@ def build() -> dict:
         "read_only": True,
         "railway_modified": False,
         "sources": sources,
+        "actions": collect_github_actions(),
         "limitations": {
             "individual_job_totals": "not_available_via_existing_public_API",
             "automatic_snapshot_frequency": "scheduled_every_five_minutes",
             "question_or_response_content": "not_collected",
             "room_owner_names": "not_collected",
             "program_identity": "mapped_only_from_configured_room_prefixes",
+            "room_job_status": "not_exposed_by_existing_public_API",
+            "actions_status": "GitHub workflow state is not ChatGPT response state",
         }
     }
 
