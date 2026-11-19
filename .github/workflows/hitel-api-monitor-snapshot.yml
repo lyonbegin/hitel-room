@@ -31,7 +31,9 @@ jobs:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: Collect the already-public HITEL status and room registry only
+      - name: Collect public HITEL rooms and GitHub Actions run status (read only)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 -m py_compile hitel-api-monitor/collect_snapshot.py
@@ -41,6 +43,8 @@ jobs:
           d=json.load(open('/tmp/hitel-status.json',encoding='utf-8'))
           assert d['read_only'] is True and d['railway_modified'] is False
           assert {'status','rooms','worker'} <= set(d['sources'])
+          assert 'actions' in d and isinstance(d['actions']['active'],list)
+          print('GITHUB_ACTIONS_READ_ONLY_COUNT',len(d['actions']['active']))
           for name,s in d['sources'].items():
               print('VERIFIED_PUBLIC_READ_ONLY', name, 'OK' if s['ok'] else s['error'])
           PY
