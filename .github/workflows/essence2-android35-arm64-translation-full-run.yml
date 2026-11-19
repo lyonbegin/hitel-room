@@ -6,6 +6,7 @@ on:
       - feature/hitel-essence2-five-samples-original-sdk-20261118
     paths:
       - .github/workflows/essence2-android35-arm64-translation-full-run.yml
+      - tools/bithuman_deep/essence2_android_emulator_smoke.sh
 permissions:
   contents: read
 jobs:
