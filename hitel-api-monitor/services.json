@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "description": "HITEL API client registry, strictly observed clients. Add another program by id, name, repository and known room_prefixes; do not infer all GitHub repositories are clients.",
+  "services": [
+    {
+      "id": "hitel-api",
+      "name": "HITEL API·Chrome 시험",
+      "repository": "lyonbegin/procureflow",
+      "room_prefixes": [
+        "HITEL-live-regression-"
+      ]
+    },
+    {
+      "id": "hitel-scribd",
+      "name": "교재 분류 프로그램",
+      "repository": "lyonbegin/hitel-scribd-runner",
+      "room_prefixes": [
+        "hitel-scribd-"
+      ]
+    }
+  ]
+}
