@@ -114,18 +114,20 @@ function actionRows(){
 }
 function render(){
  const snap=cache.snapshot||{},sources=snap.sources||{},status=sources.status?.data||{},worker=sources.worker?.data||{};
- const apiOkay=Boolean(sources.status?.ok),online=apiOkay&&Boolean(status.worker_connected);
- const a=q("api");a.textContent=apiOkay?"정상":"조회 실패";a.className="value "+(apiOkay?"good":"bad");
+ const collectedAt=Date.parse(snap.collected_at||"");
+ const fresh=Number.isFinite(collectedAt)&&collectedAt<=Date.now()+60000&&Date.now()-collectedAt<=15*60*1000;
+ const apiOkay=fresh&&Boolean(sources.status?.ok),online=apiOkay&&Boolean(status.worker_connected);
+ const a=q("api");a.textContent=!fresh?"자료 오래됨":apiOkay?"정상":"조회 실패";a.className="value "+(!fresh?"warn":apiOkay?"good":"bad");
  const b=q("worker");b.textContent=apiOkay?(online?"연결됨":"미연결"):"미확인";b.className="value "+(online?"good":"warn");
- q("conn").textContent=apiOkay?"● HITEL 서버 응답 정상":"● HITEL 서버 상태 미확인";
+ q("conn").textContent=!fresh?"● 수집 자료 오래됨":apiOkay?"● HITEL 서버 응답 정상":"● HITEL 서버 상태 미확인";
  q("conn").style.color=apiOkay?"var(--green)":"var(--amber)";
- q("age").textContent="수집 "+time(snap.collected_at);
+ q("age").textContent="수집 "+time(snap.collected_at)+(fresh?"":" · 상태 확인 불가");
  q("rooms").textContent=sources.rooms?.ok?fmt(cache.rooms.length):"–";
  q("linked").textContent=sources.rooms?.ok?fmt(cache.rooms.filter(x=>x.conversation_linked).length):"–";
  q("running").textContent=cache.runs.length?fmt(cache.runs.filter(x=>["in_progress","queued","pending","waiting"].includes(x.status)).length):"–";
  q("failures").textContent=cache.runs.length?fmt(cache.runs.filter(x=>x.conclusion==="failure").length):"–";
- q("notice").textContent="읽기 전용 관제 · Chrome과 공개 대화방 상태는 "+time(snap.collected_at)+"에 수집되었습니다. GitHub 실행 기록은 별도 조회합니다. 계정과 대화 본문은 수집하지 않습니다.";
- q("workerDetails").textContent=apiOkay?"HITEL API 정상 · Chrome "+(online?"연결됨":"미연결")+" · 자동 기동 "+(worker.auto_start_configured?"설정됨":"상태 확인 필요")+" · 기동 상태 "+(worker.launch_status||"조회 불가")+" · 미처리 대기열 "+(typeof worker.pending_verified_chat_jobs==="number"?fmt(worker.pending_verified_chat_jobs):"조회 불가"):"HITEL 상태 조회 실패. "+(sources.status?.error||"공개 API 응답 없음");
+ q("notice").textContent=(fresh?"읽기 전용 관제":"주의: 상태 자료 갱신이 15분 이상 지연되어 실제 API와 Chrome 상태는 확인되지 않았습니다.")+" · Chrome과 공개 대화방 상태는 "+time(snap.collected_at)+"에 마지막으로 수집되었습니다. GitHub 실행 기록은 별도 조회합니다. 계정과 대화 본문은 수집하지 않습니다.";
+ q("workerDetails").textContent=!fresh?"마지막 수집 자료가 오래되어 Chrome 연결 및 자동 기동 상태를 현재값으로 확정할 수 없습니다.":apiOkay?"HITEL API 정상 · Chrome "+(online?"연결됨":"미연결")+" · 자동 기동 "+(worker.auto_start_configured?"설정됨":"미설정")+" · 기동 상태 "+(worker.launch_status||"조회 불가")+" · 미처리 대기열 "+(typeof worker.pending_verified_chat_jobs==="number"?fmt(worker.pending_verified_chat_jobs):"조회 불가"):"HITEL 상태 조회 실패. "+(sources.status?.error||"공개 API 응답 없음");
  q("sourceAt").textContent=time(snap.collected_at);q("apiAt").textContent=time(cache.githubAt);
  q("githubAt").textContent=cache.githubAt?"GitHub 조회 "+time(cache.githubAt):"GitHub 조회 전";
  roomRows();serviceRows();actionRows()
