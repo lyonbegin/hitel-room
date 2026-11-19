@@ -1,0 +1,63 @@
+name: HITEL Essence2 original native Android15 animated speech turn UI end-to-end test
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-android35-native-speech-turn-e2e.yml
+      - tools/bithuman_deep/essence2_android_speech_turn_probe.sh
+permissions:
+  contents: read
+jobs:
+  verify-avatar-and-speech-real-android-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify unchanged original native Essence2 APK exact SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-five-samples-synthetic-local-test-20261118
+          APK=HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk
+          curl -fL --retry 4 --retry-all-errors --connect-timeout 30 --max-time 600 \
+            "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK" -o "$APK"
+          SUM="$(gh api "repos/lyonbegin/hitel-room/releases/tags/$TAG" \
+            --jq '.assets[] | select(.name=="HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk") | .digest' \
+            | sed 's/^sha256://')"
+          test "${#SUM}" -eq 64
+          echo "$SUM  $APK" | sha256sum -c
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          echo PASS_ORIGINAL_ESSENCE2_NATIVE_JNI_APK_MATCHES_PUBLISHED_SHA
+
+      - name: Enable KVM for Android 15
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Execute original avatar model, visible face, actual text-turn and native speech frame verification
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: |
+            set -euo pipefail
+            bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk essence2-emulator-proof
+            bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh essence2-speech-proof
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-native-video-audio-text-turn-screens-logcat
+          path: |
+            essence2-emulator-proof/
+            essence2-speech-proof/
+          retention-days: 14
