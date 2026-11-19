@@ -1,0 +1,59 @@
+name: HITEL Essence2 original ARM64 native - Android 15 API35 translation full rendering proof
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-five-samples-original-sdk-20261118
+    paths:
+      - .github/workflows/essence2-android35-arm64-translation-full-run.yml
+permissions:
+  contents: read
+jobs:
+  test-android15-native-original-sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch original unchanged ARM64 APK from external public GitHub
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-five-samples-synthetic-local-test-20261118
+          APK=HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk
+          curl --fail --location --retry 4 --retry-all-errors --max-time 600 \
+            "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK" -o "$APK"
+          DIGEST="$(gh api repos/lyonbegin/hitel-room/releases/tags/$TAG \
+            --jq '.assets[] | select(.name=="HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk") | .digest' \
+            | sed 's/^sha256://')"
+          test "${#DIGEST}" -eq 64
+          echo "$DIGEST  $APK" | sha256sum -c
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          echo PASS_API35_ORIGINAL_APK_SHA256_ARM64_ENGINE_PRESENT
+
+      - name: Grant runner access to KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Run original arm64 Essence2 model through Android 15 API35 ARM64 translation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_FiveSamples_LocalMock_ARM64.apk essence2-emulator-proof
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-android15-api35-arm64-full-test-screen-logcat-crash
+          path: essence2-emulator-proof/
+          retention-days: 14
