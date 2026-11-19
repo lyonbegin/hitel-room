@@ -42,7 +42,7 @@ jobs:
             for(let n=0;n<20;n++){
               const response=await page.goto(target+"?test="+Date.now(),{waitUntil:"domcontentloaded",timeout:45000});
               if(response.status()!==200)throw Error("GITHUB_PAGES_HTTP_"+response.status());
-              if((await page.title()).includes("실시간 작업 현황")){matched=true;break}
+              if((await page.title()).includes("실시간 작업 현황") && await page.locator("#cards h2").filter({hasText:"A그룹 주식전략 연구"}).count()>0){matched=true;break}
               await page.waitForTimeout(10000);
             }
             if(!matched)throw Error("GITHUB_PAGES_NOT_YET_PUBLISHED_NEW_MONITOR");
