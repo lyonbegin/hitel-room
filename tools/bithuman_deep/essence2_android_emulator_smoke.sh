@@ -22,6 +22,10 @@ if [ "$installed" -ne 0 ]; then
   exit 12
 fi
 adb shell logcat -c
+# Capture ALL logcat buffers from the start. Narrow grep missed the earlier
+# fatal signal/LMKD process termination in the translated ARM64 emulator.
+adb logcat -b all -v threadtime > "$OUT/full-system-logcat.txt" 2>&1 &
+FULL_LOGCAT_PID=$!
 adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 \
     > "$OUT/launch-result.txt" 2>&1 || true
 sleep 55
@@ -68,10 +72,26 @@ adb shell run-as "$PACKAGE" find . -name boot_status.txt -type f || true
 echo "TAPPING ESSENCE2 SAMPLE BUTTON X=$X Y=$Y"
 adb shell input tap "$X" "$Y"
 for i in 1 2 3 4 5 6 7 8 9; do
-    sleep 20
-    echo "AFTER_TAP_SECONDS=$((i*20)) PROCESS=$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+    sleep 10
+    pid="$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
+    echo "AFTER_TAP_SECONDS=$((i*10)) PROCESS=$pid"
+    if [ -z "$pid" ]; then
+      echo "EMULATOR_PROCESS_EXIT_DETECTED_AT_$((i*10))_SECONDS"
+      adb shell dumpsys activity exit-info "$PACKAGE" > "$OUT/exit-info.txt" 2>&1 || true
+      adb shell dumpsys activity processes > "$OUT/processes-at-exit.txt" 2>&1 || true
+      adb exec-out screencap -p > "$OUT/essence2-at-exit.png" || true
+      break
+    fi
+    if [ "$i" -eq 1 ]; then
+       adb exec-out screencap -p > "$OUT/essence2-at-10s.png" || true
+    fi
 done
 adb exec-out screencap -p > "$OUT/essence2-after-tap.png" || true
+kill "$FULL_LOGCAT_PID" 2>/dev/null || true
+wait "$FULL_LOGCAT_PID" 2>/dev/null || true
+adb shell dumpsys activity exit-info "$PACKAGE" > "$OUT/exit-info.txt" 2>&1 || true
+adb shell dumpsys meminfo "$PACKAGE" > "$OUT/app-meminfo.txt" 2>&1 || true
+adb shell cat /proc/meminfo > "$OUT/system-meminfo.txt" 2>&1 || true
 # Pass find arguments directly through run-as; sh -c loses -name/-type under
 # adb's shell quoting rules and previously listed directories instead of logs.
 adb shell run-as "$PACKAGE" find . -name boot_status.txt -type f \
@@ -88,7 +108,7 @@ python3 - "$OUT" <<'PY'
 from pathlib import Path
 import re,sys
 root=Path(sys.argv[1])
-for name in ('selected-native-logcat.txt','boot-status.txt'):
+for name in ('selected-native-logcat.txt','full-system-logcat.txt','boot-status.txt','exit-info.txt','processes-at-exit.txt'):
     p=root/name
     if not p.exists(): continue
     x=p.read_text(errors='replace')
@@ -99,6 +119,8 @@ for name in ('selected-native-logcat.txt','boot-status.txt'):
 PY
 echo "BOOT_STATUS_LINES:"
 tail -32 "$OUT/boot-status.txt" 2>/dev/null || true
+echo "APP_TERMINATION_EVIDENCE:"
+grep -Ei "FATAL EXCEPTION|Fatal signal|lowmemory|lmkd|am_kill|am_crash|tombstone|OutOfMemoryError|SIGSEGV|SIGABRT|avc: denied|Dart Error|Process.*has died|Killing.*ai.bithuman|signal 9|memory pressure" "$OUT/full-system-logcat.txt" | tail -70 || true
 echo "NATIVE_STATUS_LINES:"
 tail -30 "$OUT/selected-native-logcat.txt" || true
 if adb shell pidof "$PACKAGE" | grep -q '[0-9]'; then
