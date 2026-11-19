@@ -1,4 +1,4 @@
-name: Publish HITEL ChatGPT login (GitHub Pages only)
+name: Publish HITEL multi-program API monitoring (GitHub Pages only)
 
 on:
   push:
@@ -6,8 +6,12 @@ on:
       - main
     paths:
       - "hitel-chatgpt-login/**"
+      - "hitel-api-monitor/**"
       - ".github/workflows/github-pages-hitel-chatgpt-login.yml"
   workflow_dispatch:
+  schedule:
+    # GitHub Actions minimum supported cadence; never runs on Railway.
+    - cron: '*/5 * * * *'
 
 permissions:
   contents: read
@@ -31,17 +35,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Build the existing HITEL web app before adding the login page
+      - name: Build existing Pages plus comprehensive API monitor (read-only)
         run: |
           set -euo pipefail
           npm install --no-audit --no-fund --ignore-scripts
           npx vite build --base=/hitel-room/
-          mkdir -p dist/hitel-chatgpt-login
+          mkdir -p dist/hitel-chatgpt-login dist/hitel-api-monitor/data
           cp hitel-chatgpt-login/index.html dist/hitel-chatgpt-login/index.html
+          cp hitel-api-monitor/index.html dist/hitel-api-monitor/index.html
+          cp hitel-api-monitor/services.json dist/hitel-api-monitor/services.json
+          python3 -m py_compile hitel-api-monitor/collect_snapshot.py
+          python3 hitel-api-monitor/collect_snapshot.py dist/hitel-api-monitor/data/status.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("dist/hitel-api-monitor/data/status.json")
+          d = json.loads(p.read_text(encoding="utf-8"))
+          assert d["read_only"] and not d["railway_modified"]
+          assert all(name in d["sources"] for name in ("status","rooms","worker"))
+          assert Path("dist/hitel-api-monitor/index.html").stat().st_size > 1000
+          print("PASS_GITHUB_PAGES_READ_ONLY_MULTI_PROGRAM_MONITOR")
+          PY
           touch dist/.nojekyll
           test -s dist/index.html
           test -s dist/hitel-chatgpt-login/index.html
-          echo PASS_GITHUB_PAGES_STATIC_LOGIN_PAGE_BUILT
+          test -s dist/hitel-api-monitor/index.html
+          test -s dist/hitel-api-monitor/data/status.json
+          echo PASS_GITHUB_PAGES_SITE_AND_MONITOR_BUILT
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
