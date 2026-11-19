@@ -47,6 +47,7 @@ jobs:
           test -s _pages_site/hitel-api-monitor/data/status.json
           grep -q 'HITEL · 실시간 작업 현황' _pages_site/hitel-api-monitor/index.html
           grep -q '3000);' _pages_site/hitel-api-monitor/index.html
+          grep -q 'raw.githubusercontent.com/lyonbegin/hitel-room/gh-pages' _pages_site/hitel-api-monitor/index.html
           python -c "import json; d=json.load(open('_pages_site/hitel-api-monitor/data/status.json')); assert 'actions' in d, 'GitHub action state missing'"
           echo PASS_EXISTING_EDUCATION_SITE_PRESERVED_AND_SIMPLE_LIVE_MONITOR_ADDED
       - name: Upload Pages artifact
