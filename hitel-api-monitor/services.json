@@ -18,6 +18,14 @@
         "hitel-scribd-",
         "HITEL-SCRIBD-"
       ]
+    },
+    {
+      "id": "stock-a-research",
+      "name": "A그룹 주식전략 연구",
+      "repository": "lyonbegin/autonomous-investor-backend",
+      "room_prefixes": [
+        "STOCK-KG-A-"
+      ]
     }
   ]
 }
