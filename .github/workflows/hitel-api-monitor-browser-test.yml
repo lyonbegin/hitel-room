@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/hitel-api-monitor-browser-test.yml"
+      - "hitel-api-monitor/index.html"
   workflow_dispatch:
 
 permissions:
