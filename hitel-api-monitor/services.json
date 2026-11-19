@@ -15,7 +15,8 @@
       "name": "교재 분류 프로그램",
       "repository": "lyonbegin/hitel-scribd-runner",
       "room_prefixes": [
-        "hitel-scribd-"
+        "hitel-scribd-",
+        "HITEL-SCRIBD-"
       ]
     }
   ]
