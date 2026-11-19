@@ -31,6 +31,21 @@ jobs:
           python-version: '3.12'
       - name: Build static Pages site without modifying source
         run: python tools/build_hitel_education_pages.py
+      - name: Preserve existing education site and overlay HITEL global monitor
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          for directory in hitel-api-monitor hitel-chatgpt-login expression2-offline docs/ixio-public-api docs/hitel-chatgpt-login; do
+            if git cat-file -e "origin/gh-pages:$directory" 2>/dev/null; then
+              git archive origin/gh-pages "$directory" | tar -xf - -C _pages_site
+            fi
+          done
+          touch _pages_site/.nojekyll
+          test -s _pages_site/index.html
+          test -s _pages_site/hitel-api-monitor/index.html
+          test -s _pages_site/hitel-api-monitor/services.json
+          test -s _pages_site/hitel-api-monitor/data/status.json
+          echo PASS_EXISTING_EDUCATION_SITE_PRESERVED_AND_GLOBAL_HITEL_MONITOR_ADDED
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
