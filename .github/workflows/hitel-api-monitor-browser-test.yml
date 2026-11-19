@@ -49,8 +49,9 @@ jobs:
             let count=0;
             page.on("request",req=>{if(req.url().includes("data/status.json"))count++});
             await page.waitForFunction(()=>document.querySelectorAll("#cards .card").length===2
+              && document.querySelectorAll(".room").length>0
               && (document.getElementById("snapshotTime")?.textContent||"").includes("HITEL")
-              && (document.getElementById("summary")?.textContent||"").length>20,{timeout:45000});
+              && (document.getElementById("summary")?.textContent||"").length>20,null,{timeout:60000});
             const first=await page.evaluate(()=>({
               title:document.title,
               cards:Array.from(document.querySelectorAll("#cards h2")).map(x=>x.textContent),
