@@ -1,0 +1,65 @@
+name: HITEL global API monitor - real GitHub Pages browser smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hitel-api-monitor-browser-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-github-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install actual Chromium browser for external GitHub Pages test
+        run: |
+          mkdir -p /tmp/hitel-browser-test
+          cd /tmp/hitel-browser-test
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Test that real page JS loads API snapshot and all-program room data
+        run: |
+          cd /tmp/hitel-browser-test
+          cat > verify.cjs <<'JS'
+          const { chromium } = require("playwright");
+          (async () => {
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage();
+            page.on("console",m => console.log("BROWSER_CONSOLE",m.type(),m.text().slice(0,250)));
+            page.on("pageerror",e => console.error("BROWSER_JS_ERROR",String(e).slice(0,500)));
+            page.on("requestfailed",r => console.log("REQUEST_FAILED",r.url().slice(0,220),r.failure()?.errorText));
+            const target="https://lyonbegin.github.io/hitel-room/hitel-api-monitor/";
+            const response=await page.goto(target,{waitUntil:"domcontentloaded",timeout:45000});
+            if(response.status()!==200)throw Error("GITHUB_PAGES_HTTP_"+response.status());
+            await page.waitForFunction(() => {
+              const api=document.getElementById("api")?.textContent||"";
+              const rooms=document.getElementById("rooms")?.textContent||"";
+              return (api==="정상"||api==="조회 실패") && rooms!=="–";
+            },{timeout:45000});
+            const results=await page.evaluate(()=>({
+              title:document.title,
+              api:document.getElementById("api").textContent,
+              worker:document.getElementById("worker").textContent,
+              rooms:document.getElementById("rooms").textContent,
+              linked:document.getElementById("linked").textContent,
+              programCount:document.querySelectorAll("#serviceRows tr").length,
+              roomRows:document.querySelectorAll("#roomRows tr").length,
+              sourceTime:document.getElementById("sourceAt").textContent,
+            }));
+            console.log("LIVE_BROWSER_RESULT",JSON.stringify(results));
+            if(results.api!=="정상")throw Error("HITEL_PUBLIC_SNAPSHOT_SOURCE_NOT_HEALTHY");
+            if(Number(results.rooms.replace(/,/g,""))<1)throw Error("NO_PUBLIC_ROOMS_VISIBLE");
+            if(!results.programCount||!results.roomRows)throw Error("PAGE_TABLES_NOT_RENDERED");
+            await browser.close();
+            console.log("PASS_REAL_GITHUB_PAGES_MONITOR_UI_WITH_LIVE_DATA");
+          })().catch(e=>{console.error("LIVE_MONITOR_TEST_FAILED",String(e));process.exit(1)});
+          JS
+          node verify.cjs
