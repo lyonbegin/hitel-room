@@ -43,16 +43,34 @@ PY
 rc=$?
 set -e
 if [ "$rc" -ne 0 ]; then
-  echo FAIL_ESSENCE2_ORIGINAL_TEXT_INPUT_NOT_FOUND
-  exit 14
+  # Flutter's AutoHidingChrome shows the editable PromptCapsule but in
+  # Android 15 ndk_translated mode it exposes only a root android.view.View
+  # to uiautomator. Verified by actual 720x1280 screenshot and full UI XML
+  # in GitHub Actions #44520971451. The original input occupies the
+  # lower 84px, centered at y=1190. Use geometry only AFTER proving the
+  # original session is open and the face is rendered.
+  echo FLUTTER_SEMANTICS_NOT_EXPOSING_TEXTFIELD_USE_VERIFIED_VISUAL_GEOMETRY
+  SIZE="$(adb shell wm size | tr -d '\r' | tail -1 | grep -oE '[0-9]+x[0-9]+' | tail -1)"
+  test -n "$SIZE"
+  W="${SIZE%x*}"
+  H="${SIZE#*x}"
+  X=$((W * 35 / 100))
+  Y=$((H * 93 / 100))
+  # The original text capsule is always at the bottom with keyboard closed.
+  echo "$X $Y" > "$OUT/text-box-coordinates.txt"
 fi
 read -r X Y < "$OUT/text-box-coordinates.txt"
 echo "TAP_ORIGINAL_CHAT_INPUT=$X,$Y"
 adb shell input tap "$X" "$Y"
-sleep 1
-adb shell input text 'Hello%sthere%2C%scould%syou%ssay%sa%ssentence'
+sleep 3
+adb exec-out screencap -p > "$OUT/speech-input-focused.png" || true
+adb shell dumpsys input_method > "$OUT/input-method-focus.txt" 2>&1 || true
+# The original PromptCapsule is single-line with onSubmitted -> _send.
+adb shell input text 'HITEL%sessence%stwo%sspeech%stest'
+sleep 2
+adb exec-out screencap -p > "$OUT/speech-input-filled.png" || true
 adb shell input keyevent KEYCODE_ENTER
-echo INPUT_REAL_ORIGINAL_CHAT_EVENT_DISPATCHED
+echo INPUT_REAL_ORIGINAL_CHAT_EVENT_DISPATCHED_BY_ADB_ENTER
 sleep 8
 adb exec-out screencap -p > "$OUT/speech-after-send.png"
 adb shell run-as "$PACKAGE" cat ./app_flutter/boot_status.txt > "$OUT/boot-after-send.txt" 2>/dev/null || true
