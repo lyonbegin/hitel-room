@@ -67,7 +67,7 @@ jobs:
           APK=official-sources/android/essence2-hello/app/build/outputs/apk/debug/app-debug.apk
           unzip -Z1 "$APK" > official-proof/apk-entries.txt
           grep -E '/speech.wav$' official-proof/apk-entries.txt
-          grep -E 'lib/.+[.]so official-proof/apk-entries.txt | sort -u > official-proof/apk-native-libraries.txt || true
+          grep -E 'lib/.+[.]so$' official-proof/apk-entries.txt | sort -u > official-proof/apk-native-libraries.txt || true
           sha256sum "$APK" > official-proof/apk-sha256.txt
           test -s official-proof/apk-entries.txt
           echo PASS_OFFICIAL_APK_PACKAGE_ASSETS_AND_ABIS_INSPECTED
@@ -99,38 +99,6 @@ jobs:
             cat official-proof/verification-scope.json
             echo 'Installation/auth-boundary audit only. Native speech and lipsync are NOT verified.' >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Save read-only test evidence (never copy credential, APK or model)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: official-bithuman-essence2-emulator-source-audit
-          path: official-proof/
-          if-no-files-found: warn
-          retention-days: 14
- official-proof/apk-entries.txt | sort -u > official-proof/apk-native-libraries.txt || true
-          sha256sum "$APK" > official-proof/apk-sha256.txt
-          test -s official-proof/apk-entries.txt
-          echo PASS_OFFICIAL_APK_PACKAGE_ASSETS_AND_ABIS_INSPECTED
-      - name: Syntax-check immutable official emulator audit script
-        shell: bash
-        run: bash -n tools/bithuman_deep/official_essence2_emulator_audit.sh
-      - name: Enable KVM acceleration for the official Android 15 emulator
-        shell: bash
-        run: |
-          test -c /dev/kvm
-          sudo chmod 666 /dev/kvm
-          echo PASS_KVM_DEVICE_AVAILABLE_FOR_EMULATOR
-      - name: Boot actual Android 15 emulator and install untouched official Kotlin APK
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/official_essence2_emulator_audit.sh
       - name: Save read-only test evidence (never copy credential, APK or model)
         if: always()
         uses: actions/upload-artifact@v4
