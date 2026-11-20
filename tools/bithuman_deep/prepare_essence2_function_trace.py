@@ -263,7 +263,7 @@ def run(app, plugin, source, report):
         ("dart-clipboard-append", "          '--- boot_status.txt ---\\n$safe';",
          """          '--- boot_status.txt ---\\n$safe\\n'
           '--- hitel_e2_trace.log head / previous rotation ---\\n$traceHead\\n'
-          '--- hitel_e2_trace.log recent ---\\n$traceTail';
+          '--- hitel_e2_trace.log recent ---\\n$traceTail';""")
     ])
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
