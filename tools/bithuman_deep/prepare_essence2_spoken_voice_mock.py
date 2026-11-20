@@ -55,8 +55,9 @@ def prepare(app: Path, pcm: Path, report: Path) -> None:
       if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
       final end=(i+bytesPer100ms).clamp(0,data.length);
       conn.sendAudioDelta(Uint8List.sublistView(data,i,end));
-      // Intentionally pace close to real time; no oversized synthetic burst.
-      await Future<void>.delayed(const Duration(milliseconds: 90));
+      // Exact PCM clock: every 4800 bytes is 100ms at 24kHz mono PCM16.
+      // 90ms previously fed the test audio ~11% faster than real time.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
     conn.sendResponseDone();
