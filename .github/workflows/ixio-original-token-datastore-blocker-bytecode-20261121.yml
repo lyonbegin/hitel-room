@@ -55,10 +55,10 @@ jobs:
                       continue
                   for m in methods.finditer(p.read_text(errors='replace')):
                       body=m.group();header=body.splitlines()[0]
-                      interesting=(is_interceptor and ('intercept' in header or 'invokeSuspend' in header or
+                      interesting=((is_interceptor and ('intercept' in header or 'invokeSuspend' in header or
                          'getToken' in header or 'getAccessToken' in header or 'constructor' in header or 'refresh' in header))
                          or (not is_interceptor and ('getDataStore(' in header or 'getTokenData(' in header or
-                           'findCurrentValue(' in header or 'invokeSuspend(' in header))
+                           'findCurrentValue(' in header or 'invokeSuspend(' in header)))
                       if not interesting:continue
                       safe=[]
                       for line in body.splitlines():
