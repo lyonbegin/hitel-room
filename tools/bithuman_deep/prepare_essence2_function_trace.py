@@ -249,18 +249,27 @@ def run(app, plugin, source, report):
          """      final nativeFile = File('__DOLLAR__{dir.path}/hitel_e2_trace.log');
       final trace = await nativeFile.exists()
           ? await nativeFile.readAsString() : '(native trace unavailable)';
+      final previousNativeFile = File('__DOLLAR__{dir.path}/hitel_e2_trace.previous.log');
+      final previousTrace = await previousNativeFile.exists()
+          ? await previousNativeFile.readAsString() : '';
+      final headSource = previousTrace.isNotEmpty ? previousTrace : trace;
+      final traceHead = (previousTrace.isNotEmpty || trace.length > 100000)
+          ? headSource.substring(0, headSource.length > 12000 ? 12000 : headSource.length)
+          : '';
       final traceTail = trace.length > 100000
           ? trace.substring(trace.length - 100000) : trace;
       final detail = 'HITEL Essence 2 Android diagnostics\\n'
 """.replace("__DOLLAR__", "$")),
         ("dart-clipboard-append", "          '--- boot_status.txt ---\\n$safe';",
          """          '--- boot_status.txt ---\\n$safe\\n'
-          '--- hitel_e2_trace.log ---\\n$traceTail';""")
+          '--- hitel_e2_trace.log head / previous rotation ---\\n$traceHead\\n'
+          '--- hitel_e2_trace.log recent ---\\n$traceTail';
     ])
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
         "patchedAnchors": count,
         "traceFile": "app_flutter/hitel_e2_trace.log",
+        "clipboardExport": "first 12000 chars of previous rotation or boot plus last 100000 chars of current trace",
         "rotateAtBytes": 4194304,
         "eventIdFields": ["seq", "monotonicNs", "tid", "thread", "stage"],
         "functionStages": [
