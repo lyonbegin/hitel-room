@@ -1,19 +1,30 @@
-name: HISTORICAL ONLY - Essence2 synthetic local mock experiment
+name: HITEL Essence2 Sofia existing local session - no vendor key
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/essence2-sofia-embedded-android15-offline.yml
+      - tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py
+      - tools/bithuman_deep/test_essence2_hitel_no_key_runtime.py
+      - tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-and-test-sofia-embedded-with-network-disabled:
     runs-on: ubuntu-24.04
     timeout-minutes: 85
+    env:
+      BITHUMAN_API_SECRET: ''
     steps:
       - uses: actions/checkout@v4
       - name: Copy official app and archived original SDK source
         shell: bash
         run: |
           set -euo pipefail
-          git clone --depth=1 https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          git clone --filter=blob:none --no-checkout https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          git -C original-upstream checkout --detach fea69e72515af7d05f384a9d2147ac0cc181b411
           mkdir -p essence2-local-mock-proof
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           cp -a "$ARCHIVE" "$GITHUB_WORKSPACE/essence2-local-mock-plugin"
@@ -73,6 +84,10 @@ jobs:
           python3 tools/bithuman_deep/prepare_essence2_ai_persistent_trace.py \
             --app "$APP" --plugin "$PLUGIN" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/persistent-ai-trace-patch.json"
+          python3 tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py \
+            --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel-no-key-source.json"
+          ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
+            python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
@@ -88,7 +103,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Development verification only: do NOT upload APK or model bytes as artifacts.
+          # Preserve the existing embedded model for the user-requested local installation test.
           python3 tools/bithuman_deep/reassemble_essence2_android_original_bundles.py \
             --code A52DHS2219 --retain-bundle \
             --work "$GITHUB_WORKSPACE/sofia-original-private-ci" \
@@ -196,7 +211,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -206,7 +221,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -214,7 +229,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -233,12 +248,37 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_e2trace_android15_probe.sh HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+          script: bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk essence2-sofia-offline-proof
+      - name: Publish the tested HITEL local APK requested by the user
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-sofia-hitel-local-20261120
+          APK=HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk
+          cat > essence2-local-mock-proof/release-notes.md <<'EOF'
+          Restored existing HITEL local session, with Sofia model embedded. No bitHuman API Secret entry is required. Existing loopback authentication, metering test endpoint and fixed spoken-English local realtime fixture are retained. Same application package ai.bithuman.example.avatar_chat.essence2. The original native inference library is byte-identical. Verified installation, offline embedded model load, first display frame and local WebSocket session startup on Android 15 with ARM translation. This is a user installation test candidate; physical audible output, real AI service and lip-sync quality are not certified.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'HITEL Essence2 Sofia - existing local session, no key entry' \
+              --notes-file essence2-local-mock-proof/release-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk") | .url')"
+          test -n "$URL"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
+          cmp "$APK" verified-download.apk
+          sha256sum "$APK"
+          echo PASS_HITEL_LOCAL_NO_KEY_PUBLIC_DOWNLOAD_IDENTICAL
+          printf '%s\n' "$URL"
       - name: Save Sofia embedded APK as short-lived internal installation test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Sofia_AITrace_V4_20261120_Install
-          path: HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk
+          name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
+          path: HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk
           if-no-files-found: error
           retention-days: 1
 
