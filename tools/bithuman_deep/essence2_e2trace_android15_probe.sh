@@ -39,6 +39,10 @@ for checkpoint in $(seq 1 12); do
   sleep 5
 done
 adb exec-out screencap -p > "$OUT/keyboard-ai-after-response.png"
+adb shell run-as "$APP" cat ./app_flutter/hitel_ai_e2e.log > "$OUT/ai-protocol-app-log.txt"
+grep -Fq 'client.rx type=response.done' "$OUT/ai-protocol-app-log.txt"
+grep -Fq 'ui.status=responseDone' "$OUT/ai-protocol-app-log.txt"
+echo PASS_AI_PROTOCOL_EVENTS_PERSISTED_ON_DEVICE_AND_COPYABLE
 adb shell run-as "$APP" cat ./app_flutter/hitel_e2_trace.log > "$OUT/native-function-trace-after-voice.txt"
 adb logcat -d -v threadtime | grep 'HITEL_E2TRACE' > "$OUT/native-trace-from-logcat.txt" || true
 python3 tools/bithuman_deep/verify_essence2_keyboard_ai_e2e.py \
