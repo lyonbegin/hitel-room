@@ -1,0 +1,75 @@
+name: IXIO All Original Recovered DEX Crypto Provisioning and Key Flow Audit
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - .github/workflows/ixio-20261120-full-dek-crypto-all-dex-audit.yml
+      - tools/ixio/ixio_crypto_full_inventory.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  read-only-complete-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Fetch original protection era inputs and both original reconstructed DEX APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-audit-private/source .ixio-audit-private/recorder .ixio-audit-private/qa ixio-full-crypto-results
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-audit-private/source
+          test -s .ixio-audit-private/source/IXIO_Main_NoAppSealing_Single.apk
+          gh release download ixio-github-pages-qa-original-20261120 --repo "$GH_REPO" \
+            --pattern 'IXIO_HITEL_Pages_QA_20261120.apk' --dir .ixio-audit-private/qa
+          gh release download ixio-input-20261115 --repo "$GH_REPO" \
+            --pattern mmsimage.zip --dir .ixio-audit-private/source
+          python3 tools/ixio/verify_release_zip.py .ixio-audit-private/source/mmsimage.zip \
+            .ixio-audit-private/source > ixio-full-crypto-results/original-protected-sha256.json
+          gh run download 43707483111 --repo "$GH_REPO" \
+            --name ixio-standalone-apps-reassembled-android14 \
+            --dir .ixio-audit-private/recorder
+          find .ixio-audit-private/recorder -name 'recorder-reassembled-signed.apk' -type f -size +1M -print
+          count="$(find .ixio-audit-private/recorder -name 'recorder-reassembled-signed.apk' -type f | wc -l)"
+          test "$count" -eq 1
+          cp "$(find .ixio-audit-private/recorder -name 'recorder-reassembled-signed.apk' -type f)" \
+             .ixio-audit-private/recorder/original-runtime-reassembled-recorder.apk
+          echo 'RECOVERED_ORIGINAL_MAIN_AND_RECORDER_AVAILABLE=YES'
+      - name: Pin exact baksmali and compile the scanner
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar \
+            -o .ixio-audit-private/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-audit-private/baksmali.jar' | sha256sum -c -
+          python3 -m py_compile tools/ixio/ixio_crypto_full_inventory.py
+      - name: Inspect every original DEX, recovered recorder, both APKs and complete crypto caller graph
+        run: |
+          set -euo pipefail
+          python3 tools/ixio/ixio_crypto_full_inventory.py \
+            --original .ixio-audit-private/source/IXIO_Main_NoAppSealing_Single.apk \
+            --qa .ixio-audit-private/qa/IXIO_HITEL_Pages_QA_20261120.apk \
+            --protected-main-xapk .ixio-audit-private/source/main.xapk \
+            --protected-recorder .ixio-audit-private/source/recorder.apk \
+            --recorder-reassembled .ixio-audit-private/recorder/original-runtime-reassembled-recorder.apk \
+            --baksmali .ixio-audit-private/baksmali.jar \
+            --report ixio-full-crypto-results
+          test -s ixio-full-crypto-results/main-full-crypto-method-index.json
+          test -s ixio-full-crypto-results/recorder-full-crypto-method-index.json
+      - name: Publish read-only method inventory and exact DEX fingerprints (no secrets)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_20261120_FULL_ORIGINAL_DEX_CRYPTO_PROVISIONING_CALL_GRAPH
+          path: ixio-full-crypto-results/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Delete extracted original APKs and disassembly from ephemeral runner
+        if: always()
+        run: rm -rf .ixio-audit-private
