@@ -5,7 +5,12 @@ on:
       source_run_id:
         description: Run containing the compiled Essence2 installation artifact
         required: true
-        default: '44785137767'
+        default: '44790604673'
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/essence2-audio-lipsync-retest.yml
 permissions:
   contents: write
   actions: read
@@ -14,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      QEMU_AUDIO_DRV: wav
+      QEMU_AUDIO_DRV: pa
       QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
     steps:
       - uses: actions/checkout@v4
@@ -23,13 +28,13 @@ jobs:
         with:
           name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.source_run_id || '44785137767' }}
+          run-id: ${{ inputs.source_run_id || '44790604673' }}
       - name: Download the source build's integrity reports
         uses: actions/download-artifact@v4
         with:
           name: essence2-sofia-embedded-offline-android15-test-logs-only
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.source_run_id || '44785137767' }}
+          run-id: ${{ inputs.source_run_id || '44790604673' }}
           path: source-build-proof
       - name: Verify identical APK and extract its exact input voice
         shell: bash
@@ -54,7 +59,9 @@ jobs:
           print('PASS_RETEST_APK_AND_INPUT_VOICE_IDENTICAL_TO_ORIGINAL_BUILD')
           print('SOURCE_APK_SHA256='+sha)
           PY
-          python3 -m pip install --quiet numpy
+          python3 -m pip install --quiet numpy scipy==1.14.1
+          python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_speaker_capture.py -v
+          bash tools/bithuman_deep/prepare_essence2_pulse_audio.sh
           test -c /dev/kvm
           sudo chmod 666 /dev/kvm
       - name: Install and exercise original app UI and actual speaker
