@@ -29,8 +29,9 @@ try:
     root=ET.parse(p).getroot()
     for n in root.iter('node'):
         desc=(n.attrib.get('text','')+' '+n.attrib.get('content-desc','')).lower()
-        if (n.attrib.get('class')=='android.widget.EditText' or
-                'say something' in desc or 'type' in desc):
+        # A scrollable full-screen ancestor contains the word 'type' too.
+        # Only the actual editable Android node is an input target.
+        if n.attrib.get('class')=='android.widget.EditText':
             points=[int(x) for x in re.findall(r'\d+',n.attrib.get('bounds',''))]
             if len(points)==4 and (points[2]-points[0])>30:
                 with open(out,'w') as f:f.write(f'{(points[0]+points[2])//2} {(points[1]+points[3])//2}\n')
@@ -77,6 +78,10 @@ if ! grep -Eq 'mInputShown=true|mShowRequested=true|mImeWindowVis=.*visible' "$O
   adb shell input tap "$X" "$Y"
   sleep 1
   adb shell dumpsys input_method > "$OUT/input-method-focus.txt" 2>&1 || true
+fi
+if ! grep -Eq 'mInputShown=true|mShowRequested=true|mImeWindowVis=.*visible' "$OUT/input-method-focus.txt"; then
+  echo FAIL_ACTUAL_CHAT_INPUT_NOT_FOCUSED
+  exit 17
 fi
 adb exec-out screencap -p > "$OUT/speech-input-focused.png" || true
 echo "IME_STATE:"

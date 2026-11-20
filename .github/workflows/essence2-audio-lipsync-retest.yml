@@ -19,8 +19,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      QEMU_AUDIO_DRV: pa
-      QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
+      QEMU_AUDIO_DRV: wav
+      QEMU_WAV_FREQUENCY: '48000'
+      QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.fifo
     steps:
       - uses: actions/checkout@v4
       - name: Download the already compiled installation candidate
@@ -61,7 +62,8 @@ jobs:
           PY
           python3 -m pip install --quiet numpy scipy==1.14.1
           python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_speaker_capture.py -v
-          bash tools/bithuman_deep/prepare_essence2_pulse_audio.sh
+          python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_qemu_capture.py -v
+          bash tools/bithuman_deep/prepare_essence2_wav_capture.sh
           test -c /dev/kvm
           sudo chmod 666 /dev/kvm
       - name: Install and exercise original app UI and actual speaker
@@ -78,6 +80,9 @@ jobs:
       - name: Compare captured speaker against the voice extracted from the APK
         if: always()
         run: |
+          python3 tools/bithuman_deep/capture_qemu_wav_stream.py finalize \
+            --raw essence2-sofia-offline-proof/emulator-speaker.raw \
+            --wav essence2-sofia-offline-proof/emulator-speaker.wav
           python3 tools/bithuman_deep/verify_essence2_emulator_speaker.py \
             --wav essence2-sofia-offline-proof/emulator-speaker.wav \
             --reference essence2-local-mock-proof/voiced-test.pcm \

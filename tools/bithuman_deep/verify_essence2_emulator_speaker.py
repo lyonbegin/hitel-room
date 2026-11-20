@@ -16,6 +16,8 @@ import numpy as np
 
 def to_8k(samples, rate):
     from scipy.signal import resample_poly
+    # scipy casts its FIR taps to the input dtype; PCM16 integers zero those taps.
+    samples = np.asarray(samples, dtype=np.float64)
     if len(samples) == 0:
         return np.asarray(samples, dtype=float)
     divisor = math.gcd(rate, 8000)

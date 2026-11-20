@@ -26,8 +26,9 @@ case "${QEMU_AUDIO_DRV:-}" in
   wav) ;;
   *) echo FAIL_NO_SUPPORTED_SPEAKER_CAPTURE; exit 22 ;;
 esac
+# Set volume after boot settles; keep the actual observed value as evidence.
 adb shell cmd media_session volume --stream 3 --set 15 > "$OUT/media-volume.txt" 2>&1
-sleep 1
+sleep 2
 adb shell cmd media_session volume --stream 3 --get >> "$OUT/media-volume.txt" 2>&1
 cat "$OUT/media-volume.txt"
 set +e
