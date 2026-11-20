@@ -138,6 +138,52 @@ internal object HitelEssence2PublicAndroidBundle {
         }
     }
 
+    /** Sofia's Android-ready model is delivered as an APK asset by an authorized private build.
+     *  This branch never substitutes a network download when the embedded payload is absent. */
+    private const val SOFIA = "A52DHS2219"
+    private fun embeddedMember(code: String, name: String): String =
+        "hitel_essence2_embedded/" + code + "/" + name
+
+    private fun installEmbedded(
+        context: Context, code: String, name: String, target: File,
+        size: Long, sha: String, checkCancel: () -> Unit, advance: (Long) -> Unit
+    ) {
+        target.parentFile?.mkdirs()
+        val tmp = File(target.parentFile, target.name + ".hitel-asset-part")
+        if (tmp.exists() && !tmp.delete()) throw IOException("Cannot delete partial bundled model")
+        val digest = MessageDigest.getInstance("SHA-256")
+        var count = 0L
+        try {
+            // AssetManager.open handles ZIP-compressed APK entries as a stream.
+            val input = try {
+                context.assets.open(embeddedMember(code, name))
+            } catch (e: java.io.FileNotFoundException) {
+                throw IOException("Missing embedded Sofia model member: " + name, e)
+            }
+            input.buffered().use { source ->
+                tmp.outputStream().buffered().use { output ->
+                    val buffer = ByteArray(1024 * 1024)
+                    while (true) {
+                        checkCancel()
+                        val n = source.read(buffer)
+                        if (n < 0) break
+                        count += n
+                        if (count > size) throw IOException("Embedded member exceeds catalog length: " + name)
+                        output.write(buffer, 0, n)
+                        digest.update(buffer, 0, n)
+                        advance(n.toLong())
+                    }
+                }
+            }
+            if (count != size || hex(digest.digest()) != sha)
+                throw IOException("Embedded Sofia model size/SHA-256 mismatch: " + name)
+            Files.move(tmp.toPath(), target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            tmp.delete()
+        }
+    }
+
     @Synchronized
     fun fetch(
         context: Context, code: String, checkCancel: () -> Unit,
@@ -147,7 +193,21 @@ internal object HitelEssence2PublicAndroidBundle {
         val root = File(context.filesDir, "hitel_essence2_public/" + code).canonicalFile
         if (!root.exists() && !root.mkdirs()) throw IOException("Cannot create Android model directory")
         val catalogFile = File(root, "android_store.v1.json")
-        val catalog = if (catalogFile.isFile) {
+        val catalog = if (code == SOFIA) {
+            // Do not contact api.bithuman.ai for Sofia. Bundle missing -> explicit local failure.
+            val raw = try {
+                context.assets.open(embeddedMember(code, "android_store.v1.json")).use {
+                    it.readBytes()
+                }
+            } catch (e: java.io.FileNotFoundException) {
+                throw IOException("Sofia Android model is NOT packaged in this APK", e)
+            }
+            if (raw.size > 1048576) throw IOException("Embedded model catalog too large")
+            val parsed = JSONObject(String(raw, Charsets.UTF_8))
+            if (!catalogFile.isFile || !catalogFile.readBytes().contentEquals(raw))
+                catalogFile.writeBytes(raw)
+            parsed
+        } else if (catalogFile.isFile) {
             try {
                 JSONObject(catalogFile.readText(Charsets.UTF_8)).also {
                     if (it.getString("agent") != code ||
@@ -210,9 +270,16 @@ internal object HitelEssence2PublicAndroidBundle {
                 completed += size
                 progress(completed, total)
             } else {
-                download(memberUrl(code, name), target, size, expected, checkCancel) { n ->
-                    completed += n
-                    progress(completed, total)
+                if (code == SOFIA) {
+                    installEmbedded(context, code, name, target, size, expected, checkCancel) { n ->
+                        completed += n
+                        progress(completed, total)
+                    }
+                } else {
+                    download(memberUrl(code, name), target, size, expected, checkCancel) { n ->
+                        completed += n
+                        progress(completed, total)
+                    }
                 }
             }
         }
