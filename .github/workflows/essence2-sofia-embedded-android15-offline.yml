@@ -228,7 +228,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
           script: |
-            set -euo pipefail
+            set -eu
             adb shell svc wifi disable
             adb shell svc data disable
             bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk essence2-sofia-offline-proof
