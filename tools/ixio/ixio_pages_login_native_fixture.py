@@ -133,7 +133,7 @@ def jwt_stub(kind: str) -> str:
     return (
         b64({"alg":"HS256","typ":"JWT"}) + "." +
         b64({"sub":"hitel-pages-qa-local-only","iss":"hitel-pages-offline-qa",
-             "iat":1795000000,"exp":4102444800,
+             "iat":1795000000,"exp":1999999999,
              "token_use":kind,"aud":"hitel-pages-offline-client"}) +
         ".not-a-valid-cryptographic-signature"
     )
