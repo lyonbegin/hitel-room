@@ -1,0 +1,83 @@
+name: bitHuman original Dart mock WebSocket independent protocol test
+on:
+  push:
+    branches:
+      - test/essence2-official-emulator-audit-20261120
+    paths:
+      - .github/workflows/bithuman-official-dart-mock-ws-audit-20261120.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  run-unmodified-official-2-6-37-mock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Use unmodified official bitHuman archived mock_realtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin/e2e/mock_realtime"
+          test -f "$ROOT/lib/mock_realtime.dart"
+          test -f "$ROOT/pubspec.yaml"
+          sha256sum "$ROOT/lib/mock_realtime.dart"
+          cd "$ROOT"
+          dart pub get
+          mkdir -p bin
+          cat > bin/hitel_audit.dart <<'DART'
+          import 'dart:convert';
+          import 'dart:io';
+          import 'dart:math';
+          import 'package:mock_realtime/mock_realtime.dart';
+
+          Future<void> main() async {
+            final server = await MockRealtimeServer.start();
+            final ws = await WebSocket.connect(server.url,
+                headers: {HttpHeaders.authorizationHeader: 'Bearer TEST_ONLY_NOT_REAL_SECRET'});
+            final remote = await server.nextConnection();
+            if (remote.authorization != 'Bearer TEST_ONLY_NOT_REAL_SECRET') {
+              throw StateError('Mock bearer header missing');
+            }
+            ws.add(jsonEncode({'type': 'response.create'}));
+            final request = await remote.nextEventOfType('response.create');
+            if (request.type != 'response.create') throw StateError('Request not received');
+            final pcm = synthPcm(100);
+            remote.sendResponseCreated();
+            remote.sendAudioDelta(pcm);
+            remote.sendResponseDone();
+            final events = <String>[];
+            var pcmPeak = 0;
+            await for (final raw in ws) {
+              if (raw is! String) continue;
+              final event = jsonDecode(raw) as Map<String, dynamic>;
+              final type = event['type'].toString();
+              events.add(type);
+              if (type == 'response.output_audio.delta') {
+                final bytes = base64Decode(event['delta'] as String);
+                if (bytes.length != pcm.length) throw StateError('PCM length mismatch');
+                for (var i = 0; i + 1 < bytes.length; i += 2) {
+                  var value = bytes[i] | (bytes[i + 1] << 8);
+                  if (value >= 32768) value -= 65536;
+                  pcmPeak = max(pcmPeak, value.abs());
+                }
+              }
+              if (type == 'response.done') break;
+            }
+            await ws.close();
+            await server.close();
+            if (events.join(',') !=
+              'response.created,response.output_audio.delta,response.done' ||
+                pcmPeak <= 1000) throw StateError('Mock protocol failed: $events peak=$pcmPeak');
+            print('PASS_BIT_HUMAN_OFFICIAL_DART_MOCK_WEBSOCKET');
+            print('MOCK_EVENTS=$events PCM_BYTES=${pcm.length} PEAK=$pcmPeak');
+            print('MOCK_ACCEPTS_FAKE_BEARER=true ACTUAL_AI=false');
+            print('NATIVE_SDK_RENDERS_TESTED=false ACTUAL_SPEAKER_TESTED=false');
+          }
+          DART
+          dart run bin/hitel_audit.dart
