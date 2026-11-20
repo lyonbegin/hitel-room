@@ -7,6 +7,7 @@ on:
       - tools/ixio/ixio_original_model_entry_probe.py
       - tools/ixio/ixio_original_token_gate_trace.py
       - tools/ixio/ixio_original_model_http_trace.py
+      - tools/ixio/ixio_original_provisioning_entry_probe.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -77,6 +78,9 @@ jobs:
           python3 tools/ixio/ixio_original_model_http_trace.py \
             --smali16 .ixio-pages-build/smali16 \
             --report ixio-pages-qa-results/original-model-wire-trace-diff.json
+          python3 tools/ixio/ixio_original_provisioning_entry_probe.py \
+            --smali16 .ixio-pages-build/smali16 \
+            --report ixio-pages-qa-results/original-provisioning-entry-diff.json
           for n in 15 16 18;do
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
@@ -203,6 +207,9 @@ jobs:
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+            adb shell monkey -p com.lguplus.callrecorder -c android.intent.category.LAUNCHER 1
+            sleep 3
+            python3 tools/ixio/ixio-emulator-gsm-smoke.py
       - name: Verify installed original app, original model entry call and catalog response evidence
         run: |
           set -euo pipefail
@@ -221,8 +228,9 @@ jobs:
           http_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_HTTP' in line]
           token_events=[line for line in log.splitlines() if 'IXIO_TOKEN_TRACE' in line]
           wire_events=[line for line in log.splitlines() if 'IXIO_MODEL_WIRE' in line]
+          provisioning_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_PROVISIONING' in line]
           out=p/'original-model-request-events.txt'
-          out.write_text('\n'.join(model_events+http_events+token_events+wire_events),encoding='utf8')
+          out.write_text('\n'.join(model_events+http_events+token_events+wire_events+provisioning_events),encoding='utf8')
           print('ACTUAL_SERVICE_ERROR',d['service_error_seen'])
           print('ACTUAL_LOGIN_ONLY_HTTP_INTERCEPT_COUNT',log.count('IXIO_PAGES_QA_ONLY'))
           print('ORIGINAL_MODEL_PROBE_EVENT_COUNT',len(model_events))
@@ -233,8 +241,17 @@ jobs:
               x.split('IXIO_TOKEN_TRACE: ',1)[-1] for x in token_events)),sort_keys=True))
           print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))
           print('MODEL_DIRECT_ENTRY_UI_STATE',json.dumps(d,ensure_ascii=False))
-          for item in model_events+http_events+wire_events:
+          for item in model_events+http_events+wire_events+provisioning_events:
             print('MODEL_ORIGINAL_STEP',item[-250:])
+          gsm_path=Path('ixio-hitel-android-results/gsm-call-smoke/result.json')
+          assert gsm_path.exists(),'Original simulated-call test did not produce evidence'
+          gsm=json.loads(gsm_path.read_text())
+          print('ORIGINAL_RECORDING_SIMULATED_CALL_STATE',json.dumps({
+              k:gsm.get(k) for k in ('simulated_call_requested','caller_screen_seen',
+                  'auto_record_setting_tap','recorder_service_active_before_manual_toggle',
+                  'record_button_tapped','recording_service_bound_after_toggle',
+                  'recorder_process_after','main_process_after','stt_verified')
+          },ensure_ascii=False))
           assert d['installed'] and tapped and d['home_screen_seen'],'Could not reach original home'
           assert log.count('IXIO_PAGES_QA_ONLY')>=3,'Original Pages-only login not exercised'
           assert 'TRIGGERED_AFTER_ORIGINAL_VIEWMODEL_CONSTRUCTOR' in log,'No direct model trigger from original home ViewModel'
@@ -249,6 +266,7 @@ jobs:
           path: |
             ixio-pages-qa-results/
             ixio-pages-qa-emulator-evidence/
+            ixio-hitel-android-results/gsm-call-smoke/
           retention-days: 7
       - name: Publish exact emulator-tested APK to public GitHub Release only after ALL checks pass
         if: false # This is continuation-only evidence. Preserve the existing public APK until recorder/model behavior is verified.
