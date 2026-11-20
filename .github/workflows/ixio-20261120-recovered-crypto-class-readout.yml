@@ -1,0 +1,53 @@
+name: IXIO Read Original Full DEX Crypto and Recorder Class Inventory
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - .github/workflows/ixio-20261120-recovered-crypto-class-readout.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  report-exact-symbols:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch already-verified all-DEX read-only inventory; no additional APK rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p ixio-crypto-readout
+          gh run download 44743457219 --repo "$GH_REPO" \
+            --name IXIO_20261120_FULL_ORIGINAL_DEX_CRYPTO_PROVISIONING_CALL_GRAPH \
+            --dir ixio-crypto-readout
+          ls -lh ixio-crypto-readout
+      - name: Print key-storage method signatures and original recorder encryption callsites
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,collections
+          root=Path('ixio-crypto-readout')
+          for label in ('main','recorder'):
+            j=json.loads((root/f'{label}-full-crypto-method-index.json').read_text())
+            print('AUDITED_PACKAGE',label,'SELECTED_METHODS',j['selected_method_count'],'CLASS_COUNT',j['interesting_class_count'])
+            groups=collections.defaultdict(list)
+            for m in j['all_selected_methods']:
+              if label=='recorder':
+                if 'CRYPTO_PRIMITIVE' not in m['families'] and 'KEYSTORE' not in m['families'] and 'MODEL_CRYPTO' not in m['families']:continue
+              else:
+                if not re.search(r'DekProvider|KeystoreKek|AppBinding|ProvisioningKey|EncryptedDek|DekWrapper|IxITokenInterceptor|AuthCodeUseCase|DatastoreHandler',m['class'],re.I):continue
+              groups[m['class']].append(m)
+            for cls in sorted(groups):
+              print('CLASS',label,cls,'methods',len(groups[cls]))
+              for m in groups[cls]:
+                print('METHOD',m['signature'][:220])
+                for c in m['calls'][:18]:
+                  print('  CALL',c['op'],c['target'][:230])
+                for f in m['field_accesses'][:10]:
+                  print('  FIELD',f['op'],f['target'][:200])
+            print('EXACT_PACKAGE_CLASS_GROUPS',label,len(groups))
+          PY
