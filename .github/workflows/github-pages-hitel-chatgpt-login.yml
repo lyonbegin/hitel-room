@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "hitel-chatgpt-login/**"
+      - "ixio-qa-login/**"
       - ".github/workflows/github-pages-hitel-chatgpt-login.yml"
   workflow_dispatch:
 
@@ -38,9 +39,12 @@ jobs:
           npx vite build --base=/hitel-room/
           mkdir -p dist/hitel-chatgpt-login
           cp hitel-chatgpt-login/index.html dist/hitel-chatgpt-login/index.html
+          mkdir -p dist/ixio-qa-login
+          cp ixio-qa-login/index.html dist/ixio-qa-login/index.html
           touch dist/.nojekyll
           test -s dist/index.html
           test -s dist/hitel-chatgpt-login/index.html
+          test -s dist/ixio-qa-login/index.html
           echo PASS_GITHUB_PAGES_STATIC_LOGIN_PAGE_BUILT
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
