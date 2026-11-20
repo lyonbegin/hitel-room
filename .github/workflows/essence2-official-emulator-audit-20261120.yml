@@ -86,6 +86,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
           script: |
+            bash <<'OFFICIAL_EMULATOR_AUDIT_BASH'
             set -euo pipefail
             OUT="$GITHUB_WORKSPACE/official-proof"
             mkdir -p "$OUT"
@@ -116,6 +117,7 @@ jobs:
             echo "emulator_audio_backend=-no-audio (physical audibility cannot be verified)" >> "$OUT/emulator-outcome.txt"
             cat "$OUT/emulator-outcome.txt"
             cat "$OUT/emulator-abis.txt"
+            OFFICIAL_EMULATOR_AUDIT_BASH
       - name: Save read-only test evidence (never copy credential, APK or model)
         if: always()
         uses: actions/upload-artifact@v4
