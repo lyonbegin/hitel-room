@@ -27,9 +27,24 @@ bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh "$OUT"
 speech_rc=$?
 set -e
 printf 'voice_probe_exit_code=%s\n' "$speech_rc" > "$OUT/voice-probe-result.txt"
-sleep 2
+# Voice-frame success alone is NOT enough. Verify the typed question completes
+# the full request/reply protocol, including UI leaving Thinking.
+for checkpoint in $(seq 1 12); do
+  adb logcat -d -v time > "$OUT/full-after-speech-logcat.txt"
+  if grep -q 'HITEL_AI_E2E.*ui.status=responseDone' "$OUT/full-after-speech-logcat.txt"; then
+    echo "PASS_ESSENCE2_TYPED_RESPONSE_DONE_AFTER_EXTRA_$((checkpoint * 5))s"
+    break
+  fi
+  echo "PENDING_ESSENCE2_TYPED_AI_REPLY_STATUS_CHECKPOINT_$checkpoint"
+  sleep 5
+done
+adb exec-out screencap -p > "$OUT/keyboard-ai-after-response.png"
 adb shell run-as "$APP" cat ./app_flutter/hitel_e2_trace.log > "$OUT/native-function-trace-after-voice.txt"
 adb logcat -d -v threadtime | grep 'HITEL_E2TRACE' > "$OUT/native-trace-from-logcat.txt" || true
+python3 tools/bithuman_deep/verify_essence2_keyboard_ai_e2e.py \
+  --logcat "$OUT/full-after-speech-logcat.txt" \
+  --native-trace "$OUT/native-function-trace-after-voice.txt" \
+  --report "$OUT/keyboard-ai-end-to-end-result.json"
 python3 tools/bithuman_deep/analyze_essence2_e2trace.py \
   --input "$OUT/native-function-trace-after-voice.txt" \
   --output "$OUT/speech-function-summary.json" --require-boot --require-speech
