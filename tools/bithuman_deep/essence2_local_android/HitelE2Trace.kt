@@ -22,7 +22,8 @@ internal object HitelE2Trace {
 
     fun init(context: Context) {
         if (!started.compareAndSet(false, true)) return
-        val folder = File(context.filesDir, "app_flutter")
+        // Flutter application-support directory is a sibling of filesDir on Android.
+        val folder = File(context.filesDir.parentFile ?: context.filesDir, "app_flutter")
         folder.mkdirs()
         val output = File(folder, "hitel_e2_trace.log")
         Thread({
