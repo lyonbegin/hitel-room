@@ -85,10 +85,23 @@ jobs:
           set -euo pipefail
           # x64 Flutter runs the key form in CI. The official avatar JNI remains
           # ARM64-only; this does not claim native engine support on x64.
-          ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug \
-            --target-platform android-arm64,android-x64 \
-            --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
-            2>&1 | tee "$GITHUB_WORKSPACE/authenticated-proof/build.txt"
+          for attempt in 1 2 3; do
+            LOG="$GITHUB_WORKSPACE/authenticated-proof/build-attempt-$attempt.txt"
+            set +e
+            ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug \
+              --target-platform android-arm64,android-x64 \
+              --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
+              2>&1 | tee "$LOG"
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            if (( build_rc == 0 )); then break; fi
+            # Retry only the actual transient public Kotlin repository failure
+            # observed in run 44754521533; never hide a source/compiler error.
+            if (( attempt == 3 )) || ! grep -Eq 'Could not (find|resolve) org.jetbrains.kotlin:' "$LOG"; then
+              exit "$build_rc"
+            fi
+            sleep 8
+          done
           cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/HITEL_Essence2_Authenticated_20261120.apk"
       - name: Verify packaged JNI against every original SDK AAR member
         shell: bash
