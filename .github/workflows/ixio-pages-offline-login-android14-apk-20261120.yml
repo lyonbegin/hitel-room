@@ -105,6 +105,57 @@ jobs:
           sha256sum .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk > ixio-pages-qa-results/tested-apk-sha256.txt
           mkdir -p .ixio-start-test
           cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+      - name: Restore previously proven recorder provider Context for the existing QA path
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-pages-build/recorder-rebuilt .ixio-pages-build/recorder-smali
+          gh run download 43707483111 --repo "$GH_REPO" \
+            --name ixio-standalone-apps-reassembled-android14 \
+            --dir .ixio-pages-build/recorder-rebuilt
+          mapfile -t recorder_apks < <(find .ixio-pages-build/recorder-rebuilt -type f -name 'recorder-reassembled-signed.apk')
+          test "${#recorder_apks[@]}" -eq 1
+          cp "${recorder_apks[0]}" .ixio-pages-build/recorder/reconstructed-original-code.apk
+          unzip -p .ixio-pages-build/recorder/reconstructed-original-code.apk classes.dex \
+            > .ixio-pages-build/recorder/classes-original.dex
+          java -Xmx2500m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 \
+            -o .ixio-pages-build/recorder-smali .ixio-pages-build/recorder/classes-original.dex
+          python3 tools/ixio/ixio_recorder_provider_context_bridge.py \
+            --smali-root .ixio-pages-build/recorder-smali \
+            --report ixio-pages-qa-results/recorder-only-existing-context-repair.json
+          java -Xmx2500m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
+            -o .ixio-pages-build/recorder/classes-bridged.dex .ixio-pages-build/recorder-smali
+          python3 - <<'PY'
+          from pathlib import Path
+          import copy,zipfile,re
+          p=Path('.ixio-pages-build/recorder')
+          old=p/'reconstructed-original-code.apk'
+          new=p/'recorder-context-unsigned.apk'
+          replacement=(p/'classes-bridged.dex').read_bytes()
+          with zipfile.ZipFile(old) as src,zipfile.ZipFile(new,'w') as dest:
+              for entry in src.infolist():
+                  if re.fullmatch(r'META-INF/.*\.(?:RSA|EC|DSA|SF|MF)',entry.filename,re.I):
+                      continue
+                  dest.writestr(copy.copy(entry),
+                      replacement if entry.filename=='classes.dex' else src.read(entry.filename))
+          with zipfile.ZipFile(old) as src,zipfile.ZipFile(new) as dest:
+              assert src.read('AndroidManifest.xml')==dest.read('AndroidManifest.xml')
+              for n in src.namelist():
+                  if n.endswith('.dex') and n!='classes.dex':
+                      assert src.read(n)==dest.read(n),n
+          print('EXISTING_RECORDER_AIDL_PCM_STT_CLASSES_UNCHANGED=YES')
+          PY
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/zipalign" -p -f 4 .ixio-pages-build/recorder/recorder-context-unsigned.apk \
+            .ixio-pages-build/recorder/recorder-context-aligned.apk
+          "$BT/apksigner" sign --ks .ixio-pages-build/keys/qa.jks --ks-pass pass:android \
+            --key-pass pass:android --ks-key-alias qa \
+            --out .ixio-pages-build/recorder/recorder-context-test-signed.apk \
+            .ixio-pages-build/recorder/recorder-context-aligned.apk
+          "$BT/apksigner" verify --verbose .ixio-pages-build/recorder/recorder-context-test-signed.apk
+          echo 'ORIGINAL_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_REUSED=YES'
       - name: Enable Android emulator KVM
         run: |
           test -c /dev/kvm
@@ -124,8 +175,8 @@ jobs:
           script: |
             set -eu
             sleep 35
-            echo 'INSTALLING_HASH_VERIFIED_ORIGINAL_IXIO_RECORDER_COMPANION'
-            adb install -r .ixio-pages-build/recorder/recorder.apk
+            echo 'INSTALLING_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_SAME_SIGNER_AS_QA'
+            adb install -r .ixio-pages-build/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-pages-qa-emulator-robot.py
@@ -161,6 +212,7 @@ jobs:
             ixio-pages-qa-emulator-evidence/
           retention-days: 7
       - name: Publish exact emulator-tested APK to public GitHub Release only after ALL checks pass
+        if: false # This is continuation-only evidence. Preserve the existing public APK until recorder/model behavior is verified.
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
