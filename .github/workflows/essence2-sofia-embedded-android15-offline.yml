@@ -221,7 +221,16 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
           script: bash -c 'set -euo pipefail; adb shell svc wifi disable; adb shell svc data disable; bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk essence2-sofia-offline-proof; ! grep -q "api.bithuman.ai" essence2-sofia-offline-proof/boot-status.txt; echo PASS_SOFIA_OFFLINE_MODEL_INITIALIZATION_NO_VENDOR_DNS'
 
-      - name: Upload ONLY non-model test logs, never any proprietary APK/model payload
+      - name: Save Sofia embedded APK as short-lived internal installation test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL_Essence2_Sofia_Embedded_Internal_Test_ARM64
+          path: HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload non-model diagnostic logs
+
         uses: actions/upload-artifact@v4
         if: always()
         with:
