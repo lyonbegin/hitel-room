@@ -42,6 +42,20 @@ jobs:
             java -Xmx2600m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 \
               -o ".ixio-pages-build/smali$n" ".ixio-pages-build/apk/classes$n-original.dex"
           done
+      - name: Verify and stage unchanged original IXIO call-recorder companion
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-pages-build/recorder
+          gh release download ixio-input-20261115 --repo "$GH_REPO" \
+            --pattern 'mmsimage.zip' --dir .ixio-pages-build/recorder
+          python3 tools/ixio/verify_release_zip.py \
+            .ixio-pages-build/recorder/mmsimage.zip .ixio-pages-build/recorder \
+            > ixio-pages-qa-results/original-recorder-verified.json
+          echo '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7  .ixio-pages-build/recorder/recorder.apk' | sha256sum -c -
+          echo 'ORIGINAL_UNMODIFIED_IXIO_RECORDER_READY=YES'
       - name: Patch only original login request calls and Android offline test responses
         run: |
           set -euo pipefail
@@ -110,6 +124,10 @@ jobs:
           script: |
             set -eu
             sleep 35
+            echo 'INSTALLING_HASH_VERIFIED_ORIGINAL_IXIO_RECORDER_COMPANION'
+            adb install -r .ixio-pages-build/recorder/recorder.apk
+            adb shell pm path com.lguplus.callrecorder
+            echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-pages-qa-emulator-robot.py
       - name: Enforce real device login success (not build-only success)
         run: |
