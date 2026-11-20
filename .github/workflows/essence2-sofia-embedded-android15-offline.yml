@@ -15,6 +15,7 @@ on:
       - tools/bithuman_deep/wait_essence2_playout_complete.py
 permissions:
   contents: write
+  actions: write
 jobs:
   build-and-test-sofia-embedded-with-network-disabled:
     runs-on: ubuntu-24.04
@@ -24,6 +25,15 @@ jobs:
       QEMU_AUDIO_DRV: wav
       QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
     steps:
+      - name: Stop the obsolete run only if it is still stuck preparing sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OLD_STAGE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/44788672650/jobs" --jq '[.jobs[].steps[] | select(.status=="in_progress") | .name][0] // ""')"
+          if [ "$OLD_STAGE" = "Assemble five-sample local Android bundle loader and debug mock" ]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/44788672650/cancel"
+            echo STOPPED_OBSOLETE_SOURCE_PREPARATION
+          fi
       - uses: actions/checkout@v4
       - name: Copy official app and archived original SDK source
         shell: bash
@@ -70,13 +80,9 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-synthetic-auth.json"
           python3 tools/bithuman_deep/prepare_essence2_device_diagnostics.py \
             --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/device-diagnostics.json"
-          # Offline phonetic speech (eSpeak), 24 kHz PCM, no cloud voice service.
-          if ! command -v espeak >/dev/null || ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq --no-install-recommends espeak ffmpeg
-          fi
-          bash tools/bithuman_deep/generate_essence2_real_voice_fixture.sh \
-            "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          # Exact existing spoken fixture, retained from the tested APK; no external TTS package installation.
+          cp tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          test "$(sha256sum "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" | cut -d ' ' -f 1)" = "8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098"
           python3 tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py \
             --app "$APP" \
             --pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
