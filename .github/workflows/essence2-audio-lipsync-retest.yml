@@ -1,4 +1,5 @@
 name: Retest built Essence2 audio and lip-sync APK
+# Preserve every actual WAV backend write across device reopen.
 on:
   workflow_dispatch:
     inputs:
