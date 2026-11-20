@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 85
     env:
       BITHUMAN_API_SECRET: ''
+      QEMU_AUDIO_DRV: wav
+      QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
     steps:
       - uses: actions/checkout@v4
       - name: Copy official app and archived original SDK source
@@ -48,6 +50,9 @@ jobs:
           APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
+          # Regression inputs must be pristine: the assembly below mutates APP.
+          ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
+            python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
           python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
             --app "$APP" --plugin "$PLUGIN" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sample-ui.json"
@@ -86,8 +91,6 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/persistent-ai-trace-patch.json"
           python3 tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py \
             --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel-no-key-source.json"
-          ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
-            python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
@@ -237,6 +240,8 @@ jobs:
         run: |
           test -c /dev/kvm
           sudo chmod 666 /dev/kvm
+          mkdir -p essence2-sofia-offline-proof
+          python3 -m pip install --quiet numpy
 
       - name: Actually install and run embedded Sofia with Internet disabled in Android 15
         uses: reactivecircus/android-emulator-runner@v2
@@ -247,8 +252,15 @@ jobs:
           profile: pixel_2
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk essence2-sofia-offline-proof
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_HITEL_Local_20261120_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+      - name: Verify captured virtual speaker contains the actual test speech
+        if: always()
+        run: |
+          python3 tools/bithuman_deep/verify_essence2_emulator_speaker.py \
+            --wav essence2-sofia-offline-proof/emulator-speaker.wav \
+            --reference essence2-local-mock-proof/voiced-test.pcm \
+            --report essence2-sofia-offline-proof/speaker-verification.json
       - name: Publish the tested HITEL local APK requested by the user
         env:
           GH_TOKEN: ${{ github.token }}
@@ -293,6 +305,8 @@ jobs:
             essence2-local-mock-proof/apk-sha256.txt
             essence2-sofia-offline-proof/*.txt
             essence2-sofia-offline-proof/*.png
+            essence2-sofia-offline-proof/*.json
+            essence2-sofia-offline-proof/*.wav
             essence2-e2trace-proof/*.txt
             essence2-e2trace-proof/*.json
             essence2-e2trace-proof/*.png
