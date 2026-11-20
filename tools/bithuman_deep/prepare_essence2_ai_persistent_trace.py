@@ -69,6 +69,18 @@ def main(app,plugin,report):
     }).catchError((Object _) {});
   }
 """, "app-metadata-file-logger")
+    # UI-only: once the agent's response transcript arrives, it is no longer
+    # "Thinking". The vendor status emitter remains unmodified; response.done
+    # still returns the UI to "Connected" through the existing statusStream.
+    u=change_once(u,
+        "if (mounted) setState(() => _caption = 'agent: $d');",
+        """if (mounted) setState(() {
+        _caption = 'agent: $d';
+        _status = 'Speaking…';
+      });
+      BithumanRealtimeSession.hitelAiTrace(
+          'ui.status=speakingProxy reason=botTranscript wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');""",
+        "show-agent-answer-while-streaming")
     u=change_once(u,
         "    final token = await _offline.start();\n",
         """    BithumanRealtimeSession.debugEventSink = _hitelAppendAiTrace;
