@@ -1,0 +1,161 @@
+name: IXIO GitHub Pages offline login Android14 actual APK test
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - .github/workflows/ixio-pages-offline-login-android14-apk-20261120.yml
+      - tools/ixio/ixio_pages_login_native_fixture.py
+      - tools/ixio/ixio-pages-qa-emulator-robot.py
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Verify live GitHub Pages static OAuth test page
+        run: |
+          set -euo pipefail
+          code="$(curl -L --max-time 20 -sS -o /tmp/pages.html -w '%{http_code}' https://lyonbegin.github.io/hitel-room/ixio-qa-login/)"
+          echo "GITHUB_PAGES_LOGIN_HTTP=$code"
+          if [ "$code" = "200" ];then grep -Fq "HITEL IXIO 시험 로그인" /tmp/pages.html;fi
+      - name: Download pinned pristine IXIO single APK and pinned DEX tools
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-pages-build/apk .ixio-pages-build/tools .ixio-pages-build/keys ixio-pages-qa-results
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-pages-build/apk
+          test -s .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-pages-build/tools/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .ixio-pages-build/tools/smali.jar' | sha256sum -c -
+          for n in 15 16 18;do
+            unzip -p .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk "classes$n.dex" > ".ixio-pages-build/apk/classes$n-original.dex"
+            java -Xmx2600m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 \
+              -o ".ixio-pages-build/smali$n" ".ixio-pages-build/apk/classes$n-original.dex"
+          done
+      - name: Patch only original login request calls and Android offline test responses
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/ixio/ixio_pages_login_native_fixture.py
+          python3 tools/ixio/ixio_pages_login_native_fixture.py \
+            --smali15 .ixio-pages-build/smali15 --smali16 .ixio-pages-build/smali16 \
+            --smali18 .ixio-pages-build/smali18 \
+            --report ixio-pages-qa-results/original-login-only-diff.json
+          for n in 15 16 18;do
+            java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
+              -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
+              > "ixio-pages-qa-results/smali-assembly-$n.log" 2>&1
+            test -s ".ixio-pages-build/apk/classes$n-pages.dex"
+          done
+      - name: Preserve every original APK entry except three login DEXes, align and sign
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile,copy,re,pathlib
+          p=pathlib.Path('.ixio-pages-build/apk')
+          with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk','w') as new:
+            for entry in old.infolist():
+              name=entry.filename
+              if re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',name,re.I):continue
+              data=old.read(name)
+              if name in ('classes15.dex','classes16.dex','classes18.dex'):
+                n=name[7:-4];data=(p/f'classes{n}-pages.dex').read_bytes()
+              new.writestr(copy.copy(entry),data)
+          with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk') as new:
+            a={n for n in old.namelist() if not re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',n,re.I)}
+            assert a==set(new.namelist())
+            for n in a:
+              if n not in ('classes15.dex','classes16.dex','classes18.dex'):
+                assert old.read(n)==new.read(n),n
+          print('ALL_ORIGINAL_NONLOGIN_APK_ENTRIES_IDENTICAL=YES')
+          PY
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore .ixio-pages-build/keys/qa.jks \
+            -storepass android -keypass android -alias qa -keyalg RSA \
+            -keysize 2048 -validity 365 -dname 'CN=HITEL Pages Offline Test' >/dev/null 2>&1
+          "$BT/zipalign" -p -f 4 .ixio-pages-build/apk/IXIO_Pages_Test_Unsigned.apk .ixio-pages-build/apk/IXIO_Pages_Test_Aligned.apk
+          "$BT/apksigner" sign --ks .ixio-pages-build/keys/qa.jks --ks-pass pass:android \
+            --key-pass pass:android --ks-key-alias qa \
+            --out .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk \
+            .ixio-pages-build/apk/IXIO_Pages_Test_Aligned.apk
+          "$BT/apksigner" verify --verbose .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
+          sha256sum .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk > ixio-pages-qa-results/tested-apk-sha256.txt
+          mkdir -p .ixio-start-test
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+      - name: Enable Android emulator KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Actually install APK, tap GitHub Pages OAuth, follow deep link and test home UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            sleep 35
+            python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+      - name: Enforce real device login success (not build-only success)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('ixio-pages-qa-emulator-evidence')
+          d=json.loads((p/'result.json').read_text())
+          actions=json.loads((p/'actions.json').read_text())
+          log=(p/'logcat-full.txt').read_text(errors='replace')
+          tapped=any(x.get('tap',{}).get('label')=='PAGES_QA_ONLY_COMPLETE_AND_DEEP_LINK_BACK' for x in actions)
+          print('ACTUAL_TEST_APP_INSTALLED',d['installed'])
+          print('ACTUAL_STATIC_PAGES_DEEPLINK_BUTTON_TAPPED',tapped)
+          print('ACTUAL_HOME_SCREEN_REACHED',d['home_screen_seen'])
+          print('ACTUAL_SERVICE_ERROR',d['service_error_seen'])
+          print('ACTUAL_LOGIN_ONLY_HTTP_INTERCEPT_COUNT',log.count('IXIO_PAGES_QA_ONLY'))
+          print('E2E_RESULT',json.dumps(d,ensure_ascii=False))
+          assert d['installed'] and tapped and d['home_screen_seen']
+          assert not d['service_error_seen'] and not d['fatal_lines']
+          assert log.count('IXIO_PAGES_QA_ONLY')>=3
+          print('STATIC_GITHUB_PAGES_NATIVE_LOGIN_TO_ORIGINAL_HOME=VERIFIED')
+          PY
+      - name: Upload screenshots and checksums even if emulated login fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_StaticPages_RealUI_OriginalCode_Evidence_20261120
+          path: |
+            ixio-pages-qa-results/
+            ixio-pages-qa-emulator-evidence/
+          retention-days: 7
+      - name: Publish exact emulator-tested APK to public GitHub Release only after ALL checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ixio-github-pages-qa-original-20261120
+          apk=.ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
+          test "$(sha256sum "$apk" | cut -d' ' -f1)" = \
+            "$(cut -d' ' -f1 ixio-pages-qa-results/tested-apk-sha256.txt)"
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1;then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO Original APK with offline GitHub Pages QA login" \
+              --notes "TEST ONLY: offline native mock for selected login endpoints, browser OAuth on GitHub Pages, original deep link, tested emulator home. No actual membership. Non-login vendor URLs, STT, recorder, crypto remain original. SHA256 matched actual tested APK."
+          fi
+          gh release upload "$tag" "$apk" --repo "$GH_REPO" --clobber
+          echo "APK_DIRECT_URL=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Pages_QA_20261120.apk"
