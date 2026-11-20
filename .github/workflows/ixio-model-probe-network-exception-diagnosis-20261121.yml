@@ -84,6 +84,38 @@ jobs:
           Path('ixio-model-network-evidence/redacted-model-network-exception-report.json').write_text(
               json.dumps(report,ensure_ascii=False,indent=2),encoding='utf8')
           PY
+      - name: Locate precise model request vs missing token datastore error
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          matches=list(Path('.ixio-probe-input').rglob('logcat-full.txt'))
+          assert len(matches)==1
+          ls=matches[0].read_text(errors='replace').splitlines()
+          redact=re.compile(r'(?i)(?:Bearer\s+\S+|access[_-]?token\s*[:=]\s*\S+|'
+             r'refresh[_-]?token\s*[:=]\s*\S+|authorization\s*[:=]\s*\S+|'
+             r'https?://\S+|\b\d{8,}\b)')
+          def safe(x):return redact.sub('[REDACTED]',x)[:280]
+          rx=re.compile(r'(?i)(?:IXIO_ORIGINAL_MODEL|IxITokenInterceptor|'
+              r'AppStats|System\.err|CancellationException|DataStore|OkHttp|retrofit|'
+              r'UnknownHost|Failed|Exception|com\.lguplus\.aicallagent\.network)')
+          indexes=[i for i,x in enumerate(ls) if 'REQUEST_TO_ORIGINAL_MODEL_CATALOG' in x]
+          for count,i in enumerate(indexes,1):
+              print('MODEL_REQUEST_WINDOW',count,'AT_LOG_LINE',i)
+              found=0
+              for k in range(max(0,i-60),min(len(ls),i+190)):
+                  ln=ls[k]
+                  if rx.search(ln):
+                      # Avoid dumping entire payloads or auth material to public logs
+                      if any(t in ln.lower() for t in ('requestbody','responsebody','serialized','password','encryptedctn')):
+                          continue
+                      print('EVENT',k,safe(ln))
+                      found+=1
+                      if found>=65:break
+          # All errors from ixio main process within +/- 10 lines of the
+          # token interceptor stack; capture only class/method names.
+          print('MODEL_HTTP_REQUESTS_TOTAL',len(indexes))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
