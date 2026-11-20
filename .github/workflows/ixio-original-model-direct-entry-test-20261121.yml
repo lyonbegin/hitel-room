@@ -175,6 +175,19 @@ jobs:
             .ixio-pages-build/recorder/recorder-context-aligned.apk
           "$BT/apksigner" verify --verbose .ixio-pages-build/recorder/recorder-context-test-signed.apk
           echo 'ORIGINAL_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_REUSED=YES'
+      - name: Prepare focused original model and token trace robot before emulator
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/ixio/ixio-pages-qa-emulator-robot.py')
+          s=p.read_text()
+          key='            home_screen_seen=True\n            print("IXIO_AUTHENTICATED_HOME_SCREEN_OBSERVED",flush=True)'
+          assert s.count(key)==1
+          s=s.replace(key,key+'\n            print("IXIO_ORIGINAL_MODEL_TOKEN_TRACE_FOCUSED_MODE",flush=True)\n            time.sleep(65)\n            stop_reason="MODEL_TOKEN_TRACE_CAPTURED_AFTER_ORIGINAL_HOME"\n            break')
+          p.write_text(s)
+          print("ORIGINAL_HOME_FOCUSED_TOKEN_TEST_ROBOT_INSTALLED=YES")
+          PY
       - name: Enable Android emulator KVM
         run: |
           test -c /dev/kvm
@@ -198,17 +211,6 @@ jobs:
             adb install -r .ixio-pages-build/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
-            # Test-only early stop after actual original IXIO home & one model request.
-            # Avoid unrelated 3-scroll Settings and recorder flows in this focused test.
-            python3 - <<'PY'
-            from pathlib import Path
-            p=Path('tools/ixio/ixio-pages-qa-emulator-robot.py')
-            s=p.read_text()
-            key='            home_screen_seen=True\n            print("IXIO_AUTHENTICATED_HOME_SCREEN_OBSERVED",flush=True)'
-            assert s.count(key)==1
-            s=s.replace(key,key+'\n            print("IXIO_ORIGINAL_MODEL_TOKEN_TRACE_FOCUSED_MODE",flush=True)\n            time.sleep(65)\n            stop_reason="MODEL_TOKEN_TRACE_CAPTURED_AFTER_ORIGINAL_HOME"\n            break')
-            p.write_text(s)
-            PY
             python3 tools/ixio/ixio-pages-qa-emulator-robot.py
       - name: Verify installed original app, original model entry call and catalog response evidence
         run: |
