@@ -12,6 +12,7 @@ from pathlib import Path
 TOKEN="com/lguplus/aicallagent/network/interceptor/ixio/IxITokenInterceptor.smali"
 CORO="com/lguplus/aicallagent/network/interceptor/ixio/IxITokenInterceptor$intercept$1.smali"
 STORE="com/lguplus/aicallagent/datastore/DatastoreHandler.smali"
+AUTH="com/lguplus/aicallagent/network/authenticator/IxIAuthenticator.smali"
 PROBE="com/lguplus/aicallagent/network/interceptor/ixio/HitelTokenGateTrace.smali"
 DESC="L"+PROBE[:-6]+";"
 M=re.compile(r"(?ms)^\.method[^\n]*\n.*?^\.end method$")
@@ -24,7 +25,26 @@ EVENTS={
  5:"TOKEN_GET_TOKEN_CALL_RETURNED_OR_SUSPENDED",
  6:"TOKEN_DATASTORE_RESULT_READY_FOR_VALIDATION",
  7:"TOKEN_ORIGINAL_CHAIN_PROCEED",
- 8:"DATASTORE_GET_TOKEN_ENTER"
+ 8:"DATASTORE_GET_TOKEN_ENTER",
+ 9:"TOKEN_BEFORE_MUTEX_LOCK",
+ 10:"TOKEN_MUTEX_CALL_RETURNED_OR_SUSPENDED",
+ 11:"TOKEN_MUTEX_ACQUIRED",
+ 12:"TOKEN_BEFORE_DATASTORE_GET_TYPE",
+ 13:"TOKEN_GET_TYPE_CALL_RETURNED_OR_SUSPENDED",
+ 14:"TOKEN_TYPE_READY",
+ 15:"TOKEN_BEFORE_EXPIRY_CHECK",
+ 16:"TOKEN_EXPIRY_CHECK_RETURNED",
+ 17:"TOKEN_EMPTY_BRANCH",
+ 18:"TOKEN_NONEMPTY_BRANCH",
+ 19:"TOKEN_BEFORE_ORIGINAL_AUTOLOGIN",
+ 20:"TOKEN_AUTOLOGIN_CALL_RETURNED_OR_SUSPENDED",
+ 21:"TOKEN_AUTOLOGIN_RESULT_READY",
+ 22:"TOKEN_UNEXPIRED_BRANCH",
+ 23:"TOKEN_ORIGINAL_EXCEPTION_UNLOCK",
+ 24:"TOKEN_ORIGINAL_CHAIN_RESPONSE_RETURNED",
+ 25:"ORIGINAL_AUTHENTICATOR_ENTER",
+ 26:"ORIGINAL_AUTHENTICATOR_CUSTOM_REQUEST_ENTER",
+ 27:"ORIGINAL_AUTHENTICATOR_REFRESH_TOKEN_ENTER"
 }
 def sha(s):return hashlib.sha256(s.encode()).hexdigest()
 def mk(n):return f"    invoke-static {{}}, {DESC}->m{n}()V"
@@ -82,26 +102,47 @@ def tracer_coroutine(b):
     label=re.compile(r"(?m)^    :goto_103[ \t]*$")
     if len(list(label.finditer(b)))!=1:raise RuntimeError("model token result label unexpected")
     b=label.sub("    :goto_103\n"+mk(6),b,count=1)
-    # Before original chain.proceed invoked; token/header values never logged.
-    matches=list(re.finditer(r"(?m)^    invoke-interface \{v(?:11|12), v(?:0|13)\}, Lokhttp3/Interceptor\$Chain;->proceed\(Lokhttp3/Request;\)Lokhttp3/Response;",b))
-    if len(matches)<2:raise RuntimeError(f"expected >=2 original proceed branches, got {len(matches)}")
-    # Add marker to each EXACT existing chain.proceed instruction. Native control flow unchanged.
+    # All four original branches, including the v2 chain used by nonempty
+    # tokens. The previous restricted expression missed both v2 branches.
+    matches=list(re.finditer(r"(?m)^    invoke-interface \{[vp]\d+, [vp]\d+\}, Lokhttp3/Interceptor\$Chain;->proceed\(Lokhttp3/Request;\)Lokhttp3/Response;\n(?:[ \t]*\n)*    move-result-object [vp]\d+",b))
+    if len(matches)!=4:raise RuntimeError(f"expected 4 original proceed branches, got {len(matches)}")
     for m in reversed(matches):
-        b=b[:m.start()]+mk(7)+"\n"+b[m.start():]
+        b=b[:m.start()]+mk(7)+"\n"+m.group()+"\n"+mk(24)+b[m.end():]
+    # Keep invoke/move-result adjacency and coroutine suspension predicates.
+    for target,before,after in (
+        (r"invoke-interface[^\n]*Lkotlinx/coroutines/sync/Mutex;->lock\(",9,10),
+        (r"invoke-virtual[^\n]*IxIDataStoreRepository;->getTokenType\(",12,13),
+        (r"invoke-static[^\n]*IxITokenInterceptorKt;->isTokenExpired\(",15,16),
+        (r"invoke-interface[^\n]*IxIOAuthApi;->postAutoLogin\(",19,20),
+    ):
+        rx=re.compile(r"(?m)^    "+target+r"[^\n]*\n(?:[ \t]*\n)*    move-result-object [vp]\d+")
+        hits=list(rx.finditer(b))
+        if len(hits)!=1:raise RuntimeError(f"expected one original call {target}, found {len(hits)}")
+        m=hits[0]
+        b=b[:m.start()]+mk(before)+"\n"+m.group()+"\n"+mk(after)+b[m.end():]
+    for label,event in (("goto_cd",11),("goto_14c",14),
+                        ("try_start_10b",17),("try_start_123",18),
+                        ("goto_1bc",21),("try_start_20a",22),("goto_24c",23)):
+        rx=re.compile(r"(?m)^    :"+label+r"[ \t]*$")
+        if len(list(rx.finditer(b)))!=1:raise RuntimeError(f"expected original label {label}")
+        b=rx.sub(lambda m:m.group()+"\n"+mk(event),b,count=1)
     return b
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--smali16",required=True,type=Path)
     p.add_argument("--report",required=True,type=Path)
     a=p.parse_args();root=a.smali16
-    for rel in [TOKEN,CORO,STORE]:
+    for rel in [TOKEN,CORO,STORE,AUTH]:
         if not (root/rel).is_file():raise RuntimeError("original missing "+rel)
     outroot=root/PROBE
     if outroot.exists():raise RuntimeError("already installed token trace")
     changes=[
       inject(root/TOKEN,"intercept",tracer_intercept),
       inject(root/CORO,"invokeSuspend",tracer_coroutine),
-      inject(root/STORE,"getTokenData",lambda b:insert_at_opcode(b,8))
+      inject(root/STORE,"getTokenData",lambda b:insert_at_opcode(b,8)),
+      inject(root/AUTH,"authenticate",lambda b:insert_at_opcode(b,25)),
+      inject(root/AUTH,"getCustomRequest",lambda b:insert_at_opcode(b,26)),
+      inject(root/AUTH,"refreshToken",lambda b:insert_at_opcode(b,27))
     ]
     outroot.parent.mkdir(parents=True,exist_ok=True)
     outroot.write_text(new_class())

@@ -6,6 +6,7 @@ on:
       - .github/workflows/ixio-original-model-direct-entry-test-20261121.yml
       - tools/ixio/ixio_original_model_entry_probe.py
       - tools/ixio/ixio_original_token_gate_trace.py
+      - tools/ixio/ixio_original_model_http_trace.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -73,6 +74,9 @@ jobs:
           python3 tools/ixio/ixio_original_token_gate_trace.py \
             --smali16 .ixio-pages-build/smali16 \
             --report ixio-pages-qa-results/original-token-gate-trace-diff.json
+          python3 tools/ixio/ixio_original_model_http_trace.py \
+            --smali16 .ixio-pages-build/smali16 \
+            --report ixio-pages-qa-results/original-model-wire-trace-diff.json
           for n in 15 16 18;do
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
@@ -175,19 +179,6 @@ jobs:
             .ixio-pages-build/recorder/recorder-context-aligned.apk
           "$BT/apksigner" verify --verbose .ixio-pages-build/recorder/recorder-context-test-signed.apk
           echo 'ORIGINAL_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_REUSED=YES'
-      - name: Prepare focused original model and token trace robot before emulator
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tools/ixio/ixio-pages-qa-emulator-robot.py')
-          s=p.read_text()
-          key='            home_screen_seen=True\n            print("IXIO_AUTHENTICATED_HOME_SCREEN_OBSERVED",flush=True)'
-          assert s.count(key)==1
-          s=s.replace(key,key+'\n            print("IXIO_ORIGINAL_MODEL_TOKEN_TRACE_FOCUSED_MODE",flush=True)\n            time.sleep(65)\n            stop_reason="MODEL_TOKEN_TRACE_CAPTURED_AFTER_ORIGINAL_HOME"\n            break')
-          p.write_text(s)
-          print("ORIGINAL_HOME_FOCUSED_TOKEN_TEST_ROBOT_INSTALLED=YES")
-          PY
       - name: Enable Android emulator KVM
         run: |
           test -c /dev/kvm
@@ -216,7 +207,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json
+          import json,collections
           from pathlib import Path
           p=Path('ixio-pages-qa-emulator-evidence')
           d=json.loads((p/'result.json').read_text())
@@ -229,16 +220,20 @@ jobs:
           model_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_PROBE' in line]
           http_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_HTTP' in line]
           token_events=[line for line in log.splitlines() if 'IXIO_TOKEN_TRACE' in line]
+          wire_events=[line for line in log.splitlines() if 'IXIO_MODEL_WIRE' in line]
           out=p/'original-model-request-events.txt'
-          out.write_text('\n'.join(model_events+http_events+token_events),encoding='utf8')
+          out.write_text('\n'.join(model_events+http_events+token_events+wire_events),encoding='utf8')
           print('ACTUAL_SERVICE_ERROR',d['service_error_seen'])
           print('ACTUAL_LOGIN_ONLY_HTTP_INTERCEPT_COUNT',log.count('IXIO_PAGES_QA_ONLY'))
           print('ORIGINAL_MODEL_PROBE_EVENT_COUNT',len(model_events))
           print('ORIGINAL_MODEL_HTTP_EVENT_COUNT',len(http_events))
           print('ORIGINAL_TOKEN_TRACE_EVENT_COUNT',len(token_events))
+          print('ORIGINAL_MODEL_WIRE_EVENT_COUNT',len(wire_events))
+          print('ORIGINAL_TOKEN_STEP_COUNTS',json.dumps(dict(collections.Counter(
+              x.split('IXIO_TOKEN_TRACE: ',1)[-1] for x in token_events)),sort_keys=True))
           print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))
           print('MODEL_DIRECT_ENTRY_UI_STATE',json.dumps(d,ensure_ascii=False))
-          for item in model_events+http_events+token_events:
+          for item in model_events+http_events+wire_events:
             print('MODEL_ORIGINAL_STEP',item[-250:])
           assert d['installed'] and tapped and d['home_screen_seen'],'Could not reach original home'
           assert log.count('IXIO_PAGES_QA_ONLY')>=3,'Original Pages-only login not exercised'
