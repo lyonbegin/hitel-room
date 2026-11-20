@@ -1,0 +1,38 @@
+name: IXIO GitHub Pages QA public URL live verification
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/ixio-pages-qa-status-20261120.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: read
+jobs:
+  verify-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify actual GitHub Pages configuration and both live URLs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/pages" > pages-status.json 2> pages-error.txt; then
+            python3 - <<'PY'
+          import json
+          x=json.load(open('pages-status.json'))
+          print('GITHUB_PAGES_STATUS',json.dumps({k:x.get(k) for k in ('status','html_url','source','build_type','https_enforced')}))
+          PY
+          else
+            echo 'GITHUB_PAGES_NOT_CONFIGURED_OR_NOT_PERMITTED=YES'
+            head -c 300 pages-error.txt
+          fi
+          for url in             "https://lyonbegin.github.io/hitel-room/ixio-qa-login/"             "https://lyonbegin.github.io/hitel-room/ixio-public-api/qa-login/"             "https://lyonbegin.github.io/hitel-room/docs/ixio-public-api/qa-login/";do
+            code="$(curl --max-time 20 -LsS -o /tmp/ixio-pages.html -w '%{http_code}' "$url" || echo 000)"
+            echo "PAGES_LIVE_HTTP_CODE=$code URL=$url"
+            if [ "$code" = 200 ];then
+              grep -F 'HITEL IXIO 시험 로그인' /tmp/ixio-pages.html >/dev/null && echo "ACTUAL_PUBLIC_PAGES_QA_LOGIN_VERIFIED=$url"
+            fi
+          done
