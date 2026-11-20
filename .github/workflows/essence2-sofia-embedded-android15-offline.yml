@@ -245,6 +245,10 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
+      - name: Release build daemons before the emulator uses host memory
+        working-directory: original-upstream/app/avatar_chat/android
+        run: ./gradlew --stop
+
       - name: Enable KVM
         run: |
           test -c /dev/kvm

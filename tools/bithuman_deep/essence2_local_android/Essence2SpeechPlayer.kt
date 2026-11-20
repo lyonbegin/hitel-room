@@ -2,6 +2,9 @@ package ai.bithuman.flutter
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -172,16 +175,22 @@ class Essence2SpeechPlayer(
         val began = System.nanoTime()
         val frames = ArrayList<Frame>()
         val bmp = avatar.newFrameBitmap()
-        val jpeg = ByteArrayOutputStream(512 * 1024)
+        // The maker displays a half-size decode; cache that display size before playback.
+        val display = Bitmap.createBitmap((avatar.width + 1) / 2, (avatar.height + 1) / 2, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(display)
+        val bounds = Rect(0, 0, display.width, display.height)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+        val jpeg = ByteArrayOutputStream(256 * 1024)
         try {
             (avatar as Essence2Engine).renderPrepared(pcm, { active(e) }) { frame, at ->
                 bmp.copyPixelsFromBuffer(frame)
+                canvas.drawBitmap(bmp, null, bounds, paint)
                 jpeg.reset()
-                check(bmp.compress(Bitmap.CompressFormat.JPEG, 88, jpeg)) { "Speech frame compression failed" }
+                check(display.compress(Bitmap.CompressFormat.JPEG, 88, jpeg)) { "Speech frame compression failed" }
                 check(frames.isEmpty() || at > frames.last().sample) { "Non-monotonic speech frame position" }
                 frames.add(Frame(at, jpeg.toByteArray()))
             }
-        } finally { bmp.recycle() }
+        } finally { display.recycle(); bmp.recycle() }
         if (!active(e)) return
         check(frames.isNotEmpty()) { "Renderer returned no speech frames" }
         // No invented mouth for missing frames. Keep source sample positions, report missing coverage.
@@ -190,7 +199,7 @@ class Essence2SpeechPlayer(
         play(pcm, frames, input.size / 2, base, gen, e, utteranceId)
     }
 
-    /** Vendor play(): static voice buffer, half-size JPEG decode and the device sample counter. */
+    /** Vendor play(): static voice buffer, cached display-size images and the device sample counter. */
     private fun play(pcm: ByteArray, frames: List<Frame>, inputSamples: Int, base: Long, gen: Int, e: Int, utteranceId: Long) {
         val player = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
@@ -217,7 +226,7 @@ class Essence2SpeechPlayer(
             val perFrame = 16000 / avatar.fps
             val expected = (total + perFrame - 1) / perFrame
             val beforeDue = due
-            val options = BitmapFactory.Options().apply { inSampleSize = 2 }
+            val options = BitmapFactory.Options().apply { inSampleSize = 1 }
             var shown = -1
             var candidate = 0
             var lastCaptionHead = -1600L

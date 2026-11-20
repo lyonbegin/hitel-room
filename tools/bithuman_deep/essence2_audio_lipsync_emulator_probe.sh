@@ -8,7 +8,8 @@ mkdir -p "$BOOT" "$OUT"
 # The emulator's WAV backend captures the virtual speaker, beyond AudioTrack.
 test "${QEMU_AUDIO_DRV:-}" = wav
 test -n "${QEMU_WAV_PATH:-}"
-adb shell media volume --stream 3 --set 12 > "$OUT/media-volume.txt" 2>&1 || true
+adb shell cmd media_session volume --stream 3 --set 15 --get > "$OUT/media-volume.txt" 2>&1
+cat "$OUT/media-volume.txt"
 set +e
 bash tools/bithuman_deep/essence2_e2trace_android15_probe.sh "$APK" "$BOOT" "$OUT"
 probe_rc=$?

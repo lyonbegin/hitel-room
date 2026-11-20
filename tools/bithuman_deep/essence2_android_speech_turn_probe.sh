@@ -91,9 +91,13 @@ sleep 8
 adb exec-out screencap -p > "$OUT/speech-after-send.png"
 adb shell run-as "$PACKAGE" cat ./app_flutter/boot_status.txt > "$OUT/boot-after-send.txt" 2>/dev/null || true
 # Original SDK response + audio frames can take longer under ARM translation.
-for i in $(seq 1 18); do
+for i in $(seq 1 72); do
   sleep 10
   adb logcat -d -v time > "$OUT/full-after-speech-logcat.txt" || true
+  if grep -q "stage=speech.playback.exception" "$OUT/full-after-speech-logcat.txt"; then
+    echo FAIL_NATIVE_SPEECH_WORKER_TERMINATED
+    break
+  fi
   adb shell run-as "$PACKAGE" cat ./app_flutter/boot_status.txt > "$OUT/boot-after-send.txt" || true
   if grep -E 'speechWritten=[1-9][0-9]*.*speechPresented=[1-9][0-9]*' \
     "$OUT/full-after-speech-logcat.txt" >/dev/null; then

@@ -57,6 +57,7 @@ def prepare(plugin, upstream, sources, report):
                 'val e = Essence2Engine(avatar, zeroCopy = false, playoutClock = clockOn)')
     if '"forcedCpuCopy" to forceCopy,' in text:
         text = once(text, '"forcedCpuCopy" to forceCopy,', '"forcedCpuCopy" to true,')
+    text = once(text, "                entry.setSize(avatar.width, avatar.height)", "                val hitelTextureWidth = if (avatar is Essence2Engine) (avatar.width + 1) / 2 else avatar.width\n                val hitelTextureHeight = if (avatar is Essence2Engine) (avatar.height + 1) / 2 else avatar.height\n                entry.setSize(hitelTextureWidth, hitelTextureHeight)\n                HitelE2Trace.event(\"display.texture.config\", \"width\" to hitelTextureWidth, \"height\" to hitelTextureHeight)")
     target.write_text(text, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({

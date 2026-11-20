@@ -5,14 +5,7 @@ on:
       source_run_id:
         description: Run containing the compiled Essence2 installation artifact
         required: true
-        default: '44777595889'
-  push:
-    branches:
-      - feature/hitel-essence2-sofia-embedded-offline-20261120
-    paths:
-      - .github/workflows/essence2-audio-lipsync-retest.yml
-      - tools/bithuman_deep/essence2_android_emulator_smoke.sh
-      - tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh
+        default: '44785137767'
 permissions:
   contents: write
   actions: read
@@ -30,13 +23,13 @@ jobs:
         with:
           name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.source_run_id || '44777595889' }}
+          run-id: ${{ inputs.source_run_id || '44785137767' }}
       - name: Download the source build's integrity reports
         uses: actions/download-artifact@v4
         with:
           name: essence2-sofia-embedded-offline-android15-test-logs-only
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.source_run_id || '44777595889' }}
+          run-id: ${{ inputs.source_run_id || '44785137767' }}
           path: source-build-proof
       - name: Verify identical APK and extract its exact input voice
         shell: bash
