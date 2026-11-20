@@ -58,6 +58,10 @@ def summarize(path: Path):
                 if waited >= 0:
                     waits.append(round(waited, 2))
     presentations = [x for x in rows if x["stage"] == "display.present"]
+    # Keep counters from ONE snapshot. Mixing independent last-seen fields can
+    # manufacture coverage, particularly across an idle -> speaking transition.
+    snapshot = next((dict(r) for r in reversed(presentations)
+                     if "uniqueShown" in r and "due" in r), {})
     gpu = [x for x in rows if x["stage"].startswith("gpu.")]
     lost = [int(x.get("lost", "0")) for x in rows if x.get("lost","0").isdigit()]
     return {
@@ -79,6 +83,7 @@ def summarize(path: Path):
                          "errorClass","source","requested","forcedCpuCopy")
                       if r.get(k) is not None} for r in gpu],
         "speech": {
+            "last_counter_snapshot": snapshot,
             "samples_of_display_events": len(presentations),
             "sampled_new_mouth_events": sum(x.get("newMouthFrame")=="true" for x in presentations),
             "uniqueShown_last": next((r["uniqueShown"] for r in reversed(presentations)
@@ -92,14 +97,57 @@ def summarize(path: Path):
         "warning": "Device trace sampling is NOT total render count. JNIs internal instructions are not instrumented."
     }
 
+
+def lipsync_failures(report, min_coverage=0.90, min_due=10):
+    """Engineering acceptance gate, not proof of physical audibility.
+
+    The trace's sampled newMouthFrame count is not a total frame count. Use the
+    cumulative unique/due counters captured together, and require actual speech.
+    A zero/zero idle snapshot must never be accepted as 100% speech coverage.
+    """
+    problems = []
+    if not 0 < min_coverage <= 1 or min_due < 1:
+        raise ValueError('Invalid lipsync acceptance thresholds')
+    if report['missing_boot']:
+        problems.append('missing_boot:' + ','.join(report['missing_boot']))
+    if report['missing_speech']:
+        problems.append('missing_speech:' + ','.join(report['missing_speech']))
+    if report['lost_log_events'] != 0:
+        problems.append('trace_loss_unknown_or_nonzero')
+    snapshot = report['speech']['last_counter_snapshot']
+    try:
+        unique = int(snapshot['uniqueShown'])
+        due = int(snapshot['due'])
+        if unique < 0 or due < 0 or unique > due:
+            raise ValueError('inconsistent speech counters')
+    except (KeyError, TypeError, ValueError):
+        problems.append('missing_or_invalid_speech_counters')
+        return problems
+    if due < min_due:
+        problems.append(f'insufficient_speech_frames:{due}<{min_due}')
+    if due == 0 or unique / due < min_coverage:
+        problems.append(f'low_lipsync_coverage:{unique}/{due}<{min_coverage}')
+    return problems
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--input",required=True,type=Path)
     p.add_argument("--output",required=True,type=Path)
     p.add_argument("--require-boot",action="store_true")
     p.add_argument("--require-speech",action="store_true")
+    p.add_argument("--require-lipsync",action="store_true")
+    p.add_argument("--min-coverage",type=float,default=0.90)
+    p.add_argument("--min-speech-frames",type=int,default=10)
     args=p.parse_args()
     r=summarize(args.input)
+    r['lipsync_acceptance'] = {
+        'minimum_coverage': args.min_coverage,
+        'minimum_due_frames': args.min_speech_frames,
+        'failures': lipsync_failures(r, args.min_coverage, args.min_speech_frames),
+        'physical_audibility_verified': False,
+        'licensed_vendor_session_verified': False,
+    }
+    r['lipsync_acceptance']['passed'] = not r['lipsync_acceptance']['failures']
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(r,indent=2,ensure_ascii=False)+"\n")
     print("E2TRACE_SUMMARY eventCount=%s feedP95us=%s feedMaxUs=%s mouthUnique=%s due=%s loss=%s" % (
@@ -110,6 +158,9 @@ def main():
         raise SystemExit("E2TRACE_MISSING_BOOT: "+",".join(r["missing_boot"]))
     if args.require_speech and r["missing_speech"]:
         raise SystemExit("E2TRACE_MISSING_SPEECH: "+",".join(r["missing_speech"]))
+    if args.require_lipsync and r['lipsync_acceptance']['failures']:
+        raise SystemExit('E2TRACE_LIPSYNC_FAILED: ' + ';'.join(r['lipsync_acceptance']['failures']))
 
 if __name__ == "__main__":
     main()
+

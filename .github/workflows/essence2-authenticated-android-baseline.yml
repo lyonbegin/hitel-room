@@ -1,0 +1,149 @@
+name: Essence2 real-auth APK build and credential UI audit
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+      - test/essence2-official-emulator-audit-20261120
+    paths:
+      - .github/workflows/essence2-authenticated-android-baseline.yml
+      - tools/bithuman_deep/prepare_essence2_authenticated_baseline.py
+      - tools/bithuman_deep/test_essence2_acceptance.py
+      - tools/bithuman_deep/essence2_authenticated_ui_smoke.py
+permissions:
+  contents: read
+jobs:
+  build-and-install-real-auth-app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      # Credentials belong to runtime secure storage, never a public APK.
+      BITHUMAN_API_SECRET: ''
+      UPSTREAM_SHA: fea69e72515af7d05f384a9d2147ac0cc181b411
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned original app and immutable archived plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p authenticated-proof
+          git clone --filter=blob:none --no-checkout https://github.com/bithuman-product/bithuman-examples.git official-sources
+          git -C official-sources checkout --detach "$UPSTREAM_SHA"
+          test "$(git -C official-sources rev-parse HEAD)" = "$UPSTREAM_SHA"
+          git -C official-sources rev-parse HEAD > authenticated-proof/upstream-commit.txt
+          cp -a vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin authenticated-plugin
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+      - name: Regress false success and test app adaptation against real upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/official-sources"
+          export ESSENCE2_PLUGIN="$GITHUB_WORKSPACE/authenticated-plugin"
+          python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_acceptance.py -v 2>&1 | tee authenticated-proof/regression-tests.txt
+      - name: Prepare real credential flow with no local mock or AAR patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/official-sources/app/avatar_chat"
+          PLUGIN="$GITHUB_WORKSPACE/authenticated-plugin"
+          python3 tools/bithuman_deep/prepare_essence2_authenticated_baseline.py \
+            --app "$APP" --plugin "$PLUGIN" --report authenticated-proof/app-scope.json
+          diff -qr vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin "$PLUGIN"
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('official-sources/app/avatar_chat/android/app/build.gradle.kts')
+          s=p.read_text()
+          anchor='    id("com.android.application")\n'
+          assert s.count(anchor)==1 and 'id("org.jetbrains.kotlin.android")' not in s
+          p.write_text(s.replace(anchor,anchor+'    id("org.jetbrains.kotlin.android")\n',1))
+          PY
+      - name: Analyze and test actual generated Dart app
+        working-directory: official-sources/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_vendor_credential.dart
+          flutter test test/hitel_vendor_credential_test.dart 2>&1 | tee "$GITHUB_WORKSPACE/authenticated-proof/flutter-tests.txt"
+      - name: Build one APK retaining the existing package
+        working-directory: official-sources/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          # x64 Flutter runs the key form in CI. The official avatar JNI remains
+          # ARM64-only; this does not claim native engine support on x64.
+          ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug \
+            --target-platform android-arm64,android-x64 \
+            --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
+            2>&1 | tee "$GITHUB_WORKSPACE/authenticated-proof/build.txt"
+          cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/HITEL_Essence2_Authenticated_20261120.apk"
+      - name: Verify packaged JNI against every original SDK AAR member
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          apk=Path('HITEL_Essence2_Authenticated_20261120.apk')
+          aars=list(Path.home().glob('.gradle/caches/modules-2/files-2.1/ai.bithuman/essence2-android/0.9.5/*/*.aar'))
+          assert len(aars)==1, aars
+          source=aars[0]
+          hashes={}
+          with zipfile.ZipFile(source) as aar, zipfile.ZipFile(apk) as package:
+              members=[n for n in aar.namelist() if n.startswith('jni/') and n.endswith('.so')]
+              assert 'jni/arm64-v8a/lible_jni.so' in members
+              for name in members:
+                  expected=aar.read(name)
+                  assert package.read('lib/'+name[4:])==expected, name
+                  hashes[name]=hashlib.sha256(expected).hexdigest()
+          result={'sdk':'ai.bithuman:essence2-android:0.9.5',
+                  'source_aar_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+                  'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),
+                  'all_packaged_vendor_native_members_identical':True,'native_members':hashes}
+          Path('authenticated-proof/original-jni.json').write_text(json.dumps(result,indent=2)+'\n')
+          PY
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          "$AAPT" dump badging HITEL_Essence2_Authenticated_20261120.apk > authenticated-proof/package.txt
+          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" authenticated-proof/package.txt
+      - name: Enable KVM for credential UI test
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Install actual APK and verify missing-key form, without submitting a key
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: python3 tools/bithuman_deep/essence2_authenticated_ui_smoke.py --apk HITEL_Essence2_Authenticated_20261120.apk --output authenticated-proof/ui
+      - name: Keep one internal install candidate and exact evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essence2-authenticated-install-candidate-NOT-lipsync-certified
+          path: HITEL_Essence2_Authenticated_20261120.apk
+          retention-days: 7
+      - name: Preserve build and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essence2-authenticated-baseline-evidence
+          path: authenticated-proof/
+          retention-days: 14
