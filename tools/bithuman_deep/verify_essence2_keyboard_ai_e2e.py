@@ -35,12 +35,36 @@ def verify(log_path:Path, native_path:Path, output:Path):
         hit=next(((i,e) for i,e in enumerate(events) if re.search(regex,e["event"])),None)
         checks[label]={"passed":hit is not None,"event_index":hit[0] if hit else None}
         if hit: offsets.append((label,hit[0]))
-    for i in range(1,len(offsets)):
-        if offsets[i][1] < offsets[i-1][1]:
-            checks["event_order"]={"passed":False,"before":offsets[i-1],"after":offsets[i]}
-            break
-    else:
-        checks["event_order"]={"passed":True}
+    # WebSocket streams are asynchronous. The mock can enqueue its first PCM
+    # chunk before the client processes the preceding response.created event.
+    # Verify real happens-before dependencies, not an impossible global order.
+    deps=[
+        ("typed_ui_event","client_user_message_tx"),
+        ("client_user_message_tx","client_response_request_tx"),
+        ("client_response_request_tx","mock_response_request_rx"),
+        ("mock_response_request_rx","mock_response_created_tx"),
+        ("mock_response_created_tx","client_response_created_rx"),
+        ("mock_response_created_tx","mock_first_voice_delta_tx"),
+        ("mock_first_voice_delta_tx","client_first_voice_delta_rx"),
+        ("client_response_created_rx","client_first_voice_delta_rx"),
+        ("mock_first_voice_delta_tx","mock_response_done_tx"),
+        ("mock_response_done_tx","client_response_done_rx"),
+        ("client_response_done_rx","ui_response_done_state"),
+    ]
+    violations=[]
+    for before,after in deps:
+        a=checks[before]["event_index"]
+        b=checks[after]["event_index"]
+        if a is None or b is None or a >= b:
+            violations.append({"before":before,"after":after,
+                               "before_index":a,"after_index":b})
+    checks["event_causal_order"]={"passed":not violations,"violations":violations}
+    statuses=[e["event"].split("ui.status=",1)[1].split()[0]
+              for e in events if "ui.status=" in e["event"]]
+    checks["last_ui_status_is_response_done"]={
+        "passed":bool(statuses) and statuses[-1]=="responseDone",
+        "last_status":statuses[-1] if statuses else None
+    }
     trace=native_path.read_text(errors="replace").splitlines()
     def count(pattern):
         return sum(1 for s in trace if pattern in s)
