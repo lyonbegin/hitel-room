@@ -1,0 +1,58 @@
+name: IXIO Exact Original DEK Keystore Native KeyProvider and QA Bytecode Delta
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - .github/workflows/ixio-20261120-exact-crypto-jni-dex-delta.yml
+      - tools/ixio/ixio_crypto_precise_provenance.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exact-original-qa-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Reproduce original recovered APK and actual published QA APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-precise-private/source .ixio-precise-private/qa ixio-precise-evidence
+          gh run download 43799320393 --repo "$GH_REPO" \
+             --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-precise-private/source
+          gh release download ixio-github-pages-qa-original-20261120 --repo "$GH_REPO" \
+             --pattern IXIO_HITEL_Pages_QA_20261120.apk --dir .ixio-precise-private/qa
+          test -s .ixio-precise-private/source/IXIO_Main_NoAppSealing_Single.apk
+          test -s .ixio-precise-private/qa/IXIO_HITEL_Pages_QA_20261120.apk
+          sha256sum .ixio-precise-private/source/*.apk .ixio-precise-private/qa/*.apk \
+             > ixio-precise-evidence/apk-sha256.txt
+      - name: Pin Baksmali and inspect original key chain and exact QA changes
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar \
+             -o .ixio-precise-private/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-precise-private/baksmali.jar' | sha256sum -c -
+          python3 -m py_compile tools/ixio/ixio_crypto_precise_provenance.py
+          python3 tools/ixio/ixio_crypto_precise_provenance.py \
+             --original .ixio-precise-private/source/IXIO_Main_NoAppSealing_Single.apk \
+             --qa .ixio-precise-private/qa/IXIO_HITEL_Pages_QA_20261120.apk \
+             --jar .ixio-precise-private/baksmali.jar \
+             --output ixio-precise-evidence
+          test -s ixio-precise-evidence/exact-crypto-provisioning-jni-original-vs-qa.json
+      - name: Upload exact class and method SHA, redacted bytecode and JNI inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Exact_Original_Provisioning_Keystore_NativeKey_and_QA_Method_Diff
+          path: ixio-precise-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove private original APK and temporary decompilation
+        if: always()
+        run: rm -rf .ixio-precise-private
