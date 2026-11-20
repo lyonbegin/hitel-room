@@ -140,8 +140,11 @@ def main():
     recorder_settings_back_once=False
     model_download_prompt_seen=False
     model_download_button_taps=0
+    home_after_recorder_waits=0
+    main_settings_tab_opened=False
+    model_settings_entry_taps=0
     stop_reason="EXHAUSTED_STEPS"
-    for i in range(36):
+    for i in range(43):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
         if not visible:
@@ -254,6 +257,36 @@ def main():
                     tap(opt,"TRIGGER_ONLY_ORIGINAL_MODEL_DOWNLOAD_UI")
                     time.sleep(5)
                     continue
+        # The original Recent Calls screen may asynchronously check AI model
+        # status after recorder setup, so do not abandon it immediately.
+        if (recorder_settings_back_once and not main_settings_tab_opened
+                and all(x in joined for x in ("최근 기록", "연락처", "키패드", "디스커버"))):
+            if home_after_recorder_waits < 3:
+                home_after_recorder_waits+=1
+                print("WAIT_ORIGINAL_MODEL_CHECK_AFTER_RECORDER_SETUP",
+                      home_after_recorder_waits,flush=True)
+                time.sleep(7)
+                continue
+            settings=choose(nodes,["설정"],exact=True)
+            if settings and settings[1] >= 1600:
+                main_settings_tab_opened=True
+                tap(settings,"OPEN_EXISTING_IXIO_SETTINGS_AFTER_RECORDER_SETUP")
+                continue
+            print("IXIO_BOTTOM_SETTINGS_TAB_NOT_FOUND",flush=True)
+            stop_reason="ORIGINAL_SETTINGS_TAB_MISSING"
+            break
+        # Navigate only an actual visible settings entry for original AI models.
+        if (main_settings_tab_opened and model_settings_entry_taps==0
+                and not all(x in joined for x in ("최근 기록", "연락처", "키패드", "디스커버"))):
+            entry=choose(nodes,[
+                "AI 모델 다운로드","AI 엔진 다운로드","AI 모델 관리","AI 엔진 관리",
+                "AI 모델 업데이트","AI 엔진 업데이트","모델 다운로드",
+                "AI 모델","AI 엔진",
+            ],exact=True)
+            if entry:
+                model_settings_entry_taps+=1
+                tap(entry,"OPEN_VISIBLE_ORIGINAL_AI_MODEL_SETTINGS")
+                continue
         # Original recorder requests Android's "unused-app permission deletion"
         # opt-out. Match the original consent screen exactly on this disposable
         # emulator and apply only the corresponding Android app-op (not app code).
@@ -436,7 +469,10 @@ def main():
            "model_download_prompt_seen":model_download_prompt_seen,
            "model_download_button_taps":model_download_button_taps,
            "model_download_worker_started_count":len(model_worker_started),
-           "model_download_service_log_event_count":len(model_download_service_events)}
+           "model_download_service_log_event_count":len(model_download_service_events),
+           "home_after_recorder_waits":home_after_recorder_waits,
+           "main_settings_tab_opened":main_settings_tab_opened,
+           "model_settings_entry_taps":model_settings_entry_taps}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
     print("FINAL_DIAGNOSTIC",json.dumps(result,ensure_ascii=False),flush=True)
     for event in relevant[-60:]:
