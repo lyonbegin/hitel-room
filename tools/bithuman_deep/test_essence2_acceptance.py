@@ -5,12 +5,16 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import subprocess
+import time
 import unittest
+from unittest.mock import patch
 
 from analyze_essence2_e2trace import (
     REQUIRED_AUDIO, REQUIRED_BOOT, lipsync_failures, summarize,
 )
 from prepare_essence2_authenticated_baseline import prepare, tree_hashes
+from essence2_authenticated_ui_smoke import wait_for_node
 
 
 class SpeechAcceptanceTest(unittest.TestCase):
@@ -122,6 +126,28 @@ class AuthenticatedSourceTest(unittest.TestCase):
             (root / 'app/lib/main.dart').write_text('// incompatible upstream\n')
             with self.assertRaises(AssertionError):
                 prepare(root / 'app', self.plugin, root / 'report.json')
+
+
+class UiObservationTest(unittest.TestCase):
+    def test_missing_first_dump_is_retried_before_any_coordinate_action(self):
+        xml = '<?xml version="1.0"?><hierarchy><node text="Load Essence 2 avatar" bounds="[1,2][3,4]"/></hierarchy>'
+        with tempfile.TemporaryDirectory() as directory:
+            error = subprocess.CalledProcessError(1, ['adb'], output=b'No such file')
+            with patch('essence2_authenticated_ui_smoke.adb', side_effect=[
+                    'ERROR: could not get idle state', error, 'UI hierarchy dumped', xml]) as observed, \
+                    patch('essence2_authenticated_ui_smoke.time.sleep'):
+                node, _ = wait_for_node('Load Essence 2 avatar', time.monotonic()+30, Path(directory))
+                self.assertEqual('[1,2][3,4]', node.get('bounds'))
+                self.assertEqual(4, observed.call_count)
+                self.assertFalse(any('input' in call.args for call in observed.call_args_list))
+
+    def test_observer_timeout_fails_without_clicking_a_guessed_location(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch('essence2_authenticated_ui_smoke.time.monotonic', return_value=100), \
+                    patch('essence2_authenticated_ui_smoke.adb') as observed:
+                with self.assertRaises(RuntimeError):
+                    wait_for_node('missing', 99, Path(directory))
+                observed.assert_not_called()
 
 
 if __name__ == '__main__':
