@@ -131,6 +131,7 @@ def main():
     blank_screen_retries=0
     home_screen_seen=False
     pages_custom_tab_taps=0
+    pages_custom_tab_waits=0
     recorder_setup_prompt_seen=False
     recorder_setup_taps=0
     home_recorder_prompt_waits=0
@@ -296,12 +297,24 @@ def main():
             print("PAGES_QA_CCT_SCREEN_SIZE_MISMATCH",flush=True)
             stop_reason="PAGES_QA_CCT_SCREEN_NOT_VERIFIED"
             break
+        # After clicking the static OAuth QA button, give the Android AppAuth
+        # deep-link dispatch time to return to IXIO. Never click repeatedly.
+        if "HITEL IXIO 테스트 로그인" in joined and pages_custom_tab_taps>=1:
+            pages_custom_tab_waits+=1
+            print("PAGES_OAUTH_DEEP_LINK_HANDOFF_WAIT",
+                  pages_custom_tab_waits,flush=True)
+            if pages_custom_tab_waits<=6:
+                time.sleep(5)
+                continue
+            stop_reason="PAGES_OAUTH_DID_NOT_RETURN_TO_APP"
+            break
         # The offline GitHub Pages test page is not a carrier account consent.
         # Click its sole explicit QA completion button; original app validates
         # the returned state/deep link. Do not auto-accept unrelated terms.
         if "HITEL IXIO 시험 로그인" in joined:
             action=choose(nodes,["시험 로그인 완료 · 익시오로 복귀"],True)
             if action:
+                pages_custom_tab_taps+=1
                 tap(action,"PAGES_QA_ONLY_COMPLETE_AND_DEEP_LINK_BACK")
                 continue
             print("PAGES_QA_LOGIN_PAGE_PRESENT_BUT_BUTTON_NOT_FOUND",joined[:600],flush=True)
