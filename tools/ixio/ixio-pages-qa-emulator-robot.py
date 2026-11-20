@@ -143,8 +143,10 @@ def main():
     home_after_recorder_waits=0
     main_settings_tab_opened=False
     model_settings_entry_taps=0
+    settings_vas_retry_taps=0
+    settings_scroll_count=0
     stop_reason="EXHAUSTED_STEPS"
-    for i in range(43):
+    for i in range(50):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
         if not visible:
@@ -287,6 +289,30 @@ def main():
                 model_settings_entry_taps+=1
                 tap(entry,"OPEN_VISIBLE_ORIGINAL_AI_MODEL_SETTINGS")
                 continue
+        # The actual original Settings screen may load service membership
+        # data unsuccessfully. Use its own retry button ONCE to identify the
+        # next failure, then scroll to seek the original AI model/download UI.
+        # No fabricated carrier subscription or model installation state.
+        if main_settings_tab_opened and model_settings_entry_taps==0 and "통화 설정" in joined:
+            if ("부가서비스 이용 정보를 불러오지 못했어요" in joined
+                    and settings_vas_retry_taps==0):
+                retry=choose(nodes,["다시 시도"],exact=True)
+                if retry:
+                    settings_vas_retry_taps+=1
+                    tap(retry,"RETRY_ONLY_ORIGINAL_VAS_INFO_REQUEST_ONCE")
+                    time.sleep(6)
+                    continue
+            if settings_scroll_count<3:
+                settings_scroll_count+=1
+                print("SCROLL_ORIGINAL_IXIO_SETTINGS_FOR_MODEL_MENU",
+                      settings_scroll_count,flush=True)
+                adb("shell","input","swipe","540","1790","540","525","500")
+                time.sleep(4)
+                continue
+            print("ORIGINAL_SETTINGS_NO_MODEL_DOWNLOAD_ITEM_AFTER_THREE_SCROLLS",
+                  flush=True)
+            stop_reason="ORIGINAL_SETTINGS_NO_MODEL_DOWNLOAD_ENTRY_VISIBLE"
+            break
         # Original recorder requests Android's "unused-app permission deletion"
         # opt-out. Match the original consent screen exactly on this disposable
         # emulator and apply only the corresponding Android app-op (not app code).
@@ -472,7 +498,9 @@ def main():
            "model_download_service_log_event_count":len(model_download_service_events),
            "home_after_recorder_waits":home_after_recorder_waits,
            "main_settings_tab_opened":main_settings_tab_opened,
-           "model_settings_entry_taps":model_settings_entry_taps}
+           "model_settings_entry_taps":model_settings_entry_taps,
+           "settings_vas_retry_taps":settings_vas_retry_taps,
+           "settings_scroll_count":settings_scroll_count}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
     print("FINAL_DIAGNOSTIC",json.dumps(result,ensure_ascii=False),flush=True)
     for event in relevant[-60:]:
