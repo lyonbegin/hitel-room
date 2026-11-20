@@ -180,6 +180,38 @@ jobs:
             <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
 
+      - name: Give V4 a separate Android installation identity and visible build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          app=Path('original-upstream/app/avatar_chat')
+          gradle=app/'android/app/build.gradle.kts'
+          text=gradle.read_text()
+          original='"essence2"    -> "ai.bithuman.example.avatar_chat.essence2"'
+          replacement='"essence2"    -> "ai.bithuman.example.avatar_chat.essence2.tracev4"'
+          assert text.count(original)==1, 'Original Essence2 package anchor mismatch'
+          text=text.replace(original,replacement,1)
+          original='if (bhModel == "essence2") "bitHuman Essence-2"'
+          replacement='if (bhModel == "essence2") "HITEL Essence2 V4 Mock"'
+          assert text.count(original)==1, 'Original Essence2 launcher label anchor mismatch'
+          gradle.write_text(text.replace(original,replacement,1))
+          dart=app/'lib/main.dart'
+          contents=dart.read_text()
+          old="const Text('HITEL • Essence 2',"
+          new="const Text('HITEL • Essence2 AI Trace V4 (Mock)',"
+          assert contents.count(old)==1, 'Visible version banner anchor mismatch'
+          dart.write_text(contents.replace(old,new,1))
+          print('PASS_V4_DISTINCT_ANDROID_ID_APP_NAME_AND_VISIBLE_UI_BANNER')
+          PY
+          # Keep diagnostic test scripts aligned with the separately installable V4 id.
+          for script in tools/bithuman_deep/essence2_android_emulator_smoke.sh tools/bithuman_deep/essence2_android_speech_turn_probe.sh tools/bithuman_deep/essence2_e2trace_android15_probe.sh; do
+            sed -i 's/ai.bithuman.example.avatar_chat.essence2/ai.bithuman.example.avatar_chat.essence2.tracev4/g' "$script"
+            grep -q 'ai.bithuman.example.avatar_chat.essence2.tracev4' "$script"
+          done
+          echo PASS_V4_ALL_TEST_SCRIPTS_USE_DISTINCT_APP_ID
+
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
         working-directory: original-upstream/app/avatar_chat
@@ -189,19 +221,22 @@ jobs:
           flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart
           ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug --target-platform android-arm64 \
             --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
+            --build-name=4.0.0 --build-number=400 \
             2>&1 | tee "$GITHUB_WORKSPACE/essence2-local-mock-proof/flutter-build.log"
           APK=build/app/outputs/flutter-apk/app-debug.apk
           test -s "$APK"
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
           test -x "$AAPT"
           "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "application-label:'bitHuman Essence-2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          echo PASS_ESSENCE2_SEPARATE_ANDROID_APP_ID_AND_LABEL
+          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2.tracev4'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "application-label:'HITEL Essence2 V4 Mock'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "versionCode='400'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "versionName='4.0.0'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          echo PASS_V4_UNIQUE_APK_ID_LABEL_AND_VERSION_CODE
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -211,7 +246,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -219,7 +254,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -238,12 +273,12 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_e2trace_android15_probe.sh HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+          script: bash tools/bithuman_deep/essence2_e2trace_android15_probe.sh HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
       - name: Save Sofia embedded APK as short-lived internal installation test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Sofia_Embedded_Internal_Test_ARM64
-          path: HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk
+          name: HITEL_Essence2_Sofia_AITrace_V4_20261120_Install
+          path: HITEL_Essence2_Sofia_AITrace_V4_20261120_ARM64.apk
           if-no-files-found: error
           retention-days: 1
 
