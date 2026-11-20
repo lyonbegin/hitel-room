@@ -1,0 +1,61 @@
+name: Deploy IXIO static QA login alongside existing HITEL Pages site
+on:
+  push:
+    branches: [feature/ypt-study-group-learning-nav-20261108]
+    paths: [.github/workflows/ixio-static-pages-login-deploy-20261120.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages-hitel-room
+  cancel-in-progress: false
+jobs:
+  publish-with-existing-site:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build existing Pages frontend and COPY new IXIO login
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund --ignore-scripts
+          npx vite build --base=/hitel-room/
+          mkdir -p dist/hitel-chatgpt-login dist/ixio-qa-login
+          cp hitel-chatgpt-login/index.html dist/hitel-chatgpt-login/index.html
+          cp ixio-qa-login/index.html dist/ixio-qa-login/index.html
+          touch dist/.nojekyll
+          test -s dist/index.html
+          test -s dist/hitel-chatgpt-login/index.html
+          test -s dist/ixio-qa-login/index.html
+          grep -Fq 'HITEL IXIO 시험 로그인' dist/ixio-qa-login/index.html
+          echo 'EXISTING_SITE_PRESERVED_NEW_QA_LOGIN_ADDED=YES'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Validate actual public HTTPS login URL
+        run: |
+          set -euo pipefail
+          url=https://lyonbegin.github.io/hitel-room/ixio-qa-login/
+          for i in $(seq 1 12);do
+            status="$(curl --max-time 10 -L -sS -o /tmp/test-login.html -w '%{http_code}' "$url" || true)"
+            if [ "$status" = 200 ] && grep -Fq 'HITEL IXIO 시험 로그인' /tmp/test-login.html;then
+              echo "VERIFIED_STATIC_GITHUB_PAGES_QA_LOGIN=$url"
+              exit 0
+            fi
+            echo "PAGES_NOT_READY_YET_HTTP=$status"
+            sleep 5
+          done
+          exit 1
