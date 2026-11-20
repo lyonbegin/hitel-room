@@ -1,0 +1,54 @@
+name: Deliver existing Essence2 installation APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/deliver-essence2-built-apk.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-existing-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
+          github-token: ${{ github.token }}
+          run-id: 44790604673
+      - name: Publish the already built installation candidate requested by the user
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          TAG=hitel-essence2-sofia-audio-lipsync-20261121
+          printf '%s  %s\n' fce64b63825c2f524cf1c6f2d467ee99986709754206b8fcd460b1ca23da62bc "$APK" | sha256sum --check -
+          cat > release-notes.md <<'EOF'
+          Installation test candidate delivered at the user's request, before all audio verification passes.
+
+          Essence2 speech uses the maker's android/essence2-hello renderOnce/play pattern: prepare the utterance, then play the same 16 kHz PCM and select mouth frames by the actual AudioTrack sample position. The existing model, screen and local session are retained. The response is a fixed local spoken-English test fixture, not a real AI reply.
+
+          Android 15 emulator: installation, offline Sofia load, keyboard request/reply, complete 14.437-second AudioTrack playback and audio-clocked mouth-frame presentation passed. 361 native frames were generated; 226 were presented on the slow emulator. The captured virtual-speaker waveform did not pass all matching checks. Audible output quality and visual lip-sync accuracy remain unverified; this is not a fully verified release.
+
+          Evidence: https://github.com/lyonbegin/hitel-room/actions/runs/44798582344
+          APK source build: https://github.com/lyonbegin/hitel-room/actions/runs/44790604673
+          SHA256: fce64b63825c2f524cf1c6f2d467ee99986709754206b8fcd460b1ca23da62bc
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+            gh release edit "$TAG" --prerelease --latest=false --notes-file release-notes.md
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'HITEL Essence2 Sofia - audio and lip-sync installation test' --notes-file release-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk") | .url')"
+          curl --fail --location --retry 3 "$URL" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo PASS_PUBLIC_APK_DOWNLOAD_BYTE_IDENTICAL
+          printf '%s\n' "$URL"
