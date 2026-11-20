@@ -69,6 +69,12 @@ jobs:
           sha256sum "$APK" > official-proof/apk-sha256.txt
           test -s official-proof/apk-entries.txt
           echo PASS_OFFICIAL_APK_PACKAGE_ASSETS_AND_ABIS_INSPECTED
+      - name: Enable KVM acceleration for the official Android 15 emulator
+        shell: bash
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          echo PASS_KVM_DEVICE_AVAILABLE_FOR_EMULATOR
       - name: Boot actual Android 15 emulator and install untouched official Kotlin APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
