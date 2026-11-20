@@ -67,6 +67,7 @@ class Essence2SpeechPlayer(
     @Volatile private var fed = 0L
     @Volatile private var played = 0L
     @Volatile private var completed = 0L
+    @Volatile private var utterance = 0L
     @Volatile private var uniqueShown = 0L
     @Volatile private var due = 0L
     @Volatile private var speechWritten = 0L
@@ -140,7 +141,7 @@ class Essence2SpeechPlayer(
                     val pcm24k = bytes.toByteArray()
                     bytes.reset()
                     try { renderAndPlay(pcm24k, base, gen, item.epoch) }
-                    catch (e: Exception) { HitelE2Trace.failure("speech.playback.exception", e); throw e }
+                    catch (e: Exception) { HitelE2Trace.failure("speech.playback.exception", e, "epoch" to item.epoch); throw e }
                     base = -1
                 }
             }
@@ -151,7 +152,7 @@ class Essence2SpeechPlayer(
 
     private fun noteIdle() {
         if (++idleShown % 25L == 1L) HitelE2Trace.event("display.present",
-            "kind" to 'I', "newMouthFrame" to false, "epoch" to epoch,
+            "kind" to 'I', "newMouthFrame" to false, "epoch" to epoch, "utterance" to utterance,
             "speechWritten" to speechWritten, "speechPresented" to speechPresented,
             "uniqueShown" to uniqueShown, "due" to due)
     }
@@ -165,53 +166,32 @@ class Essence2SpeechPlayer(
             .putShort(2).putShort(16).put("data".toByteArray()).putInt(input.size)
         val audio = Essence2VendorWav.read16kMono(header.array() + input)
         val pcm = audio.toLittleEndianBytes()
-        avatar.reset()
         if (!active(e)) return
-        HitelE2Trace.event("speech.prepare.begin", "epoch" to e, "samples16k" to audio.samples.size)
+        val utteranceId = ++utterance
+        HitelE2Trace.event("speech.prepare.begin", "epoch" to e, "utterance" to utteranceId, "samples16k" to audio.samples.size)
         val began = System.nanoTime()
-        HitelE2Trace.event("player.feed.call", "samples16k" to audio.samples.size)
-        avatar.feed(audio.toFloats())
-        HitelE2Trace.event("player.feed.return", "durationUs" to (System.nanoTime() - began) / 1000)
-        avatar.flushTail()
         val frames = ArrayList<Frame>()
-        val bmp = if (!avatar.hardwareFrames) avatar.newFrameBitmap() else null
+        val bmp = avatar.newFrameBitmap()
         val jpeg = ByteArrayOutputStream(512 * 1024)
-        var lastProgress = System.nanoTime()
         try {
-            while (active(e)) {
-                var at = -1L
-                var hw: HwFrame? = null
-                var copy: Bitmap? = null
-                try {
-                    val image = if (avatar.hardwareFrames) {
-                        hw = avatar.pullSlot()
-                        at = hw?.at ?: -1
-                        if (hw != null) { copy = hw!!.bitmap.copy(Bitmap.Config.ARGB_8888, false); copy } else null
-                    } else { at = avatar.pull(bmp!!); if (at >= 0) bmp else null }
-                    if (image != null && at >= 0) {
-                        jpeg.reset()
-                        check(image.compress(Bitmap.CompressFormat.JPEG, 88, jpeg)) { "Speech frame compression failed" }
-                        check(frames.isEmpty() || at > frames.last().sample) { "Non-monotonic speech frame position" }
-                        frames.add(Frame(at, jpeg.toByteArray()))
-                        lastProgress = System.nanoTime()
-                    } else {
-                        if (!avatar.hasPendingTail && avatar.queuedFrames == 0) break
-                        check((System.nanoTime() - lastProgress) / 1000000 < 120000) { "Renderer stopped producing speech frames" }
-                        Thread.sleep(10)
-                    }
-                } finally { copy?.recycle(); hw?.release() }
+            (avatar as Essence2Engine).renderPrepared(pcm, { active(e) }) { frame, at ->
+                bmp.copyPixelsFromBuffer(frame)
+                jpeg.reset()
+                check(bmp.compress(Bitmap.CompressFormat.JPEG, 88, jpeg)) { "Speech frame compression failed" }
+                check(frames.isEmpty() || at > frames.last().sample) { "Non-monotonic speech frame position" }
+                frames.add(Frame(at, jpeg.toByteArray()))
             }
-        } finally { bmp?.recycle() }
+        } finally { bmp.recycle() }
         if (!active(e)) return
         check(frames.isNotEmpty()) { "Renderer returned no speech frames" }
         // No invented mouth for missing frames. Keep source sample positions, report missing coverage.
         HitelE2Trace.event("speech.prepare.end", "epoch" to e, "frames" to frames.size,
             "durationMs" to (System.nanoTime() - began) / 1000000)
-        play(pcm, frames, input.size / 2, base, gen, e)
+        play(pcm, frames, input.size / 2, base, gen, e, utteranceId)
     }
 
     /** Vendor play(): static voice buffer, half-size JPEG decode and the device sample counter. */
-    private fun play(pcm: ByteArray, frames: List<Frame>, inputSamples: Int, base: Long, gen: Int, e: Int) {
+    private fun play(pcm: ByteArray, frames: List<Frame>, inputSamples: Int, base: Long, gen: Int, e: Int, utteranceId: Long) {
         val player = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -252,17 +232,20 @@ class Essence2SpeechPlayer(
                         ?: error("Speech frame decode failed")
                     try { if (active(e)) onFrame(image) } finally { image.recycle() }
                     shown = candidate
+                    val displayedHead = player.playbackHeadPosition.toLong() and 0xffffffffL
+                    due = beforeDue + minOf(expected.toLong(), displayedHead / perFrame + 1)
                     uniqueShown++
                     speechPresented++
                     speechWritten = beforeDue + expected
                     stats.onPresented(true, stats.turnGen)
-                    stats.offsetMs = (head - f.sample) * 1000.0 / 16000
+                    stats.speechUnits = speechPresented.toInt()
+                    stats.offsetMs = (displayedHead - f.sample) * 1000.0 / 16000
                     HitelE2Trace.event("display.present", "kind" to 'S', "newMouthFrame" to true,
-                        "pts24k" to f.sample * 3 / 2, "deviceClock24k" to head * 3 / 2,
-                        "late24k" to (head - f.sample) * 3 / 2,
+                        "pts24k" to f.sample * 3 / 2, "deviceClock24k" to displayedHead * 3 / 2,
+                        "late24k" to (displayedHead - f.sample) * 3 / 2,
                         "speechWritten" to speechWritten, "speechPresented" to speechPresented,
                         "uniqueShown" to uniqueShown, "due" to due,
-                        "coveragePct" to (uniqueShown * 100.0 / maxOf(due, 1)), "epoch" to e)
+                        "coveragePct" to (uniqueShown * 100.0 / maxOf(due, 1)), "epoch" to e, "utterance" to utteranceId)
                 }
                 if (base >= 0 && head - lastCaptionHead >= 1600) {
                     reportPlayed(base + minOf(inputSamples.toLong(), head * 3 / 2), gen)
@@ -273,7 +256,7 @@ class Essence2SpeechPlayer(
                     completed++
                     idleShown = 0
                     if (base >= 0) reportPlayed(base + inputSamples, gen)
-                    HitelE2Trace.event("sdk.utterance.drained", "epoch" to e, "completed" to completed,
+                    HitelE2Trace.event("sdk.utterance.drained", "epoch" to e, "utterance" to utteranceId, "completed" to completed,
                         "played16k" to head, "total16k" to total,
                         "uniqueShown" to uniqueShown, "due" to due)
                     return

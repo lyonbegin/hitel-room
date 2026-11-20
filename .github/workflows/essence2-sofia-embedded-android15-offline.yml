@@ -11,6 +11,7 @@ on:
       - tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh
       - tools/bithuman_deep/prepare_essence2_vendor_speech_player.py
       - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
+      - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
       - tools/bithuman_deep/wait_essence2_playout_complete.py
 permissions:
   contents: write
@@ -53,6 +54,7 @@ jobs:
           APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_vendor_speech_player.py tools/bithuman_deep/wait_essence2_playout_complete.py
           # Regression inputs must be pristine: the assembly below mutates APP.
           ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
             python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v

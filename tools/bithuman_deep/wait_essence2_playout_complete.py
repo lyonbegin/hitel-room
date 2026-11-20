@@ -11,10 +11,16 @@ from analyze_essence2_e2trace import parse_line
 
 def playout_complete(text):
     rows = [parse_line(line) for line in text.splitlines()]
+    fatal = next((r for r in reversed(rows) if r.get('stage') == 'speech.playback.exception'), None)
+    if fatal:
+        return False, 'fatal_speech_playback:' + fatal.get('message', fatal.get('errorClass', 'unknown'))
     drain = next((row for row in reversed(rows)
                   if row.get('stage') == 'sdk.utterance.drained'), None)
     if drain is None:
         return False, 'native_utterance_not_drained'
+    preparing = next((r for r in reversed(rows) if r.get('stage') == 'speech.prepare.begin'), None)
+    if preparing and preparing.get('utterance') != drain.get('utterance'):
+        return False, 'latest_prepared_utterance_not_drained'
     epochs = [int(row.get('epoch', '0')) for row in rows
               if row.get('stage') in ('speech.cancel', 'speech.prepare.begin')]
     if epochs and int(drain.get('epoch', '-1')) != max(epochs):
@@ -52,6 +58,9 @@ def main():
         if result.returncode:
             raise SystemExit('FAIL_NATIVE_TRACE_READ:' + result.stderr)
         complete, reason = playout_complete(result.stdout)
+        if reason.startswith('fatal_speech_playback:'):
+            (args.output/'native-function-trace-after-voice.txt').write_text(result.stdout, encoding='utf-8')
+            raise SystemExit('FAIL_' + reason)
         if complete:
             (args.output/'native-function-trace-after-voice.txt').write_text(
                 result.stdout, encoding='utf-8')

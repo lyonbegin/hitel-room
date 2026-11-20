@@ -27,6 +27,12 @@ def prepare(plugin, upstream, sources, report):
     wav = once(wav, 'object Wav {', 'object Essence2VendorWav {')
     (kotlin / 'Essence2VendorWav.kt').write_text(wav, encoding='utf-8')
     shutil.copyfile(sources / 'Essence2SpeechPlayer.kt', kotlin / 'Essence2SpeechPlayer.kt')
+    shutil.copyfile(sources / 'Essence2VendorRender.kt', kotlin / 'Essence2VendorRender.kt')
+    engine = kotlin / 'AvatarEngine.kt'
+    code = engine.read_text(encoding='utf-8')
+    mark = "    override fun newFrameBitmap(): Bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)\n"
+    bridge = "    internal fun renderPrepared(pcm: ByteArray, active: () -> Boolean,\n        onFrame: (java.nio.ByteBuffer, Long) -> Unit) {\n        Essence2VendorRender.render(avatar, synchronized(idleLock) { cursor }, pcm, active, onFrame)\n    }\n\n"
+    engine.write_text(once(code, mark, bridge + mark), encoding='utf-8')
     target = kotlin / 'BithumanPlugin.kt'
     text = target.read_text(encoding='utf-8')
     text = once(text, 'var player: AvatarPlayer? = null', 'var player: SpeechPlayer? = null')
@@ -46,6 +52,11 @@ def prepare(plugin, upstream, sources, report):
         '                    canvas.drawBitmap(bmp, 0f, 0f, null)\n'
         '                else canvas.drawBitmap(bmp, null, android.graphics.Rect(0, 0, canvas.width, canvas.height), null)\n'
         '            } finally {')
+    # Match the maker's ByteBuffer pull path; do not enable a competing hardware-buffer delivery queue.
+    text = once(text, 'val e = Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)',
+                'val e = Essence2Engine(avatar, zeroCopy = false, playoutClock = clockOn)')
+    if '"forcedCpuCopy" to forceCopy,' in text:
+        text = once(text, '"forcedCpuCopy" to forceCopy,', '"forcedCpuCopy" to true,')
     target.write_text(text, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
