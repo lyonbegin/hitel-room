@@ -71,7 +71,11 @@ jobs:
           for n in 15 16 18;do
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
-              > "ixio-pages-qa-results/smali-assembly-$n.log" 2>&1
+              > "ixio-pages-qa-results/smali-assembly-$n.log" 2>&1 || {
+                echo "ORIGINAL_MODEL_DEX_ASSEMBLY_FAILURE classes$n"
+                tail -n 100 "ixio-pages-qa-results/smali-assembly-$n.log"
+                exit 1
+              }
             test -s ".ixio-pages-build/apk/classes$n-pages.dex"
           done
       - name: Preserve every original APK entry except three login DEXes, align and sign
