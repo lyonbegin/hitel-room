@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 85
     env:
       BITHUMAN_API_SECRET: ''
-      QEMU_AUDIO_DRV: wav
+      QEMU_AUDIO_DRV: pa
       QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
     steps:
       - name: Stop the obsolete run only if it is still stuck preparing sources
@@ -260,7 +260,9 @@ jobs:
           test -c /dev/kvm
           sudo chmod 666 /dev/kvm
           mkdir -p essence2-sofia-offline-proof
-          python3 -m pip install --quiet numpy
+          python3 -m pip install --quiet numpy scipy==1.14.1
+          python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_speaker_capture.py -v
+          bash tools/bithuman_deep/prepare_essence2_pulse_audio.sh
 
       - name: Actually install and run embedded Sofia with Internet disabled in Android 15
         uses: reactivecircus/android-emulator-runner@v2

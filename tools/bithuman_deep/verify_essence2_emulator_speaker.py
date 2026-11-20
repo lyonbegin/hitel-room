@@ -7,6 +7,7 @@ clicks and unrelated noise. It makes no claim about a physical speaker or AI.
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import wave
 
@@ -14,8 +15,18 @@ import numpy as np
 
 
 def to_8k(samples, rate):
-    positions = np.arange(int(len(samples) * 8000 / rate)) * rate / 8000
-    return np.interp(positions, np.arange(len(samples)), samples)
+    from scipy.signal import resample_poly
+    if len(samples) == 0:
+        return np.asarray(samples, dtype=float)
+    divisor = math.gcd(rate, 8000)
+    return resample_poly(samples, 8000 // divisor, rate // divisor)
+
+
+def expected_playback_16k(reference24k):
+    # The unchanged maker Wav.resample uses linear interpolation and PCM16 truncation.
+    count = len(reference24k) * 2 // 3
+    positions = np.arange(count) * 1.5
+    return np.interp(positions, np.arange(len(reference24k)), reference24k).astype('<i2')
 
 
 def compare(captured, reference):
@@ -24,7 +35,7 @@ def compare(captured, reference):
     failures = []
     peak = float(np.max(np.abs(captured))) if len(captured) else 0.0
     rms = float(np.sqrt(np.mean(captured * captured))) if len(captured) else 0.0
-    if peak < 200 or rms < 20:
+    if peak < 200:
         failures.append('speaker_silent_or_too_quiet')
     matches = []
     size = 6000  # 750ms at 8kHz: much longer than a system click.
@@ -52,9 +63,13 @@ def compare(captured, reference):
                                where=denominator > 1)
             offset = int(np.argmax(np.abs(scores)))
             score = min(1.0, float(abs(scores[offset])))
+            voice_rms = float(np.sqrt(np.mean(captured[offset:offset+size] ** 2)))
             matches.append({'reference_seconds': start / 8000,
                             'speaker_seconds': offset / 8000,
-                            'normalized_correlation': round(score, 6)})
+                            'normalized_correlation': round(score, 6),
+                            'speaker_window_rms': round(voice_rms, 2)})
+            if voice_rms < 20:
+                failures.append(f'voice_window_too_quiet:{fraction}:{voice_rms:.2f}')
             if score < 0.70:
                 failures.append(f'voice_window_not_reproduced:{fraction}:{score:.4f}')
         offsets = [x['speaker_seconds'] for x in matches]
@@ -84,7 +99,10 @@ def main():
             rate, channels = source.getframerate(), source.getnchannels()
             captured = np.frombuffer(source.readframes(source.getnframes()), dtype='<i2')
             captured = captured.reshape(-1, channels).astype(np.float64).mean(axis=1)
-        result = compare(to_8k(captured, rate), to_8k(reference, 24000))
+        expected16k = expected_playback_16k(reference)
+        result = compare(to_8k(captured, rate), to_8k(expected16k, 16000))
+        result['reference_format'] = 'maker PCM16 resample: 24kHz input -> 16kHz AudioTrack'
+        result['expected_playback_16k_sha256'] = hashlib.sha256(expected16k.tobytes()).hexdigest()
         result.update({'speaker_sample_rate': rate, 'speaker_channels': channels,
                        'speaker_sha256': hashlib.sha256(args.wav.read_bytes()).hexdigest(),
                        'reference_sha256': hashlib.sha256(raw_reference).hexdigest()})

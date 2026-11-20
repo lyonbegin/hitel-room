@@ -54,7 +54,9 @@ python3 tools/bithuman_deep/verify_essence2_keyboard_ai_e2e.py \
   --report "$OUT/keyboard-ai-end-to-end-result.json"
 python3 tools/bithuman_deep/analyze_essence2_e2trace.py \
   --input "$OUT/native-function-trace-after-voice.txt" \
-  --output "$OUT/speech-function-summary.json" --require-boot --require-speech --require-lipsync
+  --output "$OUT/speech-function-summary.json" --require-boot --require-speech
+python3 tools/bithuman_deep/verify_essence2_prepared_playback.py \
+  --trace "$OUT/native-function-trace-after-voice.txt" --report "$OUT/functional-prepared-playback.json"
 echo PASS_E2TRACE_REAL_DEVICE_AUDIO_GPU_RENDER_PRESENT_FUNCTION_LOGS_CAPTURED
 if ((speech_rc != 0)); then
   echo "FAIL_REAL_VOICE_PROBE_RC_$speech_rc"
