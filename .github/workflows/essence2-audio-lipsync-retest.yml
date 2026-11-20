@@ -1,0 +1,116 @@
+name: Retest built Essence2 audio and lip-sync APK
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Run containing the compiled Essence2 installation artifact
+        required: true
+        default: '44777595889'
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/essence2-audio-lipsync-retest.yml
+      - tools/bithuman_deep/essence2_android_emulator_smoke.sh
+      - tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh
+permissions:
+  contents: write
+  actions: read
+jobs:
+  install-and-exercise-the-identical-built-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      QEMU_AUDIO_DRV: wav
+      QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the already compiled installation candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id || '44777595889' }}
+      - name: Download the source build's integrity reports
+        uses: actions/download-artifact@v4
+        with:
+          name: essence2-sofia-embedded-offline-android15-test-logs-only
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id || '44777595889' }}
+          path: source-build-proof
+      - name: Verify identical APK and extract its exact input voice
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tools/bithuman_deep/essence2_android_emulator_smoke.sh
+          bash -n tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh
+          mkdir -p essence2-local-mock-proof essence2-sofia-offline-proof
+          APK=HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          test -s "$APK"
+          unzip -p "$APK" assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm > essence2-local-mock-proof/voiced-test.pcm
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          apk=Path('HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk')
+          source=Path('source-build-proof')
+          sha=next(source.rglob('apk-sha256.txt')).read_text().split()[0]
+          assert hashlib.sha256(apk.read_bytes()).hexdigest()==sha
+          voice=Path('essence2-local-mock-proof/voiced-test.pcm').read_bytes()
+          proof=json.loads(next(source.rglob('spoken-phonemes.json')).read_text())
+          assert hashlib.sha256(voice).hexdigest()==proof['voice_sha256']
+          print('PASS_RETEST_APK_AND_INPUT_VOICE_IDENTICAL_TO_ORIGINAL_BUILD')
+          print('SOURCE_APK_SHA256='+sha)
+          PY
+          python3 -m pip install --quiet numpy
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Install and exercise original app UI and actual speaker
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+      - name: Compare captured speaker against the voice extracted from the APK
+        if: always()
+        run: |
+          python3 tools/bithuman_deep/verify_essence2_emulator_speaker.py \
+            --wav essence2-sofia-offline-proof/emulator-speaker.wav \
+            --reference essence2-local-mock-proof/voiced-test.pcm \
+            --report essence2-sofia-offline-proof/speaker-verification.json
+      - name: Publish only after playback and captured-speaker checks pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-sofia-audio-lipsync-20261121
+          APK=HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          cat > release-notes.md <<'EOF'
+          Essence2 audio/lip-sync installation test candidate. Speech playback follows the maker's android/essence2-hello renderOnce/play pattern: prepare the utterance, then play its 16 kHz PCM and select frames using the actual AudioTrack sample position. Preparation adds latency; this is not realtime streaming. Existing model, screen and HITEL local session are retained. The spoken reply is a local eSpeak test fixture. Android 15 emulator installation, complete playback, native frame presentation and virtual speaker waveform checks passed. Physical-device performance, visual lip-sync quality and a real AI service remain unverified.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'HITEL Essence2 Sofia - vendor audio and lip-sync playback' --notes-file release-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk") | .url')"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
+          cmp "$APK" verified-download.apk
+          echo PASS_PUBLIC_APK_DOWNLOAD_BYTE_IDENTICAL
+          printf '%s\n' "$URL"
+      - name: Retain actual emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essence2-vendor-audio-lipsync-retest-evidence
+          path: |
+            essence2-sofia-offline-proof
+            essence2-e2trace-proof
+          retention-days: 7
+

@@ -34,6 +34,22 @@ adb exec-out screencap -p > "$OUT/essence2-chooser.png" || true
 adb shell uiautomator dump /sdcard/essence2-ui.xml \
     > "$OUT/uiautomator-result.txt" 2>&1 || true
 adb shell cat /sdcard/essence2-ui.xml > "$OUT/essence2-ui.xml" 2>/dev/null || true
+# A cold Google APIs image can put the launcher's own ANR dialog above the app.
+# Never send the model-selector tap into that dialog and then wait seven minutes.
+# Handle ONLY the known launcher, preserving failures belonging to our app.
+if grep -Fq "Pixel Launcher isn't responding" "$OUT/essence2-ui.xml"; then
+  echo RECOVER_EMULATOR_PIXEL_LAUNCHER_ANR_BEFORE_MODEL_SELECTION
+  adb shell am force-stop com.google.android.apps.nexuslauncher
+  adb shell am start -n "$PACKAGE/ai.bithuman.example.avatar_chat.MainActivity" > "$OUT/relaunch-after-launcher-anr.txt"
+  sleep 5
+  adb shell uiautomator dump /sdcard/essence2-ui.xml > "$OUT/uiautomator-after-launcher-recovery.txt" 2>&1 || true
+  adb shell cat /sdcard/essence2-ui.xml > "$OUT/essence2-ui.xml"
+  adb exec-out screencap -p > "$OUT/chooser-after-launcher-recovery.png"
+fi
+if grep -Fq "isn't responding" "$OUT/essence2-ui.xml"; then
+  echo FAIL_UNHANDLED_ANR_DIALOG_BEFORE_MODEL_SELECTION
+  exit 18
+fi
 echo "ACTIVITY:"
 adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | head -5 || true
 echo "EMULATOR_UI_EXTRACT"
@@ -147,3 +163,5 @@ else
   echo "FAIL_ESSENCE2_EMULATOR_NATIVE_RENDER_NOT_CONFIRMED_AFTER_MODEL_BOOT"
   exit 14
 fi
+
+
