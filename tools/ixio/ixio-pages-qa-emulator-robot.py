@@ -278,8 +278,7 @@ def main():
             stop_reason="ORIGINAL_SETTINGS_TAB_MISSING"
             break
         # Navigate only an actual visible settings entry for original AI models.
-        if (main_settings_tab_opened and model_settings_entry_taps==0
-                and not all(x in joined for x in ("최근 기록", "연락처", "키패드", "디스커버"))):
+        if main_settings_tab_opened and model_settings_entry_taps==0:
             entry=choose(nodes,[
                 "AI 모델 다운로드","AI 엔진 다운로드","AI 모델 관리","AI 엔진 관리",
                 "AI 모델 업데이트","AI 엔진 업데이트","모델 다운로드",
@@ -293,7 +292,7 @@ def main():
         # data unsuccessfully. Use its own retry button ONCE to identify the
         # next failure, then scroll to seek the original AI model/download UI.
         # No fabricated carrier subscription or model installation state.
-        if main_settings_tab_opened and model_settings_entry_taps==0 and "통화 설정" in joined:
+        if main_settings_tab_opened and model_settings_entry_taps==0:
             if ("부가서비스 이용 정보를 불러오지 못했어요" in joined
                     and settings_vas_retry_taps==0):
                 retry=choose(nodes,["다시 시도"],exact=True)
