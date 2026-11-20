@@ -66,7 +66,7 @@ def new_class():
     return "\n".join(lines)+"\n"
 def tracer_intercept(b):
     b=insert_at_opcode(b,0)
-    rx=re.compile(r"(?m)^[ \\t]*invoke-static[^\\n]*Lkotlinx/coroutines/BuildersKt;->runBlocking[^\\n]*\\n(?:[ \\t]*\\n)*[ \\t]*move-result-object[ \\t]+[vp]\\d+")
+    rx=re.compile(r"(?m)^[ \t]*invoke-static[^\n]*Lkotlinx/coroutines/BuildersKt;->runBlocking[^\n]*\n(?:[ \t]*\n)*[ \t]*move-result-object[ \t]+[vp]\d+")
     matched=list(rx.finditer(b))
     if len(matched)!=1:raise RuntimeError(f"runBlocking expression expected once, found {len(matched)}")
     m=matched[0]
@@ -74,12 +74,12 @@ def tracer_intercept(b):
 def tracer_coroutine(b):
     b=insert_at_opcode(b,3)
     # Exact original token datastore method call and its suspended-value return.
-    token_call=re.compile(r"(?m)^[ \\t]*invoke-virtual[^\\n]*IxIDataStoreRepository;->getTokenData[^\\n]*\\n(?:[ \\t]*\\n)*[ \\t]*move-result-object[ \\t]+[vp]\\d+")
+    token_call=re.compile(r"(?m)^[ \t]*invoke-virtual[^\n]*IxIDataStoreRepository;->getTokenData[^\n]*\n(?:[ \t]*\n)*[ \t]*move-result-object[ \t]+[vp]\d+")
     hits=list(token_call.finditer(b))
     if len(hits)!=1:raise RuntimeError(f"original getTokenData call expected once, found {len(hits)}")
     m=hits[0]
     b=b[:m.start()]+mk(4)+"\n"+m.group()+"\n"+mk(5)+b[m.end():]
-    label=re.compile(r"(?m)^    :goto_103[ \\t]*$")
+    label=re.compile(r"(?m)^    :goto_103[ \t]*$")
     if len(list(label.finditer(b)))!=1:raise RuntimeError("model token result label unexpected")
     b=label.sub("    :goto_103\n"+mk(6),b,count=1)
     # Before original chain.proceed invoked; token/header values never logged.
