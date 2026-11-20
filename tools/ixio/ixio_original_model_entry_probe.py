@@ -180,7 +180,7 @@ def main():
     if "checkAndStartAiModelDownload" in constructor:
         raise RuntimeError("Original constructor already directly triggers model download")
     call=(f"    invoke-static {{}}, {PROBE_DESC}->mark0()V\n"
-          f"    invoke-virtual {{p0}}, {VM_DESC}->checkAndStartAiModelDownload()V\n")
+          f"    invoke-virtual/range {{p0 .. p0}}, {VM_DESC}->checkAndStartAiModelDownload()V\n")
     patched=constructor.replace("    return-void",call+"    return-void",1)
     vmfile.write_text(src[:constructors[0].start()]+patched+src[constructors[0].end():],encoding="utf8")
     changes=[{"file":VM,"method":"<init>(original full constructor)",
