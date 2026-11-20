@@ -13,6 +13,9 @@ on:
       - tools/bithuman_deep/prepare_essence2_local_android_model.py
       - tools/bithuman_deep/prepare_essence2_device_diagnostics.py
       - tools/bithuman_deep/prepare_essence2_function_trace.py
+      - tools/bithuman_deep/prepare_essence2_monitor_trace.py
+      - tools/bithuman_deep/analyze_essence2_e2trace.py
+      - tools/bithuman_deep/essence2_e2trace_android15_probe.sh
       - tools/bithuman_deep/essence2_local_android/HitelE2Trace.kt
       - tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt
       - tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py
@@ -79,6 +82,9 @@ jobs:
             --app "$APP" --plugin "$PLUGIN" \
             --trace-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelE2Trace.kt" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/function-trace-patch.json"
+          python3 tools/bithuman_deep/prepare_essence2_monitor_trace.py \
+            --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/monitor-trace-patch.json"
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
@@ -227,33 +233,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: |
-            set -eu
-            adb shell svc wifi disable
-            adb shell svc data disable
-            bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk essence2-sofia-offline-proof
-            ! grep -q "api.bithuman.ai" essence2-sofia-offline-proof/boot-status.txt
-            mkdir -p essence2-e2trace-proof
-            adb shell run-as ai.bithuman.example.avatar_chat.essence2 cat ./app_flutter/hitel_e2_trace.log > essence2-e2trace-proof/native-function-trace-before-voice.txt
-            grep -q 'stage=load.begin' essence2-e2trace-proof/native-function-trace-before-voice.txt
-            grep -q 'stage=sdk.create.end' essence2-e2trace-proof/native-function-trace-before-voice.txt
-            grep -q 'stage=gpu.hardwareBuffer.result' essence2-e2trace-proof/native-function-trace-before-voice.txt
-            grep -q 'stage=surface.post.ok' essence2-e2trace-proof/native-function-trace-before-voice.txt
-            echo PASS_ESSENCE2_FUNCTION_TRACE_BOOT_AND_GPU_ROUTING
-            set +e
-            bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh essence2-e2trace-proof
-            speech_rc=$?
-            set -e
-            printf 'voice_probe_exit_code=%s\n' "$speech_rc" > essence2-e2trace-proof/voice-probe-result.txt
-            sleep 2
-            adb shell run-as ai.bithuman.example.avatar_chat.essence2 cat ./app_flutter/hitel_e2_trace.log > essence2-e2trace-proof/native-function-trace-after-voice.txt
-            adb logcat -d -v threadtime | grep 'HITEL_E2TRACE' > essence2-e2trace-proof/native-trace-from-logcat.txt || true
-            grep -q 'stage=sdk.feed.begin' essence2-e2trace-proof/native-function-trace-after-voice.txt || echo 'WARN_AUDIO_FEED_NOT_REACHED_SEE_VOICE_PROBE'
-            grep -q 'stage=display.present' essence2-e2trace-proof/native-function-trace-after-voice.txt || echo 'WARN_DISPLAY_PRESENT_NOT_REACHED'
-            grep -q 'stage=audio.track.write' essence2-e2trace-proof/native-function-trace-after-voice.txt || echo 'WARN_AUDIOTRACK_NOT_REACHED'
-            echo PASS_SOFIA_OFFLINE_MODEL_INITIALIZATION_NO_VENDOR_DNS
-            echo PASS_ESSENCE2_TRACE_EXPORTED_FROM_ACTUAL_EMULATOR
-
+          script: bash tools/bithuman_deep/essence2_e2trace_android15_probe.sh HITEL_Essence2_FiveSamples_VoicedMock_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
       - name: Save Sofia embedded APK as short-lived internal installation test artifact
         uses: actions/upload-artifact@v4
         with:
