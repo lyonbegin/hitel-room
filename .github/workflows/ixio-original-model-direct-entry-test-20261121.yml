@@ -77,6 +77,7 @@ jobs:
             --report ixio-pages-qa-results/original-token-gate-trace-diff.json
           python3 tools/ixio/ixio_original_model_http_trace.py \
             --smali16 .ixio-pages-build/smali16 \
+            --stop-unchanged-401 \
             --report ixio-pages-qa-results/original-model-wire-trace-diff.json
           python3 tools/ixio/ixio_original_provisioning_entry_probe.py \
             --smali16 .ixio-pages-build/smali16 \
@@ -237,6 +238,14 @@ jobs:
           print('ORIGINAL_MODEL_HTTP_EVENT_COUNT',len(http_events))
           print('ORIGINAL_TOKEN_TRACE_EVENT_COUNT',len(token_events))
           print('ORIGINAL_MODEL_WIRE_EVENT_COUNT',len(wire_events))
+          wire_401_count=sum('WIRE_RESPONSE=401' in x for x in wire_events)
+          model_http_count=sum('REQUEST_TO_ORIGINAL_MODEL_CATALOG' in x for x in http_events)
+          stopped_retry_count=sum('UNCHANGED_REJECTED_AUTH_RETRY_STOPPED' in x for x in wire_events)
+          print('ORIGINAL_MODEL_WIRE_401_COUNT',wire_401_count)
+          print('UNCHANGED_REJECTED_AUTH_RETRY_STOPPED_COUNT',stopped_retry_count)
+          if wire_401_count:
+              assert stopped_retry_count>0,'Repeated rejected auth was not stopped'
+              assert wire_401_count<=2*model_http_count,'Model requests still loop on rejected credentials'
           print('ORIGINAL_TOKEN_STEP_COUNTS',json.dumps(dict(collections.Counter(
               x.split('IXIO_TOKEN_TRACE: ',1)[-1] for x in token_events)),sort_keys=True))
           print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))

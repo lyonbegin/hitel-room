@@ -3,13 +3,15 @@
 
 Adds a pass-through OkHttp network interceptor and an outer exception probe.
 Logs only fixed route labels, numeric response codes and exception class names.
-No requests, credentials, responses, authentication decisions or retries change.
+The optional retry guard stops consecutive 401 responses with identical rejected
+credentials; original first authentication and fresh credentials still run.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 ROOT = "com/lguplus/aicallagent/network/client/"
@@ -17,6 +19,7 @@ BASE = ROOT + "BaseServer.smali"
 OUTER = ROOT + "IXIOPagesLoginMockInterceptor.smali"
 PROBE = ROOT + "HitelModelWireTrace.smali"
 DESC = "L" + PROBE[:-6] + ";"
+AUTH = "com/lguplus/aicallagent/network/authenticator/IxIAuthenticator.smali"
 
 
 def source() -> str:
@@ -130,6 +133,41 @@ def source() -> str:
     :rethrow
     throw v0
 .end method
+
+.method public static stopUnchanged401(Lokhttp3/Response;)Z
+    .registers 6
+    invoke-virtual {p0}, Lokhttp3/Response;->code()I
+    move-result v0
+    const/16 v1, 0x191
+    if-ne v0, v1, :allow
+    invoke-virtual {p0}, Lokhttp3/Response;->priorResponse()Lokhttp3/Response;
+    move-result-object v0
+    if-eqz v0, :allow
+    invoke-virtual {v0}, Lokhttp3/Response;->code()I
+    move-result v2
+    if-ne v2, v1, :allow
+    invoke-virtual {p0}, Lokhttp3/Response;->request()Lokhttp3/Request;
+    move-result-object v1
+    const-string v2, "Authorization"
+    invoke-virtual {v1, v2}, Lokhttp3/Request;->header(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
+    if-eqz v1, :allow
+    invoke-virtual {v0}, Lokhttp3/Response;->request()Lokhttp3/Request;
+    move-result-object v0
+    invoke-virtual {v0, v2}, Lokhttp3/Request;->header(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :allow
+    const-string v0, "AUTH_RETRY"
+    const-string v1, "UNCHANGED_REJECTED_AUTH_RETRY_STOPPED"
+    invoke-static {v0, v1}, __DESC__->log(Ljava/lang/String;Ljava/lang/String;)V
+    const/4 v0, 0x1
+    return v0
+    :allow
+    const/4 v0, 0x0
+    return v0
+.end method
 '''.replace("__DESC__", DESC)
 
 
@@ -137,6 +175,8 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--smali16", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True)
+    p.add_argument("--stop-unchanged-401", action="store_true",
+                   help="Stop only a consecutive 401 with identical rejected Authorization")
     a = p.parse_args()
     probe = a.smali16 / PROBE
     if probe.exists():
@@ -167,14 +207,40 @@ def main() -> None:
     changes.append({"file": OUTER, "before": hashlib.sha256(old.encode()).hexdigest(),
                     "after": hashlib.sha256(new.encode()).hexdigest()})
     outer.write_text(new)
+    if a.stop_unchanged_401:
+        auth = a.smali16 / AUTH
+        old = auth.read_text()
+        methods = list(re.finditer(r"(?ms)^\.method public authenticate\([^\n]*\n.*?^\.end method$", old))
+        if len(methods) != 1:
+            raise RuntimeError("Expected one original authenticate method")
+        m = methods[0]
+        block = m.group()
+        if "    .registers 5" not in block:
+            raise RuntimeError("Unexpected original authenticator register layout")
+        op = re.search(r"(?m)^    (?:invoke-|const-string)[^\n]*", block)
+        if op is None:
+            raise RuntimeError("Original authenticate entry not found")
+        guard = (f"    invoke-static {{p2}}, {DESC}->stopUnchanged401(Lokhttp3/Response;)Z\n"
+                 "    move-result v0\n"
+                 "    if-eqz v0, :hitel_original_authenticate\n"
+                 "    const/4 v0, 0x0\n"
+                 "    return-object v0\n"
+                 "    :hitel_original_authenticate\n")
+        patched = block[:op.start()] + guard + block[op.start():]
+        new = old[:m.start()] + patched + old[m.end():]
+        auth.write_text(new)
+        changes.append({"file": AUTH, "before": hashlib.sha256(old.encode()).hexdigest(),
+                        "after": hashlib.sha256(new.encode()).hexdigest(),
+                        "only_behavior_change": "RETURN_NULL_AFTER_CONSECUTIVE_401_WITH_IDENTICAL_AUTHORIZATION"})
     probe.write_text(source())
     a.report.parent.mkdir(parents=True, exist_ok=True)
     a.report.write_text(json.dumps({
         "mode": "UNCHANGED_ORIGINAL_MODEL_HTTP_WIRE_STATUS_AND_EXCEPTION_CLASSES",
         "changes": changes,
-        "request_headers_body_urls_response_and_auth_decisions_unchanged": True,
+        "request_headers_body_urls_and_server_responses_unchanged": True,
         "sensitive_values_logged": False,
-        "all_original_retry_and_redirect_behavior_preserved": True,
+        "stop_only_identical_rejected_401_retry": a.stop_unchanged_401,
+        "fresh_authentication_refresh_new_credentials_and_redirects_preserved": True,
     }, indent=2))
     print("ORIGINAL_MODEL_NETWORK_STATUS_AND_OUTER_EXCEPTION_TRACE_INSTALLED=YES")
 
