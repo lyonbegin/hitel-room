@@ -86,10 +86,13 @@ def main(app,plugin,report):
           ? aiTrace.substring(aiTrace.length - 40000) : aiTrace;
       final detail = 'HITEL Essence 2 Android diagnostics\\n'
 ""","copy-ai-protocol-file")
+    # Only match the unique Dart interpolation suffix. Flutter patchers emit
+    # differing slash encodings around the preceding literal heading.
     u=change_once(u,
-        "           '--- hitel_e2_trace.log recent ---\\n$traceTail';",
-        """           '--- hitel_e2_trace.log recent ---\\n__DOLLAR__traceTail\\n'
-           '--- hitel_ai_e2e.log recent ---\\n__DOLLAR__aiTail';""","copy-event-tail")
+        "$traceTail';",
+        r"$traceTail\n'" + "\n" +
+        r"           '--- hitel_ai_e2e.log recent ---\n__DOLLAR__aiTail';",
+        "copy-event-tail")
     ui.write_text(u.replace("__DOLLAR__","$"))
     report.parent.mkdir(parents=True,exist_ok=True)
     report.write_text(json.dumps({
