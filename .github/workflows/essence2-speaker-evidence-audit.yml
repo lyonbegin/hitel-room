@@ -7,8 +7,8 @@ on:
     paths:
       - .github/workflows/essence2-speaker-evidence-audit.yml
 permissions:
-  contents: read
-  actions: read
+  contents: write
+  actions: write
 jobs:
   inspect-captured-speaker:
     runs-on: ubuntu-24.04
@@ -62,3 +62,22 @@ jobs:
           print('BANDLIMITED_COMPARISON',json.dumps(r))
           # This job collects diagnostics; it does not publish or certify an APK.
           PY
+      - name: Preserve the exact test voice for deterministic builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FIXTURE=tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm
+          export EXISTING_FIXTURE_SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/$FIXTURE?ref=$GITHUB_REF_NAME" --jq .sha 2>/dev/null || true)"
+          python3 - <<'PY'
+          import base64,hashlib,json,os
+          from pathlib import Path
+          voice=Path('reference.pcm').read_bytes()
+          assert hashlib.sha256(voice).hexdigest()=='8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098'
+          payload={'message':'test(essence2): preserve exact spoken PCM fixture for reproducible builds',
+                   'branch':os.environ['GITHUB_REF_NAME'],'content':base64.b64encode(voice).decode()}
+          if os.environ.get('EXISTING_FIXTURE_SHA'): payload['sha']=os.environ['EXISTING_FIXTURE_SHA']
+          Path('fixture-put.json').write_text(json.dumps(payload))
+          PY
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$FIXTURE" --input fixture-put.json --jq '.commit.sha'
+          echo PASS_EXACT_TEST_VOICE_PRESERVED_IN_REPOSITORY
