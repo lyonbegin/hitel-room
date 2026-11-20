@@ -24,5 +24,9 @@ jobs:
           gh run view 44731853154 --repo "$GITHUB_REPOSITORY" || true
           echo 'FAILED_PAGES_JOB_DETAILS'
           gh api "repos/$GITHUB_REPOSITORY/actions/jobs/136273363138" --jq '{name,status,conclusion,steps,runner_name,started_at,completed_at}' || true
+          echo 'GITHUB_PAGES_ENVIRONMENT_RULES'
+          gh api "repos/$GITHUB_REPOSITORY/environments/github-pages" --jq '{name,protection_rules,deployment_branch_policy}' || true
+          echo 'GITHUB_PAGES_ALLOWED_BRANCH_POLICIES'
+          gh api "repos/$GITHUB_REPOSITORY/environments/github-pages/deployment-branch-policies" --jq '.branch_policies // .' || true
           echo 'PAGES_CONFIG'
           gh api "repos/$GITHUB_REPOSITORY/pages" --jq '{status,html_url,source,build_type}' || true
