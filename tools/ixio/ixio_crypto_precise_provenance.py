@@ -45,6 +45,7 @@ def selected_method(src):
         a.append({"signature":header,"sha256":sha(body.encode()),"asm":safe_lines(body)})
     return a
 def unpack(z:zipfile.ZipFile,name:str,jar:pathlib.Path,parent:pathlib.Path)->dict[str,pathlib.Path]:
+    parent.mkdir(parents=True,exist_ok=True)
     dex=parent/name
     dex.write_bytes(z.read(name))
     out=parent/(name+".decoded")
