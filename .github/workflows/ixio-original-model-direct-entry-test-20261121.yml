@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/ixio-original-model-direct-entry-test-20261121.yml
       - tools/ixio/ixio_original_model_entry_probe.py
+      - tools/ixio/ixio_original_token_gate_trace.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -68,6 +69,10 @@ jobs:
             --smali15 .ixio-pages-build/smali15 --smali16 .ixio-pages-build/smali16 \
             --smali18 .ixio-pages-build/smali18 \
             --report ixio-pages-qa-results/original-model-direct-entry-diff.json
+          python3 -m py_compile tools/ixio/ixio_original_token_gate_trace.py
+          python3 tools/ixio/ixio_original_token_gate_trace.py \
+            --smali16 .ixio-pages-build/smali16 \
+            --report ixio-pages-qa-results/original-token-gate-trace-diff.json
           for n in 15 16 18;do
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
@@ -193,6 +198,17 @@ jobs:
             adb install -r .ixio-pages-build/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
+            # Test-only early stop after actual original IXIO home & one model request.
+            # Avoid unrelated 3-scroll Settings and recorder flows in this focused test.
+            python3 - <<'PY'
+            from pathlib import Path
+            p=Path('tools/ixio/ixio-pages-qa-emulator-robot.py')
+            s=p.read_text()
+            key='            home_screen_seen=True\n            print("IXIO_AUTHENTICATED_HOME_SCREEN_OBSERVED",flush=True)'
+            assert s.count(key)==1
+            s=s.replace(key,key+'\n            print("IXIO_ORIGINAL_MODEL_TOKEN_TRACE_FOCUSED_MODE",flush=True)\n            time.sleep(65)\n            stop_reason="MODEL_TOKEN_TRACE_CAPTURED_AFTER_ORIGINAL_HOME"\n            break')
+            p.write_text(s)
+            PY
             python3 tools/ixio/ixio-pages-qa-emulator-robot.py
       - name: Verify installed original app, original model entry call and catalog response evidence
         run: |
@@ -210,19 +226,22 @@ jobs:
           print('ACTUAL_HOME_SCREEN_REACHED',d['home_screen_seen'])
           model_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_PROBE' in line]
           http_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_HTTP' in line]
+          token_events=[line for line in log.splitlines() if 'IXIO_TOKEN_TRACE' in line]
           out=p/'original-model-request-events.txt'
-          out.write_text('\n'.join(model_events+http_events),encoding='utf8')
+          out.write_text('\n'.join(model_events+http_events+token_events),encoding='utf8')
           print('ACTUAL_SERVICE_ERROR',d['service_error_seen'])
           print('ACTUAL_LOGIN_ONLY_HTTP_INTERCEPT_COUNT',log.count('IXIO_PAGES_QA_ONLY'))
           print('ORIGINAL_MODEL_PROBE_EVENT_COUNT',len(model_events))
           print('ORIGINAL_MODEL_HTTP_EVENT_COUNT',len(http_events))
+          print('ORIGINAL_TOKEN_TRACE_EVENT_COUNT',len(token_events))
           print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))
           print('MODEL_DIRECT_ENTRY_UI_STATE',json.dumps(d,ensure_ascii=False))
-          for item in model_events+http_events:
+          for item in model_events+http_events+token_events:
             print('MODEL_ORIGINAL_STEP',item[-250:])
           assert d['installed'] and tapped and d['home_screen_seen'],'Could not reach original home'
           assert log.count('IXIO_PAGES_QA_ONLY')>=3,'Original Pages-only login not exercised'
           assert 'TRIGGERED_AFTER_ORIGINAL_VIEWMODEL_CONSTRUCTOR' in log,'No direct model trigger from original home ViewModel'
+          assert token_events,'Original token interceptor hook not entered'
           print('ORIGINAL_MODEL_EXISTING_METHOD_DIRECT_ENTRY_VERIFIED=YES')
           PY
       - name: Upload screenshots and checksums even if emulated login fails
