@@ -145,10 +145,30 @@ def main():
     model_settings_entry_taps=0
     settings_vas_retry_taps=0
     settings_scroll_count=0
+    emulator_app_relaunch_attempts=0
     stop_reason="EXHAUSTED_STEPS"
     for i in range(50):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
+        # On a fresh emulator, launcher may remain foreground even though
+        # PackageManager installed the app and granted default dialer. Preserve
+        # evidence and retry the ORIGINAL launcher intent at most twice.
+        if ("Predicted app: 익시오" in joined and
+                not adb("shell","pidof",PKG).strip()):
+            if emulator_app_relaunch_attempts < 2:
+                emulator_app_relaunch_attempts+=1
+                details=adb("logcat","-d","-v","threadtime","-t","4000",timeout=25)
+                (OUT/f"emulator-launch-retry-{emulator_app_relaunch_attempts}.log").write_text(
+                    details,encoding="utf8")
+                command=adb("shell","monkey","-p",PKG,
+                            "-c","android.intent.category.LAUNCHER","1",timeout=30)
+                print("ORIGINAL_IXIO_LAUNCHER_RETRY",
+                      emulator_app_relaunch_attempts,command[-300:],flush=True)
+                time.sleep(12)
+                continue
+            print("ORIGINAL_IXIO_NOT_LAUNCHED_AFTER_TWO_RETRIES",flush=True)
+            stop_reason="APP_NOT_STARTED_AFTER_LAUNCH_RETRIES"
+            break
         if not visible:
             # AppAuth/Chrome Custom Tab -> IXIO activity handoff may present
             # a transient fully blank accessibility hierarchy while async
@@ -499,7 +519,8 @@ def main():
            "main_settings_tab_opened":main_settings_tab_opened,
            "model_settings_entry_taps":model_settings_entry_taps,
            "settings_vas_retry_taps":settings_vas_retry_taps,
-           "settings_scroll_count":settings_scroll_count}
+           "settings_scroll_count":settings_scroll_count,
+           "emulator_app_relaunch_attempts":emulator_app_relaunch_attempts}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
     print("FINAL_DIAGNOSTIC",json.dumps(result,ensure_ascii=False),flush=True)
     for event in relevant[-60:]:
