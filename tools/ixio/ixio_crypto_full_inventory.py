@@ -76,7 +76,7 @@ def classify(path:str,head:str,block:str)->list[str]:
     data=path+"\n"+head+"\n"+block
     return [k for k,rex in compiled.items() if rex.search(data)]
 
-def analyze(original:pathlib.Path,jar:pathlib.Path,report:pathlib.Path)->dict:
+def analyze(original:pathlib.Path,jar:pathlib.Path,report:pathlib.Path,label:str='main',allowed_roots:tuple[str,...]=tuple(ROOTS))->dict:
     summary=collections.Counter()
     by_family=collections.Counter()
     methods=[]
@@ -97,7 +97,7 @@ def analyze(original:pathlib.Path,jar:pathlib.Path,report:pathlib.Path)->dict:
             count_app=0
             for smali in smalis:
                 rel=str(smali.relative_to(out))
-                if not rel.startswith(tuple(ROOTS)):
+                if not rel.startswith(allowed_roots):
                     continue
                 count_app+=1
                 body=smali.read_text(encoding="utf8",errors="replace")
@@ -162,9 +162,9 @@ def analyze(original:pathlib.Path,jar:pathlib.Path,report:pathlib.Path)->dict:
             "critical_incoming_calls":target_refs,
             "class_inventory":class_inventory,
             "all_selected_methods":methods}
-    (report/"full-crypto-method-index.json").write_text(
+    (report/f"{label}-full-crypto-method-index.json").write_text(
         json.dumps(result,ensure_ascii=False,indent=2))
-    print("TOTAL_CRYPTO_RELEVANT_METHODS",len(methods),flush=True)
+    print("TOTAL_CRYPTO_RELEVANT_METHODS",label,len(methods),flush=True)
     print("FAMILY_COUNTS",json.dumps(dict(by_family),sort_keys=True),flush=True)
     print("PROVISIONING_AND_CTNCIPHER_CLASSES")
     for m in method_focus:
@@ -181,7 +181,7 @@ def analyze(original:pathlib.Path,jar:pathlib.Path,report:pathlib.Path)->dict:
 
 def main():
     ap=argparse.ArgumentParser()
-    for name in ("original","qa","baksmali","report","protected-main-xapk","protected-recorder"):
+    for name in ("original","qa","baksmali","report","protected-main-xapk","protected-recorder","recorder-reassembled"):
         ap.add_argument("--"+name,required=True,type=pathlib.Path)
     args=ap.parse_args()
     args.report.mkdir(parents=True,exist_ok=True)
@@ -200,7 +200,8 @@ def main():
             "recorder_dexes":dex_files(r),
             "note":"Protected AppSealing recorder DEX is not guaranteed equivalent to runtime-unpacked recorder DEX."}
     (args.report/"source-provenance.json").write_text(json.dumps({"main":protected_summary,"recorder":rec},indent=2))
-    analyze(args.original,args.baksmali,args.report)
+    analyze(args.original,args.baksmali,args.report,label='main',allowed_roots=(OWN,))
+    analyze(args.recorder_reassembled,args.baksmali,args.report,label='recorder',allowed_roots=('com/lguplus/','com/inka/'))
     print("REPORT_READY=YES",flush=True)
 
 if __name__=="__main__":main()
