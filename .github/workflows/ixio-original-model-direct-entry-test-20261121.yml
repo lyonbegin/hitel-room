@@ -76,7 +76,13 @@ jobs:
                 tail -n 100 "ixio-pages-qa-results/smali-assembly-$n.log"
                 exit 1
               }
-            test -s ".ixio-pages-build/apk/classes$n-pages.dex"
+            echo "ORIGINAL_MODEL_ASSEMBLY_RESULT classes$n"
+            ls -lh ".ixio-pages-build/apk/classes$n-pages.dex" || true
+            cat "ixio-pages-qa-results/smali-assembly-$n.log" | tail -n 80
+            if ! test -s ".ixio-pages-build/apk/classes$n-pages.dex";then
+              echo "ERROR: model-probed classes$n DEX missing or zero length"
+              exit 1
+            fi
           done
       - name: Preserve every original APK entry except three login DEXes, align and sign
         run: |
