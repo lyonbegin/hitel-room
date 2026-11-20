@@ -1,27 +1,6 @@
-name: HITEL Essence2 Sofia embedded APK private CI offline Android15 verification
+name: HISTORICAL ONLY - Essence2 synthetic local mock experiment
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/hitel-essence2-sofia-embedded-offline-20261120
-    paths:
-      - .github/workflows/essence2-sofia-embedded-android15-offline.yml
-      - tools/bithuman_deep/package_essence2_sofia_embedded_assets.py
-      - tools/bithuman_deep/prepare_essence2_local_debug_loopback.py
-      - tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
-      - tools/bithuman_deep/generate_essence2_real_voice_fixture.sh
-      - tools/bithuman_deep/prepare_essence2_local_android_model.py
-      - tools/bithuman_deep/prepare_essence2_device_diagnostics.py
-      - tools/bithuman_deep/prepare_essence2_function_trace.py
-      - tools/bithuman_deep/prepare_essence2_keyboard_ai_trace.py
-      - tools/bithuman_deep/prepare_essence2_ai_persistent_trace.py
-      - tools/bithuman_deep/verify_essence2_keyboard_ai_e2e.py
-      - tools/bithuman_deep/prepare_essence2_monitor_trace.py
-      - tools/bithuman_deep/analyze_essence2_e2trace.py
-      - tools/bithuman_deep/essence2_e2trace_android15_probe.sh
-      - tools/bithuman_deep/essence2_local_android/HitelE2Trace.kt
-      - tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt
-      - tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py
 permissions:
   contents: read
 jobs:
@@ -278,3 +257,4 @@ jobs:
             essence2-e2trace-proof/*.json
             essence2-e2trace-proof/*.png
           retention-days: 14
+

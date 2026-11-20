@@ -53,6 +53,18 @@ def prepare(app, plugin, report):
     text = replace_one(text, "      avatar: avatar,\n",
                        "      avatar: avatar,\n      speechReady: avatar.ready,\n",
                        'wait for native speech readiness before realtime')
+    # The SDK's optional speechReady wait continues after its 60-second timeout.
+    # Gate in the app too: no relay is opened until readiness is actually true.
+    # Disposing the original avatar completes ready; check identity/isReady again
+    # so a background/dispose cannot open a stale realtime session.
+    text = replace_one(text,
+        '  Future<void> _openSession(BithumanAvatar avatar, String secret) async {\n',
+        """  Future<void> _openSession(BithumanAvatar avatar, String secret) async {
+    if (mounted) setState(() => _status = 'Preparing avatar speech…');
+    await avatar.ready;
+    if (!mounted || _avatar != avatar) return;
+    if (!avatar.isReady) throw StateError('Avatar speech path did not become ready.');
+""", 'require actual readiness without timeout fall-through')
     for forbidden in ('hitel_offline_runtime', 'debugEndpointOverride',
                       '_hitelAcquireLocalSampleSession', 'mock_realtime'):
         if forbidden in text:

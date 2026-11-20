@@ -102,6 +102,11 @@ class AuthenticatedSourceTest(unittest.TestCase):
             self.assertEqual(before, tree_hashes(plugin))
             self.assertTrue(result['all_plugin_files_byte_identical'])
             self.assertIn('speechReady: avatar.ready,', text)
+            session_method = text.split('Future<void> _openSession(', 1)[1]
+            self.assertLess(session_method.index('await avatar.ready;'),
+                            session_method.index('BithumanRealtimeSession('))
+            self.assertIn('if (!mounted || _avatar != avatar) return;', session_method)
+            self.assertIn('if (!avatar.isReady) throw StateError', session_method)
             self.assertLess(text.index('if (isHitelDemoCredential(secret))'),
                             text.index('await BithumanAvatar.load('))
             self.assertIn('apiKey: secret,', text)
