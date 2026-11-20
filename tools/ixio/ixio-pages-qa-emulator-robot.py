@@ -130,6 +130,7 @@ def main():
     chrome_welcome_retries=0
     blank_screen_retries=0
     home_screen_seen=False
+    pages_custom_tab_taps=0
     recorder_setup_prompt_seen=False
     recorder_setup_taps=0
     home_recorder_prompt_waits=0
@@ -272,6 +273,29 @@ def main():
                     continue
                 stop_reason="CHROME_FIRST_RUN_STALLED"
                 break
+        # Real 2026-11-20 Android14 Pixel6 screenshot evidence:
+        # Chrome Custom Tab accessibility exposes ONLY the browser toolbar
+        # (title + GitHub Pages domain), not its HTML button. Screenshot run
+        # 44732747521, stage-05.png, confirmed the blue QA login button at
+        # x=540,y≈1030 on a 1080x2400 screen. No terms or hang-up nearby.
+        if ("HITEL IXIO 테스트 로그인" in joined and
+                "lyonbegin.github.io" in joined and
+                pages_custom_tab_taps < 1):
+            image=OUT/f"stage-{i:02d}.png"
+            safe=False
+            if image.exists():
+                import struct
+                raw=image.read_bytes()[:24]
+                safe=(raw.startswith(bytes.fromhex("89504e470d0a1a0a")) and
+                      struct.unpack(">II",raw[16:24])==(1080,2400))
+            if safe:
+                pages_custom_tab_taps+=1
+                tap((540,1030,"GitHub Pages QA only"),
+                    "PAGES_QA_ONLY_COMPLETE_AND_DEEP_LINK_BACK")
+                continue
+            print("PAGES_QA_CCT_SCREEN_SIZE_MISMATCH",flush=True)
+            stop_reason="PAGES_QA_CCT_SCREEN_NOT_VERIFIED"
+            break
         # The offline GitHub Pages test page is not a carrier account consent.
         # Click its sole explicit QA completion button; original app validates
         # the returned state/deep link. Do not auto-accept unrelated terms.
@@ -338,7 +362,8 @@ def main():
     (OUT/"fatal-only.txt").write_text("\n".join(fatal),encoding="utf8")
     result={"installed":True,"onboarding_safe_taps":sum(bool(x.get("tap")) for x in ACTIONS),
            "service_error_seen":seen_error,"error_screens":error_screens,
-           "alternate_login_attempts":alternate_login_attempts,"last_pid":lastpid,
+           "alternate_login_attempts":alternate_login_attempts,
+           "pages_custom_tab_taps":pages_custom_tab_taps,"last_pid":lastpid,
            "last_process_alive":bool(lastpid),"fatal_lines":fatal[:20],
            "stop_reason":stop_reason,
            "emulator_launcher_anr_count":anr_count,
