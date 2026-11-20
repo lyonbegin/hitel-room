@@ -136,6 +136,10 @@ def main():
     recorder_setup_taps=0
     home_recorder_prompt_waits=0
     recorder_fallback_launches=0
+    recorder_settings_seen=False
+    recorder_settings_back_once=False
+    model_download_prompt_seen=False
+    model_download_button_taps=0
     stop_reason="EXHAUSTED_STEPS"
     for i in range(36):
         nodes,visible=snapshot(i)
@@ -218,6 +222,38 @@ def main():
                 continue
             stop_reason="RECORDER_SETUP_PROMPT_WITHOUT_BUTTON"
             break
+        # Continue past the original recorder's already-configured settings screen.
+        # This uses the visible back navigation; no recording, STT or policy code is patched.
+        if ("통화 자동 녹음" in joined and "익시오 통화녹음 앱" in joined
+                and "사용 중" in joined):
+            recorder_settings_seen=True
+            if not recorder_settings_back_once:
+                recorder_settings_back_once=True
+                print("ORIGINAL_RECORDER_SETTINGS_CONFIRMED_USED_AND_BACK_TO_MAIN",flush=True)
+                adb("shell","input","keyevent","4")
+                time.sleep(6)
+                continue
+            print("ORIGINAL_RECORDER_SETTINGS_RETURNED_AFTER_BACK",flush=True)
+            stop_reason="RECORDER_SETTINGS_NAVIGATION_LOOP"
+            break
+        # The original app owns its model download and status UI. Only tap an
+        # explicit model/engine-download button on a real visible model prompt.
+        # Never impersonate a model as downloaded, bypass an authorization error,
+        # or substitute data for the real URL supplied by the original catalog.
+        if (("모델" in joined or "AI 엔진" in joined)
+                and "다운로드" in joined):
+            model_download_prompt_seen=True
+            print("ORIGINAL_MODEL_DOWNLOAD_UI_OBSERVED",f"stage-{i:02d}",joined[:1000],flush=True)
+            if model_download_button_taps==0:
+                opt=choose(nodes,[
+                    "AI 모델 다운로드","AI 엔진 다운로드","모델 다운로드",
+                    "다운로드 시작","지금 다운로드","모두 다운로드","다운로드"
+                ],True)
+                if opt:
+                    model_download_button_taps+=1
+                    tap(opt,"TRIGGER_ONLY_ORIGINAL_MODEL_DOWNLOAD_UI")
+                    time.sleep(5)
+                    continue
         # Original recorder requests Android's "unused-app permission deletion"
         # opt-out. Match the original consent screen exactly on this disposable
         # emulator and apply only the corresponding Android app-op (not app code).
@@ -365,6 +401,12 @@ def main():
     (OUT/"actions.json").write_text(json.dumps(ACTIONS,ensure_ascii=False,indent=2),encoding="utf8")
     log=adb("logcat","-d","-v","threadtime","-t","30000",timeout=30)
     (OUT/"logcat-full.txt").write_text(log,encoding="utf8")
+    model_worker_started=[line for line in log.splitlines()
+                          if re.search(r"(?i)WM-WorkerWrapper.*Starting work.*(?:model|download)",line)]
+    model_download_service_events=[line for line in log.splitlines()
+                                   if re.search(r"(?i)AiModelDownloadService|AiModelUpdateRepository|DownloadFileWorker|FileUnzipWorker",line)]
+    print("ORIGINAL_MODEL_DOWNLOAD_WORKER_STARTED_COUNT",len(model_worker_started),flush=True)
+    print("ORIGINAL_MODEL_DOWNLOAD_SERVICE_LOG_EVENT_COUNT",len(model_download_service_events),flush=True)
     relevant=[line for line in log.splitlines() if re.search(
         r"(?i)com\.lguplus\.aicallagent|ixio|firebase|carrier|sim|subscription|sign.?up|"
         r"login|auth|failure|exception|security|unsupported|HTTP/|[45]0[0-9]|telephony",line)]
@@ -388,7 +430,13 @@ def main():
            "recorder_setup_prompt_seen":recorder_setup_prompt_seen,
            "recorder_setup_button_taps":recorder_setup_taps,
            "home_recorder_prompt_waits":home_recorder_prompt_waits,
-           "recorder_fallback_launches":recorder_fallback_launches}
+           "recorder_fallback_launches":recorder_fallback_launches,
+           "recorder_settings_seen":recorder_settings_seen,
+           "recorder_settings_back_once":recorder_settings_back_once,
+           "model_download_prompt_seen":model_download_prompt_seen,
+           "model_download_button_taps":model_download_button_taps,
+           "model_download_worker_started_count":len(model_worker_started),
+           "model_download_service_log_event_count":len(model_download_service_events)}
     (OUT/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf8")
     print("FINAL_DIAGNOSTIC",json.dumps(result,ensure_ascii=False),flush=True)
     for event in relevant[-60:]:
