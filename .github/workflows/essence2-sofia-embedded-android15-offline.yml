@@ -13,6 +13,8 @@ on:
       - tools/bithuman_deep/prepare_essence2_local_android_model.py
       - tools/bithuman_deep/prepare_essence2_device_diagnostics.py
       - tools/bithuman_deep/prepare_essence2_function_trace.py
+      - tools/bithuman_deep/prepare_essence2_keyboard_ai_trace.py
+      - tools/bithuman_deep/verify_essence2_keyboard_ai_e2e.py
       - tools/bithuman_deep/prepare_essence2_monitor_trace.py
       - tools/bithuman_deep/analyze_essence2_e2trace.py
       - tools/bithuman_deep/essence2_e2trace_android15_probe.sh
@@ -85,6 +87,9 @@ jobs:
           python3 tools/bithuman_deep/prepare_essence2_monitor_trace.py \
             --plugin "$PLUGIN" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/monitor-trace-patch.json"
+          python3 tools/bithuman_deep/prepare_essence2_keyboard_ai_trace.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/keyboard-ai-trace-patch.json"
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
