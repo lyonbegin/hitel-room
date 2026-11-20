@@ -66,26 +66,22 @@ def new_class():
     return "\n".join(lines)+"\n"
 def tracer_intercept(b):
     b=insert_at_opcode(b,0)
-    target=("    invoke-static {v0, v1}, Lkotlinx/coroutines/BuildersKt;"
-            "->runBlocking(Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;)Ljava/lang/Object;\n"
-            "    move-result-object p0")
-    b=require_once_replace(b,target,mk(1)+"\n"+target+"\n"+mk(2),"runBlocking")
-    return b
+    rx=re.compile(r"(?m)^[ \\t]*invoke-static[^\\n]*Lkotlinx/coroutines/BuildersKt;->runBlocking[^\\n]*\\n(?:[ \\t]*\\n)*[ \\t]*move-result-object[ \\t]+[vp]\\d+")
+    matched=list(rx.finditer(b))
+    if len(matched)!=1:raise RuntimeError(f"runBlocking expression expected once, found {len(matched)}")
+    m=matched[0]
+    return b[:m.start()]+mk(1)+"\n"+m.group()+"\n"+mk(2)+b[m.end():]
 def tracer_coroutine(b):
     b=insert_at_opcode(b,3)
     # Exact original token datastore method call and its suspended-value return.
-    q=("    invoke-virtual {v14, v0}, "
-       "Lcom/lguplus/aicallagent/datastore/IxIDataStoreRepository;"
-       "->getTokenData(Lkotlin/coroutines/Continuation;)Ljava/lang/Object;\n"
-       "    move-result-object v6")
-    b=require_once_replace(b,q,mk(4)+"\n"+q+"\n"+mk(5),"getTokenData")
-    t=("    :goto_103\n"
-       "    :try_start_103\n"
-       "    check-cast v6, Lcom/lguplus/aicallagent/model/api/dto/ixio/userservice/InnerTokenData;")
-    b=require_once_replace(b,t,"    :goto_103\n"+mk(6)+"\n"
-             "    :try_start_103\n"
-             "    check-cast v6, Lcom/lguplus/aicallagent/model/api/dto/ixio/userservice/InnerTokenData;",
-             "model token result branch")
+    token_call=re.compile(r"(?m)^[ \\t]*invoke-virtual[^\\n]*IxIDataStoreRepository;->getTokenData[^\\n]*\\n(?:[ \\t]*\\n)*[ \\t]*move-result-object[ \\t]+[vp]\\d+")
+    hits=list(token_call.finditer(b))
+    if len(hits)!=1:raise RuntimeError(f"original getTokenData call expected once, found {len(hits)}")
+    m=hits[0]
+    b=b[:m.start()]+mk(4)+"\n"+m.group()+"\n"+mk(5)+b[m.end():]
+    label=re.compile(r"(?m)^    :goto_103[ \\t]*$")
+    if len(list(label.finditer(b)))!=1:raise RuntimeError("model token result label unexpected")
+    b=label.sub("    :goto_103\n"+mk(6),b,count=1)
     # Before original chain.proceed invoked; token/header values never logged.
     matches=list(re.finditer(r"(?m)^    invoke-interface \{v(?:11|12), v(?:0|13)\}, Lokhttp3/Interceptor\$Chain;->proceed\(Lokhttp3/Request;\)Lokhttp3/Response;",b))
     if len(matches)<2:raise RuntimeError(f"expected >=2 original proceed branches, got {len(matches)}")
