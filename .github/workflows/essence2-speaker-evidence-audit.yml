@@ -1,0 +1,64 @@
+name: Audit captured Essence2 speaker evidence
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/essence2-speaker-evidence-audit.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-captured-speaker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
+          github-token: ${{ github.token }}
+          run-id: '44785137767'
+      - uses: actions/download-artifact@v4
+        with:
+          name: essence2-sofia-embedded-offline-android15-test-logs-only
+          github-token: ${{ github.token }}
+          run-id: '44785137767'
+          path: captured-evidence
+      - name: Inspect volume and compare properly bandlimited waveforms
+        run: |
+          set -euo pipefail
+          unzip -p HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm > reference.pcm
+          python3 -m pip install --quiet numpy
+          python3 - <<'PY'
+          import sys,json,wave
+          from pathlib import Path
+          import numpy as np
+          sys.path.insert(0,'tools/bithuman_deep')
+          from verify_essence2_emulator_speaker import compare,to_8k
+          evidence=Path('captured-evidence')
+          for p in evidence.rglob('media-volume.txt'):
+              print('ACTUAL_VOLUME_COMMAND_RESULT',p.read_text())
+          for p in evidence.rglob('android-audio-state.txt'):
+              lines=p.read_text().splitlines()
+              for i,line in enumerate(lines):
+                  if 'STREAM_MUSIC' in line:
+                      print('ACTUAL_MEDIA_STREAM_STATE', '\n'.join(lines[i:i+15]))
+          reference=np.frombuffer(Path('reference.pcm').read_bytes(),dtype='<i2').astype(float)
+          wav=next(evidence.rglob('emulator-speaker.wav'))
+          with wave.open(str(wav),'rb') as f:
+              rate,channels=f.getframerate(),f.getnchannels()
+              audio=np.frombuffer(f.readframes(f.getnframes()),dtype='<i2').reshape(-1,channels).mean(axis=1)
+          print('UNFILTERED_COMPARISON',json.dumps(compare(to_8k(audio,rate),to_8k(reference,24000))))
+          def bandlimited(samples,rate):
+              # Equal 20ms, zero-phase FIR, 3.5kHz speech passband before 8kHz sampling.
+              radius=int(rate*.01)
+              n=np.arange(-radius,radius+1)
+              cutoff=3500/rate
+              taps=2*cutoff*np.sinc(2*cutoff*n)*np.hamming(len(n))
+              taps/=taps.sum()
+              return to_8k(np.convolve(samples,taps,mode='same'),rate)
+          r=compare(bandlimited(audio,rate),bandlimited(reference,24000))
+          print('BANDLIMITED_COMPARISON',json.dumps(r))
+          # This job collects diagnostics; it does not publish or certify an APK.
+          PY
