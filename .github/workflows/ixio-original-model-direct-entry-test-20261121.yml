@@ -1,0 +1,244 @@
+name: IXIO Original Model Catalog Direct Entry Test 20261121
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths:
+      - .github/workflows/ixio-original-model-direct-entry-test-20261121.yml
+      - tools/ixio/ixio_original_model_entry_probe.py
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Verify live GitHub Pages static OAuth test page
+        run: |
+          set -euo pipefail
+          code="$(curl -L --max-time 20 -sS -o /tmp/pages.html -w '%{http_code}' https://lyonbegin.github.io/hitel-room/ixio-qa-login/)"
+          echo "GITHUB_PAGES_LOGIN_HTTP=$code"
+          if [ "$code" = "200" ];then grep -Fq "HITEL IXIO 시험 로그인" /tmp/pages.html;fi
+      - name: Download pinned pristine IXIO single APK and pinned DEX tools
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-pages-build/apk .ixio-pages-build/tools .ixio-pages-build/keys ixio-pages-qa-results
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-pages-build/apk
+          test -s .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-pages-build/tools/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .ixio-pages-build/tools/smali.jar' | sha256sum -c -
+          for n in 15 16 18;do
+            unzip -p .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk "classes$n.dex" > ".ixio-pages-build/apk/classes$n-original.dex"
+            java -Xmx2600m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 \
+              -o ".ixio-pages-build/smali$n" ".ixio-pages-build/apk/classes$n-original.dex"
+          done
+      - name: Verify and stage unchanged original IXIO call-recorder companion
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-pages-build/recorder
+          gh release download ixio-input-20261115 --repo "$GH_REPO" \
+            --pattern 'mmsimage.zip' --dir .ixio-pages-build/recorder
+          python3 tools/ixio/verify_release_zip.py \
+            .ixio-pages-build/recorder/mmsimage.zip .ixio-pages-build/recorder \
+            > ixio-pages-qa-results/original-recorder-verified.json
+          echo '3cf822dda33eeef28ec3b85cb5872182371c92d07ed100e3a0fab71fbf1a37d7  .ixio-pages-build/recorder/recorder.apk' | sha256sum -c -
+          echo 'ORIGINAL_UNMODIFIED_IXIO_RECORDER_READY=YES'
+      - name: Apply isolated existing login fixture and ONE original model entry hook
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/ixio/ixio_pages_login_native_fixture.py
+          python3 tools/ixio/ixio_pages_login_native_fixture.py \
+            --smali15 .ixio-pages-build/smali15 --smali16 .ixio-pages-build/smali16 \
+            --smali18 .ixio-pages-build/smali18 \
+            --report ixio-pages-qa-results/original-login-only-diff.json
+          python3 -m py_compile tools/ixio/ixio_original_model_entry_probe.py
+          python3 tools/ixio/ixio_original_model_entry_probe.py \
+            --smali15 .ixio-pages-build/smali15 --smali16 .ixio-pages-build/smali16 \
+            --smali18 .ixio-pages-build/smali18 \
+            --report ixio-pages-qa-results/original-model-direct-entry-diff.json
+          for n in 15 16 18;do
+            java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
+              -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
+              > "ixio-pages-qa-results/smali-assembly-$n.log" 2>&1
+            test -s ".ixio-pages-build/apk/classes$n-pages.dex"
+          done
+      - name: Preserve every original APK entry except three login DEXes, align and sign
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile,copy,re,pathlib
+          p=pathlib.Path('.ixio-pages-build/apk')
+          with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk','w') as new:
+            for entry in old.infolist():
+              name=entry.filename
+              if re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',name,re.I):continue
+              data=old.read(name)
+              if name in ('classes15.dex','classes16.dex','classes18.dex'):
+                n=name[7:-4];data=(p/f'classes{n}-pages.dex').read_bytes()
+              new.writestr(copy.copy(entry),data)
+          with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk') as new:
+            a={n for n in old.namelist() if not re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',n,re.I)}
+            assert a==set(new.namelist())
+            for n in a:
+              if n not in ('classes15.dex','classes16.dex','classes18.dex'):
+                assert old.read(n)==new.read(n),n
+          print('ALL_ORIGINAL_NONDEX_APK_ENTRIES_IDENTICAL=YES')
+          PY
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore .ixio-pages-build/keys/qa.jks \
+            -storepass android -keypass android -alias qa -keyalg RSA \
+            -keysize 2048 -validity 365 -dname 'CN=HITEL Pages Offline Test' >/dev/null 2>&1
+          "$BT/zipalign" -p -f 4 .ixio-pages-build/apk/IXIO_Pages_Test_Unsigned.apk .ixio-pages-build/apk/IXIO_Pages_Test_Aligned.apk
+          "$BT/apksigner" sign --ks .ixio-pages-build/keys/qa.jks --ks-pass pass:android \
+            --key-pass pass:android --ks-key-alias qa \
+            --out .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk \
+            .ixio-pages-build/apk/IXIO_Pages_Test_Aligned.apk
+          "$BT/apksigner" verify --verbose .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
+          sha256sum .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk > ixio-pages-qa-results/tested-apk-sha256.txt
+          mkdir -p .ixio-start-test
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+      - name: Restore previously proven recorder provider Context for the existing QA path
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ixio-pages-build/recorder-rebuilt .ixio-pages-build/recorder-smali
+          gh run download 43707483111 --repo "$GH_REPO" \
+            --name ixio-standalone-apps-reassembled-android14 \
+            --dir .ixio-pages-build/recorder-rebuilt
+          mapfile -t recorder_apks < <(find .ixio-pages-build/recorder-rebuilt -type f -name 'recorder-reassembled-signed.apk')
+          test "${#recorder_apks[@]}" -eq 1
+          cp "${recorder_apks[0]}" .ixio-pages-build/recorder/reconstructed-original-code.apk
+          unzip -p .ixio-pages-build/recorder/reconstructed-original-code.apk classes.dex \
+            > .ixio-pages-build/recorder/classes-original.dex
+          java -Xmx2500m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 \
+            -o .ixio-pages-build/recorder-smali .ixio-pages-build/recorder/classes-original.dex
+          python3 tools/ixio/ixio_recorder_provider_context_bridge.py \
+            --smali-root .ixio-pages-build/recorder-smali \
+            --report ixio-pages-qa-results/recorder-only-existing-context-repair.json
+          java -Xmx2500m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
+            -o .ixio-pages-build/recorder/classes-bridged.dex .ixio-pages-build/recorder-smali
+          python3 - <<'PY'
+          from pathlib import Path
+          import copy,zipfile,re
+          p=Path('.ixio-pages-build/recorder')
+          old=p/'reconstructed-original-code.apk'
+          new=p/'recorder-context-unsigned.apk'
+          replacement=(p/'classes-bridged.dex').read_bytes()
+          with zipfile.ZipFile(old) as src,zipfile.ZipFile(new,'w') as dest:
+              for entry in src.infolist():
+                  if re.fullmatch(r'META-INF/.*\.(?:RSA|EC|DSA|SF|MF)',entry.filename,re.I):
+                      continue
+                  dest.writestr(copy.copy(entry),
+                      replacement if entry.filename=='classes.dex' else src.read(entry.filename))
+          with zipfile.ZipFile(old) as src,zipfile.ZipFile(new) as dest:
+              assert src.read('AndroidManifest.xml')==dest.read('AndroidManifest.xml')
+              for n in src.namelist():
+                  if n.endswith('.dex') and n!='classes.dex':
+                      assert src.read(n)==dest.read(n),n
+          print('EXISTING_RECORDER_AIDL_PCM_STT_CLASSES_UNCHANGED=YES')
+          PY
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/zipalign" -p -f 4 .ixio-pages-build/recorder/recorder-context-unsigned.apk \
+            .ixio-pages-build/recorder/recorder-context-aligned.apk
+          "$BT/apksigner" sign --ks .ixio-pages-build/keys/qa.jks --ks-pass pass:android \
+            --key-pass pass:android --ks-key-alias qa \
+            --out .ixio-pages-build/recorder/recorder-context-test-signed.apk \
+            .ixio-pages-build/recorder/recorder-context-aligned.apk
+          "$BT/apksigner" verify --verbose .ixio-pages-build/recorder/recorder-context-test-signed.apk
+          echo 'ORIGINAL_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_REUSED=YES'
+      - name: Enable Android emulator KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Actually install APK, tap GitHub Pages OAuth, follow deep link and test home UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            sleep 35
+            echo 'INSTALLING_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_SAME_SIGNER_AS_QA'
+            adb install -r .ixio-pages-build/recorder/recorder-context-test-signed.apk
+            adb shell pm path com.lguplus.callrecorder
+            echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
+            python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+      - name: Verify installed original app, original model entry call and catalog response evidence
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('ixio-pages-qa-emulator-evidence')
+          d=json.loads((p/'result.json').read_text())
+          actions=json.loads((p/'actions.json').read_text())
+          log=(p/'logcat-full.txt').read_text(errors='replace')
+          tapped=any(x.get('tap',{}).get('label')=='PAGES_QA_ONLY_COMPLETE_AND_DEEP_LINK_BACK' for x in actions)
+          print('ACTUAL_TEST_APP_INSTALLED',d['installed'])
+          print('ACTUAL_STATIC_PAGES_DEEPLINK_BUTTON_TAPPED',tapped)
+          print('ACTUAL_HOME_SCREEN_REACHED',d['home_screen_seen'])
+          model_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_PROBE' in line]
+          http_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_HTTP' in line]
+          out=p/'original-model-request-events.txt'
+          out.write_text('\n'.join(model_events+http_events),encoding='utf8')
+          print('ACTUAL_SERVICE_ERROR',d['service_error_seen'])
+          print('ACTUAL_LOGIN_ONLY_HTTP_INTERCEPT_COUNT',log.count('IXIO_PAGES_QA_ONLY'))
+          print('ORIGINAL_MODEL_PROBE_EVENT_COUNT',len(model_events))
+          print('ORIGINAL_MODEL_HTTP_EVENT_COUNT',len(http_events))
+          print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))
+          print('MODEL_DIRECT_ENTRY_UI_STATE',json.dumps(d,ensure_ascii=False))
+          for item in model_events+http_events:
+            print('MODEL_ORIGINAL_STEP',item[-250:])
+          assert d['installed'] and tapped and d['home_screen_seen'],'Could not reach original home'
+          assert log.count('IXIO_PAGES_QA_ONLY')>=3,'Original Pages-only login not exercised'
+          assert 'TRIGGERED_AFTER_ORIGINAL_VIEWMODEL_CONSTRUCTOR' in log,'No direct model trigger from original home ViewModel'
+          print('ORIGINAL_MODEL_EXISTING_METHOD_DIRECT_ENTRY_VERIFIED=YES')
+          PY
+      - name: Upload screenshots and checksums even if emulated login fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Original_Model_Download_Direct_Entry_Evidence_20261121
+          path: |
+            ixio-pages-qa-results/
+            ixio-pages-qa-emulator-evidence/
+          retention-days: 7
+      - name: Publish exact emulator-tested APK to public GitHub Release only after ALL checks pass
+        if: false # This is continuation-only evidence. Preserve the existing public APK until recorder/model behavior is verified.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ixio-github-pages-qa-original-20261120
+          apk=.ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
+          test "$(sha256sum "$apk" | cut -d' ' -f1)" = \
+            "$(cut -d' ' -f1 ixio-pages-qa-results/tested-apk-sha256.txt)"
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1;then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO Original APK with offline GitHub Pages QA login" \
+              --notes "TEST ONLY: offline native mock for selected login endpoints, browser OAuth on GitHub Pages, original deep link, tested emulator home. No actual membership. Non-login vendor URLs, STT, recorder, crypto remain original. SHA256 matched actual tested APK."
+          fi
+          gh release upload "$tag" "$apk" --repo "$GH_REPO" --clobber
+          echo "APK_DIRECT_URL=https://github.com/$GH_REPO/releases/download/$tag/IXIO_HITEL_Pages_QA_20261120.apk"
