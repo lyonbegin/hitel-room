@@ -28,7 +28,8 @@ ids={x["id"].lower() for x in matched}
 names={x["name"].split("/")[-1] for x in matched}
 METHOD=re.compile(r"(?ms)^\.method[^\n]*\n.*?^\.end method$")
 records=[]
-selected_names=re.compile(r"(DownloadViewModel|AiModelRemoteSourceImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecorderSetting|RecordingSetting|RecordSetting|setting/viewmodel/SettingViewModel|DiscoverViewModel|setting/acivity/SettingActivity)")
+selected_names=re.compile(r"(DownloadViewModel|AiModelRemoteSourceImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecorderSetting|RecordingSetting|RecordSetting|setting/viewmodel/SettingViewModel|DiscoverViewModel|ResolveOnboardingLoginEntryUseCase|DeviceUtil|DeviceInfoUtil|CheckDevice|SupportedModel)")
+support_call=re.compile(r"NotSupportedModelDialog\(|isSupportedModel|isSupportedDevice|notSupportedModel|NotSupportedModel|SupportDevice|DeviceNotSupport|supportedModel|SupportedDevice")
 for folder in sorted(ROOT.glob("smali*")):
     for file in sorted(folder.rglob("*.smali")):
         rel=file.relative_to(folder).as_posix()
@@ -37,13 +38,14 @@ for folder in sorted(ROOT.glob("smali*")):
         src=file.read_text(errors="replace")
         resource_hit=any(("->"+n+":I") in src for n in names) or any(n in src.lower() for n in ids) or "showVasErrorRetryToast()V" in src
         selected=bool(selected_names.search(rel)) or "showVasErrorRetryToast()V" in src
-        if not resource_hit and not selected:
+        support_selected=bool(support_call.search(src))
+        if not resource_hit and not selected and not support_selected:
             continue
         for match in METHOD.finditer(src):
             body=match.group()
             direct=any(("->"+n+":I") in body for n in names) or any(n in body.lower() for n in ids)
             head=body.splitlines()[0]
-            if not direct and not selected:
+            if not direct and not selected and not support_call.search(body):
                 continue
             if not direct and ("<init>" in head or "getStable" in head):
                 continue
