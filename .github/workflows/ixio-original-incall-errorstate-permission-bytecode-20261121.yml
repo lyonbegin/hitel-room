@@ -130,6 +130,42 @@ jobs:
           Path('ixio-incall-permission-evidence/appstatus-producers.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
           assert any(x['priority']>=2 for x in results)
           PY
+      - name: Trace CallViewModel permissionFlow initialization and update sites
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('.bytecode-private/classes18-smali/com/lguplus/aicallagent/incall/call/ui')
+          assert root.is_dir()
+          selected=[]
+          for file in sorted(root.glob('CallViewModel*.smali')):
+            source=file.read_text(errors='replace')
+            if 'permissionFlow' not in source and 'Permission' not in file.name:continue
+            current=[]
+            for ln in source.splitlines():
+              if ln.startswith('.method'):current=[ln];continue
+              if not current:continue
+              current.append(ln)
+              if not ln.startswith('.end method'):continue
+              if not any('permissionFlow' in line or 'PermissionRepository' in line for line in current):
+                current=[];continue
+              selected_ir=[]
+              for i,line in enumerate(current):
+                if 'permissionFlow' not in line and 'PermissionRepository' not in line:continue
+                for offset in range(max(0,i-6),min(len(current),i+6)):
+                  code=current[offset].strip()
+                  if code.startswith(('invoke-','iget','iput','sget','sput','if-','return','move-result','check-cast','new-instance')):
+                    selected_ir.append(code[:280])
+              item={'class':file.name,'method':current[0],'safe_ir':list(dict.fromkeys(selected_ir))[:85]}
+              selected.append(item)
+              current=[]
+          for item in selected:
+            print('PERMISSION_FLOW_PROVENANCE',item['class'],item['method'])
+            for instr in item['safe_ir'][:55]:print('PERMISSION_FLOW_IR',instr)
+          print('PERMISSION_FLOW_REFERENCING_METHODS',len(selected))
+          Path('ixio-incall-permission-evidence/callviewmodel-permissionflow-provenance.json').write_text(json.dumps(selected,ensure_ascii=False,indent=2))
+          assert selected,'No CallViewModel permissionFlow references located'
+          PY
       - name: Upload safe, token-free source metadata
         if: always()
         uses: actions/upload-artifact@v4
