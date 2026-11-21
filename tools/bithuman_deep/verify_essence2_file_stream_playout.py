@@ -4,6 +4,7 @@ import argparse
 from collections import defaultdict
 import json
 from pathlib import Path
+import re
 import subprocess
 import time
 
@@ -64,21 +65,66 @@ def summarize(trace):
     }
 
 
+def summarize_original(trace):
+    decoded = {}
+    fed_samples = 0
+    shown = 0
+    due = 0
+    for line in trace.splitlines():
+        row = parse_line(line)
+        if row.get("stage") == "file.decode.begin":
+            decoded, fed_samples, shown, due = {}, 0, 0, 0
+        elif row.get("stage") == "file.decode.done":
+            decoded = row
+        feed = re.search(r"\bbhfeed\s*:\s*\+(\d+) fed=", line)
+        if feed:
+            fed_samples += int(feed[1])
+        utterance = re.search(r"\bbhcov\s*:\s*UTT \d+ unique=(\d+) due=(\d+)", line)
+        if utterance:
+            shown += int(utterance[1])
+            due += int(utterance[2])
+
+    file_bytes = int(decoded.get("bytes24k", 0))
+    # The stock player maps every 3 input bytes to one 16 kHz sample
+    # and schedules a 24 kHz, 16-bit audio unit per 25 fps speech frame.
+    expected_units = file_bytes // (24000 * 2 // 25)
+    checks = {
+        "file_decoded": file_bytes > 0,
+        "source_pcm_reached_engine": file_bytes > 0 and fed_samples * 3 == file_bytes,
+        "voice_units_presented": expected_units > 0 and due >= expected_units,
+        "mouth_frame_presented": shown > 0,
+    }
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+        "chunks": int(decoded.get("chunks", 0)),
+        "file_pcm_bytes": file_bytes,
+        "native_pcm_bytes": fed_samples * 3,
+        "expected_units": expected_units,
+        "unique_shown": shown,
+        "due": due,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--timeout", type=float, default=240)
+    parser.add_argument("--original-playback", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + args.timeout
+    tags = ["HITEL_E2TRACE:I"]
+    if args.original_playback:
+        tags.extend(["bhfeed:I", "bhcov:I", "BithumanAvatar:I"])
     while True:
         trace = subprocess.check_output(
-            ["adb", "logcat", "-d", "-v", "threadtime", "-s", "HITEL_E2TRACE:I"],
+            ["adb", "logcat", "-d", "-v", "threadtime", "-s", *tags],
             text=True,
             errors="replace",
             timeout=20,
         )
-        result = summarize(trace)
+        result = summarize_original(trace) if args.original_playback else summarize(trace)
         if result["passed"] or time.monotonic() >= deadline:
             break
         time.sleep(5)

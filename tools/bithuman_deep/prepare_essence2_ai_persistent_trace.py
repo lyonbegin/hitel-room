@@ -16,7 +16,7 @@ def change_once(s,a,b,label):
         raise AssertionError("AI_TRACE_"+label+" expected 1 anchor, got "+str(n))
     return s.replace(a,b,1)
 
-def main(app,plugin,report):
+def main(app,plugin,report,clipboard=True):
     transport=plugin/"lib/bithuman_realtime.dart"
     ui=app/"lib/main.dart"
     runtime=app/"lib/hitel_offline_runtime.dart"
@@ -89,29 +89,29 @@ def main(app,plugin,report):
     assert u.count("debugPrint('[HITEL_AI_E2E] ")==3, "Unexpected UI event debugPrint anchors"
     u=u.replace("debugPrint('[HITEL_AI_E2E] ",
                 "BithumanRealtimeSession.hitelAiTrace('")
-    u=change_once(u,
-        "      final detail = 'HITEL Essence 2 Android diagnostics\\n'\n",
-        """      final aiFile = File('__DOLLAR__{dir.path}/hitel_ai_e2e.log');
+    if clipboard:
+        u=change_once(u,
+            "      final detail = 'HITEL Essence 2 Android diagnostics\\n'\n",
+            """      final aiFile = File('__DOLLAR__{dir.path}/hitel_ai_e2e.log');
       final aiTrace = await aiFile.exists()
           ? await aiFile.readAsString() : '(AI event trace not found)';
       final aiTail = aiTrace.length > 40000
           ? aiTrace.substring(aiTrace.length - 40000) : aiTrace;
       final detail = 'HITEL Essence 2 Android diagnostics\\n'
 ""","copy-ai-protocol-file")
-    # Only match the unique Dart interpolation suffix. Flutter patchers emit
-    # differing slash encodings around the preceding literal heading.
-    u=change_once(u,
-        "$traceTail';",
-        r"$traceTail\n'" + "\n" +
-        r"           '--- hitel_ai_e2e.log recent ---\n__DOLLAR__aiTail';",
-        "copy-event-tail")
+        # Match the unique interpolation suffix, independent of the heading.
+        u=change_once(u,
+            "$traceTail';",
+            r"$traceTail\n'" + "\n" +
+            r"           '--- hitel_ai_e2e.log recent ---\n__DOLLAR__aiTail';",
+            "copy-event-tail")
     ui.write_text(u.replace("__DOLLAR__","$"))
     report.parent.mkdir(parents=True,exist_ok=True)
     report.write_text(json.dumps({
         "status":"applied to disposable app and plugin only",
         "AI_protocol_trace_file":"app_flutter/hitel_ai_e2e.log",
         "size_limit":524288,
-        "clipboard_tail_chars":40000,
+        "clipboard_tail_chars":40000 if clipboard else None,
         "contains_prompt":False,"contains_transcript":False,
         "contains_pcm":False,"contains_secret":False,
         "protocol_or_native_changes":False,
@@ -123,5 +123,6 @@ if __name__=="__main__":
     a.add_argument("--app",type=Path,required=True)
     a.add_argument("--plugin",type=Path,required=True)
     a.add_argument("--report",type=Path,required=True)
+    a.add_argument("--defer-clipboard",action="store_true")
     x=a.parse_args()
-    main(x.app,x.plugin,x.report)
+    main(x.app,x.plugin,x.report,clipboard=not x.defer_clipboard)

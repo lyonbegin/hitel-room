@@ -76,7 +76,8 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
 '''
 
 
-def prepare(app, plugin, sources, report):
+def prepare(app, plugin, sources, report, original_playback=False):
+    revision = 'R6' if original_playback else 'R5'
     folder = plugin / 'android/src/main/kotlin/ai/bithuman/flutter'
     for name in ('HitelFileAudioSource.kt', 'HitelDiagnostics.kt', 'DiagnosticFiles.kt',
                  'HitelLogResetReceiver.kt', 'HitelE2Trace.kt'):
@@ -84,7 +85,8 @@ def prepare(app, plugin, sources, report):
     java = plugin / 'android/src/main/java/ai/bithuman/flutter/FilePcmStream.java'
     java.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(sources / 'FilePcmStream.java', java)
-    shutil.copyfile(sources / 'hitel_file_reply.dart', app / 'lib/hitel_file_reply.dart')
+    reply_source = 'hitel_direct_file_reply.dart' if original_playback else 'hitel_file_reply.dart'
+    shutil.copyfile(sources / reply_source, app / 'lib' / reply_source)
 
     target = folder / 'BithumanPlugin.kt'
     s = target.read_text(encoding='utf-8')
@@ -102,7 +104,8 @@ def prepare(app, plugin, sources, report):
     assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in s
     assert 'val forceCopy = true' not in s and 'return AvatarPlayer(' in s
     target.write_text(s, encoding='utf-8')
-    patch_streaming_engine(folder / 'AvatarEngine.kt')
+    if not original_playback:
+        patch_streaming_engine(folder / 'AvatarEngine.kt')
 
     runtime = app / 'lib/hitel_offline_runtime.dart'
     s = runtime.read_text(encoding='utf-8')
@@ -136,6 +139,23 @@ def prepare(app, plugin, sources, report):
     s = once(s, '    } catch (_) {}\n  }\n\n  Future<void> close()',
              '    } catch (_) {} finally { _fileReply.cancel(); }\n  }\n\n  Future<void> close()')
     s = s.replace("import 'dart:typed_data';\n", '')
+    if original_playback:
+        s = once(s, "import 'hitel_file_reply.dart';\n", '')
+        s = once(s, '  final _fileReply = HitelFileReply();\n', '')
+        s = once(s, "      var pendingText = '';\n", '')
+        a = s.index("          case 'conversation.item.create':")
+        b = s.index('        }\n      }\n    } catch', a)
+        s = s[:a] + """          case 'response.create':
+            conn.sendResponseCreated();
+            conn.sendResponseDone();
+            break;
+          case 'response.cancel':
+            conn.sendResponseCancelled();
+            break;
+""" + s[b:]
+        s = once(s, '    } catch (_) {} finally { _fileReply.cancel(); }\n',
+                 '    } catch (_) {}\n')
+        s = once(s, '    _fileReply.close();\n', '')
     assert 'rootBundle.load' not in s and '_voicedPcm24k' not in s
     runtime.write_text(s, encoding='utf-8')
 
@@ -149,7 +169,7 @@ def prepare(app, plugin, sources, report):
         '\nandroid { androidResources { noCompress += "m4a" } }\n', encoding='utf-8')
     manifest = app / 'android/app/src/main/AndroidManifest.xml'
     s = once(manifest.read_text(encoding='utf-8'), 'android:label="${appLabel}"',
-             'android:label="HITEL PCM File R5"')
+             f'android:label="HITEL PCM File {revision}"')
     s = once(s, '    </application>', '''        <receiver android:name="ai.bithuman.flutter.HitelLogResetReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
         </receiver>
@@ -164,7 +184,7 @@ def prepare(app, plugin, sources, report):
     b = re.search(r'\n  (?:Future<|void |Widget )', s[a + 1:])
     assert b
     b = a + 1 + b.start() + 1
-    s = s[:a] + DIAGNOSTICS + s[b:]
+    s = s[:a] + DIAGNOSTICS.replace('PCM_FILE_R5', f'PCM_FILE_{revision}') + s[b:]
     old = """      floatingActionButton: Platform.isAndroid
           ? FloatingActionButton.small(
               tooltip: 'Essence 2 진단 로그 복사',
@@ -213,8 +233,33 @@ def prepare(app, plugin, sources, report):
     s = once(s, '    _avatar?.dispose();\n',
              '    unawaited(_filePlayout?.cancel());\n    _avatar?.dispose();\n')
     s = once(s, 'StatusPill(state: _state, label: _status)',
-             "StatusPill(state: _state, label: 'R5 · $_status')")
+             f"StatusPill(state: _state, label: '{revision} · $_status')")
     s = s.replace('> 524288', '> 131072')
+    if original_playback:
+        s = once(s, "import 'hitel_offline_runtime.dart';\n",
+                 "import 'hitel_offline_runtime.dart';\nimport 'hitel_direct_file_reply.dart';\n")
+        s = once(s, '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n',
+                 '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n'
+                 '  final _directFileReply = HitelDirectFileReply();\n')
+        s = once(s, '          _session!.sendText(p);\n', '          unawaited(_playFileReply());\n')
+        s = once(s, '    _session!.sendText(t);\n', '    unawaited(_playFileReply());\n')
+        s = once(s, '  /// A typed turn is the same turn a spoken one is: same units back, same barge-in.\n',
+                 """  Future<void> _playFileReply() async {
+    final avatar = _avatar;
+    if (avatar == null || !avatar.isReady) return;
+    setState(() => _status = '음성 파일을 준비하고 있습니다…');
+    try {
+      await _directFileReply.play(avatar, _hitelAppendAiTrace);
+    } catch (_) {
+      if (mounted) setState(() => _status = '음성 파일을 재생하지 못했습니다.');
+    }
+  }
+
+""")
+        s = once(s, '        _session?.stop(); _session = null;\n',
+                 '        _directFileReply.cancel();\n        _session?.stop(); _session = null;\n')
+        s = once(s, '    _session?.stop();\n    unawaited(_filePlayout?.cancel());\n',
+                 '    _directFileReply.cancel();\n    _session?.stop();\n    unawaited(_filePlayout?.cancel());\n')
     ui.write_text(s, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
@@ -223,6 +268,7 @@ def prepare(app, plugin, sources, report):
         'file_chunk_ms': 100, 'decode_rate': 16000, 'wire_rate': 24000,
         'whole_file_read': False, 'whole_file_pcm_conversion': False,
         'decoded_queue_packets': 8, 'file_paced_by_playout': False,
+        'direct_vendor_pcm_api': original_playback, 'pristine_native_playback': original_playback,
         'source': 'existing public test voice encoded as M4A at build time',
         'STT': False, 'TTS': False, 'renderer': 'original AvatarPlayer and original automatic GPU routing',
         'clear_on_package_update_and_first_launch': True, 'manual_clear_button': True,
@@ -236,5 +282,6 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     for name in ('app', 'plugin', 'sources', 'report'):
         p.add_argument('--' + name, type=Path, required=True)
+    p.add_argument('--original-playback', action='store_true')
     a = p.parse_args()
-    prepare(a.app, a.plugin, a.sources, a.report)
+    prepare(a.app, a.plugin, a.sources, a.report, a.original_playback)
