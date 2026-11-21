@@ -1,0 +1,94 @@
+name: IXIO Function Trace APK Anonymous Download And Source Coverage
+on:
+  push:
+    branches: [fix/ixio-ai-engine-toast-gate-20261121]
+    paths: [.github/workflows/ixio-flow-trace-public-verification.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  verify-public-trace-apks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the tested installation, real flow observations and all retry callers
+        run: |
+          set -euo pipefail
+          source_run=44923882633
+          gh run watch "$source_run" --exit-status --interval 10
+          test "$(gh run view "$source_run" --json headSha --jq '.headSha')" = 6d06f1e9778f1733e45933a747d4a6b613060d03
+          test "$(gh run view "$source_run" --json conclusion --jq '.conclusion')" = success
+          gh run download "$source_run" --name IXIO_Original_Flow_Trace_DEX_And_UI_Evidence_20261122 --dir .flow-proof/evidence
+          gh run download "$source_run" --name IXIO_Original_Flow_Trace_Exact_Tested_Installable_APKs --dir .flow-proof/tested
+          (cd .flow-proof/tested && sha256sum -c SHA256SUMS.txt)
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,gzip
+          p=Path('.flow-proof/evidence/ixio-pages-qa-results')
+          runtime=json.loads((p/'original-flow-runtime-verification.json').read_text())
+          flow=json.loads((p/'original-function-boundary-sites.json').read_text())
+          inventory=json.loads((p/'all-exact-retry-error-sites.json').read_text())
+          gate=json.loads((p/'toast-gate-ui-result.json').read_text())
+          buttons=json.loads((p/'log-clear-copy-ui-result.json').read_text())
+          assert runtime['actual_copy_panel_contains_flow'] and runtime['actual_copy_panel_contains_sequence_pid_tid']
+          assert runtime['actual_flow_payload_copied_to_clipboard']
+          assert runtime['actual_worker_terminal_results']
+          assert gate['recording_settings_opened'] and not gate['fatal_seen']
+          assert all(buttons[k] for k in ('panel_found','clear_button_pressed','copy_button_pressed','clipboard_set_marker'))
+          assert flow['original_instructions_preserved'] and flow['relocated_classes']['count']>0
+          assert flow['original_exception_coverage_preserved'] and flow['new_probe_invokes_excluded_from_original_catch_ranges']
+          wanted={(s['class'],s['method']) for s in inventory['sites']}
+          covered={(s['class'].removesuffix('.smali'),s['method'].split(' ')[-1]) for s in flow['sites']}
+          assert len(inventory['sites'])==66 and len(wanted)==60 and not wanted-covered
+          summary={k:flow[k] for k in ('site_count','class_count','phase_counts','changed_dex','static_http_route_count','original_instructions_preserved','original_exception_coverage_preserved','new_probe_invokes_excluded_from_original_catch_ranges')}
+          summary.update({'exact_retry_sites':66,'all_retry_methods_covered':60,'runtime':runtime})
+          Path('.flow-proof/source-and-runtime.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+          with gzip.open('.flow-proof/IXIO_OriginalFlowTrace_Sites_20261122.json.gz','wb') as out:
+              out.write(json.dumps(flow,ensure_ascii=False).encode())
+          print('ALL_ORIGINAL_FUNCTION_SOURCE_AND_RUNTIME_COVERAGE',json.dumps(summary,ensure_ascii=False),flush=True)
+          PY
+      - name: Fetch both public APKs without account credentials and compare exact tested bytes
+        run: |
+          set -euo pipefail
+          tag=ixio-qa-original-flow-trace-20261122
+          mkdir -p .flow-proof/public
+          for file in IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk;do
+            url="https://github.com/$GH_REPO/releases/download/$tag/$file"
+            code="$(env -u GH_TOKEN -u GITHUB_TOKEN curl -q -fLsS --retry 2 --max-time 180 -o ".flow-proof/public/$file" -w '%{http_code}' "$url")"
+            test "$code" = 200
+            cmp ".flow-proof/tested/$file" ".flow-proof/public/$file"
+            echo "PUBLIC_FUNCTION_TRACE_APK=$file HTTP=$code EXACT_TESTED_BYTES=YES"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          p=Path('.flow-proof')
+          expected=(p/'evidence/ixio-pages-qa-results/tested-apk-sha256.txt').read_text().split()[0]
+          assets=[]
+          for f in sorted((p/'public').glob('*.apk')):
+              with f.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+              if f.name.startswith('IXIO_HITEL_'):assert digest==expected
+              assets.append({'name':f.name,'size':f.stat().st_size,'sha256':digest,'anonymous_http':200,'exact_tested_bytes':True,
+                'url':'https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-original-flow-trace-20261122/'+f.name})
+          result={'source_run':44923882633,'build_source':'6d06f1e9778f1733e45933a747d4a6b613060d03','assets':assets,
+            'coverage':json.loads((p/'source-and-runtime.json').read_text()),'physical_call_pcm_stt_verified':False}
+          (p/'verified-public-trace-apks.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print('EXACT_PUBLIC_FUNCTION_TRACE_APK_VERIFICATION',json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - name: Preserve the complete call-site map and verification report with this release
+        run: |
+          gh release upload ixio-qa-original-flow-trace-20261122 \
+            .flow-proof/IXIO_OriginalFlowTrace_Sites_20261122.json.gz \
+            .flow-proof/verified-public-trace-apks.json --clobber
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Function_Trace_Public_Verification
+          path: |
+            .flow-proof/verified-public-trace-apks.json
+            .flow-proof/source-and-runtime.json
+            .flow-proof/IXIO_OriginalFlowTrace_Sites_20261122.json.gz
+          retention-days: 14
+
