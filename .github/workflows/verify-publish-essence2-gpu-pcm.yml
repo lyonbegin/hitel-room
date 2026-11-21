@@ -1,0 +1,145 @@
+name: Verify GPU PCM APK speaker output and publish exact tested binary
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/hitel-essence2-gpu-hardwarebuffer-20261121]
+    paths: [.github/workflows/verify-publish-essence2-gpu-pcm.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: essence2-gpu-pcm-speaker-publication
+  cancel-in-progress: false
+jobs:
+  verify-speaker-and-deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: '44906396686'
+      SOURCE_SHA: 85f22f6eff3b4ffd5863b43b3c2efc4521bae54e
+      APK: HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
+      TAG: hitel-essence2-gpu-hardwarebuffer-pcm16-20261121
+      QEMU_AUDIO_DRV: wav
+      QEMU_WAV_FREQUENCY: '48000'
+      QEMU_WAV_PATH: ${{ github.workspace }}/speaker-proof/emulator-speaker.fifo
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for the exact existing APK build and retain its conclusion
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p speaker-proof
+          for attempt in $(seq 1 90); do
+            gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN" > speaker-proof/source-run.json
+            test "$(jq -r .head_sha speaker-proof/source-run.json)" = "$SOURCE_SHA"
+            if [ "$(jq -r .status speaker-proof/source-run.json)" = completed ]; then
+              jq '{id,head_sha,status,conclusion}' speaker-proof/source-run.json
+              break
+            fi
+            if [ "$attempt" = 90 ]; then echo SOURCE_BUILD_STILL_RUNNING; exit 12; fi
+            sleep 20
+          done
+      - uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_GPU_HardwareBuffer_PCM16_APK
+          run-id: 44906396686
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: essence2-gpu-pcm16-test-evidence
+          run-id: 44906396686
+          github-token: ${{ github.token }}
+          path: source-proof
+      - name: Verify exact APK and extract its actual audio reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$APK"
+          unzip -t "$APK" | tail -1
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          apk = Path(os.environ['APK'])
+          report = next(Path('source-proof').rglob('apk-sha256.txt'))
+          expected = report.read_text().split()[0]
+          actual = hashlib.sha256(apk.read_bytes()).hexdigest()
+          assert actual == expected, (actual, expected)
+          Path(str(apk)+'.sha256').write_text(actual+'  '+apk.name+'\n')
+          print('PASS_EXACT_COMPILED_GPU_APK_SHA256='+actual)
+          PY
+          unzip -p "$APK" assets/flutter_assets/assets/hitel_file_reply.m4a > speaker-proof/reference.m4a
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq; sudo apt-get install -y ffmpeg; fi
+          ffmpeg -hide_banner -loglevel error -i speaker-proof/reference.m4a -ac 1 -ar 24000 -f s16le speaker-proof/reference-24k.pcm
+          python3 -m pip install --quiet numpy scipy==1.14.1
+          python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_speaker_capture.py -v
+          python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_qemu_capture.py -v
+          bash tools/bithuman_deep/prepare_essence2_wav_capture.sh
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Exercise the same APK with real virtual speaker capture enabled
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 6144 -cores 4 -no-snapshot -wipe-data
+          script: |
+            adb shell cmd media_session volume --stream 3 --set 15 > speaker-proof/media-volume.txt
+            adb shell cmd media_session volume --stream 3 --get >> speaker-proof/media-volume.txt
+            bash tools/bithuman_deep/essence2_live_pcm16_android15_entry.sh "$APK"
+      - name: Require original speech in the captured output
+        if: ${{ always() && hashFiles('speaker-proof/emulator-speaker.ready') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/capture_qemu_wav_stream.py finalize --raw speaker-proof/emulator-speaker.raw --wav speaker-proof/emulator-speaker.wav
+          python3 tools/bithuman_deep/verify_essence2_emulator_speaker.py --wav speaker-proof/emulator-speaker.wav --reference speaker-proof/reference-24k.pcm --report speaker-proof/speaker-verification.json
+          grep -E 'GPU_DELIVERY|GPU_INIT_FAILED|LIVE_PULL|LIVE_DRAW|LIVE_AUDIO_START|LIVE_AUDIO_DONE|LIVE_AUDIO_INCOMPLETE|LIVE_RENDER_DONE|LIVE_.*FAIL' essence2-live-boot/selected-native-logcat.txt essence2-live-speech/full-after-speech-logcat.txt > speaker-proof/gpu-audio-results.txt
+          cat speaker-proof/gpu-audio-results.txt
+      - name: Publish only the tested binary after runtime and speaker checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('speaker-proof/speaker-verification.json').read_text())
+          assert result['virtual_speaker_speech_verified'] is True
+          PY
+          cat > speaker-proof/release-notes.md <<EOF
+          GPU HardwareBuffer / live PCM16 installation test build from source $SOURCE_SHA, build run $SOURCE_RUN.
+
+          Reconnects useHardwareBuffers -> pullHardwareBuffer -> Bitmap.wrapHardwareBuffer -> existing Flutter lockHardwareCanvas. PCM16 input, AudioTrack playback and SDK frame output start independently without whole-file frame generation. CPU fallback is logged when SDK hardware-buffer initialization is unsupported.
+
+          This exact APK passed Android 15 ARM64-translated emulator installation, complete native speech rendering, AudioTrack completion and captured virtual-speaker waveform comparison. Emulator rendering uses SwiftShader; physical Galaxy GPU activation, device speed and visual lip-sync quality require physical-device logs. The reply uses the bundled recording and a local test session.
+
+          Verification: https://github.com/$GH_REPO/actions/runs/$GITHUB_RUN_ID
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" "${APK}.sha256" speaker-proof/speaker-verification.json speaker-proof/gpu-audio-results.txt --clobber
+            gh release edit "$TAG" --notes-file speaker-proof/release-notes.md --prerelease --latest=false
+          else
+            gh release create "$TAG" "$APK" "${APK}.sha256" speaker-proof/speaker-verification.json speaker-proof/gpu-audio-results.txt --target "$SOURCE_SHA" --prerelease --latest=false --title 'HITEL Essence2 GPU HardwareBuffer live PCM16 - Android ARM64 test' --notes-file speaker-proof/release-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk") | .url')"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
+          printf 'DIRECT_APK_URL=%s\n' "$URL"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-gpu-pcm-speaker-publication-evidence
+          path: |
+            speaker-proof/*.json
+            speaker-proof/*.txt
+            speaker-proof/*.wav
+            essence2-live-boot/
+            essence2-live-speech/
+          retention-days: 14
+
