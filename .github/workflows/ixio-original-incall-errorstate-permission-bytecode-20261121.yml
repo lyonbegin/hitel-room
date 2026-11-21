@@ -1,0 +1,109 @@
+name: IXIO Original InCall ErrorState Permission Source Bytecode Audit
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-original-incall-errorstate-permission-bytecode-20261121.yml]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inspect-original-incall-state-without-app-modification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Fetch pinned original IXIO APK and verified baksmali
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .bytecode-private ixio-incall-permission-evidence
+          gh run download 43799320393 --repo "$GH_REPO" \
+            --name IXIO_Main_NoAppSealing_Single_APK --dir .bytecode-private
+          curl -fLsS --retry 3 \
+            https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar \
+            -o .bytecode-private/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .bytecode-private/baksmali.jar' | sha256sum -c -
+      - name: Find original DEX containing exact in-call permission UI diagnostic string
+        run: |
+          python3 - <<'PY'
+          import zipfile,json,re
+          from pathlib import Path
+          root=Path('.bytecode-private')
+          z=root/'IXIO_Main_NoAppSealing_Single.apk'
+          needles=[b'ErrorStateScreen',b'permissionGranted',b'isRequirePermissionGranted',
+                   b'PermissionUtil',b'CallActivity',b'getRequirePermissionList']
+          found=[]
+          with zipfile.ZipFile(z) as a:
+            for n in a.namelist():
+              if not re.fullmatch(r'classes\d*\.dex',n):continue
+              b=a.read(n)
+              hits=[x.decode() for x in needles if x in b]
+              if hits:
+                found.append({'dex':n,'size':len(b),'matches':hits})
+                print('ORIGINAL_DEX_STRING_HITS',n,','.join(hits))
+                # Full audit only for dex carrying the UI ErrorStateScreen:
+                if b'ErrorStateScreen' in b:
+                  (root/n).write_bytes(b)
+          Path('ixio-incall-permission-evidence/dex-string-locations.json').write_text(
+            json.dumps(found,indent=2))
+          assert any('ErrorStateScreen' in e['matches'] for e in found),'No original ErrorStateScreen string found'
+          PY
+      - name: Disassemble only relevant original DEX and extract safe class-level method decisions
+        run: |
+          set -euo pipefail
+          for dex in .bytecode-private/classes*.dex; do
+            n="$(basename "$dex" .dex)"
+            java -Xmx2600m -jar .bytecode-private/baksmali.jar d --api 34 --jobs 3 \
+              -o ".bytecode-private/$n-smali" "$dex"
+          done
+          python3 - <<'PY'
+          import re,json
+          from pathlib import Path
+          root=Path('.bytecode-private')
+          methods=re.compile(r'(?ms)^\.method[^\n]*\n.*?^\.end method$')
+          hits=[]
+          for d in sorted(root.glob('classes*-smali')):
+            for f in d.rglob('*.smali'):
+              s=f.read_text(errors='replace')
+              if 'ErrorStateScreen' not in s and 'permissionGranted' not in s:continue
+              for m in methods.finditer(s):
+                b=m.group()
+                if not ('ErrorStateScreen' in b and ('permissionGranted' in b or 'TEST!' in b)):
+                    continue
+                op=[]
+                for line in b.splitlines():
+                  t=line.strip()
+                  if t.startswith('const-string'):
+                    if 'ErrorStateScreen' in t or 'permissionGranted' in t:
+                      op.append(t[:240])
+                    else:op.append('const-string [REDACTED]')
+                  elif t.startswith(('.method','.end method','.locals','.registers')):
+                    op.append(t[:260])
+                  elif t.startswith(('invoke-','move-result','iget','sget','iput','sput',
+                                     'if-','goto',':','return','check-cast',
+                                     'new-instance','instance-of')):
+                    op.append(t[:290])
+                item={'dex_dir':d.name,'class':str(f.relative_to(d)),
+                      'method':b.splitlines()[0],'instructions':op[:500]}
+                print('ERRORSTATE_PERMISSION_CALLSITE',item['dex_dir'],item['class'],item['method'])
+                for line in op[:155]:print('BYTECODE',line)
+                hits.append(item)
+          Path('ixio-incall-permission-evidence/errorstate-permission-callsite.json').write_text(
+            json.dumps(hits,ensure_ascii=False,indent=2))
+          print('ORIGINAL_ERRORSTATE_PERMISSION_CALLSITE_COUNT',len(hits))
+          assert hits,'Original UI permission diagnostics not traced'
+          PY
+      - name: Upload safe, token-free source metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Original_InCall_ErrorState_Permission_Bytecode_Evidence
+          path: ixio-incall-permission-evidence/
+          retention-days: 14
+      - name: Remove original APK and bytecode from runner
+        if: always()
+        run: rm -rf .bytecode-private
