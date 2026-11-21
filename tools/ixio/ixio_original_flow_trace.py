@@ -6,7 +6,7 @@ register declaration, result, label or exception handler is rewritten. A full
 site map and an exact strip-and-compare proof accompany each rebuilt APK.
 """
 from __future__ import annotations
-import argparse, hashlib, json, re
+import argparse, hashlib, json, re, shutil
 from collections import Counter
 from pathlib import Path
 
@@ -298,10 +298,38 @@ def network_routes(root, report):
     report['static_http_routes']=[{'prefix':p,'label':l} for p,l in sorted(routes)]
 
 
+def separate_instrumented_classes(root, report):
+    """Keep DEX method references below 65536 without dropping trace sites.
+
+    Android 26+ loads the additional standard classes20.dex automatically.
+    Class descriptors, instructions and manifest stay exactly the same.
+    Move complete instrumented classes, not only helpers (moving helpers
+    alone would leave all the new references in the full original shard).
+    """
+    destination=root/'smali20'
+    if destination.exists():raise RuntimeError('Unexpected original classes20.dex')
+    moved=[]
+    for item in report['changes']:
+        if item['dex']!='classes18.dex':continue
+        source=root/'smali18'/item['class'];target=destination/item['class']
+        target.parent.mkdir(parents=True,exist_ok=True)
+        assert sha(source.read_text())==item['after']
+        shutil.move(str(source),str(target))
+        moved.append(item['class'])
+        item['original_dex']='classes18.dex';item['dex']='classes20.dex'
+    source=root/'smali18/com/lguplus/aicallagent/hitelqa/FlowTraceShard18.smali'
+    target=destination/'com/lguplus/aicallagent/hitelqa/FlowTraceShard18.smali'
+    target.parent.mkdir(parents=True,exist_ok=True);shutil.move(str(source),str(target))
+    report['relocated_classes']={'from':'classes18.dex','to':'classes20.dex','count':len(moved),'classes':moved}
+    report['new_dex']=['classes20.dex']
+    report['changed_dex']=sorted(set(report['changed_dex'])|{'classes20.dex'})
+
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--inventory',type=Path,required=True);p.add_argument('--report',type=Path,required=True)
     a=p.parse_args();r=process(a.root,json.loads(a.inventory.read_text()))
     network_routes(a.root,r)
+    separate_instrumented_classes(a.root,r)
     a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,ensure_ascii=False,indent=2))
     print('ORIGINAL_FLOW_BOUNDARIES_INSTRUMENTED',json.dumps({k:r[k] for k in ('site_count','class_count','phase_counts','changed_dex','original_instructions_preserved')}),flush=True)
 
