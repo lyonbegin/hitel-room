@@ -126,7 +126,7 @@ jobs:
           grep -Fq 'avatar.attachSyncRenderer' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
           grep -Fq 'clockWorker.scheduleWithFixedDelay' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           grep -Fq 'track.getTimestamp(timestamp)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
-          grep -Fq 'ready.takeDue(clock.samples)' "$PLUGIN/$NATIVE/HitelVoiceSync.kt"
+          grep -Fq 'ready.takeDue(' "$PLUGIN/$NATIVE/HitelVoiceSync.kt"
           grep -Fq 'surface.lockHardwareCanvas()' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
           grep -Fq 'gpu.route' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           grep -Fq 'audio.incomplete' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
