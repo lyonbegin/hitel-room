@@ -7,7 +7,7 @@ permissions: {contents: write, actions: read}
 jobs:
   verify-public-trace-apks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -16,9 +16,9 @@ jobs:
       - name: Verify the tested installation, real flow observations and all retry callers
         run: |
           set -euo pipefail
-          source_run=44923882633
+          source_run=44925580250
           gh run watch "$source_run" --exit-status --interval 10
-          test "$(gh run view "$source_run" --json headSha --jq '.headSha')" = 6d06f1e9778f1733e45933a747d4a6b613060d03
+          test "$(gh run view "$source_run" --json headSha --jq '.headSha')" = f2e967243cc354780ee0956549db769a9c78082f
           test "$(gh run view "$source_run" --json conclusion --jq '.conclusion')" = success
           gh run download "$source_run" --name IXIO_Original_Flow_Trace_DEX_And_UI_Evidence_20261122 --dir .flow-proof/evidence
           gh run download "$source_run" --name IXIO_Original_Flow_Trace_Exact_Tested_Installable_APKs --dir .flow-proof/tested
@@ -72,7 +72,7 @@ jobs:
               if f.name.startswith('IXIO_HITEL_'):assert digest==expected
               assets.append({'name':f.name,'size':f.stat().st_size,'sha256':digest,'anonymous_http':200,'exact_tested_bytes':True,
                 'url':'https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-original-flow-trace-20261122/'+f.name})
-          result={'source_run':44923882633,'build_source':'6d06f1e9778f1733e45933a747d4a6b613060d03','assets':assets,
+          result={'source_run':44925580250,'build_source':'f2e967243cc354780ee0956549db769a9c78082f','assets':assets,
             'coverage':json.loads((p/'source-and-runtime.json').read_text()),'physical_call_pcm_stt_verified':False}
           (p/'verified-public-trace-apks.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
           print('EXACT_PUBLIC_FUNCTION_TRACE_APK_VERIFICATION',json.dumps(result,ensure_ascii=False),flush=True)
@@ -91,4 +91,3 @@ jobs:
             .flow-proof/source-and-runtime.json
             .flow-proof/IXIO_OriginalFlowTrace_Sites_20261122.json.gz
           retention-days: 14
-
