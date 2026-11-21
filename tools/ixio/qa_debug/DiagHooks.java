@@ -90,7 +90,7 @@ public final class DiagHooks implements Application.ActivityLifecycleCallbacks {
                     // Don't add a row after delete; next action is a clean trace.
                 })
                 .setPositiveButton("로그 복사", (d, which) -> {
-                    String copy = DiagLog.snapshot();
+                    String copy = DiagLog.copySnapshot();
                     ClipboardManager cb = (ClipboardManager)
                             a.getSystemService(Context.CLIPBOARD_SERVICE);
                     if (cb != null) {

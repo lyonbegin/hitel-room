@@ -15,15 +15,16 @@ import java.util.Locale;
 public final class DiagLog {
     private static final String TAG = "HITEL_IXIO_DIAG";
     private static final String FILE = "hitel_ixio_diagnostic.txt";
-    private static final int MAX_BYTES = 196608;
+    private static final int MAX_BYTES = 2097152;
     private static volatile Context context;
+    private static long sequence;
 
     private DiagLog() {}
 
     public static synchronized void initialize(Context app) {
         if (app == null) return;
         context = app.getApplicationContext();
-        event("APP", "DIAGNOSTIC_READY sdk=" + Build.VERSION.SDK_INT);
+        event("APP", "DIAGNOSTIC_READY build=ORIGINAL_FLOW_TRACE_20261122 sdk=" + Build.VERSION.SDK_INT);
     }
 
     private static File file() {
@@ -37,10 +38,11 @@ public final class DiagLog {
         // fixed event names and boolean values. Reject control characters.
         group = group.replaceAll("[^A-Za-z0-9_]", "_");
         label = label.replaceAll("[\r\n\t]", " ");
-        if (label.length() > 210) label = label.substring(0, 210);
+        if (label.length() > 1200) label = label.substring(0, 1200);
         String time = new SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.KOREA)
                 .format(new Date());
-        String row = time + " [" + group + "] " + label;
+        String row = time + " #" + (++sequence) + " pid=" + android.os.Process.myPid()
+                + " tid=" + android.os.Process.myTid() + " [" + group + "] " + label;
         Log.i(TAG, row);
         File f = file();
         if (f == null) return;
@@ -97,4 +99,21 @@ public final class DiagLog {
         File old = new File(f.getParentFile(), FILE + ".old");
         return (!f.exists() || f.delete()) && (!old.exists() || old.delete());
     }
+
+    public static synchronized String copySnapshot() {
+        String text = snapshot();
+        if (text.length() < 240000) return text;
+        // A large uncompressed ClipData can exceed Android Binder's limit.
+        // Preserve every available row in a reversible text representation.
+        try {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.GZIPOutputStream gzip = new java.util.zip.GZIPOutputStream(bytes)) {
+                gzip.write(text.getBytes(StandardCharsets.UTF_8));
+            }
+            String encoded = android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP);
+            return "HITEL IXIO QA / TRACE_ENCODING=GZIP_BASE64\nUNCOMPRESSED_CHARACTERS="
+                    + text.length() + "\nTRACE_GZIP_BASE64=" + encoded;
+        } catch (Exception ignored) { return text; }
+    }
 }
+
