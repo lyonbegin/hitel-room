@@ -35,8 +35,9 @@ def main():
     assert len(added)>=3,"compiled diagnostic classes missing"
     for f in added:
         rel=f.relative_to(a.diagnostic_smali)
-        if not str(rel).startswith("com/lguplus/aicallagent/hitelqa/"):
-            raise RuntimeError("unexpected class "+str(rel))
+        if not (str(rel).startswith("com/lguplus/aicallagent/hitelqa/")
+                or str(rel).startswith("com/android/tools/r8/annotations/")):
+            raise RuntimeError("unexpected diagnostic D8 helper class "+str(rel))
         target=roots[18]/rel
         if target.exists():raise RuntimeError("QA class exists in original "+str(rel))
         target.parent.mkdir(parents=True,exist_ok=True)
