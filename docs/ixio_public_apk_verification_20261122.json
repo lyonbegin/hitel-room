@@ -1,0 +1,29 @@
+{
+  "source_run": 44917960399,
+  "build_source": "ca6c2f114bb03a5911c4323eb143bb9d4e48bb02",
+  "assets": [
+    {
+      "name": "IXIO_HITEL_QA_AllRetryErrors_20261121.apk",
+      "size": 165917560,
+      "sha256": "3a44aa26ad3e4efff86aca024d3522425901cb4c51856d87c6625dca9f405a3d",
+      "anonymous_http": 200,
+      "identical_to_tested_apk": true,
+      "url": "https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-all-retry-errors-20261121/IXIO_HITEL_QA_AllRetryErrors_20261121.apk"
+    },
+    {
+      "name": "IXIO_Recorder_Companion_AllRetryErrors_20261121.apk",
+      "size": 30780855,
+      "sha256": "a12d0e426abfa2ab5e75107c1c685b1e798e8fa59432a20843b17d2db8526408",
+      "anonymous_http": 200,
+      "identical_to_tested_apk": true,
+      "url": "https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-all-retry-errors-20261121/IXIO_Recorder_Companion_AllRetryErrors_20261121.apk"
+    }
+  ],
+  "both_public_downloads_verified": true,
+  "actual_phone_pcm_stt_verified": false,
+  "verification_run": 44919050496,
+  "verification_job": 136890845562,
+  "release_url": "https://github.com/lyonbegin/hitel-room/releases/tag/ixio-qa-all-retry-errors-20261121",
+  "release_source": "8be0646de7d48db89f41fa34b18db2f84b13be09",
+  "tools_source_sha": "964647b0f1a1150de55c720fdebe7fa9aed095a0"
+}
