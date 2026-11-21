@@ -8,6 +8,8 @@ phone/account credentials, grants a carrier subscription, or fabricates tokens.
 """
 from __future__ import annotations
 import json
+import os
+import sys
 import re
 import subprocess
 import time
@@ -146,10 +148,25 @@ def main():
     settings_vas_retry_taps=0
     settings_scroll_count=0
     emulator_app_relaunch_attempts=0
+    qa_log_buttons_verified=False
     stop_reason="EXHAUSTED_STEPS"
     for i in range(50):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
+        # QA-only: verify the log clear/copy buttons at the STABLE first
+        # onboarding screen, not during the transient blank OAuth callback.
+        # Other IXIO test workflows never set this environment variable.
+        if (os.environ.get("HITEL_QA_LOG_BUTTON_TEST")=="1"
+                and not qa_log_buttons_verified
+                and "시작하기" in joined
+                and "HITEL 진단 로그 열기" in joined):
+            print("VERIFY_LOG_CLEAR_COPY_ON_STABLE_ORIGINAL_START_SCREEN",flush=True)
+            subprocess.run([sys.executable,"tools/ixio/qa_debug/verify_log_buttons.py"],
+                           check=True,timeout=110)
+            qa_log_buttons_verified=True
+            print("QA_LOG_BUTTONS_VERIFIED_ON_FIRST_SCREEN",flush=True)
+            time.sleep(2)
+            continue
         # On a fresh emulator, launcher may remain foreground even though
         # PackageManager installed the app and granted default dialer. Preserve
         # evidence and retry the ORIGINAL launcher intent at most twice.
