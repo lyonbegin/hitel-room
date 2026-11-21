@@ -305,17 +305,14 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
           script: |
+            adb logcat -G 16M
             adb shell svc wifi disable
             adb shell svc data disable
             bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk essence2-sofia-offline-proof
             bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh essence2-e2trace-proof
             adb shell run-as ai.bithuman.example.avatar_chat.essence2 cat app_flutter/hitel_ai_e2e.log > essence2-e2trace-proof/file-reply-protocol.txt
-            adb logcat -d -s HITEL_E2TRACE:I > essence2-e2trace-proof/file-reply-native.txt
             grep -F 'file.response.end ' essence2-e2trace-proof/file-reply-protocol.txt
-            grep -F 'stage=file.decode.done ' essence2-e2trace-proof/file-reply-native.txt
-            grep -F 'stage=audio.track.write ' essence2-e2trace-proof/file-reply-native.txt | tail -3
-            grep -F 'newMouthFrame=true' essence2-e2trace-proof/file-reply-native.txt | tail -3
-            grep -F 'stage=sdk.utterance.drained ' essence2-e2trace-proof/file-reply-native.txt | tail -3
+            python3 tools/bithuman_deep/verify_essence2_file_stream_playout.py --output essence2-e2trace-proof --timeout 240
 
       - name: Save Sofia embedded APK as short-lived internal installation test artifact
         if: always()

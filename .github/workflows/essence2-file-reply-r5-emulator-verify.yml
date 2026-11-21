@@ -1,0 +1,56 @@
+name: HITEL R5 offline emulator verification with original skip-ahead default
+on:
+  push:
+    branches: [feature/hitel-essence2-pcm-unpaced-verify-20261121]
+    paths:
+      - .github/workflows/essence2-file-reply-r5-emulator-verify.yml
+      - tools/bithuman_deep/verify_essence2_file_stream_playout.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  offline-android15-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_File_Reply_R5_Install
+          run-id: 44877183347
+          github-token: ${{ github.token }}
+      - name: Verify unchanged test APK and enable KVM
+        shell: bash
+        run: |
+          echo 'c5ee05b2122c7e3871fd0b81999674c191a852cc3ff22cfe56bd57426e1d42f7  HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk' | sha256sum -c -
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Test the original skip-ahead default in the same APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 480
+          disable-animations: true
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot -wipe-data
+          script: |
+            adb logcat -G 16M
+            adb shell svc wifi disable
+            adb shell svc data disable
+            adb shell setprop debug.bh.e2.clock 2
+            adb shell getprop debug.bh.e2.clock
+            bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk bootstrap
+            timeout 150 bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh playout || true
+            adb shell run-as ai.bithuman.example.avatar_chat.essence2 cat app_flutter/hitel_ai_e2e.log > playout/file-reply-protocol.txt
+            python3 tools/bithuman_deep/verify_essence2_file_stream_playout.py --output playout --timeout 240
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-r5-original-clock-emulator-evidence
+          path: |
+            bootstrap/
+            playout/
+          retention-days: 14
