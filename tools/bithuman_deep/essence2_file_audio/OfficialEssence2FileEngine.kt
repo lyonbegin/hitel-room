@@ -42,7 +42,8 @@ internal class OfficialEssence2FileEngine(
     // Exact original Essence2Engine zero-copy output contract.
     override val hardwareFrames: Boolean =
         runCatching { sdk.useHardwareBuffers(HW_SLOTS) }
-            .onFailure { Log.e(TAG, "GPU_INIT_FAILED original SDK rejected hardware buffers", it) }
+            .onFailure { Log.e(TAG, "GPU_INIT_FAILED original SDK rejected hardware buffers", it)
+                HitelE2Trace.failure("gpu.init.failure", it) }
             .isSuccess
     private val srgb = ColorSpace.get(ColorSpace.Named.SRGB)
 
@@ -114,6 +115,9 @@ internal class OfficialEssence2FileEngine(
         val copy = bytes.copyOf()
         feedQueue.offer(Packet.Chunk(turn, copy))
         soundQueue.offer(Packet.Chunk(turn, copy))
+        HitelE2Trace.event("pcm.received", "turn" to turn, "bytes" to bytes.size,
+            "acceptedSamples" to acceptedSamples, "first" to first,
+            "feedQueue" to feedQueue.size, "soundQueue" to soundQueue.size)
         if (first) Log.i(TAG, "LIVE_BEGIN turn=$turn firstPcmBytes=${bytes.size}")
     }
 
@@ -127,6 +131,8 @@ internal class OfficialEssence2FileEngine(
         }
         feedQueue.offer(Packet.End(turn))
         soundQueue.offer(Packet.End(turn))
+        HitelE2Trace.event("pcm.input.end", "turn" to turn, "acceptedSamples" to acceptedSamples,
+            "feedQueue" to feedQueue.size, "soundQueue" to soundQueue.size)
         Log.i(TAG, "LIVE_INPUT_END turn=$turn acceptedSamples=$acceptedSamples")
     }
 
@@ -140,6 +146,7 @@ internal class OfficialEssence2FileEngine(
         soundQueue.clear()
         val track = outputTrack
         if (track != null) runCatching { track.pause(); track.flush() }
+        HitelE2Trace.event("stream.cancel", "turn" to currentTurn)
         Log.i(TAG, "LIVE_CANCEL turn=$currentTurn")
     }
 
@@ -162,16 +169,20 @@ internal class OfficialEssence2FileEngine(
                         }
                         if (!live(packet.turn)) continue
                         val feedStart = System.nanoTime()
+                        HitelE2Trace.event("sdk.feed.begin", "turn" to packet.turn,
+                            "bytes" to packet.bytes.size, "queuedChunks" to feedQueue.size)
                         sdk.feed(packet.bytes) // Original official SDK ByteArray overload
                         val feedMs = (System.nanoTime() - feedStart) / 1_000_000
                         Log.i(TAG, "LIVE_FEED turn=${packet.turn} pcm16Bytes=${packet.bytes.size} feedMs=$feedMs")
-                        if (sdkFeedCount++ % 25 == 0)
-                            HitelE2Trace.event("sdk.feed", "turn" to packet.turn,
-                                "bytes" to packet.bytes.size, "feedMs" to feedMs)
+                        HitelE2Trace.event("sdk.feed", "turn" to packet.turn,
+                            "chunk" to ++sdkFeedCount, "bytes" to packet.bytes.size,
+                            "feedMs" to feedMs, "queuedChunks" to feedQueue.size)
                     }
                     is Packet.End -> {
                         if (!live(packet.turn) || loadedTurn != packet.turn) continue
+                        HitelE2Trace.event("sdk.end.begin", "turn" to packet.turn)
                         sdk.endOfAudio() // Exact original SDK end marker, AFTER final chunk
+                        HitelE2Trace.event("sdk.end.done", "turn" to packet.turn)
                         sdkEndedTurn = packet.turn
                         Log.i(TAG, "LIVE_SDK_END turn=${packet.turn} acceptedSamples=$acceptedSamples")
                     }
@@ -182,6 +193,7 @@ internal class OfficialEssence2FileEngine(
             Thread.currentThread().interrupt()
         } catch (failure: Throwable) {
             Log.e(TAG, "LIVE_FEED_FAIL", failure)
+            HitelE2Trace.failure("sdk.feed.failure", failure, "turn" to currentTurn)
         }
     }
 
@@ -192,6 +204,7 @@ internal class OfficialEssence2FileEngine(
             var shownInTurn = 0L
             var lastFrameAt = System.nanoTime()
             var renderCheckedTurn = 0
+            var waitReportedAt = System.nanoTime()
             while (!closed) {
                 val turn = currentTurn
                 if (turn == 0 || sdkStartedTurn != turn || renderCheckedTurn == turn) {
@@ -234,15 +247,25 @@ internal class OfficialEssence2FileEngine(
                             throw failure
                         }
                     }
+                    val now = System.nanoTime()
+                    val frameGapMs = (now - lastFrameAt) / 1_000_000
                     shownInTurn++
                     renderedFrames = shownInTurn
-                    lastFrameAt = System.nanoTime()
+                    lastFrameAt = now
                     if (shownInTurn == 1L || shownInTurn % 25L == 0L)
                         Log.i(TAG, "LIVE_PULL turn=$turn frame=$shownInTurn route=" + (if (hardwareFrames) "GPU" else "CPU") + " pullMs=$pullMillis acceptedSamples=$acceptedSamples")
-                    if (shownInTurn == 1L || shownInTurn % 25L == 0L)
-                        HitelE2Trace.event("video.pull", "turn" to turn, "frame" to shownInTurn,
-                            "gpuHardware" to hardwareFrames, "pullMs" to pullMillis)
+                    HitelE2Trace.event("video.pull", "turn" to turn, "frame" to shownInTurn,
+                        "sdkFrameIndex" to sdk.lastFrameIndex, "gpuHardware" to hardwareFrames,
+                        "pullMs" to pullMillis, "frameGapMs" to frameGapMs)
                 } else {
+                    val waitingAt = System.nanoTime()
+                    if (waitingAt - waitReportedAt >= 1_000_000_000L) {
+                        waitReportedAt = waitingAt
+                        HitelE2Trace.event("video.wait", "turn" to turn,
+                            "frames" to shownInTurn, "inputEnded" to (sdkEndedTurn == turn),
+                            "quietMs" to (waitingAt - lastFrameAt) / 1_000_000,
+                            "acceptedSamples" to acceptedSamples, "feedQueue" to feedQueue.size)
+                    }
                     // This short empty-queue poll is the official SDK example's
                     // pull() polling, NOT a wait for a complete audio file.
                     if (sdkEndedTurn == turn) {
@@ -251,6 +274,8 @@ internal class OfficialEssence2FileEngine(
                         if (shownInTurn >= approx && sdk.available() == 0 && quietMs > 2_000) {
                             sdk.checkRender()
                             renderCheckedTurn = turn
+                            HitelE2Trace.event("video.finish", "turn" to turn,
+                                "frames" to shownInTurn, "expectedApprox" to approx)
                             Log.i(TAG, "LIVE_RENDER_DONE turn=$turn frames=$shownInTurn expectedApprox=$approx")
                             continue
                         }
@@ -262,6 +287,7 @@ internal class OfficialEssence2FileEngine(
             Thread.currentThread().interrupt()
         } catch (failure: Throwable) {
             Log.e(TAG, "LIVE_PULL_FAIL", failure)
+            HitelE2Trace.failure("video.pull.failure", failure, "turn" to currentTurn)
         }
     }
 
@@ -282,6 +308,9 @@ internal class OfficialEssence2FileEngine(
             .setBufferSizeInBytes(maxOf(minimum, 12_800))
             .build()
         check(track.state == AudioTrack.STATE_INITIALIZED) { "Streaming AudioTrack initialization failed" }
+        HitelE2Trace.event("audio.track.created", "rate" to RATE,
+            "minimumBufferBytes" to minimum, "bufferFrames" to track.bufferSizeInFrames,
+            "sessionId" to track.audioSessionId, "state" to track.state)
         return track
     }
 
@@ -303,6 +332,9 @@ internal class OfficialEssence2FileEngine(
                             writtenSamples = 0L
                             firstAudio = true
                         }
+                        val writeStarted = System.nanoTime()
+                        HitelE2Trace.event("audio.write.begin", "turn" to packet.turn,
+                            "bytes" to packet.bytes.size, "queuedChunks" to soundQueue.size)
                         var offset = 0
                         while (offset < packet.bytes.size && live(packet.turn)) {
                             // The FIRST PCM bytes go to the hardware buffer BEFORE play().
@@ -333,11 +365,18 @@ internal class OfficialEssence2FileEngine(
                                     "firstWriteBytes" to written, "prefilled" to true)
                             }
                         }
+                        HitelE2Trace.event("audio.write.done", "turn" to packet.turn,
+                            "writtenBytes" to offset, "writtenSamples" to writtenSamples,
+                            "playedSamples" to track?.playbackHeadPosition,
+                            "writeMs" to (System.nanoTime() - writeStarted) / 1_000_000,
+                            "underruns" to track?.underrunCount, "queuedChunks" to soundQueue.size)
                     }
                     is Packet.End -> {
                         if (packet.turn != playingTurn || !live(packet.turn)) continue
                         // Only finish/release the *audio* worker after hardware consumes
                         // its tail. No delay is imposed on first audio or first video.
+                        HitelE2Trace.event("audio.drain.begin", "turn" to packet.turn,
+                            "writtenSamples" to writtenSamples, "playedSamples" to track?.playbackHeadPosition)
                         val endMs = System.currentTimeMillis() +
                             writtenSamples * 1000L / RATE + 5_000L
                         while (live(packet.turn) && System.currentTimeMillis() < endMs) {
@@ -353,7 +392,9 @@ internal class OfficialEssence2FileEngine(
                         else
                             Log.i(TAG, "LIVE_AUDIO_DONE turn=${packet.turn} samples=$writtenSamples headSamples=$finalHead")
                         HitelE2Trace.event("audio.finish", "turn" to packet.turn,
-                            "playedSamples" to finalHead, "writtenSamples" to writtenSamples)
+                            "playedSamples" to finalHead, "writtenSamples" to writtenSamples,
+                            "complete" to (finalHead >= writtenSamples),
+                            "underruns" to track?.underrunCount)
                         track?.let { runCatching { it.stop() }; it.release() }
                         track = null
                         outputTrack = null
@@ -366,6 +407,8 @@ internal class OfficialEssence2FileEngine(
             Thread.currentThread().interrupt()
         } catch (failure: Throwable) {
             Log.e(TAG, "LIVE_AUDIO_FAIL", failure)
+            HitelE2Trace.failure("audio.failure", failure, "turn" to playingTurn,
+                "writtenSamples" to writtenSamples, "playedSamples" to track?.playbackHeadPosition)
         } finally {
             outputTrack = null
             track?.let { runCatching { it.stop() }; it.release() }
@@ -386,6 +429,7 @@ internal class OfficialEssence2FileEngine(
     override fun stats(): EngineStats? = null
 
     override fun close() {
+        HitelE2Trace.event("stream.close.begin", "turn" to currentTurn)
         closed = true
         cancelFile()
         feedQueue.offer(Packet.Shutdown)

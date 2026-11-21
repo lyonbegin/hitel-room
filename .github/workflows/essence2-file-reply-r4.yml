@@ -1,4 +1,4 @@
-name: HITEL Essence2 GPU HardwareBuffer live PCM16 original SDK playback
+name: Deliver GPU HardwareBuffer PCM16 APK with detailed device logs
 on:
   workflow_dispatch:
   push:
@@ -13,7 +13,7 @@ on:
       - tools/bithuman_deep/verify_essence2_file_stream_playout.py
       - tools/bithuman_deep/essence2_file_audio/**
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-and-test-sofia-embedded-with-network-disabled:
     runs-on: ubuntu-24.04
@@ -335,64 +335,49 @@ jobs:
           print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
           PY
 
-      - name: Enable KVM for real Android 15 emulator
-        run: |
-          set -euo pipefail
-          test -c /dev/kvm
-          sudo chmod 666 /dev/kvm
-
-      - name: Install APK in ARM64-translated Android 15 emulator and prove native PCM16 render and audio playback
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 6144 -cores 4 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_live_pcm16_android15_entry.sh HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
-
-      - name: Record emulator proof summary
-        if: always()
+      - name: Publish compiled installation APK requested before additional runtime tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p essence2-local-mock-proof
-          find essence2-live-boot essence2-live-speech -type f -maxdepth 3 \
-            -printf '%p %s bytes\n' 2>/dev/null \
-            > essence2-local-mock-proof/emulator-evidence-files.txt || true
-          grep -E 'OFFICIAL_FEED|OFFICIAL_FIRST_FRAME|OFFICIAL_FRAMES_DONE|OFFICIAL_PLAY|OFFICIAL_FAIL' \
-            essence2-live-speech/full-after-speech-logcat.txt \
-            > essence2-local-mock-proof/emulator-native-official-samples.txt 2>/dev/null || true
+          APK=HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
+          TAG=hitel-essence2-gpu-hardwarebuffer-pcm16-20261121
+          sha256sum "$APK" > "${APK}.sha256"
+          cat > release-notes.md <<EOF
+          Installation test APK requested for immediate physical-device diagnosis.
+          Source: $GITHUB_SHA
+          Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
-      - name: Save Sofia embedded APK as short-lived internal installation test artifact
+          Restores original SDK HardwareBuffer output through the Flutter hardware canvas. PCM input and AudioTrack playback run independently of video generation. Includes persistent per-chunk PCM/feed/audio-write logs, per-frame GPU pull/draw timing, UI queue timing, underruns, playback completion and worker exceptions. Existing clear/copy-log controls are retained.
+
+          APK compilation, packaged-model hashes, original native-library byte comparison and PCM chunker checks passed. Physical-device GPU activation, audible playback, speed and lip-sync require the device logs; this release does not claim those tests passed.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
+            gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
+          else
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 GPU PCM16 detailed-log installation APK' --notes-file release-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk") | .url')"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
+          printf 'DIRECT_APK_URL=%s\n' "$URL"
+
+      - name: Retain compiled APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: HITEL_Essence2_GPU_HardwareBuffer_PCM16_APK
           path: HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
-          if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload non-model diagnostic logs
-
-        uses: actions/upload-artifact@v4
+      - name: Retain build integrity logs
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: essence2-gpu-pcm16-test-evidence
-          path: |
-            essence2-local-mock-proof/*.json
-            essence2-local-mock-proof/*.txt
-            essence2-live-boot/
-            essence2-live-speech/
-            essence2-local-mock-proof/apk-sha256.txt
-            essence2-sofia-offline-proof/*.txt
-            essence2-sofia-offline-proof/*.png
-            essence2-sofia-offline-proof/*.json
-            essence2-sofia-offline-proof/*.wav
-            essence2-e2trace-proof/*.pcm
-            essence2-e2trace-proof/*.txt
-            essence2-e2trace-proof/*.json
-            essence2-e2trace-proof/*.png
+          path: essence2-local-mock-proof/
           retention-days: 14
