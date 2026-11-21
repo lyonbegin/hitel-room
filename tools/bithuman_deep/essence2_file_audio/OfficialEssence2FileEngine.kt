@@ -6,6 +6,7 @@ import android.graphics.ColorSpace
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.Trace
 import android.util.Log
 import java.io.File
 import java.util.concurrent.Executors
@@ -153,6 +154,15 @@ internal class OfficialEssence2FileEngine(
 
     private fun live(turn: Int) = !closed && turn == currentTurn
 
+    private inline fun <T> traceSdk(section: String, call: () -> T): T {
+        Trace.beginSection(section)
+        return try {
+            call()
+        } finally {
+            Trace.endSection()
+        }
+    }
+
     private fun runFeed() {
         var loadedTurn = 0
         var sdkFeedCount = 0
@@ -172,7 +182,7 @@ internal class OfficialEssence2FileEngine(
                         val feedStart = System.nanoTime()
                         HitelE2Trace.event("sdk.feed.begin", "turn" to packet.turn,
                             "bytes" to packet.bytes.size, "queuedChunks" to feedQueue.size)
-                        sdk.feed(packet.bytes) // Original official SDK ByteArray overload
+                        traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) }
                         val feedMs = (System.nanoTime() - feedStart) / 1_000_000
                         Log.i(TAG, "LIVE_FEED turn=${packet.turn} pcm16Bytes=${packet.bytes.size} feedMs=$feedMs")
                         HitelE2Trace.event("sdk.feed", "turn" to packet.turn,
@@ -182,7 +192,7 @@ internal class OfficialEssence2FileEngine(
                     is Packet.End -> {
                         if (!live(packet.turn) || loadedTurn != packet.turn) continue
                         HitelE2Trace.event("sdk.end.begin", "turn" to packet.turn)
-                        sdk.endOfAudio() // Exact original SDK end marker, AFTER final chunk
+                        traceSdk("HITEL.e2.endOfAudio") { sdk.endOfAudio() }
                         HitelE2Trace.event("sdk.end.done", "turn" to packet.turn)
                         sdkEndedTurn = packet.turn
                         Log.i(TAG, "LIVE_SDK_END turn=${packet.turn} acceptedSamples=$acceptedSamples")
@@ -233,7 +243,7 @@ internal class OfficialEssence2FileEngine(
                         lastClockNs = clockNs
                         val samples = playing.playbackHeadPosition.toLong().coerceAtMost(acceptedSamples)
                         try {
-                            sdk.setPlayoutPosition(samples)
+                            traceSdk("HITEL.e2.setPlayoutPosition") { sdk.setPlayoutPosition(samples) }
                             if (lastClockSamples < 0 || samples / RATE != lastClockSamples / RATE)
                                 HitelE2Trace.event("sdk.playout.clock", "turn" to turn,
                                     "playedSamples" to samples, "acceptedSamples" to acceptedSamples)
@@ -245,12 +255,17 @@ internal class OfficialEssence2FileEngine(
                 }
                 // Restore original SDK GPU frame ownership; do not read back pixels.
                 if (!hardwareFrames) frame!!.clear()
+                if (Trace.isEnabled()) Trace.setCounter("HITEL.e2.motionReady", sdk.available().toLong())
                 val pullThreadCpuStarted = android.os.Debug.threadCpuTimeNanos()
                 val pullStarted = System.nanoTime()
-                val hw = if (hardwareFrames) sdk.pullHardwareBuffer() else null
-                val ready = if (hardwareFrames) hw != null else sdk.pull(frame!!)
-                val pullMillis = (System.nanoTime() - pullStarted) / 1_000_000
-                val pullThreadCpuMs = (android.os.Debug.threadCpuTimeNanos() - pullThreadCpuStarted) / 1_000_000
+                val hw = if (hardwareFrames) {
+                    traceSdk("HITEL.e2.pullHardwareBuffer") { sdk.pullHardwareBuffer() }
+                } else null
+                val ready = if (hardwareFrames) hw != null else traceSdk("HITEL.e2.pullBytes") { sdk.pull(frame!!) }
+                val pullUs = (System.nanoTime() - pullStarted) / 1_000
+                val pullThreadCpuUs = (android.os.Debug.threadCpuTimeNanos() - pullThreadCpuStarted) / 1_000
+                val pullMillis = pullUs / 1_000
+                val pullThreadCpuMs = pullThreadCpuUs / 1_000
                 if (ready) {
                     if (!live(turn)) { hw?.close(); continue }
                     lastSdkIndex = sdk.lastFrameIndex
@@ -287,6 +302,7 @@ internal class OfficialEssence2FileEngine(
                     HitelE2Trace.event("video.pull", "turn" to turn, "frame" to shownInTurn,
                         "sdkFrameIndex" to lastSdkIndex, "gpuHardware" to hardwareFrames,
                         "pullMs" to pullMillis, "pullThreadCpuMs" to pullThreadCpuMs,
+                        "pullUs" to pullUs, "pullThreadCpuUs" to pullThreadCpuUs,
                         "frameGapMs" to frameGapMs,
                         "playedSamples" to lastClockSamples)
                 } else {

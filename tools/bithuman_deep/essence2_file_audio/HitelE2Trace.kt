@@ -3,6 +3,7 @@ package ai.bithuman.flutter
 import android.content.Context
 import android.os.Process
 import android.os.SystemClock
+import android.os.Trace
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -100,6 +101,15 @@ internal object HitelE2Trace {
             fields.joinToString("") { " " + safe(it.first) + "=" + safe(it.second) }
         Log.i(TAG, line)
         if (!lines.offer(line)) lost.incrementAndGet()
+    }
+
+    inline fun <T> section(name: String, block: () -> T): T {
+        Trace.beginSection(name)
+        return try {
+            block()
+        } finally {
+            Trace.endSection()
+        }
     }
 
     fun failure(stage: String, err: Throwable, vararg fields: Pair<String, Any?>) {
