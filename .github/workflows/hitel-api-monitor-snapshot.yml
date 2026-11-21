@@ -1,0 +1,69 @@
+name: HITEL GitHub Pages monitor - refresh public API snapshots
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "hitel-api-monitor/**"
+      - ".github/workflows/hitel-api-monitor-snapshot.yml"
+  workflow_dispatch:
+  schedule:
+    # GitHub's minimum cron interval is five minutes.
+    - cron: '*/5 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hitel-pages-monitor-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update-public-status:
+    name: Update gh-pages JSON; NEVER deploy Railway or submit chat messages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out source and gh-pages using the built-in GitHub token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Collect public HITEL rooms and GitHub Actions run status (read only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile hitel-api-monitor/collect_snapshot.py
+          python3 hitel-api-monitor/collect_snapshot.py /tmp/hitel-status.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/hitel-status.json',encoding='utf-8'))
+          assert d['read_only'] is True and d['railway_modified'] is False
+          assert {'status','rooms','worker'} <= set(d['sources'])
+          assert 'actions' in d and isinstance(d['actions']['active'],list)
+          print('GITHUB_ACTIONS_READ_ONLY_COUNT',len(d['actions']['active']))
+          for name,s in d['sources'].items():
+              print('VERIFIED_PUBLIC_READ_ONLY', name, 'OK' if s['ok'] else s['error'])
+          PY
+
+      - name: Publish snapshot to EXISTING gh-pages branch only
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          git worktree add /tmp/hitel-pages origin/gh-pages
+          mkdir -p /tmp/hitel-pages/hitel-api-monitor/data
+          cp /tmp/hitel-status.json /tmp/hitel-pages/hitel-api-monitor/data/status.json
+          cd /tmp/hitel-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hitel-api-monitor/data/status.json
+          if git diff --cached --quiet; then
+            echo 'PASS_NO_CHANGE'
+          else
+            git commit -m "chore(pages): refresh read-only HITEL operations snapshot"
+            git push origin HEAD:gh-pages
+          fi
+          echo 'PASS_GITHUB_PAGES_SNAPSHOT_REFRESH'

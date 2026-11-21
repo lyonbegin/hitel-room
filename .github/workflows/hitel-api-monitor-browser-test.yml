@@ -1,0 +1,77 @@
+name: HITEL global API monitor - real GitHub Pages browser smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hitel-api-monitor-browser-test.yml"
+      - "hitel-api-monitor/index.html"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-github-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install actual Chromium browser for external GitHub Pages test
+        run: |
+          mkdir -p /tmp/hitel-browser-test
+          cd /tmp/hitel-browser-test
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Verify published two-workstream simple monitor and three-second polling
+        run: |
+          cd /tmp/hitel-browser-test
+          cat > verify.cjs <<'JS'
+          const { chromium }=require("playwright");
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage();
+            const errors=[];
+            page.on("pageerror",e=>errors.push(String(e)));
+            const target="https://lyonbegin.github.io/hitel-room/hitel-api-monitor/";
+            let matched=false;
+            // GitHub Pages may publish several minutes after the gh-pages commit.
+            for(let n=0;n<20;n++){
+              const response=await page.goto(target+"?test="+Date.now(),{waitUntil:"domcontentloaded",timeout:45000});
+              if(response.status()!==200)throw Error("GITHUB_PAGES_HTTP_"+response.status());
+              if((await page.title()).includes("실시간 작업 현황") && await page.locator("#cards h2").filter({hasText:"A그룹 주식전략 연구"}).count()>0){matched=true;break}
+              await page.waitForTimeout(10000);
+            }
+            if(!matched)throw Error("GITHUB_PAGES_NOT_YET_PUBLISHED_NEW_MONITOR");
+            let count=0;
+            page.on("request",req=>{if(req.url().includes("data/status.json"))count++});
+            await page.waitForFunction(()=>document.querySelectorAll("#cards .card").length===2
+              && document.querySelectorAll(".room").length>0
+              && (document.getElementById("snapshotTime")?.textContent||"").includes("HITEL")
+              && (document.getElementById("summary")?.textContent||"").length>20,null,{timeout:60000});
+            const first=await page.evaluate(()=>({
+              title:document.title,
+              cards:Array.from(document.querySelectorAll("#cards h2")).map(x=>x.textContent),
+              summary:document.getElementById("summary").textContent,
+              rooms:document.querySelectorAll(".room").length,
+              polling:document.getElementById("poll").textContent,
+              source:document.getElementById("snapshotTime").textContent
+            }));
+            await page.waitForTimeout(6800);
+            const results=Object.assign(first,{snapshotRequestsAfterStart:count,errors});
+            console.log("LIVE_BROWSER_RESULT",JSON.stringify(results));
+            if(results.cards.length!==2||!results.cards.some(x=>x.includes("교재 분류"))||
+                !results.cards.some(x=>x.includes("A그룹 주식전략")))
+              throw Error("MISSING_TWO_PROGRAM_CARDS");
+            if(!results.polling.includes("3초"))throw Error("POLLING_LABEL_MISSING");
+            if(!results.rooms)throw Error("PUBLIC_NAMED_ROOMS_NOT_RENDERED");
+            if(count<2)throw Error("SNAPSHOT_THREE_SECOND_POLLING_DID_NOT_RUN");
+            if(errors.length)throw Error("BROWSER_SCRIPT_ERROR: "+errors.join(";").slice(0,350));
+            await browser.close();
+            console.log("PASS_SIMPLE_MONITOR_TWO_PROGRAMS_NAMED_ROOMS_3S_POLLING");
+          })().catch(e=>{console.error("SIMPLE_MONITOR_TEST_FAILED",String(e));process.exit(1)});
+          JS
+          node verify.cjs

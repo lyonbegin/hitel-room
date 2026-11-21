@@ -1,0 +1,80 @@
+name: HITEL iPhone Actual Live Video and Input Proof
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-live-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Verify live iPhone runner and actual frame production
+        run: |
+          set -euo pipefail
+          mkdir -p ios-live-proof
+          for i in $(seq 1 55); do
+            if curl -fsS --retry 2 --max-time 12 \
+              https://hitel-communication-web-production.up.railway.app/lab-sandbox/ios/status \
+              -o ios-live-proof/status.json; then
+              cat ios-live-proof/status.json
+              echo
+              if jq -e '.online == true and .videoLive == true and .runId != null' \
+                ios-live-proof/status.json >/dev/null; then
+                echo "REAL_IPHONE_LIVE_STATUS_OK"
+                break
+              fi
+            fi
+            if [ "$i" = 55 ]; then echo "NO_LIVE_IPHONE_FRAME"; exit 1; fi
+            sleep 5
+          done
+      - name: Verify viewer WebSocket JPEG bytes and genuine Home/Launch input ACK
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/hitel-ios-proof-venv
+          /tmp/hitel-ios-proof-venv/bin/pip -q install 'websockets==13.1'
+          /tmp/hitel-ios-proof-venv/bin/python - <<'PY'
+          import asyncio,json,pathlib,websockets
+          base='wss://hitel-communication-web-production.up.railway.app/lab-sandbox/ios/socket?role=viewer'
+          origin='https://hitel-communication-web-production.up.railway.app'
+          folder=pathlib.Path('ios-live-proof')
+          async def main():
+              async with websockets.connect(base,extra_headers={'Origin':origin},
+                  max_size=2000000,ping_interval=15) as socket:
+                  observed_frame=False
+                  for command in ['home','launch']:
+                      rid='proof-'+command
+                      await socket.send(json.dumps({'type':'command','id':rid,'action':command,'data':{}}))
+                      received_ack=False
+                      for _ in range(150):
+                          msg=await asyncio.wait_for(socket.recv(),timeout=15)
+                          if isinstance(msg,bytes):
+                              if len(msg)>100 and msg[:2]==b'\xff\xd8' and msg[-2:]==b'\xff\xd9':
+                                  observed_frame=True
+                                  if not (folder/'actual-iphone-frame.jpg').exists():
+                                      (folder/'actual-iphone-frame.jpg').write_bytes(msg)
+                                      print('REAL_JPEG_FRAME',len(msg),flush=True)
+                          else:
+                              data=json.loads(msg)
+                              if data.get('type')=='result' and data.get('id')==rid:
+                                  print('ACTUAL_IPHONE_INPUT_RESULT',command,data,flush=True)
+                                  assert data.get('ok') is True,f'Native {command} command failed'
+                                  received_ack=True
+                                  break
+                      assert received_ack,f'No simulator ACK: {command}'
+                  assert observed_frame,'No authentic simulator video bytes'
+                  print('IPHONE_LIVE_E2E_PASS',flush=True)
+          asyncio.run(main())
+          PY
+      - name: Store actual iPhone proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-live-verified-frame
+          path: ios-live-proof/
+          if-no-files-found: ignore

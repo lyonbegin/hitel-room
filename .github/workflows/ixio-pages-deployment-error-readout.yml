@@ -1,0 +1,32 @@
+name: IXIO investigate prior GitHub Pages deployment failure without changing site
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/ixio-pages-deployment-error-readout.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Read exact Pages check-run failures and branch permissions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo 'FAILED_PAGES_ANNOTATIONS'
+          gh api "repos/$GITHUB_REPOSITORY/check-runs/136273363138/annotations" --jq '.[] | {message,path,annotation_level,title}' || true
+          echo 'FAILED_PAGES_RUN_SUMMARY'
+          gh run view 44731853154 --repo "$GITHUB_REPOSITORY" || true
+          echo 'FAILED_PAGES_JOB_DETAILS'
+          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/136273363138" --jq '{name,status,conclusion,steps,runner_name,started_at,completed_at}' || true
+          echo 'GITHUB_PAGES_ENVIRONMENT_RULES'
+          gh api "repos/$GITHUB_REPOSITORY/environments/github-pages" --jq '{name,protection_rules,deployment_branch_policy}' || true
+          echo 'GITHUB_PAGES_ALLOWED_BRANCH_POLICIES'
+          gh api "repos/$GITHUB_REPOSITORY/environments/github-pages/deployment-branch-policies" --jq '.branch_policies // .' || true
+          echo 'PAGES_CONFIG'
+          gh api "repos/$GITHUB_REPOSITORY/pages" --jq '{status,html_url,source,build_type}' || true
