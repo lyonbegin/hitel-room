@@ -53,13 +53,15 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
       await _hitelAiTraceWrites;
       final dir = await _appFilesDir();
       final boot = await _hitelLogTail(dir, 'boot_status.txt', 2000);
+      final startup = await _hitelLogTail(dir, 'hitel_e2_startup.log', 6000);
       final native = await _hitelLogTail(dir, 'hitel_e2_trace.log', 12000);
       final protocol = await _hitelLogTail(dir, 'hitel_ai_e2e.log', 4000);
       var detail = 'HITEL Essence 2 Android diagnostics\nbuild=PCM_FILE_R5\n'
           'mode=text_trigger_file_stream\nSTT=false\nTTS=false\n'
           'engine=$_engine\nsample=$_selectedSample\nstatus=$_status\n'
           'loaded=${_avatar != null}\nat=${DateTime.now().toIso8601String()}\n'
-          '--- current boot ---\n$boot\n--- current native ---\n$native\n'
+          '--- current boot ---\n$boot\n--- PCM / video startup ---\n$startup\n'
+          '--- current native ---\n$native\n'
           '--- current protocol ---\n$protocol';
       detail = detail.replaceAll(RegExp(r'Bearer\s+\S+', caseSensitive: false), 'Bearer [REDACTED]')
           .replaceAll(RegExp(r'api-secret\s*[:=]\s*\S+', caseSensitive: false), 'api-secret=[REDACTED]')

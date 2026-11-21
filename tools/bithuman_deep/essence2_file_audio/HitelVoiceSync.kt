@@ -160,6 +160,11 @@ internal class HitelVoiceSync(
                         "audioSamples" to position, "headSamples" to clock.headSamples,
                         "lateMs" to (position - frame.window.start) / 16.0, "timestamp" to clock.timestamp,
                         "ordinalGap" to ordinalGap, "dropped" to discarded, "ready" to ready.size)
+                    if (shown == 1L) HitelE2Trace.event("sync.opening.present", "turn" to turn,
+                        "sdkFrameIndex" to frame.ordinal, "firstSample" to frame.window.start,
+                        "audioSamples" to position, "lateMs" to (position - frame.window.start) / 16.0,
+                        "vsyncNs" to vsyncNs, "timestamp" to clock.timestamp,
+                        "droppedBeforeFirstDisplay" to discarded)
                 } else discard(frame, "surface_unavailable")
             }
             if (!clock.playing) {

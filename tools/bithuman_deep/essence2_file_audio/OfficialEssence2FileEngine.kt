@@ -177,10 +177,7 @@ internal class OfficialEssence2FileEngine(
                         if (!live(packet.turn)) continue
                         if (loadedTurn != packet.turn) {
                             synchronized(sdkClockLock) { sdkStartedTurn = 0 }
-                            HitelSdkProbe.setTurn(packet.turn)
-                            HitelSdkProbe.inTurn(packet.turn) {
-                                if (sdkEverFed) sdk.resetAudio(startFrame = 0)
-                            }
+                            if (sdkEverFed) sdk.resetAudio(startFrame = 0)
                             sdkFeedCount = 0
                             sdkEverFed = true
                             loadedTurn = packet.turn
@@ -191,16 +188,13 @@ internal class OfficialEssence2FileEngine(
                         HitelE2Trace.event("sdk.feed.begin", "turn" to packet.turn,
                             "bytes" to packet.bytes.size, "firstSample" to packet.firstSample,
                             "endSample" to packet.firstSample + packet.bytes.size / 2, "queuedChunks" to feedQueue.size)
-                        HitelSdkProbe.inTurn(packet.turn) {
-                            traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) }
-                        }
+                        traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) }
                         if (sdkStartedTurn != packet.turn) {
                             synchronized(sdkClockLock) {
                                 if (live(packet.turn)) sdkStartedTurn = packet.turn
                             }
                         }
                         val feedMs = (System.nanoTime() - feedStart) / 1_000_000
-                        Log.i(TAG, "LIVE_FEED turn=${packet.turn} pcm16Bytes=${packet.bytes.size} feedMs=$feedMs")
                         HitelE2Trace.event("sdk.feed", "turn" to packet.turn,
                             "chunk" to ++sdkFeedCount, "bytes" to packet.bytes.size,
                             "firstSample" to packet.firstSample, "endSample" to packet.firstSample + packet.bytes.size / 2,
@@ -209,9 +203,7 @@ internal class OfficialEssence2FileEngine(
                     is Packet.End -> {
                         if (!live(packet.turn) || loadedTurn != packet.turn) continue
                         HitelE2Trace.event("sdk.end.begin", "turn" to packet.turn)
-                        HitelSdkProbe.inTurn(packet.turn) {
-                            traceSdk("HITEL.e2.endOfAudio") { sdk.endOfAudio() }
-                        }
+                        traceSdk("HITEL.e2.endOfAudio") { sdk.endOfAudio() }
                         HitelE2Trace.event("sdk.end.done", "turn" to packet.turn)
                         sdkEndedTurn = packet.turn
                         Log.i(TAG, "LIVE_SDK_END turn=${packet.turn} acceptedSamples=$acceptedSamples")
@@ -259,13 +251,10 @@ internal class OfficialEssence2FileEngine(
                 val pullThreadCpuStarted = android.os.Debug.threadCpuTimeNanos()
                 val pullStarted = System.nanoTime()
                 val hw = if (hardwareFrames) {
-                    HitelSdkProbe.inTurn(turn) {
-                        traceSdk("HITEL.e2.pullHardwareBuffer") { sdk.pullHardwareBuffer() }
-                    }
+                    traceSdk("HITEL.e2.pullHardwareBuffer") { sdk.pullHardwareBuffer() }
                 } else null
-                val ready = if (hardwareFrames) hw != null else HitelSdkProbe.inTurn(turn) {
+                val ready = if (hardwareFrames) hw != null else
                     traceSdk("HITEL.e2.pullBytes") { sdk.pull(frame!!) }
-                }
                 val pullUs = (System.nanoTime() - pullStarted) / 1_000
                 val pullThreadCpuUs = (android.os.Debug.threadCpuTimeNanos() - pullThreadCpuStarted) / 1_000
                 val pullMillis = pullUs / 1_000
@@ -284,6 +273,9 @@ internal class OfficialEssence2FileEngine(
                         continue
                     }
                     val pts = window.start
+                    if (shownInTurn == 0L) HitelE2Trace.event("sync.opening.generated", "turn" to turn,
+                        "sdkFrameIndex" to ordinal, "firstSample" to pts,
+                        "endSample" to window.endExclusive, "pullUs" to pullUs)
                     if (hardwareFrames) {
                         val owned = checkNotNull(hw)
                         val wrapped = Bitmap.wrapHardwareBuffer(owned.buffer, srgb)
@@ -397,7 +389,6 @@ internal class OfficialEssence2FileEngine(
         var lastSamples = -1L
         var lastLogged = -1L
         var firstClock = true
-        var lastProbeNs = 0L
         var lastAudioClockNs = 0L
         val monitorStarted = System.nanoTime()
         return clockWorker.scheduleWithFixedDelay({
@@ -432,10 +423,6 @@ internal class OfficialEssence2FileEngine(
                         "headSamples" to position.headSamples, "timestamp" to position.timestamp,
                         "timestampFrame" to timestamp.framePosition, "timestampNs" to timestamp.nanoTime,
                         "observedNs" to position.observedNs)
-                }
-                if (position.observedNs - lastProbeNs >= 500_000_000L) {
-                    lastProbeNs = position.observedNs
-                    HitelSdkProbe.requestSnapshot(turn)
                 }
                 if (skipAhead && position.samples >= 0L) synchronized(sdkClockLock) {
                     if (sdkStartedTurn == turn && live(turn)) {
@@ -582,7 +569,6 @@ internal class OfficialEssence2FileEngine(
                                 timestamp = false, playing = false)
                             presenter?.audioAdvanced()
                         }
-                        HitelSdkProbe.drain()
                         playingTurn = 0
                     }
                     Packet.Shutdown -> return
@@ -628,10 +614,7 @@ internal class OfficialEssence2FileEngine(
         val soundStopped = await(soundWorker)
         val clockStopped = await(clockWorker)
         presenter?.close()
-        if (feedStopped && pullStopped && soundStopped && clockStopped) {
-            sdk.close()
-            HitelSdkProbe.drain()
-        }
+        if (feedStopped && pullStopped && soundStopped && clockStopped) sdk.close()
         else Log.e(TAG, "SDK left open: streaming worker is still within native SDK call")
     }
 

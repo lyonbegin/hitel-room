@@ -5,7 +5,7 @@ import java.io.File
 /** Clear only diagnostic files. Model and credential directories are never walked. */
 object DiagnosticFiles {
     val names = listOf("boot_status.txt", "hitel_e2_trace.log",
-        "hitel_e2_trace.previous.log", "hitel_ai_e2e.log")
+        "hitel_e2_trace.previous.log", "hitel_e2_startup.log", "hitel_ai_e2e.log")
 
     fun clear(folder: File) {
         for (name in names) {

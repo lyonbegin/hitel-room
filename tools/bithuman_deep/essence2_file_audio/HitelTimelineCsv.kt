@@ -64,18 +64,6 @@ internal object HitelTimelineCsv {
         }
     }
 
-    fun writeSdk(folder: File, writer: Writer) {
-        val columns = listOf("stage", "turn", "monotonicNs", "nativeNs", "tid", "thread", "call",
-            "startNs", "wallUs", "cpuUs", "failed", "nativeTid", "nativeCpuUs", "transport",
-            "workerTid", "worker", "state", "cpuTicks", "ticksPerSec", "message")
-        csv(writer, columns)
-        read(folder) { row ->
-            if (row["stage"] in setOf("sdk.internal.call", "sdk.worker.cpu", "sdk.native.log")) {
-                csv(writer, columns.map { row[it] })
-            }
-        }
-    }
-
     private fun covering(rows: List<Row>, until: Long): String? =
         rows.firstOrNull { row ->
             val start = row.number("firstSample")

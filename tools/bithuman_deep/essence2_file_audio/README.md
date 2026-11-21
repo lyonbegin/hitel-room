@@ -49,35 +49,43 @@ The same APK exposes these debuggable settings. Reload the avatar after a change
 ## Diagnostics
 
 Copied diagnostics include
-`build=PCM16_SDK_TIMELINE_20261122`, `STT=false`, `TTS=false`.
+`build=PCM16_EXTERNAL_TRACE_20261122`, `STT=false`, `TTS=false`.
 `MY_PACKAGE_REPLACED` clears old logs after an APK update; first launch also
-checks the install/update timestamp. Only four named diagnostic files are
-removed. Models and credentials are not traversed or deleted. A second button
-clears logs while running; native trace clearing is serialized on its writer.
-Use **상세 로그 공유** after a reply. The ZIP contains the complete current
-trace (and the retained previous segment), `frame_timeline.csv` and
-`sdk_internal_timing.csv`. The clipboard action supplies a short tail.
+checks the install/update timestamp. The clear button resets the named
+diagnostic files while the app is running.
+**상세 로그 공유** includes the current app trace, the retained previous segment,
+`hitel_e2_startup.log`, and `frame_timeline.csv`. The clipboard includes a
+startup excerpt alongside the recent app events.
 
 - `frame_timeline.csv` joins each ordinal to source samples and timestamps for
   PCM arrival, feeding, speaker writes, SDK return, display and dropping.
   Ordinals with no SDK return remain visible in the table.
-- `sdk_internal_timing.csv` includes probes inserted at JNI call sites inside
-  the SDK AAR, SDK native GPU/CPU diagnostic messages, and SDK thread CPU ticks.
-  A native diagnostic marked `stderr` is timestamped at capture
-  and has no original thread ID. `sdk.probe.ready` reports available transports.
-- `sync.preroll` and `audio.clock.first` cover startup.
+- `sync.preroll`, `audio.clock.first`, and the first generated and displayed
+  frames cover startup.
   `audio.finish` includes PCM SHA-256 for comparison with `file.decode.done`.
 
-The diagnostic APK enables detailed GPU timing flags, which can change measured
-performance. Individual GPU kernel and physical speaker/display timing still
-depend on the device's telemetry.
+### Capture from a host over ADB
+
+Connect the Android device over ADB, open HITEL, and run this from the
+repository root. Trigger the M4A playback when the script starts recording.
+
+```sh
+bash tools/bithuman_deep/essence2_file_audio/capture_perfetto.sh 90
+```
+
+Open `hitel.perfetto-trace` in [Perfetto](https://ui.perfetto.dev/). The capture
+requests CPU scheduling, frequency changes, graphics, audio and Android's
+frame timeline where supported by the device. Inspect the `e2-motion`,
+`e2-stageA/B/C` and `e2-live-pull` threads alongside the
+`HITEL.e2.pullHardwareBuffer` app slice and SurfaceFlinger. The capture also
+pulls the available app logs. Per-kernel GPU data depends on device support.
+
+The SDK's rendering classes and native library use the vendor originals.
+The debug build keeps its existing one-method local meter URL redirection.
 
 ## Verification limits
 
 Workflow: `.github/workflows/essence2-file-reply-r4.yml`.
-The APK is built and its original native/model hashes are checked. JVM checks
-exercise the reused real chunker at 48-to-16-kHz conversion, first callback
-before source end, 100-ms packets and continuous PCM; these do not execute an
-Android AAC decoder. A separate JVM filesystem check verifies reset on an
-install change and preservation of model/credential files.
-This workflow does not run an emulator or claim a Galaxy GPU/speaker test.
+The workflow checks the built APK's original native/model bytes and verifies
+the debug meter is the only edited vendor JVM method. Galaxy playback and
+external trace capture require a connected device.

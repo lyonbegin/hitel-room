@@ -30,7 +30,6 @@ class HitelDiagnostics(binding: FlutterPlugin.FlutterPluginBinding) {
                     }
                 }
             } else if (call.method == "share") {
-                HitelE2Trace.drainSdkProbe?.invoke()
                 HitelE2Trace.afterWrites { failure ->
                     val export = runCatching {
                         if (failure != null) throw failure
@@ -51,19 +50,6 @@ class HitelDiagnostics(binding: FlutterPlugin.FlutterPluginBinding) {
                             HitelTimelineCsv.writeFrames(folder, report)
                             report.flush()
                             zip.closeEntry()
-                            zip.putNextEntry(ZipEntry("sdk_internal_timing.csv"))
-                            HitelTimelineCsv.writeSdk(folder, report)
-                            report.flush()
-                            zip.closeEntry()
-                            val profiles = HitelE2Trace.sdkProfileFolder?.listFiles().orEmpty()
-                                .filter { it.isFile && it.name.startsWith("director") &&
-                                    it.extension == "json" && it.length() in 1L..(32L * 1024 * 1024) }
-                                .sortedByDescending { it.lastModified() }.take(2)
-                            for (profile in profiles) {
-                                zip.putNextEntry(ZipEntry("ort/" + profile.name))
-                                profile.inputStream().use { it.copyTo(zip) }
-                                zip.closeEntry()
-                            }
                         }
                         archive
                     }
