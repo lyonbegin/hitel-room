@@ -79,7 +79,9 @@ def patch(plugin: Path, sources: Path) -> None:
         '                                    val prior = s.framesDrawn\n'
         '                                    s.draw(bitmap)\n'
         '                                    if (s.framesDrawn > prior && (s.framesDrawn == 1L || s.framesDrawn % 25L == 0L))\n'
-        '                                        Log.i("E2STREAM", "LIVE_DRAW frame=
+        '                                        Log.i("E2STREAM", "LIVE_DRAW frame=" + s.framesDrawn)\n'
+        '                                }\n'
+        '                            } finally { bitmap.recycle() }\n'
         '                        }\n'
         '                    }\n'
         '                }\n',
