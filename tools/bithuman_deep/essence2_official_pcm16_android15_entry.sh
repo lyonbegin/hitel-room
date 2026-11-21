@@ -10,6 +10,6 @@ adb shell svc data disable
 echo PASS_EMULATOR_ENTRY_BASH_STARTED
 bash tools/bithuman_deep/essence2_android_emulator_smoke.sh \
   "$APK" essence2-official-emulator-boot
-bash tools/bithuman_deep/essence2_official_pcm16_emulator_probe.sh \
+bash tools/bithuman_deep/essence2_official_pcm16_emulator_probe_strict.sh \
   essence2-official-emulator-speech
 echo PASS_OFFICIAL_ESSENCE2_ANDROID15_EMULATOR_END_TO_END
