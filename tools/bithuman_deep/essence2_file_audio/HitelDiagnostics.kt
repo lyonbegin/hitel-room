@@ -9,6 +9,7 @@ import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.OutputStreamWriter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -29,11 +30,12 @@ class HitelDiagnostics(binding: FlutterPlugin.FlutterPluginBinding) {
                     }
                 }
             } else if (call.method == "share") {
+                HitelE2Trace.drainSdkProbe?.invoke()
                 HitelE2Trace.afterWrites { failure ->
                     val export = runCatching {
                         if (failure != null) throw failure
                         val output = File(context.cacheDir, "hitel-diagnostics").apply { mkdirs() }
-                        val archive = File(output, "HITEL_Essence2_R7_Trace.zip")
+                        val archive = File(output, "HITEL_Essence2_Detailed_Trace.zip")
                         val folder = File(context.filesDir.parentFile, "app_flutter")
                         ZipOutputStream(archive.outputStream().buffered()).use { zip ->
                             for (name in DiagnosticFiles.names) {
@@ -43,6 +45,24 @@ class HitelDiagnostics(binding: FlutterPlugin.FlutterPluginBinding) {
                                     file.inputStream().use { it.copyTo(zip) }
                                     zip.closeEntry()
                                 }
+                            }
+                            val report = OutputStreamWriter(zip, Charsets.UTF_8).buffered()
+                            zip.putNextEntry(ZipEntry("frame_timeline.csv"))
+                            HitelTimelineCsv.writeFrames(folder, report)
+                            report.flush()
+                            zip.closeEntry()
+                            zip.putNextEntry(ZipEntry("sdk_internal_timing.csv"))
+                            HitelTimelineCsv.writeSdk(folder, report)
+                            report.flush()
+                            zip.closeEntry()
+                            val profiles = HitelE2Trace.sdkProfileFolder?.listFiles().orEmpty()
+                                .filter { it.isFile && it.name.startsWith("director") &&
+                                    it.extension == "json" && it.length() in 1L..(32L * 1024 * 1024) }
+                                .sortedByDescending { it.lastModified() }.take(2)
+                            for (profile in profiles) {
+                                zip.putNextEntry(ZipEntry("ort/" + profile.name))
+                                profile.inputStream().use { it.copyTo(zip) }
+                                zip.closeEntry()
                             }
                         }
                         archive

@@ -1,4 +1,4 @@
-name: Deliver Essence2 audio-master PCM16 APK
+name: Deliver Essence2 sample-aligned APK with SDK diagnostics
 on:
   workflow_dispatch:
   push:
@@ -8,6 +8,7 @@ on:
       - .github/workflows/essence2-file-reply-r4.yml
       - tools/bithuman_deep/prepare_essence2_file_reply.py
       - tools/bithuman_deep/patch_essence2_official_pcm16_file.py
+      - tools/bithuman_deep/InstrumentEssence2.java
       - tools/bithuman_deep/essence2_live_pcm16_emulator_probe.sh
       - tools/bithuman_deep/essence2_live_pcm16_android15_entry.sh
       - tools/bithuman_deep/verify_essence2_file_stream_playout.py
@@ -135,8 +136,8 @@ jobs:
           ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
             "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           # Distinguish these builds in the diagnostics copied from a real phone.
-          sed -i 's/PCM_FILE_R7_TRACE/PCM16_GPU_AUDIO_MASTER_20261121/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_GPU_AUDIO_MASTER_20261121' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/PCM16_SDK_TIMELINE_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM16_SDK_TIMELINE_20261122' "$APP/lib/main.dart"
           echo PASS_ESSENCE2_AUDIO_MASTER_WITH_ORIGINAL_HARDWARE_BUFFER
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
@@ -171,7 +172,7 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_ONLY_SOFIA_ANDROID_MODEL_EMBEDDED_IN_APP_ASSETS
 
-      - name: Repack original SDK with ONLY one JVM meter URL getter changed
+      - name: Instrument SDK-internal JNI calls and verify original vendor native bytes
         shell: bash
         run: |
           set -euo pipefail
@@ -186,6 +187,12 @@ jobs:
             --output-aar essence2-sdk-local/hitel-local-test-meter-0.9.5.aar \
             --report essence2-local-mock-proof/one-meter-method-only.json \
             --base-url http://127.0.0.1:18762 --allow-offline-loopback
+          curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.7.1/asm-9.7.1.jar \
+            -o essence2-sdk-local/asm.jar
+          javac -cp essence2-sdk-local/asm.jar -d essence2-sdk-local tools/bithuman_deep/InstrumentEssence2.java
+          java -cp essence2-sdk-local:essence2-sdk-local/asm.jar InstrumentEssence2 \
+            essence2-sdk-local/hitel-local-test-meter-0.9.5.aar essence2-sdk-local/hitel-traced-0.9.5.aar \
+            | tee essence2-local-mock-proof/sdk-internal-instrumentation.txt
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -194,7 +201,7 @@ jobs:
           maven=app/'android/local-sdk-maven/ai/hitel/reassembled/essence2-android/0.9.5'
           maven.mkdir(parents=True,exist_ok=True)
           (maven/'essence2-android-0.9.5.aar').write_bytes(
-            (sdk/'hitel-local-test-meter-0.9.5.aar').read_bytes())
+            (sdk/'hitel-traced-0.9.5.aar').read_bytes())
           pom=(sdk/'vendor-original-0.9.5.pom').read_text()
           edited,count=re.subn(r'(<groupId>\s*)ai\.bithuman(\s*</groupId>)',
                r'\g<1>ai.hitel.reassembled\g<2>',pom,count=1)
@@ -217,7 +224,7 @@ jobs:
             '            if (requested.group == "ai.bithuman" &&\n'+
             '                requested.name == "essence2-android") {\n'+
             '                useTarget("ai.hitel.reassembled:essence2-android:0.9.5")\n'+
-            '                because("Only the local debug meter endpoint changes; original native unchanged")\n'+
+            '                because("JVM diagnostics and local debug endpoint; vendor native bytes preserved")\n'+
             '            }\n'+
             '        }\n'+
             '    }\n'+
@@ -232,8 +239,8 @@ jobs:
           PY
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
-          echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
+            <(unzip -p essence2-sdk-local/hitel-traced-0.9.5.aar jni/arm64-v8a/lible_jni.so)
+          echo PASS_ORIGINAL_NATIVE_UNMODIFIED_WITH_SDK_JVM_PROBES
 
       - name: Use the Maven Central mirror for Kotlin dependencies
         shell: bash
@@ -258,6 +265,24 @@ jobs:
               kotlinMirror(project.buildscript.repositories)
           }
           GRADLE
+
+      - name: Build ARM64 collector for the SDK native diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK_VERSION=28.2.13676358
+          NDK_DIR="$ANDROID_HOME/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK_DIR" ]; then
+            sdkmanager --install "ndk;$NDK_VERSION"
+          fi
+          CXX="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++"
+          OUTPUT=essence2-local-mock-plugin/android/src/main/jniLibs/arm64-v8a
+          mkdir -p "$OUTPUT"
+          "$CXX" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -fvisibility=hidden -shared \
+            -static-libstdc++ -Wl,--no-undefined tools/bithuman_deep/essence2_file_audio/hitel_e2_probe.cpp \
+            -ldl -o "$OUTPUT/libhitel_e2_probe.so"
+          readelf -Ws "$OUTPUT/libhitel_e2_probe.so" | grep 'HitelSdkProbe_native' | sort -u
+          sha256sum "$OUTPUT/libhitel_e2_probe.so" > essence2-local-mock-proof/sdk-probe-sha256.txt
 
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
@@ -292,12 +317,13 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/libhitel_e2_probe.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
             echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -307,7 +333,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -315,7 +341,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -332,7 +358,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -346,25 +372,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
-          TAG=hitel-essence2-gpu-audio-master-r2-20261121
+          APK=HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk
+          TAG=hitel-essence2-sdk-timeline-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Installation test APK requested for immediate physical-device diagnosis.
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
-          Continuous 16 kHz PCM audio is the master. The renderer may skip late video while the speaker continues with the original PCM at its native rate.
-          For comparisons set debug.bh.e2.sync to 2 for the direct presentation, debug.bh.e2.height to 720 for SDK 720p, or debug.bh.e2.clock to 2 to disable SDK skip-ahead. Reload the avatar after changing a setting.
-          Device logs: sync.route, sync.preroll, video.pull, sync.present, sync.finish and audio.finish.
+          The player maps each SDK ordinal to its PCM16 sample window and uses the audio clock to present or discard that frame.
+          Use the app's detailed log sharing button to export frame_timeline.csv, sdk_internal_timing.csv and the full app trace.
+          The APK contains JVM probes inside the SDK and a native collector for the original vendor's CPU/GPU diagnostics.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 GPU Audio Master APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 SDK Timeline APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -374,8 +400,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_GPU_Audio_Master_APK
-          path: HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
+          name: HITEL_Essence2_SDK_Timeline_APK
+          path: HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs

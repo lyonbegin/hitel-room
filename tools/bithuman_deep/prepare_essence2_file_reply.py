@@ -82,7 +82,7 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
     build_id = revision.replace(' ', '_').upper()
     folder = plugin / 'android/src/main/kotlin/ai/bithuman/flutter'
     for name in ('HitelFileAudioSource.kt', 'HitelDiagnostics.kt', 'DiagnosticFiles.kt',
-                 'HitelLogResetReceiver.kt', 'HitelE2Trace.kt'):
+                 'HitelLogResetReceiver.kt', 'HitelE2Trace.kt', 'HitelTimelineCsv.kt'):
         shutil.copyfile(sources / name, folder / name)
     java = plugin / 'android/src/main/java/ai/bithuman/flutter/FilePcmStream.java'
     java.parent.mkdir(parents=True, exist_ok=True)

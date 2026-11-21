@@ -14,9 +14,8 @@ def replace_one(source: str, old: str, new: str, tag: str) -> str:
 
 def patch(plugin: Path, sources: Path) -> None:
     folder = plugin / "android/src/main/kotlin/ai/bithuman/flutter"
-    shutil.copyfile(sources / "OfficialEssence2FileEngine.kt",
-                    folder / "OfficialEssence2FileEngine.kt")
-    shutil.copyfile(sources / "HitelVoiceSync.kt", folder / "HitelVoiceSync.kt")
+    for name in ("OfficialEssence2FileEngine.kt", "HitelVoiceSync.kt", "HitelPcmTimeline.kt", "HitelSdkProbe.kt"):
+        shutil.copyfile(sources / name, folder / name)
 
     # The existing MediaCodec/MediaExtractor file decoder already provides 16k PCM16.
     # Remove the gratuitous 16 -> 24 -> 16 conversion. Dart merely forwards bytes.
@@ -63,6 +62,7 @@ def patch(plugin: Path, sources: Path) -> None:
         '        val debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0\n'
         '        val requestedHeight = if (debuggable && AvatarPlayer.devInt("debug.bh.e2.height") == 720) 720 else 0\n'
         '        val options = Essence2Options(outputHeight = requestedHeight)\n'
+        '        HitelSdkProbe.install(context)\n'
         '        val avatar = loadInOrder(code, "essence-2", secret, gen, credentials,\n',
         "choose SDK output height before avatar creation")
     s = replace_one(s,
