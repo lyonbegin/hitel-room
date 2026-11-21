@@ -28,7 +28,7 @@ jobs:
           done
           python3 - <<'PY'
           from pathlib import Path
-          import json,re
+          import json,re,zlib,base64
           names=re.compile(r'(?:DownloadWorker|FileUnzipWorker|AiModelUpdateRepositoryImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecordingManager|RecordRepository|RecordingSetting|RecordSetting|CallRecordSetting|DownloadViewModel|SettingViewModel|SettingScreenKt|ModelCatalogQaTrace)')
           result={}
           for p in Path('.flow-source').glob('smali*/com/lguplus/aicallagent/**/*.smali'):
@@ -42,6 +42,8 @@ jobs:
           assert any('DownloadWorker.smali' in p for p in result)
           assert any('recordingCallback' in p for p in result)
           print('READ_ONLY_BOUNDARY_CLASSES',len(result))
+          chosen={p:s for p,s in result.items() if p.endswith(('/DownloadWorker.smali','/FileUnzipWorker.smali','/AiModelUpdateRepositoryImpl.smali','/UpdateAiModelUseCaseImpl.smali','/CheckAiModelAvailabilityUseCaseImpl.smali','/CheckRecordingAvailabilityUseCaseImpl.smali','/SettingViewModel.smali','/CallRecordingManager$recordingCallback$1.smali','/RecordRepository.smali'))}
+          print('BOUNDARY_SOURCE_ZLIB_BASE64='+base64.b64encode(zlib.compress(json.dumps(chosen).encode())).decode())
           PY
       - uses: actions/upload-artifact@v4
         if: always()
