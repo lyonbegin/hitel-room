@@ -1,0 +1,86 @@
+name: Install and deliver the existing Korean echo APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/essence2-korean-echo-installed-apk.yml
+permissions:
+  contents: write
+  actions: read
+env:
+  SOURCE_RUN: '44844730033'
+  APK: HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk
+  TAG: hitel-essence2-sofia-audio-lipsync-20261121
+  GH_TOKEN: ${{ github.token }}
+jobs:
+  deliver-existing-binary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish existing compiled APK and verify browser download
+        run: |
+          set -euo pipefail
+          gh run download "$SOURCE_RUN" --name HITEL_Essence2_Korean_Echo_Stream_Install --dir binary
+          test -s "binary/$APK"
+          gh release upload "$TAG" "binary/$APK" --clobber
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk") | .url')"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
+          cmp "binary/$APK" downloaded.apk
+          sha256sum "binary/$APK"
+          echo PASS_KOREAN_ECHO_EXTERNAL_HTTPS_DOWNLOAD_IDENTICAL
+          printf '%s\n' "$URL"
+  install-and-test-existing-binary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      QEMU_AUDIO_DRV: wav
+      QEMU_WAV_FREQUENCY: '48000'
+      QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.fifo
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the identical compiled APK without rebuilding it
+        run: |
+          gh run download "$SOURCE_RUN" --name HITEL_Essence2_Korean_Echo_Stream_Install --dir .
+          sha256sum "$APK"
+          sudo chmod 666 /dev/kvm
+          python3 -m pip install --quiet numpy scipy==1.14.1
+          mkdir -p essence2-sofia-offline-proof essence2-e2trace-proof
+          bash tools/bithuman_deep/prepare_essence2_wav_capture.sh
+      - name: Install and enter actual Korean text on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: |
+            bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk essence2-sofia-offline-proof
+            python3 tools/bithuman_deep/korean_echo_emulator_probe.py essence2-e2trace-proof
+      - name: Finalize captured virtual speaker and inspect actual neural output
+        if: always()
+        run: |
+          python3 tools/bithuman_deep/capture_qemu_wav_stream.py finalize \
+            --raw essence2-sofia-offline-proof/emulator-speaker.raw \
+            --wav essence2-sofia-offline-proof/emulator-speaker.wav
+          python3 tools/bithuman_deep/verify_korean_echo_speaker.py .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-korean-echo-stream-test-evidence
+          path: |
+            essence2-sofia-offline-proof/*.txt
+            essence2-sofia-offline-proof/*.png
+            essence2-sofia-offline-proof/*.json
+            essence2-sofia-offline-proof/*.wav
+            essence2-e2trace-proof/*.pcm
+            essence2-e2trace-proof/*.txt
+            essence2-e2trace-proof/*.json
+            essence2-e2trace-proof/*.png
+            korean-speaker-correlation.json
+          retention-days: 14
