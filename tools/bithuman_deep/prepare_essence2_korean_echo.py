@@ -81,9 +81,10 @@ def prepare(app, plugin, sources, report):
         '        koreanTts?.close(); koreanTts = null\n')
     s = once(s, 'PlayoutClock.enabled(clockLever, skipAhead, Essence2Engine.SKIP_AHEAD_DEFAULT)',
              'PlayoutClock.enabled(clockLever, skipAhead, true)')
-    s = once(s, 'val forceCopy = debuggable && AvatarPlayer.devInt("debug.bh.e2.copy") == 1',
-             'val forceCopy = true // preserve the existing tested texture delivery path')
-    s = s.replace('", debug.bh.e2.copy=1"', '", Korean echo copy path"')
+    s = once(s, '                entry.setSize(avatar.width, avatar.height)',
+             '                entry.setSize(maxOf(1, avatar.width / 2), maxOf(1, avatar.height / 2))\n'
+             '                HitelE2Trace.event("display.texture.config", "width" to maxOf(1, avatar.width / 2),\n'
+             '                    "height" to maxOf(1, avatar.height / 2), "build" to "KO_ECHO_R3")')
     # The half-size Texture remains; fit the original bitmap into that Texture.
     s = once(s, 'try { canvas.drawBitmap(bmp, 0f, 0f, null) } finally {',
         'try { canvas.drawBitmap(bmp, null, android.graphics.Rect(0, 0, canvas.width, canvas.height), null) } finally {')
@@ -110,11 +111,76 @@ def prepare(app, plugin, sources, report):
             "complete" to (delivered >= expected), "quietMs" to quietMs)
         open = false
 ''')
+    # The original bh-feed worker already serialises feed/tail/reset. Keep only
+    # metadata under the adapter monitor: the native feed can wait for the
+    # renderer to drain its bounded queue. Holding this monitor across it
+    # prevented the renderer from publishing the frame that would free it.
+    start = s.index('    @Synchronized override fun feed(f16k: FloatArray) {',
+                    s.index('class Essence2Engine('))
+    end = s.index('    @Synchronized override fun reset() {', start)
+    s = s[:start] + '''    override fun feed(f16k: FloatArray) {
+        if (f16k.isEmpty()) return
+        val generation = synchronized(this) {
+            if (closed && open) { pending.add(f16k); pendingN = pending.size; return }
+            if (!open || closed) startUtterance()
+            uttFed += f16k.size
+            open = true
+            gen
+        }
+        val feedAt = System.nanoTime()
+        HitelE2Trace.event("sdk.feed.begin", "samples16k" to f16k.size)
+        avatar.feed(f16k)
+        val available = avatar.available()
+        synchronized(this) { if (generation == gen) queued = available }
+        HitelE2Trace.event("sdk.feed.end", "durationUs" to (System.nanoTime() - feedAt) / 1000,
+            "sdkQueued" to available, "adapterMonitorHeld" to false)
+        renderSpot.wake()
+    }
+
+    override fun flushTail() {
+        val generation = synchronized(this) {
+            if (pending.isNotEmpty()) { pendingClose = true; return }
+            if (!open || closed) return
+            gen
+        }
+        // While native tail processing runs, closed remains false. A refused
+        // pull during this call is not an utterance boundary.
+        val tailAt = System.nanoTime()
+        avatar.endOfAudio()
+        val available = avatar.available()
+        synchronized(this) {
+            if (generation == gen) {
+                closed = true; queued = available; lastFrameNs = System.nanoTime()
+            }
+        }
+        HitelE2Trace.event("sdk.endOfAudio.end", "durationUs" to (System.nanoTime() - tailAt) / 1000,
+            "adapterMonitorHeld" to false)
+        renderSpot.wake()
+    }
+
+''' + s[end:]
+    s = once(s, '            val monitorWantedAt = System.nanoTime()\n',
+             '            val availableAfterPull = avatar.available()\n'
+             '            val monitorWantedAt = System.nanoTime()\n')
+    s = once(s, '                queued = avatar.available()\n                when {',
+             '                queued = availableAfterPull\n                when {')
+    s = once(s, '                        "sdkQueued" to avatar.available())',
+             '                        "sdkQueued" to availableAfterPull)')
+    s = once(s, '            val monitorWantedAt = System.nanoTime()\n',
+             '            var idleStepCount = 0\n            val monitorWantedAt = System.nanoTime()\n')
+    s = once(s, '                        repeat(PlayoutClock.idleSteps(k, delivered, nt)) { stepIdle() }',
+             '                        idleStepCount = PlayoutClock.idleSteps(k, delivered, nt)')
+    s = once(s, '            if (at < 0) {\n',
+             '            repeat(idleStepCount) { if (g == gen) stepIdle() }\n            if (at < 0) {\n')
+    s = once(s, '    private var closed = false\n', '    @Volatile private var closed = false\n')
     engine.write_text(s, encoding='utf-8')
     # Local Maven avoids AGP's unsupported direct local-AAR dependency in a library.
     gradle = plugin / 'android/build.gradle'
     gradle.write_text(gradle.read_text(encoding='utf-8') +
         '\ndependencies { implementation "ai.hitel.local:sherpa-onnx:1.12.26" }\n', encoding='utf-8')
+    manifest = app / 'android/app/src/main/AndroidManifest.xml'
+    manifest.write_text(once(manifest.read_text(encoding='utf-8'),
+        'android:label="${appLabel}"', 'android:label="HITEL KO Echo R3"'), encoding='utf-8')
 
     ui = app / 'lib/main.dart'
     s = ui.read_text(encoding='utf-8')
@@ -163,6 +229,12 @@ def prepare(app, plugin, sources, report):
              '    unawaited(_echoPlayout?.cancel());\n    _avatar?.dispose();\n')
     s = s.replace("'Connected — say something, or type.'", "'문장을 입력해 주십시오. 입력하신 그대로 읽어 드립니다.'")
     s = s.replace("'Thinking…'", "'한국어 음성을 합성하고 있습니다…'")
+    s = once(s, 'StatusPill(state: _state, label: _status)',
+             "StatusPill(state: _state, label: 'R3 · $_status')")
+    s = once(s, "'HITEL Essence 2 Android diagnostics\\n'",
+             "'HITEL Essence 2 Android diagnostics\\nbuild=KO_ECHO_R3\\n'")
+    s = s.replace('ui.status=speakingProxy reason=botTranscript',
+                  'ui.status=synthesizing reason=echoTranscript')
     ui.write_text(s, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
