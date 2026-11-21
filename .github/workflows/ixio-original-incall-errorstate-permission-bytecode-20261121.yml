@@ -166,6 +166,38 @@ jobs:
           Path('ixio-incall-permission-evidence/callviewmodel-permissionflow-provenance.json').write_text(json.dumps(selected,ensure_ascii=False,indent=2))
           assert selected,'No CallViewModel permissionFlow references located'
           PY
+      - name: Inspect exact original RequirePermissionRepository StateFlow initialization and setters
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          folder=Path('.bytecode-private/classes18-smali/com/lguplus/aicallagent/data/init/permission')
+          assert folder.is_dir()
+          outputs=[]
+          terms=('requiredPermissionState','RequiredPermissionState','isRequirePermissionGranted','requestRequirePermission','PermissionState')
+          for f in sorted(folder.glob('RequirePermissionRepository*.smali')):
+            lines=f.read_text(errors='replace').splitlines()
+            if f.name=='RequirePermissionRepository.smali':
+              fields=[x.strip() for x in lines if x.strip().startswith('.field')]
+              print('ORIGINAL_PERMISSION_REPO_FIELDS',json.dumps(fields))
+            block=[]
+            for line in lines:
+              if line.startswith('.method'):block=[line];continue
+              if not block:continue
+              block.append(line)
+              if not line.startswith('.end method'):continue
+              if any(term in r for r in block for term in terms):
+                relevant=[r.strip()[:320] for r in block if r.strip().startswith(('invoke-','move-result','iget','iput','sget','sput','if-','return','new-instance','check-cast','const/4','const/16'))]
+                item={'class':f.name,'method':block[0],'ir':relevant[:160]}
+                outputs.append(item)
+              block=[]
+          print('PERMISSION_REPOSITORY_RELATED_METHODS',len(outputs))
+          for item in outputs[:60]:
+            print('ORIGINAL_PERMISSION_REPOSITORY_METHOD',item['class'],item['method'])
+            for line in item['ir'][:75]:print('REPO_FLOW_IR',line)
+          Path('ixio-incall-permission-evidence/require-permission-repository-provenance.json').write_text(json.dumps(outputs,ensure_ascii=False,indent=2))
+          assert outputs
+          PY
       - name: Upload safe, token-free source metadata
         if: always()
         uses: actions/upload-artifact@v4
