@@ -75,6 +75,7 @@ internal class OfficialEssence2FileEngine(
     @Volatile private var closed = false
     @Volatile private var renderer: ((Bitmap, HwFrame?) -> Unit)? = null
     @Volatile private var outputTrack: AudioTrack? = null
+    @Volatile private var audioTurn = 0
     private var receiving = false
     private var sdkEverFed = false
 
@@ -205,6 +206,9 @@ internal class OfficialEssence2FileEngine(
             var lastFrameAt = System.nanoTime()
             var renderCheckedTurn = 0
             var waitReportedAt = System.nanoTime()
+            var lastClockNs = 0L
+            var lastClockSamples = -1L
+            var lastSdkIndex = -1L
             while (!closed) {
                 val turn = currentTurn
                 if (turn == 0 || sdkStartedTurn != turn || renderCheckedTurn == turn) {
@@ -215,15 +219,41 @@ internal class OfficialEssence2FileEngine(
                     observedTurn = turn
                     shownInTurn = 0L
                     lastFrameAt = System.nanoTime()
+                    lastClockNs = 0L
+                    lastClockSamples = -1L
+                    lastSdkIndex = -1L
+                }
+                // Forward the actual 16 kHz speaker playback position to the original
+                // SDK, as its original PlayoutClock does. The engine may then skip
+                // frames that are already behind audible speech on slower hardware.
+                val playing = outputTrack
+                if (audioTurn == turn && playing?.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                    val clockNs = System.nanoTime()
+                    if (clockNs - lastClockNs >= 80_000_000L) {
+                        lastClockNs = clockNs
+                        val samples = playing.playbackHeadPosition.toLong().coerceAtMost(acceptedSamples)
+                        try {
+                            sdk.setPlayoutPosition(samples)
+                            if (lastClockSamples < 0 || samples / RATE != lastClockSamples / RATE)
+                                HitelE2Trace.event("sdk.playout.clock", "turn" to turn,
+                                    "playedSamples" to samples, "acceptedSamples" to acceptedSamples)
+                            lastClockSamples = samples
+                        } catch (failure: Throwable) {
+                            HitelE2Trace.failure("sdk.playout.failure", failure, "turn" to turn)
+                        }
+                    }
                 }
                 // Restore original SDK GPU frame ownership; do not read back pixels.
                 if (!hardwareFrames) frame!!.clear()
+                val pullThreadCpuStarted = android.os.Debug.threadCpuTimeNanos()
                 val pullStarted = System.nanoTime()
                 val hw = if (hardwareFrames) sdk.pullHardwareBuffer() else null
                 val ready = if (hardwareFrames) hw != null else sdk.pull(frame!!)
                 val pullMillis = (System.nanoTime() - pullStarted) / 1_000_000
+                val pullThreadCpuMs = (android.os.Debug.threadCpuTimeNanos() - pullThreadCpuStarted) / 1_000_000
                 if (ready) {
                     if (!live(turn)) { hw?.close(); continue }
+                    lastSdkIndex = sdk.lastFrameIndex
                     if (hardwareFrames) {
                         val owned = checkNotNull(hw)
                         val wrapped = Bitmap.wrapHardwareBuffer(owned.buffer, srgb)
@@ -255,8 +285,10 @@ internal class OfficialEssence2FileEngine(
                     if (shownInTurn == 1L || shownInTurn % 25L == 0L)
                         Log.i(TAG, "LIVE_PULL turn=$turn frame=$shownInTurn route=" + (if (hardwareFrames) "GPU" else "CPU") + " pullMs=$pullMillis acceptedSamples=$acceptedSamples")
                     HitelE2Trace.event("video.pull", "turn" to turn, "frame" to shownInTurn,
-                        "sdkFrameIndex" to sdk.lastFrameIndex, "gpuHardware" to hardwareFrames,
-                        "pullMs" to pullMillis, "frameGapMs" to frameGapMs)
+                        "sdkFrameIndex" to lastSdkIndex, "gpuHardware" to hardwareFrames,
+                        "pullMs" to pullMillis, "pullThreadCpuMs" to pullThreadCpuMs,
+                        "frameGapMs" to frameGapMs,
+                        "playedSamples" to lastClockSamples)
                 } else {
                     val waitingAt = System.nanoTime()
                     if (waitingAt - waitReportedAt >= 1_000_000_000L) {
@@ -271,12 +303,18 @@ internal class OfficialEssence2FileEngine(
                     if (sdkEndedTurn == turn) {
                         val approx = ((acceptedSamples * fps + RATE / 2) / RATE)
                         val quietMs = (System.nanoTime() - lastFrameAt) / 1_000_000
-                        if (shownInTurn >= approx && sdk.available() == 0 && quietMs > 2_000) {
-                            sdk.checkRender()
+                        // With the original SDK skip-ahead clock enabled, displayed
+                        // frame count can be below the expected nominal frame count.
+                        val lastOrdinal = lastSdkIndex + 1L
+                        if ((shownInTurn >= approx || lastOrdinal >= approx) &&
+                            sdk.available() == 0 && quietMs > 2_000) {
+                            val integrity = runCatching { sdk.checkRender() }
+                            integrity.onFailure { HitelE2Trace.failure("sdk.checkRender.failure", it, "turn" to turn) }
                             renderCheckedTurn = turn
                             HitelE2Trace.event("video.finish", "turn" to turn,
-                                "frames" to shownInTurn, "expectedApprox" to approx)
-                            Log.i(TAG, "LIVE_RENDER_DONE turn=$turn frames=$shownInTurn expectedApprox=$approx")
+                                "frames" to shownInTurn, "lastOrdinal" to lastOrdinal,
+                                "expectedApprox" to approx, "integrityPassed" to integrity.isSuccess)
+                            Log.i(TAG, "LIVE_RENDER_DONE turn=$turn frames=$shownInTurn expectedApprox=$approx lastOrdinal=$lastOrdinal integrityPassed=${integrity.isSuccess}")
                             continue
                         }
                     }
@@ -328,6 +366,7 @@ internal class OfficialEssence2FileEngine(
                             track?.let { runCatching { it.stop() }; it.release() }
                             track = makeTrack()
                             outputTrack = track
+                            audioTurn = packet.turn
                             playingTurn = packet.turn
                             writtenSamples = 0L
                             firstAudio = true
@@ -398,6 +437,7 @@ internal class OfficialEssence2FileEngine(
                         track?.let { runCatching { it.stop() }; it.release() }
                         track = null
                         outputTrack = null
+                        audioTurn = 0
                         playingTurn = 0
                     }
                     Packet.Shutdown -> return
@@ -411,6 +451,7 @@ internal class OfficialEssence2FileEngine(
                 "writtenSamples" to writtenSamples, "playedSamples" to track?.playbackHeadPosition)
         } finally {
             outputTrack = null
+            audioTurn = 0
             track?.let { runCatching { it.stop() }; it.release() }
         }
     }
