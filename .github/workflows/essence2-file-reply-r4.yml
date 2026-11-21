@@ -27,6 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           REFERENCE=69d7a68441e5b292bdda492722058916c026a105
+          # actions/checkout is shallow by default; explicitly fetch the pinned source commit.
+          git fetch --no-tags --depth=1 origin "$REFERENCE"
           for f in tools/bithuman_deep/essence2_file_audio/OfficialEssence2FileEngine.kt tools/bithuman_deep/essence2_file_audio/HitelVoiceSync.kt tools/bithuman_deep/patch_essence2_official_pcm16_file.py tools/bithuman_deep/prepare_essence2_file_reply.py; do
             git show "${REFERENCE}:${f}" | cmp - "$f"
           done
