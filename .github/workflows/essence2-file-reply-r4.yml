@@ -271,11 +271,20 @@ jobs:
         run: |
           set -euo pipefail
           NDK_VERSION=28.2.13676358
-          NDK_DIR="$ANDROID_HOME/ndk/$NDK_VERSION"
-          if [ ! -d "$NDK_DIR" ]; then
-            sdkmanager --install "ndk;$NDK_VERSION"
-          fi
+          SDK_DIR="$ANDROID_HOME"
+          NDK_DIR="$SDK_DIR/ndk/$NDK_VERSION"
           CXX="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++"
+          if [ ! -x "$CXX" ]; then
+            SDK_MANAGER="$(find "$SDK_DIR/cmdline-tools" -path '*/bin/sdkmanager' -type f 2>/dev/null | sort -V | tail -1 || true)"
+            if [ -z "$SDK_MANAGER" ]; then
+              curl -fLsS --retry 3 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+                -o "$RUNNER_TEMP/hitel-cmdline-tools.zip"
+              unzip -q "$RUNNER_TEMP/hitel-cmdline-tools.zip" -d "$RUNNER_TEMP/hitel-android-tools"
+              SDK_MANAGER="$RUNNER_TEMP/hitel-android-tools/cmdline-tools/bin/sdkmanager"
+            fi
+            "$SDK_MANAGER" --sdk_root="$SDK_DIR" --install "ndk;$NDK_VERSION"
+          fi
+          test -x "$CXX"
           OUTPUT=essence2-local-mock-plugin/android/src/main/jniLibs/arm64-v8a
           mkdir -p "$OUTPUT"
           "$CXX" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -fvisibility=hidden -shared \
