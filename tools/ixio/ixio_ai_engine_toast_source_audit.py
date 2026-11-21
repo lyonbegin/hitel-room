@@ -35,7 +35,7 @@ for folder in sorted(ROOT.glob("smali*")):
         if not rel.startswith(("com/lguplus/","com/pineone/")):
             continue
         src=file.read_text(errors="replace")
-        resource_hit=any(("->"+n+":I") in src for n in names) or any(n in src.lower() for n in ids)
+        resource_hit=any(("->"+n+":I") in src for n in names) or any(n in src.lower() for n in ids) or "showVasErrorRetryToast()V" in src
         selected=bool(selected_names.search(rel))
         if not resource_hit and not selected:
             continue
