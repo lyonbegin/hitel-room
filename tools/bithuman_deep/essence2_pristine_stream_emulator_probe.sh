@@ -23,11 +23,13 @@ adb shell run-as "$PACKAGE" cat ./app_flutter/hitel_e2_trace.log > "$OUT/native-
 cat "$OUT/native-trace-previous.txt" "$OUT/native-trace-current.txt" > "$OUT/native-function-trace-after-voice.txt"
 adb shell run-as "$PACKAGE" cat ./app_flutter/hitel_ai_e2e.log > "$OUT/ai-protocol-app-log.txt" 2>/dev/null || true
 adb logcat -d -v time > "$OUT/full-after-speech-logcat.txt" || true
+set +e
 python3 tools/bithuman_deep/check_essence2_original_stream.py \
   --native "$OUT/native-function-trace-after-voice.txt" \
   --protocol "$OUT/ai-protocol-app-log.txt" \
   --report "$OUT/original-stream-proof.json"
 report_rc=$?
+set -e
 python3 tools/bithuman_deep/analyze_essence2_e2trace.py \
   --input "$OUT/native-function-trace-after-voice.txt" \
   --output "$OUT/stream-frame-coverage.json" || true
