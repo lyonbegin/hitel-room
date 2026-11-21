@@ -4,7 +4,7 @@ on:
     inputs:
       source_run:
         description: Korean echo build run with actual installed-app evidence
-        default: '44844730033'
+        default: '44846908932'
         required: true
   push:
     branches:
@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Read the completed first run's on-device event evidence
         run: |
-          gh run download 44845708092 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
+          gh run download 44846908932 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -33,7 +33,7 @@ jobs:
               matches=list(root.rglob(name))
               if matches:
                   print('FILE',name)
-                  print('\n'.join(matches[0].read_text(errors='replace').splitlines()[-80:]))
+                  data=matches[0].read_text(errors='replace').splitlines(); print('\n'.join(data[-40:])); print('\n'.join(x for x in data if re.search(r'stage=tts\.|stage=sdk.utterance|stage=sdk.resetAudio|stage=render.monitor',x)))
           matches=list(root.rglob('full-logcat.txt'))
           if matches:
               lines=matches[0].read_text(errors='replace').splitlines()
@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: ${{ inputs.source_run || '44844730033' }}
+      SOURCE_RUN: ${{ inputs.source_run || '44846908932' }}
     steps:
       - uses: actions/checkout@v4
       - name: Download existing installed-app evidence without rebuilding the APK
