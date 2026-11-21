@@ -49,6 +49,9 @@ that measurement is reported rather than inferred from chunk counts.
 
 `tests/KoreanSpeechAudioTest.kt` is a platform-free JVM check of sample duration,
 arbitrary callback boundaries, early packet delivery and Korean clause splitting.
+It also checks the concrete callback's `invoke(float[]): java.lang.Integer`
+descriptor used by sherpa's JNI reflection. A Kotlin indy lambda at this boundary
+only exposes an erased method after D8 and causes an ART NoSuchMethodError abort.
 The local synthesised PCM retained for diagnostics is one overwritten file,
 `files/hitel-echo-latest.pcm`; no growing audio history is stored.
 

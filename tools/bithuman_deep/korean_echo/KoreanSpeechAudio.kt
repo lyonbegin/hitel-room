@@ -3,6 +3,13 @@ package ai.bithuman.flutter
 import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
 
+/** sherpa JNI reflects invoke(float[]):Integer. An indy lambda only exposes
+ * invoke(Object):Object on newer Kotlin/D8 and aborts ART with NoSuchMethodError.
+ * Keep this concrete typed implementation at the JNI boundary. */
+class KoreanTtsPcmCallback(private val accept: (FloatArray) -> Int) : (FloatArray) -> Int {
+    override fun invoke(samples: FloatArray): Int = accept(samples)
+}
+
 /** Keep the echoed transcript intact; split only the synthesis work at word boundaries. */
 object KoreanSpeechSegments {
     fun split(text: String): List<String> {

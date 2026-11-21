@@ -5,6 +5,10 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 fun main() {
+    val callback = KoreanTtsPcmCallback { samples -> samples.size }
+    val jni = callback.javaClass.getMethod("invoke", FloatArray::class.java)
+    check(jni.returnType == java.lang.Integer::class.java) { "sherpa JNI callback descriptor changed" }
+    check(jni.invoke(callback, floatArrayOf(0f, 1f)) == 2)
     val source = FloatArray(22050 * 4 + 7) { (0.7 * sin(2 * PI * 440 * it / 22050)).toFloat() }
     fun render(block: Int): ByteArray {
         val output = ByteArrayOutputStream()
@@ -33,5 +37,5 @@ fun main() {
     check(segments.size >= 3 && segments.joinToString("") == text)
     check(KoreanSpeechSegments.split("가".repeat(160)).all { it.length <= 64 })
     check(KoreanSpeechSegments.split(" \n ").isEmpty())
-    println("PASS_KOREAN_CONTINUOUS_PCM_DURATION_BOUNDARIES_EARLY_DELIVERY_SEGMENTATION")
+    println("PASS_KOREAN_JNI_CALLBACK_ABI_PCM_DURATION_BOUNDARIES_EARLY_DELIVERY_SEGMENTATION")
 }

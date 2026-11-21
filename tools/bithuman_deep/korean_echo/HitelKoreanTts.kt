@@ -161,9 +161,9 @@ class HitelKoreanTts(private val binding: FlutterPlugin.FlutterPluginBinding) {
                     if (!live(turn)) return@use
                     HitelE2Trace.event("tts.segment.begin", "turn" to turn.id, "index" to index,
                         "chars" to segment.length)
-                    tts.generateWithCallback(segment, sid = 0, speed = 1.0f) { samples ->
+                    tts.generateWithCallback(segment, sid = 0, speed = 1.0f, callback = KoreanTtsPcmCallback { samples ->
                         if (!live(turn)) 0 else { resampler.push(samples); if (live(turn)) 1 else 0 }
-                    }
+                    })
                     // Publish even a short segment before synthesising the next one.
                     resampler.flushPacket()
                     HitelE2Trace.event("tts.segment.end", "turn" to turn.id, "index" to index,

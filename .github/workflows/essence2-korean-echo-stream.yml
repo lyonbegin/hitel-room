@@ -234,7 +234,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -244,7 +244,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -252,7 +252,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -263,7 +263,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk
+          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk
           cat > essence2-local-mock-proof/candidate-notes.md <<'EOF'
           Installation candidate: Korean-only local VITS/sherpa-onnx text echo connected to the original streaming avatar player. Compilation, embedded model checks and the original avatar JNI byte comparison have passed. Installed-app Korean synthesis, speaker playback and lip-sync checks are still running; they are not yet claimed as passed. Text input is returned unchanged by the local echo server. No external AI or cloud TTS is used.
           EOF
@@ -275,7 +275,7 @@ jobs:
               --title 'HITEL Essence2 - Korean echo installation candidate' \
               --notes-file essence2-local-mock-proof/candidate-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-candidate.apk
           cmp "$APK" verified-candidate.apk
           sha256sum "$APK"
@@ -307,7 +307,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
           script: |
-            bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk essence2-sofia-offline-proof
+            bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk essence2-sofia-offline-proof
             python3 tools/bithuman_deep/korean_echo_emulator_probe.py essence2-e2trace-proof
       - name: Finalize actual emulator speaker capture
         if: always()
@@ -323,7 +323,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk
+          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
           Korean-only local text echo. The existing in-process WebSocket returns the submitted text unchanged. sherpa-onnx 1.12.26 and vits-mimic3-ko_KO-kss_low synthesize it on the phone. Short clauses are generated in sequence and PCM is forwarded immediately to the original bitHuman streaming AvatarPlayer (separate feeding, rendering, speaker writing and audio-clocked presentation). No fixed English recording, full-reply prerender cache, external AI or cloud TTS. Existing HITEL local test session and embedded Sofia model are preserved; native avatar inference is byte-identical. Automated acceptance installs this APK on Android 15, submits two different Korean texts through the real input field, verifies input hashes, distinct neural PCM, speaker writes, mouth frames and return to idle. Emulator performance and virtual audio capture differ from physical-device behavior.
           EOF
@@ -336,7 +336,7 @@ jobs:
           fi
           gh release edit "$TAG" --title 'HITEL Essence2 Sofia - Korean local TTS echo streaming' \
             --notes-file essence2-local-mock-proof/release-notes.md
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -348,7 +348,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HITEL_Essence2_Korean_Echo_Stream_Install
-          path: HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk
+          path: HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
