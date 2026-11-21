@@ -1,0 +1,75 @@
+name: Publish verified HITEL Essence2 Immediate PCM16 APK as direct GitHub Release
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-immediate-pcm-stream-20261121
+    paths:
+      - .github/workflows/publish-essence2-immediate-direct-apk-release.yml
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: hitel-essence2-immediate-direct-apk-release
+  cancel-in-progress: false
+jobs:
+  publish-direct-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: hitel-essence2-immediate-pcm16-20261121
+      APK: HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the actual successfully built and emulator-verified APK
+        uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_Immediate_PCM16_APK
+          run-id: 44898112874
+          github-token: ${{ github.token }}
+      - name: Verify downloadable APK binary, version, architecture and audio source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$APK"
+          test "$(stat -c '%s' "$APK")" -gt 200000000
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          unzip -Z1 "$APK" | grep -Fx 'assets/flutter_assets/assets/hitel_file_reply.m4a'
+          sha256sum "$APK" | tee "${APK}.sha256"
+          echo "PASS_EMULATOR_VERIFIED_APK_READY_FOR_DIRECT_DOWNLOAD"
+      - name: Publish APK directly to GitHub Releases (not as ZIP)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
+          else
+            gh release create "$TAG" "$APK" "${APK}.sha256" \
+              --target "$GITHUB_SHA" \
+              --title 'HITEL Essence2 Immediate PCM16 Stream - Android ARM64' \
+              --notes 'Verified APK from GitHub Actions run 44898112874. Uses the original Essence2 Android native SDK, immediate PCM16 feed, immediate pulled video frames and audio streaming. This is a debug/test build (not Play Store signed); contains bundled Sofia avatar model and an audio test fixture.' \
+              --prerelease \
+              --latest=false
+          fi
+      - name: Verify release assets really exist on GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json url,assets | tee release-result.json
+          python3 - <<'PY'
+          import json,os
+          j=json.load(open("release-result.json"))
+          apk=os.environ["APK"]
+          assets=[x for x in j["assets"] if x["name"]==apk]
+          assert len(assets)==1,assets
+          asset=assets[0]
+          assert int(asset["size"])==os.path.getsize(apk),(asset["size"],os.path.getsize(apk))
+          url=asset["url"]
+          assert url.startswith("https://github.com/") and "/releases/download/" in url,url
+          print("PASS_DIRECT_GITHUB_RELEASE_ASSET_VERIFIED")
+          print("DIRECT_APK_URL="+url)
+          print("APK_SIZE_BYTES="+str(asset["size"]))
+          PY
