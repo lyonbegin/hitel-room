@@ -1,0 +1,11 @@
+{
+  "real_DiagLog_source_tested": true,
+  "host_Android_adapters": true,
+  "verbose_events_written": 12000,
+  "critical_result_survived_full_trace_rotation": true,
+  "error_code_preserved": true,
+  "gzip_copy_roundtrip_identical": true,
+  "all_four_diagnostic_files_cleared": true,
+  "snapshot_characters": 3921708,
+  "encoded_copy_characters": 70009
+}

@@ -1,0 +1,98 @@
+{
+  "source_run": 44925580250,
+  "build_source": "f2e967243cc354780ee0956549db769a9c78082f",
+  "assets": [
+    {
+      "name": "IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk",
+      "size": 168891315,
+      "sha256": "adf4affccc9f38e9c8cce4a3a7b6848a12fa0903dda9ad3a064ebfcd9de875bb",
+      "anonymous_http": 200,
+      "exact_tested_bytes": true,
+      "url": "https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-original-flow-trace-20261122/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk"
+    },
+    {
+      "name": "IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk",
+      "size": 30780855,
+      "sha256": "25463e9553299371ad0ca37f558c0c232593ff6daf7659c61f27fee3777295e8",
+      "anonymous_http": 200,
+      "exact_tested_bytes": true,
+      "url": "https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-original-flow-trace-20261122/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk"
+    }
+  ],
+  "coverage": {
+    "site_count": 16097,
+    "class_count": 382,
+    "phase_counts": {
+      "ENTER": 1485,
+      "BRANCH": 1932,
+      "FALLTHROUGH": 1932,
+      "CALL": 2915,
+      "CALL_RETURN": 2915,
+      "RETURN": 1917,
+      "THROW": 341,
+      "BLOCK": 2193,
+      "STATE_WRITE": 97,
+      "ARG": 130,
+      "CATCH": 113,
+      "STATE_VALUE": 127
+    },
+    "changed_dex": [
+      "classes15.dex",
+      "classes16.dex",
+      "classes17.dex",
+      "classes18.dex",
+      "classes20.dex"
+    ],
+    "static_http_route_count": 131,
+    "original_instructions_preserved": true,
+    "original_exception_coverage_preserved": true,
+    "new_probe_invokes_excluded_from_original_catch_ranges": true,
+    "exact_retry_sites": 66,
+    "all_retry_methods_covered": 60,
+    "runtime": {
+      "actual_flow_event_count": 72860,
+      "actual_phase_counts": {
+        "ENTER": 10730,
+        "CALL": 13993,
+        "CALL_RETURN": 13983,
+        "RETURN": 10708,
+        "BRANCH": 10073,
+        "FALLTHROUGH": 5245,
+        "BLOCK": 7661,
+        "CATCH": 2,
+        "ARG": 52,
+        "STATE_VALUE": 399,
+        "STATE_WRITE": 14
+      },
+      "actual_worker_terminal_results": [
+        "11-21 16:44:26.487  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:26.487 #18365 pid=5513 tid=5558 [FLOW] S3417 DownloadWorker.buildWorkerResult CALL_RETURN ListenableWorker$Result.success from=S3416 result=androidx.work.ListenableWorker$Result$Success#26316df",
+        "11-21 16:44:26.487  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:26.487 #18366 pid=5513 tid=5558 [FLOW] S3418 DownloadWorker.buildWorkerResult RETURN result=androidx.work.ListenableWorker$Result$Success#26316df",
+        "11-21 16:44:26.488  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:26.488 #18367 pid=5513 tid=5558 [FLOW] S3645 DownloadWorker.doWork CALL_RETURN DownloadWorker.buildWorkerResult from=S3644 result=androidx.work.ListenableWorker$Result$Success#26316df",
+        "11-21 16:44:26.488  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:26.488 #18368 pid=5513 tid=5558 [FLOW] S3646 DownloadWorker.doWork RETURN result=androidx.work.ListenableWorker$Result$Success#26316df",
+        "11-21 16:44:26.488  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:26.488 #18369 pid=5513 tid=5558 [FLOW] S3298 DownloadWorker$doWork$1.invokeSuspend CALL_RETURN DownloadWorker.doWork from=S3297 result=androidx.work.ListenableWorker$Result$Success#26316df",
+        "11-21 16:44:41.957  5513  5650 I HITEL_IXIO_DIAG: 11-21 16:44:41.957 #28713 pid=5513 tid=5650 [FLOW] S3417 DownloadWorker.buildWorkerResult CALL_RETURN ListenableWorker$Result.success from=S3416 result=androidx.work.ListenableWorker$Result$Success#535ce2d",
+        "11-21 16:44:41.958  5513  5650 I HITEL_IXIO_DIAG: 11-21 16:44:41.958 #28714 pid=5513 tid=5650 [FLOW] S3418 DownloadWorker.buildWorkerResult RETURN result=androidx.work.ListenableWorker$Result$Success#535ce2d",
+        "11-21 16:44:41.958  5513  5650 I HITEL_IXIO_DIAG: 11-21 16:44:41.958 #28715 pid=5513 tid=5650 [FLOW] S3645 DownloadWorker.doWork CALL_RETURN DownloadWorker.buildWorkerResult from=S3644 result=androidx.work.ListenableWorker$Result$Success#535ce2d",
+        "11-21 16:44:41.959  5513  5650 I HITEL_IXIO_DIAG: 11-21 16:44:41.959 #28716 pid=5513 tid=5650 [FLOW] S3646 DownloadWorker.doWork RETURN result=androidx.work.ListenableWorker$Result$Success#535ce2d",
+        "11-21 16:44:41.959  5513  5650 I HITEL_IXIO_DIAG: 11-21 16:44:41.959 #28717 pid=5513 tid=5650 [FLOW] S3298 DownloadWorker$doWork$1.invokeSuspend CALL_RETURN DownloadWorker.doWork from=S3297 result=androidx.work.ListenableWorker$Result$Success#535ce2d",
+        "11-21 16:44:48.376  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:48.376 #37146 pid=5513 tid=5558 [FLOW] S3417 DownloadWorker.buildWorkerResult CALL_RETURN ListenableWorker$Result.success from=S3416 result=androidx.work.ListenableWorker$Result$Success#4290f63",
+        "11-21 16:44:48.377  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:48.377 #37147 pid=5513 tid=5558 [FLOW] S3418 DownloadWorker.buildWorkerResult RETURN result=androidx.work.ListenableWorker$Result$Success#4290f63",
+        "11-21 16:44:48.377  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:48.377 #37148 pid=5513 tid=5558 [FLOW] S3645 DownloadWorker.doWork CALL_RETURN DownloadWorker.buildWorkerResult from=S3644 result=androidx.work.ListenableWorker$Result$Success#4290f63",
+        "11-21 16:44:48.378  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:48.378 #37149 pid=5513 tid=5558 [FLOW] S3646 DownloadWorker.doWork RETURN result=androidx.work.ListenableWorker$Result$Success#4290f63",
+        "11-21 16:44:48.378  5513  5558 I HITEL_IXIO_DIAG: 11-21 16:44:48.378 #37150 pid=5513 tid=5558 [FLOW] S3298 DownloadWorker$doWork$1.invokeSuspend CALL_RETURN DownloadWorker.doWork from=S3297 result=androidx.work.ListenableWorker$Result$Success#4290f63",
+        "11-21 16:45:03.294  5513  6389 I HITEL_IXIO_DIAG: 11-21 16:45:03.294 #47554 pid=5513 tid=6389 [FLOW] S3417 DownloadWorker.buildWorkerResult CALL_RETURN ListenableWorker$Result.success from=S3416 result=androidx.work.ListenableWorker$Result$Success#b93b448",
+        "11-21 16:45:03.294  5513  6389 I HITEL_IXIO_DIAG: 11-21 16:45:03.294 #47555 pid=5513 tid=6389 [FLOW] S3418 DownloadWorker.buildWorkerResult RETURN result=androidx.work.ListenableWorker$Result$Success#b93b448",
+        "11-21 16:45:03.294  5513  6389 I HITEL_IXIO_DIAG: 11-21 16:45:03.294 #47556 pid=5513 tid=6389 [FLOW] S3645 DownloadWorker.doWork CALL_RETURN DownloadWorker.buildWorkerResult from=S3644 result=androidx.work.ListenableWorker$Result$Success#b93b448",
+        "11-21 16:45:03.295  5513  6389 I HITEL_IXIO_DIAG: 11-21 16:45:03.295 #47557 pid=5513 tid=6389 [FLOW] S3646 DownloadWorker.doWork RETURN result=androidx.work.ListenableWorker$Result$Success#b93b448",
+        "11-21 16:45:03.295  5513  6389 I HITEL_IXIO_DIAG: 11-21 16:45:03.295 #47558 pid=5513 tid=6389 [FLOW] S3298 DownloadWorker$doWork$1.invokeSuspend CALL_RETURN DownloadWorker.doWork from=S3297 result=androidx.work.ListenableWorker$Result$Success#b93b448"
+      ],
+      "actual_unzip_terminal_observed": false,
+      "actual_recording_callbacks_observed": false,
+      "actual_copy_panel_contains_flow": true,
+      "actual_copy_panel_contains_sequence_pid_tid": true,
+      "actual_flow_payload_copied_to_clipboard": true,
+      "physical_call_pcm_and_stt_verified": false
+    }
+  },
+  "physical_call_pcm_stt_verified": false
+}
