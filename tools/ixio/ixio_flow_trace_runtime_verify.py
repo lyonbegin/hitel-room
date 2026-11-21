@@ -20,7 +20,7 @@ with path.open('w',encoding='utf-8') as sink:
         robot=importlib.util.module_from_spec(spec);spec.loader.exec_module(robot)
         robot.OUT=OUT/'flow-copy-panel';robot.OUT.mkdir(exist_ok=True)
         nodes,visible=robot.snapshot(950)
-        button=robot.choose(nodes,['로그'],exact=True)
+        button=robot.choose(nodes,['HITEL 진단 로그 열기'],exact=False)
         assert button,'Diagnostic log button missing after original settings interaction'
         robot.tap(button,'OPEN_REAL_PERSISTED_FLOW_LOG_PANEL')
         time.sleep(1)

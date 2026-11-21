@@ -258,6 +258,17 @@ jobs:
             .ixio-pages-build/recorder/recorder-context-aligned.apk
           "$BT/apksigner" verify --verbose .ixio-pages-build/recorder/recorder-context-test-signed.apk
           echo 'ORIGINAL_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_REUSED=YES'
+      - name: Preserve signed diagnostic pair before UI so harness failures do not lose binaries
+        run: |
+          mkdir -p ixio-pre-ui-apks
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-pre-ui-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
+          cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-pre-ui-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
+          (cd ixio-pre-ui-apks && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Trace_PreUI_Signed_APKs
+          path: ixio-pre-ui-apks/
+          retention-days: 14
       - name: Enable Android emulator KVM
         run: |
           test -c /dev/kvm
