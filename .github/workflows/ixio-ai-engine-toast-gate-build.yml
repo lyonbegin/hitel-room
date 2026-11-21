@@ -11,6 +11,7 @@ on:
       - tools/ixio/ixio_ai_engine_toast_gate_verify.py
       - tools/ixio/ixio_retry_error_inventory.py
       - tools/ixio/ixio_emulator_device_fixture.py
+      - tools/ixio/ixio_setting_gate_selftest.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -108,12 +109,17 @@ jobs:
           BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -f "$SDK/platforms/android-34/android.jar"
           mkdir -p .ixio-pages-build/qa-java .ixio-pages-build/qa-dex .ixio-pages-build/qa-smali
+          python3 tools/ixio/ixio_setting_gate_selftest.py \
+            --smali18 .ixio-pages-build/smali18 \
+            --java .ixio-pages-build/qa-src/GateSelfTest.java \
+            --report ixio-pages-qa-results/setting-gate-selftest-sources.json
           javac -source 8 -target 8 \
             -cp "$SDK/platforms/android-34/android.jar" \
             -d .ixio-pages-build/qa-java \
             tools/ixio/qa_debug/DiagLog.java \
             tools/ixio/qa_debug/DiagTrace.java \
-            tools/ixio/qa_debug/DiagHooks.java
+            tools/ixio/qa_debug/DiagHooks.java \
+            .ixio-pages-build/qa-src/GateSelfTest.java
           mapfile -d '' CLASSES < <(find .ixio-pages-build/qa-java -type f -name '*.class' -print0)
           test "${#CLASSES[@]}" -ge 3
           "$BT/d8" --min-api 26 --lib "$SDK/platforms/android-34/android.jar" \
@@ -293,6 +299,11 @@ jobs:
           print('ACTUAL_TEST_APP_INSTALLED',d['installed'])
           print('ACTUAL_STATIC_PAGES_DEEPLINK_BUTTON_TAPPED',tapped)
           print('ACTUAL_HOME_SCREEN_REACHED',d['home_screen_seen'])
+          import re
+          expected=json.loads(Path('ixio-pages-qa-results/setting-gate-selftest-sources.json').read_text())['singleton_count']
+          verified=re.findall(r'ALL_SETTING_PREDICATES_SELFTEST_VERIFIED=(\d+)',log)
+          assert verified and all(int(n)==expected for n in verified),'Compiled all-destination predicate self-test did not pass'
+          print('ALL_SETTING_PREDICATE_RUNTIME_TEST_PASSED_COUNT',expected)
           model_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_PROBE' in line]
           http_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_HTTP' in line]
           token_events=[line for line in log.splitlines() if 'IXIO_TOKEN_TRACE' in line]
@@ -355,6 +366,19 @@ jobs:
             ixio-pages-qa-emulator-evidence/
             ixio-hitel-android-results/gsm-call-smoke/
           retention-days: 7
+      - name: Preserve the exact tested signed APK pair before public publishing
+        if: ${{ success() }}
+        run: |
+          mkdir -p ixio-public-apks
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-public-apks/IXIO_HITEL_QA_AllRetryErrors_20261121.apk
+          cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-public-apks/IXIO_Recorder_Companion_AllRetryErrors_20261121.apk
+          (cd ixio-public-apks && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: ${{ success() }}
+        with:
+          name: IXIO_All_Retry_Errors_Exact_Tested_Installable_APKs
+          path: ixio-public-apks/
+          retention-days: 14
       - name: Publish both exact same-signer QA APKs as public HTTPS release after UI verification
         if: ${{ success() }}
         env:
@@ -363,6 +387,12 @@ jobs:
         run: |
           set -euo pipefail
           tag=ixio-qa-all-retry-errors-20261121
+          release_sha="$(gh api "repos/$GH_REPO/git/ref/heads/release/ixio-all-retry-errors-20261121" --jq '.object.sha')"
+          git fetch --depth=1 origin "$release_sha"
+          test "$(git rev-parse "$release_sha:tools/ixio")" = "$(git rev-parse "$GITHUB_SHA:tools/ixio")"
+          default_branch="$(gh api "repos/$GH_REPO" --jq '.default_branch')"
+          git fetch --depth=1 origin "$default_branch"
+          test "$(git rev-parse "$release_sha:.github/workflows")" = "$(git rev-parse 'FETCH_HEAD:.github/workflows')"
           mkdir -p ixio-pages-qa-results/public-apks
           main=.ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
           companion=.ixio-pages-build/recorder/recorder-context-test-signed.apk
@@ -384,9 +414,9 @@ jobs:
           print('REAL_ANDROID_TWO_LOG_BUTTONS_VERIFIED_BEFORE_RELEASE=YES')
           PY
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+            gh release create "$tag" --repo "$GH_REPO" --target "$release_sha" \
               --title "IXIO QA - all retry-error callers and settings entries" \
-              --notes "QA build for the screenshot AI-engine error toast and blocked local recording-settings entry. Uses the existing original public model-version catalog and skips the shared VAS navigation gate for every settings destination. Every exact retry-error resource caller is inventoried across all DEX shards and traced to the on-device log panel; actual operation errors are preserved. Original model downloads, files, PCM, STT and actual recording callbacks are preserved. Same new QA signer for both APKs. Actual phone PCM and STT remain unverified."
+              --notes "QA build for the screenshot AI-engine error toast and blocked local recording-settings entry. Uses the existing original public model-version catalog and skips the shared VAS navigation gate for every settings destination. Every exact retry-error resource caller is inventoried across all DEX shards and traced to the on-device log panel; actual operation errors are preserved. Original model downloads, files, PCM, STT and actual recording callbacks are preserved. Same new QA signer for both APKs. Actual phone PCM and STT remain unverified. Build and test source commit: $GITHUB_SHA. Release source commit: $release_sha. The tools/ixio source tree is verified identical; the release ref retains the default branch workflow files."
           fi
           gh release upload "$tag" ixio-pages-qa-results/public-apks/*.apk --repo "$GH_REPO" --clobber
           gh release view "$tag" --repo "$GH_REPO" --json assets \
