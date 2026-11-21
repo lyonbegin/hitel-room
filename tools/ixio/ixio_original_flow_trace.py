@@ -168,6 +168,8 @@ def instrument_method(block, context, add_site, branches):
             emit(ops[0], 'ARG', f'arg{n}', f'p{pn}', 'Int')
         elif typ.startswith('L') and re.search(r'Event;|Destination;|Result;|State;|Throwable;|Exception;',typ):
             emit(ops[0], 'ARG', f'arg{n}', f'p{pn}', 'Object')
+        elif typ=='Ljava/lang/String;' and re.search(r'\son[A-Z][^\s(]*\(',header):
+            emit(ops[0], 'ARG', f'arg{n}_length_only', f'p{pn}', 'Object')
         pn+=2 if typ in ('J','D') else 1
 
     return_type=header.split(')',1)[1]
@@ -386,4 +388,3 @@ def main():
 
 
 if __name__=='__main__':main()
-

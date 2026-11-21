@@ -285,6 +285,14 @@ def main():
             print("ORIGINAL_RECORDER_SETTINGS_RETURNED_AFTER_BACK",flush=True)
             stop_reason="RECORDER_SETTINGS_NAVIGATION_LOOP"
             break
+        # A real Wi-Fi warning is a supported original UI state. Dismiss it
+        # with its own Later button; never set model/network success flags.
+        if "Wi-Fi를 연결해 주세요" in joined:
+            later=choose(nodes,["나중에"],True)
+            if later:
+                tap(later,"ORIGINAL_WIFI_DOWNLOAD_WARNING_LATER")
+                time.sleep(2)
+                continue
         # The original app owns its model download and status UI. Only tap an
         # explicit model/engine-download button on a real visible model prompt.
         # Never impersonate a model as downloaded, bypass an authorization error,
