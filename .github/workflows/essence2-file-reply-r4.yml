@@ -1,4 +1,4 @@
-name: Deliver Essence2 audio-master PCM16 APK
+name: Rebuild unchanged Essence2 audio-master PCM16 APK
 on:
   workflow_dispatch:
   push:
@@ -22,6 +22,16 @@ jobs:
       BITHUMAN_API_SECRET: ''
     steps:
       - uses: actions/checkout@v4
+      - name: Assert unchanged application sources from successful run 44916323322
+        shell: bash
+        run: |
+          set -euo pipefail
+          REFERENCE=69d7a68441e5b292bdda492722058916c026a105
+          for f in tools/bithuman_deep/essence2_file_audio/OfficialEssence2FileEngine.kt tools/bithuman_deep/essence2_file_audio/HitelVoiceSync.kt tools/bithuman_deep/patch_essence2_official_pcm16_file.py tools/bithuman_deep/prepare_essence2_file_reply.py; do
+            git show "${REFERENCE}:${f}" | cmp - "$f"
+          done
+          echo PASS_AUDIO_MASTER_SOURCE_BYTE_IDENTICAL_TO_44916323322
+
       - name: Fetch pinned official app and Flutter plugin
         shell: bash
         run: |
@@ -135,8 +145,8 @@ jobs:
           ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
             "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           # Distinguish these builds in the diagnostics copied from a real phone.
-          sed -i 's/PCM_FILE_R7_TRACE/PCM16_GPU_AUDIO_MASTER_20261121/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_GPU_AUDIO_MASTER_20261121' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/PCM16_GPU_AUDIO_MASTER_REBUILD_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM16_GPU_AUDIO_MASTER_REBUILD_20261122' "$APP/lib/main.dart"
           echo PASS_ESSENCE2_AUDIO_MASTER_WITH_ORIGINAL_HARDWARE_BUFFER
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
@@ -297,7 +307,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -307,7 +317,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -315,7 +325,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -332,7 +342,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -346,11 +356,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
-          TAG=hitel-essence2-gpu-audio-master-r2-20261121
+          APK=HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk
+          TAG=hitel-essence2-gpu-audio-master-rebuild-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
-          Installation test APK requested for immediate physical-device diagnosis.
+          Fresh rebuild of unchanged Android application sources used in successful run 44916323322 (commit 69d7a68441e5b292bdda492722058916c026a105).
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
@@ -364,7 +374,7 @@ jobs:
           else
             gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 GPU Audio Master APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -374,8 +384,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_GPU_Audio_Master_APK
-          path: HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
+          name: HITEL_Essence2_GPU_Audio_Master_Rebuild_20261122_APK
+          path: HITEL_Essence2_GPU_AUDIO_MASTER_REBUILD_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs
