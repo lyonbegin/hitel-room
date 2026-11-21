@@ -134,6 +134,18 @@ CtnRepositoryImpl.authorizeCtn-0E7RQCE()
 
 검증된 것은 원본 복원 DEX의 대상 메서드 호출 관계, 변경된 QA DEX의 실제 메서드, 공개 인증서 SHA-256 차이, JNI 내보내기 메서드, 실제 단말의 예외 위치입니다. 미검증은 **기기별 프로비저닝의 첫 실패 지점**, 서명 의존성이 이번 실기기 오류의 직접 원인인지 여부, 실제 통화녹음 서비스·STT의 정상 실행입니다.
 
+## 2026-11-21 추가 검증
+
+원본 AArch64 JNI `getCtnEncryptKeyProdRelease`(0x16d4c, 152바이트)를 역어셈블하고 내장 암호화 DEK의 GCM 인증을 직접 검증했다. **원본 서명 인증서 결합값으로 32바이트 DEK의 인증 복호화 성공, 기존 시험 서명 인증서 결합값으로 InvalidTag**를 재현했다. 위 11월 20일 기록에서 가설이었던 **원본 내장 자산의 서명 결합 의존성**은 이제 암호학적으로 검증됐다. 평문 키는 출력하거나 저장하지 않았다. 이 사실만으로 실기기 전체 실패 원인이나 실제 녹음·STT 성공을 판정하지 않는다.
+
+- [검증 결과](ixio-20261121-native-dek-binding-verification.json)
+- [재현용 검증 코드](../tools/ixio/ixio_native_dek_binding_verify.py)
+- [모델·녹음 실제 실행과 수정 결과](ixio-20261120-model-download-recorder-unblock-runtime-evidence.md)
+
+수정은 `ProvisioningManager.getDekFromEncryptedDek()`의 원본 자산을 읽는 결합값 선택으로 한정했다. Keystore KEK와 기기에 저장하는 wrapping/unwrapping AAD는 현재 APK의 실제 결합값을 유지한다. 전역 서명 조회나 서버 인증을 변경하지 않는다.
+
+Android 실제 실행 [#44842091854](https://github.com/lyonbegin/hitel-room/actions/runs/44842091854)와 [#44845033080](https://github.com/lyonbegin/hitel-room/actions/runs/44845033080)에서 `ORIGINAL_ENSURE_PROVISIONED_SUCCESS`를 재현했다. 이 초기화 성공은 실제 녹음 음성·PCM·STT 성공과 별도 결과다. 최종 모의 통화에서는 원본 녹음 AIDL 접속과 리스너 등록까지 통과했으며 시작 결과는 `Failure(error=Fail)`로 남았다.
+
 정식 수정 이전에 먼저 확인할 사항: 원본 `IXIApplication.onCreate`의 코루틴에서 `ensureProvisioned` 실행·종료 상태, `getEncryptedDek`의 안전한 성공/실패 코드, 인증서 기반 앱 결합 정보 생성 성공 여부, `EncryptedSharedPreferences` 생성/폴백 여부, `saveDeviceWrappedDek`의 실제 저장 성공 여부. 민감한 DEK 값·네이티브 비밀키·암호문은 로그로 노출하지 마십시오.
 
 **본 조사에서는 사용자의 시험 APK를 변경하거나 통신사/Android Keystore의 인증을 우회하지 않았으며, 새 APK를 빌드하지 않았습니다.** 읽기 전용 분석 스크립트·워크플로와 보고서만 GitHub에 추가하였습니다.

@@ -1,0 +1,40 @@
+{
+  "source_run_id": 44845033080,
+  "download_worker_success_count": 7,
+  "unzip_worker_success_count": 1,
+  "downloaded_versions": {
+    "STT": "4.0.4",
+    "ITN": "1.1.1",
+    "VP": "6.0.0",
+    "NERCLS": "1.2.0",
+    "REMINDER": "1.2.0",
+    "SPK": "4.0.0",
+    "SPAMSMS": "3.0.0"
+  },
+  "original_dek_initialization_success": true,
+  "original_required_permission_result_true": true,
+  "original_required_android_permissions": {
+    "android.permission.READ_PHONE_STATE": 0,
+    "android.permission.READ_PHONE_NUMBERS": 0,
+    "android.permission.READ_MEDIA_AUDIO": 0,
+    "android.permission.READ_CALL_LOG": 0,
+    "android.permission.WRITE_CALL_LOG": 0,
+    "android.permission.CALL_PHONE": 0,
+    "android.permission.READ_SMS": 0,
+    "android.permission.ANSWER_PHONE_CALLS": 0,
+    "android.permission.CAMERA": 0
+  },
+  "original_call_screen_seen": true,
+  "synthetic_call_only": true,
+  "record_button_tapped": true,
+  "recorder_aidl_connection_logged": true,
+  "recorder_component_bound_to_main": true,
+  "record_listener_registrations": 2,
+  "record_start_failure_observed": true,
+  "model_file_missing_flag_after_call": true,
+  "unsupported_phone_screen_after_call": true,
+  "actual_voice_file_or_pcm_verified": false,
+  "stt_text_verified": false,
+  "legacy_component_name_heuristic_false_negative": true,
+  "causal_link_between_remaining_flags_and_record_start_failure_proven": false
+}
