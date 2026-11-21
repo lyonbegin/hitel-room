@@ -4,7 +4,7 @@ on:
     inputs:
       source_run:
         description: Korean echo build run with actual installed-app evidence
-        default: '44842675950'
+        default: '44844730033'
         required: true
   push:
     branches:
@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Read the completed first run's on-device event evidence
         run: |
-          gh run download 44841954084 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
+          gh run download 44842675950 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: ${{ inputs.source_run || '44842675950' }}
+      SOURCE_RUN: ${{ inputs.source_run || '44844730033' }}
     steps:
       - uses: actions/checkout@v4
       - name: Download existing installed-app evidence without rebuilding the APK
