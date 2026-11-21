@@ -118,6 +118,49 @@ def main() -> None:
           main_launch["output"][-360:],flush=True)
     time.sleep(4)
     summary["main_foreground"]=save("main_foreground")
+    # If the previous native UI robot stopped at the BOTTOM of the original
+    # Settings tab, the launcher intent alone does not reset that Activity.
+    # A synthetic call then leaves Settings in front of the genuine InCall UI.
+    # Re-enter the ordinary RECENTS tab through its ACTUAL accessibility
+    # node, without invoking private Android Activities or modifying IXIO.
+    summary["original_recent_tab_before_call_tapped"]=False
+    summary["original_recent_tab_before_call_visible"]=False
+    fg=summary["main_foreground"].get("visible",[])
+    if "버전 정보" in fg and "최근 기록" in fg:
+        fgxml=OUT/"main_foreground.xml"
+        if fgxml.exists():
+            try:
+                nodes=[n.attrib for n in ET.parse(fgxml).getroot().iter("node")]
+                tabs=[n for n in nodes if n.get("text","").strip()=="최근 기록"
+                      or n.get("content-desc","").strip()=="최근 기록"]
+                valid=[]
+                for tab in tabs:
+                    m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+                                   tab.get("bounds",""))
+                    if not m:continue
+                    x1,y1,x2,y2=map(int,m.groups())
+                    if 1750<=y1<2350 and 0<=x1<x2<=1080 and y2>y1:
+                        valid.append(((x1+x2)//2,(y1+y2)//2))
+                valid=list(dict.fromkeys(valid))
+                if len(valid)==1:
+                    press=adb("shell","input","tap",str(valid[0][0]),str(valid[0][1]),timeout=12)
+                    summary["original_recent_tab_before_call_tapped"]=press["returncode"]==0
+                    time.sleep(2)
+                    summary["original_recent_tab_before_call"]=save("original_recent_tab_before_call")
+                    after=summary["original_recent_tab_before_call"].get("visible",[])
+                    summary["original_recent_tab_before_call_visible"]=(
+                        "최근 기록" in after and "버전 정보" not in after)
+                    print("IXIO_ORIGINAL_RECENTS_BEFORE_GSM",
+                          summary["original_recent_tab_before_call_tapped"],
+                          summary["original_recent_tab_before_call_visible"],
+                          "bounds",valid[0],flush=True)
+                else:
+                    print("IXIO_RECENTS_BOTTOM_NAV_NOT_UNIQUELY_IDENTIFIED",
+                          len(valid),flush=True)
+            except Exception as exc:
+                print("IXIO_RECENTS_BOTTOM_NAV_ATTEMPT_ERROR",type(exc).__name__,flush=True)
+    else:
+        print("IXIO_MAIN_ALREADY_NOT_IN_SETTINGS_BOTTOM_BEFORE_GSM",flush=True)
     # Cold emulator TELEPHONY fake call, no network connection is made.
     precall=adb("logcat","-d","-v","threadtime","-t","30000",timeout=33)
     (OUT/"logcat-before-call.txt").write_text(precall["output"],encoding="utf-8")
