@@ -173,7 +173,29 @@ class Essence2SpeechPlayer(
         val utteranceId = ++utterance
         HitelE2Trace.event("speech.prepare.begin", "epoch" to e, "utterance" to utteranceId, "samples16k" to audio.samples.size)
         val began = System.nanoTime()
+        // Preserve the maker's PCM16 AudioTrack and sample-clock presenter, but do
+        // not wait for every encoded frame before beginning audible playback.
+        // Only the render worker mutates frames; the player snapshots under this lock.
         val frames = ArrayList<Frame>()
+        val playbackError = java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+        var playbackThread: Thread? = null
+        val totalFrames = (pcm.size / 2 + 16000 / avatar.fps - 1) / (16000 / avatar.fps)
+        val audioSeconds = pcm.size / 32000.0
+        val minLeadFrames = minOf(totalFrames, maxOf(25, avatar.fps * 2))
+        fun startPlayback(reason: String, renderElapsedMs: Long) {
+            if (playbackThread != null || !active(e)) return
+            HitelE2Trace.event("speech.playback.lookahead", "epoch" to e,
+                "utterance" to utteranceId, "reason" to reason,
+                "preparedFrames" to synchronized(frames) { frames.size },
+                "expectedFrames" to totalFrames, "elapsedRenderMs" to renderElapsedMs)
+            playbackThread = Thread({
+                try { play(pcm, frames, input.size / 2, base, gen, e, utteranceId) }
+                catch (t: Throwable) {
+                    playbackError.set(t)
+                    HitelE2Trace.failure("speech.playback.exception", t, "epoch" to e)
+                }
+            }, "bh-e2-audio-clock").apply { isDaemon = true; start() }
+        }
         val bmp = avatar.newFrameBitmap()
         // The maker displays a half-size decode; cache that display size before playback.
         val display = Bitmap.createBitmap((avatar.width + 1) / 2, (avatar.height + 1) / 2, Bitmap.Config.ARGB_8888)
@@ -188,15 +210,46 @@ class Essence2SpeechPlayer(
                 jpeg.reset()
                 check(display.compress(Bitmap.CompressFormat.JPEG, 88, jpeg)) { "Speech frame compression failed" }
                 check(frames.isEmpty() || at > frames.last().sample) { "Non-monotonic speech frame position" }
-                frames.add(Frame(at, jpeg.toByteArray()))
+                val readyCount = synchronized(frames) {
+                    frames.add(Frame(at, jpeg.toByteArray()))
+                    frames.size
+                }
+                // Use the measured *actual* rendering throughput. Start once the
+                // unrendered tail is expected to finish before the audio clock
+                // reaches it, including a conservative 20% speed allowance and
+                // a 1-second scheduling margin. Starting after just the first
+                // frame would reproduce the dropped-mouth-frame regression.
+                if (playbackThread == null && readyCount >= minLeadFrames) {
+                    val elapsedSec = (System.nanoTime() - began) / 1e9
+                    val conservativeFps = (readyCount / maxOf(elapsedSec, 0.001)) * 0.80
+                    val remainingSec = (totalFrames - readyCount).coerceAtLeast(0) /
+                        maxOf(conservativeFps, 0.001)
+                    if (remainingSec + 1.0 <= audioSeconds) {
+                        startPlayback("measured_lookahead", (elapsedSec * 1000).toLong())
+                    }
+                }
             }
         } finally { display.recycle(); bmp.recycle() }
-        if (!active(e)) return
+        if (!active(e)) {
+            playbackThread?.join(1000)
+            return
+        }
         check(frames.isNotEmpty()) { "Renderer returned no speech frames" }
-        // No invented mouth for missing frames. Keep source sample positions, report missing coverage.
+        // The original exact frame positions, JPEGs, audio PCM and DAC clock
+        // remain unchanged; only the full-utterance preplay barrier is removed.
         HitelE2Trace.event("speech.prepare.end", "epoch" to e, "frames" to frames.size,
             "durationMs" to (System.nanoTime() - began) / 1000000)
-        play(pcm, frames, input.size / 2, base, gen, e, utteranceId)
+        if (playbackThread == null) {
+            startPlayback("render_complete_fallback", (System.nanoTime() - began) / 1000000)
+        }
+        // Keep the original single-turn boundary: do not process next utterance
+        // or idle-loop frames until this same PCM/frames playback has drained.
+        val playback = playbackThread ?: error("Speech playback did not start")
+        while (playback.isAlive) {
+            playback.join(100)
+            if (!active(e)) break
+        }
+        playbackError.get()?.let { throw IllegalStateException("Original AudioTrack playout failed", it) }
     }
 
     /** Vendor play(): static voice buffer, cached display-size images and the device sample counter. */
@@ -234,9 +287,16 @@ class Essence2SpeechPlayer(
             while (active(e)) {
                 val head = player.playbackHeadPosition.toLong() and 0xffffffffL
                 due = beforeDue + minOf(expected.toLong(), head / perFrame + 1)
-                while (candidate + 1 < frames.size && frames[candidate + 1].sample <= head) candidate++
-                if (head >= frames[candidate].sample && shown != candidate && head < total) {
-                    val f = frames[candidate]
+                val nextFrame = synchronized(frames) {
+                    if (frames.isEmpty()) null else {
+                        while (candidate + 1 < frames.size && frames[candidate + 1].sample <= head) candidate++
+                        if (head >= frames[candidate].sample && shown != candidate && head < total)
+                            frames[candidate]
+                        else null
+                    }
+                }
+                if (nextFrame != null) {
+                    val f = nextFrame
                     val image = BitmapFactory.decodeByteArray(f.jpeg, 0, f.jpeg.size, options)
                         ?: error("Speech frame decode failed")
                     try { if (active(e)) onFrame(image) } finally { image.recycle() }
