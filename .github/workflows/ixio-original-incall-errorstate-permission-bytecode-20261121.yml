@@ -97,61 +97,38 @@ jobs:
           print('ORIGINAL_ERRORSTATE_PERMISSION_CALLSITE_COUNT',len(hits))
           assert hits,'Original UI permission diagnostics not traced'
           PY
-      - name: Trace original AppStatus.permissionGranted producers and state writes
+      - name: Trace original AppStatus.permissionGranted construction and mutation callsites
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re,json,collections
+          import json
+          results=[]
           root=Path('.bytecode-private')
-          pattern=re.compile(r'(?ms)^\\.method[^\\n]*\\n.*?^\\.end method        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: IXIO_Original_InCall_ErrorState_Permission_Bytecode_Evidence
-          path: ixio-incall-permission-evidence/
-          retention-days: 14
-      - name: Remove original APK and bytecode from runner
-        if: always()
-        run: rm -rf .bytecode-private
-)
-          suspects=[]
-          tags=('Lcom/lguplus/aicallagent/model/call/AppStatus;-><init>',
-                'Lcom/lguplus/aicallagent/model/call/AppStatus;->copy',
-                'Lcom/lguplus/aicallagent/model/call/AppStatus;->setPermissionGranted',
-                'Lcom/lguplus/aicallagent/model/call/AppStatus;->getPermissionGranted')
-          for d in sorted(root.glob('classes*-smali')):
-            for f in d.rglob('*.smali'):
-              s=f.read_text(errors='replace')
-              if 'AppStatus;' not in s and 'AppStatus.smali' not in str(f):continue
-              if f.name=='AppStatus.smali':
-                fields=[x.strip() for x in s.splitlines() if x.strip().startswith('.field')]
-                print('APP_STATUS_DATA_CLASS',d.name,str(f.relative_to(d)),json.dumps(fields))
-              for m in pattern.finditer(s):
-                body=m.group()
-                matched=[(tag,body.count(tag)) for tag in tags if tag in body]
-                if not matched:continue
-                lines=body.splitlines();focus=[]
-                for i,line in enumerate(lines):
-                  if any(tag in line for tag in tags):
-                    focus.extend((j,lines[j].strip()) for j in range(max(0,i-9),min(len(lines),i+8))
-                                 if not lines[j].strip().startswith(('const-string','invoke-static {}, Landroidx/compose')))
-                focus=list(dict(focus).items())
-                priority=3 if any('->copy' in tag or '->setPermissionGranted' in tag for tag,_ in matched) else (
-                  2 if any('-><init>' in tag for tag,_ in matched) else 1)
-                entry={'dex':d.name,'class':str(f.relative_to(d)),'method':lines[0],
-                       'matched':matched,'priority':priority,
-                       'instructions':[{'line_index':i,'ir':t[:260]} for i,t in focus[:80]]}
-                suspects.append(entry)
-          suspects.sort(key=lambda x:(-x['priority'],x['dex'],x['class'],x['method']))
-          print('APP_STATUS_REFERENCE_METHOD_COUNT',len(suspects))
-          for v in suspects[:85]:
-            print('APP_STATUS_PRODUCER',v['priority'],v['dex'],v['class'],v['method'],
-                  'references',v['matched'])
-            for q in v['instructions'][:28]:
-              if q['ir'].startswith(('invoke-','iget','sget','iput','sput','if-','return','check-cast','move-result')):
-                print(' APP_STATUS_INSTRUCTION',q['ir'])
-          Path('ixio-incall-permission-evidence/original-appstatus-producers.json').write_text(
-             json.dumps(suspects,ensure_ascii=False,indent=2))
-          assert any(x['priority']>=2 for x in suspects),'No original AppStatus producer found'
+          labels=['AppStatus;-><init>', 'AppStatus;->copy', 'AppStatus;->setPermissionGranted', 'AppStatus;->getPermissionGranted']
+          for folder in sorted(root.glob('classes*-smali')):
+            for file in folder.rglob('*.smali'):
+              source=file.read_text(errors='replace')
+              if 'AppStatus;' not in source:continue
+              current=[]
+              for line in source.splitlines():
+                if line.startswith('.method'):current=[line];continue
+                if not current:continue
+                current.append(line)
+                if not line.startswith('.end method'):continue
+                flags=[value for value in labels if any(value in row for row in current)]
+                if flags:
+                  priority=3 if any('copy' in x or 'setPermissionGranted' in x for x in flags) else (2 if '<init>' in ''.join(flags) else 1)
+                  relevant=[r.strip()[:260] for r in current if r.strip().startswith(('invoke-','move-result','iget','sget','iput','sput','if-','check-cast','return','new-instance'))]
+                  entry={'class':str(file.relative_to(folder)),'dex':folder.name,'method':current[0],'calls':flags,'priority':priority,'safe_instruction_list':relevant[:120]}
+                  results.append(entry)
+                current=[]
+          results.sort(key=lambda x:(-x['priority'],x['dex'],x['class']))
+          print('ORIGINAL_APPSTATUS_PRODUCER_METHODS',len(results))
+          for item in results[:75]:
+            print('ORIGINAL_APPSTATUS_METHOD',item['priority'],item['dex'],item['class'],item['method'],'CALLS',item['calls'])
+            for line in item['safe_instruction_list'][:28]:print('STATUS_IR',line)
+          Path('ixio-incall-permission-evidence/appstatus-producers.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
+          assert any(x['priority']>=2 for x in results)
           PY
       - name: Upload safe, token-free source metadata
         if: always()
