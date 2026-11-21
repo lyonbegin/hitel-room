@@ -8,6 +8,7 @@ on:
       - tools/ixio/ixio_original_token_gate_trace.py
       - tools/ixio/ixio_original_model_http_trace.py
       - tools/ixio/ixio_original_provisioning_entry_probe.py
+      - tools/ixio/ixio_original_prelogin_model_entry_probe.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -82,6 +83,9 @@ jobs:
           python3 tools/ixio/ixio_original_provisioning_entry_probe.py \
             --smali16 .ixio-pages-build/smali16 \
             --report ixio-pages-qa-results/original-provisioning-entry-diff.json
+          python3 tools/ixio/ixio_original_prelogin_model_entry_probe.py \
+            --smali16 .ixio-pages-build/smali16 \
+            --report ixio-pages-qa-results/original-prelogin-model-entry-diff.json
           for n in 15 16 18;do
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
@@ -230,8 +234,9 @@ jobs:
           token_events=[line for line in log.splitlines() if 'IXIO_TOKEN_TRACE' in line]
           wire_events=[line for line in log.splitlines() if 'IXIO_MODEL_WIRE' in line]
           provisioning_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_PROVISIONING' in line]
+          prelogin_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_PRELOGIN_MODEL' in line]
           out=p/'original-model-request-events.txt'
-          out.write_text('\n'.join(model_events+http_events+token_events+wire_events+provisioning_events),encoding='utf8')
+          out.write_text('\n'.join(model_events+http_events+token_events+wire_events+provisioning_events+prelogin_events),encoding='utf8')
           print('ACTUAL_SERVICE_ERROR',d['service_error_seen'])
           print('ACTUAL_LOGIN_ONLY_HTTP_INTERCEPT_COUNT',log.count('IXIO_PAGES_QA_ONLY'))
           print('ORIGINAL_MODEL_PROBE_EVENT_COUNT',len(model_events))
@@ -250,7 +255,7 @@ jobs:
               x.split('IXIO_TOKEN_TRACE: ',1)[-1] for x in token_events)),sort_keys=True))
           print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))
           print('MODEL_DIRECT_ENTRY_UI_STATE',json.dumps(d,ensure_ascii=False))
-          for item in model_events+http_events+wire_events+provisioning_events:
+          for item in model_events+http_events+wire_events+provisioning_events+prelogin_events:
             print('MODEL_ORIGINAL_STEP',item[-250:])
           gsm_path=Path('ixio-hitel-android-results/gsm-call-smoke/result.json')
           assert gsm_path.exists(),'Original simulated-call test did not produce evidence'
