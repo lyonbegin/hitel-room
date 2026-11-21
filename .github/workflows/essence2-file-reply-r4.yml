@@ -1,4 +1,4 @@
-name: Deliver Essence2 M4A APK with external tracing
+name: Deliver Essence2 audio-master PCM16 APK
 on:
   workflow_dispatch:
   push:
@@ -56,6 +56,9 @@ jobs:
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
           python3 -m py_compile tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
+          # Regression inputs must be pristine: the assembly below mutates APP.
+          ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
+            python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
           python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
             --app "$APP" --plugin "$PLUGIN" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sample-ui.json"
@@ -132,8 +135,8 @@ jobs:
           ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
             "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           # Distinguish these builds in the diagnostics copied from a real phone.
-          sed -i 's/PCM_FILE_R7_TRACE/PCM16_EXTERNAL_TRACE_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_EXTERNAL_TRACE_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/PCM16_GPU_AUDIO_MASTER_20261121/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM16_GPU_AUDIO_MASTER_20261121' "$APP/lib/main.dart"
           echo PASS_ESSENCE2_AUDIO_MASTER_WITH_ORIGINAL_HARDWARE_BUFFER
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
@@ -262,6 +265,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
           # Retry infrastructure fetch failures without altering SDK or app code.
           for attempt in 1 2 3; do
@@ -288,13 +292,12 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          ! grep -Fq 'libhitel_e2_probe.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
             echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_EXTERNAL_TRACE_20261122_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -304,7 +307,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_EXTERNAL_TRACE_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -312,9 +315,29 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_EXTERNAL_TRACE_20261122_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
+
+      - name: Verify reused 100-ms PCM chunker and direct asset file descriptor
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          test -f "$ANDROID_JAR"
+          mkdir -p file-chunker-test
+          javac -cp "$ANDROID_JAR" -d file-chunker-test \
+            tools/bithuman_deep/essence2_file_audio/FilePcmStream.java \
+            tools/bithuman_deep/essence2_file_audio/FilePcmChunkerTest.java
+          java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
+          python3 - <<'PY'
+          from zipfile import ZipFile, ZIP_STORED
+          with ZipFile('HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk') as z:
+              info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
+              assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
+              assert info.file_size > 1000
+          print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
+          PY
 
       - name: Publish compiled installation APK requested before additional runtime tests
         env:
@@ -323,26 +346,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_EXTERNAL_TRACE_20261122_ARM64.apk
-          TAG=hitel-essence2-external-trace-20261122
+          APK=HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
+          TAG=hitel-essence2-gpu-audio-master-r2-20261121
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Installation test APK requested for immediate physical-device diagnosis.
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
-          Choose an Android M4A recording before playback. The next existing playback trigger streams the selected file; selection alone does not play it.
-          The player maps each SDK ordinal to its PCM16 sample window and uses the audio clock to present or discard that frame.
-          The SDK's original native library and rendering classes are preserved. The existing local test meter endpoint is retained.
-          Record scheduling and frame metrics independently from the APK using Perfetto over ADB. App-level PCM and frame timings can still be exported.
+          Continuous 16 kHz PCM audio is the master. The renderer may skip late video while the speaker continues with the original PCM at its native rate.
+          For comparisons set debug.bh.e2.sync to 2 for the direct presentation, debug.bh.e2.height to 720 for SDK 720p, or debug.bh.e2.clock to 2 to disable SDK skip-ahead. Reload the avatar after changing a setting.
+          Device logs: sync.route, sync.preroll, video.pull, sync.present, sync.finish and audio.finish.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 External Trace APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 GPU Audio Master APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_EXTERNAL_TRACE_20261122_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -352,8 +374,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_External_Trace_APK
-          path: HITEL_Essence2_EXTERNAL_TRACE_20261122_ARM64.apk
+          name: HITEL_Essence2_GPU_Audio_Master_APK
+          path: HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs

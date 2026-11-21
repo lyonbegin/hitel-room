@@ -26,14 +26,14 @@ only during the build.
 3. `FilePcmStream` emits up to 100 ms of 16-kHz mono PCM16 per callback.
 4. The decoder sends 16 kHz PCM through the file loopback. Separate workers
    feed the SDK and write the original PCM to AudioTrack without resampling.
-5. Before audio starts, the player waits up to two seconds for SDK ordinal 0.
-   After that opening wait, AudioTrack writes the source PCM at its original
-   rate. Android AudioTimestamp provides the estimated presentation position,
-   with playbackHeadPosition as a logged fallback.
-6. The SDK ordinal maps to the PCM interval [ordinal × 640, ordinal × 640 + 640),
-   clipped at EOF. The presenter selects the newest due SDK frame at vsync.
-   A frame is discarded if the audio has passed its window by another 40 ms.
-   SDK skip-ahead remains active. The screen holds when no usable frame is ready.
+5. At start, the audio writer can wait up to 120 ms for three finished video
+   frames. Once playback starts its writes use only the source PCM and do
+   not depend on rendering. The audio clock uses Android's AudioTimestamp
+   with playbackHeadPosition as fallback.
+6. One frame covers 640 samples. At display vsync the presenter shows the
+   newest due frame and releases any older due buffers. If no frame is due
+   the screen holds the current image. The independent clock also tells the
+   SDK where audio has reached, so the SDK can skip stale work.
 7. A new text invalidates the previous audio and video timeline and clears
    queued frames. The audio stream completes at its original sample count.
 
@@ -49,43 +49,30 @@ The same APK exposes these debuggable settings. Reload the avatar after a change
 ## Diagnostics
 
 Copied diagnostics include
-`build=PCM16_EXTERNAL_TRACE_20261122`, `STT=false`, `TTS=false`.
+`build=PCM16_GPU_AUDIO_MASTER_20261121`, `STT=false`, `TTS=false`.
 `MY_PACKAGE_REPLACED` clears old logs after an APK update; first launch also
-checks the install/update timestamp. The clear button resets the named
-diagnostic files while the app is running.
-**상세 로그 공유** includes the current app trace, the retained previous segment,
-`hitel_e2_startup.log`, and `frame_timeline.csv`. The clipboard includes a
-startup excerpt alongside the recent app events.
+checks the install/update timestamp. Only four named diagnostic files are
+removed. Models and credentials are not traversed or deleted. A second button
+clears logs while running; native trace clearing is serialized on its writer.
+Copied logs contain only the current files' bounded tails (about 18 KB), not
+the previous rotated trace. Native files rotate at 512 KiB and the protocol
+log is capped at 128 KiB.
 
-- `frame_timeline.csv` joins each ordinal to source samples and timestamps for
-  PCM arrival, feeding, speaker writes, SDK return, display and dropping.
-  Ordinals with no SDK return remain visible in the table.
-- `sync.preroll`, `audio.clock.first`, and the first generated and displayed
-  frames cover startup.
-  `audio.finish` includes PCM SHA-256 for comparison with `file.decode.done`.
-
-### Capture from a host over ADB
-
-Connect the Android device over ADB, open HITEL, and run this from the
-repository root. Trigger the M4A playback when the script starts recording.
-
-```sh
-bash tools/bithuman_deep/essence2_file_audio/capture_perfetto.sh 90
-```
-
-Open `hitel.perfetto-trace` in [Perfetto](https://ui.perfetto.dev/). The capture
-requests CPU scheduling, frequency changes, graphics, audio and Android's
-frame timeline where supported by the device. Inspect the `e2-motion`,
-`e2-stageA/B/C` and `e2-live-pull` threads alongside the
-`HITEL.e2.pullHardwareBuffer` app slice and SurfaceFlinger. The capture also
-pulls the available app logs. Per-kernel GPU data depends on device support.
-
-The SDK's rendering classes and native library use the vendor originals.
-The debug build keeps its existing one-method local meter URL redirection.
+Useful events are `file.response.begin`, `file.decode.begin`,
+`file.source.format`, `file.first_segment` (`beforeFileEnd=true`),
+`file.first_pcm`, `file.pcm.progress`, `file.decode.done`,
+`file.response.end`, `sync.route`, `sync.preroll`, `video.pull`,
+`sync.present`, `sync.finish`, and `audio.finish`. Compare the actual heard
+sample count and underruns, displayed ordinals, and video delay separately.
+The PCM hash in `audio.finish` is calculated over successfully written bytes
+and can be compared with the decoder hash in `file.decode.done`.
 
 ## Verification limits
 
 Workflow: `.github/workflows/essence2-file-reply-r4.yml`.
-The workflow checks the built APK's original native/model bytes and verifies
-the debug meter is the only edited vendor JVM method. Galaxy playback and
-external trace capture require a connected device.
+The APK is built and its original native/model hashes are checked. JVM checks
+exercise the reused real chunker at 48-to-16-kHz conversion, first callback
+before source end, 100-ms packets and continuous PCM; these do not execute an
+Android AAC decoder. A separate JVM filesystem check verifies reset on an
+install change and preservation of model/credential files.
+This workflow does not run an emulator or claim a Galaxy GPU/speaker test.

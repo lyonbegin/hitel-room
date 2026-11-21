@@ -37,7 +37,7 @@ internal class OfficialEssence2FileEngine(
     private val srgb = ColorSpace.get(ColorSpace.Named.SRGB)
 
     private sealed class Packet {
-        class Chunk(val turn: Int, val firstSample: Long, val bytes: ByteArray) : Packet()
+        class Chunk(val turn: Int, val bytes: ByteArray) : Packet()
         class End(val turn: Int) : Packet()
         object Shutdown : Packet()
     }
@@ -63,6 +63,7 @@ internal class OfficialEssence2FileEngine(
     @Volatile private var audioPosition: VoiceAudioPosition? = null
     private val presenter = if (voiceSync) HitelVoiceSync({ currentTurn }, { audioPosition }) else null
 
+    private val counter = AtomicInteger()
     @Volatile private var currentTurn = 0
     @Volatile private var sdkStartedTurn = 0
     @Volatile private var sdkEndedTurn = 0
@@ -99,34 +100,26 @@ internal class OfficialEssence2FileEngine(
         require(bytes.size % 2 == 0) { "16-bit PCM byte length must be even" }
         val turn: Int
         val first: Boolean
-        val firstSample: Long
         synchronized(state) {
             check(!closed) { "Essence2 SDK already closed" }
             first = !receiving
             if (first) {
-                currentTurn = turnCounter.incrementAndGet()
+                currentTurn = counter.incrementAndGet()
                 acceptedSamples = 0L
                 renderedFrames = 0L
                 receiving = true
             }
             turn = currentTurn
-            firstSample = acceptedSamples
             acceptedSamples += bytes.size / 2
         }
-        if (first) {
-            presenter?.begin(turn)
-            HitelE2Trace.event("sync.begin", "turn" to turn, "rate" to RATE, "hop" to HitelPcmTimeline.HOP,
-                "width" to width, "height" to height, "gpuHardware" to hardwareFrames)
-        }
+        if (first) presenter?.begin(turn)
         // Two independent consumers. The incoming ByteArray is not retained by Dart.
         val copy = bytes.copyOf()
-        val packet = Packet.Chunk(turn, firstSample, copy)
+        feedQueue.offer(Packet.Chunk(turn, copy))
+        soundQueue.offer(Packet.Chunk(turn, copy))
         HitelE2Trace.event("pcm.received", "turn" to turn, "bytes" to bytes.size,
-            "firstSample" to firstSample, "endSample" to firstSample + copy.size / 2,
             "acceptedSamples" to acceptedSamples, "first" to first,
             "feedQueue" to feedQueue.size, "soundQueue" to soundQueue.size)
-        feedQueue.offer(packet)
-        soundQueue.offer(packet)
         if (first) Log.i(TAG, "LIVE_BEGIN turn=$turn firstPcmBytes=${bytes.size}")
     }
 
@@ -148,7 +141,7 @@ internal class OfficialEssence2FileEngine(
     /** Explicit interruption can stop current audio without synchronizing it to video. */
     fun cancelFile() {
         synchronized(state) {
-            currentTurn = turnCounter.incrementAndGet()
+            currentTurn = counter.incrementAndGet()
             receiving = false
         }
         feedQueue.clear()
@@ -178,7 +171,6 @@ internal class OfficialEssence2FileEngine(
                         if (loadedTurn != packet.turn) {
                             synchronized(sdkClockLock) { sdkStartedTurn = 0 }
                             if (sdkEverFed) sdk.resetAudio(startFrame = 0)
-                            sdkFeedCount = 0
                             sdkEverFed = true
                             loadedTurn = packet.turn
                             sdkEndedTurn = 0
@@ -186,8 +178,7 @@ internal class OfficialEssence2FileEngine(
                         if (!live(packet.turn)) continue
                         val feedStart = System.nanoTime()
                         HitelE2Trace.event("sdk.feed.begin", "turn" to packet.turn,
-                            "bytes" to packet.bytes.size, "firstSample" to packet.firstSample,
-                            "endSample" to packet.firstSample + packet.bytes.size / 2, "queuedChunks" to feedQueue.size)
+                            "bytes" to packet.bytes.size, "queuedChunks" to feedQueue.size)
                         traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) }
                         if (sdkStartedTurn != packet.turn) {
                             synchronized(sdkClockLock) {
@@ -195,9 +186,9 @@ internal class OfficialEssence2FileEngine(
                             }
                         }
                         val feedMs = (System.nanoTime() - feedStart) / 1_000_000
+                        Log.i(TAG, "LIVE_FEED turn=${packet.turn} pcm16Bytes=${packet.bytes.size} feedMs=$feedMs")
                         HitelE2Trace.event("sdk.feed", "turn" to packet.turn,
                             "chunk" to ++sdkFeedCount, "bytes" to packet.bytes.size,
-                            "firstSample" to packet.firstSample, "endSample" to packet.firstSample + packet.bytes.size / 2,
                             "feedMs" to feedMs, "queuedChunks" to feedQueue.size)
                     }
                     is Packet.End -> {
@@ -246,15 +237,13 @@ internal class OfficialEssence2FileEngine(
                 }
                 // Restore original SDK GPU frame ownership; do not read back pixels.
                 if (!hardwareFrames) frame!!.clear()
-                val motionReady = sdk.available()
-                if (Trace.isEnabled()) Trace.setCounter("HITEL.e2.motionReady", motionReady.toLong())
+                if (Trace.isEnabled()) Trace.setCounter("HITEL.e2.motionReady", sdk.available().toLong())
                 val pullThreadCpuStarted = android.os.Debug.threadCpuTimeNanos()
                 val pullStarted = System.nanoTime()
                 val hw = if (hardwareFrames) {
                     traceSdk("HITEL.e2.pullHardwareBuffer") { sdk.pullHardwareBuffer() }
                 } else null
-                val ready = if (hardwareFrames) hw != null else
-                    traceSdk("HITEL.e2.pullBytes") { sdk.pull(frame!!) }
+                val ready = if (hardwareFrames) hw != null else traceSdk("HITEL.e2.pullBytes") { sdk.pull(frame!!) }
                 val pullUs = (System.nanoTime() - pullStarted) / 1_000
                 val pullThreadCpuUs = (android.os.Debug.threadCpuTimeNanos() - pullThreadCpuStarted) / 1_000
                 val pullMillis = pullUs / 1_000
@@ -262,20 +251,8 @@ internal class OfficialEssence2FileEngine(
                 if (ready) {
                     if (!live(turn)) { hw?.close(); continue }
                     lastSdkIndex = sdk.lastFrameIndex
-                    val ordinal = lastSdkIndex
-                    val window = HitelPcmTimeline.window(ordinal, acceptedSamples)
-                    HitelE2Trace.event("sync.generated", "turn" to turn, "sdkFrameIndex" to ordinal,
-                        "firstSample" to window?.start, "endSample" to window?.endExclusive,
-                        "motionReadyBefore" to motionReady, "pullUs" to pullUs, "pullThreadCpuUs" to pullThreadCpuUs)
-                    if (window == null) {
-                        hw?.close()
-                        HitelE2Trace.event("sync.drop", "turn" to turn, "sdkFrameIndex" to ordinal, "reason" to "unmapped")
-                        continue
-                    }
-                    val pts = window.start
-                    if (shownInTurn == 0L) HitelE2Trace.event("sync.opening.generated", "turn" to turn,
-                        "sdkFrameIndex" to ordinal, "firstSample" to pts,
-                        "endSample" to window.endExclusive, "pullUs" to pullUs)
+                    val ordinal = if (lastSdkIndex >= 0) lastSdkIndex else shownInTurn
+                    val pts = ordinal * (RATE / fps)
                     if (hardwareFrames) {
                         val owned = checkNotNull(hw)
                         val wrapped = Bitmap.wrapHardwareBuffer(owned.buffer, srgb)
@@ -284,7 +261,7 @@ internal class OfficialEssence2FileEngine(
                             error("SDK hardware frame cannot be wrapped: GPU output failed")
                         }
                         val delivered = HwFrame(wrapped, pts, -1, owned)
-                        if (presenter != null) presenter.offer(turn, ordinal, window, wrapped, delivered)
+                        if (presenter != null) presenter.offer(turn, ordinal, pts, wrapped, delivered)
                         else {
                             val callback = renderer
                             if (callback == null) delivered.release()
@@ -296,7 +273,7 @@ internal class OfficialEssence2FileEngine(
                         val pixels = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                         try {
                             pixels.copyPixelsFromBuffer(frame)
-                            if (presenter != null) presenter.offer(turn, ordinal, window, pixels, null)
+                            if (presenter != null) presenter.offer(turn, ordinal, pts, pixels, null)
                             else renderer?.invoke(pixels, null) ?: pixels.recycle()
                         } catch (failure: Throwable) {
                             pixels.recycle()
@@ -386,11 +363,8 @@ internal class OfficialEssence2FileEngine(
         val timestamp = AudioTimestamp()
         var readAt = 0L
         var timestampValid = false
-        var lastSamples = -1L
+        var lastSamples = 0L
         var lastLogged = -1L
-        var firstClock = true
-        var lastAudioClockNs = 0L
-        val monitorStarted = System.nanoTime()
         return clockWorker.scheduleWithFixedDelay({
             try {
                 val position = synchronized(trackLock) {
@@ -404,27 +378,15 @@ internal class OfficialEssence2FileEngine(
                         timestampValid = track.getTimestamp(timestamp)
                     }
                     val audible = if (timestampValid) {
-                        HitelPcmTimeline.sampleAt(Integer.toUnsignedLong(timestamp.framePosition.toInt()),
-                            timestamp.nanoTime, now, head)
-                    } else if (head > 0 && now - monitorStarted >= 250_000_000L) head else -1L
+                        val elapsed = (now - timestamp.nanoTime).coerceAtLeast(0)
+                        Integer.toUnsignedLong(timestamp.framePosition.toInt()) + elapsed * RATE / 1_000_000_000L
+                    } else head
                     lastSamples = audible.coerceIn(lastSamples.coerceAtMost(head), head)
-                    VoiceAudioPosition(turn, lastSamples, head, timestampValid, playing = true, observedNs = now)
+                    VoiceAudioPosition(turn, lastSamples, head, timestampValid, playing = true)
                         .also { audioPosition = it }
                 }
                 presenter?.audioAdvanced()
-                if (firstClock && position.samples >= 0L) {
-                    firstClock = false
-                    HitelE2Trace.event("audio.clock.first", "turn" to turn, "playedSamples" to position.samples,
-                        "headSamples" to position.headSamples, "timestamp" to position.timestamp)
-                }
-                if (position.observedNs - lastAudioClockNs >= 100_000_000L) {
-                    lastAudioClockNs = position.observedNs
-                    HitelE2Trace.event("audio.clock", "turn" to turn, "playedSamples" to position.samples,
-                        "headSamples" to position.headSamples, "timestamp" to position.timestamp,
-                        "timestampFrame" to timestamp.framePosition, "timestampNs" to timestamp.nanoTime,
-                        "observedNs" to position.observedNs)
-                }
-                if (skipAhead && position.samples >= 0L) synchronized(sdkClockLock) {
+                if (skipAhead) synchronized(sdkClockLock) {
                     if (sdkStartedTurn == turn && live(turn)) {
                         val samples = if (voiceSync) position.samples else position.headSamples
                         traceSdk("HITEL.e2.setPlayoutPosition") { sdk.setPlayoutPosition(samples) }
@@ -476,19 +438,18 @@ internal class OfficialEssence2FileEngine(
                             firstAudio = true
                             if (presenter != null) {
                                 val started = System.nanoTime()
-                                while (live(packet.turn) && !presenter.hasOpeningFrame &&
-                                    System.nanoTime() - started < 2_000_000_000L) {
+                                while (live(packet.turn) && presenter.readyCount < 3 &&
+                                    System.nanoTime() - started < 120_000_000L) {
                                     Thread.sleep(4)
                                 }
                                 HitelE2Trace.event("sync.preroll", "turn" to packet.turn,
-                                    "ready" to presenter.readyCount, "frameZeroReady" to presenter.hasOpeningFrame,
+                                    "ready" to presenter.readyCount,
                                     "waitMs" to (System.nanoTime() - started) / 1_000_000)
                             }
                         }
                         val writeStarted = System.nanoTime()
                         HitelE2Trace.event("audio.write.begin", "turn" to packet.turn,
-                            "bytes" to packet.bytes.size, "firstSample" to packet.firstSample,
-                            "endSample" to packet.firstSample + packet.bytes.size / 2, "queuedChunks" to soundQueue.size)
+                            "bytes" to packet.bytes.size, "queuedChunks" to soundQueue.size)
                         var offset = 0
                         while (offset < packet.bytes.size && live(packet.turn)) {
                             // The FIRST PCM bytes go to the hardware buffer BEFORE play().
@@ -519,8 +480,7 @@ internal class OfficialEssence2FileEngine(
                             }
                         }
                         HitelE2Trace.event("audio.write.done", "turn" to packet.turn,
-                            "writtenBytes" to offset, "firstSample" to packet.firstSample,
-                            "endSample" to packet.firstSample + offset / 2, "writtenSamples" to writtenSamples,
+                            "writtenBytes" to offset, "writtenSamples" to writtenSamples,
                             "playedSamples" to track?.playbackHeadPosition,
                             "writeMs" to (System.nanoTime() - writeStarted) / 1_000_000,
                             "underruns" to track?.underrunCount, "queuedChunks" to soundQueue.size)
@@ -623,7 +583,6 @@ internal class OfficialEssence2FileEngine(
         catch (e: InterruptedException) { Thread.currentThread().interrupt(); false }
 
     companion object {
-        private val turnCounter = AtomicInteger()
         private const val TAG = "E2STREAM"
         private const val RATE = 16_000
         private const val HW_SLOTS = 32

@@ -14,8 +14,9 @@ def replace_one(source: str, old: str, new: str, tag: str) -> str:
 
 def patch(plugin: Path, sources: Path) -> None:
     folder = plugin / "android/src/main/kotlin/ai/bithuman/flutter"
-    for name in ("OfficialEssence2FileEngine.kt", "HitelVoiceSync.kt", "HitelPcmTimeline.kt"):
-        shutil.copyfile(sources / name, folder / name)
+    shutil.copyfile(sources / "OfficialEssence2FileEngine.kt",
+                    folder / "OfficialEssence2FileEngine.kt")
+    shutil.copyfile(sources / "HitelVoiceSync.kt", folder / "HitelVoiceSync.kt")
 
     # The existing MediaCodec/MediaExtractor file decoder already provides 16k PCM16.
     # Remove the gratuitous 16 -> 24 -> 16 conversion. Dart merely forwards bytes.
