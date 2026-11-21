@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Read the completed first run's on-device event evidence
         run: |
-          gh run download 44842675950 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
+          gh run download 44845708092 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -37,7 +37,7 @@ jobs:
           matches=list(root.rglob('full-logcat.txt'))
           if matches:
               lines=matches[0].read_text(errors='replace').splitlines()
-              selected=[s for s in lines if re.search(r'HITEL_AI_E2E|korean_tts|tts\.|Flutter.*[Ee]rror|Dart.*[Ee]rror|onUserLeaveHint|onStop|onPause',s)]
+              selected=[s for s in lines if re.search(r'HITEL_AI_E2E|korean_tts|tts\.|sherpa|onnx|KoreanTts|FATAL EXCEPTION|Fatal signal|SIGABRT|backtrace|#0[0-9]|libc|Exception|onStop|onPause',s)]
               print('SELECTED_SYSTEM_EVENTS')
               print('\n'.join(selected[-120:]))
           PY
