@@ -1,0 +1,59 @@
+name: Verify Korean Echo R3 speaker and streaming evidence
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Installed Korean Echo R3 build run
+        default: '44867434435'
+        required: true
+  push:
+    branches:
+      - feature/hitel-korean-echo-r3-20261121
+    paths:
+      - .github/workflows/essence2-korean-r3-evidence.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-installed-app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run || '44867434435' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read completed installed-app evidence
+        run: |
+          gh run watch "$SOURCE_RUN" --interval 20
+          gh run download "$SOURCE_RUN" --name essence2-korean-echo-stream-test-evidence --dir evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path('evidence')
+          for name in ['korean-echo-acceptance.json', 'final-ai-protocol.txt', 'final-native-trace.txt']:
+              for path in root.rglob(name):
+                  print('FILE', name)
+                  lines = path.read_text(errors='replace').splitlines()
+                  if name.endswith('.json'):
+                      print('\n'.join(lines))
+                  else:
+                      print('\n'.join(lines[-30:]))
+                      print('\n'.join(line for line in lines if re.search(r'stage=tts\.|stage=sdk.utterance|stage=sdk.resetAudio|stage=render.monitor|stage=audio.track.write', line)))
+          for path in root.rglob('full-logcat.txt'):
+              lines = path.read_text(errors='replace').splitlines()
+              for i, line in enumerate(lines):
+                  if any(x in line for x in ['JNI DETECTED', 'Abort message:', 'FATAL EXCEPTION']):
+                      print('\n'.join(lines[max(0, i - 3):i + 28]))
+          PY
+      - name: Compare captured speaker with both actual neural outputs
+        run: |
+          python3 -m pip install --quiet numpy scipy==1.14.1
+          python3 tools/bithuman_deep/verify_korean_echo_speaker.py evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-echo-r3-speaker-correlation
+          path: evidence/korean-speaker-correlation.json
+          if-no-files-found: warn
+          retention-days: 14
