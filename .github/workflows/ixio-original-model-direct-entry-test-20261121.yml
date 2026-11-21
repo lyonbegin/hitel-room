@@ -263,6 +263,15 @@ jobs:
           print('ORIGINAL_TOKEN_STEP_COUNTS',json.dumps(dict(collections.Counter(
               x.split('IXIO_TOKEN_TRACE: ',1)[-1] for x in token_events)),sort_keys=True))
           print('ORIGINAL_DOWNLOAD_WORKER_STARTED_COUNT',d.get('model_download_worker_started_count'))
+          download_success=[x for x in log.splitlines() if 'Worker result SUCCESS' in x and
+              'com.lguplus.aicallagent.data.worker.DownloadWorker' in x]
+          unzip_success=[x for x in log.splitlines() if 'Worker result SUCCESS' in x and
+              'com.lguplus.aicallagent.data.worker.FileUnzipWorker' in x]
+          versions=[x for x in log.splitlines() if '[AiModelUpdateRepository] Downloaded ' in x]
+          print('ORIGINAL_MODEL_DOWNLOAD_WORKER_SUCCESS_COUNT',len(download_success))
+          print('ORIGINAL_MODEL_UNZIP_WORKER_SUCCESS_COUNT',len(unzip_success))
+          for item in versions:
+              print('ORIGINAL_DOWNLOADED_MODEL_VERSION',item[-200:])
           print('MODEL_DIRECT_ENTRY_UI_STATE',json.dumps(d,ensure_ascii=False))
           for item in model_events+http_events+wire_events+provisioning_events+prelogin_events:
             print('MODEL_ORIGINAL_STEP',item[-250:])
