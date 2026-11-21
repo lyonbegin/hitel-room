@@ -1,9 +1,9 @@
-name: HITEL Essence2 Sofia existing local session - no vendor key
+name: HITEL Essence2 original Sofia faster audio-clock start
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/hitel-essence2-sofia-embedded-offline-20261120
+      - fix/essence2-original-playback-startup-latency-20261121
     paths:
       - .github/workflows/essence2-sofia-embedded-android15-offline.yml
       - tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py
@@ -25,15 +25,6 @@ jobs:
       QEMU_AUDIO_DRV: wav
       QEMU_WAV_PATH: ${{ github.workspace }}/essence2-sofia-offline-proof/emulator-speaker.wav
     steps:
-      - name: Stop the obsolete run only if it is still stuck preparing sources
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          OLD_STAGE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/44788672650/jobs" --jq '[.jobs[].steps[] | select(.status=="in_progress") | .name][0] // ""')"
-          if [ "$OLD_STAGE" = "Assemble five-sample local Android bundle loader and debug mock" ]; then
-            gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/44788672650/cancel"
-            echo STOPPED_OBSOLETE_SOURCE_PREPARATION
-          fi
       - uses: actions/checkout@v4
       - name: Copy official app and archived original SDK source
         shell: bash
@@ -108,6 +99,10 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/vendor-speech-integration.json"
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
+          # Prevent accidental changes outside the proven original frame/PCM path.
+          grep -Fq 'speech.playback.lookahead' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/Essence2SpeechPlayer.kt"
+          grep -Fq 'remainingSec + 1.0 <= audioSeconds' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/Essence2SpeechPlayer.kt"
+          grep -Fq 'while (candidate + 1 < frames.size' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/Essence2SpeechPlayer.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
           cmp "$ARCHIVE/android/build.gradle" "$PLUGIN/android/build.gradle"
           cat > "$APP/pubspec_overrides.yaml" <<EOF
@@ -229,7 +224,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -239,7 +234,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -247,9 +242,42 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
+
+      - name: Publish verified-byte installation candidate before emulator
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          APK=HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk
+          TAG=hitel-essence2-sofia-lookahead-lipsync-20261121
+          cat > essence2-local-mock-proof/lookahead-release-notes.md <<'EOF'
+          INSTALLATION CANDIDATE — Android and physical Galaxy performance not yet established.
+          Rebuilt from the exact pre-08:30 KST source (78ca10c0ed7b85e6a2240ce1bc8738f7162f751d).
+          Retains original complete PCM, native inference, frame JPEG encoding, sample positions,
+          AudioTrack MODE_STATIC playback, sample-clock video synchronization, Android package
+          and Sofia model. Only the full-frame-preparation barrier changes: measured conservative
+          frame-render throughput determines when buffered frame playback may start in parallel.
+          Dynamic underruns or slow rendering can still cause mouth-frame loss on real phones.
+          No STT/TTS or other new engine. The voice remains the fixed English test fixture.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'HITEL Essence2 Sofia - original player reduced prepare latency candidate' \
+              --notes-file essence2-local-mock-proof/lookahead-release-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk") | .url')"
+          test -n "$URL"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-install.apk
+          cmp "$APK" verified-install.apk
+          sha256sum "$APK"
+          echo PASS_LOOKAHEAD_INSTALL_CANDIDATE_PUBLIC_DOWNLOAD_IDENTICAL
 
       - name: Release build daemons before the emulator uses host memory
         working-directory: original-upstream/app/avatar_chat/android
@@ -272,7 +300,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
       - name: Verify captured virtual speaker contains the actual test speech
         if: always()
         run: |
@@ -286,10 +314,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          TAG=hitel-essence2-sofia-lookahead-lipsync-20261121
+          APK=HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          Essence2 speech playback adapted from the maker's android/essence2-hello renderOnce/play: prepare a complete utterance, then play the same 16 kHz PCM and select frames by the actual AudioTrack sample position. This adds preparation latency and is not realtime streaming. Existing HITEL local session and embedded Sofia model are retained. No bitHuman API Secret entry is required. Existing loopback authentication, metering test endpoint and fixed spoken-English local realtime fixture are retained. Same application package ai.bithuman.example.avatar_chat.essence2. The original native inference library is byte-identical. Automated Android 15 emulator checks include installation, offline model load, typed local reply, complete speaker playback, virtual speaker waveform matching and native frame presentation. Physical-device performance, visual lip-sync quality and a real AI service remain unverified.
+          Essence2 speech playback adapted from the maker's android/essence2-hello renderOnce/play: prepare the identical 16 kHz PCM and frame JPEGs, then overlap late frame preparation with the same AudioTrack sample-clock playback using a measured conservative render lookahead to reduce startup latency. This is not PCM live-input streaming and realtime performance requires device testing. Existing HITEL local session and embedded Sofia model are retained. No bitHuman API Secret entry is required. Existing loopback authentication, metering test endpoint and fixed spoken-English local realtime fixture are retained. Same application package ai.bithuman.example.avatar_chat.essence2. The original native inference library is byte-identical. Automated Android 15 emulator checks include installation, offline model load, typed local reply, complete speaker playback, virtual speaker waveform matching and native frame presentation. Physical-device performance, visual lip-sync quality and a real AI service remain unverified.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
@@ -298,7 +326,7 @@ jobs:
               --title 'HITEL Essence2 Sofia - vendor audio and lip-sync playback' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -310,7 +338,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
-          path: HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          path: HITEL_Essence2_Sofia_LookaheadLipSync_20261121_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
