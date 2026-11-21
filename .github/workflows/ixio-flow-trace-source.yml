@@ -1,0 +1,52 @@
+name: IXIO Read Original Model And Recording Trace Boundaries
+on:
+  push:
+    branches: [fix/ixio-ai-engine-toast-gate-20261121]
+    paths: [.github/workflows/ixio-flow-trace-source.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  read-boundaries:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Read existing original method boundaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p .flow-source flow-source-evidence
+          gh run download 43799320393 --name IXIO_Main_NoAppSealing_Single_APK --dir .flow-source
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .flow-source/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .flow-source/baksmali.jar' | sha256sum -c -
+          for n in 15 16 18;do
+            unzip -p .flow-source/IXIO_Main_NoAppSealing_Single.apk "classes$n.dex" > ".flow-source/classes$n.dex"
+            java -Xmx2600m -jar .flow-source/baksmali.jar d --api 34 --jobs 3 -o ".flow-source/smali$n" ".flow-source/classes$n.dex"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          names=re.compile(r'(?:DownloadWorker|FileUnzipWorker|AiModelUpdateRepositoryImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecordingManager|RecordRepository|RecordingSetting|RecordSetting|CallRecordSetting|DownloadViewModel|SettingViewModel|SettingScreenKt|ModelCatalogQaTrace)')
+          result={}
+          for p in Path('.flow-source').glob('smali*/com/lguplus/aicallagent/**/*.smali'):
+              if not names.search(p.name):continue
+              source=p.read_text()
+              if not re.search(r'(?m)^\.method .*\n\s+\.(?:registers|locals)',source):continue
+              result[p.relative_to('.flow-source').as_posix()]=source
+              print('BOUNDARY_CLASS',p.relative_to('.flow-source').as_posix())
+              for h in re.findall(r'(?m)^\.method[^\n]+',source):print('BOUNDARY_METHOD',h)
+          Path('flow-source-evidence/original-boundaries.json').write_text(json.dumps(result))
+          assert any('DownloadWorker.smali' in p for p in result)
+          assert any('recordingCallback' in p for p in result)
+          print('READ_ONLY_BOUNDARY_CLASSES',len(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Original_Flow_Boundaries
+          path: flow-source-evidence/
+          retention-days: 7
+
