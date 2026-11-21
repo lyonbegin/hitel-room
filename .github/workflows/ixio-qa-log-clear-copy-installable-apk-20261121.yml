@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/ixio-qa-log-clear-copy-installable-apk-20261121.yml
       - tools/ixio/ixio_qa_log_buttons_patch.py
+      - tools/ixio/ixio-pages-qa-emulator-robot.py
       - tools/ixio/qa_debug/**
   workflow_dispatch:
 permissions:
@@ -248,8 +249,7 @@ jobs:
             adb install -r .ixio-pages-build/recorder/recorder-context-test-signed.apk
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
-            python3 tools/ixio/ixio-pages-qa-emulator-robot.py
-            python3 tools/ixio/qa_debug/verify_log_buttons.py
+            HITEL_QA_LOG_BUTTON_TEST=1 python3 tools/ixio/ixio-pages-qa-emulator-robot.py
             python3 tools/ixio/ixio-original-call-permissions.py
             adb shell monkey -p com.lguplus.callrecorder -c android.intent.category.LAUNCHER 1
             sleep 3
