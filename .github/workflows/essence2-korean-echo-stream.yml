@@ -1,4 +1,4 @@
-name: HITEL Essence2 Korean local TTS echo streaming
+name: HITEL Essence2 original GPU PCM file streaming
 on:
   workflow_dispatch:
   push:
@@ -6,10 +6,8 @@ on:
       - feature/hitel-essence2-sofia-embedded-offline-20261120
     paths:
       - .github/workflows/essence2-korean-echo-stream.yml
-      - tools/bithuman_deep/prepare_essence2_korean_echo.py
-      - tools/bithuman_deep/package_korean_echo_tts.py
-      - tools/bithuman_deep/korean_echo/**
-      - tools/bithuman_deep/korean_echo_emulator_probe.py
+      - tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
+      - tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm
 permissions:
   contents: write
   actions: write
@@ -62,7 +60,7 @@ jobs:
           APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
-          python3 -m py_compile tools/bithuman_deep/prepare_essence2_vendor_speech_player.py tools/bithuman_deep/wait_essence2_playout_complete.py
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
           # Regression inputs must be pristine: the assembly below mutates APP.
           ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
             python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
@@ -104,10 +102,19 @@ jobs:
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
           cmp "$ARCHIVE/android/build.gradle" "$PLUGIN/android/build.gradle"
-          python3 tools/bithuman_deep/prepare_essence2_korean_echo.py \
-            --app "$APP" --plugin "$PLUGIN" \
-            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/korean_echo" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/korean-echo-integration.json"
+          # Original SDK picks the hardware buffer route. No local STT or TTS.
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('essence2-local-mock-plugin/android/src/main/kotlin/ai/bithuman/flutter')
+          plugin=(root/'BithumanPlugin.kt').read_text()
+          engine=(root/'AvatarEngine.kt').read_text()
+          assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in plugin
+          assert 'val forceCopy = true' not in plugin
+          assert 'zeroCopy && runCatching { avatar.useHardwareBuffers(HW_SLOTS) }' in engine
+          assert not (root/'HitelKoreanTts.kt').exists()
+          assert 'sendAudioDelta' in Path('original-upstream/app/avatar_chat/lib/hitel_offline_runtime.dart').read_text()
+          print('PASS_ORIGINAL_ESSENCE2_GPU_AUTOMATIC_PCM_FILE_DART_NO_TTS')
+          PY
           cat > "$APP/pubspec_overrides.yaml" <<EOF
           dependency_overrides:
             bithuman:
@@ -194,13 +201,6 @@ jobs:
             <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
 
-      - name: Package Korean VITS and statically linked sherpa-onnx
-        run: |
-          python3 tools/bithuman_deep/package_korean_echo_tts.py \
-            --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
-            --plugin "$GITHUB_WORKSPACE/essence2-local-mock-plugin" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/korean-tts-provenance.json"
-
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
         working-directory: original-upstream/app/avatar_chat
@@ -234,7 +234,12 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk"
+          if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
+            echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
+          fi
+          grep -Fxq 'flutter_assets/assets/hitel_essence2_spoken_24k.pcm' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -244,7 +249,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -252,34 +257,34 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
-      - name: Make the compiled installation APK available while emulator checks continue
+      - name: Publish an explicitly unverified PCM file installation candidate
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk
+          TAG=hitel-essence2-sofia-original-gpu-pcm-20261121
+          APK=HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk
           cat > essence2-local-mock-proof/candidate-notes.md <<'EOF'
-          Installation candidate: Korean-only local VITS/sherpa-onnx text echo connected to the original streaming avatar player. Compilation, embedded model checks and the original avatar JNI byte comparison have passed. Installed-app Korean synthesis, speaker playback and lip-sync checks are still running; they are not yet claimed as passed. Text input is returned unchanged by the local echo server. No external AI or cloud TTS is used.
+          Candidate only. Original bitHuman Essence2 native SDK and original auto-selected Android HardwareBuffer route; existing Dart loopback WebSocket streams a fixed 24-kHz PCM16 English speech file in 100-ms chunks. No local STT/TTS engine. This artifact is NOT GPU-verified, audio-verified, or physical-device-tested. The debug-only local session is NOT licensed for production.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
             gh release edit "$TAG" --notes-file essence2-local-mock-proof/candidate-notes.md
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 - Korean echo installation candidate' \
+              --title 'HITEL Essence2 - original GPU PCM file candidate' \
               --notes-file essence2-local-mock-proof/candidate-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-candidate.apk
           cmp "$APK" verified-candidate.apk
           sha256sum "$APK"
-          echo PASS_KOREAN_ECHO_CANDIDATE_PUBLIC_DOWNLOAD_IDENTICAL
+          echo PASS_ORIGINAL_GPU_PCM_CANDIDATE_PUBLIC_DOWNLOAD_IDENTICAL
           printf '%s\n' "$URL"
 
       - name: Release build daemons before the emulator uses host memory
@@ -296,7 +301,7 @@ jobs:
           python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_qemu_capture.py -v
           bash tools/bithuman_deep/prepare_essence2_wav_capture.sh
 
-      - name: Actually install and run embedded Sofia with Internet disabled in Android 15
+      - name: Test actual PCM file streaming and log GPU route on Android 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -307,8 +312,17 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
           script: |
-            bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk essence2-sofia-offline-proof
-            python3 tools/bithuman_deep/korean_echo_emulator_probe.py essence2-e2trace-proof
+            bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk essence2-sofia-offline-proof
+            bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh essence2-e2trace-proof
+            adb shell run-as ai.bithuman.example.avatar_chat.essence2 cat ./app_flutter/hitel_e2_trace.log > essence2-e2trace-proof/gpu-routing-native-trace.txt
+            python3 - <<'PY'
+            from pathlib import Path
+            log=Path('essence2-e2trace-proof/gpu-routing-native-trace.txt').read_text()
+            assert 'stage=gpu.routing ' in log, 'GPU route selection not logged'
+            assert 'forcedCpuCopy=false' in log, 'Original automatic GPU selection overridden'
+            print('GPU_ROUTING_OBSERVED', [l for l in log.splitlines() if 'stage=gpu.routing ' in l][-1])
+            print('GPU_HARDWAREBUFFER_SUCCESS_ONLY_IF_hardwareFrames_true; fallback is not GPU')
+            PY
       - name: Finalize actual emulator speaker capture
         if: always()
         run: |
@@ -316,27 +330,27 @@ jobs:
             --raw essence2-sofia-offline-proof/emulator-speaker.raw \
             --wav essence2-sofia-offline-proof/emulator-speaker.wav
 
-      - name: Publish the tested HITEL local APK requested by the user
+      - name: Publish tested original-SDK PCM file APK if Android acceptance passes
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk
+          TAG=hitel-essence2-sofia-original-gpu-pcm-20261121
+          APK=HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          Korean-only local text echo. The existing in-process WebSocket returns the submitted text unchanged. sherpa-onnx 1.12.26 and vits-mimic3-ko_KO-kss_low synthesize it on the phone. Short clauses are generated in sequence and PCM is forwarded immediately to the original bitHuman streaming AvatarPlayer (separate feeding, rendering, speaker writing and audio-clocked presentation). No fixed English recording, full-reply prerender cache, external AI or cloud TTS. Existing HITEL local test session and embedded Sofia model are preserved; native avatar inference is byte-identical. Automated acceptance installs this APK on Android 15, submits two different Korean texts through the real input field, verifies input hashes, distinct neural PCM, speaker writes, mouth frames and return to idle. Emulator performance and virtual audio capture differ from physical-device behavior.
+          Original bitHuman Essence2 SDK with unchanged GPU HardwareBuffer auto-detection and original PCM input path. The existing in-process Dart WebSocket server streams a fixed offline English voice file (24-kHz mono PCM16, 100-ms chunks). No local STT, TTS, Korean neural synthesis, or whole-utterance frame prerendering. Actual GPU hardware buffer use must be decided by logged hardwareFrames, not by the workflow title. Android emulator validation is not Galaxy hardware validation. Local debug authentication is synthetic.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 Sofia - Korean local TTS echo streaming' \
+              --title 'HITEL Essence2 Sofia - original GPU PCM file streaming' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          gh release edit "$TAG" --title 'HITEL Essence2 Sofia - Korean local TTS echo streaming' \
+          gh release edit "$TAG" --title 'HITEL Essence2 Sofia - original GPU PCM file streaming' \
             --notes-file essence2-local-mock-proof/release-notes.md
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -347,8 +361,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Korean_Echo_Stream_Install
-          path: HITEL_Essence2_Sofia_KoreanEcho_Stream_R2_20261121_ARM64.apk
+          name: HITEL_Essence2_Original_GPU_PCM_File_Install
+          path: HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
@@ -357,7 +371,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: essence2-korean-echo-stream-test-evidence
+          name: essence2-original-gpu-pcm-file-evidence
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/apk-sha256.txt
