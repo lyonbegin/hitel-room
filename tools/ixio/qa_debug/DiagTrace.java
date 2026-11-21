@@ -68,6 +68,7 @@ public final class DiagTrace {
         StringBuilder s = new StringBuilder(label).append(" result=")
                 .append(type.getName()).append('#').append(instance(value));
         if (value instanceof Boolean) s.append(" value=").append((Boolean)value);
+        if (value instanceof String) s.append(" length=").append(((String)value).length());
         if (value instanceof String && label.contains(".getAiModelType")
                 && ((String)value).matches("[A-Z_]{2,24}")) s.append(" model=").append((String)value);
         if (value instanceof String && label.contains(".getFileVersion")

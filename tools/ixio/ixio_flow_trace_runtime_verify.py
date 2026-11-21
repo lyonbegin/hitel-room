@@ -4,6 +4,12 @@ from pathlib import Path
 import importlib.util,json,re,subprocess,time
 
 OUT=Path('ixio-pages-qa-results');OUT.mkdir(exist_ok=True)
+assert subprocess.check_output(['adb','shell','getprop','ro.kernel.qemu'],text=True).strip()=='1'
+subprocess.run(['adb','shell','svc','data','disable'],check=True)
+subprocess.run(['adb','shell','svc','wifi','enable'],check=True)
+subprocess.run(['adb','shell','cmd','wifi','connect-network','AndroidWifi','open'],check=False)
+time.sleep(4)
+(OUT/'emulator-only-wifi-network.txt').write_text(subprocess.check_output(['adb','shell','dumpsys','connectivity'],text=True))
 path=OUT/'original-flow-continuous-logcat.txt'
 with path.open('w',encoding='utf-8') as sink:
     capture=subprocess.Popen(['adb','logcat','-v','threadtime'],stdout=sink,stderr=subprocess.STDOUT)
@@ -25,8 +31,14 @@ with path.open('w',encoding='utf-8') as sink:
         # Real app snapshot loads its private diagnostic file; this checks the
         # user-visible copy source, not merely adb or generated marker strings.
         assert panel_has_flow and panel_has_sequence,'Flow events did not reach the actual in-app copy source'
-        close=robot.choose(nodes,['닫기'],exact=True)
-        if close:robot.tap(close,'CLOSE_REAL_FLOW_LOG_PANEL')
+        previous=set(s for s in robot.adb('logcat','-d','-s','HITEL_IXIO_DIAG:I','*:S').splitlines() if 'LOG_COPIED_TO_CLIPBOARD' in s)
+        copy=robot.choose(nodes,['로그 복사'],exact=True)
+        assert copy,'Real flow copy button missing'
+        robot.tap(copy,'COPY_ACTUAL_ORIGINAL_FUNCTION_FLOW_PAYLOAD')
+        time.sleep(1)
+        current=set(s for s in robot.adb('logcat','-d','-s','HITEL_IXIO_DIAG:I','*:S').splitlines() if 'LOG_COPIED_TO_CLIPBOARD' in s)
+        assert current-previous,'Actual flow payload clipboard callback missing'
+        flow_copy_completed=True
     finally:
         capture.terminate()
         try:capture.wait(timeout=8)
@@ -48,6 +60,7 @@ result={
     'actual_recording_callbacks_observed':any('recordingCallback$1.on' in s for s in flows),
     'actual_copy_panel_contains_flow':panel_has_flow,
     'actual_copy_panel_contains_sequence_pid_tid':panel_has_sequence,
+    'actual_flow_payload_copied_to_clipboard':flow_copy_completed,
     'physical_call_pcm_and_stt_verified':False,
 }
 (OUT/'original-flow-runtime-verification.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
