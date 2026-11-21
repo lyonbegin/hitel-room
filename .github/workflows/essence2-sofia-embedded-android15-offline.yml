@@ -97,7 +97,9 @@ jobs:
           test ! -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/Essence2SpeechPlayer.kt"
           grep -Fq 'return AvatarPlayer(s.avatar, workers' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
           grep -Fq '.setTransferMode(AudioTrack.MODE_STREAM)' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt"
-          grep -Fq 'avatar.feed(toFloat16k(whole))' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt"
+          # The original feed call is intentionally wrapped by the earlier timestamp instrumentation.
+          grep -Fq 'val f16k = toFloat16k(whole)' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt"
+          grep -Fq 'avatar.feed(f16k)' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt"
           grep -Fq 'override fun feed(f16k: FloatArray)' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarEngine.kt"
           echo PASS_ORIGINAL_FLUTTER_ESSENCE2_PCM_STREAM_SELECTED
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
