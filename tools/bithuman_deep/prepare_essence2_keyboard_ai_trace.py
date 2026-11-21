@@ -17,7 +17,7 @@ def once(path,before,after,label):
     path.write_text(s.replace(before,after,1))
     return label
 
-def main(app:Path, plugin:Path, report:Path):
+def main(app:Path, plugin:Path, report:Path, trace_transport=True):
     tags=[]
     ui=app/"lib/main.dart"
     transport=plugin/"lib/bithuman_realtime.dart"
@@ -39,32 +39,33 @@ def main(app:Path, plugin:Path, report:Path):
       debugPrint('[HITEL_AI_E2E] ui.botTranscript chars=__DOLLAR__{d.length} wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
       if (mounted) setState(() => _caption = 'agent: $d');
     });""","bot-transcript"))
-    tags.append(once(transport,
-        """    if (ws == null) return;
-    ws.sink.add(jsonEncode(evt));""",
-        """    final kind = evt['type']?.toString() ?? 'unknown';
-    if (ws == null) {
-      print('[HITEL_AI_E2E] client.tx.dropped type=$kind reason=no_socket');
-      return;
-    }
-    if (kind != 'input_audio_buffer.append') {
-      print('[HITEL_AI_E2E] client.tx type=$kind wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
-    }
-    ws.sink.add(jsonEncode(evt));""","ws-outbound"))
-    tags.append(once(transport,
-        "    final type = evt['type'] as String?;\n",
-        """    final type = evt['type'] as String?;
-    if (type != 'response.output_audio.delta') {
-      print('[HITEL_AI_E2E] client.rx type=$type wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
-    } else if (_deltaN == 0) {
-      print('[HITEL_AI_E2E] client.rx type=response.output_audio.delta first=true wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
-    }
-""","ws-inbound"))
-    tags.append(once(transport,
-        "      await _ws!.ready;\n",
-        """      await _ws!.ready;
-      print('[HITEL_AI_E2E] client.ws.ready=true wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
-""","ws-ready"))
+    if trace_transport:
+        tags.append(once(transport,
+            """    if (ws == null) return;
+        ws.sink.add(jsonEncode(evt));""",
+            """    final kind = evt['type']?.toString() ?? 'unknown';
+        if (ws == null) {
+          print('[HITEL_AI_E2E] client.tx.dropped type=$kind reason=no_socket');
+          return;
+        }
+        if (kind != 'input_audio_buffer.append') {
+          print('[HITEL_AI_E2E] client.tx type=$kind wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
+        }
+        ws.sink.add(jsonEncode(evt));""","ws-outbound"))
+        tags.append(once(transport,
+            "    final type = evt['type'] as String?;\n",
+            """    final type = evt['type'] as String?;
+        if (type != 'response.output_audio.delta') {
+          print('[HITEL_AI_E2E] client.rx type=$type wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
+        } else if (_deltaN == 0) {
+          print('[HITEL_AI_E2E] client.rx type=response.output_audio.delta first=true wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
+        }
+    ""","ws-inbound"))
+        tags.append(once(transport,
+            "      await _ws!.ready;\n",
+            """      await _ws!.ready;
+          print('[HITEL_AI_E2E] client.ws.ready=true wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
+    ""","ws-ready"))
     tags.append(once(runtime,
         "        switch (event.type) {\n",
         """        if (event.type != 'input_audio_buffer.append') {
@@ -87,7 +88,7 @@ def main(app:Path, plugin:Path, report:Path):
         """    print('[HITEL_AI_E2E] mock.tx type=response.done wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
     conn.sendResponseDone();
 ""","mock-response-done"))
-    for item in (ui,transport,runtime):
+    for item in ((ui, transport, runtime) if trace_transport else (ui, runtime)):
         content=item.read_text()
         item.write_text(content.replace("__DOLLAR__","$"))
     report.parent.mkdir(parents=True,exist_ok=True)
@@ -111,5 +112,6 @@ if __name__=="__main__":
     p.add_argument("--app",type=Path,required=True)
     p.add_argument("--plugin",type=Path,required=True)
     p.add_argument("--report",type=Path,required=True)
+    p.add_argument("--preserve-transport",action="store_true")
     a=p.parse_args()
-    main(a.app,a.plugin,a.report)
+    main(a.app,a.plugin,a.report,trace_transport=not a.preserve_transport)

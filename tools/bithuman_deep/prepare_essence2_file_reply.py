@@ -76,8 +76,8 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
 '''
 
 
-def prepare(app, plugin, sources, report, original_playback=False):
-    revision = 'R6' if original_playback else 'R5'
+def prepare(app, plugin, sources, report, original_playback=False, official_streaming=False):
+    revision = 'R7' if official_streaming else 'R6' if original_playback else 'R5'
     folder = plugin / 'android/src/main/kotlin/ai/bithuman/flutter'
     for name in ('HitelFileAudioSource.kt', 'HitelDiagnostics.kt', 'DiagnosticFiles.kt',
                  'HitelLogResetReceiver.kt', 'HitelE2Trace.kt'):
@@ -104,7 +104,7 @@ def prepare(app, plugin, sources, report, original_playback=False):
     assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in s
     assert 'val forceCopy = true' not in s and 'return AvatarPlayer(' in s
     target.write_text(s, encoding='utf-8')
-    if not original_playback:
+    if not (original_playback or official_streaming):
         patch_streaming_engine(folder / 'AvatarEngine.kt')
 
     runtime = app / 'lib/hitel_offline_runtime.dart'
@@ -157,6 +157,24 @@ def prepare(app, plugin, sources, report, original_playback=False):
                  '    } catch (_) {}\n')
         s = once(s, '    _fileReply.close();\n', '')
     assert 'rootBundle.load' not in s and '_voicedPcm24k' not in s
+    if official_streaming:
+        s = once(s, "import 'package:bithuman/bithuman_realtime.dart';\n", '')
+        s = once(s, '  final _fileReply = HitelFileReply();\n',
+                 '  final _fileReply = HitelFileReply();\n'
+                 '  void Function(String)? trace;\n')
+        s = s.replace('BithumanRealtimeSession.hitelAiTrace(', 'trace?.call(')
+        s = s.replace('_fileReply.reply(conn, pendingText)', '_fileReply.reply(conn, pendingText, trace)')
+        s = once(s, '            break;\n          case \'input_audio_buffer.commit\':\n'
+                    '            unawaited(_fileReply.reply(conn, pendingText, trace));\n'
+                    "            pendingText = '';\n            break;\n",
+                 '            break;\n')
+        file_reply = app / 'lib' / reply_source
+        reply = file_reply.read_text(encoding='utf-8')
+        reply = once(reply, "import 'package:bithuman/bithuman_realtime.dart';\n", '')
+        reply = once(reply, 'Future<void> reply(MockConnection conn, String input) async {',
+                     'Future<void> reply(MockConnection conn, String input, void Function(String)? trace) async {')
+        reply = reply.replace('BithumanRealtimeSession.hitelAiTrace(', 'trace?.call(')
+        file_reply.write_text(reply, encoding='utf-8')
     runtime.write_text(s, encoding='utf-8')
 
     spec = app / 'pubspec.yaml'
@@ -235,6 +253,10 @@ def prepare(app, plugin, sources, report, original_playback=False):
     s = once(s, 'StatusPill(state: _state, label: _status)',
              f"StatusPill(state: _state, label: '{revision} · $_status')")
     s = s.replace('> 524288', '> 131072')
+    if official_streaming:
+        s = once(s, '    BithumanRealtimeSession.debugEventSink = _hitelAppendAiTrace;\n',
+                 '    _offline.trace = _hitelAppendAiTrace;\n')
+        s = s.replace('BithumanRealtimeSession.hitelAiTrace(', '_hitelAppendAiTrace(')
     if original_playback:
         s = once(s, "import 'hitel_offline_runtime.dart';\n",
                  "import 'hitel_offline_runtime.dart';\nimport 'hitel_direct_file_reply.dart';\n")
@@ -268,7 +290,8 @@ def prepare(app, plugin, sources, report, original_playback=False):
         'file_chunk_ms': 100, 'decode_rate': 16000, 'wire_rate': 24000,
         'whole_file_read': False, 'whole_file_pcm_conversion': False,
         'decoded_queue_packets': 8, 'file_paced_by_playout': False,
-        'direct_vendor_pcm_api': original_playback, 'pristine_native_playback': original_playback,
+        'direct_vendor_pcm_api': original_playback, 'vendor_realtime_pcm_receiver': official_streaming,
+        'pristine_native_playback': original_playback or official_streaming,
         'source': 'existing public test voice encoded as M4A at build time',
         'STT': False, 'TTS': False, 'renderer': 'original AvatarPlayer and original automatic GPU routing',
         'clear_on_package_update_and_first_launch': True, 'manual_clear_button': True,
@@ -282,6 +305,8 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     for name in ('app', 'plugin', 'sources', 'report'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--original-playback', action='store_true')
+    modes = p.add_mutually_exclusive_group()
+    modes.add_argument('--original-playback', action='store_true')
+    modes.add_argument('--official-streaming', action='store_true')
     a = p.parse_args()
-    prepare(a.app, a.plugin, a.sources, a.report, a.original_playback)
+    prepare(a.app, a.plugin, a.sources, a.report, a.original_playback, a.official_streaming)

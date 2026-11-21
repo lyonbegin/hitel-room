@@ -16,33 +16,34 @@ def change_once(s,a,b,label):
         raise AssertionError("AI_TRACE_"+label+" expected 1 anchor, got "+str(n))
     return s.replace(a,b,1)
 
-def main(app,plugin,report,clipboard=True):
+def main(app,plugin,report,clipboard=True,trace_transport=True):
     transport=plugin/"lib/bithuman_realtime.dart"
     ui=app/"lib/main.dart"
     runtime=app/"lib/hitel_offline_runtime.dart"
-    t=transport.read_text()
-    t=change_once(t,
-        "class BithumanRealtimeSession {\n",
-        """class BithumanRealtimeSession {
-  /// Test-only hook used by the temporary app to persist event metadata.
-  static void Function(String)? debugEventSink;
-  static void hitelAiTrace(String event) {
-    print('[HITEL_AI_E2E] __DOLLAR__event');
-    debugEventSink?.call(event);
-  }
+    if trace_transport:
+        t=transport.read_text()
+        t=change_once(t,
+            "class BithumanRealtimeSession {\n",
+            """class BithumanRealtimeSession {
+      /// Test-only hook used by the temporary app to persist event metadata.
+      static void Function(String)? debugEventSink;
+      static void hitelAiTrace(String event) {
+        print('[HITEL_AI_E2E] __DOLLAR__event');
+        debugEventSink?.call(event);
+      }
 
-""", "plugin-trace-sink")
-    assert t.count("print('[HITEL_AI_E2E] ") == 6, \
-        "Unexpected AI event print anchors in temp transport"
-    t=t.replace("print('[HITEL_AI_E2E] ",
-                "BithumanRealtimeSession.hitelAiTrace('")
-    # The logger itself must continue printing to the system log.
-    t=t.replace(
-        "static void hitelAiTrace(String event) {\n"
-        "    BithumanRealtimeSession.hitelAiTrace('__DOLLAR__event');",
-        "static void hitelAiTrace(String event) {\n"
-        "    print('[HITEL_AI_E2E] __DOLLAR__event');")
-    transport.write_text(t.replace("__DOLLAR__","$"))
+    """, "plugin-trace-sink")
+        assert t.count("print('[HITEL_AI_E2E] ") == 6, \
+            "Unexpected AI event print anchors in temp transport"
+        t=t.replace("print('[HITEL_AI_E2E] ",
+                    "BithumanRealtimeSession.hitelAiTrace('")
+        # The logger itself must continue printing to the system log.
+        t=t.replace(
+            "static void hitelAiTrace(String event) {\n"
+            "    BithumanRealtimeSession.hitelAiTrace('__DOLLAR__event');",
+            "static void hitelAiTrace(String event) {\n"
+            "    print('[HITEL_AI_E2E] __DOLLAR__event');")
+        transport.write_text(t.replace("__DOLLAR__","$"))
     m=runtime.read_text()
     m=change_once(m,"import 'dart:io';\n",
         "import 'dart:io';\nimport 'package:bithuman/bithuman_realtime.dart';\n","mock-import")
@@ -124,5 +125,7 @@ if __name__=="__main__":
     a.add_argument("--plugin",type=Path,required=True)
     a.add_argument("--report",type=Path,required=True)
     a.add_argument("--defer-clipboard",action="store_true")
+    a.add_argument("--preserve-transport",action="store_true")
     x=a.parse_args()
-    main(x.app,x.plugin,x.report,clipboard=not x.defer_clipboard)
+    main(x.app,x.plugin,x.report,clipboard=not x.defer_clipboard,
+         trace_transport=not x.preserve_transport)
