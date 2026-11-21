@@ -418,7 +418,8 @@ internal class OfficialEssence2FileEngine(
         var writtenSamples = 0L
         var monitor: ScheduledFuture<*>? = null
         val pcmHash = MessageDigest.getInstance("SHA-256")
-        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
+        runCatching { android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO) }
+            .onFailure { Log.w(TAG, "Audio thread uses the default scheduler priority", it) }
         try {
             while (!closed) {
                 when (val packet = soundQueue.take()) {

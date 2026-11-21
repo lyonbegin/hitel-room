@@ -347,7 +347,7 @@ jobs:
         run: |
           set -euo pipefail
           APK=HITEL_Essence2_GPU_AUDIO_MASTER_20261121_ARM64.apk
-          TAG=hitel-essence2-gpu-audio-master-20261121
+          TAG=hitel-essence2-gpu-audio-master-r2-20261121
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Installation test APK requested for immediate physical-device diagnosis.
