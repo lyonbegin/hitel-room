@@ -54,6 +54,8 @@ def prepare(app, plugin, sources, report):
                   'unawaited(_echo.reply(conn, pendingText));\n            pendingText = \'\';')
     s = once(s, '            _spokenEpoch++;\n', '            _echo.cancel();\n')
     s = once(s, '    _closed = true;\n', '    _closed = true;\n    _echo.close();\n')
+    s = once(s, '    } catch (_) {}\n  }\n\n  Future<void> close()',
+             '    } catch (_) {} finally { _echo.cancel(); }\n  }\n\n  Future<void> close()')
     s = s.replace("import 'dart:typed_data';\n", '')
     runtime.write_text(s, encoding='utf-8')
     fixture = app / 'assets/hitel_essence2_spoken_24k.pcm'
@@ -110,7 +112,7 @@ def prepare(app, plugin, sources, report):
     s = ui.read_text(encoding='utf-8')
     s = once(s, '    final t = _input.text.trim();\n    if (t.isEmpty || _session == null) return;',
              '    final t = _input.text;\n    if (t.trim().isEmpty || _session == null) return;')
-    s = once(s, "_status = 'Speaking��';", "_status = '�ѱ��� ������ �ռ��ϰ� �ֽ��ϴ١�';")
+    s = once(s, "_status = 'Speaking…';", "_status = '한국어 음성을 합성하고 있습니다…';")
     # Display follows the original device clock, not the early transcript event.
     s = once(s, '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n',
         '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n'
@@ -124,10 +126,10 @@ def prepare(app, plugin, sources, report):
       if (p.fed > p.played) {
         _echoHasAudio = true;
         setState(() => _status = p.played > 0
-            ? '�ѱ��� ������ ����ϰ� �ֽ��ϴ١�' : '����������ũ�� �غ��ϰ� �ֽ��ϴ١�');
+            ? '한국어 음성을 재생하고 있습니다…' : '음성·립싱크를 준비하고 있습니다…');
       } else if (_echoHasAudio) {
         _echoHasAudio = false;
-        setState(() => _status = '������ �Է��� �ֽʽÿ�. �Է��Ͻ� �״�� �о� �帳�ϴ�.');
+        setState(() => _status = '문장을 입력해 주십시오. 입력하신 그대로 읽어 드립니다.');
       }
     });
     final session = BithumanRealtimeSession(
@@ -136,8 +138,8 @@ def prepare(app, plugin, sources, report):
              '      if (mounted && !_echoHasAudio) setState(() => _status = _describe(s));')
     s = once(s, '    _avatar?.dispose();\n',
              '    unawaited(_echoPlayout?.cancel());\n    _avatar?.dispose();\n')
-    s = s.replace("'Connected ? say something, or type.'", "'������ �Է��� �ֽʽÿ�. �Է��Ͻ� �״�� �о� �帳�ϴ�.'")
-    s = s.replace("'Thinking��'", "'�ѱ��� ������ �ռ��ϰ� �ֽ��ϴ١�'")
+    s = s.replace("'Connected — say something, or type.'", "'문장을 입력해 주십시오. 입력하신 그대로 읽어 드립니다.'")
+    s = s.replace("'Thinking…'", "'한국어 음성을 합성하고 있습니다…'")
     ui.write_text(s, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({

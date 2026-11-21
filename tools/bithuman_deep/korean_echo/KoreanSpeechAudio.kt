@@ -13,7 +13,7 @@ object KoreanSpeechSegments {
             val size = i - from + 1
             val limit = if (result.isEmpty()) 14 else 32
             val c = text[i]
-            val punctuation = c in ".!?������\n"
+            val punctuation = c in ".!?。！？\n"
             if (punctuation || (size >= limit && c.isWhitespace()) || size >= 64) {
                 text.substring(from, i + 1).takeIf { it.isNotBlank() }?.let(result::add)
                 from = i + 1
