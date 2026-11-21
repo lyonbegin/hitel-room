@@ -58,6 +58,11 @@ def prepare(app, plugin, sources, report):
              '    } catch (_) {} finally { _echo.cancel(); }\n  }\n\n  Future<void> close()')
     s = s.replace("import 'dart:typed_data';\n", '')
     runtime.write_text(s, encoding='utf-8')
+    transport = plugin / 'lib/bithuman_realtime.dart'
+    s = transport.read_text(encoding='utf-8')
+    s = once(s, '    final t = text.trim();\n    if (t.isEmpty || !_open) return;',
+             '    final t = text;\n    if (t.trim().isEmpty || !_open) return;')
+    transport.write_text(s, encoding='utf-8')
     fixture = app / 'assets/hitel_essence2_spoken_24k.pcm'
     fixture.unlink(missing_ok=True)
     spec = app / 'pubspec.yaml'
@@ -117,15 +122,17 @@ def prepare(app, plugin, sources, report):
     s = once(s, '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n',
         '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n'
         '  StreamSubscription<dynamic>? _echoPlayout;\n'
-        '  bool _echoHasAudio = false;\n')
+        '  bool _echoHasAudio = false;\n'
+        '  int _echoFirstPlayed = 0;\n')
     s = once(s, '    final session = BithumanRealtimeSession(\n',
         '''    await _echoPlayout?.cancel();
     _echoHasAudio = false;
     _echoPlayout = avatar.speechPlayout.listen((p) {
       if (!mounted) return;
       if (p.fed > p.played) {
+        if (!_echoHasAudio) _echoFirstPlayed = p.played;
         _echoHasAudio = true;
-        setState(() => _status = p.played > 0
+        setState(() => _status = p.played > _echoFirstPlayed
             ? '한국어 음성을 재생하고 있습니다…' : '음성·립싱크를 준비하고 있습니다…');
       } else if (_echoHasAudio) {
         _echoHasAudio = false;

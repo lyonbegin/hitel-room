@@ -43,11 +43,13 @@ def submit(text):
     encoded = base64.b64encode(text.encode()).decode()
     adb('shell', 'am', 'broadcast', '-a', 'ai.hitel.debug.ECHO_CLIPBOARD', '-p', PACKAGE,
         '--es', 'text_b64', encoded)
-    adb('shell', 'input', 'keyevent', 'KEYCODE_PASTE')
+    adb('shell', 'input', 'keycombination', 'KEYCODE_CTRL_LEFT', 'KEYCODE_V')
     time.sleep(.5)
     screenshot('korean-input-filled.png')
     adb('shell', 'input', 'keyevent', 'KEYCODE_ENTER')
-    adb('shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    time.sleep(.5)
+    if 'mInputShown=true' in adb('shell', 'dumpsys', 'input_method'):
+        adb('shell', 'input', 'keyevent', 'KEYCODE_BACK')
 
 
 def fields(line):
@@ -57,7 +59,7 @@ def fields(line):
 try:
     adb('shell', 'cmd', 'media_session', 'volume', '--stream', '3', '--set', '15')
     samples = [
-        '안녕하세요. 반갑습니다.',
+        '  안녕하세요. 반갑습니다.  ',
         '오늘은 한국어 음성을 시험합니다. 입력한 문장을 그대로 읽어 드립니다. '
         '첫 번째 문장을 읽는 동안 다음 문장의 음성을 만듭니다. '
         '입 모양도 같은 음성에 맞추어 움직입니다. 끝까지 잘 들리는지 확인해 주십시오.',

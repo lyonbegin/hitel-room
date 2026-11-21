@@ -41,9 +41,15 @@ def package(app, plugin, report):
     maven = app / 'android/local-sdk-maven/ai/hitel/local/sherpa-onnx/1.12.26'
     maven.mkdir(parents=True, exist_ok=True)
     # Use the avatar's existing C++ runtime once; keep sherpa/ONNX statically linked.
+    avatar_aar = app.parents[2] / 'essence2-sdk-local/vendor-original-0.9.5.aar'
+    # CI normally places that AAR at the repository root, outside original-upstream.
+    avatar_aar = next((p for p in [avatar_aar, Path('essence2-sdk-local/vendor-original-0.9.5.aar')]
+                       if p.exists()), None)
+    avatar_has_cpp = bool(avatar_aar and any(n.endswith('/libc++_shared.so')
+                         for n in zipfile.ZipFile(avatar_aar).namelist()))
     with zipfile.ZipFile(maven / 'sherpa-onnx-1.12.26.aar', 'w') as output:
         for name in original.namelist():
-            if name.endswith('/libc++_shared.so'):
+            if avatar_has_cpp and name.endswith('/libc++_shared.so'):
                 continue
             output.writestr(name, original.read(name))
     (maven / 'sherpa-onnx-1.12.26.pom').write_text(
@@ -60,6 +66,7 @@ def package(app, plugin, report):
         'model_url': MODEL_URL, 'model_archive_sha256': hashlib.sha256(raw).hexdigest(),
         'model_members_sha256': records, 'aar_url': AAR_URL,
         'aar_sha256': hashlib.sha256(aar).hexdigest(), 'aar_native_members': native,
+        'uses_avatar_cpp_runtime': avatar_has_cpp,
     }, indent=2) + '\n')
     print('PASS_KOREAN_TTS_MODEL_AND_STATIC_ONNX_ANDROID_AAR_PACKAGED')
 
