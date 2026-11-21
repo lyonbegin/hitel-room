@@ -169,7 +169,14 @@ def main():
             print("ORIGINAL_IXIO_NOT_LAUNCHED_AFTER_TWO_RETRIES",flush=True)
             stop_reason="APP_NOT_STARTED_AFTER_LAUNCH_RETRIES"
             break
-        if not visible:
+        # HITEL QA places a persistent "로그" floating button on each
+        # original Activity. During AppAuth callback the entire *real*
+        # IXIO content can still be blank, leaving only that overlay.
+        # Treat this exactly like an empty transitional UI rather than
+        # declaring that the handoff is non-automatable.
+        diagnostic_overlay_only=(bool(visible) and all(
+            "HITEL 진단 로그 열기" in item and "로그" in item for item in visible))
+        if not visible or diagnostic_overlay_only:
             # AppAuth/Chrome Custom Tab -> IXIO activity handoff may present
             # a transient fully blank accessibility hierarchy while async
             # post-login config/terms requests complete. A single 3-second
