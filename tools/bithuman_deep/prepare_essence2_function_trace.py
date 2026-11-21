@@ -19,7 +19,7 @@ def patch(path, changes):
     path.write_text(s)
     return len(changes)
 
-def run(app, plugin, source, report):
+def run(app, plugin, source, report, native_only=False):
     folder = plugin / PKG
     assert folder.is_dir()
     target = folder / "HitelE2Trace.kt"
@@ -27,6 +27,17 @@ def run(app, plugin, source, report):
     target.write_bytes(source.read_bytes())
     plugin_file = folder / "BithumanPlugin.kt"
     count = patch(plugin_file, [
+        ("pcm-method-entry", '                speak(s, call.argument<ByteArray>("pcm"))\n',
+         '''                val pcm = call.argument<ByteArray>("pcm")
+                HitelE2Trace.event("plugin.playSpeakerPCM", "pcmBytes" to pcm?.size,
+                    "fed24k" to s.fedSamples, "played24k" to s.playedSamples)
+                speak(s, pcm)
+'''),
+        ("pcm-turn-end", '                s?.player?.endOfReply(); result.success(null)\n',
+         '''                HitelE2Trace.event("plugin.notifyTurnEnd", "fed24k" to s?.fedSamples,
+                    "played24k" to s?.playedSamples)
+                s?.player?.endOfReply(); result.success(null)
+'''),
         ("entry", "        val (entry, texture) = newTexture()\n", """        HitelE2Trace.init(context)
         HitelE2Trace.event("load.begin", "engine" to canonical, "agent" to code,
             "secretPresent" to !secret.isNullOrBlank(),
@@ -164,11 +175,26 @@ def run(app, plugin, source, report):
 """),
         ("sdk-pull-result", "            val k = if (got) avatar.lastFrameIndex else -1L\n",
          """            val k = if (got) avatar.lastFrameIndex else -1L
-            if (got || (System.nanoTime() / 1000000000L) % 7L == 0L)
+            val traceNow = System.nanoTime()
+            if (got || traceNow - lastRefusedTraceNs >= 250_000_000L) {
+                if (!got) lastRefusedTraceNs = traceNow
                 HitelE2Trace.event("sdk.pull.result", "frame" to got,
-                    "ordinal" to k, "durationUs" to (System.nanoTime() - t0) / 1000,
+                    "ordinal" to k, "durationUs" to (traceNow - t0) / 1000,
                     "hardwareFrame" to hardwareFrames, "readyDepth" to ready.size,
-                    "sdkAvailable" to avatar.available(), "generation" to g)
+                    "generation" to g)
+            }
+"""),
+        ("sdk-pull-refusal-clock", "    private val ready = ArrayBlockingQueue<Rendered>(DEPTH)\n",
+         """    private val ready = ArrayBlockingQueue<Rendered>(DEPTH)
+    private var lastRefusedTraceNs = 0L
+"""),
+        ("sdk-drain-decision", "        if (!closed) return\n        open = false\n",
+         """        if (!closed) return
+        HitelE2Trace.event("sdk.drain.decision", "fed16k" to uttFed,
+            "expectedFrames" to ((uttFed + HOP - 1) / HOP), "ordinalThrough" to delivered,
+            "sdkQueued" to queued, "readyDepth" to ready.size, "pending" to pending.size,
+            "generation" to gen)
+        open = false
 """),
         ("render-queue", '            } else { renderBackoff.served(); buf?.rewind(); ready.offer(Rendered(buf, hf, at, g)) }',
          """            } else {
@@ -205,7 +231,7 @@ def run(app, plugin, source, report):
                             "engineQueue" to avatar.queuedFrames)
 """),
         ("admitted-unit", "        admit(AvUnit(sessionSamples, f, e, true, stats.turnGen, body, seq, kind, fedEnd, fedGen))",
-         """        if (kind == 'S' || seq % 25L == 0L)
+         """        if (kind != 'H' || seq % 25L == 0L)
             HitelE2Trace.event("player.unit.admit",
                 "seq" to seq, "kind" to kind, "epoch" to e,
                 "pts24k" to sessionSamples, "audioBytes" to body.size,
@@ -214,7 +240,7 @@ def run(app, plugin, source, report):
         admit(AvUnit(sessionSamples, f, e, true, stats.turnGen, body, seq, kind, fedEnd, fedGen))"""),
         ("audio-track-write", "                    runCatching { track.write(u.audio, 0, u.audio.size) }",
          """                    val write = runCatching { track.write(u.audio, 0, u.audio.size) }
-                    if (u.kind == 'S' || (u.speech && nWritten % 25L == 0L) ||
+                    if (carriesAudio(u) || (u.speech && nWritten % 25L == 0L) ||
                         write.isFailure || write.getOrNull() != u.audio.size)
                         HitelE2Trace.event("audio.track.write",
                             "seq" to u.seq, "kind" to u.kind,
@@ -227,7 +253,7 @@ def run(app, plugin, source, report):
                         HitelE2Trace.failure("audio.track.write.exception", it, "seq" to u.seq)
                     }"""),
         ("present-surface", "        onFrame(u.frame)\n",
-         """        if (u.kind == 'S' || shown % 25L == 0L)
+         """        if (carriesAudio(u) || shown % 25L == 0L)
             HitelE2Trace.event("display.present",
                 "seq" to u.seq, "kind" to u.kind,
                 "newMouthFrame" to (u.kind == 'S'),
@@ -243,10 +269,11 @@ def run(app, plugin, source, report):
         }
 """)
     ])
-    main = app / "lib/main.dart"
-    count += patch(main, [
-        ("dart-clipboard-load", "      final detail = 'HITEL Essence 2 Android diagnostics\\n'\n",
-         """      final nativeFile = File('__DOLLAR__{dir.path}/hitel_e2_trace.log');
+    if not native_only:
+        main = app / "lib/main.dart"
+        count += patch(main, [
+            ("dart-clipboard-load", "      final detail = 'HITEL Essence 2 Android diagnostics\\n'\n",
+             """      final nativeFile = File('__DOLLAR__{dir.path}/hitel_e2_trace.log');
       final trace = await nativeFile.exists()
           ? await nativeFile.readAsString() : '(native trace unavailable)';
       final previousNativeFile = File('__DOLLAR__{dir.path}/hitel_e2_trace.previous.log');
@@ -260,11 +287,11 @@ def run(app, plugin, source, report):
           ? trace.substring(trace.length - 100000) : trace;
       final detail = 'HITEL Essence 2 Android diagnostics\\n'
 """.replace("__DOLLAR__", "$")),
-        ("dart-clipboard-append", "          '--- boot_status.txt ---\\n$safe';",
-         """          '--- boot_status.txt ---\\n$safe\\n'
+            ("dart-clipboard-append", "          '--- boot_status.txt ---\\n$safe';",
+             """          '--- boot_status.txt ---\\n$safe\\n'
           '--- hitel_e2_trace.log head / previous rotation ---\\n$traceHead\\n'
           '--- hitel_e2_trace.log recent ---\\n$traceTail';""")
-    ])
+        ])
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
         "patchedAnchors": count,
@@ -292,5 +319,6 @@ if __name__ == "__main__":
     parser.add_argument("--plugin", required=True, type=Path)
     parser.add_argument("--trace-source", required=True, type=Path)
     parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument("--native-only", action="store_true")
     args = parser.parse_args()
-    run(args.app, args.plugin, args.trace_source, args.report)
+    run(args.app, args.plugin, args.trace_source, args.report, args.native_only)

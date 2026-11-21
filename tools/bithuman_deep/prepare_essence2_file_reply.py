@@ -76,8 +76,10 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
 '''
 
 
-def prepare(app, plugin, sources, report, original_playback=False, official_streaming=False):
-    revision = 'R7' if official_streaming else 'R6' if original_playback else 'R5'
+def prepare(app, plugin, sources, report, original_playback=False, official_streaming=False,
+            detailed_trace=False):
+    revision = 'R7 Trace' if detailed_trace else 'R7' if official_streaming else 'R6' if original_playback else 'R5'
+    build_id = revision.replace(' ', '_').upper()
     folder = plugin / 'android/src/main/kotlin/ai/bithuman/flutter'
     for name in ('HitelFileAudioSource.kt', 'HitelDiagnostics.kt', 'DiagnosticFiles.kt',
                  'HitelLogResetReceiver.kt', 'HitelE2Trace.kt'):
@@ -192,6 +194,18 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
             <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
         </receiver>
     </application>''')
+    if detailed_trace:
+        resources = manifest.parent / 'res/xml'
+        resources.mkdir(parents=True, exist_ok=True)
+        (resources / 'hitel_diagnostics_paths.xml').write_text(
+            '<paths><cache-path name="diagnostics" path="hitel-diagnostics/"/></paths>\n', encoding='utf-8')
+        s = once(s, '    </application>', '''        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.hitel.diagnostics" android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/hitel_diagnostics_paths"/>
+        </provider>
+    </application>''')
     manifest.write_text(s, encoding='utf-8')
 
     ui = app / 'lib/main.dart'
@@ -202,7 +216,7 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
     b = re.search(r'\n  (?:Future<|void |Widget )', s[a + 1:])
     assert b
     b = a + 1 + b.start() + 1
-    s = s[:a] + DIAGNOSTICS.replace('PCM_FILE_R5', f'PCM_FILE_{revision}') + s[b:]
+    s = s[:a] + DIAGNOSTICS.replace('PCM_FILE_R5', f'PCM_FILE_{build_id}') + s[b:]
     old = """      floatingActionButton: Platform.isAndroid
           ? FloatingActionButton.small(
               tooltip: 'Essence 2 진단 로그 복사',
@@ -222,6 +236,25 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
           : null,
 """
     s = once(s, old, new)
+    if detailed_trace:
+        s = once(s, '              const SizedBox(width: 8),\n              FloatingActionButton.small',
+            """              const SizedBox(width: 8),
+              FloatingActionButton.small(heroTag: 'share-logs', tooltip: '상세 로그 공유',
+                  onPressed: _hitelShareDiagnostics, child: const Icon(Icons.share_rounded)),
+              const SizedBox(width: 8),
+              FloatingActionButton.small""")
+        s = once(s, '  Future<void> _hitelCopyDiagnostics() async {\n', '''  Future<void> _hitelShareDiagnostics() async {
+    try {
+      await _hitelAiTraceWrites;
+      await const MethodChannel('ai.hitel/diagnostics').invokeMethod<void>('share');
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('상세 로그 공유 실패: $error')));
+    }
+  }
+
+  Future<void> _hitelCopyDiagnostics() async {
+''')
     s = once(s, '    await session.start(enableMic: _useMic);', '    await session.start(enableMic: false);')
     s = s.replace("_status = 'Speaking…';", "_status = '음성 파일을 준비하고 있습니다…';")
     s = s.replace('ui.status=speakingProxy reason=botTranscript', 'ui.status=filePreparing reason=fileTranscript')
@@ -308,5 +341,6 @@ if __name__ == '__main__':
     modes = p.add_mutually_exclusive_group()
     modes.add_argument('--original-playback', action='store_true')
     modes.add_argument('--official-streaming', action='store_true')
+    p.add_argument('--detailed-trace', action='store_true')
     a = p.parse_args()
-    prepare(a.app, a.plugin, a.sources, a.report, a.original_playback, a.official_streaming)
+    prepare(a.app, a.plugin, a.sources, a.report, a.original_playback, a.official_streaming, a.detailed_trace)

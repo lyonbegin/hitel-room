@@ -25,6 +25,7 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
                 "start" -> {
                     val turn = Turn(checkNotNull(call.argument<Int>("turn")))
                     current = turn
+                    HitelE2Trace.event("file.channel.start", "turn" to turn.id)
                     result.success(null)
                     decoder.execute { decode(turn) }
                 }
@@ -38,6 +39,11 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
                             if (event != null) break
                         }
                         val answer = if (turn != null && live(turn)) event else null
+                        val pcm = answer?.get("pcm") as? ByteArray
+                        if (pcm != null || answer?.get("done") == true)
+                            HitelE2Trace.event("file.channel.next", "turn" to id,
+                                "chunk" to answer["chunk"], "pcmBytes" to pcm?.size,
+                                "done" to answer["done"], "queueDepth" to turn?.queue?.size)
                         main.post { if (!closed) result.success(answer ?: mapOf("cancelled" to true)) }
                     }
                 }
@@ -67,8 +73,12 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
             fun publish(pcm: ByteArray) {
                 // The channel consumer drains chunks as soon as possible. The queue
                 // bounds the decoder-to-Dart handoff independently of speaker playout.
-                if (pcm.isNotEmpty() && emit(turn, mapOf("pcm" to pcm))) {
+                val startedAt = System.nanoTime()
+                if (pcm.isNotEmpty() && emit(turn, mapOf("pcm" to pcm, "chunk" to (chunks + 1)))) {
                     digest.update(pcm); bytes24k += pcm.size
+                    HitelE2Trace.event("file.pcm.chunk", "turn" to turn.id, "chunk" to (chunks + 1),
+                        "pcmBytes" to pcm.size, "totalBytes" to bytes24k, "depth" to turn.queue.size,
+                        "publishUs" to (System.nanoTime() - startedAt) / 1000)
                     if (chunks++ == 0) HitelE2Trace.event("file.first_pcm", "turn" to turn.id,
                         "elapsedMs" to (System.nanoTime() - started) / 1000000,
                         "pcmBytes" to pcm.size)
@@ -88,7 +98,13 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
                     if (seq == 1) HitelE2Trace.event("file.first_segment", "turn" to turn.id,
                         "decodedMs" to sourcePositionMs, "totalMs" to totalMs,
                         "beforeFileEnd" to (sourcePositionMs < totalMs))
-                    publish(converter.process(pcm16))
+                    val at = System.nanoTime()
+                    val pcm24 = converter.process(pcm16)
+                    HitelE2Trace.event("file.resample", "turn" to turn.id, "segment" to seq,
+                        "pcm16Bytes" to pcm16.size, "pcm24Bytes" to pcm24.size,
+                        "sourceMs" to sourcePositionMs, "last" to last,
+                        "durationUs" to (System.nanoTime() - at) / 1000)
+                    publish(pcm24)
                 }
             })
             if (!live(turn)) return
