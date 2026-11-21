@@ -1,0 +1,30 @@
+name: IXIO Read Actual Function Trace Runtime Failure
+on:
+  push:
+    branches: [fix/ixio-ai-engine-toast-gate-20261121]
+    paths: [.github/workflows/ixio-flow-trace-failure-readout.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  read-failure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read real crash stacks and last traced boundaries
+        env: {GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}'}
+        run: |
+          gh run download 44921973335 --name IXIO_Original_Flow_Trace_DEX_And_UI_Evidence_20261122 --dir .flow-failure
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for p in Path('.flow-failure').rglob('*.txt'):
+              if 'logcat' not in p.name:continue
+              lines=p.read_text(errors='replace').splitlines()
+              failures=[s for s in lines if 'AndroidRuntime:' in s or 'VerifyError' in s or 'Verifier rejected' in s]
+              if not failures:continue
+              print('ACTUAL_FAILURE_FILE',p)
+              for s in list(dict.fromkeys(failures))[:170]:print('ACTUAL_FAILURE',s)
+              first=next((i for i,s in enumerate(lines) if 'FATAL EXCEPTION' in s),len(lines))
+              for s in [s for s in lines[max(0,first-150):first] if '[FLOW]' in s][-25:]:print('LAST_BOUNDARY_BEFORE_FATAL',s)
+          PY
+
