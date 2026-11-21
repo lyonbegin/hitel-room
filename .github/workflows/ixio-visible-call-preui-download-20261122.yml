@@ -23,10 +23,10 @@ jobs:
           gh run download 44934658619 --repo "$GH_REPO" \
             --name IXIO_Trace_PreUI_Signed_APKs --dir verified-preui
           cd verified-preui
-          test -s IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
+          test -s IXIO_HITEL_QA_VisibleCall_20261122.apk
           test -s IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
           sha256sum -c SHA256SUMS.txt
-          mv IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk IXIO_HITEL_QA_VisibleCall_PreUI_20261122.apk
+          mv IXIO_HITEL_QA_VisibleCall_20261122.apk IXIO_HITEL_QA_VisibleCall_PreUI_20261122.apk
           mv IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk IXIO_Recorder_Companion_VisibleCall_PreUI_20261122.apk
           sha256sum *.apk > SHA256SUMS-VisibleCall.txt
       - name: Verify original Android QA signatures
