@@ -119,6 +119,8 @@ def main() -> None:
     time.sleep(4)
     summary["main_foreground"]=save("main_foreground")
     # Cold emulator TELEPHONY fake call, no network connection is made.
+    precall=adb("logcat","-d","-v","threadtime","-t","30000",timeout=33)
+    (OUT/"logcat-before-call.txt").write_text(precall["output"],encoding="utf-8")
     adb("logcat","-c")
     incoming=adb("emu","gsm","call",NUMBER,timeout=17)
     summary["events"].append({"name":"gsm_call","result":incoming})
@@ -224,6 +226,45 @@ def main() -> None:
     print("IXIO_AFTER_SYSTEM_CALL_NOTIFICATION",
           repr(summary["after_notification_probe"].get("visible",[]))[:1200],
           flush=True)
+    # Invoke the ORIGINAL permission request button. A runtime grant alone
+    # does not necessarily update the original repository's StateFlow callback.
+    summary["required_permission_request_taps"]=0
+    current=summary["after_notification_probe"]
+    current_xml=OUT/"after_notification_probe.xml"
+    for attempt in range(4):
+        captions=" ".join(current.get("visible",[]))
+        if not ("필수 권한 설정" in captions and "익시오 전화 이용을 위해" in captions):
+            break
+        if not current_xml.exists():
+            break
+        nodes=[n.attrib for n in ET.parse(current_xml).getroot().iter("node")]
+        options=[n for n in nodes if n.get("text","").strip()=="설정"]
+        if len(options)!=1:
+            break
+        match=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",options[0].get("bounds",""))
+        if not match:
+            break
+        x1,y1,x2,y2=map(int,match.groups())
+        action=adb("shell","input","tap",str((x1+x2)//2),str((y1+y2)//2),timeout=12)
+        if action["returncode"]!=0:
+            break
+        summary["required_permission_request_taps"]+=1
+        print("IXIO_ORIGINAL_INCALL_REQUIRED_PERMISSION_REQUEST_TAPPED",attempt+1,flush=True)
+        time.sleep(3)
+        current=save(f"permission_request_{attempt}")
+        current_xml=OUT/f"permission_request_{attempt}.xml"
+        if current_xml.exists() and 'package="com.android.settings"' in current_xml.read_text(errors="replace"):
+            adb("shell","input","keyevent","4",timeout=12)
+            time.sleep(2)
+            current=save(f"permission_return_{attempt}")
+            current_xml=OUT/f"permission_return_{attempt}.xml"
+    summary["after_permission_probe"]=save("after_permission_probe")
+    summary["required_permission_error_after_request"]=(
+        "필수 권한 설정" in " ".join(summary["after_permission_probe"].get("visible",[])))
+    print("IXIO_ORIGINAL_REQUIRED_PERMISSION_REQUEST_RESULT",
+          summary["required_permission_request_taps"],
+          summary["required_permission_error_after_request"],
+          repr(summary["after_permission_probe"].get("visible",[]))[:1200],flush=True)
     summary["recorder_service_active_before_manual_toggle"]=bool(re.search(
         r"com\.lguplus\.callrecorder/[^\s}]*?(?:CallRecordingService|RecordService)",
         (OUT/"connected-services.txt").read_text(errors="replace")
@@ -234,7 +275,7 @@ def main() -> None:
     # screen). Original UI XML from run 43889791915 proves the icon bounds
     # [144,1691][218,1765]. Select by semantic content-desc on THIS run.
     summary["record_button_tapped"]=False
-    xml=OUT/("after_notification_probe.xml" if summary["call_notification_tapped"] else "connected.xml")
+    xml=OUT/"after_permission_probe.xml"
     if xml.exists() and not summary["recorder_service_active_before_manual_toggle"]:
         try:
             nodes=list(ET.parse(xml).getroot().iter("node"))
@@ -290,7 +331,7 @@ def main() -> None:
        any(t in " ".join(summary.get(stage,{}).get("visible",[])) for t in
            ("5550100","통화 중","수신 전화","Incoming call","Calling","Answer",
             "음소거","통화 녹음","스피커","녹음"))
-       for stage in ("ringing","connected","after_notification_probe"))
+       for stage in ("ringing","connected","after_notification_probe","after_permission_probe"))
     summary["simulated_call_requested"]= incoming["returncode"]==0
     summary["stt_verified"]=False
     (OUT/"result.json").write_text(json.dumps(summary,indent=2,ensure_ascii=False),encoding="utf-8")

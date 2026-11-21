@@ -30,28 +30,6 @@ def source() -> str:
     s = s.replace("ORIGINAL_ENSURE_PROVISIONED_SUCCESS", "ORIGINAL_PRELOGIN_DOWNLOAD_REQUEST_RETURNED_SUCCESS")
     s = s.replace("ORIGINAL_ENSURE_PROVISIONED_FAILED", "ORIGINAL_PRELOGIN_DOWNLOAD_REQUEST_FAILED")
     s = s.replace("ensureProvisioned-IoAF18A", "downloadMissingModels-IoAF18A")
-    # Hilt constructs more than one original use-case instance. The diagnostic
-    # entry must run once per process; original repository deduplication stays.
-    field = ".field private static final entered:Ljava/util/concurrent/atomic/AtomicBoolean;\n\n"
-    initializer = '''.method static constructor <clinit>()V
-    .registers 1
-    new-instance v0, Ljava/util/concurrent/atomic/AtomicBoolean;
-    invoke-direct {v0}, Ljava/util/concurrent/atomic/AtomicBoolean;-><init>()V
-    sput-object v0, __DESC__->entered:Ljava/util/concurrent/atomic/AtomicBoolean;
-    return-void
-.end method
-\n'''.replace("__DESC__", DESC)
-    s = s.replace(".field private final manager:", field + ".field private final manager:", 1)
-    start = re.search(r"(?ms)^\.method public static start\([^\n]*\n.*?^\.end method$", s)
-    if start is None:
-        raise RuntimeError("Diagnostic entry harness changed")
-    guarded = start.group().replace("    .registers 3\n", "    .registers 4\n"
-        f"    sget-object v0, {DESC}->entered:Ljava/util/concurrent/atomic/AtomicBoolean;\n"
-        "    const/4 v1, 0x0\n    const/4 v2, 0x1\n"
-        "    invoke-virtual {v0, v1, v2}, Ljava/util/concurrent/atomic/AtomicBoolean;->compareAndSet(ZZ)Z\n"
-        "    move-result v0\n    if-eqz v0, :done\n", 1)
-    guarded = guarded.replace("    return-void\n", "    :done\n    return-void\n", 1)
-    s = s[:start.start()] + initializer + guarded + s[start.end():]
     # Let the original NetworkMonitor receive Android's initial connectivity
     # callback. Onboarding is untouched; token state is never forced to empty.
     context = "    sget-object v0, Lkotlin/coroutines/EmptyCoroutineContext;->INSTANCE:Lkotlin/coroutines/EmptyCoroutineContext;\n"
@@ -89,7 +67,6 @@ def main() -> None:
         "test_constructor_sha256": hashlib.sha256(changed.encode()).hexdigest(),
         "original_token_validation_api_selection_availability_and_download_code_unchanged": True,
         "no_model_urls_or_contents_supplied": True,
-        "diagnostic_entry_once_per_process": True,
         "api_choice_must_be_verified_from_runtime_markers": True,
         "successful_return_does_not_prove_file_download_or_stt": True,
         "test_only": True,
