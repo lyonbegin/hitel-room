@@ -382,7 +382,7 @@ jobs:
         run: |
           set -euo pipefail
           APK=HITEL_Essence2_SDK_TIMELINE_20261122_ARM64.apk
-          TAG=hitel-essence2-sdk-timeline-20261122
+          TAG=hitel-essence2-sdk-timeline-r2-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Installation test APK requested for immediate physical-device diagnosis.

@@ -51,10 +51,11 @@ long long clock_ns(clockid_t id) {
 }
 
 bool sdk_message(std::string_view text) {
-    constexpr std::array<std::string_view, 13> prefixes{
-        "[le-pipe]", "[le-director-opencl]", "[le-place]", "[le-zc]", "[le-stepdown]",
+    constexpr std::string_view prefixes[]{
+        "[le-pipe]", "[le-pipe-rep]", "[le-director-opencl]", "[le-place]", "[le-zc]", "[le-stepdown]",
         "[le_a2x]", "[le-skip]", "[borrow-gpu]", "[le-paste-opencl]", "[le-a2x]",
-        "[le-otrace]", "[le-perf]", "[le_ort_profile]",
+        "[le-otrace]", "[le-perf]", "[le_ort_profile]", "[le-cl]", "[le-adpf]", "[le-output]",
+        "[le-driver]", "[le-open]", "[borrow-gpu-split]",
     };
     for (const auto prefix : prefixes) {
         if (text.substr(0, prefix.size()) == prefix) return true;
