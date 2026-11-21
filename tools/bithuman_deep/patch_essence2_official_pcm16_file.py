@@ -56,16 +56,30 @@ def patch(plugin: Path, sources: Path) -> None:
     target = folder / "BithumanPlugin.kt"
     s = target.read_text()
 
-    # The model still loads through the already-working original SDK/meter
-    # path; ONLY the file renderer is replaced. The old synchronization
-    # player is neither started nor fed in this test build.
+    # Keep the original model loader and vendor SDK; remove only the custom
+    # AvatarPlayer from this PCM test path. Dart remains a file->PCM source.
     pos = s.index("private fun loadEssence2(")
     begin = s.index("        val debuggable = ", pos)
     end = s.index("        if (hit != null) store?.let", begin)
     s = s[:begin] + (
         '        val e = OfficialEssence2FileEngine(avatar, java.io.File(context.cacheDir, "e2-official-file"))\n'
-        '        Log.i(TAG, "Essence2 official file path: PCM16 feed(byte[]) -> endOfAudio() -> pull() -> checkRender(); no AvatarPlayer")\n'
+        '        Log.i(TAG, "Essence2 live: each PCM16 chunk -> sdk.feed(byte[]); SDK pull() and AudioTrack concurrent; no JPEG or pre-render")\n'
     ) + s[end:]
+
+    s = replace_one(s,
+        '                val s = AvatarSession(code, avatar, entry, texture)\n',
+        '                val s = AvatarSession(code, avatar, entry, texture)\n'
+        '                if (avatar is OfficialEssence2FileEngine) {\n'
+        '                    avatar.attachRenderer { bitmap ->\n'
+        '                        // Every SDK pull() result is posted IMMEDIATELY.\n'
+        '                        // No buffering, pre-render, JPEG or playout clock.\n'
+        '                        main.post {\n'
+        '                            try { if (!s.stopped.get()) s.draw(bitmap) }\n'
+        '                            finally { bitmap.recycle() }\n'
+        '                        }\n'
+        '                    }\n'
+        '                }\n',
+        "attach realtime video output on the existing Flutter texture")
 
     s = replace_one(s,
         '                val p = newPlayer(s)\n                s.player = p\n',
@@ -91,16 +105,8 @@ def patch(plugin: Path, sources: Path) -> None:
                 s?.player?.endOfReply(); result.success(null)'''
     new_end = '''                val direct = s?.avatar as? OfficialEssence2FileEngine
                 if (direct != null) {
-                    direct.endOfPcm { bitmap ->
-                        // A Flutter SurfaceProducer is drawn on the platform thread.
-                        // No custom frame admission, speech re-timing, or skip-ahead.
-                        val latch = java.util.concurrent.CountDownLatch(1)
-                        main.post {
-                            try { if (s != null && !s.stopped.get()) s.draw(bitmap) }
-                            finally { latch.countDown() }
-                        }
-                        latch.await()
-                    }
+                    // End of INPUT only. PCM and video have already been running.
+                    direct.endOfPcm()
                 } else {
                     if (s != null) speak(s, s.upsampler.flush())
                     s?.player?.endOfReply()
@@ -115,10 +121,11 @@ def patch(plugin: Path, sources: Path) -> None:
     # Keep the code of the pristine plugin as evidence, but disable its
     # custom synchronization path completely for the official file mode.
     assert "OfficialEssence2FileEngine(avatar" in s
-    assert "direct.endOfPcm" in s
+    assert "direct.endOfPcm()" in s
+    assert "avatar.attachRenderer" in s
     assert "s.avatar.appendPcm16(raw)" in s
     target.write_text(s)
-    print("PASS_OFFICIAL_ESSENCE2_PCM16_NO_CUSTOM_SYNC")
+    print("PASS_ESSENCE2_LIVE_PCM16_FEED_PULL_NO_JPEG_NO_PRERENDER")
 
 
 if __name__ == "__main__":
