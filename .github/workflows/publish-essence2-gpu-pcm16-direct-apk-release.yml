@@ -1,0 +1,74 @@
+name: Publish HITEL Essence2 GPU restored PCM16 AudioTrack APK direct
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-gpu-hardwarebuffer-20261121
+    paths:
+      - .github/workflows/publish-essence2-gpu-pcm16-direct-apk-release.yml
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: hitel-e2-gpu-pcm16-direct-apk
+  cancel-in-progress: false
+jobs:
+  publish-gpu-verified-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: hitel-essence2-gpu-pcm16-20261121
+      APK: HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact Android15 emulator-tested GPU-restored build
+        uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_GPU_HardwareBuffer_PCM16_APK
+          run-id: 44906396686
+          github-token: ${{ github.token }}
+      - name: Verify APK, ARM64 ABI and bundled PCM source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$APK"
+          test "$(stat -c '%s' "$APK")" -gt 200000000
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          unzip -Z1 "$APK" | grep -Fx 'assets/flutter_assets/assets/hitel_file_reply.m4a'
+          sha256sum "$APK" | tee "${APK}.sha256"
+          echo PASS_GPU_RESTORED_TESTED_APK_BINARY_MATCHES_UPLOADED_ARTIFACT
+      - name: Publish binary APK directly without ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
+          else
+            gh release create "$TAG" "$APK" "${APK}.sha256" \
+              --target "$GITHUB_SHA" \
+              --title 'HITEL Essence2 GPU HardwareBuffer PCM16 audio fix (Android ARM64)' \
+              --notes 'Contains the original Essence2 Android native SDK. Restores hardware-buffer zero-copy output on GPU-capable Android devices and records gpu.route and video.pull in diagnostic logs. Starts AudioTrack after writing first PCM. CI Android15 ARM64-translated emulator run 44906396686 passed native PCM and video/audio checks, but GPU hardware buffers are unsupported in that emulator and use CPU fallback; verify gpu.route on real hardware. Debug/test build with Sofia model and bundled audio fixture.' \
+              --prerelease \
+              --latest=false
+          fi
+      - name: Verify direct GitHub release asset and file size
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json url,assets > release-verified.json
+          python3 - <<'PY'
+          import json, os
+          result=json.load(open("release-verified.json"))
+          apk=os.environ["APK"]
+          matches=[v for v in result["assets"] if v["name"]==apk]
+          assert len(matches)==1, matches
+          f=matches[0]
+          assert f["size"]==os.path.getsize(apk),(f["size"],os.path.getsize(apk))
+          assert f["url"].startswith("https://github.com/") and "/releases/download/" in f["url"],f["url"]
+          print("PASS_DIRECT_GPU_PCM16_APK_GITHUB_RELEASE_VERIFIED")
+          print("DIRECT_GPU_APK_URL="+f["url"])
+          print("FILE_SIZE_BYTES="+str(f["size"]))
+          PY
