@@ -5,35 +5,23 @@ import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioTimestamp
 import android.media.AudioTrack
+import android.os.Build
 import android.os.Trace
 import android.util.Log
-import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Minimal, truly LIVE official Essence2 PCM16 path.
- *
- * Dart's local file decoder yields 16 kHz mono PCM16 LE chunks. Each received
- * chunk is queued at once to the original Essence2Avatar.feed(ByteArray) AND
- * to a separate streaming AudioTrack writer. The SDK pull thread starts with
- * the FIRST chunk and paints EACH frame as it appears. endOfAudio() is called
- * only on the actual end marker and NEVER gates audio or video playback.
- *
- * NO entire-file PCM staging, NO JPEG encoding, NO disk frame cache,
- * NO pre-render-then-play, NO custom frame alignment, clock/sync correction,
- * skip-ahead or stale-frame dropping.
- *
- * Like the bitHuman Android example, the video worker polls pull(ByteBuffer)
- * until a frame is available, but the source, audio output and screen do not
- * wait for the whole audio file or for all video frames.
- */
+/** PCM feeds the SDK and AudioTrack independently. The hardware clock controls the view. */
 internal class OfficialEssence2FileEngine(
     private val sdk: Essence2Avatar,
-    @Suppress("UNUSED_PARAMETER") unusedCacheDir: File,
+    val voiceSync: Boolean,
+    private val skipAhead: Boolean,
 ) : AvatarEngine {
     override val name = "essence2-official-pcm16-live"
     override val width: Int get() = sdk.width
@@ -67,6 +55,14 @@ internal class OfficialEssence2FileEngine(
         Thread(work, "e2-live-sound").apply { isDaemon = true }
     }
 
+    private val clockWorker = Executors.newSingleThreadScheduledExecutor { work ->
+        Thread(work, "e2-audio-clock").apply { isDaemon = true }
+    }
+    private val trackLock = Any()
+    private val sdkClockLock = Any()
+    @Volatile private var audioPosition: VoiceAudioPosition? = null
+    private val presenter = if (voiceSync) HitelVoiceSync({ currentTurn }, { audioPosition }) else null
+
     private val counter = AtomicInteger()
     @Volatile private var currentTurn = 0
     @Volatile private var sdkStartedTurn = 0
@@ -76,7 +72,6 @@ internal class OfficialEssence2FileEngine(
     @Volatile private var closed = false
     @Volatile private var renderer: ((Bitmap, HwFrame?) -> Unit)? = null
     @Volatile private var outputTrack: AudioTrack? = null
-    @Volatile private var audioTurn = 0
     private var receiving = false
     private var sdkEverFed = false
 
@@ -93,6 +88,10 @@ internal class OfficialEssence2FileEngine(
     /** GPU callback owns HwFrame; CPU fallback callback recycles Bitmap. */
     fun attachRenderer(callback: (Bitmap, HwFrame?) -> Unit) {
         renderer = callback
+    }
+
+    fun attachSyncRenderer(draw: (Bitmap) -> Boolean) {
+        checkNotNull(presenter).attach(draw)
     }
 
     /** No wait. Never gather the full PCM or defer the first SDK feed. */
@@ -113,6 +112,7 @@ internal class OfficialEssence2FileEngine(
             turn = currentTurn
             acceptedSamples += bytes.size / 2
         }
+        if (first) presenter?.begin(turn)
         // Two independent consumers. The incoming ByteArray is not retained by Dart.
         val copy = bytes.copyOf()
         feedQueue.offer(Packet.Chunk(turn, copy))
@@ -146,22 +146,19 @@ internal class OfficialEssence2FileEngine(
         }
         feedQueue.clear()
         soundQueue.clear()
-        val track = outputTrack
-        if (track != null) runCatching { track.pause(); track.flush() }
+        presenter?.begin(currentTurn)
+        synchronized(trackLock) {
+            outputTrack?.let { track -> runCatching { track.pause(); track.flush() } }
+            audioPosition = null
+        }
         HitelE2Trace.event("stream.cancel", "turn" to currentTurn)
         Log.i(TAG, "LIVE_CANCEL turn=$currentTurn")
     }
 
     private fun live(turn: Int) = !closed && turn == currentTurn
 
-    private inline fun <T> traceSdk(section: String, call: () -> T): T {
-        Trace.beginSection(section)
-        return try {
-            call()
-        } finally {
-            Trace.endSection()
-        }
-    }
+    private inline fun <T> traceSdk(section: String, call: () -> T): T =
+        HitelE2Trace.section(section, call)
 
     private fun runFeed() {
         var loadedTurn = 0
@@ -172,17 +169,22 @@ internal class OfficialEssence2FileEngine(
                     is Packet.Chunk -> {
                         if (!live(packet.turn)) continue
                         if (loadedTurn != packet.turn) {
+                            synchronized(sdkClockLock) { sdkStartedTurn = 0 }
                             if (sdkEverFed) sdk.resetAudio(startFrame = 0)
                             sdkEverFed = true
                             loadedTurn = packet.turn
                             sdkEndedTurn = 0
-                            sdkStartedTurn = packet.turn
                         }
                         if (!live(packet.turn)) continue
                         val feedStart = System.nanoTime()
                         HitelE2Trace.event("sdk.feed.begin", "turn" to packet.turn,
                             "bytes" to packet.bytes.size, "queuedChunks" to feedQueue.size)
                         traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) }
+                        if (sdkStartedTurn != packet.turn) {
+                            synchronized(sdkClockLock) {
+                                if (live(packet.turn)) sdkStartedTurn = packet.turn
+                            }
+                        }
                         val feedMs = (System.nanoTime() - feedStart) / 1_000_000
                         Log.i(TAG, "LIVE_FEED turn=${packet.turn} pcm16Bytes=${packet.bytes.size} feedMs=$feedMs")
                         HitelE2Trace.event("sdk.feed", "turn" to packet.turn,
@@ -216,8 +218,6 @@ internal class OfficialEssence2FileEngine(
             var lastFrameAt = System.nanoTime()
             var renderCheckedTurn = 0
             var waitReportedAt = System.nanoTime()
-            var lastClockNs = 0L
-            var lastClockSamples = -1L
             var lastSdkIndex = -1L
             while (!closed) {
                 val turn = currentTurn
@@ -229,29 +229,11 @@ internal class OfficialEssence2FileEngine(
                     observedTurn = turn
                     shownInTurn = 0L
                     lastFrameAt = System.nanoTime()
-                    lastClockNs = 0L
-                    lastClockSamples = -1L
                     lastSdkIndex = -1L
                 }
-                // Forward the actual 16 kHz speaker playback position to the original
-                // SDK, as its original PlayoutClock does. The engine may then skip
-                // frames that are already behind audible speech on slower hardware.
-                val playing = outputTrack
-                if (audioTurn == turn && playing?.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                    val clockNs = System.nanoTime()
-                    if (clockNs - lastClockNs >= 80_000_000L) {
-                        lastClockNs = clockNs
-                        val samples = playing.playbackHeadPosition.toLong().coerceAtMost(acceptedSamples)
-                        try {
-                            traceSdk("HITEL.e2.setPlayoutPosition") { sdk.setPlayoutPosition(samples) }
-                            if (lastClockSamples < 0 || samples / RATE != lastClockSamples / RATE)
-                                HitelE2Trace.event("sdk.playout.clock", "turn" to turn,
-                                    "playedSamples" to samples, "acceptedSamples" to acceptedSamples)
-                            lastClockSamples = samples
-                        } catch (failure: Throwable) {
-                            HitelE2Trace.failure("sdk.playout.failure", failure, "turn" to turn)
-                        }
-                    }
+                if (presenter?.full == true) {
+                    Thread.sleep(2)
+                    continue
                 }
                 // Restore original SDK GPU frame ownership; do not read back pixels.
                 if (!hardwareFrames) frame!!.clear()
@@ -269,6 +251,8 @@ internal class OfficialEssence2FileEngine(
                 if (ready) {
                     if (!live(turn)) { hw?.close(); continue }
                     lastSdkIndex = sdk.lastFrameIndex
+                    val ordinal = if (lastSdkIndex >= 0) lastSdkIndex else shownInTurn
+                    val pts = ordinal * (RATE / fps)
                     if (hardwareFrames) {
                         val owned = checkNotNull(hw)
                         val wrapped = Bitmap.wrapHardwareBuffer(owned.buffer, srgb)
@@ -276,17 +260,21 @@ internal class OfficialEssence2FileEngine(
                             owned.close()
                             error("SDK hardware frame cannot be wrapped: GPU output failed")
                         }
-                        val delivered = HwFrame(wrapped, sdk.lastFrameIndex * (RATE / fps), -1, owned)
-                        val callback = renderer
-                        if (callback == null) delivered.release()
-                        else try { callback(wrapped, delivered) }
-                             catch (failure: Throwable) { delivered.release(); throw failure }
+                        val delivered = HwFrame(wrapped, pts, -1, owned)
+                        if (presenter != null) presenter.offer(turn, ordinal, pts, wrapped, delivered)
+                        else {
+                            val callback = renderer
+                            if (callback == null) delivered.release()
+                            else try { callback(wrapped, delivered) }
+                            catch (failure: Throwable) { delivered.release(); throw failure }
+                        }
                     } else {
                         frame!!.rewind()
                         val pixels = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                         try {
                             pixels.copyPixelsFromBuffer(frame)
-                            renderer?.invoke(pixels, null) ?: pixels.recycle()
+                            if (presenter != null) presenter.offer(turn, ordinal, pts, pixels, null)
+                            else renderer?.invoke(pixels, null) ?: pixels.recycle()
                         } catch (failure: Throwable) {
                             pixels.recycle()
                             throw failure
@@ -304,7 +292,7 @@ internal class OfficialEssence2FileEngine(
                         "pullMs" to pullMillis, "pullThreadCpuMs" to pullThreadCpuMs,
                         "pullUs" to pullUs, "pullThreadCpuUs" to pullThreadCpuUs,
                         "frameGapMs" to frameGapMs,
-                        "playedSamples" to lastClockSamples)
+                        "playedSamples" to audioPosition?.takeIf { it.turn == turn }?.samples)
                 } else {
                     val waitingAt = System.nanoTime()
                     if (waitingAt - waitReportedAt >= 1_000_000_000L) {
@@ -362,16 +350,75 @@ internal class OfficialEssence2FileEngine(
             .setBufferSizeInBytes(maxOf(minimum, 12_800))
             .build()
         check(track.state == AudioTrack.STATE_INITIALIZED) { "Streaming AudioTrack initialization failed" }
+        if (Build.VERSION.SDK_INT >= 31) {
+            track.setStartThresholdInFrames(minOf(track.bufferSizeInFrames, RATE / 10))
+        }
         HitelE2Trace.event("audio.track.created", "rate" to RATE,
             "minimumBufferBytes" to minimum, "bufferFrames" to track.bufferSizeInFrames,
             "sessionId" to track.audioSessionId, "state" to track.state)
         return track
     }
 
+    private fun monitorAudio(track: AudioTrack, turn: Int): ScheduledFuture<*> {
+        val timestamp = AudioTimestamp()
+        var readAt = 0L
+        var timestampValid = false
+        var lastSamples = 0L
+        var lastLogged = -1L
+        return clockWorker.scheduleWithFixedDelay({
+            try {
+                val position = synchronized(trackLock) {
+                    if (outputTrack !== track || !live(turn) || track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                        return@scheduleWithFixedDelay
+                    }
+                    val now = System.nanoTime()
+                    val head = Integer.toUnsignedLong(track.playbackHeadPosition).coerceAtMost(acceptedSamples)
+                    if (now - readAt >= 250_000_000 || !timestampValid) {
+                        readAt = now
+                        timestampValid = track.getTimestamp(timestamp)
+                    }
+                    val audible = if (timestampValid) {
+                        val elapsed = (now - timestamp.nanoTime).coerceAtLeast(0)
+                        Integer.toUnsignedLong(timestamp.framePosition.toInt()) + elapsed * RATE / 1_000_000_000L
+                    } else head
+                    lastSamples = audible.coerceIn(lastSamples.coerceAtMost(head), head)
+                    VoiceAudioPosition(turn, lastSamples, head, timestampValid, playing = true)
+                        .also { audioPosition = it }
+                }
+                presenter?.audioAdvanced()
+                if (skipAhead) synchronized(sdkClockLock) {
+                    if (sdkStartedTurn == turn && live(turn)) {
+                        val samples = if (voiceSync) position.samples else position.headSamples
+                        traceSdk("HITEL.e2.setPlayoutPosition") { sdk.setPlayoutPosition(samples) }
+                        if (samples / RATE != lastLogged) {
+                            lastLogged = samples / RATE
+                            HitelE2Trace.event("sdk.playout.clock", "turn" to turn,
+                                "playedSamples" to samples, "headSamples" to position.headSamples)
+                        }
+                    }
+                }
+            } catch (failure: Exception) {
+                HitelE2Trace.failure("sdk.playout.failure", failure, "turn" to turn)
+            }
+        }, 0, 20, TimeUnit.MILLISECONDS)
+    }
+
+    private fun releaseTrack(track: AudioTrack?) {
+        if (track == null) return
+        synchronized(trackLock) {
+            if (outputTrack === track) outputTrack = null
+            runCatching { track.stop() }
+            track.release()
+        }
+    }
+
     private fun runSound() {
         var track: AudioTrack? = null
         var playingTurn = 0
         var writtenSamples = 0L
+        var monitor: ScheduledFuture<*>? = null
+        val pcmHash = MessageDigest.getInstance("SHA-256")
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
         try {
             while (!closed) {
                 when (val packet = soundQueue.take()) {
@@ -379,13 +426,25 @@ internal class OfficialEssence2FileEngine(
                         if (!live(packet.turn)) continue
                         var firstAudio = false
                         if (playingTurn != packet.turn) {
-                            track?.let { runCatching { it.stop() }; it.release() }
+                            monitor?.cancel(false)
+                            monitor = null
+                            releaseTrack(track)
                             track = makeTrack()
-                            outputTrack = track
-                            audioTurn = packet.turn
+                            synchronized(trackLock) { outputTrack = track }
                             playingTurn = packet.turn
                             writtenSamples = 0L
+                            pcmHash.reset()
                             firstAudio = true
+                            if (presenter != null) {
+                                val started = System.nanoTime()
+                                while (live(packet.turn) && presenter.readyCount < 3 &&
+                                    System.nanoTime() - started < 120_000_000L) {
+                                    Thread.sleep(4)
+                                }
+                                HitelE2Trace.event("sync.preroll", "turn" to packet.turn,
+                                    "ready" to presenter.readyCount,
+                                    "waitMs" to (System.nanoTime() - started) / 1_000_000)
+                            }
                         }
                         val writeStarted = System.nanoTime()
                         HitelE2Trace.event("audio.write.begin", "turn" to packet.turn,
@@ -400,24 +459,23 @@ internal class OfficialEssence2FileEngine(
                                 if (firstAudio) AudioTrack.WRITE_NON_BLOCKING
                                 else AudioTrack.WRITE_BLOCKING
                             )
-                            if (written == 0 && firstAudio) {
-                                track.play()
-                                firstAudio = false
-                                Log.i(TAG, "LIVE_AUDIO_START turn=${packet.turn} firstWriteBytes=0")
-                                HitelE2Trace.event("audio.start", "turn" to packet.turn,
-                                    "route" to "AudioTrack.STREAM", "rate" to RATE, "prefilled" to false)
-                                continue
-                            }
-                            check(written > 0) { "AudioTrack.write=$written turn=${packet.turn}" }
+                            if (!live(packet.turn)) break
+                            check(written >= 0) { "AudioTrack.write=$written turn=${packet.turn}" }
+                            pcmHash.update(packet.bytes, offset, written)
                             offset += written
                             writtenSamples += written / 2
                             if (firstAudio) {
-                                track.play()
+                                synchronized(trackLock) {
+                                    if (live(packet.turn)) track.play()
+                                }
                                 firstAudio = false
-                                Log.i(TAG, "LIVE_AUDIO_START turn=${packet.turn} firstWriteBytes=$written")
+                                if (!live(packet.turn)) break
+                                monitor = monitorAudio(track, packet.turn)
                                 HitelE2Trace.event("audio.start", "turn" to packet.turn,
                                     "route" to "AudioTrack.STREAM", "rate" to RATE,
-                                    "firstWriteBytes" to written, "prefilled" to true)
+                                    "firstWriteBytes" to written, "prefilled" to (written > 0))
+                            } else if (written == 0) {
+                                Thread.sleep(2)
                             }
                         }
                         HitelE2Trace.event("audio.write.done", "turn" to packet.turn,
@@ -428,17 +486,27 @@ internal class OfficialEssence2FileEngine(
                     }
                     is Packet.End -> {
                         if (packet.turn != playingTurn || !live(packet.turn)) continue
-                        // Only finish/release the *audio* worker after hardware consumes
-                        // its tail. No delay is imposed on first audio or first video.
-                        HitelE2Trace.event("audio.drain.begin", "turn" to packet.turn,
-                            "writtenSamples" to writtenSamples, "playedSamples" to track?.playbackHeadPosition)
-                        val endMs = System.currentTimeMillis() +
-                            writtenSamples * 1000L / RATE + 5_000L
-                        while (live(packet.turn) && System.currentTimeMillis() < endMs) {
-                            if ((track?.playbackHeadPosition?.toLong() ?: 0L) >= writtenSamples) break
-                            Thread.sleep(20)
+                        val activeTrack = checkNotNull(track)
+                        if (Build.VERSION.SDK_INT >= 31 && writtenSamples in 1L until RATE / 10L) {
+                            activeTrack.setStartThresholdInFrames(writtenSamples.toInt())
                         }
-                        val finalHead = track?.playbackHeadPosition?.toLong() ?: 0L
+                        val underrunsBeforeTail = activeTrack.underrunCount
+                        HitelE2Trace.event("audio.drain.begin", "turn" to packet.turn,
+                            "writtenSamples" to writtenSamples, "playedSamples" to activeTrack.playbackHeadPosition)
+                        val deadline = System.nanoTime() + writtenSamples * 1_000_000_000L / RATE + 5_000_000_000L
+                        var headDoneAt = 0L
+                        while (live(packet.turn) && System.nanoTime() < deadline) {
+                            if (Integer.toUnsignedLong(activeTrack.playbackHeadPosition) >= writtenSamples) {
+                                val now = System.nanoTime()
+                                if (headDoneAt == 0L) headDoneAt = now
+                                val audible = audioPosition?.takeIf { it.turn == packet.turn && it.timestamp }
+                                if ((audible != null && audible.samples >= writtenSamples) ||
+                                    now - headDoneAt >= 250_000_000L) break
+                            }
+                            Thread.sleep(10)
+                        }
+                        if (!live(packet.turn)) continue
+                        val finalHead = Integer.toUnsignedLong(activeTrack.playbackHeadPosition).coerceAtMost(writtenSamples)
                         if (finalHead < writtenSamples) {
                             Log.e(TAG, "LIVE_AUDIO_INCOMPLETE turn=${packet.turn} headSamples=$finalHead writtenSamples=$writtenSamples")
                             HitelE2Trace.event("audio.incomplete", "turn" to packet.turn,
@@ -448,12 +516,18 @@ internal class OfficialEssence2FileEngine(
                             Log.i(TAG, "LIVE_AUDIO_DONE turn=${packet.turn} samples=$writtenSamples headSamples=$finalHead")
                         HitelE2Trace.event("audio.finish", "turn" to packet.turn,
                             "playedSamples" to finalHead, "writtenSamples" to writtenSamples,
+                            "pcm16Sha256" to pcmHash.digest().joinToString("") { "%02x".format(it.toInt() and 255) },
                             "complete" to (finalHead >= writtenSamples),
-                            "underruns" to track?.underrunCount)
-                        track?.let { runCatching { it.stop() }; it.release() }
+                            "underruns" to underrunsBeforeTail, "underrunsIncludingTail" to activeTrack.underrunCount)
+                        monitor?.cancel(false)
+                        monitor = null
+                        releaseTrack(track)
                         track = null
-                        outputTrack = null
-                        audioTurn = 0
+                        if (live(packet.turn)) {
+                            audioPosition = VoiceAudioPosition(packet.turn, finalHead, finalHead,
+                                timestamp = false, playing = false)
+                            presenter?.audioAdvanced()
+                        }
                         playingTurn = 0
                     }
                     Packet.Shutdown -> return
@@ -466,9 +540,8 @@ internal class OfficialEssence2FileEngine(
             HitelE2Trace.failure("audio.failure", failure, "turn" to playingTurn,
                 "writtenSamples" to writtenSamples, "playedSamples" to track?.playbackHeadPosition)
         } finally {
-            outputTrack = null
-            audioTurn = 0
-            track?.let { runCatching { it.stop() }; it.release() }
+            monitor?.cancel(false)
+            releaseTrack(track)
         }
     }
 
@@ -494,10 +567,13 @@ internal class OfficialEssence2FileEngine(
         feedWorker.shutdownNow()
         pullWorker.shutdownNow()
         soundWorker.shutdownNow()
+        clockWorker.shutdownNow()
         val feedStopped = await(feedWorker)
         val pullStopped = await(pullWorker)
         val soundStopped = await(soundWorker)
-        if (feedStopped && pullStopped && soundStopped) sdk.close()
+        val clockStopped = await(clockWorker)
+        presenter?.close()
+        if (feedStopped && pullStopped && soundStopped && clockStopped) sdk.close()
         else Log.e(TAG, "SDK left open: streaming worker is still within native SDK call")
     }
 
