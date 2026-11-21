@@ -201,6 +201,30 @@ jobs:
             <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
 
+      - name: Use the Maven Central mirror for Kotlin dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          init_dir="${GRADLE_USER_HOME:-$HOME/.gradle}/init.d"
+          mkdir -p "$init_dir"
+          cat > "$init_dir/hitel-kotlin-mirror.gradle" <<'GRADLE'
+          def kotlinMirror = { repositories ->
+              repositories.maven {
+                  name = 'HitelKotlinCentralMirror'
+                  url = 'https://maven-central.storage-download.googleapis.com/maven2'
+                  content { includeGroupAndSubgroups('org.jetbrains.kotlin') }
+              }
+          }
+          gradle.beforeSettings { settings ->
+              kotlinMirror(settings.pluginManagement.repositories)
+              settings.pluginManagement.repositories.gradlePluginPortal()
+              kotlinMirror(settings.dependencyResolutionManagement.repositories)
+          }
+          gradle.beforeProject { project ->
+              kotlinMirror(project.buildscript.repositories)
+          }
+          GRADLE
+
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
         working-directory: original-upstream/app/avatar_chat
