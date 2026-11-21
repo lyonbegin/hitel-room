@@ -1,12 +1,13 @@
-name: HITEL text-triggered M4A PCM stream R7 Trace Android installation build
+name: HITEL official Essence2 PCM16 ByteArray file render (no custom sync)
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/hitel-essence2-r7-phone-trace-20261121
+      - feature/hitel-essence2-official-pcm16-direct-20261121
     paths:
       - .github/workflows/essence2-file-reply-r4.yml
       - tools/bithuman_deep/prepare_essence2_file_reply.py
+      - tools/bithuman_deep/patch_essence2_official_pcm16_file.py
       - tools/bithuman_deep/verify_essence2_file_stream_playout.py
       - tools/bithuman_deep/essence2_file_audio/**
 permissions:
@@ -109,13 +110,14 @@ jobs:
           cmp "$ARCHIVE/lib/bithuman_realtime.dart" "$PLUGIN/lib/bithuman_realtime.dart"
           if grep -Fq 'skipAhead: true' "$APP/lib/main.dart"; then exit 25; fi
           echo PASS_PRISTINE_BIT_HUMAN_PCM_API_ENGINE_AUDIO_TRACK_AND_RENDERER
-          mv "$PLUGIN/$NATIVE/HitelE2Trace.kt" "$GITHUB_WORKSPACE/current-trace-writer.kt"
-          python3 tools/bithuman_deep/prepare_essence2_function_trace.py \
-            --app "$APP" --plugin "$PLUGIN" --native-only \
-            --trace-source "$GITHUB_WORKSPACE/current-trace-writer.kt" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/function-trace.json"
-          python3 tools/bithuman_deep/prepare_essence2_monitor_trace.py \
-            --plugin "$PLUGIN" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/monitor-trace.json"
+          python3 tools/bithuman_deep/patch_essence2_official_pcm16_file.py \
+            --plugin "$PLUGIN" \
+            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_file_audio"
+          grep -Fq 's.avatar.appendPcm16(raw)' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
+          grep -Fq 'sdk.feed(pcm)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.endOfAudio()' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.pull(frame)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          echo PASS_DIRECT_OFFICIAL_FEED_END_PULL_NO_AVATAR_PLAYER
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y ffmpeg
@@ -275,7 +277,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Text_File_Stream_R7_Trace_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -285,7 +287,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Text_File_Stream_R7_Trace_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -293,7 +295,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Text_File_Stream_R7_Trace_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -310,7 +312,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_Text_File_Stream_R7_Trace_20261121_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -321,8 +323,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_R7_Trace_APK
-          path: HITEL_Essence2_Text_File_Stream_R7_Trace_20261121_ARM64.apk
+          name: HITEL_Essence2_Official_PCM16_APK
+          path: HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk
           if-no-files-found: warn
           retention-days: 14
 
@@ -331,7 +333,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: essence2-file-reply-r7-test-evidence
+          name: essence2-official-pcm16-test-evidence
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/apk-sha256.txt
