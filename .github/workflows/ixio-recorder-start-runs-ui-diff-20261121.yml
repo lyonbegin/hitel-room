@@ -18,7 +18,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          for id in 44845033080 44847518588; do
+          for id in 44845033080 44847518588 44848667984; do
             mkdir -p ".evidence/$id"
             gh run download "$id" --repo "$GH_REPO" \
               --name IXIO_Original_Model_Download_Direct_Entry_Evidence_20261121 \
@@ -33,7 +33,7 @@ jobs:
           ignore_sensitive=re.compile(r"(?i)(?:bearer|token\s*[:=]|cookie|authorization|ctn|device_id|user.?id|phone|email|password|imei|imsi|secret)")
           def sanitized(s):
               return re.sub(r"\d{5,}","[NUMBER]",str(s))[:185]
-          for run in [44845033080,44847518588]:
+          for run in [44845033080,44847518588,44848667984]:
               base=Path(f'.evidence/{run}')
               gsm=base/'ixio-hitel-android-results/gsm-call-smoke'
               main=base/'ixio-pages-qa-emulator-evidence'
@@ -46,13 +46,14 @@ jobs:
                 'record_button_tapped','call_notification_expanded',
                 'call_notification_tapped','call_notification_in_system_dump',
                 'call_notification_telecom_active','call_notification_tap_method',
+                'original_recent_tab_before_call_tapped','original_recent_tab_before_call_visible',
                 'required_permission_request_taps',
                 'required_permission_error_after_request')},ensure_ascii=False))
               print('MAIN_STATUS',json.dumps({k:b.get(k) for k in (
                 'home_screen_seen','recorder_process_alive',
                 'emulator_launcher_anr_count','model_download_worker_started_count',
                 'fatal_lines','stop_reason')},ensure_ascii=False))
-              for stage in ['before','main_foreground','ringing','connected',
+              for stage in ['before','main_foreground','original_recent_tab_before_call','ringing','connected',
                 'call_notification_shade','after_notification_probe',
                 'after_permission_probe','record_toggle','after']:
                   d=a.get(stage,{})
@@ -76,6 +77,17 @@ jobs:
                     'FATAL EXCEPTION','java.lang.SecurityException',
                     'IXIO_REQUIRED_PERMISSION_RESULT']
               print('CALL_LOG_KEYWORD_COUNTS',json.dumps({k:log.count(k) for k in keys}))
+              focus_keys=['isRequirePermissionGranted','PermissionUtil','CheckPermission',
+                 'RequirePermission','permission','Permission','InCallActivity','CallActivity',
+                 'InCallService','onRequestPermissionsResult','APP_OPS','AppOps','RecordFail',
+                 'IXIO_REQUIRED_PERMISSION_RESULT']
+              filtered=[]
+              for ln in log.splitlines():
+                  if not any(k in ln for k in focus_keys):continue
+                  if ignore_sensitive.search(ln) or 'http' in ln.lower():continue
+                  if ' at ' in ln:continue
+                  filtered.append(sanitized(ln))
+              print('FOCUSED_PERMISSION_OR_INCALL_LOGS',json.dumps(filtered[-105:],ensure_ascii=False))
               for t in ['IXIO_REQUIRED_PERMISSION_RESULT', 'IXIO_REQUIRED_PERMISSION_ITEM: ',
                         'IXIO_RECORD_START_TRACE: ','[AidlRecordingStrategy]']:
                   sample=[sanitized(l.split(t,1)[1]) for l in log.splitlines() if t in l]
