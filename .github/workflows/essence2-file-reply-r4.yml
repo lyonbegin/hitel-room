@@ -8,6 +8,7 @@ on:
       - .github/workflows/essence2-file-reply-r4.yml
       - tools/bithuman_deep/prepare_essence2_file_reply.py
       - tools/bithuman_deep/patch_essence2_official_pcm16_file.py
+      - tools/bithuman_deep/essence2_official_pcm16_emulator_probe.sh
       - tools/bithuman_deep/verify_essence2_file_stream_playout.py
       - tools/bithuman_deep/essence2_file_audio/**
 permissions:
@@ -15,7 +16,7 @@ permissions:
 jobs:
   build-and-test-sofia-embedded-with-network-disabled:
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 85
     env:
       BITHUMAN_API_SECRET: ''
     steps:
@@ -319,6 +320,43 @@ jobs:
           print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
           PY
 
+      - name: Enable KVM for real Android 15 emulator
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Install APK in ARM64-translated Android 15 emulator and prove native PCM16 render and audio playback
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 6144 -cores 4 -no-snapshot -wipe-data
+          script: |
+            set -euo pipefail
+            adb logcat -G 32M
+            adb shell svc wifi disable
+            adb shell svc data disable
+            bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk essence2-official-emulator-boot
+            bash tools/bithuman_deep/essence2_official_pcm16_emulator_probe.sh essence2-official-emulator-speech
+
+      - name: Record emulator proof summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p essence2-local-mock-proof
+          find essence2-official-emulator-boot essence2-official-emulator-speech -type f -maxdepth 3 \
+            -printf '%p %s bytes\n' 2>/dev/null \
+            > essence2-local-mock-proof/emulator-evidence-files.txt || true
+          grep -E 'OFFICIAL_FEED|OFFICIAL_FIRST_FRAME|OFFICIAL_FRAMES_DONE|OFFICIAL_PLAY|OFFICIAL_FAIL' \
+            essence2-official-emulator-speech/full-after-speech-logcat.txt \
+            > essence2-local-mock-proof/emulator-native-official-samples.txt 2>/dev/null || true
+
       - name: Save Sofia embedded APK as short-lived internal installation test artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -336,6 +374,9 @@ jobs:
           name: essence2-official-pcm16-test-evidence
           path: |
             essence2-local-mock-proof/*.json
+            essence2-local-mock-proof/*.txt
+            essence2-official-emulator-boot/
+            essence2-official-emulator-speech/
             essence2-local-mock-proof/apk-sha256.txt
             essence2-sofia-offline-proof/*.txt
             essence2-sofia-offline-proof/*.png
