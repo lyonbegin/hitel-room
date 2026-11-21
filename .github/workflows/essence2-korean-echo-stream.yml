@@ -237,7 +237,7 @@ jobs:
           if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
             echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
           fi
-          grep -Fxq 'flutter_assets/assets/hitel_essence2_spoken_24k.pcm' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
           cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_OriginalGPU_PCM_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
