@@ -2,6 +2,7 @@ package ai.bithuman.flutter
 
 import ai.bithuman.essence2.Essence2Avatar
 import android.graphics.Bitmap
+import android.graphics.ColorSpace
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -38,6 +39,12 @@ internal class OfficialEssence2FileEngine(
     override val height: Int get() = sdk.height
     override val fps: Int = 25
     override val idle: IdleClip? = null
+    // Exact original Essence2Engine zero-copy output contract.
+    override val hardwareFrames: Boolean =
+        runCatching { sdk.useHardwareBuffers(HW_SLOTS) }
+            .onFailure { Log.e(TAG, "GPU_INIT_FAILED original SDK rejected hardware buffers", it) }
+            .isSuccess
+    private val srgb = ColorSpace.get(ColorSpace.Named.SRGB)
 
     private sealed class Packet {
         class Chunk(val turn: Int, val bytes: ByteArray) : Packet()
@@ -65,19 +72,20 @@ internal class OfficialEssence2FileEngine(
     @Volatile private var acceptedSamples = 0L
     @Volatile private var renderedFrames = 0L
     @Volatile private var closed = false
-    @Volatile private var renderer: ((Bitmap) -> Unit)? = null
+    @Volatile private var renderer: ((Bitmap, HwFrame?) -> Unit)? = null
     @Volatile private var outputTrack: AudioTrack? = null
     private var receiving = false
     private var sdkEverFed = false
 
     init {
+        Log.i(TAG, "GPU_DELIVERY mode=" + if (hardwareFrames) "HARDWARE_BUFFER" else "CPU_FALLBACK")
         feedWorker.execute { runFeed() }
         pullWorker.execute { runPull() }
         soundWorker.execute { runSound() }
     }
 
-    /** The caller takes ownership of bitmaps and must recycle them after drawing. */
-    fun attachRenderer(callback: (Bitmap) -> Unit) {
+    /** GPU callback owns HwFrame; CPU fallback callback recycles Bitmap. */
+    fun attachRenderer(callback: (Bitmap, HwFrame?) -> Unit) {
         renderer = callback
     }
 
@@ -170,7 +178,7 @@ internal class OfficialEssence2FileEngine(
 
     private fun runPull() {
         try {
-            val frame = sdk.newFrameBuffer()
+            val frame = if (hardwareFrames) null else sdk.newFrameBuffer()
             var observedTurn = 0
             var shownInTurn = 0L
             var lastFrameAt = System.nanoTime()
@@ -186,24 +194,42 @@ internal class OfficialEssence2FileEngine(
                     shownInTurn = 0L
                     lastFrameAt = System.nanoTime()
                 }
-                frame.clear()
-                val ready = sdk.pull(frame) // SDK produced? Display NOW, not at file end.
+                // Restore original SDK GPU frame ownership; do not read back pixels.
+                if (!hardwareFrames) frame!!.clear()
+                val pullStarted = System.nanoTime()
+                val hw = if (hardwareFrames) sdk.pullHardwareBuffer() else null
+                val ready = if (hardwareFrames) hw != null else sdk.pull(frame!!)
+                val pullMillis = (System.nanoTime() - pullStarted) / 1_000_000
                 if (ready) {
-                    if (!live(turn)) continue
-                    frame.rewind()
-                    val pixels = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    try {
-                        pixels.copyPixelsFromBuffer(frame)
-                        renderer?.invoke(pixels) ?: pixels.recycle()
-                    } catch (failure: Throwable) {
-                        pixels.recycle()
-                        throw failure
+                    if (!live(turn)) { hw?.close(); continue }
+                    if (hardwareFrames) {
+                        val owned = checkNotNull(hw)
+                        val wrapped = Bitmap.wrapHardwareBuffer(owned.buffer, srgb)
+                        if (wrapped == null) {
+                            owned.close()
+                            error("SDK hardware frame cannot be wrapped: GPU output failed")
+                        }
+                        val delivered = HwFrame(wrapped, sdk.lastFrameIndex * (RATE / fps), -1, owned)
+                        val callback = renderer
+                        if (callback == null) delivered.release()
+                        else try { callback(wrapped, delivered) }
+                             catch (failure: Throwable) { delivered.release(); throw failure }
+                    } else {
+                        frame!!.rewind()
+                        val pixels = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        try {
+                            pixels.copyPixelsFromBuffer(frame)
+                            renderer?.invoke(pixels, null) ?: pixels.recycle()
+                        } catch (failure: Throwable) {
+                            pixels.recycle()
+                            throw failure
+                        }
                     }
                     shownInTurn++
                     renderedFrames = shownInTurn
                     lastFrameAt = System.nanoTime()
                     if (shownInTurn == 1L || shownInTurn % 25L == 0L)
-                        Log.i(TAG, "LIVE_PULL turn=$turn frame=$shownInTurn acceptedSamples=$acceptedSamples")
+                        Log.i(TAG, "LIVE_PULL turn=$turn frame=$shownInTurn route=" + (if (hardwareFrames) "GPU" else "CPU") + " pullMs=$pullMillis acceptedSamples=$acceptedSamples")
                 } else {
                     // This short empty-queue poll is the official SDK example's
                     // pull() polling, NOT a wait for a complete audio file.
@@ -288,7 +314,11 @@ internal class OfficialEssence2FileEngine(
                             if ((track?.playbackHeadPosition?.toLong() ?: 0L) >= writtenSamples) break
                             Thread.sleep(20)
                         }
-                        Log.i(TAG, "LIVE_AUDIO_DONE turn=${packet.turn} samples=$writtenSamples")
+                        val finalHead = track?.playbackHeadPosition?.toLong() ?: 0L
+                        if (finalHead < writtenSamples)
+                            Log.e(TAG, "LIVE_AUDIO_INCOMPLETE turn=${packet.turn} headSamples=$finalHead writtenSamples=$writtenSamples")
+                        else
+                            Log.i(TAG, "LIVE_AUDIO_DONE turn=${packet.turn} samples=$writtenSamples headSamples=$finalHead")
                         track?.let { runCatching { it.stop() }; it.release() }
                         track = null
                         outputTrack = null
@@ -342,5 +372,6 @@ internal class OfficialEssence2FileEngine(
     companion object {
         private const val TAG = "E2STREAM"
         private const val RATE = 16_000
+        private const val HW_SLOTS = 32
     }
 }
