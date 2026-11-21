@@ -294,28 +294,44 @@ internal class OfficialEssence2FileEngine(
                 when (val packet = soundQueue.take()) {
                     is Packet.Chunk -> {
                         if (!live(packet.turn)) continue
+                        var firstAudio = false
                         if (playingTurn != packet.turn) {
                             track?.let { runCatching { it.stop() }; it.release() }
                             track = makeTrack()
                             outputTrack = track
                             playingTurn = packet.turn
                             writtenSamples = 0L
-                            track.play()
-                            Log.i(TAG, "LIVE_AUDIO_START turn=${packet.turn}")
-                        HitelE2Trace.event("audio.start", "turn" to packet.turn,
-                            "route" to "AudioTrack.STREAM", "rate" to RATE)
+                            firstAudio = true
                         }
                         var offset = 0
                         while (offset < packet.bytes.size && live(packet.turn)) {
-                            // AudioTrack naturally blocks only if its small HW stream
-                            // buffer is full. It never waits for SDK video rendering.
+                            // The FIRST PCM bytes go to the hardware buffer BEFORE play().
+                            // Starting an empty AudioTrack was causing an avoidable
+                            // underrun at speech onset. Do not wait for another chunk.
                             val written = track!!.write(
                                 packet.bytes, offset, packet.bytes.size - offset,
-                                AudioTrack.WRITE_BLOCKING
+                                if (firstAudio) AudioTrack.WRITE_NON_BLOCKING
+                                else AudioTrack.WRITE_BLOCKING
                             )
+                            if (written == 0 && firstAudio) {
+                                track.play()
+                                firstAudio = false
+                                Log.i(TAG, "LIVE_AUDIO_START turn=${packet.turn} firstWriteBytes=0")
+                                HitelE2Trace.event("audio.start", "turn" to packet.turn,
+                                    "route" to "AudioTrack.STREAM", "rate" to RATE, "prefilled" to false)
+                                continue
+                            }
                             check(written > 0) { "AudioTrack.write=$written turn=${packet.turn}" }
                             offset += written
                             writtenSamples += written / 2
+                            if (firstAudio) {
+                                track.play()
+                                firstAudio = false
+                                Log.i(TAG, "LIVE_AUDIO_START turn=${packet.turn} firstWriteBytes=$written")
+                                HitelE2Trace.event("audio.start", "turn" to packet.turn,
+                                    "route" to "AudioTrack.STREAM", "rate" to RATE,
+                                    "firstWriteBytes" to written, "prefilled" to true)
+                            }
                         }
                     }
                     is Packet.End -> {
