@@ -1,0 +1,41 @@
+name: Inspect captured Korean echo speaker audio
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Korean echo build run with actual installed-app evidence
+        default: '44842675950'
+        required: true
+  push:
+    branches:
+      - feature/hitel-essence2-sofia-embedded-offline-20261120
+    paths:
+      - .github/workflows/essence2-korean-speaker-evidence.yml
+      - tools/bithuman_deep/verify_korean_echo_speaker.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-existing-capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ inputs.source_run || '44842675950' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download existing installed-app evidence without rebuilding the APK
+        run: |
+          gh run watch "$SOURCE_RUN" --interval 20
+          gh run download "$SOURCE_RUN" --name essence2-korean-echo-stream-test-evidence --dir evidence
+      - name: Compare virtual speaker waveform with actual local Korean synthesis
+        run: |
+          python3 -m pip install --quiet numpy scipy==1.14.1
+          python3 tools/bithuman_deep/verify_korean_echo_speaker.py evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-echo-speaker-correlation
+          path: evidence/korean-speaker-correlation.json
+          if-no-files-found: warn
+          retention-days: 14
