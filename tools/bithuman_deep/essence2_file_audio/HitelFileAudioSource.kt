@@ -18,7 +18,6 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
     private class Turn(val id: Int) { val queue = ArrayBlockingQueue<Map<String, Any>>(8) }
     @Volatile private var current: Turn? = null
     @Volatile private var closed = false
-    @Volatile private var pending24k = 0L
 
     init {
         channel.setMethodCallHandler { call, result ->
@@ -48,8 +47,6 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
         }
     }
 
-    /** Main thread: the ORIGINAL AudioTrack-backed playout coordinate, not a timer. */
-    fun setPendingSamples(samples24k: Long) { pending24k = maxOf(0L, samples24k) }
     private fun live(turn: Turn) = !closed && current === turn
     private fun emit(turn: Turn, event: Map<String, Any>): Boolean {
         while (live(turn)) if (turn.queue.offer(event, 50, TimeUnit.MILLISECONDS)) return true
@@ -68,16 +65,15 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
             HitelE2Trace.event("file.decode.begin", "turn" to turn.id,
                 "source" to "bundled-m4a", "chunkMs" to 100, "stt" to false, "tts" to false)
             fun publish(pcm: ByteArray) {
-                // Keep enough lead for the SDK's audio frontend, while bounding the
-                // decoded file ahead of what the original speaker has actually consumed.
-                while (live(turn) && pending24k > 24000L * 3L) Thread.sleep(10)
+                // The channel consumer drains chunks as soon as possible. The queue
+                // bounds the decoder-to-Dart handoff independently of speaker playout.
                 if (pcm.isNotEmpty() && emit(turn, mapOf("pcm" to pcm))) {
                     digest.update(pcm); bytes24k += pcm.size
                     if (chunks++ == 0) HitelE2Trace.event("file.first_pcm", "turn" to turn.id,
                         "elapsedMs" to (System.nanoTime() - started) / 1000000,
                         "pcmBytes" to pcm.size)
                     if (chunks % 25 == 0) HitelE2Trace.event("file.pcm.progress", "turn" to turn.id,
-                        "chunks" to chunks, "bytes24k" to bytes24k, "pending24k" to pending24k)
+                        "chunks" to chunks, "bytes24k" to bytes24k)
                 }
             }
             FilePcmStream.decodeAsset(binding.applicationContext, asset, object : FilePcmStream.Callback {

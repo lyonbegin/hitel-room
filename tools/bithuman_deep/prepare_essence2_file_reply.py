@@ -55,7 +55,7 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
       final boot = await _hitelLogTail(dir, 'boot_status.txt', 2000);
       final native = await _hitelLogTail(dir, 'hitel_e2_trace.log', 12000);
       final protocol = await _hitelLogTail(dir, 'hitel_ai_e2e.log', 4000);
-      var detail = 'HITEL Essence 2 Android diagnostics\nbuild=PCM_FILE_R4\n'
+      var detail = 'HITEL Essence 2 Android diagnostics\nbuild=PCM_FILE_R5\n'
           'mode=text_trigger_file_stream\nSTT=false\nTTS=false\n'
           'engine=$_engine\nsample=$_selectedSample\nstatus=$_status\n'
           'loaded=${_avatar != null}\nat=${DateTime.now().toIso8601String()}\n'
@@ -99,12 +99,6 @@ def prepare(app, plugin, sources, report):
         '    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {\n'
         '        fileAudio?.close(); fileAudio = null\n'
         '        hitelDiagnostics?.close(); hitelDiagnostics = null\n')
-    s = once(s, '    private fun pushPlayout(s: AvatarSession, force: Boolean = false) {\n',
-        '    private fun pushPlayout(s: AvatarSession, force: Boolean = false) {\n'
-        '        fileAudio?.setPendingSamples(s.fedSamples - s.playedSamples)\n')
-    s = once(s, '        s.fedSamples += pcm.size / 2\n',
-        '        s.fedSamples += pcm.size / 2\n'
-        '        fileAudio?.setPendingSamples(s.fedSamples - s.playedSamples)\n')
     assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in s
     assert 'val forceCopy = true' not in s and 'return AvatarPlayer(' in s
     target.write_text(s, encoding='utf-8')
@@ -155,7 +149,7 @@ def prepare(app, plugin, sources, report):
         '\nandroid { androidResources { noCompress += "m4a" } }\n', encoding='utf-8')
     manifest = app / 'android/app/src/main/AndroidManifest.xml'
     s = once(manifest.read_text(encoding='utf-8'), 'android:label="${appLabel}"',
-             'android:label="HITEL PCM File R4"')
+             'android:label="HITEL PCM File R5"')
     s = once(s, '    </application>', '''        <receiver android:name="ai.bithuman.flutter.HitelLogResetReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
         </receiver>
@@ -219,7 +213,7 @@ def prepare(app, plugin, sources, report):
     s = once(s, '    _avatar?.dispose();\n',
              '    unawaited(_filePlayout?.cancel());\n    _avatar?.dispose();\n')
     s = once(s, 'StatusPill(state: _state, label: _status)',
-             "StatusPill(state: _state, label: 'R4 · $_status')")
+             "StatusPill(state: _state, label: 'R5 · $_status')")
     s = s.replace('> 524288', '> 131072')
     ui.write_text(s, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
@@ -228,7 +222,7 @@ def prepare(app, plugin, sources, report):
             'HITEL14 FilePcmStream.java c85110ed5624d023da9178cdfca5e3ee03038030',
         'file_chunk_ms': 100, 'decode_rate': 16000, 'wire_rate': 24000,
         'whole_file_read': False, 'whole_file_pcm_conversion': False,
-        'decoded_queue_packets': 8, 'playout_backpressure_lead_seconds': 3,
+        'decoded_queue_packets': 8, 'file_paced_by_playout': False,
         'source': 'existing public test voice encoded as M4A at build time',
         'STT': False, 'TTS': False, 'renderer': 'original AvatarPlayer and original automatic GPU routing',
         'clear_on_package_update_and_first_launch': True, 'manual_clear_button': True,

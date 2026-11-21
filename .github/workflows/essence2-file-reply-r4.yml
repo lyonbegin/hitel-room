@@ -1,21 +1,20 @@
-name: HITEL text-triggered M4A PCM stream R4
+name: HITEL text-triggered M4A PCM stream R5 with Android 15 emulator test
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/hitel-essence2-file-reply-r4-20261121
+      - feature/hitel-essence2-pcm-unpaced-20261121
     paths:
       - .github/workflows/essence2-file-reply-r4.yml
       - tools/bithuman_deep/prepare_essence2_file_reply.py
       - tools/bithuman_deep/patch_essence2_streaming_engine.py
       - tools/bithuman_deep/essence2_file_audio/**
 permissions:
-  contents: write
-  actions: write
+  contents: read
 jobs:
   build-and-test-sofia-embedded-with-network-disabled:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 55
     env:
       BITHUMAN_API_SECRET: ''
     steps:
@@ -236,7 +235,7 @@ jobs:
           test -x "$AAPT"
           "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
           grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "application-label:'HITEL PCM File R4'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "application-label:'HITEL PCM File R5'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
           echo PASS_ESSENCE2_ORIGINAL_APP_ID_LABEL_AND_VERSION_PRESERVED
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
@@ -246,7 +245,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -256,7 +255,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -264,7 +263,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -281,46 +280,49 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
           print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
           PY
 
-      - name: Publish text-triggered file-stream installation build
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Release Gradle memory and enable KVM
         shell: bash
         run: |
-          set -euo pipefail
-          TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk
-          cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          Text input triggers incremental M4A decoding through the reused HITEL14 FilePcmStream MediaExtractor/MediaCodec path. 100-ms PCM16 at 16 kHz is converted by the original bitHuman 16-to-24-kHz stream converter, sent through the existing local WebSocket, then played and lip-synced by the original AvatarPlayer/GPU routing. No STT or TTS. The existing public test speech file is bundled; this does not generate a new spoken answer from the text. Logs reset on APK replacement/first launch; manual clear and bounded current-log copy are included. Build/JVM chunking tests and unchanged native/model hashes are checked. Physical-device GPU, speaker and lip-sync performance have not been verified in this build.
-          EOF
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK" --clobber
-          else
-            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 Sofia - original GPU PCM file streaming' \
-              --notes-file essence2-local-mock-proof/release-notes.md
-          fi
-          gh release edit "$TAG" --title 'HITEL Essence2 Sofia - original GPU PCM file streaming' \
-            --notes-file essence2-local-mock-proof/release-notes.md
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk") | .url')"
-          test -n "$URL"
-          curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
-          cmp "$APK" verified-download.apk
-          sha256sum "$APK"
-          echo PASS_HITEL_LOCAL_NO_KEY_PUBLIC_DOWNLOAD_IDENTICAL
-          printf '%s\n' "$URL"
+          original-upstream/app/avatar_chat/android/gradlew --stop
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Install ARM64 APK and send text through the offline Android UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
+          script: |
+            adb shell svc wifi disable
+            adb shell svc data disable
+            bash tools/bithuman_deep/essence2_android_emulator_smoke.sh HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk essence2-sofia-offline-proof
+            bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh essence2-e2trace-proof
+            adb shell run-as ai.bithuman.example.avatar_chat.essence2 cat app_flutter/hitel_ai_e2e.log > essence2-e2trace-proof/file-reply-protocol.txt
+            adb logcat -d -s HITEL_E2TRACE:I > essence2-e2trace-proof/file-reply-native.txt
+            grep -F 'file.response.end ' essence2-e2trace-proof/file-reply-protocol.txt
+            grep -F 'stage=file.decode.done ' essence2-e2trace-proof/file-reply-native.txt
+            grep -F 'stage=audio.track.write ' essence2-e2trace-proof/file-reply-native.txt | tail -3
+            grep -F 'newMouthFrame=true' essence2-e2trace-proof/file-reply-native.txt | tail -3
+            grep -F 'stage=sdk.utterance.drained ' essence2-e2trace-proof/file-reply-native.txt | tail -3
+
       - name: Save Sofia embedded APK as short-lived internal installation test artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_File_Reply_R4_Install
-          path: HITEL_Essence2_Text_File_Stream_R4_20261121_ARM64.apk
+          name: HITEL_Essence2_File_Reply_R5_Install
+          path: HITEL_Essence2_Text_File_Stream_R5_20261121_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
@@ -329,7 +331,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: essence2-file-reply-r4-build-evidence
+          name: essence2-file-reply-r5-test-evidence
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/apk-sha256.txt
@@ -342,7 +344,3 @@ jobs:
             essence2-e2trace-proof/*.json
             essence2-e2trace-proof/*.png
           retention-days: 14
-
-
-
-
