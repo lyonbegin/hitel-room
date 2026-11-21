@@ -70,22 +70,29 @@ def patch(plugin: Path, sources: Path) -> None:
         '                val s = AvatarSession(code, avatar, entry, texture)\n',
         '                val s = AvatarSession(code, avatar, entry, texture)\n'
         '                if (avatar is OfficialEssence2FileEngine) {\n'
-        '                    avatar.attachRenderer { bitmap ->\n'
-        '                        // Every SDK pull() result is posted IMMEDIATELY.\n'
-        '                        // No buffering, pre-render, JPEG or playout clock.\n'
+        '                    // Preserve a short presentation ring, just like AvatarPlayer.\n'
+        '                    // An SDK GPU buffer must outlive unlockCanvasAndPost().\n'
+        '                    val heldGpu = java.util.ArrayDeque<HwFrame>()\n'
+        '                    avatar.attachRenderer { bitmap, hardware ->\n'
         '                        main.post {\n'
         '                            try {\n'
         '                                if (!s.stopped.get()) {\n'
-        '                                    val prior = s.framesDrawn\n'
+        '                                    val before = s.framesDrawn\n'
         '                                    s.draw(bitmap)\n'
-        '                                    if (s.framesDrawn > prior && (s.framesDrawn == 1L || s.framesDrawn % 25L == 0L))\n'
-        '                                        Log.i("E2STREAM", "LIVE_DRAW frame=" + s.framesDrawn)\n'
+        '                                    if (s.framesDrawn > before && (s.framesDrawn == 1L || s.framesDrawn % 25L == 0L))\n'
+        '                                        Log.i("E2STREAM", "LIVE_DRAW frame=" + s.framesDrawn\n'
+        '                                            + " route=" + (if (hardware != null) "GPU" else "CPU"))\n'
         '                                }\n'
-        '                            } finally { bitmap.recycle() }\n'
+        '                            } finally {\n'
+        '                                if (hardware != null) {\n'
+        '                                    heldGpu.addLast(hardware)\n'
+        '                                    while (heldGpu.size > 4) heldGpu.removeFirst().release()\n'
+        '                                } else bitmap.recycle()\n'
+        '                            }\n'
         '                        }\n'
         '                    }\n'
         '                }\n',
-        "attach realtime video output on the existing Flutter texture")
+        "deliver original SDK hardware Bitmap to Flutter HardwareCanvas")
 
     s = replace_one(s,
         '                val p = newPlayer(s)\n                s.player = p\n',
@@ -131,7 +138,8 @@ def patch(plugin: Path, sources: Path) -> None:
     assert "avatar.attachRenderer" in s
     assert "s.avatar.appendPcm16(raw)" in s
     target.write_text(s)
-    print("PASS_ESSENCE2_LIVE_PCM16_FEED_PULL_NO_JPEG_NO_PRERENDER")
+    assert "heldGpu.addLast(hardware)" in s
+    print("PASS_ESSENCE2_GPU_HARDWARE_BUFFER_ROUTE_RESTORED")
 
 
 if __name__ == "__main__":
