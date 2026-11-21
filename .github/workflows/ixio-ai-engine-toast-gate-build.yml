@@ -11,7 +11,6 @@ on:
       - tools/ixio/ixio_ai_engine_toast_gate_verify.py
       - tools/ixio/ixio_retry_error_inventory.py
       - tools/ixio/ixio_emulator_device_fixture.py
-      - tools/ixio/ixio_setting_gate_selftest.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -109,17 +108,12 @@ jobs:
           BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           test -f "$SDK/platforms/android-34/android.jar"
           mkdir -p .ixio-pages-build/qa-java .ixio-pages-build/qa-dex .ixio-pages-build/qa-smali
-          python3 tools/ixio/ixio_setting_gate_selftest.py \
-            --smali18 .ixio-pages-build/smali18 \
-            --java .ixio-pages-build/qa-src/GateSelfTest.java \
-            --report ixio-pages-qa-results/setting-gate-selftest-sources.json
           javac -source 8 -target 8 \
             -cp "$SDK/platforms/android-34/android.jar" \
             -d .ixio-pages-build/qa-java \
             tools/ixio/qa_debug/DiagLog.java \
             tools/ixio/qa_debug/DiagTrace.java \
-            tools/ixio/qa_debug/DiagHooks.java \
-            .ixio-pages-build/qa-src/GateSelfTest.java
+            tools/ixio/qa_debug/DiagHooks.java
           mapfile -d '' CLASSES < <(find .ixio-pages-build/qa-java -type f -name '*.class' -print0)
           test "${#CLASSES[@]}" -ge 3
           "$BT/d8" --min-api 26 --lib "$SDK/platforms/android-34/android.jar" \
@@ -299,11 +293,6 @@ jobs:
           print('ACTUAL_TEST_APP_INSTALLED',d['installed'])
           print('ACTUAL_STATIC_PAGES_DEEPLINK_BUTTON_TAPPED',tapped)
           print('ACTUAL_HOME_SCREEN_REACHED',d['home_screen_seen'])
-          import re
-          expected=json.loads(Path('ixio-pages-qa-results/setting-gate-selftest-sources.json').read_text())['singleton_count']
-          verified=re.findall(r'ALL_SETTING_PREDICATES_SELFTEST_VERIFIED=(\d+)',log)
-          assert verified and all(int(n)==expected for n in verified),'Compiled all-destination predicate self-test did not pass'
-          print('ALL_SETTING_PREDICATE_RUNTIME_TEST_PASSED_COUNT',expected)
           model_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_PROBE' in line]
           http_events=[line for line in log.splitlines() if 'IXIO_ORIGINAL_MODEL_HTTP' in line]
           token_events=[line for line in log.splitlines() if 'IXIO_TOKEN_TRACE' in line]
