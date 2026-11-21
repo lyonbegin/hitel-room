@@ -16,6 +16,31 @@ permissions:
   contents: read
   actions: read
 jobs:
+  inspect-first-input-failure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Read the completed first run's on-device event evidence
+        run: |
+          gh run download 44841954084 --repo "$GITHUB_REPOSITORY" --name essence2-korean-echo-stream-test-evidence --dir first-evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('first-evidence')
+          for name in ['final-ai-protocol.txt','final-native-trace.txt']:
+              matches=list(root.rglob(name))
+              if matches:
+                  print('FILE',name)
+                  print('\n'.join(matches[0].read_text(errors='replace').splitlines()[-80:]))
+          matches=list(root.rglob('full-logcat.txt'))
+          if matches:
+              lines=matches[0].read_text(errors='replace').splitlines()
+              selected=[s for s in lines if re.search(r'HITEL_AI_E2E|korean_tts|tts\.|Flutter.*[Ee]rror|Dart.*[Ee]rror|onUserLeaveHint|onStop|onPause',s)]
+              print('SELECTED_SYSTEM_EVENTS')
+              print('\n'.join(selected[-120:]))
+          PY
   inspect-existing-capture:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
