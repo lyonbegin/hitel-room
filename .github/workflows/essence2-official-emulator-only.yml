@@ -1,0 +1,64 @@
+name: HITEL Essence2 official PCM16 prebuilt APK Android15 emulator complete test
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/hitel-essence2-official-pcm16-direct-20261121]
+    paths:
+      - .github/workflows/essence2-official-emulator-only.yml
+      - tools/bithuman_deep/essence2_official_pcm16_android15_entry.sh
+      - tools/bithuman_deep/essence2_official_pcm16_emulator_probe.sh
+      - tools/bithuman_deep/essence2_android_emulator_smoke.sh
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify-prebuilt-arm64-sdk-official:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore identical compiled ARM64 APK from successful build
+        uses: actions/download-artifact@v4
+        with:
+          name: HITEL_Essence2_Official_PCM16_APK
+          run-id: 44894402548
+          github-token: ${{ github.token }}
+      - name: Verify prebuilt APK contains original Essence2 JNI and installed voice
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk
+          test -s "$APK"
+          test "$(stat -c '%s' "$APK")" -gt 200000000
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          unzip -Z1 "$APK" | grep -Fx 'assets/flutter_assets/assets/hitel_file_reply.m4a'
+          sha256sum "$APK" | tee emulator-input-apk-sha256.txt
+          echo PASS_EXACT_PREBUILT_SAME_APK_AND_SDK_ABI
+      - name: Enable emulator KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Install in Android15 and prove official PCM feed, frames and playback
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 6144 -cores 4 -no-snapshot -wipe-data
+          script: bash tools/bithuman_deep/essence2_official_pcm16_android15_entry.sh HITEL_Essence2_Official_PCM16_File_20261121_ARM64.apk
+      - name: Export exact emulator installation and native call logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: essence2-official-android15-native-pcm16-real-emulator-logs
+          path: |
+            emulator-input-apk-sha256.txt
+            essence2-official-emulator-boot/
+            essence2-official-emulator-speech/
+          retention-days: 14
