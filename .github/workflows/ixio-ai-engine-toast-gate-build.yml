@@ -1,4 +1,4 @@
-name: IXIO AI Engine Toast Gate Original Download And Settings QA
+name: IXIO All Retry Errors DEX Inventory And Settings QA
 on:
   push:
     branches: [fix/ixio-ai-engine-toast-gate-20261121]
@@ -9,6 +9,7 @@ on:
       - tools/ixio/qa_debug/**
       - tools/ixio/ixio_ai_engine_toast_gate_qa.py
       - tools/ixio/ixio_ai_engine_toast_gate_verify.py
+      - tools/ixio/ixio_retry_error_inventory.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -40,8 +41,9 @@ jobs:
           curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/smali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-pages-build/tools/baksmali.jar' | sha256sum -c -
           echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  .ixio-pages-build/tools/smali.jar' | sha256sum -c -
-          for n in 15 16 18;do
-            unzip -p .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk "classes$n.dex" > ".ixio-pages-build/apk/classes$n-original.dex"
+          for dex in $(unzip -Z1 .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk | grep -E '^classes([0-9]+)?\.dex$');do
+            n="${dex#classes}"; n="${n%.dex}"; n="${n:-1}"
+            unzip -p .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk "$dex" > ".ixio-pages-build/apk/classes$n-original.dex"
             java -Xmx2600m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 \
               -o ".ixio-pages-build/smali$n" ".ixio-pages-build/apk/classes$n-original.dex"
           done
@@ -129,7 +131,13 @@ jobs:
           python3 tools/ixio/ixio_ai_engine_toast_gate_qa.py \
             --smali16 .ixio-pages-build/smali16 --smali18 .ixio-pages-build/smali18 \
             --report ixio-pages-qa-results/ai-engine-toast-gate-diff.json
-          for n in 15 16 18;do
+          python3 tools/ixio/ixio_retry_error_inventory.py \
+            --root .ixio-pages-build \
+            --apk .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk \
+            --aapt "$BT/aapt2" --instrument \
+            --report ixio-pages-qa-results/all-exact-retry-error-sites.json
+          for dir in .ixio-pages-build/smali[0-9]*;do
+            n="${dir##*smali}"
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
               > "ixio-pages-qa-results/smali-assembly-$n.log" 2>&1 || {
@@ -145,25 +153,29 @@ jobs:
               exit 1
             fi
           done
-      - name: Preserve every original APK entry except three login DEXes, align and sign
+      - name: Preserve every original APK entry except verified changed DEX shards, align and sign
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import zipfile,copy,re,pathlib
+          import zipfile,copy,re,pathlib,json
           p=pathlib.Path('.ixio-pages-build/apk')
+          inventory=json.loads(pathlib.Path('ixio-pages-qa-results/all-exact-retry-error-sites.json').read_text())
+          changed={'classes15.dex','classes16.dex','classes18.dex'}
+          changed.update(x['dex'] for x in inventory['sites'])
+          print('REASSEMBLED_DEX_SHARDS',json.dumps(sorted(changed)))
           with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk','w') as new:
             for entry in old.infolist():
               name=entry.filename
               if re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',name,re.I):continue
               data=old.read(name)
-              if name in ('classes15.dex','classes16.dex','classes18.dex'):
-                n=name[7:-4];data=(p/f'classes{n}-pages.dex').read_bytes()
+              if name in changed:
+                n=name[7:-4] or '1';data=(p/f'classes{n}-pages.dex').read_bytes()
               new.writestr(copy.copy(entry),data)
           with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk') as new:
             a={n for n in old.namelist() if not re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',n,re.I)}
             assert a==set(new.namelist())
             for n in a:
-              if n not in ('classes15.dex','classes16.dex','classes18.dex'):
+              if n not in changed:
                 assert old.read(n)==new.read(n),n
           print('ALL_ORIGINAL_NONDEX_APK_ENTRIES_IDENTICAL=YES')
           PY
@@ -333,7 +345,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO_Original_Model_Download_Direct_Entry_Evidence_20261121
+          name: IXIO_All_Retry_Error_DEX_And_UI_Evidence_20261121
           path: |
             ixio-pages-qa-results/
             ixio-pages-qa-emulator-evidence/
@@ -346,12 +358,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-qa-ai-engine-toast-gate-20261121
+          tag=ixio-qa-all-retry-errors-20261121
           mkdir -p ixio-pages-qa-results/public-apks
           main=.ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
           companion=.ixio-pages-build/recorder/recorder-context-test-signed.apk
-          cp "$main" ixio-pages-qa-results/public-apks/IXIO_HITEL_QA_AIEngineGate_20261121.apk
-          cp "$companion" ixio-pages-qa-results/public-apks/IXIO_Recorder_Companion_AIEngineGate_20261121.apk
+          cp "$main" ixio-pages-qa-results/public-apks/IXIO_HITEL_QA_AllRetryErrors_20261121.apk
+          cp "$companion" ixio-pages-qa-results/public-apks/IXIO_Recorder_Companion_AllRetryErrors_20261121.apk
           actual="$(sha256sum "$main" | cut -d' ' -f1)"
           expected="$(cut -d' ' -f1 ixio-pages-qa-results/tested-apk-sha256.txt)"
           test "$actual" = "$expected"
@@ -369,16 +381,17 @@ jobs:
           PY
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
-              --title "IXIO QA - AI engine toast and recording settings entry" \
-              --notes "QA build for the screenshot AI-engine error toast and blocked local recording-settings entry. Uses the existing original public model-version catalog and skips only the VAS menu gate for local call recording. Original model downloads, files, PCM, STT and actual recording callbacks are preserved. Same new QA signer for both APKs. Actual phone PCM and STT remain unverified."
+              --title "IXIO QA - all retry-error callers and settings entries" \
+              --notes "QA build for the screenshot AI-engine error toast and blocked local recording-settings entry. Uses the existing original public model-version catalog and skips the shared VAS navigation gate for every settings destination. Every exact retry-error resource caller is inventoried across all DEX shards and traced to the on-device log panel; actual operation errors are preserved. Original model downloads, files, PCM, STT and actual recording callbacks are preserved. Same new QA signer for both APKs. Actual phone PCM and STT remain unverified."
           fi
           gh release upload "$tag" ixio-pages-qa-results/public-apks/*.apk --repo "$GH_REPO" --clobber
           gh release view "$tag" --repo "$GH_REPO" --json assets \
             --jq '.assets[] | select(.name | endswith(".apk")) | {name: .name, size: .size, url: .url}'
-          for file in IXIO_HITEL_QA_AIEngineGate_20261121.apk IXIO_Recorder_Companion_AIEngineGate_20261121.apk;do
+          for file in IXIO_HITEL_QA_AllRetryErrors_20261121.apk IXIO_Recorder_Companion_AllRetryErrors_20261121.apk;do
             url="https://github.com/$GH_REPO/releases/download/$tag/$file"
             code="$(curl -L -I -sS --max-time 45 -o /dev/null -w '%{http_code}' "$url")"
             echo "PUBLIC_APK_EXTERNAL_HEAD=$file HTTP=$code"
             test "$code" = 200
           done
           echo "EXTERNALLY_VERIFIED_INSTALLABLE_DIAGNOSTIC_APKS=YES"
+

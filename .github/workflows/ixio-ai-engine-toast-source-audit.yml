@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/ixio-ai-engine-toast-source-audit.yml
       - tools/ixio/ixio_ai_engine_toast_source_audit.py
+      - tools/ixio/ixio_retry_error_inventory.py
 permissions:
   contents: read
   actions: read
@@ -26,12 +27,21 @@ jobs:
           gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .toast-source-private
           curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .toast-source-private/baksmali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .toast-source-private/baksmali.jar' | sha256sum -c -
-          for n in 15 16 17 18;do
-            unzip -p .toast-source-private/IXIO_Main_NoAppSealing_Single.apk "classes$n.dex" > ".toast-source-private/classes$n.dex"
+          for dex in $(unzip -Z1 .toast-source-private/IXIO_Main_NoAppSealing_Single.apk | grep -E '^classes([0-9]+)?\.dex$');do
+            n="${dex#classes}"; n="${n%.dex}"; n="${n:-1}"
+            unzip -p .toast-source-private/IXIO_Main_NoAppSealing_Single.apk "$dex" > ".toast-source-private/classes$n.dex"
             java -Xmx2600m -jar .toast-source-private/baksmali.jar d --api 34 --jobs 4 -o ".toast-source-private/smali$n" ".toast-source-private/classes$n.dex"
           done
       - name: Locate exact screenshot message and original OFF gates
-        run: python3 tools/ixio/ixio_ai_engine_toast_source_audit.py
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          python3 tools/ixio/ixio_retry_error_inventory.py \
+            --root .toast-source-private \
+            --apk .toast-source-private/IXIO_Main_NoAppSealing_Single.apk \
+            --aapt "$BT/aapt2" \
+            --report ixio-toast-source-evidence/all-exact-retry-error-sites.json
+          python3 tools/ixio/ixio_ai_engine_toast_source_audit.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

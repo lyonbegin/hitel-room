@@ -412,6 +412,17 @@ def main():
                     continue
                 stop_reason="CHROME_FIRST_RUN_STALLED"
                 break
+        # Prefer the real HTML button whenever accessibility exposes it.
+        # The old title still says '테스트 로그인', while the HTML heading says
+        # '시험 로그인'; both are present after a Chrome translation refresh.
+        if ("HITEL IXIO" in joined and "lyonbegin.github.io" in joined
+                and pages_custom_tab_taps < 3):
+            action=choose(nodes,["시험 로그인 완료 · 익시오로 복귀"],True)
+            if action:
+                pages_custom_tab_taps+=1
+                tap(action,"PAGES_QA_ONLY_COMPLETE_AND_DEEP_LINK_BACK")
+                time.sleep(3)
+                continue
         # Real 2026-11-20 Android14 Pixel6 screenshot evidence:
         # Chrome Custom Tab accessibility exposes ONLY the browser toolbar
         # (title + GitHub Pages domain), not its HTML button. Screenshot run

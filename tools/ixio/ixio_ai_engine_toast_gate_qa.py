@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QA: public model catalog plus the exact VAS toast gate for local recording."""
+"""QA: public model catalog and the shared VAS gate for every settings row."""
 from pathlib import Path
 import argparse,hashlib,json,re
 
@@ -52,10 +52,15 @@ def helper_source():
 .method public static blockingVasError(ZLcom/lguplus/aicallagent/navigation/SettingDestination;)Z
     .registers 4
     if-eqz p0, :original
-    instance-of v0, p1, Lcom/lguplus/aicallagent/navigation/SettingDestination$CallRecord;
-    if-eqz v0, :original
+    if-eqz p1, :original
+    invoke-virtual {{p1}}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result-object v1
+    invoke-virtual {{v1}}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    move-result-object v1
+    const-string v0, "ALL_SETTING_DESTINATIONS_VAS_TOAST_GATE_SKIPPED DESTINATION="
+    invoke-virtual {{v0, v1}}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v1
     const-string v0, "IXIO_QA_GATE"
-    const-string v1, "LOCAL_RECORDING_SETTING_VAS_TOAST_GATE_SKIPPED"
     invoke-static {{v0, v1}}, Lcom/lguplus/aicallagent/hitelqa/DiagTrace;->fixedTag(Ljava/lang/String;Ljava/lang/String;)V
     const/4 p0, 0x0
     :original
@@ -91,12 +96,13 @@ def main():
     changes.append({"file":str(wire.relative_to(a.smali16)),"before":sha(before),"after":sha(after)})
     a.report.parent.mkdir(parents=True,exist_ok=True)
     a.report.write_text(json.dumps({
-      "mode":"QA_PUBLIC_MODEL_CATALOG_AND_LOCAL_RECORDING_MENU_VAS_TOAST_GATE",
-      "changes":changes,"local_record_menu_skips_only_vas_toast_predicate":True,
+      "mode":"QA_PUBLIC_MODEL_CATALOG_AND_ALL_SETTINGS_MENU_VAS_TOAST_GATE",
+      "changes":changes,"all_setting_destinations_skip_only_vas_toast_predicate":True,
       "vendor_model_urls_and_server_responses_unchanged":True,
       "native_model_checks_download_workers_pcm_stt_unchanged":True,
       "fake_download_or_recording_success_flags":False
     },ensure_ascii=False,indent=2),encoding="utf-8")
-    print("QA_EXISTING_PUBLIC_MODEL_CATALOG_AND_LOCAL_RECORDING_MENU_GATE_PATCHED=YES",flush=True)
+    print("QA_EXISTING_PUBLIC_MODEL_CATALOG_AND_ALL_SETTINGS_MENU_GATE_PATCHED=YES",flush=True)
 
 if __name__=="__main__":main()
+
