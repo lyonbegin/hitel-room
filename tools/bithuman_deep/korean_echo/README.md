@@ -38,8 +38,10 @@ Workflow: `.github/workflows/essence2-korean-echo-stream.yml`.
 The workflow downloads the official model and pinned runtime, records their
 SHA256 hashes, embeds the model, and checks the avatar JNI against the original
 AAR. It installs the built APK on Android 15 with networking disabled and submits
-two Korean texts through the existing input field. A debug-only broadcast copies
-the test text to the clipboard; Android's paste and enter keys do the submission.
+two Korean texts through the existing input field. A debug-only broadcast fills
+the existing text controller (the Android shell cannot type Korean Unicode);
+Android's real Enter key performs the submission. It invokes the same UI send,
+WebSocket server and local TTS used by manual typing. It does not inject PCM.
 The probe checks input hashes, distinct generated PCM hashes, complete speaker
 writes, actual mouth frames, return to idle, and early PCM delivery. It records
 whether actual speaker writes/presentation preceded the final synthesis callback;

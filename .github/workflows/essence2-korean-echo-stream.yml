@@ -256,6 +256,31 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
+      - name: Make the compiled installation APK available while emulator checks continue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-sofia-korean-echo-stream-20261121
+          APK=HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk
+          cat > essence2-local-mock-proof/candidate-notes.md <<'EOF'
+          Installation candidate: Korean-only local VITS/sherpa-onnx text echo connected to the original streaming avatar player. Compilation, embedded model checks and the original avatar JNI byte comparison have passed. Installed-app Korean synthesis, speaker playback and lip-sync checks are still running; they are not yet claimed as passed. Text input is returned unchanged by the local echo server. No external AI or cloud TTS is used.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+            gh release edit "$TAG" --notes-file essence2-local-mock-proof/candidate-notes.md
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'HITEL Essence2 - Korean echo installation candidate' \
+              --notes-file essence2-local-mock-proof/candidate-notes.md
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk") | .url')"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-candidate.apk
+          cmp "$APK" verified-candidate.apk
+          sha256sum "$APK"
+          echo PASS_KOREAN_ECHO_CANDIDATE_PUBLIC_DOWNLOAD_IDENTICAL
+          printf '%s\n' "$URL"
+
       - name: Release build daemons before the emulator uses host memory
         working-directory: original-upstream/app/avatar_chat/android
         run: ./gradlew --stop
@@ -308,6 +333,8 @@ jobs:
               --title 'HITEL Essence2 Sofia - Korean local TTS echo streaming' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
+          gh release edit "$TAG" --title 'HITEL Essence2 Sofia - Korean local TTS echo streaming' \
+            --notes-file essence2-local-mock-proof/release-notes.md
           URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KoreanEcho_Stream_20261121_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk

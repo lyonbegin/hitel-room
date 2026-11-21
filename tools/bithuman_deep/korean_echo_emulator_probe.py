@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Use the installed app's real text field, local WebSocket, TTS and avatar sink."""
 import base64
+from array import array
 import hashlib
 import json
 from pathlib import Path
@@ -31,6 +32,9 @@ def screenshot(name):
 
 
 def submit(text):
+    adb('shell', 'am', 'broadcast', '-a', 'ai.hitel.debug.ECHO_CLIPBOARD', '-p', PACKAGE,
+        '--ez', 'unfocus', 'true')
+    time.sleep(1)
     size = re.findall(r'(\d+)x(\d+)', adb('shell', 'wm', 'size'))[-1]
     width, height = map(int, size)
     adb('shell', 'input', 'tap', str(width // 2), str(height // 2))
@@ -43,13 +47,10 @@ def submit(text):
     encoded = base64.b64encode(text.encode()).decode()
     adb('shell', 'am', 'broadcast', '-a', 'ai.hitel.debug.ECHO_CLIPBOARD', '-p', PACKAGE,
         '--es', 'text_b64', encoded)
-    adb('shell', 'input', 'keycombination', 'KEYCODE_CTRL_LEFT', 'KEYCODE_V')
     time.sleep(.5)
     screenshot('korean-input-filled.png')
     adb('shell', 'input', 'keyevent', 'KEYCODE_ENTER')
     time.sleep(.5)
-    if 'mInputShown=true' in adb('shell', 'dumpsys', 'input_method'):
-        adb('shell', 'input', 'keyevent', 'KEYCODE_BACK')
 
 
 def fields(line):
@@ -72,6 +73,10 @@ try:
         last_notice = started
         while time.monotonic() - started < 480:
             native, protocol = traces()
+            alive = subprocess.run(['adb', 'shell', 'pidof', PACKAGE], capture_output=True, text=True)
+            assert alive.returncode == 0 and alive.stdout.strip(), 'Installed app process exited'
+            if time.monotonic() - started > 25:
+                assert f'ui.text.submit chars={len(text)} ' in protocol, 'Real input field never submitted the Korean text'
             events = [fields(line) for line in native.splitlines()]
             begin = next((e for e in events if e.get('stage') == 'tts.begin'
                           and e.get('inputSha256') == expected_hash), None)
@@ -86,18 +91,25 @@ try:
                 if done and presents and drained and idle_after and f'echo.done turn={turn}' in protocol:
                     first = next(e for e in after if e.get('stage') == 'tts.first_pcm' and e.get('turn') == turn)
                     writes = [e for e in after if e.get('stage') == 'audio.track.write' and e.get('kind') in ('S', 'C')]
+                    feeds = [e for e in after if e.get('stage') == 'sdk.feed.begin']
                     assert writes and all(e['returnedBytes'] == e['pcmBytes'] for e in writes)
+                    early_feed = bool(feeds and int(feeds[0]['monotonicNs']) < int(done['monotonicNs']))
+                    if index > 0:
+                        assert early_feed, 'Avatar input waited for synthesis of the complete long reply'
                     assert int(first['monotonicNs']) < int(done['monotonicNs'])
                     evidence.append({'input_sha256': expected_hash, 'turn': turn,
                         'samples24k': int(done['samples24k']), 'pcm_sha256': done['pcmSha256'],
                         'mouth_frames_presented': len(presents), 'returned_to_idle': idle_after,
                         'first_pcm_before_tts_done': True,
+                        'first_avatar_feed_before_tts_done': early_feed,
                         'first_speaker_write_before_tts_done': int(writes[0]['monotonicNs']) < int(done['monotonicNs']),
                         'first_frame_before_tts_done': int(presents[0]['monotonicNs']) < int(done['monotonicNs'])})
                     # Save the exact neural output actually sent through the installed app.
                     (OUT / f'korean-echo-{index}.pcm').write_bytes(adb('exec-out', 'run-as', PACKAGE,
                         'cat', './files/hitel-echo-latest.pcm', binary=True))
                     assert hashlib.sha256((OUT / f'korean-echo-{index}.pcm').read_bytes()).hexdigest() == done['pcmSha256']
+                    pcm = array('h', (OUT / f'korean-echo-{index}.pcm').read_bytes())
+                    assert max(abs(sample) for sample in pcm) > 200, 'Neural PCM is silent'
                     screenshot(f'korean-echo-{index}-played.png')
                     print('PASS_KOREAN_TEXT_ECHO_TTS_NATIVE_PLAYBACK', json.dumps(evidence[-1]), flush=True)
                     break

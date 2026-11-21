@@ -33,10 +33,17 @@ class HitelKoreanTts(private val binding: FlutterPlugin.FlutterPluginBinding) {
         if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             val receiver = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: Context, intent: android.content.Intent) {
+                    if (intent.getBooleanExtra("unfocus", false)) {
+                        channel.invokeMethod("probeUnfocus", null)
+                        return
+                    }
                     val encoded = intent.getStringExtra("text_b64") ?: return
                     val text = String(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT), Charsets.UTF_8)
                     val clipboard = c.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("HITEL test input", text))
+                    runCatching { clipboard.setPrimaryClip(android.content.ClipData.newPlainText("HITEL test input", text)) }
+                    // Test setup only: Android shell cannot type Korean Unicode. Fill the
+                    // existing controller; the harness still submits with the real Enter key.
+                    channel.invokeMethod("probeInput", text)
                 }
             }
             val filter = android.content.IntentFilter("ai.hitel.debug.ECHO_CLIPBOARD")

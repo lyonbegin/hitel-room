@@ -81,6 +81,9 @@ def prepare(app, plugin, sources, report):
         '        koreanTts?.close(); koreanTts = null\n')
     s = once(s, 'PlayoutClock.enabled(clockLever, skipAhead, Essence2Engine.SKIP_AHEAD_DEFAULT)',
              'PlayoutClock.enabled(clockLever, skipAhead, true)')
+    s = once(s, 'val forceCopy = debuggable && AvatarPlayer.devInt("debug.bh.e2.copy") == 1',
+             'val forceCopy = true // preserve the existing tested texture delivery path')
+    s = s.replace('", debug.bh.e2.copy=1"', '", Korean echo copy path"')
     # The half-size Texture remains; fit the original bitmap into that Texture.
     s = once(s, 'try { canvas.drawBitmap(bmp, 0f, 0f, null) } finally {',
         'try { canvas.drawBitmap(bmp, null, android.graphics.Rect(0, 0, canvas.width, canvas.height), null) } finally {')
@@ -101,7 +104,7 @@ def prepare(app, plugin, sources, report):
         val expected = (uttFed + HOP - 1) / HOP
         // available()==0/one refused pull does not mean the inference worker finished.
         val quietMs = (System.nanoTime() - lastFrameNs) / 1000000
-        if (delivered < expected && (queued > 0 || quietMs < 5000L)) return
+        if (delivered < expected && (delivered == 0L || queued > 0 || quietMs < 5000L)) return
         HitelE2Trace.event("sdk.utterance.drained", "utterance" to utterances,
             "framesThrough" to delivered, "expectedFrames" to expected,
             "complete" to (delivered >= expected), "quietMs" to quietMs)
@@ -117,6 +120,19 @@ def prepare(app, plugin, sources, report):
     s = ui.read_text(encoding='utf-8')
     s = once(s, '    final t = _input.text.trim();\n    if (t.isEmpty || _session == null) return;',
              '    final t = _input.text;\n    if (t.trim().isEmpty || _session == null) return;')
+    s = once(s, '    WidgetsBinding.instance.addObserver(this);\n',
+        '''    WidgetsBinding.instance.addObserver(this);
+    const MethodChannel('ai.hitel/korean_tts').setMethodCallHandler((call) async {
+      if (!mounted || const bool.fromEnvironment('dart.vm.product')) return null;
+      if (call.method == 'probeInput') {
+        _input.text = call.arguments as String;
+        _showChrome();
+      } else if (call.method == 'probeUnfocus') {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
+      return null;
+    });
+''')
     s = once(s, "_status = 'Speaking…';", "_status = '한국어 음성을 합성하고 있습니다…';")
     # Display follows the original device clock, not the early transcript event.
     s = once(s, '  final HitelOfflineRuntime _offline = HitelOfflineRuntime();\n',
