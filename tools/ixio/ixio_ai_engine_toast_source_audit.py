@@ -11,7 +11,7 @@ sdk=Path("/usr/local/lib/android/sdk")
 aapt=sorted(sdk.glob("build-tools/*/aapt2"))[-1]
 dump=subprocess.check_output([str(aapt),"dump","resources",str(apk)],text=True,errors="replace")
 resource=re.compile(r"resource (0x[0-9a-fA-F]+) (\S+)")
-needles=("요청을 처리하지","잠시 후 다시 시도","AI 엔진을 다운로드","AI 엔진을 업데이트")
+needles=("요청을 처리하지","잠시 후 다시 시도","AI 엔진을 다운로드","AI 엔진을 업데이트","익시오를 이용할 수 없는 휴대폰")
 entries=[]
 current=None
 for line in dump.splitlines():
@@ -28,7 +28,7 @@ ids={x["id"].lower() for x in matched}
 names={x["name"].split("/")[-1] for x in matched}
 METHOD=re.compile(r"(?ms)^\.method[^\n]*\n.*?^\.end method$")
 records=[]
-selected_names=re.compile(r"(DownloadViewModel|AiModelRemoteSourceImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecorderSetting|RecordingSetting|RecordSetting|setting/viewmodel/SettingViewModel|DiscoverViewModel)")
+selected_names=re.compile(r"(DownloadViewModel|AiModelRemoteSourceImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecorderSetting|RecordingSetting|RecordSetting|setting/viewmodel/SettingViewModel|DiscoverViewModel|setting/acivity/SettingActivity)")
 for folder in sorted(ROOT.glob("smali*")):
     for file in sorted(folder.rglob("*.smali")):
         rel=file.relative_to(folder).as_posix()
