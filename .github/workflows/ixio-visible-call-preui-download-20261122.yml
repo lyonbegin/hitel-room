@@ -1,0 +1,61 @@
+name: IXIO Visible Call QA - Publish signed APK pair for physical phone test
+on:
+  push:
+    branches: [fix/ixio-visible-call-local-gate-20261122]
+    paths:
+      - .github/workflows/ixio-visible-call-preui-download-20261122.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-preui-for-user-device-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Retrieve the already built and signed APK pair, without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p verified-preui
+          gh run download 44934658619 --repo "$GH_REPO" \
+            --name IXIO_Trace_PreUI_Signed_APKs --dir verified-preui
+          cd verified-preui
+          test -s IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
+          test -s IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
+          sha256sum -c SHA256SUMS.txt
+          mv IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk IXIO_HITEL_QA_VisibleCall_PreUI_20261122.apk
+          mv IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk IXIO_Recorder_Companion_VisibleCall_PreUI_20261122.apk
+          sha256sum *.apk > SHA256SUMS-VisibleCall.txt
+      - name: Verify original Android QA signatures
+        run: |
+          set -euo pipefail
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/apksigner" verify --verbose verified-preui/IXIO_HITEL_QA_VisibleCall_PreUI_20261122.apk
+          "$BT/apksigner" verify --verbose verified-preui/IXIO_Recorder_Companion_VisibleCall_PreUI_20261122.apk
+      - name: Publish distinct test-only release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=ixio-qa-visible-call-preui-20261122
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1;then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO Visible Call QA - signed APKs for physical device" \
+              --notes "TEST ONLY. Exact signed APKs saved before emulator UI test in run 44934658619, with SHA256 checked after download. Visible Call local-gate continuation is experimental. No physical call, STT, recording, or post-patch emulator UI success is asserted. This is a separate release to enable prompt user-device testing."
+          fi
+          gh release upload "$tag" \
+            verified-preui/IXIO_HITEL_QA_VisibleCall_PreUI_20261122.apk \
+            verified-preui/IXIO_Recorder_Companion_VisibleCall_PreUI_20261122.apk \
+            verified-preui/SHA256SUMS-VisibleCall.txt \
+            --repo "$GH_REPO" --clobber
+          for name in IXIO_HITEL_QA_VisibleCall_PreUI_20261122.apk IXIO_Recorder_Companion_VisibleCall_PreUI_20261122.apk;do
+            url="https://github.com/$GH_REPO/releases/download/$tag/$name"
+            status="$(curl --retry 2 -sS -L -I --max-time 60 -o /dev/null -w '%{http_code}' "$url")"
+            echo "PUBLIC_TEST_APK_VERIFY $name HTTP=$status"
+            test "$status" = 200
+          done
+          echo "IXIO_VISIBLE_CALL_USER_DOWNLOADS_READY=YES"
