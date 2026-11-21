@@ -28,7 +28,7 @@ ids={x["id"].lower() for x in matched}
 names={x["name"].split("/")[-1] for x in matched}
 METHOD=re.compile(r"(?ms)^\.method[^\n]*\n.*?^\.end method$")
 records=[]
-selected_names=re.compile(r"(DownloadViewModel|AiModelRemoteSourceImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecorderSetting|RecordingSetting|RecordSetting)")
+selected_names=re.compile(r"(DownloadViewModel|AiModelRemoteSourceImpl|UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|CheckRecordingAvailabilityUseCaseImpl|CallRecorderSetting|RecordingSetting|RecordSetting|setting/viewmodel/SettingViewModel|DiscoverViewModel)")
 for folder in sorted(ROOT.glob("smali*")):
     for file in sorted(folder.rglob("*.smali")):
         rel=file.relative_to(folder).as_posix()
@@ -36,7 +36,7 @@ for folder in sorted(ROOT.glob("smali*")):
             continue
         src=file.read_text(errors="replace")
         resource_hit=any(("->"+n+":I") in src for n in names) or any(n in src.lower() for n in ids)
-        selected=bool(selected_names.search(file.name))
+        selected=bool(selected_names.search(rel))
         if not resource_hit and not selected:
             continue
         for match in METHOD.finditer(src):
@@ -63,7 +63,7 @@ for folder in sorted(ROOT.glob("smali*")):
                   "instructions":safe}
             records.append(item)
             print("SOURCE_BEGIN",folder.name,rel,head,"DIRECT_TOAST",direct,flush=True)
-            for row in safe[:420]:
+            for row in safe[:1400]:
                 print("SMALI",row,flush=True)
             print("SOURCE_END",flush=True)
 (OUT/"model-toggle-toast-methods.json").write_text(json.dumps(records,ensure_ascii=False,indent=2))
