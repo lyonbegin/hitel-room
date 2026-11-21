@@ -42,8 +42,8 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
                         val pcm = answer?.get("pcm") as? ByteArray
                         if (pcm != null || answer?.get("done") == true)
                             HitelE2Trace.event("file.channel.next", "turn" to id,
-                                "chunk" to answer["chunk"], "pcmBytes" to pcm?.size,
-                                "done" to answer["done"], "queueDepth" to turn?.queue?.size)
+                                "chunk" to answer?.get("chunk"), "pcmBytes" to pcm?.size,
+                                "done" to answer?.get("done"), "queueDepth" to turn?.queue?.size)
                         main.post { if (!closed) result.success(answer ?: mapOf("cancelled" to true)) }
                     }
                 }
