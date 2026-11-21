@@ -37,6 +37,10 @@ jobs:
           matches=list(root.rglob('full-logcat.txt'))
           if matches:
               lines=matches[0].read_text(errors='replace').splitlines()
+              for index,line in enumerate(lines):
+                  if 'JNI DETECTED' in line or 'Abort message:' in line or 'FATAL EXCEPTION' in line:
+                      print('FATAL_HEADER_CONTEXT')
+                      print('\n'.join(lines[max(0,index-4):index+28]))
               selected=[s for s in lines if re.search(r'HITEL_AI_E2E|korean_tts|tts\.|sherpa|onnx|KoreanTts|FATAL EXCEPTION|Fatal signal|SIGABRT|backtrace|#0[0-9]|libc|Exception|onStop|onPause',s)]
               print('SELECTED_SYSTEM_EVENTS')
               print('\n'.join(selected[-120:]))
