@@ -81,7 +81,7 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
     revision = 'R7 Trace' if detailed_trace else 'R7' if official_streaming else 'R6' if original_playback else 'R5'
     build_id = revision.replace(' ', '_').upper()
     folder = plugin / 'android/src/main/kotlin/ai/bithuman/flutter'
-    for name in ('HitelFileAudioSource.kt', 'HitelDiagnostics.kt', 'DiagnosticFiles.kt',
+    for name in ('HitelFileAudioSource.kt', 'HitelRecordingPicker.kt', 'HitelDiagnostics.kt', 'DiagnosticFiles.kt',
                  'HitelLogResetReceiver.kt', 'HitelE2Trace.kt', 'HitelTimelineCsv.kt'):
         shutil.copyfile(sources / name, folder / name)
     java = plugin / 'android/src/main/java/ai/bithuman/flutter/FilePcmStream.java'
@@ -103,6 +103,14 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
         '    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {\n'
         '        fileAudio?.close(); fileAudio = null\n'
         '        hitelDiagnostics?.close(); hitelDiagnostics = null\n')
+    s = once(s, '        binding.addRequestPermissionsResultListener(this)\n',
+        '        binding.addRequestPermissionsResultListener(this)\n'
+        '        fileAudio?.picker?.attach(binding)\n')
+    s = once(s, '    override fun onDetachedFromActivityForConfigChanges() { detachActivity() }\n',
+        '    override fun onDetachedFromActivityForConfigChanges() { detachActivity(forConfigurationChange = true) }\n')
+    s = once(s, '    private fun detachActivity() {\n',
+        '    private fun detachActivity(forConfigurationChange: Boolean = false) {\n'
+        '        fileAudio?.picker?.detach(forConfigurationChange)\n')
     assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in s
     assert 'val forceCopy = true' not in s and 'return AvatarPlayer(' in s
     target.write_text(s, encoding='utf-8')
@@ -236,13 +244,68 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
           : null,
 """
     s = once(s, old, new)
+    s = once(s, "              FloatingActionButton.small(heroTag: 'clear-logs'",
+        """              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Tooltip(
+                  message: _hitelRecordingName == null
+                      ? '녹음 파일 선택 · 기본 음성 사용 중'
+                      : '녹음 파일 선택 · $_hitelRecordingName',
+                  child: FilledButton.tonalIcon(
+                    onPressed: _hitelChoosingRecording ? null : _hitelChooseRecording,
+                    icon: const Icon(Icons.audio_file_outlined, size: 17),
+                    label: Text(_hitelRecordingName ?? '녹음 파일 선택',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FloatingActionButton.small(heroTag: 'clear-logs'""")
+    s = once(s, '    // The user selects a sample before any model is fetched or billed.\n',
+        '    if (Platform.isAndroid) unawaited(_hitelRestoreRecording());\n'
+        '    // The user selects a sample before any model is fetched or billed.\n')
+    s = once(s, '  Future<void> _hitelCopyDiagnostics() async {\n',
+        """  static const _hitelRecordingChannel = MethodChannel('ai.hitel/file_audio');
+  String? _hitelRecordingName;
+  bool _hitelChoosingRecording = false;
+
+  Future<void> _hitelRestoreRecording() async {
+    try {
+      final name = await _hitelRecordingChannel.invokeMethod<String>('recordingName');
+      if (mounted && !_hitelChoosingRecording) setState(() => _hitelRecordingName = name);
+    } on PlatformException catch (_) {
+      // The existing playback control can still use the built-in recording.
+    }
+  }
+
+  Future<void> _hitelChooseRecording() async {
+    if (_hitelChoosingRecording) return;
+    setState(() => _hitelChoosingRecording = true);
+    try {
+      final name = await _hitelRecordingChannel.invokeMethod<String>('chooseRecording');
+      if (mounted && name != null) {
+        setState(() => _hitelRecordingName = name);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('다음 실행부터 선택한 녹음 파일을 사용합니다.'),
+        ));
+      }
+    } on PlatformException catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error.message ?? '녹음 파일을 선택하지 못했습니다.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _hitelChoosingRecording = false);
+    }
+  }
+
+  Future<void> _hitelCopyDiagnostics() async {
+""")
     if detailed_trace:
-        s = once(s, '              const SizedBox(width: 8),\n              FloatingActionButton.small',
-            """              const SizedBox(width: 8),
-              FloatingActionButton.small(heroTag: 'share-logs', tooltip: '상세 로그 공유',
+        s = once(s, "              FloatingActionButton.small(heroTag: 'copy-logs'",
+            """              FloatingActionButton.small(heroTag: 'share-logs', tooltip: '상세 로그 공유',
                   onPressed: _hitelShareDiagnostics, child: const Icon(Icons.share_rounded)),
               const SizedBox(width: 8),
-              FloatingActionButton.small""")
+              FloatingActionButton.small(heroTag: 'copy-logs'""")
         s = once(s, '  Future<void> _hitelCopyDiagnostics() async {\n', '''  Future<void> _hitelShareDiagnostics() async {
     try {
       await _hitelAiTraceWrites;
@@ -274,7 +337,7 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
             ? '파일 음성을 재생하고 있습니다…' : '음성·립싱크를 준비하고 있습니다…');
       } else if (_filePending) {
         _filePending = false;
-        setState(() => _status = '텍스트를 보내시면 같은 음성 파일을 스트리밍합니다.');
+        setState(() => _status = '텍스트를 보내시면 현재 음성 파일을 재생합니다.');
       }
     });
     final session = BithumanRealtimeSession(
@@ -325,7 +388,7 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
         'decoded_queue_packets': 8, 'file_paced_by_playout': False,
         'direct_vendor_pcm_api': original_playback, 'vendor_realtime_pcm_receiver': official_streaming,
         'pristine_native_playback': original_playback or official_streaming,
-        'source': 'existing public test voice encoded as M4A at build time',
+        'source': 'saved Android document or built-in test M4A before a file is selected',
         'STT': False, 'TTS': False, 'renderer': 'original AvatarPlayer and original automatic GPU routing',
         'clear_on_package_update_and_first_launch': True, 'manual_clear_button': True,
         'copies_rotated_previous_log': False, 'clipboard_log_tail_bytes': 18000,

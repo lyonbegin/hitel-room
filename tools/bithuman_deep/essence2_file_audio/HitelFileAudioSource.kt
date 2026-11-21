@@ -1,5 +1,6 @@
 package ai.bithuman.flutter
 
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -9,25 +10,37 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** The old HITEL14 file decoder feeding the existing avatar's 24 kHz wire. No STT/TTS. */
+/** The HITEL14 file decoder feeding the existing avatar PCM stream. */
 class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBinding) {
+    internal val picker = HitelRecordingPicker(binding.applicationContext)
     private val main = Handler(Looper.getMainLooper())
     private val decoder = Executors.newSingleThreadExecutor()
     private val delivery = Executors.newSingleThreadExecutor()
     private val channel = MethodChannel(binding.binaryMessenger, "ai.hitel/file_audio")
-    private class Turn(val id: Int) { val queue = ArrayBlockingQueue<Map<String, Any>>(8) }
+    private class Turn(val id: Int, val source: Uri?) {
+        val queue = ArrayBlockingQueue<Map<String, Any>>(8)
+        val sourceKind: String get() = if (source == null) "bundled-m4a" else "android-document"
+    }
     @Volatile private var current: Turn? = null
     @Volatile private var closed = false
 
     init {
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "chooseRecording" -> picker.choose(result)
+                "recordingName" -> result.success(picker.displayName())
                 "start" -> {
-                    val turn = Turn(checkNotNull(call.argument<Int>("turn")))
+                    val turn = Turn(checkNotNull(call.argument<Int>("turn")), picker.acquireSource())
                     current = turn
-                    HitelE2Trace.event("file.channel.start", "turn" to turn.id)
+                    HitelE2Trace.event("file.channel.start", "turn" to turn.id, "source" to turn.sourceKind)
                     result.success(null)
-                    decoder.execute { decode(turn) }
+                    decoder.execute {
+                        try {
+                            decode(turn)
+                        } finally {
+                            turn.source?.let { uri -> main.post { picker.releaseSource(uri) } }
+                        }
+                    }
                 }
                 "next" -> {
                     val turn = current
@@ -62,14 +75,13 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
     private fun decode(turn: Turn) {
         if (!live(turn)) return
         try {
-            val asset = binding.flutterAssets.getAssetFilePathByName("assets/hitel_file_reply.m4a")
             val converter = Pcm16kTo24k() // unchanged original bitHuman stream converter
             val digest = MessageDigest.getInstance("SHA-256")
             var chunks = 0
             var bytes24k = 0L
             val started = System.nanoTime()
             HitelE2Trace.event("file.decode.begin", "turn" to turn.id,
-                "source" to "bundled-m4a", "chunkMs" to 100, "stt" to false, "tts" to false)
+                "source" to turn.sourceKind, "chunkMs" to 100, "stt" to false, "tts" to false)
             fun publish(pcm: ByteArray) {
                 // The channel consumer drains chunks as soon as possible. The queue
                 // bounds the decoder-to-Dart handoff independently of speaker playout.
@@ -86,7 +98,7 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
                         "chunks" to chunks, "bytes24k" to bytes24k)
                 }
             }
-            FilePcmStream.decodeAsset(binding.applicationContext, asset, object : FilePcmStream.Callback {
+            val callback = object : FilePcmStream.Callback {
                 override fun cancelled() = !live(turn)
                 override fun onStart(durationMs: Long, mime: String, sourceRate: Int, channels: Int) {
                     HitelE2Trace.event("file.source.format", "turn" to turn.id, "durationMs" to durationMs,
@@ -106,7 +118,15 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
                         "durationUs" to (System.nanoTime() - at) / 1000)
                     publish(pcm24)
                 }
-            })
+            }
+            val context = binding.applicationContext
+            val source = turn.source
+            if (source != null) {
+                FilePcmStream.decode(context, source, callback)
+            } else {
+                val asset = binding.flutterAssets.getAssetFilePathByName("assets/hitel_file_reply.m4a")
+                FilePcmStream.decodeAsset(context, asset, callback)
+            }
             if (!live(turn)) return
             publish(converter.flush())
             if (!live(turn)) return
@@ -117,14 +137,18 @@ class HitelFileAudioSource(private val binding: FlutterPlugin.FlutterPluginBindi
             emit(turn, mapOf("done" to true))
         } catch (error: Throwable) {
             if (live(turn)) {
-                HitelE2Trace.failure("file.error", error, "turn" to turn.id)
-                emit(turn, mapOf("error" to (error.message ?: error.javaClass.simpleName)))
+                HitelE2Trace.event("file.error", "turn" to turn.id, "source" to turn.sourceKind,
+                    "kind" to error.javaClass.simpleName)
+                val message = if (turn.source == null) "기본 음성 파일을 재생하지 못했습니다."
+                    else "선택한 녹음 파일을 읽거나 변환하지 못했습니다. 파일을 다시 선택해 주세요."
+                emit(turn, mapOf("error" to message))
             }
         }
     }
 
     fun close() {
         closed = true; current = null
+        picker.detach()
         channel.setMethodCallHandler(null)
         decoder.shutdown(); delivery.shutdown()
     }

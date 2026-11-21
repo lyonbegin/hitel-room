@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:bithuman/bithuman_realtime.dart';
 import 'package:mock_realtime/mock_realtime.dart';
 
-/// Text is a trigger. The reply voice comes from the existing test audio file.
+/// Text triggers playback of the native player's current recording.
 class HitelFileReply {
   static const _source = MethodChannel('ai.hitel/file_audio');
   int _generation = 0;
@@ -21,7 +21,7 @@ class HitelFileReply {
     conn.sendResponseCreated();
     // The automatic greeting is not a user request and must not play the file.
     if (input.trim().isEmpty) { conn.sendResponseDone(); return; }
-    conn.sendTranscriptDelta('요청을 받았습니다. 지정된 시험 음성 파일을 스트리밍합니다.');
+    conn.sendTranscriptDelta('요청을 받았습니다. 현재 음성 파일을 재생합니다.');
     BithumanRealtimeSession.hitelAiTrace('file.response.begin turn=$turn triggerChars=${input.length}');
     try {
       await _source.invokeMethod<void>('start', {'turn': turn});
