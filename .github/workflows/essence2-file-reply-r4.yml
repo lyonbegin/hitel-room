@@ -1,9 +1,9 @@
-name: HITEL Essence2 PCM16 immediate live feed and pull with Android15 emulator
+name: HITEL Essence2 GPU HardwareBuffer live PCM16 original SDK playback
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/hitel-essence2-immediate-pcm-stream-20261121
+      - feature/hitel-essence2-gpu-hardwarebuffer-20261121
     paths:
       - .github/workflows/essence2-file-reply-r4.yml
       - tools/bithuman_deep/prepare_essence2_file_reply.py
@@ -118,12 +118,22 @@ jobs:
           grep -Fq 's.avatar.appendPcm16(raw)' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
           grep -Fq 'sdk.feed(packet.bytes)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           grep -Fq 'sdk.endOfAudio()' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
-          grep -Fq 'sdk.pull(frame)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.pullHardwareBuffer()' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.useHardwareBuffers(HW_SLOTS)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'Bitmap.wrapHardwareBuffer' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'avatar.attachRenderer' tools/bithuman_deep/patch_essence2_official_pcm16_file.py
+          grep -Fq 'heldGpu.addLast(hardware)' tools/bithuman_deep/patch_essence2_official_pcm16_file.py
+          grep -Fq 'surface.lockHardwareCanvas()' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
+          grep -Fq 'gpu.route' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'audio.incomplete' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           grep -Fq 'AudioTrack.MODE_STREAM' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           grep -Fq 'avatar.attachRenderer' tools/bithuman_deep/patch_essence2_official_pcm16_file.py
           ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
             "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
-          echo PASS_ESSENCE2_DIRECT_LIVE_FEED_PULL_STREAMING_AUDIO_NO_JPEG_NO_FULL_WAIT
+          # Distinguish these builds in the diagnostics copied from a real phone.
+          sed -i 's/PCM_FILE_R7_TRACE/PCM16_GPU_HARDWARE_20261121/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM16_GPU_HARDWARE_20261121' "$APP/lib/main.dart"
+          echo PASS_ESSENCE2_GPU_NATIVE_HARDWARE_BUFFER_WITH_CPU_FALLBACK_AND_AUDIO_HEAD_TRACE
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y ffmpeg
@@ -283,7 +293,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -293,7 +303,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -301,7 +311,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -318,7 +328,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -341,7 +351,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 6144 -cores 4 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_live_pcm16_android15_entry.sh HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk
+          script: bash tools/bithuman_deep/essence2_live_pcm16_android15_entry.sh HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
 
       - name: Record emulator proof summary
         if: always()
@@ -360,8 +370,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Immediate_PCM16_APK
-          path: HITEL_Essence2_Immediate_PCM16_Stream_20261121_ARM64.apk
+          name: HITEL_Essence2_GPU_HardwareBuffer_PCM16_APK
+          path: HITEL_Essence2_GPU_HardwareBuffer_PCM16_20261121_ARM64.apk
           if-no-files-found: warn
           retention-days: 14
 
@@ -370,7 +380,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: essence2-live-pcm16-test-evidence
+          name: essence2-gpu-pcm16-test-evidence
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/*.txt
