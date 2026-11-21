@@ -9,6 +9,8 @@ on:
       - tools/ixio/ixio_original_model_http_trace.py
       - tools/ixio/ixio_original_provisioning_entry_probe.py
       - tools/ixio/ixio_original_prelogin_model_entry_probe.py
+      - tools/ixio/ixio_original_dek_asset_binding.py
+      - tools/ixio/ixio-original-call-permissions.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -86,6 +88,12 @@ jobs:
           python3 tools/ixio/ixio_original_prelogin_model_entry_probe.py \
             --smali16 .ixio-pages-build/smali16 \
             --report ixio-pages-qa-results/original-prelogin-model-entry-diff.json
+          unzip -p .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk \
+            lib/arm64-v8a/libencryptor-lib.so > .ixio-pages-build/original-encryptor.so
+          python3 tools/ixio/ixio_original_dek_asset_binding.py \
+            --smali16 .ixio-pages-build/smali16 \
+            --native-library .ixio-pages-build/original-encryptor.so \
+            --report ixio-pages-qa-results/original-dek-asset-binding-adaptation.json
           for n in 15 16 18;do
             java -Xmx2600m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
               -o ".ixio-pages-build/apk/classes$n-pages.dex" ".ixio-pages-build/smali$n" \
@@ -212,6 +220,7 @@ jobs:
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
             python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+            python3 tools/ixio/ixio-original-call-permissions.py
             adb shell monkey -p com.lguplus.callrecorder -c android.intent.category.LAUNCHER 1
             sleep 3
             python3 tools/ixio/ixio-emulator-gsm-smoke.py

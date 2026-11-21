@@ -67,9 +67,30 @@ def source() -> str:
     invoke-virtual {v1}, Ljava/lang/Class;->getName()Ljava/lang/String;
     move-result-object v1
     invoke-static {v1}, __DESC__->log(Ljava/lang/String;)V
+    invoke-static {p0}, __DESC__->trace(Ljava/lang/Throwable;)V
     invoke-virtual {p0}, Ljava/lang/Throwable;->getCause()Ljava/lang/Throwable;
     move-result-object p0
     add-int/lit8 v0, v0, 0x1
+    goto :next
+    :done
+    return-void
+.end method
+
+.method private static trace(Ljava/lang/Throwable;)V
+    .registers 5
+    invoke-virtual {p0}, Ljava/lang/Throwable;->getStackTrace()[Ljava/lang/StackTraceElement;
+    move-result-object v0
+    array-length v1, v0
+    const/4 v2, 0x0
+    :next
+    if-ge v2, v1, :done
+    const/4 v3, 0x6
+    if-ge v2, v3, :done
+    aget-object v3, v0, v2
+    invoke-virtual {v3}, Ljava/lang/StackTraceElement;->toString()Ljava/lang/String;
+    move-result-object v3
+    invoke-static {v3}, __DESC__->log(Ljava/lang/String;)V
+    add-int/lit8 v2, v2, 0x1
     goto :next
     :done
     return-void
@@ -80,7 +101,7 @@ def source() -> str:
     const-string v0, "ORIGINAL_ENSURE_PROVISIONED_START"
     invoke-static {v0}, __DESC__->log(Ljava/lang/String;)V
     :try_start
-    const/4 v0, 0x0
+    sget-object v0, Lkotlin/coroutines/EmptyCoroutineContext;->INSTANCE:Lkotlin/coroutines/EmptyCoroutineContext;
     invoke-static {v0, p0}, Lkotlinx/coroutines/BuildersKt;->runBlocking(Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;)Ljava/lang/Object;
     move-result-object v0
     invoke-static {v0}, Lkotlin/Result;->exceptionOrNull-impl(Ljava/lang/Object;)Ljava/lang/Throwable;

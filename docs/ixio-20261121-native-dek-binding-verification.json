@@ -1,0 +1,20 @@
+{
+  "native_library_sha256": "eee000433ca92347981a70b30effa6afa8c004c1b86478701e7fc2b3fb2dcff4",
+  "jni_function": "Java_com_lguplus_encryptor_NativeKeyProvider_getCtnEncryptKeyProdRelease",
+  "jni_address": "0x16d4c",
+  "encoded_asset_address": "0x8a67",
+  "encrypted_asset_bytes": 61,
+  "binding_format": "UTF8(package) + ZERO_BYTE + SHA256(source signer certificate)",
+  "derivation_format": "SHA256(UTF8(ctn_dek_provisioning_v1) + ZERO_BYTE + binding)",
+  "verification": {
+    "original": {
+      "authenticated_decryption": true,
+      "dek_length": 32
+    },
+    "previous_qa": {
+      "authenticated_decryption": false,
+      "failure": "InvalidTag"
+    }
+  },
+  "plaintext_key_written_or_printed": false
+}

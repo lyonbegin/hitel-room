@@ -32,10 +32,11 @@ def source() -> str:
     s = s.replace("ensureProvisioned-IoAF18A", "downloadMissingModels-IoAF18A")
     # Let the original NetworkMonitor receive Android's initial connectivity
     # callback. Onboarding is untouched; token state is never forced to empty.
-    s = s.replace("    :try_start\n    const/4 v0, 0x0\n",
+    context = "    sget-object v0, Lkotlin/coroutines/EmptyCoroutineContext;->INSTANCE:Lkotlin/coroutines/EmptyCoroutineContext;\n"
+    s = s.replace("    :try_start\n" + context,
                   "    :try_start\n    const-wide/16 v0, 0xbb8\n"
                   "    invoke-static {v0, v1}, Ljava/lang/Thread;->sleep(J)V\n"
-                  "    const/4 v0, 0x0\n", 1)
+                  + context, 1)
     return s
 
 
