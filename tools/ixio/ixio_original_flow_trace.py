@@ -25,6 +25,8 @@ GENERATED = re.compile(r'(?:_Factory|_HiltModules|_MembersInjector|_AssistedFact
 SKIP_METHOD = re.compile(r'^(?:<init>|<clinit>|component\d+|copy(?:\$default)?|equals|hashCode|toString|getStable|access\$get|access\$set)')
 CALL = re.compile(r'^invoke-\S+ \{[^}]*\}, (?P<owner>L[^;]+;)->(?P<name>[^ (]+)\((?P<args>[^)]*)\)(?P<result>\S+)')
 REG = re.compile(r'^[vp]\d+$')
+PROBE_CALL = re.compile(r'^invoke-static(?:/range)? \{[^\n]*\}, Lcom/lguplus/aicallagent/hitelqa/FlowTraceShard\d+;->s(\d+)\([^\n]*\)V$')
+CATCH = re.compile(r'^\s*(\.catchall|\.catch L[^;]+;)\s+\{(:\w+)\s+\.\.\s+(:\w+)\}\s+(:\w+)\s*$')
 
 
 def sha(s): return hashlib.sha256(s.encode()).hexdigest()
@@ -51,6 +53,54 @@ def arg_types(s): return re.findall(r'\[*L[^;]+;|\[*[ZBCSIJFD]', s)
 
 
 def simple(owner): return owner.strip('L;').rsplit('/', 1)[-1]
+
+
+def exception_coverage(block, ignore_probes=False):
+    lines=block.splitlines();labels={s.strip():i for i,s in enumerate(lines) if s.strip().startswith(':')}
+    catches=[CATCH.match(s).groups() for s in lines if CATCH.match(s)]
+    result=[]
+    for i in executable(lines):
+        op=lines[i].strip()
+        if ignore_probes and PROBE_CALL.match(op):continue
+        handlers=tuple((kind,handler) for kind,start,end,handler in catches if labels[start]<=i<labels[end])
+        result.append((op,handlers))
+    return result
+
+
+def isolate_probe_exception_edges(original, patched):
+    """New invokes must not merge new register states into original catches.
+
+    A logger catches its own exceptions, but ART still treats its caller's
+    invoke as throwable. Split only the original protected ranges around
+    logger invokes; retain the same handlers on every original instruction.
+    """
+    lines=patched.splitlines(keepends=True)
+    catches=[CATCH.match(s).groups() for s in lines if CATCH.match(s)]
+    if not catches:return patched
+    labels={s.strip():i for i,s in enumerate(lines) if s.strip().startswith(':')}
+    probes={i:PROBE_CALL.match(s.strip()).group(1) for i,s in enumerate(lines) if PROBE_CALL.match(s.strip())}
+    original_ops={i for i in executable(lines) if i not in probes}
+    used=set();rewritten=[]
+    for kind,start,end,handler in catches:
+        lo,hi=labels[start],labels[end]
+        inside=[i for i in probes if lo<=i<hi]
+        at,at_label=lo,start
+        for i in inside:
+            sid=probes[i];a=f':hitel_flow_exclude_{sid}_a';b=f':hitel_flow_exclude_{sid}_b'
+            if any(at<=j<i for j in original_ops):rewritten.append(f'    {kind} {{{at_label} .. {a}}} {handler}\n')
+            used.add(i);at=i+1;at_label=b
+        if any(at<=j<hi for j in original_ops):rewritten.append(f'    {kind} {{{at_label} .. {end}}} {handler}\n')
+    out=[]
+    for i,line in enumerate(lines):
+        if CATCH.match(line):continue
+        if line.strip()=='.end method':out.extend(rewritten)
+        if i in used:out.append(f'    :hitel_flow_exclude_{probes[i]}_a\n')
+        out.append(line)
+        if i in used:out.append(f'    :hitel_flow_exclude_{probes[i]}_b\n')
+    new=''.join(out)
+    assert exception_coverage(original)==exception_coverage(new,True), 'An original exception edge changed'
+    assert all(not handlers for op,handlers in exception_coverage(new) if PROBE_CALL.match(op)), 'Probe still enters original catch handler'
+    return new
 
 
 def relevant_call(m):
@@ -174,11 +224,12 @@ def instrument_method(block, context, add_site, branches):
     new=''.join(patched)
     restored=re.sub(r'(?m)^    invoke-static(?:/range)? \{[^\n]*\}, Lcom/lguplus/aicallagent/hitelqa/FlowTraceShard\d+;->s\d+\([^\n]*\)V\n','',new)
     assert restored==block, 'An original instruction or metadata line changed'
+    new=isolate_probe_exception_edges(block,new)
     return new,added
 
 
 def process(root, inventory):
-    report={'mode':'ORIGINAL_METHOD_CALL_RESULT_BRANCH_AND_CALLBACK_TRACE','sites':[], 'changes':[], 'helpers':[], 'original_instructions_preserved':True}
+    report={'mode':'ORIGINAL_METHOD_CALL_RESULT_BRANCH_AND_CALLBACK_TRACE','sites':[], 'changes':[], 'helpers':[], 'original_instructions_preserved':True,'original_exception_coverage_preserved':True,'new_probe_invokes_excluded_from_original_catch_ranges':True}
     exact={}
     for s in inventory['sites']:exact.setdefault(s['class'].removeprefix('L').removesuffix(';')+'.smali',set()).add(s['method'])
     # Inventory class is a relative .smali path in the existing evidence.
@@ -335,3 +386,4 @@ def main():
 
 
 if __name__=='__main__':main()
+
