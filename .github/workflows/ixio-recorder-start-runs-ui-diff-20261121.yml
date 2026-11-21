@@ -1,0 +1,88 @@
+name: IXIO Recorder Start UI and AIDL Regression Evidence Compare
+on:
+  push:
+    branches: [experiment/ixio-hitel-backend-android-20261116]
+    paths: [.github/workflows/ixio-recorder-start-runs-ui-diff-20261121.yml]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  compare-two-real-emulator-runs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Download two existing emulator evidence sets (no APK rerun)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for id in 44845033080 44847518588; do
+            mkdir -p ".evidence/$id"
+            gh run download "$id" --repo "$GH_REPO" \
+              --name IXIO_Original_Model_Download_Direct_Entry_Evidence_20261121 \
+              --dir ".evidence/$id"
+            test -s ".evidence/$id/ixio-hitel-android-results/gsm-call-smoke/result.json"
+          done
+      - name: Compare precise original UI, permissions and recording call sequence
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          ignore_sensitive=re.compile(r"(?i)(?:bearer|token\s*[:=]|cookie|authorization|ctn|device_id|user.?id|phone|email|password|imei|imsi|secret)")
+          def sanitized(s):
+              return re.sub(r"\d{5,}","[NUMBER]",str(s))[:185]
+          for run in [44845033080,44847518588]:
+              base=Path(f'.evidence/{run}')
+              gsm=base/'ixio-hitel-android-results/gsm-call-smoke'
+              main=base/'ixio-pages-qa-emulator-evidence'
+              a=json.loads((gsm/'result.json').read_text())
+              b=json.loads((main/'result.json').read_text())
+              print('RUN_ID',run)
+              print('CALL_STATUS',json.dumps({k:a.get(k) for k in (
+                'simulated_call_requested','default_dialer_confirmed',
+                'caller_screen_seen','auto_record_setting_tap',
+                'record_button_tapped','call_notification_expanded',
+                'call_notification_tapped','call_notification_in_system_dump',
+                'call_notification_telecom_active','call_notification_tap_method',
+                'required_permission_request_taps',
+                'required_permission_error_after_request')},ensure_ascii=False))
+              print('MAIN_STATUS',json.dumps({k:b.get(k) for k in (
+                'home_screen_seen','recorder_process_alive',
+                'emulator_launcher_anr_count','model_download_worker_started_count',
+                'fatal_lines','stop_reason')},ensure_ascii=False))
+              for stage in ['before','main_foreground','ringing','connected',
+                'call_notification_shade','after_notification_probe',
+                'after_permission_probe','record_toggle','after']:
+                  d=a.get(stage,{})
+                  visible=d.get('visible',[])
+                  if not visible:
+                      p=gsm/(stage+'-visible.txt')
+                      if p.is_file():visible=p.read_text(errors='replace').splitlines()
+                  if not visible:continue
+                  filtered=[sanitized(x) for x in visible if not ignore_sensitive.search(x)]
+                  print('SCREEN',stage,json.dumps(filtered[:28],ensure_ascii=False))
+              active=(gsm/'connected-telecom.txt').read_text(errors='replace') if (gsm/'connected-telecom.txt').exists() else ''
+              print('TELECOM_ACTIVE', 'state=ACTIVE' in active)
+              print('IN_CALL_SERVICE_PRESENT','com.lguplus.aicallagent' in active and 'InCallService' in active)
+              log=(gsm/'logcat-simulated-call.txt').read_text(errors='replace') if (gsm/'logcat-simulated-call.txt').exists() else ''
+              tags=[x.strip()[-130:] for x in log.splitlines() if 'IXIO_RECORD_START_TRACE' in x]
+              print('RECORD_START_FIXED_EVENTS',json.dumps(tags,ensure_ascii=False))
+              # Count failures from the actual same GSM session without printing raw payloads.
+              keys=['Failure(error=Fail)','StartRecordUseCase','PermissionUtil',
+                    'AidlRecordingStrategy','isRequirePermissionGranted',
+                    'isModelFileNotFound=true','ANR in com.lguplus.aicallagent',
+                    'FATAL EXCEPTION','java.lang.SecurityException',
+                    'IXIO_REQUIRED_PERMISSION_RESULT']
+              print('CALL_LOG_KEYWORD_COUNTS',json.dumps({k:log.count(k) for k in keys}))
+              for t in ['IXIO_REQUIRED_PERMISSION_RESULT', 'IXIO_REQUIRED_PERMISSION_ITEM: ',
+                        'IXIO_RECORD_START_TRACE: ','[AidlRecordingStrategy]']:
+                  sample=[sanitized(l.split(t,1)[1]) for l in log.splitlines() if t in l]
+                  if t=='IXIO_REQUIRED_PERMISSION_ITEM: ':
+                      sample=[x for x in sample if x.startswith('android.permission.')]
+                  print('CALL_LOG_TAG',t.strip(),json.dumps(sample[-45:],ensure_ascii=False))
+          PY
+      - name: Remove raw logs and screenshots from Actions workspace
+        if: always()
+        run: rm -rf .evidence
