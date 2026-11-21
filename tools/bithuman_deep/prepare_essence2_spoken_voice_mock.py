@@ -55,9 +55,12 @@ def prepare(app: Path, pcm: Path, report: Path) -> None:
       if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
       final end=(i+bytesPer100ms).clamp(0,data.length);
       conn.sendAudioDelta(Uint8List.sublistView(data,i,end));
-      // Exact PCM clock: every 4800 bytes is 100ms at 24kHz mono PCM16.
-      // 90ms previously fed the test audio ~11% faster than real time.
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      // The complete file is already in memory. Do not artificially throttle
+      // input to wall-clock playback speed: Essence2 needs lookahead to render
+      // its original GPU speech frames. Keep each PCM delta at 100 ms, and yield
+      // briefly for WebSocket/event-loop fairness rather than waiting 100 ms.
+      // Native AvatarPlayer/AudioTrack owns the actual playback clock.
+      await Future<void>.delayed(const Duration(milliseconds: 5));
     }
     if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
     conn.sendResponseDone();
