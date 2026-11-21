@@ -68,12 +68,18 @@ def summarize(trace):
 def summarize_original(trace):
     decoded = {}
     fed_samples = 0
-    shown = 0
-    due = 0
+    finished_shown = 0
+    finished_due = 0
+    observed_shown = 0
+    observed_due = 0
+    frozen = False
     for line in trace.splitlines():
         row = parse_line(line)
         if row.get("stage") == "file.decode.begin":
-            decoded, fed_samples, shown, due = {}, 0, 0, 0
+            decoded, fed_samples = {}, 0
+            finished_shown, finished_due = 0, 0
+            observed_shown, observed_due = 0, 0
+            frozen = False
         elif row.get("stage") == "file.decode.done":
             decoded = row
         feed = re.search(r"\bbhfeed\s*:\s*\+(\d+) fed=", line)
@@ -81,18 +87,27 @@ def summarize_original(trace):
             fed_samples += int(feed[1])
         utterance = re.search(r"\bbhcov\s*:\s*UTT \d+ unique=(\d+) due=(\d+)", line)
         if utterance:
-            shown += int(utterance[1])
-            due += int(utterance[2])
+            finished_shown += int(utterance[1])
+            finished_due += int(utterance[2])
+        coverage = re.search(r"\bCOVERAGE .*?uniqueShown=(\d+) due=(\d+)", line)
+        if coverage:
+            observed_shown, observed_due = int(coverage[1]), int(coverage[2])
+        if re.search(r"\bbhcov\s*:\s*FROZEN utterance=", line):
+            frozen = True
 
     file_bytes = int(decoded.get("bytes24k", 0))
     # The stock player maps every 3 input bytes to one 16 kHz sample
     # and schedules a 24 kHz, 16-bit audio unit per 25 fps speech frame.
     expected_units = file_bytes // (24000 * 2 // 25)
+    shown = max(finished_shown, observed_shown)
+    due = max(finished_due, observed_due)
     checks = {
         "file_decoded": file_bytes > 0,
         "source_pcm_reached_engine": file_bytes > 0 and fed_samples * 3 == file_bytes,
         "voice_units_presented": expected_units > 0 and due >= expected_units,
         "mouth_frame_presented": shown > 0,
+        "no_coverage_freeze": not frozen,
+        "utterance_finished": expected_units > 0 and finished_due >= expected_units,
     }
     return {
         "passed": all(checks.values()),
