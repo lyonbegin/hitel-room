@@ -34,7 +34,10 @@ pass its returned Korean text to the same TTS/PCM path. No audio API is required
 
 ## Build and verification
 
-Workflow: `.github/workflows/essence2-korean-echo-stream.yml`.
+Workflow: `.github/workflows/essence2-korean-echo-r3.yml` on
+`feature/hitel-korean-echo-r3-20261121`. The installation label is
+`HITEL KO Echo R3`; its screen status starts with `R3` and diagnostics include
+`build=KO_ECHO_R3`. Other PCM-file experiments keep their own branch/workflow.
 The workflow downloads the official model and pinned runtime, records their
 SHA256 hashes, embeds the model, and checks the avatar JNI against the original
 AAR. It installs the built APK on Android 15 with networking disabled and submits
@@ -54,5 +57,15 @@ descriptor used by sherpa's JNI reflection. A Kotlin indy lambda at this boundar
 only exposes an erased method after D8 and causes an ART NoSuchMethodError abort.
 The local synthesised PCM retained for diagnostics is one overwritten file,
 `files/hitel-echo-latest.pcm`; no growing audio history is stored.
+
+R3 releases the Essence2 adapter monitor before native `feed`, `endOfAudio`,
+availability snapshots and idle-cursor stepping on the active text stream's
+feed/render path. The original serial feeding worker still orders incoming audio
+and turn-end; the native SDK keeps its own thread safety. This lets the render
+thread publish completed frames while the feed/tail native call is waiting.
+R2 held the adapter monitor across these calls and recorded render monitor waits
+as long as 138.8 seconds in the emulator. Original reset and deferred-utterance
+handling remain; this text-only UI interrupts playback before each new input.
+The display keeps the half-size Texture and scales the original bitmap into it.
 
 This build is a text echo, with no AI generation and no prerecorded reply.
