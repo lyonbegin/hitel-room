@@ -45,7 +45,6 @@ public final class DiagHooks implements Application.ActivityLifecycleCallbacks {
 
     @Override public void onActivityResumed(Activity a) {
         try {
-            GateSelfTest.run();
             View view = a.findViewById(android.R.id.content);
             if (!(view instanceof FrameLayout)) return;
             FrameLayout content = (FrameLayout)view;
