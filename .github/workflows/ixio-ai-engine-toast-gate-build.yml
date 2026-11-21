@@ -1,7 +1,7 @@
 name: IXIO Original Function Boundaries And Actual Copy Log QA
 on:
   push:
-    branches: [fix/ixio-ai-engine-toast-gate-20261121]
+    branches: [fix/ixio-visible-call-local-gate-20261122]
     paths:
       - .github/workflows/ixio-ai-engine-toast-gate-build.yml
       - tools/ixio/ixio_qa_log_buttons_patch.py
@@ -12,6 +12,7 @@ on:
       - tools/ixio/ixio_retry_error_inventory.py
       - tools/ixio/ixio_emulator_device_fixture.py
       - tools/ixio/ixio_original_flow_trace.py
+      - tools/ixio/ixio_visible_call_ui_gate.py
       - tools/ixio/ixio_flow_trace_runtime_verify.py
   workflow_dispatch:
 permissions:
@@ -40,6 +41,13 @@ jobs:
           mkdir -p .ixio-pages-build/apk .ixio-pages-build/tools .ixio-pages-build/keys ixio-pages-qa-results
           gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir .ixio-pages-build/apk
           test -s .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk
+          # Apply the narrowly scoped Visible Call UI gate patch to the pinned
+          # original DEX before any existing model/recording/STT instrumentation.
+          # The original function-boundary probes and subsequent QA are kept.
+          python3 tools/ixio/ixio_visible_call_ui_gate.py \
+            --apk .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk \
+            --report ixio-pages-qa-results/visible-call-local-gate-diff.json
+          test -s ixio-pages-qa-results/visible-call-local-gate-diff.json
           curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/baksmali.jar
           curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o .ixio-pages-build/tools/smali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  .ixio-pages-build/tools/baksmali.jar' | sha256sum -c -
@@ -261,7 +269,7 @@ jobs:
       - name: Preserve signed diagnostic pair before UI so harness failures do not lose binaries
         run: |
           mkdir -p ixio-pre-ui-apks
-          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-pre-ui-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-pre-ui-apks/IXIO_HITEL_QA_VisibleCall_20261122.apk
           cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-pre-ui-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
           (cd ixio-pre-ui-apks && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
@@ -380,7 +388,7 @@ jobs:
         if: ${{ success() }}
         run: |
           mkdir -p ixio-public-apks
-          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-public-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-public-apks/IXIO_HITEL_QA_VisibleCall_20261122.apk
           cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-public-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
           (cd ixio-public-apks && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
@@ -396,17 +404,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-qa-original-flow-trace-20261122
-          release_sha="$(gh api "repos/$GH_REPO/git/ref/heads/release/ixio-all-retry-errors-20261121" --jq '.object.sha')"
-          git fetch --depth=1 origin "$release_sha"
-          test "$(git rev-parse "$release_sha:tools/ixio")" = "$(git rev-parse "$GITHUB_SHA:tools/ixio")"
-          default_branch="$(gh api "repos/$GH_REPO" --jq '.default_branch')"
-          git fetch --depth=1 origin "$default_branch"
-          test "$(git rev-parse "$release_sha:.github/workflows")" = "$(git rev-parse 'FETCH_HEAD:.github/workflows')"
+          tag=ixio-qa-visible-call-local-gate-20261122
+          # QA fork carries the scoped patch; publish this exact tested commit.
+          release_sha="$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$release_sha"
           mkdir -p ixio-pages-qa-results/public-apks
           main=.ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
           companion=.ixio-pages-build/recorder/recorder-context-test-signed.apk
-          cp "$main" ixio-pages-qa-results/public-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
+          cp "$main" ixio-pages-qa-results/public-apks/IXIO_HITEL_QA_VisibleCall_20261122.apk
           cp "$companion" ixio-pages-qa-results/public-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
           actual="$(sha256sum "$main" | cut -d' ' -f1)"
           expected="$(cut -d' ' -f1 ixio-pages-qa-results/tested-apk-sha256.txt)"
@@ -425,13 +430,13 @@ jobs:
           PY
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GH_REPO" --target "$release_sha" \
-              --title "IXIO QA - original call boundaries and real diagnostic copy panel" \
-              --notes "Original function boundary instrumentation: entry, call, return value/type, real worker result, branches, caught exception types, state emissions, recording callback error codes. Full original-instruction strip-and-compare audit and real UI/copy-panel verification are included. Existing model, recording and STT decisions are preserved. Actual physical phone recording, PCM and STT remain unverified. Main and companion have the same new QA signer. Build source: $GITHUB_SHA. Release source: $release_sha."
+              --title "IXIO QA - Visible Call local UI gate continuation with original flow tracing" \
+              --notes "OriginalFlowTrace QA plus a scoped local Visible Call UI gate continuation for toggleVisibleCall only; existing function boundary instrumentation and callback logging preserved. Actual cellular call, recording and STT remain unverified. Full original-instruction strip-and-compare audit and real UI/copy-panel verification are included. Existing model, recording and STT decisions are preserved. Actual physical phone recording, PCM and STT remain unverified. Main and companion have the same new QA signer. Build source: $GITHUB_SHA. Release source: $release_sha."
           fi
           gh release upload "$tag" ixio-pages-qa-results/public-apks/*.apk --repo "$GH_REPO" --clobber
           gh release view "$tag" --repo "$GH_REPO" --json assets \
             --jq '.assets[] | select(.name | endswith(".apk")) | {name: .name, size: .size, url: .url}'
-          for file in IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk;do
+          for file in IXIO_HITEL_QA_VisibleCall_20261122.apk IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk;do
             url="https://github.com/$GH_REPO/releases/download/$tag/$file"
             code="$(curl -L -I -sS --max-time 45 -o /dev/null -w '%{http_code}' "$url")"
             echo "PUBLIC_APK_EXTERNAL_HEAD=$file HTTP=$code"
