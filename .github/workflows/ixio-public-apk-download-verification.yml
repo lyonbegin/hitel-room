@@ -1,0 +1,76 @@
+name: IXIO Exact Tested APK Anonymous HTTPS Download Verification
+on:
+  push:
+    branches: [fix/ixio-ai-engine-toast-gate-20261121]
+    paths: [.github/workflows/ixio-public-apk-download-verification.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify-public-downloads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve the actual tested pair and original UI results
+        run: |
+          set -euo pipefail
+          source_run=44917960399
+          test "$(gh run view "$source_run" --repo "$GH_REPO" --json headSha --jq '.headSha')" = ca6c2f114bb03a5911c4323eb143bb9d4e48bb02
+          gh run download "$source_run" --repo "$GH_REPO" --name IXIO_All_Retry_Error_DEX_And_UI_Evidence_20261121 --dir .download-proof/evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('.download-proof/evidence')
+          home=json.loads((p/'ixio-pages-qa-emulator-evidence/result.json').read_text())
+          gate=json.loads((p/'ixio-pages-qa-results/toast-gate-ui-result.json').read_text())
+          buttons=json.loads((p/'ixio-pages-qa-results/log-clear-copy-ui-result.json').read_text())
+          assert home['installed'] and home['home_screen_seen']
+          assert gate['recording_setting_clicked'] and gate['recording_settings_opened'] and not gate['fatal_seen']
+          assert all(buttons[k] for k in ('panel_found','clear_button_pressed','copy_button_pressed','clipboard_set_marker'))
+          print('SOURCE_APK_ACTUAL_UI_AND_BOTH_LOG_BUTTONS_VERIFIED=YES',flush=True)
+          PY
+          gh run download "$source_run" --repo "$GH_REPO" --name IXIO_All_Retry_Errors_Exact_Tested_Installable_APKs --dir .download-proof/tested
+          (cd .download-proof/tested && sha256sum -c SHA256SUMS.txt)
+      - name: Download both public APKs without authentication and compare exact bytes
+        run: |
+          set -euo pipefail
+          mkdir -p .download-proof/public
+          tag=ixio-qa-all-retry-errors-20261121
+          for file in IXIO_HITEL_QA_AllRetryErrors_20261121.apk IXIO_Recorder_Companion_AllRetryErrors_20261121.apk;do
+            url="https://github.com/$GH_REPO/releases/download/$tag/$file"
+            code="$(env -u GH_TOKEN -u GITHUB_TOKEN curl -q -fLsS --retry 2 --max-time 180 -o ".download-proof/public/$file" -w '%{http_code}' "$url")"
+            test "$code" = 200
+            cmp ".download-proof/tested/$file" ".download-proof/public/$file"
+            echo "ANONYMOUS_PUBLIC_APK_GET=$file HTTP=$code EXACT_TESTED_BYTES_MATCH=YES"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          p=Path('.download-proof')
+          main='IXIO_HITEL_QA_AllRetryErrors_20261121.apk'
+          tested_main=(p/'evidence/ixio-pages-qa-results/tested-apk-sha256.txt').read_text().split()[0]
+          rows=[]
+          for f in sorted((p/'public').glob('*.apk')):
+              with f.open('rb') as stream:
+                  assert stream.read(4)==b'PK\x03\x04'
+                  stream.seek(0)
+                  digest=hashlib.file_digest(stream,'sha256').hexdigest()
+              if f.name==main: assert digest==tested_main
+              rows.append({'name':f.name,'size':f.stat().st_size,'sha256':digest,
+                'anonymous_http':200,'identical_to_tested_apk':True,
+                'url':'https://github.com/lyonbegin/hitel-room/releases/download/ixio-qa-all-retry-errors-20261121/'+f.name})
+          result={'source_run':44917960399,'build_source':'ca6c2f114bb03a5911c4323eb143bb9d4e48bb02',
+            'assets':rows,'both_public_downloads_verified':True,'actual_phone_pcm_stt_verified':False}
+          (p/'verified-downloads.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print('EXACT_PUBLIC_APK_DOWNLOAD_VERIFICATION',json.dumps(result,ensure_ascii=False),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Public_APK_Exact_Bytes_And_HTTP_Verification
+          path: .download-proof/verified-downloads.json
+          retention-days: 14
