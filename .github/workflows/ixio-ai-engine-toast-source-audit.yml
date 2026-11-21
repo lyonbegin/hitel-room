@@ -42,6 +42,21 @@ jobs:
             --aapt "$BT/aapt2" \
             --report ixio-toast-source-evidence/all-exact-retry-error-sites.json
           python3 tools/ixio/ixio_ai_engine_toast_source_audit.py
+      - name: Independently check every package for remaining exact retry resources
+        run: |
+          python3 - <<'PY'
+          import importlib.util,json
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location('inventory','tools/ixio/ixio_retry_error_inventory.py')
+          mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
+          base=json.loads(Path('ixio-toast-source-evidence/all-exact-retry-error-sites.json').read_text())
+          mod.PREFIX=''  # Read-only coverage check; do not restrict to the app package.
+          result=mod.process(Path('.toast-source-private'),base['resources'],False)
+          Path('ixio-toast-source-evidence/all-packages-exact-retry-error-sites.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          app={(x['class'],x['method'],x['resource'],x['instruction_index']) for x in base['sites']}
+          extra=[x for x in result['sites'] if (x['class'],x['method'],x['resource'],x['instruction_index']) not in app]
+          print('ALL_PACKAGES_RETRY_RESOURCE_COVERAGE',json.dumps({'all_sites':result['site_count'],'app_sites':base['site_count'],'additional_external_package_sites':extra}),flush=True)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
