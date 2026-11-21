@@ -3,6 +3,26 @@ package com.lguplus.aicallagent.hitelqa;
 /** Small fixed-value hooks. Never dereferences IXIO account or token objects. */
 public final class DiagTrace {
     private DiagTrace() {}
+    private static final java.util.concurrent.ConcurrentHashMap<Class<?>, java.lang.reflect.Field[]> STATE_FIELDS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.lang.reflect.Field[] NO_FIELDS = new java.lang.reflect.Field[0];
+
+    private static java.lang.reflect.Field[] stateFields(Class<?> type) {
+        if (!type.getName().startsWith("com.lguplus.aicallagent.")) return NO_FIELDS;
+        java.lang.reflect.Field[] known = STATE_FIELDS.get(type);
+        if (known != null) return known;
+        java.util.ArrayList<java.lang.reflect.Field> selected = new java.util.ArrayList<>();
+        for (java.lang.reflect.Field f : type.getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+            boolean numeric = (f.getType() == int.class || f.getType() == long.class)
+                    && f.getName().matches("label|errorCode|statusCode|bytesRead|downloadedSize|totalSize|totalBytesRead|downloadedBytes|contentLength|totalDownloadSize|currentModelIndex|totalModelCount|retryCount");
+            if (f.getType() != boolean.class && !numeric) continue;
+            try { f.setAccessible(true); selected.add(f); } catch (Throwable ignored) { }
+        }
+        java.lang.reflect.Field[] fields = selected.toArray(NO_FIELDS);
+        STATE_FIELDS.putIfAbsent(type, fields);
+        return fields;
+    }
 
     private static String instance(Object object) {
         return object == null ? "null" : Integer.toHexString(System.identityHashCode(object));
@@ -69,28 +89,11 @@ public final class DiagTrace {
             java.io.File file = (java.io.File)value;
             s.append(" exists=").append(file.exists()).append(" size=").append(file.length());
         }
-        // Known numeric/state fields only. Never serialize account objects,
-        // strings, exception messages, tokens, audio or HTTP response bodies.
-        String[] fields = {"label", "errorCode", "statusCode", "isRecordingEnabled",
-                "isAutoRecordingEnabled", "autoRecordingEnabled", "isAiModelUpdating",
-                "isAiModelAvailable", "isDownloading", "isUpdateAvailable", "isRecording",
-                "isAiEngineReady", "isInCallAiEnabled", "hasAnyMissingAiModel",
-                "isAiModelDownloading", "isShowVasErrorToolTip"};
-        for (String name : fields) {
-            try {
-                java.lang.reflect.Field f = type.getDeclaredField(name);
-                if (f.getType() != boolean.class && f.getType() != int.class) continue;
-                f.setAccessible(true);
-                s.append(' ').append(name).append('=').append(f.get(value));
-            } catch (Throwable ignored) { }
-        }
-        if (type.getName().startsWith("com.lguplus.aicallagent.")
-                && type.getSimpleName().matches(".*(?:UiState|ModelStatus|DownloadStatus|RecordingStatus).*")) {
-            for (java.lang.reflect.Field f : type.getDeclaredFields()) {
-                if (f.getType() != boolean.class || java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                try { f.setAccessible(true); s.append(' ').append(f.getName()).append('=').append(f.getBoolean(value)); }
-                catch (Throwable ignored) { }
-            }
+        // Cache recovered primitive state fields once per app class. Never
+        // serialize account objects, strings, tokens, audio or response bodies.
+        for (java.lang.reflect.Field f : stateFields(type)) {
+            try { s.append(' ').append(f.getName()).append('=').append(f.get(value)); }
+            catch (Throwable ignored) { }
         }
         flow(s.toString());
     }

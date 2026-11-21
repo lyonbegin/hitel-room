@@ -183,9 +183,12 @@ jobs:
               if name in changed:
                 n=name[7:-4] or '1';data=(p/f'classes{n}-pages.dex').read_bytes()
               new.writestr(copy.copy(entry),data)
+            for name in sorted(changed-set(old.namelist())):
+              n=name[7:-4] or '1'
+              new.writestr(name,(p/f'classes{n}-pages.dex').read_bytes())
           with zipfile.ZipFile(p/'IXIO_Main_NoAppSealing_Single.apk') as old,zipfile.ZipFile(p/'IXIO_Pages_Test_Unsigned.apk') as new:
             a={n for n in old.namelist() if not re.fullmatch(r'META-INF/.*\.(RSA|EC|DSA|SF|MF)',n,re.I)}
-            assert a==set(new.namelist())
+            assert a|set(flow['new_dex'])==set(new.namelist())
             for n in a:
               if n not in changed:
                 assert old.read(n)==new.read(n),n
@@ -289,6 +292,7 @@ jobs:
           d=json.loads((p/'result.json').read_text())
           actions=json.loads((p/'actions.json').read_text())
           log=(p/'logcat-full.txt').read_text(errors='replace')
+          log+='\n'+Path('ixio-pages-qa-results/original-flow-continuous-logcat.txt').read_text(errors='replace')
           call_dir=Path('ixio-hitel-android-results/gsm-call-smoke')
           for extra in ('logcat-before-call.txt','logcat-simulated-call.txt'):
               extra_path=call_dir/extra
