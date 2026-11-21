@@ -45,7 +45,7 @@ def patch_dex(raw):
     actual = sha256(raw)
     if actual != SOURCE_DEX_SHA256:
         raise RuntimeError(f"Refusing unknown classes18.dex: {actual}")
-    if raw[:8] not in (b"dex\\n035\\0", b"dex\\n037\\0", b"dex\\n038\\0", b"dex\\n039\\0", b"dex\\n040\\0", b"dex\\n041\\0"):
+    if raw[:8] not in (b"dex\n035\0", b"dex\n037\0", b"dex\n038\0", b"dex\n039\0", b"dex\n040\0", b"dex\n041\0"):
         raise RuntimeError("Unknown DEX format")
     if len(OLD) != len(NEW) or len(OLD) != 48:
         raise RuntimeError("Expected exactly 24 code units at original gate")
@@ -113,7 +113,7 @@ def main():
         "requires_full_reassembly_and_QA_signature": True,
     })
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n")
+    args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print("IXIO_VISIBLE_CALL_QA_PATCH_APPLIED", json.dumps(report, ensure_ascii=False))
 
 if __name__ == "__main__":
