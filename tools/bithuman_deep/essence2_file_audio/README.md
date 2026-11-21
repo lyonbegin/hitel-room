@@ -1,0 +1,66 @@
+# Text-triggered file response, R4
+
+This installation test deliberately performs no STT, TTS or AI answering.
+Entering any nonblank text triggers the same existing public test speech file.
+The bundled test voice is English; it is not a Korean synthesis model or the
+private call recording mentioned in the older HITEL14 conversation.
+
+## Reused source and connection
+
+`FilePcmStream.java` is adapted from the existing HITEL14 source:
+
+https://github.com/lyonbegin/hitel-room/blob/feature/hitel14-v23-integrated-direct-pcm-stt-20261112/sherpa-original-launcher/app/src/main/java/app/hitel/sherpaoriginalcli/FilePcmStream.java
+
+Original Git blob: `c85110ed5624d023da9178cdfca5e3ee03038030`.
+The package changes to the avatar plugin's package; the old 4-second chunk size
+becomes 100 ms. `decodeAsset` adds a direct APK AssetFileDescriptor input. The
+MediaExtractor/MediaCodec packet loop and stateful mono/16-kHz conversion are
+retained. No whole-file byte load, PCM conversion or temporary file staging is
+used at runtime. The M4A asset is stored uncompressed in the APK for direct
+descriptor access; its audio is AAC, generated from the existing test fixture
+only during the build.
+
+1. The real text field sends `conversation.item.create` / `response.create`.
+2. `HitelFileReply` starts the file decoder only for that text request. The
+   automatic initial greeting returns no voice.
+3. `FilePcmStream` emits up to 100 ms of 16-kHz mono PCM16 per callback.
+4. `HitelFileAudioSource` uses the original `Pcm16kTo24k` stream converter and
+   an eight-packet queue. It waits when the original speaker playout is more
+   than three seconds behind. This provides the avatar's startup lead while
+   bounding decoded audio ahead of actual playback; there is no 4-second gate
+   or artificial full-file wait.
+5. Each PCM delta follows the existing loopback WebSocket into
+   `playSpeakerPCM`, then the original `AvatarPlayer` / Essence2 GPU selection.
+6. Decoder EOF drains the converter and sends one response end. A subsequent
+   text cancels the old decode generation and uses the existing barge-in reset.
+
+The original renderer, model files, GPU auto-selection and native JNI are
+preserved. The streaming adapter releases its metadata monitor around native
+feed/tail calls and waits for the actual native tail before declaring drain.
+
+## Diagnostics
+
+The app is labelled `HITEL PCM File R4`; copied diagnostics include
+`build=PCM_FILE_R4`, `STT=false`, `TTS=false`.
+`MY_PACKAGE_REPLACED` clears old logs after an APK update; first launch also
+checks the install/update timestamp. Only four named diagnostic files are
+removed. Models and credentials are not traversed or deleted. A second button
+clears logs while running; native trace clearing is serialized on its writer.
+Copied logs contain only the current files' bounded tails (about 18 KB), not
+the previous rotated trace. Native files rotate at 512 KiB and the protocol
+log is capped at 128 KiB.
+
+Useful events are `file.response.begin`, `file.decode.begin`,
+`file.source.format`, `file.first_segment` (`beforeFileEnd=true`),
+`file.first_pcm`, `file.pcm.progress`, `file.decode.done`,
+`file.response.end`, and the existing speaker / mouth-frame events.
+
+## Verification limits
+
+Workflow: `.github/workflows/essence2-file-reply-r4.yml`.
+The APK is built and its original native/model hashes are checked. JVM checks
+exercise the reused real chunker at 48-to-16-kHz conversion, first callback
+before source end, 100-ms packets and continuous PCM; these do not execute an
+Android AAC decoder. A separate JVM filesystem check verifies reset on an
+install change and preservation of model/credential files.
+This workflow does not run an emulator or claim a Galaxy GPU/speaker test.
