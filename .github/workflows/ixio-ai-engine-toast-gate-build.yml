@@ -10,6 +10,7 @@ on:
       - tools/ixio/ixio_ai_engine_toast_gate_qa.py
       - tools/ixio/ixio_ai_engine_toast_gate_verify.py
       - tools/ixio/ixio_retry_error_inventory.py
+      - tools/ixio/ixio_emulator_dialog_fixture.py
   workflow_dispatch:
 permissions:
   contents: write
@@ -131,6 +132,9 @@ jobs:
           python3 tools/ixio/ixio_ai_engine_toast_gate_qa.py \
             --smali16 .ixio-pages-build/smali16 --smali18 .ixio-pages-build/smali18 \
             --report ixio-pages-qa-results/ai-engine-toast-gate-diff.json
+          python3 tools/ixio/ixio_emulator_dialog_fixture.py \
+            --root .ixio-pages-build \
+            --report ixio-pages-qa-results/emulator-only-dialog-fixture.json
           python3 tools/ixio/ixio_retry_error_inventory.py \
             --root .ixio-pages-build \
             --apk .ixio-pages-build/apk/IXIO_Main_NoAppSealing_Single.apk \
