@@ -102,6 +102,9 @@ def prepare(app, plugin, sources, report):
     s = once(s, '    private fun pushPlayout(s: AvatarSession, force: Boolean = false) {\n',
         '    private fun pushPlayout(s: AvatarSession, force: Boolean = false) {\n'
         '        fileAudio?.setPendingSamples(s.fedSamples - s.playedSamples)\n')
+    s = once(s, '        s.fedSamples += pcm.size / 2\n',
+        '        s.fedSamples += pcm.size / 2\n'
+        '        fileAudio?.setPendingSamples(s.fedSamples - s.playedSamples)\n')
     assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in s
     assert 'val forceCopy = true' not in s and 'return AvatarPlayer(' in s
     target.write_text(s, encoding='utf-8')
