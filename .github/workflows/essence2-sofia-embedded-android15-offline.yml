@@ -15,6 +15,7 @@ on:
       - tools/bithuman_deep/wait_essence2_playout_complete.py
       - tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
       - tools/bithuman_deep/prepare_essence2_korean_10s.py
+      - tools/bithuman_deep/prepare_essence2_generated_ko_10s.py
       - tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm
 permissions:
   contents: write
@@ -60,6 +61,14 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install Korean PCM preparation tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python3 -m pip install --user 'edge-tts>=7.0,<9.0'
+
       - name: Assemble five-sample local Android bundle loader and debug mock
         shell: bash
         run: |
@@ -67,7 +76,7 @@ jobs:
           APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
-          python3 -m py_compile tools/bithuman_deep/prepare_essence2_vendor_speech_player.py tools/bithuman_deep/wait_essence2_playout_complete.py
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_vendor_speech_player.py tools/bithuman_deep/wait_essence2_playout_complete.py tools/bithuman_deep/prepare_essence2_generated_ko_10s.py tools/bithuman_deep/prepare_essence2_korean_10s.py
           # Regression inputs must be pristine: the assembly below mutates APP.
           ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
             python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
@@ -83,13 +92,22 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-synthetic-auth.json"
           python3 tools/bithuman_deep/prepare_essence2_device_diagnostics.py \
             --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/device-diagnostics.json"
-          # Reuse the existing checked-in test voice, cut to exactly 10.000 seconds.
-          # No new voice, models, playback engine or per-chunk clock pacing.
-          ORIGINAL="tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm"
-          test "$(sha256sum "$ORIGINAL" | cut -d ' ' -f 1)" = "8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098"
-          head -c 480000 "$ORIGINAL" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          # Korean speech ONLY. Fail the job if a 10-second Korean fixture cannot
+          # be produced; the original English fixture must never be used here.
+          python3 tools/bithuman_deep/prepare_essence2_generated_ko_10s.py \
+            --output-pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/korean-voice-10s.json" \
+            --scratch "$GITHUB_WORKSPACE/essence2-local-mock-proof/korean-audio-source"
           test "$(wc -c < "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm")" -eq 480000
-          echo PASS_EXACTLY_TEN_SECONDS_EXISTING_PCM_24K
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('essence2-local-mock-proof/korean-voice-10s.json').read_text())
+          assert a['language']=='ko-KR' and a['voice'].startswith('ko-KR-')
+          assert a['english_fallback'] is False
+          assert a['output_duration_seconds']==10.0 and a['output_bytes']==480000
+          print('PASS_EXACTLY_10S_KOREAN_VOICE_NOT_ENGLISH', a['output_sha256'])
+          PY
           python3 tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py \
             --app "$APP" \
             --pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
@@ -236,7 +254,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -246,7 +264,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -254,7 +272,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -279,7 +297,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
       - name: Verify captured virtual speaker contains the actual test speech
         if: always()
         run: |
@@ -287,25 +305,27 @@ jobs:
             --wav essence2-sofia-offline-proof/emulator-speaker.wav \
             --reference essence2-local-mock-proof/voiced-test.pcm \
             --report essence2-sofia-offline-proof/speaker-verification.json
-      - name: Publish the tested HITEL local APK requested by the user
+      - name: Publish Korean APK for actual phone installation even if virtual speaker test failed
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-10s-nowait-20261123
-          APK=HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
+          TAG=hitel-essence2-sofia-korean-10s-nowait-20261123
+          APK=HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk
+          test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          Essence2 Sofia 10s NoWait: sends all PCM without 100ms wall-clock pacing; calls endOfAudio and starts audio-clock video playback once the expected SDK frames are ready and its output queue is empty. Uses first 10 seconds of the EXISTING spoken-English fixture for this build; this is NOT the Korean recording. No native SDK/model changes; original package and app UI retained. Android 15 emulator results are specific to the CI run. Physical device and real AI service remain unverified.
+          Korean 10s INSTALLATION TEST: uses a Korean ko-KR synthetic test voice generated at build time, NOT the user's original M4A. No English voice is bundled as the spoken reply. The voice is exactly 10 seconds, 24kHz mono PCM16. Sends full PCM without 100ms wall-clock pacing, renders speech frames before playing audio-clock synchronized voice and mouth. Sofia SDK/model and original screen unchanged. Android emulator speaker verification is independent and may report failure; phone playback is not assumed verified.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 Sofia - vendor audio and lip-sync playback' \
+              --title 'HITEL Essence2 Sofia - Korean 10s installation TEST' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -317,7 +337,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
-          path: HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
+          path: HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
