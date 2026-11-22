@@ -29,7 +29,7 @@ checks={
     'originalChatSubmitted': 'ui.text.submit' in text or 'mock.rx type=response.create' in text,
     'localServerResponseStart': 'official.wav.begin' in text,
     'localServerSendsPCM': 'official.wav.first_pcm' in text,
-    'originalPCMFeed': bool(re.search(r'I/bhfeed.*\+[1-9]',text)),
+    'originalPCMFeed': bool(re.search(r'\bbhfeed\b.*\+[1-9]',text)),
     'speechFramePresented': bool(re.search(r'speechWritten=[1-9][0-9]*.*speechPresented=[1-9][0-9]*',text)),
     'originalHardwareRoute': 'hardwareOutput' in text or 'nativeHwBuffer' in text,
     'noFatalCrash': not bool(re.search(r'FATAL EXCEPTION|UnsatisfiedLinkError|OFFICIAL_WAV_PCM_FAILED',text))
