@@ -14,7 +14,7 @@ permissions:
   contents: write
 jobs:
   verify-existing-apk:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       SOURCE_RUN: ${{ inputs.source_run || '44980417978' }}
@@ -44,6 +44,9 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p essence2-local-mock-proof/emulator
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
           {
             uname -a
             lscpu
@@ -61,6 +64,7 @@ jobs:
               test -r /dev/kvm && test -w /dev/kvm
             else
               echo "KVM_DEVICE_UNAVAILABLE"
+              exit 1
             fi
           } 2>&1 | tee essence2-local-mock-proof/emulator/kvm.txt
       - name: Set up audio output
@@ -78,8 +82,11 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
+          profile: pixel_2
+          disk-size: 4096M
+          cores: 2
           disable-linux-hw-accel: auto
-          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data -camera-back none -camera-front none
           disable-animations: true
           emulator-boot-timeout: 900
           script: bash tools/bithuman_deep/hitel_unified/tests/emulator_rtc_gate.sh
@@ -100,7 +107,7 @@ jobs:
           TAG=hitel-unified-rtc-emulator-${GITHUB_RUN_ID}
           grep -Fxq PASS_ANDROID_EMULATOR_ACTUAL_APK_RTC_GATE essence2-local-mock-proof/emulator/result.txt
           sha256sum "$APK" > "$APK.sha256"
-          gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC loopback emulator verified" --notes "Actual ARM64 APK from build run $SOURCE_RUN. Emulator verified decoded RTP video, nonzero received audio energy and first rendered frame; physical-phone GPU performance remains separate."
+          gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC loopback emulator verified" --notes "Actual ARM64 APK from build run $SOURCE_RUN. Emulator verified decoded RTP video, nonzero received audio energy, first rendered frame and non-silent speaker capture; physical-phone GPU performance remains separate."
           url="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$APK\") | .url")"
           curl -fL --retry 3 --retry-all-errors "$url" -o downloaded.apk
           cmp "$APK" downloaded.apk
