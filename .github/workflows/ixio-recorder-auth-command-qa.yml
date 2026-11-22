@@ -1,0 +1,74 @@
+name: IXIO recorder precise auth and coroutine QA pair
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths:
+      - .github/workflows/ixio-recorder-auth-command-qa.yml
+      - tools/ixio/ixio_recorder_auth_command_qa.py
+      - tools/ixio/recorder_debug/GateTrace.java
+permissions: {contents: write, actions: read}
+jobs:
+  build-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover signed QA base pair and validate
+        run: |
+          set -euo pipefail
+          mkdir -p base work out evidence work/d8 work/classes
+          gh run download 44994556472 --name IXIO_Recorder_Log_UI_QA_Pair --dir base
+          (cd base && sha256sum -c SHA256SUMS.txt)
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+      - name: Build restricted same-signature QA acceptance and exact logging sites
+        run: |
+          set -euo pipefail
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          javac -source 8 -target 8 -cp "$ANDROID_HOME/platforms/android-34/android.jar" -d work/classes tools/ixio/recorder_debug/RecorderLog.java tools/ixio/recorder_debug/GateTrace.java
+          "$BT/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-34/android.jar" --output work/d8 work/classes/com/lguplus/callrecorder/hitelqa/GateTrace.class
+          python3 -m py_compile tools/ixio/ixio_recorder_auth_command_qa.py
+          python3 tools/ixio/ixio_recorder_auth_command_qa.py --apk base/IXIO_Recorder_RecorderLogQA_20261122.apk --work work/recorder --baksmali work/baksmali.jar --smali work/smali.jar --helper work/d8/classes.dex --out work/recorder-unsigned.apk --report evidence/recorder-sites.json
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Recorder Auth Channel QA'
+          "$BT/zipalign" -p -f 4 base/IXIO_Main_RecorderLogQA_20261122.apk work/main-aligned.apk
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Main_AuthChannelQA_20261122.apk work/main-aligned.apk
+          "$BT/zipalign" -p -f 4 work/recorder-unsigned.apk work/recorder-aligned.apk
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Recorder_AuthChannelQA_20261122.apk work/recorder-aligned.apk
+          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Main_AuthChannelQA_20261122.apk > evidence/main-signer.txt
+          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Recorder_AuthChannelQA_20261122.apk > evidence/recorder-signer.txt
+          a="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/main-signer.txt)"
+          b="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/recorder-signer.txt)"
+          test -n "$a";test "$a" = "$b"
+          echo "BOTH_APKS_SAME_QA_SIGNER=YES"
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          python3 - <<'PY'
+          import json
+          x=json.load(open('evidence/recorder-sites.json'))
+          assert len(x['changed_methods'])>=9 and len(x['injection_sites'])>=20,x
+          assert x['original_non_target_entries_unchanged']
+          print('INSTRUMENTATION_ASSERTIONS_OK',len(x['changed_methods']),len(x['injection_sites']))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Recorder_AuthChannel_QA_Signed_Pair
+          path: |
+            out/
+            evidence/
+      - name: Publish QA APK pair and compare real public downloads
+        run: |
+          set -euo pipefail
+          tag=ixio-recorder-auth-channel-qa-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO Recorder auth/channel device QA" --notes "Recorder-only logic change: original vendor pin retained; if it rejects, known com.lguplus.aicallagent caller can pass only when both installed apps share an identical signing certificate. Exact auth, permissions, queue, coroutine, recording-stage logs in existing RecorderLog. Main APK code unchanged, but pair freshly re-signed. Physical call and recording not verified; installing over a different signer requires uninstall (backup app data first)."
+          gh release upload "$tag" out/*.apk out/SHA256SUMS.txt --clobber
+          for f in out/*.apk;do
+            n="$(basename "$f")"
+            code="$(curl -fLsS --retry 3 --max-time 180 -w '%{http_code}' -o work/verify.apk "https://github.com/$GH_REPO/releases/download/$tag/$n")"
+            test "$code" = 200
+            cmp "$f" work/verify.apk
+            echo "EXTERNAL_DOWNLOAD_VERIFIED $n HTTP=$code"
+          done
