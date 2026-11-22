@@ -1,0 +1,49 @@
+name: Publish verified HITEL unified phase 1 APK
+on:
+  push:
+    branches:
+      - feature/hitel-unified-webrtc-android-20261122
+    paths:
+      - .github/workflows/publish-hitel-unified-phase1-apk.yml
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish-existing-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download exact successful build without rebuilding
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN=44972825818
+          SHA=e59d370df442a29c6c55e7e3b79c01d522d9da34
+          gh api "repos/$GH_REPO/actions/runs/$RUN" > run.json
+          jq -e --arg sha "$SHA" '.conclusion == "success" and .head_sha == $sha' run.json
+          gh api "repos/$GH_REPO/actions/runs/$RUN/artifacts" > artifacts.json
+          jq -e '.artifacts[] | select(.id == 14734656941 and .expired == false and .name == "HITEL_UNIFIED_ANDROID_PHASE1_APK")' artifacts.json
+          gh run download "$RUN" --name HITEL_UNIFIED_ANDROID_PHASE1_APK --dir apk
+          gh run download "$RUN" --name hitel-unified-phase1-build-evidence --dir evidence
+          APK=HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk
+          test -s "apk/$APK"
+          EXPECTED="$(awk 'NR==1{print $1}' evidence/apk-sha256.txt)"
+          [[ "$EXPECTED" =~ ^[a-f0-9]{64}$ ]]
+          echo "$EXPECTED  apk/$APK" | sha256sum -c -
+          unzip -t "apk/$APK" | tail -1
+          (cd apk && sha256sum "$APK" > "${APK}.sha256")
+      - name: Publish independent APK release and verify direct download
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-unified-android-phase1-20261122
+          APK=HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk
+          gh release create "$TAG" "apk/$APK" "apk/${APK}.sha256" --target e59d370df442a29c6c55e7e3b79c01d522d9da34 --title "HITEL unified Android phase 1 test APK" --prerelease --latest=false --notes "Exact byte-verified APK from successful run 44972825818. Experimental avatar WebRTC, ARCore and communication client. APK build passed; physical-device and Fly SFU testing incomplete."
+          URL="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$APK\") | .url")"
+          curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
+          cmp "apk/$APK" downloaded.apk
+          echo "PASS_EXACT_RELEASE_DOWNLOAD_BYTE_IDENTICAL $URL"
