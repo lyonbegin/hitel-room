@@ -110,7 +110,10 @@ def main():
     print("NATIVE_BRIDGE",adb("shell","getprop","ro.dalvik.vm.native.bridge").strip(),flush=True)
     adb("uninstall",PKG,timeout=18)
     adb("logcat","-c")
-    install=adb("install",APK,timeout=55)
+    row_test=os.environ.get("HITEL_QA_RECORDING_ROW_TEST")=="1"
+    # Disposable emulator only: grant declared Android runtime permissions on install.
+    # No application entitlement, carrier account, signature permission or state is changed.
+    install=adb("install",*(["-g"] if row_test else []),APK,timeout=55)
     print("INSTALL_RESULT",install.strip(),flush=True)
     if "Success" not in install:
         raise RuntimeError("Cannot install target single APK: "+install[:700])
@@ -149,10 +152,48 @@ def main():
     settings_scroll_count=0
     emulator_app_relaunch_attempts=0
     qa_log_buttons_verified=False
+    repeated_permission_intro=0
+    row_home_waits=0
     stop_reason="EXHAUSTED_STEPS"
     for i in range(50):
         nodes,visible=snapshot(i)
         joined=" ".join(visible)
+        if row_test:
+            intro="권한을 허용해 주세요" in joined and "익시오 서비스 이용을 위한" in joined
+            repeated_permission_intro=repeated_permission_intro+1 if intro else 0
+            if repeated_permission_intro>=3:
+                for package in (PKG,"com.lguplus.callrecorder"):
+                    (OUT/f"permission-loop-{package}.txt").write_text(adb("shell","dumpsys","package",package,timeout=25),encoding="utf8")
+                print("PERMISSION_INTRO_REPEATED_AFTER_RUNTIME_GRANTS",flush=True)
+                stop_reason="PERMISSION_INTRO_LOOP"
+                break
+            # Stop at the original settings row, not at the unrelated AI-model menu.
+            row_labels={"통화 녹음","통화녹음","통화 자동 녹음","통화 녹음 설정"}
+            if main_settings_tab_opened and any(x in row_labels for x in visible):
+                print("ORIGINAL_RECORDING_ROW_SCREEN_REACHED",flush=True)
+                stop_reason="RECORDING_ROW_SCREEN_REACHED"
+                break
+            if all(x in joined for x in ("최근 기록","연락처","키패드","디스커버")) and not ("통화 녹음 및 AI 기능 사용을 위해" in joined and "설정을 완료해 주세요" in joined):
+                home_screen_seen=True
+                row_home_waits+=1
+                if row_home_waits<=2:
+                    time.sleep(5)
+                    continue
+                settings_nodes=[n for n in nodes if (n.get("text","")+" "+n.get("content-desc","")).strip()=="설정"]
+                candidates=[choose([n],["설정"]) for n in settings_nodes]
+                candidates=[n for n in candidates if n]
+                if candidates:
+                    main_settings_tab_opened=True
+                    tap(max(candidates,key=lambda x:x[1]),"OPEN_BOTTOM_SETTINGS_FOR_REAL_ROW_TEST")
+                    continue
+            if main_settings_tab_opened:
+                if settings_scroll_count<3:
+                    settings_scroll_count+=1
+                    adb("shell","input","swipe","540","1790","540","525","500")
+                    time.sleep(3)
+                    continue
+                stop_reason="RECORDING_ROW_NOT_VISIBLE"
+                break
         # QA-only: verify the log clear/copy buttons at the STABLE first
         # onboarding screen, not during the transient blank OAuth callback.
         # Other IXIO test workflows never set this environment variable.

@@ -2,7 +2,7 @@ name: IXIO actual recording row live Flow repair and UI test
 on:
   push:
     branches: [fix/ixio-main-dual-settings-qa-20261122]
-    paths: [.github/workflows/ixio-recording-compose-live-flow.yml, tools/ixio/ixio_recording_compose_live_flow.py]
+    paths: [.github/workflows/ixio-recording-compose-live-flow.yml, tools/ixio/ixio_recording_compose_live_flow.py, tools/ixio/ixio-pages-qa-emulator-robot.py, tools/ixio/ixio_recording_row_ui_assert.py]
 permissions: {contents: write, actions: read}
 jobs:
   test:
@@ -51,8 +51,10 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            adb install work/companion-test.apk
-            python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+            set -eu
+            adb install -g work/companion-test.apk
+            python3 -m py_compile tools/ixio/ixio-pages-qa-emulator-robot.py tools/ixio/ixio_recording_row_ui_assert.py
+            HITEL_QA_RECORDING_ROW_TEST=1 python3 tools/ixio/ixio-pages-qa-emulator-robot.py
             python3 tools/ixio/ixio_recording_row_ui_assert.py
       - uses: actions/upload-artifact@v4
         if: always()
@@ -62,6 +64,8 @@ jobs:
             evidence/
             ixio-pages-qa-emulator-evidence/result.json
             ixio-pages-qa-emulator-evidence/stage-*-ui.xml
+            ixio-pages-qa-emulator-evidence/stage-*.png
+            ixio-pages-qa-emulator-evidence/permission-loop-*.txt
       - name: Publish APK and ZIP only after actual UI toggle test passes
         run: |
           set -euo pipefail
