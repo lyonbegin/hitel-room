@@ -1,0 +1,13 @@
+name: avatar_chat
+description: Minimal Flutter shell for the official Android Essence2 PCM quickstart
+publish_to: none
+version: 0.2.0
+environment:
+  sdk: ^3.11.5
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/speech.wav

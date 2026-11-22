@@ -1,0 +1,111 @@
+name: Essence2 minimal Flutter official feed pull quickstart
+on:
+  push:
+    branches: [feature/hitel-essence2-flutter-direct-quickstart-20261122]
+    paths: ['.github/workflows/essence2-flutter-direct-quickstart.yml', 'tools/bithuman_deep/quickstart_flutter_direct/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: subosito/flutter-action@v2
+        with: {flutter-version: '3.41.9', channel: stable, cache: true}
+      - name: Assemble official Android SDK and minimal Flutter shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/bithuman-product/bithuman-examples.git upstream
+          git -C upstream checkout --detach fea69e72515af7d05f384a9d2147ac0cc181b411
+          APP="$GITHUB_WORKSPACE/upstream/app/avatar_chat"
+          SRC="$GITHUB_WORKSPACE/tools/bithuman_deep/quickstart_flutter_direct"
+          cp "$SRC/main.dart" "$APP/lib/main.dart"
+          cp "$SRC/pubspec.yaml" "$APP/pubspec.yaml"
+          cp "$SRC/MainActivity.kt" "$APP/android/app/src/main/kotlin/ai/bithuman/example/avatar_chat/MainActivity.kt"
+          cp "$SRC/Wav.kt" "$APP/android/app/src/main/kotlin/ai/bithuman/example/avatar_chat/Wav.kt"
+          mkdir -p "$APP/assets"
+          cp "$GITHUB_WORKSPACE/upstream/python/quickstart/speech.wav" "$APP/assets/speech.wav"
+          python3 - <<'PY'
+          from pathlib import Path
+          app=Path("upstream/app/avatar_chat")
+          p=app/"android/app/build.gradle.kts"
+          s=p.read_text()
+          anchor='    id("com.android.application")\n'
+          assert s.count(anchor)==1
+          s=s.replace(anchor,anchor+'    id("org.jetbrains.kotlin.android")\n',1)
+          name='val bhLabel = if (bhModel == "essence2") "bitHuman Essence-2" else "bitHuman Expression-2"'
+          assert s.count(name)==1
+          s=s.replace(name,'val bhLabel = if (bhModel == "essence2") "HITEL E2 Direct" else "bitHuman Expression-2"')
+          p.write_text(s+'\n\ndependencies { implementation("ai.bithuman:essence2-android:0.9.5") }\n')
+          p=app/"android/build.gradle.kts"
+          s=p.read_text()
+          anchor='        mavenCentral()\n'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,anchor+'        maven { url = uri("https://maven.bithuman.ai") }\n',1))
+          original=Path("upstream/android/essence2-hello/app/src/main/java/com/example/e2hello/Wav.kt").read_text().replace("package com.example.e2hello","package ai.bithuman.example.avatar_chat")
+          native=app/"android/app/src/main/kotlin/ai/bithuman/example/avatar_chat/MainActivity.kt"
+          assert original == (native.parent/"Wav.kt").read_text()
+          assert "bithuman:" not in (app/"pubspec.yaml").read_text()
+          code=native.read_text()
+          for part in ("Essence2Avatar.create","avatar.feed","avatar.pull"): assert part in code
+          for part in ("AvatarPlayer","PlayoutClock","nStale","nCatchUp"): assert part not in code
+          print("PASS_ORIGINAL_ANDROID_FEED_PULL_NO_FLUTTER_AVATARPLAYER")
+          PY
+          mkdir -p quickstart-proof
+          sha256sum "$APP/assets/speech.wav" > quickstart-proof/speech-wav.sha256
+      - name: Build ARM64 APK
+        working-directory: upstream/app/avatar_chat
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart
+          ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug --target-platform android-arm64 2>&1 | tee "$GITHUB_WORKSPACE/quickstart-proof/build.log"
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/quickstart-proof/aapt.txt"
+          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/quickstart-proof/aapt.txt"
+          grep -Fq "application-label:'HITEL E2 Direct'" "$GITHUB_WORKSPACE/quickstart-proof/aapt.txt"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Flutter_DirectQuickstart_20261122_ARM64.apk"
+          echo PASS_DIRECT_ESSENCE2_APK_COMPILED
+      - name: Publish verified HTTPS APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          APK=HITEL_Essence2_Flutter_DirectQuickstart_20261122_ARM64.apk
+          TAG=hitel-essence2-flutter-direct-quickstart-20261122
+          sha256sum "$APK" > "$APK.sha256"
+          cat > release-notes.md <<'EOF'
+          Minimal Flutter Texture shell using original Android Essence2 SDK:
+          Essence2ModelStore -> Essence2Avatar.create -> feed(original 16k mono PCM16 in 10ms chunks) -> endOfAudio -> pull -> draw every frame.
+          Official Wav.kt and speech.wav. No Flutter AvatarPlayer, stale/catchUp/PlayoutClock, custom motion, GPU binary patch.
+          Requires bitHuman API secret entered manually, not stored. Original model downloaded on first run.
+          Compiled APK and public link tested in CI; NOT physically tested on a phone.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" "$APK.sha256" --clobber
+            gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
+          else
+            gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --title 'HITEL Essence2 Direct Quickstart' --notes-file release-notes.md --prerelease --latest=false
+          fi
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[]|select(.name=="HITEL_Essence2_Flutter_DirectQuickstart_20261122_ARM64.apk")|.url')"
+          curl -fL --retry 3 --retry-all-errors "$URL" -o verified.apk
+          cmp "$APK" verified.apk
+          echo "PASS_HTTPS_DOWNLOAD_BYTE_IDENTICAL $URL"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HITEL_Essence2_Direct_Proof
+          path: quickstart-proof/
+          retention-days: 14
