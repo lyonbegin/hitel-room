@@ -1,4 +1,4 @@
-name: Essence2 original server PCM24 NEW R2 (distinct Android label)
+name: Essence2 original PCM24 sync and static idle R3
 on:
   workflow_dispatch:
   push:
@@ -127,7 +127,7 @@ jobs:
           # Probe is installed before native create. No changes to model loading or player control.
           patch('BithumanPlugin.kt', [
               ('        hitelDiagnostics = HitelDiagnostics(binding)\n', '        hitelDiagnostics = HitelDiagnostics(binding)\n        HitelSdkProbe.install(binding.applicationContext)\n'),
-              ('val clockOn = PlayoutClock.enabled(clockLever, skipAhead, Essence2Engine.SKIP_AHEAD_DEFAULT)', 'val clockOn = false // baseline: disable SDK skip-ahead'),
+              ('val clockOn = PlayoutClock.enabled(clockLever, skipAhead, Essence2Engine.SKIP_AHEAD_DEFAULT)', 'val clockOn = PlayoutClock.enabled(clockLever, skipAhead, true) // vendor skip-ahead for lag recovery'),
               ('        val e = Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)\n', '        val e = Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)\n        HitelE2Trace.event("sdk.original.route", "hardwareOutput" to e.hardwareFrames, "skipAhead" to clockOn, "width" to avatar.width, "height" to avatar.height)\n        HitelSdkProbe.requestSnapshot(0)\n'),
           ])
           # Direct server PCM24 fixture: decoder bridge is completely absent.
@@ -141,26 +141,40 @@ jobs:
           ])
           patch('AvatarPlayer.kt', [
               ('        if (u.speech) nPresSpeech++\n', "        if (u.speech) nPresSpeech++\n        if (u.speech && u.kind == 'S') HitelSdkProbe.originalPresented()\n"),
+              ('    private var shown = 0L\n', '    private var shown = 0L\n    private var lastBlitIdleEpoch = -1\n'),
+              ('            if (heldFrom < 0 && !pending) {\n                if (slotSeq[slot] > presentedSeq) nRingOverrun++\n',
+               '            if (heldFrom < 0 && !pending) {\n                if (slotSeq[slot] > presentedSeq) { where = "ring-wait-speech"; nRingWait++; Thread.sleep(2); continue }\n'),
+              ('            if (slotSeq[slot] > presentedSeq) nRingOverrun++\n            where = "idle-decode"\n',
+               '            if (slotSeq[slot] > presentedSeq) { where = "ring-wait-idle"; nRingWait++; Thread.sleep(2); continue }\n            where = "idle-decode"\n'),
+              ('    @Volatile private var nRingOverrun = 0L\n', '    @Volatile private var nRingOverrun = 0L\n    @Volatile private var nRingWait = 0L\n'),
+              ('                "catchUp=$nCatchUp await=$nAwait hold=$nHold stale=$nStale back=$nBackwards ringOverrun=$nRingOverrun starve=${starve.count} barges=$nBarge leaks=$nLeak " +\n',
+               '                "catchUp=$nCatchUp await=$nAwait hold=$nHold stale=$nStale back=$nBackwards ringOverrun=$nRingOverrun ringWait=$nRingWait starve=${starve.count} barges=$nBarge leaks=$nLeak " +\n'),
+              ('        stats.inFlight = toPresent.size\n        onFrame(u.frame)\n',
+               "        stats.inFlight = toPresent.size\n        if (u.kind == 'I' && lastBlitIdleEpoch == u.epoch) return // static idle texture\n        lastBlitIdleEpoch = if (u.kind == 'I') u.epoch else -1\n        onFrame(u.frame)\n"),
           ])
           # Assert the original pipeline is selected, not the independent audio-master renderer.
           plugin=(root/'BithumanPlugin.kt').read_text()
           assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in plugin
-          assert 'val clockOn = false' in plugin
+          assert 'val clockOn = PlayoutClock.enabled(clockLever, skipAhead, true)' in plugin
           assert 'val p = newPlayer(s)' in plugin and 'return AvatarPlayer(' in plugin
           assert 'p.offer(pcm, fedStart)' in plugin and 'surface.lockHardwareCanvas()' in plugin
           assert 'OfficialEssence2FileEngine' not in plugin and 'HitelVoiceSync' not in plugin
           assert not (root/'OfficialEssence2FileEngine.kt').exists()
           assert not (root/'HitelVoiceSync.kt').exists()
-          # Remove the observation-only statements and compare original control logic byte-for-byte.
+          # The Essence2 engine is unchanged apart from observation hooks.
+          # The player has only bounded ownership guards and a static idle texture.
           archive=Path('vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter')
-          for unit in ('AvatarEngine.kt','AvatarPlayer.kt'):
-              clean=''.join(line for line in (root/unit).read_text().splitlines(keepends=True) if 'HitelSdkProbe.original' not in line)
-              assert clean==(archive/unit).read_text(), 'Original playback implementation changed: '+unit
-          print('PASS_ORIGINAL_STREAMING_ENGINE_PLAYER_NO_CUSTOM_SYNC_NO_SDK_SKIP_AHEAD')
+          clean_engine=''.join(line for line in (root/'AvatarEngine.kt').read_text().splitlines(keepends=True) if 'HitelSdkProbe.original' not in line)
+          assert clean_engine==(archive/'AvatarEngine.kt').read_text()
+          player=(root/'AvatarPlayer.kt').read_text()
+          assert player.count('where = "ring-wait-') == 2
+          assert "if (u.kind == 'I' && lastBlitIdleEpoch == u.epoch) return" in player
+          assert 'ringWait=$nRingWait' in player
+          print('PASS_ORIGINAL_PCM24_SYNC_R3_GUARDED_HARDWARE_SLOTS_STATIC_IDLE')
           PY
           # Distinguish the original-player diagnostic build.
-          sed -i 's/PCM_FILE_NEW_PCM24_R2/PCM24_ORIGINAL_SERVER_STREAM_NEW_R2_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM24_ORIGINAL_SERVER_STREAM_NEW_R2_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_SYNC_R3/PCM24_SYNC_R3_STATIC_IDLE_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM24_SYNC_R3_STATIC_IDLE_20261122' "$APP/lib/main.dart"
           grep -Fq 'sdk.backend.native' "$PLUGIN/$NATIVE/HitelSdkProbe.kt"
           grep -Fq 'hitel_sdk_backend.log' "$PLUGIN/$NATIVE/HitelE2Trace.kt"
           grep -Fq 'hitel_sdk_backend.log' "$APP/lib/main.dart"
@@ -351,8 +365,8 @@ jobs:
           test -x "$AAPT"
           "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
           grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "application-label:'HITEL PCM24 NEW R2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          echo PASS_SAME_PACKAGE_NAME_AND_DISTINCT_VISIBLE_LAUNCHER_LABEL_R2
+          grep -Fq "application-label:'HITEL SYNC R3'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          echo PASS_SAME_PACKAGE_NAME_AND_DISTINCT_VISIBLE_LAUNCHER_LABEL_R3
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
@@ -363,7 +377,7 @@ jobs:
           grep -Fxq 'assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           ! grep -Fq 'hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -373,7 +387,7 @@ jobs:
           set -euo pipefail
           cmp \
             essence2-sdk-local/patched-lible_jni.so \
-            <(unzip -p HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ADRENO_WG128_PATCH_IN_APK_BYTE_IDENTICAL
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -381,7 +395,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -390,7 +404,7 @@ jobs:
         run: |
           set -euo pipefail
           cmp tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm \
-            <(unzip -p HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm)
+            <(unzip -p HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm)
           echo PASS_PCM24_FIXTURE_BYTE_IDENTICAL_IN_APK
           test ! -f essence2-local-mock-plugin/android/src/main/java/ai/bithuman/flutter/FilePcmStream.java
           test ! -f essence2-local-mock-plugin/android/src/main/kotlin/ai/bithuman/flutter/HitelFileAudioSource.kt
@@ -402,24 +416,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk
-          TAG=hitel-essence2-original-pcm24-new-r2-20261122
+          APK=HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk
+          TAG=hitel-essence2-pcm24-sync-r3-idle-hold-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Experimental original OpenCL Director mode=1, existing quality grading and CPU fallback preserved; four native instruction words align actual convolution Y=1 with both fast and image kernel selection checks. Actual OpenCL API create, max workgroup, sampled enqueue geometry/return, per-window JNI timings and HardwareBuffer slot observations. Original PCM and player retained. Device runtime and quality remain to be tested.
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
-          Unique visible app launcher label: HITEL PCM24 NEW R2. Same package ID as old APK, explicit R2 name on launcher. Separate APK filename, release tag, manifest and test marker.\n          Input-only A/B: this build sends the original 24 kHz PCM fixture from the local mock server into the byte-identical original realtime receiver and playSpeakerPCM. No M4A, MediaCodec, FilePcmStream, pre-wire resampling, or file-audio MethodChannel. The previous Director/WG128 changes, original lead/ready queues, audio writer/presenter and diagnostic hooks are unchanged.
+          Unique visible app launcher label: HITEL SYNC R3. Same package ID, original PCM24 server, SDK skip-ahead, safe HardwareBuffer ownership, static idle texture. Separate APK filename, release tag, manifest and test marker.\n          Input-only A/B: this build sends the original 24 kHz PCM fixture from the local mock server into the byte-identical original realtime receiver and playSpeakerPCM. No M4A, MediaCodec, FilePcmStream, pre-wire resampling, or file-audio MethodChannel. The previous Director/WG128 changes, original lead/ready queues, audio writer/presenter and diagnostic hooks are unchanged.
           Evidence: sdk.backend.create_args (actual EP and native environment), sdk.backend.native (actual native branch messages including [borrow] compositor GPU/CPU and Director grade/demotion), sdk.backend.snapshot (render error code and Tessera state/counters, not inferred GPU use), separate hitel_sdk_backend.log preserved from startup. Recursive log capture removed. Original player's PROD stale/coalesced counters captured. No GPU backend forced; runtime profiling not yet verified on a physical phone.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Original PCM24 NEW R2 APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 PCM24 SYNC R3 IDLE HOLD APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -429,8 +443,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Original_PCM24_NEW_R2_APK
-          path: HITEL_Essence2_ORIGINAL_PCM24_NEW_R2_20261122_ARM64.apk
+          name: HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_APK
+          path: HITEL_Essence2_PCM24_SYNC_R3_IDLE_HOLD_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs

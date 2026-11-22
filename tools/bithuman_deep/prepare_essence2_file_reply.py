@@ -92,7 +92,7 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
 
 def prepare(app, plugin, sources, report, original_playback=False, official_streaming=False,
             detailed_trace=False, server_pcm24=False):
-    revision = 'NEW PCM24 R2' if server_pcm24 else ('R7 Trace' if detailed_trace else 'R7' if official_streaming else 'R6' if original_playback else 'R5')
+    revision = 'SYNC R3' if server_pcm24 else ('R7 Trace' if detailed_trace else 'R7' if official_streaming else 'R6' if original_playback else 'R5')
     assert not server_pcm24 or (official_streaming and detailed_trace)
     build_id = revision.replace(' ', '_').upper()
     folder = plugin / 'android/src/main/kotlin/ai/bithuman/flutter'
@@ -255,7 +255,7 @@ def prepare(app, plugin, sources, report, original_playback=False, official_stre
             '\nandroid { androidResources { noCompress += "m4a" } }\n', encoding='utf-8')
     manifest = app / 'android/app/src/main/AndroidManifest.xml'
     s = once(manifest.read_text(encoding='utf-8'), 'android:label="${appLabel}"',
-             ('android:label="HITEL PCM24 NEW R2"' if server_pcm24 else f'android:label="HITEL PCM File {revision}"'))
+             ('android:label="HITEL SYNC R3"' if server_pcm24 else f'android:label="HITEL PCM File {revision}"'))
     s = once(s, '    </application>', '''        <receiver android:name="ai.bithuman.flutter.HitelLogResetReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter>
         </receiver>
