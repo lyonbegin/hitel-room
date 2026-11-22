@@ -1,0 +1,78 @@
+name: IXIO actual recording row live Flow repair and UI test
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-recording-compose-live-flow.yml, tools/ixio/ixio_recording_compose_live_flow.py]
+permissions: {contents: write, actions: read}
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build actual UI-flow fix without changing recorder
+        run: |
+          set -euo pipefail
+          mkdir -p base work out evidence companion .ixio-start-test
+          gh run download 44984898526 --name IXIO_Main_LocalRecordingFix_Signed --dir base
+          f=base/IXIO_Main_LocalRecordingStateFix_20261122.apk
+          echo "552259ebfe6a8120edce15e93730170284e2a8031563f1749fb7dc59a621a3d5  $f" | sha256sum -c -
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+          python3 -m py_compile tools/ixio/ixio_recording_compose_live_flow.py
+          python3 tools/ixio/ixio_recording_compose_live_flow.py --apk "$f" --work work --baksmali work/baksmali.jar --smali work/smali.jar --out work/unsigned.apk --report evidence/fix.json
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Recording UI Test'
+          "$BT/zipalign" -p -f 4 work/unsigned.apk work/aligned.apk
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Main_RecordingLiveUI_20261122.apk work/aligned.apk
+          "$BT/apksigner" verify --verbose out/IXIO_Main_RecordingLiveUI_20261122.apk
+          cp out/IXIO_Main_RecordingLiveUI_20261122.apk .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+          gh run download 44969093217 --name IXIO_Recorder_Internal_Trace_Tested_APKs --dir companion
+          # Only the disposable emulator's companion copy is re-signed to support
+          # the original IPC. No companion APK is published or source modified.
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out work/companion-test.apk companion/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Main_RecordingLiveUI_Signed
+          path: out/
+      - run: sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            adb install work/companion-test.apk
+            python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+            python3 tools/ixio/ixio_recording_row_ui_assert.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Main_RecordingLiveUI_Evidence
+          path: |
+            evidence/
+            ixio-pages-qa-emulator-evidence/result.json
+            ixio-pages-qa-emulator-evidence/stage-*-ui.xml
+      - name: Publish APK and ZIP only after actual UI toggle test passes
+        run: |
+          set -euo pipefail
+          tag=ixio-main-recording-live-ui-20261122
+          f=IXIO_Main_RecordingLiveUI_20261122.apk
+          (cd out && zip -0 IXIO_Main_RecordingLiveUI_20261122.zip "$f")
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO live local recording settings row" --notes "Original Room Flow and original Compose collector. Actual UI toggle test passed in emulator; physical call PCM is not verified."
+          gh release upload "$tag" "out/$f" out/IXIO_Main_RecordingLiveUI_20261122.zip --clobber
+          for x in "$f" IXIO_Main_RecordingLiveUI_20261122.zip; do
+            code="$(curl -fLsS --retry 3 --max-time 180 -w '%{http_code}' -o work/verify "$([ 1 = 1 ] && echo "https://github.com/$GH_REPO/releases/download/$tag/$x")")"
+            test "$code" = 200
+            cmp "out/$x" work/verify
+            echo "EXTERNAL_DOWNLOAD_VERIFIED $x HTTP=$code"
+          done
