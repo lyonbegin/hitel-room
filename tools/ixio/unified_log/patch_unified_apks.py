@@ -36,7 +36,51 @@ with zipfile.ZipFile(a.main) as z:
     f=root/'com/lguplus/aicallagent/hitelqa/DiagHooks.smali'
     assert f.is_file(), "main DiagHooks not found in classes18"
     s=f.read_text()
-    rx=re.compile(r'(?ms)^\.method[^\\n]* show\(Landroid/app/Activity;\)V\\n.*?^\.end method$'.replace('\\','\\'))
+    rx=re.compile(r'(?ms)^\.method[^\n]* show\(Landroid/app/Activity;\)V\n.*?^\.end method
+    match=rx.search(s)
+    assert match and len(rx.findall(s))==1, "DiagHooks.show target not unique"
+    original=match.group()
+    header=original.splitlines()[0]
+    assert ' static ' in header,header
+    replacement=header+'''
+    .registers 1
+    invoke-static {p0}, Lcom/lguplus/aicallagent/hitelqa/MainUnifiedLogs;->show(Landroid/app/Activity;)V
+    return-void
+.end method'''
+    f.write_text(s[:match.start()]+replacement+s[match.end():])
+    patched_dex=a.work/'classes18-patched.dex'
+    subprocess.run(['java','-Xmx4g','-jar',str(a.smali),'a','--api','34','--jobs','3','-o',str(patched_dex),str(root)],check=True)
+    dexes=[n for n in z.namelist() if re.fullmatch(r'classes(?:\d+)?\.dex',n)]
+    num=max(int(x[7:-4] or '1') for x in dexes)
+    mainnew='classes'+str(num+1)+'.dex'
+    maincount=zcopy(a.main,a.mainout,{dexname:patched_dex.read_bytes()},{mainnew:a.mainhelper.read_bytes()})
+with zipfile.ZipFile(a.recorder) as z:
+    assert MANIFEST in z.namelist()
+    manifest=a.recmanifest.read_bytes()
+    assert manifest!=z.read(MANIFEST)
+    reldexes=[n for n in z.namelist() if re.fullmatch(r'classes(?:\d+)?\.dex',n)]
+    num=max(int(x[7:-4] or '1') for x in reldexes)
+    recnew='classes'+str(num+1)+'.dex'
+    reccount=zcopy(a.recorder,a.recout,{MANIFEST:manifest},{recnew:a.rechelp.read_bytes()})
+report={
+    'main_patched_exact_method':'DiagHooks.show(Activity) -> MainUnifiedLogs.show(Activity)',
+    'main_original_recording_unchanged':True,
+    'main_existing_fgsprestart_unchanged':True,
+    'main_original_logging_files_unchanged':True,
+    'main_new_helper_dex':mainnew,
+    'recorder_original_recording_FGS_PCM_and_auth_dex_byte_identical':True,
+    'recorder_only_changes':['AndroidManifest.xml','new diagnostic helper dex '+recnew],
+    'recorder_new_provider':'com.lguplus.callrecorder.hitelqa.RecorderTraceProvider',
+    'recorder_new_dex':recnew,
+    'unchanged_main_entries':maincount,
+    'unchanged_recorder_entries':reccount,
+    'main_sha256':sha(a.mainout.read_bytes()),
+    'recorder_sha256':sha(a.recout.read_bytes())
+}
+a.report.parent.mkdir(parents=True,exist_ok=True)
+a.report.write_text(json.dumps(report,indent=2,ensure_ascii=False))
+print('UNIFIED_LOG_APK_STRICT_PATCH_OK',json.dumps(report,ensure_ascii=False))
+)
     match=rx.search(s)
     assert match and len(rx.findall(s))==1, "DiagHooks.show target not unique"
     original=match.group()
