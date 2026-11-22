@@ -1,0 +1,30 @@
+name: Publish already-built main APK direct download
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-publish-main-direct-download.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Publish unchanged built main APK and verify anonymous HTTPS GET
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          gh run download 44982075792 --name IXIO_Main_DualSettings_Signed_APK --dir out
+          (cd out && sha256sum -c SHA256SUMS.txt)
+          f=IXIO_Main_DualSettings_QA_20261122.apk
+          tag=ixio-main-dual-settings-direct-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO main dual settings diagnostic APK" --notes "Exact already-built signed APK, no further modification or re-signing. Emulator installation succeeded; UI automation incomplete. Physical phone and recorder IPC not verified."
+          gh release upload "$tag" "out/$f" --clobber
+          code="$(curl -fLsS --retry 3 --max-time 120 -o downloaded.apk -w '%{http_code}' "https://github.com/$GH_REPO/releases/download/$tag/$f")"
+          test "$code" = 200
+          cmp "out/$f" downloaded.apk
+          echo "MAIN_DIRECT_DOWNLOAD_HTTP=$code"
+          sha256sum downloaded.apk
+          echo "MAIN_DIRECT_DOWNLOAD_BYTE_MATCH=YES"
