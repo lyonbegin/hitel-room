@@ -1,0 +1,44 @@
+name: Zocbo free past-exam page JavaScript capture
+on:
+  push:
+    branches:
+      - research/zocbo-free-reading-js-capture-20261123
+    paths:
+      - scripts/zocbo_free_reading/**
+      - .github/workflows/zocbo-free-reading-js-capture.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture-public-javascript:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install requests, Chromium and Playwright
+        run: |
+          python3 -m pip install --upgrade requests playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Load anonymous public pages and capture HTML, script assets and endpoint references
+        run: python3 scripts/zocbo_free_reading/capture_js.py
+      - name: Count downloaded JavaScript files
+        if: always()
+        run: |
+          find evidence/zocbo-free-reading -maxdepth 2 -type f | head -50 || true
+          if [ ! -f evidence/zocbo-free-reading/report.json ]; then echo "FAILED: capture report was not created"; exit 1; fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('evidence/zocbo-free-reading/report.json').read_text())
+          count=len(report['javascript'])
+          print(f'Downloaded/analyzed unique JavaScript files: {count}')
+          if count==0:raise SystemExit('FAILED: no real JavaScript was downloaded')
+          PY
+      - name: Save original downloaded HTML, JavaScript files and audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-free-reading-js-capture-${{ github.run_number }}
+          path: evidence/zocbo-free-reading/
+          if-no-files-found: warn
+          retention-days: 14
