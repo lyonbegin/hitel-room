@@ -1,0 +1,43 @@
+name: HITEL pinned native WebRTC media API audit
+on:
+  push:
+    branches: [feature/hitel-unified-webrtc-android-20261122]
+    paths: ['.github/workflows/hitel-webrtc-media-api.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-published-aar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Inspect exact pinned WebRTC binary API
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p media-api
+          BASE=https://repo.maven.apache.org/maven2/io/github/webrtc-sdk/android/144.7559.01/android-144.7559.01
+          curl -fL --retry 3 "$BASE.aar" -o media-api/webrtc.aar
+          unzip -p media-api/webrtc.aar classes.jar > media-api/webrtc.jar
+          sha256sum media-api/webrtc.aar
+          jar tf media-api/webrtc.jar | grep -E 'AudioDeviceModule|AudioRecord|AudioProcessing|AudioBuffer|AudioSource|TextureBuffer|VideoSource' | tee media-api/classes.txt
+          for c in 'org.webrtc.audio.JavaAudioDeviceModule' 'org.webrtc.audio.JavaAudioDeviceModule$Builder' 'org.webrtc.audio.WebRtcAudioRecord' 'org.webrtc.AudioSource' 'org.webrtc.ExternalAudioProcessingFactory$AudioProcessing' 'org.webrtc.SurfaceTextureHelper' 'org.webrtc.EglBase' 'org.webrtc.PeerConnectionFactory'; do
+            javap -p -classpath media-api/webrtc.jar "$c"
+          done | tee media-api/public-and-private-api.txt
+          if curl -fL --retry 1 "$BASE-sources.jar" -o media-api/sources.jar; then
+            jar tf media-api/sources.jar | grep -E 'AudioDeviceModule|AudioProcessing|WebRtcAudioRecord' || true
+            for f in org/webrtc/audio/JavaAudioDeviceModule.java org/webrtc/audio/WebRtcAudioRecord.java org/webrtc/ExternalAudioProcessingFactory.java; do
+              unzip -p media-api/sources.jar "$f" > "media-api/$(basename "$f")" || true
+              grep -nE 'AudioBufferCallback|setAudioBufferCallback|ExternalAudio|nativeDataIsRecorded|onBuffer\(|numBands|numFrames|ByteBuffer' "media-api/$(basename "$f")" || true
+            done
+          fi
+          rm -f media-api/*.aar media-api/*.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinned-webrtc-media-api
+          path: media-api/
+          retention-days: 7
