@@ -27,8 +27,15 @@ jobs:
           BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           a=.recorder-qa/tested/IXIO_HITEL_QA_RecorderTrace_20261122.apk
           b=.recorder-qa/tested/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
-          "$BT/apksigner" verify --verbose --print-certs "$a" > .recorder-qa/main-sign.txt
-          "$BT/apksigner" verify --verbose --print-certs "$b" > .recorder-qa/recorder-sign.txt
+          echo "APK_SIGNER_PATH=$BT/apksigner"
+          if ! "$BT/apksigner" verify --verbose --print-certs "$a" > .recorder-qa/main-sign.txt 2>&1;then
+            echo "MAIN_APK_VERIFICATION_FAILURE"; cat .recorder-qa/main-sign.txt; exit 1
+          fi
+          if ! "$BT/apksigner" verify --verbose --print-certs "$b" > .recorder-qa/recorder-sign.txt 2>&1;then
+            echo "RECORDER_APK_VERIFICATION_FAILURE"; cat .recorder-qa/recorder-sign.txt; exit 1
+          fi
+          echo "MAIN_CERT_LINES"; grep -F 'Signer #1 certificate' .recorder-qa/main-sign.txt || true
+          echo "RECORDER_CERT_LINES"; grep -F 'Signer #1 certificate' .recorder-qa/recorder-sign.txt || true
           grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/main-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/main-cert.txt
           grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/recorder-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/recorder-cert.txt
           cmp .recorder-qa/main-cert.txt .recorder-qa/recorder-cert.txt
