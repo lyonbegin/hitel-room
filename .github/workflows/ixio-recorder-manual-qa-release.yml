@@ -38,8 +38,8 @@ jobs:
           echo "RECORDER_APKSIGNER_OUTPUT"; cat .recorder-qa/recorder-sign.txt
           echo "MAIN_CERT_LINES"; grep -F 'Signer #1 certificate' .recorder-qa/main-sign.txt || true
           echo "RECORDER_CERT_LINES"; grep -F 'Signer #1 certificate' .recorder-qa/recorder-sign.txt || true
-          grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/main-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/main-cert.txt
-          grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/recorder-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/recorder-cert.txt
+          grep -E 'Signer: certificate SHA-256 digest:' .recorder-qa/main-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/main-cert.txt
+          grep -E 'Signer: certificate SHA-256 digest:' .recorder-qa/recorder-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/recorder-cert.txt
           cmp .recorder-qa/main-cert.txt .recorder-qa/recorder-cert.txt
           python3 - <<'PY'
           import hashlib,zipfile
