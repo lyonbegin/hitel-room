@@ -1,0 +1,155 @@
+name: IXIO unified main-recorder log collection pair
+on:
+  push:
+    branches: [fix/ixio-unified-main-recorder-logs-20261122]
+    paths:
+      - .github/workflows/ixio-unified-log-pair.yml
+      - tools/ixio/unified_log/**
+permissions: {contents: write, actions: read}
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get exact main prestart and recorder signature-skip baselines
+        run: |
+          set -euo pipefail
+          mkdir -p base work/mainclasses work/recclasses work/maindex work/recdex out evidence
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 --repo "$GH_REPO" --pattern IXIO_Main_OriginalFGSPrestartQA_20261122.apk --dir base
+          gh release download ixio-recorder-signature-skip-qa-20261122 --repo "$GH_REPO" --pattern IXIO_Recorder_SignatureSkipQA_20261122.apk --dir base
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for f in base/*.apk;do "$BT/apksigner" verify --verbose "$f";done
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+          curl -fLsS --retry 3 https://github.com/iBotPeaches/Apktool/releases/download/v2.12.1/apktool_2.12.1.jar -o work/apktool.jar
+          echo '66cf4524a4a45a7f56567d08b2c9b6ec237bcdd78cee69fd4a59c8a0243aeafa  work/apktool.jar' | sha256sum -c -
+      - name: Compile recorder stream provider and main unified ZIP UI helpers
+        run: |
+          set -euo pipefail
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-34/android.jar"
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d work/mainclasses tools/ixio/qa_debug/DiagLog.java tools/ixio/unified_log/MainUnifiedLogs.java
+          "$BT/d8" --min-api 29 --lib "$ANDROID_JAR" --output work/maindex work/mainclasses/com/lguplus/aicallagent/hitelqa/MainUnifiedLogs*.class
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d work/recclasses tools/ixio/recorder_debug/RecorderLog.java tools/ixio/unified_log/RecorderTraceProvider.java
+          "$BT/d8" --min-api 29 --lib "$ANDROID_JAR" --output work/recdex work/recclasses/com/lguplus/callrecorder/hitelqa/RecorderTraceProvider*.class
+          test -s work/maindex/classes.dex
+          test -s work/recdex/classes.dex
+      - name: Add only exported recorder QA provider to binary manifest
+        run: |
+          set -euo pipefail
+          java -Xmx4g -jar work/apktool.jar d -f -s -r --only-main-classes false -o work/manifest-src base/IXIO_Recorder_SignatureSkipQA_20261122.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+          f=Path('work/manifest-src/AndroidManifest.xml')
+          s=f.read_text()
+          assert '<manifest' in s and '<application' in s, 'APKTool manifest decode failed'
+          android='http://schemas.android.com/apk/res/android'
+          ET.register_namespace('android',android)
+          tree=ET.parse(f);root=tree.getroot();app=root.find('application')
+          assert app is not None
+          assert not any(x.get('{%s}name'%android)=='com.lguplus.callrecorder.hitelqa.RecorderTraceProvider' for x in app.findall('provider'))
+          e=ET.SubElement(app,'provider')
+          e.set('{%s}name'%android,'com.lguplus.callrecorder.hitelqa.RecorderTraceProvider')
+          e.set('{%s}authorities'%android,'com.lguplus.callrecorder.hitelqa.trace')
+          e.set('{%s}exported'%android,'true')
+          e.set('{%s}enabled'%android,'true')
+          tree.write(f,encoding='utf-8',xml_declaration=True)
+          print('RECORDER_MANIFEST_PROVIDER_ONLY_ADDED')
+          PY
+          java -Xmx4g -jar work/apktool.jar b work/manifest-src -o work/manifest-rebuilt.apk
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('work/manifest-rebuilt.apk') as z:
+            data=z.read('AndroidManifest.xml')
+            assert data[:2]!=b'<?','manifest output is not binary'
+            open('work/recorder-manifest.bin','wb').write(data)
+          PY
+      - name: Patch one main log dialog method and insert QA-only recorder provider
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/ixio/unified_log/patch_unified_apks.py
+          python3 tools/ixio/unified_log/patch_unified_apks.py \
+            --main base/IXIO_Main_OriginalFGSPrestartQA_20261122.apk \
+            --recorder base/IXIO_Recorder_SignatureSkipQA_20261122.apk \
+            --mainhelper work/maindex/classes.dex \
+            --rechelp work/recdex/classes.dex \
+            --recmanifest work/recorder-manifest.bin \
+            --baksmali work/baksmali.jar --smali work/smali.jar \
+            --work work/patch \
+            --mainout work/main-unsigned.apk --recout work/recorder-unsigned.apk \
+            --report evidence/patch-integrity.json
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/aapt" dump xmltree work/recorder-unsigned.apk AndroidManifest.xml > evidence/recorder-manifest-tree.txt
+          grep -F 'com.lguplus.callrecorder.hitelqa.RecorderTraceProvider' evidence/recorder-manifest-tree.txt
+          grep -F 'com.lguplus.callrecorder.hitelqa.trace' evidence/recorder-manifest-tree.txt
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=IXIO Unified Logging Test'
+          for role in main recorder;do
+            "$BT/zipalign" -f 4 "work/$role-unsigned.apk" "work/$role-aligned.apk"
+            if [ "$role" = main ];then name=IXIO_Main_UnifiedLogs_20261122.apk;else name=IXIO_Recorder_UnifiedLogs_20261122.apk;fi
+            "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out "out/$name" "work/$role-aligned.apk"
+            "$BT/apksigner" verify --verbose --print-certs "out/$name" > "evidence/$role-signature.txt"
+            "$BT/aapt" dump badging "out/$name" | head -n 4
+          done
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          echo UNIFIED_PAIR_SIGNATURE_AND_PROVIDER_MANIFEST_VERIFIED=YES
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Unified_Logs_APK_Pair
+          path: |
+            out/
+            evidence/
+      - name: Emulator install, no-crash and combined log export UI test
+        run: |
+          cat > work/emulator-unified.sh <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          mkdir -p evidence
+          adb install out/IXIO_Recorder_UnifiedLogs_20261122.apk
+          adb install out/IXIO_Main_UnifiedLogs_20261122.apk
+          adb logcat -c
+          adb shell monkey -p com.lguplus.aicallagent -c android.intent.category.LAUNCHER 1 > evidence/main-monkey.txt
+          sleep 18
+          adb shell pidof com.lguplus.aicallagent > evidence/main-pid.txt
+          test -s evidence/main-pid.txt
+          adb logcat -d -b crash > evidence/adb-crash.txt
+          ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' evidence/adb-crash.txt
+          python3 tools/ixio/unified_log/emulator_unified_ui.py
+          echo "EMULATOR_APPS_INSTALLED_AND_MAIN_ALIVE=YES"
+          SH
+      - run: test -c /dev/kvm && sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash work/emulator-unified.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Unified_Logs_Emulator_Evidence
+          path: evidence/
+      - name: Publish after build and emulator checks, then download and compare SHA
+        run: |
+          set -euo pipefail
+          tag=ixio-unified-main-recorder-logs-qa-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO main and recorder diagnostic unified ZIP QA" --notes "QA only. Main log button now collects main + recorder internal traces in one Downloads/IXIO_Logs ZIP; recorder exposes diagnostics via package-gated pipe. Original microphone, FGS, PCM, STT and recorder algorithms unchanged. Android system logcat requires external ADB; cannot be collected from an ordinary app. Device recording not verified. Back up app data and recordings before replacing differently signed APKs."
+          gh release upload "$tag" out/*.apk out/SHA256SUMS.txt --clobber
+          for f in out/*.apk;do
+            name="$(basename "$f")"
+            code="$(curl -fLsS --retry 3 --max-time 240 -w '%{http_code}' -o work/check.apk "https://github.com/$GH_REPO/releases/download/$tag/$name")"
+            test "$code" = 200
+            cmp "$f" work/check.apk
+            echo "UNIFIED_EXTERNAL_DOWNLOAD_BYTES_VERIFIED $name $code"
+          done
