@@ -73,10 +73,10 @@ def main(app:Path, plugin:Path, report:Path):
         switch (event.type) {
 ""","mock-request-received"))
     tags.append(once(runtime,
-        "    conn.sendResponseCreated();\n    conn.sendTranscriptDelta('Hello, this is a spoken language test.');",
+        "    conn.sendResponseCreated();\n    conn.sendTranscriptDelta(",
         """    print('[HITEL_AI_E2E] mock.tx type=response.created wallMs=__DOLLAR__{DateTime.now().millisecondsSinceEpoch}');
     conn.sendResponseCreated();
-    conn.sendTranscriptDelta('Hello, this is a spoken language test.');""","mock-response-created"))
+    conn.sendTranscriptDelta(""","mock-response-created"))
     tags.append(once(runtime,
         "      conn.sendAudioDelta(Uint8List.sublistView(data,i,end));\n",
         """      if (i == 0) print('[HITEL_AI_E2E] mock.tx type=response.output_audio.delta first=true pcmBytes=__DOLLAR__{end - i}');
