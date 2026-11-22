@@ -40,23 +40,6 @@ public final class RecorderLog {
         hotCounts.put(label,n);
         if(n==1 || n%100==0)write(label+" observed="+n);
     }
-    private static String safeObject(Object value){
-        if(value==null)return "null";
-        if(value instanceof Boolean)return "boolean="+value;
-        return "type="+value.getClass().getName();
-    }
-    public static synchronized void markInt(String label,int value){write(label+" value="+value);}
-    public static synchronized void markObject(String label,Object value){write(label+" "+safeObject(value));}
-    public static synchronized void hotInt(String label,int value){
-        int n=hotCounts.containsKey(label)?hotCounts.get(label)+1:1;
-        hotCounts.put(label,n);
-        if(n==1 || n%100==0)write(label+" value="+value+" observed="+n);
-    }
-    public static synchronized void hotObject(String label,Object value){
-        int n=hotCounts.containsKey(label)?hotCounts.get(label)+1:1;
-        hotCounts.put(label,n);
-        if(n==1 || n%100==0)write(label+" "+safeObject(value)+" observed="+n);
-    }
     public static synchronized void error(int first,int second) {
         write("RECORDER_ON_ERROR code1="+first+" code2="+second);
     }
@@ -65,14 +48,11 @@ public final class RecorderLog {
         catch(Throwable t){return null;}
     }
     private static boolean important(String label) {
-        return label.contains("onTransact") || label.contains("onStarted")
+        return label.startsWith("STORE ") || label.contains("stopRecord") || label.contains("handleStartRecording") || label.contains("MediaRecorder") || label.contains("FileDescriptor") || label.contains("UI_RECORDER_LOG") || label.contains("onTransact") || label.contains("onStarted")
             || label.contains("onError") || label.contains("onCompleted")
             || label.contains("startRecording") || label.contains("onBind")
             || label.contains("CALLBACK") || label.contains("CATCH") || label.contains("THROW")
-            || label.contains("RECORDER_ON_ERROR") || label.contains("PROCESS_INIT")
-            || label.contains("UI_RECORDER") || label.contains("STATE_WRITE") || label.contains("STATE_VALUE")
-            || label.contains("CALL_ARG") || label.contains("SharedPreferences") || label.contains("DataStore")
-            || label.contains("onCheckedChanged") || label.contains("onClick") || label.contains("Switch");
+            || label.contains("RECORDER_ON_ERROR") || label.contains("PROCESS_INIT");
     }
     private static void append(File f,String row)throws java.io.IOException {
         if(f==null)return;
@@ -108,9 +88,12 @@ public final class RecorderLog {
     }
     public static synchronized String snapshot(){
         return "HITEL IXIO RECORDER INTERNAL TRACE\nAndroid "+Build.VERSION.SDK_INT
-          +" PID="+Process.myPid()+" PACKAGE=com.lguplus.callrecorder TRACE_SCHEMA=RECORDER_SETTINGS_V2\n=== IMPORTANT EVENTS ===\n"
+          +" PID="+Process.myPid()+"\n=== IMPORTANT EVENTS ===\n"
           +read(path(KEY+".old"))+read(path(KEY))
           +"\n=== RECENT FULL EVENTS ===\n"+read(path(FULL+".old"))+read(path(FULL));
+    }
+    public static synchronized String copyCritical(){
+        return "HITEL IXIO RECORDER CRITICAL TRACE\n" + read(path(KEY+".old"))+read(path(KEY));
     }
     public static synchronized String copy(){
         String s=snapshot();if(s.length()<200000)return s;
@@ -125,10 +108,10 @@ public final class RecorderLog {
         }catch(Throwable t){return s;}
     }
     public static synchronized boolean clear(){
-        boolean ok=app!=null;
+        boolean ok=true;
         for(String name:new String[]{FULL,FULL+".old",KEY,KEY+".old"}){
             File f=path(name);if(f!=null && f.exists() && !f.delete())ok=false;
         }
-        hotCounts.clear();if(ok)write("UI_RECORDER_LOG_CLEARED PACKAGE=com.lguplus.callrecorder");return ok;
+        hotCounts.clear();return ok;
     }
 }
