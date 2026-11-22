@@ -1,0 +1,364 @@
+name: HITEL unified Android client build
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-unified-webrtc-android-20261122
+    paths:
+      - '.github/workflows/hitel-unified-android.yml'
+      - 'tools/bithuman_deep/hitel_unified/**'
+permissions:
+  contents: read
+jobs:
+  build-and-test-sofia-embedded-with-network-disabled:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    env:
+      BITHUMAN_API_SECRET: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert unchanged application sources from successful run 44916323322
+        shell: bash
+        run: |
+          set -euo pipefail
+          REFERENCE=69d7a68441e5b292bdda492722058916c026a105
+          # actions/checkout is shallow by default; explicitly fetch the pinned source commit.
+          git fetch --no-tags --depth=1 origin "$REFERENCE"
+          for f in tools/bithuman_deep/essence2_file_audio/OfficialEssence2FileEngine.kt tools/bithuman_deep/essence2_file_audio/HitelVoiceSync.kt tools/bithuman_deep/patch_essence2_official_pcm16_file.py tools/bithuman_deep/prepare_essence2_file_reply.py; do
+            git show "${REFERENCE}:${f}" | cmp - "$f"
+          done
+          echo PASS_AUDIO_MASTER_SOURCE_BYTE_IDENTICAL_TO_44916323322
+
+      - name: Fetch pinned official app and Flutter plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/bithuman-product/bithuman-examples.git original-upstream
+          git -C original-upstream checkout --detach fea69e72515af7d05f384a9d2147ac0cc181b411
+          mkdir -p essence2-local-mock-proof
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          git clone --depth 1 --filter=blob:none --sparse --branch flutter-plugin-v2.6.37 https://gitlab.com/bithuman/sdk/homebrew-bithuman.git official-bit-human
+          git -C official-bit-human sparse-checkout set packages/flutter-plugin
+          test "$(git -C official-bit-human rev-parse HEAD)" = 590299fa8ed710803ea291d77d4f4d33ca30b5e0
+          diff -qr "$ARCHIVE" official-bit-human/packages/flutter-plugin
+          cp -a official-bit-human/packages/flutter-plugin "$GITHUB_WORKSPACE/essence2-local-mock-plugin"
+          test -f "$ARCHIVE/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          echo PASS_PRISTINE_ESSENCE2_ANDROID_PLUGIN
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+
+      - name: Assemble five-sample local Android bundle loader and debug mock
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$GITHUB_WORKSPACE/original-upstream/app/avatar_chat"
+          ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
+          PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
+          # Regression inputs must be pristine: the assembly below mutates APP.
+          ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
+            python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
+          python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sample-ui.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_android_model.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --source-kotlin "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelEssence2PublicAndroidBundle.kt" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-original-model.json"
+          python3 tools/bithuman_deep/prepare_essence2_local_debug_loopback.py \
+            --app "$APP" --plugin "$PLUGIN" --archive "$ARCHIVE" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-synthetic-auth.json"
+          python3 tools/bithuman_deep/prepare_essence2_device_diagnostics.py \
+            --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/device-diagnostics.json"
+          # Exact existing spoken fixture, retained from the tested APK; no external TTS package installation.
+          cp tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          test "$(sha256sum "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" | cut -d ' ' -f 1)" = "8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098"
+          python3 tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py \
+            --app "$APP" \
+            --pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/spoken-phonemes.json"
+          python3 tools/bithuman_deep/prepare_essence2_keyboard_ai_trace.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/keyboard-ai-trace-patch.json" --preserve-transport
+          python3 tools/bithuman_deep/prepare_essence2_ai_persistent_trace.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/persistent-ai-trace-patch.json" --defer-clipboard --preserve-transport
+          python3 tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py \
+            --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel-no-key-source.json"
+          # Original SDK picks the hardware buffer route. No local STT or TTS.
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('essence2-local-mock-plugin/android/src/main/kotlin/ai/bithuman/flutter')
+          plugin=(root/'BithumanPlugin.kt').read_text()
+          engine=(root/'AvatarEngine.kt').read_text()
+          assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in plugin
+          assert 'val forceCopy = true' not in plugin
+          assert 'zeroCopy && runCatching { avatar.useHardwareBuffers(HW_SLOTS) }' in engine
+          assert not (root/'HitelKoreanTts.kt').exists()
+          assert 'sendAudioDelta' in Path('original-upstream/app/avatar_chat/lib/hitel_offline_runtime.dart').read_text()
+          print('PASS_ORIGINAL_ESSENCE2_GPU_AUTOMATIC_PCM_FILE_DART_NO_TTS')
+          PY
+          python3 tools/bithuman_deep/prepare_essence2_file_reply.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_file_audio" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/file-reply-integration.json" \
+            --official-streaming --detailed-trace
+          NATIVE=android/src/main/kotlin/ai/bithuman/flutter
+          for unit in AvatarEngine AvatarPlayer Pcm16kTo24k PlayoutClock SpeechCoverage; do
+            cmp "$ARCHIVE/$NATIVE/$unit.kt" "$PLUGIN/$NATIVE/$unit.kt"
+          done
+          cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
+          cmp "$ARCHIVE/lib/bithuman_realtime.dart" "$PLUGIN/lib/bithuman_realtime.dart"
+          if grep -Fq 'skipAhead: true' "$APP/lib/main.dart"; then exit 25; fi
+          echo PASS_PRISTINE_BIT_HUMAN_PCM_API_ENGINE_AUDIO_TRACK_AND_RENDERER
+          python3 tools/bithuman_deep/patch_essence2_official_pcm16_file.py \
+            --plugin "$PLUGIN" \
+            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_file_audio"
+          grep -Fq 's.avatar.appendPcm16(raw)' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
+          grep -Fq 'sdk.feed(packet.bytes)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.endOfAudio()' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.pullHardwareBuffer()' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.setPlayoutPosition(samples)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'pullThreadCpuMs' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'sdk.useHardwareBuffers(HW_SLOTS)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'Bitmap.wrapHardwareBuffer' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'avatar.attachSyncRenderer' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
+          grep -Fq 'clockWorker.scheduleWithFixedDelay' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'track.getTimestamp(timestamp)' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'ready.takeDue(' "$PLUGIN/$NATIVE/HitelVoiceSync.kt"
+          grep -Fq 'surface.lockHardwareCanvas()' "$PLUGIN/$NATIVE/BithumanPlugin.kt"
+          grep -Fq 'gpu.route' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'audio.incomplete' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'AudioTrack.MODE_STREAM' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq 'avatar.attachRenderer' tools/bithuman_deep/patch_essence2_official_pcm16_file.py
+          ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
+            "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          # Distinguish these builds in the diagnostics copied from a real phone.
+          sed -i 's/PCM_FILE_R7_TRACE/HITEL_UNIFIED_ANDROID_PHASE1_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'HITEL_UNIFIED_ANDROID_PHASE1_20261122' "$APP/lib/main.dart"
+          echo PASS_ESSENCE2_AUDIO_MASTER_WITH_ORIGINAL_HARDWARE_BUFFER
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -v error -y -f s16le -ar 24000 -ac 1 \
+            -i "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
+            -ar 48000 -ac 1 -c:a aac -b:a 96k -movflags +faststart \
+            "$APP/assets/hitel_file_reply.m4a"
+          ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
+            -show_entries format=duration -of json "$APP/assets/hitel_file_reply.m4a" \
+            > "$GITHUB_WORKSPACE/essence2-local-mock-proof/file-audio-format.json"
+          cat > "$APP/pubspec_overrides.yaml" <<EOF
+          dependency_overrides:
+            bithuman:
+              path: "$PLUGIN"
+          EOF
+          python3 tools/bithuman_deep/hitel_unified/prepare_hitel_unified.py --app "$APP"
+          echo PASS_ESSENCE2_PUBLIC_MODEL_LOCAL_TEST_APP_CONFIGURED
+
+      - name: Acquire and verify only Sofia's full original Android model in temporary CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Preserve the existing embedded model for the user-requested local installation test.
+          python3 tools/bithuman_deep/reassemble_essence2_android_original_bundles.py \
+            --code A52DHS2219 --retain-bundle \
+            --work "$GITHUB_WORKSPACE/sofia-original-private-ci" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-download-sha.json"
+          python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
+            --source "$GITHUB_WORKSPACE/sofia-original-private-ci/A52DHS2219/android" \
+            --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
+          echo PASS_ONLY_SOFIA_ANDROID_MODEL_EMBEDDED_IN_APP_ASSETS
+
+      - name: Repack original SDK with ONLY one JVM meter URL getter changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p essence2-sdk-local
+          BASE=https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5
+          curl -fLsS --retry 4 --retry-all-errors "$BASE/essence2-android-0.9.5.aar" \
+            -o essence2-sdk-local/vendor-original-0.9.5.aar
+          curl -fLsS --retry 4 --retry-all-errors "$BASE/essence2-android-0.9.5.pom" \
+            -o essence2-sdk-local/vendor-original-0.9.5.pom
+          python3 tools/bithuman_deep/essence2_sdk095_hitel_meter_route.py \
+            --source-aar essence2-sdk-local/vendor-original-0.9.5.aar \
+            --output-aar essence2-sdk-local/hitel-local-test-meter-0.9.5.aar \
+            --report essence2-local-mock-proof/one-meter-method-only.json \
+            --base-url http://127.0.0.1:18762 --allow-offline-loopback
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          app=Path('original-upstream/app/avatar_chat')
+          sdk=Path('essence2-sdk-local')
+          maven=app/'android/local-sdk-maven/ai/hitel/reassembled/essence2-android/0.9.5'
+          maven.mkdir(parents=True,exist_ok=True)
+          (maven/'essence2-android-0.9.5.aar').write_bytes(
+            (sdk/'hitel-local-test-meter-0.9.5.aar').read_bytes())
+          pom=(sdk/'vendor-original-0.9.5.pom').read_text()
+          edited,count=re.subn(r'(<groupId>\s*)ai\.bithuman(\s*</groupId>)',
+               r'\g<1>ai.hitel.reassembled\g<2>',pom,count=1)
+          assert count==1
+          (maven/'essence2-android-0.9.5.pom').write_text(edited)
+          build=app/'android/build.gradle.kts'
+          text=build.read_text()
+          anchor='        mavenCentral()\n'
+          assert text.count(anchor)==1
+          text=text.replace(anchor,anchor+
+            '        maven {\n'+
+            '            url = uri(rootProject.projectDir.toString() + "/local-sdk-maven")\n'+
+            '            content { includeGroup("ai.hitel.reassembled") }\n'+
+            '        }\n',1)
+          marker='subprojects {\n    project.evaluationDependsOn(":app")\n}\n'
+          assert text.count(marker)==1
+          extra=('\nsubprojects {\n'+
+            '    configurations.configureEach {\n'+
+            '        resolutionStrategy.eachDependency {\n'+
+            '            if (requested.group == "ai.bithuman" &&\n'+
+            '                requested.name == "essence2-android") {\n'+
+            '                useTarget("ai.hitel.reassembled:essence2-android:0.9.5")\n'+
+            '                because("Only the local debug meter endpoint changes; original native unchanged")\n'+
+            '            }\n'+
+            '        }\n'+
+            '    }\n'+
+            '}\n')
+          build.write_text(text.replace(marker,marker+extra,1))
+          p=app/'android/app/build.gradle.kts'
+          t=p.read_text()
+          kotlin='    id("com.android.application")\n'
+          assert t.count(kotlin)==1 and 'id("org.jetbrains.kotlin.android")' not in t
+          p.write_text(t.replace(kotlin,kotlin+'    id("org.jetbrains.kotlin.android")\n',1))
+          print("PASS_LOCAL_ESSENCE2_AAR_JVM_METER_PATCH_INSTALLED")
+          PY
+          cmp \
+            <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
+            <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
+          echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
+
+      - name: Use the Maven Central mirror for Kotlin dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          init_dir="${GRADLE_USER_HOME:-$HOME/.gradle}/init.d"
+          mkdir -p "$init_dir"
+          cat > "$init_dir/hitel-kotlin-mirror.gradle" <<'GRADLE'
+          def kotlinMirror = { repositories ->
+              repositories.maven {
+                  name = 'HitelKotlinCentralMirror'
+                  url = 'https://maven-central.storage-download.googleapis.com/maven2'
+                  content { includeGroupAndSubgroups('org.jetbrains.kotlin') }
+              }
+          }
+          gradle.beforeSettings { settings ->
+              kotlinMirror(settings.pluginManagement.repositories)
+              settings.pluginManagement.repositories.gradlePluginPortal()
+              kotlinMirror(settings.dependencyResolutionManagement.repositories)
+          }
+          gradle.beforeProject { project ->
+              kotlinMirror(project.buildscript.repositories)
+          }
+          GRADLE
+
+      - name: Compile fully assembled five-sample Android debug APK
+        shell: bash
+        working-directory: original-upstream/app/avatar_chat
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart
+          # Some runners intermittently fail to resolve Kotlin's public POM.
+          # Retry infrastructure fetch failures without altering SDK or app code.
+          for attempt in 1 2 3; do
+            if ORG_GRADLE_PROJECT_bhModel=essence2 flutter build apk --debug --target-platform android-arm64 \
+              --dart-define=BH_ENGINE=essence2 --dart-define=BH_MIC=false \
+              2>&1 | tee "$GITHUB_WORKSPACE/essence2-local-mock-proof/flutter-build-attempt-$attempt.log"; then
+              echo "PASS_ESSENCE2_BUILD_ATTEMPT_$attempt"
+              break
+            fi
+            if (( attempt == 3 )); then
+              echo FAIL_ESSENCE2_GRADLE_DEPENDENCY_FETCH_RETRY_EXHAUSTED
+              exit 17
+            fi
+            sleep 8
+          done
+          APK=build/app/outputs/flutter-apk/app-debug.apk
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "application-label:'HITEL PCM File R7 Trace'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          echo PASS_ESSENCE2_ORIGINAL_APP_ID_LABEL_AND_VERSION_PRESERVED
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
+            echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
+          fi
+          grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk"
+          sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
+          echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
+
+      - name: Verify installed APK JNI is byte-identical to original vendor AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp \
+            <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
+            <(unzip -p HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+          echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
+
+      - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
+            --apk "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
+          echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
+
+      - name: Verify reused 100-ms PCM chunker and direct asset file descriptor
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          test -f "$ANDROID_JAR"
+          mkdir -p file-chunker-test
+          javac -cp "$ANDROID_JAR" -d file-chunker-test \
+            tools/bithuman_deep/essence2_file_audio/FilePcmStream.java \
+            tools/bithuman_deep/essence2_file_audio/FilePcmChunkerTest.java
+          java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
+          python3 - <<'PY'
+          from zipfile import ZipFile, ZIP_STORED
+          with ZipFile('HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk') as z:
+              info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
+              assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
+              assert info.file_size > 1000
+          print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
+          PY
+
+      - name: Retain compiled APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL_UNIFIED_ANDROID_PHASE1_APK
+          path: HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk
+          retention-days: 14
+
+      - name: Retain build integrity logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-unified-phase1-build-evidence
+          path: essence2-local-mock-proof/
+          retention-days: 14

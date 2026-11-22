@@ -30,7 +30,7 @@ class _HitelCommunicationPageState extends State<HitelCommunicationPage> {
     if (_busy) return;
     setState(() { _busy = true; _error = ''; });
     try { await work(); }
-    catch (e) { if (mounted) setState(() => _error = '$e'); }
+    catch (e) { if (mounted) setState(() { _error = '$e'; _authenticated = false; }); }
     finally { if (mounted) setState(() => _busy = false); }
   }
   Future<void> _refresh() async {

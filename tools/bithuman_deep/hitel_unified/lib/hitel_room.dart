@@ -103,16 +103,20 @@ class HitelRoomSession extends ChangeNotifier {
   bool mic = true;
   bool camera = true;
   bool _disposed = false;
+  bool _localInitialized = false;
+  Future<void>? _leaving;
   int _epoch = 0;
   void _status(String value) { status = value; if (!_disposed) notifyListeners(); }
   bool _current(int epoch) => !_disposed && epoch == _epoch;
   Future<void> start(String id) async {
+    await _leaving;
     if (roomId != null || _disposed) throw StateError('이미 방에 참여 중');
     final epoch = ++_epoch;
     roomId = id;
     welcomed = false;
     try {
-      await local.initialize();
+      if (!_localInitialized) { await local.initialize(); _localInitialized = true; }
+      if (!_current(epoch)) return;
       final stream = await navigator.mediaDevices.getUserMedia({
         'audio': true, 'video': {'facingMode': 'user', 'width': 640, 'height': 480, 'frameRate': 25}
       });
@@ -184,6 +188,7 @@ class HitelRoomSession extends ChangeNotifier {
     };
     final stream = _stream!;
     for (final track in stream.getTracks()) { await pc.addTrack(track, stream); }
+    if (!_current(epoch)) { _peers.remove(id); await p.close(); throw StateError('session closed'); }
     if (!_disposed) notifyListeners();
     return p;
   }
@@ -243,7 +248,14 @@ class HitelRoomSession extends ChangeNotifier {
     final tracks = _stream?.getVideoTracks();
     if (tracks != null && tracks.isNotEmpty) await Helper.switchCamera(tracks.first);
   }
-  Future<void> leave({String message = '방 퇴장'}) async {
+  Future<void> leave({String message = '방 퇴장'}) {
+    final inProgress = _leaving;
+    if (inProgress != null) return inProgress;
+    final task = _leave(message);
+    _leaving = task;
+    return task.whenComplete(() { if (identical(_leaving, task)) _leaving = null; });
+  }
+  Future<void> _leave(String message) async {
     ++_epoch;
     roomId = null;
     welcomed = false;
@@ -251,7 +263,7 @@ class HitelRoomSession extends ChangeNotifier {
     final socket = _socket; _socket = null;
     final peers = _peers.values.toList(); _peers.clear();
     final stream = _stream; _stream = null;
-    local.srcObject = null;
+    if (_localInitialized) local.srcObject = null;
     await sub?.cancel();
     await socket?.close();
     for (final p in peers) { await p.close(); }
@@ -262,7 +274,7 @@ class HitelRoomSession extends ChangeNotifier {
   Future<void> shutdown() async {
     _disposed = true;
     await leave();
-    await local.dispose();
+    if (_localInitialized) await local.dispose();
     api.close();
     super.dispose();
   }
