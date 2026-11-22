@@ -43,7 +43,7 @@ jobs:
       - name: Add only exported recorder QA provider to binary manifest
         run: |
           set -euo pipefail
-          java -Xmx4g -jar work/apktool.jar d -f -s -r -o work/manifest-src base/IXIO_Recorder_SignatureSkipQA_20261122.apk
+          java -Xmx4g -jar work/apktool.jar d -f -s -o work/manifest-src base/IXIO_Recorder_SignatureSkipQA_20261122.apk
           python3 - <<'PY'
           from pathlib import Path
           from xml.etree import ElementTree as ET
