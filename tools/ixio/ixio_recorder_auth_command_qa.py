@@ -34,20 +34,25 @@ def auth(s):
     s=put(s,'    :cond_59\n    sget-object v4,','    :cond_59\n'+call('originalPinRejected')+'    sget-object v4,','original_pin_rejected')
     s=put(s,'    .line 846\n    :cond_81\n','    .line 846\n    :cond_81\n'+call('sameSignedKnownCaller','p0','(Landroid/content/Context;)Z')+'    move-result v2\n    if-eqz v2, :hitel_qa_signing_rejected\n    return v2\n    :hitel_qa_signing_rejected\n','same_signer_qa_fallback')
     return s
+def after_result(s,target,reg,fn,typ,tag):
+    rx=re.compile(r'(?m)(^    invoke-[^\n]*'+re.escape(target)+r'[^\n]*\n\s*move-result(?:-object)? '+re.escape(reg)+r'\n)')
+    ms=list(rx.finditer(s));assert len(ms)==1,(tag,len(ms))
+    m=ms[0];events.append(tag)
+    return s[:m.end()]+call(fn,reg,typ)+s[m.end():]
 def binder(s):
-    s=put(s,'move-result v0\n\n    if-eqz v0, :cond_78','move-result v0\n'+call('callerAuthorized','v0','(Z)V')+'\n    if-eqz v0, :cond_78','binder_auth_result')
-    s=put(s,'move-result v6\n\n    if-eqz v6, :cond_3c','move-result v6\n'+call('permissionResult','v6','(I)V')+'\n    if-eqz v6, :cond_3c','permission_check')
-    s=put(s,'array-length v1, v0\n\n    if-nez v1, :cond_4f','array-length v1, v0\n'+call('missingCount','v1','(I)V')+'\n    if-nez v1, :cond_4f','permission_missing_count')
+    s=after_result(s,'access$isCallerAllowed','v0','callerAuthorized','(Z)V','binder_auth_result')
+    s=after_result(s,'checkSelfPermission','v6','permissionResult','(I)V','permission_check')
+    s=put(s,'    array-length v1, v0\n','    array-length v1, v0\n'+call('missingCount','v1','(I)V'),'permission_missing_count')
     s=put(s,'invoke-interface {p0, v0}, Lkotlinx/coroutines/channels/Channel;->trySend-JP2dKIU(Ljava/lang/Object;)Ljava/lang/Object;','invoke-interface {p0, v0}, Lkotlinx/coroutines/channels/Channel;->trySend-JP2dKIU(Ljava/lang/Object;)Ljava/lang/Object;\n    move-result-object v0\n'+call('queueResult','v0','(Ljava/lang/Object;)V').rstrip('\n'),'try_send_result')
     return s
 def listener(s):
-    return put(s,'move-result v0\n\n    if-eqz v0, :cond_1d','move-result v0\n'+call('listenerAuthorized','v0','(Z)V')+'\n    if-eqz v0, :cond_1d','listener_auth')
+    return after_result(s,'access$isCallerAllowed','v0','listenerAuthorized','(Z)V','listener_auth')
 def user(s):
-    return put(s,'move-result v0\n\n    if-eqz v0, :cond_26','move-result v0\n'+call('userAuthorized','v0','(Z)V')+'\n    if-eqz v0, :cond_26','user_auth')
+    return after_result(s,'access$isCallerAllowed','v0','userAuthorized','(Z)V','user_auth')
 def consumer(s):
-    s=put(s,'->label:I\n\n    const/4 v2','->label:I\n'+call('consumerLabel','v1','(I)V')+'\n    const/4 v2','consumer_resume_label')
-    s=put(s,'if-ne p1, v0, :cond_41\n\n    return-object v0','if-ne p1, v0, :cond_41\n'+call('consumerSuspended')+'\n    return-object v0','consumer_suspend')
-    s=put(s,'move-result p1\n\n    if-eqz p1, :cond_8f','move-result p1\n'+call('consumerHasNext','p1','(Z)V')+'\n    if-eqz p1, :cond_8f','consumer_has_next')
+    s=put(s,'    iget v1, p0, Lcom/lguplus/callrecorder/InCallService$startCommandConsumer$1;->label:I\n','    iget v1, p0, Lcom/lguplus/callrecorder/InCallService$startCommandConsumer$1;->label:I\n'+call('consumerLabel','v1','(I)V'),'consumer_resume_label')
+    s=put(s,'    if-ne p1, v0, :cond_41\n','    if-ne p1, v0, :cond_41\n'+call('consumerSuspended'),'consumer_suspend')
+    s=after_result(s,'Boolean;->booleanValue','p1','consumerHasNext','(Z)V','consumer_has_next')
     s=put(s,'check-cast p1, Lcom/lguplus/callrecorder/Command;\n','check-cast p1, Lcom/lguplus/callrecorder/Command;\n'+call('command','p1','(Ljava/lang/Object;)V'),'consumer_command')
     s=put(s,'invoke-static {v4, p1}, Lcom/lguplus/callrecorder/InCallService;->access$handleCommand(Lcom/lguplus/callrecorder/InCallService;Lcom/lguplus/callrecorder/Command;)V',call('dispatchBegin')+'    invoke-static {v4, p1}, Lcom/lguplus/callrecorder/InCallService;->access$handleCommand(Lcom/lguplus/callrecorder/InCallService;Lcom/lguplus/callrecorder/Command;)V\n'+call('dispatchEnd').rstrip('\n'),'consumer_dispatch')
     return s
@@ -55,13 +60,13 @@ def handle_command(s):
     return put(s,'instance-of v0, p1, Lcom/lguplus/callrecorder/Command$StartRecording;\n','instance-of v0, p1, Lcom/lguplus/callrecorder/Command$StartRecording;\n'+call('commandIsStart','v0','(Z)V'),'handle_command_start_flag')
 def handle_start(s):
     s=put(s,'    if-eqz p1, :cond_6c\n',call('handleStartEntered')+'    if-eqz p1, :cond_6c\n','handle_start_enter')
-    s=put(s,'move-result v0\n\n    if-nez v0, :cond_c','move-result v0\n'+call('fileNameBlank','v0','(Z)V')+'\n    if-nez v0, :cond_c','file_name_validity')
-    s=put(s,'move-result p1\n\n    invoke-static {p1}, Ljava/lang/Boolean;->valueOf(Z)','move-result p1\n'+call('recordStartResult','p1','(Z)V')+'\n    invoke-static {p1}, Ljava/lang/Boolean;->valueOf(Z)','record_usecase_result')
+    s=after_result(s,'StringsKt;->isBlank','v0','fileNameBlank','(Z)V','file_name_validity')
+    s=after_result(s,'CallRecordingUseCase;->startRecording','p1','recordStartResult','(Z)V','record_usecase_result')
     return s
 def time_out(s):
     s=put(s,'    const-string v0, "[FGS_FLOW] no session started within "',call('timeoutRequested','p1','(I)V')+'    const-string v0, "[FGS_FLOW] no session started within "','timeout_requested_generation')
-    s=put(s,'->timeoutGeneration:I\n    :try_end_7','->timeoutGeneration:I\n'+call('timeoutCurrent','v2','(I)V').rstrip('\n')+'\n    :try_end_7','timeout_current_generation')
-    s=put(s,'move-result p1\n\n    if-eqz p1, :cond_32','move-result p1\n'+call('sessionsEmpty','p1','(Z)V')+'\n    if-eqz p1, :cond_32','timeout_sessions_empty')
+    s=put(s,'    iget v2, p0, Lcom/lguplus/callrecorder/RecordingSessionController;->timeoutGeneration:I\n','    iget v2, p0, Lcom/lguplus/callrecorder/RecordingSessionController;->timeoutGeneration:I\n'+call('timeoutCurrent','v2','(I)V'),'timeout_current_generation')
+    s=after_result(s,'Ljava/util/Set;->isEmpty','p1','sessionsEmpty','(Z)V','timeout_sessions_empty')
     return s
 def recorder(s):
     s=put(s,'invoke-virtual {p1}, Landroid/media/MediaRecorder;->prepare()V',call('prepareBegin')+'    invoke-virtual {p1}, Landroid/media/MediaRecorder;->prepare()V\n'+call('prepareEnd').rstrip('\n'),'media_prepare')
