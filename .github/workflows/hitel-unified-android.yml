@@ -291,6 +291,17 @@ jobs:
         working-directory: original-upstream/app/avatar_chat
         run: |
           set -euo pipefail
+          # Flutter engine and Essence2 are ARM64 only. Dependencies must not
+          # advertise a partial x86_64 / armeabi-v7a APK to Android's installer.
+          cat >> android/app/build.gradle.kts <<'GRADLE'
+          android {
+              packaging {
+                  jniLibs {
+                      excludes += setOf("**/x86_64/**", "**/x86/**", "**/armeabi-v7a/**")
+                  }
+              }
+          }
+          GRADLE
           flutter pub get
           flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart lib/hitel_loopback_page.dart lib/hitel_counselor.dart lib/hitel_device_call.dart lib/hitel_main_rtc.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
@@ -319,6 +330,11 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          if grep -Eq '^lib/(x86_64|x86|armeabi-v7a)/' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
+            echo FAIL_PARTIAL_FOREIGN_ABI_PACKAGED; exit 20
+          fi
+          grep -Fxq 'lib/arm64-v8a/libflutter.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'lib/arm64-v8a/libjingle_peerconnection_so.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
             echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
           fi
@@ -366,12 +382,22 @@ jobs:
           print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
           PY
 
-      - name: Enable KVM for Android emulator
+      - name: Release build memory and enable KVM
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          original-upstream/app/avatar_chat/android/gradlew --stop
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
           test -r /dev/kvm && test -w /dev/kvm
+          ls -l /dev/kvm
+
+      - name: Set up real emulator speaker capture
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y pulseaudio pulseaudio-utils ffmpeg
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=hitel_emulator
+          pactl set-default-sink hitel_emulator
+          pactl list short sinks
 
       - name: Install and exercise the actual ARM64 APK in Android emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -379,9 +405,12 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          profile: pixel_2
+          disk-size: 4096M
+          cores: 2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -memory 4096 -no-snapshot -wipe-data -camera-back none -camera-front none
           disable-animations: true
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 900
           script: bash tools/bithuman_deep/hitel_unified/tests/emulator_rtc_gate.sh
 
       - name: Retain compiled APK
@@ -410,6 +439,7 @@ jobs:
           APK=HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk
           TAG=hitel-unified-rtc-main-${GITHUB_RUN_ID}
           sha256sum "$APK" > "$APK.sha256"
+          grep -Fxq PASS_ANDROID_EMULATOR_ACTUAL_APK_RTC_GATE essence2-local-mock-proof/emulator/result.txt
           gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC-only main screen (device test)" --notes "Main-screen receiver-only test. Local PCM fixture; no external server. Build and emulator RTP smoke gate passed; physical GPU performance and A/V sync still require device verification."
           url="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$APK\") | .url")"
           curl -fL --retry 3 --retry-all-errors "$url" -o downloaded.apk
