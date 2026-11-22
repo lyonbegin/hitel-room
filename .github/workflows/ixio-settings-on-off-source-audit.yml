@@ -1,0 +1,84 @@
+name: IXIO read-only settings ON OFF source audit
+on:
+  push:
+    branches: [fix/ixio-recorder-settings-full-trace-20261122]
+    paths: [.github/workflows/ixio-settings-on-off-source-audit.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-settings-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Inspect existing original settings code and source map without changing any APK
+        run: |
+          set -euo pipefail
+          mkdir source evidence
+          gh run download 43799320393 --repo "$GH_REPO" --name IXIO_Main_NoAppSealing_Single_APK --dir source
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o source/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  source/baksmali.jar' | sha256sum -c -
+          python3 - <<'PY'
+          import zipfile,re,pathlib,subprocess
+          root=pathlib.Path('source')
+          targets=re.compile(rb'Lcom/lguplus/aicallagent/[^;\x00]*(?:SettingScreenKt|SettingViewModel|CheckCallRecorderAppStateUseCase|CallRecordState|CallRecorderAppStatus|CallRecordingSettingRepository|GetInCallAiToggleStateUseCase|SettingUiState|CallRecordScreenKt)[^;\x00]*;')
+          with zipfile.ZipFile(root/'IXIO_Main_NoAppSealing_Single.apk') as z:
+              for n in z.namelist():
+                  if not re.fullmatch(r'classes\d*\.dex',n):continue
+                  data=z.read(n)
+                  if not targets.search(data):continue
+                  p=root/n;p.write_bytes(data)
+                  classes=subprocess.check_output(['java','-jar',str(root/'baksmali.jar'),'list','classes',str(p)]).decode()
+                  selected=[s for s in classes.splitlines() if targets.fullmatch(s.encode())]
+                  if selected:
+                      print('SETTINGS_DEX',n,'CLASSES',len(selected),flush=True)
+                      for s in selected:print('SETTINGS_CLASS',n,s,flush=True)
+                      subprocess.run(['java','-Xmx2800m','-jar',str(root/'baksmali.jar'),'d','--api','34','--jobs','4','-o',str(root/n.replace('.dex','')),str(p)],check=True)
+                  p.unlink()
+          PY
+          python3 - <<'PY'
+          import pathlib,re,json,collections
+          root=pathlib.Path('source')
+          pat=re.compile(r'CallRecord|callRecord|callAutoRecord|autoRecord|isInCallAiEnabled|isCallAutoRecording|isPermissionGranted|callRecorderStatus|CallRecorderAppStatus|recording_setting|recording_status|recording_on|recording_off',re.I)
+          names=re.compile(r'SettingScreenKt|SettingViewModel|CheckCallRecorderAppStateUseCase|CallRecordState|CallRecorderAppStatus|CallRecordingSettingRepository|GetInCallAiToggleStateUseCase|SettingUiState|CallRecordScreenKt|CallRecordViewModel')
+          mpat=re.compile(r'(?ms)^\.method[^\n]*\n.*?^\.end method$')
+          result={}
+          for p in sorted(root.glob('classes*/com/lguplus/aicallagent/**/*.smali')):
+              if not names.search(p.name):continue
+              s=p.read_text()
+              for m in mpat.finditer(s):
+                  b=m.group(); h=b.splitlines()[0]
+                  focus=(pat.search(b) or re.search(r'refresh(?:Base)?SettingData|refreshData',h)) and not re.search(r'[_]Factory|Hilt|MembersInjector',p.name)
+                  if not focus:continue
+                  key=p.relative_to(root).as_posix()+' '+h
+                  result[key]=b
+                  print('SETTING_METHOD',key,flush=True)
+                  rows=b.splitlines()
+                  base=s.count('\n',0,m.start())+1
+                  # Emit full direct decision methods; for large generated UI
+                  # methods print all state-related calls and surrounding branches.
+                  relevant=set()
+                  if (len(rows)<=220 and re.search(r'CheckCallRecorderAppStateUseCase|CallRecorderAppStatus|observeCallRecorderStatus|refreshSettingData|refreshBaseSettingData|refreshData|CallRecordingSettingRepository|GetInCallAiToggleStateUseCase',p.name+'.'+h)):
+                      relevant.update(range(len(rows)))
+                  else:
+                      for i,line in enumerate(rows):
+                          if pat.search(line) and not line.strip().startswith(('.local','.end local')):
+                              relevant.update(range(max(0,i-5),min(len(rows),i+9)))
+                  for i in sorted(relevant):
+                      print('SETTING_SOURCE',key,base+i,rows[i],flush=True)
+          pathlib.Path('evidence/settings-source-methods.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          assert any('SettingScreenKt' in k for k in result),'No exact screen found'
+          assert any('CheckCallRecorderAppStateUseCase' in k for k in result),'No status use case found'
+          print('SETTINGS_SOURCE_METHOD_COUNT',len(result),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Original_Settings_On_Off_Methods
+          path: evidence/
+          retention-days: 7
