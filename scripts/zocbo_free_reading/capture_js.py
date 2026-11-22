@@ -8,6 +8,7 @@ import json
 import re
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit, parse_qsl
@@ -33,6 +34,7 @@ CHECKS=[
 ]
 report={"targets":TARGETS,"http":[],"browser":[],"javascript":[],"matches":[],"errors":[]}
 files=set()
+downloaded_urls=set()
 
 def safe_url(url):
     try:
@@ -92,21 +94,29 @@ def parse_html(body,base,label):
     except Exception as e:report["errors"].append(f"HTML parser {label}: {e}")
     for i,s in enumerate(parser.inline):
         save_js(s,base+"#inline"+str(i),"inline_html:"+label)
-    for i,src in enumerate(parser.srcs):
+    # Fetch all original script URLs, concurrently to avoid serial proxy timeouts.
+    candidates=[]
+    for src in parser.srcs:
         u=urljoin(base,html.unescape(src))
-        if urlsplit(u).scheme not in ("http","https"):continue
+        if urlsplit(u).scheme in ("http","https") and u not in downloaded_urls:
+            downloaded_urls.add(u)
+            candidates.append(u)
+    def load_one(u):
         try:
-            res=session.get(u,timeout=20,allow_redirects=True)
-            if res.ok and ("javascript" in res.headers.get("content-type","").lower() or u.lower().split("?")[0].endswith(".js")):
+            res=requests.get(u,headers={"User-Agent":UA_MOBILE},timeout=9,allow_redirects=True)
+            return (u,res,None)
+        except Exception as exc:return (u,None,str(exc)[:130])
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for u,res,err in pool.map(load_one,candidates):
+            if err:report["errors"].append(f"script GET {safe_url(u)}: {err}")
+            elif res.ok and ("javascript" in res.headers.get("content-type","").lower() or u.lower().split("?")[0].endswith(".js")):
                 save_js(res.content,res.url,"script_src:"+label)
-            else:
-                report["errors"].append(f"script GET status {res.status_code} {safe_url(u)}")
-        except Exception as e:report["errors"].append(f"script GET {safe_url(u)} {type(e).__name__}: {str(e)[:120]}")
+            else:report["errors"].append(f"script GET status {res.status_code} {safe_url(u)}")
 
 def http_probe(label,url):
     for ua_name,ua in [("desktop",UA_DESKTOP),("mobile",UA_MOBILE)]:
         try:
-            r=session.get(url,headers={"User-Agent":ua},timeout=30,allow_redirects=False)
+            r=session.get(url,headers={"User-Agent":ua},timeout=12,allow_redirects=False)
             ct=r.headers.get("content-type","")
             loc=r.headers.get("location","")
             entry={"label":label,"client":ua_name,"url":safe_url(url),"status":r.status_code,"content_type":ct,"location":safe_url(urljoin(url,loc)) if loc else None,"bytes":len(r.content)}
@@ -130,12 +140,12 @@ with sync_playwright() as playwright:
             page.on("console",lambda message:console.append({"type":message.type,"text":message.text[:240]}) if len(console)<15 else None)
             status=None;err=None
             try:
-                res=page.goto(url,wait_until="domcontentloaded",timeout=25000)
+                res=page.goto(url,wait_until="domcontentloaded",timeout=12000)
                 status=res.status if res else None
-                page.wait_for_timeout(4500)
+                page.wait_for_timeout(1200)
             except Exception as e:
                 err=str(e)[:330]
-                try:page.wait_for_timeout(1500)
+                try:page.wait_for_timeout(400)
                 except Exception:pass
             endurl=page.url
             content=""
