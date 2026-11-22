@@ -1,0 +1,37 @@
+name: Disassemble actual Essence2 0.9.5 backend selection
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/hitel-essence2-gpu-hardwarebuffer-20261121
+    paths:
+      - .github/workflows/essence2-sdk095-backend-disassembly.yml
+permissions:
+  contents: read
+jobs:
+  backend-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Get unmodified vendor AAR and disassemble actual ARM64 instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          curl -fLsS --retry 3 https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5/essence2-android-0.9.5.aar -o original.aar
+          unzip -p original.aar jni/arm64-v8a/lible_jni.so > audit/lible_jni.so
+          unzip -p original.aar classes.jar > audit/classes.jar
+          sha256sum original.aar audit/lible_jni.so audit/classes.jar > audit/sha256.txt
+          readelf -Ws audit/lible_jni.so > audit/symbols.txt
+          readelf -rW audit/lible_jni.so > audit/relocations.txt
+          readelf -d audit/lible_jni.so > audit/needed.txt
+          strings -a -t x audit/lible_jni.so > audit/strings.txt
+          javap -p -s -c -classpath audit/classes.jar 'ai.bithuman.elevate.Essence2Avatar$Companion' ai.bithuman.elevate.ElevateFrames ai.bithuman.elevate.NativeBridge ai.bithuman.elevate.Essence2Avatar > audit/jvm.txt
+          OBJDUMP="$(command -v llvm-objdump || command -v llvm-objdump-18 || command -v aarch64-linux-gnu-objdump)"
+          "$OBJDUMP" -d --demangle audit/lible_jni.so > audit/arm64.txt
+          echo PASS_ACTUAL_VENDOR_ARM64_AND_JVM_DISASSEMBLY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: essence2-sdk095-backend-disassembly
+          path: audit/
+          retention-days: 14
