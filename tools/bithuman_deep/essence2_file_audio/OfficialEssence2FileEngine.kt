@@ -112,7 +112,11 @@ internal class OfficialEssence2FileEngine(
             turn = currentTurn
             acceptedSamples += bytes.size / 2
         }
-        if (first) presenter?.begin(turn)
+        if (first) {
+            HitelSdkProbe.setTurn(turn)
+            presenter?.begin(turn)
+        }
+        HitelSdkProbe.input(turn, (bytes.size / 2).toLong())
         // Two independent consumers. The incoming ByteArray is not retained by Dart.
         val copy = bytes.copyOf()
         feedQueue.offer(Packet.Chunk(turn, copy))
@@ -179,7 +183,8 @@ internal class OfficialEssence2FileEngine(
                         val feedStart = System.nanoTime()
                         HitelE2Trace.event("sdk.feed.begin", "turn" to packet.turn,
                             "bytes" to packet.bytes.size, "queuedChunks" to feedQueue.size)
-                        traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) }
+                        HitelSdkProbe.inTurn(packet.turn) { traceSdk("HITEL.e2.feed") { sdk.feed(packet.bytes) } }
+                        HitelSdkProbe.fed(packet.turn, (packet.bytes.size / 2).toLong())
                         if (sdkStartedTurn != packet.turn) {
                             synchronized(sdkClockLock) {
                                 if (live(packet.turn)) sdkStartedTurn = packet.turn
@@ -251,6 +256,7 @@ internal class OfficialEssence2FileEngine(
                 if (ready) {
                     if (!live(turn)) { hw?.close(); continue }
                     lastSdkIndex = sdk.lastFrameIndex
+                    HitelSdkProbe.pulled(turn, lastSdkIndex)
                     val ordinal = if (lastSdkIndex >= 0) lastSdkIndex else shownInTurn
                     val pts = ordinal * (RATE / fps)
                     if (hardwareFrames) {
@@ -319,6 +325,7 @@ internal class OfficialEssence2FileEngine(
                                 "frames" to shownInTurn, "lastOrdinal" to lastOrdinal,
                                 "expectedApprox" to approx, "integrityPassed" to integrity.isSuccess)
                             Log.i(TAG, "LIVE_RENDER_DONE turn=$turn frames=$shownInTurn expectedApprox=$approx lastOrdinal=$lastOrdinal integrityPassed=${integrity.isSuccess}")
+                            HitelSdkProbe.finishTurn(turn)
                             continue
                         }
                     }
@@ -515,6 +522,7 @@ internal class OfficialEssence2FileEngine(
                         }
                         else
                             Log.i(TAG, "LIVE_AUDIO_DONE turn=${packet.turn} samples=$writtenSamples headSamples=$finalHead")
+                        HitelSdkProbe.requestSnapshot(packet.turn)
                         HitelE2Trace.event("audio.finish", "turn" to packet.turn,
                             "playedSamples" to finalHead, "writtenSamples" to writtenSamples,
                             "pcm16Sha256" to pcmHash.digest().joinToString("") { "%02x".format(it.toInt() and 255) },

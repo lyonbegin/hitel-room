@@ -29,6 +29,7 @@ class HitelDiagnostics(binding: FlutterPlugin.FlutterPluginBinding) {
                     }
                 }
             } else if (call.method == "share") {
+                HitelE2Trace.drainSdkProbe?.invoke()
                 HitelE2Trace.afterWrites { failure ->
                     val export = runCatching {
                         if (failure != null) throw failure
@@ -41,6 +42,13 @@ class HitelDiagnostics(binding: FlutterPlugin.FlutterPluginBinding) {
                                 if (file.isFile) {
                                     zip.putNextEntry(ZipEntry(name))
                                     file.inputStream().use { it.copyTo(zip) }
+                                    zip.closeEntry()
+                                }
+                            }
+                            for (profile in HitelE2Trace.sdkProfileFolder?.listFiles().orEmpty()) {
+                                if (profile.isFile && profile.extension == "json") {
+                                    zip.putNextEntry(ZipEntry("sdk_profiles/" + profile.name))
+                                    profile.inputStream().use { it.copyTo(zip) }
                                     zip.closeEntry()
                                 }
                             }

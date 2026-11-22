@@ -121,6 +121,7 @@ internal class HitelVoiceSync(
             if (frame != null) {
                 if (draw?.invoke(frame.bitmap) == true) {
                     shown++
+                    HitelSdkProbe.shown(turn)
                     val ordinalGap = (frame.ordinal - lastOrdinal - 1).coerceAtLeast(0)
                     lastOrdinal = frame.ordinal
                     if (frame.hw == null) frame.release()

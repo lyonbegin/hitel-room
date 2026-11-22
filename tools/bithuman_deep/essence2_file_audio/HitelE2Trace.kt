@@ -14,12 +14,14 @@ import java.util.concurrent.atomic.AtomicLong
 /** Bounded metadata only; clear commands execute on the file writer itself. */
 internal object HitelE2Trace {
     private const val TAG = "HITEL_E2TRACE"
-    private const val MAX_BYTES = 4L * 1024L * 1024L
+    private const val MAX_BYTES = 12L * 1024L * 1024L
     private const val MAX_RECORDS = 120000L
     private val seq = AtomicLong()
     private val records = AtomicLong()
     private val lost = AtomicLong()
     private val started = AtomicBoolean()
+    @Volatile var drainSdkProbe: (() -> Unit)? = null
+    @Volatile var sdkProfileFolder: File? = null
     private class Clear(val complete: (Throwable?) -> Unit)
     private class Snapshot(val complete: (Throwable?) -> Unit)
     private val lines = ArrayBlockingQueue<Any>(8192)
@@ -98,7 +100,7 @@ internal object HitelE2Trace {
             " monotonicNs=" + SystemClock.elapsedRealtimeNanos() + " wallMs=" + System.currentTimeMillis() +
             " pid=" + Process.myPid() + " tid=" + Process.myTid() +
             " thread=" + safe(Thread.currentThread().name) + " stage=" + safe(stage) + " lost=" + lost.get() +
-            fields.joinToString("") { " " + safe(it.first) + "=" + safe(it.second) }
+            fields.joinToString("") { " " + safe(it.first) + "=" + safe(it.second, if (stage == "sdk.native.log") 640 else 160) }
         Log.i(TAG, line)
         if (!lines.offer(line)) lost.incrementAndGet()
     }
