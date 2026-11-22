@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import org.webrtc.CapturerObserver;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoFrame;
@@ -62,6 +63,16 @@ public final class HitelAvatarMediaBus {
     public static long onAudioBuffer(ByteBuffer buffer,int format,int channels,int rate,int size,long captureTimeNs) {
         Session s=active.get();
         if(s==null)return captureTimeNs; // normal microphone calls unchanged
+        // The pinned ADM reports bytesRead=0 when its microphone read is disabled.
+        // Its direct buffer still holds one 10 ms audio block. Without a blocking
+        // AudioRecord.read(), the callback loops at CPU speed unless paced here.
+        if(size==0){
+            final int blockBytes=(rate>0 && channels>0 && format==AudioFormat.ENCODING_PCM_16BIT)
+                ? (rate/100)*channels*2 : 0;
+            final long pacedTime=s.paceSyntheticAudio();
+            return s.audio(buffer,format,channels,rate,
+                blockBytes>0 && buffer.capacity()==blockBytes ? blockBytes : 0,pacedTime);
+        }
         return s.audio(buffer,format,channels,rate,size,captureTimeNs);
     }
     private static final class SourceFrame {
@@ -91,6 +102,8 @@ public final class HitelAvatarMediaBus {
         volatile boolean ended;
         Thread worker;
         int callbackRate, callbackChannels, pairsSent, silenceBuffers;
+        private long nextAudioNs;
+        private boolean callbackReported;
         Session(SurfaceTextureHelper h,CapturerObserver o,int w,int ht){
             helper=h;handler=h.getHandler();observer=o;width=w;height=ht;
             helper.setTextureSize(w,ht);surface=new Surface(h.getSurfaceTexture());
@@ -163,6 +176,18 @@ public final class HitelAvatarMediaBus {
             ready=new Ready(pair,video);
             notifyAll();
         }
+        // Called only by WebRTC's single audio-record thread, outside the queue lock.
+        long paceSyntheticAudio(){
+            final long period=10_000_000L;
+            long now=System.nanoTime();
+            if(nextAudioNs==0 || now-nextAudioNs>=period) nextAudioNs=now;
+            while(!closed && !Thread.currentThread().isInterrupted() && now<nextAudioNs){
+                LockSupport.parkNanos(nextAudioNs-now);
+                now=System.nanoTime();
+            }
+            nextAudioNs=Math.max(nextAudioNs+period,now);
+            return now;
+        }
         private static short sample(byte[] data,int i){int p=i*2;return(short)((data[p]&255)|(data[p+1]<<8));}
         synchronized long audio(ByteBuffer original,int format,int channels,int rate,int size,long captureTimeNs){
             ByteBuffer buffer=original.duplicate().order(ByteOrder.LITTLE_ENDIAN);buffer.clear();
@@ -172,9 +197,12 @@ public final class HitelAvatarMediaBus {
             long now=captureTimeNs>0?captureTimeNs:System.nanoTime();
             if(now<=lastCaptureNs)now=lastCaptureNs+10_000_000L;
             lastCaptureNs=now;
-            if(callbackRate==0)Log.i(TAG,"RTC_PCM_CALLBACK rate="+rate+" channels="+channels+" bytes="+n);
+            if(!callbackReported){
+                callbackReported=true;
+                Log.i(TAG,"RTC_PCM_CALLBACK rate="+rate+" channels="+channels+" bytes="+n+" capacity="+buffer.capacity());
+            }
             if(closed||queue==null)return now;
-            if(format!=AudioFormat.ENCODING_PCM_16BIT||channels<1||rate<8000||n%(channels*2)!=0){
+            if(format!=AudioFormat.ENCODING_PCM_16BIT||channels<1||rate<8000||n<=0||n%(channels*2)!=0){
                 Log.e(TAG,"unsupported capture PCM format "+format+" "+channels+" "+rate+" "+n);reset();return now;
             }
             if(callbackRate!=0&&(callbackRate!=rate||callbackChannels!=channels)){reset();return now;}
