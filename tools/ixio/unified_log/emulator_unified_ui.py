@@ -27,9 +27,16 @@ def select_text(root,needles):
     return None
 
 log=None
-for attempt in range(15):
+for attempt in range(30):
     root=dump('before_'+str(attempt))
-    log=select_text(root,['HITEL 진단 로그 열기','text="로그"','로그'])
+    # Pixel-6 system launcher ANR obscures real IXIO UI in the captured screenshot.
+    if select_text(root,["Pixel Launcher isn't responding"]):
+        dismiss=select_text(root,['Wait']) if attempt<3 else select_text(root,['Close app'])
+        if dismiss:
+            tap(dismiss)
+            time.sleep(3)
+            continue
+    log=select_text(root,['HITEL 진단 로그 열기','로그'])
     if log:break
     time.sleep(2)
 if log is None:raise RuntimeError('MAIN_LOG_BUTTON_NOT_VISIBLE_EMULATOR')
