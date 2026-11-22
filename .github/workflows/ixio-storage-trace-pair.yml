@@ -1,0 +1,87 @@
+name: IXIO cumulative recording file lifecycle diagnostics APK pair
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-storage-trace-pair.yml, tools/ixio/ixio_storage_trace_pair.py, tools/ixio/storage_debug/StorageTrace.java]
+permissions: {contents: write, actions: read}
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build from cumulative main QA and previous internal recorder trace
+        run: |
+          set -euo pipefail
+          mkdir -p base/main base/recorder work out evidence .ixio-start-test
+          gh run download 44992757103 --name IXIO_Main_VisibleRecording_QA_Signed --dir base/main
+          (cd base/main && sha256sum -c SHA256SUMS.txt)
+          gh run download 44969093217 --name IXIO_Recorder_Internal_Trace_Tested_APKs --dir base/recorder
+          (cd base/recorder && sha256sum -c SHA256SUMS.txt)
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          mkdir -p work/java work/d8
+          javac -source 8 -target 8 -cp "$ANDROID_HOME/platforms/android-34/android.jar" -d work/java tools/ixio/storage_debug/StorageTrace.java
+          "$BT/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-34/android.jar" --output work/d8 work/java/com/hitel/qa/StorageTrace.class
+          python3 -m py_compile tools/ixio/ixio_storage_trace_pair.py
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Storage Trace QA'
+          for role in main recorder; do
+            if [ "$role" = main ]; then f=base/main/IXIO_Main_VisibleCall_RecordingState_QA_20261122.apk; name=IXIO_Main_StorageTrace_20261122; else f=base/recorder/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk; name=IXIO_Recorder_StorageTrace_20261122; fi
+            java -jar work/baksmali.jar d --api 34 -o "work/helper-$role" work/d8/classes.dex
+            python3 tools/ixio/ixio_storage_trace_pair.py --role "$role" --apk "$f" --work "work/$role" --baksmali work/baksmali.jar --smali work/smali.jar --helper "work/helper-$role" --out "work/$role-unsigned.apk" --report "evidence/$role-sites.json"
+            "$BT/zipalign" -p -f 4 "work/$role-unsigned.apk" "work/$role-aligned.apk"
+            "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out "out/$name.apk" "work/$role-aligned.apk"
+            "$BT/apksigner" verify --verbose "out/$name.apk"
+          done
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          cp out/IXIO_Main_StorageTrace_20261122.apk .ixio-start-test/IXIO_Main_NoAppSealing_Single.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_StorageTrace_Signed_Pair
+          path: out/
+      - run: sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            adb install -g out/IXIO_Recorder_StorageTrace_20261122.apk
+            HITEL_QA_RECORDING_ROW_TEST=1 python3 tools/ixio/ixio-pages-qa-emulator-robot.py
+            adb logcat -d -b crash > evidence/crash.txt
+            adb shell pidof com.lguplus.aicallagent
+            ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' evidence/crash.txt
+            adb exec-out screencap -p > evidence/screen.png
+            adb shell uiautomator dump /sdcard/storage-ui.xml
+            adb pull /sdcard/storage-ui.xml evidence/screen.xml
+            adb logcat -d -s HITEL_FILE_TRACE > evidence/storage-logcat.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_StorageTrace_Evidence
+          path: |
+            evidence/
+            ixio-pages-qa-emulator-evidence/result.json
+      - name: Publish verified build for device QA and check downloads
+        run: |
+          set -euo pipefail
+          tag=ixio-storage-trace-pair-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO original recording file lifecycle diagnostics" --notes "Cumulative main QA baseline and original recorder trace baseline. Actual start/stop, callbacks, MediaRecorder, MediaStore, file sizes and list query diagnostics. No new behavior change. Same test signer for both APKs. Physical call and file saving not verified."
+          gh release upload "$tag" out/*.apk out/SHA256SUMS.txt --clobber
+          for f in out/*.apk; do
+            n="$(basename "$f")"
+            code="$(curl -fLsS --retry 3 --max-time 180 -w '%{http_code}' -o work/verify.apk "https://github.com/$GH_REPO/releases/download/$tag/$n")"
+            test "$code" = 200
+            cmp "$f" work/verify.apk
+            echo "EXTERNAL_DOWNLOAD_VERIFIED $n HTTP=$code"
+          done
