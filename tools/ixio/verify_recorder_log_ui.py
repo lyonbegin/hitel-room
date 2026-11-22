@@ -5,14 +5,27 @@ def dump(n):
     adb('pull','/sdcard/recorder-qa.xml','evidence/'+n+'.xml')
     with open('evidence/'+n+'.png','wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
     return ET.parse('evidence/'+n+'.xml').getroot()
-for i in range(12):
+for i in range(16):
     time.sleep(3)
     try:
         root=dump('recorder-'+str(i))
-        button=next((n for n in root.iter('node') if n.get('text')=='녹음 로그'),None)
+        nodes=list(root.iter('node'))
+        texts=[n.get('text','') for n in nodes]
+        print('RECORDER_UI_STAGE',i,[x for x in texts if x],flush=True)
+        # Disposable emulator only: handle the exact original recorder's OS battery prompt.
+        if any(n.get('package')=='com.android.settings' and n.get('text')=='Let app always run in background?' for n in nodes) and any('익시오 통화녹음' in x for x in texts):
+            n=next(n for n in nodes if n.get('package')=='com.android.settings' and n.get('text')=='Allow')
+            x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds')))
+            adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
+            print('RECORDER_EMULATOR_BATTERY_PROMPT_HANDLED',flush=True)
+            continue
+        button=next((n for n in nodes if n.get('text')=='녹음 로그'),None)
         if button is not None:break
     except Exception as e:print(type(e).__name__,flush=True)
-else:raise AssertionError('RECORDER_LOG_BUTTON_NOT_VISIBLE')
+else:
+    with open('evidence/recorder-logcat.txt','w') as f:f.write(adb('logcat','-d','-s','HITEL_RECORDER_TRACE'))
+    with open('evidence/crash.txt','w') as f:f.write(adb('logcat','-d','-b','crash'))
+    raise AssertionError('RECORDER_LOG_BUTTON_NOT_VISIBLE')
 print('RECORDER_LOG_BUTTON_VISIBLE=YES',flush=True)
 x1,y1,x2,y2=map(int,re.findall(r'\d+',button.get('bounds')))
 adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))

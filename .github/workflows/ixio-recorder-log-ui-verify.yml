@@ -2,7 +2,7 @@ name: IXIO recorder log UI and critical storage trace verified pair
 on:
   push:
     branches: [fix/ixio-main-dual-settings-qa-20261122]
-    paths: [.github/workflows/ixio-recorder-log-ui-verify.yml, tools/ixio/recorder_debug/RecorderLog.java, tools/ixio/recorder_debug/RecorderLogUi.java]
+    paths: [tools/ixio/verify_recorder_log_ui.py, .github/workflows/ixio-recorder-log-ui-verify.yml, tools/ixio/recorder_debug/RecorderLog.java, tools/ixio/recorder_debug/RecorderLogUi.java]
 permissions: {contents: write, actions: read}
 jobs:
   test:
