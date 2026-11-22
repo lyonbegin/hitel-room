@@ -1,0 +1,84 @@
+name: Fix initial local recording settings state on verified main
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-main-local-recording-fix.yml, tools/ixio/ixio_local_recording_state_fix.py]
+permissions: {contents: write, actions: read}
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: '${{ github.token }}'
+      GH_REPO: '${{ github.repository }}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build from last runtime-tested main only
+        run: |
+          set -euo pipefail
+          mkdir -p base work out evidence
+          gh run download 44969093217 --name IXIO_Recorder_Internal_Trace_Tested_APKs --dir base
+          f="$(find base -name 'IXIO_HITEL_QA_RecorderTrace_20261122.apk' -print -quit)"
+          test -n "$f"
+          echo "b94cb175572ca29d9150163d603bd7118cd0091262aa83dcb750f1b9e5561483  $f" | sha256sum -c -
+          cp "$f" work/baseline.apk
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+          python3 -m py_compile tools/ixio/ixio_local_recording_state_fix.py
+          python3 tools/ixio/ixio_local_recording_state_fix.py --apk work/baseline.apk --work work --baksmali work/baksmali.jar --smali work/smali.jar --out work/unsigned.apk --report evidence/fix.json
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Local Recording Fix QA'
+          "$BT/zipalign" -p -f 4 work/unsigned.apk work/aligned.apk
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Main_LocalRecordingStateFix_20261122.apk work/aligned.apk
+          "$BT/apksigner" verify --verbose out/IXIO_Main_LocalRecordingStateFix_20261122.apk
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          cat > work/smoke.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          adb install out/IXIO_Main_LocalRecordingStateFix_20261122.apk
+          adb logcat -c
+          adb shell monkey -p com.lguplus.aicallagent -c android.intent.category.LAUNCHER 1
+          sleep 20
+          adb shell pidof com.lguplus.aicallagent | tee evidence/main-pid.txt
+          test -s evidence/main-pid.txt
+          adb logcat -d -b crash | tee evidence/crash.txt
+          adb logcat -d -v threadtime > evidence/logcat.txt
+          adb shell dumpsys activity activities > evidence/activities.txt
+          ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' evidence/crash.txt
+          adb shell uiautomator dump /sdcard/minimal-qa.xml
+          adb pull /sdcard/minimal-qa.xml evidence/ui.xml
+          grep -F 'com.lguplus.aicallagent' evidence/ui.xml >/dev/null
+          echo MAIN_LAUNCH_NO_FATAL_CRASH_VERIFIED=YES
+          SH
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Main_LocalRecordingFix_Signed
+          path: out/
+      - run: sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash work/smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Main_LocalRecordingFix_Runtime_Evidence
+          path: evidence/
+      - name: Publish only after smoke success and verify anonymous download
+        run: |
+          set -euo pipefail
+          tag=ixio-main-local-recording-fix-20261122
+          f=IXIO_Main_LocalRecordingStateFix_20261122.apk
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO main local recording state binding fix" --notes "Last runtime-tested main APK base 44969093217. Initialize the original UI state with the real existing Room auto-record Flow before asynchronous refresh, rather than its default false Flow. No service entitlement, PCM, recording or STT changes. Cold-launch smoke verified; physical phone and actual settings behavior require verification."
+          gh release upload "$tag" "out/$f" --clobber
+          code="$(curl -fLsS --retry 3 --max-time 120 -w '%{http_code}' -o work/verify.apk "https://github.com/$GH_REPO/releases/download/$tag/$f")"
+          test "$code" = 200
+          cmp "out/$f" work/verify.apk
+          echo "LOCAL_RECORDING_FIX_EXTERNAL_BYTE_VERIFIED=YES HTTP=$code"
