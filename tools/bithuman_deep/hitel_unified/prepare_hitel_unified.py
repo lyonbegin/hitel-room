@@ -13,33 +13,88 @@ main = a.app / "lib/main.dart"
 s = main.read_text()
 anchor = "              FloatingActionButton.small(heroTag: 'clear-logs',"
 assert s.count(anchor) == 1, "pinned UI anchor changed"
-s = "import 'hitel_communication_page.dart';\nimport 'hitel_loopback_page.dart';\n" + s.replace(anchor, """              FloatingActionButton.small(heroTag: 'hitel-avatar-rtc',
-                tooltip: 'Essence2 WebRTC 재생 시험',
+def replace(s,old,new,count=1):
+    assert s.count(old)==count, (old,s.count(old))
+    return s.replace(old,new)
+s = "import 'hitel_communication_page.dart';\nimport 'hitel_main_rtc.dart';\n" + s
+s = replace(s, '  BithumanAvatar? _avatar;\n', '''  BithumanAvatar? _avatar;
+  final _rtcPlayback = HitelRtcPlayback();
+  late final _rtcHost = HitelLocalRtcHost(_rtcPlayback, _hitelAppendAiTrace);
+  void _rtcChanged() { if (mounted) setState(() {}); }
+  Future<void> _startHitelRtc(BithumanAvatar avatar) async {
+    await _rtcHost.start(avatar.frameWidth > 0 ? avatar.frameWidth : 720,
+                         avatar.frameHeight > 0 ? avatar.frameHeight : 1280);
+  }
+  Future<void> _stopHitelRtc() async {
+    await _rtcHost.stop();
+    await _avatar?.interrupt(reason: 'rtc_transport_stopped');
+  }
+''')
+s = replace(s, '    WidgetsBinding.instance.addObserver(this);\n','    WidgetsBinding.instance.addObserver(this);\n    _rtcPlayback.addListener(_rtcChanged);\n')
+s = replace(s, "    if (!avatar.isReady) throw StateError('Avatar display did not become ready.');\n",
+'''    if (!avatar.isReady) throw StateError('Avatar engine not ready.');
+    await _startHitelRtc(avatar);
+    if (!mounted || _avatar != avatar) return;
+''')
+# Both former local texture paths now use the identical receive-only renderer.
+s = replace(s,'Texture(textureId: a.textureId)','_rtcPlayback.view()',count=2)
+s = replace(s,'    if (t.isEmpty || _session == null) return;', '''    if (t.isEmpty || _session == null) return;
+    if (!_rtcHost.ready) {
+      setState(() => _status = 'WebRTC 연결 필요 · 직접 출력하지 않습니다.');
+      _hitelAppendAiTrace('RTC_TEXT_BLOCKED no_connected_receiver');
+      return;
+    }''')
+s = replace(s,'          _session!.sendText(p);','          if (_rtcHost.ready) _session!.sendText(p);')
+s = replace(s,'    WidgetsBinding.instance.removeObserver(this);\n',
+'''    WidgetsBinding.instance.removeObserver(this);
+    _rtcPlayback.removeListener(_rtcChanged);
+    unawaited(_rtcHost.shutdown());
+''')
+s = replace(s,'        _session?.stop(); _session = null;\n',
+'''        unawaited(_stopHitelRtc());
+        _session?.stop(); _session = null;
+''')
+# Change only the main video's status badge, not the user's existing input/controls.
+s = replace(s,"label: 'R7 Trace · $_status'","label: 'RTC · ${_rtcPlayback.status} · $_status'")
+s = replace(s, "'mode=text_trigger_file_stream\\nSTT=false\\nTTS=false\\n'",
+''' 'mode=rtc_receiver_only\\nSTT=false\\nTTS=false\\n'
+          'rtcConnected=${_rtcHost.ready}\\nrtcEvidence=${_rtcPlayback.evidence}\\n' ''')
+s = replace(s, anchor, """              FloatingActionButton.small(heroTag: 'hitel-rtc-toggle',
+                tooltip: 'WebRTC 연결 중단 / 재연결',
                 onPressed: () async {
                   final avatar = _avatar;
-                  if (avatar == null || _session == null || !avatar.isReady) return;
-                  await avatar.interrupt(reason: 'enter_rtc_avatar');
-                  if (!mounted) return;
-                  await Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => HitelLoopbackPage(
-                      avatarWidth: avatar.frameWidth > 0 ? avatar.frameWidth : 720,
-                      avatarHeight: avatar.frameHeight > 0 ? avatar.frameHeight : 1280,
-                      onPlay: () { _session?.sendText('HITEL WebRTC avatar test'); },
-                      onCancel: () => avatar.interrupt(reason: 'leave_rtc_avatar'),
-                    )));
-                }, child: const Icon(Icons.play_circle_outline)),
+                  if (avatar == null) return;
+                  try {
+                    if (_rtcHost.ready) {
+                      await _stopHitelRtc();
+                    } else {
+                      await _startHitelRtc(avatar);
+                      if (_session == null && mounted) await _openSession(avatar, _secret);
+                    }
+                  } catch (e) {
+                    _hitelAppendAiTrace('RTC_TOGGLE_FAIL $e');
+                    if (mounted) setState(() => _status = 'WebRTC 연결 오류: $e');
+                  }
+                }, child: Icon(_rtcHost.ready ? Icons.link_off : Icons.link)),
               const SizedBox(width: 8),
               FloatingActionButton.small(heroTag: 'hitel-communication',
                 tooltip: 'HITEL 통신 및 공개방',
                 onPressed: () async {
-                  await _avatar?.interrupt(reason: 'enter_communication');
+                  await _stopHitelRtc();
                   if (!mounted) return;
                   await Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const HitelCommunicationPage()));
+                  if (mounted && _avatar != null) {
+                    try { await _startHitelRtc(_avatar!); }
+                    catch (e) { _hitelAppendAiTrace('RTC_RESTART_FAIL $e'); }
+                  }
                 },
                 child: const Icon(Icons.video_call_rounded)),
               const SizedBox(width: 8),
 """ + anchor)
+assert 'Texture(textureId: a.textureId)' not in s
+assert s.count('_rtcPlayback.view()') == 2
+assert 'RTC_TEXT_BLOCKED' in s
 main.write_text(s)
 spec=a.app / "pubspec.yaml"
 s=spec.read_text()

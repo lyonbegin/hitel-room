@@ -1,4 +1,4 @@
-name: HITEL unified Android client build
+name: HITEL RTC-only main screen Android build
 on:
   workflow_dispatch:
   push:
@@ -8,7 +8,7 @@ on:
       - '.github/workflows/hitel-unified-android.yml'
       - 'tools/bithuman_deep/hitel_unified/**'
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-and-test-sofia-embedded-with-network-disabled:
     runs-on: ubuntu-24.04
@@ -150,8 +150,8 @@ jobs:
           ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
             "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           # Distinguish these builds in the diagnostics copied from a real phone.
-          sed -i 's/PCM_FILE_R7_TRACE/HITEL_UNIFIED_ANDROID_PHASE1_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'HITEL_UNIFIED_ANDROID_PHASE1_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122' "$APP/lib/main.dart"
           echo PASS_ESSENCE2_AUDIO_MASTER_WITH_ORIGINAL_HARDWARE_BUFFER
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
@@ -174,6 +174,10 @@ jobs:
           printf '  flutter_webrtc:\n    path: "%s"\n' "$GITHUB_WORKSPACE/hitel-flutter-webrtc" >> "$APP/pubspec_overrides.yaml"
           python3 tools/bithuman_deep/hitel_unified/prepare_avatar_rtc.py --plugin "$PLUGIN"
           python3 tools/bithuman_deep/hitel_unified/prepare_hitel_unified.py --app "$APP"
+          grep -Fq 'RTC-only: no AudioTrack worker is started.' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          grep -Fq '_rtcPlayback.view()' "$APP/lib/main.dart"
+          ! grep -Fq 'Texture(textureId: a.textureId)' "$APP/lib/main.dart"
+          echo PASS_HITEL_MAIN_RECEIVER_ONLY
           echo PASS_ESSENCE2_PUBLIC_MODEL_LOCAL_TEST_APP_CONFIGURED
 
       - name: Acquire and verify only Sofia's full original Android model in temporary CI
@@ -285,7 +289,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart lib/hitel_loopback_page.dart lib/hitel_counselor.dart lib/hitel_device_call.dart
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart lib/hitel_loopback_page.dart lib/hitel_counselor.dart lib/hitel_device_call.dart lib/hitel_main_rtc.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
           # Retry infrastructure fetch failures without altering SDK or app code.
           for attempt in 1 2 3; do
@@ -317,7 +321,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -327,7 +331,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -335,7 +339,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -352,7 +356,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk') as z:
+          with ZipFile('HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -363,14 +367,30 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_UNIFIED_ANDROID_PHASE1_APK
-          path: HITEL_UNIFIED_ANDROID_PHASE1_20261122_ARM64.apk
+          name: HITEL_UNIFIED_ANDROID_RTC_MAIN_APK
+          path: HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hitel-unified-phase1-build-evidence
+          name: hitel-unified-rtc-main-build-evidence
           path: essence2-local-mock-proof/
           retention-days: 14
+
+      - name: Publish separate RTC-only test APK
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk
+          TAG=hitel-unified-rtc-main-${GITHUB_RUN_ID}
+          sha256sum "$APK" > "$APK.sha256"
+          gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC-only main screen (device test)" --notes "Main-screen receiver-only test. Local PCM fixture; no external server. Build validated; physical RTP and A/V sync must be verified on device."
+          url="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$APK\") | .url")"
+          curl -fL --retry 3 --retry-all-errors "$url" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo "PASS_PUBLIC_RTC_MAIN_APK_DOWNLOAD $url"

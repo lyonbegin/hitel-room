@@ -1,4 +1,4 @@
-"""Opt-in avatar media route in assembled external wrapper. No vendor JNI modification."""
+"""RTC-only avatar media route in assembled external wrapper. No vendor JNI modification."""
 from pathlib import Path
 import argparse
 p=argparse.ArgumentParser()
@@ -11,12 +11,18 @@ f=a.plugin/"android/src/main/kotlin/ai/bithuman/flutter/OfficialEssence2FileEngi
 s=f.read_text()
 s=r(s,"import android.graphics.Bitmap","import com.cloudwebrtc.webrtc.HitelAvatarMediaBus\nimport android.graphics.Bitmap")
 s=r(s,"    @Volatile private var currentTurn = 0","    @Volatile private var currentTurn = 0\n    @Volatile private var rtcTurn = 0")
+s=r(s,"            check(!closed) { \"Essence2 SDK already closed\" }","""            check(!closed) { "Essence2 SDK already closed" }
+            if (!HitelAvatarMediaBus.enabled()) {
+                HitelE2Trace.event("rtc.input.blocked", "reason" to "no_rtc_source")
+                return
+            }""")
 s=r(s,"                receiving = true\n","""                receiving = true
-                rtcTurn = if (HitelAvatarMediaBus.enabled()) currentTurn else 0
-                if (rtcTurn != 0) HitelAvatarMediaBus.begin(rtcTurn.toLong())
+                rtcTurn = currentTurn
+                HitelAvatarMediaBus.begin(rtcTurn.toLong())
+                HitelE2Trace.event("rtc.turn.begin", "turn" to rtcTurn)
 """)
-s=r(s,"        soundQueue.offer(Packet.Chunk(turn, copy))","        if (rtcTurn != turn) soundQueue.offer(Packet.Chunk(turn, copy))")
-s=r(s,"        soundQueue.offer(Packet.End(turn))","        if (rtcTurn != turn) soundQueue.offer(Packet.End(turn))")
+s=r(s,"        soundQueue.offer(Packet.Chunk(turn, copy))","        // RTC-only: no independent PCM speaker queue.")
+s=r(s,"        soundQueue.offer(Packet.End(turn))","        // RTC-only: no independent speaker end packet.")
 s=r(s,"            currentTurn = counter.incrementAndGet()\n            receiving = false","""            if (rtcTurn != 0) HitelAvatarMediaBus.cancel(rtcTurn.toLong())
             rtcTurn = 0
             currentTurn = counter.incrementAndGet()
@@ -33,8 +39,8 @@ s=r(s,"                        val feedStart = System.nanoTime()","""           
 s=r(s,"                        sdkEndedTurn = packet.turn\n","""                        if (rtcTurn == packet.turn) HitelAvatarMediaBus.end(packet.turn.toLong(),rtcFedSamples)
                         sdkEndedTurn = packet.turn
 """)
-s=r(s,"                if (presenter?.full == true) {","""                val rtc = rtcTurn == turn
-                if ((rtc && !HitelAvatarMediaBus.canPull(turn.toLong())) || (!rtc && presenter?.full == true)) {""")
+s=r(s,"                if (presenter?.full == true) {","""                val rtc = rtcTurn == turn && HitelAvatarMediaBus.live(turn.toLong())
+                if (!rtc || !HitelAvatarMediaBus.canPull(turn.toLong())) {""")
 s=r(s,"                    val ordinal = if (lastSdkIndex >= 0) lastSdkIndex else shownInTurn","""                    if (rtc && lastSdkIndex < 0) {
                         hw?.close()
                         HitelAvatarMediaBus.cancel(turn.toLong())
@@ -44,13 +50,31 @@ s=r(s,"                    val ordinal = if (lastSdkIndex >= 0) lastSdkIndex els
                     val ordinal = if (lastSdkIndex >= 0) lastSdkIndex else shownInTurn""")
 s=r(s,"                        if (presenter != null) presenter.offer(turn, ordinal, pts, wrapped, delivered)","""                        if (rtc) {
                             if (!HitelAvatarMediaBus.frame(turn.toLong(),ordinal,wrapped,Runnable { delivered.release() })) delivered.release()
-                        } else if (presenter != null) presenter.offer(turn, ordinal, pts, wrapped, delivered)""")
+                        } else delivered.release()
+                        /* RTC-only: no direct texture callback. */""")
 s=r(s,"                            if (presenter != null) presenter.offer(turn, ordinal, pts, pixels, null)","""                            if (rtc) {
                                 if (!HitelAvatarMediaBus.frame(turn.toLong(),ordinal,pixels,Runnable { pixels.recycle() })) pixels.recycle()
-                            } else if (presenter != null) presenter.offer(turn, ordinal, pts, pixels, null)""")
+                            } else pixels.recycle()
+                            /* RTC-only: no direct texture callback. */""")
+# Remove leftover else branches from the old direct presenter, and never start its sound worker.
+s=r(s,'''                        /* RTC-only: no direct texture callback. */
+                        else {
+                            val callback = renderer
+                            if (callback == null) delivered.release()
+                            else try { callback(wrapped, delivered) }
+                            catch (failure: Throwable) { delivered.release(); throw failure }
+                        }''','''                        HitelE2Trace.event("rtc.frame.offer", "turn" to turn, "ordinal" to ordinal, "gpu" to true)''')
+s=r(s,'''                            /* RTC-only: no direct texture callback. */
+                            else renderer?.invoke(pixels, null) ?: pixels.recycle()''','''                            HitelE2Trace.event("rtc.frame.offer", "turn" to turn, "ordinal" to ordinal, "gpu" to false)''')
+s=r(s,"        soundWorker.execute { runSound() }","        // RTC-only: no AudioTrack worker is started.")
+s=r(s,"        if (first) presenter?.begin(turn)","        // RTC-only: no local presenter starts.")
+assert "soundWorker.execute { runSound() }" not in s
+assert "soundQueue.offer(Packet.Chunk(turn, copy))" not in s
+assert "presenter.offer(turn, ordinal, pts" not in s
+assert "renderer?.invoke(pixels, null)" not in s
 f.write_text(s)
 g=a.plugin/"android/build.gradle"
 s=g.read_text()
 s += "\n// HITEL wrapper: share the exact Flutter WebRTC engine, no second libwebrtc.\ndependencies { implementation project(':flutter_webrtc') }\n"
 g.write_text(s)
-print("PASS_HITEL_OPT_IN_NATIVE_AVATAR_PAIRED_RTC_ROUTE_PATCHED")
+print("PASS_HITEL_RTC_ONLY_NO_DIRECT_AUDIO_OR_VIDEO")

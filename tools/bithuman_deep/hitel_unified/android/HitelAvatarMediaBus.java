@@ -87,7 +87,7 @@ public final class HitelAvatarMediaBus {
         HitelPairedAvQueue.Pair<SourceFrame> inFlight;
         Ready ready,playing;
         volatile boolean closed;
-        long turn,startedCaptureNs,lastCaptureNs;
+        long turn,startedCaptureNs,lastCaptureNs,lastProgressNs;
         volatile boolean ended;
         Thread worker;
         int callbackRate, callbackChannels, pairsSent, silenceBuffers;
@@ -104,7 +104,7 @@ public final class HitelAvatarMediaBus {
         synchronized void begin(long generation){
             reset();turn=generation;ended=false;startedCaptureNs=0;pairsSent=0;silenceBuffers=0;
             queue=new HitelPairedAvQueue<>(4000,8,f->f.release.run());
-            queue.begin(generation,0);notifyAll();
+            queue.begin(generation,0);lastProgressNs=System.nanoTime();notifyAll();
             Log.i(TAG,"PAIR_TURN_BEGIN "+generation);
         }
         synchronized boolean live(long t){return !closed&&queue!=null&&turn==t;}
@@ -130,8 +130,13 @@ public final class HitelAvatarMediaBus {
                         while(!closed&&(queue==null||inFlight!=null||ready!=null||(!ended&&pairsSent==0&&queue.queuedFrames()<3)))wait(20);
                         if(closed)break;
                         pair=queue.poll();
-                        if(pair==null){wait(10);continue;}
-                        inFlight=pair;
+                        if(pair==null){
+                            if(!queue.drained() && System.nanoTime()-lastProgressNs>15_000_000_000L){
+                                Log.e(TAG,"PAIR_STALL missing ordinal="+queue.waitingOrdinal());reset();notifyAll();
+                            }
+                            wait(10);continue;
+                        }
+                        inFlight=pair;lastProgressNs=System.nanoTime();
                     }
                     try{
                         Canvas c=surface.lockHardwareCanvas();
@@ -167,6 +172,7 @@ public final class HitelAvatarMediaBus {
             long now=captureTimeNs>0?captureTimeNs:System.nanoTime();
             if(now<=lastCaptureNs)now=lastCaptureNs+10_000_000L;
             lastCaptureNs=now;
+            if(callbackRate==0)Log.i(TAG,"RTC_PCM_CALLBACK rate="+rate+" channels="+channels+" bytes="+n);
             if(closed||queue==null)return now;
             if(format!=AudioFormat.ENCODING_PCM_16BIT||channels<1||rate<8000||n%(channels*2)!=0){
                 Log.e(TAG,"unsupported capture PCM format "+format+" "+channels+" "+rate+" "+n);reset();return now;
