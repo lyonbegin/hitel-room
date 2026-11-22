@@ -34,7 +34,26 @@ def main():
     # Recover and validate the real constructor, field types and copy mask
     # from the last known working APK rather than guessing register numbers.
     statefile=folder/(STATE[1:-1]+'.smali')
-    assert statefile.exists()
+    if not statefile.exists():
+        # Multidex: resolve the exact class definition, not a reference.
+        # Disassemble the state DEX separately and never reassemble it.
+        state_matches=[]
+        with zipfile.ZipFile(a.apk) as z:
+            for entry in z.namelist():
+                if entry==n or not re.fullmatch(r'classes\d*\.dex',entry):continue
+                data=z.read(entry)
+                if STATE.encode() not in data:continue
+                candidate=a.work/entry
+                candidate.write_bytes(data)
+                classes=subprocess.check_output(['java','-jar',str(a.baksmali),'list','classes',str(candidate)]).decode().splitlines()
+                if STATE in classes:state_matches.append((entry,candidate))
+        assert len(state_matches)==1,state_matches
+        state_entry,state_dex=state_matches[0]
+        state_folder=a.work/'state_readonly'
+        run('java','-Xmx2600m','-jar',str(a.baksmali),'d','--api','34','--jobs','3','-o',str(state_folder),str(state_dex))
+        statefile=state_folder/(STATE[1:-1]+'.smali')
+        print('EXACT_STATE_DEX_READ_ONLY',state_entry,flush=True)
+    assert statefile.exists(),statefile
     state=statefile.read_text()
     assert 'iput-object p8, p0, '+STATE+'->isCallRecording:'+FLOW in state
     descriptors=re.findall(r'(?m)^\.method public static synthetic (copy\$default\([^)]*\)'+re.escape(STATE)+r')$',state)
