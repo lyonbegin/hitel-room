@@ -1,0 +1,41 @@
+name: Publish recorder-only settings trace APK
+on:
+  push:
+    branches: [fix/ixio-recorder-settings-full-trace-20261122]
+    paths: [.github/workflows/ixio-recorder-only-settings-release.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-recorder:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Retrieve exact already-built signed recorder APK
+        run: |
+          set -euo pipefail
+          gh run download 44978086716 --repo "$GH_REPO" --name IXIO_Recorder_Settings_Trace_PreUI_Signed_APKs --dir signed
+          filename=IXIO_Recorder_Companion_SettingsFullTrace_20261122.apk
+          test -s "signed/$filename"
+          (cd signed && sha256sum -c SHA256SUMS.txt)
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$BT/apksigner" verify --verbose --print-certs "signed/$filename"
+          "$BT/aapt" dump badging "signed/$filename" | head -n 1
+          "$BT/aapt" dump badging "signed/$filename" | grep -F "package: name='com.lguplus.callrecorder'"
+          unzip -Z1 "signed/$filename" | grep -Fx classes7.dex
+          tag=ixio-qa-recorder-settings-only-20261122
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GH_REPO" --target 35a75e3f8203329e7feb556e118bf3a276835b2e --title "IXIO recorder only - settings and internal trace" --notes "Signed recorder-only test APK from build 44978086716. Settings, state, storage, IPC and lifecycle probes. Physical device recording and UI operation are not established by this publication. Different signer may require uninstall; back up recordings first."
+          fi
+          gh release upload "$tag" "signed/$filename" --repo "$GH_REPO" --clobber
+          url="https://github.com/$GH_REPO/releases/download/$tag/$filename"
+          http="$(curl --retry 3 -fLsS -o downloaded.apk -w '%{http_code}' "$url")"
+          test "$http" = 200
+          cmp "signed/$filename" downloaded.apk
+          echo "RECORDER_PUBLIC_DOWNLOAD_HTTP=$http"
+          echo "RECORDER_PUBLIC_DOWNLOAD_BYTES=$(stat -c%s downloaded.apk)"
+          sha256sum downloaded.apk
+          echo "RECORDER_PUBLIC_DOWNLOAD_VERIFIED=$url"
