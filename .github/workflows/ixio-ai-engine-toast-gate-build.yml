@@ -1,7 +1,7 @@
-name: IXIO Original Function Boundaries And Actual Copy Log QA
+name: IXIO Recorder Internal AIDL and Callback Trace QA
 on:
   push:
-    branches: [fix/ixio-ai-engine-toast-gate-20261121]
+    branches: [fix/ixio-ai-engine-toast-gate-20261121, fix/ixio-recorder-internal-aidl-trace-20261122]
     paths:
       - .github/workflows/ixio-ai-engine-toast-gate-build.yml
       - tools/ixio/ixio_qa_log_buttons_patch.py
@@ -12,6 +12,8 @@ on:
       - tools/ixio/ixio_retry_error_inventory.py
       - tools/ixio/ixio_emulator_device_fixture.py
       - tools/ixio/ixio_original_flow_trace.py
+      - tools/ixio/ixio_recorder_deep_ipc_trace.py
+      - tools/ixio/recorder_debug/**
       - tools/ixio/ixio_flow_trace_runtime_verify.py
   workflow_dispatch:
 permissions:
@@ -229,6 +231,30 @@ jobs:
             --report ixio-pages-qa-results/recorder-only-existing-context-repair.json
           java -Xmx2500m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 \
             -o .ixio-pages-build/recorder/classes-bridged.dex .ixio-pages-build/recorder-smali
+
+          # Trace restored recorder classes6.dex, not IXIO main DEX.
+          unzip -p .ixio-pages-build/recorder/reconstructed-original-code.apk classes6.dex > .ixio-pages-build/recorder/classes6-original.dex
+          test -s .ixio-pages-build/recorder/classes6-original.dex
+          java -Xmx2500m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 -o .ixio-pages-build/recorder-smali6 .ixio-pages-build/recorder/classes6-original.dex
+          SDK="/usr/local/lib/android/sdk"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          mkdir -p .ixio-pages-build/recorder-qa-java .ixio-pages-build/recorder-qa-dex
+          javac -source 8 -target 8 -cp "$SDK/platforms/android-34/android.jar" -d .ixio-pages-build/recorder-qa-java tools/ixio/recorder_debug/RecorderLog.java tools/ixio/recorder_debug/RecorderLogUi.java
+          find .ixio-pages-build/recorder-qa-java -name '*.class' -print0 | xargs -0 "$BT/d8" --min-api 26 --lib "$SDK/platforms/android-34/android.jar" --output .ixio-pages-build/recorder-qa-dex
+          java -Xmx2500m -jar .ixio-pages-build/tools/baksmali.jar d --api 34 --jobs 3 -o .ixio-pages-build/recorder-smali7 .ixio-pages-build/recorder-qa-dex/classes.dex
+          python3 -m py_compile tools/ixio/ixio_recorder_deep_ipc_trace.py
+          python3 tools/ixio/ixio_recorder_deep_ipc_trace.py --smali .ixio-pages-build/recorder-smali6 --helpers .ixio-pages-build/recorder-smali7 --report ixio-pages-qa-results/recorder-internal-aidl-sites.json
+          for n in 6 7;do
+            java -Xmx2500m -jar .ixio-pages-build/tools/smali.jar a --api 34 --jobs 3 -o ".ixio-pages-build/recorder/classes$n-traced.dex" ".ixio-pages-build/recorder-smali$n"
+            test -s ".ixio-pages-build/recorder/classes$n-traced.dex"
+          done
+          python3 - <<'PYREC'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('ixio-pages-qa-results/recorder-internal-aidl-sites.json').read_text())
+          assert report['site_count']>30
+          print('RECORDER_INTERNAL_TRACE_APPLIED',report['site_count'],report['counts'])
+          PYREC
           python3 - <<'PY'
           from pathlib import Path
           import copy,zipfile,re
@@ -240,14 +266,18 @@ jobs:
               for entry in src.infolist():
                   if re.fullmatch(r'META-INF/.*\.(?:RSA|EC|DSA|SF|MF)',entry.filename,re.I):
                       continue
-                  dest.writestr(copy.copy(entry),
-                      replacement if entry.filename=='classes.dex' else src.read(entry.filename))
+                  data=src.read(entry.filename)
+                  if entry.filename=='classes.dex': data=replacement
+                  elif entry.filename=='classes6.dex': data=(p/'classes6-traced.dex').read_bytes()
+                  dest.writestr(copy.copy(entry),data)
+              assert 'classes7.dex' not in src.namelist()
+              dest.writestr('classes7.dex',(p/'classes7-traced.dex').read_bytes())
           with zipfile.ZipFile(old) as src,zipfile.ZipFile(new) as dest:
               assert src.read('AndroidManifest.xml')==dest.read('AndroidManifest.xml')
               for n in src.namelist():
-                  if n.endswith('.dex') and n!='classes.dex':
+                  if n.endswith('.dex') and n not in ('classes.dex','classes6.dex'):
                       assert src.read(n)==dest.read(n),n
-          print('EXISTING_RECORDER_AIDL_PCM_STT_CLASSES_UNCHANGED=YES')
+          print('RECORDER_PCM_STT_UNCHANGED_EXCEPT_TRACE_INVOKES=YES')
           PY
           BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$BT/zipalign" -p -f 4 .ixio-pages-build/recorder/recorder-context-unsigned.apk \
@@ -257,16 +287,17 @@ jobs:
             --out .ixio-pages-build/recorder/recorder-context-test-signed.apk \
             .ixio-pages-build/recorder/recorder-context-aligned.apk
           "$BT/apksigner" verify --verbose .ixio-pages-build/recorder/recorder-context-test-signed.apk
+          unzip -l .ixio-pages-build/recorder/recorder-context-test-signed.apk | grep -F classes7.dex
           echo 'ORIGINAL_PREVIOUSLY_VERIFIED_RECORDER_CONTEXT_BRIDGE_REUSED=YES'
       - name: Preserve signed diagnostic pair before UI so harness failures do not lose binaries
         run: |
           mkdir -p ixio-pre-ui-apks
-          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-pre-ui-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
-          cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-pre-ui-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-pre-ui-apks/IXIO_HITEL_QA_RecorderTrace_20261122.apk
+          cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-pre-ui-apks/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
           (cd ixio-pre-ui-apks && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: IXIO_Trace_PreUI_Signed_APKs
+          name: IXIO_Recorder_Trace_PreUI_Signed_APKs
           path: ixio-pre-ui-apks/
           retention-days: 14
       - name: Enable Android emulator KVM
@@ -293,6 +324,7 @@ jobs:
             adb shell pm path com.lguplus.callrecorder
             echo 'ORIGINAL_IXIO_RECORDER_INSTALLED=YES'
             HITEL_QA_LOG_BUTTON_TEST=1 python3 tools/ixio/ixio_flow_trace_runtime_verify.py
+            adb logcat -d -v threadtime | grep 'HITEL_RECORDER_TRACE' > ixio-pages-qa-results/recorder-internal-logcat.txt || true
       - name: Verify installed original app, original model entry call and catalog response evidence
         run: |
           set -euo pipefail
@@ -370,7 +402,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO_Original_Flow_Trace_DEX_And_UI_Evidence_20261122
+          name: IXIO_Recorder_Internal_Trace_DEX_And_UI_Evidence_20261122
           path: |
             ixio-pages-qa-results/
             ixio-pages-qa-emulator-evidence/
@@ -380,13 +412,13 @@ jobs:
         if: ${{ success() }}
         run: |
           mkdir -p ixio-public-apks
-          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-public-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
-          cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-public-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
+          cp .ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk ixio-public-apks/IXIO_HITEL_QA_RecorderTrace_20261122.apk
+          cp .ixio-pages-build/recorder/recorder-context-test-signed.apk ixio-public-apks/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
           (cd ixio-public-apks && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         if: ${{ success() }}
         with:
-          name: IXIO_Original_Flow_Trace_Exact_Tested_Installable_APKs
+          name: IXIO_Recorder_Internal_Trace_Tested_APKs
           path: ixio-public-apks/
           retention-days: 14
       - name: Publish both exact same-signer QA APKs as public HTTPS release after UI verification
@@ -396,18 +428,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=ixio-qa-original-flow-trace-20261122
-          release_sha="$(gh api "repos/$GH_REPO/git/ref/heads/release/ixio-all-retry-errors-20261121" --jq '.object.sha')"
-          git fetch --depth=1 origin "$release_sha"
-          test "$(git rev-parse "$release_sha:tools/ixio")" = "$(git rev-parse "$GITHUB_SHA:tools/ixio")"
-          default_branch="$(gh api "repos/$GH_REPO" --jq '.default_branch')"
-          git fetch --depth=1 origin "$default_branch"
-          test "$(git rev-parse "$release_sha:.github/workflows")" = "$(git rev-parse 'FETCH_HEAD:.github/workflows')"
+          tag=ixio-qa-recorder-internal-aidl-trace-20261122
+          release_sha="$GITHUB_SHA"
           mkdir -p ixio-pages-qa-results/public-apks
           main=.ixio-pages-build/apk/IXIO_HITEL_Pages_QA_20261120.apk
           companion=.ixio-pages-build/recorder/recorder-context-test-signed.apk
-          cp "$main" ixio-pages-qa-results/public-apks/IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk
-          cp "$companion" ixio-pages-qa-results/public-apks/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk
+          cp "$main" ixio-pages-qa-results/public-apks/IXIO_HITEL_QA_RecorderTrace_20261122.apk
+          cp "$companion" ixio-pages-qa-results/public-apks/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
           actual="$(sha256sum "$main" | cut -d' ' -f1)"
           expected="$(cut -d' ' -f1 ixio-pages-qa-results/tested-apk-sha256.txt)"
           test "$actual" = "$expected"
@@ -425,13 +452,13 @@ jobs:
           PY
           if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GH_REPO" --target "$release_sha" \
-              --title "IXIO QA - original call boundaries and real diagnostic copy panel" \
-              --notes "Original function boundary instrumentation: entry, call, return value/type, real worker result, branches, caught exception types, state emissions, recording callback error codes. Full original-instruction strip-and-compare audit and real UI/copy-panel verification are included. Existing model, recording and STT decisions are preserved. Actual physical phone recording, PCM and STT remain unverified. Main and companion have the same new QA signer. Build source: $GITHUB_SHA. Release source: $release_sha."
+              --title "IXIO QA - recorder internal AIDL and callback instrumentation" \
+              --notes "Original function boundary instrumentation: entry, call, return value/type, real worker result, branches, caught exception types, state emissions, recording callback error codes. Full original-instruction strip-and-compare audit and real UI/copy-panel verification are included. Existing model, recording and STT decisions are preserved. Actual physical phone recording, PCM and STT remain unverified. Recorder process separately logs AIDL, audio startup, errors and callbacks with clear/copy UI. Main and companion have the same new QA signer. Build source: $GITHUB_SHA. Release source: $release_sha."
           fi
           gh release upload "$tag" ixio-pages-qa-results/public-apks/*.apk --repo "$GH_REPO" --clobber
           gh release view "$tag" --repo "$GH_REPO" --json assets \
             --jq '.assets[] | select(.name | endswith(".apk")) | {name: .name, size: .size, url: .url}'
-          for file in IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk;do
+          for file in IXIO_HITEL_QA_RecorderTrace_20261122.apk IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk;do
             url="https://github.com/$GH_REPO/releases/download/$tag/$file"
             code="$(curl -L -I -sS --max-time 45 -o /dev/null -w '%{http_code}' "$url")"
             echo "PUBLIC_APK_EXTERNAL_HEAD=$file HTTP=$code"
