@@ -1,0 +1,74 @@
+name: IXIO Recorder Internal Trace Manual QA Publication
+on:
+  push:
+    branches: [fix/ixio-recorder-internal-aidl-trace-20261122]
+    paths: [.github/workflows/ixio-recorder-manual-qa-release.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact tested recorder internal trace APK pair
+        run: |
+          set -euo pipefail
+          mkdir -p .recorder-qa/tested .recorder-qa/public
+          gh run download 44969093217 --repo "$GH_REPO" --name IXIO_Recorder_Trace_PreUI_Signed_APKs --dir .recorder-qa/tested
+          (cd .recorder-qa/tested && sha256sum -c SHA256SUMS.txt)
+          test -s .recorder-qa/tested/IXIO_HITEL_QA_RecorderTrace_20261122.apk
+          test -s .recorder-qa/tested/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
+      - name: Verify both package signatures and internal recorder DEX
+        run: |
+          set -euo pipefail
+          BT="$(find /usr/local/lib/android/sdk/build-tools -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          a=.recorder-qa/tested/IXIO_HITEL_QA_RecorderTrace_20261122.apk
+          b=.recorder-qa/tested/IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk
+          "$BT/apksigner" verify --verbose --print-certs "$a" > .recorder-qa/main-sign.txt
+          "$BT/apksigner" verify --verbose --print-certs "$b" > .recorder-qa/recorder-sign.txt
+          grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/main-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/main-cert.txt
+          grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/recorder-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/recorder-cert.txt
+          cmp .recorder-qa/main-cert.txt .recorder-qa/recorder-cert.txt
+          python3 - <<'PY'
+          import hashlib,zipfile
+          from pathlib import Path
+          root=Path('.recorder-qa/tested')
+          rec=root/'IXIO_Recorder_Companion_InternalAidlTrace_20261122.apk'
+          with zipfile.ZipFile(rec) as z:
+              assert 'classes6.dex' in z.namelist() and 'classes7.dex' in z.namelist()
+              dex=z.read('classes7.dex')
+              assert b'RecorderLogUi' in dex and b'RecorderPoints' in dex and b'RecorderLog' in dex
+          print('SIGNED_RECORDER_INTERNAL_TRACE_DEX_PRESENT=YES')
+          for f in root.glob('*.apk'):
+              print('SIGNED_APK',f.name,f.stat().st_size,hashlib.sha256(f.read_bytes()).hexdigest())
+          PY
+      - name: Publish manual QA APK pair and independently GET the exact public bytes
+        run: |
+          set -euo pipefail
+          tag=ixio-qa-recorder-internal-aidl-manual-20261122
+          if ! gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1;then
+            gh release create "$tag" --repo "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "IXIO Recorder internal AIDL diagnostics - manual Galaxy QA" \
+              --notes "Two same-signed development QA APKs. Original recorder functions have entry, call, return, error, and callback markers plus separate clear/copy diagnostic UI. Package signature, original DEX identity and anonymous downloadable bytes are verified here. Real phone recording/PCM/STT have NOT yet been verified. Preserve recordings before uninstalling existing differently signed APKs."
+          fi
+          gh release upload "$tag" .recorder-qa/tested/*.apk --repo "$GH_REPO" --clobber
+          for f in .recorder-qa/tested/*.apk;do
+            name="$(basename "$f")"
+            url="https://github.com/$GH_REPO/releases/download/$tag/$name"
+            code="$(env -u GH_TOKEN -u GITHUB_TOKEN curl -q -fLsS --retry 2 --max-time 360 -o ".recorder-qa/public/$name" -w '%{http_code}' "$url")"
+            test "$code" = 200
+            cmp "$f" ".recorder-qa/public/$name"
+            echo "EXTERNAL_ANONYMOUS_GET_VERIFIED $name HTTP=$code EXACT_BYTES=YES"
+          done
+          (cd .recorder-qa/public && sha256sum *.apk > public-sha256.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Recorder_Internal_Manual_QA_Verification
+          path: |
+            .recorder-qa/*-cert.txt
+            .recorder-qa/public/public-sha256.txt
+          retention-days: 14
