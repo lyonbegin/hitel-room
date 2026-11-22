@@ -15,7 +15,7 @@ for name in ("HitelArCoreCapturer.java","HitelAvatarVideoCapturer.java","HitelAv
     shutil.copyfile(root/"android"/name,java/name)
 paired=a.webrtc/"android/src/main/java/ai/hitel/media"
 paired.mkdir(parents=True,exist_ok=True)
-shutil.copyfile(root/"android/HitelPairedAvQueue.java",paired/"HitelPairedAvQueue.java")
+shutil.copyfile(root/"android/HitelRtcPcm.java",paired/"HitelRtcPcm.java")
 source=java/"GetUserMediaImpl.java"
 s=source.read_text()
 s=replace(s,'CameraEventsHandler cameraEventsHandler = new CameraEventsHandler();\n        Pair<String, VideoCapturer> result = createVideoCapturer(cameraEnumerator, isFacing, deviceId, cameraEventsHandler);',

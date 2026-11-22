@@ -90,15 +90,15 @@ adb shell input text RTC%stest
 adb shell input keyevent KEYCODE_ENTER
 adb exec-out screencap -p > "$OUT/after-send.png"
 wait_log HITEL_RTC_FIRST_FRAME 240
-wait_log PAIR_SENT 240
-wait_log RTC_PCM_CALLBACK 60
+wait_log RTC_VIDEO_FIRST 240
+wait_log RTC_PCM_FIRST 60
 # Require received, decoded video plus non-silent received audio, not merely ICE.
 for ((i=0; i<120; i+=3)); do
   adb logcat -d -v threadtime > "$OUT/live.txt"
   if python3 - "$OUT/live.txt" <<'PY'
 import sys,re
 s=open(sys.argv[1]).read()
-assert 'RTC_HOST_FAIL' not in s and 'PAIR_STALL' not in s
+assert 'RTC_HOST_FAIL' not in s and 'RTC_PULL_ERROR' not in s and 'RTC_FEED_ERROR' not in s
 for line in s.splitlines():
     if 'RTC_RTP_RX' not in line: continue
     rx=line.split('RTC_RTP_RX',1)[1]

@@ -19,6 +19,16 @@ def replace(s,old,new,count=1):
 s = "import 'hitel_communication_page.dart';\nimport 'hitel_main_rtc.dart';\n" + s
 s = replace(s, '  BithumanAvatar? _avatar;\n', '''  BithumanAvatar? _avatar;
   final _rtcPlayback = HitelRtcPlayback();
+  Future<void> _sendExistingPcm() async {
+    final avatar = _avatar;
+    if (avatar == null || !_rtcHost.ready) return;
+    try {
+      await const MethodChannel('ai.bithuman.avatar').invokeMethod<void>(
+          'hitelPlayRtcPcm', {'textureId': avatar.textureId});
+    } catch (e) {
+      if (mounted) setState(() => _status = 'PCM 송신 실패 · $e');
+    }
+  }
   bool _rtcStarting = false;
   bool _rtcManualRetry = false;
   void _rtcTrace(String event) {
@@ -64,7 +74,8 @@ s = replace(s,'    if (t.isEmpty || _session == null) return;', '''    if (t.isE
       _hitelAppendAiTrace('RTC_TEXT_BLOCKED no_connected_receiver');
       return;
     }''')
-s = replace(s,'          _session!.sendText(p);','          if (_rtcHost.ready) _session!.sendText(p);')
+s = replace(s,'          _session!.sendText(p);','          if (_rtcHost.ready) unawaited(_sendExistingPcm());')
+s = replace(s, '    _session!.sendText(t);', '    unawaited(_sendExistingPcm());')
 s = replace(s,'    WidgetsBinding.instance.removeObserver(this);\n',
 '''    WidgetsBinding.instance.removeObserver(this);
     _rtcPlayback.removeListener(_rtcChanged);
@@ -123,8 +134,28 @@ rtc = a.app / "lib/hitel_main_rtc.dart"
 s = rtc.read_text()
 s = replace(s, "      firstFrame = true;", "      firstFrame = true;\n      debugPrint('HITEL_RTC_FIRST_FRAME');")
 rtc.write_text(s)
+# The fixture is packaged as raw PCM. No file decoder or socket audio messages in the APK.
+runtime = a.app / 'lib/hitel_offline_runtime.dart'
+code = runtime.read_text()
+code = replace(code, "import 'hitel_file_reply.dart';\n", '')
+code = replace(code, '  final _fileReply = HitelFileReply();\n', '')
+start = code.index("          case 'conversation.item.create':")
+end = code.index('        }\n      }\n    } catch', start)
+code = code[:start] + """          case 'response.create':
+            conn.sendResponseCreated();
+            conn.sendResponseDone();
+            break;
+          case 'response.cancel':
+            conn.sendResponseCancelled();
+            break;
+""" + code[end:]
+code = replace(code, "      var pendingText = '';\n", '')
+code = replace(code, ' finally { _fileReply.cancel(); }', '')
+code = replace(code, '    _fileReply.close();\n', '')
+runtime.write_text(code)
+(a.app / 'lib/hitel_file_reply.dart').unlink()
 spec=a.app / "pubspec.yaml"
-s=spec.read_text()
+s=replace(spec.read_text(), '    - assets/hitel_file_reply.m4a\n', '')
 if "flutter_secure_storage:" not in s:
     assert s.count("\ndependencies:\n")==1
     s=s.replace("\ndependencies:\n","\ndependencies:\n  flutter_secure_storage: 9.2.4\n")

@@ -32,13 +32,13 @@ jobs:
           done
           echo PASS_AUDIO_MASTER_SOURCE_BYTE_IDENTICAL_TO_44916323322
 
-      - name: Verify paired media source clock contract on JVM
+      - name: Verify independent PCM capture on JVM
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p paired-test
-          javac -d paired-test tools/bithuman_deep/hitel_unified/android/HitelPairedAvQueue.java tools/bithuman_deep/hitel_unified/tests/HitelPairedAvQueueTest.java
-          java -cp paired-test ai.hitel.media.HitelPairedAvQueueTest
+          mkdir -p pcm-test
+          javac -d pcm-test tools/bithuman_deep/hitel_unified/android/HitelRtcPcm.java tools/bithuman_deep/hitel_unified/tests/HitelRtcPcmTest.java
+          java -cp pcm-test ai.hitel.media.HitelRtcPcmTest
 
       - name: Fetch pinned official app and Flutter plugin
         shell: bash
@@ -153,20 +153,17 @@ jobs:
           ! grep -Eq 'BitmapFactory|Bitmap\.CompressFormat\.JPEG|renderThenPlay|playLikeOfficialExample|\.writeBytes\(' \
             "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
           # Distinguish these builds in the diagnostics copied from a real phone.
-          sed -i 's/PCM_FILE_R7_TRACE/HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/HITEL_RTC_DIRECT_PCM_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'HITEL_RTC_DIRECT_PCM_20261122' "$APP/lib/main.dart"
           echo PASS_ESSENCE2_AUDIO_MASTER_WITH_ORIGINAL_HARDWARE_BUFFER
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y ffmpeg
           fi
+          mkdir -p "$APP/android/app/src/main/assets"
           ffmpeg -v error -y -f s16le -ar 24000 -ac 1 \
             -i "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
-            -ar 48000 -ac 1 -c:a aac -b:a 96k -movflags +faststart \
-            "$APP/assets/hitel_file_reply.m4a"
-          ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
-            -show_entries format=duration -of json "$APP/assets/hitel_file_reply.m4a" \
-            > "$GITHUB_WORKSPACE/essence2-local-mock-proof/file-audio-format.json"
+            -f s16le -ar 16000 -ac 1 "$APP/android/app/src/main/assets/hitel_voice.pcm"
           cat > "$APP/pubspec_overrides.yaml" <<EOF
           dependency_overrides:
             bithuman:
@@ -177,7 +174,7 @@ jobs:
           printf '  flutter_webrtc:\n    path: "%s"\n' "$GITHUB_WORKSPACE/hitel-flutter-webrtc" >> "$APP/pubspec_overrides.yaml"
           python3 tools/bithuman_deep/hitel_unified/prepare_avatar_rtc.py --plugin "$PLUGIN"
           python3 tools/bithuman_deep/hitel_unified/prepare_hitel_unified.py --app "$APP"
-          grep -Fq 'RTC-only: no AudioTrack worker is started.' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"
+          if grep -Eq 'AudioTrack|attachSyncRenderer|HitelPairedAvQueue' "$PLUGIN/$NATIVE/OfficialEssence2FileEngine.kt"; then exit 1; fi
           grep -Fq '_rtcPlayback.view()' "$APP/lib/main.dart"
           ! grep -Fq 'Texture(textureId: a.textureId)' "$APP/lib/main.dart"
           echo PASS_HITEL_MAIN_RECEIVER_ONLY
@@ -303,7 +300,7 @@ jobs:
           }
           GRADLE
           flutter pub get
-          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart lib/hitel_loopback_page.dart lib/hitel_counselor.dart lib/hitel_device_call.dart lib/hitel_main_rtc.dart
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_communication_page.dart lib/hitel_room.dart lib/hitel_loopback_page.dart lib/hitel_counselor.dart lib/hitel_device_call.dart lib/hitel_main_rtc.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
           # Retry infrastructure fetch failures without altering SDK or app code.
           for attempt in 1 2 3; do
@@ -338,7 +335,7 @@ jobs:
           if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
             echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
           fi
-          grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'assets/hitel_voice.pcm' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
           cp "$APK" "$GITHUB_WORKSPACE/HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
@@ -362,25 +359,10 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
-      - name: Verify reused 100-ms PCM chunker and direct asset file descriptor
-        shell: bash
+      - name: Verify embedded PCM source
         run: |
           set -euo pipefail
-          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
-          test -f "$ANDROID_JAR"
-          mkdir -p file-chunker-test
-          javac -cp "$ANDROID_JAR" -d file-chunker-test \
-            tools/bithuman_deep/essence2_file_audio/FilePcmStream.java \
-            tools/bithuman_deep/essence2_file_audio/FilePcmChunkerTest.java
-          java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
-          python3 - <<'PY'
-          from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk') as z:
-              info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
-              assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
-              assert info.file_size > 1000
-          print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
-          PY
+          unzip -p HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk assets/hitel_voice.pcm | cmp - original-upstream/app/avatar_chat/android/app/src/main/assets/hitel_voice.pcm
 
       - name: Release build memory and enable KVM
         run: |
@@ -390,28 +372,13 @@ jobs:
           test -r /dev/kvm && test -w /dev/kvm
           ls -l /dev/kvm
 
-      - name: Set up real emulator speaker capture
+      - name: Install authenticated emulator gRPC audio client
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y pulseaudio pulseaudio-utils ffmpeg
-          pulseaudio --start --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=hitel_emulator
-          pactl set-default-sink hitel_emulator
-          # Headless qemu must explicitly connect to the same Pulse server as
-          # the speaker monitor; do not rely on desktop-session autodiscovery.
-          pulse_socket="$RUNNER_TEMP/hitel-pulse.sock"
-          pactl load-module module-native-protocol-unix socket="$pulse_socket"
-          test -S "$pulse_socket"
-          {
-            echo "PULSE_SERVER=unix:$pulse_socket"
-            echo "QEMU_PA_SERVER=$pulse_socket"
-            echo QEMU_AUDIO_DRV=pa
-            echo QEMU_PA_SINK=hitel_emulator
-          } >> "$GITHUB_ENV"
-          PULSE_SERVER="unix:$pulse_socket" pactl info
-          pactl list short sinks
-
-      - name: Install and exercise the actual ARM64 APK in Android emulator
+          sudo apt-get install -y python3-grpcio
+          /usr/bin/python3 -c 'import grpc; print(grpc.__version__)'
+      - name: Install and test actual ARM64 APK using API 35 translation
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -420,11 +387,11 @@ jobs:
           profile: pixel_2
           disk-size: 4096M
           cores: 2
-          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -memory 4096 -no-snapshot -wipe-data -camera-back none -camera-front none
+          disable-linux-hw-accel: auto
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data -camera-back none -camera-front none -grpc 8554 -grpc-use-token
           disable-animations: true
           emulator-boot-timeout: 900
-          script: bash tools/bithuman_deep/hitel_unified/tests/emulator_rtc_gate.sh
-
+          script: bash tools/bithuman_deep/hitel_rtc_emulator_verify_grpc.sh
       - name: Retain compiled APK
         if: always()
         uses: actions/upload-artifact@v4

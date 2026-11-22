@@ -37,7 +37,7 @@ class HitelRtcPlayback extends ChangeNotifier {
     }
     _notify();
   }
-  void record(String value) { evidence = value; _notify(); }
+  void record(String value) { evidence = value; }
   Widget view() => initialized && connected
       ? RTCVideoView(renderer, mirror: false,
           objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain)
@@ -172,7 +172,7 @@ class HitelLocalRtcHost {
         return data.where((r)=>r.type==type).map((r){
           final v=r.values;
           final kind=v['kind']??v['mediaType']??'?';
-          final fields=['packetsSent','packetsReceived','bytesSent','bytesReceived','framesEncoded','framesDecoded','framesPerSecond','totalSamplesReceived','concealedSamples','totalAudioEnergy','jitter','packetsLost'];
+          final fields=['packetsSent','packetsReceived','bytesSent','bytesReceived','framesEncoded','framesDecoded','framesPerSecond','totalSamplesReceived','concealedSamples','totalAudioEnergy','jitter','packetsLost','totalEncodeTime','totalDecodeTime','encoderImplementation','decoderImplementation','powerEfficientEncoder','powerEfficientDecoder','qualityLimitationReason','frameWidth','frameHeight'];
           return '$kind ${fields.where(v.containsKey).map((k)=>'$k=${v[k]}').join(' ')}';
         }).join(' | ');
       }
