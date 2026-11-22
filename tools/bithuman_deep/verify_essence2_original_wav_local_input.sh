@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
-# Existing Flutter text input -> local mock server -> official WAV PCM -> original Essence2.
+# Test the original text input, full WAV consumption, animated speech and monitor output.
 set -euo pipefail
 APK="$1"
 OUT="$2"
-test -s "$APK"
-mkdir -p "$OUT/boot" "$OUT/speech"
+mkdir -p "$OUT"
 bash tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh "$APK" "$OUT/boot"
-echo PASS_WG128_OLD_APP_AUTH_SOFIA_GPU_BOOT
+parec --device=essence2_test.monitor --rate=16000 --channels=1 --format=s16le > "$OUT/speaker.pcm" &
+monitor=$!
+trap 'kill "$monitor" 2>/dev/null || true' EXIT
 bash tools/bithuman_deep/essence2_android_speech_turn_probe.sh "$OUT/speech"
-echo PASS_ORIGINAL_TEXT_INPUT_AND_ORIGINAL_SPEECH_PRESENTER
-adb logcat -d -v threadtime > "$OUT/all-logcat.txt"
-adb shell run-as ai.bithuman.example.avatar_chat.essence2 \
-    cat ./app_flutter/hitel_e2_trace.log > "$OUT/native-trace.txt" || true
-adb shell run-as ai.bithuman.example.avatar_chat.essence2 \
-    cat ./app_flutter/hitel_ai_e2e.log > "$OUT/local-server-events.txt" || true
-adb exec-out screencap -p > "$OUT/speech-finish.png" || true
+for ((i=0; i<180; i++)); do
+    adb logcat -d -s bhwav:I BithumanAvatar:I bhav:I > "$OUT/playout.txt"
+    if grep -q WAV_ERROR "$OUT/playout.txt"; then exit 1; fi
+    if grep -q WAV_DRAINED "$OUT/playout.txt"; then break; fi
+    sleep 1
+done
+kill "$monitor"
+wait "$monitor" || true
+trap - EXIT
 python3 - "$OUT" <<'PY'
+from array import array
 from pathlib import Path
-import sys,re,json
-p=Path(sys.argv[1])
-log=(p/'all-logcat.txt').read_text(errors='replace')
-native=(p/'native-trace.txt').read_text(errors='replace') if (p/'native-trace.txt').exists() else ''
-speech=(p/'speech/full-after-speech-logcat.txt').read_text(errors='replace')
-local=(p/'local-server-events.txt').read_text(errors='replace') if (p/'local-server-events.txt').exists() else ''
-text='\n'.join((log,native,speech,local))
-checks={
-    'originalWavLoaded': 'OFFICIAL_WAV_PCM_READY' in text,
-    'originalChatSubmitted': 'ui.text.submit' in text or 'mock.rx type=response.create' in text,
-    'localServerResponseStart': 'official.wav.begin' in text,
-    'localServerSendsPCM': 'official.wav.first_pcm' in text,
-    'originalPCMFeed': bool(re.search(r'\bbhfeed\b.*\+[1-9]',text)),
-    'speechFramePresented': bool(re.search(r'speechWritten=[1-9][0-9]*.*speechPresented=[1-9][0-9]*',text)),
-    'originalHardwareRoute': 'hardwareOutput' in text or 'nativeHwBuffer' in text,
-    'noFatalCrash': not bool(re.search(r'FATAL EXCEPTION|UnsatisfiedLinkError|OFFICIAL_WAV_PCM_FAILED',text))
-}
-(p/'e2e-result.json').write_text(json.dumps(checks,indent=2,ensure_ascii=False)+'\n')
-print(json.dumps(checks,indent=2,ensure_ascii=False))
-if not all(checks.values()):
-    raise SystemExit('FAIL_ORIGINAL_CHAT_TO_LOCAL_WAV_TO_ESSENCE2_NOT_FULLY_VERIFIED')
-print('PASS_WG128_ORIGINAL_LOCAL_INPUT_OFFICIAL_WAV_PCM_NATIVE_SPEECH')
+import re, sys, wave
+out = Path(sys.argv[1])
+log = (out/'playout.txt').read_text()
+assert 'WAV_ATTACH' in log and 'WAV_DRAINED' in log
+end = re.search(r'WAV_EOF samples=(\d+) played24=(\d+)', log)
+assert end and int(end[2]) >= (int(end[1])-32000)*3//2
+counts = [int(v) for v in re.findall(r'uniqueShown=(\d+)',log)]
+assert counts and max(counts) >= 12, counts
+raw = (out/'speaker.pcm').read_bytes()
+pcm = array('h', raw)
+step = 1600
+active = sum(sum(x*x for x in pcm[i:i+step]) > 60**2 * step for i in range(0,len(pcm),step))
+assert active >= 35, f'only {active/10}s of audible output'
+with wave.open(str(out/'speaker.wav'),'wb') as dst:
+    dst.setparams((1,2,16000,0,'NONE',''))
+    dst.writeframes(raw)
+(out/'speaker.pcm').unlink()
+print(f'WAV_DRAINED, {max(counts)} distinct speech frames, {active/10:.1f}s monitor audio')
 PY

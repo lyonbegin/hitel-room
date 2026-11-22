@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Replace only the local server's M4A source; original chat/UI/SDK/GPU retained."""
+"""Connect the chat screen to a demand-driven WAV source on the original player."""
 from pathlib import Path
-import argparse,shutil,json
+import argparse,shutil,json,wave
 
 def one(s,a,b,where):
     if s.count(a)!=1: raise AssertionError(f"{where} source anchor {s.count(a)}")
@@ -9,64 +9,28 @@ def one(s,a,b,where):
 
 # The existing local server already instantiates HitelFileReply and invokes it
 # after conversation.item.create -> response.create. Do not change that flow.
-DART = r"""import 'dart:async';
-import 'dart:typed_data';
-import 'package:flutter/services.dart';
-import 'package:mock_realtime/mock_realtime.dart';
+# The local session stays available for the original UI. Its replies carry no media.
+DART = """import 'package:mock_realtime/mock_realtime.dart';
 
 class HitelFileReply {
-  static const _pcm = MethodChannel('ai.bithuman.avatar');
-  int _epoch = 0;
-  bool _closed = false;
-  Future<void> reply(MockConnection conn, String input,
-      void Function(String)? trace) async {
-    final turn = ++_epoch;
-    bool live() => !_closed && !conn.isClosed && turn == _epoch;
+  Future<void> reply(MockConnection conn, String input, void Function(String)? trace) async {
     conn.sendResponseCreated();
-    if (input.trim().isEmpty) { conn.sendResponseDone(); return; }
-    trace?.call('official.wav.begin turn=__DLR__turn chars=__DLR__{input.length}');
-    try {
-      // Vendor Wav.kt -> vendor Pcm16kTo24k. Original Flutter
-      // BithumanRealtimeSession forwards these unchanged PCM bytes to
-      // avatar.playSpeakerPCM(). No new player or audio scheduler.
-      final data = await _pcm.invokeMethod<Uint8List>(
-          'officialOriginalWavPcm24', {'turn': turn});
-      if (!live()) return;
-      if (data == null || data.isEmpty || data.length.isOdd) {
-        throw StateError('Official WAV PCM missing');
-      }
-      conn.sendTranscriptDelta('공식 음성 샘플을 재생합니다.');
-      const transportPacketBytes = 48000;
-      var packets = 0;
-      for (var i=0; i<data.length; i+=transportPacketBytes) {
-        if (!live()) return;
-        final end=(i+transportPacketBytes).clamp(0,data.length);
-        conn.sendAudioDelta(Uint8List.sublistView(data,i,end));
-        if (packets++==0) trace?.call(
-            'official.wav.first_pcm turn=__DLR__turn bytes=__DLR__{end-i}');
-        await Future<void>.delayed(Duration.zero);
-      }
-      if (!live()) return;
-      trace?.call('official.wav.done turn=__DLR__turn pcmBytes=__DLR__{data.length}');
-      conn.sendResponseDone();
-    } catch (e) {
-      if (!live()) return;
-      trace?.call('official.wav.error turn=__DLR__turn reason=__DLR__{e.runtimeType}');
-      conn.sendError('official_wav_failed', e.toString());
-      conn.sendResponseDone();
-    }
+    conn.sendResponseDone();
   }
-  void cancel() { _epoch++; }
-  void close() { _closed=true; cancel(); }
+  void cancel() {}
+  void close() {}
 }
-""".replace('__DLR__','$')
+"""
 
 def patch(app,plugin,wavkt,wav,report):
     n=plugin/'android/src/main/kotlin/ai/bithuman/flutter'
-    original=wavkt.read_text()
-    assert original.count('package com.example.e2hello')==1
-    (n/'Wav.kt').write_text(original.replace('package com.example.e2hello','package ai.bithuman.flutter',1))
-    assert wav.read_bytes().startswith(b'RIFF')
+    with wav.open('rb') as raw, wave.open(raw) as audio:
+        assert (audio.getnchannels(), audio.getsampwidth(), audio.getframerate(), audio.getcomptype()) == (1, 2, 16000, 'NONE')
+        samples = audio.getnframes()
+        assert samples > 0 and len(audio.readframes(1)) == 2
+        offset = raw.tell() - 2
+        assert wav.stat().st_size >= offset + samples * 2
+    shutil.copyfile(Path(__file__).with_name('WavPlayoutSource.kt'), n/'WavPlayoutSource.kt')
     (app/'assets').mkdir(exist_ok=True)
     shutil.copyfile(wav,app/'assets/speech.wav')
     rt=(app/'lib/hitel_offline_runtime.dart').read_text()
@@ -87,29 +51,66 @@ def patch(app,plugin,wavkt,wav,report):
     s=one(s,'        context = binding.applicationContext\n',
           '        context = binding.applicationContext\n        officialWavAsset = binding.flutterAssets.getAssetFilePathByName("assets/speech.wav")\n',
           'vendor asset path')
-    handler=r'''            "officialOriginalWavPcm24" -> {
+    handler = '''            "playBundledWav" -> {
+                val s = session(call) ?: return result.error("no_session", "Avatar is not loaded", null)
+                val player = s.player ?: return result.error("no_player", "Avatar is off screen", null)
+                stopWav(s)
+                if (s.fedSamples > s.playedSamples) {
+                    player.bargeIn("wav replay")
+                    notePlayed(s, s.fedSamples)
+                }
+                val input = context.assets.open(officialWavAsset)
                 try {
-                    val turn = call.argument<Int>("turn") ?: 0
-                    HitelSdkProbe.setTurn(turn)
-                    val wav = context.assets.open(officialWavAsset).use { it.readBytes() }
-                    val source = Wav.read16kMono(wav, "speech.wav")
-                    val pcm16 = source.toLittleEndianBytes()
-                    val converter = Pcm16kTo24k()
-                    val pcm24 = converter.process(pcm16) + converter.flush()
-                    HitelSdkProbe.input(turn, pcm16.size.toLong() / 2)
-                    HitelE2Trace.event("official.wav.pcm",
-                        "turn" to turn, "pcm16Bytes" to pcm16.size,
-                        "pcm24Bytes" to pcm24.size)
-                    android.util.Log.i("bhwav", "OFFICIAL_WAV_PCM_READY turn=__DLR__turn pcm16Bytes=__DLR__{pcm16.size} pcm24Bytes=__DLR__{pcm24.size}")
-                    result.success(pcm24)
-                } catch (e: Throwable) {
-                    android.util.Log.e("bhwav", "OFFICIAL_WAV_PCM_FAILED", e)
-                    result.error("official_wav_failed", e.message, null)
+                    s.wav = WavPlayoutSource(input, WAV_OFFSET, WAV_SAMPLES)
+                    s.wavBase = s.fedSamples
+                    android.util.Log.i("bhwav", "WAV_ATTACH samples=WAV_SAMPLES")
+                    refillWav(s)
+                    result.success(null)
+                } catch (e: Exception) {
+                    input.close()
+                    stopWav(s)
+                    result.error("wav_failed", e.message, null)
                 }
             }
-'''.replace('__DLR__','$')
-    s=one(s,'            "playSpeakerPCM" -> {\n',
-          handler+'            "playSpeakerPCM" -> {\n','vendor WAV bridge')
+'''.replace('WAV_OFFSET', str(offset)).replace('WAV_SAMPLES', str(samples))
+    s=one(s,'            "playSpeakerPCM" -> {',handler+'            "playSpeakerPCM" -> {','WAV input')
+    s=one(s,'        var held = false','        var wav: WavPlayoutSource? = null\n        var wavBase = 0L\n        var wavEnd = -1L\n        var held = false','WAV session')
+    helpers = '''    private fun stopWav(s: AvatarSession) {
+        s.wavEnd = -1L
+        val source = s.wav ?: return
+        s.wav = null
+        source.close()
+    }
+
+    private fun refillWav(s: AvatarSession) {
+        val source = s.wav ?: return
+        source.refill(s.playedSamples - s.wavBase) { speak(s, it) }
+        if (source.readSamples == source.samples) {
+            stopWav(s)
+            s.wavEnd = s.fedSamples
+            s.player?.endOfReply()
+            android.util.Log.i("bhwav", "WAV_EOF samples=${source.samples} played24=${s.playedSamples - s.wavBase}")
+        }
+    }
+
+'''
+    s=one(s,'    private fun notePlayed(',helpers+'    private fun notePlayed(','refill')
+    s=one(s,'        if (p > s.playedSamples) s.playedSamples = p','''        if (p > s.playedSamples) {
+            s.playedSamples = p
+            if (s.wavEnd >= 0 && p >= s.wavEnd) {
+                Log.i("bhwav", "WAV_DRAINED played24=${p - s.wavBase}")
+                s.wavEnd = -1L
+            }
+            try { refillWav(s) } catch (e: Exception) {
+                stopWav(s)
+                s.player?.endOfReply()
+                Log.e("bhwav", "WAV_ERROR", e)
+            }
+        }''','speaker credit')
+    s=one(s,'                s?.upsampler?.reset()', '                s?.let { stopWav(it) }\n                s?.upsampler?.reset()', 'interrupt')
+    s=one(s,'                if (hold) {', '                if (hold) {\n                    stopWav(s)', 'hold')
+    s=one(s,'    private fun stopMic(s: AvatarSession) {','    private fun stopMic(s: AvatarSession) {\n        stopWav(s)', 'audio session changes')
+    s=one(s,'    private fun closeSession(s: AvatarSession, done: (() -> Unit)?) {','    private fun closeSession(s: AvatarSession, done: (() -> Unit)?) {\n        stopWav(s)','dispose')
     pluginfile.write_text(s)
     pubspec=app/'pubspec.yaml'
     pubspec.write_text(one(pubspec.read_text(),
@@ -127,9 +128,16 @@ def patch(app,plugin,wavkt,wav,report):
     assert custom.exists()
     custom.unlink()
     ui=(app/'lib/main.dart').read_text()
-    assert '    _session!.sendText(t);\n' in ui
-    assert '_playOfficialWav' not in ui
-    assert 'FloatingActionButton.small' in ui # existing log buttons only
+    ui=one(ui,'  void _send() {','  Future<void> _send() async {','chat submit')
+    ui=one(ui,'    _session!.sendText(t);', '''    final avatar = _avatar;
+    if (avatar == null) return;
+    try {
+      await const MethodChannel('ai.bithuman.avatar').invokeMethod<void>(
+          'playBundledWav', {'textureId': avatar.textureId});
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _status = e.message ?? e.code);
+    }''','attach to active player')
+    (app/'lib/main.dart').write_text(ui)
     native=(n/'AvatarEngine.kt').read_text()
     assert 'avatar.useHardwareBuffers(HW_SLOTS)' in native
     assert 'avatar.pullHardwareBuffer()' in native
@@ -139,8 +147,8 @@ def patch(app,plugin,wavkt,wav,report):
     assert '"pushAudio" -> {' in s
     report.parent.mkdir(parents=True,exist_ok=True)
     report.write_text(json.dumps({'base':'WG128 8ea184756eee',
-      'trigger':'existing input -> local response.create',
-      'audio':'original speech.wav -> vendor Wav.kt -> vendor Pcm16kTo24k -> existing response.output_audio.delta -> playSpeakerPCM',
+      'trigger':'existing input -> playBundledWav',
+      'audio':'speech.wav -> speaker-credit driven read -> original AvatarPlayer',
       'gpu':'original WG128 and HardwareBuffer unchanged',
       'new_button':False,'new_player':False,'custom_file_decoder':False},indent=2)+'\n')
     print('PASS_WG128_EXISTING_CHAT_LOCAL_SERVER_OFFICIAL_WAV_PCM_ONLY')

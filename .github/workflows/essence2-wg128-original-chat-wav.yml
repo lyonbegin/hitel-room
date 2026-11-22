@@ -3,11 +3,12 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/hitel-essence2-wg128-official-wav-20261122
+      - fix/hitel-wg128-wav-pull-20261122
     paths:
       - .github/workflows/essence2-wg128-original-chat-wav.yml
       - tools/bithuman_deep/prepare_essence2_original_wav_local_reply.py
       - tools/bithuman_deep/verify_essence2_original_wav_local_input.sh
+      - tools/bithuman_deep/WavPlayoutSource.kt
       - tools/bithuman_deep/prepare_essence2_file_reply.py
       - tools/bithuman_deep/patch_essence2_official_pcm16_file.py
       - tools/bithuman_deep/essence2_live_pcm16_emulator_probe.sh
@@ -162,8 +163,8 @@ jobs:
           print('PASS_ORIGINAL_STREAMING_ENGINE_PLAYER_NO_CUSTOM_SYNC_NO_SDK_SKIP_AHEAD')
           PY
           # Distinguish the original-player diagnostic build.
-          sed -i 's/PCM_FILE_R7_TRACE/WG128_ORIGINAL_CHAT_WAV_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'WG128_ORIGINAL_CHAT_WAV_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/WG128_WAV_PULL_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'WG128_WAV_PULL_20261122' "$APP/lib/main.dart"
           grep -Fq 'sdk.backend.native' "$PLUGIN/$NATIVE/HitelSdkProbe.kt"
           grep -Fq 'hitel_sdk_backend.log' "$PLUGIN/$NATIVE/HitelE2Trace.kt"
           grep -Fq 'hitel_sdk_backend.log' "$APP/lib/main.dart"
@@ -179,7 +180,7 @@ jobs:
           app=Path('original-upstream/app/avatar_chat')
           plug=Path('essence2-local-mock-plugin/android/src/main/kotlin/ai/bithuman/flutter')
           orig=Path('vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin/android/src/main/kotlin/ai/bithuman/flutter')
-          assert '    _session!.sendText(t);' in (app/'lib/main.dart').read_text()
+          assert "'playBundledWav'" in (app/'lib/main.dart').read_text()
           assert 'unawaited(_fileReply.reply(conn, pendingText, trace));' in (app/'lib/hitel_offline_runtime.dart').read_text()
           assert not (plug/'HitelFileAudioSource.kt').exists()
           assert not (plug/'OfficialEssence2FileEngine.kt').exists()
@@ -383,7 +384,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/speech.wav' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_WG128_WavPull_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -393,7 +394,7 @@ jobs:
           set -euo pipefail
           cmp \
             essence2-sdk-local/patched-lible_jni.so \
-            <(unzip -p HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_WG128_WavPull_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ADRENO_WG128_PATCH_IN_APK_BYTE_IDENTICAL
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -401,7 +402,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_WG128_WavPull_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -414,13 +415,16 @@ jobs:
           from zipfile import ZipFile
           app=Path('original-upstream/app/avatar_chat')
           wav=Path('original-upstream/android/essence2-hello/app/src/main/assets/speech.wav').read_bytes()
-          with ZipFile('HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_WG128_WavPull_ARM64.apk') as z:
               assert z.read('assets/flutter_assets/assets/speech.wav')==wav
               assert 'assets/flutter_assets/assets/hitel_file_reply.m4a' not in z.namelist()
           assert '_playOfficialWav' not in (app/'lib/main.dart').read_text()
-          assert 'sendText(t)' in (app/'lib/main.dart').read_text()
+          assert "'playBundledWav'" in (app/'lib/main.dart').read_text()
           print('PASS_OFFICIAL_WAV_SAME_OLD_CHAT_NO_EXTRA_PLAY_BUTTON')
           PY
+
+      - name: Start the emulator speaker monitor
+        run: bash tools/bithuman_deep/prepare_essence2_pulse_audio.sh
 
       - name: Enable hardware emulation for original APK input test
         shell: bash
@@ -431,6 +435,8 @@ jobs:
 
       - name: Install and run original chat text through localhost WAV to Essence2
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          QEMU_AUDIO_DRV: pa
         with:
           api-level: 35
           target: google_apis
@@ -439,7 +445,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/verify_essence2_original_wav_local_input.sh HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk essence2-original-chat-wav-proof
+          script: bash tools/bithuman_deep/verify_essence2_original_wav_local_input.sh HITEL_Essence2_WG128_WavPull_ARM64.apk essence2-original-chat-wav-proof
 
       - name: Preserve actual emulator log and screen evidence
         if: always()
@@ -456,24 +462,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk
-          TAG=hitel-essence2-wg128-original-chat-wav-20261122
+          APK=HITEL_Essence2_WG128_WavPull_ARM64.apk
+          TAG=hitel-essence2-wg128-wav-pull-${GITHUB_SHA:0:10}
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
-          Experimental original OpenCL Director mode=1, existing quality grading and CPU fallback preserved; four native instruction words align actual convolution Y=1 with both fast and image kernel selection checks. Actual OpenCL API create, max workgroup, sampled enqueue geometry/return, per-window JNI timings and HardwareBuffer slot observations. Original PCM and player retained. Only local WAV input source changed. Install and emulator replay must pass before release.
+          WG128 GPU build with source-paced WAV playback through the existing avatar player. The reader uses the speaker position to request more PCM and ends the turn at the end of the WAV.
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-
-          Existing text prompt -> localhost response.create -> official speech.wav decoded by vendor Wav.kt -> vendor PCM24 -> original playSpeakerPCM -> Essence2. No new UI, button or PCM file streamer. Original player may still discard stale/coalesced frames as designed.
-          Evidence: sdk.backend.create_args (actual EP and native environment), sdk.backend.native (actual native branch messages including [borrow] compositor GPU/CPU and Director grade/demotion), sdk.backend.snapshot (render error code and Tessera state/counters, not inferred GPU use), separate hitel_sdk_backend.log preserved from startup. Recursive log capture removed. Original player's PROD stale/coalesced counters captured. No GPU backend forced; runtime profiling not yet verified on a physical phone.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 WG128 Original Chat WAV APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 WG128 WAV Pull APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_WG128_WavPull_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -483,8 +486,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_WG128_OriginalChatWav_APK
-          path: HITEL_Essence2_WG128_OriginalChatOfficialWav_ARM64.apk
+          name: HITEL_Essence2_WG128_WavPull_APK
+          path: HITEL_Essence2_WG128_WavPull_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs
