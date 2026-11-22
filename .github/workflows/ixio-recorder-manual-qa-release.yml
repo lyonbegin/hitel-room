@@ -34,6 +34,8 @@ jobs:
           if ! "$BT/apksigner" verify --verbose --print-certs "$b" > .recorder-qa/recorder-sign.txt 2>&1;then
             echo "RECORDER_APK_VERIFICATION_FAILURE"; cat .recorder-qa/recorder-sign.txt; exit 1
           fi
+          echo "MAIN_APKSIGNER_OUTPUT"; cat .recorder-qa/main-sign.txt
+          echo "RECORDER_APKSIGNER_OUTPUT"; cat .recorder-qa/recorder-sign.txt
           echo "MAIN_CERT_LINES"; grep -F 'Signer #1 certificate' .recorder-qa/main-sign.txt || true
           echo "RECORDER_CERT_LINES"; grep -F 'Signer #1 certificate' .recorder-qa/recorder-sign.txt || true
           grep -F 'Signer #1 certificate SHA-256 digest' .recorder-qa/main-sign.txt | sed -E 's/.*digest: //' > .recorder-qa/main-cert.txt
