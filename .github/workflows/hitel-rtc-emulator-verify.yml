@@ -5,7 +5,7 @@ on:
       source_run:
         description: "Run containing the compiled and integrity-checked ARM64 APK"
         required: true
-        default: "44980417978"
+        default: "44982435447"
   push:
     branches: [feature/hitel-unified-webrtc-android-20261122]
     paths: ['.github/workflows/hitel-rtc-emulator-verify.yml']
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      SOURCE_RUN: ${{ inputs.source_run || '44980417978' }}
+      SOURCE_RUN: ${{ inputs.source_run || '44982435447' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -67,15 +67,12 @@ jobs:
               exit 1
             fi
           } 2>&1 | tee essence2-local-mock-proof/emulator/kvm.txt
-      - name: Set up audio output
+      - name: Install authenticated emulator gRPC audio client
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y pulseaudio pulseaudio-utils ffmpeg
-          pulseaudio --start --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=hitel_emulator
-          pactl set-default-sink hitel_emulator
-          pactl list short sinks
+          sudo apt-get install -y python3-grpcio
+          /usr/bin/python3 -c 'import grpc; print(grpc.__version__)'
       - name: Install and test actual ARM64 APK using API 35 translation
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -86,10 +83,10 @@ jobs:
           disk-size: 4096M
           cores: 2
           disable-linux-hw-accel: auto
-          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data -camera-back none -camera-front none
+          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data -camera-back none -camera-front none -grpc 8554 -grpc-use-token
           disable-animations: true
           emulator-boot-timeout: 900
-          script: bash tools/bithuman_deep/hitel_unified/tests/emulator_rtc_gate.sh
+          script: bash tools/bithuman_deep/hitel_rtc_emulator_verify_grpc.sh
       - name: Retain emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
