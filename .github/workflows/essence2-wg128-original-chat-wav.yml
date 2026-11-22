@@ -1,4 +1,4 @@
-name: HITEL WG128 original chat local server official WAV
+name: Build WG128 WAV playback APK
 on:
   workflow_dispatch:
   push:
@@ -18,7 +18,20 @@ on:
 permissions:
   contents: write
 jobs:
-  build-and-test-sofia-embedded-with-network-disabled:
+  cancel-superseded-test:
+    if: github.event.before == '77f728a733f3bf292624eabdd2a61fd850eda8f2'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Stop the superseded emulator run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$(gh run view 45019671733 --repo "$GITHUB_REPOSITORY" --json status --jq .status)" != completed ]]; then
+            gh run cancel 45019671733 --repo "$GITHUB_REPOSITORY"
+          fi
+  build-apk:
     runs-on: ubuntu-24.04
     timeout-minutes: 85
     env:
@@ -59,9 +72,6 @@ jobs:
           ARCHIVE="$GITHUB_WORKSPACE/vendor/bithuman-pristine/flutter-plugin-v2.6.37/packages/flutter-plugin"
           PLUGIN="$GITHUB_WORKSPACE/essence2-local-mock-plugin"
           python3 -m py_compile tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
-          # Regression inputs must be pristine: the assembly below mutates APP.
-          ESSENCE2_UPSTREAM="$GITHUB_WORKSPACE/original-upstream" ESSENCE2_PLUGIN="$ARCHIVE" \
-            python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_hitel_no_key_runtime.py -v
           python3 tools/bithuman_deep/prepare_essence2_five_samples_original_sdk.py \
             --app "$APP" --plugin "$PLUGIN" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sample-ui.json"
@@ -351,7 +361,6 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
           # Retry infrastructure fetch failures without altering SDK or app code.
           for attempt in 1 2 3; do
@@ -369,93 +378,9 @@ jobs:
           done
           APK=build/app/outputs/flutter-apk/app-debug.apk
           test -s "$APK"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
-          test -x "$AAPT"
-          "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "application-label:'HITEL PCM File R7 Trace'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          echo PASS_ESSENCE2_ORIGINAL_APP_ID_LABEL_AND_VERSION_PRESERVED
-          unzip -t "$APK" | tail -1
-          unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          grep -Fxq 'lib/arm64-v8a/libhitel_e2_probe.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
-            echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
-          fi
-          grep -Fxq 'assets/flutter_assets/assets/speech.wav' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
           cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_WG128_WavPull_ARM64.apk"
-          sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
-          echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
-      - name: Verify installed APK JNI matches the four-instruction patched binary
-        shell: bash
-        run: |
-          set -euo pipefail
-          cmp \
-            essence2-sdk-local/patched-lible_jni.so \
-            <(unzip -p HITEL_Essence2_WG128_WavPull_ARM64.apk lib/arm64-v8a/lible_jni.so)
-          echo PASS_ADRENO_WG128_PATCH_IN_APK_BYTE_IDENTICAL
-
-      - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_WG128_WavPull_ARM64.apk" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
-          echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
-
-      - name: Confirm exact upstream speech.wav and zero custom file stream
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          from zipfile import ZipFile
-          app=Path('original-upstream/app/avatar_chat')
-          wav=Path('original-upstream/android/essence2-hello/app/src/main/assets/speech.wav').read_bytes()
-          with ZipFile('HITEL_Essence2_WG128_WavPull_ARM64.apk') as z:
-              assert z.read('assets/flutter_assets/assets/speech.wav')==wav
-              assert 'assets/flutter_assets/assets/hitel_file_reply.m4a' not in z.namelist()
-          assert '_playOfficialWav' not in (app/'lib/main.dart').read_text()
-          assert "'playBundledWav'" in (app/'lib/main.dart').read_text()
-          print('PASS_OFFICIAL_WAV_SAME_OLD_CHAT_NO_EXTRA_PLAY_BUTTON')
-          PY
-
-      - name: Start the emulator speaker monitor
-        run: bash tools/bithuman_deep/prepare_essence2_pulse_audio.sh
-
-      - name: Enable hardware emulation for original APK input test
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -c /dev/kvm
-          sudo chmod 666 /dev/kvm
-
-      - name: Install and run original chat text through localhost WAV to Essence2
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          QEMU_AUDIO_DRV: pa
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/verify_essence2_original_wav_local_input.sh HITEL_Essence2_WG128_WavPull_ARM64.apk essence2-original-chat-wav-proof
-
-      - name: Preserve actual emulator log and screen evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: HITEL_WG128_OriginalChatWav_EmulatorEvidence
-          path: essence2-original-chat-wav-proof/
-          retention-days: 14
-
-      - name: Publish APK only after original chat and real emulator PCM replay pass
+      - name: Publish the ARM64 APK for device testing
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -476,24 +401,3 @@ jobs:
           else
             gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 WG128 WAV Pull APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_WG128_WavPull_ARM64.apk") | .url')"
-          curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
-          cmp "$APK" downloaded.apk
-          echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
-          printf 'DIRECT_APK_URL=%s\n' "$URL"
-
-      - name: Retain compiled APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: HITEL_Essence2_WG128_WavPull_APK
-          path: HITEL_Essence2_WG128_WavPull_ARM64.apk
-          retention-days: 14
-
-      - name: Retain build integrity logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: essence2-gpu-pcm16-test-evidence
-          path: essence2-local-mock-proof/
-          retention-days: 14

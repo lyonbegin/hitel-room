@@ -63,29 +63,40 @@ def patch(app,plugin,wavkt,wav,report):
                 try {
                     s.wav = WavPlayoutSource(input, WAV_OFFSET, WAV_SAMPLES)
                     s.wavBase = s.fedSamples
+                    s.wavLogSecond = -1L
+                    HitelE2Trace.event("wav.attach", "samples16" to WAV_SAMPLES, "texture" to s.entry.id(), "hardwareFrames" to s.avatar.hardwareFrames)
                     android.util.Log.i("bhwav", "WAV_ATTACH samples=WAV_SAMPLES")
                     refillWav(s)
                     result.success(null)
                 } catch (e: Exception) {
                     input.close()
                     stopWav(s)
+                    HitelE2Trace.event("wav.error", "message" to e.toString())
                     result.error("wav_failed", e.message, null)
                 }
             }
 '''.replace('WAV_OFFSET', str(offset)).replace('WAV_SAMPLES', str(samples))
     s=one(s,'            "playSpeakerPCM" -> {',handler+'            "playSpeakerPCM" -> {','WAV input')
-    s=one(s,'        var held = false','        var wav: WavPlayoutSource? = null\n        var wavBase = 0L\n        var wavEnd = -1L\n        var held = false','WAV session')
+    s=one(s,'        var held = false','        var wav: WavPlayoutSource? = null\n        var wavBase = 0L\n        var wavLogSecond = -1L\n        var wavEnd = -1L\n        var held = false','WAV session')
     helpers = '''    private fun stopWav(s: AvatarSession) {
         s.wavEnd = -1L
         val source = s.wav ?: return
         s.wav = null
+        HitelE2Trace.event("wav.close", "read16" to source.readSamples, "samples16" to source.samples, "played24" to s.playedSamples - s.wavBase)
         source.close()
     }
 
     private fun refillWav(s: AvatarSession) {
         val source = s.wav ?: return
         source.refill(s.playedSamples - s.wavBase) { speak(s, it) }
+        val played24 = s.playedSamples - s.wavBase
+        if (played24 / 24000 != s.wavLogSecond) {
+            s.wavLogSecond = played24 / 24000
+            HitelE2Trace.event("wav.progress", "read16" to source.readSamples, "fed24" to s.fedSamples - s.wavBase,
+                "played24" to played24, "drawn" to s.framesDrawn)
+        }
         if (source.readSamples == source.samples) {
+            HitelE2Trace.event("wav.eof", "read16" to source.readSamples, "played24" to played24)
             stopWav(s)
             s.wavEnd = s.fedSamples
             s.player?.endOfReply()
@@ -98,12 +109,14 @@ def patch(app,plugin,wavkt,wav,report):
     s=one(s,'        if (p > s.playedSamples) s.playedSamples = p','''        if (p > s.playedSamples) {
             s.playedSamples = p
             if (s.wavEnd >= 0 && p >= s.wavEnd) {
+                HitelE2Trace.event("wav.drained", "played24" to p - s.wavBase, "drawn" to s.framesDrawn)
                 Log.i("bhwav", "WAV_DRAINED played24=${p - s.wavBase}")
                 s.wavEnd = -1L
             }
             try { refillWav(s) } catch (e: Exception) {
                 stopWav(s)
                 s.player?.endOfReply()
+                HitelE2Trace.event("wav.error", "message" to e.toString())
                 Log.e("bhwav", "WAV_ERROR", e)
             }
         }''','speaker credit')
@@ -112,6 +125,10 @@ def patch(app,plugin,wavkt,wav,report):
     s=one(s,'    private fun stopMic(s: AvatarSession) {','    private fun stopMic(s: AvatarSession) {\n        stopWav(s)', 'audio session changes')
     s=one(s,'    private fun closeSession(s: AvatarSession, done: (() -> Unit)?) {','    private fun closeSession(s: AvatarSession, done: (() -> Unit)?) {\n        stopWav(s)','dispose')
     pluginfile.write_text(s)
+    trace_file = n/'HitelE2Trace.kt'
+    trace_file.write_text(one(trace_file.read_text(),
+        'row.contains(" stage=sdk.backend.") &&',
+        '(row.contains(" stage=sdk.backend.") || row.contains(" stage=wav.")) &&', 'persistent WAV events'))
     pubspec=app/'pubspec.yaml'
     pubspec.write_text(one(pubspec.read_text(),
         '    - assets/hitel_file_reply.m4a\n',
