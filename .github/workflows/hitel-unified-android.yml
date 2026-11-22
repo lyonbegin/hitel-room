@@ -29,6 +29,14 @@ jobs:
           done
           echo PASS_AUDIO_MASTER_SOURCE_BYTE_IDENTICAL_TO_44916323322
 
+      - name: Verify paired media source clock contract on JVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paired-test
+          javac -d paired-test tools/bithuman_deep/hitel_unified/android/HitelPairedAvQueue.java tools/bithuman_deep/hitel_unified/tests/HitelPairedAvQueueTest.java
+          java -cp paired-test ai.hitel.media.HitelPairedAvQueueTest
+
       - name: Fetch pinned official app and Flutter plugin
         shell: bash
         run: |
@@ -163,7 +171,6 @@ jobs:
           EOF
           git clone --depth 1 --branch v1.4.0 https://github.com/flutter-webrtc/flutter-webrtc.git "$GITHUB_WORKSPACE/hitel-flutter-webrtc"
           python3 tools/bithuman_deep/hitel_unified/prepare_flutter_webrtc.py --webrtc "$GITHUB_WORKSPACE/hitel-flutter-webrtc" --app "$APP" --repo "$GITHUB_WORKSPACE"
-          printf '    flutter_webrtc:\n      path: "%s"\n' "$GITHUB_WORKSPACE/hitel-flutter-webrtc" > /tmp/hitel-webrtc-override-indented
           printf '  flutter_webrtc:\n    path: "%s"\n' "$GITHUB_WORKSPACE/hitel-flutter-webrtc" >> "$APP/pubspec_overrides.yaml"
           python3 tools/bithuman_deep/hitel_unified/prepare_hitel_unified.py --app "$APP"
           echo PASS_ESSENCE2_PUBLIC_MODEL_LOCAL_TEST_APP_CONFIGURED
@@ -277,7 +284,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart lib/hitel_communication_page.dart lib/hitel_room.dart lib/hitel_loopback_page.dart lib/hitel_counselor.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
           # Retry infrastructure fetch failures without altering SDK or app code.
           for attempt in 1 2 3; do

@@ -1,8 +1,9 @@
-# HITEL Android-first unified client — implementation status
+# HITEL unified Android-first client
 
-Base: 23f798e1c156f7fb49598b1b284b6a4b58837520.
-Original iOS Call/ARKit reference: 07a22ce2834292ba06fda9c415cb7ba604e2a640.
-Do not alter the existing server or old deployment. Existing iOS source remains independently buildable.
-
-Implemented in this increment: Flutter public-room REST + ticketed WSS and Unified Plan WebRTC P2P camera/mic, remote renderers, ICE queue, room creation/join/leave/end, camera/mic controls. Uses the original IPA's Railway public-room protocol. No claim that this adapter supports the Fly webrtc-new SFU. The latter is a separate client adapter pending actual protocol specification. Testing dev-token is deliberately the original API; replace with authenticated user login for production.
-Not implemented yet: ARCore composite frames, paired Essence2 GPU + PCM WebRTC source, native loopback, existing 1:1 device URL signaling, 16 routes UI, AI Counselor, Telecom, SFU adapter, iOS Flutter bridge. No device or cross-platform test success claimed.
+- Base Android APK: 23f798e1c156f7fb49598b1b284b6a4b58837520. Existing Android and web preserved.
+- Original iOS release source: 07a22ce2834292ba06fda9c415cb7ba604e2a640. Exact iOS files restored in df8707174855dd59aadd53be930f03130559b167; no Swift conversion.
+- Flutter 3.41.9, bitHuman 2.6.37 / Essence2 0.9.5, flutter_webrtc 1.4.0. Android ARCore 1.46.0 optional. Pinned source checkout is patched only in isolated build. No duplicate libwebrtc.
+- Real source implemented: public room REST / ticket WSS, Unified Plan mesh camera/mic, remote render, ICE queue, room creation/join/leave/end; camera/mic controls; sender track switching to ARCore camera+3D mesh composite to GPU EGL Surface with original camera timestamp; local WebRTC loopback with camera/ARCore and opt-in microphone; all 16 route classification; five AI Counselor presets and authenticated REST; paired 16k/25fps media queue with bounded ownership and deterministic JVM tests.
+- Important distinction: original IPA public-room endpoint is Railway; do not confuse it with Fly SFU. webrtc-new is the required remote SFU target, pending exact server-side client contract from separate owner. No server/config/deployment modifications.
+- **Not yet integrated**: paired queue into Essence2 rendering, real PCM injection into pinned libwebrtc and actual avatar WebRTC receive path, complete device URL/1:1 signaling, Android Telecom, iOS Flutter native bridge; no runtime test success claim. Existing avatar player remains unchanged until the new paired route works. ARCore texture UV, smoothing, physical Android face track and real A/V timing need device verification. AI user-session credential required, never embed admin token.
+- Test build isolated from old release; branch-specific Actions artifact. No overwrite of original release.
