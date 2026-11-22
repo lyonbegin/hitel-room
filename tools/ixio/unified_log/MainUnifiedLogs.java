@@ -158,11 +158,12 @@ public final class MainUnifiedLogs {
                 String combined=summary+"\n=== MAIN APP LOG ===\n"+main+
                                  "\n=== RECORDER APP LOG ===\n"+rec;
                 String clip=clipboard(combined,summary,file);
+                final boolean recorderCaptured=recorderOk;
                 a.runOnUiThread(()->{
                     try{
                         ClipboardManager cb=(ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
                         if(cb!=null)cb.setPrimaryClip(ClipData.newPlainText("IXIO 메인·녹음 통합 로그",clip));
-                        Toast.makeText(a,(recorderOk?"두 앱 로그 저장 완료":"메인 로그 저장·녹음 앱 연결 실패")
+                        Toast.makeText(a,(recorderCaptured?"두 앱 로그 저장 완료":"메인 로그 저장·녹음 앱 연결 실패")
                             +"\n다운로드/IXIO_Logs/"+file,Toast.LENGTH_LONG).show();
                     }catch(Throwable t){android.util.Log.w("IXIO_UNIFIED_LOGS","CLIPBOARD_ERROR "+failure(t));}
                 });
