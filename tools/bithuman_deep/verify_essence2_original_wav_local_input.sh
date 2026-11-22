@@ -12,6 +12,8 @@ echo PASS_ORIGINAL_TEXT_INPUT_AND_ORIGINAL_SPEECH_PRESENTER
 adb logcat -d -v threadtime > "$OUT/all-logcat.txt"
 adb shell run-as ai.bithuman.example.avatar_chat.essence2 \
     cat ./app_flutter/hitel_e2_trace.log > "$OUT/native-trace.txt" || true
+adb shell run-as ai.bithuman.example.avatar_chat.essence2 \
+    cat ./app_flutter/hitel_ai_e2e.log > "$OUT/local-server-events.txt" || true
 adb exec-out screencap -p > "$OUT/speech-finish.png" || true
 python3 - "$OUT" <<'PY'
 from pathlib import Path
@@ -20,7 +22,8 @@ p=Path(sys.argv[1])
 log=(p/'all-logcat.txt').read_text(errors='replace')
 native=(p/'native-trace.txt').read_text(errors='replace') if (p/'native-trace.txt').exists() else ''
 speech=(p/'speech/full-after-speech-logcat.txt').read_text(errors='replace')
-text='\n'.join((log,native,speech))
+local=(p/'local-server-events.txt').read_text(errors='replace') if (p/'local-server-events.txt').exists() else ''
+text='\n'.join((log,native,speech,local))
 checks={
     'originalWavLoaded': 'OFFICIAL_WAV_PCM_READY' in text,
     'originalChatSubmitted': 'ui.text.submit' in text or 'mock.rx type=response.create' in text,
