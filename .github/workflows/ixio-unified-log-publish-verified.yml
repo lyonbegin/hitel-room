@@ -1,0 +1,75 @@
+name: Publish Android-byte-verified IXIO unified logs QA APK pair
+on:
+  push:
+    branches: [fix/ixio-unified-main-recorder-logs-20261122]
+    paths: [.github/workflows/ixio-unified-log-publish-verified.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  publish-verified-pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve build-pair and real Android cross-app ZIP evidence
+        run: |
+          set -euo pipefail
+          mkdir -p base evidence verify
+          gh run download 45019117300 --repo "$GH_REPO" --name IXIO_Unified_Logs_APK_Pair --dir base
+          gh run download 45020238886 --repo "$GH_REPO" --name IXIO_Unified_Real_Android_Instrumentation_Evidence --dir evidence
+          sum="$(find base -name SHA256SUMS.txt -print -quit)"
+          test -n "$sum"
+          dir="$(dirname "$sum")"
+          (cd "$dir" && sha256sum -c SHA256SUMS.txt)
+          cp "$dir"/IXIO_Main_UnifiedLogs_20261122.apk verify/
+          cp "$dir"/IXIO_Recorder_UnifiedLogs_20261122.apk verify/
+          cp "$dir"/SHA256SUMS.txt verify/
+          cat evidence/instrumentation-result.txt
+          grep -F 'INSTRUMENTATION_RESULT: main=OK' evidence/instrumentation-result.txt
+          grep -F 'INSTRUMENTATION_RESULT: recorder=OK' evidence/instrumentation-result.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          files=list(Path('evidence').rglob('IXIO_ALL_LOGS_EMU_*.zip'))
+          assert len(files)==1,files
+          with zipfile.ZipFile(files[0]) as z:
+            assert z.testzip() is None
+            needed=['00_README_STATUS.txt','01_IXIO_MAIN_INTERNAL_TRACE.txt','02_IXIO_RECORDER_INTERNAL_TRACE.txt','03_ANDROID_SYSTEM_LOGCAT_NOT_INCLUDED.txt']
+            assert sorted(z.namelist())==sorted(needed),z.namelist()
+            main=z.read(needed[1]).decode()
+            recorder=z.read(needed[2]).decode()
+            assert main.startswith('HITEL IXIO QA'),main[:80]
+            assert recorder.startswith('HITEL IXIO RECORDER INTERNAL TRACE'),recorder[:80]
+            assert '[RECORDER]' in recorder and '[APP]' in main
+          print('EMULATOR_MAIN_AND_RECORDER_ZIP_BYTES_VERIFIED=YES',len(main),len(recorder))
+          PY
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for f in verify/*.apk;do
+            "$BT/apksigner" verify --verbose "$f"
+            "$BT/aapt" dump badging "$f" | head -n 1
+          done
+      - name: Publish ZIP-verified APK pair + Windows ADB all-process log collector
+        run: |
+          set -euo pipefail
+          tag=ixio-unified-main-recorder-logs-qa-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO main + recorder unified trace QA pair" --notes "QA only. Real Android instrumentation opened the recorder trace provider from the IXIO main process and wrote a valid MediaStore ZIP containing BOTH apps' original diagnostic files, with byte-level verification. UI log dialog was observed, but UI-tap-to-ZIP completion not independently proven. Android system logcat cannot be read from unprivileged APKs: use attached PowerShell ADB collector. Original recording/FGS/PCM/STT methods unchanged by the unified-log patch. Real telephone recording NOT verified. Re-signing may prevent overwrite; back up model files and recordings before uninstalling older builds."
+          gh release upload "$tag" \
+            verify/IXIO_Main_UnifiedLogs_20261122.apk \
+            verify/IXIO_Recorder_UnifiedLogs_20261122.apk \
+            verify/SHA256SUMS.txt \
+            tools/ixio/unified_log/Collect-IXIO-AllLogs.ps1 --clobber
+          for f in verify/*.apk;do
+            n="$(basename "$f")"
+            url="https://github.com/$GH_REPO/releases/download/$tag/$n"
+            code="$(curl -fLsS --retry 3 --max-time 240 -w '%{http_code}' -o verify/external.apk "$url")"
+            test "$code" = 200
+            cmp "$f" verify/external.apk
+            echo "EXTERNAL_VERIFIED_HTTP_200_BYTE_EXACT $n"
+          done
+          n=Collect-IXIO-AllLogs.ps1
+          code="$(curl -fLsS --retry 3 --max-time 60 -w '%{http_code}' -o verify/external.ps1 "https://github.com/$GH_REPO/releases/download/$tag/$n")"
+          test "$code" = 200
+          cmp tools/ixio/unified_log/Collect-IXIO-AllLogs.ps1 verify/external.ps1
+          echo "EXTERNAL_VERIFIED_HTTP_200_BYTE_EXACT $n"
