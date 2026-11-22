@@ -13,62 +13,12 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
-      - name: Preserve existing cumulative pair and update recorder diagnostic helpers only
+      - name: Reuse exact previously compiled and signed APK pair
         run: |
           set -euo pipefail
-          mkdir -p base work/java work/d8 out evidence
-          gh run download 44993369547 --name IXIO_StorageTrace_Signed_Pair --dir base
-          (cd base && sha256sum -c SHA256SUMS.txt)
-          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
-          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
-          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
-          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
-          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
-          javac -source 8 -target 8 -cp "$ANDROID_HOME/platforms/android-34/android.jar" -d work/java tools/ixio/recorder_debug/RecorderLog.java tools/ixio/recorder_debug/RecorderLogUi.java
-          find work/java -name '*.class' -print0 | xargs -0 "$BT/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-34/android.jar" --output work/d8
-          unzip -p base/IXIO_Recorder_StorageTrace_20261122.apk classes7.dex > work/old.dex
-          java -jar work/baksmali.jar d --api 34 -o work/old work/old.dex
-          java -jar work/baksmali.jar d --api 34 -o work/new work/d8/classes.dex
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib, shutil
-          a=Path('work/old');b=Path('work/new')
-          def inventory(root):return {str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*.smali')}
-          before=inventory(a)
-          for p in (a/'com/lguplus/callrecorder/hitelqa').glob('RecorderLog*.smali'):p.unlink()
-          for p in b.rglob('*.smali'):
-              dst=a/p.relative_to(b)
-              if dst.exists():
-                  assert str(p.relative_to(b)).startswith('com/android/tools/r8/annotations/'),dst
-                  assert dst.read_bytes()==p.read_bytes(),dst
-                  continue
-              dst.parent.mkdir(parents=True,exist_ok=True)
-              shutil.copyfile(p,dst)
-          after=inventory(a)
-          assert any('RecorderPoints.smali' in x for x in before)
-          assert all(after.get(k)==v for k,v in before.items() if '/RecorderLog' not in k)
-          print('RECORDER_EXISTING_INTERNAL_PROBES_PRESERVED=YES')
-          PY
-          java -jar work/smali.jar a --api 34 -o work/new.dex work/old
-          python3 - <<'PY'
-          import zipfile,re,copy
-          from pathlib import Path
-          with zipfile.ZipFile('base/IXIO_Recorder_StorageTrace_20261122.apk') as old,zipfile.ZipFile('work/recorder-unsigned.apk','w') as new:
-              for e in old.infolist():
-                  if re.fullmatch(r'META-INF/.*\.(?:RSA|EC|DSA|SF|MF)',e.filename,re.I):continue
-                  new.writestr(copy.copy(e),Path('work/new.dex').read_bytes() if e.filename=='classes7.dex' else old.read(e.filename))
-          with zipfile.ZipFile('base/IXIO_Recorder_StorageTrace_20261122.apk') as old,zipfile.ZipFile('work/recorder-unsigned.apk') as new:
-              assert all(old.read(n)==new.read(n) for n in new.namelist() if n!='classes7.dex')
-          print('RECORDER_AUDIO_AND_STORAGE_TRACE_DEX_BYTES_UNCHANGED=YES')
-          PY
-          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Recorder Log QA'
-          "$BT/zipalign" -p -f 4 work/recorder-unsigned.apk work/recorder-aligned.apk
-          for role in Main Recorder;do
-            if [ "$role" = Main ];then input=base/IXIO_Main_StorageTrace_20261122.apk;else input=work/recorder-aligned.apk;fi
-            "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out "out/IXIO_${role}_RecorderLogQA_20261122.apk" "$input"
-            "$BT/apksigner" verify --verbose "out/IXIO_${role}_RecorderLogQA_20261122.apk"
-          done
-          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          mkdir -p out work evidence
+          gh run download 44994556472 --name IXIO_Recorder_Log_UI_QA_Pair --dir out
+          (cd out && sha256sum -c SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: IXIO_Recorder_Log_UI_QA_Pair
@@ -88,40 +38,7 @@ jobs:
             adb install -g out/IXIO_Recorder_RecorderLogQA_20261122.apk
             adb logcat -c
             adb shell monkey -p com.lguplus.callrecorder -c android.intent.category.LAUNCHER 1
-            python3 - <<'PY'
-            import subprocess,time,xml.etree.ElementTree as ET,re
-            def adb(*a):return subprocess.check_output(['adb',*a],text=True)
-            def dump(n):
-                adb('shell','uiautomator','dump','/sdcard/recorder-qa.xml')
-                adb('pull','/sdcard/recorder-qa.xml','evidence/'+n+'.xml')
-                with open('evidence/'+n+'.png','wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
-                return ET.parse('evidence/'+n+'.xml').getroot()
-            for i in range(12):
-                time.sleep(3)
-                try:
-                    root=dump('recorder-'+str(i))
-                    button=next((n for n in root.iter('node') if n.get('text')=='녹음 로그'),None)
-                    if button is not None:break
-                except Exception as e:print(type(e).__name__,flush=True)
-            else:raise AssertionError('RECORDER_LOG_BUTTON_NOT_VISIBLE')
-            print('RECORDER_LOG_BUTTON_VISIBLE=YES',flush=True)
-            x1,y1,x2,y2=map(int,re.findall(r'\d+',button.get('bounds')))
-            adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
-            time.sleep(2)
-            r=dump('recorder-dialog')
-            texts=[n.get('text') for n in r.iter('node')]
-            assert '로그 복사' in texts and '로그 지우기' in texts,texts
-            print('RECORDER_LOG_DIALOG_COPY_CLEAR_VISIBLE=YES',flush=True)
-            n=next(n for n in r.iter('node') if n.get('text')=='로그 복사')
-            x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds')))
-            adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
-            time.sleep(1)
-            adb('shell','pidof','com.lguplus.callrecorder')
-            with open('evidence/recorder-logcat.txt','w') as f:f.write(adb('logcat','-d','-s','HITEL_RECORDER_TRACE'))
-            s=open('evidence/recorder-logcat.txt').read()
-            assert 'RECORDER_PROCESS_INIT' in s and 'UI_RECORDER_LOG_BUTTON_ATTACHED' in s and 'UI_RECORDER_LOG_DIALOG_OPENED' in s and 'UI_RECORDER_LOG_COPY_COMPLETED' in s
-            print('RECORDER_PROCESS_AND_ACTUAL_LOG_EVENTS_VERIFIED=YES',flush=True)
-            PY
+            python3 tools/ixio/verify_recorder_log_ui.py
             adb logcat -d -b crash > evidence/crash.txt
             ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' evidence/crash.txt
       - uses: actions/upload-artifact@v4
