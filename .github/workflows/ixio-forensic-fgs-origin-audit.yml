@@ -1,0 +1,104 @@
+name: IXIO forensic FGS origin read-only audit
+on:
+  push:
+    branches: [audit/ixio-fgs-provenance-20261122]
+    paths: [.github/workflows/ixio-forensic-fgs-origin-audit.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  compare-original-and-modified:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover exact user-supplied protected recorder and modified QA builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p original qa fgs audit
+          gh release download ixio-input-20261115 --repo "$GH_REPO" --pattern 'mmsimage.zip' --dir original
+          python3 tools/ixio/verify_release_zip.py original/mmsimage.zip original > audit/original-verified.json
+          gh run download 44994556472 --repo "$GH_REPO" --name IXIO_Recorder_Log_UI_QA_Pair --dir qa
+          (cd qa && sha256sum -c SHA256SUMS.txt)
+          gh release download ixio-recorder-signature-skip-qa-20261122 --repo "$GH_REPO" --pattern 'IXIO_Recorder_SignatureSkipQA_20261122.apk' --dir fgs
+          gh release download ixio-recorder-fgs-continue-qa-20261122 --repo "$GH_REPO" --pattern 'IXIO_Recorder_FGSContinueQA_20261122.apk' --dir fgs
+      - name: Forensic inventory and manifest comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for label in original baseqa signskip fgsexception; do
+            case "$label" in
+              original) apk=original/recorder.apk ;;
+              baseqa) apk=qa/IXIO_Recorder_RecorderLogQA_20261122.apk ;;
+              signskip) apk=fgs/IXIO_Recorder_SignatureSkipQA_20261122.apk ;;
+              fgsexception) apk=fgs/IXIO_Recorder_FGSContinueQA_20261122.apk ;;
+            esac
+            echo "$label" > "audit/$label.txt"
+            sha256sum "$apk" >> "audit/$label.txt"
+            "$BT/aapt" dump badging "$apk" | grep -E "^(package:|sdkVersion:|targetSdkVersion:)" >> "audit/$label.txt" || true
+            "$BT/aapt" dump xmltree "$apk" AndroidManifest.xml > "audit/$label-manifest.txt"
+            python3 - "$apk" "$label" <<'PY'
+          import sys,zipfile,hashlib,json
+          apk,label=sys.argv[1:]
+          with zipfile.ZipFile(apk) as z:
+            dex={n:hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist() if n.startswith('classes') and n.endswith('.dex')}
+            hits={}
+            for n in dex:
+              b=z.read(n)
+              hits[n]={s: (s.encode() in b) for s in ['RecordingSessionController','RecordingForegroundDelegate','FGS_FLOW','startForegroundIfNeeded','startForegroundService','CallRecordingService']}
+            j={'name':label,'dex_hashes':dex,'raw_dex_string_hits':hits,'manifest_sha256':hashlib.sha256(z.read('AndroidManifest.xml')).hexdigest()}
+          with open('audit/'+label+'.json','w') as f:json.dump(j,f,indent=2,ensure_ascii=False)
+          print('DEX_FGS_PROVENANCE',label,j['raw_dex_string_hits'])
+          PY
+            echo "===== $label ====="
+            cat "audit/$label.txt"
+            grep -E -A 8 "E: service|foregroundServiceType|E: uses-permission|FOREGROUND_SERVICE|RECORD_AUDIO|targetSdkVersion" "audit/$label-manifest.txt" | grep -E "InCallService|CallRecordingService|Foreground|MICROPHONE|microphone|targetSdk|foregroundServiceType|RECORD_AUDIO" | head -75 || true
+          done
+          python3 - <<'PY'
+          import json
+          x={k:json.load(open('audit/'+k+'.json')) for k in ['original','baseqa','signskip','fgsexception']}
+          for k in ('baseqa','signskip','fgsexception'):
+            common=set(x['original']['dex_hashes']) & set(x[k]['dex_hashes'])
+            same=[n for n in common if x[k]['dex_hashes'][n]==x['original']['dex_hashes'][n]]
+            print('DEX_IDENTICAL_TO_PRISTINE',k,'identical_count=',len(same),'identical=',same)
+            key='classes6.dex'
+            if key in x[k]['dex_hashes']:
+              print('RECORDER_CLASSES6_SHA',k,x[k]['dex_hashes'][key])
+          PY
+      - name: Explicit original source method and FGS call presence audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o audit/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  audit/baksmali.jar' | sha256sum -c -
+          python3 - <<'PY'
+          import zipfile,os
+          for label,path in [('original','original/recorder.apk'),('baseqa','qa/IXIO_Recorder_RecorderLogQA_20261122.apk')]:
+            os.makedirs('audit/'+label+'-dex',exist_ok=True)
+            with zipfile.ZipFile(path) as z:
+              for n in z.namelist():
+                if n.startswith('classes') and n.endswith('.dex'):
+                  with open('audit/'+label+'-dex/'+n,'wb') as f:f.write(z.read(n))
+          PY
+          for label in original baseqa; do
+            for dex in audit/"$label"-dex/classes*.dex; do
+              stem="$(basename "$dex")"
+              mkdir -p "audit/$label-$stem"
+              java -Xmx3g -jar audit/baksmali.jar d --api 34 --jobs 3 -o "audit/$label-$stem" "$dex" >/dev/null 2>&1 || true
+            done
+            echo "==== SMALI METHOD PRESENCE $label ===="
+            find audit/"$label"-classes*.dex -path '*/com/lguplus/callrecorder/*' -name '*.smali' 2>/dev/null | grep -E '/(RecordingSessionController|RecordingForegroundDelegate|CallRecordingService|InCallService)\.smali$' | head -30 || true
+            rg -l 'startForegroundIfNeeded|FGS_FLOW|RecordingForegroundDelegate|startForegroundService' audit/"$label"-classes*.dex --glob '*.smali' | head -25 || true
+            rg -n -m 5 'startForegroundIfNeeded|FGS_FLOW|RecordingForegroundDelegate|startForegroundService' audit/"$label"-classes*.dex --glob '*.smali' | head -45 || true
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-fgs-pristine-vs-qa-forensic-evidence
+          path: |
+            audit/*.txt
+            audit/*.json
+          if-no-files-found: warn
