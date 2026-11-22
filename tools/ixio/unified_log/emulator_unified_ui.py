@@ -47,6 +47,10 @@ root=dump('dialog')
 collect=select_text(root,['전체 로그 저장·복사'])
 if collect is None:raise RuntimeError('UNIFIED_COLLECT_BUTTON_NOT_FOUND')
 tap(collect)
+time.sleep(3)
+dump('after_collect_3sec')
+(base/'after_collect_logcat.txt').write_bytes(adb('logcat','-d','-b','all','-v','threadtime',timeout=60).stdout)
+(base/'downloads_ls.txt').write_bytes(adb('shell','ls','-laR','/sdcard/Download',timeout=20).stdout)
 path=None
 for retry in range(25):
     time.sleep(2)
@@ -54,7 +58,14 @@ for retry in range(25):
     names=re.findall(r'IXIO_ALL_LOGS_\d{8}_\d{6}\.zip',ls)
     if names:
         path=names[-1];break
-if path is None:raise RuntimeError('COMBINED_ZIP_NOT_EXPORTED')
+if path is None:
+    dump('after_collect_failed')
+    (base/'after_collect_failure_logcat.txt').write_bytes(
+        adb('logcat','-d','-b','all','-v','threadtime',timeout=60).stdout)
+    listing=adb('shell','ls','-laR','/sdcard/Download',timeout=25)
+    (base/'after_collect_failure_ls.txt').write_bytes(listing.stdout+b'\nSTDERR\n'+listing.stderr)
+    raise RuntimeError('COMBINED_ZIP_NOT_EXPORTED; see after_collect_failure_logcat.txt')
+
 target=base/path
 r=adb('pull','/sdcard/Download/IXIO_Logs/'+path,str(target),timeout=40)
 assert r.returncode==0,r.stderr.decode(errors='replace')
