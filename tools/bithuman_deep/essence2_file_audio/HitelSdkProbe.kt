@@ -51,6 +51,10 @@ object HitelSdkProbe {
     }
     private val windowLock = Any()
     private var window: Window? = null
+    fun originalBeginUtterance() {
+        setTurn(turn + 1)
+        HitelE2Trace.event("sdk.backend.server_pcm24.utterance", "turn" to turn)
+    }
     fun originalFed(samples: Long) = fed(turn, samples)
     fun originalPulled(ordinal: Long) = pulled(turn, ordinal)
     fun originalPresented() = shown(turn)

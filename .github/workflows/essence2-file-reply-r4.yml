@@ -1,4 +1,4 @@
-name: Essence2 OpenCL Director and fast workgroup trace
+name: Essence2 original server PCM24 input comparison
 on:
   workflow_dispatch:
   push:
@@ -103,7 +103,7 @@ jobs:
             --app "$APP" --plugin "$PLUGIN" \
             --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_file_audio" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/file-reply-integration.json" \
-            --official-streaming --detailed-trace
+            --official-streaming --detailed-trace --server-pcm24
           NATIVE=android/src/main/kotlin/ai/bithuman/flutter
           for unit in AvatarEngine AvatarPlayer Pcm16kTo24k PlayoutClock SpeechCoverage; do
             cmp "$ARCHIVE/$NATIVE/$unit.kt" "$PLUGIN/$NATIVE/$unit.kt"
@@ -130,13 +130,12 @@ jobs:
               ('val clockOn = PlayoutClock.enabled(clockLever, skipAhead, Essence2Engine.SKIP_AHEAD_DEFAULT)', 'val clockOn = false // baseline: disable SDK skip-ahead'),
               ('        val e = Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)\n', '        val e = Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)\n        HitelE2Trace.event("sdk.original.route", "hardwareOutput" to e.hardwareFrames, "skipAhead" to clockOn, "width" to avatar.width, "height" to avatar.height)\n        HitelSdkProbe.requestSnapshot(0)\n'),
           ])
-          # File input uses the unchanged original 24k PCM wire; count source samples at 16k.
-          patch('HitelFileAudioSource.kt', [
-              ('                    current = turn\n', '                    current = turn\n                    HitelSdkProbe.setTurn(turn.id)\n'),
-              ('                    val pcm24 = converter.process(pcm16)\n', '                    HitelSdkProbe.input(turn.id, pcm16.size.toLong() / 2)\n                    val pcm24 = converter.process(pcm16)\n'),
-          ])
+          # Direct server PCM24 fixture: decoder bridge is completely absent.
+          assert not (root/'HitelFileAudioSource.kt').exists()
+          assert 'fileAudio' not in (root/'BithumanPlugin.kt').read_text()
           # Preserve original scheduling, ready queues, audio writer, and frame ownership.
           patch('AvatarEngine.kt', [
+              ('        utterances++\n', '        utterances++\n        HitelSdkProbe.originalBeginUtterance()\n'),
               ('        uttFed += f16k.size\n', '        HitelSdkProbe.originalFed(f16k.size.toLong())\n        uttFed += f16k.size\n'),
               ('                        delivered = PlayoutClock.nextDelivered(k, delivered); framesTotal++\n', '                        delivered = PlayoutClock.nextDelivered(k, delivered); framesTotal++\n                        HitelSdkProbe.originalPulled(k)\n'),
           ])
@@ -160,22 +159,17 @@ jobs:
           print('PASS_ORIGINAL_STREAMING_ENGINE_PLAYER_NO_CUSTOM_SYNC_NO_SDK_SKIP_AHEAD')
           PY
           # Distinguish the original-player diagnostic build.
-          sed -i 's/PCM_FILE_R7_TRACE/PCM16_DIRECTOR_FAST_WG128_TRACE_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_DIRECTOR_FAST_WG128_TRACE_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_SERVER_PCM24/PCM24_ORIGINAL_SERVER_STREAM_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM24_ORIGINAL_SERVER_STREAM_20261122' "$APP/lib/main.dart"
           grep -Fq 'sdk.backend.native' "$PLUGIN/$NATIVE/HitelSdkProbe.kt"
           grep -Fq 'hitel_sdk_backend.log' "$PLUGIN/$NATIVE/HitelE2Trace.kt"
           grep -Fq 'hitel_sdk_backend.log' "$APP/lib/main.dart"
-          if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y ffmpeg
-          fi
-          ffmpeg -v error -y -f s16le -ar 24000 -ac 1 \
-            -i "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
-            -ar 48000 -ac 1 -c:a aac -b:a 96k -movflags +faststart \
-            "$APP/assets/hitel_file_reply.m4a"
-          ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
-            -show_entries format=duration -of json "$APP/assets/hitel_file_reply.m4a" \
-            > "$GITHUB_WORKSPACE/essence2-local-mock-proof/file-audio-format.json"
+          cmp "$APP/assets/hitel_essence2_spoken_24k.pcm" "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          test ! -f "$APP/assets/hitel_file_reply.m4a"
+          test ! -f "$APP/lib/hitel_file_reply.dart"
+          test ! -f "$PLUGIN/android/src/main/java/ai/bithuman/flutter/FilePcmStream.java"
+          grep -Fq 'conn.sendAudioDelta(Uint8List.sublistView(data,i,end))' "$APP/lib/hitel_offline_runtime.dart"
+          echo PASS_ORIGINAL_SERVER_PCM24_BYTES_AND_NO_DECODER_BRIDGE
           cat > "$APP/pubspec_overrides.yaml" <<EOF
           dependency_overrides:
             bithuman:
@@ -335,7 +329,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart lib/hitel_file_reply.dart
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings lib/main.dart lib/hitel_offline_runtime.dart
           # Some runners intermittently fail to resolve Kotlin's public POM.
           # Retry infrastructure fetch failures without altering SDK or app code.
           for attempt in 1 2 3; do
@@ -357,7 +351,7 @@ jobs:
           test -x "$AAPT"
           "$AAPT" dump badging "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
           grep -Fq "package: name='ai.bithuman.example.avatar_chat.essence2'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
-          grep -Fq "application-label:'HITEL PCM File R7 Trace'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
+          grep -Fq "application-label:'HITEL PCM File Server PCM24'" "$GITHUB_WORKSPACE/essence2-local-mock-proof/android-apk-package.txt"
           echo PASS_ESSENCE2_ORIGINAL_APP_ID_LABEL_AND_VERSION_PRESERVED
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
@@ -366,9 +360,10 @@ jobs:
           if grep -Eq 'hitel_ko_tts.zip|libsherpa-onnx-jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"; then
             echo FAIL_DISCONTINUED_LOCAL_TTS_BUNDLED; exit 19
           fi
-          grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          grep -Fxq 'assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
+          ! grep -Fq 'hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -378,7 +373,7 @@ jobs:
           set -euo pipefail
           cmp \
             essence2-sdk-local/patched-lible_jni.so \
-            <(unzip -p HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ADRENO_WG128_PATCH_IN_APK_BYTE_IDENTICAL
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -386,29 +381,19 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
-      - name: Verify reused 100-ms PCM chunker and direct asset file descriptor
+      - name: Verify packaged PCM24 byte identity and original decoder bypass
         shell: bash
         run: |
           set -euo pipefail
-          ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
-          test -f "$ANDROID_JAR"
-          mkdir -p file-chunker-test
-          javac -cp "$ANDROID_JAR" -d file-chunker-test \
-            tools/bithuman_deep/essence2_file_audio/FilePcmStream.java \
-            tools/bithuman_deep/essence2_file_audio/FilePcmChunkerTest.java
-          java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
-          python3 - <<'PY'
-          from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk') as z:
-              info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
-              assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
-              assert info.file_size > 1000
-          print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
-          PY
+          cmp tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm \
+            <(unzip -p HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm)
+          echo PASS_PCM24_FIXTURE_BYTE_IDENTICAL_IN_APK
+          test ! -f essence2-local-mock-plugin/android/src/main/java/ai/bithuman/flutter/FilePcmStream.java
+          test ! -f essence2-local-mock-plugin/android/src/main/kotlin/ai/bithuman/flutter/HitelFileAudioSource.kt
 
       - name: Publish compiled installation APK requested before additional runtime tests
         env:
@@ -417,24 +402,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk
-          TAG=hitel-essence2-director-fast-wg128-trace-20261122
+          APK=HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk
+          TAG=hitel-essence2-original-server-pcm24-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Experimental original OpenCL Director mode=1, existing quality grading and CPU fallback preserved; four native instruction words align actual convolution Y=1 with both fast and image kernel selection checks. Actual OpenCL API create, max workgroup, sampled enqueue geometry/return, per-window JNI timings and HardwareBuffer slot observations. Original PCM and player retained. Device runtime and quality remain to be tested.
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
-          Original 24 kHz PCM transport and native 16 kHz feed, original lead/ready queues and audio writer/presenter. No custom frame skipping. Original player may still discard stale/coalesced frames as designed.
+          Input-only A/B: this build sends the original 24 kHz PCM fixture from the local mock server into the byte-identical original realtime receiver and playSpeakerPCM. No M4A, MediaCodec, FilePcmStream, pre-wire resampling, or file-audio MethodChannel. The previous Director/WG128 changes, original lead/ready queues, audio writer/presenter and diagnostic hooks are unchanged.
           Evidence: sdk.backend.create_args (actual EP and native environment), sdk.backend.native (actual native branch messages including [borrow] compositor GPU/CPU and Director grade/demotion), sdk.backend.snapshot (render error code and Tessera state/counters, not inferred GPU use), separate hitel_sdk_backend.log preserved from startup. Recursive log capture removed. Original player's PROD stale/coalesced counters captured. No GPU backend forced; runtime profiling not yet verified on a physical phone.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Director Fast WG128 Trace APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Original Server PCM24 APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -444,8 +429,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Director_Fast_WG128_Trace_APK
-          path: HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk
+          name: HITEL_Essence2_Original_Server_PCM24_APK
+          path: HITEL_Essence2_ORIGINAL_SERVER_PCM24_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs
