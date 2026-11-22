@@ -51,7 +51,7 @@ def user(s):
     return after_result(s,'access$isCallerAllowed','v0','userAuthorized','(Z)V','user_auth')
 def consumer(s):
     s=put(s,'    iget v1, p0, Lcom/lguplus/callrecorder/InCallService$startCommandConsumer$1;->label:I\n','    iget v1, p0, Lcom/lguplus/callrecorder/InCallService$startCommandConsumer$1;->label:I\n'+call('consumerLabel','v1','(I)V'),'consumer_resume_label')
-    s=put(s,'    if-ne p1, v0, :cond_41\n','    if-ne p1, v0, :cond_41\n'+call('consumerSuspended'),'consumer_suspend')
+    s=put(s,'    return-object v0\n',call('consumerSuspended')+'    return-object v0\n','consumer_suspend')
     s=after_result(s,'Boolean;->booleanValue','p1','consumerHasNext','(Z)V','consumer_has_next')
     s=put(s,'check-cast p1, Lcom/lguplus/callrecorder/Command;\n','check-cast p1, Lcom/lguplus/callrecorder/Command;\n'+call('command','p1','(Ljava/lang/Object;)V'),'consumer_command')
     s=put(s,'invoke-static {v4, p1}, Lcom/lguplus/callrecorder/InCallService;->access$handleCommand(Lcom/lguplus/callrecorder/InCallService;Lcom/lguplus/callrecorder/Command;)V',call('dispatchBegin')+'    invoke-static {v4, p1}, Lcom/lguplus/callrecorder/InCallService;->access$handleCommand(Lcom/lguplus/callrecorder/InCallService;Lcom/lguplus/callrecorder/Command;)V\n'+call('dispatchEnd').rstrip('\n'),'consumer_dispatch')
@@ -59,7 +59,7 @@ def consumer(s):
 def handle_command(s):
     return put(s,'instance-of v0, p1, Lcom/lguplus/callrecorder/Command$StartRecording;\n','instance-of v0, p1, Lcom/lguplus/callrecorder/Command$StartRecording;\n'+call('commandIsStart','v0','(Z)V'),'handle_command_start_flag')
 def handle_start(s):
-    s=put(s,'    if-eqz p1, :cond_6c\n',call('handleStartEntered')+'    if-eqz p1, :cond_6c\n','handle_start_enter')
+    m=re.search(r'(?m)^    if-eqz p1, :cond_[^\n]+\n',s);assert m,'no handleStart null-guard';events.append('handle_start_enter');s=s[:m.start()]+call('handleStartEntered')+s[m.start():]
     s=after_result(s,'StringsKt;->isBlank','v0','fileNameBlank','(Z)V','file_name_validity')
     s=after_result(s,'CallRecordingUseCase;->startRecording','p1','recordStartResult','(Z)V','record_usecase_result')
     return s
