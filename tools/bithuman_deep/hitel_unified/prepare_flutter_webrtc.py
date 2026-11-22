@@ -43,6 +43,33 @@ s=replace(s,'''        info.cameraEventsHandler = cameraEventsHandler;
             videoSource.dispose();
             return null;
         }''')
+# Avatar video comes exclusively from HitelAvatarVideoCapturer, not a camera.
+# Keep actual RECORD_AUDIO permission handling intact for the Android WebRTC ADM.
+# The private overload uses the permission names as track selectors; restoring
+# the synthetic video selector after permission handling does not grant CAMERA.
+s=replace(s, '        // According to step 2 of the getUserMedia() algorithm,',
+'''        final boolean hitelSyntheticVideo =
+                constraints.hasKey("video") && constraints.getType("video") == ObjectType.Map
+                && constraints.getMap("video").hasKey("hitelMode")
+                && "avatar".equals(constraints.getMap("video").getString("hitelMode"));
+        // According to step 2 of the getUserMedia() algorithm,''')
+s=replace(s, '        requestPermissions(\n                requestPermissions,',
+'''        if (hitelSyntheticVideo) {
+            requestPermissions.remove(PERMISSION_VIDEO);
+            if (requestPermissions.isEmpty()) {
+                requestPermissions.add(PERMISSION_VIDEO);
+                getUserMedia(constraints, result, mediaStream, requestPermissions);
+                return;
+            }
+        }
+        requestPermissions(
+                requestPermissions,''')
+s=replace(s, '                        getUserMedia(constraints, result, mediaStream, grantedPermissions);',
+'''                        if (hitelSyntheticVideo) {
+                            grantedPermissions = new ArrayList<>(grantedPermissions);
+                            grantedPermissions.add(PERMISSION_VIDEO);
+                        }
+                        getUserMedia(constraints, result, mediaStream, grantedPermissions);''')
 source.write_text(s)
 handler=java/"MethodCallHandlerImpl.java"
 s=handler.read_text()
@@ -65,6 +92,9 @@ shutil.copyfile(a.repo/"mobile/ios/CallApp/Resources/face-mask.png", assets/"hit
 shutil.copyfile(a.repo/"mobile/ios/CallApp/Resources/MINDAR-LICENSE.txt",assets/"HITEL-MINDAR-LICENSE.txt")
 manifest=a.app/"android/app/src/main/AndroidManifest.xml"
 s=manifest.read_text()
+for permission in ("INTERNET", "RECORD_AUDIO", "CAMERA", "MODIFY_AUDIO_SETTINGS"):
+    if f'android:name="android.permission.{permission}"' not in s:
+        s=replace(s, "    <application", f'    <uses-permission android:name="android.permission.{permission}"/>\n    <application')
 s=replace(s,"    </application>",'''        <meta-data android:name="com.google.ar.core" android:value="optional"/>
     </application>''')
 manifest.write_text(s)
