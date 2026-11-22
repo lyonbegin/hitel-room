@@ -18,7 +18,11 @@ jobs:
           set -euo pipefail
           mkdir -p base work work/testclasses work/testdex out evidence
           gh run download 45019117300 --repo "$GH_REPO" --name IXIO_Unified_Logs_APK_Pair --dir base
-          (cd base && sha256sum -c SHA256SUMS.txt)
+          sum="$(find base -name SHA256SUMS.txt -print -quit)"
+          test -n "$sum"
+          dir="$(dirname "$sum")"
+          (cd "$dir" && sha256sum -c SHA256SUMS.txt)
+          find base -name 'IXIO_*_UnifiedLogs_20261122.apk' -exec cp -f {} base/ \;
           BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           for f in base/*.apk;do "$BT/apksigner" verify --verbose "$f";done
       - name: Sign main, recorder and instrumentation with same temporary QA certificate
