@@ -7,6 +7,8 @@ from zipfile import ZipFile
 MEMBER = "jni/arm64-v8a/lible_jni.so"
 BASE = "3eed089467f5ffeab88715c0d126f09e87734e84190e6e4899494db6b67657cf"
 PATCHES = [
+    (0x20906c, 0x937d7d16, 0x93407d16, "sbfiz #3 -> sxtw (fast kernel actual Y=1)"),
+    (0x20b5f0, 0x937c7d08, 0x937f7d08, "sbfiz #4 -> #1 (image kernel actual Y=1, Z=2)"),
     (0x215f44, 0x5280010b, 0x5280002b, "mov w11,#8 -> #1 (fast local Y)"),
     (0x215f88, 0x52800117, 0x52800037, "mov w23,#8 -> #1 (legacy local Y)"),
 ]
@@ -65,10 +67,11 @@ if __name__=="__main__":
     with ZipFile(src) as zin, ZipFile(dst,"w") as zout:
         original=zin.read(MEMBER)
         fixed=patch(original)
+        assert sha(fixed) == "a96a8892807e432719d9c58814257d03a85cee8eee297803473d9d8153618c14"
         for member in zin.infolist():
             zout.writestr(member, fixed if member.filename==MEMBER else zin.read(member))
     with ZipFile(src) as zin,ZipFile(dst) as zout:
         assert zin.namelist()==zout.namelist()
         assert all(zin.read(n)==zout.read(n) for n in zin.namelist() if n!=MEMBER)
         assert zout.read(MEMBER)==fixed
-    print(json.dumps({"status":"PASS_ADRENO_LOCAL_Y_PATCH_GEOMETRY_TESTS","source_sha256":sha(original),"patched_sha256":sha(fixed),"instruction_changes":[{"address":hex(a),"old":hex(o),"new":hex(n),"meaning":s} for a,o,n,s in PATCHES],"scope":"global dimensions and channel groups unchanged; structural coverage test, not GPU runtime numerical validation"},indent=2))
+    print(json.dumps({"status":"PASS_ADRENO_WG128_FAST_SELECTION_PATCH_GEOMETRY_TESTS","source_sha256":sha(original),"patched_sha256":sha(fixed),"instruction_changes":[{"address":hex(a),"old":hex(o),"new":hex(n),"meaning":s} for a,o,n,s in PATCHES],"scope":"global dimensions and channel groups unchanged; structural coverage test, not GPU runtime numerical validation"},indent=2))

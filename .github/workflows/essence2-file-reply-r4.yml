@@ -1,4 +1,4 @@
-name: Essence2 Adreno convolution workgroup fix
+name: Essence2 OpenCL Director and fast workgroup trace
 on:
   workflow_dispatch:
   push:
@@ -160,8 +160,8 @@ jobs:
           print('PASS_ORIGINAL_STREAMING_ENGINE_PLAYER_NO_CUSTOM_SYNC_NO_SDK_SKIP_AHEAD')
           PY
           # Distinguish the original-player diagnostic build.
-          sed -i 's/PCM_FILE_R7_TRACE/PCM16_ADRENO_WG128_FIX_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_ADRENO_WG128_FIX_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/PCM16_DIRECTOR_FAST_WG128_TRACE_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM16_DIRECTOR_FAST_WG128_TRACE_20261122' "$APP/lib/main.dart"
           grep -Fq 'sdk.backend.native' "$PLUGIN/$NATIVE/HitelSdkProbe.kt"
           grep -Fq 'hitel_sdk_backend.log' "$PLUGIN/$NATIVE/HitelE2Trace.kt"
           grep -Fq 'hitel_sdk_backend.log' "$APP/lib/main.dart"
@@ -198,7 +198,7 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_ONLY_SOFIA_ANDROID_MODEL_EMBEDDED_IN_APP_ASSETS
 
-      - name: Instrument SDK and apply audited two-instruction Adreno convolution fix
+      - name: Instrument SDK and apply audited four-instruction Adreno convolution fix
         shell: bash
         run: |
           set -euo pipefail
@@ -368,17 +368,17 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
-      - name: Verify installed APK JNI matches the two-instruction patched binary
+      - name: Verify installed APK JNI matches the four-instruction patched binary
         shell: bash
         run: |
           set -euo pipefail
           cmp \
             essence2-sdk-local/patched-lible_jni.so \
-            <(unzip -p HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ADRENO_WG128_PATCH_IN_APK_BYTE_IDENTICAL
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -386,7 +386,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -403,7 +403,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -417,11 +417,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk
-          TAG=hitel-essence2-adreno-wg128-fix-20261122
+          APK=HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk
+          TAG=hitel-essence2-director-fast-wg128-trace-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
-          Experimental native GPU convolution fix. Two audited ARM64 MOV immediates in ClPass::convWith change local-Y from 8 to 1, keeping global work, channel groups and kernel bodies unchanged. Only those instruction words change; original SDK playback and GPU output remain. At W=88 legacy groups are 88 instead of 704 and fast groups at most 44 instead of 352. Device correctness and throughput remain to be tested.
+          Experimental original OpenCL Director mode=1, existing quality grading and CPU fallback preserved; four native instruction words align actual convolution Y=1 with both fast and image kernel selection checks. Actual OpenCL API create, max workgroup, sampled enqueue geometry/return, per-window JNI timings and HardwareBuffer slot observations. Original PCM and player retained. Device runtime and quality remain to be tested.
           Source: $GITHUB_SHA
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
@@ -432,9 +432,9 @@ jobs:
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Adreno WG128 Fix APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Director Fast WG128 Trace APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -444,8 +444,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Adreno_WG128_Fix_APK
-          path: HITEL_Essence2_ADRENO_WG128_FIX_20261122_ARM64.apk
+          name: HITEL_Essence2_Director_Fast_WG128_Trace_APK
+          path: HITEL_Essence2_DIRECTOR_FAST_WG128_TRACE_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs

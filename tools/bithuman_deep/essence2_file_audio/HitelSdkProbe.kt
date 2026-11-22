@@ -42,6 +42,11 @@ object HitelSdkProbe {
         var availMax = Long.MIN_VALUE
         var pullWallUs = 0L
         var pullCpuUs = 0L
+        var a2xWallUs = 0L
+        var a2xCpuUs = 0L
+        var renderWallUs = 0L
+        var renderCpuUs = 0L
+        var hwReleases = 0L
         var since = SystemClock.elapsedRealtimeNanos()
     }
     private val windowLock = Any()
@@ -87,6 +92,11 @@ object HitelSdkProbe {
                 "a2xAvailMaxRaw" to w.availMax.takeIf { it != Long.MIN_VALUE },
                 "renderCalls" to w.renders, "hwBufferCalls" to w.hwPulls,
                 "hwPullWallUs" to w.pullWallUs, "hwPullCpuUs" to w.pullCpuUs,
+                "a2xWallUs" to w.a2xWallUs, "a2xCpuUs" to w.a2xCpuUs,
+                "renderWallUs" to w.renderWallUs, "renderCpuUs" to w.renderCpuUs,
+                "hwReleases" to w.hwReleases,
+                "generatedFps" to (w.pulled * 1e9 / (now-w.since).coerceAtLeast(1L)),
+                "displayedFps" to (w.shown * 1e9 / (now-w.since).coerceAtLeast(1L)),
                 "final" to finishing)
             if (finishing) window = null else window = Window(w.id).also {
                 it.ordinal = w.ordinal
@@ -95,6 +105,8 @@ object HitelSdkProbe {
             row
         }
         HitelE2Trace.event("sdk.window320", *fields)
+        if (fields.any { it.first in setOf("sdkFedSamples", "renderCalls", "sdkReturnedFrames", "displayedFrames") && it.second is Number && (it.second as Number).toLong() > 0 })
+            HitelE2Trace.event("sdk.backend.window320", *fields)
     }
     @JvmStatic fun arrayLength(value: Any?): Long =
         if (value == null) -1 else java.lang.reflect.Array.getLength(value).toLong()
@@ -126,8 +138,27 @@ object HitelSdkProbe {
     // 0x165788 LE_A2X_CUDA; 0x170a68 LE_DIRECTOR_OPENCL;
     // 0x1f95bc LE_TESSERA_CPU (mere presence selects CPU).
     private fun env(name: String): String = runCatching { Os.getenv(name) }.getOrNull() ?: "(unset)"
+    private val gpuAuditAttempted = AtomicBoolean()
+    private val lastSlotLog = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    @JvmStatic fun observeSlot(name: String, slot: Int) {
+        if (!active) return
+        val now = SystemClock.elapsedRealtimeNanos()
+        val prev = lastSlotLog[name] ?: 0L
+        if (name == "nativeHwEnable" || now-prev >= 250_000_000L) {
+            lastSlotLog[name] = now
+            HitelE2Trace.event("sdk.backend.hw.slot", "turn" to turn, "call" to name, "slotOrCount" to slot)
+        }
+    }
     @JvmStatic fun observeCreateArgs(call: String, provider: String?, threads: Int, height: Int) {
         if (!active) return
+        if (call == "nativeCreate" && gpuAuditAttempted.compareAndSet(false, true)) {
+            val installed = runCatching {
+                // Normal NativeBridge class initialization loads ONNX and lible_jni.so.
+                nativeBridge
+                if (nativeAvailable) nativePrepareGpuAudit() else 0
+            }.getOrElse { HitelE2Trace.failure("sdk.backend.clhook.failure", it); 0 }
+            HitelE2Trace.event("sdk.backend.clhook", "installed" to (installed == 1))
+        }
         runCatching {
             HitelE2Trace.event("sdk.backend.create_args", "call" to call,
                 "requestedEP" to (provider?.ifEmpty { "(default-empty)" } ?: "(null)"),
@@ -244,10 +275,11 @@ object HitelSdkProbe {
         synchronized(windowLock) {
             window?.takeIf { it.id == (context.get() ?: turn) }?.let { w ->
                 when (name) {
-                    "nativeA2xPush" -> w.a2xPushes++
-                    "nativeA2xPull" -> w.a2xPulls++
+                    "nativeA2xPush" -> { w.a2xPushes++; w.a2xWallUs += elapsed/1000; w.a2xCpuUs += cpuUs }
+                    "nativeA2xPull" -> { w.a2xPulls++; w.a2xWallUs += elapsed/1000; w.a2xCpuUs += cpuUs }
                     "nativeA2xAvail" -> w.availCalls++
-                    "nativeRenderKpBorrow", "nativeRenderDriveBorrow" -> w.renders++
+                    "nativeRenderKpBorrow", "nativeRenderDriveBorrow" -> { w.renders++; w.renderWallUs += elapsed/1000; w.renderCpuUs += cpuUs }
+                    "nativeHwRelease" -> w.hwReleases++
                     "nativeHwBuffer" -> {
                         w.hwPulls++
                         w.pullWallUs += elapsed / 1000
@@ -275,7 +307,7 @@ object HitelSdkProbe {
             val fields = line.split('\t', limit = 6)
             if (fields.size != 6) continue
             val message = fields[4]
-            val backend = listOf("[borrow]", "[borrow-gpu]", "[le-director-opencl]",
+            val backend = listOf("[hitel-cl]", "[le-pipe-rep]", "[le-pipe]", "[le-zc]", "[borrow]", "[borrow-gpu]", "[le-director-opencl]",
                 "[le_a2x]", "[le-open]", "[le-paste-opencl]", "[le-stepdown]",
                 "[le]", "[le-place]", "ExecutionProvider", "[le_ort_profile]").any { message.contains(it) }
             HitelE2Trace.event(if (backend) "sdk.backend.native" else "sdk.native.log",
@@ -308,6 +340,7 @@ object HitelSdkProbe {
         }
     }
 
+    private external fun nativePrepareGpuAudit(): Int
     private external fun nativeInstall(profilePrefix: String): Int
     private external fun nativeSetTurn(turnId: Int)
     private external fun nativeDrain(): Array<String>

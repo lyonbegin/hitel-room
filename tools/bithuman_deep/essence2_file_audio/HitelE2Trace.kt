@@ -59,7 +59,7 @@ internal object HitelE2Trace {
                     }
                     val row = item.toString()
                     val bytes = (row + "\n").toByteArray(Charsets.UTF_8)
-                    if (row.contains(" stage=sdk.backend.") && backendLength + bytes.size <= 512L * 1024L) {
+                    if (row.contains(" stage=sdk.backend.") && backendLength + bytes.size <= 4L * 1024L * 1024L) {
                         backend.write(bytes); backendLength += bytes.size; backend.flush()
                     }
                     if (length + bytes.size > MAX_BYTES) {

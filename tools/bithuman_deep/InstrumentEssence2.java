@@ -120,6 +120,13 @@ public final class InstrumentEssence2 implements Opcodes {
                 method.visitMethodInsn(INVOKESTATIC, PROBE, "observeCreateArgs",
                     "(Ljava/lang/String;Ljava/lang/String;II)V", false);
             }
+            if (Set.of("nativeHwEnable", "nativeHwBuffer", "nativeHwRelease").contains(name)) {
+                if (args.length != 2 || args[0].getSort() != Type.LONG || args[1].getSort() != Type.INT)
+                    throw new IllegalStateException("Changed HardwareBuffer ABI: " + desc);
+                method.visitLdcInsn(name);
+                method.visitVarInsn(ILOAD, 2);
+                method.visitMethodInsn(INVOKESTATIC, PROBE, "observeSlot", "(Ljava/lang/String;I)V", false);
+            }
             int slot = 0;
             for (Type arg : args) {
                 method.visitVarInsn(arg.getOpcode(ILOAD), slot);
@@ -130,7 +137,7 @@ public final class InstrumentEssence2 implements Opcodes {
             method.visitLabel(to);
             finish(method, name, start, cpu, false);
             if (Set.of("nativeA2xAvail", "nativeA2xPull", "nativeRenderKpBorrow",
-                       "nativeRenderDriveBorrow", "nativeHwEnable", "nativeHwBuffer",
+                       "nativeRenderDriveBorrow", "nativeHwEnable", "nativeHwBuffer", "nativeHwLast",
                        "nativeRenderStatus", "nativeRenderReason", "nativeTesseraStats", "nativeTesseraReason",
                        "nativeTesseraAttachBundle", "nativeA2xTotal", "nativeA2xLastError").contains(name)) {
                 int sort = result.getSort();

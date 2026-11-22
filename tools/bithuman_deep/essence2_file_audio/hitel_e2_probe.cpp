@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cstdint>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -20,6 +21,7 @@
 #include <string_view>
 #include <thread>
 #include <vector>
+#include <unordered_map>
 
 namespace {
 constexpr std::size_t kCapacity = 2048;
@@ -52,7 +54,7 @@ long long clock_ns(clockid_t id) {
 
 bool sdk_message(std::string_view text) {
     constexpr std::string_view prefixes[]{
-        "[le-pipe]", "[le-pipe-rep]", "[le-director-opencl]", "[le-place]", "[le-zc]", "[le-stepdown]",
+        "[hitel-cl]", "[le-pipe]", "[le-pipe-rep]", "[le-director-opencl]", "[le-place]", "[le-zc]", "[le-stepdown]",
         "[le_a2x]", "[le-skip]", "[borrow-gpu]", "[le-paste-opencl]", "[le-a2x]",
         "[le-otrace]", "[le-perf]", "[le_ort_profile]", "[le-cl]", "[le-adpf]", "[le-output]",
         "[le-driver]", "[le-open]", "[borrow-gpu-split]", "[borrow]", "[le]",
@@ -87,6 +89,123 @@ void capture(std::string_view text, const char* transport, bool on_sdk_thread) {
         unsigned char c = text[i];
         event.message[i] = c >= 32 && c < 127 ? static_cast<char>(c) : ' ';
     }
+}
+
+
+// SDK 0.9.5 verified table at ELF VA 0x3cb7e8. API signatures are OpenCL 1.2.
+// Do not change driver arguments, return codes, event ownership or queue synchronization.
+using CreateKernel = void* (*)(void*, const char*, int*);
+using GetWG = int (*)(void*, void*, unsigned, size_t, void*, size_t*);
+using Enqueue = int (*)(void*, void*, unsigned, const size_t*, const size_t*, const size_t*, unsigned, const void* const*, void**);
+using ReleaseKernel = int (*)(void*);
+CreateKernel old_create = nullptr;
+GetWG old_wg = nullptr;
+Enqueue old_enqueue = nullptr;
+ReleaseKernel old_release = nullptr;
+std::mutex kernel_mutex;
+struct KernelLog { std::string name; unsigned long long calls = 0; };
+std::unordered_map<void*, KernelLog> kernel_names;
+std::once_flag gpu_once;
+int gpu_flags = 0;
+void* audit_create(void* program, const char* name, int* err) {
+    void* result = old_create(program, name, err);
+    try {
+        if (result) {
+            std::lock_guard<std::mutex> lock(kernel_mutex);
+            kernel_names[result] = KernelLog{name ? name : "(null)", 0};
+        }
+        char line[512];
+        std::snprintf(line, sizeof(line), "[hitel-cl] create kernel=%s success=%d rc=%d",
+                      name ? name : "(null)", result != nullptr, err ? *err : (result ? 0 : -99999));
+        capture(line, "cl-api", true);
+    } catch (...) {}
+    return result;
+}
+int audit_wg(void* kernel, void* device, unsigned param, size_t bytes, void* value, size_t* written) {
+    int rc = old_wg(kernel, device, param, bytes, value, written);
+    try {
+        if (param == 0x11b0) {
+            std::string name = "(unknown)";
+            { std::lock_guard<std::mutex> lock(kernel_mutex);
+              auto it = kernel_names.find(kernel); if (it != kernel_names.end()) name = it->second.name; }
+            size_t limit = 0;
+            if (rc == 0 && value && bytes >= sizeof(limit)) std::memcpy(&limit, value, sizeof(limit));
+            char line[512];
+            std::snprintf(line, sizeof(line), "[hitel-cl] wg_limit kernel=%s max=%zu rc=%d", name.c_str(), limit, rc);
+            capture(line, "cl-api", true);
+        }
+    } catch (...) {}
+    return rc;
+}
+int audit_enqueue(void* queue, void* kernel, unsigned dim, const size_t* offset,
+                  const size_t* global, const size_t* local, unsigned num,
+                  const void* const* wait, void** event) {
+    const auto start = clock_ns(CLOCK_BOOTTIME);
+    int rc = old_enqueue(queue, kernel, dim, offset, global, local, num, wait, event);
+    const auto us = (clock_ns(CLOCK_BOOTTIME) - start) / 1000;
+    try {
+        std::string name = "(unknown)";
+        unsigned long long n = 0;
+        { std::lock_guard<std::mutex> lock(kernel_mutex);
+          auto it = kernel_names.find(kernel);
+          if (it != kernel_names.end()) { n=++it->second.calls; if (rc != 0 || n <= 2 || n % 100 == 0) name=it->second.name; }
+        }
+        if (rc != 0 || (n != 0 && (n <= 2 || n % 100 == 0))) {
+            size_t g[3]{}, l[3]{};
+            for (unsigned i=0; i<dim && i<3; ++i) { if(global) g[i]=global[i]; if(local) l[i]=local[i]; }
+            char line[640];
+            std::snprintf(line, sizeof(line),
+                "[hitel-cl] enqueue kernel=%s n=%llu dim=%u global=%zux%zux%zu local=%zux%zux%zu rc=%d host_enqueue_us=%lld",
+                name.c_str(), n, dim, g[0],g[1],g[2],l[0],l[1],l[2],rc,us);
+            capture(line, "cl-api", true);
+        }
+    } catch (...) {}
+    return rc;
+}
+int audit_release(void* kernel) {
+    int rc = old_release(kernel);
+    try { if (rc == 0) { std::lock_guard<std::mutex> lock(kernel_mutex); kernel_names.erase(kernel); } } catch (...) {}
+    return rc;
+}
+int install_gpu_audit() {
+#if defined(__aarch64__)
+    std::call_once(gpu_once, [] {
+        void* lib = dlopen("lible_jni.so", RTLD_NOW | RTLD_NOLOAD);
+        if (!lib) { capture("[hitel-cl] hook unavailable: SDK not loaded", "cl-api", true); return; }
+        using OpenApi = void** (*)(const char**);
+        auto open = reinterpret_cast<OpenApi>(dlsym(lib, "_ZN2le2cl4openEPPKc"));
+        Dl_info info{};
+        if (!open || !dladdr(reinterpret_cast<void*>(open), &info) || !info.dli_fbase) {
+            capture("[hitel-cl] hook unavailable: SDK symbol not found", "cl-api", true); return;
+        }
+        const auto base = reinterpret_cast<std::uintptr_t>(info.dli_fbase);
+        if (reinterpret_cast<std::uintptr_t>(open) != base + 0x216798 ||
+            *reinterpret_cast<const unsigned*>(base + 0x20906c) != 0x93407d16 ||
+            *reinterpret_cast<const unsigned*>(base + 0x20b5f0) != 0x937f7d08 ||
+            *reinterpret_cast<const unsigned*>(base + 0x215f44) != 0x5280002b ||
+            *reinterpret_cast<const unsigned*>(base + 0x215f88) != 0x52800037) {
+            capture("[hitel-cl] hook unavailable: exact patched SDK identity mismatch", "cl-api", true); return;
+        }
+        const char* reason = nullptr;
+        void** api = open(&reason);
+        if (!api || reinterpret_cast<std::uintptr_t>(api) != base + 0x3cb7e8 ||
+            !api[10] || !api[11] || !api[13] || !api[22]) {
+            capture("[hitel-cl] hook unavailable: OpenCL API table mismatch or unavailable", "cl-api", true); return;
+        }
+        old_create = reinterpret_cast<CreateKernel>(api[10]);
+        old_wg = reinterpret_cast<GetWG>(api[11]);
+        old_enqueue = reinterpret_cast<Enqueue>(api[13]);
+        old_release = reinterpret_cast<ReleaseKernel>(api[22]);
+        // This is the SDK's writable .bss table, populated by open() via dlsym.
+        api[10] = reinterpret_cast<void*>(audit_create);
+        api[11] = reinterpret_cast<void*>(audit_wg);
+        api[13] = reinterpret_cast<void*>(audit_enqueue);
+        api[22] = reinterpret_cast<void*>(audit_release);
+        gpu_flags=1;
+        capture("[hitel-cl] hook installed: real create/wg_limit/enqueue/release; no driver return changes", "cl-api", true);
+    });
+#endif
+    return gpu_flags;
 }
 
 void capture_logd(const __android_log_message* message) {
@@ -170,7 +289,8 @@ Java_ai_bithuman_flutter_HitelSdkProbe_nativeInstall(JNIEnv* env, jobject, jstri
         }
         // le::diag_stream() at 0x17400c sends diagnostics to /dev/null
         // when BITHUMAN_ENGINE_QUIET=1 unless BITHUMAN_DEBUG=1.
-        // Debug output only: do NOT change the requested execution provider.
+        // Experimental original OpenCL Director; preserve SDK first-frame grade and demotion.
+        if (setenv("LE_DIRECTOR_OPENCL", "1", 1) == 0) capture_flags |= 32;
         if (setenv("BITHUMAN_DEBUG", "1", 1) == 0) capture_flags |= 16;
         const int report = setenv("LE_PIPE_REPORT_S", "1", 1);
         const int tessera = setenv("LE_TESS_TIMING", "1", 1);
@@ -180,6 +300,11 @@ Java_ai_bithuman_flutter_HitelSdkProbe_nativeInstall(JNIEnv* env, jobject, jstri
         if (!profile.empty() && setenv("LE_ORT_PROFILE", profile.c_str(), 1) == 0) capture_flags |= 8;
     });
     return capture_flags;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_ai_bithuman_flutter_HitelSdkProbe_nativePrepareGpuAudit(JNIEnv*, jobject) {
+    return install_gpu_audit();
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
