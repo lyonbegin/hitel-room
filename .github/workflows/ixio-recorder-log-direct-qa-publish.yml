@@ -1,0 +1,35 @@
+name: Publish already compiled recorder log QA pair on explicit request
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-recorder-log-direct-qa-publish.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Retrieve original signed pair and verify
+        run: |
+          set -euo pipefail
+          mkdir -p out work
+          gh run download 44994556472 --name IXIO_Recorder_Log_UI_QA_Pair --dir out
+          (cd out && sha256sum -c SHA256SUMS.txt)
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for f in out/*.apk;do "$BT/apksigner" verify --verbose "$f";done
+      - name: Publish user requested unverified device QA pair and verify downloads
+        run: |
+          set -euo pipefail
+          tag=ixio-recorder-log-direct-qa-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO Recorder Log device QA pair" --notes "Exact signed APKs from run 44994556472. Installed on emulator; log button interaction not verified because onboarding dialogs blocked the automated test. User requested immediate device QA delivery. Actual recording, visible call and STT not verified. This is a diagnostic build, not a confirmed recording fix."
+          gh release upload "$tag" out/*.apk out/SHA256SUMS.txt --clobber
+          for f in out/*.apk;do
+            n="$(basename "$f")"
+            code="$(curl -fLsS --retry 3 --max-time 180 -w '%{http_code}' -o work/verify.apk "https://github.com/$GH_REPO/releases/download/$tag/$n")"
+            test "$code" = 200
+            cmp "$f" work/verify.apk
+            echo "EXTERNAL_DOWNLOAD_VERIFIED $n HTTP=$code"
+          done
