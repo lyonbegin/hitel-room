@@ -6,7 +6,11 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 /// A real local sender/receiver PeerConnection pair, independent of servers.
 /// Currently camera/ARCore test inputs only; not a false avatar playback demo.
 class HitelLoopbackPage extends StatefulWidget {
-  const HitelLoopbackPage({super.key});
+  const HitelLoopbackPage({super.key, this.avatarWidth, this.avatarHeight, this.onPlay, this.onCancel});
+  final int? avatarWidth, avatarHeight;
+  final VoidCallback? onPlay;
+  final Future<void> Function()? onCancel;
+  bool get avatarMode => onPlay != null;
   @override
   State<HitelLoopbackPage> createState() => _HitelLoopbackPageState();
 }
@@ -15,7 +19,7 @@ class _HitelLoopbackPageState extends State<HitelLoopbackPage> {
   RTCPeerConnection? _tx, _rx;
   MediaStream? _local;
   Future<void>? _init;
-  bool _busy = false, _frame = false, _audio = false, _mask = false, _closed = false;
+  bool _busy = false, _frame = false, _audio = false, _mask = false, _closed = false, _connected = false;
   String _status = '연결 전';
   void _update(String s) { if (mounted) setState(() => _status = s); }
   @override void initState() {
@@ -32,9 +36,9 @@ class _HitelLoopbackPageState extends State<HitelLoopbackPage> {
       await _init;
       if (_closed) return;
       final media = await navigator.mediaDevices.getUserMedia({
-        'audio': _audio,
-        'video': {'facingMode':'user','width':640,'height':480,'frameRate':25,
-          if (_mask) 'hitelMode':'mask'},
+        'audio': widget.avatarMode || _audio,
+        'video': {'facingMode':'user','width':widget.avatarWidth ?? 640,'height':widget.avatarHeight ?? 480,'frameRate':25,
+          if (widget.avatarMode) 'hitelMode':'avatar' else if (_mask) 'hitelMode':'mask'},
       });
       _local = media;
       if (_closed) { await _stop(); return; }
@@ -58,7 +62,10 @@ class _HitelLoopbackPageState extends State<HitelLoopbackPage> {
           _receiverView.srcObject = e.streams.first;
         }
       };
-      rx.onIceConnectionState = (s) { if (!_frame) _update('ICE: ${s.name} · 수신 프레임 대기'); };
+      rx.onIceConnectionState = (s) {
+        _connected = s == RTCIceConnectionState.RTCIceConnectionStateConnected || s == RTCIceConnectionState.RTCIceConnectionStateCompleted;
+        if (!_frame) _update('ICE: ${s.name} · 수신 프레임 대기');
+      };
       for (final t in media.getTracks()) { await tx.addTrack(t,media); }
       final offer = await tx.createOffer();
       await tx.setLocalDescription(offer);
@@ -73,6 +80,8 @@ class _HitelLoopbackPageState extends State<HitelLoopbackPage> {
     finally { if(mounted) setState(() => _busy=false); }
   }
   Future<void> _stop() async {
+    _connected=false;
+    await widget.onCancel?.call();
     final tx=_tx,rx=_rx,local=_local;
     _tx=null;_rx=null;_local=null;
     _receiverView.srcObject=null;
@@ -87,16 +96,17 @@ class _HitelLoopbackPageState extends State<HitelLoopbackPage> {
     super.dispose();
   }
   @override Widget build(BuildContext context) => Scaffold(
-    appBar:AppBar(title:const Text('WebRTC 내부 재생 검증')),
+    appBar:AppBar(title:Text(widget.avatarMode?'Essence2 WebRTC 재생 (시험)':'WebRTC 내부 재생 검증')),
     body:ListView(padding:const EdgeInsets.all(16),children:[
-      const Text('서버 없이 동일 단말에서 실제 RTP 송수신. 현재 카메라/ARCore 입력 검증용입니다.'),
+      Text(widget.avatarMode?'GPU 아바타와 대응 PCM을 같은 WebRTC 연결로 재생하는 시험 경로.':'서버 없이 동일 단말에서 실제 RTP 송수신.'),
       const Text('음성 테스트는 이어폰을 사용하십시오.'),
-      SwitchListTile(title:const Text('마이크 음성 포함'), value:_audio,onChanged:_busy||_tx!=null?null:(v)=>setState(()=>_audio=v)),
-      if(Platform.isAndroid) SwitchListTile(title:const Text('ARCore 가면 입력'),value:_mask,onChanged:_busy||_tx!=null?null:(v)=>setState(()=>_mask=v)),
+      if(!widget.avatarMode) SwitchListTile(title:const Text('마이크 음성 포함'), value:_audio,onChanged:_busy||_tx!=null?null:(v)=>setState(()=>_audio=v)),
+      if(Platform.isAndroid&&!widget.avatarMode) SwitchListTile(title:const Text('ARCore 가면 입력'),value:_mask,onChanged:_busy||_tx!=null?null:(v)=>setState(()=>_mask=v)),
       AspectRatio(aspectRatio:4/3,child:ColoredBox(color:Colors.black,child:RTCVideoView(_receiverView))),
       Text(_status),
       if(_busy)const LinearProgressIndicator(),
       FilledButton(onPressed:_busy||_tx!=null?null:_start,child:const Text('WebRTC 송수신 시작')),
+      if(widget.avatarMode) FilledButton(onPressed:_connected&&!_busy?widget.onPlay:null,child:const Text('아바타 시험 음성 재생')),
       OutlinedButton(onPressed:_busy||_tx==null?null:()async{await _stop();_update('연결 종료');},child:const Text('종료')),
     ]),
   );

@@ -13,7 +13,23 @@ main = a.app / "lib/main.dart"
 s = main.read_text()
 anchor = "              FloatingActionButton.small(heroTag: 'clear-logs',"
 assert s.count(anchor) == 1, "pinned UI anchor changed"
-s = "import 'hitel_communication_page.dart';\n" + s.replace(anchor, """              FloatingActionButton.small(heroTag: 'hitel-communication',
+s = "import 'hitel_communication_page.dart';\nimport 'hitel_loopback_page.dart';\n" + s.replace(anchor, """              FloatingActionButton.small(heroTag: 'hitel-avatar-rtc',
+                tooltip: 'Essence2 WebRTC 재생 시험',
+                onPressed: () async {
+                  final avatar = _avatar;
+                  if (avatar == null || _session == null || !avatar.isReady) return;
+                  await avatar.interrupt(reason: 'enter_rtc_avatar');
+                  if (!mounted) return;
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => HitelLoopbackPage(
+                      avatarWidth: avatar.frameWidth > 0 ? avatar.frameWidth : 720,
+                      avatarHeight: avatar.frameHeight > 0 ? avatar.frameHeight : 1280,
+                      onPlay: () { _session?.sendText('HITEL WebRTC avatar test'); },
+                      onCancel: () => avatar.interrupt(reason: 'leave_rtc_avatar'),
+                    )));
+                }, child: const Icon(Icons.play_circle_outline)),
+              const SizedBox(width: 8),
+              FloatingActionButton.small(heroTag: 'hitel-communication',
                 tooltip: 'HITEL 통신 및 공개방',
                 onPressed: () async {
                   await _avatar?.interrupt(reason: 'enter_communication');
