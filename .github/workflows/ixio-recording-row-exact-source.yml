@@ -1,0 +1,56 @@
+name: IXIO exact recording row predicate and upstream DEX readout
+on:
+  push:
+    branches: [fix/ixio-recorder-settings-full-trace-20261122]
+    paths: [.github/workflows/ixio-recording-row-exact-source.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  read-exact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: '${{ github.token }}'
+      GH_REPO: '${{ github.repository }}'
+    steps:
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Read full original Smali for exact row and state producer
+        run: |
+          set -euo pipefail
+          mkdir -p src
+          gh run download 44980880812 --name IXIO_Original_Settings_On_Off_Methods --dir src
+          python3 - <<'PY'
+          import json,re,pathlib
+          d=json.loads(next(pathlib.Path('src').rglob('settings-source-methods.json')).read_text())
+          for k,b in d.items():
+              if '/SettingScreenKt.smali .method static final SettingScreen$lambda$38(' in k:
+                  rows=b.splitlines()
+                  for i,line in enumerate(rows):
+                      if 'sget-object' in line and 'SettingDestination$CallRecord;->INSTANCE' in line:
+                          print('EXACT_ROW_BRANCH_BEGIN',flush=True)
+                          for x in rows[max(i-8,0):i+110]:print(x)
+                          print('EXACT_ROW_BRANCH_END',flush=True)
+          PY
+          gh run download 43799320393 --name IXIO_Main_NoAppSealing_Single_APK --dir src
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o src/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  src/baksmali.jar' | sha256sum -c -
+          for n in 15 16 18; do
+            unzip -p src/IXIO_Main_NoAppSealing_Single.apk classes$n.dex > src/classes$n.dex
+            java -Xmx2600m -jar src/baksmali.jar d --api 34 --jobs 4 -o src/smali$n src/classes$n.dex
+          done
+          python3 - <<'PY'
+          import pathlib,re
+          M=re.compile(r'(?ms)^\.method[^\n]*\n.*?^\.end method$')
+          for p in pathlib.Path('src').glob('smali*/com/lguplus/aicallagent/**/*.smali'):
+              n=p.name
+              if not (n.startswith(('GetInCallAiToggleStateUseCase','SettingViewModel$checkInCallAiEnabled','SettingViewModel$refreshData','CallRecorderSettingRepository','IsCallRecorderAppPermissionGrantedUseCase')) or n in ('SettingViewModel.smali','SettingScreenKt.smali')):continue
+              for m in M.finditer(p.read_text()):
+                  b=m.group();h=b.splitlines()[0]
+                  if not ('invoke' in h or 'refreshSettingData' in h or 'checkInCallAiEnabled' in h or 'lambda$38' in h or 'lambda$2(' in h or 'lambda$3(' in h or 'isInCallAiEnabled' in h or 'setCallRecorderStatus' in h):continue
+                  if n=='SettingScreenKt.smali':continue
+                  if len(b.splitlines())>900:continue
+                  print('UPSTREAM_METHOD',p,h,flush=True)
+                  for l in b.splitlines():
+                      if l.strip() and not l.strip().startswith(('.line','.local','.end local','.restart local','.param','.annotation','.end annotation')):print(l)
+                  print('UPSTREAM_END',flush=True)
+          PY
