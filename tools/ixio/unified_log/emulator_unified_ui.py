@@ -27,15 +27,16 @@ def select_text(root,needles):
     return None
 
 log=None
-for attempt in range(30):
+for attempt in range(16):
     root=dump('before_'+str(attempt))
-    # Pixel-6 system launcher ANR obscures real IXIO UI in the captured screenshot.
     if select_text(root,["Pixel Launcher isn't responding"]):
-        dismiss=select_text(root,['Wait']) if attempt<3 else select_text(root,['Close app'])
-        if dismiss:
-            tap(dismiss)
-            time.sleep(3)
-            continue
+        # Real screenshot shows IXIO screen and log button underneath the system
+        # dialog. Kill ONLY the emulator's broken home launcher, never IXIO.
+        adb('shell','am','force-stop','com.google.android.apps.nexuslauncher')
+        adb('shell','input','keyevent','4')
+        adb('shell','monkey','-p','com.lguplus.aicallagent','-c','android.intent.category.LAUNCHER','1')
+        time.sleep(3)
+        continue
     log=select_text(root,['HITEL 진단 로그 열기','로그'])
     if log:break
     time.sleep(2)
