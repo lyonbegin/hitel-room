@@ -38,7 +38,10 @@ jobs:
           for p in (a/'com/lguplus/callrecorder/hitelqa').glob('RecorderLog*.smali'):p.unlink()
           for p in b.rglob('*.smali'):
               dst=a/p.relative_to(b)
-              assert not dst.exists(),dst
+              if dst.exists():
+                  assert str(p.relative_to(b)).startswith('com/android/tools/r8/annotations/'),dst
+                  assert dst.read_bytes()==p.read_bytes(),dst
+                  continue
               dst.parent.mkdir(parents=True,exist_ok=True)
               shutil.copyfile(p,dst)
           after=inventory(a)
@@ -116,7 +119,7 @@ jobs:
             adb('shell','pidof','com.lguplus.callrecorder')
             with open('evidence/recorder-logcat.txt','w') as f:f.write(adb('logcat','-d','-s','HITEL_RECORDER_TRACE'))
             s=open('evidence/recorder-logcat.txt').read()
-            assert 'RECORDER_PROCESS_INIT' in s and 'UI_RECORDER_LOG_BUTTON_ATTACHED' in s and 'UI_RECORDER_LOG_DIALOG_OPENED' in s
+            assert 'RECORDER_PROCESS_INIT' in s and 'UI_RECORDER_LOG_BUTTON_ATTACHED' in s and 'UI_RECORDER_LOG_DIALOG_OPENED' in s and 'UI_RECORDER_LOG_COPY_COMPLETED' in s
             print('RECORDER_PROCESS_AND_ACTUAL_LOG_EVENTS_VERIFIED=YES',flush=True)
             PY
             adb logcat -d -b crash > evidence/crash.txt

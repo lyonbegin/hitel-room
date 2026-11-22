@@ -70,12 +70,15 @@ public final class RecorderLogUi implements Application.ActivityLifecycleCallbac
                    +"전화번호, 토큰, 통화 음성은 저장하지 않습니다.\n\n"+last)
                 .setNegativeButton("닫기",(d,w)->{})
                 .setNeutralButton("로그 지우기",(d,w)->{
-                    Toast.makeText(a,RecorderLog.clear()?"녹음 앱 로그 삭제 완료":"로그 삭제 실패",Toast.LENGTH_SHORT).show();
+                    boolean ok=RecorderLog.clear();
+                    RecorderLog.mark("UI_RECORDER_LOG_CLEAR_RESULT "+ok);
+                    Toast.makeText(a,ok?"녹음 앱 로그 삭제 완료":"로그 삭제 실패",Toast.LENGTH_SHORT).show();
                 })
                 .setPositiveButton("로그 복사",(d,w)->{
                     ClipboardManager cb=(ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
                     if(cb!=null){
                         cb.setPrimaryClip(ClipData.newPlainText("IXIO 녹음 앱 내부 로그",RecorderLog.copy()));
+                        RecorderLog.mark("UI_RECORDER_LOG_COPY_COMPLETED");
                         Toast.makeText(a,"녹음 앱 로그 복사 완료",Toast.LENGTH_LONG).show();
                     }
                 })
