@@ -35,10 +35,24 @@ jobs:
           python3 -m py_compile tools/ixio/ixio_recorder_auth_command_qa.py
           python3 tools/ixio/ixio_recorder_auth_command_qa.py --apk base/IXIO_Recorder_RecorderLogQA_20261122.apk --work work/recorder --baksmali work/baksmali.jar --smali work/smali.jar --helper work/d8/classes.dex --out work/recorder-unsigned.apk --report evidence/recorder-sites.json
           keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Recorder Auth Channel QA'
-          "$BT/zipalign" -p -f 4 base/IXIO_Main_RecorderLogQA_20261122.apk work/main-aligned.apk
+          echo "SIGN_STAGE_MAIN_CLEAN"
+          python3 - <<'PY'
+          import copy,re,zipfile
+          source='base/IXIO_Main_RecorderLogQA_20261122.apk'
+          with zipfile.ZipFile(source) as z,zipfile.ZipFile('work/main-unsigned.apk','w') as out:
+              for e in z.infolist():
+                  if re.fullmatch(r'META-INF/.*\\.(?:RSA|EC|DSA|SF|MF)',e.filename,re.I):continue
+                  out.writestr(copy.copy(e),z.read(e.filename))
+          PY
+          echo "SIGN_STAGE_MAIN_ALIGN"
+          "$BT/zipalign" -f 4 work/main-unsigned.apk work/main-aligned.apk
+          echo "SIGN_STAGE_MAIN_APKSIGNER"
           "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Main_AuthChannelQA_20261122.apk work/main-aligned.apk
-          "$BT/zipalign" -p -f 4 work/recorder-unsigned.apk work/recorder-aligned.apk
+          echo "SIGN_STAGE_RECORDER_ALIGN"
+          "$BT/zipalign" -f 4 work/recorder-unsigned.apk work/recorder-aligned.apk
+          echo "SIGN_STAGE_RECORDER_APKSIGNER"
           "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Recorder_AuthChannelQA_20261122.apk work/recorder-aligned.apk
+          echo "SIGN_STAGE_VERIFY"
           "$BT/apksigner" verify --verbose --print-certs out/IXIO_Main_AuthChannelQA_20261122.apk > evidence/main-signer.txt
           "$BT/apksigner" verify --verbose --print-certs out/IXIO_Recorder_AuthChannelQA_20261122.apk > evidence/recorder-signer.txt
           a="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/main-signer.txt)"
