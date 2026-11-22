@@ -1,0 +1,101 @@
+name: IXIO original main FGS prestart before AIDL re-record QA
+on:
+  push:
+    branches: [fix/ixio-main-original-fgs-prestart-20261122]
+    paths:
+      - .github/workflows/ixio-main-original-fgs-prestart-qa.yml
+      - tools/ixio/ixio_main_original_fgs_prestart.py
+permissions: {contents: write, actions: read}
+jobs:
+  build-validate-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore verified main and recorder inputs and disassembler
+        run: |
+          set -euo pipefail
+          mkdir -p qa work out evidence
+          gh run download 44994556472 --repo "$GH_REPO" --name IXIO_Recorder_Log_UI_QA_Pair --dir qa
+          (cd qa && sha256sum -c SHA256SUMS.txt)
+          gh release download ixio-recorder-signature-skip-qa-20261122 --repo "$GH_REPO" --pattern 'IXIO_Recorder_SignatureSkipQA_20261122.apk' --dir qa
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+      - name: Change only already-bound main record start to replay original main FGS prestart
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/ixio/ixio_main_original_fgs_prestart.py
+          python3 tools/ixio/ixio_main_original_fgs_prestart.py --apk qa/IXIO_Main_RecorderLogQA_20261122.apk --work work/patch --baksmali work/baksmali.jar --smali work/smali.jar --out work/main-unsigned.apk --report evidence/fgs-prestart-patch.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/fgs-prestart-patch.json'))
+          assert d['patched_main_method']=='AidlRecordingStrategy.startRecording'
+          assert d['replay_original_fgs_helper_when_already_bound']
+          assert d['original_initial_bind_unchanged']
+          assert d['original_other_files_identical']
+          print('MAIN_FGS_STRICT_SINGLE_METHOD_CHANGE_CHECKED')
+          PY
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore work/main-qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=IXIO main original recording FGS QA'
+          "$BT/zipalign" -f 4 work/main-unsigned.apk work/main-aligned.apk
+          "$BT/apksigner" sign --ks work/main-qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Main_OriginalFGSPrestartQA_20261122.apk work/main-aligned.apk
+          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Main_OriginalFGSPrestartQA_20261122.apk > evidence/main-signer.txt
+          "$BT/aapt" dump badging out/IXIO_Main_OriginalFGSPrestartQA_20261122.apk | head -n 5
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Main_Original_FGSPrestart_Build
+          path: |
+            out/
+            evidence/
+      - name: Prepare emulator QA cold-start assertions
+        run: |
+          set -euo pipefail
+          cat > work/smoke.sh <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          adb install qa/IXIO_Recorder_SignatureSkipQA_20261122.apk
+          adb install out/IXIO_Main_OriginalFGSPrestartQA_20261122.apk
+          adb logcat -c
+          adb shell monkey -p com.lguplus.aicallagent -c android.intent.category.LAUNCHER 1 > evidence/monkey.txt
+          sleep 15
+          adb shell pidof com.lguplus.aicallagent | tee evidence/main-pid.txt
+          test -s evidence/main-pid.txt
+          adb logcat -d -b crash > evidence/crash-log.txt
+          adb logcat -d -v threadtime > evidence/emulator-logcat.txt
+          ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' evidence/crash-log.txt
+          echo "EMULATOR_MAIN_COLD_START_AND_NO_DEX_VERIFY_CRASH=YES"
+          SH
+      - run: test -c /dev/kvm && sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash work/smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Main_Original_FGSPrestart_Emulator_Evidence
+          path: evidence/
+      - name: Publish only after emulator smoke passes and verify exact external download
+        run: |
+          set -euo pipefail
+          tag=ixio-main-original-fgs-prestart-qa-20261122
+          f=IXIO_Main_OriginalFGSPrestartQA_20261122.apk
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO original main-originated recording FGS prestart QA" --notes "Experimental: one method in main app AidlRecordingStrategy.startRecording now replays original createServiceIntent and startForegroundServiceIfRequired when AIDL is already bound. Original initial bind unchanged, companion recorder unchanged. Android14 emulator cold-launch checked; actual physical telephony/FGS ordering/recording not yet verified. New test signature may require removal of existing main APK; preserve data first."
+          gh release upload "$tag" out/*.apk out/SHA256SUMS.txt --clobber
+          code="$(curl -fLsS --retry 3 --max-time 240 -w '%{http_code}' -o work/verify.apk "https://github.com/$GH_REPO/releases/download/$tag/$f")"
+          test "$code" = 200
+          cmp "out/$f" work/verify.apk
+          echo "MAIN_HTTPS_DOWNLOAD_BYTE_FOR_BYTE_VERIFIED_HTTP200"
