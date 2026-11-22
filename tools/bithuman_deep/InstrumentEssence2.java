@@ -27,6 +27,8 @@ public final class InstrumentEssence2 implements Opcodes {
         "nativeHwLast", "nativeHwRelease", "nativeA2xCreate", "nativeA2xPush",
         "nativeA2xAvail", "nativeA2xPull", "nativeA2xFinish", "nativeA2xReset",
         "nativeA2xDestroy", "nativeRenderKpBorrow", "nativeRenderDriveBorrow",
+        "nativeRenderStatus", "nativeRenderReason", "nativeTesseraStats", "nativeTesseraReason",
+        "nativeTesseraAttachBundle", "nativeA2xTotal", "nativeA2xLastError",
         "nativeBorrowDrain", "nativeBorrowFlush", "nativeBorrowPurge", "nativePlayoutSet");
 
     public static void main(String[] args) throws Exception {
@@ -103,6 +105,21 @@ public final class InstrumentEssence2 implements Opcodes {
             final var handler = new Label();
             method.visitTryCatchBlock(from, to, handler, "java/lang/Throwable");
             method.visitLabel(from);
+            // Audited SDK 0.9.5 JVM descriptors: argument 4 is the provider request;
+            // never change it or any other creation arguments.
+            if (name.equals("nativeCreate") || name.equals("nativeA2xCreate")) {
+                final String expected = name.equals("nativeCreate")
+                    ? "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;ZI)J"
+                    : "(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;)J";
+                if (!desc.equals(expected)) throw new IllegalStateException("Changed create ABI: " + desc);
+                method.visitLdcInsn(name);
+                method.visitVarInsn(ALOAD, 3);
+                method.visitVarInsn(ILOAD, 2);
+                if (name.equals("nativeCreate")) method.visitVarInsn(ILOAD, 5);
+                else method.visitInsn(ICONST_M1);
+                method.visitMethodInsn(INVOKESTATIC, PROBE, "observeCreateArgs",
+                    "(Ljava/lang/String;Ljava/lang/String;II)V", false);
+            }
             int slot = 0;
             for (Type arg : args) {
                 method.visitVarInsn(arg.getOpcode(ILOAD), slot);
@@ -113,7 +130,9 @@ public final class InstrumentEssence2 implements Opcodes {
             method.visitLabel(to);
             finish(method, name, start, cpu, false);
             if (Set.of("nativeA2xAvail", "nativeA2xPull", "nativeRenderKpBorrow",
-                       "nativeRenderDriveBorrow", "nativeHwEnable", "nativeHwBuffer").contains(name)) {
+                       "nativeRenderDriveBorrow", "nativeHwEnable", "nativeHwBuffer",
+                       "nativeRenderStatus", "nativeRenderReason", "nativeTesseraStats", "nativeTesseraReason",
+                       "nativeTesseraAttachBundle", "nativeA2xTotal", "nativeA2xLastError").contains(name)) {
                 int sort = result.getSort();
                 if (sort == Type.INT || sort == Type.LONG || sort == Type.BOOLEAN || sort == Type.ARRAY) {
                     method.visitLdcInsn(name);
@@ -131,6 +150,23 @@ public final class InstrumentEssence2 implements Opcodes {
                     method.visitVarInsn(ALOAD, value);
                     method.visitMethodInsn(INVOKESTATIC, PROBE, "observeObject", "(Ljava/lang/String;Ljava/lang/Object;)V", false);
                 }
+            }
+            // Query existing SDK status/reason getters after creation/attachment and
+            // at a rate-limited render boundary on the same SDK caller thread.
+            if (Set.of("nativeTesseraAttachBundle", "nativeHwEnable", "nativeRenderKpBorrow",
+                       "nativeRenderDriveBorrow").contains(name)) {
+                if (args.length == 0 || args[0].getSort() != Type.LONG)
+                    throw new IllegalStateException("Changed render ABI: " + desc);
+                method.visitLdcInsn(name);
+                method.visitVarInsn(LLOAD, 0);
+                method.visitMethodInsn(INVOKESTATIC, PROBE, "observeBackend",
+                    "(Ljava/lang/String;J)V", false);
+            }
+            if (name.equals("nativeCreate") || name.equals("nativeA2xCreate")) {
+                method.visitLdcInsn(name);
+                method.visitVarInsn(LLOAD, value);
+                method.visitMethodInsn(INVOKESTATIC, PROBE, "observeCreated",
+                    "(Ljava/lang/String;J)V", false);
             }
             if (result.getSort() != Type.VOID) method.visitVarInsn(result.getOpcode(ILOAD), value);
             method.visitInsn(result.getOpcode(IRETURN));

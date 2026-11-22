@@ -11,6 +11,8 @@ import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import android.system.Os
 
 /** Called from instrumented call sites inside the SDK's classes.jar, including e2-motion. */
 object HitelSdkProbe {
@@ -31,6 +33,7 @@ object HitelSdkProbe {
         var shown = 0L
         var ordinal = -1L
         var skipped = 0L
+        var a2xReturned = 0L
         var a2xPulls = 0L
         var a2xPushes = 0L
         var renders = 0L
@@ -43,6 +46,9 @@ object HitelSdkProbe {
     }
     private val windowLock = Any()
     private var window: Window? = null
+    fun originalFed(samples: Long) = fed(turn, samples)
+    fun originalPulled(ordinal: Long) = pulled(turn, ordinal)
+    fun originalPresented() = shown(turn)
     fun input(turnId: Int, samples: Long) {
         synchronized(windowLock) { window?.takeIf { it.id == turnId }?.let { it.input += samples } }
     }
@@ -77,7 +83,7 @@ object HitelSdkProbe {
                 "sdkReturnedFrames" to w.pulled, "displayedFrames" to w.shown,
                 "ordinalSkipped" to w.skipped, "lastOrdinal" to w.ordinal,
                 "a2xPushCalls" to w.a2xPushes, "a2xPullCalls" to w.a2xPulls,
-                "a2xAvailCalls" to w.availCalls,
+                "a2xAvailCalls" to w.availCalls, "a2xReturnedMotionFrames" to w.a2xReturned,
                 "a2xAvailMaxRaw" to w.availMax.takeIf { it != Long.MIN_VALUE },
                 "renderCalls" to w.renders, "hwBufferCalls" to w.hwPulls,
                 "hwPullWallUs" to w.pullWallUs, "hwPullCpuUs" to w.pullCpuUs,
@@ -94,14 +100,20 @@ object HitelSdkProbe {
         if (value == null) -1 else java.lang.reflect.Array.getLength(value).toLong()
     @JvmStatic fun observeObject(name: String, value: Any?) {
         if (!active) return
-        HitelE2Trace.event("sdk.internal.result", "turn" to (context.get() ?: turn),
-            "call" to name, "resultKind" to "object", "null" to (value == null),
-            "type" to value?.javaClass?.name)
+        val backend = name in setOf("nativeTesseraAttachBundle", "nativeHwEnable",
+            "nativeRenderReason", "nativeTesseraReason", "nativeA2xLastError")
+        HitelE2Trace.event(if (backend) "sdk.backend.result" else "sdk.internal.result",
+            "turn" to (context.get() ?: turn), "call" to name, "resultKind" to "object",
+            "null" to (value == null), "type" to value?.javaClass?.name,
+            "stringValue" to (value as? String))
     }
     @JvmStatic fun observeResult(name: String, value: Long, kind: String) {
         if (!active) return
         if (name == "nativeA2xAvail") synchronized(windowLock) {
             window?.let { it.availMax = maxOf(it.availMax, value) }
+        }
+        if (name == "nativeA2xPull" && kind == "I" && value > 0) synchronized(windowLock) {
+            window?.let { it.a2xReturned += value }
         }
         // Record raw values, never assume that array length or call count equals generated frames.
         if (name != "nativeA2xAvail" || value > 0) {
@@ -110,6 +122,59 @@ object HitelSdkProbe {
         }
     }
 
+    // Locations proved by ARM64 disassembly, not inferred from HardwareBuffer:
+    // 0x165788 LE_A2X_CUDA; 0x170a68 LE_DIRECTOR_OPENCL;
+    // 0x1f95bc LE_TESSERA_CPU (mere presence selects CPU).
+    private fun env(name: String): String = runCatching { Os.getenv(name) }.getOrNull() ?: "(unset)"
+    @JvmStatic fun observeCreateArgs(call: String, provider: String?, threads: Int, height: Int) {
+        if (!active) return
+        runCatching {
+            HitelE2Trace.event("sdk.backend.create_args", "call" to call,
+                "requestedEP" to (provider?.ifEmpty { "(default-empty)" } ?: "(null)"),
+                "threadsArg" to threads, "outputHeightArg" to height,
+                "LE_A2X_CUDA" to env("LE_A2X_CUDA"),
+                "LE_DIRECTOR_OPENCL" to env("LE_DIRECTOR_OPENCL"),
+                "LE_TESSERA_CPU" to env("LE_TESSERA_CPU"),
+                "LE_PASTE_OPENCL" to env("LE_PASTE_OPENCL"),
+                "BITHUMAN_ENGINE_QUIET" to env("BITHUMAN_ENGINE_QUIET"),
+                "BITHUMAN_DEBUG" to env("BITHUMAN_DEBUG"))
+        }
+    }
+    @JvmStatic fun observeCreated(call: String, handle: Long) {
+        if (!active) return
+        runCatching { HitelE2Trace.event("sdk.backend.created",
+            "call" to call, "success" to (handle != 0L)) }
+    }
+    private val lastBackendNs = AtomicLong(0)
+    private val nativeBridge by lazy { Class.forName("ai.bithuman.elevate.NativeBridge") }
+    private fun status(name: String, handle: Long, values: LongArray): Int =
+        (nativeBridge.getMethod(name, java.lang.Long.TYPE, LongArray::class.java)
+            .invoke(null, handle, values) as Number).toInt()
+    private fun reason(name: String, handle: Long): String? =
+        nativeBridge.getMethod(name, java.lang.Long.TYPE).invoke(null, handle) as? String
+    @JvmStatic fun observeBackend(call: String, handle: Long) {
+        if (!active || handle == 0L) return
+        val now = SystemClock.elapsedRealtimeNanos()
+        val prev = lastBackendNs.get()
+        if (call.startsWith("nativeRender") &&
+            (now - prev < 1_000_000_000L || !lastBackendNs.compareAndSet(prev, now))) return
+        lastBackendNs.set(now)
+        // JNI getters confirmed from ElevateFrames.checkRender()/stats().
+        // RenderStatus is an error code and count, NOT a GPU/CPU enum.
+        // TesseraStats supplies state and composed/passthrough counters.
+        runCatching {
+            val render = LongArray(1)
+            val tessera = LongArray(2)
+            val rc = status("nativeRenderStatus", handle, render)
+            val tc = status("nativeTesseraStats", handle, tessera)
+            HitelE2Trace.event("sdk.backend.snapshot", "turn" to turn, "after" to call,
+                "renderStatus" to rc, "renderCountRaw" to render[0],
+                "renderReason" to reason("nativeRenderReason", handle),
+                "tesseraStateRaw" to tc, "tesseraComposed" to tessera[0],
+                "tesseraPassthrough" to tessera[1],
+                "tesseraReason" to reason("nativeTesseraReason", handle))
+        }.onFailure { HitelE2Trace.failure("sdk.backend.snapshot.failure", it, "after" to call) }
+    }
     @Synchronized fun install(context: Context) {
         if (active) return
         power = context.getSystemService(PowerManager::class.java)
@@ -127,6 +192,7 @@ object HitelSdkProbe {
         HitelE2Trace.event("sdk.probe.ready", "nativeLibrary" to nativeAvailable, "captureFlags" to flags,
             "logd" to (flags and 1 != 0), "stderr" to (flags and 2 != 0),
             "gpuTiming" to (flags and 4 != 0), "ortProfileRequested" to (flags and 8 != 0),
+            "vendorDebugEnabled" to (flags and 16 != 0),
             "androidApi" to Build.VERSION.SDK_INT,
             "device" to Build.MODEL, "soc" to (if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else Build.HARDWARE))
     }
@@ -208,9 +274,14 @@ object HitelSdkProbe {
         for (line in lines) {
             val fields = line.split('\t', limit = 6)
             if (fields.size != 6) continue
-            HitelE2Trace.event("sdk.native.log", "turn" to fields[5], "nativeNs" to fields[0],
+            val message = fields[4]
+            val backend = listOf("[borrow]", "[borrow-gpu]", "[le-director-opencl]",
+                "[le_a2x]", "[le-open]", "[le-paste-opencl]", "[le-stepdown]",
+                "[le]", "[le-place]", "ExecutionProvider", "[le_ort_profile]").any { message.contains(it) }
+            HitelE2Trace.event(if (backend) "sdk.backend.native" else "sdk.native.log",
+                "turn" to fields[5], "nativeNs" to fields[0],
                 "nativeTid" to fields[1], "nativeCpuUs" to fields[2], "transport" to fields[3],
-                "message" to fields[4])
+                "message" to message)
         }
     }
 

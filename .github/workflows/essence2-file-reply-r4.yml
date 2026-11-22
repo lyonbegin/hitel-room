@@ -1,4 +1,4 @@
-name: Restore original Essence2 streaming and diagnose native GPU backend
+name: Trace actual Essence2 CPU and OpenCL backend branches
 on:
   workflow_dispatch:
   push:
@@ -124,11 +124,6 @@ jobs:
                   assert text.count(old)==1, (name,old,text.count(old))
                   text=text.replace(old,new,1)
               p.write_text(text)
-          # Fix prior compile failure; retain the complete native message text.
-          patch('HitelE2Trace.kt', [
-              ('private fun safe(value: Any?): String {','private fun safe(value: Any?, limit: Int = 160): String {'),
-              ('s.take(160).replace', 's.take(limit).replace'),
-          ])
           # Probe is installed before native create. No changes to model loading or player control.
           patch('BithumanPlugin.kt', [
               ('        hitelDiagnostics = HitelDiagnostics(binding)\n', '        hitelDiagnostics = HitelDiagnostics(binding)\n        HitelSdkProbe.install(binding.applicationContext)\n'),
@@ -148,13 +143,6 @@ jobs:
           patch('AvatarPlayer.kt', [
               ('        if (u.speech) nPresSpeech++\n', "        if (u.speech) nPresSpeech++\n        if (u.speech && u.kind == 'S') HitelSdkProbe.originalPresented()\n"),
           ])
-          patch('HitelSdkProbe.kt', [
-              ('    fun input(turnId: Int, samples: Long) {','    fun originalFed(samples: Long) = fed(turn, samples)\n    fun originalPulled(ordinal: Long) = pulled(turn, ordinal)\n    fun originalPresented() = shown(turn)\n    fun input(turnId: Int, samples: Long) {'),
-              ('            "type" to value?.javaClass?.name)', '            "type" to value?.javaClass?.name, "stringValue" to (value as? String))'),
-              ('"a2xAvailCalls" to w.availCalls,','"a2xAvailCalls" to w.availCalls, "a2xReturnedMotionFrames" to w.a2xReturned,'),
-              ('        var a2xPulls = 0L','        var a2xReturned = 0L\n        var a2xPulls = 0L'),
-              ('        // Record raw values,', '        if (name == "nativeA2xPull" && kind == "I" && value > 0) synchronized(windowLock) { window?.let { it.a2xReturned += value } }\n        // Record raw values,'),
-          ])
           # Assert the original pipeline is selected, not the independent audio-master renderer.
           plugin=(root/'BithumanPlugin.kt').read_text()
           assert 'Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)' in plugin
@@ -172,8 +160,11 @@ jobs:
           print('PASS_ORIGINAL_STREAMING_ENGINE_PLAYER_NO_CUSTOM_SYNC_NO_SDK_SKIP_AHEAD')
           PY
           # Distinguish the original-player diagnostic build.
-          sed -i 's/PCM_FILE_R7_TRACE/PCM16_ORIGINAL_STREAM_GPU_PROBE_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_ORIGINAL_STREAM_GPU_PROBE_20261122' "$APP/lib/main.dart"
+          sed -i 's/PCM_FILE_R7_TRACE/PCM16_NATIVE_BACKEND_BRANCH_TRACE_20261122/g' "$APP/lib/main.dart"
+          grep -Fq 'PCM16_NATIVE_BACKEND_BRANCH_TRACE_20261122' "$APP/lib/main.dart"
+          grep -Fq 'sdk.backend.native' "$PLUGIN/$NATIVE/HitelSdkProbe.kt"
+          grep -Fq 'hitel_sdk_backend.log' "$PLUGIN/$NATIVE/HitelE2Trace.kt"
+          grep -Fq 'hitel_sdk_backend.log' "$APP/lib/main.dart"
           if ! command -v ffmpeg >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y ffmpeg
@@ -226,23 +217,12 @@ jobs:
           unzip -p essence2-sdk-local/vendor-original-0.9.5.aar classes.jar > essence2-sdk-local/vendor-classes.jar
           unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so > essence2-sdk-local/vendor-lible_jni.so
           javap -p -s -c -classpath essence2-sdk-local/vendor-classes.jar ai.bithuman.elevate.NativeBridge ai.bithuman.elevate.Essence2Avatar ai.bithuman.elevate.Essence2Options > essence2-local-mock-proof/sdk095-native-jvm-disassembly.txt
+          test "$(sha256sum essence2-sdk-local/vendor-lible_jni.so | cut -d ' ' -f 1)" = "3eed089467f5ffeab88715c0d126f09e87734e84190e6e4899494db6b67657cf"
           readelf -Ws essence2-sdk-local/vendor-lible_jni.so > essence2-local-mock-proof/sdk095-native-symbols.txt
           readelf -d essence2-sdk-local/vendor-lible_jni.so > essence2-local-mock-proof/sdk095-native-needed.txt
           LC_ALL=C strings -a essence2-sdk-local/vendor-lible_jni.so | grep -Ei 'ExecutionProvider|OpenCL|onnx|a2x|le-pipe|le-perf|LE_.*TIMING|LE_ORT_PROFILE|cpu fallback|gpu fallback|clEnqueue|clCreate' > essence2-local-mock-proof/sdk095-backend-strings.txt || true
           curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.7.1/asm-9.7.1.jar \
             -o essence2-sdk-local/asm.jar
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tools/bithuman_deep/InstrumentEssence2.java')
-          s=p.read_text()
-          old='"nativeA2xDestroy", "nativeRenderKpBorrow", "nativeRenderDriveBorrow",'
-          assert s.count(old)==1
-          s=s.replace(old,old+'\n        "nativeRenderStatus", "nativeRenderReason", "nativeTesseraStats", "nativeTesseraReason", "nativeTesseraAttachBundle", "nativeA2xTotal", "nativeA2xLastError",')
-          old='"nativeRenderDriveBorrow", "nativeHwEnable", "nativeHwBuffer").contains(name))'
-          assert s.count(old)==1
-          s=s.replace(old,'"nativeRenderDriveBorrow", "nativeHwEnable", "nativeHwBuffer", "nativeRenderStatus", "nativeRenderReason", "nativeTesseraStats", "nativeTesseraReason", "nativeTesseraAttachBundle", "nativeA2xTotal", "nativeA2xLastError").contains(name))')
-          p.write_text(s)
-          PY
           javac -cp essence2-sdk-local/asm.jar -d essence2-sdk-local tools/bithuman_deep/InstrumentEssence2.java
           java -cp essence2-sdk-local:essence2-sdk-local/asm.jar InstrumentEssence2 \
             essence2-sdk-local/hitel-local-test-meter-0.9.5.aar essence2-sdk-local/hitel-traced-0.9.5.aar \
@@ -386,7 +366,7 @@ jobs:
           fi
           grep -Fxq 'assets/flutter_assets/assets/hitel_file_reply.m4a' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           echo PASS_ORIGINAL_PCM_ASSET_NO_LOCAL_STT_OR_TTS
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -396,7 +376,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -404,7 +384,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -421,7 +401,7 @@ jobs:
           java -cp "file-chunker-test:$ANDROID_JAR" ai.bithuman.flutter.FilePcmChunkerTest
           python3 - <<'PY'
           from zipfile import ZipFile, ZIP_STORED
-          with ZipFile('HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk') as z:
+          with ZipFile('HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk') as z:
               info=z.getinfo('assets/flutter_assets/assets/hitel_file_reply.m4a')
               assert info.compress_type == ZIP_STORED, 'AssetFileDescriptor requires an uncompressed M4A entry'
               assert info.file_size > 1000
@@ -435,8 +415,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk
-          TAG=hitel-essence2-original-stream-gpu-probe-20261122
+          APK=HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk
+          TAG=hitel-essence2-native-backend-branch-trace-20261122
           sha256sum "$APK" > "${APK}.sha256"
           cat > release-notes.md <<EOF
           Original bitHuman Essence2Engine and AvatarPlayer streaming restored. Independent HITEL Audio-Master renderer and SDK skip-ahead are not used. JNI probes and original native CPU/GPU diagnostics enabled. Vendor lible_jni.so is byte-identical. Share the full diagnostics ZIP.
@@ -444,15 +424,15 @@ jobs:
           Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
           Original 24 kHz PCM transport and native 16 kHz feed, original lead/ready queues and audio writer/presenter. No custom frame skipping. Original player may still discard stale/coalesced frames as designed.
-          Device logs: sdk.original.route, sdk.probe.ready, sdk.internal.call, sdk.internal.result, sdk.native.log, sdk.window320 and original player statistics.
+          Evidence: sdk.backend.create_args (actual EP and native environment), sdk.backend.native (actual native branch messages including [borrow] compositor GPU/CPU and Director grade/demotion), sdk.backend.snapshot (render error code and Tessera state/counters, not inferred GPU use), separate hitel_sdk_backend.log preserved from startup. Recursive log capture removed. Original player's PROD stale/coalesced counters captured. No GPU backend forced; runtime profiling not yet verified on a physical phone.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "${APK}.sha256" --clobber
             gh release edit "$TAG" --notes-file release-notes.md --prerelease --latest=false
           else
-            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Original Streaming GPU Probe APK' --notes-file release-notes.md
+            gh release create "$TAG" "$APK" "${APK}.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title 'HITEL Essence2 Native Backend Branch Trace APK' --notes-file release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk") | .url')"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o downloaded.apk
           cmp "$APK" downloaded.apk
           echo PASS_PUBLIC_GPU_APK_DOWNLOAD_BYTE_IDENTICAL
@@ -462,8 +442,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Original_Stream_GPU_Probe_APK
-          path: HITEL_Essence2_ORIGINAL_STREAM_GPU_PROBE_20261122_ARM64.apk
+          name: HITEL_Essence2_Native_Backend_Branch_Trace_APK
+          path: HITEL_Essence2_NATIVE_BACKEND_BRANCH_TRACE_20261122_ARM64.apk
           retention-days: 14
 
       - name: Retain build integrity logs

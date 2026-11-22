@@ -55,7 +55,8 @@ bool sdk_message(std::string_view text) {
         "[le-pipe]", "[le-pipe-rep]", "[le-director-opencl]", "[le-place]", "[le-zc]", "[le-stepdown]",
         "[le_a2x]", "[le-skip]", "[borrow-gpu]", "[le-paste-opencl]", "[le-a2x]",
         "[le-otrace]", "[le-perf]", "[le_ort_profile]", "[le-cl]", "[le-adpf]", "[le-output]",
-        "[le-driver]", "[le-open]", "[borrow-gpu-split]",
+        "[le-driver]", "[le-open]", "[borrow-gpu-split]", "[borrow]", "[le]",
+        "PROD where=", "stopped on an exception:",
     };
     for (const auto prefix : prefixes) {
         if (text.find(prefix) != std::string_view::npos) return true;
@@ -89,8 +90,11 @@ void capture(std::string_view text, const char* transport, bool on_sdk_thread) {
 }
 
 void capture_logd(const __android_log_message* message) {
-    if (message && message->message) capture(message->message, "logd", true);
-    logd(message);
+    // Never read back our own encoded native messages.
+    if (message && message->message &&
+        (!message->tag || std::strcmp(message->tag, "HITEL_E2TRACE") != 0))
+        capture(message->message, "logd", true);
+    if (message) logd(message);
 }
 
 void read_stderr(int read_fd) {
@@ -160,7 +164,14 @@ Java_ai_bithuman_flutter_HitelSdkProbe_nativeInstall(JNIEnv* env, jobject, jstri
             set_logger(capture_logd);
             capture_flags |= 1;
         }
-        if (capture_stderr()) capture_flags |= 2;
+        if (capture_stderr()) {
+            capture_flags |= 2;
+            setvbuf(stderr, nullptr, _IONBF, 0);
+        }
+        // le::diag_stream() at 0x17400c sends diagnostics to /dev/null
+        // when BITHUMAN_ENGINE_QUIET=1 unless BITHUMAN_DEBUG=1.
+        // Debug output only: do NOT change the requested execution provider.
+        if (setenv("BITHUMAN_DEBUG", "1", 1) == 0) capture_flags |= 16;
         const int report = setenv("LE_PIPE_REPORT_S", "1", 1);
         const int tessera = setenv("LE_TESS_TIMING", "1", 1);
         const int compose = setenv("LE_ZC_TIMING", "1", 1);

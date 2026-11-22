@@ -34,6 +34,10 @@ internal object HitelE2Trace {
         Thread({
             try {
                 var writer = FileOutputStream(output, false)
+                // Separate bounded startup/backend record: does not rotate away
+                // the device-selection evidence when the main per-frame trace fills.
+                val backend = FileOutputStream(File(folder, "hitel_sdk_backend.log"), false)
+                var backendLength = 0L
                 var length = 0L
                 while (true) {
                     val item = lines.take()
@@ -53,7 +57,11 @@ internal object HitelE2Trace {
                         item.complete(error)
                         continue
                     }
-                    val bytes = (item.toString() + "\n").toByteArray(Charsets.UTF_8)
+                    val row = item.toString()
+                    val bytes = (row + "\n").toByteArray(Charsets.UTF_8)
+                    if (row.contains(" stage=sdk.backend.") && backendLength + bytes.size <= 512L * 1024L) {
+                        backend.write(bytes); backendLength += bytes.size; backend.flush()
+                    }
                     if (length + bytes.size > MAX_BYTES) {
                         writer.flush(); writer.close()
                         val old = File(folder, "hitel_e2_trace.previous.log")
@@ -83,13 +91,13 @@ internal object HitelE2Trace {
         if (!lines.offer(Snapshot(complete))) complete(IllegalStateException("Trace queue full"))
     }
 
-    private fun safe(value: Any?): String {
+    private fun safe(value: Any?, limit: Int = 160): String {
         if (value == null) return "null"
         if (value is Number || value is Boolean || value is Char) return value.toString()
         var s = value.toString()
         s = s.replace(Regex("(?i)Bearer\\s+\\S+"), "[REDACTED]")
         s = s.replace(Regex("https?://\\S+"), "[URL_REDACTED]")
-        s = s.take(160).replace('\n', '_').replace('\r', '_').replace(' ', '_')
+        s = s.take(limit).replace('\n', '_').replace('\r', '_').replace(' ', '_')
         s = s.replace(Regex("(?i)(bearer|secret|token|password|api[_-]?key)[=:][^,; ]+"), "[REDACTED]")
         return s.replace(Regex("https?://[^,; ]+"), "[URL_REDACTED]")
     }
@@ -100,7 +108,7 @@ internal object HitelE2Trace {
             " monotonicNs=" + SystemClock.elapsedRealtimeNanos() + " wallMs=" + System.currentTimeMillis() +
             " pid=" + Process.myPid() + " tid=" + Process.myTid() +
             " thread=" + safe(Thread.currentThread().name) + " stage=" + safe(stage) + " lost=" + lost.get() +
-            fields.joinToString("") { " " + safe(it.first) + "=" + safe(it.second, if (stage == "sdk.native.log") 640 else 160) }
+            fields.joinToString("") { " " + safe(it.first) + "=" + safe(it.second, if (stage == "sdk.native.log" || stage.startsWith("sdk.backend.")) 640 else 160) }
         Log.i(TAG, line)
         if (!lines.offer(line)) lost.incrementAndGet()
     }

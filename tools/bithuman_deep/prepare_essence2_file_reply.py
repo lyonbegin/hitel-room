@@ -55,11 +55,25 @@ DIAGNOSTICS = r'''  Future<String> _hitelLogTail(Directory dir, String name, int
       final boot = await _hitelLogTail(dir, 'boot_status.txt', 2000);
       final native = await _hitelLogTail(dir, 'hitel_e2_trace.log', 12000);
       final protocol = await _hitelLogTail(dir, 'hitel_ai_e2e.log', 4000);
+      // Preserve initialization even if the main per-frame trace has rotated.
+      final backendFile = File('${dir.path}/hitel_sdk_backend.log');
+      var backend = '(no backend log)';
+      if (await backendFile.exists()) {
+        final handle = await backendFile.open();
+        try {
+          final length = await handle.length();
+          backend = utf8.decode(await handle.read(16000), allowMalformed: true);
+          if (length > 16000) {
+            backend += '\n--- latest backend ---\n';
+            backend += await _hitelLogTail(dir, 'hitel_sdk_backend.log', 12000);
+          }
+        } finally { await handle.close(); }
+      }
       var detail = 'HITEL Essence 2 Android diagnostics\nbuild=PCM_FILE_R5\n'
           'mode=text_trigger_file_stream\nSTT=false\nTTS=false\n'
           'engine=$_engine\nsample=$_selectedSample\nstatus=$_status\n'
           'loaded=${_avatar != null}\nat=${DateTime.now().toIso8601String()}\n'
-          '--- current boot ---\n$boot\n--- current native ---\n$native\n'
+          '--- current boot ---\n$boot\n--- SDK backend (startup preserved) ---\n$backend\n--- current native ---\n$native\n'
           '--- current protocol ---\n$protocol';
       detail = detail.replaceAll(RegExp(r'Bearer\s+\S+', caseSensitive: false), 'Bearer [REDACTED]')
           .replaceAll(RegExp(r'api-secret\s*[:=]\s*\S+', caseSensitive: false), 'api-secret=[REDACTED]')
