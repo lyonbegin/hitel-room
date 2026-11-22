@@ -1,0 +1,107 @@
+name: HITEL RTC loopback emulator verification
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: "Run containing the compiled and integrity-checked ARM64 APK"
+        required: true
+        default: "44980417978"
+  push:
+    branches: [feature/hitel-unified-webrtc-android-20261122]
+    paths: ['.github/workflows/hitel-rtc-emulator-verify.yml']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  verify-existing-apk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      SOURCE_RUN: ${{ inputs.source_run || '44980417978' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.SOURCE_RUN }}
+          name: HITEL_UNIFIED_ANDROID_RTC_MAIN_APK
+          path: .
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.SOURCE_RUN }}
+          name: hitel-unified-rtc-main-build-evidence
+          path: essence2-local-mock-proof
+      - name: Verify APK against original build checksum
+        run: |
+          set -euo pipefail
+          APK=HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk
+          test -s "$APK"
+          expected="$(cut -d ' ' -f1 essence2-local-mock-proof/apk-sha256.txt)"
+          echo "$expected  $APK" | sha256sum -c -
+      - name: Repair KVM access explicitly
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p essence2-local-mock-proof/emulator
+          {
+            uname -a
+            lscpu
+            if [[ ! -c /dev/kvm ]]; then
+              sudo modprobe kvm || true
+              sudo modprobe kvm_intel || sudo modprobe kvm_amd || true
+            fi
+            if [[ ! -c /dev/kvm && -r /sys/class/misc/kvm/dev ]]; then
+              read -r numbers < /sys/class/misc/kvm/dev
+              sudo mknod /dev/kvm c "${numbers%:*}" "${numbers#*:}"
+            fi
+            if [[ -c /dev/kvm ]]; then
+              sudo chmod a+rw /dev/kvm
+              ls -l /dev/kvm
+              test -r /dev/kvm && test -w /dev/kvm
+            else
+              echo "KVM_DEVICE_UNAVAILABLE"
+            fi
+          } 2>&1 | tee essence2-local-mock-proof/emulator/kvm.txt
+      - name: Set up audio output
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y pulseaudio pulseaudio-utils ffmpeg
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=hitel_emulator
+          pactl set-default-sink hitel_emulator
+          pactl list short sinks
+      - name: Install and test actual ARM64 APK using API 35 translation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-linux-hw-accel: auto
+          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/bithuman_deep/hitel_unified/tests/emulator_rtc_gate.sh
+      - name: Retain emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-rtc-emulator-evidence
+          path: essence2-local-mock-proof/emulator/
+          if-no-files-found: warn
+      - name: Publish only after real loopback verification
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk
+          TAG=hitel-unified-rtc-emulator-${GITHUB_RUN_ID}
+          grep -Fxq PASS_ANDROID_EMULATOR_ACTUAL_APK_RTC_GATE essence2-local-mock-proof/emulator/result.txt
+          sha256sum "$APK" > "$APK.sha256"
+          gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC loopback emulator verified" --notes "Actual ARM64 APK from build run $SOURCE_RUN. Emulator verified decoded RTP video, nonzero received audio energy and first rendered frame; physical-phone GPU performance remains separate."
+          url="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$APK\") | .url")"
+          curl -fL --retry 3 --retry-all-errors "$url" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo "PASS_PUBLIC_RTC_EMULATOR_APK_DOWNLOAD $url"
