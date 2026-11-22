@@ -1,0 +1,55 @@
+name: Essence2 10s NoWait publish installation test APK
+on:
+  push:
+    branches:
+      - feature/hitel-essence2-main
+    paths:
+      - .github/workflows/essence2-publish-install-test.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-installation-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download APK built by Android 15 CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk-staging
+          gh run download 45041977625 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name HITEL_Essence2_Sofia_HITEL_Local_20261120_Install \
+            --dir apk-staging
+          test -s apk-staging/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
+          mv apk-staging/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk .
+          unzip -t HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk | tail -1
+          sha256sum HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk | tee HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk.sha256
+          echo PASS_ANDROID_APK_ARCHIVE_INSTALL_TEST_ASSET
+      - name: Publish explicitly unverified playback TEST release and verify external download
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=hitel-essence2-sofia-10s-nowait-install-test-20261123
+          APK=HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
+          cat > release-notes.md <<'EOF'
+          TEST APK for manual installation, not a fully verified production release.
+          Built from feature/hitel-essence2-main commit 5cdfde57870a97924bd90f62a0573196c70073f5 by run 45041977625.
+          Pre-existing English 24k PCM fixture first 10 seconds (NOT Korean M4A). No wall-clock 100ms pacing while delivering chunks; vendor Essence2 renders before audio-clock playback.
+          Android 15 emulator: APK build passed, native SDK feed and frame presentation passed, drain/playout marker passed; virtual speaker WAV validation FAILED, therefore actual audible output is not verified.
+          Device playback and Korean speech content must not be inferred from this build.
+          EOF
+          gh release create "$TAG" "$APK" "$APK.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target 5cdfde57870a97924bd90f62a0573196c70073f5 \
+            --title 'Essence2 Sofia 10s NoWait - installation TEST (speaker check failed)' \
+            --prerelease --latest=false --notes-file release-notes.md
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK"
+          curl --retry 3 --retry-all-errors -fLsS "$URL" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo PASS_EXTERNAL_HTTPS_APK_DOWNLOAD_IDENTICAL
+          echo "$URL"
