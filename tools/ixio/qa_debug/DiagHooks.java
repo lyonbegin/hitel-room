@@ -36,14 +36,19 @@ public final class DiagHooks implements Application.ActivityLifecycleCallbacks {
         return (int) (a.getResources().getDisplayMetrics().density * value + 0.5f);
     }
 
-    @Override public void onActivityCreated(Activity a, Bundle b) {}
-    @Override public void onActivityStarted(Activity a) {}
-    @Override public void onActivityPaused(Activity a) {}
-    @Override public void onActivityStopped(Activity a) {}
-    @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
-    @Override public void onActivityDestroyed(Activity a) {}
+    @Override public void onActivityCreated(Activity a, Bundle b) { lifecycle(a,"CREATED"); }
+    @Override public void onActivityStarted(Activity a) { lifecycle(a,"STARTED"); }
+    @Override public void onActivityPaused(Activity a) { lifecycle(a,"PAUSED"); }
+    @Override public void onActivityStopped(Activity a) { lifecycle(a,"STOPPED"); }
+    @Override public void onActivitySaveInstanceState(Activity a, Bundle b) { lifecycle(a,"SAVE_INSTANCE_STATE"); }
+    @Override public void onActivityDestroyed(Activity a) { lifecycle(a,"DESTROYED"); }
 
+    private static void lifecycle(Activity a,String phase) {
+        try { DiagLog.event("UI","MAIN_ACTIVITY_"+phase+" package="+a.getPackageName()+" activity="+a.getClass().getName()+" finishing="+a.isFinishing()); }
+        catch(Throwable ignored){}
+    }
     @Override public void onActivityResumed(Activity a) {
+        lifecycle(a,"RESUMED");
         try {
             View view = a.findViewById(android.R.id.content);
             if (!(view instanceof FrameLayout)) return;
@@ -90,6 +95,7 @@ public final class DiagHooks implements Application.ActivityLifecycleCallbacks {
                     // Don't add a row after delete; next action is a clean trace.
                 })
                 .setPositiveButton("로그 복사", (d, which) -> {
+                    DiagLog.event("UI", "MAIN_COPY_REQUEST package="+a.getPackageName()+" activity="+a.getClass().getName());
                     String copy = DiagLog.copySnapshot();
                     ClipboardManager cb = (ClipboardManager)
                             a.getSystemService(Context.CLIPBOARD_SERVICE);

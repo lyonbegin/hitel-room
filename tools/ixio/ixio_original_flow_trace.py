@@ -15,7 +15,7 @@ PREFIX = 'com/lguplus/aicallagent/'
 TRACE = 'Lcom/lguplus/aicallagent/hitelqa/DiagTrace;'
 FOCUS = re.compile(
     r'(?:^|/)(?:SettingViewModel|DownloadViewModel|CallRecord\w*ViewModel|'
-    r'Record\w*ViewModel|InCallAiSettingViewModel|SpamAiAutoAnswer\w*ViewModel|'
+    r'Record\w*ViewModel|CallRecord\w*ScreenKt|Record\w*Setting\w*|CallRecordingSetting\w*|InCallAiSettingViewModel|SpamAiAutoAnswer\w*ViewModel|'
     r'AntiPhishing\w*ViewModel|AiModelUpdateRepositoryImpl|AiModelRepositoryImpl|'
     r'UpdateAiModelUseCaseImpl|CheckAiModelAvailabilityUseCaseImpl|'
     r'CheckRecordingAvailabilityUseCaseImpl|CallRecordingSettingRepositoryImpl|'
@@ -111,6 +111,7 @@ def relevant_call(m):
         if name=='isStopped':return False  # polled for each file buffer
         return not re.search(r'(?:sendGa|Datadog|analytics|logDebug|logInfo|logError)', name, re.I)
     if owner.startswith('Lcom/lguplus/aicallagentaidl/'): return True
+    if owner.startswith(('Landroid/content/SharedPreferences','Landroidx/datastore/','Landroidx/preference/','Landroid/content/ContentResolver;','Landroid/content/ContentProvider;','Landroid/widget/CompoundButton','Landroid/widget/Switch')): return True
     if owner.startswith('Landroidx/work/'):
         return bool(re.search(r'enqueue|begin|then|cancel|success|failure|retry|getState|getProgress|isFinished', name, re.I))
     if owner in ('Lkotlinx/coroutines/flow/MutableStateFlow;', 'Lkotlinx/coroutines/flow/MutableSharedFlow;'):
@@ -257,7 +258,269 @@ def process(root, inventory):
             rel=path.relative_to(folder).as_posix()
             if GENERATED.search(rel) or '/hitelqa/' in rel or '/Hitel' in rel:continue
             focused=bool(FOCUS.search(rel))
-            setting_click='/setting/screen/SettingScreenKt$' in rel
+            setting_click=('/setting/screen/SettingScreenKt
+            if not focused and not setting_click and rel not in exact:continue
+            old=path.read_text();parts=[];end=0;count=0
+            if setting_click and not focused and not any(x in old for x in ('->showVasErrorRetryToast()', 'SettingEvent$NavigateTo;', 'CallRecord', 'onCheckedChange', 'setAutoRecording', 'setCallAutoRecording')):continue
+            for m in METHOD.finditer(old):
+                b=m.group();header=b.splitlines()[0]
+                name=re.search(r'\s([^\s(]+)\(',header).group(1)
+                if SKIP_METHOD.search(name) or ' abstract ' in header or ' native ' in header:continue
+                exact_method=any(x in header or header in x for x in exact.get(rel,()))
+                if not focused and not setting_click and not exact_method:continue
+                if not focused and setting_click and name not in ('invoke','invokeSuspend'):continue
+                # No byte-buffer loop instrumentation. Workers still log
+                # real file/HTTP outcomes, retries, exceptions and Result.
+                branches=('Worker' not in path.name and len(executable(b.splitlines()))<350)
+                ctx={'dex':f'classes{num}.dex','class':rel,'method':header,'short':path.stem+'.'+name}
+                new,sites=instrument_method(b,ctx,add_site,branches)
+                if new!=b:
+                    parts.extend([old[end:m.start()],new]);end=m.end();count+=len(sites)
+            if end:
+                parts.append(old[end:]);new=''.join(parts);path.write_text(new)
+                report['changes'].append({'dex':f'classes{num}.dex','class':rel,'before':sha(old),'after':sha(new),'site_count':count})
+        if shard:
+            helper=folder/'com/lguplus/aicallagent/hitelqa'/f'FlowTraceShard{num}.smali'
+            if helper.exists():raise RuntimeError('Duplicate flow instrumentation')
+            helper.parent.mkdir(parents=True,exist_ok=True);helper.write_text(helper_source(desc,shard))
+            report['helpers'].append(str(helper.relative_to(root)))
+    report['site_count']=len(report['sites'])
+    report['phase_counts']=dict(Counter(x['phase'] for x in report['sites']))
+    report['changed_dex']=sorted({x['dex'] for x in report['changes']})
+    report['class_count']=len(report['changes'])
+    assert any('/DownloadWorker.smali' in x['class'] for x in report['changes'])
+    assert any('/FileUnzipWorker.smali' in x['class'] for x in report['changes'])
+    assert any('recordingCallback$1.smali' in x['class'] for x in report['changes'])
+    assert any(x['phase']=='ARG' and 'onError(' in x['method'] for x in report['sites'])
+    return report
+
+
+def network_routes(root, report):
+    """Name API requests by static Retrofit definitions, never a live URL."""
+    routes={('/v1/ai-asset/check','AUTH_CATALOG'),('/v2/ai-model/check','VERSION_CATALOG')}
+    for folder in root.glob('smali[0-9]*'):
+        for path in (folder/PREFIX/'network/api').rglob('*.smali'):
+            for m in METHOD.finditer(path.read_text()):
+                b=m.group();h=b.splitlines()[0]
+                name=re.search(r'\s([^\s(]+)\(',h).group(1)
+                for a in re.finditer(r'(?s)\.annotation runtime Lretrofit2/http/(?:GET|POST|PUT|PATCH|DELETE|HEAD);(.*?)\.end annotation',b):
+                    v=re.search(r'value\s*=\s*"([^"]+)"',a.group(1))
+                    if not v:continue
+                    prefix=v.group(1).split('{',1)[0].split('?',1)[0]
+                    if '://' in prefix or len(prefix.strip('/'))<4:continue
+                    prefix='/'+prefix.lstrip('/')
+                    if prefix not in ('/v1/ai-asset/check','/v2/ai-model/check'):
+                        routes.add((prefix,path.stem+'.'+name))
+    desc='Lcom/lguplus/aicallagent/hitelqa/FlowHttpRoutes;'
+    out=[f'.class public final {desc}','.super Ljava/lang/Object;',
+         '.method public static route(Ljava/lang/String;)Ljava/lang/String;', '    .registers 4']
+    for i,(prefix,label) in enumerate(sorted(routes,key=lambda x:(-len(x[0]),x))):
+        out.extend(['    const-string v0, '+json.dumps(prefix),
+            '    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z',
+            '    move-result v1', f'    if-eqz v1, :next{i}',
+            '    const-string v0, '+json.dumps(label), '    return-object v0', f'    :next{i}'])
+    out.extend(['    const-string v0, "OTHER_VENDOR_API"','    return-object v0','.end method'])
+    helper=root/'smali16/com/lguplus/aicallagent/hitelqa/FlowHttpRoutes.smali'
+    helper.parent.mkdir(parents=True,exist_ok=True);helper.write_text('\n'.join(out)+'\n')
+    wire=root/'smali16/com/lguplus/aicallagent/network/client/HitelModelWireTrace.smali'
+    old=wire.read_text()
+    m=next(m for m in METHOD.finditer(old) if ' route(Lokhttp3/Request;)' in m.group().splitlines()[0])
+    new='''.method private static route(Lokhttp3/Request;)Ljava/lang/String;
+    .registers 3
+    invoke-virtual {p0}, Lokhttp3/Request;->url()Lokhttp3/HttpUrl;
+    move-result-object v0
+    invoke-virtual {v0}, Lokhttp3/HttpUrl;->encodedPath()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, '''+desc+'''->route(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+.end method'''
+    wire.write_text(old[:m.start()]+new+old[m.end():])
+    gate=root/'smali18/com/lguplus/aicallagent/hitelqa/ModelCatalogQaTrace.smali'
+    g=gate.read_text()
+    start='    if-eqz p0, :original\n'
+    assert g.count(start)==1
+    g=g.replace(start,'    const-string v0, "QA_VAS_GATE INPUT"\n'
+        '    invoke-static {v0, p0}, '+TRACE+'->flowInt(Ljava/lang/String;I)V\n'
+        '    const-string v0, "QA_VAS_GATE DESTINATION"\n'
+        '    invoke-static {v0, p1}, '+TRACE+'->flowObject(Ljava/lang/String;Ljava/lang/Object;)V\n'+start,1)
+    g=g.replace('    :original\n    return p0','    :original\n'
+        '    const-string v0, "QA_VAS_GATE OUTPUT"\n'
+        '    invoke-static {v0, p0}, '+TRACE+'->flowInt(Ljava/lang/String;I)V\n    return p0',1)
+    gate.write_text(g)
+    report['static_http_route_count']=len(routes)
+    report['static_http_routes']=[{'prefix':p,'label':l} for p,l in sorted(routes)]
+
+
+def separate_instrumented_classes(root, report):
+    """Keep DEX method references below 65536 without dropping trace sites.
+
+    Android 26+ loads the additional standard classes20.dex automatically.
+    Class descriptors, instructions and manifest stay exactly the same.
+    Move complete instrumented classes, not only helpers (moving helpers
+    alone would leave all the new references in the full original shard).
+    """
+    destination=root/'smali20'
+    if destination.exists():raise RuntimeError('Unexpected original classes20.dex')
+    moved=[]
+    for item in report['changes']:
+        if item['dex']!='classes18.dex':continue
+        source=root/'smali18'/item['class'];target=destination/item['class']
+        target.parent.mkdir(parents=True,exist_ok=True)
+        assert sha(source.read_text())==item['after']
+        shutil.move(str(source),str(target))
+        moved.append(item['class'])
+        item['original_dex']='classes18.dex';item['dex']='classes20.dex'
+    source=root/'smali18/com/lguplus/aicallagent/hitelqa/FlowTraceShard18.smali'
+    target=destination/'com/lguplus/aicallagent/hitelqa/FlowTraceShard18.smali'
+    target.parent.mkdir(parents=True,exist_ok=True);shutil.move(str(source),str(target))
+    report['relocated_classes']={'from':'classes18.dex','to':'classes20.dex','count':len(moved),'classes':moved}
+    report['new_dex']=['classes20.dex']
+    report['changed_dex']=sorted(set(report['changed_dex'])|{'classes20.dex'})
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--inventory',type=Path,required=True);p.add_argument('--report',type=Path,required=True)
+    a=p.parse_args();r=process(a.root,json.loads(a.inventory.read_text()))
+    network_routes(a.root,r)
+    separate_instrumented_classes(a.root,r)
+    a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,ensure_ascii=False,indent=2))
+    print('ORIGINAL_FLOW_BOUNDARIES_INSTRUMENTED',json.dumps({k:r[k] for k in ('site_count','class_count','phase_counts','changed_dex','original_instructions_preserved')}),flush=True)
+
+
+if __name__=='__main__':main()
+ in rel or bool(re.search(r'(?:CallRecord|RecordSetting).*ScreenKt\
+            if not focused and not setting_click and rel not in exact:continue
+            old=path.read_text();parts=[];end=0;count=0
+            if setting_click and not focused and not any(x in old for x in ('->showVasErrorRetryToast()', 'SettingEvent$NavigateTo;')):continue
+            for m in METHOD.finditer(old):
+                b=m.group();header=b.splitlines()[0]
+                name=re.search(r'\s([^\s(]+)\(',header).group(1)
+                if SKIP_METHOD.search(name) or ' abstract ' in header or ' native ' in header:continue
+                exact_method=any(x in header or header in x for x in exact.get(rel,()))
+                if not focused and not setting_click and not exact_method:continue
+                if not focused and setting_click and name not in ('invoke','invokeSuspend'):continue
+                # No byte-buffer loop instrumentation. Workers still log
+                # real file/HTTP outcomes, retries, exceptions and Result.
+                branches=('Worker' not in path.name and len(executable(b.splitlines()))<350)
+                ctx={'dex':f'classes{num}.dex','class':rel,'method':header,'short':path.stem+'.'+name}
+                new,sites=instrument_method(b,ctx,add_site,branches)
+                if new!=b:
+                    parts.extend([old[end:m.start()],new]);end=m.end();count+=len(sites)
+            if end:
+                parts.append(old[end:]);new=''.join(parts);path.write_text(new)
+                report['changes'].append({'dex':f'classes{num}.dex','class':rel,'before':sha(old),'after':sha(new),'site_count':count})
+        if shard:
+            helper=folder/'com/lguplus/aicallagent/hitelqa'/f'FlowTraceShard{num}.smali'
+            if helper.exists():raise RuntimeError('Duplicate flow instrumentation')
+            helper.parent.mkdir(parents=True,exist_ok=True);helper.write_text(helper_source(desc,shard))
+            report['helpers'].append(str(helper.relative_to(root)))
+    report['site_count']=len(report['sites'])
+    report['phase_counts']=dict(Counter(x['phase'] for x in report['sites']))
+    report['changed_dex']=sorted({x['dex'] for x in report['changes']})
+    report['class_count']=len(report['changes'])
+    assert any('/DownloadWorker.smali' in x['class'] for x in report['changes'])
+    assert any('/FileUnzipWorker.smali' in x['class'] for x in report['changes'])
+    assert any('recordingCallback$1.smali' in x['class'] for x in report['changes'])
+    assert any(x['phase']=='ARG' and 'onError(' in x['method'] for x in report['sites'])
+    return report
+
+
+def network_routes(root, report):
+    """Name API requests by static Retrofit definitions, never a live URL."""
+    routes={('/v1/ai-asset/check','AUTH_CATALOG'),('/v2/ai-model/check','VERSION_CATALOG')}
+    for folder in root.glob('smali[0-9]*'):
+        for path in (folder/PREFIX/'network/api').rglob('*.smali'):
+            for m in METHOD.finditer(path.read_text()):
+                b=m.group();h=b.splitlines()[0]
+                name=re.search(r'\s([^\s(]+)\(',h).group(1)
+                for a in re.finditer(r'(?s)\.annotation runtime Lretrofit2/http/(?:GET|POST|PUT|PATCH|DELETE|HEAD);(.*?)\.end annotation',b):
+                    v=re.search(r'value\s*=\s*"([^"]+)"',a.group(1))
+                    if not v:continue
+                    prefix=v.group(1).split('{',1)[0].split('?',1)[0]
+                    if '://' in prefix or len(prefix.strip('/'))<4:continue
+                    prefix='/'+prefix.lstrip('/')
+                    if prefix not in ('/v1/ai-asset/check','/v2/ai-model/check'):
+                        routes.add((prefix,path.stem+'.'+name))
+    desc='Lcom/lguplus/aicallagent/hitelqa/FlowHttpRoutes;'
+    out=[f'.class public final {desc}','.super Ljava/lang/Object;',
+         '.method public static route(Ljava/lang/String;)Ljava/lang/String;', '    .registers 4']
+    for i,(prefix,label) in enumerate(sorted(routes,key=lambda x:(-len(x[0]),x))):
+        out.extend(['    const-string v0, '+json.dumps(prefix),
+            '    invoke-virtual {p0, v0}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z',
+            '    move-result v1', f'    if-eqz v1, :next{i}',
+            '    const-string v0, '+json.dumps(label), '    return-object v0', f'    :next{i}'])
+    out.extend(['    const-string v0, "OTHER_VENDOR_API"','    return-object v0','.end method'])
+    helper=root/'smali16/com/lguplus/aicallagent/hitelqa/FlowHttpRoutes.smali'
+    helper.parent.mkdir(parents=True,exist_ok=True);helper.write_text('\n'.join(out)+'\n')
+    wire=root/'smali16/com/lguplus/aicallagent/network/client/HitelModelWireTrace.smali'
+    old=wire.read_text()
+    m=next(m for m in METHOD.finditer(old) if ' route(Lokhttp3/Request;)' in m.group().splitlines()[0])
+    new='''.method private static route(Lokhttp3/Request;)Ljava/lang/String;
+    .registers 3
+    invoke-virtual {p0}, Lokhttp3/Request;->url()Lokhttp3/HttpUrl;
+    move-result-object v0
+    invoke-virtual {v0}, Lokhttp3/HttpUrl;->encodedPath()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, '''+desc+'''->route(Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+.end method'''
+    wire.write_text(old[:m.start()]+new+old[m.end():])
+    gate=root/'smali18/com/lguplus/aicallagent/hitelqa/ModelCatalogQaTrace.smali'
+    g=gate.read_text()
+    start='    if-eqz p0, :original\n'
+    assert g.count(start)==1
+    g=g.replace(start,'    const-string v0, "QA_VAS_GATE INPUT"\n'
+        '    invoke-static {v0, p0}, '+TRACE+'->flowInt(Ljava/lang/String;I)V\n'
+        '    const-string v0, "QA_VAS_GATE DESTINATION"\n'
+        '    invoke-static {v0, p1}, '+TRACE+'->flowObject(Ljava/lang/String;Ljava/lang/Object;)V\n'+start,1)
+    g=g.replace('    :original\n    return p0','    :original\n'
+        '    const-string v0, "QA_VAS_GATE OUTPUT"\n'
+        '    invoke-static {v0, p0}, '+TRACE+'->flowInt(Ljava/lang/String;I)V\n    return p0',1)
+    gate.write_text(g)
+    report['static_http_route_count']=len(routes)
+    report['static_http_routes']=[{'prefix':p,'label':l} for p,l in sorted(routes)]
+
+
+def separate_instrumented_classes(root, report):
+    """Keep DEX method references below 65536 without dropping trace sites.
+
+    Android 26+ loads the additional standard classes20.dex automatically.
+    Class descriptors, instructions and manifest stay exactly the same.
+    Move complete instrumented classes, not only helpers (moving helpers
+    alone would leave all the new references in the full original shard).
+    """
+    destination=root/'smali20'
+    if destination.exists():raise RuntimeError('Unexpected original classes20.dex')
+    moved=[]
+    for item in report['changes']:
+        if item['dex']!='classes18.dex':continue
+        source=root/'smali18'/item['class'];target=destination/item['class']
+        target.parent.mkdir(parents=True,exist_ok=True)
+        assert sha(source.read_text())==item['after']
+        shutil.move(str(source),str(target))
+        moved.append(item['class'])
+        item['original_dex']='classes18.dex';item['dex']='classes20.dex'
+    source=root/'smali18/com/lguplus/aicallagent/hitelqa/FlowTraceShard18.smali'
+    target=destination/'com/lguplus/aicallagent/hitelqa/FlowTraceShard18.smali'
+    target.parent.mkdir(parents=True,exist_ok=True);shutil.move(str(source),str(target))
+    report['relocated_classes']={'from':'classes18.dex','to':'classes20.dex','count':len(moved),'classes':moved}
+    report['new_dex']=['classes20.dex']
+    report['changed_dex']=sorted(set(report['changed_dex'])|{'classes20.dex'})
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--root',type=Path,required=True);p.add_argument('--inventory',type=Path,required=True);p.add_argument('--report',type=Path,required=True)
+    a=p.parse_args();r=process(a.root,json.loads(a.inventory.read_text()))
+    network_routes(a.root,r)
+    separate_instrumented_classes(a.root,r)
+    a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(r,ensure_ascii=False,indent=2))
+    print('ORIGINAL_FLOW_BOUNDARIES_INSTRUMENTED',json.dumps({k:r[k] for k in ('site_count','class_count','phase_counts','changed_dex','original_instructions_preserved')}),flush=True)
+
+
+if __name__=='__main__':main()
+,rel)))
             if not focused and not setting_click and rel not in exact:continue
             old=path.read_text();parts=[];end=0;count=0
             if setting_click and not focused and not any(x in old for x in ('->showVasErrorRetryToast()', 'SettingEvent$NavigateTo;')):continue

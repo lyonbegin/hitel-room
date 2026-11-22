@@ -26,21 +26,26 @@ public final class RecorderLogUi implements Application.ActivityLifecycleCallbac
         app.registerActivityLifecycleCallbacks(new RecorderLogUi());
         RecorderLog.mark("UI_RECORDER_LOG_BUTTON_REGISTERED");
     }
-    @Override public void onActivityCreated(Activity a,Bundle b){}
-    @Override public void onActivityStarted(Activity a){}
-    @Override public void onActivityPaused(Activity a){}
-    @Override public void onActivityStopped(Activity a){}
-    @Override public void onActivitySaveInstanceState(Activity a,Bundle b){}
-    @Override public void onActivityDestroyed(Activity a){}
+    @Override public void onActivityCreated(Activity a,Bundle b){lifecycle(a,"CREATED");}
+    @Override public void onActivityStarted(Activity a){lifecycle(a,"STARTED");}
+    @Override public void onActivityPaused(Activity a){lifecycle(a,"PAUSED");}
+    @Override public void onActivityStopped(Activity a){lifecycle(a,"STOPPED");}
+    @Override public void onActivitySaveInstanceState(Activity a,Bundle b){lifecycle(a,"SAVE_INSTANCE_STATE");}
+    @Override public void onActivityDestroyed(Activity a){lifecycle(a,"DESTROYED");}
+    private static void lifecycle(Activity a,String phase){
+        try{RecorderLog.mark("UI_RECORDER_ACTIVITY_"+phase+" package="+a.getPackageName()+" activity="+a.getClass().getName()+" finishing="+a.isFinishing());}
+        catch(Throwable ignored){}
+    }
     @Override public void onActivityResumed(Activity a){
+        lifecycle(a,"RESUMED");
         try{
             View view=a.findViewById(android.R.id.content);
-            if(!(view instanceof FrameLayout))return;
+            if(!(view instanceof FrameLayout)){RecorderLog.mark("UI_RECORDER_LOG_ROOT_UNAVAILABLE "+a.getClass().getName());return;}
             FrameLayout root=(FrameLayout)view;
             if(root.findViewWithTag(BUTTON_TAG)!=null)return;
             Button btn=new Button(a);
             btn.setText("녹음 로그");btn.setTextSize(12);btn.setAllCaps(false);
-            btn.setTag(BUTTON_TAG);
+            btn.setTag(BUTTON_TAG);btn.setContentDescription("HITEL 녹음 앱 내부 로그 열기");
             FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP|Gravity.RIGHT);
@@ -66,6 +71,7 @@ public final class RecorderLogUi implements Application.ActivityLifecycleCallbac
                 .setPositiveButton("로그 복사",(d,w)->{
                     ClipboardManager cb=(ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
                     if(cb!=null){
+                        RecorderLog.mark("UI_RECORDER_COPY_REQUEST package="+a.getPackageName()+" activity="+a.getClass().getName());
                         cb.setPrimaryClip(ClipData.newPlainText("IXIO 녹음 앱 내부 로그",RecorderLog.copy()));
                         Toast.makeText(a,"녹음 앱 로그 복사 완료",Toast.LENGTH_LONG).show();
                     }
