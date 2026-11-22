@@ -87,7 +87,7 @@ jobs:
           # No new voice, models, playback engine or per-chunk clock pacing.
           ORIGINAL="tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm"
           test "$(sha256sum "$ORIGINAL" | cut -d ' ' -f 1)" = "8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098"
-          head -c 480000 "$ORIGINAL" "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          head -c 480000 "$ORIGINAL" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
           test "$(wc -c < "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm")" -eq 480000
           echo PASS_EXACTLY_TEN_SECONDS_EXISTING_PCM_24K
           python3 tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py \
