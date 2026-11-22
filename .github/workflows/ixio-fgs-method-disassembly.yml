@@ -29,7 +29,7 @@ jobs:
           python3 - <<'PY'
           import re,json,pathlib
           root=pathlib.Path('disasm/recorder/com/lguplus/callrecorder')
-          m=re.compile(r'(?ms)^\\.method[^\\n]*\\n.*?^\\.end method$')
+          m=re.compile(r'(?ms)^\.method[^\n]*\n.*?^\.end method$')
           key=('InCallService.smali','InCallService$foregroundDelegate$1.smali','RecordingForegroundDelegate.smali','RecordingSessionController.smali','CallRecordingService.smali','recording/RecordingEntryActivity.smali')
           report={}
           for suffix in key:
@@ -37,14 +37,14 @@ jobs:
             if not f.exists(): report[suffix]={'present':False};continue
             s=f.read_text()
             hits=[x.group(0) for x in m.finditer(s) if any(t in x.group(0).splitlines()[0] for t in ('onStartCommand','startForeground','stopForeground','onForegroundRequired','onSessionStarted','onPendingTimeout','teardown','onCreate','onResume','triggerForeground','handleStartRecording','handleStopRecording','onBind','onUnbind','<init>','onDestroy'))]
-            short='\\n\\n'.join(hits)
+            short='\n\n'.join(hits)
             (pathlib.Path('output')/(suffix.replace('/','_')+'.txt')).write_text(s.split('.method')[0]+short)
-            report[suffix]={'present':True,'implements':re.findall(r'(?m)^\\.implements .+$',s),'super':re.findall(r'(?m)^\\.super .+$',s),'method_headers':[re.search(r'(?m)^\\.method[^\\n]*',h).group() for h in hits], 'fgs_refs':len(re.findall(r'startForeground|startService|stopForeground|stopSelf',s))}
+            report[suffix]={'present':True,'implements':re.findall(r'(?m)^\.implements .+$',s),'super':re.findall(r'(?m)^\.super .+$',s),'method_headers':[re.search(r'(?m)^\.method[^\n]*',h).group() for h in hits], 'fgs_refs':len(re.findall(r'startForeground|startService|stopForeground|stopSelf',s))}
           ref=[]
           for f in root.rglob('*.smali'):
             try:
               s=f.read_text()
-              if 'Lcom/lguplus/callrecorder/RecordingForegroundDelegate;' in s and ('\\.implements Lcom/lguplus/callrecorder/RecordingForegroundDelegate;' in s or '/InCallService$foregroundDelegate' in f.name):
+              if 'Lcom/lguplus/callrecorder/RecordingForegroundDelegate;' in s and ('\.implements Lcom/lguplus/callrecorder/RecordingForegroundDelegate;' in s or '/InCallService$foregroundDelegate' in f.name):
                 ref.append(f.relative_to(root).as_posix())
             except Exception:pass
           report['delegate_implementers']=ref
