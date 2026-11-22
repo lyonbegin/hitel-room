@@ -1,0 +1,39 @@
+name: Essence2 Korean 10s voice preparation probe
+on:
+  push:
+    branches: [feature/hitel-essence2-main]
+    paths:
+      - .github/workflows/essence2-korean-10s-voice-probe.yml
+      - tools/bithuman_deep/prepare_essence2_generated_ko_10s.py
+      - tools/bithuman_deep/prepare_essence2_korean_10s.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare-korean-test-voice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install audio generation and decode dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python3 -m pip install --user 'edge-tts>=7.0,<9.0'
+      - name: Produce exactly 10 seconds of actual Korean speech
+        run: |
+          python3 tools/bithuman_deep/prepare_essence2_generated_ko_10s.py \
+            --output-pcm /tmp/voice/ko-10s.pcm \
+            --report /tmp/voice/ko-10s.json \
+            --scratch /tmp/voice/scratch
+          test "$(wc -c </tmp/voice/ko-10s.pcm)" -eq 480000
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('/tmp/voice/ko-10s.json').read_text())
+          assert p['language']=='ko-KR'
+          assert p['source_kind']=='GENERATED_KOREAN_TEST_VOICE_NOT_USER_ORIGINAL_M4A'
+          assert p['output_duration_seconds']==10.0
+          assert p['english_fallback'] is False
+          print('PASS_KOREAN_10S_RECORDED')
+          PY
