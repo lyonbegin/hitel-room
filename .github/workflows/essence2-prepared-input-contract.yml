@@ -1,0 +1,45 @@
+name: Essence2 prepared input and Korean 10s conversion contract
+on:
+  push:
+    branches:
+      - feature/hitel-essence2-main
+    paths:
+      - .github/workflows/essence2-prepared-input-contract.yml
+      - tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
+      - tools/bithuman_deep/prepare_essence2_korean_10s.py
+      - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
+      - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
+      - tools/bithuman_deep/test_essence2_prepared_input_contract.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-audio-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify input-send and SDK-render-ready contracts
+        run: python3 -m unittest discover -s tools/bithuman_deep -p test_essence2_prepared_input_contract.py -v
+      - name: Verify exactly 10 seconds of decoded PCM using synthetic test audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v ffmpeg
+          command -v ffprobe
+          mkdir -p /tmp/hitel-essence2-input
+          ffmpeg -hide_banner -loglevel error -nostdin -y -f lavfi -i 'sine=frequency=523:duration=12' -c:a aac -b:a 96k /tmp/hitel-essence2-input/synthetic-not-korean.m4a
+          python3 tools/bithuman_deep/prepare_essence2_korean_10s.py \
+            --input-m4a /tmp/hitel-essence2-input/synthetic-not-korean.m4a \
+            --output-pcm /tmp/hitel-essence2-input/extracted-10s.pcm \
+            --report /tmp/hitel-essence2-input/report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/tmp/hitel-essence2-input/extracted-10s.pcm')
+          r=json.loads(Path('/tmp/hitel-essence2-input/report.json').read_text())
+          assert p.stat().st_size == 480000
+          assert r['output_duration_seconds']==10.0
+          assert r['output_format']=='PCM16LE mono 24000Hz'
+          print('PASS_EXACT_10S_24K_MONO_PCM16',r['output_sha256'])
+          PY

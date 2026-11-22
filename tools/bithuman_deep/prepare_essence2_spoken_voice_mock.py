@@ -55,11 +55,12 @@ def prepare(app: Path, pcm: Path, report: Path) -> None:
       if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
       final end=(i+bytesPer100ms).clamp(0,data.length);
       conn.sendAudioDelta(Uint8List.sublistView(data,i,end));
-      // Exact PCM clock: every 4800 bytes is 100ms at 24kHz mono PCM16.
-      // 90ms previously fed the test audio ~11% faster than real time.
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      // Every 4800 bytes represents 100ms of AUDIO, not a wall-clock delay.
+      // Preserve transport order; the player starts preparing only after
+      // response.done arrives, after this loop has supplied all PCM bytes.
     }
     if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
+    stdout.writeln('[hitel-audio] input.sent bytes=${data.length} samples24k=${data.length ~/ 2}');
     conn.sendResponseDone();
   }
 

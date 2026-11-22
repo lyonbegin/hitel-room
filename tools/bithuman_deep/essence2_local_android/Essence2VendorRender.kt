@@ -2,6 +2,7 @@ package ai.bithuman.flutter
 
 import ai.bithuman.elevate.Essence2Avatar
 import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit
 
 /**
  * Maker's android/essence2-hello MainActivity.renderOnce, adapted only to an
@@ -30,13 +31,16 @@ internal object Essence2VendorRender {
         avatar.endOfAudio()
         HitelE2Trace.event("sdk.endOfAudio.end", "durationUs" to (System.nanoTime()-endAt)/1000)
         var count = 0
-        var quietMs = 0
-        while (active() && quietMs < (if (count == 0) 120000 else 5000)) {
+        var lastFrameAtNs = System.nanoTime()
+        // There is NO fixed preparation delay: the entire utterance has already
+        // been fed and ended. Start playback as soon as all expected SDK frames
+        // have arrived and the SDK's ready queue has been drained.
+        while (active()) {
             frame.clear()
             val pullAt = System.nanoTime()
             val got = avatar.pull(frame)
             if (got) {
-                quietMs = 0
+                lastFrameAtNs = System.nanoTime()
                 // Native 0.9.5 names the frame's own ordinal; never compact a missing frame.
                 val ordinal = avatar.lastFrameIndex
                 val at = if (ordinal >= 0) ordinal * 640L else count * 640L
@@ -47,9 +51,21 @@ internal object Essence2VendorRender {
                 count++
                 continue
             }
-            if (count >= expected && avatar.available() == 0) break
+            val available = avatar.available()
+            if (count >= expected && available == 0) {
+                HitelE2Trace.event("sdk.render.ready", "frames" to count, "expected" to expected,
+                    "sdkAvailable" to available, "reason" to "expected_frames_and_empty_queue")
+                break
+            }
+            // Watchdog is FAILURE detection only, never a minimum wait.
+            // A slow device with ongoing frame output may take arbitrarily long.
+            val stalledMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - lastFrameAtNs)
+            if (stalledMs >= if (count == 0) 180000L else 120000L) {
+                HitelE2Trace.event("sdk.render.stalled", "frames" to count, "expected" to expected,
+                    "sdkAvailable" to available, "noProgressMs" to stalledMs)
+                error("Essence2 renderer stalled: frames=$count expected=$expected available=$available")
+            }
             Thread.sleep(10)
-            quietMs += 10
         }
         if (!active()) return
         avatar.checkRender()
