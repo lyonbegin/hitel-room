@@ -1,0 +1,81 @@
+name: Diagnose latest main launch crash against exact previous APK
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-main-dual-crash-readonly.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  investigate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: '${{ github.token }}'
+      GH_REPO: '${{ github.repository }}'
+    steps:
+      - name: Obtain and compare exact APKs
+        run: |
+          set -euo pipefail
+          mkdir -p new old evidence tmp
+          gh run download 44982075792 --name IXIO_Main_DualSettings_Signed_APK --dir new
+          gh run download 44978086716 --name IXIO_Recorder_Settings_Trace_PreUI_Signed_APKs --dir old
+          (cd new && sha256sum -c SHA256SUMS.txt)
+          (cd old && sha256sum -c SHA256SUMS.txt)
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tmp/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tmp/baksmali.jar' | sha256sum -c -
+          python3 - <<'PY'
+          import zipfile,pathlib,subprocess,re
+          for kind in ('old','new'):
+              p=next(pathlib.Path(kind).glob('*Main*.apk')) if kind=='new' else next(pathlib.Path(kind).glob('IXIO_HITEL_QA*.apk'))
+              with zipfile.ZipFile(p) as z:
+                  for n in z.namelist():
+                      if not re.fullmatch(r'classes\d*\.dex',n):continue
+                      d=z.read(n)
+                      if b'DiagHooks;' not in d:continue
+                      f=pathlib.Path('tmp')/(kind+n);f.write_bytes(d)
+                      classes=subprocess.check_output(['java','-jar','tmp/baksmali.jar','list','classes',str(f)]).decode()
+                      if 'Lcom/lguplus/aicallagent/hitelqa/DiagHooks;' not in classes.splitlines():continue
+                      out=pathlib.Path('tmp')/(kind+'smali')
+                      subprocess.run(['java','-Xmx2600m','-jar','tmp/baksmali.jar','d','--api','34','--jobs','3','-o',str(out),str(f)],check=True)
+                      s=(out/'com/lguplus/aicallagent/hitelqa/DiagHooks.smali').read_text()
+                      m=re.search(r'(?ms)^\.method[^\n]* onActivityResumed\(Landroid/app/Activity;\)V\n.*?^\.end method$',s)
+                      assert m
+                      (pathlib.Path('evidence')/(kind+'-onActivityResumed.smali')).write_text(m.group())
+                      print('DEX_ACTIVITY_CALLBACK',kind,n,flush=True)
+                      print(m.group(),flush=True)
+          PY
+          cat > tmp/smoke.sh <<'SH'
+          #!/usr/bin/env bash
+          set -u
+          for kind in old new; do
+            apk="$(find "$kind" -name '*.apk' ! -name '*Recorder_Companion*' | head -1)"
+            adb uninstall com.lguplus.aicallagent >/dev/null 2>&1 || true
+            adb logcat -c
+            adb install "$apk" | tee "evidence/$kind-install.txt"
+            adb shell monkey -p com.lguplus.aicallagent -c android.intent.category.LAUNCHER 1 > "evidence/$kind-launch.txt" 2>&1
+            sleep 15
+            adb shell pidof com.lguplus.aicallagent | tee "evidence/$kind-pid.txt"
+            adb shell dumpsys activity activities > "evidence/$kind-activities.txt"
+            adb logcat -d -b crash > "evidence/$kind-crash.txt"
+            adb logcat -d -v threadtime > "evidence/$kind-logcat.txt"
+            echo "CRASH_BUFFER_$kind"
+            cat "evidence/$kind-crash.txt"
+            grep -E 'mResumedActivity|topResumedActivity' "evidence/$kind-activities.txt" | tail -5 || true
+          done
+          SH
+          chmod +x tmp/smoke.sh
+      - run: sudo chmod a+rw /dev/kvm
+      - name: Compare baseline and new main actual launch and Android crash buffer
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash tmp/smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Main_Launch_Crash_Compared
+          path: evidence/
