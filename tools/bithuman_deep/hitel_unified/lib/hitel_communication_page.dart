@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'hitel_room.dart';
@@ -84,12 +85,13 @@ class _HitelCommunicationPageState extends State<HitelCommunicationPage> {
               trailing: TextButton(onPressed: _busy ? null : () => _run(() => _session.start(room['id'] as String)), child: const Text('입장'))),
         ] else ...[
           Text('방 ID: $id · 영상 수신 확인 ${_session.renderedPeers}명'),
-          if (_session.welcomed) _video(_session.local, '내 카메라', mirror: true),
+          if (_session.welcomed && !_session.changingVideo) _video(_session.local, _session.videoMode == 'mask' ? 'ARCore 가면' : '내 카메라', mirror: true),
           for (final entry in _session.remoteRenderers.entries) _video(entry.value, '상대 참가자 ${entry.key}'),
           Wrap(spacing: 8, children: [
             OutlinedButton(onPressed: _busy ? null : _session.toggleMic, child: Text(_session.mic ? '마이크 끄기' : '마이크 켜기')),
             OutlinedButton(onPressed: _busy ? null : _session.toggleCamera, child: Text(_session.camera ? '카메라 끄기' : '카메라 켜기')),
-            OutlinedButton(onPressed: _busy ? null : () => _run(_session.switchCamera), child: const Text('카메라 전환')),
+            if (_session.videoMode == 'camera') OutlinedButton(onPressed: _busy ? null : () => _run(_session.switchCamera), child: const Text('카메라 전환')),
+            if (Platform.isAndroid) OutlinedButton(onPressed: _busy ? null : () => _run(() => _session.selectVideoMode(_session.videoMode == 'camera' ? 'mask' : 'camera')), child: Text(_session.videoMode == 'camera' ? 'ARCore 3D 가면' : '일반 영상')),
             FilledButton(onPressed: _busy ? null : () => _run(() async { await _session.leave(); await _refresh(); }), child: const Text('퇴장')),
             if (own) FilledButton(onPressed: _busy ? null : () => _run(() async { await _api.end(id); await _session.leave(); await _refresh(); }), child: const Text('방 종료')),
           ]),

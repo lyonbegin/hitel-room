@@ -73,6 +73,7 @@ class _Peer {
   final RTCPeerConnection pc;
   final RTCVideoRenderer renderer;
   final List<RTCIceCandidate> pending = [];
+  RTCRtpSender? videoSender;
   bool remoteSet = false;
   bool receivedFrame = false;
   Future<void> close() async {
@@ -102,6 +103,8 @@ class HitelRoomSession extends ChangeNotifier {
   bool welcomed = false;
   bool mic = true;
   bool camera = true;
+  String videoMode = 'camera';
+  bool changingVideo = false;
   bool _disposed = false;
   bool _localInitialized = false;
   Future<void>? _leaving;
@@ -187,7 +190,10 @@ class HitelRoomSession extends ChangeNotifier {
       if (_current(epoch)) _status('$id ICE: ${state.name}');
     };
     final stream = _stream!;
-    for (final track in stream.getTracks()) { await pc.addTrack(track, stream); }
+    for (final track in stream.getTracks()) {
+      final sender = await pc.addTrack(track, stream);
+      if (track.kind == 'video') p.videoSender = sender;
+    }
     if (!_current(epoch)) { _peers.remove(id); await p.close(); throw StateError('session closed'); }
     if (!_disposed) notifyListeners();
     return p;
@@ -245,8 +251,57 @@ class HitelRoomSession extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
   Future<void> switchCamera() async {
+    if (videoMode != 'camera') throw StateError('ARCore는 전면 카메라 전용입니다');
     final tracks = _stream?.getVideoTracks();
     if (tracks != null && tracks.isNotEmpty) await Helper.switchCamera(tracks.first);
+  }
+  // Serialized with offer/answer handling: one physical camera at a time.
+  Future<void> selectVideoMode(String mode) {
+    if (!Platform.isAndroid && mode == 'mask') return Future.error(UnsupportedError('Android ARCore only; native iOS app preserved'));
+    if (mode != 'camera' && mode != 'mask') return Future.error(ArgumentError(mode));
+    final epoch = _epoch;
+    final task = _serial.then((_) async {
+      if (!_current(epoch) || _stream == null || !welcomed || mode == videoMode) return;
+      changingVideo = true; _status('영상 소스 전환 중');
+      final previous = videoMode;
+      try {
+        await _replaceVideo(mode, epoch);
+        videoMode = mode;
+        _status(mode == 'mask' ? 'ARCore 영상 트랙 연결 · 실제 가면 검증 필요' : '일반 카메라 트랙 연결');
+      } catch (error) {
+        if (_current(epoch)) {
+          try { await _replaceVideo(previous, epoch); videoMode = previous; }
+          catch (_) { _status('카메라 복구 실패 · 방 재입장 필요'); }
+        }
+        rethrow;
+      } finally { changingVideo = false; if (!_disposed) notifyListeners(); }
+    });
+    _serial = task.catchError((Object _, StackTrace __) {});
+    return task;
+  }
+  Future<void> _replaceVideo(String mode, int epoch) async {
+    final stream = _stream!;
+    for (final p in _peers.values) { await p.videoSender?.replaceTrack(null); }
+    local.srcObject = null;
+    for (final old in stream.getVideoTracks().toList()) {
+      await stream.removeTrack(old); await old.stop();
+    }
+    final temp = await navigator.mediaDevices.getUserMedia({
+      'audio': false, 'video': {
+        'facingMode': 'user', 'width': 640, 'height': 480, 'frameRate': 25,
+        if (mode == 'mask') 'hitelMode': 'mask',
+      }
+    });
+    final video = temp.getVideoTracks().single;
+    await temp.removeTrack(video);
+    await temp.dispose();
+    if (!_current(epoch)) { await video.stop(); return; }
+    try {
+      video.enabled = camera;
+      await stream.addTrack(video);
+      for (final p in _peers.values) { await p.videoSender?.replaceTrack(video); }
+      local.srcObject = stream;
+    } catch (_) { await stream.removeTrack(video); await video.stop(); rethrow; }
   }
   Future<void> leave({String message = '방 퇴장'}) {
     final inProgress = _leaving;
@@ -268,7 +323,7 @@ class HitelRoomSession extends ChangeNotifier {
     await socket?.close();
     for (final p in peers) { await p.close(); }
     if (stream != null) { for (final t in stream.getTracks()) { await t.stop(); } await stream.dispose(); }
-    mic = true; camera = true;
+    mic = true; camera = true; videoMode = 'camera';
     _status(message);
   }
   Future<void> shutdown() async {

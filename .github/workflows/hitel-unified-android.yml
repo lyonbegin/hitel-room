@@ -161,6 +161,10 @@ jobs:
             bithuman:
               path: "$PLUGIN"
           EOF
+          git clone --depth 1 --branch v1.4.0 https://github.com/flutter-webrtc/flutter-webrtc.git "$GITHUB_WORKSPACE/hitel-flutter-webrtc"
+          python3 tools/bithuman_deep/hitel_unified/prepare_flutter_webrtc.py --webrtc "$GITHUB_WORKSPACE/hitel-flutter-webrtc" --app "$APP" --repo "$GITHUB_WORKSPACE"
+          printf '    flutter_webrtc:\n      path: "%s"\n' "$GITHUB_WORKSPACE/hitel-flutter-webrtc" > /tmp/hitel-webrtc-override-indented
+          printf '  flutter_webrtc:\n    path: "%s"\n' "$GITHUB_WORKSPACE/hitel-flutter-webrtc" >> "$APP/pubspec_overrides.yaml"
           python3 tools/bithuman_deep/hitel_unified/prepare_hitel_unified.py --app "$APP"
           echo PASS_ESSENCE2_PUBLIC_MODEL_LOCAL_TEST_APP_CONFIGURED
 
