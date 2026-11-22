@@ -1,0 +1,101 @@
+name: IXIO main dual-state diagnostic QA
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-main-dual-settings-qa.yml, tools/ixio/ixio_dual_settings_trace.py, tools/ixio/qa_debug/DualSettingsQa.java]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: '${{ github.token }}'
+      GH_REPO: '${{ github.repository }}'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - name: Obtain exact baseline and compile isolated local QA panel
+        run: |
+          set -euo pipefail
+          mkdir -p base work java dex qa evidence
+          gh run download 44978086716 --name IXIO_Recorder_Settings_Trace_PreUI_Signed_APKs --dir base
+          (cd base && sha256sum -c SHA256SUMS.txt)
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+          SDK="$ANDROID_HOME"
+          BT="$(find "$SDK/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          javac -source 8 -target 8 -cp "$SDK/platforms/android-34/android.jar" -d java tools/ixio/qa_debug/{DiagLog,DiagTrace,DualSettingsQa}.java
+          mapfile -d '' CLASSES < <(find java -name '*.class' -print0)
+          "$BT/d8" --min-api 26 --lib "$SDK/platforms/android-34/android.jar" --output dex "${CLASSES[@]}"
+          java -jar work/baksmali.jar d --api 34 -o qa dex/classes.dex
+          python3 -m py_compile tools/ixio/ixio_dual_settings_trace.py
+          python3 tools/ixio/ixio_dual_settings_trace.py --apk base/IXIO_HITEL_QA_RecorderSettingsTrace_20261122.apk --root work --baksmali work/baksmali.jar --smali work/smali.jar --qa qa --out work/unsigned.apk --report evidence/dual-settings-sites.json
+      - name: Align and sign main diagnostic APK
+        run: |
+          set -euo pipefail
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Dual State Diagnostics'
+          "$BT/zipalign" -p -f 4 work/unsigned.apk work/aligned.apk
+          mkdir -p output
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out output/IXIO_Main_DualSettings_QA_20261122.apk work/aligned.apk
+          "$BT/apksigner" verify --verbose --print-certs output/IXIO_Main_DualSettings_QA_20261122.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Main_DualSettings_Signed_APK
+          path: output/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Main_DualSettings_SourceMap
+          path: evidence/
+      - name: Enable emulator
+        run: sudo chmod a+rw /dev/kvm
+      - name: Verify app launch and local UI-only QA panel
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            adb install output/IXIO_Main_DualSettings_QA_20261122.apk
+            adb shell monkey -p com.lguplus.aicallagent -c android.intent.category.LAUNCHER 1
+            sleep 12
+            adb shell uiautomator dump /sdcard/qa.xml
+            adb pull /sdcard/qa.xml evidence/qa.xml
+            python3 - <<'PY'
+            import xml.etree.ElementTree as ET,re,subprocess
+            nodes=ET.parse('evidence/qa.xml').getroot().iter('node')
+            node=next(n for n in nodes if n.get('content-desc')=='HITEL 진단 로그 열기' or n.get('text')=='로그')
+            x,y,x2,y2=map(int,re.findall(r'\d+',node.get('bounds')))
+            subprocess.run(['adb','shell','input','swipe',str((x+x2)//2),str((y+y2)//2),str((x+x2)//2),str((y+y2)//2),'1200'],check=True)
+            PY
+            sleep 2
+            adb shell uiautomator dump /sdcard/qa-panel.xml
+            adb pull /sdcard/qa-panel.xml evidence/qa-panel.xml
+            grep -F '통화 AI / 녹음 상태 QA' evidence/qa-panel.xml
+            adb logcat -d -s HITEL_IXIO_DIAG:I > evidence/qa-logcat.txt
+            grep -F 'LOCAL_FIXTURE_RENDER ai=true recording=true network=NONE actualServiceState=UNCHANGED' evidence/qa-logcat.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Main_DualSettings_Runtime_Evidence
+          path: evidence/
+      - name: Publish verified main-only APK
+        run: |
+          set -euo pipefail
+          tag=ixio-main-dual-settings-qa-20261122
+          f=IXIO_Main_DualSettings_QA_20261122.apk
+          gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO main dual settings diagnostics" --notes "Existing live service and permission decisions unchanged. Additional real state observation probes and a separate offline UI-only QA panel, default TRUE. Long-press existing log button. New signing key; back up data before reinstall. Emulator launch and fixture verified; physical recording not established." || gh release view "$tag"
+          gh release upload "$tag" "output/$f" --clobber
+          curl -fLsS --retry 3 "https://github.com/$GH_REPO/releases/download/$tag/$f" -o work/verify.apk
+          cmp "output/$f" work/verify.apk
+          echo "EXTERNAL_MAIN_APK_BYTE_MATCH=YES"
