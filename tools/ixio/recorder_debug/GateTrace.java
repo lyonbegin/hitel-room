@@ -7,7 +7,7 @@ import android.os.Process;
 /** Diagnostic entry-points: preserve original method decisions except narrow same-signer QA pair. */
 public final class GateTrace {
   private GateTrace(){}
-  public static void event(String s){try{RecorderLog.mark("QA_GATE "+s);}catch(Throwable ignored){}}
+  public static void event(String s){try{RecorderLog.mark("STORE QA_GATE "+s);}catch(Throwable ignored){}}
   private static void flag(String s,boolean b){event(s+"="+b);}
   private static void count(String s,int n){event(s+"="+n);}
   public static void callerUid(int uid){count("AUTH_CALLING_UID",uid);}
