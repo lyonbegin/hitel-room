@@ -49,7 +49,7 @@ def prepare(app: Path, pcm: Path, report: Path) -> None:
     if (data == null) throw StateError('Missing offline eSpeak speech bytes');
     final generation=++_spokenEpoch;
     conn.sendResponseCreated();
-    conn.sendTranscriptDelta('Hello, this is a spoken language test.');
+    conn.sendTranscriptDelta('안녕하세요. 비트휴먼 소피아 한국어 음성 동기화 시험입니다.');
     const bytesPer100ms=24000 * 2 ~/ 10;
     for (var i=0; i<data.length; i+=bytesPer100ms) {
       if (_closed || conn.isClosed || generation!=_spokenEpoch) return;
