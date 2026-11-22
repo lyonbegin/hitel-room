@@ -28,7 +28,7 @@ def main():
     def make(label,hot=False):
         nonlocal seq
         seq+=1
-        assert seq<3000,'Recorder sites exceed limit (avoid PCM processing overhead)'
+        assert seq<10000,'Recorder sites exceed 10000; narrow to core IPC/audio/callback flow'
         sites.append(dict(id=seq,label=label[:230],hot=hot))
         return f'    invoke-static {{}}, {POINTS}->p{seq}()V\n'
     files=sorted(p for p in a.smali.rglob('*.smali')
@@ -60,11 +60,12 @@ def main():
                 if not call:continue
                 owner,mname,_=call.groups()
                 if '/hitelqa/' in owner:continue
+                if re.match(r'^(?:get[A-Z]|is[A-Z]|has[A-Z]|access\$|toString|hashCode)',mname) and not re.search(r'Record|Audio|Pcm|Capture|Error',mname,re.I):continue
                 if not (owner.startswith(('Lcom/lguplus/callrecorder/','Lcom/lguplus/aicallagentaidl/',
                                           'Landroid/media/AudioRecord;','Landroid/media/MediaRecorder;',
                                           'Landroid/media/AudioManager;','Landroid/os/Binder;',
                                           'Landroid/content/Context;','Ljava/io/FileOutputStream;'))
-                        and (EDGE.search(mname) or FOCUS.search(owner))):continue
+                        and (EDGE.search(mname) or mname in ('onReceive','onCallback','onStateChanged','onCallStateChanged','onRecordingStateChanged','onException'))):continue
                 label=owner.rsplit('/',1)[-1].split(';')[0]+'.'+mname
                 hot=bool(HOT.search(cmd))
                 emit(i,'CALL '+label,hot)
