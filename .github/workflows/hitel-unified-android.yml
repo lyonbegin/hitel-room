@@ -7,6 +7,9 @@ on:
     paths:
       - '.github/workflows/hitel-unified-android.yml'
       - 'tools/bithuman_deep/hitel_unified/**'
+concurrency:
+  group: hitel-rtc-main-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
@@ -363,6 +366,24 @@ jobs:
           print('PASS_M4A_ASSET_DIRECT_DESCRIPTOR_NO_WHOLE_FILE_LOAD')
           PY
 
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Install and exercise the actual ARM64 APK in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: bash tools/bithuman_deep/hitel_unified/tests/emulator_rtc_gate.sh
+
       - name: Retain compiled APK
         if: always()
         uses: actions/upload-artifact@v4
@@ -389,7 +410,7 @@ jobs:
           APK=HITEL_UNIFIED_ANDROID_RTC_MAIN_20261122_ARM64.apk
           TAG=hitel-unified-rtc-main-${GITHUB_RUN_ID}
           sha256sum "$APK" > "$APK.sha256"
-          gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC-only main screen (device test)" --notes "Main-screen receiver-only test. Local PCM fixture; no external server. Build validated; physical RTP and A/V sync must be verified on device."
+          gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --latest=false --title "HITEL RTC-only main screen (device test)" --notes "Main-screen receiver-only test. Local PCM fixture; no external server. Build and emulator RTP smoke gate passed; physical GPU performance and A/V sync still require device verification."
           url="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$APK\") | .url")"
           curl -fL --retry 3 --retry-all-errors "$url" -o downloaded.apk
           cmp "$APK" downloaded.apk
