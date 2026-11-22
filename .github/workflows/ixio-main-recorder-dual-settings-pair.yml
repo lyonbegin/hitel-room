@@ -1,0 +1,49 @@
+name: Publish matching-signature latest main and recorder test APKs
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-main-recorder-dual-settings-pair.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: '${{ github.token }}'
+      GH_REPO: '${{ github.repository }}'
+    steps:
+      - name: Retrieve latest already-built main and recorder, re-sign both with one QA certificate
+        run: |
+          set -euo pipefail
+          mkdir -p main recorder out downloaded
+          gh run download 44982075792 --name IXIO_Main_DualSettings_Signed_APK --dir main
+          (cd main && sha256sum -c SHA256SUMS.txt)
+          gh run download 44978086716 --name IXIO_Recorder_Settings_Trace_PreUI_Signed_APKs --dir recorder
+          (cd recorder && sha256sum -c SHA256SUMS.txt)
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=HITEL Dual Settings Pair QA'
+          for f in main/IXIO_Main_DualSettings_QA_20261122.apk recorder/IXIO_Recorder_Companion_SettingsFullTrace_20261122.apk; do
+            name="$(basename "$f")"
+            "$BT/apksigner" sign --ks qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out "out/$name" "$f"
+            "$BT/apksigner" verify --verbose --print-certs "out/$name" | tee "out/$name.cert.txt"
+            python3 -c 'import sys,zipfile; a,b=[zipfile.ZipFile(x) for x in sys.argv[1:]]; n=lambda z:{s for s in z.namelist() if not s.upper().startswith("META-INF/")}; assert n(a)==n(b); assert all(a.read(s)==b.read(s) for s in n(a)); print("ALL_NON_SIGNATURE_ENTRIES_UNCHANGED",sys.argv[2])' "$f" "out/$name"
+          done
+          maincert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' out/IXIO_Main_DualSettings_QA_20261122.apk.cert.txt)"
+          reccert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' out/IXIO_Recorder_Companion_SettingsFullTrace_20261122.apk.cert.txt)"
+          test -n "$maincert"
+          test "$maincert" = "$reccert"
+          echo "SAME_APK_SIGNER_CERT_SHA256=$maincert"
+          "$BT/aapt" dump badging out/IXIO_Main_DualSettings_QA_20261122.apk | grep -F "package: name='com.lguplus.aicallagent'"
+          "$BT/aapt" dump badging out/IXIO_Recorder_Companion_SettingsFullTrace_20261122.apk | grep -F "package: name='com.lguplus.callrecorder'"
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          tag=ixio-dual-settings-matching-pair-20261122
+          gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO latest main + recorder diagnostic matched pair" --notes "Main built in 44982075792, 9847 additional dual-state probe sites and separate local QA screen; recorder built in 44978086716, 18008 internal trace sites. Both re-signed with identical QA certificate; non-signature contents preserved. Existing main emulator harness failed due shell command handling; physical call, recorder runtime and IPC operation not verified. Back up data before replacing both apps."
+          gh release upload "$tag" out/*.apk out/SHA256SUMS.txt --clobber
+          for f in out/*.apk; do
+            name="$(basename "$f")"
+            code="$(curl -fLsS --retry 3 --max-time 120 -o "downloaded/$name" -w '%{http_code}' "https://github.com/$GH_REPO/releases/download/$tag/$name")"
+            test "$code" = 200
+            cmp "$f" "downloaded/$name"
+            echo "VERIFIED_PUBLIC_APK=$name HTTP=$code BYTES=$(stat -c%s "$f")"
+          done
+          echo "MATCHING_SIGNER_PAIR_EXTERNAL_BYTE_VERIFIED=YES"
