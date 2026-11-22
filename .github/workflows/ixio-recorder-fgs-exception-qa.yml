@@ -1,0 +1,73 @@
+name: IXIO recorder foreground-start exception QA
+on:
+  push:
+    branches:
+      - fix/ixio-recorder-fgs-exception-trace-20261122
+    paths:
+      - .github/workflows/ixio-recorder-fgs-exception-qa.yml
+      - tools/ixio/recorder_debug/GateTrace.java
+      - tools/ixio/ixio_recorder_auth_command_qa.py
+permissions: {contents: write, actions: read}
+jobs:
+  build-verify-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve recorder QA input and tools
+        run: |
+          set -euo pipefail
+          mkdir -p base work work/d8 work/classes out evidence
+          gh run download 44994556472 --name IXIO_Recorder_Log_UI_QA_Pair --dir base
+          (cd base && sha256sum -c SHA256SUMS.txt)
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+      - name: Instrument 10 recorder methods and catch the foreground-start exception for QA
+        run: |
+          set -euo pipefail
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          grep -q 'AUTH_QA_SIGNATURE_BYPASS_TEST_ONLY' tools/ixio/recorder_debug/GateTrace.java
+          grep -q 'FGS_START_EXCEPTION_BYPASSED_FOR_QA' tools/ixio/recorder_debug/GateTrace.java
+          javac -source 8 -target 8 -cp "$ANDROID_HOME/platforms/android-34/android.jar" -d work/classes tools/ixio/recorder_debug/RecorderLog.java tools/ixio/recorder_debug/GateTrace.java
+          "$BT/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-34/android.jar" --output work/d8 work/classes/com/lguplus/callrecorder/hitelqa/GateTrace.class
+          python3 -m py_compile tools/ixio/ixio_recorder_auth_command_qa.py
+          python3 tools/ixio/ixio_recorder_auth_command_qa.py --apk base/IXIO_Recorder_RecorderLogQA_20261122.apk --work work/recorder --baksmali work/baksmali.jar --smali work/smali.jar --helper work/d8/classes.dex --out work/recorder-unsigned.apk --report evidence/recorder-sites.json
+          python3 - <<'PY'
+          import json,zipfile
+          a=json.load(open('evidence/recorder-sites.json'))
+          assert len(a['changed_methods'])==10 and len(a['injection_sites'])>=31,a
+          assert 'RecordingSessionController.startForegroundIfNeeded' in a['changed_methods']
+          with zipfile.ZipFile('work/recorder-unsigned.apk') as z:
+            assert 'classes6.dex' in z.namelist()
+            dd=b''.join(z.read(n) for n in z.namelist() if n.startswith('classes') and n.endswith('.dex'))
+            assert b'AUTH_QA_SIGNATURE_BYPASS_TEST_ONLY' in dd
+            assert b'FGS_START_EXCEPTION_BYPASSED_FOR_QA' in dd
+          print("FGS_EXCEPTION_CATCH_AND_ORIGINAL_RECORDER_STAGE_VERIFIED")
+          PY
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=IXIO FGS diagnostic QA'
+          "$BT/zipalign" -f 4 work/recorder-unsigned.apk work/recorder-aligned.apk
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Recorder_FGSContinueQA_20261122.apk work/recorder-aligned.apk
+          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Recorder_FGSContinueQA_20261122.apk > evidence/recorder-signer.txt
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Recorder_FGS_Continue_QA
+          path: |
+            out/
+            evidence/
+      - name: Publish recorder QA APK and validate external HTTPS download bytes
+        run: |
+          set -euo pipefail
+          tag=ixio-recorder-fgs-continue-qa-20261122
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "IXIO recorder FGS exception continuation diagnostic" --notes "TEST ONLY. Recorder APK only. When Android 35 rejects background microphone foreground service, catch RuntimeException, log its class and continue to original CallRecordingUseCase/MediaRecorder path; actual microphone permission remains controlled by Android. Earlier exact-main-package signature test bypass and 29 existing log probes remain. Main app unchanged. Real-call/recording not yet verified. Back up recorder files before uninstalling an older-signed APK."
+          gh release upload "$tag" out/IXIO_Recorder_FGSContinueQA_20261122.apk out/SHA256SUMS.txt --clobber
+          url="https://github.com/$GH_REPO/releases/download/$tag/IXIO_Recorder_FGSContinueQA_20261122.apk"
+          code="$(curl -fLsS --retry 3 --max-time 180 -w '%{http_code}' -o work/verify.apk "$url")"
+          test "$code" = 200
+          cmp out/IXIO_Recorder_FGSContinueQA_20261122.apk work/verify.apk
+          echo "EXTERNAL_DOWNLOAD_VERIFIED IXIO_Recorder_FGSContinueQA_20261122.apk HTTP=$code"

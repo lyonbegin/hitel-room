@@ -72,12 +72,37 @@ def recorder(s):
     s=put(s,'invoke-virtual {p1}, Landroid/media/MediaRecorder;->prepare()V',call('prepareBegin')+'    invoke-virtual {p1}, Landroid/media/MediaRecorder;->prepare()V\n'+call('prepareEnd').rstrip('\n'),'media_prepare')
     s=put(s,'invoke-virtual {p1}, Landroid/media/MediaRecorder;->start()V',call('mediaStartBegin')+'    invoke-virtual {p1}, Landroid/media/MediaRecorder;->start()V\n'+call('mediaStartEnd').rstrip('\n'),'media_start')
     return s
+def fgs_catch(s):
+    # The original controller calls microphone FGS before CallRecordingUseCase;
+    # Android 35 rejects background-started microphone FGS. Preserve original
+    # behavior on success, but log RuntimeException and allow QA to reach the
+    # next original recording stage for precise diagnosis.
+    target='    invoke-interface {v0}, Lcom/lguplus/callrecorder/RecordingForegroundDelegate;->startForeground()V'
+    assert s.count(target)==1, ('fgs_invoke_count',s.count(target))
+    probe=(
+        '    :hitel_fgs_try_start\n'
+        +target+'\n'
+        '    :hitel_fgs_try_end\n'
+        '    .catch Ljava/lang/RuntimeException; {:hitel_fgs_try_start .. :hitel_fgs_try_end} :hitel_fgs_exception\n'
+        +call('fgsStarted')
+    )
+    s=s.replace(target,probe,1)
+    assert s.count('    return-void')>=1
+    s=s.rsplit('.end method',1)[0]+(
+        '\n    :hitel_fgs_exception\n'
+        '    move-exception v0\n'
+        +call('fgsException','v0','(Ljava/lang/Throwable;)V')
+        +'    return-void\n'
+        '.end method'
+    )
+    events.extend(['fgs_start_success','fgs_exception_caught'])
+    return s
 with zipfile.ZipFile(a.apk) as z:
     dex=[x for x in z.namelist() if re.fullmatch(r'classes\d*\.dex',x)]
     assert 'classes6.dex' in dex
     dx=a.work/'classes6.dex';dx.write_bytes(z.read('classes6.dex'))
     root=a.work/'smali6';subprocess.run(['java','-Xmx3g','-jar',str(a.baksmali),'d','--api','34','--jobs','3','-o',str(root),str(dx)],check=True)
-    for cl,fn,handler in [('InCallService','isCallerAllowed',auth),('InCallService$binder$1','startRecording',binder),('InCallService$binder$1','registerCallRecordListener',listener),('InCallService$binder$1','setUserId',user),('InCallService$startCommandConsumer$1','invokeSuspend',consumer),('InCallService','handleCommand',handle_command),('InCallService','handleStartRecording',handle_start),('RecordingSessionController','onPendingTimeout',time_out),('CallRecorder','startRecording',recorder)]:edit(root,cl,fn,handler)
+    for cl,fn,handler in [('InCallService','isCallerAllowed',auth),('InCallService$binder$1','startRecording',binder),('InCallService$binder$1','registerCallRecordListener',listener),('InCallService$binder$1','setUserId',user),('InCallService$startCommandConsumer$1','invokeSuspend',consumer),('InCallService','handleCommand',handle_command),('InCallService','handleStartRecording',handle_start),('RecordingSessionController','onPendingTimeout',time_out),('RecordingSessionController','startForegroundIfNeeded',fgs_catch),('CallRecorder','startRecording',recorder)]:edit(root,cl,fn,handler)
     patched=a.work/'classes6-new.dex'
     subprocess.run(['java','-Xmx3g','-jar',str(a.smali),'a','--api','34','--jobs','3','-o',str(patched),str(root)],check=True)
     helper=a.helper.read_bytes()

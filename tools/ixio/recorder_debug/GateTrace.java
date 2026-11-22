@@ -62,6 +62,11 @@ public final class GateTrace {
   public static void sessionsEmpty(boolean b){flag("TIMEOUT_ACTIVE_SESSIONS_EMPTY",b);}
   public static void prepareBegin(){event("MEDIA_PREPARE_BEGIN");}
   public static void prepareEnd(){event("MEDIA_PREPARE_RETURN");}
+  public static void fgsStarted(){event("FGS_START_OK");}
+  public static void fgsException(Throwable t){
+    event("FGS_START_EXCEPTION_BYPASSED_FOR_QA type="+
+      (t==null?"null":t.getClass().getName()));
+  }
   public static void mediaStartBegin(){event("MEDIA_START_BEGIN");}
   public static void mediaStartEnd(){event("MEDIA_START_RETURN");}
 }
