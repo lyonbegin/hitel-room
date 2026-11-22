@@ -36,7 +36,7 @@ with zipfile.ZipFile(a.main) as z:
     f=root/'com/lguplus/aicallagent/hitelqa/DiagHooks.smali'
     assert f.is_file(), "main DiagHooks not found in classes18"
     s=f.read_text()
-    rx=re.compile(r'(?ms)^\.method[^\n]* show\(Landroid/app/Activity;\)V\n.*?^\.end method
+    rx=re.compile(r'(?ms)^\.method[^\n]* show\(Landroid/app/Activity;\)V\n.*?^\.end method$')
     match=rx.search(s)
     assert match and len(rx.findall(s))==1, "DiagHooks.show target not unique"
     original=match.group()
