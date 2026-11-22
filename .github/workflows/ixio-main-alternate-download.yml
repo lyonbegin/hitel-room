@@ -1,0 +1,30 @@
+name: Republish verified IXIO main as ZIP download
+on:
+  push:
+    branches: [fix/ixio-main-dual-settings-qa-20261122]
+    paths: [.github/workflows/ixio-main-alternate-download.yml]
+permissions: {contents: write, actions: read}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Publish unchanged APK inside ZIP
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          gh run download 44984898526 --name IXIO_Main_LocalRecordingFix_Signed --dir out
+          cd out
+          f=IXIO_Main_LocalRecordingStateFix_20261122.apk
+          echo "552259ebfe6a8120edce15e93730170284e2a8031563f1749fb7dc59a621a3d5  $f" | sha256sum -c -
+          zip -0 IXIO_Main_20261122_Download.zip "$f"
+          tag=ixio-main-local-recording-fix-20261122
+          gh release upload "$tag" IXIO_Main_20261122_Download.zip --clobber
+          code="$(curl -fLsS --retry 3 --max-time 180 -w '%{http_code}' -o verify.zip "https://github.com/$GH_REPO/releases/download/$tag/IXIO_Main_20261122_Download.zip")"
+          test "$code" = 200
+          unzip -p verify.zip "$f" | sha256sum | grep -F 552259ebfe6a8120edce15e93730170284e2a8031563f1749fb7dc59a621a3d5
+          cmp verify.zip IXIO_Main_20261122_Download.zip
+          echo ALTERNATE_ZIP_DOWNLOAD_VERIFIED_HTTP_200
