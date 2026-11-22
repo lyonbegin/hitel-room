@@ -128,7 +128,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             adb install out/IXIO_Recorder.apk
             adb install out/IXIO_Main.apk
             adb install out/IXIO_LogBridge_Instrumentation.apk
