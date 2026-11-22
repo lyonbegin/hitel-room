@@ -14,6 +14,7 @@ on:
       - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
       - tools/bithuman_deep/wait_essence2_playout_complete.py
       - tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
+      - tools/bithuman_deep/prepare_essence2_keyboard_ai_trace.py
       - tools/bithuman_deep/prepare_essence2_korean_10s.py
       - tools/bithuman_deep/prepare_essence2_generated_ko_10s.py
       - tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm
