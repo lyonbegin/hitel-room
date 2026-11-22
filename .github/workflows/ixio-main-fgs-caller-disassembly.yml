@@ -1,0 +1,70 @@
+name: IXIO recovered main FGS caller read-only disassembly
+on:
+  push:
+    branches: [audit/ixio-fgs-provenance-20261122]
+    paths: [.github/workflows/ixio-main-fgs-caller-disassembly.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve main QA input and decompiler
+        run: |
+          set -euo pipefail
+          mkdir -p qa work/dex out
+          gh run download 44994556472 --repo "$GH_REPO" --name IXIO_Recorder_Log_UI_QA_Pair --dir qa
+          (cd qa && sha256sum -c SHA256SUMS.txt)
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('qa/IXIO_Main_RecorderLogQA_20261122.apk') as z:
+            for d in ('classes18.dex','classes20.dex'):
+              open('work/dex/'+d,'wb').write(z.read(d))
+          PY
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          for x in classes18 classes20; do
+            java -Xmx4g -jar work/baksmali.jar d --api 34 --jobs 3 -o work/"$x" work/dex/"$x".dex
+          done
+      - name: Extract complete main manager classes and exact start-service methods
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          out=Path('out'); out.mkdir(exist_ok=True)
+          roots=[Path('work/classes18'),Path('work/classes20')]
+          selected=[]
+          for root in roots:
+            for f in root.rglob('*.smali'):
+              s=f.read_text(errors='replace')
+              if any(f.name==n+'.smali' for n in ['CallRecordingManager','CallRecordingManager$startRecord$2','RecordRepository','InCallServiceImpl']):
+                name=root.name+'-'+f.name
+                (out/name).write_text(s);selected.append(name)
+              if 'ixio.ACTION_RECORDING_START' in s:
+                name=root.name+'-'+f.name
+                if name not in selected:
+                  (out/name).write_text(s);selected.append(name)
+          found=[]
+          pattern=re.compile(r'(?ms)^\.method[^\n]*\n.*?^\.end method$')
+          for root in roots:
+            for f in root.rglob('*.smali'):
+              try:s=f.read_text(errors='replace')
+              except:continue
+              for m in pattern.finditer(s):
+                t=m.group(0)
+                if any(k in t for k in ['ixio.ACTION_RECORDING_START','startForegroundService(Landroid/content/Intent;','->startForegroundService(','->startService(']) and ('callrecorder' in t.lower() or 'aicallagent' in f.as_posix()):
+                  found.append({'dex':root.name,'class':f.relative_to(root).as_posix(),'method':t.splitlines()[0],'body':t})
+          (out/'fgs_main_callers.json').write_text(json.dumps(found,indent=2,ensure_ascii=False))
+          print('FULL_SELECTED_SMALI',selected)
+          print('FOUND_FGS_CALLING_METHODS',len(found))
+          for x in found[:35]:print(x['dex'],x['class'],x['method'],len(x['body']))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO_Main_FGS_Caller_Exact_Smali
+          path: out/
