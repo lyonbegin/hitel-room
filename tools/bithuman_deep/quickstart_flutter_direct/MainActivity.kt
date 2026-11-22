@@ -1,7 +1,7 @@
 package ai.bithuman.example.avatar_chat
 
 // Direct Flutter Texture bridge to the official Android Essence2 SDK sample.
-// No bitHuman Flutter plugin, AvatarPlayer, PlayoutClock, catchUp or stale policy.
+// Uses no Flutter avatar-rendering middleware or custom frame-discard policy.
 import ai.bithuman.essence2.Essence2Avatar
 import ai.bithuman.essence2.Essence2Credential
 import ai.bithuman.essence2.Essence2ModelStore
