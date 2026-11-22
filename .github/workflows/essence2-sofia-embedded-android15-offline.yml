@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/hitel-essence2-sofia-embedded-offline-20261120
+      - feature/hitel-essence2-main
     paths:
       - .github/workflows/essence2-sofia-embedded-android15-offline.yml
       - tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py
@@ -13,6 +13,9 @@ on:
       - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
       - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
       - tools/bithuman_deep/wait_essence2_playout_complete.py
+      - tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py
+      - tools/bithuman_deep/prepare_essence2_korean_10s.py
+      - tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm
 permissions:
   contents: write
   actions: write
@@ -80,9 +83,13 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/local-synthetic-auth.json"
           python3 tools/bithuman_deep/prepare_essence2_device_diagnostics.py \
             --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/device-diagnostics.json"
-          # Exact existing spoken fixture, retained from the tested APK; no external TTS package installation.
-          cp tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
-          test "$(sha256sum "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" | cut -d ' ' -f 1)" = "8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098"
+          # Reuse the existing checked-in test voice, cut to exactly 10.000 seconds.
+          # No new voice, models, playback engine or per-chunk clock pacing.
+          ORIGINAL="tools/bithuman_deep/fixtures/essence2-spoken-24k.pcm"
+          test "$(sha256sum "$ORIGINAL" | cut -d ' ' -f 1)" = "8ec78692993f61012a2ee1ba630be9378852aa4865cca13dc2643ca9916e2098"
+          head -c 480000 "$ORIGINAL" "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
+          test "$(wc -c < "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm")" -eq 480000
+          echo PASS_EXACTLY_TEN_SECONDS_EXISTING_PCM_24K
           python3 tools/bithuman_deep/prepare_essence2_spoken_voice_mock.py \
             --app "$APP" \
             --pcm "$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm" \
@@ -229,7 +236,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -239,7 +246,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -247,7 +254,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -272,7 +279,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
       - name: Verify captured virtual speaker contains the actual test speech
         if: always()
         run: |
@@ -286,10 +293,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-audio-lipsync-20261121
-          APK=HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          TAG=hitel-essence2-sofia-10s-nowait-20261123
+          APK=HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          Essence2 speech playback adapted from the maker's android/essence2-hello renderOnce/play: prepare a complete utterance, then play the same 16 kHz PCM and select frames by the actual AudioTrack sample position. This adds preparation latency and is not realtime streaming. Existing HITEL local session and embedded Sofia model are retained. No bitHuman API Secret entry is required. Existing loopback authentication, metering test endpoint and fixed spoken-English local realtime fixture are retained. Same application package ai.bithuman.example.avatar_chat.essence2. The original native inference library is byte-identical. Automated Android 15 emulator checks include installation, offline model load, typed local reply, complete speaker playback, virtual speaker waveform matching and native frame presentation. Physical-device performance, visual lip-sync quality and a real AI service remain unverified.
+          Essence2 Sofia 10s NoWait: sends all PCM without 100ms wall-clock pacing; calls endOfAudio and starts audio-clock video playback once the expected SDK frames are ready and its output queue is empty. Uses first 10 seconds of the EXISTING spoken-English fixture for this build; this is NOT the Korean recording. No native SDK/model changes; original package and app UI retained. Android 15 emulator results are specific to the CI run. Physical device and real AI service remain unverified.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
@@ -298,7 +305,7 @@ jobs:
               --title 'HITEL Essence2 Sofia - vendor audio and lip-sync playback' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -310,7 +317,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
-          path: HITEL_Essence2_Sofia_AudioLipSync_20261121_ARM64.apk
+          path: HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
