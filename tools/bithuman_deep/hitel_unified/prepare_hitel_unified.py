@@ -19,11 +19,27 @@ def replace(s,old,new,count=1):
 s = "import 'hitel_communication_page.dart';\nimport 'hitel_main_rtc.dart';\n" + s
 s = replace(s, '  BithumanAvatar? _avatar;\n', '''  BithumanAvatar? _avatar;
   final _rtcPlayback = HitelRtcPlayback();
-  late final _rtcHost = HitelLocalRtcHost(_rtcPlayback, _hitelAppendAiTrace);
+  bool _rtcStarting = false;
+  bool _rtcManualRetry = false;
+  void _rtcTrace(String event) {
+    debugPrint('[HITEL_RTC] $event');
+    _hitelAppendAiTrace(event);
+  }
+  late final _rtcHost = HitelLocalRtcHost(_rtcPlayback, _rtcTrace);
   void _rtcChanged() { if (mounted) setState(() {}); }
   Future<void> _startHitelRtc(BithumanAvatar avatar) async {
-    await _rtcHost.start(avatar.frameWidth > 0 ? avatar.frameWidth : 720,
-                         avatar.frameHeight > 0 ? avatar.frameHeight : 1280);
+    _rtcStarting = true;
+    try {
+      await _rtcHost.start(avatar.frameWidth > 0 ? avatar.frameWidth : 720,
+                           avatar.frameHeight > 0 ? avatar.frameHeight : 1280);
+      _rtcManualRetry = false;
+    } catch (e) {
+      _rtcManualRetry = true;
+      if (mounted) setState(() => _status = 'WebRTC 연결 실패 · 권한 확인 후 연결 버튼을 누르세요: $e');
+      rethrow;
+    } finally {
+      _rtcStarting = false;
+    }
   }
   Future<void> _stopHitelRtc() async {
     await _rtcHost.stop();
@@ -36,6 +52,10 @@ s = replace(s, "    if (!avatar.isReady) throw StateError('Avatar display did no
     await _startHitelRtc(avatar);
     if (!mounted || _avatar != avatar) return;
 ''')
+# A permission dialog is itself a lifecycle interruption. Do not open a new
+# session while its first permission request is running or after a denial.
+s = replace(s, 'if (_session == null && _secret.isNotEmpty) {',
+               'if (_session == null && _secret.isNotEmpty && !_rtcStarting && !_rtcManualRetry) {')
 # Both former local texture paths now use the identical receive-only renderer.
 s = replace(s,'Texture(textureId: a.textureId)','_rtcPlayback.view()',count=2)
 s = replace(s,'    if (t.isEmpty || _session == null) return;', '''    if (t.isEmpty || _session == null) return;
@@ -66,8 +86,10 @@ s = replace(s, anchor, """              FloatingActionButton.small(heroTag: 'hit
                   if (avatar == null) return;
                   try {
                     if (_rtcHost.ready) {
+                      _rtcManualRetry = true;
                       await _stopHitelRtc();
                     } else {
+                      _rtcManualRetry = false;
                       await _startHitelRtc(avatar);
                       if (_session == null && mounted) await _openSession(avatar, _secret);
                     }
@@ -96,6 +118,11 @@ assert 'Texture(textureId: a.textureId)' not in s
 assert s.count('_rtcPlayback.view()') == 2
 assert 'RTC_TEXT_BLOCKED' in s
 main.write_text(s)
+# A unique diagnostic marker gives the emulator a real decoded/rendered-frame signal.
+rtc = a.app / "lib/hitel_main_rtc.dart"
+s = rtc.read_text()
+s = replace(s, "      firstFrame = true;", "      firstFrame = true;\n      debugPrint('HITEL_RTC_FIRST_FRAME');")
+rtc.write_text(s)
 spec=a.app / "pubspec.yaml"
 s=spec.read_text()
 if "flutter_secure_storage:" not in s:
