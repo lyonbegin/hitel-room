@@ -397,6 +397,18 @@ jobs:
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=hitel_emulator
           pactl set-default-sink hitel_emulator
+          # Headless qemu must explicitly connect to the same Pulse server as
+          # the speaker monitor; do not rely on desktop-session autodiscovery.
+          pulse_socket="$RUNNER_TEMP/hitel-pulse.sock"
+          pactl load-module module-native-protocol-unix socket="$pulse_socket"
+          test -S "$pulse_socket"
+          {
+            echo "PULSE_SERVER=unix:$pulse_socket"
+            echo "QEMU_PA_SERVER=$pulse_socket"
+            echo QEMU_AUDIO_DRV=pa
+            echo QEMU_PA_SINK=hitel_emulator
+          } >> "$GITHUB_ENV"
+          PULSE_SERVER="unix:$pulse_socket" pactl info
           pactl list short sinks
 
       - name: Install and exercise the actual ARM64 APK in Android emulator
