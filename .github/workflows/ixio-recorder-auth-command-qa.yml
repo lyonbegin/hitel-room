@@ -53,11 +53,13 @@ jobs:
           echo "SIGN_STAGE_RECORDER_APKSIGNER"
           "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_Recorder_AuthChannelQA_20261122.apk work/recorder-aligned.apk
           echo "SIGN_STAGE_VERIFY"
-          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Main_AuthChannelQA_20261122.apk > evidence/main-signer.txt
-          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Recorder_AuthChannelQA_20261122.apk > evidence/recorder-signer.txt
-          a="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/main-signer.txt)"
-          b="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/recorder-signer.txt)"
-          test -n "$a";test "$a" = "$b"
+          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Main_AuthChannelQA_20261122.apk > evidence/main-signer.txt 2>&1 || { cat evidence/main-signer.txt; exit 1; }
+          "$BT/apksigner" verify --verbose --print-certs out/IXIO_Recorder_AuthChannelQA_20261122.apk > evidence/recorder-signer.txt 2>&1 || { cat evidence/recorder-signer.txt; exit 1; }
+          grep -Ei 'Signer|Verified' evidence/main-signer.txt || true
+          grep -Ei 'Signer|Verified' evidence/recorder-signer.txt || true
+          a="$(grep -im1 'certificate SHA-256 digest' evidence/main-signer.txt | sed 's/.*: *//')"
+          b="$(grep -im1 'certificate SHA-256 digest' evidence/recorder-signer.txt | sed 's/.*: *//')"
+          test -n "$a";test -n "$b";test "$a" = "$b"
           echo "BOTH_APKS_SAME_QA_SIGNER=YES"
           (cd out && sha256sum *.apk > SHA256SUMS.txt)
           python3 - <<'PY'
