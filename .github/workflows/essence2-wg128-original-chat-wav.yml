@@ -163,7 +163,7 @@ jobs:
           PY
           # Distinguish the original-player diagnostic build.
           sed -i 's/PCM_FILE_R7_TRACE/WG128_ORIGINAL_CHAT_WAV_20261122/g' "$APP/lib/main.dart"
-          grep -Fq 'PCM16_DIRECTOR_FAST_WG128_TRACE_20261122' "$APP/lib/main.dart"
+          grep -Fq 'WG128_ORIGINAL_CHAT_WAV_20261122' "$APP/lib/main.dart"
           grep -Fq 'sdk.backend.native' "$PLUGIN/$NATIVE/HitelSdkProbe.kt"
           grep -Fq 'hitel_sdk_backend.log' "$PLUGIN/$NATIVE/HitelE2Trace.kt"
           grep -Fq 'hitel_sdk_backend.log' "$APP/lib/main.dart"
