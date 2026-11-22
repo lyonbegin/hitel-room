@@ -1,0 +1,154 @@
+name: IXIO unified log real Android cross-app instrumentation verification
+on:
+  push:
+    branches: [fix/ixio-unified-main-recorder-logs-20261122]
+    paths: [.github/workflows/ixio-unified-log-instrumentation-qa.yml]
+permissions: {contents: read, actions: read}
+jobs:
+  verify-real-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Obtain verified already-built main and recorder diagnostics pair
+        run: |
+          set -euo pipefail
+          mkdir -p base work work/testclasses work/testdex out evidence
+          gh run download 45019117300 --repo "$GH_REPO" --name IXIO_Unified_Logs_APK_Pair --dir base
+          (cd base && sha256sum -c SHA256SUMS.txt)
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for f in base/*.apk;do "$BT/apksigner" verify --verbose "$f";done
+      - name: Sign main, recorder and instrumentation with same temporary QA certificate
+        run: |
+          set -euo pipefail
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt -keystore work/qa.jks -storepass android -keypass android -alias qa -keyalg RSA -keysize 2048 -validity 365 -dname 'CN=IXIO unified logs emulator instrumentation'
+          python3 - <<'PY'
+          import zipfile,copy,re
+          for role in ('Main','Recorder'):
+            f='base/IXIO_'+role+'_UnifiedLogs_20261122.apk'
+            with zipfile.ZipFile(f) as src,zipfile.ZipFile('work/'+role+'-unsigned.apk','w') as dest:
+              for e in src.infolist():
+                if re.fullmatch(r'META-INF/.*\.(?:RSA|EC|DSA|SF|MF)',e.filename,re.I):continue
+                dest.writestr(copy.copy(e),src.read(e.filename))
+          PY
+          for role in Main Recorder;do
+            "$BT/zipalign" -f 4 "work/$role-unsigned.apk" "work/$role-aligned.apk"
+            "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out "out/IXIO_$role.apk" "work/$role-aligned.apk"
+            "$BT/apksigner" verify "out/IXIO_$role.apk"
+          done
+          mkdir -p work/testjava/com/hitel/qa
+          cat > work/testjava/com/hitel/qa/MainTraceProbe.java <<'JAVA'
+          package com.hitel.qa;
+          import android.app.Instrumentation;
+          import android.content.Context;
+          import android.os.Bundle;
+          import android.util.Log;
+          import java.lang.reflect.Field;
+          import java.lang.reflect.Method;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          public final class MainTraceProbe extends Instrumentation {
+            @Override public void onCreate(Bundle args){super.onCreate(args);start();}
+            @Override public void onStart(){
+              Bundle result=new Bundle();
+              try{
+                Context c=getTargetContext();
+                ClassLoader loader=c.getClassLoader();
+                Class<?> bridge=Class.forName("com.lguplus.aicallagent.hitelqa.MainUnifiedLogs",true,loader);
+                Class<?> logger=Class.forName("com.lguplus.aicallagent.hitelqa.DiagLog",true,loader);
+                Method export=bridge.getDeclaredMethod("recorder",Context.class);
+                export.setAccessible(true);
+                String rec=(String)export.invoke(null,c);
+                if(!rec.startsWith("HITEL IXIO RECORDER INTERNAL TRACE"))
+                    throw new IllegalStateException("RECORDER_TRACE_MISSING");
+                Method snapshot=logger.getDeclaredMethod("snapshot");
+                snapshot.setAccessible(true);
+                String main=(String)snapshot.invoke(null);
+                String filename="IXIO_ALL_LOGS_EMU_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".zip";
+                Method save=bridge.getDeclaredMethod("save",Context.class,String.class,String.class,String.class,String.class);
+                save.setAccessible(true);
+                Object ret=save.invoke(null,c,filename,main,rec,"INSTRUMENTATION_TEST_MAIN_OK RECORDER_OK\n");
+                Field stored=ret.getClass().getDeclaredField("filename");
+                stored.setAccessible(true);
+                String actual=(String)stored.get(ret);
+                result.putString("recorder","OK");
+                result.putString("main","OK");
+                result.putString("zip",actual);
+                Log.i("IXIO_UNIFIED_PROBE","VERIFIED_MAIN_RECORDER_STREAM_AND_ZIP "+actual);
+                finish(-1,result);
+              }catch(Throwable t){
+                Log.e("IXIO_UNIFIED_PROBE","PROBE_FAILED",t);
+                result.putString("recorder","FAILED");
+                result.putString("exception",t.toString());
+                finish(0,result);
+              }
+            }
+          }
+          JAVA
+          cat > work/test-manifest.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.lguplus.aicallagent.unified.test">
+            <application android:hasCode="true" android:label="IXIO Unified QA"/>
+            <instrumentation android:name="com.hitel.qa.MainTraceProbe"
+                             android:targetPackage="com.lguplus.aicallagent"
+                             android:functionalTest="true"
+                             android:handleProfiling="false"/>
+          </manifest>
+          XML
+          javac -source 8 -target 8 -cp "$ANDROID_HOME/platforms/android-34/android.jar" -d work/testclasses work/testjava/com/hitel/qa/MainTraceProbe.java
+          "$BT/d8" --min-api 29 --lib "$ANDROID_HOME/platforms/android-34/android.jar" --output work/testdex work/testclasses/com/hitel/qa/MainTraceProbe.class
+          "$BT/aapt2" link -o work/test-basic.apk --manifest work/test-manifest.xml -I "$ANDROID_HOME/platforms/android-34/android.jar" --min-sdk-version 29 --target-sdk-version 34
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('work/test-basic.apk') as z,zipfile.ZipFile('work/test-unsigned.apk','w') as out:
+            for entry in z.infolist():out.writestr(entry,z.read(entry.filename))
+            out.writestr('classes.dex',open('work/testdex/classes.dex','rb').read())
+          PY
+          "$BT/zipalign" -f 4 work/test-unsigned.apk work/test-aligned.apk
+          "$BT/apksigner" sign --ks work/qa.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias qa --out out/IXIO_LogBridge_Instrumentation.apk work/test-aligned.apk
+          "$BT/apksigner" verify out/IXIO_LogBridge_Instrumentation.apk
+          echo INSTRUMENTATION_TARGET_SIGNER_MATCH_READY
+      - run: test -c /dev/kvm && sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb install out/IXIO_Recorder.apk
+            adb install out/IXIO_Main.apk
+            adb install out/IXIO_LogBridge_Instrumentation.apk
+            adb logcat -c
+            adb shell am instrument -w -r com.lguplus.aicallagent.unified.test/com.hitel.qa.MainTraceProbe | tee evidence/instrumentation-result.txt
+            adb logcat -d -b all -v threadtime > evidence/instrumentation-logcat.txt
+            grep -F 'recorder=OK' evidence/instrumentation-result.txt
+            grep -F 'main=OK' evidence/instrumentation-result.txt
+            grep -F 'VERIFIED_MAIN_RECORDER_STREAM_AND_ZIP' evidence/instrumentation-logcat.txt
+            adb shell ls -la /sdcard/Download/IXIO_Logs | tee evidence/downloads-listing.txt
+            mkdir -p evidence/downloads
+            adb pull /sdcard/Download/IXIO_Logs evidence/downloads
+            python3 - <<'PY'
+            import zipfile,pathlib
+            a=list(pathlib.Path('evidence/downloads').rglob('IXIO_ALL_LOGS_EMU_*.zip'))
+            assert a,a
+            with zipfile.ZipFile(a[-1]) as z:
+              assert z.testzip() is None
+              assert 'HITEL IXIO RECORDER INTERNAL TRACE' in z.read('02_IXIO_RECORDER_INTERNAL_TRACE.txt').decode()
+              assert 'HITEL IXIO QA' in z.read('01_IXIO_MAIN_INTERNAL_TRACE.txt').decode()
+              print('REAL_TARGET_PROCESS_RECORDER_STREAM_AND_ZIP_BYTE_VERIFIED=YES',a[-1])
+            PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO_Unified_Real_Android_Instrumentation_Evidence
+          path: evidence/
