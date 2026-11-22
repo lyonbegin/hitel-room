@@ -1,0 +1,93 @@
+name: Essence2 Korean 10s immediate APK from existing verified install build
+on:
+  push:
+    branches: [feature/hitel-essence2-main]
+    paths:
+      - .github/workflows/essence2-korean-audio-patch-download-now.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  Korean-voice-apk-now:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare Korean 10 second spoken audio, no English fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg zip unzip
+          python3 -m pip install --user 'edge-tts>=7.0,<9.0'
+          python3 tools/bithuman_deep/prepare_essence2_generated_ko_10s.py \
+            --output-pcm "$GITHUB_WORKSPACE/korean-10s.pcm" \
+            --report "$GITHUB_WORKSPACE/korean-source.json" \
+            --scratch "$GITHUB_WORKSPACE/korean-scratch"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path('korean-source.json').read_text())
+          assert j['language']=='ko-KR' and j['english_fallback']==False
+          assert j['output_bytes']==480000 and j['output_duration_seconds']==10
+          print('PASS_EXACT_KOREAN_VOICE_10S')
+          PY
+      - name: Replace ONLY embedded speech fixture in existing no-wait APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL=https://github.com/lyonbegin/hitel-room/releases/download/hitel-essence2-sofia-10s-nowait-install-test-20261123/HITEL_Essence2_Sofia_10s_NoWait_20261123_ARM64.apk
+          curl -fLsS --retry 3 --retry-all-errors "$URL" -o base-english.apk
+          test "$(wc -c < base-english.apk)" -gt 300000000
+          ASSET='assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm'
+          unzip -Z1 base-english.apk | grep -Fx "$ASSET"
+          original_size="$(unzip -p base-english.apk "$ASSET" | wc -c)"
+          test "$original_size" -eq 480000
+          mkdir -p apk-patch/$(dirname "$ASSET")
+          cp korean-10s.pcm "apk-patch/$ASSET"
+          cp base-english.apk unsigned.apk
+          zip -q -d unsigned.apk "$ASSET"
+          (cd apk-patch && zip -q -0 "$GITHUB_WORKSPACE/unsigned.apk" "$ASSET")
+          test "$(unzip -p unsigned.apk "$ASSET" | wc -c)" -eq 480000
+          cmp korean-10s.pcm <(unzip -p unsigned.apk "$ASSET")
+          echo PASS_KOREAN_PCM_INSIDE_APK_REPLACES_ENGLISH
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$ZIPALIGN" && test -x "$SIGNER" && test -x "$AAPT"
+          "$ZIPALIGN" -p -f 4 unsigned.apk aligned.apk
+          keytool -genkeypair -keystore app-voice-only-test.keystore -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android \
+            -dname 'CN=Android Debug,O=Android,C=US'
+          APK=HITEL_Essence2_Sofia_Korean10s_NoWait_InstallTEST_ARM64.apk
+          "$SIGNER" sign --ks app-voice-only-test.keystore --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --key-pass pass:android --out "$APK" aligned.apk
+          "$SIGNER" verify --verbose "$APK"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='ai.bithuman.example.avatar_chat.essence2'"
+          cmp korean-10s.pcm <(unzip -p "$APK" "$ASSET")
+          sha256sum "$APK" | tee "$APK.sha256"
+          echo PASS_KOREAN_APK_SIGNED_AND_AUDIO_RESOURCE_VERIFIED
+      - name: Publish download now with explicit install-test scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=HITEL_Essence2_Sofia_Korean10s_NoWait_InstallTEST_ARM64.apk
+          TAG=hitel-essence2-sofia-korean-10s-audio-only-install-test-20261123
+          cat > release-notes.md <<'EOF'
+          Korean voice installation TEST APK. Existing 10s NoWait Sofia APK was reused with ONLY its bundled PCM asset replaced by generated ko-KR voice (24kHz mono PCM16, 10 seconds); APK was resigned and its speech resource compared byte-for-byte.
+          NOTE: The English UI transcript in this existing build is not changed; Korean audio is changed. This is generated Korean TEST speech, NOT the user's previous original recording. Uninstall the existing app first if Android reports a signing conflict. SDK/model/native/rendering are unchanged. Audible phone performance is not yet tested.
+          EOF
+          gh release create "$TAG" "$APK" "$APK.sha256" \
+            --target "$GITHUB_SHA" --title 'Essence2 Sofia Korean 10s voice installation TEST' \
+            --notes-file release-notes.md --prerelease --latest=false
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK"
+          curl -fLsS --retry 3 --retry-all-errors "$URL" -o downloaded.apk
+          cmp "$APK" downloaded.apk
+          echo PASS_KOREAN_TEST_APK_EXTERNAL_DOWNLOAD_VERIFIED
+          echo "$URL"
