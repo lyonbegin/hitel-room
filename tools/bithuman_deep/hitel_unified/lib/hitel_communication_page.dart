@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'hitel_room.dart';
 import 'hitel_loopback_page.dart';
 import 'hitel_counselor.dart';
+import 'hitel_device_call.dart';
 
 class HitelCommunicationPage extends StatefulWidget {
   const HitelCommunicationPage({super.key});
@@ -73,6 +74,7 @@ class _HitelCommunicationPageState extends State<HitelCommunicationPage> {
           Wrap(spacing: 8, children: [
             OutlinedButton(onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HitelLoopbackPage())), child: const Text('WebRTC 내부 재생')),
             OutlinedButton(onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HitelCounselorPage())), child: const Text('AI Counselor')),
+            OutlinedButton(onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HitelDeviceCallPage())), child: const Text('기기 주소·1:1 통화')),
           ]),
           ExpansionTile(title: const Text('16개 통신 시나리오'), children: HitelRoute.all.map((r) => ListTile(title: Text('SC-${r.id.toString().padLeft(2, '0')} · ${r.from} → ${r.to}'), subtitle: Text(r.needsGateway ? '일반전화 연계 별도 필요' : '인터넷 통화'))).toList()),
           TextField(controller: _id, decoration: const InputDecoration(labelText: '사용자 ID'), onChanged: (_) => _authenticated = false),

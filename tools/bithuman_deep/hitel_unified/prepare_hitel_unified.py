@@ -25,4 +25,10 @@ s = "import 'hitel_communication_page.dart';\n" + s.replace(anchor, """         
               const SizedBox(width: 8),
 """ + anchor)
 main.write_text(s)
+spec=a.app / "pubspec.yaml"
+s=spec.read_text()
+if "flutter_secure_storage:" not in s:
+    assert s.count("\ndependencies:\n")==1
+    s=s.replace("\ndependencies:\n","\ndependencies:\n  flutter_secure_storage: 9.2.4\n")
+spec.write_text(s)
 print("PASS_HITEL_FLUTTER_COMMUNICATION_PAGE_WIRED")
