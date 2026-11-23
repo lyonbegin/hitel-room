@@ -1,0 +1,31 @@
+name: Probe direct-download 25 Zocbo static JS URLs
+on:
+  push:
+    branches: [research/zocbo-black-free-exam-20261123]
+    paths:
+      - .github/workflows/zocbo-direct-25-js-download.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-download:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: GET each of the 25 JavaScript URLs, two original public hosts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -u scripts/zocbo_original_dex/download_public_static_js.py | tee work_statics.log
+          cat work/zocbo_public_static_js/function_trace.json | head -c 3500 || true
+      - name: Artifact (public static resources and status manifest; no cookies/credentials)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-direct-static-js-audit
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            work/zocbo_public_static_js_audit.zip
+            work_statics.log
