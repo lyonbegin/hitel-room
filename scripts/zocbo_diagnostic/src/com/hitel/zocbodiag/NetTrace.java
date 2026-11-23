@@ -19,8 +19,21 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class NetTrace {
   private static final AtomicLong SEQ=new AtomicLong(0);
   private static final int MAX_JSON_SAMPLE=131072;
+  private static volatile Object originalDotComBuilder;
+  private static volatile String lastSixFieldJson;
+  private static volatile int lastSixFieldExamNo;
   private NetTrace(){}
-  public static void apiClient(Object builder){attach(builder,"DOTCOM_API");}
+  public static void apiClient(Object builder){
+    originalDotComBuilder=builder;
+    attach(builder,"DOTCOM_API");
+    Diag.log("PDF_MANUAL_CLIENT_AVAILABLE","original configured DotCom OkHttp builder captured; no credentials extracted");
+  }
+  public static Object originalApiBuilder(){return originalDotComBuilder;}
+  public static int lastModelExamNo(){return lastSixFieldExamNo;}
+  public static String replayJsonForExam(int exam){
+    String source=lastSixFieldJson;
+    return exam>0 && source!=null && exam==lastSixFieldExamNo?source:null;
+  }
   public static void pdfClient(Object builder){attach(builder,"PDF_DOWNLOAD");}
 
   private static String hash(String value) {
@@ -233,7 +246,11 @@ public final class NetTrace {
       event("VIEWER_MODEL_REQUEST","FIELD_COUNT",String.valueOf(count));
       event("VIEWER_MODEL_REQUEST","RUNTIME_CLASS",request.getClass().getName());
       jsonDetails("VIEWER_MODEL_REQUEST",raw);
-      if(count==6)Diag.rawPdf("VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",raw);
+      if(count==6) {
+        lastSixFieldJson=raw;
+        lastSixFieldExamNo=model.optInt("expapr_no",0);
+        Diag.rawPdf("VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",raw);
+      }
       else event("VIEWER_MODEL_REQUEST","EXPECTED_SIX_FIELDS_MISSING","captured="+count+" (model not modified)");
     }catch(Throwable t){event("VIEWER_MODEL_REQUEST","REFLECTION_ERROR",cause(t));}
   }
