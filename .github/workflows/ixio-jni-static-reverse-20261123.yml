@@ -1,0 +1,75 @@
+name: IXIO JNI native reverse analysis
+on:
+  push:
+    branches:
+      - research/ixio-original-pcm-to-speechsdk-20261123
+    paths:
+      - .github/workflows/ixio-jni-static-reverse-20261123.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Download SHA-verified published IXIO APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/native
+          curl -fL --retry 4 --retry-delay 2 'https://github.com/lyonbegin/hitel-room/releases/download/ixio-v10-full-m4a-single-loader-20261123/HITEL_IXIO_FullM4A_SingleLoader_V10_20261123.apk' -o /tmp/ixio-v10.apk
+          echo '8c4245bed2fab624d4ad160ae50445a8eee167c93b4e5a9567622e632a5e5092  /tmp/ixio-v10.apk' | sha256sum -c -
+          unzip -Z1 /tmp/ixio-v10.apk | grep -E '(^lib/.+\\.so$|ixio-original-sdk\\.jar$)' | tee evidence/APK_NATIVE_PATHS.txt
+          unzip -j /tmp/ixio-v10.apk 'lib/arm64-v8a/libsherpa-onnx-jni.so' -d evidence/native
+          sha256sum evidence/native/*.so | tee evidence/NATIVE_SHA256.txt
+      - name: Inspect JNI exports and disassemble visible native functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-aarch64-linux-gnu
+          so=evidence/native/libsherpa-onnx-jni.so
+          file "$so" | tee evidence/file.txt
+          readelf -hW "$so" > evidence/ELF_HEADER.txt
+          readelf -SW "$so" > evidence/ELF_SECTIONS.txt
+          readelf -WsW "$so" > evidence/ELF_ALL_SYMBOLS.txt
+          nm -D -C "$so" > evidence/NM_DEMANGLED.txt || true
+          strings -a -n 6 "$so" > evidence/ALL_STRINGS.txt
+          grep -Ei 'JNI_OnLoad|Java_com_|CombinedSTTKWS|OnlineRecognizer|OnlineStream|GetResult|IsReady|DecodeStreams|GreedySearch|Zipformer|ChunkSize|ChunkShift|Transducer|decode_chunk_len' evidence/NM_DEMANGLED.txt > evidence/RELEVANT_SYMBOLS.txt || true
+          grep -Ei 'JNI_OnLoad|Java_com_|CombinedSTTKWS|OnlineRecognizer|OnlineStream|GetResult|IsReady|DecodeStreams|GreedySearch|Zipformer|ChunkSize|ChunkShift|Transducer|decode_chunk_len|sherpa-onnx/csrc' evidence/ALL_STRINGS.txt | sort -u > evidence/RELEVANT_STRINGS.txt || true
+          python3 - <<'PYCODE'
+          import re,subprocess,pathlib
+          d=pathlib.Path('evidence')
+          so=str(d/'native/libsherpa-onnx-jni.so')
+          lines=(d/'ELF_ALL_SYMBOLS.txt').read_text(errors='replace').splitlines()
+          names=[]
+          for row in lines:
+              if not re.search(r'FUNC\\s+GLOBAL',row): continue
+              bits=row.split()
+              if len(bits)<8: continue
+              name=bits[-1]
+              if re.search(r'Java_|JNI_OnLoad|sherpa|Sherpa|Online|Decode|GetResult|IsReady|Transducer',name,re.I):names.append(name)
+          names=list(dict.fromkeys(names))[:70]
+          out=[]
+          for name in names:
+              cmd=['aarch64-linux-gnu-objdump','-d','-C','--no-show-raw-insn','--disassemble='+name,so]
+              try: raw=subprocess.run(cmd,capture_output=True,text=True,timeout=30).stdout
+              except Exception as e: raw=str(e)
+              out.append('===== '+name+' =====\\n'+raw[:80000])
+          (d/'TARGETED_DISASSEMBLY.txt').write_text('\\n'.join(out))
+          print('TARGET_FUNCTION_COUNT',len(names))
+          print('NATIVE_ELF_BYTES',pathlib.Path(so).stat().st_size)
+          print('HAVE_SYMTAB',bool(re.search(r'\\.symtab',(d/'ELF_SECTIONS.txt').read_text())))
+          print('MATCHED_SYMBOLS',names)
+          PYCODE
+          echo '===== JNI SYMBOLS ====='
+          head -70 evidence/RELEVANT_SYMBOLS.txt || true
+          echo '===== LIBRARY STRINGS ====='
+          head -100 evidence/RELEVANT_STRINGS.txt || true
+      - name: Save reverse-engineering evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-JNI-Binary-Disassembly-20261123
+          path: evidence/*.txt
+          retention-days: 30
