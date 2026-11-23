@@ -19,6 +19,8 @@ import java.io.IOException;
 public final class SpeakerService extends Service {
   static final String START="app.hitel.speakeronly.START";
   static final String STOP="app.hitel.speakeronly.STOP";
+  static final String VIRTUAL_END="app.hitel.speakeronly.VIRTUAL_END";
+  static final String EX_VIRTUAL="virtualCall";
   static final String ROUTE="app.hitel.speakeronly.ROUTE";
   static final String EVENT="app.hitel.speakeronly.EVENT";
   static final String EX_URI="uri";
@@ -47,6 +49,18 @@ public final class SpeakerService extends Service {
       shutdown();
       return START_NOT_STICKY;
     }
+    if(VIRTUAL_END.equals(action)){
+      TraceJournal session=sessionJournal;
+      if(session!=null)session.event("VIRTUAL_CALL","VIRTUAL_CALL_END",
+        "bytes",intent.getLongExtra("virtualBytes",0),
+        "complete",intent.getBooleanExtra("virtualFullM4a",false),
+        "sha256",intent.getStringExtra("virtualSha256"));
+      autoCallMode=false;
+      SpeakerEngine current=engine;
+      if(current!=null)current.stop();
+      else finishService();
+      return START_NOT_STICKY;
+    }
     if(ROUTE.equals(action)){
       outputId=intent.getIntExtra(EX_DEVICE,-1);
       getSharedPreferences("speaker",MODE_PRIVATE).edit().putInt("routeId",outputId).apply();
@@ -62,6 +76,7 @@ public final class SpeakerService extends Service {
       if(raw==null||raw.isEmpty())
         throw new IllegalArgumentException("삼성 통화녹음 폴더를 먼저 선택하십시오.");
       autoCallMode=intent.getBooleanExtra(EX_FOLDER,false);
+      boolean virtualCall=intent.getBooleanExtra(EX_VIRTUAL,false);
       folderUri=Uri.parse(raw);
       outputId=intent.getIntExtra(EX_DEVICE,-1);
       shuttingDown=false;
@@ -75,7 +90,13 @@ public final class SpeakerService extends Service {
       journal.event("APP","AUTO_CALL_MONITOR_ARMED",
           "autoCallMode",autoCallMode,"deviceId",outputId,
           "sttEnginePresent",true,"pcmRateHz",16000,"speakerOutput",false);
-      if(autoCallMode){
+      if(virtualCall){
+        if(!autoCallMode)throw new IllegalArgumentException("Virtual call requires folder mode");
+        journal.event("VIRTUAL_CALL","VIRTUAL_OFFHOOK_STARTED",
+          "source","app_private_SAF_provider","realTelephony",false);
+        launchSession(true);
+        send("가상 통화 감시 시작: 이전 IXIO STT 원본 경로 사용",false);
+      }else if(autoCallMode){
         // The foreground service remains armed while idle, so Android does not
         // have to start a new background foreground service on every call.
         callEvents=new CallStateGate(this,journal,(state,hadOffhook)->{
