@@ -48,8 +48,16 @@ with output.open("wb") as sink:
                 os.fsync(writer.fileno())
                 time.sleep(.006)
         deadline=time.monotonic()+12
+        last_size=-1
+        stable_since=time.monotonic()
         while time.monotonic()<deadline:
-            if output.stat().st_size>=len(fixed_bytes)-4096:break
+            now=time.monotonic()
+            current_size=output.stat().st_size
+            if current_size!=last_size:
+                last_size=current_size
+                stable_since=now
+            elif current_size>len(fixed_bytes)-4096 and now-stable_since>.5:
+                break  # all written AAC has been decoded before signal/flush
             time.sleep(.05)
         got=output.stat().st_size
     finally:
