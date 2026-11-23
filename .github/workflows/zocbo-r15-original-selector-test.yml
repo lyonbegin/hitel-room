@@ -8,7 +8,7 @@ on:
       - scripts/zocbo_diagnostic/test_region_selector.mjs
       - scripts/zocbo_diagnostic/test_original_page_scope.mjs
       - scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/ReadingOriginalPageCapture.java
-      - .github/workflows/zocbo-region-selector-source-test.yml
+      - .github/workflows/zocbo-r15-original-selector-test.yml
   workflow_dispatch:
 permissions:
   contents: read
