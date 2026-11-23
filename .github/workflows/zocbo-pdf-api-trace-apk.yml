@@ -257,9 +257,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_TwoColumn_Region_Collector_R11_20261124.apk
-          test -s work/Zocbo_4.3.11_TwoColumn_Region_Collector_R11_20261124.apk
-          sha256sum work/Zocbo_4.3.11_TwoColumn_Region_Collector_R11_20261124.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_TwoColumn_EmulatorFix_R12_20261124.apk
+          test -s work/Zocbo_4.3.11_TwoColumn_EmulatorFix_R12_20261124.apk
+          sha256sum work/Zocbo_4.3.11_TwoColumn_EmulatorFix_R12_20261124.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -273,11 +273,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-two-column-region-collector-20261124-r11
-          APK=work/Zocbo_4.3.11_TwoColumn_Region_Collector_R11_20261124.apk
+          TAG=zocbo-two-column-emulator-repair-20261124-r12
+          APK=work/Zocbo_4.3.11_TwoColumn_EmulatorFix_R12_20261124.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo R11 - Two-column region selector collector (testing build)" \
-            --notes "TEST BUILD - DO NOT CONSIDER RUNTIME VERIFIED. R11 changes original region selection: find city names in LEFT column, select each city, THEN click the dynamically rendered [city] 전체 choice in RIGHT column. It no longer assumes all 전체 choices are visible simultaneously or requires manual region/school choice. Original page school IDs and metadata DB CSV JSON remain. GitHub APK build and signature verification only; real emulator runtime and origin server access unverified." \
+            --title "Zocbo R12 - Two-column region selector with emulator-proven crash repair (test build)" \
+            --notes "TEST BUILD: NOT LIVE COLLECTOR VERIFIED. Fixes the exact emulator OkHttp Dispatcher crash (reflective Proxy wraps original checked SocketTimeoutException into UndeclaredThrowableException) by leaving original DOTCOM_API OkHttp interceptor chain untouched, maintaining PDF-specific diagnostics. Fixes screenshot-confirmed region UI concept: left region then dynamically rendered right 전체 choice. SQLite and CSV/JSON export remain. Actual origin m.zocbo.com unreachable from CI runner and runtime collection not verified." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -291,7 +291,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_TwoColumn_Region_Collector_R11_20261124.apk
+            work/Zocbo_4.3.11_TwoColumn_EmulatorFix_R12_20261124.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
