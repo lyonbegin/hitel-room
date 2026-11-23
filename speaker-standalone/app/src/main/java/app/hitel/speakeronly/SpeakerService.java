@@ -289,7 +289,7 @@ public final class SpeakerService extends Service {
       .putString("lastTranscript",value).apply();
     if(finalSegment){
       session.event("STT","CAPTION_FINAL_SAVED","text",value,"length",value.length());
-      session.raw("transcript_final.txt",value);
+      session.rawReplace("transcript_final.txt",value);
     }
     Intent update=new Intent(EVENT).setPackage(getPackageName());
     update.putExtra(EX_TRANSCRIPT,value);
