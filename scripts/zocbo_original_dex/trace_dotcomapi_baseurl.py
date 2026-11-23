@@ -50,7 +50,7 @@ for group, arr in groups.items():
       chunks.append(section)
       print('SOURCE',group,name,'HITS',[i+1 for i in ind[:18]],flush=True)
 # collect all java resource method and BuildConfig literals linked to URL
-addtargets=['com/eduzone/eduzoneviewer/BuildConfig.java','com/eduzone/eduzoneviewer/EdApplication.java','com/eduzone/eduzoneviewer/repository/I.java']
+addtargets=['X2/g.java','X2/f.java','com/eduzone/eduzoneviewer/modules/HeaderInterceptor.java','com/eduzone/eduzoneviewer/BuildConfig.java','com/eduzone/eduzoneviewer/EdApplication.java','com/eduzone/eduzoneviewer/repository/I.java']
 for name in addtargets:
  f=root/name
  if f.exists():
