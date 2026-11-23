@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.util.Locale;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,11 +38,11 @@ final class DirectPcmKoreanStt {
   private static volatile ClassLoader sharedIxioLoader;
   private static final int RATE=16000;
   private static final int CHANNEL=0;
-  private static final int QUEUE_CAPACITY=512;
+  // Unbounded FIFO: the recorded audio must not be discarded while IXIO decodes.
   private final Context context;
   private final TraceJournal log;
   private final Listener listener;
-  private final ArrayBlockingQueue<byte[]> queue=new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+  private final LinkedBlockingQueue<byte[]> queue=new LinkedBlockingQueue<>();
   private volatile boolean inputFinished,ready,completed;
   private volatile Throwable failure;
   private volatile long queuedBytes,recognizedSamples;
@@ -59,7 +59,7 @@ final class DirectPcmKoreanStt {
     worker=new Thread(this::work,"IXIO-Original-SpeechSDK");
     worker.start();
     log.event("STT","IXIO_SPEECHSDK_START_REQUESTED",
-      "source","Samsung growing M4A 16kHz PCM",
+      "source","upstream FAAD2 M4A 512-sample PCM FIFO",
       "publicHitelSherpa",false,"ixioOriginal",true);
   }
 
@@ -75,10 +75,8 @@ final class DirectPcmKoreanStt {
     if(failure!=null)throw new IOException("IXIO speechSDK failed",failure);
     if(inputFinished)throw new IOException("IXIO STT already finished");
     byte[] owned=pcm.clone();
-    if(!queue.offer(owned)){
-      log.event("STT","IXIO_PCM_QUEUE_FULL","chunks",queue.size(),"bytes",queuedBytes);
-      throw new IOException("IXIO speechSDK too slow: PCM queue full");
-    }
+    // Producer never drops samples or waits for IXIO processing.
+    queue.add(owned);
     queuedBytes+=owned.length;
     if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length)
       log.event("STT","IXIO_PCM_QUEUED","bytes",queuedBytes,
