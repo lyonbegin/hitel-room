@@ -108,22 +108,26 @@ if f:
  s2=add_after_registers_in_method(s,"goPreviousExam","    invoke-static {}, "+S+"->bridge()V\n")
  save(f,s,s2,"goPreviousExam-bridge-entry")
 # Gate call: log exact boolean from smali 'iget-boolean'.
-f=find("p239z3/m.smali")
+f=find("z3/m.smali") or find("p239z3/m.smali")
 if f:
  s=f.read_text("utf8",errors="replace")
  m=re.search(r"(?ms)(^\.method[^\n]*\bq\(\)V\n)(.*?)(^\.end method)",s)
  if m:
   body=m.group(2)
-  body2=re.sub(r"(?m)(^    iget-boolean (v\d+), [^\n]*->f30298e:Z\s*$)",lambda x:x.group(1)+"\n    invoke-static {"+x.group(2)+"}, "+S+"->gate(Z)V",body,count=1)
+  body2=re.sub(r"(?m)(^    iget-boolean (v\d+), [^\n]*->(?:e|f30298e):Z\s*$)",lambda x:x.group(1)+"\n    invoke-static {"+x.group(2)+"}, "+S+"->gate(Z)V",body,count=1)
   if body!=body2:save(f,s,s[:m.start(2)]+body2+s[m.end(2):],"goPreviousExam-gate")
   else:out["misses"].append("goPreviousExam boolean register not located")
-# Iterate target's own smali, not Android packages or generic bundled dependencies.
+# Original DEX classes are obfuscated: JADX 'p239z3/e' is often 'z3/e' in SMALI.
+# Locate actual JavaScript/cookie/WebView invocations by their *method signature*
+# rather than guessed obfuscated package prefixes.
 for folder in smalis:
  for f in sorted(folder.rglob("*.smali")):
-  path=str(f.relative_to(folder))
-  if (path.startswith("com/eduzone/eduzoneviewer/") or
-      path.startswith("p239z3/") or path.startswith("p107l3/") or
-      path.startswith("A3/")):
+  raw=f.read_text("utf8",errors="replace")
+  if ("Landroid/webkit/CookieManager;->setCookie(" in raw or
+      "Landroid/webkit/WebView;->loadUrl(" in raw or
+      "Landroid/webkit/WebView;->addJavascriptInterface(" in raw or
+      "onPageStarted(Landroid/webkit/WebView;" in raw or
+      "onPageFinished(Landroid/webkit/WebView;" in raw):
     hook_calls(f)
 # Confirm patch counts / critical classes.
 print("PATCH_SUMMARY",json.dumps(out,ensure_ascii=False),flush=True)
