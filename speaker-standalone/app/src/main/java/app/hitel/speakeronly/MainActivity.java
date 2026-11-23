@@ -20,6 +20,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.widget.Button;
+import androidx.documentfile.provider.DocumentFile;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -36,7 +37,8 @@ public final class MainActivity extends Activity {
   private boolean folderMode;
   private int deviceId=-1;
   private TextView header,source,detectedSource,status,deviceSummary,explanation,liveTranscript;
-  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton,modelButton;
+  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton,modelButton,quickTestButton;
+  private boolean startQuickTestAfterPick;
   private boolean receiverRegistered;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
@@ -90,6 +92,9 @@ public final class MainActivity extends Activity {
     source.setTextIsSelectable(true);
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
+    quickTestButton=button(root,"삼성 원본 녹음 M4A → IXIO STT 자동 시험");
+    quickTestButton.setOnClickListener(v->startQuickTest());
+    text(root,"이미 선택한 파일 또는 통화녹음 폴더 안의 '통화 녹음 100_261123_005259.m4a'를 사용합니다. 파일 접근 권한이 없는 경우에는 최초 한 번만 파일을 선택하시면 됩니다. 이 버튼은 실제 IXIO 자막이 나오는지를 시험합니다.",12);
 
     text(root,"3. 통화 중 녹음 자동 시작 설정",17);
     accessibilityButton=button(root,"삼성 전화 녹음 시작 보조 활성화 (접근성 설정)");
@@ -146,6 +151,75 @@ public final class MainActivity extends Activity {
     startActivityForResult(intent,PICK_IXIO_MODEL);
   }
 
+  private void startQuickTest(){
+    if(active()){status.setText("이미 시험 또는 감시가 실행 중입니다. 먼저 종료하십시오.");return;}
+    if(!IxioModelImporter.isReady(this)){
+      status.setText("IXIO 원본 모델을 먼저 등록하십시오: IXIO_STT_Original_4.0.4.zip");
+      return;
+    }
+    if(selected==null){
+      startQuickTestAfterPick=true;
+      choose(false);
+      return;
+    }
+    if(!folderMode){
+      startFixedFileTest(selected);
+      return;
+    }
+    Uri tree=selected;
+    status.setText("삼성 Recordings/Call 안의 원본 M4A 시험 파일 검색 중");
+    new Thread(()->{
+      try{
+        DocumentFile folder=DocumentFile.fromTreeUri(this,tree);
+        if(folder==null||!folder.isDirectory())throw new java.io.IOException("녹음 폴더 권한 없음");
+        Uri target=null;
+        DocumentFile[] all=folder.listFiles();
+        for(DocumentFile child:all){
+          if(child.isFile()&&"통화 녹음 100_261123_005259.m4a".equals(child.getName())){
+            target=child.getUri();break;
+          }
+        }
+        Uri found=target;
+        runOnUiThread(()->{
+          if(found!=null)startFixedFileTest(found);
+          else{
+            status.setText("시험용 원본 녹음파일이 폴더에 없습니다. 파일을 한 번 선택하십시오.");
+            startQuickTestAfterPick=true;choose(false);
+          }
+        });
+      }catch(Exception e){
+        runOnUiThread(()->{
+          status.setText("폴더 검색 실패: "+e.getMessage()+" · 원본 M4A 직접 선택");
+          startQuickTestAfterPick=true;choose(false);
+        });
+      }
+    },"IXIO-QuickTest-Find-Original-Recording").start();
+  }
+
+  private void startFixedFileTest(Uri file){
+    if(active())return;
+    if(!IxioModelImporter.isReady(this)){
+      status.setText("IXIO STT.zip 원본 모델을 먼저 등록하십시오.");
+      return;
+    }
+    // Run through the exact real production M4A -> MediaCodec -> PCM ->
+    // IXIO speechSDK pipeline. No fake text, stub inference or fallback model.
+    getSharedPreferences("speaker",MODE_PRIVATE).edit()
+       .putBoolean("autoEnabled",false).apply();
+    Intent launch=new Intent(this,SpeakerService.class)
+       .setAction(SpeakerService.START)
+       .putExtra(SpeakerService.EX_URI,file.toString())
+       .putExtra(SpeakerService.EX_FOLDER,false)
+       .putExtra(SpeakerService.EX_DEVICE,deviceId);
+    try{
+      if(Build.VERSION.SDK_INT>=26)startForegroundService(launch);
+      else startService(launch);
+      status.setText("M4A 원본 실험 시작 · 자동 PCM 변환 및 IXIO STT 텍스트 검증");
+      liveTranscript.setText("IXIO speechSDK 원본 모델 초기화 중 · 결과 대기");
+      ui.postDelayed(this::updateButtons,500);
+    }catch(Exception e){status.setText("원본 녹음 STT 시작 실패: "+e);}
+  }
+
   void choose(boolean folder){
     if(active())return;
     Intent intent;
@@ -192,6 +266,10 @@ public final class MainActivity extends Activity {
         "녹음 폴더 저장 완료 · 실행하면 최신 증가 M4A를 자동으로 찾습니다.":
         "과거 파일 직접 선택됨 · 실시간 자동 감시를 원하시면 폴더를 선택하십시오.");
       updateButtons();
+      if(requestCode==PICK_FILE && startQuickTestAfterPick){
+        startQuickTestAfterPick=false;
+        startFixedFileTest(uri);
+      }
     }else if(requestCode==SAVE_ZIP){
       String id=getSharedPreferences("speaker",MODE_PRIVATE).getString("lastRunId","");
       if(id.isEmpty())return;
@@ -300,6 +378,7 @@ public final class MainActivity extends Activity {
     stopButton.setEnabled(running);
     fileButton.setEnabled(!running);
     folderButton.setEnabled(!running);
+    if(quickTestButton!=null)quickTestButton.setEnabled(!running);
     if(modelButton!=null){
       modelButton.setEnabled(!running);
       modelButton.setText(IxioModelImporter.isReady(this)?
