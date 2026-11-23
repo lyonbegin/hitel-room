@@ -107,6 +107,18 @@ if f:
  s=f.read_text("utf8",errors="replace")
  s2=add_after_registers_in_method(s,"goPreviousExam","    invoke-static {}, "+S+"->bridge()V\n")
  save(f,s,s2,"goPreviousExam-bridge-entry")
+ # Include every WebView navigation bridge overload, without recording its arguments.
+ s=s2
+ pattern=r"(?ms)(^\.method[^\n]*\bgoWebViewLink\([^\n]*\)[^\n]*\n)(.*?)(^\.end method)"
+ def web_link_hook(m):
+  body=m.group(2)
+  code="    invoke-static {}, "+S+"->webViewLink()V"
+  if code in body:return m.group(0)
+  h=re.search(r"(?m)^    \.(?:locals|registers) \d+\s*$",body)
+  if not h:return m.group(0)
+  return m.group(1)+body[:h.end()]+"\n"+code+body[h.end():]+m.group(3)
+ s3=re.sub(pattern,web_link_hook,s)
+ save(f,s,s3,"goWebViewLink-bridge-overloads")
 # Gate call: log exact boolean from smali 'iget-boolean'.
 f=find("z3/m.smali") or find("p239z3/m.smali")
 if f:
