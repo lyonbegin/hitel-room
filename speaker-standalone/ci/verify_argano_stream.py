@@ -49,7 +49,7 @@ with output.open("wb") as sink:
                 time.sleep(.006)
         deadline=time.monotonic()+12
         while time.monotonic()<deadline:
-            if output.stat().st_size>=len(fixed_bytes):break
+            if output.stat().st_size>=len(fixed_bytes)-4096:break
             time.sleep(.05)
         got=output.stat().st_size
     finally:
@@ -57,6 +57,7 @@ with output.open("wb") as sink:
         try:_,log=live.communicate(timeout=4)
         except subprocess.TimeoutExpired:
             live.kill();_,log=live.communicate(timeout=3)
+got=output.stat().st_size  # include the SIGTERM-triggered final resampler flush
 print("GROWING_NO_MOOV_RESULT",got,len(fixed_bytes),
       log[-1500:].decode(errors="replace"))
 assert got==len(fixed_bytes),("growing PCM output length differs",got,len(fixed_bytes))
