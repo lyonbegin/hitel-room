@@ -49,6 +49,7 @@ jobs:
             source/source_verification.json
             evidence/zocbo-original-dex/analysis.json
             evidence/zocbo-original-dex/callsites.txt
+            evidence/zocbo-original-dex/focused_navigation.txt
             evidence/zocbo-original-dex/jadx.log
             evidence/zocbo-original-dex/error.txt
           retention-days: 14
