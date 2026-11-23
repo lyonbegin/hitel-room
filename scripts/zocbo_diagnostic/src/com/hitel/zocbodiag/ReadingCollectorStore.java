@@ -137,7 +137,8 @@ public final class ReadingCollectorStore extends SQLiteOpenHelper {
   public synchronized void saveArea(String key,int ordinal,ReadingCollectorController.AreaScope area){
     if(key==null||key.isEmpty()||ordinal<0||area==null||
        !("M".equals(area.site)||"H".equals(area.site))||
-       area.schools==null||area.schools.isEmpty())
+       (area.schools==null)||
+       ((area.city==null||area.city.isEmpty())&&(area.filter==null||area.filter.isEmpty())))
       throw new IllegalArgumentException("Invalid original region scope");
     SQLiteDatabase db=getWritableDatabase();
     ContentValues v=new ContentValues();
