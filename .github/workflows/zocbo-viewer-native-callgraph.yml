@@ -71,6 +71,50 @@ jobs:
               t=[(p,i+1,ls[i].strip()[:220]) for p,sz,w,ls in hits for i in w if token in ls[i]]
               print('REFERENCE',token,json.dumps(t[:15],ensure_ascii=False))
           PY
+      - name: Follow ViewerActivity ViewModel requestTicketData and PDF path response objects
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          src=Path('/tmp/zocbo_jadx/sources')
+          dest=Path('evidence/zocbo-viewer-callgraph/viewmodel_network_trace.txt')
+          targets=['p229y3/Y0.java','p229y3/T0.java','p079i3/O0.java','p079i3/P0.java','p079i3/Q0.java','p203v3/P.java','p203v3/Y.java','A3/x0.java']
+          token_re=re.compile(r'requestTicketData|f29565k|f29567l|f29574o0|pdfPath|getPdfPath|pdf_path|qstPath|qst_path|qstSeq|qst_seq|ticket|Ticket|expapr|ExPapr|@GET|@POST|ticketData|loadPdf|downloadPdf',re.I)
+          chunks=[]
+          for rel in targets:
+              f=src/rel
+              if not f.exists():continue
+              lines=f.read_text('utf8','replace').splitlines()
+              keys=[i for i,l in enumerate(lines) if token_re.search(l)]
+              spans=[]
+              for i in keys[:110]:
+                  st=max(0,i-15);en=min(len(lines),i+21)
+                  if spans and st<=spans[-1][1]+3:spans[-1]=(spans[-1][0],max(en,spans[-1][1]))
+                  else:spans.append((st,en))
+              segs=['\n'.join(f'{k+1}: {lines[k][:370]}' for k in range(st,min(en,st+260))) for st,en in spans[:42]]
+              chunks.append('======= '+rel+' ('+str(len(lines))+' lines) =======\n'+'\n---\n'.join(segs))
+              print('TARGET',rel,'MATCHES',len(keys),'SNIPPET_CHARS',sum(map(len,segs)))
+          # Discover API methods called from the ViewModel and Rx/coroutine callbacks.
+          for f in src.rglob('*.java'):
+              rel=str(f.relative_to(src))
+              if rel in targets:continue
+              if any(w in rel for w in ('/google/','/facebook/','/androidx/','/kotlin/','/com/bumptech/')):continue
+              ls=f.read_text('utf8','replace').splitlines()
+              keys=[i for i,line in enumerate(ls) if 'requestTicketData' in line or 'getPdfPath()' in line or '@SerializedName("pdf_path")' in line]
+              if not keys:continue
+              clips=[]
+              for i in keys[:6]:
+                  a=max(0,i-13);b=min(len(ls),i+20)
+                  clips.append('\n'.join(f'{k+1}: {ls[k][:370]}' for k in range(a,b)))
+              chunks.append('======= RELATED '+rel+' =======\n'+'\n---\n'.join(clips))
+              print('RELATED',rel,'HITS',len(keys))
+          report='\n\n'.join(chunks)[:500000]
+          dest.parent.mkdir(parents=True,exist_ok=True)
+          dest.write_text(report,encoding='utf8')
+          print('VIEWMODEL_TRACE_CHARS',len(report),'SECTIONS',len(chunks))
+          for c in chunks[:5]:print(c[:17000])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -82,3 +126,4 @@ jobs:
             evidence/zocbo-original-dex/focused_navigation.txt
             evidence/zocbo-viewer-callgraph/native_viewer_trace.txt
             evidence/zocbo-viewer-callgraph/native_viewer_index.json
+            evidence/zocbo-viewer-callgraph/viewmodel_network_trace.txt
