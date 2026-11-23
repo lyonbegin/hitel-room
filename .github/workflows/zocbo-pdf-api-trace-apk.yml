@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - feature/zocbo-pdf-api-trace-20261123
-      - fix/zocbo-r17-original-webview-parser-proof-20261124
+      - fix/zocbo-r18-nine-region-collector-20261124
     paths:
       - .github/workflows/zocbo-pdf-api-trace-apk.yml
       - scripts/zocbo_diagnostic/**
@@ -258,9 +258,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Original_WebView_SQLite_R17_TEST_20261124.apk
-          test -s work/Zocbo_4.3.11_Original_WebView_SQLite_R17_TEST_20261124.apk
-          sha256sum work/Zocbo_4.3.11_Original_WebView_SQLite_R17_TEST_20261124.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk
+          test -s work/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk
+          sha256sum work/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -274,11 +274,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-original-webview-sqlite-20261124-r17-test
-          APK=work/Zocbo_4.3.11_Original_WebView_SQLite_R17_TEST_20261124.apk
+          TAG=zocbo-nine-region-collector-20261124-r18-test
+          APK=work/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo R17 TEST - Original WebView source HTML JS to persistent SQLite" \
-            --notes "TEST BUILD. R17 preserves the original regionFilter and durable SQLite code from R16, and adds an emulator-only test route that renders previously user-captured exam list DOM into Android WebView. The production JavaScript snapshot bridge must parse the observed ten exam IDs, commit all ten via the app SQLite database, survive app force-stop, and produce a CSV whose IDs and metadata match the original captured source. This is offline replay, not proof of current origin server access or nationwide collection." \
+            --title "Zocbo R18 TEST - Nine original regions Seoul first and resumable SQLite" \
+            --notes "R18 TEST. Region sequence uses nine authentic original left-side source choices, with Seoul first and following eight in original listed order. For each region tests middle then high using exact original data-order HTML tabs. SQLite persists captured scopes and exam metadata. Emulator-only AUTO_NINE_REGION intent requests live service access; a blocked origin must remain a failure with zero new live records. Previous R17 offline capture replay remains proven but does NOT prove live nationwide success." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -292,7 +292,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_Original_WebView_SQLite_R17_TEST_20261124.apk
+            work/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
