@@ -40,13 +40,10 @@ final class SpeakerEngine {
   private final Callback callback;
   private final CaptionListener captionListener;
   private final RecordingStatusListener recordListener;
-  private volatile long confirmedFileBytes;
-  private volatile long skippedPreLiveFrames;
   private final Object mirrorLock=new Object();
   private volatile boolean stop;
   private volatile boolean finished;
   private volatile Uri selected;
-  private volatile Process follower;
   private volatile File mirror;
   private volatile long mirroredBytes;
   private volatile long receivedFrames;
@@ -55,10 +52,9 @@ final class SpeakerEngine {
   private volatile String endReason="NOT_STARTED";
   private volatile int requestedDeviceId;
   private volatile DirectPcmKoreanStt stt;
-  private volatile StreamingAacPcmDecoder codec;
+  private volatile GithubFaad2PcmSource faadSource;
   private Thread worker;
   private Thread copier;
-  private Thread stderr;
   private final AtomicLong lastStatusMs=new AtomicLong();
   static final long POLL_MS=250;
 
@@ -76,8 +72,8 @@ final class SpeakerEngine {
     stop=true;
     log.event("CONTROL","STOP_REQUEST","frames",receivedFrames,
       "pcmBytes",pcmBytes,"mirrorBytes",mirroredBytes);
-    Process p=follower;
-    if(p!=null&&p.isAlive())p.destroy();
+    GithubFaad2PcmSource source=faadSource;
+    if(source!=null)source.requestStop();
     Thread t=copier;if(t!=null)t.interrupt();
   }
   boolean done(){return finished;}
@@ -153,115 +149,56 @@ final class SpeakerEngine {
     }
   }
 
-  private Uri waitForRecording(Uri directory) throws Exception {
+  /** Select ONLY the newest recording under the designated SAF folder.
+   * No 3-growth proof, no size-based selection, no cutoff of initial audio.
+   * The active call recorder's newest file is picked as it appears.
+   */
+  private Uri waitForRecording(Uri directory)throws Exception {
     DocumentFile root=DocumentFile.fromTreeUri(context,directory);
     if(root==null||!root.isDirectory())
-      throw new IOException("통화 녹음 폴더 접근 실패. 폴더를 다시 선택하십시오.");
+      throw new IOException("녹음 폴더 접근 실패. 폴더를 다시 선택하십시오.");
     String rootId=DocumentsContract.getTreeDocumentId(directory);
-    GrowingM4aSelector detector=new GrowingM4aSelector();
-    log.event("FOLDER","RECORDING_EVENT_WATCH_STARTED",
-        "uri",directory.toString(),"pollMs",100,"requiredPositiveGrowthEvents",3,
-        "eventSources","SAF_CONTENT_OBSERVER_AND_MEDIASTORE");
-    notifyState("통화 연결 · 녹음 시작/파일 변경 이벤트 감시 중",false);
-
-    final java.util.concurrent.atomic.AtomicBoolean changed=
-        new java.util.concurrent.atomic.AtomicBoolean(true);
-    ContentObserver observer=new ContentObserver(new Handler(Looper.getMainLooper())){
-      @Override public void onChange(boolean selfChange){
-        changed.set(true);
-        log.event("FOLDER","RECORDING_CONTENT_CHANGED_EVENT","uri",directory.toString());
-      }
-      @Override public void onChange(boolean selfChange,Uri changedUri){
-        onChange(selfChange);
-      }
-    };
-    boolean registered=false;
-    try{
-      try{
-        context.getContentResolver().registerContentObserver(directory,true,observer);
-        registered=true;
-      }catch(Exception error){
-        log.event("FOLDER","TREE_OBSERVER_UNAVAILABLE",
-            "reason",error.getClass().getSimpleName());
-      }
-      try{
-        context.getContentResolver().registerContentObserver(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,true,observer);
-        registered=true;
-      }catch(Exception error){
-        log.event("FOLDER","MEDIASTORE_OBSERVER_UNAVAILABLE",
-            "reason",error.getClass().getSimpleName());
-      }
-
+    final long beganWall=System.currentTimeMillis();
+    final long began=SystemClock.elapsedRealtime();
+    String priorNewest=null;
+    boolean sawBaseline=false;
+    long lastStartRequest=0;
+    while(!stop){
       List<GrowingM4aSelector.Entry> found=new ArrayList<>();
-      int scan=0;
-      long started=SystemClock.elapsedRealtime();
-      long nextRescan=0;
-      long lastRecordRequest=0;
-      boolean candidateEventSent=false;
-      while(!stop){
-        long now=SystemClock.elapsedRealtime();
-        if(changed.getAndSet(false)||now>=nextRescan){
-          found=new ArrayList<>();
-          scanChildren(directory,rootId,0,new int[]{4000},found);
-          found.sort((x,y)->{
-            int t=Long.compare(y.modified,x.modified);
-            return t!=0?t:y.name.compareTo(x.name);
-          });
-          nextRescan=now+1000;
-        }
-        List<GrowingM4aSelector.Entry> snapshot=new ArrayList<>(found);
-        for(int i=0;i<Math.min(4,snapshot.size());i++){
-          GrowingM4aSelector.Entry e=snapshot.get(i);
-          long liveBytes=actualFileLength(Uri.parse(e.uri),e.bytes);
-          snapshot.set(i,new GrowingM4aSelector.Entry(
-              e.uri,e.name,liveBytes,e.modified));
-        }
-        GrowingM4aSelector.Decision d=detector.observe(snapshot);
-        if(!candidateEventSent && d.latest!=null &&
-           d.verifiedGrowthEvents>0){
-          candidateEventSent=true;
-          log.event("RECORDING","RECORDING_CANDIDATE_FILE_GROWTH",
-              "name",d.latest.name,"bytes",d.latest.bytes,
-              "growthEvents",d.verifiedGrowthEvents);
-          if(recordListener!=null)
-            recordListener.recordingCandidate(d.latest.name,d.latest.bytes,
-                d.verifiedGrowthEvents);
-        }
-        if(d.growing!=null){
-          Uri file=Uri.parse(d.growing.uri);
-          log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
-              "fileName",d.growing.name,"sizeBytes",d.growing.bytes,
-              "growthBytes",d.growthBytes,"positiveGrowthEvents",
-              d.verifiedGrowthEvents,"uri",d.growing.uri);
-          if(recordListener!=null)
-            recordListener.confirmedRecording(d.growing.name,d.growing.bytes);
-          notifyState("녹음 중 파일 발견: "+d.growing.name+
-              " · 100ms 검사 3회 크기 증가 확인",false);
-          return file;
-        }
-        if(recordListener!=null && now-started>=2500 &&
-           d.verifiedGrowthEvents==0 && now-lastRecordRequest>=5000){
-          lastRecordRequest=now;
-          log.event("FOLDER","NO_RECORDING_GROWTH_REQUEST_START",
-              "waitingMs",now-started,"files",d.files,
-              "latestFile",d.latest==null?"":d.latest.name);
-          recordListener.noRecordingEvidence(now-started);
-        }
-        if(scan%10==0){
-          if(d.latest==null)
-            notifyState("통화 연결 · 아직 녹음 파일 없음 · 녹음 시작 요청/대기",false);
-          else
-            notifyState("최신 M4A: "+d.latest.name+" ("+d.latest.bytes+
-                "바이트) · 증가 "+d.verifiedGrowthEvents+"/3회 확인 중",false);
-        }
-        scan++;
-        Thread.sleep(100);
+      scanChildren(directory,rootId,0,new int[]{4000},found);
+      found.sort((x,y)->{
+        int t=Long.compare(y.modified,x.modified);
+        return t!=0?t:y.name.compareTo(x.name);
+      });
+      GrowingM4aSelector.Entry newest=found.isEmpty()?null:found.get(0);
+      if(!sawBaseline){
+        priorNewest=newest==null?null:newest.uri;
+        sawBaseline=true;
       }
-      return null;
-    }finally{
-      if(registered)context.getContentResolver().unregisterContentObserver(observer);
+      // When recording begins, the newest file is newly created or has
+      // a fresh write timestamp. Never wait for three observed size increments.
+      if(newest!=null && (
+          priorNewest==null ||
+          !newest.uri.equals(priorNewest) ||
+          newest.modified>=beganWall-2000L)){
+        Uri chosen=Uri.parse(newest.uri);
+        log.event("SOURCE","FAAD2_NEWEST_RECORDING_SELECTED",
+          "name",newest.name,"uri",newest.uri,
+          "modified",newest.modified,"selection","LATEST_ONLY_NO_GROWTH_GATE");
+        if(recordListener!=null)
+          recordListener.confirmedRecording(newest.name,newest.bytes);
+        return chosen;
+      }
+      long elapsed=SystemClock.elapsedRealtime()-began;
+      if(recordListener!=null && elapsed>=1500 && elapsed-lastStartRequest>=4000){
+        lastStartRequest=elapsed;
+        recordListener.noRecordingEvidence(elapsed);
+      }
+      if(elapsed<5000 || elapsed%5000<150)
+        notifyState("통화 녹음 시작 대기 · 최신 M4A 파일 자동 선택",false);
+      Thread.sleep(120);
     }
+    return null;
   }
 
   private void appendNewBytes(Uri file) throws Exception {
@@ -298,13 +235,11 @@ final class SpeakerEngine {
   }
 
   private void run(Uri input,boolean folder){
-    String finalStatus;
     try{
-      log.event("APP","IXIO_ORIGINAL_STT_ENGINE_STARTED",
-        "folder",folder,"nativeAbis",Arrays.toString(Build.SUPPORTED_ABIS),
-        "sttModel",true,"speakerPlayback",false,"pcmRateHz",16000);
-      // Prewarm the original IXIO speechSDK independently of growing M4A detection.
-      // PCM is queued during initialization rather than silently discarded.
+      log.event("APP","FAAD2_GITHUB_M4A_PCM_QUEUE_STARTED",
+        "mode",folder?"latest-recording":"fixed-file",
+        "source","knik0/faad2-2.11.4","sink","IXIO-original-speechSDK",
+        "rate",16000,"channels",1,"pcmBytesPerChunk",1024);
       stt=new DirectPcmKoreanStt(context,log,new DirectPcmKoreanStt.Listener(){
         @Override public void status(String message){notifyState(message,false);}
         @Override public void caption(String text,boolean finalSegment){
@@ -314,275 +249,80 @@ final class SpeakerEngine {
       stt.start();
       selected=folder?waitForRecording(input):input;
       if(selected==null){endReason="USER_STOP";return;}
-      log.event("SOURCE",folder?"LIVE_GROWING_RECORDING_SELECTED":"MANUAL_FILE_SELECTED",
-        "uri",selected.toString(),"folderDetection",folder);
-      if(!folder){
-        // Complete Samsung M4A: MediaExtractor reads original AAC access units,
-        // sharing the original 16k FIR PCM sink and IXIO speechSDK with live mode.
-        // The ARM-only external follower is NOT needed for the emulator offline test.
-        codec=new StreamingAacPcmDecoder(log);
-        log.event("TEST","OFFLINE_M4A_IXIO_SPEECHSDK_TEST_STARTED",
-          "inputUri",selected.toString());
-        readCompletedSamsungM4a(selected);
-        endReason="ORIGINAL_SAMSUNG_M4A_PCM_DECODE_COMPLETE";
-        return;
-      }
-      mirror=new File(context.getCacheDir(),"recording-speaker-"+SystemClock.elapsedRealtime()+".m4a");
+      log.event("SOURCE","FAAD2_ONE_SOURCE_SELECTED","uri",selected.toString());
+      mirror=new File(context.getCacheDir(),
+        "faad2-github-original-"+SystemClock.elapsedRealtime()+".m4a");
       if(!mirror.createNewFile())throw new IOException("Mirror already exists");
-      appendNewBytes(selected);
-      confirmedFileBytes=folder?mirroredBytes:0;
-      log.event("SOURCE","LIVE_PLAYBACK_CUTOFF",
-          "sourceBytesAtVerification",confirmedFileBytes,
-          "preLiveAudioWillBeSuppressed",folder);
-      // Preserve original AAC decode and 16k FIR resampler, but no speaker track.
-      codec=new StreamingAacPcmDecoder(log);
-      copier=new Thread(()->{
-        while(!stop){
-          try{appendNewBytes(selected);}
-          catch(Throwable problem){
-            if(!stop)log.error("MIRROR","POLL_FAILED",problem);
+      if(folder){
+        appendNewBytes(selected);
+        copier=new Thread(()->{
+          while(!stop){
+            try{appendNewBytes(selected);}
+            catch(Throwable e){if(!stop)log.error("MIRROR","FAAD2_MIRROR_COPY_FAILED",e);}
+            try{Thread.sleep(POLL_MS);}
+            catch(InterruptedException e){return;}
           }
-          try{Thread.sleep(POLL_MS);}
-          catch(InterruptedException e){return;}
+        },"FAAD2-Growing-M4A-Mirror");
+        copier.start();
+      }else{
+        try(InputStream in=context.getContentResolver().openInputStream(selected);
+            FileOutputStream out=new FileOutputStream(mirror)){
+          if(in==null)throw new IOException("Cannot open chosen M4A");
+          byte[] buffer=new byte[65536];int n;
+          while((n=in.read(buffer))!=-1)out.write(buffer,0,n);
+          out.flush();
         }
-      },"Recording-M4A-SAF-Copier");
-      copier.start();
-      if(!folder){
-        // The original Samsung M4A is a finite file. The native AAC follower
-        // intentionally waits for growth forever; terminate it after fixed
-        // file PCM has gone unchanged for 2s and flush the original IXIO SDK.
-        new Thread(()->{
-          long began=SystemClock.elapsedRealtime();
-          long lastPcm=-1,unchangedSince=began;
-          while(!stop && SystemClock.elapsedRealtime()-began<60000){
-            long actual=pcmBytes;
-            if(actual!=lastPcm){lastPcm=actual;unchangedSince=SystemClock.elapsedRealtime();}
-            else if(actual>0&&receivedFrames>0&&
-                    SystemClock.elapsedRealtime()-unchangedSince>=2000){
-              endReason="FIXED_M4A_AUTO_EOF";
-              log.event("CONTROL","FIXED_M4A_AUTO_EOF",
-                "pcmBytes",actual,"aacFrames",receivedFrames,
-                "mirrorBytes",mirroredBytes,"sttReady",stt!=null&&stt.isReady());
-              stop=true;
-              Process proc=follower;if(proc!=null&&proc.isAlive())proc.destroy();
-              Thread cp=copier;if(cp!=null)cp.interrupt();
-              return;
-            }
-            try{Thread.sleep(250);}catch(InterruptedException ignore){return;}
-          }
-          if(!stop){
-            endReason="FIXED_M4A_WATCHDOG_TIMEOUT";
-            log.event("CONTROL","FIXED_M4A_WATCHDOG_TIMEOUT",
-                "pcmBytes",pcmBytes,"frames",receivedFrames);
-            stop=true;
-            Process proc=follower;if(proc!=null&&proc.isAlive())proc.destroy();
-          }
-        },"IXIO-Fixed-M4A-Auto-Finish").start();
+        mirroredBytes=mirror.length();
       }
-      notifyState("16kHz PCM → IXIO 원본 speechSDK 직접 전송 · 입력 대기",false);
-      followPcm(mirror);
-      if("NOT_STARTED".equals(endReason))
-        endReason=stop?"USER_STOP":"AAC_FOLLOWER_EXIT";
+      faadSource=new GithubFaad2PcmSource(log);
+      notifyState("GitHub FAAD2 → PCM 512샘플 FIFO → IXIO 원본 STT",false);
+      faadSource.pump(context,mirror,!folder,pcm->{
+        DirectPcmKoreanStt target=stt;
+        if(target==null)throw new IOException("Original IXIO STT unavailable");
+        target.accept(pcm);
+        pcmBytes+=pcm.length;
+        if(pcmBytes<=32768 || pcmBytes%(32000L*5)<1024)
+          log.event("STT","GITHUB_FAAD2_PCM_TO_IXIO_FIFO",
+            "bytes",pcmBytes,"samples16k",pcmBytes/2,
+            "queuedBytes",target.queuedBytes(),"consumed",target.recognizedSamples());
+      });
+      endReason=stop?"CALL_STOP_DRAINED":"FAAD2_FILE_COMPLETE";
     }catch(Throwable err){
-      if(!stop){endReason="ERROR_"+err.getClass().getSimpleName();
-        log.error("STT","DIRECT_PIPELINE_FATAL_ERROR",err);}
-      notifyState("직접 STT 오류: "+err.getClass().getSimpleName()+": "+err.getMessage(),false);
+      if(!stop){
+        endReason="ERROR_"+err.getClass().getSimpleName();
+        log.error("FAAD2","GITHUB_EXTERNAL_AAC_PIPELINE_FAILED",err);
+      }
+      notifyState("FAAD2 PCM 오류: "+err.getClass().getSimpleName()+": "+err.getMessage(),false);
     }finally{
       stop=true;
-      Process p=follower;
-      if(p!=null&&p.isAlive())p.destroy();
-      Thread t=copier;if(t!=null){t.interrupt();
-        try{t.join(1800);}catch(InterruptedException e){Thread.currentThread().interrupt();}}
-      StreamingAacPcmDecoder dec=codec;
-      if(dec!=null){try{
-          if(!folder||pcmBytes>0)
-            dec.finish(pcm->{DirectPcmKoreanStt target=stt;if(target!=null)target.accept(pcm);pcmBytes+=pcm.length;});
-        }catch(Throwable e){log.error("AAC","FINAL_DRAIN_FAILURE",e);}
-        dec.close();
+      GithubFaad2PcmSource source=faadSource;
+      if(source!=null)source.requestStop();
+      Thread t=copier;
+      if(t!=null){t.interrupt();
+        try{t.join(1800);}catch(InterruptedException e){Thread.currentThread().interrupt();}
       }
       DirectPcmKoreanStt recognizer=stt;
       if(recognizer!=null){
-        recognizer.finishAndWait();
-        log.event("STT","DIRECT_PCM_DRAIN_SUMMARY",
-            "pcmDurationMs",pcmBytes/32,"recognizedSamples",recognizer.recognizedSamples(),
-            "sttCompleted",recognizer.completed(),
-            "sttError",String.valueOf(recognizer.failure()));
-        if(recognizer.failure()!=null||!recognizer.completed()){
+        recognizer.finishAndWait(); // drain ALL FIFO, including last queued 32ms.
+        log.event("STT","FAAD2_IXIO_QUEUE_FULL_DRAIN",
+          "pcmBytes",pcmBytes,"queuedBytes",recognizer.queuedBytes(),
+          "recognizedSamples",recognizer.recognizedSamples(),
+          "sdkCompleted",recognizer.completed(),"error",String.valueOf(recognizer.failure()));
+        if(recognizer.failure()!=null||!recognizer.completed())
           endReason="ERROR_IXIO_STT_NOT_COMPLETE";
-          log.event("STT","IXIO_INCOMPLETE_RESULT_NOT_SUCCESS",
-            "sdkCompleted",recognizer.completed(),
-            "failure",String.valueOf(recognizer.failure()),
-            "queueBytes",recognizer.queuedBytes(),
-            "recognizedSamples",recognizer.recognizedSamples());
-        }
         stt=null;
       }
-      // Whole-file tests must match the declared duration of the selected M4A.
-      if(!folder&&expectedSourceDurationUs>0){
-        long decodedDurationUs=pcmBytes*1000000L/32000L;
-        log.event("TEST","OFFLINE_SOURCE_DURATION_CONFORMANCE",
-          "sourceDurationUs",expectedSourceDurationUs,
-          "decodedPcmDurationUs",decodedDurationUs,
-          "durationDeltaUs",expectedSourceDurationUs-decodedDurationUs);
-        if(decodedDurationUs+2000000L<expectedSourceDurationUs){
-          endReason="ERROR_OFFLINE_FILE_TRUNCATED";
-          log.event("TEST","OFFLINE_FILE_SHORT_DECODE_NOT_SUCCESS",
-            "expectedUs",expectedSourceDurationUs,"actualUs",decodedDurationUs);
-        }
-      }
       File temp=mirror;
-      if(temp!=null){
-        boolean deleted=temp.delete();
-        log.event("MIRROR","TEMP_CLEANED","deleted",deleted,
-          "bytes",mirroredBytes);
-      }
-      log.event("APP","SESSION_END","reason",endReason,
-        "pcmBytes",pcmBytes,"pcmDurationMs",pcmBytes/32,
-        "frames",receivedFrames,"sourceBytes",mirroredBytes);
+      if(temp!=null)log.event("MIRROR","FAAD2_TEMP_CLEANED",
+        "deleted",temp.delete(),"bytes",mirroredBytes);
+      log.event("APP","FAAD2_SESSION_END","reason",endReason,
+        "sourceBytes",mirroredBytes,"pcmBytes",pcmBytes,
+        "pcmChunks512",source==null?0:source.emittedChunks());
       log.diagnosticSummary();
       finished=true;
-      finalStatus="종료 · "+endReason+" · 직접 STT 입력 "+String.format(Locale.US,"%.2f",pcmBytes/32000.0)+"초";
-      callback.state(finalStatus,true);
+      callback.state("종료 · "+endReason+" · PCM "+
+        String.format(Locale.US,"%.2f",pcmBytes/32000.0)+"초",true);
     }
   }
 
-  private void readCompletedSamsungM4a(Uri file)throws Exception {
-    MediaExtractor extractor=new MediaExtractor();
-    try{
-      extractor.setDataSource(context,file,null);
-      int audioTrack=-1;
-      for(int i=0;i<extractor.getTrackCount();i++){
-        MediaFormat format=extractor.getTrackFormat(i);
-        String mime=format.getString(MediaFormat.KEY_MIME);
-        if(MediaFormat.MIMETYPE_AUDIO_AAC.equals(mime)){
-          int rate=format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-          int ch=format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-          if(rate!=48000||ch!=1)
-            throw new IOException("Original M4A must be AAC 48kHz mono; got "+rate+"/"+ch);
-          audioTrack=i;break;
-        }
-      }
-      if(audioTrack<0)throw new IOException("No AAC audio track in original Samsung M4A");
-      MediaFormat sourceFormat=extractor.getTrackFormat(audioTrack);
-      if(sourceFormat.containsKey(MediaFormat.KEY_DURATION))
-        expectedSourceDurationUs=sourceFormat.getLong(MediaFormat.KEY_DURATION);
-      log.event("TEST","OFFLINE_ORIGINAL_FILE_DURATION",
-        "selectedUri",file.toString(),
-        "expectedUs",expectedSourceDurationUs,
-        "expectedSeconds",expectedSourceDurationUs/1000000.0);
-      extractor.selectTrack(audioTrack);
-      int frames=0;
-      long previousTime=-1;
-      ByteBuffer unit=ByteBuffer.allocateDirect(65536);
-      while(!stop){
-        unit.clear();
-        int size=extractor.readSampleData(unit,0);
-        if(size<0)break;
-        if(size>unit.capacity()||size==0)
-          throw new IOException("Invalid AAC access unit size "+size);
-        long time=extractor.getSampleTime();
-        if(time>=0&&time<previousTime)
-          throw new IOException("Original AAC timestamps moved backwards");
-        previousTime=time;
-        unit.position(0);unit.limit(size);
-        byte[] packet=new byte[size];
-        unit.get(packet);
-        codec.feedRawAacFrame(packet,pcm->{
-          DirectPcmKoreanStt original=stt;
-          if(original==null)throw new IOException("IXIO original SDK unavailable");
-          original.accept(pcm);
-          pcmBytes+=pcm.length;
-          if(pcmBytes/32000>lastStatusMs.get()){
-            lastStatusMs.set(pcmBytes/32000);
-            log.event("TEST","ORIGINAL_IXIO_PCM_QUEUED",
-              "pcmBytes",pcmBytes,"seconds",pcmBytes/32000.0,
-              "originalModelReady",original.isReady(),
-              "samplesRecognized",original.recognizedSamples());
-          }
-        });
-        receivedFrames=++frames;
-        if(!extractor.advance())break;
-      }
-      log.event("TEST","OFFLINE_M4A_AAC_DECODE_COMPLETED",
-        "aacFrames",frames,"pcmBytes",pcmBytes,
-        "pcmDurationSeconds",pcmBytes/32000.0);
-      if(frames==0)throw new IOException("Original M4A contained no decodable AAC frames");
-    }finally{extractor.release();}
-  }
-
-  private void followPcm(File mirrorFile)throws Exception {
-    File elf=new File(context.getApplicationInfo().nativeLibraryDir,"libaac-mdat-follow.so");
-    if(!elf.isFile()||!elf.canExecute())
-      throw new IOException("AAC follower binary not installed: "+elf);
-    ProcessBuilder builder=new ProcessBuilder(elf.getAbsolutePath(),
-        mirrorFile.getAbsolutePath(),"48000","1");
-    builder.redirectErrorStream(false);
-    String old=builder.environment().get("LD_LIBRARY_PATH");
-    builder.environment().put("LD_LIBRARY_PATH",
-      context.getApplicationInfo().nativeLibraryDir+(old==null?"":":"+old));
-    Process p=builder.start();
-    follower=p;
-    log.event("FOLLOW","PERSISTENT_PROCESS_STARTED",
-       "path",elf.getName(),"mirrorBytes",mirroredBytes,
-       "sttProcessStarted",true,"sttRoute","DIRECT_PCM_TO_SHERPA");
-    stderr=new Thread(()->{
-      try(BufferedReader reader=new BufferedReader(
-          new InputStreamReader(p.getErrorStream(),StandardCharsets.UTF_8))){
-        String line;
-        while((line=reader.readLine())!=null)
-          log.event("FOLLOW","NATIVE_MESSAGE","line",line);
-      }catch(Throwable e){if(!stop)log.error("FOLLOW","STDERR_READ_ERROR",e);}
-    },"Recording-AAC-Follower-Log");
-    stderr.start();
-    byte[] header=new byte[12];
-    long prevSource=-1;
-    try(DataInputStream input=new DataInputStream(
-        new BufferedInputStream(p.getInputStream(),65536))){
-      while(!stop){
-        try{input.readFully(header);}
-        catch(IOException e){
-          if(stop){log.event("FOLLOW","EXPECTED_STOP_READER_UNBLOCKED",
-             "exception",e.getClass().getSimpleName());break;}
-          throw e;
-        }
-        int n=(header[0]&255)|((header[1]&255)<<8)|
-            ((header[2]&255)<<16)|((header[3]&255)<<24);
-        long offset=0;
-        for(int i=0;i<8;i++)offset|=((long)(header[4+i]&255))<<(8*i);
-        if(n<8||n>8192||offset<=prevSource)
-          throw new IOException("AAC follower packet length/cursor invalid: "+n+"/"+offset);
-        byte[] adts=new byte[n];
-        try{input.readFully(adts);}
-        catch(IOException e){if(stop)break;throw e;}
-        final boolean inLiveWindow=confirmedFileBytes==0 ||
-            offset>=Math.max(0L,confirmedFileBytes-2048);
-        codec.feedAdtsFrame(adts,pcm->{
-          if(!inLiveWindow){skippedPreLiveFrames++;return;}
-          DirectPcmKoreanStt target=stt;
-          if(target==null)throw new IOException("Direct STT sink not initialized");
-          target.accept(pcm);
-          pcmBytes+=pcm.length;
-          if(pcmBytes/32000>lastStatusMs.get()){
-            lastStatusMs.set(pcmBytes/32000);
-            log.event("STT","DIRECT_PCM_SENT","pcmBytes",pcmBytes,
-              "audioSeconds",pcmBytes/32000.0,"modelReady",target.isReady(),
-              "queuedBytes",target.queuedBytes(),
-              "recognizedSamples",target.recognizedSamples());
-          }
-        });
-        prevSource=offset;
-        receivedFrames++;
-        if(receivedFrames<=3||receivedFrames%12==0)
-          log.event("AAC","FOLLOW_FRAME_CONSUMED","frame",receivedFrames,
-            "compressedBytes",n,"sourceCursor",offset,
-            "pcmBytes",pcmBytes,"pcmTimeMs",pcmBytes/32);
-      }
-    }finally{
-      p.destroy();
-      if(stderr!=null){
-        try{stderr.join(1600);}catch(InterruptedException e){Thread.currentThread().interrupt();}
-      }
-      follower=null;
-    }
-  }
 }
