@@ -1,0 +1,28 @@
+name: Zocbo free past-exam network diagnosis
+on:
+  push:
+    branches: [research/zocbo-free-reading-js-capture-20261123]
+    paths: [.github/workflows/zocbo-connection-diagnostic.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Distinguish DNS/TCP/TLS/HTTP and app-only blocks
+        shell: bash
+        run: |
+          set +e
+          for host in www.google.com m.zocbo.com link.zocbo.com; do
+            echo "DNS $host"
+            getent ahostsv4 "$host" | head -4
+          done
+          for url in 'https://www.google.com/' 'https://m.zocbo.com/' 'https://m.zocbo.com/Freetrial/FreeReading.asp' 'https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y' 'https://link.zocbo.com/goWebView/?type=9'; do
+            echo "REQUEST $url"
+            for ua in 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36' 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36'; do
+              curl -sS -I --http1.1 --connect-timeout 5 --max-time 9 --max-redirs 0 -A "$ua" --output /dev/null --write-out 'RESULT code=%{http_code} remote_ip=%{remote_ip} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} firstbyte=%{time_starttransfer} total=%{time_total} errmsg=%{errormsg}\n' "$url"
+              echo "curl_exit=$?"
+            done
+          done
