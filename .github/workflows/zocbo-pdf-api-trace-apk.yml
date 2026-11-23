@@ -2,8 +2,7 @@ name: Zocbo Native PDF API Diagnostic APK Build
 on:
   push:
     branches:
-      - feature/zocbo-diagnostic-apk-20261123
-      - research/zocbo-network-failure-20261123
+      - feature/zocbo-pdf-api-trace-20261123
     paths:
       - .github/workflows/zocbo-pdf-api-trace-apk.yml
       - scripts/zocbo_diagnostic/**
