@@ -28,3 +28,13 @@ jobs:
           curl -fL --retry 3 'https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/sherpa-onnx/c-api/c-api.h' -o /tmp/sherpa-headers/sherpa-onnx/c-api/c-api.h
           c++ -std=c++17 -Wall -Wextra -Werror -pedantic -fsyntax-only -Ihitel-native-stt/include -I/tmp/sherpa-headers hitel-native-stt/src/sherpa_backend.cpp
           echo 'SHERPA_ADAPTER_SYNTAX_OK'
+
+      - name: Verify Android JNI C++ entrypoint declarations
+        run: |
+          set -euo pipefail
+          JAVA_HOME_REAL=$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")
+          c++ -std=c++17 -Wall -Wextra -Werror -pedantic -fsyntax-only \
+            -Ihitel-native-stt/include -I"${JAVA_HOME_REAL}/include" \
+            -I"${JAVA_HOME_REAL}/include/linux" hitel-native-stt/src/native_stt_jni.cpp
+          javac -d /tmp/hitel-jni-classes speaker-standalone/app/src/main/java/app/hitel/speakeronly/NativeSttBridge.java
+          echo JNI_SOURCE_AND_JAVA_WRAPPER_SYNTAX_OK
