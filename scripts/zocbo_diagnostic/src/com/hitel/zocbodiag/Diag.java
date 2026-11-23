@@ -18,6 +18,9 @@ import android.webkit.CookieManager;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.text.InputType;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -362,27 +365,65 @@ public final class Diag implements View.OnClickListener {
       bar.setOrientation(LinearLayout.HORIZONTAL);
       bar.setBackgroundColor(Color.argb(215,17,30,45));
       Diag listener=new Diag(a);
-      for(String label:new String[]{"로그","복사","공유","원본","저장","지우기"}) {
+      for(String label:new String[]{"로그","복사","공유","원본","POST·PDF","저장","지우기"}) {
         Button btn=new Button(a);
         btn.setText(label);
         btn.setTag(label);
         btn.setTextSize(10);
         btn.setMinHeight(0);btn.setMinimumHeight(0);
         btn.setPadding(dp(a,2),0,dp(a,2),0);
-        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,51),dp(a,38));
+        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,"POST·PDF".equals(label)?73:51),dp(a,38));
         bar.addView(btn,bp);btn.setOnClickListener(listener);
       }
+      HorizontalScrollView hs=new HorizontalScrollView(a);
+      hs.setHorizontalScrollBarEnabled(false);
+      hs.setFillViewport(false);
+      hs.addView(bar,new HorizontalScrollView.LayoutParams(
+        ViewGroup.LayoutParams.WRAP_CONTENT,dp(a,38)));
       FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(
-        ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,
+        ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT,
         Gravity.TOP|Gravity.RIGHT);
       lp.topMargin=dp(a,38);
-      root.addView(bar,lp);
+      root.addView(hs,lp);
       log("DIAG_PANEL","installed Activity="+a.getClass().getName()+" Android="+Build.VERSION.SDK_INT);
       cookieState();
     } catch(Throwable t) {android.util.Log.w(TAG,"UI init failed: "+t.getClass().getSimpleName());}
   }
   @Override public void onClick(View v) {
     String op=String.valueOf(v.getTag());
+    if(op.equals("POST·PDF")) {
+      int last=NetTrace.lastModelExamNo();
+      String incoming=null;
+      try {
+        if(activity.getIntent()!=null)
+          incoming=activity.getIntent().getStringExtra("EXTRA_PDF_EX_PAPR_NO");
+      }catch(Throwable ignored){}
+      if(last<=0 && incoming!=null && incoming.matches("[0-9]{1,10}")) {
+        try{last=Integer.parseInt(incoming);}catch(NumberFormatException ignored){}
+      }
+      final EditText box=new EditText(activity);
+      box.setSingleLine(true);
+      box.setInputType(InputType.TYPE_CLASS_NUMBER);
+      box.setText(String.valueOf(last>0?last:15958873));
+      box.setSelectAllOnFocus(true);
+      box.setPadding(dp(activity,16),dp(activity,10),dp(activity,16),dp(activity,10));
+      new AlertDialog.Builder(activity)
+        .setTitle("현재 로그인 세션으로 PDF POST")
+        .setMessage("원본 앱의 HTTP 클라이언트와 인증 헤더 설정을 그대로 사용하여 선택한 시험지를 조회합니다. 정상 조회는 열람 횟수 또는 이용권에 영향을 줄 수 있습니다. 응답으로 받은 PDF만 다운로드 폴더에 저장합니다.")
+        .setView(box)
+        .setNegativeButton("취소",null)
+        .setPositiveButton("POST 실행",(d,which)->{
+          try {
+            int exam=Integer.parseInt(box.getText().toString().trim());
+            if(exam<=0)throw new NumberFormatException("non-positive");
+            PdfReplay.start(activity,exam);
+          }catch(NumberFormatException e){
+            log("MANUAL_POST_INPUT_ERROR","invalid exam id");
+            Toast.makeText(activity,"유효한 시험지 번호를 입력해 주십시오.",Toast.LENGTH_LONG).show();
+          }
+        }).show();
+      return;
+    }
     if(op.equals("지우기")) {
       synchronized(Diag.class){
         live.setLength(0);
