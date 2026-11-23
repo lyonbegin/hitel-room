@@ -1,0 +1,133 @@
+name: Zocbo R21 Original App Embedded WebView Build And Emulator
+on:
+  push:
+    branches: [fix/zocbo-r21-main-onresume-entry-hook-20261124]
+    paths: [.github/workflows/zocbo-r21-original-main-hook-build.yml, .github/qa/zocbo_r21_original_factory_qa.py, scripts/zocbo_diagnostic/src/**, scripts/zocbo_diagnostic/fix_main_onresume_entry.py]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: zocbo-r21-original-app
+  cancel-in-progress: true
+jobs:
+  original-main-build-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original-app-derived R18 base and verify digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/r21-app
+          curl --retry 3 --connect-timeout 15 --max-time 100 -fsSL https://github.com/lyonbegin/hitel-room/releases/download/zocbo-nine-region-collector-20261124-r18-test/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk -o work/r21-base.apk
+          echo '59e7919897bd75b34fc51d050dc1e66548564ba7ecdf996ba1c7eee47c12cb4a  work/r21-base.apk' | sha256sum -c -
+      - name: Compile new instrumentation into single diagnostic DEX
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLATFORM="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
+          BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/r21-classes work/r21-dex
+          javac -source 8 -target 8 -Xlint:-options -cp "$PLATFORM/android.jar" -d work/r21-classes $(find scripts/zocbo_diagnostic/src -name '*.java')
+          "$BUILD/d8" --min-api 23 --lib "$PLATFORM/android.jar" --output work/r21-dex $(find work/r21-classes -name '*.class')
+          test -s work/r21-dex/classes.dex
+          echo R21_JAVA_DEX_COMPILE_PASS
+      - name: Decode original APK and repair MainActivity onResume hook at first instruction
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool
+          apktool d -f -r -o work/r21-decoded work/r21-base.apk
+          python3 -u scripts/zocbo_diagnostic/fix_main_onresume_entry.py work/r21-decoded
+          apktool b -o work/r21-patched-original.apk work/r21-decoded
+          test -s work/r21-patched-original.apk
+          echo R21_ORIGINAL_MAIN_ENTRY_SMALI_REBUILT
+      - name: Replace ONLY previously instrumented classes dex in original merged app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile,pathlib,re
+          base=pathlib.Path("work/r21-patched-original.apk")
+          out=pathlib.Path("work/r21-unsigned.apk")
+          compiled=pathlib.Path("work/r21-dex/classes.dex").read_bytes()
+          assert b"OriginalInAppMetadataCollector" in compiled
+          with zipfile.ZipFile(base) as original:
+            dexes=[n for n in original.namelist() if re.fullmatch(r"classes\d*\.dex",n)]
+            targets=[n for n in dexes if b"zocbo_free_exam_trace.txt" in original.read(n)]
+            print("R21_ORIGINAL_DEXES",len(dexes),"replace",targets,flush=True)
+            assert len(targets)==1,"Multiple or missing old diagnostic DEX"
+            with zipfile.ZipFile(out,"w") as output:
+              for entry in original.infolist():
+                name=entry.filename
+                if name.startswith("META-INF/") and name.upper().endswith((".RSA",".SF",".DSA")):
+                  continue
+                output.writestr(entry,compiled if name==targets[0] else original.read(name))
+          with zipfile.ZipFile(out) as z:
+            assert sum(b"OriginalInAppMetadataCollector" in z.read(n) for n in dexes)==1
+            assert sum(b"zocbo_free_exam_trace.txt" in z.read(n) for n in dexes)==1
+          print("R21_ORIGINAL_APK_DEX_SWAP_VERIFIED",flush=True)
+          PY
+      - name: Zipalign, sign and verify R21 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD/zipalign" -f -p 4 work/r21-unsigned.apk work/r21-aligned.apk
+          keytool -genkeypair -keystore work/r21-sign.jks -alias r21 -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=HITEL Diagnostic R21,O=Test,C=KR" -noprompt
+          "$BUILD/apksigner" sign --ks work/r21-sign.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias r21 --out work/r21-app.apk work/r21-aligned.apk
+          "$BUILD/apksigner" verify --verbose work/r21-app.apk
+          sha256sum work/r21-app.apk | tee work/r21-app/SHA256SUMS.txt
+          echo R21_ORIGINAL_APK_BUILD_PASS
+      - name: Enable KVM access before x86_64 Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -l /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          echo R21_KVM_READY
+      - name: Run original MainActivity inside Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
+          script: |
+            set -euo pipefail
+            cp work/r21-app.apk work/r21-source.apk
+            python3 -u .github/qa/zocbo_r21_original_factory_qa.py | tee work/r21-app/runtime.txt
+            grep -q 'R21_REAL_MAIN_TO_ORIGINAL_COMMON_WEBVIEW_FACTORY_PASS' work/r21-app/runtime.txt
+      - name: Publish exactly tested signed R21 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=zocbo-original-main-inapp-r21-20261124
+          cp work/r21-app.apk work/Zocbo_4.3.11_Original_Main_InApp_R21_TEST.apk
+          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false --title "R21 Original Zocbo Main in-app list collector" --notes "R21 TEST. Runs the original MainActivity and attaches metadata collection to the existing source WebView; no separate list Activity. Emulator results are in Actions artifacts; no live server success is claimed without data." work/Zocbo_4.3.11_Original_Main_InApp_R21_TEST.apk
+          gh release download "$TAG" -p '*.apk' -D work/r21-app
+          test "$(sha256sum work/r21-app.apk | cut -d' ' -f1)" = "$(sha256sum work/r21-app/Zocbo_4.3.11_Original_Main_InApp_R21_TEST.apk | cut -d' ' -f1)"
+          echo R21_RELEASE_SHA256_BYTE_MATCH_PASS
+      - name: Preserve emulator proof and rebuilt APK digest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r21-original-main-inapp-evidence
+          retention-days: 14
+          path: |
+            work/r21-app/
+            work/r21-native-proof/
+            work/r21-app.apk
