@@ -32,6 +32,10 @@ final class DirectPcmKoreanStt {
   }
 
   static final String MODEL_DIR="ixio-stt";
+  // ART binds each JNI .so to the initiating ClassLoader. All original
+  // IXIO SDK sessions must use one DexClassLoader for this app process.
+  private static final Object IXIO_LOADER_LOCK=new Object();
+  private static volatile ClassLoader sharedIxioLoader;
   private static final int RATE=16000;
   private static final int CHANNEL=0;
   private static final int QUEUE_CAPACITY=512;
@@ -116,26 +120,36 @@ final class DirectPcmKoreanStt {
    * reimplementation of IXIO's recognition algorithm.
    */
   ClassLoader ixioClassLoader()throws Exception {
-    File jar=new File(context.getCodeCacheDir(),"ixio-original-sdk.jar");
-    if(!jar.isFile()||jar.length()==0){
-      File pending=new File(context.getCodeCacheDir(),"ixio-original-sdk.pending");
-      if(pending.exists()&&!pending.delete())throw new IOException("Cannot reset IXIO SDK staging");
-      try(InputStream in=context.getAssets().open("ixio/ixio-original-sdk.jar");
-          FileOutputStream out=new FileOutputStream(pending)){
-        byte[] buf=new byte[65536];int n;
-        while((n=in.read(buf))!=-1)out.write(buf,0,n);
-        out.getFD().sync();
+    ClassLoader cached=sharedIxioLoader;
+    if(cached!=null)return cached;
+    synchronized(IXIO_LOADER_LOCK){
+      cached=sharedIxioLoader;
+      if(cached!=null)return cached;
+      File jar=new File(context.getCodeCacheDir(),"ixio-original-sdk.jar");
+      if(!jar.isFile()||jar.length()==0){
+        File pending=new File(context.getCodeCacheDir(),"ixio-original-sdk.pending");
+        if(pending.exists()&&!pending.delete())throw new IOException("Cannot reset IXIO SDK staging");
+        try(InputStream in=context.getAssets().open("ixio/ixio-original-sdk.jar");
+            FileOutputStream out=new FileOutputStream(pending)){
+          byte[] buf=new byte[65536];int n;
+          while((n=in.read(buf))!=-1)out.write(buf,0,n);
+          out.getFD().sync();
+        }
+        if(!pending.setReadOnly())
+          throw new IOException("Android requires read-only dynamically loaded IXIO code");
+        if(!pending.renameTo(jar))
+          throw new IOException("Cannot activate original IXIO SDK dex");
       }
-      if(!pending.setReadOnly())
-        throw new IOException("Android requires read-only dynamically loaded IXIO code");
-      if(!pending.renameTo(jar))
-        throw new IOException("Cannot activate original IXIO SDK dex");
+      if(jar.canWrite())throw new IOException("IXIO DEX jar must be read-only");
+      ClassLoader created=new DexClassLoader(jar.getAbsolutePath(),
+        context.getCodeCacheDir().getAbsolutePath(),
+        context.getApplicationInfo().nativeLibraryDir,
+        context.getClassLoader());
+      // Volatile publication and the monitor prevent a different
+      // DexClassLoader from loading the same sherpa-onnx-jni.so.
+      sharedIxioLoader=created;
+      return created;
     }
-    if(jar.canWrite())throw new IOException("IXIO DEX jar must be read-only");
-    return new DexClassLoader(jar.getAbsolutePath(),
-      context.getCodeCacheDir().getAbsolutePath(),
-      context.getApplicationInfo().nativeLibraryDir,
-      context.getClassLoader());
   }
 
   private void work(){
@@ -155,6 +169,9 @@ final class DirectPcmKoreanStt {
       File bpe=model("bpe.vocab");
       listener.status("IXIO 원본 speechSDK 및 STT 모델 초기화 중");
       ClassLoader loader=ixioClassLoader();
+      log.event("STT","IXIO_SHARED_CLASSLOADER_ACQUIRED",
+        "loaderIdentity",System.identityHashCode(loader),
+        "loaderType",loader.getClass().getName(),"singleProcessLoader",true);
       Class<?> klass=loader.loadClass("com.lguplus.ixispeech_ktn.speechSDK");
       sdk=klass.getDeclaredConstructor().newInstance();
       release=klass.getMethod("release");
