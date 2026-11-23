@@ -1,0 +1,74 @@
+name: Zocbo Diagnostic APK Android Emulator QA
+on:
+  push:
+    branches:
+      - feature/zocbo-diagnostic-apk-20261123
+    paths:
+      - .github/workflows/zocbo-diagnostic-emulator-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  emulator-install-and-launch:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-3
+          run-id: 45102847087
+          github-token: ${{ github.token }}
+          path: test-apk
+      - name: Verify downloaded APK path and checksum
+        shell: bash
+        run: |
+          set -euxo pipefail
+          find test-apk -type f -maxdepth 3 -printf '%p %s\n'
+          APK="$(find test-apk -iname '*.apk' -type f | head -1)"
+          test -n "$APK"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "f1e614a418c4cb2eea54814368b509fce2222676225169f7084569328ba0f575"
+          mkdir -p qa-logs
+          echo "$APK" > qa-logs/apk-path.txt
+      - name: Android emulator real install, launch and visible button test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            APK="$(cat qa-logs/apk-path.txt)"
+            adb devices
+            adb install "$APK"
+            adb shell pm path com.eduzone.eduzoneviewer
+            adb logcat -c
+            adb shell monkey -p com.eduzone.eduzoneviewer -c android.intent.category.LAUNCHER 1
+            sleep 18
+            adb shell uiautomator dump /sdcard/window.xml || true
+            adb shell cat /sdcard/window.xml > qa-logs/window.xml || true
+            adb shell dumpsys activity activities > qa-logs/activities.txt || true
+            adb logcat -d -v threadtime -t 2000 > qa-logs/logcat.txt || true
+            grep -E '로그|복사|공유|지우기' qa-logs/window.xml || true
+            grep -E -i 'FATAL EXCEPTION|NoClassDefFoundError|VerifyError|com.hitel.zocbodiag' qa-logs/logcat.txt | tail -90 || true
+            if grep -E 'FATAL EXCEPTION:.*|java.lang.VerifyError|NoClassDefFoundError:.*hitel/zocbodiag' qa-logs/logcat.txt; then
+              echo "Startup or instrumentation failure detected"
+              exit 1
+            fi
+            if ! grep -q 'text="복사"' qa-logs/window.xml; then
+              echo "WARN: diagnostic COPY button not visible in UI dump; startup/login may have redirected"
+              exit 12
+            fi
+            echo 'EMULATOR_QA_RESULT=PASS_APK_INSTALL_LAUNCH_AND_COPY_BUTTON_VISIBLE'
+      - name: Upload emulator logcat and actual screen UI hierarchy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-diagnostic-emulator-qa
+          path: qa-logs/
+          retention-days: 14
+          if-no-files-found: warn
