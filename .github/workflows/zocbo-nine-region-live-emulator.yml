@@ -1,0 +1,76 @@
+name: Zocbo R18 Nine Region Live Emulator
+on:
+  push:
+    branches:
+      - fix/zocbo-r18-nine-region-collector-20261124
+    paths:
+      - .github/workflows/zocbo-nine-region-live-emulator.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: zocbo-r18-live-emulator
+  cancel-in-progress: false
+jobs:
+  original-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 29
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Checkout exact R18 collector with source-only metadata
+        uses: actions/checkout@v4
+        with:
+          ref: fix/zocbo-r18-nine-region-collector-20261124
+      - name: Fetch signed R18 APK and verify published GitHub SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/zocbo-nine-region-live
+          TAG=zocbo-nine-region-collector-20261124-r18-test
+          APK=Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk
+          curl --connect-timeout 15 --max-time 90 -fsSL \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK" -o work/r18-live.apk
+          test "$(stat -c%s work/r18-live.apk)" -gt 30000000
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets > work/r18-assets.json
+          EXPECTED="$(python3 -c 'import json;d=json.load(open("work/r18-assets.json"));print(next(a["digest"].split(":")[-1] for a in d["assets"] if a["name"].endswith(".apk")))' )"
+          ACTUAL="$(sha256sum work/r18-live.apk | cut -d ' ' -f1)"
+          test "$EXPECTED" = "$ACTUAL"
+          echo "ZOCBO_NINE_R18_VERIFIED_APK_SHA256=$ACTUAL"
+          test -s .github/qa/zocbo_r18_live_monitor.py
+          if ! gh release view zocbo-nine-region-monitor-20261124 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create zocbo-nine-region-monitor-20261124 -R "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title 'Zocbo 9-region five-minute live status and SQLite checkpoints' \
+              --notes 'Real Android emulator data only. Replayed prior HTML is excluded. Status is updated on 5-minute sampling or when blocked.'
+          fi
+      - name: Configure KVM for real emulator
+        run: sudo chmod 666 /dev/kvm
+      - name: Launch nine source regions Seoul first; write five-minute remote pulse
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
+          script: |
+            set -euo pipefail
+            python3 -u .github/qa/zocbo_r18_live_monitor.py | tee work/zocbo-nine-region-live/runtime.txt
+            grep -q 'ZOCBO_NINE_BATCH_VERIFIED' work/zocbo-nine-region-live/runtime.txt
+      - name: Save actual Android logs/remote progress source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r18-nine-region-live-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: work/zocbo-nine-region-live/
