@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-sudo apt-get update -qq
-sudo apt-get install -y -qq cmake ninja-build ffmpeg
+for exe in cmake ninja ffmpeg cc python3; do command -v "$exe" || { echo "MISSING_BUILD_TOOL=$exe"; exit 19; }; done
 NDK="$ANDROID_HOME/ndk/27.2.12479018"
 if [ ! -x "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang" ]; then
   (yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0") || true
@@ -41,7 +40,9 @@ assert 'moov' in atoms and 'mdat' in atoms
 Path('/tmp/faadv12-no-moov.m4a').write_bytes(out)
 print('FAAD2_NO_MOOV_SOURCE_ATOMS',atoms)
 PY
-/tmp/faadv12-host-decoder /tmp/faadv12-no-moov.m4a --complete > /tmp/faadv12-complete.pcm 2> /tmp/faadv12-complete.log
+if ! timeout 90 /tmp/faadv12-host-decoder /tmp/faadv12-no-moov.m4a --complete > /tmp/faadv12-complete.pcm 2> /tmp/faadv12-complete.log; then
+  echo FAILED_EXTERNAL_FAAD2_DECODE_TEST;tail -60 /tmp/faadv12-complete.log;exit 20
+fi
 tail -15 /tmp/faadv12-complete.log
 test "$(stat -c %s /tmp/faadv12-complete.pcm)" -gt 450000
 grep -F FAAD2_COMPLETE /tmp/faadv12-complete.log
