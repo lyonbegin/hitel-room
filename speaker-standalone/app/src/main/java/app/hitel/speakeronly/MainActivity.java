@@ -141,6 +141,31 @@ public final class MainActivity extends Activity {
     String detected=getSharedPreferences("speaker",MODE_PRIVATE).getString("detectedSource","");
     if(!detected.isEmpty())detectedSource.setText(detected);
     updateDeviceLabel();updateButtons();
+    if("app.hitel.speakeronly.VIRTUAL_CALL_REPLAY".equals(getIntent().getAction())){
+      ui.postDelayed(()->{
+        try{
+          int lag=getIntent().getIntExtra("firstWriteDelayMs",800);
+          int pace=getIntent().getIntExtra("periodMs",300);
+          int bytes=getIntent().getIntExtra("bytesPerPeriod",4900);
+          int stopAfter=getIntent().getIntExtra("stopAfterMs",0);
+          // Real SpeakerService and SpeakerEngine, not a fake STT callback.
+          Intent service=new Intent(this,SpeakerService.class)
+            .setAction(SpeakerService.START)
+            .putExtra(SpeakerService.EX_URI,VirtualM4aDocumentsProvider.TREE.toString())
+            .putExtra(SpeakerService.EX_FOLDER,true)
+            .putExtra(SpeakerService.EX_VIRTUAL,true)
+            .putExtra(SpeakerService.EX_DEVICE,-1);
+          if(Build.VERSION.SDK_INT>=26)startForegroundService(service);
+          else startService(service);
+          VirtualCallReplay.start(this,lag,pace,bytes,stopAfter);
+          source.setText("가상 삼성 녹음폴더: "+VirtualM4aDocumentsProvider.TREE);
+          status.setText("가상 통화 실행 중 · 원본 M4A 증가 파일 · 원본 IXIO STT");
+        }catch(Throwable error){
+          Log.e("IXIO_VIRTUAL_CALL","VIRTUAL_CALL_SETUP_FAILED",error);
+          status.setText("가상 통화 시험 실패: "+error.getMessage());
+        }
+      },400);
+    }
     // Offline emulator regression entry: ADB injects an original (private)
     // model and a real M4A into app-private files before launching. This
     // calls exactly the same one-button test path; no fake STT result.
