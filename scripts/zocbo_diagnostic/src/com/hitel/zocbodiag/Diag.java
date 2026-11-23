@@ -198,6 +198,7 @@ public final class Diag implements View.OnClickListener {
     } catch(Exception e) {log("COOKIE_SNAPSHOT","unavailable:"+e.getClass().getSimpleName());}
   }
   public static void page(WebView w,String currentUrl) {
+    WebForensic.started(w,currentUrl);
     log("ON_PAGE_STARTED",sanitizeUrl(currentUrl));
     try {
       String ua=w.getSettings().getUserAgentString();
@@ -209,6 +210,7 @@ public final class Diag implements View.OnClickListener {
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
     inspectLivePage(w,currentUrl);
+    WebForensic.finished(w,currentUrl);
   }
   private static synchronized String current() {
     StringBuilder b=new StringBuilder("ZOCBO_ORIGINAL_4.3.11(2)_DIAGNOSTIC\n"+
@@ -254,18 +256,28 @@ public final class Diag implements View.OnClickListener {
       if(root.findViewWithTag(TAG)!=null)return;
       LinearLayout bar=new LinearLayout(a);
       bar.setTag(TAG);
-      bar.setOrientation(LinearLayout.HORIZONTAL);
-      bar.setBackgroundColor(Color.argb(215,17,30,45));
+      bar.setOrientation(LinearLayout.VERTICAL);
+      bar.setBackgroundColor(Color.argb(220,17,30,45));
       Diag listener=new Diag(a);
-      for(String label:new String[]{"로그","복사","공유","지우기"}) {
-        Button btn=new Button(a);
-        btn.setText(label);
-        btn.setTag(label);
-        btn.setTextSize(10);
-        btn.setMinHeight(0);btn.setMinimumHeight(0);
-        btn.setPadding(dp(a,2),0,dp(a,2),0);
-        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,51),dp(a,38));
-        bar.addView(btn,bp);btn.setOnClickListener(listener);
+      for(String[] labels:new String[][]{
+        {"로그","복사","공유","지우기"},
+        {"웹덤프","통신감시","ZIP저장","DevTools"}
+      }) {
+        LinearLayout line=new LinearLayout(a);
+        line.setOrientation(LinearLayout.HORIZONTAL);
+        for(String label:labels) {
+          Button btn=new Button(a);
+          btn.setText(label);
+          btn.setTag(label);
+          btn.setTextSize(9);
+          btn.setAllCaps(false);
+          btn.setMinHeight(0);btn.setMinimumHeight(0);
+          btn.setPadding(dp(a,1),0,dp(a,1),0);
+          LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,53),dp(a,37));
+          line.addView(btn,bp);
+          btn.setOnClickListener(listener);
+        }
+        bar.addView(line);
       }
       FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -278,6 +290,10 @@ public final class Diag implements View.OnClickListener {
   }
   @Override public void onClick(View v) {
     String op=String.valueOf(v.getTag());
+    if(op.equals("웹덤프")) { WebForensic.dump(activity); return; }
+    if(op.equals("통신감시")) { WebForensic.toggleNetwork(activity); return; }
+    if(op.equals("ZIP저장")) { WebForensic.save(activity); return; }
+    if(op.equals("DevTools")) { WebForensic.toggleDevTools(activity); return; }
     if(op.equals("지우기")) {
       synchronized(Diag.class){
         live.setLength(0);
