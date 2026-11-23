@@ -23,7 +23,7 @@ public final class ReadingCollectorQaProof {
   public static final String SOURCE="CAPTURED_HTML_QA_ONLY";
   public static final String EXPECTED_SHA256="105e63ffe98c84f8c3dc61ee560e16ddaed266115afefec2d96d3b8c91cf7ab5";
   private ReadingCollectorQaProof(){}
-  private static boolean emulator(){
+  static boolean emulator(){
     String fingerprint=Build.FINGERPRINT==null?"":Build.FINGERPRINT.toLowerCase();
     String model=Build.MODEL==null?"":Build.MODEL.toLowerCase();
     return fingerprint.startsWith("generic")||fingerprint.contains("emulator")||
