@@ -81,6 +81,16 @@ public final class ReadingCollectorController {
   private String previousPageSignature="";
   private int prevTask=-1;
   private int exportMode=0;
+  /** In-process heartbeat proves liveness even when a region/API is stalled. */
+  private final Runnable liveHeartbeat=new Runnable(){
+    @Override public void run(){
+      if(destroyed)return;
+      try{logNine("HEARTBEAT","discovering="+discovering+
+        " running="+running+" loaded="+loaded+" request_pending="+requestPending);}
+      catch(Throwable t){Log.e("ZocboNine","HEARTBEAT_FAILED",t);}
+      ui.postDelayed(this,60000L);
+    }
+  };
 
   static final class AreaScope {
     String name,site,schools,city,district,filter,paid,grade,year,term,subject;
@@ -208,6 +218,7 @@ public final class ReadingCollectorController {
       Log.i("ZocboNine","AUTO_NINE_REGION_ATTEMPT requested=true");
       ui.postDelayed(()->{if(!destroyed)startNationwide();},1500);
     }
+    ui.postDelayed(liveHeartbeat,60000L);
     Diag.log("COLLECTOR_ACTIVITY_READY","local-db="+ReadingCollectorStore.DB_NAME+" original-WebView="+safeUrl(sourceUrl).split("\\?")[0]);
   }
 
@@ -816,6 +827,7 @@ public final class ReadingCollectorController {
   }
   public void destroy(){
     destroyed=true;running=false;discovering=false;
+    ui.removeCallbacks(liveHeartbeat);
     activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     try{web.removeJavascriptInterface("hitelCollectorNative");web.stopLoading();web.destroy();}
     catch(Throwable ignored){}
