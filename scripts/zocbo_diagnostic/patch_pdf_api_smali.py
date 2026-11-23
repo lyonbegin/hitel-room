@@ -51,10 +51,10 @@ for f in paths:
       s,n=patch_builder(original,s,PDF)
       touched[1]+=n
     if is_request_model and s.startswith(".method") and '<init>(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V' in s and REQUEST_MODEL not in s:
-      pattern=re.compile(r"(?m)^    return-void\\s*$")
+      pattern=re.compile(r"(?m)^    return-void[ ]*$")
       def insert_constructor(z):
         touched[3]+=1
-        return "    invoke-static {p0}, "+REQUEST_MODEL+"\\n"+z.group(0)
+        return "    invoke-static {p0}, "+REQUEST_MODEL+chr(10)+z.group(0)
       s=pattern.sub(insert_constructor,s,count=1)
     if '->getPdfPath()Ljava/lang/String;' in s and MODEL not in s:
       # The getter result must be copied to a register immediately after invocation.
