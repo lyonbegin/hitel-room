@@ -261,7 +261,7 @@ public final class Diag implements View.OnClickListener {
       Diag listener=new Diag(a);
       for(String[] labels:new String[][]{
         {"로그","복사","공유","지우기"},
-        {"웹덤프","통신감시","ZIP저장","DevTools"}
+        {"웹덤프","JS전체","통신감시","ZIP저장","DevTools"}
       }) {
         LinearLayout line=new LinearLayout(a);
         line.setOrientation(LinearLayout.HORIZONTAL);
@@ -273,7 +273,7 @@ public final class Diag implements View.OnClickListener {
           btn.setAllCaps(false);
           btn.setMinHeight(0);btn.setMinimumHeight(0);
           btn.setPadding(dp(a,1),0,dp(a,1),0);
-          LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,53),dp(a,37));
+          LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,52),dp(a,37));
           line.addView(btn,bp);
           btn.setOnClickListener(listener);
         }
@@ -291,6 +291,7 @@ public final class Diag implements View.OnClickListener {
   @Override public void onClick(View v) {
     String op=String.valueOf(v.getTag());
     if(op.equals("웹덤프")) { WebForensic.dump(activity); return; }
+    if(op.equals("JS전체")) { WebForensic.collectPageSources(activity); return; }
     if(op.equals("통신감시")) { WebForensic.toggleNetwork(activity); return; }
     if(op.equals("ZIP저장")) { WebForensic.save(activity); return; }
     if(op.equals("DevTools")) { WebForensic.toggleDevTools(activity); return; }
