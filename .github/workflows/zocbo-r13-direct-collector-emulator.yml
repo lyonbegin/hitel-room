@@ -5,6 +5,7 @@ on:
       - feature/zocbo-pdf-api-trace-20261123
     paths:
       - .github/workflows/zocbo-r13-direct-collector-emulator.yml
+      - scripts/zocbo_diagnostic/emulator_direct_collector.py
   workflow_dispatch:
 permissions:
   contents: read
