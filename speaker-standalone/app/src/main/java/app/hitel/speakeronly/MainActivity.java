@@ -39,6 +39,7 @@ public final class MainActivity extends Activity {
   private TextView header,source,detectedSource,status,deviceSummary,explanation,liveTranscript;
   private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton,modelButton,quickTestButton;
   private boolean startQuickTestAfterPick;
+  private Button nativeModeButton;
   private boolean receiverRegistered;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
@@ -65,6 +66,14 @@ public final class MainActivity extends Activity {
   Button button(LinearLayout root,String value){
     Button b=new Button(this);b.setText(value);root.addView(b);return b;
   }
+  private void refreshNativeEngineModeButton(){
+    if(nativeModeButton==null)return;
+    boolean selected=getSharedPreferences("speaker",MODE_PRIVATE)
+      .getBoolean("nativeSttExperiment",false);
+    nativeModeButton.setText(selected?
+      "STT 엔진: 실험 네이티브 C++ (선택됨) · 원본 IXIO로 전환":
+      "STT 엔진: 기존 IXIO 원본 (선택됨) · 실험 네이티브로 전환");
+  }
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
     deviceId=getSharedPreferences("speaker",MODE_PRIVATE).getInt("routeId",-1);
@@ -80,6 +89,23 @@ public final class MainActivity extends Activity {
     text(root,"삼성 통화녹음 파일 증가분을 16kHz PCM으로 변환하여 IXIO 원본 speechSDK.SpeechInference()에 입력합니다. HITEL14 공개 인식기는 사용하지 않습니다.",13);
 
     text(root,"1. IXIO 원본 STT 모델 선택 (최초 1회)",17);
+    nativeModeButton=button(root,"STT 엔진 선택");
+    refreshNativeEngineModeButton();
+    nativeModeButton.setOnClickListener(v->{
+      if(active()){
+        status.setText("실험 엔진은 통화/파일 시험을 종료한 뒤 변경하십시오.");
+        return;
+      }
+      boolean old=getSharedPreferences("speaker",MODE_PRIVATE)
+        .getBoolean("nativeSttExperiment",false);
+      getSharedPreferences("speaker",MODE_PRIVATE).edit()
+        .putBoolean("nativeSttExperiment",!old).apply();
+      refreshNativeEngineModeButton();
+      status.setText(!old?
+        "다음 시험부터 실험 C++ STT를 사용합니다. 실패해도 기존 IXIO SDK와 APK는 보존됩니다.":
+        "다음 시험부터 이전 IXIO 원본 speechSDK를 사용합니다.");
+    });
+    text(root,"실험 C++ STT는 다른 앱 식별자로 설치되며 원본 녹음/FIFO는 그대로 사용합니다. 원본 IXIO 모델과 공개 Sherpa 인식기의 호환성은 실기기로 검증해야 합니다.",12);
     modelButton=button(root,"IXIO 원본 STT.zip 가져오기");
     modelButton.setOnClickListener(v->selectOriginalIxioSttZip());
     text(root,"IXIO 원본 STT 4.0.4 ZIP의 encoder.ort / decoder.ort / joiner.ort / tokens.txt / bpe.vocab / vad.onnx가 필요합니다. 모델이 없으면 다른 인식기로 대체하지 않습니다.",12);
