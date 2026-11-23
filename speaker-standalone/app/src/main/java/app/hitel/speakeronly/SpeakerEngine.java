@@ -51,6 +51,7 @@ final class SpeakerEngine {
   private volatile long mirroredBytes;
   private volatile long receivedFrames;
   private volatile long pcmBytes;
+  private volatile long expectedSourceDurationUs=-1;
   private volatile String endReason="NOT_STARTED";
   private volatile int requestedDeviceId;
   private volatile DirectPcmKoreanStt stt;
@@ -406,7 +407,28 @@ final class SpeakerEngine {
             "pcmDurationMs",pcmBytes/32,"recognizedSamples",recognizer.recognizedSamples(),
             "sttCompleted",recognizer.completed(),
             "sttError",String.valueOf(recognizer.failure()));
+        if(recognizer.failure()!=null||!recognizer.completed()){
+          endReason="ERROR_IXIO_STT_NOT_COMPLETE";
+          log.event("STT","IXIO_INCOMPLETE_RESULT_NOT_SUCCESS",
+            "sdkCompleted",recognizer.completed(),
+            "failure",String.valueOf(recognizer.failure()),
+            "queueBytes",recognizer.queuedBytes(),
+            "recognizedSamples",recognizer.recognizedSamples());
+        }
         stt=null;
+      }
+      // Whole-file tests must match the declared duration of the selected M4A.
+      if(!folder&&expectedSourceDurationUs>0){
+        long decodedDurationUs=pcmBytes*1000000L/32000L;
+        log.event("TEST","OFFLINE_SOURCE_DURATION_CONFORMANCE",
+          "sourceDurationUs",expectedSourceDurationUs,
+          "decodedPcmDurationUs",decodedDurationUs,
+          "durationDeltaUs",expectedSourceDurationUs-decodedDurationUs);
+        if(decodedDurationUs+2000000L<expectedSourceDurationUs){
+          endReason="ERROR_OFFLINE_FILE_TRUNCATED";
+          log.event("TEST","OFFLINE_FILE_SHORT_DECODE_NOT_SUCCESS",
+            "expectedUs",expectedSourceDurationUs,"actualUs",decodedDurationUs);
+        }
       }
       File temp=mirror;
       if(temp!=null){
@@ -441,6 +463,13 @@ final class SpeakerEngine {
         }
       }
       if(audioTrack<0)throw new IOException("No AAC audio track in original Samsung M4A");
+      MediaFormat sourceFormat=extractor.getTrackFormat(audioTrack);
+      if(sourceFormat.containsKey(MediaFormat.KEY_DURATION))
+        expectedSourceDurationUs=sourceFormat.getLong(MediaFormat.KEY_DURATION);
+      log.event("TEST","OFFLINE_ORIGINAL_FILE_DURATION",
+        "selectedUri",file.toString(),
+        "expectedUs",expectedSourceDurationUs,
+        "expectedSeconds",expectedSourceDurationUs/1000000.0);
       extractor.selectTrack(audioTrack);
       int frames=0;
       long previousTime=-1;
