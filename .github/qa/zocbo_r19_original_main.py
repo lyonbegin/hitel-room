@@ -48,6 +48,22 @@ adb("logcat","-c")
 print("R19_ORIGINAL_MAIN_LAUNCH",adb("shell","am","start","-n",MAIN).strip(),flush=True)
 time.sleep(17)
 xml=snapshot("01_original_MainActivity")
+# Grounded by actual screenshot 01: original app's bottom '학교별' tab at 735,2030.
+# Tap ONLY controls seen in the source app screenshot, not a new Activity/deep link.
+adb("shell","input","tap","735","2030")
+time.sleep(9)
+school_xml=snapshot("02_original_school_tab")
+print("R19_SOURCE_SCHOOL_TAB_TAPPED",flush=True)
+# Screenshot 01 showed original app hamburger icon at 103,160.
+adb("shell","input","tap","103","160")
+time.sleep(5)
+menu_xml=snapshot("03_original_hamburger")
+print("R19_SOURCE_HAMBURGER_TAPPED",flush=True)
+if tap_match(menu_xml,[r"기출.{0,12}(열람|시험|무료)",r"무료.{0,12}기출"]):
+    time.sleep(11)
+    xml=snapshot("04_original_free_exam_list_navigation")
+    print("R19_SOURCE_MENU_FREE_EXAM_TAPPED",flush=True)
+else:xml=menu_xml
 # Never invoke a separately created diagnostic activity.
 print("R19_MAIN_FOREGROUND",adb("shell","dumpsys","activity","activities")[-7000:],flush=True)
 for k in range(5):
