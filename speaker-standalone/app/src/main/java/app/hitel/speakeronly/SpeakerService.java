@@ -107,6 +107,29 @@ public final class SpeakerService extends Service {
     journal.event("TELEPHONY","CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",
         "folderUri",folderUri.toString(),"modelIncludedInApk",true);
     launchSession(true);
+    // OFFHOOK is the first real opportunity to start Samsung recording.
+    // Arm Accessibility immediately; never equate a UI click with recording.
+    TraceJournal started=sessionJournal;
+    if(started!=null)requestRecordingFromUi(started,0L);
+  }
+
+  private void requestRecordingFromUi(TraceJournal session,long waitingMs){
+    CallStateGate gate=callEvents;
+    if(!active||shuttingDown||!autoCallMode||session!=sessionJournal||
+       gate==null||!gate.isOffhook())return;
+    boolean available=SamsungRecordAccessibility.requestRecording(event->{
+      session.event("RECORD_UI",event,"waitingMs",waitingMs);
+      if("RECORD_START_BUTTON_TAPPED_NOT_YET_VERIFIED".equals(event))
+        send("삼성 녹음 시작 버튼 작동 · M4A 크기 증가 검증 대기",false);
+      else if("RECORDING_UI_INDICATES_ACTIVE".equals(event))
+        send("삼성 전화 UI에 녹음 중 표시 · M4A 크기 증가 검증 대기",false);
+    });
+    session.event("RECORDING",waitingMs==0L?
+        "RECORDING_IMMEDIATE_ACCESSIBILITY_REQUEST":"RECORDING_RECHECK_ACCESSIBILITY_REQUEST",
+        "waitingMs",waitingMs,"accessibilityAvailable",available,
+        "verifiedRecording",false);
+    if(!available)
+      send("녹음 파일 증가 없음 · 접근성 보조를 허용하거나 삼성 전화 자동 녹음을 켜십시오.",false);
   }
 
   private synchronized void onCallEnded(){
@@ -170,18 +193,7 @@ public final class SpeakerService extends Service {
           if(shuttingDown||!active||!autoCallMode||engine!=holder[0]||
              callEvents==null||!callEvents.isOffhook())return;
         }
-        boolean available=SamsungRecordAccessibility.requestRecording(event->{
-          session.event("RECORD_UI",event,"waitingMs",waitingMs);
-          if("RECORD_START_BUTTON_TAPPED_NOT_YET_VERIFIED".equals(event))
-            send("삼성 녹음 시작 버튼 작동 · M4A 크기 증가 검증 대기",false);
-          else if("RECORDING_UI_INDICATES_ACTIVE".equals(event))
-            send("삼성 전화 UI에 녹음 중 표시 · M4A 크기 증가 검증 대기",false);
-        });
-        session.event("RECORDING","RECORDING_START_REQUEST",
-            "waitingMs",waitingMs,"accessibilityAvailable",available,
-            "verifiedRecording",false);
-        if(!available)
-          send("녹음 파일 증가 없음 · 접근성 보조를 허용하거나 삼성 전화 자동 녹음을 켜십시오.",false);
+        requestRecordingFromUi(session,waitingMs);
       }
       @Override public void recordingCandidate(String name,long size,int growthEvents){
         session.event("RECORDING","RECORDING_GROWTH_CANDIDATE",
@@ -239,6 +251,7 @@ public final class SpeakerService extends Service {
     if(gate!=null)gate.close();
     SpeakerEngine current=engine;
     if(current!=null)current.stop();
+    getSharedPreferences("speaker",MODE_PRIVATE).edit().putBoolean("active",false).apply();
     super.onDestroy();
   }
 
