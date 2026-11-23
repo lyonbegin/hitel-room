@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.recording.directstt"
     minSdk = 26
     targetSdk = 28
-    versionCode = 5
-    versionName = "1.0.4-direct-korean-stt-experiment"
+    versionCode = 6
+    versionName = "1.0.5-auto-a11y-stt"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
