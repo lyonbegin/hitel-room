@@ -88,6 +88,60 @@ jobs:
           "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
           sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk | tee work/SHA256SUMS.txt
           file work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+      - name: Sign the three original split APKs with the same diagnostic certificate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/original-splits work/signed-splits
+          python3 - <<'PY'
+          import zipfile,pathlib
+          with zipfile.ZipFile("work/source/jokbo.xapk") as z:
+            for name in z.namelist():
+              if name.endswith(".apk") and pathlib.PurePosixPath(name).name != "com.eduzone.eduzoneviewer.apk":
+                p=pathlib.Path("work/original-splits")/pathlib.PurePosixPath(name).name
+                p.write_bytes(z.read(name))
+                print("SPLIT_FOUND",name,p.stat().st_size)
+          PY
+          for apk in work/original-splits/*.apk; do
+            [ -f "$apk" ] || continue
+            name="$(basename "$apk")"
+            "$SDK_BUILD/zipalign" -f -p 4 "$apk" "work/signed-splits/aligned-$name"
+            "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out "work/signed-splits/$name" "work/signed-splits/aligned-$name"
+            "$SDK_BUILD/apksigner" verify --verbose "work/signed-splits/$name"
+          done
+      - name: Create installable modified XAPK retaining original split filenames and manifest
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import zipfile,pathlib,json
+          src="work/source/jokbo.xapk"
+          dst="work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk"
+          base=pathlib.Path("work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk")
+          with zipfile.ZipFile(src) as old, zipfile.ZipFile(dst,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=5) as new:
+            for item in old.infolist():
+              name=item.filename
+              if name.endswith(".apk"):
+                replacement=base if pathlib.PurePosixPath(name).name=="com.eduzone.eduzoneviewer.apk" else pathlib.Path("work/signed-splits")/pathlib.PurePosixPath(name).name
+                assert replacement.exists(),name
+                payload=replacement.read_bytes()
+                print("PACK_SIGNED_APK",name,len(payload))
+              else:
+                payload=old.read(item)
+                if name=="manifest.json":
+                  try:
+                    obj=json.loads(payload)
+                    print("ORIGINAL_XAPK_MANIFEST_KEYS",list(obj))
+                    if "total_size" in obj:
+                      obj["total_size"]=base.stat().st_size + sum(p.stat().st_size for p in pathlib.Path("work/signed-splits").glob("*.apk") if not p.name.startswith("aligned-"))
+                    payload=json.dumps(obj,ensure_ascii=False,indent=2).encode("utf-8")
+                  except Exception as e:print("MANIFEST_METADATA_UNCHANGED",e)
+              new.writestr(name,payload)
+          with zipfile.ZipFile(dst) as f:
+            print("SIGNED_XAPK_FINAL_ENTRIES",[(x.filename,x.file_size) for x in f.infolist() if x.filename.endswith(".apk")])
+          PY
+          sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk >> work/SHA256SUMS.txt
       - name: Check diagnostic signatures embedded into resulting APK
         shell: bash
         run: |
@@ -113,6 +167,7 @@ jobs:
           if-no-files-found: warn
           path: |
             work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+            work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk
             work/diag-patch-report.json
             work/patch-log.txt
             work/SHA256SUMS.txt
