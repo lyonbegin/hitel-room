@@ -1,4 +1,4 @@
-name: Zocbo R10 Real Android Emulator UI Smoke
+name: Zocbo R12 Real Android Emulator UI Smoke
 on:
   push:
     branches:
@@ -20,8 +20,8 @@ jobs:
         run: |
           mkdir -p work/emulator-evidence
           curl -fL --retry 3 --connect-timeout 15 -o work/r10.apk \
-            https://github.com/lyonbegin/hitel-room/releases/download/zocbo-original-area-all-metadata-collector-20261123-r10/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk
-          echo "15fa3c24f34fd5145b83fcda726b86cbe065af70e02d655c20ab074b8c674d3d  work/r10.apk" | sha256sum -c -
+            https://github.com/lyonbegin/hitel-room/releases/download/zocbo-two-column-emulator-repair-20261124-r12/Zocbo_4.3.11_TwoColumn_EmulatorFix_R12_20261124.apk
+          echo "51bfcc563378959fb18513a784a7a022d3107ea4a8c97fa72da2a313d10fe6e1  work/r10.apk" | sha256sum -c -
       - name: Enable hardware virtualization
         run: |
           ls -l /dev/kvm || true
@@ -44,7 +44,7 @@ jobs:
           disable-animations: true
           disable-linux-hw-accel: false
           emulator-boot-timeout: 420
-          script: python3 scripts/zocbo_diagnostic/emulator_smoke.py | tee work/emulator-evidence/runtime-output.txt
+          script: bash -c "set -o pipefail; python3 scripts/zocbo_diagnostic/emulator_smoke.py | tee work/emulator-evidence/runtime-output.txt; ! grep -q 'SMOKE_RESULT FAIL' work/emulator-evidence/runtime-output.txt"
       - name: Check runtime for crash and region discovery evidence
         if: always()
         run: |
@@ -57,7 +57,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zocbo-r10-real-emulator-evidence
+          name: zocbo-r12-real-emulator-evidence
           retention-days: 14
           if-no-files-found: warn
           path: |
