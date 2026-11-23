@@ -38,11 +38,10 @@ final class DirectPcmKoreanStt {
   private static volatile ClassLoader sharedIxioLoader;
   private static final int RATE=16000;
   private static final int CHANNEL=0;
-  private static final int QUEUE_CAPACITY=512;
   private final Context context;
   private final TraceJournal log;
   private final Listener listener;
-  private final ArrayBlockingQueue<byte[]> queue=new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+  private final Pcm512Fifo queue=new Pcm512Fifo();
   private volatile boolean inputFinished,ready,completed;
   private volatile Throwable failure;
   private volatile long queuedBytes,recognizedSamples;
@@ -71,15 +70,13 @@ final class DirectPcmKoreanStt {
 
   void accept(byte[] pcm)throws IOException {
     if(pcm==null||pcm.length==0)return;
-    if((pcm.length&1)!=0)throw new IOException("PCM16 must have an even byte length");
+    if(pcm.length!=Pcm512Chunker.BYTES)
+      throw new IOException("IXIO FIFO requires exactly 512 samples/1024 bytes");
     if(failure!=null)throw new IOException("IXIO speechSDK failed",failure);
     if(inputFinished)throw new IOException("IXIO STT already finished");
-    byte[] owned=pcm.clone();
-    if(!queue.offer(owned)){
-      log.event("STT","IXIO_PCM_QUEUE_FULL","chunks",queue.size(),"bytes",queuedBytes);
-      throw new IOException("IXIO speechSDK too slow: PCM queue full");
-    }
-    queuedBytes+=owned.length;
+    // Producer never waits for inference. The FIFO owns an independent copy.
+    queue.put(pcm);
+    queuedBytes+=pcm.length;
     if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length)
       log.event("STT","IXIO_PCM_QUEUED","bytes",queuedBytes,
         "modelReady",ready,"chunks",queue.size());
@@ -87,6 +84,7 @@ final class DirectPcmKoreanStt {
 
   void finishAndWait(){
     inputFinished=true;
+    queue.finishInput();
     Thread current=worker;
     if(current==null)return;
     // The previous join(30000) silently returned while real inference still
@@ -228,15 +226,16 @@ final class DirectPcmKoreanStt {
         "class",klass.getName(),"channel",CHANNEL,"rate",RATE,"amplitude",1.0f);
       listener.status("IXIO 원본 speechSDK 준비 완료");
       Method tripleFirst=null,tripleThird=null;
+      short[] shortBuffer=new short[Pcm512Chunker.SAMPLES];
       while(true){
-        byte[] pcm=queue.poll(300,TimeUnit.MILLISECONDS);
-        if(pcm==null){
-          if(inputFinished&&queue.isEmpty())break;
-          continue;
-        }
-        // Exactly the IXIO original 16kHz mono float[] input contract.
-        // No per-window AGC or duration/frequency changes are allowed.
-        float[] samples=IxioPcmNormalizer.decode(pcm);
+        // Identical read(short[], offset, count) contract to IXIO's original
+        // LocalAudioRecordSource, except source is our independent PCM FIFO.
+        int read=queue.read(shortBuffer,0,Pcm512Chunker.SAMPLES);
+        if(read<0)break; // producer finished AND last queued frame consumed
+        if(read!=Pcm512Chunker.SAMPLES)
+          throw new IOException("IXIO FIFO returned a partial 32ms frame");
+        float[] samples=new float[read];
+        for(int i=0;i<read;i++)samples[i]=shortBuffer[i]/32768.0f;
         IxioPcmNormalizer.Stats stats=IxioPcmNormalizer.stats(samples);
         if(stats.hasInvalid())
           throw new IOException("IXIO float[] contained a NaN or infinity");
