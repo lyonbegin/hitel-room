@@ -83,6 +83,10 @@ public final class SpeakerService extends Service {
           else if(state==TelephonyManager.CALL_STATE_IDLE)onCallEnded();
           else send("전화 수신 중 · 통화 연결 이벤트 대기 · 스피커 재생 안 함",false);
         });
+        // The CallStateGate constructor may deliver an initial OFFHOOK before
+        // the field assignment above completes; arm Accessibility here too.
+        if(callEvents.isOffhook() && sessionJournal!=null)
+          requestRecordingFromUi(sessionJournal,0L);
         if(engine==null)
           send("통화 이벤트 자동 감시 중 · 통화 시작 시 최신 M4A 검증",false);
       }else{
