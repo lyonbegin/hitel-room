@@ -1,0 +1,84 @@
+name: Zocbo exact original APK ViewerActivity native call graph
+on:
+  push:
+    branches: [research/zocbo-viewer-callgraph-20261123]
+    paths:
+      - .github/workflows/zocbo-viewer-native-callgraph.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  viewer-native-trace:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 14
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and SHA-256 verify exact original APK from original XAPK
+        run: python3 scripts/zocbo_original_dex/download_verified_xapk.py source
+      - name: Install JADX
+        run: |
+          curl -fLsS --connect-timeout 10 --max-time 100 -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          echo /tmp/jadx/bin >> "$GITHUB_PATH"
+          /tmp/jadx/bin/jadx --version
+      - name: Decompile and trace original WebView bridge to native ViewerActivity
+        run: python3 -u scripts/zocbo_original_dex/analyze.py
+      - name: Examine ViewerActivity identifier consumption, methods and HTTP paths
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json
+          out=Path('/tmp/zocbo_jadx/sources')
+          root=Path('evidence/zocbo-viewer-callgraph')
+          root.mkdir(parents=True,exist_ok=True)
+          needles=['EXTRA_PDF_EX_PAPR_NO','EXTRA_PDF_FILE_TYPE','EXTRA_PDF_SHOW_ANSWER','ViewerActivity','goToViewer','examViewer.asp','q_path','qst_seq','encText','getExam','exPaprNo','pdfPath']
+          hits=[]
+          for p in out.rglob('*.java'):
+              s=p.read_text('utf8','replace')
+              if any(k in s for k in needles):
+                  ls=s.splitlines()
+                  where=[i for i,l in enumerate(ls) if any(k in l for k in needles)]
+                  hits.append((str(p.relative_to(out)),len(ls),where,ls))
+          hits.sort(key=lambda r:(not r[0].endswith('ViewerActivity.java'), not r[0].endswith('WebAppInterface.java'), not r[0].endswith('A3/L.java'),-len(r[2])))
+          pieces=[]
+          for path,sz,where,ls in hits[:80]:
+              if not where:continue
+              important=path.endswith(('ViewerActivity.java','WebAppInterface.java','A3/L.java')) or any(x in path for x in ('/repository/','/model/'))
+              if not important and len(where)<2:continue
+              ix=where[:70 if important else 12]
+              spans=[]
+              for i in ix:
+                  start=max(0,i-(13 if important else 5));end=min(len(ls),i+(24 if important else 10))
+                  if spans and start<=spans[-1][1]+3:spans[-1]=(spans[-1][0],max(spans[-1][1],end))
+                  else:spans.append((start,end))
+              fragments=[]
+              for start,end in spans[:30]:
+                  fragments.append('\n'.join(f'{j+1}: {ls[j][:330]}' for j in range(start,min(end,start+130))))
+              pieces.append(f'====== {path} ({sz} lines, {len(where)} hits) ======\n'+'\n---\n'.join(fragments))
+          output='\n\n'.join(pieces)
+          (root/'native_viewer_trace.txt').write_text(output[:500000],encoding='utf8')
+          (root/'native_viewer_index.json').write_text(json.dumps([{'file':p,'lines':sz,'hits':[i+1 for i in wh[:30]]} for p,sz,wh,_ in hits[:100]],indent=2),encoding='utf8')
+          print('NATIVE_VIEWER_MATCHES',len(hits),'EXCERPT_CHARS',len(output),'FILES',len(pieces))
+          for x in pieces[:5]:
+              print(x[:13000])
+          for token in ['EXTRA_PDF_EX_PAPR_NO','examViewer.asp','q_path','encText','qst_seq']:
+              t=[(p,i+1,ls[i].strip()[:220]) for p,sz,w,ls in hits for i in w if token in ls[i]]
+              print('REFERENCE',token,json.dumps(t[:15],ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-original-viewer-native-trace
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            source/source_verification.json
+            evidence/zocbo-original-dex/focused_navigation.txt
+            evidence/zocbo-viewer-callgraph/native_viewer_trace.txt
+            evidence/zocbo-viewer-callgraph/native_viewer_index.json
