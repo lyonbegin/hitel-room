@@ -246,7 +246,7 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
         ' | '+metrics(b[stage]??<String>[]));
       for(final pair in <List<String>>[['BASELINE',base],['WG128',wg]]) {
         final matches=pair[1].split('\n').where((l)=>
-          RegExp(r'(?i)(cl_error|-54|exception|error|fail|demot|fallback|stalled|stale|lost=[1-9])')
+          RegExp(r'(cl_error|-54|exception|error|fail|demot|fallback|stalled|stale|lost=[1-9])',caseSensitive:false)
             .hasMatch(l)).toList();
         comparison.add(pair[0]+' error/fallback candidate lines='+matches.length.toString());
         comparison.addAll(matches.take(200));
