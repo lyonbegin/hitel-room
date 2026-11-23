@@ -315,10 +315,12 @@ public final class Diag implements View.OnClickListener {
       log("READING_TITLE_BRIDGE_ERROR",t.getClass().getName());
     }
   }
+  private static volatile String lastReadingUrl="";
   public static void pageFinished(WebView w,String currentUrl) {
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
     if(NativePdfTitleBridge.isFreeReadingPage(currentUrl)) {
+      lastReadingUrl=currentUrl;
       try {
         w.evaluateJavascript(NativePdfTitleBridge.titleClickScript(),value->
           log("READING_TITLE_LISTENER_RESULT",value==null?"null":value));
@@ -383,7 +385,7 @@ public final class Diag implements View.OnClickListener {
       bar.setOrientation(LinearLayout.HORIZONTAL);
       bar.setBackgroundColor(Color.argb(215,17,30,45));
       Diag listener=new Diag(a);
-      for(String label:new String[]{"로그","복사","공유","원본","원본PDF","저장","지우기"}) {
+      for(String label:new String[]{"로그","복사","공유","원본","원본PDF","수집","저장","지우기"}) {
         Button btn=new Button(a);
         btn.setText(label);
         btn.setTag(label);
@@ -409,6 +411,19 @@ public final class Diag implements View.OnClickListener {
   }
   @Override public void onClick(View v) {
     String op=String.valueOf(v.getTag());
+    if(op.equals("수집")) {
+      try {
+        Intent i=new Intent(activity,NativePdfEntryActivity.class);
+        i.putExtra(ReadingCollectorController.EXTRA_COLLECT,true);
+        i.putExtra(ReadingCollectorController.EXTRA_SOURCE_URL,lastReadingUrl);
+        Diag.log("COLLECTOR_OPEN_CLICK","Open in-app list collector; last-original-page="+(!lastReadingUrl.isEmpty()));
+        activity.startActivity(i);
+      }catch(Throwable t){
+        Diag.log("COLLECTOR_OPEN_ERROR",t.getClass().getName());
+        Toast.makeText(activity,"시험지 목록 수집 화면을 열 수 없습니다",Toast.LENGTH_LONG).show();
+      }
+      return;
+    }
     if(op.equals("원본PDF")) {
       log("NATIVE_PDF_ENTRY_CLICK","launch new NativePdfEntryActivity, NO PdfReplay POST or GET");
       try {
