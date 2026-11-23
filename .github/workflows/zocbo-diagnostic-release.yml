@@ -58,3 +58,17 @@ jobs:
               downloadable/Zocbo_4.3.11_Original_Diagnostic_20261123.apk downloadable/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk downloadable/SHA256SUMS.txt downloadable/diag-patch-report.json
           fi
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{url:.url,assets:[.assets[]|{name:.name,size:.size,url:.url}]}'
+
+      - name: Re-download published XAPK and APK release assets and verify actual bytes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-diagnostic-4.3.11-20261123-r3
+          mkdir -p verified-public-download
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" --dir verified-public-download --pattern '*.apk' --pattern '*.xapk'
+          sha256sum verified-public-download/*
+          test "$(sha256sum verified-public-download/Zocbo_4.3.11_Original_Diagnostic_20261123.apk | awk '{print $1}')" = "7c645a1ef7f1ef02f6e36df5f127336101df547b9a3e9b4acd7bdcc1fddbc387"
+          test "$(sha256sum verified-public-download/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk | awk '{print $1}')" = "e61c7ecc79a713b2f5d94ac5c45d461e3024159ee858f87608834ec2b9003245"
+          echo "PUBLIC_GITHUB_RELEASE_APK_AND_XAPK_DOWNLOAD_AND_SHA256_VERIFIED"
