@@ -8,6 +8,9 @@ import android.os.Looper;
 import android.provider.MediaStore;
 import android.database.Cursor;
 import android.net.Uri;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import java.nio.ByteBuffer;
 import android.provider.DocumentsContract;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
@@ -312,6 +315,17 @@ final class SpeakerEngine {
       if(selected==null){endReason="USER_STOP";return;}
       log.event("SOURCE",folder?"LIVE_GROWING_RECORDING_SELECTED":"MANUAL_FILE_SELECTED",
         "uri",selected.toString(),"folderDetection",folder);
+      if(!folder){
+        // Complete Samsung M4A: MediaExtractor reads original AAC access units,
+        // sharing the original 16k FIR PCM sink and IXIO speechSDK with live mode.
+        // The ARM-only external follower is NOT needed for the emulator offline test.
+        codec=new StreamingAacPcmDecoder(log);
+        log.event("TEST","OFFLINE_M4A_IXIO_SPEECHSDK_TEST_STARTED",
+          "inputUri",selected.toString());
+        readCompletedSamsungM4a(selected);
+        endReason="ORIGINAL_SAMSUNG_M4A_PCM_DECODE_COMPLETE";
+        return;
+      }
       mirror=new File(context.getCacheDir(),"recording-speaker-"+SystemClock.elapsedRealtime()+".m4a");
       if(!mirror.createNewFile())throw new IOException("Mirror already exists");
       appendNewBytes(selected);
@@ -408,6 +422,63 @@ final class SpeakerEngine {
       finalStatus="종료 · "+endReason+" · 직접 STT 입력 "+String.format(Locale.US,"%.2f",pcmBytes/32000.0)+"초";
       callback.state(finalStatus,true);
     }
+  }
+
+  private void readCompletedSamsungM4a(Uri file)throws Exception {
+    MediaExtractor extractor=new MediaExtractor();
+    try{
+      extractor.setDataSource(context,file,null);
+      int audioTrack=-1;
+      for(int i=0;i<extractor.getTrackCount();i++){
+        MediaFormat format=extractor.getTrackFormat(i);
+        String mime=format.getString(MediaFormat.KEY_MIME);
+        if(MediaFormat.MIMETYPE_AUDIO_AAC.equals(mime)){
+          int rate=format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+          int ch=format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+          if(rate!=48000||ch!=1)
+            throw new IOException("Original M4A must be AAC 48kHz mono; got "+rate+"/"+ch);
+          audioTrack=i;break;
+        }
+      }
+      if(audioTrack<0)throw new IOException("No AAC audio track in original Samsung M4A");
+      extractor.selectTrack(audioTrack);
+      int frames=0;
+      long previousTime=-1;
+      ByteBuffer unit=ByteBuffer.allocateDirect(65536);
+      while(!stop){
+        unit.clear();
+        int size=extractor.readSampleData(unit,0);
+        if(size<0)break;
+        if(size>unit.capacity()||size==0)
+          throw new IOException("Invalid AAC access unit size "+size);
+        long time=extractor.getSampleTime();
+        if(time>=0&&time<previousTime)
+          throw new IOException("Original AAC timestamps moved backwards");
+        previousTime=time;
+        unit.position(0);unit.limit(size);
+        byte[] packet=new byte[size];
+        unit.get(packet);
+        codec.feedRawAacFrame(packet,pcm->{
+          DirectPcmKoreanStt original=stt;
+          if(original==null)throw new IOException("IXIO original SDK unavailable");
+          original.accept(pcm);
+          pcmBytes+=pcm.length;
+          if(pcmBytes/32000>lastStatusMs.get()){
+            lastStatusMs.set(pcmBytes/32000);
+            log.event("TEST","ORIGINAL_IXIO_PCM_QUEUED",
+              "pcmBytes",pcmBytes,"seconds",pcmBytes/32000.0,
+              "originalModelReady",original.isReady(),
+              "samplesRecognized",original.recognizedSamples());
+          }
+        });
+        receivedFrames=++frames;
+        if(!extractor.advance())break;
+      }
+      log.event("TEST","OFFLINE_M4A_AAC_DECODE_COMPLETED",
+        "aacFrames",frames,"pcmBytes",pcmBytes,
+        "pcmDurationSeconds",pcmBytes/32000.0);
+      if(frames==0)throw new IOException("Original M4A contained no decodable AAC frames");
+    }finally{extractor.release();}
   }
 
   private void followPcm(File mirrorFile)throws Exception {
