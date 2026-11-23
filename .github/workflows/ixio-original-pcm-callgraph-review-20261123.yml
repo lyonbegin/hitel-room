@@ -1,0 +1,44 @@
+name: Analyze extracted IXIO PCM bytecode flow and print bounded evidence
+on:
+  push:
+    branches: [research/ixio-original-pcm-to-speechsdk-20261123]
+    paths: [.github/workflows/ixio-original-pcm-callgraph-review-20261123.yml]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Retrieve prior original DEX method artifacts without redownloading APK
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          gh run download 45145148065 -R lyonbegin/hitel-room -n IXIO-Original-Main-Recorder-PCM-Callsites-20261123 -D evidence
+          gh run download 45145148065 -R lyonbegin/hitel-room -n IXIO-Original-PCM-Callsite-Index-20261123 -D evidence
+          ls -l evidence
+      - name: Print exact caller, arguments, and surrounding PCM buffer transformation
+        run: |
+          python3 - <<'PY'
+          import json,pathlib
+          folder=pathlib.Path('evidence')
+          items=json.loads((folder/'callsite-index.json').read_text())
+          for x in items:
+            path=x['file']
+            sel=(('LocalAudioRecordSource' in path or 'CallRecordingService' in path or 'RecordCallbackRepositoryImpl' in path or 'SpeechToTextRepositoryImpl' in path or 'InCallService$processAudioRecording' in path) and
+              any('->SpeechInference(' in c['statement'] or '->recognize(' in c['statement'] or 'AudioRecord;->read(' in c['statement'] or '->loadSTT(' in c['statement'] for c in x['calls']))
+            if sel:
+              print('ORIGINAL_METHOD',x['app'],path,x['method'])
+              for c in x['calls']:
+                if any(t in c['statement'] for t in ['->SpeechInference(','->recognize(','AudioRecord;->read(','->loadSTT(','AudioRecord;->startRecording(']):
+                  print('ORIGINAL_CALL',c['line'],c['statement'])
+          text=(folder/'critical-bytecode-context.txt').read_text()
+          blocks=text.split('## ')
+          for block in blocks:
+            if any(z in block.splitlines()[0] for z in ['LocalAudioRecordSource$downlinkFlow$1','LocalAudioRecordSource$uplinkFlow$1','SpeechToTextRepositoryImpl.smali','CallRecordingService$processAudioRecording$downProducerJob$1','RecordCallbackRepositoryImpl$startRecordingJob$1']):
+              print('ORIGINAL_BYTECODE_CONTEXT',block[:12500])
+          PY
