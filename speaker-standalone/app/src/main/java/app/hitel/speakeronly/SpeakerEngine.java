@@ -52,6 +52,8 @@ final class SpeakerEngine {
   private volatile String endReason="NOT_STARTED";
   private volatile int requestedDeviceId;
   private volatile DirectPcmKoreanStt stt;
+  private volatile NativePcmKoreanStt nativeStt;
+  private volatile boolean nativeMode;
   private volatile GithubFaad2PcmSource faadSource;
   private Thread worker;
   private Thread copier;
@@ -236,17 +238,27 @@ final class SpeakerEngine {
 
   private void run(Uri input,boolean folder){
     try{
+      nativeMode=context.getSharedPreferences("speaker",Context.MODE_PRIVATE)
+        .getBoolean("nativeSttExperiment",false);
       log.event("APP","FAAD2_GITHUB_M4A_PCM_QUEUE_STARTED",
         "mode",folder?"latest-recording":"fixed-file",
-        "source","knik0/faad2-2.11.4","sink","IXIO-original-speechSDK",
+        "source","knik0/faad2-2.11.4",
+        "sink",nativeMode?"HITEL-native-Sherpa-C-API":"IXIO-original-speechSDK",
+        "nativeSttExperiment",nativeMode,
         "rate",16000,"channels",1,"pcmBytesPerChunk",1024);
-      stt=new DirectPcmKoreanStt(context,log,new DirectPcmKoreanStt.Listener(){
+      DirectPcmKoreanStt.Listener captionEvents=new DirectPcmKoreanStt.Listener(){
         @Override public void status(String message){notifyState(message,false);}
         @Override public void caption(String text,boolean finalSegment){
           if(captionListener!=null)captionListener.caption(text,finalSegment);
         }
-      });
-      stt.start();
+      };
+      if(nativeMode){
+        nativeStt=new NativePcmKoreanStt(context,log,captionEvents);
+        nativeStt.start();
+      }else{
+        stt=new DirectPcmKoreanStt(context,log,captionEvents);
+        stt.start();
+      }
       selected=folder?waitForRecording(input):input;
       if(selected==null){endReason="USER_STOP";return;}
       log.event("SOURCE","FAAD2_ONE_SOURCE_SELECTED","uri",selected.toString());
@@ -275,16 +287,30 @@ final class SpeakerEngine {
         mirroredBytes=mirror.length();
       }
       faadSource=new GithubFaad2PcmSource(log);
-      notifyState("GitHub FAAD2 → PCM 512샘플 FIFO → IXIO 원본 STT",false);
+      notifyState(nativeMode?
+        "GitHub FAAD2 → PCM 512샘플 FIFO → HITEL 실험 네이티브 STT":
+        "GitHub FAAD2 → PCM 512샘플 FIFO → IXIO 원본 STT",false);
       faadSource.pump(context,mirror,!folder,pcm->{
-        DirectPcmKoreanStt target=stt;
-        if(target==null)throw new IOException("Original IXIO STT unavailable");
-        target.accept(pcm);
+        long waiting,consumed;
+        if(nativeMode){
+          NativePcmKoreanStt target=nativeStt;
+          if(target==null)throw new IOException("Native STT experiment unavailable");
+          target.accept(pcm);
+          waiting=target.queuedBytes();
+          consumed=target.recognizedSamples();
+        }else{
+          DirectPcmKoreanStt target=stt;
+          if(target==null)throw new IOException("Original IXIO STT unavailable");
+          target.accept(pcm);
+          waiting=target.queuedBytes();
+          consumed=target.recognizedSamples();
+        }
         pcmBytes+=pcm.length;
         if(pcmBytes<=32768 || pcmBytes%(32000L*5)<1024)
           log.event("STT","GITHUB_FAAD2_PCM_TO_IXIO_FIFO",
             "bytes",pcmBytes,"samples16k",pcmBytes/2,
-            "queuedBytes",target.queuedBytes(),"consumed",target.recognizedSamples());
+            "nativeExperiment",nativeMode,
+            "queuedBytes",waiting,"consumed",consumed);
       });
       endReason=stop?"CALL_STOP_DRAINED":"FAAD2_FILE_COMPLETE";
     }catch(Throwable err){
@@ -311,6 +337,18 @@ final class SpeakerEngine {
         if(recognizer.failure()!=null||!recognizer.completed())
           endReason="ERROR_IXIO_STT_NOT_COMPLETE";
         stt=null;
+      }
+      NativePcmKoreanStt nativeRecognizer=nativeStt;
+      if(nativeRecognizer!=null){
+        nativeRecognizer.finishAndWait();
+        log.event("STT","NATIVE_STT_FINAL_DRAIN",
+          "pcmBytes",pcmBytes,"queuedBytes",nativeRecognizer.queuedBytes(),
+          "recognizedSamples",nativeRecognizer.recognizedSamples(),
+          "sdkCompleted",nativeRecognizer.completed(),
+          "error",String.valueOf(nativeRecognizer.failure()));
+        if(nativeRecognizer.failure()!=null||!nativeRecognizer.completed())
+          endReason="ERROR_NATIVE_STT_NOT_COMPLETE";
+        nativeStt=null;
       }
       File temp=mirror;
       if(temp!=null)log.event("MIRROR","FAAD2_TEMP_CLEANED",
