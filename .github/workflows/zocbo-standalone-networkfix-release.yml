@@ -1,0 +1,61 @@
+name: Publish Zocbo Standalone APK Network-Gate Fix
+on:
+  push:
+    branches:
+      - research/zocbo-network-failure-20261123
+    paths:
+      - .github/workflows/zocbo-standalone-networkfix-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-verified-single-apk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-11
+          run-id: 45107082806
+          github-token: ${{ github.token }}
+          path: compiled
+      - name: Confirm single APK SHA256 and split-free package contents
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import pathlib,hashlib,zipfile
+          p=pathlib.Path("compiled/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk")
+          assert p.exists()
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          print("SOURCE_SINGLE_APK_SHA256",h,"SIZE",p.stat().st_size)
+          assert h=="53dc1f34aefadb0bdd95cbc699004cd5b6b15ebdd4fe3b4b8472d8f4286ba0ae"
+          with zipfile.ZipFile(p) as z:
+            dex=[x for x in z.namelist() if x.startswith("classes") and x.endswith(".dex")]
+            native=[x for x in z.namelist() if x.startswith("lib/arm64-v8a/") and x.endswith(".so")]
+            print("DEX",dex,"NATIVE_LIBS",len(native))
+            assert len(dex)==4 and len(native)>=10
+          PY
+      - name: Publish a single-installable APK with network preflight fix
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-networkfix-singleapk-20261123
+          APK=compiled/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+              --title "Zocbo original 4.3.11(2) diagnostic SINGLE APK — 100kbps check fix" \
+              --notes "TEST BUILD, unofficial and re-signed. Exact-original 4.3.11(2) user APK verified. Fixed only the CommonWebviewActivity false network preflight >=100kbps test (test min 0kbps); logged measured bandwidth via NETWORK_GATE_DOWNSTREAM_KBPS. Original cookies/login/SSO/server auth preserved. Combined 4 base+ABI+density+language split APKs using APKEditor into one standalone APK. Validated manifest has no requiredSplitTypes/isSplitRequired/com.android.vending.splits.required, 4 dex, 10 ARM64 libs, v2 signature. App behavior on Galaxy handset not yet tested. Installing over original or earlier diagnostic APK may require uninstall due different signatures; back up app data first." \
+              "$APK"
+          fi
+          mkdir -p verify
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D verify -p '*.apk'
+          test "$(sha256sum verify/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk | cut -d ' ' -f1)" = "53dc1f34aefadb0bdd95cbc699004cd5b6b15ebdd4fe3b4b8472d8f4286ba0ae"
+          echo "PUBLIC_STANDALONE_APK_REDOWLOAD_SHA256_VERIFIED"
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{release:.url,files:[.assets[]|{name:.name,size:.size,url:.url}]}'
