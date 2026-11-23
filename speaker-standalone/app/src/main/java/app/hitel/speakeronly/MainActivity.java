@@ -148,6 +148,30 @@ public final class MainActivity extends Activity {
       if(testUri!=null&&!testUri.isEmpty())
         ui.post(()->startFixedFileTest(Uri.parse(testUri)));
     }
+    if("app.hitel.speakeronly.PROBE_IXIO_SDK".equals(getIntent().getAction())){
+      new Thread(()->{
+        try{
+          ClassLoader loader=new DirectPcmKoreanStt(this,null,null).ixioClassLoader();
+          for(String className:new String[]{
+             "com.lguplus.ixispeech_ktn.speechSDK",
+             "com.k2fsa.sherpa.onnx.CombinedSTTKWS",
+             "com.k2fsa.sherpa.onnx.OnlineStream",
+             "com.k2fsa.sherpa.onnx.OnlineStream$Companion"}){
+            Class.forName(className,true,loader);
+            Log.i("IXIO_SDK_PROBE","CLASS_FOUND "+className);
+          }
+          Class<?> sdk=loader.loadClass("com.lguplus.ixispeech_ktn.speechSDK");
+          sdk.getMethod("loadSTT",String.class,String.class,
+             String.class,String.class,String.class,float.class);
+          sdk.getMethod("SpeechInference",float[].class,int.class,boolean.class);
+          Log.i("IXIO_SDK_PROBE","PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS");
+          runOnUiThread(()->status.setText("IXIO SDK 원본 클래스 로딩 성공 · STT 모델 추론 시험 별도"));
+        }catch(Throwable t){
+          Log.e("IXIO_SDK_PROBE","FAIL_ORIGINAL_IXIO_CLASSLOADER",t);
+          runOnUiThread(()->status.setText("IXIO 원본 SDK 클래스 실패: "+t));
+        }
+      },"IXIO-Original-DEX-Class-Probe").start();
+    }
   }
 
   private void selectOriginalIxioSttZip(){
