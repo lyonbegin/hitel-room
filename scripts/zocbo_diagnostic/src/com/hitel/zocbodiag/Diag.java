@@ -30,14 +30,18 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * Source-instrumented on-device app-flow diagnostic. No credentials,
- * bearer tokens, CID raw contents, private session cookies, or payloads
- * are ever recorded, copied or written to disk.
+ * Source-instrumented on-device app-flow diagnostic. General copied/shared logs
+ * redact authentication material. Explicitly opted-in "원본" can reveal only
+ * the exact PDF URL and the six-field request JSON in the app-private log.
+ * Bearer headers, cookies and passwords are never captured in the raw log.
  */
 public final class Diag implements View.OnClickListener {
   private static final String FILE = "zocbo_free_exam_trace.txt";
   private static final String TAG = "hitel_zocbo_diag";
   private static final String PREVIOUS = "zocbo_free_exam_previous.txt";
+  private static final String RAW_PDF = "zocbo_pdf_urls_private.txt";
+  private static final String RAW_PDF_PREVIOUS = "zocbo_pdf_urls_private_previous.txt";
+  private static final StringBuilder earlyRaw=new StringBuilder();
   private static long rowSeq=0;
   private static boolean crashHookInstalled=false;
   private static final long startedAt=SystemClock.elapsedRealtime();
@@ -141,6 +145,44 @@ public final class Diag implements View.OnClickListener {
       return (start>0?"\n[TRUNCATED FILE PREFIX; retained last "+bytes.length+" bytes]\n":"")
         +new String(bytes,StandardCharsets.UTF_8);
     }finally{raf.close();}
+  }
+  /**
+   * Restricted original PDF-access evidence, separate from ordinary logs.
+   * Only request's six JSON fields and PDF URL; NO Authorization/Cookie headers.
+   * Never automatically copied, shared, or exported by the general log controls.
+   */
+  public static synchronized void rawPdf(String category,String raw) {
+    if(raw==null)return;
+    String text=stamp()+" ["+category+"]\n"+raw+"\n\n";
+    if(app==null) {
+      earlyRaw.append(text);
+      if(earlyRaw.length()>240000)earlyRaw.delete(0,120000);
+    }else {
+      try {
+        File f=new File(app.getFilesDir(),RAW_PDF);
+        if(f.length()>2000000){
+          File old=new File(app.getFilesDir(),RAW_PDF_PREVIOUS);
+          if(old.exists())old.delete();
+          f.renameTo(old);
+        }
+        FileOutputStream o=new FileOutputStream(f,true);
+        try{o.write(text.getBytes(StandardCharsets.UTF_8));}finally{o.close();}
+      }catch(Exception e){log("PDF_RAW_FILE_ERROR",e.getClass().getSimpleName());}
+    }
+    log("PDF_RAW_CAPTURED",category+" length="+raw.length()+" [stored app-private; explicit 원본 action required]");
+  }
+  private static synchronized String rawCurrent() {
+    StringBuilder b=new StringBuilder("SENSITIVE ORIGINAL PDF URL + VIEWER_FILE_PATH REQUEST\n");
+    b.append("WARNING: This evidence may contain signed links or document identifiers. Do not share publicly.\n\n");
+    try {
+      if(app!=null) {
+        File older=new File(app.getFilesDir(),RAW_PDF_PREVIOUS);
+        File newest=new File(app.getFilesDir(),RAW_PDF);
+        if(older.exists())b.append("[OLDER]\n").append(readTail(older,50000)).append("\n");
+        if(newest.exists())b.append("[CURRENT]\n").append(readTail(newest,200000));
+      }else b.append(earlyRaw);
+    }catch(Exception e){b.append("[ERROR: "+e.getClass().getSimpleName()+"]");}
+    return b.toString();
   }
   private static void copyFile(File src,FileOutputStream dst)throws IOException {
     if(src==null||!src.exists())return;
@@ -300,6 +342,16 @@ public final class Diag implements View.OnClickListener {
         }
       }
     }
+    synchronized(Diag.class) {
+      if(earlyRaw.length()>0 && app!=null) {
+        try {
+          FileOutputStream out=new FileOutputStream(new File(app.getFilesDir(),RAW_PDF),true);
+          try{out.write(earlyRaw.toString().getBytes(StandardCharsets.UTF_8));}
+          finally{out.close();}
+          earlyRaw.setLength(0);
+        }catch(Exception e){log("PDF_RAW_EARLY_FLUSH_ERROR",e.getClass().getSimpleName());}
+      }
+    }
     installCrashHook();
     try {
       FrameLayout root=a.findViewById(android.R.id.content);
@@ -310,7 +362,7 @@ public final class Diag implements View.OnClickListener {
       bar.setOrientation(LinearLayout.HORIZONTAL);
       bar.setBackgroundColor(Color.argb(215,17,30,45));
       Diag listener=new Diag(a);
-      for(String label:new String[]{"로그","복사","공유","저장","지우기"}) {
+      for(String label:new String[]{"로그","복사","공유","원본","저장","지우기"}) {
         Button btn=new Button(a);
         btn.setText(label);
         btn.setTag(label);
@@ -334,10 +386,24 @@ public final class Diag implements View.OnClickListener {
     if(op.equals("지우기")) {
       synchronized(Diag.class){
         live.setLength(0);
-        try{new File(activity.getFilesDir(),FILE).delete();new File(activity.getFilesDir(),PREVIOUS).delete();}catch(Exception ignored){}
+        try{new File(activity.getFilesDir(),FILE).delete();new File(activity.getFilesDir(),PREVIOUS).delete();
+         new File(activity.getFilesDir(),RAW_PDF).delete();new File(activity.getFilesDir(),RAW_PDF_PREVIOUS).delete();earlyRaw.setLength(0);
+        }catch(Exception ignored){}
       }
       log("TRACE_CLEAR","by user");
       Toast.makeText(activity,"진단 로그를 초기화했습니다",Toast.LENGTH_SHORT).show();
+    }else if(op.equals("원본")) {
+      new AlertDialog.Builder(activity)
+        .setTitle("원본 PDF 주소 및 API 요청")
+        .setMessage("이 기록에는 PDF 접근권한이 담긴 서명 URL이나 문서 PK가 포함될 수 있습니다. 본인 확인 목적으로만 복사하시고 공개적으로 공유하지 마십시오. 복사하시겠습니까?")
+        .setNegativeButton("취소",null)
+        .setPositiveButton("원본 복사",(dialog,which)->{
+          try {
+            ClipboardManager cb=(ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            cb.setPrimaryClip(ClipData.newPlainText("zocbo PDF original",rawCurrent()));
+            Toast.makeText(activity,"원본 PDF API 데이터가 복사되었습니다",Toast.LENGTH_LONG).show();
+          }catch(Exception e){Toast.makeText(activity,"원본 복사 오류",Toast.LENGTH_LONG).show();}
+        }).show();
     }else if(op.equals("저장")) {
       try {String path=exportToExternal(activity);log("TRACE_EXPORT",path);Toast.makeText(activity,"전체 로그 저장 완료: "+path,Toast.LENGTH_LONG).show();}
       catch(Exception e){log("TRACE_EXPORT_ERROR",e.getClass().getSimpleName());Toast.makeText(activity,"로그 파일 저장 오류",Toast.LENGTH_LONG).show();}
