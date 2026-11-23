@@ -1,0 +1,53 @@
+name: Zocbo R19 Original MainActivity Android Emulator
+on:
+  push:
+    branches:
+      - fix/zocbo-r19-original-main-webview-20261124
+    paths:
+      - .github/workflows/zocbo-r19-original-main-emulator.yml
+      - .github/qa/zocbo_r19_original_main.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-app-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download EXACT published R18 original Zocbo APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/zocbo-r19-original-app
+          URL='https://github.com/lyonbegin/hitel-room/releases/download/zocbo-nine-region-collector-20261124-r18-test/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk'
+          curl --retry 3 --connect-timeout 15 --max-time 100 -fsSL "$URL" -o work/r19-source.apk
+          echo '59e7919897bd75b34fc51d050dc1e66548564ba7ecdf996ba1c7eee47c12cb4a  work/r19-source.apk' | sha256sum -c -
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm
+      - name: Boot original APK MAIN and navigate its own UI without new Activity
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
+          script: |
+            set -euo pipefail
+            python3 -u .github/qa/zocbo_r19_original_main.py | tee work/zocbo-r19-original-app/runtime.txt
+            grep -q 'R19_ORIGINAL_MAIN_ACTUAL_ANDROID_EXECUTED' work/zocbo-r19-original-app/runtime.txt
+      - name: Preserve screenshots, original-app UI hierarchy and source logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r19-original-main-emulator-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: work/zocbo-r19-original-app/
