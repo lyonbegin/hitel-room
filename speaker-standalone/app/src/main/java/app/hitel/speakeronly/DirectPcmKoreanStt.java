@@ -115,7 +115,7 @@ final class DirectPcmKoreanStt {
    * prepared by the build from the original IXIO APK. This is not a
    * reimplementation of IXIO's recognition algorithm.
    */
-  private ClassLoader ixioClassLoader()throws Exception {
+  ClassLoader ixioClassLoader()throws Exception {
     File jar=new File(context.getCodeCacheDir(),"ixio-original-sdk.jar");
     if(!jar.isFile()||jar.length()==0){
       File pending=new File(context.getCodeCacheDir(),"ixio-original-sdk.pending");
