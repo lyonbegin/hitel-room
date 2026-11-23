@@ -89,11 +89,41 @@ final class DirectPcmKoreanStt {
     inputFinished=true;
     Thread current=worker;
     if(current==null)return;
-    try{current.join(30000);}catch(InterruptedException error){
-      Thread.currentThread().interrupt();
+    // The previous join(30000) silently returned while real inference still
+    // ran, causing the UI to report a partial recording as a finished one.
+    // Wait for the queue AND original SDK endpoint to complete. Log progress
+    // every 10s; fail explicitly after a prolonged *lack of progress*.
+    long started=SystemClock.elapsedRealtime();
+    long lastAdvance=started;
+    long lastSamples=recognizedSamples;
+    while(current.isAlive()){
+      try{current.join(10000);}catch(InterruptedException error){
+        Thread.currentThread().interrupt();
+        failure=new IOException("Interrupted while waiting for complete original IXIO STT",error);
+        log.error("STT","IXIO_FINAL_DRAIN_INTERRUPTED",failure);
+        return;
+      }
+      if(!current.isAlive())break;
+      long now=SystemClock.elapsedRealtime();
+      if(recognizedSamples!=lastSamples){
+        lastSamples=recognizedSamples;
+        lastAdvance=now;
+      }
+      log.event("STT","IXIO_FINAL_DRAIN_STILL_RUNNING",
+        "waitMs",now-started,"noProgressMs",now-lastAdvance,
+        "recognizedSamples",recognizedSamples,"queuedChunks",queue.size(),
+        "ready",ready,"completed",completed);
+      if(now-lastAdvance>=600000){
+        failure=new IOException("Original IXIO speechSDK made no transcription progress for 600 seconds");
+        log.error("STT","IXIO_FINAL_DRAIN_STALLED",failure);
+        current.interrupt();
+        return;
+      }
     }
-    if(current.isAlive())log.event("STT","IXIO_FINAL_DRAIN_PENDING",
-      "queuedChunks",queue.size());
+    log.event("STT","IXIO_FINAL_DRAIN_FINISHED",
+      "waitMs",SystemClock.elapsedRealtime()-started,
+      "recognizedSamples",recognizedSamples,"queuedChunks",queue.size(),
+      "sdkCompleted",completed,"failed",failure!=null);
   }
 
   private File model(String name)throws IOException {
