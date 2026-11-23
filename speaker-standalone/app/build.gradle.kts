@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.recording.directstt"
     minSdk = 26
     targetSdk = 28
-    versionCode = 6
-    versionName = "1.0.5-auto-a11y-stt"
+    versionCode = 7
+    versionName = "1.0.6-ixio-speechsdk-only"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
@@ -20,5 +20,7 @@ android {
 }
 dependencies {
   implementation("androidx.documentfile:documentfile:1.0.1")
-  implementation("com.github.k2-fsa:sherpa-onnx:v1.12.26")
+  // IXIO speechSDK and native libraries are staged from the original IXIO APK.
+  // The HITEL14 public Sherpa-ONNX dependency is explicitly prohibited.
+  implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
 }
