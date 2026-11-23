@@ -55,7 +55,7 @@ jobs:
           adb shell am start -W \
             -n app.hitel.recording.directstt/app.hitel.speakeronly.MainActivity \
             -a app.hitel.speakeronly.PROBE_IXIO_SDK | tee testing/probe-activity-start.txt
-          sleep 27
+          sleep 75
           adb shell pidof app.hitel.recording.directstt | tee testing/probe-process-pid.txt
           test -s testing/probe-process-pid.txt
           adb logcat -d -v threadtime > testing/original-ixio-sdk-probe-logcat.txt
