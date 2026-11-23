@@ -28,7 +28,7 @@ struct Session {
     JNIEnv *env = nullptr;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK)
       return env;
-    if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK)
+    if (vm->AttachCurrentThread(reinterpret_cast<void **>(&env), nullptr) != JNI_OK)
       throw std::runtime_error("Cannot attach JNI STT callback thread");
     *attached = true;
     return env;
@@ -45,7 +45,7 @@ struct Session {
                           static_cast<jlong>(event.emit_ns));
       env->DeleteLocalRef(text);
     }
-    if (env->ExceptionCheck()) env->ExceptionClear(); // Never poison PCM worker
+    if (env->ExceptionCheck()) { env->ExceptionDescribe(); env->ExceptionClear(); } // Never poison PCM worker
     if (attached) vm->DetachCurrentThread();
   }
   void Trace(const hitel::TraceEvent &event) {
@@ -60,7 +60,7 @@ struct Session {
                           static_cast<jboolean>(event.text_changed));
       env->DeleteLocalRef(phase);
     }
-    if (env->ExceptionCheck()) env->ExceptionClear();
+    if (env->ExceptionCheck()) { env->ExceptionDescribe(); env->ExceptionClear(); }
     if (attached) vm->DetachCurrentThread();
   }
 };
