@@ -61,13 +61,9 @@ public final class ModelZipExporter {
     if(files==null)return;
     for(File f:files){
       if(f.isDirectory()){
-        // Avoid scanning unrelated and potentially sensitive account data.
-        String folder=f.getName().toLowerCase(java.util.Locale.ROOT);
-        if(depth==0 || folder.contains("stt")||folder.contains("model")||
-           folder.contains("speech")||folder.contains("asset")||
-           folder.contains("zipformer")||folder.equals("files")) {
-          findModels(f,found,depth+1);
-        }
+        // Walk nested version folders too. Only the seven exact model
+        // basenames are copied, so account files are never exported.
+        findModels(f,found,depth+1);
         continue;
       }
       if(!f.isFile()||f.length()<128||f.length()>MAX_FILE)continue;
