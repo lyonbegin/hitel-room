@@ -1,0 +1,111 @@
+name: IXIO Android 15 x86_64 ARM64 native bridge repeatable device probe
+on:
+  push:
+    branches:
+      - fix/ixio-pcm-sdk-compat-final-20261123
+    paths:
+      - .github/workflows/ixio-x86-arm64-real-device-probe-20261123.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android15-arm64-on-x86:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Download exact publicly released unmodified IXIO PCM APK and verify sha256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p testing
+          gh release download ixio-pcm-endpoint-original-sdk-20261123 \
+            -R lyonbegin/hitel-room \
+            -p HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk \
+            -D testing
+          APK=testing/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          echo '5d3ef58549af906c7967f895da7b28d8b2060c958b0e7961e416a5aec90e547b  testing/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk' | sha256sum -c -
+          test "$(stat -c '%s' "$APK")" -eq 22050336
+          unzip -t "$APK" > testing/apk-archive-check.txt
+          unzip -Z1 "$APK" > testing/apk-entries.txt
+          grep -Fx 'lib/arm64-v8a/libsherpa-onnx-jni.so' testing/apk-entries.txt
+          grep -Fx 'lib/arm64-v8a/libonnxruntime.so' testing/apk-entries.txt
+          grep -Fx 'assets/ixio/ixio-original-sdk.jar' testing/apk-entries.txt
+          unzip -p "$APK" assets/ixio/ixio-original-sdk.jar > testing/ixio-original-sdk.jar
+          for dex in classes.dex classes2.dex classes3.dex; do
+            unzip -Z1 testing/ixio-original-sdk.jar | grep -Fx "$dex"
+          done
+          echo PASS_RELEASE_APK_BYTES_AND_ORIGINAL_IXIO_ASSETS
+
+      - name: Prepare actual emulator ADB installation, UI screenshot and JNI probe
+        run: |
+          cat > testing/run-emulator.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          APK=testing/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          PKG=app.hitel.recording.ixio.pcmaudit
+          ACT=app.hitel.speakeronly.MainActivity
+          echo "RUNNING_API=$(adb shell getprop ro.build.version.sdk)" | tee testing/emulator-facts.txt
+          echo "RUNNING_ARCH=$(adb shell getprop ro.product.cpu.abilist)" | tee -a testing/emulator-facts.txt
+          echo "NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)" | tee -a testing/emulator-facts.txt
+          echo "ISA_ARM64=$(adb shell getprop ro.dalvik.vm.isa.arm64)" | tee -a testing/emulator-facts.txt
+          adb install --abi arm64-v8a "$APK" | tee testing/install-result.txt
+          grep -F 'Success' testing/install-result.txt
+          adb logcat -c
+          adb shell am start -W -n "$PKG/$ACT" | tee testing/ui-start.txt
+          sleep 8
+          adb shell pidof "$PKG" | tee testing/ui-process.txt
+          test -s testing/ui-process.txt
+          adb shell uiautomator dump /sdcard/window.xml > testing/uiautomator-output.txt || true
+          adb pull /sdcard/window.xml testing/window.xml || true
+          adb shell screencap -p /sdcard/Download/ixio-original-ui.png
+          adb pull /sdcard/Download/ixio-original-ui.png testing/ixio-original-ui.png
+          adb logcat -d -v threadtime > testing/ui-logcat.txt
+          echo PASS_ORIGINAL_IXIO_APK_INSTALLED_RUNNING_AND_SCREENSHOT_COLLECTED
+
+          adb logcat -c
+          adb shell am force-stop "$PKG"
+          adb shell am start -W -n "$PKG/$ACT" -a app.hitel.speakeronly.PROBE_IXIO_SDK | tee testing/probe-start.txt
+          sleep 22
+          adb shell pidof "$PKG" | tee testing/probe-process.txt
+          test -s testing/probe-process.txt
+          adb logcat -d -v threadtime > testing/ixio-sdk-probe-logcat.txt
+          adb logcat -d -b crash > testing/ixio-crash.txt
+          grep -F 'PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS' testing/ixio-sdk-probe-logcat.txt
+          grep -F 'PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED' testing/ixio-sdk-probe-logcat.txt
+          if grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' testing/ixio-crash.txt; then
+            echo FAIL_APP_CRASH
+            exit 11
+          fi
+          echo PASS_X86_64_EMULATOR_ORIGINAL_ARM64_IXIO_SDK_AND_JNI
+
+          # This CI runner does not contain the user's private original
+          # IXIO_STT_Original_4.0.4.zip. Never fake model inference success.
+          echo NOT_EXECUTED_PRIVATE_MODEL_loadSTT_and_SpeechInference > testing/remaining-model-step.txt
+          SH
+          chmod +x testing/run-emulator.sh
+      - name: Enable hardware virtualization on GitHub-hosted runner
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash testing/run-emulator.sh
+      - name: Preserve evidence even if emulator test fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-Android15-X86-ARM64-Real-Device-Probe-20261123
+          path: testing/
+          if-no-files-found: warn
