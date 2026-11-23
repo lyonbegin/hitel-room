@@ -160,7 +160,7 @@ jobs:
           gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
           APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.directstt'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.ixio.pcmaudit'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='9'"
           unzip -Z1 "$APK" > /tmp/ixio-standalone-contents.txt
           grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so' /tmp/ixio-standalone-contents.txt
