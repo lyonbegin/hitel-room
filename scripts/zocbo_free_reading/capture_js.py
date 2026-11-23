@@ -1,181 +1,146 @@
 #!/usr/bin/env python3
-"""Capture anonymous public scripts used by Zocbo free past-exam entry points.
-No authentication, cookies, account secrets or protected document downloads.
+"""Capture ACTUAL public JavaScript response bodies with Chrome DevTools Network.
+This makes one browser session per URL; not a site crawler.
+No login, bypass, cookie export or protected-document download.
 """
+import base64
 import hashlib
-import html
 import json
 import re
-import sys
-import time
-from concurrent.futures import ThreadPoolExecutor
-from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit, parse_qsl
-
-import requests
+from urllib.parse import quote, urlsplit, urlencode, parse_qsl, urlunsplit
+from html.parser import HTMLParser
 from playwright.sync_api import sync_playwright
 
 ROOT=Path("evidence/zocbo-free-reading")
-ROOT.mkdir(parents=True,exist_ok=True)
-JSROOT=ROOT/"javascript"
-JSROOT.mkdir(exist_ok=True)
-FREE="https://m.zocbo.com/Freetrial/FreeReading.asp"
-FINAL="https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y"
-BRIDGE="https://link.zocbo.com/goWebView/?"+urlencode({"type":"9","url":FINAL})
-TARGETS={"free_reading":FREE,"bridge":BRIDGE,"past_exam":FINAL}
-UA_DESKTOP="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-UA_MOBILE="Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
-CHECKS=[
- ("app_identifier",r"navigator\s*\.\s*userAgent|userAgentData|isApp\b|isNative\b|app[_-]?check|application[_-]?version|appVersion|android[_-]?app|is[_-]?webview"),
- ("native_bridge",r"window\s*\.\s*Android\b|JavascriptInterface|addJavascriptInterface|webkit\s*\.\s*messageHandlers|ReactNativeWebView|javascript:|intent:|goWebView"),
- ("exam_data",r"previousexam|freeReading|search_webview|school[_-]?code|school[_-]?id|school[_-]?name|schoolSearch|examList|exam[_-]?list|past[_-]?exam|questionRoom"),
- ("network_code",r"\bfetch\s*\(|\$\.ajax\s*\(|\$\.getJSON\s*\(|axios\s*\.|XMLHttpRequest|\.open\s*\(\s*[\"'](?:GET|POST)"),
-]
-report={"targets":TARGETS,"http":[],"browser":[],"javascript":[],"matches":[],"errors":[]}
-files=set()
-downloaded_urls=set()
+JS=ROOT/"javascript"
+JS.mkdir(parents=True,exist_ok=True)
+URLS={
+  "free_entry":"https://m.zocbo.com/Freetrial/FreeReading.asp",
+  "actual_exam_page":"https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y",
+}
+MOBILE="Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36"
+DESKTOP="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+PATS={
+ "app_detection":r"userAgent|userAgentData|Android|WebView|isApp|isNative|navigator\.platform|window\.webkit|JavascriptInterface|ReactNativeWebView|app[_-]?check|is[_-]?app",
+ "native_bridge":r"window\s*\.\s*Android\b|window\s*\.\s*webkit\b|goWebView|intent:|javascript:|openApp|appScheme",
+ "exam_search":r"previousexam|school[_-]?(id|code|name)|schoolSearch|schoolList|exam[_-]?(id|list)|search_webview|freeReading|questionRoom",
+ "ajax":r"XMLHttpRequest|fetch\s*\(|axios\.|\$\.ajax\s*\(|\$\.getJSON\s*\(",
+}
+report={"target_urls":URLS,"captures":[],"scripts":[],"findings":[],"errors":[]}
+seen=set()
 
-def safe_url(url):
+def redact(url):
+ try:
+  sp=urlsplit(url); q=[]
+  for k,v in parse_qsl(sp.query,keep_blank_values=True):
+   if re.search("token|secret|auth|password|session|key|jwt|signature",k,re.I):v="[redacted]"
+   q.append((k,v))
+  return urlunsplit((sp.scheme,sp.netloc,sp.path,urlencode(q),sp.fragment))
+ except Exception:return str(url)[:250]
+
+def add_js(url,data,kind):
+ if isinstance(data,str):data=data.encode("utf8")
+ if not data or len(data)>6_000_000:return
+ sha=hashlib.sha256(data).hexdigest()
+ if sha in seen:return
+ seen.add(sha)
+ host=urlsplit(url).hostname or "inline"
+ basename=urlsplit(url).path.rsplit("/",1)[-1] or "inline"
+ basename=re.sub("[^A-Za-z0-9_.-]","_",basename)[:65]
+ name=f"{len(seen):03d}_{sha[:14]}_{host}_{basename}.js"
+ (JS/name).write_bytes(data)
+ report["scripts"].append({"file":name,"from_url":redact(url),"kind":kind,"size":len(data),"sha256":sha})
+ for i,line in enumerate(data.decode("utf8","replace").splitlines(),1):
+  if len(report["findings"])>=450:break
+  for namekey,pattern in PATS.items():
+   if re.search(pattern,line,re.I):
+    report["findings"].append({"file":name,"line":i,"category":namekey,"source":line.strip()[:420]})
+    break
+
+class InlineScriptParser(HTMLParser):
+ def __init__(self):super().__init__();self.in_script=False;self.buf=[];self.inline=[]
+ def handle_starttag(self,tag,attrs):
+  if tag.lower()=="script":
+   a=dict(attrs)
+   if not a.get("src"):self.in_script=True;self.buf=[]
+ def handle_data(self,data):
+  if self.in_script:self.buf.append(data)
+ def handle_endtag(self,tag):
+  if tag.lower()=="script" and self.in_script:
+   code="".join(self.buf)
+   if code.strip():self.inline.append(code)
+   self.in_script=False
+
+with sync_playwright() as p:
+ browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+ for platform,ua,is_mobile in [("desktop",DESKTOP,False),("android_mobile",MOBILE,True)]:
+  context=browser.new_context(user_agent=ua,is_mobile=is_mobile,viewport={"width":390 if is_mobile else 1280,"height":844 if is_mobile else 800},locale="ko-KR")
+  for key,target in URLS.items():
+   page=context.new_page()
+   cdp=context.new_cdp_session(page)
+   cdp.send("Network.enable",{"maxTotalBufferSize":50000000,"maxResourceBufferSize":10000000})
+   requests={};loaded=set();browser_events=[]
+   def will_send(v):
+    rid=v.get("requestId")
+    if rid:
+     requests.setdefault(rid,{})["url"]=v.get("request",{}).get("url","")
+     if v.get("redirectResponse"):
+      rd=v["redirectResponse"];browser_events.append({"event":"redirect","url":redact(rd.get("url","")),"status":rd.get("status"),"location":redact(rd.get("headers",{}).get("location",""))})
+   def got_resp(v):
+    rid=v.get("requestId")
+    if rid:
+     rd=v.get("response",{})
+     requests.setdefault(rid,{}).update({"url":rd.get("url",""),"mime":rd.get("mimeType",""),"status":rd.get("status"),"type":v.get("type"),"headers":rd.get("headers",{})})
+   def finished(v):loaded.add(v.get("requestId"))
+   cdp.on("Network.requestWillBeSent",will_send)
+   cdp.on("Network.responseReceived",got_resp)
+   cdp.on("Network.loadingFinished",finished)
+   err=None;status=None
+   try:
+    response=page.goto(target,wait_until="commit",timeout=12000)
+    status=response.status if response else None
+    page.wait_for_timeout(2000)
+   except Exception as exc:
+    err=str(exc)[:300]
+   final=page.url
+   html=""
+   try:
+    html=page.content()
+    (ROOT/f"{key}_{platform}.html").write_text(html,encoding="utf8")
+    parser=InlineScriptParser();parser.feed(html)
+    for i,code in enumerate(parser.inline):
+     add_js(final+f"#inline-{i}",code,"inline_script")
+   except Exception as exc:report["errors"].append(f"DOM {key}/{platform}: {str(exc)[:210]}")
+   row={"label":key,"platform":platform,"start_url":redact(target),"final_url":redact(final),"status":status,"navigation_error":err,"resources":[],"redirects":browser_events}
+   for reqid,rec in requests.items():
+    url=rec.get("url","")
+    typ=rec.get("type","")
+    mime=rec.get("mime","")
+    resource={"url":redact(url),"status":rec.get("status"),"mime":mime,"type":typ,"finished":reqid in loaded}
+    row["resources"].append(resource)
+    if reqid not in loaded or rec.get("status")!=200:continue
+    is_js=typ=="Script" or "javascript" in mime.lower() or urlsplit(url).path.lower().endswith(".js")
+    if not is_js:continue
     try:
-        x=urlsplit(url)
-        q=[]
-        for k,v in parse_qsl(x.query,keep_blank_values=True):
-            if re.search(r"token|password|secret|auth|session|jwt|sign|api[_-]?key|access[_-]?key|credential|authorization",k,re.I):
-                v="[redacted]"
-            q.append((k,v))
-        return urlunsplit((x.scheme,x.netloc,x.path,urlencode(q),x.fragment))
-    except Exception:return str(url)[:250]
-
-def save_js(data,url,kind):
-    if isinstance(data,str):data=data.encode("utf-8",errors="replace")
-    if not data or len(data)>4_000_000:return
-    sha=hashlib.sha256(data).hexdigest()
-    if sha in files:return
-    files.add(sha)
-    host=urlsplit(url).hostname or "inline"
-    path=urlsplit(url).path or "inline.js"
-    path=re.sub(r"[^A-Za-z0-9_.-]","_",host+"_"+path.split("/")[-1])[:70]
-    fn=f"{len(files):03d}_{sha[:12]}_{path}.js"
-    (JSROOT/fn).write_bytes(data)
-    entry={"file":fn,"url":safe_url(url),"kind":kind,"bytes":len(data),"sha256":sha,"matched_lines":0}
-    report["javascript"].append(entry)
-    lines=data.decode("utf8",errors="replace").splitlines()
-    for i,line in enumerate(lines):
-        for label,pattern in CHECKS:
-            if re.search(pattern,line,re.I):
-                entry["matched_lines"]+=1
-                if len(report["matches"])<260:
-                    report["matches"].append({"file":fn,"line":i+1,"type":label,"excerpt":line.strip()[:500]})
-                break
-
-class ScriptParser(HTMLParser):
-    def __init__(self):
-        super().__init__();self.srcs=[];self.inline=[];self.in_script=False;self.buf=[]
-    def handle_starttag(self,tag,attrs):
-        if tag.lower()=="script":
-            attrs=dict(attrs);src=attrs.get("src")
-            if src:self.srcs.append(src)
-            else:self.in_script=True;self.buf=[]
-    def handle_data(self,data):
-        if self.in_script:self.buf.append(data)
-    def handle_endtag(self,tag):
-        if tag.lower()=="script" and self.in_script:
-            s="".join(self.buf)
-            if s.strip():self.inline.append(s)
-            self.in_script=False
-
-session=requests.Session()
-session.headers.update({"User-Agent":UA_MOBILE,"Accept":"text/html,application/xhtml+xml,*/*"})
-def parse_html(body,base,label):
-    if not body:return
-    parser=ScriptParser()
-    try:parser.feed(body)
-    except Exception as e:report["errors"].append(f"HTML parser {label}: {e}")
-    for i,s in enumerate(parser.inline):
-        save_js(s,base+"#inline"+str(i),"inline_html:"+label)
-    # Fetch all original script URLs, concurrently to avoid serial proxy timeouts.
-    candidates=[]
-    for src in parser.srcs:
-        u=urljoin(base,html.unescape(src))
-        if urlsplit(u).scheme in ("http","https") and u not in downloaded_urls:
-            downloaded_urls.add(u)
-            candidates.append(u)
-    def load_one(u):
-        try:
-            res=requests.get(u,headers={"User-Agent":UA_MOBILE},timeout=9,allow_redirects=True)
-            return (u,res,None)
-        except Exception as exc:return (u,None,str(exc)[:130])
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        for u,res,err in pool.map(load_one,candidates):
-            if err:report["errors"].append(f"script GET {safe_url(u)}: {err}")
-            elif res.ok and ("javascript" in res.headers.get("content-type","").lower() or u.lower().split("?")[0].endswith(".js")):
-                save_js(res.content,res.url,"script_src:"+label)
-            else:report["errors"].append(f"script GET status {res.status_code} {safe_url(u)}")
-
-def http_probe(label,url):
-    for ua_name,ua in [("desktop",UA_DESKTOP),("mobile",UA_MOBILE)]:
-        try:
-            r=session.get(url,headers={"User-Agent":ua},timeout=12,allow_redirects=False)
-            ct=r.headers.get("content-type","")
-            loc=r.headers.get("location","")
-            entry={"label":label,"client":ua_name,"url":safe_url(url),"status":r.status_code,"content_type":ct,"location":safe_url(urljoin(url,loc)) if loc else None,"bytes":len(r.content)}
-            report["http"].append(entry)
-            if "html" in ct.lower():
-                (ROOT/f"http_{label}_{ua_name}.html").write_bytes(r.content[:2_000_000])
-                parse_html(r.text,r.url,f"{label}-{ua_name}")
-        except Exception as e:report["errors"].append(f"HTTP {label}/{ua_name}: {type(e).__name__}: {str(e)[:200]}")
-
-for name,url in TARGETS.items():http_probe(name,url)
-
-with sync_playwright() as playwright:
-    browser=playwright.chromium.launch(headless=True,args=["--no-sandbox"])
-    for client,ua,mobile in [("desktop",UA_DESKTOP,False),("mobile",UA_MOBILE,True)]:
-        context=browser.new_context(user_agent=ua,is_mobile=mobile,viewport={"width":390 if mobile else 1280,"height":844 if mobile else 800},device_scale_factor=2 if mobile else 1,locale="ko-KR",ignore_https_errors=False,accept_downloads=False)
-        for label,url in TARGETS.items():
-            page=context.new_page()
-            responses=[];req_failed=[];console=[]
-            page.on("response",lambda response:responses.append(response))
-            page.on("requestfailed",lambda req:req_failed.append({"url":safe_url(req.url),"failure":req.failure}))
-            page.on("console",lambda message:console.append({"type":message.type,"text":message.text[:240]}) if len(console)<15 else None)
-            status=None;err=None
-            try:
-                res=page.goto(url,wait_until="domcontentloaded",timeout=12000)
-                status=res.status if res else None
-                page.wait_for_timeout(1200)
-            except Exception as e:
-                err=str(e)[:330]
-                try:page.wait_for_timeout(400)
-                except Exception:pass
-            endurl=page.url
-            content=""
-            try:content=page.content()
-            except Exception as e:report["errors"].append(f"page.content {label}/{client}: {str(e)[:110]}")
-            if content:
-                (ROOT/f"browser_{label}_{client}.html").write_text(content[:2_000_000],encoding="utf8")
-                parse_html(content,endurl,f"browser-{label}-{client}")
-            for resp in responses:
-                try:
-                    typ=resp.request.resource_type
-                    ct=resp.headers.get("content-type","").lower()
-                    src=resp.url
-                    if typ=="script" or "javascript" in ct:
-                        if resp.status==200:save_js(resp.body(),src,f"browser:{label}-{client}")
-                    elif typ in ("xhr","fetch") and "zocbo.com" in (urlsplit(src).hostname or ""):
-                        # Endpoint names/status only; never save private or protected responses.
-                        report.setdefault("data_requests",[]).append({"page":label,"client":client,"url":safe_url(src),"status":resp.status,"content_type":ct})
-                except Exception as e:report["errors"].append(f"response {safe_url(resp.url)}: {str(e)[:140]}")
-            report["browser"].append({"label":label,"client":client,"start":safe_url(url),"final_url":safe_url(endurl),"status":status,"error":err,"response_count":len(responses),"failed_requests":req_failed[:30],"console":console})
-            page.close()
-        context.close()
-    browser.close()
-
+     body=cdp.send("Network.getResponseBody",{"requestId":reqid})
+     data=base64.b64decode(body["body"]) if body.get("base64Encoded") else body.get("body","").encode("utf8")
+     add_js(url,data,f"ChromeDevTools:{platform}:{key}")
+     resource["script_saved"]=True
+    except Exception as exc:
+     resource["script_saved"]=False
+     report["errors"].append(f"Network.getResponseBody {redact(url)}: {str(exc)[:200]}")
+   report["captures"].append(row)
+   print(json.dumps({"page":key,"browser":platform,"http_status":status,"final_url":redact(final),"resources":len(row["resources"]),"scripts_total":len(report["scripts"]),"error":err},ensure_ascii=False),flush=True)
+   cdp.detach()
+   page.close()
+  context.close()
+ browser.close()
 (ROOT/"report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf8")
-print("=== ZOCBO FREE READING JS AUDIT ===")
-for row in report["http"]:print("HTTP",json.dumps(row,ensure_ascii=False))
-for row in report["browser"]:print("BROWSER",json.dumps({k:v for k,v in row.items() if k not in ("failed_requests","console")},ensure_ascii=False))
-print("JS_FILES",len(report["javascript"]),"MATCHES",len(report["matches"]),"ERRORS",len(report["errors"]))
-for row in report.get("data_requests",[])[:70]:print("XHR_FETCH",json.dumps(row,ensure_ascii=False))
-for row in report["javascript"]:print("JS",json.dumps(row,ensure_ascii=False))
-for row in report["matches"][:150]:print("MATCH",json.dumps(row,ensure_ascii=False))
-for error in report["errors"][:40]:print("ERROR",error)
+print("ACTUAL_DOWNLOADED_JS_FILES",len(report["scripts"]),flush=True)
+print("APP_DETECTION_MATCHES",sum(x["category"]=="app_detection" for x in report["findings"]),flush=True)
+print("EXAM_SEARCH_MATCHES",sum(x["category"]=="exam_search" for x in report["findings"]),flush=True)
+for finding in report["findings"][:70]:print("JS_MATCH",json.dumps(finding,ensure_ascii=False),flush=True)
+for err in report["errors"][:40]:print("CAPTURE_ERROR",err,flush=True)
+if not report["scripts"]:
+ raise SystemExit("FAILED: Chrome DevTools did not capture a single JavaScript response")
