@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.speakeronly"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.recording.ixio.pcmaudit"
+    applicationId = "app.hitel.recording.ixio.fullfilev10"
     minSdk = 26
     targetSdk = 28
-    versionCode = 9
-    versionName = "1.0.9-ixio-pcm-contract-endpoint"
+    versionCode = 10
+    versionName = "1.0.10-ixio-full-file-single-loader"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
