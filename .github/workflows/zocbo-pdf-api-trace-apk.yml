@@ -187,7 +187,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
@@ -217,9 +217,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Native_PDF_MAXLOG_20261123.apk
-          test -s work/Zocbo_4.3.11_Native_PDF_MAXLOG_20261123.apk
-          sha256sum work/Zocbo_4.3.11_Native_PDF_MAXLOG_20261123.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Native_PDF_MAXLOG_R3_20261123.apk
+          test -s work/Zocbo_4.3.11_Native_PDF_MAXLOG_R3_20261123.apk
+          sha256sum work/Zocbo_4.3.11_Native_PDF_MAXLOG_R3_20261123.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -233,11 +233,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-native-pdf-maxlog-20261123-r2
-          APK=work/Zocbo_4.3.11_Native_PDF_MAXLOG_20261123.apk
+          TAG=zocbo-native-pdf-maxlog-20261123-r3
+          APK=work/Zocbo_4.3.11_Native_PDF_MAXLOG_R3_20261123.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo 4.3.11(2) Native PDF MAXLOG R2 - detailed viewer/API/download/HTTP diagnostics" \
-            --notes "R2: Exact SHA-256 original XAPK source. Native VIEWER_FILE_PATH and PDF GET OkHttp request/response lifecycle, request correlation IDs, redacted request/response headers, selected JSON variables and response fields, pdf_path presence/hash/redacted path, PDF magic, TLS/protocol/timings, nested exception chains, original ViewerActivity extras/lifecycle, app crash trace, prior WebView/cookie/JS logs. Existing UI logs/copy/share/clear plus full rotating log export (저장). Authentication, cookies, HTTP traffic and API responses untouched. Signed with test key. URL signed query and tokens are intentionally redacted. Runtime session/login/PDF display are not claimed verified." \
+            --title "Zocbo 4.3.11(2) Native PDF MAXLOG R3 - opt-in original PDF/JSON and complete HTTP traces" \
+            --notes "R3: Exact SHA-256 original XAPK source. Native VIEWER_FILE_PATH and PDF GET OkHttp request/response lifecycle, request correlation IDs, redacted request/response headers, selected JSON variables and response fields, pdf_path presence/hash/redacted path, PDF magic, TLS/protocol/timings, nested exception chains, original ViewerActivity extras/lifecycle, app crash trace, prior WebView/cookie/JS logs. Existing UI logs/copy/share/clear plus full rotating log export (저장) and guarded opt-in original PDF URL and request JSON capture (원본). Authentication, cookies, HTTP traffic and API responses untouched. Signed with test key. URL signed query and tokens are intentionally redacted. Runtime session/login/PDF display are not claimed verified." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -251,7 +251,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_Native_PDF_MAXLOG_20261123.apk
+            work/Zocbo_4.3.11_Native_PDF_MAXLOG_R3_20261123.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
