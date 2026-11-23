@@ -520,9 +520,10 @@ public final class ReadingCollectorController {
   private String query(Job job,int page) {
     String data="cmd=PREVIOUSEXAM_SEARCHZOCBO_MAIN_V1"
       +"&SiteID="+enc(job.site)+"&Group=A";
-    data=append(data,"Rg_CitiesProvinces",currentCity);
-    data=append(data,"Rg_District",currentDistrict);
-    data=append(data,"Scl_ID",currentSchool);
+    AreaScope a=job.region;
+    data=append(data,"Rg_CitiesProvinces",a==null?currentCity:a.city);
+    data=append(data,"Rg_District",a==null?currentDistrict:a.district);
+    data=append(data,"Scl_ID",a==null?currentSchool:a.schools);
     data=append(data,"Exfl_Group","");
     data+="&Kind=REGION&Page="+page+"&PageSize="+PER_PAGE;
     data=append(data,"ExPapr_CoreType","E");
@@ -530,8 +531,8 @@ public final class ReadingCollectorController {
     data=append(data,"ExPapr_TestYear",job.year);
     data=append(data,"ExPapr_MidEndTerm",job.term);
     data=append(data,"Subj_Code",job.subject);
-    data=append(data,"filter_gugun",currentFilter);
-    data+="&answer_chk_status=N&isAnswerPaid="+("Y".equals(currentPaid)?"Y":"N");
+    data=append(data,"filter_gugun",a==null?currentFilter:a.filter);
+    data+="&answer_chk_status=N&isAnswerPaid="+("Y".equals(a==null?currentPaid:a.paid)?"Y":"N");
     if("H".equals(job.site))data+="&Course_Name=";
     return data;
   }
@@ -556,7 +557,8 @@ public final class ReadingCollectorController {
       +"}catch(e){window.hitelCollectorNative.error('"+nonce+"',"+idx+","+p+",String(e));}})();";
     requestPending=true;
     showStatus("조회 중: "+(idx+1)+"/"+jobs.size()+" 조건 · "
-      +job.site+" "+job.grade+"학년 "+job.year+"년 "+job.term+" "+job.subject
+      +(job.region==null?"현재 지역":job.region.name+" 전체")+
+      " / "+job.site+" "+job.grade+"학년 "+job.year+"년 "+job.term+" "+job.subject
       +" · 페이지 "+p);
     try{web.evaluateJavascript(js,null);}
     catch(Throwable t){requestPending=false;pause("WebView 자바스크립트 호출 실패");}
@@ -588,7 +590,8 @@ public final class ReadingCollectorController {
       next.rowsSeen=progress.rowsSeen+list.length();
       if(list.length()<PER_PAGE){next.taskIndex=task+1;next.page=1;}
       next.finished=next.taskIndex>=jobs.size();
-      final int saved=store.savePage(runKey,next,list,job.site,job.grade,job.year,job.term,job.subject,scope);
+      final String sourceScope=job.region==null?scope:"ORIGINAL_AREA:"+job.region.site+"/"+job.region.name;
+      final int saved=store.savePage(runKey,next,list,job.site,job.grade,job.year,job.term,job.subject,sourceScope);
       ui.post(()->{
         if(destroyed)return;
         progress=next;requestPending=false;
@@ -606,6 +609,7 @@ public final class ReadingCollectorController {
     }
   }
   private void pause(String reason){
+    if(discovering){stopDiscovery(reason);return;}
     if(!running){showStatus(reason);return;}
     running=false;requestPending=false;
     Diag.log("COLLECTOR_PAUSED",reason+" checkpoint="+progress.taskIndex+":"+progress.page);
@@ -657,7 +661,7 @@ public final class ReadingCollectorController {
     },"ZocboCollectorExport").start();
   }
   public void destroy(){
-    destroyed=true;running=false;
+    destroyed=true;running=false;discovering=false;
     activity.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     try{web.removeJavascriptInterface("hitelCollectorNative");web.stopLoading();web.destroy();}
     catch(Throwable ignored){}
