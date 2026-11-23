@@ -1,0 +1,64 @@
+name: Publish Zocbo JS Full-Source Collector APK
+on:
+  push:
+    branches:
+      - research/zocbo-black-free-exam-20261123
+    paths:
+      - .github/workflows/zocbo-js-full-source-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-15
+          run-id: 45116174371
+          github-token: ${{ github.token }}
+          path: compiled
+      - name: Verify exact independently built single APK and JS collection code
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zipfile
+          p=Path('compiled/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk')
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          print('JS_COLLECTOR_BUILD_SHA256',h,'BYTES',p.stat().st_size)
+          assert h=='b8c4ed6f2aef2321f058d9a82a122a4ff124ae3195aa5f62e7969ee83ccb7680'
+          with zipfile.ZipFile(p) as z:
+            dex=b''.join(z.read(n) for n in z.namelist() if n.startswith('classes') and n.endswith('.dex'))
+            for needle in [b'js_collection_manifest.json',b'JS_CAPTURE_FINISHED',b'assetsProgress',b'hitelForensicBridge',b'current_page_DOM.html',b'xhr_fetch.jsonl']:
+              print('APKSOURCE_MARKER',needle.decode(),needle in dex)
+              assert needle in dex
+            libs=[n for n in z.namelist() if n.startswith('lib/arm64-v8a/') and n.endswith('.so')]
+            assert len(libs)>=10
+          p.rename('compiled/Zocbo_4.3.11_JS_All_Source_Collector_20261123.apk')
+          PY
+      - name: Upload release and verify downloaded bytes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-all-js-webview-capture-20261123
+          APK=compiled/Zocbo_4.3.11_JS_All_Source_Collector_20261123.apk
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+              --title "Zocbo 4.3.11(2) forensic - JS/CSS full-source collector" \
+              --notes "TEST APK, user-provided original reverse engineered. All existing buttons retained. NEW JS전체 button: enumerate currently authenticated m.zocbo.com WebView script[src] and stylesheet links, fetch each through the same live WebView with original session, write source files and js_collection_manifest.json into local app storage. After JS_CAPTURE_FINISHED in diagnostic log, ZIP저장 exports to Downloads. Current page DOM and opt-in XHR/fetch monitor and DevTools also available. Does not change original server, limits, login, or permissions. This is not a claim that JS sources have already been retrieved remotely: requires user to run on their logged-in Galaxy. Unofficial signed APK; app-device runtime not yet verified. Note different build signature may require existing app data backup and uninstall. JS/HTML/HAR may contain private tokens or copyrighted resources; use solely for private analysis." \
+              "$APK"
+          fi
+          mkdir -p verify
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D verify -p "*.apk"
+          test "$(sha256sum verify/Zocbo_4.3.11_JS_All_Source_Collector_20261123.apk | cut -d' ' -f1)" = "b8c4ed6f2aef2321f058d9a82a122a4ff124ae3195aa5f62e7969ee83ccb7680"
+          echo "JS_FULL_SOURCE_COLLECTOR_PUBLIC_APK_REDOWLOAD_VERIFIED"
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{release:.url,files:[.assets[]|{name:.name,size:.size,url:.url}]}'
