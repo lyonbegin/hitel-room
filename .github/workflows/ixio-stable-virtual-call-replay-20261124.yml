@@ -53,9 +53,13 @@ jobs:
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
           LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
           cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$ROOT/"
-          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie             -I"$SOURCE" sherpa-original-launcher/native/aac_mdat_follow.c             -L"$ROOT" -lavcodec -lavutil -Wl,--no-undefined             -o "$ROOT/libaac-mdat-follow.so"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie             -I"$SOURCE" sherpa-original-launcher/native/aac_mdat_follow.c             -L"$ROOT" -Wl,--no-as-needed -lavcodec -lavutil -lswresample -lc++_shared \
+            -Wl,-rpath,'$ORIGIN' -Wl,--no-undefined -o "$ROOT/libaac-mdat-follow.so"
           "$LLVM/llvm-readelf" -h "$ROOT/libaac-mdat-follow.so" | grep -F 'AArch64'
           "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'libavcodec.so'
+          "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'RUNPATH' | grep -F '$ORIGIN'
+          "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'libswresample.so'
+          "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'libc++_shared.so'
           echo "ORIGINAL_GROWING_M4A_NATIVE_AAC_LIBS_READY"
           ls -lh "$ROOT"
           ! find "$ROOT" -name '*sherpa*' -o -name '*onnx*' | grep .
@@ -266,14 +270,22 @@ jobs:
           adb shell screencap -p /sdcard/Download/ixio-stable-virtual.png
           adb pull /sdcard/Download/ixio-stable-virtual.png replay-qa/ixio-stable-virtual.png
           adb shell run-as "$PKG" find files/diagnostics -name events.jsonl > replay-qa/event-files.txt || true
-          adb shell run-as "$PKG" sh -c \
-            'for f in files/diagnostics/run-*/events.jsonl; do cat "$f"; done' \
-            > replay-qa/events.jsonl || true
+          : > replay-qa/events.jsonl
+          while IFS= read -r source_log; do
+            test -z "$source_log" && continue
+            adb exec-out run-as "$PKG" cat "$source_log" >> replay-qa/events.jsonl
+          done < replay-qa/event-files.txt
           grep -F 'VIRTUAL_M4A_WRITE' replay-qa/logcat.txt
           grep -F 'VIRTUAL_CALL_AUDIO_EOF' replay-qa/logcat.txt
           grep -F 'LATEST_M4A_SELECTED_NO_GROWTH_GATE' replay-qa/events.jsonl
+          grep -F 'LIVE_AAC_FROM_START' replay-qa/events.jsonl
           ! grep -F 'LIVE_M4A_CONFIRMED_GROWING' replay-qa/events.jsonl
           grep -F 'APPENDED_NEW_SOURCE_BYTES' replay-qa/events.jsonl
+          grep -F 'AAC_FOLLOW_READY' replay-qa/events.jsonl
+          ! grep -F 'CANNOT LINK EXECUTABLE' replay-qa/logcat.txt
+          if grep -F 'IXIO STT model missing' replay-qa/events.jsonl; then
+            echo EXPECTED_MODEL_NOT_IMPORTED_ON_PUBLIC_EMULATOR_NO_REAL_STT_INFERENCE
+          fi
           if grep -E 'FATAL EXCEPTION|SIGSEGV|UnsatisfiedLinkError' replay-qa/crash.txt; then exit 26; fi
           echo PASS_ORIGINAL_V11_VIRTUAL_SAF_GROWING_FILE_ANDROID_X86_ARM64
           echo ORIGINAL_IXIO_MODEL_NOT_STAGED_IN_THIS_PUBLIC_CI_RUN
