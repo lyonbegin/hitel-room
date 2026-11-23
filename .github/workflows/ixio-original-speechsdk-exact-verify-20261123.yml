@@ -16,11 +16,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p input tool out
-          gh run download 43799320393 -R lyonbegin/hitel-room -n IXIO_Main_NoAppSealing_Single_APK -D input
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 -R lyonbegin/hitel-room -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk -D input
           curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tool/baksmali.jar
           echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tool/baksmali.jar' | sha256sum -c -
           for num in 16 18 6; do
-            unzip -p input/IXIO_Main_NoAppSealing_Single.apk classes$num.dex > out/classes$num.dex
+            unzip -p input/IXIO_Main_OriginalFGSPrestartQA_20261122.apk classes$num.dex > out/classes$num.dex
             java -Xmx2600m -jar tool/baksmali.jar d --api 34 --jobs 3 -o out/smali$num out/classes$num.dex
           done
           for path in             out/smali16/com/lguplus/ixispeech_ktn/speechSDK.smali             out/smali18/com/lguplus/aicallagent/data/call/ai/SpeechToTextRepositoryImpl.smali             out/smali6/com/k2fsa/sherpa/onnx/CombinedSTTKWS.smali;do
