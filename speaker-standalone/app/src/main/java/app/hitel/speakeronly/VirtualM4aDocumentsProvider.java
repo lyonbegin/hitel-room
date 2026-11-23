@@ -66,7 +66,7 @@ public final class VirtualM4aDocumentsProvider extends ContentProvider {
                                 String[] selectionArgs,String sortOrder) {
     MatrixCursor c=table(projection);
     String p=uri.getPath();
-    if(p!=null && p.contains("/children/")){
+    if(p!=null && (p.endsWith("/children") || p.contains("/children/"))){
       if(live().exists()) row(c,FILE_ID);
     }else{
       String id=uri.getLastPathSegment();
