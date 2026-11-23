@@ -327,9 +327,9 @@ public final class ReadingCollectorController {
     if(running||discovering){
       showStatus("이미 수집 또는 원본 지역 순회가 진행 중입니다.");return;
     }
-    if(!loaded){
-      showStatus("먼저 원본 기출 열람실 로그인·페이지 로딩이 필요합니다.");return;
-    }
+    // Launch the original region selector even before a signed-in previousExam
+    // page exists. This permits anonymous UI verification; the collector
+    // still stops when the original page/API denies access.
     try{
       discoverFromYear=Integer.parseInt(startYear.getText().toString().trim());
       discoverToYear=Integer.parseInt(endYear.getText().toString().trim());
