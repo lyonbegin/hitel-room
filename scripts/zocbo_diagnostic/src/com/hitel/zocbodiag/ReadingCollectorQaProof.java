@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.os.Build;
 import android.util.Base64;
+import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
@@ -79,9 +80,10 @@ public final class ReadingCollectorQaProof {
         if(persisted.size()!=10||p.page!=2||p.pagesDone!=1||
            !EXPECTED_SHA256.equals(sha(joinSorted(persisted))))
           throw new IllegalStateException("persisted exam IDs or checkpoint mismatch");
-        Diag.log("QA_ACTUAL_CAPTURE_SQLITE_PROOF",
-          "origin=USER_PROVIDED_20261123_HTML live=false count=10 unique=10"+
-          " checkpoint_page=2 sha256="+EXPECTED_SHA256+" sqlite_reopen=PASS");
+        String evidence="origin=USER_PROVIDED_20261123_HTML live=false count=10 unique=10"+
+          " checkpoint_page=2 sha256="+EXPECTED_SHA256+" sqlite_reopen=PASS";
+        Diag.log("QA_ACTUAL_CAPTURE_SQLITE_PROOF",evidence);
+        Log.i("ZocboQA","QA_ACTUAL_CAPTURE_SQLITE_PROOF "+evidence);
       }finally{verification.close();}
     }catch(Throwable t){
       Diag.log("QA_CAPTURE_SQLITE_FAILURE",t.getClass().getName()+":"+t.getMessage());
