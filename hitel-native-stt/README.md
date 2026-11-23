@@ -36,3 +36,14 @@ The user-provided proprietary model files have **not** been available in this CI
 ## Native JNI build (when public runtime is available)
 
 The JNI Java class is deliberately **not activated** in the current Android app. Build the separate JNI shared library only after public Sherpa ARM64 library is staged and original IXIO model inference succeeds. Preserve the original STT APK as the fallback.
+
+## Native-only Android experimental APK (2026-11-23)
+
+- Source branch: `feature/ixio-native-stt-reimplementation-20261123`.
+- **Different Android package:** `app.hitel.recording.ixio.nativestt.experiment`; the existing IXIO V14 and `stt/main` installed apps are neither replaced nor modified.
+- `SpeakerEngine` in this branch routes the existing FAAD2 M4A → PCM512 FIFO to `NativePcmKoreanStt` and the `NativeSttBridge` JNI. There is **no** original IXIO JNI bundled into this separate test APK, preventing cross-version `libonnxruntime.so` collisions.
+- The public Sherpa-ONNX v2.0.3 archive is SHA-256 pinned, and its public C API + matching public ONNX Runtime are staged with the custom ARM64 JNI library.
+- Build script: `bash speaker-standalone/ci/build_test_github_faad2_v12.sh && bash hitel-native-stt/ci/build_native_only_apk.sh`.
+- GitHub workflow: `.github/workflows/ixio-native-stt-experimental-apk.yml`. The workflow validates M4A, PCM, ARM64 ELF, JNI dynamic linkage, APK signature, unique package ID, and absence of original IXIO JNI before producing an external Actions artifact.
+- GitHub Release API upload returned **HTTP 403 Resource not accessible by integration** in the first run. This is a publish-permission failure, **not** an APK compilation failure; the verified APK is instead delivered as an Actions artifact. Do not claim the Release URL exists.
+- No real original IXIO `.ort` loading, token accuracy or word-latency improvement has yet been verified. The user must import the original STT.zip in the separate test app. The new C++ partial event callback is instantaneous **only when the model actually supplies a new hypothesis**; it does not promise intervals shorter than the original 640ms encoder chunk.
