@@ -1,0 +1,43 @@
+name: Zocbo Original Region Selector Public HTML Probe
+on:
+  push:
+    branches:
+      - feature/zocbo-pdf-api-trace-20261123
+    paths:
+      - .github/workflows/zocbo-region-source-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-unsigned-selector-html:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Fetch anonymous original selector HTML, no login or account credentials
+        shell: bash
+        run: |
+          mkdir -p work
+          URL='https://m.zocbo.com/exam/include/school/school_region_filter.asp?SiteID=M&Grade=3'
+          set +e
+          curl --compressed --connect-timeout 15 --max-time 28 -fSL -A 'Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Mobile Safari/537.36' -D work/headers.txt -o work/selector.html "$URL"
+          STATUS=$?
+          set -e
+          echo ANONYMOUS_HTTP_EXIT "$STATUS"
+          if test "$STATUS" -ne 0; then exit 0; fi
+          echo RESPONSE_BYTES "$(wc -c < work/selector.html)"
+          python3 - <<'PY'
+          import re, html
+          s=open('work/selector.html',errors='replace').read()
+          for q in ('<title','region','전체','시/군','구/군','학교','로그인','script src'):
+            indexes=[m.start() for m in re.finditer(re.escape(q),s,re.I)]
+            print("HTML_MARKER",q,"COUNT",len(indexes))
+            for i in indexes[:7]:
+              print("HTML_FRAGMENT",q,re.sub(r'\s+',' ',s[max(0,i-200):i+270])[:430])
+          print("HTTP_HEAD",open('work/headers.txt',errors='replace').read()[-1000:])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-anonymous-region-html
+          path: work/
+          retention-days: 7
