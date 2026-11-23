@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * ONLY: Samsung growing M4A via SAF -> seekable append mirror ->
  * upstream AAC packet follower -> one persistent Android MediaCodec ->
- * 48k to 16k PCM FIR -> DIRECT sherpa-onnx Korean STT; no AudioTrack or MediaProjection.
+ * 48k to 16k PCM FIR -> original IXIO speechSDK; no AudioTrack or MediaProjection.
  */
 final class SpeakerEngine {
   interface Callback {void state(String text,boolean finished);}
@@ -296,10 +296,10 @@ final class SpeakerEngine {
   private void run(Uri input,boolean folder){
     String finalStatus;
     try{
-      log.event("APP","DIRECT_KOREAN_STT_ENGINE_STARTED",
+      log.event("APP","IXIO_ORIGINAL_STT_ENGINE_STARTED",
         "folder",folder,"nativeAbis",Arrays.toString(Build.SUPPORTED_ABIS),
         "sttModel",true,"speakerPlayback",false,"pcmRateHz",16000);
-      // Prewarm the ONNX model independently while watching for new M4A bytes.
+      // Prewarm the original IXIO speechSDK independently of growing M4A detection.
       // PCM is queued during initialization rather than silently discarded.
       stt=new DirectPcmKoreanStt(context,log,new DirectPcmKoreanStt.Listener(){
         @Override public void status(String message){notifyState(message,false);}
@@ -332,7 +332,7 @@ final class SpeakerEngine {
         }
       },"Recording-M4A-SAF-Copier");
       copier.start();
-      notifyState("16kHz PCM → Sherpa 한국어 STT 직접 전송 · 입력 대기",false);
+      notifyState("16kHz PCM → IXIO 원본 speechSDK 직접 전송 · 입력 대기",false);
       followPcm(mirror);
       endReason=stop?"USER_STOP":"AAC_FOLLOWER_EXIT";
     }catch(Throwable err){
