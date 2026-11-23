@@ -251,7 +251,7 @@ final class DirectPcmKoreanStt {
       // speechSDK, NOT a second recognizer, performs every inference.
       int tailChunks=0;
       if(recognizedSamples>0){
-        for(int i=0;i<13 && !endpointSeen;i++){
+        for(int i=0;i<13;i++){
           long began=SystemClock.elapsedRealtime();
           Object tail=infer.invoke(sdk,new float[3200],CHANNEL,false);
           long elapsed=SystemClock.elapsedRealtime()-began;
