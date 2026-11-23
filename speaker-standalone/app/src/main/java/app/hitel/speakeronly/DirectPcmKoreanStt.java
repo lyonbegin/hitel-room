@@ -46,6 +46,8 @@ final class DirectPcmKoreanStt {
   private volatile boolean inputFinished,ready,completed;
   private volatile Throwable failure;
   private volatile long queuedBytes,recognizedSamples;
+  private volatile int startupDiscardedChunks;
+  private volatile long startupDiscardedSamples;
   private Thread worker;
 
   DirectPcmKoreanStt(Context context,TraceJournal journal,Listener listener) {
@@ -188,6 +190,9 @@ final class DirectPcmKoreanStt {
     String lastDisplayed="";
     long lastLog=0;
     long inferCalls=0,slowestInferenceMs=0;
+    long sdkReadyAtMs=0;
+    boolean firstPcmSelected=false;
+    int emptyPollCount=0;
     boolean endpointSeen=false;
     try{
       File encoder=model("encoder.ort");
@@ -221,16 +226,58 @@ final class DirectPcmKoreanStt {
       flag.setAccessible(true);
       if(!flag.getBoolean(sdk))
         throw new IOException("Original IXIO speechSDK returned sttReady=false after loadSTT");
+      // SDK is now genuinely ready. The consumer alone performs a ONE-TIME
+      // snapshot trim: remove old pre-ready PCM, retain the newest one.
+      // The producer never inspects SDK readiness and keeps appending.
       ready=true;
+      sdkReadyAtMs=SystemClock.elapsedRealtime();
       log.event("STT","IXIO_ORIGINAL_SPEECHSDK_READY",
-        "class",klass.getName(),"channel",CHANNEL,"rate",RATE,"amplitude",1.0f);
-      listener.status("IXIO 원본 speechSDK 준비 완료");
+        "class",klass.getName(),"channel",CHANNEL,"rate",RATE,"amplitude",1.0f,
+        "readyAtElapsedMs",sdkReadyAtMs);
+      PcmReadyLatestGate.Snapshot startup=PcmReadyLatestGate.trimPreReadyBacklog(queue);
+      startupDiscardedChunks=startup.discardedChunks;
+      startupDiscardedSamples=startup.discardedSamples();
+      log.event("STT","IXIO_FIRST_READY_LATEST_PCM_SNAPSHOT",
+        "policy","ONE_SHOT_DISCARD_OLDER_KEEP_NEWEST",
+        "sdkReadyAtElapsedMs",sdkReadyAtMs,
+        "queuedChunksAtReady",startup.queuedAtReady,
+        "discardedChunks",startup.discardedChunks,
+        "discardedSamples",startup.discardedSamples(),
+        "discardedAudioMs",startup.discardedSamples()*1000L/RATE,
+        "firstDiscardedSequence",startup.discardedChunks>0?1:0,
+        "lastDiscardedSequence",startup.discardedChunks,
+        "nextSequenceToConsume",startup.discardedChunks+1,
+        "queueChunksAfterTrim",startup.queuedAfterTrim,
+        "futureFramesDiscarded",false,
+        "producerUnchanged",true);
+      listener.status("IXIO 원본 speechSDK 준비 완료 · 최신 PCM부터 최초 시작");
       Method tripleFirst=null,tripleThird=null;
       while(true){
-        byte[] pcm=queue.poll(300,TimeUnit.MILLISECONDS);
+        // poll wakes immediately if the producer has queued a frame.
+        // Timeout is only the EMPTY-queue recheck interval, not a per-frame delay.
+        byte[] pcm=queue.poll(32,TimeUnit.MILLISECONDS);
         if(pcm==null){
           if(inputFinished&&queue.isEmpty())break;
+          emptyPollCount++;
+          if(!firstPcmSelected && (emptyPollCount==1||emptyPollCount%32==0))
+            log.event("STT","IXIO_FIRST_READY_WAITING_FOR_PCM",
+              "elapsedAfterSdkReadyMs",SystemClock.elapsedRealtime()-sdkReadyAtMs,
+              "emptyPolls",emptyPollCount,
+              "queuedChunks",queue.size(),
+              "discardedChunks",startupDiscardedChunks);
           continue;
+        }
+        if(!firstPcmSelected){
+          firstPcmSelected=true;
+          log.event("STT","IXIO_FIRST_READY_NEWEST_PCM_SELECTED",
+            "sequence",startupDiscardedChunks+1,
+            "pcmBytes",pcm.length,"pcmSamples",pcm.length/2,
+            "queuedAtSdkReady",startup.queuedAtReady,
+            "skippedPreReadyChunks",startupDiscardedChunks,
+            "skippedPreReadyAudioMs",startupDiscardedSamples*1000L/RATE,
+            "elapsedSinceSdkReadyMs",SystemClock.elapsedRealtime()-sdkReadyAtMs,
+            "remainingQueueChunks",queue.size(),
+            "futureOrder","STRICT_FIFO_NO_FURTHER_SKIP");
         }
         // Exactly the IXIO original 16kHz mono float[] input contract.
         // No per-window AGC or duration/frequency changes are allowed.
@@ -246,11 +293,25 @@ final class DirectPcmKoreanStt {
             "rms",stats.rms,"dc",stats.dc,"peak",stats.peak,
             "clipCount",stats.clipped,"nearSilent",stats.isNearSilent());
         long inferStarted=SystemClock.elapsedRealtime();
+        if(inferCalls==0)
+          log.event("STT","IXIO_FIRST_READY_INFERENCE_BEGIN",
+            "firstPcmSequence",startupDiscardedChunks+1,
+            "samples",samples.length,
+            "elapsedSinceSdkReadyMs",inferStarted-sdkReadyAtMs);
         Object triple=infer.invoke(sdk,samples,CHANNEL,false);
         long inferMs=SystemClock.elapsedRealtime()-inferStarted;
         if(inferMs>slowestInferenceMs)slowestInferenceMs=inferMs;
         inferCalls++;
         recognizedSamples+=samples.length;
+        if(inferCalls<=8 || inferCalls%256==0)
+          log.event("STT","IXIO_READY_ORDERED_FIFO_INFERENCE_COMPLETE",
+            "sequence",startupDiscardedChunks+inferCalls,
+            "inference",inferCalls,"samplesThisChunk",samples.length,
+            "inferenceMs",inferMs,
+            "consumedSamplesAfterReady",recognizedSamples,
+            "queuedChunksRemaining",queue.size(),
+            "startupOnlySkippedChunks",startupDiscardedChunks,
+            "subsequentFramesSkipped",0);
         if(triple==null)continue;
         if(tripleFirst==null){
           tripleFirst=triple.getClass().getMethod("getFirst");
@@ -328,6 +389,10 @@ final class DirectPcmKoreanStt {
         }
       }
       log.event("STT","IXIO_SESSION_FINAL","samples",recognizedSamples,
+        "startupDiscardedChunks",startupDiscardedChunks,
+        "startupDiscardedSamples",startupDiscardedSamples,
+        "startupDropOnlyOnce",true,
+        "remainingQueueChunks",queue.size(),
         "nonZeroSamples",nonZero,"captionChars",committed.length(),
         "endpointObserved",endpointSeen,"tailSilenceMs",tailChunks*200,
         "inferenceCalls",inferCalls,"maxInferenceMs",slowestInferenceMs);
