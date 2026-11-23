@@ -52,10 +52,10 @@ def apply(app,plugin,route,report):
     path=app/"lib/main.dart"
     s=path.read_text()
     import re
-    imports=list(re.finditer(r"^import .+;\\s*$",s,re.MULTILINE))
+    imports=list(re.finditer(r"^import .+;\s*$",s,re.MULTILINE))
     assert imports, "No Dart import directives available"
     at=imports[-1].end()
-    s=s[:at]+"\\nconst String hitelSdkRoute = String.fromEnvironment('HITEL_SDK_AB_ROUTE', defaultValue: 'BASELINE');\\n"+s[at:]
+    s=s[:at]+"\nconst String hitelSdkRoute = String.fromEnvironment('HITEL_SDK_AB_ROUTE', defaultValue: 'BASELINE');\n"+s[at:]
     s=replace_once(s,"/hitel_e2_trace.log'","/hitel_e2_trace_' + hitelSdkRoute + '.log'","dart-file")
     s=replace_once(s,"/hitel_e2_trace.previous.log'","/hitel_e2_trace_' + hitelSdkRoute + '.previous.log'","dart-prev")
     method=r'''  Future<void> _hitelCopySdkAbComparison() async {
