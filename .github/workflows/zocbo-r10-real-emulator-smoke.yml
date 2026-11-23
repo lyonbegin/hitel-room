@@ -28,6 +28,8 @@ jobs:
           sudo sh -c 'echo KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm" > /etc/udev/rules.d/99-kvm4all.rules'
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm
+          echo KVM_DETAILS; ls -l /dev/kvm
       - name: Actually boot emulator, install APK, inspect and tap in-app collector
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -40,7 +42,8 @@ jobs:
           heap-size: 512M
           disk-size: 4096M
           disable-animations: true
-          emulator-boot-timeout: 600
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
           script: python3 scripts/zocbo_diagnostic/emulator_smoke.py | tee work/emulator-evidence/runtime-output.txt
       - name: Check runtime for crash and region discovery evidence
         if: always()
