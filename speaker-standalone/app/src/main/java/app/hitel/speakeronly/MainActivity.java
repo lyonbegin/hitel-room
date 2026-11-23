@@ -165,6 +165,10 @@ public final class MainActivity extends Activity {
              String.class,String.class,String.class,float.class);
           sdk.getMethod("SpeechInference",float[].class,int.class,boolean.class);
           Log.i("IXIO_SDK_PROBE","PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS");
+          // The user's previous failure was missing original code. Check
+          // the actual original arm64 native STT library independently too.
+          System.loadLibrary("sherpa-onnx-jni");
+          Log.i("IXIO_SDK_PROBE","PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED");
           runOnUiThread(()->status.setText("IXIO SDK 원본 클래스 로딩 성공 · STT 모델 추론 시험 별도"));
         }catch(Throwable t){
           Log.e("IXIO_SDK_PROBE","FAIL_ORIGINAL_IXIO_CLASSLOADER",t);
