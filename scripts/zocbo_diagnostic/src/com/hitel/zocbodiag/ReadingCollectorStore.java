@@ -11,6 +11,8 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Metadata-only, app-private SQLite storage; does not store PDF/token/cookies. */
 public final class ReadingCollectorStore extends SQLiteOpenHelper {
@@ -20,7 +22,7 @@ public final class ReadingCollectorStore extends SQLiteOpenHelper {
     "exam_year","exam_term","subject_code","subject_name","course_name",
     "core_type","answer","source_scope","last_seen"
   };
-  public ReadingCollectorStore(Context context){super(context.getApplicationContext(),DB_NAME,null,1);}
+  public ReadingCollectorStore(Context context){super(context.getApplicationContext(),DB_NAME,null,2);}
   @Override public void onCreate(SQLiteDatabase db){
     db.execSQL("CREATE TABLE IF NOT EXISTS exams ("+
       "exam_no TEXT PRIMARY KEY NOT NULL,title TEXT NOT NULL DEFAULT '',"+
@@ -31,8 +33,19 @@ public final class ReadingCollectorStore extends SQLiteOpenHelper {
     db.execSQL("CREATE TABLE IF NOT EXISTS checkpoints ("+
       "run_key TEXT PRIMARY KEY NOT NULL,task_index INTEGER,page INTEGER,"+
       "pages_done INTEGER,rows_seen INTEGER,finished INTEGER,updated_at INTEGER)");
+    createAreaTable(db);
   }
-  @Override public void onUpgrade(SQLiteDatabase db,int oldVersion,int newVersion){ /* v1 unchanged */ }
+  @Override public void onUpgrade(SQLiteDatabase db,int oldVersion,int newVersion){
+    if(oldVersion<2)createAreaTable(db); // preserves v1 exams and checkpoints
+  }
+  private static void createAreaTable(SQLiteDatabase db){
+    db.execSQL("CREATE TABLE IF NOT EXISTS area_scopes ("+
+      "run_key TEXT NOT NULL,site TEXT NOT NULL,area_index INTEGER NOT NULL,"+
+      "name TEXT NOT NULL,schools TEXT NOT NULL,city TEXT,district TEXT,"+
+      "filter_value TEXT,paid TEXT,grade TEXT,year TEXT,term TEXT,subject TEXT,"+
+      "first_page_json TEXT,updated_at INTEGER,"+
+      "PRIMARY KEY(run_key,site,area_index))");
+  }
 
   static String first(JSONObject o,String... names){
     for(String n:names){ if(o.has(n) && !o.isNull(n)){
@@ -114,11 +127,62 @@ public final class ReadingCollectorStore extends SQLiteOpenHelper {
         db.insertWithOnConflict("exams",null,v,SQLiteDatabase.CONFLICT_REPLACE);
         found++;
       }
+      if(list.length()>0 && found==0)throw new IllegalStateException("No valid exam IDs in a nonempty server page");
       save(db,key,next);
       db.setTransactionSuccessful();
     }finally{db.endTransaction();}
     return found;
   }
+  /** Persist each successfully discovered region immediately, not at nationwide completion. */
+  public synchronized void saveArea(String key,int ordinal,ReadingCollectorController.AreaScope area){
+    if(key==null||key.isEmpty()||ordinal<0||area==null||
+       !("M".equals(area.site)||"H".equals(area.site))||
+       area.schools==null||area.schools.isEmpty())
+      throw new IllegalArgumentException("Invalid original region scope");
+    SQLiteDatabase db=getWritableDatabase();
+    ContentValues v=new ContentValues();
+    v.put("run_key",key);v.put("site",area.site);v.put("area_index",ordinal);
+    v.put("name",area.name);v.put("schools",area.schools);
+    v.put("city",area.city);v.put("district",area.district);
+    v.put("filter_value",area.filter);v.put("paid",area.paid);
+    v.put("grade",area.grade);v.put("year",area.year);v.put("term",area.term);
+    v.put("subject",area.subject);
+    v.put("first_page_json",area.firstPage==null?"[]":area.firstPage.toString());
+    v.put("updated_at",System.currentTimeMillis());
+    if(db.insertWithOnConflict("area_scopes",null,v,SQLiteDatabase.CONFLICT_REPLACE)<0)
+      throw new IllegalStateException("Region checkpoint not persisted");
+  }
+
+  public synchronized List<ReadingCollectorController.AreaScope> loadAreas(String key){
+    ArrayList<ReadingCollectorController.AreaScope> result=new ArrayList<>();
+    Cursor cursor=getReadableDatabase().rawQuery(
+      "SELECT site,area_index,name,schools,city,district,filter_value,paid,"+
+      "grade,year,term,subject,first_page_json FROM area_scopes WHERE run_key=? "+
+      "ORDER BY CASE site WHEN 'M' THEN 0 ELSE 1 END, area_index",
+      new String[]{key});
+    try{
+      while(cursor.moveToNext()){
+        JSONArray rows;
+        try{rows=new JSONArray(cursor.isNull(12)?"[]":cursor.getString(12));}
+        catch(org.json.JSONException e){throw new IllegalStateException("Corrupt stored area snapshot",e);}
+        ReadingCollectorController.AreaScope area=new ReadingCollectorController.AreaScope(
+          cursor.getString(2),cursor.getString(0),cursor.getString(3),
+          cursor.getString(4),cursor.getString(5),cursor.getString(6),
+          cursor.getString(7),cursor.getString(8),cursor.getString(9),
+          cursor.getString(10),cursor.getString(11),rows);
+        area.ordinal=cursor.getInt(1);
+        result.add(area);
+      }
+    }finally{cursor.close();}
+    return result;
+  }
+
+  public synchronized int countAreas(String key){
+    Cursor c=getReadableDatabase().rawQuery(
+      "SELECT COUNT(*) FROM area_scopes WHERE run_key=?",new String[]{key});
+    try{return c.moveToFirst()?c.getInt(0):0;}finally{c.close();}
+  }
+
   public synchronized void saveProgress(String key,Progress progress){
     SQLiteDatabase db=getWritableDatabase();
     db.beginTransaction();
