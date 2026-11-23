@@ -1,0 +1,57 @@
+name: Zocbo Original Network Error Source Trace
+on:
+  push:
+    branches:
+      - research/zocbo-network-failure-20261123
+    paths:
+      - .github/workflows/zocbo-network-error-trace.yml
+      - scripts/zocbo_original_dex/scan_network_failure.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-error-trace:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 16
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve original and verify its exact SHA
+        run: python3 scripts/zocbo_original_dex/download_verified_xapk.py source
+      - name: Extract original base and decoded resource table
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import pathlib,zipfile
+          pathlib.Path("/tmp/zocbo-original-base.apk").write_bytes(zipfile.ZipFile("source/jokbo.xapk").read("com.eduzone.eduzoneviewer.apk"))
+          PY
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool
+          apktool d -f -s -o /tmp/zocbo_resdecoded /tmp/zocbo-original-base.apk
+          grep -Rni '서비스 연결이 원활하지\|네트워크 상태를 확인' /tmp/zocbo_resdecoded/res/values/strings.xml || true
+      - name: Decompile exact original application DEX
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fLsS --connect-timeout 10 --max-time 90 -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d /tmp/zocbo_jadx /tmp/zocbo-original-base.apk > /tmp/decompiler-output.txt 2>&1 || true
+          test -d /tmp/zocbo_jadx/sources
+          tail -15 /tmp/decompiler-output.txt
+      - name: Trace exact network error dialog producers and HTTP exceptions
+        run: python3 -u scripts/zocbo_original_dex/scan_network_failure.py
+      - name: Upload error resource/consumer source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-network-error-original-source-audit
+          retention-days: 14
+          path: |
+            evidence/zocbo-original-dex/network_failure_audit.json
+            source/source_verification.json
