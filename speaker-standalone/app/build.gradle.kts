@@ -6,8 +6,8 @@ android {
     applicationId = "app.hitel.recording.directstt"
     minSdk = 26
     targetSdk = 28
-    versionCode = 8
-    versionName = "1.0.7-ixio-original-stt-amplitude1-vad"
+    versionCode = 9
+    versionName = "1.0.9-ixio-pcm-contract-endpoint"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
