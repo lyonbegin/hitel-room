@@ -4,6 +4,7 @@ on:
     branches:
       - feature/zocbo-diagnostic-apk-20261123
       - research/zocbo-network-failure-20261123
+      - research/zocbo-black-free-exam-20261123
     paths:
       - .github/workflows/zocbo-diagnostic-apk.yml
       - scripts/zocbo_diagnostic/**
@@ -61,7 +62,7 @@ jobs:
           SDK_PLATFORM="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
           SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           mkdir -p work/classes work/diag-dex
-          javac -source 8 -target 8 -Xlint:-options -cp "$SDK_PLATFORM/android.jar" -d work/classes scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/Diag.java
+          javac -source 8 -target 8 -Xlint:-options -cp "$SDK_PLATFORM/android.jar" -d work/classes $(find scripts/zocbo_diagnostic/src -name '*.java')
           "$SDK_BUILD/d8" --min-api 23 --lib "$SDK_PLATFORM/android.jar" --output work/diag-dex $(find work/classes -name '*.class')
           file work/diag-dex/classes.dex
       - name: Patch original native functions and build instrumented app
