@@ -41,7 +41,7 @@ def prepare(plugin, upstream, sources, report):
     text = once(text,
         '        return AvatarPlayer(s.avatar, workers, debuggable = debuggable, capturable = false,\n'
         '            onPlayout = { played -> notePlayed(s, played) }) { bmp -> s.draw(bmp) }',
-        '        if (s.avatar is Essence2Engine) return Essence2SpeechPlayer(s.avatar, workers,\n'
+        '        if (s.avatar is Essence2Engine && HitelSdkLoader.route() == "BASELINE") return Essence2SpeechPlayer(s.avatar, workers,\n'
         '            onPlayout = { played -> notePlayed(s, played) }) { bmp -> s.draw(bmp) }\n'
         '        return LegacySpeechPlayer(AvatarPlayer(s.avatar, workers, debuggable = debuggable, capturable = false,\n'
         '            onPlayout = { played -> notePlayed(s, played) }) { bmp -> s.draw(bmp) })')
@@ -54,10 +54,10 @@ def prepare(plugin, upstream, sources, report):
         '            } finally {')
     # Match the maker's ByteBuffer pull path; do not enable a competing hardware-buffer delivery queue.
     text = once(text, 'val e = Essence2Engine(avatar, zeroCopy = !forceCopy, playoutClock = clockOn)',
-                'val e = Essence2Engine(avatar, zeroCopy = false, playoutClock = clockOn)')
+                'val e = Essence2Engine(avatar, zeroCopy = if (HitelSdkLoader.route() == "BASELINE") false else !forceCopy, playoutClock = clockOn)')
     if '"forcedCpuCopy" to forceCopy,' in text:
-        text = once(text, '"forcedCpuCopy" to forceCopy,', '"forcedCpuCopy" to true,')
-    text = once(text, "                entry.setSize(avatar.width, avatar.height)", "                val hitelTextureWidth = if (avatar is Essence2Engine) (avatar.width + 1) / 2 else avatar.width\n                val hitelTextureHeight = if (avatar is Essence2Engine) (avatar.height + 1) / 2 else avatar.height\n                entry.setSize(hitelTextureWidth, hitelTextureHeight)\n                HitelE2Trace.event(\"display.texture.config\", \"width\" to hitelTextureWidth, \"height\" to hitelTextureHeight)")
+        text = once(text, '"forcedCpuCopy" to forceCopy,', '"forcedCpuCopy" to (HitelSdkLoader.route() == "BASELINE" || forceCopy),')
+    text = once(text, "                entry.setSize(avatar.width, avatar.height)", "                val hitelTextureWidth = if (avatar is Essence2Engine && HitelSdkLoader.route() == "BASELINE") (avatar.width + 1) / 2 else avatar.width\n                val hitelTextureHeight = if (avatar is Essence2Engine && HitelSdkLoader.route() == "BASELINE") (avatar.height + 1) / 2 else avatar.height\n                entry.setSize(hitelTextureWidth, hitelTextureHeight)\n                HitelE2Trace.event(\"display.texture.config\", \"width\" to hitelTextureWidth, \"height\" to hitelTextureHeight)")
     target.write_text(text, encoding='utf-8')
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps({
@@ -68,7 +68,7 @@ def prepare(plugin, upstream, sources, report):
         'mode': 'utterance_preparation_then_audio_clock_playback',
         'not_realtime_streaming': True, 'native_inference_modified': False,
         'model_loading_modified': False, 'transport_modified': False,
-        'scope': 'Essence2 speech player and half-resolution texture scaling',
+        'scope': 'original BASELINE prior working utterance render/audio path, WG128 GPU player unchanged',
     }, indent=2) + '\n', encoding='utf-8')
     print('PASS_VENDOR_ESSENCE2_RENDER_ONCE_PLAY_INTEGRATED')
 
