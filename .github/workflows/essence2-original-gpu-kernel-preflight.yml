@@ -39,7 +39,7 @@ jobs:
             report['patched_4_sites_original_bytes'][hex(off)]=native[off:off+4].hex()
           # Extract only kernel-declaration structure (not vendor source text).
           decls=[]
-          for match in re.finditer(r'(?:(?:__kernel|kernel)\\s+void\\s+)([A-Za-z_][A-Za-z0-9_]*)\\s*\\(',text):
+          for match in re.finditer(r'(?:(?:__kernel|kernel)\s+void\s+)([A-Za-z_][A-Za-z0-9_]*)\s*\(',text):
             name=match.group(1)
             start=match.start()
             opening=text.find('{',start,start+3000)
