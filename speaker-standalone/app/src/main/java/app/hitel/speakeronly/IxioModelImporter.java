@@ -19,8 +19,10 @@ import java.util.zip.ZipInputStream;
  */
 final class IxioModelImporter {
   private static final String[] REQUIRED={
-    "encoder.ort","decoder.ort","joiner.ort","tokens.txt"
+    "encoder.ort","decoder.ort","joiner.ort","tokens.txt","bpe.vocab","vad.onnx"
   };
+  // Full original IXIO archive may also contain the anti-spoofing model.
+  // Include it in the import but only STT+VAD are loaded for this light-weight test.
   private static final long MAX_FILE_BYTES=650L*1024*1024;
   private static final long MAX_TOTAL_BYTES=900L*1024*1024;
 
@@ -77,6 +79,16 @@ final class IxioModelImporter {
       for(String required:REQUIRED)
         if(!names.contains(required))
           throw new IOException("Original IXIO STT.zip missing "+required);
+      // These originals were verified from the user's exported 4.0.4 ZIP.
+      // Reject old non-ORT model packages rather than silently falling back.
+      for(String name:new String[]{"encoder.ort","decoder.ort","joiner.ort"}){
+        try(java.io.FileInputStream in=new java.io.FileInputStream(new File(stage,name))){
+          byte[] header=new byte[8];
+          if(in.read(header)!=8 ||
+             header[4]!='O'||header[5]!='R'||header[6]!='T'||header[7]!='M')
+            throw new IOException("Not an IXIO .ort model: "+name);
+        }
+      }
       remove(backup);
       if(target.exists()&&!target.renameTo(backup))
         throw new IOException("Cannot preserve previous IXIO model directory");
@@ -94,7 +106,7 @@ final class IxioModelImporter {
   }
 
   private static boolean isModelName(String name){
-    if(name.equals("bpe.vocab"))return true;
+    if(name.equals("anti.onnx"))return true;
     for(String required:REQUIRED)if(required.equals(name))return true;
     return false;
   }
