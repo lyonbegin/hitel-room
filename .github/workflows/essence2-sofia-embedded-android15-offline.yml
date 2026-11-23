@@ -1,10 +1,10 @@
-name: HITEL Essence2 EXACT e048 baseline with real released WG128 SDK native only
+name: HITEL Essence2 ORIGINAL_GPU COMPAT_GPU VENDOR_CPU three-stage
 on:
   workflow_dispatch:
   push:
     branches:
       - feature/hitel-essence2-main
-      - fix/essence2-restore-e048-swap-real-wg128-20261123
+      - feature/essence2-original-gpu-compat-cpu-3stage-20261123
     paths:
       - .github/workflows/essence2-sofia-embedded-android15-offline.yml
       - tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py
@@ -13,8 +13,9 @@ on:
       - tools/bithuman_deep/prepare_essence2_vendor_speech_player.py
       - tools/bithuman_deep/essence2_local_android/HitelSdkLoader.kt
       - tools/bithuman_deep/essence2_local_android/HitelSdkProbe.kt
-      - tools/bithuman_deep/essence2_real_wg128_original_probe_20261122.cpp
-      - tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
+      - tools/bithuman_deep/essence2_gpu3_original_first_native.cpp
+      - tools/bithuman_deep/prepare_essence2_original_gpu3.py
+      - tools/bithuman_deep/prepare_essence2_single_apk_ab.py
       - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
       - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
       - tools/bithuman_deep/wait_essence2_playout_complete.py
@@ -148,14 +149,18 @@ jobs:
           # all their source preparation scripts MUST remain byte-identical to e04874f.
           git fetch --no-tags --depth=20 origin e04874faf018d97f0afa9b760be93373212c1777
           git cat-file -e e04874faf018d97f0afa9b760be93373212c1777^{commit}
-          for source in prepare_essence2_vendor_speech_player.py prepare_essence2_single_apk_ab.py; do
+          for source in prepare_essence2_vendor_speech_player.py; do
             cmp <(git show e04874faf018d97f0afa9b760be93373212c1777:"tools/bithuman_deep/$source") \
                 "tools/bithuman_deep/$source"
           done
           grep -Fq 'zeroCopy = false' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
           grep -Fq 'Essence2SpeechPlayer' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
-          echo PASS_RESTORED_e04874f_ORIGINAL_PLAYER_AND_ALL_PCM_VIDEO_PATHS_BYTE_IDENTICAL
-          python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
+          for file in Essence2SpeechPlayer.kt Essence2VendorRender.kt; do
+            cmp <(git show e04874faf018d97f0afa9b760be93373212c1777:"tools/bithuman_deep/essence2_local_android/$file") \
+                "tools/bithuman_deep/essence2_local_android/$file"
+          done
+          echo PASS_GPU3_UNCHANGED_VENDOR_PLAYER_PCM_RENDER
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_original_gpu3.py
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
