@@ -190,6 +190,7 @@ public final class ReadingCollectorController {
       }
       @Override public void onReceivedError(WebView w,int code,String description,String failingUrl){
         showStatus("열람실 WebView 오류: "+code+" "+description);
+        if(discovering)stopDiscovery("원본 서버 연결 오류: "+code+" "+description);
       }
     });
     root.addView(web,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(175)));
@@ -472,14 +473,21 @@ public final class ReadingCollectorController {
       showStatus("연도 범위를 확인해 주십시오 (1990~2100).");return;
     }
     discovering=true;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
-    discoveryRunKey="discovery-v2-"+discoverFromYear+"-"+discoverToYear;
-    originalAreas.clear();discoverySiteIndex=0;discoveryIndex=0;selectorRetries=0;
+    discoveryRunKey="discovery-v3-nine-seoul-"+discoverFromYear+"-"+discoverToYear;
+    originalAreas.clear();requestedRegionNames.clear();
+    discoverySiteIndex=0;discoveryIndex=0;selectorRetries=0;selectedTabOrdinal=-1;
     try{
       originalAreas.addAll(store.loadAreas(discoveryRunKey));
       if(!originalAreas.isEmpty()){
         AreaScope last=originalAreas.get(originalAreas.size()-1);
         discoverySiteIndex="H".equals(last.site)?1:0;
-        discoveryIndex=last.ordinal+1;
+        discoveryIndex=0;
+        for(AreaScope a:originalAreas){
+          if(last.site.equals(a.site))discoveryIndex++;
+          if("M".equals(a.site))requestedRegionNames.add(a.name);
+        }
+        if("H".equals(last.site)&&requestedRegionNames.size()!=REGION_LIMIT)
+          throw new IllegalStateException("Middle school nine region checkpoints missing");
       }
     }catch(Throwable t){
       discovering=false;
@@ -488,7 +496,8 @@ public final class ReadingCollectorController {
     }
     showStatus("전국 지역 순회 재개: DB에 저장된 지역 "+
       originalAreas.size()+"곳 · 다음 지역부터 탐색");
-    Diag.log("COLLECTOR_NATIONWIDE_DISCOVERY_START","year="+discoverFromYear+"-"+discoverToYear);
+    Diag.log("COLLECTOR_NATIONWIDE_DISCOVERY_START","year="+discoverFromYear+"-"+discoverToYear+" original nine Seoul first");
+    logNine("START_OR_RESUME","");
     openAreaSelector();
   }
   private void openAreaSelector(){
@@ -514,13 +523,15 @@ public final class ReadingCollectorController {
     discovering=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
     Diag.log("COLLECTOR_DISCOVERY_STOP",
       ReadingCollectorStore.sanitize(reason,200)+" collectedAreas="+originalAreas.size());
+    logNine("BLOCKED",reason);
     showStatus(reason+" · 저장된 지역 "+originalAreas.size()+"곳 / 시험지 "+store.count()+"건 유지. 같은 연도 범위로 이어하기 가능합니다.");
   }
   private void finishAreaDiscovery(){
     if(!discovering)return;
     discovering=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
-    if(originalAreas.isEmpty()){
-      showStatus("원본 지역 ‘전체’ 범위가 하나도 확보되지 않았습니다.");
+    if(originalAreas.size()!=REGION_LIMIT*SCHOOL_LEVELS.length){
+      showStatus("원본 중학교·고등학교 18개 지역 범위 중 "+
+        originalAreas.size()+"개만 확인되었습니다. DB 보존 후 중단합니다.");
       return;
     }
     // Build a stable order from exactly the source-delivered region choices.
@@ -741,6 +752,7 @@ public final class ReadingCollectorController {
       });
       Diag.log("COLLECTOR_PAGE_SAVED","task="+task+" page="+page
         +" rows="+list.length()+" persisted="+saved+" next="+next.taskIndex+":"+next.page);
+      logNine("PAGE_SAVED","task="+task+" page="+page+" rows="+list.length());
     }catch(Throwable t){
       ui.post(()->{requestPending=false;pause("메타데이터 저장 실패: "+t.getClass().getSimpleName());});
       Diag.log("COLLECTOR_STORE_ERROR",t.getClass().getName());
@@ -752,12 +764,14 @@ public final class ReadingCollectorController {
     running=false;requestPending=false;
     ReadingCollectorStore.Progress saved=store.load(runKey);
     Diag.log("COLLECTOR_PAUSED",reason+" persisted_checkpoint="+saved.taskIndex+":"+saved.page+" db_rows="+store.count());
+    logNine("PAUSED",reason);
     showStatus(reason+" · 이미 수집한 "+store.count()+"건 유지");
   }
   private void finish(){
     running=false;requestPending=false;progress.finished=true;
     store.saveProgress(runKey,progress);
     Diag.log("COLLECTOR_FINISHED","jobs="+jobs.size()+" unique="+store.count());
+    logNine("FINISHED","jobs="+jobs.size());
     showStatus("모든 요청 조건의 페이지 탐색 종료. DB "+store.count()
       +"건 · CSV/JSON으로 내보내십시오. 전국 전체 자료 확보 여부는 별도 검증이 필요합니다.");
   }
