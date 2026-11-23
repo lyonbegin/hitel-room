@@ -52,11 +52,11 @@ for f in paths:
         touched[2]+=1
         return z.group(1)+z.group(2)+"\n    invoke-static {"+z.group(3)+"}, "+MODEL
       s=p.sub(insert_hook,s)
-    if re.search(r"^\\.method[^\\n]*\\bgetPdfPath\\(\\)Ljava/lang/String;",s,re.M) and MODEL not in s:
-      p=re.compile(r"(?m)^    return-object (v\\d+|p\\d+)[ \\t]*$")
+    if re.search(r"^\.method[^\n]*\bgetPdfPath\(\)Ljava/lang/String;",s,re.M) and MODEL not in s:
+      p=re.compile(r"(?m)^    return-object (v\d+|p\d+)[ \t]*$")
       def insert_return(z):
         touched[2]+=1
-        return "    invoke-static {"+z.group(1)+"}, "+MODEL+"\\n"+z.group(0)
+        return "    invoke-static {"+z.group(1)+"}, "+MODEL+"\n"+z.group(0)
       s=p.sub(insert_return,s,count=1)
     return s
   modified=method_re.sub(rewrite_method,original)
