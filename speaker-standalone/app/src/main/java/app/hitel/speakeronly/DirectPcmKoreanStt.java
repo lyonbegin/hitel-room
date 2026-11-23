@@ -17,7 +17,8 @@ import java.util.concurrent.TimeUnit;
  *
  * The model and binary code are taken from the user's original IXIO build.
  * No fallback to any open-source Korean model is permitted.
- * Samsung's incremental M4A decoder supplies 16kHz mono PCM16.
+ * The file-backed IXIO LocalAudioRecordSource supplies 16kHz mono float[512]
+ * from Samsung M4A decoder PCM16, matching the ORIGINAL source contract.
  *
  * Source contract confirmed from IXIO restored DEX:
  *   com.lguplus.ixispeech_ktn.speechSDK.loadSTT(String,String,String,String,String,float)
@@ -38,11 +39,13 @@ final class DirectPcmKoreanStt {
   private static volatile ClassLoader sharedIxioLoader;
   private static final int RATE=16000;
   private static final int CHANNEL=0;
-  private static final int QUEUE_CAPACITY=512;
+  // 4096 original 32ms frames ~= 131 seconds capacity, so accelerated
+  // playback of recorded files does not silently lose whole utterances.
+  private static final int QUEUE_CAPACITY=4096;
   private final Context context;
   private final TraceJournal log;
   private final Listener listener;
-  private final ArrayBlockingQueue<byte[]> queue=new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+  private final ArrayBlockingQueue<float[]> queue=new ArrayBlockingQueue<>(QUEUE_CAPACITY);
   private volatile boolean inputFinished,ready,completed;
   private volatile Throwable failure;
   private volatile long queuedBytes,recognizedSamples;
@@ -59,7 +62,7 @@ final class DirectPcmKoreanStt {
     worker=new Thread(this::work,"IXIO-Original-SpeechSDK");
     worker.start();
     log.event("STT","IXIO_SPEECHSDK_START_REQUESTED",
-      "source","Samsung growing M4A 16kHz PCM",
+      "source","Samsung M4A decoded PCM -> IXIO LocalAudioRecordSource float512 Flow",
       "publicHitelSherpa",false,"ixioOriginal",true);
   }
 
@@ -69,20 +72,38 @@ final class DirectPcmKoreanStt {
   long queuedBytes(){return queuedBytes;}
   long recognizedSamples(){return recognizedSamples;}
 
+  /** Compatibility for any older PCM16LE producer. The new file source feeds
+   * original-style float[512] directly via acceptFloat(). */
   void accept(byte[] pcm)throws IOException {
     if(pcm==null||pcm.length==0)return;
     if((pcm.length&1)!=0)throw new IOException("PCM16 must have an even byte length");
+    acceptFloat(IxioPcmNormalizer.decode(pcm));
+  }
+
+  /** Equivalent of original IXIO CallScriptManager's Flow.collect collector:
+   * receive already-normalized 16kHz PCM frames and copy to an owned queue.
+   * The original LocalAudioRecordSource reuses its float[512] per read, so
+   * cloning is essential BEFORE returning to the producer.
+   */
+  void acceptFloat(float[] samples)throws IOException {
+    if(samples==null||samples.length==0)return;
     if(failure!=null)throw new IOException("IXIO speechSDK failed",failure);
     if(inputFinished)throw new IOException("IXIO STT already finished");
-    byte[] owned=pcm.clone();
-    if(!queue.offer(owned)){
-      log.event("STT","IXIO_PCM_QUEUE_FULL","chunks",queue.size(),"bytes",queuedBytes);
-      throw new IOException("IXIO speechSDK too slow: PCM queue full");
+    float[] owned=samples.clone();
+    try{
+      if(!queue.offer(owned,2,TimeUnit.SECONDS)){
+        log.event("STT","IXIO_PCM_QUEUE_FULL","chunks",queue.size(),
+          "receivedSamples",queuedBytes/2,"newFrameSamples",owned.length);
+        throw new IOException("IXIO speechSDK too slow: original PCM Flow queue full");
+      }
+    }catch(InterruptedException error){
+      Thread.currentThread().interrupt();
+      throw new IOException("Interrupted while delivering original-style PCM frame",error);
     }
-    queuedBytes+=owned.length;
-    if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length)
+    queuedBytes+=(long)owned.length*2;
+    if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length*2)
       log.event("STT","IXIO_PCM_QUEUED","bytes",queuedBytes,
-        "modelReady",ready,"chunks",queue.size());
+        "modelReady",ready,"chunks",queue.size(),"originalFrameSamples",owned.length);
   }
 
   void finishAndWait(){
@@ -229,14 +250,13 @@ final class DirectPcmKoreanStt {
       listener.status("IXIO 원본 speechSDK 준비 완료");
       Method tripleFirst=null,tripleThird=null;
       while(true){
-        byte[] pcm=queue.poll(300,TimeUnit.MILLISECONDS);
-        if(pcm==null){
+        float[] samples=queue.poll(300,TimeUnit.MILLISECONDS);
+        if(samples==null){
           if(inputFinished&&queue.isEmpty())break;
           continue;
         }
         // Exactly the IXIO original 16kHz mono float[] input contract.
         // No per-window AGC or duration/frequency changes are allowed.
-        float[] samples=IxioPcmNormalizer.decode(pcm);
         IxioPcmNormalizer.Stats stats=IxioPcmNormalizer.stats(samples);
         if(stats.hasInvalid())
           throw new IOException("IXIO float[] contained a NaN or infinity");
