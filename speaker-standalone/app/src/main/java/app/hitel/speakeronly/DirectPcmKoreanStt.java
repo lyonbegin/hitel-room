@@ -20,7 +20,8 @@ import java.util.concurrent.TimeUnit;
  * Samsung's incremental M4A decoder supplies 16kHz mono PCM16.
  *
  * Source contract confirmed from IXIO restored DEX:
- *   com.lguplus.ixispeech_ktn.speechSDK.loadSTT(String,String,String,String,String)
+ *   com.lguplus.ixispeech_ktn.speechSDK.loadSTT(String,String,String,String,String,float)
+ *   com.lguplus.ixispeech_ktn.speechSDK.loadVAD(String)
  *   com.lguplus.ixispeech_ktn.speechSDK.SpeechInference(float[],int,boolean):kotlin.Triple
  *   com.lguplus.ixispeech_ktn.speechSDK.release()
  */
@@ -156,15 +157,26 @@ final class DirectPcmKoreanStt {
       sdk=klass.getDeclaredConstructor().newInstance();
       release=klass.getMethod("release");
       Method load=klass.getMethod("loadSTT",
-        String.class,String.class,String.class,String.class,String.class);
+        String.class,String.class,String.class,String.class,String.class,float.class);
+      Method loadVAD=klass.getMethod("loadVAD",String.class);
       Method infer=klass.getMethod("SpeechInference",float[].class,int.class,boolean.class);
-      // Preserve IXIO's own model configuration and its internal
-      // CombinedSTTKWS/OnlineStream setup, instead of building OnlineRecognizer.
+      // The IXIO original repository calls loadVAD(path) before loadSTT,
+      // then loadSTT with amplitude 1.0f (verified in original smali).
+      File vad=model("vad.onnx");
+      loadVAD.invoke(sdk,vad.getAbsolutePath());
+      log.event("STT","IXIO_ORIGINAL_VAD_PATH_SET",
+        "bytes",vad.length(),"file",vad.getName());
       load.invoke(sdk,encoder.getAbsolutePath(),decoder.getAbsolutePath(),
-        joiner.getAbsolutePath(),tokens.getAbsolutePath(),bpe.getAbsolutePath());
+        joiner.getAbsolutePath(),tokens.getAbsolutePath(),bpe.getAbsolutePath(),1.0f);
+      // Original IXIO silently returns if any required model is missing.
+      // Do not report READY unless its real internal sttReady flag is true.
+      java.lang.reflect.Field flag=klass.getDeclaredField("sttReady");
+      flag.setAccessible(true);
+      if(!flag.getBoolean(sdk))
+        throw new IOException("Original IXIO speechSDK returned sttReady=false after loadSTT");
       ready=true;
       log.event("STT","IXIO_ORIGINAL_SPEECHSDK_READY",
-        "class",klass.getName(),"channel",CHANNEL,"rate",RATE);
+        "class",klass.getName(),"channel",CHANNEL,"rate",RATE,"amplitude",1.0f);
       listener.status("IXIO 원본 speechSDK 준비 완료");
       Method tripleFirst=null,tripleThird=null;
       while(true){
