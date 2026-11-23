@@ -7,14 +7,14 @@ out=Path("evidence/zocbo-viewer-callgraph")
 out.mkdir(parents=True,exist_ok=True)
 core=[
 "p229y3/Y0.java","p229y3/T0.java","p229y3/R0.java","p229y3/P0.java","p229y3/Q0.java","p229y3/S0.java","p229y3/U0.java","p079i3/Q0.java","p079i3/z0.java",
-"p079i3/P0.java","p079i3/I0.java","p203v3/P.java","p203v3/Y.java",
-"A3/x0.java","com/eduzone/eduzoneviewer/repository/S.java","com/eduzone/eduzoneviewer/repository/I.java","com/eduzone/eduzoneviewer/repository/z.java","A3/c0.java",
+"p079i3/P0.java","p079i3/I0.java","p203v3/P.java","p203v3/C1994n.java","p203v3/Y.java","p193u3/s.java",
+"A3/x0.java","p040e3/b.java","p050f3/a.java","p144p3/p.java","com/eduzone/eduzoneviewer/repository/S.java","com/eduzone/eduzoneviewer/repository/I.java","com/eduzone/eduzoneviewer/repository/z.java","A3/c0.java",
 "com/eduzone/eduzoneviewer/repository/T.java",
 ]
 terms=[
-"requestTicketData","getPdfPath(","pdf_path","getHasTicket(","getQstImgPath(",
+"requestTicketData","requestViewerData","getPdfPath(","pdf_path","getHasTicket(","getQstImgPath(",
 "getQstViewerPath(","getQstUrl(","getQstList(","EXTRA_PDF_EX_PAPR_NO",
-"pdfUtil","pdfDrawRepository","shortUrl","@GET(","@POST(","@Url",
+"pdfUtil","pdfDrawRepository","shortUrl","@GET(","@POST(","@Url","VIEWER_FILE_PATH","new C1994n(","f29574o0 =","f28186d =","f28186d;","f14326a.a(","f14326a",
 "downloadPdf","loadPdf","pdfium","PdfiumCore","getPdfFile",
 ]
 text=[]
@@ -36,7 +36,7 @@ for p in src.rglob("*.java"):
     lines=p.read_text(encoding="utf-8",errors="replace").splitlines()
     matches=[i for i,line in enumerate(lines) if any(k in line for k in terms)]
     if not matches:continue
-    strength=sum(any(k in lines[i] for k in ["getPdfPath(","pdf_path","requestTicketData","getQstViewerPath(","@GET(","@POST("]) for i in matches)
+    strength=sum(any(k in lines[i] for k in ["getPdfPath(","pdf_path","requestTicketData","requestViewerData","new C1994n(","VIEWER_FILE_PATH","f29574o0 =","f28186d =","getQstViewerPath(","@GET(","@POST("]) for i in matches)
     if not strength and len(matches)<3: continue
     discovered.append((rel,lines,matches,strength))
 discovered.sort(key=lambda row:(-row[3],-len(row[2]),row[0]))
