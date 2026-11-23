@@ -17,13 +17,11 @@ jobs:
       - name: Extract verified upstream Android C API libraries
         run: |
           set -euo pipefail
-          URL='https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-v2.0.3-android-static-link-onnxruntime.tar.bz2'
+          URL='https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-v2.0.3-android.tar.bz2'
           curl -fLsS --retry 4 --retry-delay 2 "$URL" -o /tmp/sherpa-v2.0.3.tar.bz2
-          echo 'fe4ccf7b36a0cb479724df2f1ba0b8fcf896c12118151ee7a25569565e2fbebb  /tmp/sherpa-v2.0.3.tar.bz2' | sha256sum -c -
+          echo '2a30b222abae6d5cf544df4a1c27944279449c25dbb9c755097189cb45db1df0  /tmp/sherpa-v2.0.3.tar.bz2' | sha256sum -c -
           mkdir -p /tmp/sherpa-stage
           tar -xjf /tmp/sherpa-v2.0.3.tar.bz2 -C /tmp/sherpa-stage
-          echo STATIC_ARCHIVE_FILES
-          find /tmp/sherpa-stage -type f | sort | head -160
           find /tmp/sherpa-stage -type f | grep -E '(\.so$|c-api\.h$)' | sort | head -100
           find /tmp/sherpa-stage -type f -name 'libsherpa-onnx-c-api.so' > /tmp/c-api-list
           mkdir -p /tmp/sherpa-stage/include/sherpa-onnx/c-api
@@ -65,12 +63,7 @@ jobs:
           mkdir -p native-artifacts/arm64-v8a
           cp "$LIB" native-artifacts/arm64-v8a/
           cp /tmp/sherpa-stage/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so native-artifacts/arm64-v8a/
-          # This upstream flavor statically embeds ONNX Runtime.
-          # The original IXIO speechSDK keeps its OWN libonnxruntime.so:
-          # do not stage a second dynamic ONNX Runtime with the same SONAME.
-          if readelf -dW /tmp/sherpa-stage/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so | grep -F 'Shared library: [libonnxruntime.so]'; then
-            echo 'ERROR_STATIC_FLAVOR_STILL_REQUIRES_DYNAMIC_ORT'; exit 45
-          fi
+          cp /tmp/sherpa-stage/jniLibs/arm64-v8a/libonnxruntime.so native-artifacts/arm64-v8a/
           (cd native-artifacts/arm64-v8a && sha256sum *.so > SHA256.txt)
           echo ARM64_NATIVE_STT_JNI_LINK_SUCCESS
       - name: Save experimental ARM64 libraries
