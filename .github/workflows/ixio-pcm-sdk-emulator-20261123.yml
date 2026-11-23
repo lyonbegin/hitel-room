@@ -1,0 +1,78 @@
+name: IXIO PCM original SDK Android15 emulator binary and JNI probe
+on:
+  push:
+    branches: [fix/ixio-pcm-sdk-compat-final-20261123]
+    paths: ['.github/workflows/ixio-pcm-sdk-emulator-20261123.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  native-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve byte-verifiable freshly built IXIO PCM APK
+        run: |
+          set -euo pipefail
+          mkdir -p testing
+          for i in $(seq 1 35); do
+            gh release view ixio-pcm-endpoint-original-sdk-20261123 -R lyonbegin/hitel-room >/dev/null 2>&1 && break
+            sleep 10
+          done
+          gh release download ixio-pcm-endpoint-original-sdk-20261123 \
+            -R lyonbegin/hitel-room -p HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk \
+            -p SHA256.txt -D testing
+          (cd testing && sha256sum -c SHA256.txt)
+      - name: Create exact binary class and JNI smoke probe
+        run: |
+          cat > testing/emulator-probe.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          echo "DEVICE_ABIS=$(adb shell getprop ro.product.cpu.abilist)"
+          echo "DEVICE_NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)"
+          adb install --abi arm64-v8a testing/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          adb logcat -c
+          adb shell am start -W -n app.hitel.recording.directstt/app.hitel.speakeronly.MainActivity \
+            -a app.hitel.speakeronly.PROBE_IXIO_SDK | tee testing/probe-activity.txt
+          sleep 40
+          adb logcat -d -v threadtime > testing/ixio-sdk-logcat.txt
+          adb logcat -d -b crash > testing/ixio-crash.txt
+          grep -F 'PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS' testing/ixio-sdk-logcat.txt
+          echo CLASS_PROBE_VERIFIED
+          if grep -F 'PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED' testing/ixio-sdk-logcat.txt;then
+            echo JNI_NATIVE_LOAD_VERIFIED
+          else
+            echo JNI_NATIVE_LOAD_UNVERIFIED
+            grep -E 'IXIO_SDK_PROBE|dlopen failed|UnsatisfiedLinkError|nativeloader:' testing/ixio-sdk-logcat.txt | tail -n 50 || true
+            exit 13
+          fi
+          if grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' testing/ixio-crash.txt;then
+            echo CRASH_DURING_NATIVE_PROBE
+            exit 14
+          fi
+          echo EMULATOR_NATIVE_CLASS_AND_JNI_LOAD_SUCCEEDED
+          echo NO_MODEL_OR_SPEECH_TEST_PERFORMED_BY_THIS_CLASS_PROBE
+          SH
+          chmod +x testing/emulator-probe.sh
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash testing/emulator-probe.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO-PCM-Class-JNI-Emulator-Evidence-20261123
+          path: testing/*.txt
