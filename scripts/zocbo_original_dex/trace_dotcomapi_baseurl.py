@@ -58,7 +58,7 @@ for name in addtargets:
 # raw Android compiled resources scan: apk names / manifest host strings / aapt output if installed
 xapk=Path('source/jokbo.xapk')
 if xapk.exists():
-  h=hashlib.file_digest(xapk.open('rb'),'sha256').hexdigest()
+  h=hashlib.sha256(xapk.read_bytes()).hexdigest()
   chunks.append('=== XAPK SHA256 ===\n'+h)
   assert h=='d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5'
   with zipfile.ZipFile(xapk) as z:
