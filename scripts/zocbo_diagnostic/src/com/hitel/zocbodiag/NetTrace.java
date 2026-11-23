@@ -194,6 +194,7 @@ public final class NetTrace {
         event(context,"PDF_PATH_LENGTH",String.valueOf(pdf.length()));
         event(context,"PDF_PATH_SHA256_16",hash(pdf));
         event(context,"PDF_PATH_URL_REDACTED",safeUrl(pdf));
+        if(!pdf.isEmpty())Diag.rawPdf("PDF_PATH_ORIGINAL",pdf);
       }
     }catch(Throwable t){
       event(context,"JSON_PARSE_ERROR",cause(t));
@@ -226,6 +227,7 @@ public final class NetTrace {
     event(ctx,"START","method="+method+" thread="+Thread.currentThread().getName()
         +" elapsedRealtime="+started+" route="+role);
     event(ctx,"REQUEST_URL_REDACTED",safeUrl(url));
+    if(isPdf)Diag.rawPdf("PDF_GET_URL_ORIGINAL",url);
     event(ctx,"REQUEST_URL_SHA256_16",hash(url));
     event(ctx,"REQUEST_URL_LENGTH",String.valueOf(url.length()));
     try {
@@ -234,6 +236,7 @@ public final class NetTrace {
       Object body=zero(requestClass,req,"body");
       if(viewerPath){
         String json=requestBody(body);
+        Diag.rawPdf("VIEWER_FILE_PATH_REQUEST_JSON_ORIGINAL",json);
         jsonDetails(ctx+"_REQUEST",json);
       }else if(body!=null){
         Object len=zero(Class.forName("okhttp3.RequestBody"),body,"contentLength");
@@ -298,5 +301,6 @@ public final class NetTrace {
   public static void pdfPath(String url){
     event("VIEWER_MODEL","PDF_PATH_URL_REDACTED",safeUrl(url));
     event("VIEWER_MODEL","PDF_PATH_FINGERPRINT",fingerprint(url));
+    if(url!=null&&!url.isEmpty())Diag.rawPdf("VIEWER_MODEL_PDF_PATH_ORIGINAL",url);
   }
 }
