@@ -1,0 +1,47 @@
+name: Essence2 ORIGINAL GPU kernel geometry source preflight
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/essence2-original-gpu-compat-cpu-3stage-20261123
+    paths:
+      - .github/workflows/essence2-original-gpu-kernel-preflight.yml
+permissions:
+  contents: read
+jobs:
+  inspect-native-gpu-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect original SDK embedded OpenCL program and four patched sites
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p gpu-preflight
+          curl -fLsS --retry 4 https://maven.bithuman.ai/ai/bithuman/essence2-android/0.9.5/essence2-android-0.9.5.aar -o gpu-preflight/vendor.aar
+          unzip -p gpu-preflight/vendor.aar jni/arm64-v8a/lible_jni.so > gpu-preflight/lible_jni.so
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, re, struct, json
+          native=Path('gpu-preflight/lible_jni.so').read_bytes()
+          digest=hashlib.sha256(native).hexdigest()
+          assert digest=='3eed089467f5ffeab88715c0d126f09e87734e84190e6e4899494db6b67657cf'
+          text=native.decode('latin1')
+          keys=['__kernel', 'kernel void', 'get_local_id', 'get_group_id', 'get_num_groups', 'get_local_size', 'barrier(', 'local float', '__local', 'k_convi8_7_16', 'k_convi8_16_16', 'k_convl8_7_16', 'k_conv4_16_16']
+          report={'original_sha256':digest,'opencl_source_markers':{k:len(list(re.finditer(re.escape(k),text))) for k in keys},'kernel_window_excerpts':{},'patched_4_sites_original_bytes':{}}
+          for k in keys[-6:]:
+            pos=text.find(k)
+            if pos>=0:
+              excerpt=text[max(0,pos-70):pos+110]
+              report['kernel_window_excerpts'][k]=''.join(c if 32<=ord(c)<=126 else ' ' for c in excerpt)
+          for off in [0x20906c,0x20b5f0,0x215f44,0x215f88]:
+            report['patched_4_sites_original_bytes'][hex(off)]=native[off:off+4].hex()
+          Path('gpu-preflight/report.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: essence2-original-gpu-kernel-preflight
+          path: gpu-preflight/report.json
