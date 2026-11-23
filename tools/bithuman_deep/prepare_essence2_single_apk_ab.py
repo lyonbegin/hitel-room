@@ -24,6 +24,9 @@ ACTIVITIES=r'''package ai.bithuman.example.avatar_chat
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.provider.DocumentsContract
+import java.io.File
+import android.net.Uri
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -70,7 +73,7 @@ class MainActivity : Activity() {
         button("① 원본 Essence2 SDK 실행", OriginalSdkActivity::class.java)
         button("② 원본 GPU → 저용량 GPU → 원본 CPU 실행", Gpu3SdkActivity::class.java)
         val info=TextView(this).apply {
-            text="각 실행 화면에서 SDK 변경·로그 복사·두 경로 비교를 선택할 수 있습니다."
+            text="각 실행 화면에서 SDK 전환·로그 복사·두 경로 비교 후 폴더에 저장할 수 있습니다."
             textSize=13f
             setTextColor(Color.LTGRAY)
         }
@@ -80,6 +83,76 @@ class MainActivity : Activity() {
 }
 
 open class SdkFlutterActivity : FlutterActivity() {
+    private val exportFolderRequest=0x4AB2
+    private var exportCallback: MethodChannel.Result?=null
+    private var exportSourcePath: String?=null
+    private var exportFilename: String?=null
+
+    /** Let the user choose an actual Android folder, then export the WHOLE file via SAF. */
+    private fun chooseExportFolder(path:String?, filename:String?, reply:MethodChannel.Result) {
+        if(exportCallback!=null) {
+            reply.error("EXPORT_BUSY","이미 다른 폴더 선택기가 열려 있습니다.",null)
+            return
+        }
+        try {
+            require(!path.isNullOrBlank() && !filename.isNullOrBlank()) { "저장할 파일 정보가 없습니다." }
+            require(filename.endsWith(".txt") && !filename.contains('/') && !filename.contains('\\')) {
+                "유효하지 않은 파일 이름입니다."
+            }
+            val candidate=File(path).canonicalFile
+            val sandbox=File(applicationInfo.dataDir).canonicalFile
+            require(candidate.path.startsWith(sandbox.path+File.separator) && candidate.isFile) {
+                "앱 내부의 비교 로그만 내보낼 수 있습니다."
+            }
+            exportCallback=reply
+            exportSourcePath=candidate.path
+            exportFilename=filename
+            val intent=Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            startActivityForResult(intent,exportFolderRequest)
+        } catch(ex:Exception) {
+            exportCallback=null
+            exportSourcePath=null
+            exportFilename=null
+            reply.error("EXPORT_PICKER_FAILED",ex.message,null)
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode:Int, resultCode:Int, data:Intent?) {
+        super.onActivityResult(requestCode,resultCode,data)
+        if(requestCode!=exportFolderRequest) return
+        val reply=exportCallback ?: return
+        val source=exportSourcePath
+        val name=exportFilename
+        exportCallback=null
+        exportSourcePath=null
+        exportFilename=null
+        val tree:Uri?=if(resultCode==Activity.RESULT_OK) data?.data else null
+        if(tree==null) { reply.success(null); return } // User cancelled.
+        Thread({
+            try {
+                check(source!=null && name!=null) { "내보낼 파일 정보가 유실되었습니다." }
+                val parent=DocumentsContract.buildDocumentUriUsingTree(
+                    tree,DocumentsContract.getTreeDocumentId(tree))
+                val created=DocumentsContract.createDocument(
+                    contentResolver,parent,"text/plain",name)
+                    ?: error("선택한 폴더에 파일을 만들 수 없습니다.")
+                contentResolver.openOutputStream(created,"w").use { output ->
+                    check(output!=null) { "파일 저장 스트림을 열 수 없습니다." }
+                    File(source).inputStream().use { input -> input.copyTo(output) }
+                    output.flush()
+                }
+                android.util.Log.i("HITEL_SDK_AB","full comparison exported uri="+created)
+                runOnUiThread { reply.success(created.toString()) }
+            } catch(ex:Exception) {
+                android.util.Log.e("HITEL_SDK_AB","full comparison export failed",ex)
+                runOnUiThread { reply.error("EXPORT_WRITE_FAILED",ex.message,null) }
+            }
+        },"hitel-sdk-ab-export").start()
+    }
+
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
         MethodChannel(engine.dartExecutor.binaryMessenger,"hitel.sdk.ab")
@@ -88,6 +161,9 @@ open class SdkFlutterActivity : FlutterActivity() {
                     "route" -> {
                         val proc=android.app.Application.getProcessName()
                         result.success(if(proc.endsWith(":hitel_gpu3")) "GPU3" else "BASELINE")
+                    }
+                    "exportComparison" -> {
+                        chooseExportFolder(call.argument<String>("path"),call.argument<String>("filename"),result)
                     }
                     "switch" -> {
                         val route=call.argument<String>("route")
@@ -260,14 +336,25 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
       }
       comparison.add('GPU3 상태는 [hitel-gpu3] stage=ORIGINAL_GPU_OK / COMPAT_GPU_OK / COMPAT_GPU_FAILED_ORIGINAL_CPU_FALLBACK 와 SDK의 DEMOTED를 직접 확인');
       final summary=comparison.join('\n');
-      final full=summary+'\n\n--- BASELINE RAW EVENTS ---\n'+base+
-        '\n\n--- GPU3 RAW EVENTS ---\n'+wg;
+      // Write the complete comparison locally first. Never truncate or copy it.
       final file=File(dir.path+'/hitel_sdk_ab_comparison.txt');
-      await file.writeAsString(full,flush:true);
-      await Clipboard.setData(ClipboardData(
-          text:full.length>140000?full.substring(0,140000):full));
+      final sink=file.openWrite();
+      sink.write(summary);
+      sink.write('\n\n--- BASELINE RAW EVENTS ---\n');
+      sink.write(base);
+      sink.write('\n\n--- GPU3 RAW EVENTS ---\n');
+      sink.write(wg);
+      await sink.flush();
+      await sink.close();
+      final saved=await _hitelAbChannel.invokeMethod<String>(
+        'exportComparison',<String,String>{
+          'path':file.path,
+          'filename':'HITEL_Essence2_SDK_AB_'+DateTime.now().millisecondsSinceEpoch.toString()+'.txt',
+        });
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content:Text('SDK 차이점 및 로그 복사 완료 (전체 비교 파일 별도 저장)')));
+        SnackBar(content:Text(saved==null
+          ? '폴더 선택을 취소하셨습니다. 원본 비교 로그는 앱 내부에 보관되어 있습니다.'
+          : '비교 로그 전체를 선택하신 폴더에 저장했습니다.')));
     } catch(e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content:Text('SDK 로그 비교 실패: '+e.toString())));
@@ -318,7 +405,7 @@ def patch_ui(app):
                   child:const Icon(Icons.copy_all_rounded)),
                 const SizedBox(height:8),
                 FloatingActionButton.small(
-                  heroTag:'sdk_ab_compare',tooltip:'두 SDK 로그 비교 및 전체 로그 저장',
+                  heroTag:'sdk_ab_compare',tooltip:'두 SDK 비교 후 Android 폴더 선택하여 전체 로그 저장',
                   onPressed:_hitelAbCompare,
                   child:const Icon(Icons.difference_outlined)),
               ],
@@ -355,6 +442,7 @@ def main():
       "same_app_data":True,"preserved_model_and_korean_pcm":True,
       "persistent_native_logs":["hitel_e2_trace_BASELINE.log","hitel_e2_trace_GPU3.log"],
       "full_comparison_file":"hitel_sdk_ab_comparison.txt",
+      "comparison_export":"Android ACTION_OPEN_DOCUMENT_TREE + DocumentsContract.createDocument full UTF-8 content, no clipboard truncation",
       "live_same_process_hot_swap":False,
       "opencl_kernel_exact_workgroups_observed":False
     },indent=2,ensure_ascii=False)+"\n")
