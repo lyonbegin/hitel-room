@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +37,10 @@ import java.util.Locale;
 public final class Diag implements View.OnClickListener {
   private static final String FILE = "zocbo_free_exam_trace.txt";
   private static final String TAG = "hitel_zocbo_diag";
+  private static final String PREVIOUS = "zocbo_free_exam_previous.txt";
+  private static long rowSeq=0;
+  private static boolean crashHookInstalled=false;
+  private static final long startedAt=SystemClock.elapsedRealtime();
   private static Context app;
   private static final StringBuilder live = new StringBuilder(4096);
   private final Activity activity;
@@ -101,23 +107,113 @@ public final class Diag implements View.OnClickListener {
     } catch(Exception e) {return "[url-sanitize-error]";}
   }
   public static synchronized void log(String category,String data) {
-    String s=stamp()+" ["+category+"] "+data+"\n";
+    String s=stamp()+" #"+(++rowSeq)+" t+"+(SystemClock.elapsedRealtime()-startedAt)+"ms"
+      +" thr="+Thread.currentThread().getName()+" ["+category+"] "+data+"\n";
     live.append(s);
-    if(live.length()>220000) live.delete(0,100000);
+    if(live.length()>850000)live.delete(0,425000);
+    try {
+      if(category.endsWith("ERROR")||category.contains("EXCEPTION")||category.endsWith("HOOK_OK")
+          ||category.contains("HTTP_STATUS")||category.contains("VIEWER_ACTIVITY"))
+        android.util.Log.i(TAG,s.length()>950?s.substring(0,950):s);
+    }catch(Throwable ignored){}
     if(app!=null) {
       try {
         File f=new File(app.getFilesDir(),FILE);
-        if(f.length()>900000) {
-          File old=new File(app.getFilesDir(),"zocbo_free_exam_previous.txt");
+        if(f.length()>4000000) {
+          File old=new File(app.getFilesDir(),PREVIOUS);
           if(old.exists())old.delete();
-          f.renameTo(old);
+          if(!f.renameTo(old))android.util.Log.w(TAG,"trace rotate failed");
         }
-        FileOutputStream o=new FileOutputStream(f,true);
-        try{o.write(s.getBytes(StandardCharsets.UTF_8));}
-        finally{o.close();}
-      } catch(Exception e) {android.util.Log.w(TAG,"Internal trace file unavailable");}
+        FileOutputStream stream=new FileOutputStream(f,true);
+        try{stream.write(s.getBytes(StandardCharsets.UTF_8));}
+        finally{stream.close();}
+      }catch(Exception e){android.util.Log.w(TAG,"Internal trace file unavailable "+e.getClass().getSimpleName());}
     }
   }
+  private static String readTail(File f,int maxBytes) throws IOException {
+    if(f==null||!f.exists())return "";
+    RandomAccessFile raf=new RandomAccessFile(f,"r");
+    try {
+      long len=raf.length(), start=Math.max(0,len-maxBytes);
+      raf.seek(start);
+      byte[] bytes=new byte[(int)(len-start)];
+      raf.readFully(bytes);
+      return (start>0?"\n[TRUNCATED FILE PREFIX; retained last "+bytes.length+" bytes]\n":"")
+        +new String(bytes,StandardCharsets.UTF_8);
+    }finally{raf.close();}
+  }
+  private static void copyFile(File src,FileOutputStream dst)throws IOException {
+    if(src==null||!src.exists())return;
+    FileInputStream in=new FileInputStream(src);
+    try {
+      byte[] buffer=new byte[32768];int n;
+      while((n=in.read(buffer))!=-1)dst.write(buffer,0,n);
+    }finally{in.close();}
+  }
+  private static synchronized String exportToExternal(Context context)throws IOException {
+    File dir=context.getExternalFilesDir(null);
+    if(dir==null)throw new IOException("app external files directory unavailable");
+    if(!dir.exists()&&!dir.mkdirs())throw new IOException("cannot create external log folder");
+    File target=new File(dir,"zocbo_full_trace_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date())+".txt");
+    FileOutputStream out=new FileOutputStream(target);
+    try {
+      out.write(("ZOCBO FULL NATIVE PDF DIAGNOSTICS\n"+
+                 "This file contains redacted diagnostic metadata. It is not a PDF.\n\n").getBytes(StandardCharsets.UTF_8));
+      copyFile(new File(context.getFilesDir(),PREVIOUS),out);
+      copyFile(new File(context.getFilesDir(),FILE),out);
+    }finally{out.close();}
+    return target.getAbsolutePath()+" ("+target.length()+" bytes)";
+  }
+  private static synchronized void installCrashHook() {
+    if(crashHookInstalled)return;
+    crashHookInstalled=true;
+    final Thread.UncaughtExceptionHandler previous=Thread.getDefaultUncaughtExceptionHandler();
+    Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler(){
+      @Override public void uncaughtException(Thread t,Throwable error) {
+        try {
+          StringBuilder b=new StringBuilder(error.getClass().getName()+": "+protect(String.valueOf(error.getMessage())));
+          StackTraceElement[] stack=error.getStackTrace();
+          for(int i=0;i<Math.min(stack.length,16);i++)
+            b.append("\n at ").append(stack[i].getClassName()).append(".")
+              .append(stack[i].getMethodName()).append(":").append(stack[i].getLineNumber());
+          log("APP_UNCAUGHT_CRASH",b.toString());
+        }catch(Throwable ignored){}
+        if(previous!=null&&previous!=this)previous.uncaughtException(t,error);
+      }
+    });
+    log("CRASH_TRACE_HOOK","installed, previousHandler="+String.valueOf(previous!=null));
+  }
+  public static void viewerLaunch(Activity a) {
+    log("VIEWER_ACTIVITY","onResume class="+a.getClass().getName()
+      +" sdk="+Build.VERSION.SDK_INT+" appElapsedMs="+(SystemClock.elapsedRealtime()-startedAt));
+    try {
+      Intent intent=a.getIntent();
+      if(intent==null){log("VIEWER_INTENT","missing");return;}
+      log("VIEWER_INTENT_ACTION",String.valueOf(intent.getAction()));
+      if(intent.getDataString()!=null)log("VIEWER_INTENT_DATA",sanitizeUrl(intent.getDataString()));
+      Bundle b=intent.getExtras();
+      if(b==null){log("VIEWER_INTENT_EXTRAS","none");return;}
+      log("VIEWER_INTENT_EXTRA_KEYS",String.valueOf(b.keySet()));
+      for(String key:b.keySet()) {
+        try {
+          Object value=b.get(key);
+          if(value==null){log("VIEWER_EXTRA_"+key,"null");continue;}
+          String k=key.toUpperCase(Locale.US);
+          String raw=String.valueOf(value);
+          String display;
+          if(k.contains("PAPR_NO")||k.contains("FILE_TYPE")||k.contains("QR")||
+              k.contains("DEVICE")||k.contains("SHOW_ANSWER"))
+            display=protect(raw);
+          else if(k.contains("SHORT_URL"))display=sanitizeUrl(raw);
+          else display=sensitive(raw);
+          log("VIEWER_EXTRA_"+key,truncViewer(display)+" type="+value.getClass().getSimpleName());
+        }catch(Throwable error){log("VIEWER_EXTRA_READ_ERROR",key+" "+error.getClass().getSimpleName());}
+      }
+    }catch(Throwable error){log("VIEWER_INTENT_ERROR",error.getClass().getName());}
+  }
+  private static String truncViewer(String s){return s.length()>1000?s.substring(0,1000)+"[TRUNCATED]":s;}
+  public static void viewerPause(Activity a){log("VIEWER_ACTIVITY","onPause "+a.getClass().getName());}
+  public static void viewerDestroy(Activity a){log("VIEWER_ACTIVITY","onDestroy "+a.getClass().getName());}
   public static void event(String category,String detail) {
     log(category,protect(detail==null?"":detail));
   }
@@ -170,26 +266,23 @@ public final class Diag implements View.OnClickListener {
     cookieState();
   }
   private static synchronized String current() {
-    StringBuilder b=new StringBuilder("ZOCBO_ORIGINAL_4.3.11(2)_DIAGNOSTIC\n"+
-      "Only redacted metadata is recorded. Never paste credentials.\n\n");
-    if(app!=null) {
+    StringBuilder b=new StringBuilder("ZOCBO_ORIGINAL_4.3.11(2)_NATIVE_PDF_DIAGNOSTIC\n"+
+      "Redacted API/PDF/Viewer diagnostics. Full log can be exported using [저장].\n\n");
+    if(app!=null){
       try {
-        File f=new File(app.getFilesDir(),FILE);
-        if(f.exists()) {
-          FileInputStream is=new FileInputStream(f);
-          ByteArrayOutputStream os=new ByteArrayOutputStream();
-          byte[] buf=new byte[16384];int n;
-          while((n=is.read(buf))!=-1) {
-            os.write(buf,0,n);
-            if(os.size()>300000)break;
-          }
-          is.close();
-          b.append(os.toString("UTF-8"));
+        File latest=new File(app.getFilesDir(),FILE);
+        File older=new File(app.getFilesDir(),PREVIOUS);
+        if(older.exists() && latest.length()<350000){
+          b.append("[PREVIOUS FILE TAIL]\n").append(readTail(older,100000)).append("\n");
+        }
+        if(latest.exists()){
+          b.append("[CURRENT FILE TAIL]\n").append(readTail(latest,480000));
+          b.append("\n[END OF COPIED TAIL; full file is available using 저장]\n");
           return b.toString();
         }
-      } catch(Exception ignored){}
+      }catch(Exception e){b.append("[log read error "+e.getClass().getSimpleName()+"]\n");}
     }
-    b.append(live);
+    b.append(live.length()>480000?live.substring(live.length()-480000):live.toString());
     return b.toString();
   }
   public static void install(Activity a) {
@@ -207,6 +300,7 @@ public final class Diag implements View.OnClickListener {
         }
       }
     }
+    installCrashHook();
     try {
       FrameLayout root=a.findViewById(android.R.id.content);
       if(root==null) {log("DIAG_UI","activity has no content root");return;}
@@ -216,7 +310,7 @@ public final class Diag implements View.OnClickListener {
       bar.setOrientation(LinearLayout.HORIZONTAL);
       bar.setBackgroundColor(Color.argb(215,17,30,45));
       Diag listener=new Diag(a);
-      for(String label:new String[]{"로그","복사","공유","지우기"}) {
+      for(String label:new String[]{"로그","복사","공유","저장","지우기"}) {
         Button btn=new Button(a);
         btn.setText(label);
         btn.setTag(label);
@@ -240,10 +334,13 @@ public final class Diag implements View.OnClickListener {
     if(op.equals("지우기")) {
       synchronized(Diag.class){
         live.setLength(0);
-        try{new File(activity.getFilesDir(),FILE).delete();}catch(Exception ignored){}
+        try{new File(activity.getFilesDir(),FILE).delete();new File(activity.getFilesDir(),PREVIOUS).delete();}catch(Exception ignored){}
       }
       log("TRACE_CLEAR","by user");
       Toast.makeText(activity,"진단 로그를 초기화했습니다",Toast.LENGTH_SHORT).show();
+    }else if(op.equals("저장")) {
+      try {String path=exportToExternal(activity);log("TRACE_EXPORT",path);Toast.makeText(activity,"전체 로그 저장 완료: "+path,Toast.LENGTH_LONG).show();}
+      catch(Exception e){log("TRACE_EXPORT_ERROR",e.getClass().getSimpleName());Toast.makeText(activity,"로그 파일 저장 오류",Toast.LENGTH_LONG).show();}
     }else if(op.equals("복사")) {
       try{
         ClipboardManager cb=(ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);
