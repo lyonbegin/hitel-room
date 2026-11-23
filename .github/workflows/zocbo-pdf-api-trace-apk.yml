@@ -93,11 +93,18 @@ jobs:
           PY
           # Original source contains a compiled binary AndroidManifest.xml. Patch the
           # binary manifest ONLY, without recompiling resources. Preserves original DEX.
-          mkdir -p work/manifest-editor
-          gh release download v2.0 -R WindySha/ManifestEditor \
-            -p 'ManifestEditor-2.0.jar' -D work/manifest-editor
-          test "$(stat -c%s work/manifest-editor/ManifestEditor-2.0.jar)" -eq 113689
-          java -jar work/manifest-editor/ManifestEditor-2.0.jar \
+          # Stable pinned source commit: release v2.0 predates its -act option.
+          git clone -q https://github.com/WindySha/ManifestEditor.git work/manifest-editor-src
+          git -C work/manifest-editor-src checkout -q 24ad7ef3bc13ceed6a51bf7402efc4d723044fa1
+          mkdir -p work/manifest-editor-classes
+          javac -source 8 -target 8 -Xlint:-options -d work/manifest-editor-classes \
+            $(find work/manifest-editor-src/lib/src/main/java -name '*.java')
+          jar cfe work/ManifestEditor-current.jar com.wind.meditor.ManifestEditorMain \
+            -C work/manifest-editor-classes . \
+            -C work/manifest-editor-src/lib/src/main assets
+          java -jar work/ManifestEditor-current.jar -h 2>&1 | tee work/manifest-editor-help.txt
+          grep -q -- '--activity' work/manifest-editor-help.txt
+          java -jar work/ManifestEditor-current.jar \
             work/zocbo-unzipaligned.apk \
             -act com.hitel.zocbodiag.NativePdfEntryActivity:false \
             -o work/zocbo-unzipaligned-with-native-entry.apk
