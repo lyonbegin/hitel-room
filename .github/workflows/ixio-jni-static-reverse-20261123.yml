@@ -87,7 +87,7 @@ jobs:
 
           readelf -Wr "$so" > evidence/ELF_RELOCATIONS.txt
           python3 - <<'PYCODE'
-          import re,pathlib,collections
+          import re,pathlib
           d=pathlib.Path('evidence')
           raw=(d/'ELF_RELOCATIONS.txt').read_text()
           sections=(d/'ELF_SECTIONS.txt').read_text()
@@ -96,17 +96,7 @@ jobs:
           text_start=int(m.group(1),16); text_end=text_start+int(m.group(2),16)
           reloc={}
           for line in raw.splitlines():
-              m=re.search(r'^\s*([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+R_AARCH64_RELATIVE\s+([0-9a-fA-F]+)\s*
-          head -70 evidence/RELEVANT_SYMBOLS.txt || true
-          echo '===== LIBRARY STRINGS ====='
-          head -100 evidence/RELEVANT_STRINGS.txt || true
-      - name: Save reverse-engineering evidence only
-        uses: actions/upload-artifact@v4
-        with:
-          name: IXIO-JNI-Binary-Disassembly-20261123
-          path: evidence/*.txt
-          retention-days: 30
-,line)
+              m=re.search(r'^\s*([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+R_AARCH64_RELATIVE\s+([0-9a-fA-F]+)\s*$',line)
               if m:
                   a=int(m.group(1),16); b=int(m.group(2),16)
                   reloc[a]=b
