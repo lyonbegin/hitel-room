@@ -94,72 +94,67 @@ jobs:
           grep -F 'RECORDING_CONTENT_CHANGED_EVENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
           grep -F 'confirmedFileBytes' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
           ! grep -E 'endCall\(|ANSWER_PHONE_CALLS|MODIFY_PHONE_STATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
-      - name: Bundle exact Korean INT8 Zipformer model (same version as proven file STT)
-        run: |
-          set -euo pipefail
-          mkdir -p speaker-standalone/app/src/main/assets/models
-          BASE='https://huggingface.co/k2-fsa/sherpa-onnx-streaming-zipformer-korean-2024-06-16/resolve/ba6078bca4daf3f0dd37f79d0ab505af71df14a6'
-          cd speaker-standalone/app/src/main/assets/models
-          for name in encoder-epoch-99-avg-1.int8.onnx decoder-epoch-99-avg-1.onnx joiner-epoch-99-avg-1.int8.onnx tokens.txt; do
-            curl --fail --location --retry 5 --retry-delay 5 --output "$name" "$BASE/$name"
-            test -s "$name"
-          done
-          test "$(stat -c %s encoder-epoch-99-avg-1.int8.onnx)" -gt 115000000
-          test "$(stat -c %s decoder-epoch-99-avg-1.onnx)" -gt 9500000
-          test "$(stat -c %s joiner-epoch-99-avg-1.int8.onnx)" -gt 2000000
-          test "$(stat -c %s tokens.txt)" -gt 50000
-          sha256sum *.onnx tokens.txt
-      - name: Verify direct PCM -> Sherpa code and build V5 (does not change V4)
-        run: |
-          set -euo pipefail
-          grep -F 'registerTelephonyCallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallStateGate.java
-          grep -F 'codec.feedAdtsFrame(adts,pcm->' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
-          grep -F 'target.accept(pcm)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
-          grep -F 'stream.acceptWaveform(normalized,RATE)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
-          grep -F 'CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
-          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
-          grep -F 'DIRECT_FINAL_SEGMENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
-          if grep -E 'active.write\(pcm\)|sp.write\(pcm\)|speaker=new PcmSpeakerMonitor' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java; then
-            echo "ERROR: output still routed via AudioTrack instead of STT"; exit 1
-          fi
-          echo "PASS_DIRECT_STT_NO_AUDIO_CAPTURE_AND_NO_SPEAKER_LOOP"
-          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
-          APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.directstt'
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='6'"
-          unzip -Z1 "$APK" > /tmp/direct-stt-apk-contents.txt
-          grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so' /tmp/direct-stt-apk-contents.txt
-          grep -Fx 'lib/arm64-v8a/libavcodec.so' /tmp/direct-stt-apk-contents.txt
-          grep -Fx 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/direct-stt-apk-contents.txt
-          grep -Fx 'assets/models/decoder-epoch-99-avg-1.onnx' /tmp/direct-stt-apk-contents.txt
-          grep -Fx 'assets/models/joiner-epoch-99-avg-1.int8.onnx' /tmp/direct-stt-apk-contents.txt
-          grep -Fx 'assets/models/tokens.txt' /tmp/direct-stt-apk-contents.txt
-          unzip -Z1 "$APK" | grep -E 'lib/arm64-v8a/.*(sherpa|onnx)'
-          mkdir -p speaker-standalone/dist
-          cp "$APK" speaker-standalone/dist/HITEL_AutoCall_StandaloneSTT_20261123_ARM64.apk
-          (cd speaker-standalone/dist && sha256sum HITEL_AutoCall_StandaloneSTT_20261123_ARM64.apk > SHA256.txt)
-          ls -lh speaker-standalone/dist/*.apk
-          echo "PASS_DIRECT_KOREAN_STT_MODEL_BUNDLED_AND_SIGNED"
-      - name: Upload standalone ARM64 APK
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: HITEL-Galaxy-AutoCall-DirectKoreanSTT-20261123-ARM64
-          path: speaker-standalone/dist/
-          if-no-files-found: warn
-
-
-      - name: Publish verified model-bundled APK as EXPERIMENTAL prerelease
+      - name: Stage user's original IXIO speechSDK runtime (NOT HITEL Sherpa)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK=speaker-standalone/dist/HITEL_AutoCall_StandaloneSTT_20261123_ARM64.apk
-          test -s "$APK"
-          TAG='hitel-autocall-standalone-stt-experimental-20261123'
-          gh release create "$TAG" "$APK" --repo lyonbegin/hitel-room \
-            --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title 'Experimental: Samsung AutoCall Accessibility -> PCM -> Sherpa offline STT' \
-            --notes 'Samsung Phone remains default dialer. Opt-in Accessibility starts Samsung built-in recording immediately on OFFHOOK. M4A growth must be verified before incremental AAC->16k PCM->bundled Sherpa-ONNX Zipformer STT. Uses the existing upstream Sherpa Korean engine, NOT the proprietary IXIO speechSDK. CI build/signature only; live Samsung call recognition NOT verified.'
-          gh release view "$TAG" --repo lyonbegin/hitel-room --json url,assets
+          mkdir -p /tmp/ixio-original /tmp/ixio-dex
+          gh run download 43799320393 -R lyonbegin/hitel-room \
+            -n IXIO_Main_NoAppSealing_Single_APK -D /tmp/ixio-original
+          SRC=/tmp/ixio-original/IXIO_Main_NoAppSealing_Single.apk
+          test -s "$SRC"
+          unzip -t "$SRC" >/dev/null
+          # Unmodified IXIO speechSDK is in classes16; IXIO's CombinedSTTKWS
+          # and companion classes are in classes6.
+          unzip -p "$SRC" classes6.dex > /tmp/ixio-dex/classes.dex
+          unzip -p "$SRC" classes16.dex > /tmp/ixio-dex/classes2.dex
+          strings /tmp/ixio-dex/classes2.dex | grep -F 'Lcom/lguplus/ixispeech_ktn/speechSDK;'
+          strings /tmp/ixio-dex/classes.dex | grep -F 'Lcom/k2fsa/sherpa/onnx/CombinedSTTKWS;'
+          mkdir -p speaker-standalone/app/src/main/assets/ixio
+          (cd /tmp/ixio-dex && zip -q -0 "$GITHUB_WORKSPACE/speaker-standalone/app/src/main/assets/ixio/ixio-original-sdk.jar" classes.dex classes2.dex)
+          unzip -p "$SRC" assets/stt/bpe.vocab > speaker-standalone/app/src/main/assets/ixio/bpe.vocab
+          ROOT=speaker-standalone/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$ROOT"
+          for LIB in libsherpa-onnx-jni.so libonnxruntime.so; do
+            unzip -p "$SRC" "lib/arm64-v8a/$LIB" > "$ROOT/$LIB"
+            test -s "$ROOT/$LIB"
+          done
+          readelf -d "$ROOT/libsherpa-onnx-jni.so" | grep -F 'libonnxruntime.so'
+          unzip -t speaker-standalone/app/src/main/assets/ixio/ixio-original-sdk.jar >/dev/null
+          echo PASS_EXACT_ORIGINAL_IXIO_SPEECHSDK_DEX_AND_JNI_STAGED
+      - name: Verify ONLY original IXIO speechSDK and build
+        run: |
+          set -euo pipefail
+          grep -F 'codec.feedAdtsFrame(adts,pcm->' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'target.accept(pcm)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'com.lguplus.ixispeech_ktn.speechSDK' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'getMethod("SpeechInference"' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'no public-model fallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          ! grep -F 'implementation("com.github.k2-fsa:sherpa-onnx' speaker-standalone/app/build.gradle.kts
+          ! grep -F 'import com.k2fsa.sherpa.onnx.' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          ! find speaker-standalone/app/src/main/assets -name '*epoch-99*' | grep .
+          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
+          APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.directstt'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='7'"
+          unzip -Z1 "$APK" > /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libavcodec.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libsherpa-onnx-jni.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libonnxruntime.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'assets/ixio/ixio-original-sdk.jar' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'assets/ixio/bpe.vocab' /tmp/ixio-standalone-contents.txt
+          ! grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/ixio-standalone-contents.txt
+          mkdir -p speaker-standalone/dist
+          cp "$APK" speaker-standalone/dist/HITEL_IXIO_OriginalSpeechSDK_AutoCall_ARM64.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_OriginalSpeechSDK_AutoCall_ARM64.apk > SHA256.txt)
+          echo PASS_ORIGINAL_IXIO_SDK_ONLY_EXPERIMENTAL_APK
+      - name: Upload original IXIO STT experimental APK as Actions artifact ONLY
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-Original-SpeechSDK-AutoCall-ARM64-20261123
+          path: speaker-standalone/dist/
+          if-no-files-found: warn
