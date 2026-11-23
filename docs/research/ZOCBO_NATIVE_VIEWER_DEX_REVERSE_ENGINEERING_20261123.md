@@ -23,8 +23,19 @@
 - 이용권 조회 `getHasTicket()`는 PDF 경로 추출과 다른 코드 경로입니다. 이것만으로 열람 횟수 차감이 쿠키에서 수행되는지 서버에서 수행되는지는 결정할 수 없습니다.
 - 앱 DEX의 `examViewer.asp` 리터럴과 실기기 WebView 로그의 `encText`, `q_path`는 네이티브 PDF 경로와 동일시하면 안 됩니다. 앱 정적 검색에서 `encText` 및 `q_path` 리터럴은 확인되지 않았습니다.
 
+## 추가 검증: PDF 다운로드 및 파일 형식 검사
+
+원본 SHA 검증·JADX 추출·Y0 구현 확보가 완료된 [Actions 45140348098](https://github.com/lyonbegin/hitel-room/actions/runs/45140348098) 기준입니다.
+
+- `p229y3/Y0.java:461~475`: `Y0.g(Y0,String,Q0)`에서 `new Request.Builder().url(str).build()`, `OkHttpClient` 생성, connect/read/write 각 30초 타임아웃, `callNewCall.enqueue(...)`를 실행합니다.
+- `p229y3/Y0.java:478~495`: `Y0.h(Y0, File)`에서 로컬 파일의 첫 1,024 bytes를 읽고 `"%PDF-"` PDF 시그니처를 검사합니다.
+- `p229y3/Y0.java:620~626`: `m()`은 ViewModel의 `f29508D` (`pdfFilePath`)를 반환합니다.
+- `p229y3/Y0.java:675~679`: `u(pageIndex,fitSize,...)`에서 `loadBitmapFromPDF` 렌더링 코루틴을 실행합니다.
+- `p229y3/Y0.java:682~690`: `v(String url, boolean)`는 `new p229y3/R0(url,z9,this,null)`를 생성하고 `loadPageType`으로 실행합니다.
+- 이들은 동일 `Y0` 클래스의 실제 코드입니다. 단, `R0` 내부에서 어떤 경로로 `Y0.g`와 `Y0.h`를 순서대로 호출하는지는 아직 확인이 필요합니다.
+
 ## 아직 미확정 (입증해야 함)
-1. `p229y3/Y0.v(pdfPath, ...)` 내부의 다운로드·파일 캐시·PdfiumCore 렌더링 함수 연결.
+1. `Y0.v`가 실행하는 `p229y3/R0`의 코루틴 내부에서 `Y0.g`의 다운로드 결과가 캐시 파일과 PdfiumCore에 연결되는 정확한 함수 체인.
 2. `p193u3/s`의 `pdfInfo` (`P`)를 반환하는 정확한 Retrofit/Repository 인터페이스·HTTP 요청 경로와 파라미터.
 3. 실제 열람 차감 및 이용권 적용의 서버측 조건: Android 정적분석만으로 단정 불가.
 
@@ -32,4 +43,4 @@
 - 브랜치 `research/zocbo-viewer-callgraph-20261123`에 `scripts/zocbo_original_dex/trace_native_viewer_data.py` 신규 작성.
 - `.github/workflows/zocbo-viewer-native-callgraph.yml`을 수정하여 동일 원본 SHA 검증 후 `Y0.java`, `S` 등과 PDF 로딩 콜사이트를 더 추출하도록 구성.
 - 스크립트·워크플로 커밋 `2cd6d053eb4c0f54ea63cf7eea69fc2eba462b64`, `45d225fa273ad6f4d6c96f5bff0f876da685be84`.
-- **새 심화 추출 작업의 성공 실행 로그는 아직 확인되지 않았으므로, 실행 완료라고 주장하지 않습니다.**
+- 위 심화 추출 1차 실행 [Actions 45140348098](https://github.com/lyonbegin/hitel-room/actions/runs/45140348098)은 성공했습니다. R0 및 PDF API의 추가 추적은 별도 실행 단계입니다.
