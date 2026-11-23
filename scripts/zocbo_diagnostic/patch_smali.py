@@ -99,8 +99,32 @@ for rel in [
  "com/eduzone/eduzoneviewer/ui/activities/MainActivity.smali",
  "com/eduzone/eduzoneviewer/ui/activities/CommonWebviewActivity.smali",
  "com/eduzone/eduzoneviewer/ui/activities/LoginActivity.smali",
+ "com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.smali",
 ]:
  hook_activity(rel)
+
+# Original native PDF viewer activity receives the four Intent extras.
+# Log the real EX_PAPR_NO/file_type/short_url/PK values (redacted where sensitive)
+# and activity lifecycle, without changing any viewer logic or requiring new registers.
+viewer=find("com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.smali")
+if viewer:
+ s=viewer.read_text("utf8","replace")
+ m=re.search(r"(?ms)(^\.method[^\n]*\bonResume\(\)V\n)(.*?)(^\.end method)",s)
+ if not m:raise SystemExit("ABORT_MISSING_NATIVE_VIEWER_ONRESUME")
+ body=m.group(2)
+ anchor="    invoke-static {p0}, "+S+"->install(Landroid/app/Activity;)V"
+ extra="    invoke-static {p0}, "+S+"->viewerLaunch(Landroid/app/Activity;)V"
+ if anchor not in body:raise SystemExit("ABORT_MISSING_NATIVE_VIEWER_PANEL_HOOK")
+ if extra not in body:
+  body=body.replace(anchor,anchor+"\n"+extra,1)
+  s2=s[:m.start(2)]+body+s[m.end(2):]
+  save(viewer,s,s2,"native-viewer-intent-extras")
+  s=s2
+ for event,method in [("onPause","viewerPause"),("onDestroy","viewerDestroy")]:
+  code="    invoke-static {p0}, "+S+"->"+method+"(Landroid/app/Activity;)V\n"
+  updated=add_after_registers_in_method(s,event,code)
+  if updated!=s:save(viewer,s,updated,"native-viewer-"+event);s=updated
+
 # Explicit JS native call
 f=find("com/eduzone/eduzoneviewer/interfaces/WebAppInterface.smali")
 if f:
@@ -145,6 +169,8 @@ for folder in smalis:
 print("PATCH_SUMMARY",json.dumps(out,ensure_ascii=False),flush=True)
 outf=Path(sys.argv[2]) if len(sys.argv)>2 else Path("diag-patch-report.json")
 outf.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding="utf8")
+if not any(x["kind"]=="native-viewer-intent-extras" for x in out["actions"]):
+ raise SystemExit("ABORT: native PDF viewer Intent extras not traced")
 if not any(x["kind"]=="activity-panel" for x in out["actions"]):
  raise SystemExit("ABORT: no visible logger UI hooked")
 if not any(x["kind"]=="goPreviousExam-bridge-entry" for x in out["actions"]):
