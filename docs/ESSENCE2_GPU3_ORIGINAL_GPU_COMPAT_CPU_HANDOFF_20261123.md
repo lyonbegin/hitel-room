@@ -22,6 +22,22 @@
 ## Numerical-correctness limitation
 The stage-2 alternative is currently a **workgroup-dispatch geometry retry of the vendor OpenCL kernel**, not a separately mathematically proved scalar rewrite. Altering local workgroup dimensions can change `get_local_id`, `get_group_id`, local memory cooperation, and barriers. Therefore the route's ability to avoid `-54` does **not** establish identical pixel output. Same-input output comparison is mandatory before claiming production equivalence. If parity fails, disable stage 2 for the offending kernel and let the original vendor CPU fallback occur until a verified compatible kernel is available.
 
+
+## 2026-11-23 follow-up: production dispatch regression (PASS, host simulation only)
+- Added `tools/bithuman_deep/test_essence2_gpu3_native_dispatch.py` and `.github/workflows/essence2-gpu3-native-dispatch-regression.yml`.
+- PASS run: https://github.com/lyonbegin/hitel-room/actions/runs/45124046067
+- Actual production C++ `known_conv_kernel` and `audit_enqueue` bodies are extracted verbatim and compiled with a deterministic fake OpenCL driver; the simulation is not an independent reimplementation of the dispatch algorithm.
+- Nine scenarios PASS: original success; -54 compact success; -54 compact failure with exact original -54 returned; non--54 error passthrough; unknown kernel; wrong dimensions; unsupported local Y; non-divisible global Y; oversized remaining local dimensions.
+- PASS also verifies stage ordering, counters, preservation of queue/kernel/global/offset/wait/event arguments, and 8→1 local-Y change only on the second call.
+- **NOT VERIFIED:** OpenCL GPU hardware execution/command completion, pixel parity, actual SDK CPU demotion, audio speaker output, rendered video. A successful enqueue response does not itself prove completed GPU execution. Do not label these as PASS based on the deterministic host test.
+- Original vendor SO, player, PCM, render path and CPU fallback logic were **not modified** by this follow-up. The previously published APK is unchanged; this follow-up is source-level regression assurance, not a new APK build.
+
+## Next physical-device proof
+- On the target device, execute both BASELINE and GPU3 with the same bundled Sofia 10-second PCM, preserving complete logs.
+- Determine whether `sdk.backend.clhook installed=true` precedes `sdk.backend.native` kernel calls. If no `ORIGINAL_GPU_OK` or `COMPAT_GPU_OK` lines appear, classify GPU execution as NOT VERIFIED, not as automatic success.
+- On `-54`, examine both stage-1 and stage-2 kernel, global/local sizes and return codes; on failure require the SDK's own `[borrow-gpu] DEMOTED` before reporting actual CPU fallback.
+- Verify synchronized audible speech, a nonblank animated Sofia video, complete ordered frame ordinals, and source-verified image results. Check same-input frame output for geometry-sensitive numerical differences before enabling Stage 2 for production.
+
 ## Source files
 - `tools/bithuman_deep/essence2_gpu3_original_first_native.cpp`
 - `tools/bithuman_deep/prepare_essence2_original_gpu3.py`
