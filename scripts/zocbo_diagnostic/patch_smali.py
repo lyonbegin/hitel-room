@@ -75,6 +75,7 @@ def hook_calls(f):
     if m:
       args=[x.strip() for x in m.group(1).split(",")]
       if len(args)>=2:
+        parts.append("    invoke-static {"+args[0]+", "+args[1]+"}, "+S+"->attach(Landroid/webkit/WebView;Ljava/lang/String;)V\n")
         parts.append("    invoke-static {"+args[1]+"}, "+S+"->url(Ljava/lang/String;)V\n")
         count["loadUrl"]+=1
     m=re.search(r"invoke-virtual\s+\{([^}]+)\},\s+Landroid/webkit/WebView;->addJavascriptInterface\(Ljava/lang/Object;Ljava/lang/String;\)V",l)
