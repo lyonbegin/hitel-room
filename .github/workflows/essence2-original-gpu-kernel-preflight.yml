@@ -37,6 +37,34 @@ jobs:
               report['kernel_window_excerpts'][k]=''.join(c if 32<=ord(c)<=126 else ' ' for c in excerpt)
           for off in [0x20906c,0x20b5f0,0x215f44,0x215f88]:
             report['patched_4_sites_original_bytes'][hex(off)]=native[off:off+4].hex()
+          # Extract only kernel-declaration structure (not vendor source text).
+          decls=[]
+          for match in re.finditer(r'(?:(?:__kernel|kernel)\\s+void\\s+)([A-Za-z_][A-Za-z0-9_]*)\\s*\\(',text):
+            name=match.group(1)
+            start=match.start()
+            opening=text.find('{',start,start+3000)
+            if opening<0: continue
+            braces=0
+            close=-1
+            for pos in range(opening,min(len(text),opening+22000)):
+              if text[pos]=='{': braces+=1
+              if text[pos]=='}':
+                braces-=1
+                if braces==0:
+                  close=pos+1
+                  break
+            if close<0: continue
+            code=text[opening:close]
+            decls.append({'name':name, 'offset':start, 'source_length':len(code),
+              'uses_local_id':code.count('get_local_id'),
+              'uses_group_id':code.count('get_group_id'),
+              'uses_local_size':code.count('get_local_size'),
+              'uses_local_memory':code.count('__local')+code.count('local float'),
+              'uses_barrier':code.count('barrier('),
+              'uses_global_id':code.count('get_global_id')})
+          report['kernel_declaration_count']=len(decls)
+          report['target_kernel_declarations']=[d for d in decls if any(y in d['name'] for y in ('conv','gather','compose'))][:65]
+          report['source_readiness']='embedded kernel text declarations present' if decls else 'embedded kernel text not resolved'
           Path('gpu-preflight/report.json').write_text(json.dumps(report,indent=2)+'\n')
           print(json.dumps(report,indent=2))
           PY
