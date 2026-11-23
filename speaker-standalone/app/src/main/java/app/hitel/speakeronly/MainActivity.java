@@ -82,14 +82,14 @@ public final class MainActivity extends Activity {
     fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
     source=text(root,"녹음 폴더를 선택하십시오. 이후 실행에서는 저장된 폴더를 자동 감시합니다.",13);
     detectedSource=text(root,"현재 녹음 중인 파일: 증가 확인 대기",14);
-    text(root,"통화 시작(OFFHOOK) 이벤트를 받으면 최신 M4A 파일의 크기 증가를 3회 확인합니다. 이후 새 PCM만 STT에 전달하고 통화 종료(IDLE)에는 인식 결과를 마무리합니다.",12);
+    text(root,"통화 시작(OFFHOOK) 즉시 접근성 녹음 시작을 시도하고, M4A 파일의 크기 증가를 3회 확인한 뒤 새 PCM만 STT에 전달합니다. 통화 종료(IDLE)에는 인식을 마무리합니다.",12);
     source.setTextIsSelectable(true);
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
 
     text(root,"2. 통화 중 녹음 자동 시작 설정",17);
     accessibilityButton=button(root,"삼성 전화 녹음 시작 보조 활성화 (접근성 설정)");
-    text(root,"통화 연결 후 녹음 파일이 생성되지 않으면 삼성 전화 화면의 '녹음 시작' 버튼을 자동으로 누르도록 시도합니다. 최초 한 번 접근성 서비스 사용자가 직접 허용해야 합니다. 녹음 시작 버튼 작동 후에도 실제 M4A 크기가 증가해야만 스피커가 켜집니다.",12);
+    text(root,"통화가 연결되면 접근성 서비스를 즉시 호출하여 삼성 전화의 녹음 버튼을 찾습니다. 이미 자동 녹음 중이면 버튼을 다시 누르지 않습니다. 최초 한 번 접근성 서비스 사용자가 직접 허용해야 합니다. 실제 녹음 성공은 M4A 파일이 증가할 때만 확정합니다.",12);
     accessibilityButton.setOnClickListener(v->{
       try{startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));}
       catch(Exception e){status.setText("접근성 설정 열기 실패: "+e.getMessage());}
@@ -300,6 +300,9 @@ public final class MainActivity extends Activity {
     try{
       if(Build.VERSION.SDK_INT>=26)startForegroundService(i);
       else startService(i);
+      // Explicit first-run start is consent to rearm when this UI is reopened.
+      getSharedPreferences("speaker",MODE_PRIVATE).edit()
+        .putBoolean("autoEnabled",folderMode).apply();
       status.setText(folderMode?
         "통화 자동 감시 시작 · OFFHOOK 후 M4A 증가 확인 → PCM 직접 STT":
         "수동 진단 직접 STT 시작");
@@ -307,6 +310,8 @@ public final class MainActivity extends Activity {
     }catch(Exception e){status.setText("실행 실패: "+e.getMessage());}
   }
   private void stop(){
+    getSharedPreferences("speaker",MODE_PRIVATE).edit()
+      .putBoolean("autoEnabled",false).apply();
     try{startService(new Intent(this,SpeakerService.class).setAction(SpeakerService.STOP));
       status.setText("자동 감시 해제 및 한국어 STT 중지 요청");}
     catch(Exception e){status.setText("중지 실패: "+e.getMessage());}
@@ -397,6 +402,13 @@ public final class MainActivity extends Activity {
       .getString("detectedSource","");
     if(!detected.isEmpty())detectedSource.setText(detected);
     updateDeviceLabel();updateButtons();
+    // Only after a user explicitly starts monitoring once. Android 12+ FGS
+    // restrictions are respected because this happens while UI is foreground.
+    if(selected!=null&&folderMode&&!active()&&
+       getSharedPreferences("speaker",MODE_PRIVATE).getBoolean("autoEnabled",false)&&
+       checkSelfPermission(Manifest.permission.READ_PHONE_STATE)==PackageManager.PERMISSION_GRANTED){
+      ui.post(()->{if(!active())start();});
+    }
   }
   @Override protected void onStop(){
     if(receiverRegistered){unregisterReceiver(receiver);receiverRegistered=false;}
