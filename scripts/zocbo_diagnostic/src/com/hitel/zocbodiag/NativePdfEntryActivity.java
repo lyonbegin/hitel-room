@@ -29,6 +29,7 @@ public final class NativePdfEntryActivity extends Activity {
   private EditText exam;
   private TextView status;
   private boolean started=false;
+  private ReadingCollectorController collector;
 
   private int dp(int units) {
     return (int)(getResources().getDisplayMetrics().density*units+0.5f);
@@ -43,6 +44,12 @@ public final class NativePdfEntryActivity extends Activity {
   }
   @Override public void onCreate(Bundle savedState) {
     super.onCreate(savedState);
+    if(getIntent()!=null && getIntent().getBooleanExtra(ReadingCollectorController.EXTRA_COLLECT,false)){
+      Diag.log("COLLECTOR_ACTIVITY_OPEN","in-app collector, original DEX PDF route untouched");
+      collector=new ReadingCollectorController(this,
+        getIntent().getStringExtra(ReadingCollectorController.EXTRA_SOURCE_URL));
+      return;
+    }
     Diag.log("NATIVE_ORIGINAL_ACTIVITY","onCreate; standalone entry; network+PDF handled ONLY by original DEX");
     ScrollView scroller=new ScrollView(this);
     scroller.setFillViewport(true);
@@ -133,8 +140,18 @@ public final class NativePdfEntryActivity extends Activity {
       Toast.makeText(this,"원본 뷰어 시작 실패. 로그를 확인해 주십시오.",Toast.LENGTH_LONG).show();
     }
   }
+  @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+    super.onActivityResult(requestCode,resultCode,data);
+    if(collector!=null)collector.onActivityResult(requestCode,resultCode,data);
+  }
+  @Override protected void onDestroy(){
+    if(collector!=null){collector.destroy();collector=null;}
+    super.onDestroy();
+  }
   @Override public void onResume(){
-    super.onResume();started=false;
+    super.onResume();
+    if(collector!=null)return;
+    started=false;
     Diag.log("NATIVE_ORIGINAL_ACTIVITY","onResume");
   }
 }
