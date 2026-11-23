@@ -25,6 +25,8 @@ def snapshot(label):
 def tap(xml,label):
     try:
         for e in ET.fromstring(xml).iter():
+            if e.attrib.get("class")!="android.widget.Button" or e.attrib.get("clickable")!="true":
+                continue
             if label in (e.attrib.get("text","")+" "+e.attrib.get("content-desc","")):
                 m=re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",e.attrib.get("bounds",""))
                 if m:
@@ -32,7 +34,7 @@ def tap(xml,label):
                     if x2<=x1 or y2<=y1:continue
                     x,y=(x1+x2)//2,(y1+y2)//2
                     adb("shell","input","tap",x,y)
-                    print("DIRECT_TAP",label,x,y,flush=True)
+                    print("DIRECT_BUTTON_TAP",label,x,y,flush=True)
                     return True
     except Exception as ex:print("DIRECT_TAP_ERROR",str(ex),flush=True)
     return False
@@ -56,6 +58,15 @@ if not tap_auto:
 print("DIRECT_AUTO_BUTTON_TAPPED",tap_auto,flush=True)
 time.sleep(10)
 xml=snapshot("02_after_auto_region")
+try:
+    import xml.etree.ElementTree as _ET
+    statuses=[e.attrib.get("text","") for e in _ET.fromstring(xml).iter()
+              if e.attrib.get("class")=="android.widget.TextView"]
+    collector_status=[t for t in statuses if "지역" in t and
+                      ("선택" in t or "순회" in t or "원본" in t)]
+    print("DIRECT_AFTER_TAP_REGIONS",collector_status[-6:],flush=True)
+except Exception as e:
+    print("DIRECT_AFTER_TAP_XML_ERROR",str(e),flush=True)
 # Try file export even when remote server unreachable.
 export_clicked=tap(xml,"CSV 파일 내보내기")
 print("DIRECT_EXPORT_PICKER_OPEN_ATTEMPT",export_clicked,flush=True)
