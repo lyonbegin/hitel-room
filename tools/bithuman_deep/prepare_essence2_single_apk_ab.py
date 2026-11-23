@@ -29,6 +29,11 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.graphics.Color
+import android.content.ClipData
+import java.io.File
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -102,6 +107,44 @@ open class SdkFlutterActivity : FlutterActivity() {
                         startActivity(Intent(this,target))
                         finish()
                     }
+                    "exportLogs" -> {
+                        try {
+                            val dir=File(filesDir.parentFile ?: filesDir, "app_flutter")
+                            val archive=File(cacheDir, "HITEL_Sofia_GPU_SDK_AB_Logs.zip")
+                            val names=listOf(
+                                "hitel_e2_trace_BASELINE.log",
+                                "hitel_e2_trace_BASELINE.previous.log",
+                                "hitel_sdk_backend_BASELINE.log",
+                                "hitel_e2_trace_WG128.log",
+                                "hitel_e2_trace_WG128.previous.log",
+                                "hitel_sdk_backend_WG128.log",
+                                "hitel_sdk_ab_comparison.txt",
+                                "boot_status.txt"
+                            )
+                            ZipOutputStream(archive.outputStream().buffered()).use { zip ->
+                                for(name in names) {
+                                    val file=File(dir,name)
+                                    if(file.isFile) {
+                                        zip.putNextEntry(ZipEntry(name))
+                                        file.inputStream().use { it.copyTo(zip) }
+                                        zip.closeEntry()
+                                    }
+                                }
+                            }
+                            val uri=FileProvider.getUriForFile(
+                                this,packageName+".hitel.sdk.ab",archive)
+                            val intent=Intent(Intent.ACTION_SEND).apply {
+                                type="application/zip"
+                                putExtra(Intent.EXTRA_STREAM,uri)
+                                clipData=ClipData.newRawUri("SDK A/B full logs",uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            startActivity(Intent.createChooser(intent,"SDK 원본/WG128 전체 GPU 로그 보내기"))
+                            result.success(archive.length())
+                        } catch(error:Exception) {
+                            result.error("SDK_AB_ZIP_EXPORT",error.toString(),null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -140,7 +183,17 @@ def update_manifest(m):
                        android:resource="@style/NormalTheme"/>
         </activity>
 '''
-    return m[:begin]+head+tail+m[close:]
+    provider='''        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.hitel.sdk.ab"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/hitel_sdk_ab_paths"/>
+        </provider>
+'''
+    return m[:begin]+head+tail+provider+m[close:]
 
 def patch_trace(plugin):
     """Extend the pinned full GPU diagnostic trace, preserve its backend writer."""
@@ -210,6 +263,14 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
     } catch(e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content:Text('SDK 전환 실패: '+e.toString())));
+    }
+  }
+  Future<void> _hitelAbShareAllLogs() async {
+    try {
+      await _hitelAbChannel.invokeMethod('exportLogs');
+    } catch(error) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('GPU 로그 전체 ZIP 내보내기 실패: '+error.toString())));
     }
   }
   Future<void> _hitelAbCompare() async {
@@ -332,6 +393,11 @@ def patch_ui(app):
                   heroTag:'sdk_ab_compare',tooltip:'두 SDK 로그 비교 및 전체 로그 저장',
                   onPressed:_hitelAbCompare,
                   child:const Icon(Icons.difference_outlined)),
+                const SizedBox(height:8),
+                FloatingActionButton.small(
+                  heroTag:'sdk_ab_export_all',tooltip:'원본·WG128 GPU 로그 전체를 ZIP으로 보내기',
+                  onPressed:_hitelAbShareAllLogs,
+                  child:const Icon(Icons.folder_zip_outlined)),
               ],
             )
           : null,"""
@@ -355,6 +421,13 @@ def main():
     activity.write_text(ACTIVITIES)
     manifest=a.app/MANIFEST
     manifest.write_text(update_manifest(manifest.read_text()))
+    path=a.app/"android/app/src/main/res/xml/hitel_sdk_ab_paths.xml"
+    path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text('''<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="hitel_gpu_sdk_ab_logs" path="."/>
+</paths>
+''')
     assert "android:process=\":hitel_original\"" in manifest.read_text()
     assert "android:process=\":hitel_wg128\"" in manifest.read_text()
     a.report.parent.mkdir(parents=True,exist_ok=True)
@@ -366,6 +439,7 @@ def main():
       "same_app_data":True,"preserved_model_and_korean_pcm":True,
       "persistent_native_logs":["hitel_e2_trace_BASELINE.log","hitel_e2_trace_WG128.log"],
       "full_comparison_file":"hitel_sdk_ab_comparison.txt",
+      "share":"all raw GPU baseline+WG128 traces/backend logs in one shareable ZIP via FileProvider",
       "live_same_process_hot_swap":False,
       "opencl_kernel_exact_workgroups_observed":False
     },indent=2,ensure_ascii=False)+"\n")
