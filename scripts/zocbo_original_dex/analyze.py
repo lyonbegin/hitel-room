@@ -87,13 +87,18 @@ focus_paths=[
  "sources/p239z3/a.java",
  "sources/p239z3/b.java",
  "sources/A3/L.java",
+ "sources/p040e3/d.java",
+ "sources/p239z3/e.java",
+ "sources/p229y3/A1.java",
+ "sources/com/eduzone/eduzoneviewer/ui/activities/MainActivity.java",
+ "sources/com/eduzone/eduzoneviewer/ui/activities/CommonWebviewActivity.java",
  "sources/p239z3/m.java",
 ]
 for target in focus_paths:
  f=OUT/target
  if f.exists():
   ls=f.read_text("utf8","replace").splitlines()
-  focus.append("=== COMPLETE TARGET SOURCE: "+target+" ===\n"+"\n".join(f"{i+1}: {line}" for i,line in enumerate(ls[:1000]))+"\n")
+  focus.append("=== COMPLETE TARGET SOURCE: "+target+" ===\n"+"\n".join(f"{i+1}: {line}" for i,line in enumerate(ls[:1700]))+"\n")
 for f in sorted(OUT.rglob("*.java")):
  try:s=f.read_text("utf8","replace")
  except Exception:continue
@@ -105,7 +110,7 @@ for f in sorted(OUT.rglob("*.java")):
  if hits:
   # Include anything with interface setup or actual free-room navigation
   if ("eduzone" in str(f) or "p239z3" in str(f) or "p079i3" in str(f) or
-      any(k in ("goPreviousExam","previousExam.asp","school/previousExam","addJavascriptInterface(") for i,k in hits)):
+      any(k in ("goPreviousExam","previousExam.asp","school/previousExam","addJavascriptInterface(","f29300b0") for i,k in hits)):
    selected=[]
    for i,k in hits[:24]:
     st=max(0,i-24);en=min(len(ls),i+44)
