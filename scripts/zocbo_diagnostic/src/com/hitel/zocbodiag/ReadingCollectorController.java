@@ -57,6 +57,12 @@ public final class ReadingCollectorController {
   private final TextView status;
   private final EditText startYear,endYear;
   private final List<Job> jobs=new ArrayList<>();
+  private final List<AreaScope> originalAreas=new ArrayList<>();
+  private boolean discovering=false, waitingAreaNavigation=false;
+  private int discoverySiteIndex=0, discoveryIndex=0, selectorRetries=0;
+  private int discoverFromYear=2000, discoverToYear=2026;
+  private String lastAreaName="";
+  private static final String[] SCHOOL_LEVELS={"M","H"};
   private String sourceUrl,runKey="",scope="ALL_UNVERIFIED";
   private String currentSchool="",currentCity="",currentDistrict="",currentFilter="";
   private String currentSite="",currentGrade="",currentYear="",currentTerm="",currentSubject="",currentPaid="N";
@@ -68,10 +74,24 @@ public final class ReadingCollectorController {
   private int prevTask=-1;
   private int exportMode=0;
 
+  static final class AreaScope {
+    String name,site,schools,city,district,filter,paid,grade,year,term,subject;
+    JSONArray firstPage;
+    AreaScope(String name,String site,String schools,String city,String district,String filter,
+              String paid,String grade,String year,String term,String subject,JSONArray firstPage){
+      this.name=name;this.site=site;this.schools=schools;this.city=city;this.district=district;
+      this.filter=filter;this.paid=paid;this.grade=grade;this.year=year;this.term=term;
+      this.subject=subject;this.firstPage=firstPage;
+    }
+    String nameKey(){return site+"|"+name+"|"+city;}
+    String fingerprint(){return nameKey()+"|"+schools+"|"+district+"|"+filter;}
+  }
   static class Job {
-    String site,grade,year,term,subject;
-    Job(String s,String g,String y,String t,String u){
-      site=s;grade=g;year=y;term=t;subject=u;
+    final AreaScope region;
+    final String site,grade,year,term,subject;
+    Job(String s,String g,String y,String t,String u){this(null,s,g,y,t,u);}
+    Job(AreaScope area,String s,String g,String y,String t,String u){
+      region=area;site=s;grade=g;year=y;term=t;subject=u;
     }
   }
   private int dp(int n){return (int)(activity.getResources().getDisplayMetrics().density*n+0.5f);}
@@ -102,7 +122,7 @@ public final class ReadingCollectorController {
     scroll.addView(root);
     root.addView(text("기출 열람실 시험지 목록 수집",21));
     root.addView(text("PDF는 열거나 저장하지 않습니다. 시험지 번호와 목록 정보만 앱 내부 SQLite에 저장하며, 수집한 내용은 CSV/JSON으로 직접 내보낼 수 있습니다.",13));
-    root.addView(text("원본 지역·학교 ID 및 첫 페이지 목록을 원본 previousExam.asp에서 직접 읽습니다. 현재 화면의 지역에 포함된 학교만 탐색하며 전국 완료로 오인하지 않습니다.",12));
+    root.addView(text("전국 지역 선택기의 각 ‘전체’ 항목을 앱에서 자동으로 선택합니다. 원본 웹에서 제공한 학교 ID와 실제 시험지 목록만 수집하며, 학교를 하나씩 고르실 필요가 없습니다.",12));
 
     LinearLayout yr=new LinearLayout(a);yr.setOrientation(LinearLayout.HORIZONTAL);
     startYear=new EditText(a);startYear.setSingleLine(true);
@@ -114,10 +134,10 @@ public final class ReadingCollectorController {
     endYear.setText("2026");endYear.setHint("마지막 연도");
     yr.addView(endYear,new LinearLayout.LayoutParams(0,dp(48),1f));
     root.addView(yr);
-    root.addView(text("연도 범위는 수정 가능합니다. 화면에서 선택된 중/고등 학교군과 지역의 학년·연도·4개 시험구분·10개 과목을 순차 조회합니다.",12));
+    root.addView(text("연도 범위만 설정하시면 됩니다. 수집은 중학교·고등학교 × 원본 지역 ‘전체’ 목록 × 학년·연도·학기·과목을 자동 순회합니다.",12));
 
-    button("현재 지역·학교 전 조건 수집 / 이어하기",root,()->start(false));
-    button("현재 열람실 조건만 수집",root,()->start(true));
+    button("전국 지역 ‘전체’ 자동수집 / 이어하기",root,()->startNationwide());
+    button("현재 화면 목록만 시험수집",root,()->start(true));
     button("일시정지",root,()->pause("사용자 요청으로 일시정지"));
     button("CSV 파일 내보내기 (엑셀)",root,()->export(EXPORT_CSV));
     button("JSON 파일 내보내기 (전체 메타데이터)",root,()->export(EXPORT_JSON));
@@ -135,15 +155,23 @@ public final class ReadingCollectorController {
     web.addJavascriptInterface(new Bridge(),"hitelCollectorNative");
     web.setWebViewClient(new WebViewClient(){
       @Override public void onPageFinished(WebView w,String url){
+        if(discovering && ReadingAreaSelector.isSelector(url)){
+          loaded=false;
+          selectorRetries=0;
+          ui.postDelayed(()->scanOriginalAreaChoices(),700);
+          return;
+        }
         loaded=NativePdfTitleBridge.isFreeReadingPage(url);
         scopeReady=false;
         if(loaded){
           Diag.log("COLLECTOR_WEBVIEW_READY","original previousExam.asp loaded");
-          showStatus("원본 열람실 준비됨; 수집 버튼을 눌러 주십시오.");
+          showStatus(discovering?"지역 ‘전체’ 적용 결과를 읽는 중":"원본 열람실 준비됨; 수집 버튼을 눌러 주십시오.");
+          waitingAreaNavigation=false;
           readCurrentScope();
         } else {
           Diag.log("COLLECTOR_WEBVIEW_NON_TARGET",url==null?"null":url.split("\\?")[0]);
           if(running)pause("원본 열람실을 벗어나 수집 중지");
+          if(discovering)stopDiscovery("지역 선택 화면을 벗어나 수집 중지");
           showStatus("원본 열람실에 접속하지 못했습니다. 아래 화면에서 로그인 상태를 확인하십시오.");
         }
       }
