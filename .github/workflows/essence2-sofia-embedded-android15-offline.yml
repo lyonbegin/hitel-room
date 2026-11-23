@@ -341,7 +341,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -351,36 +351,37 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
-      - name: Verify BOTH SDK native files and process routing are in this single signed APK
+      - name: Verify one exact vendor ELF, GPU3 native hook, process isolation and APK signing
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk
+          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
-          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni_wg128.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libhitel_e2_probe.so'
+          if unzip -Z1 "$APK" | grep -Fq 'lible_jni_wg128.so'; then
+            echo FAIL_OLD_PATCHED_GPU_SDK_IS_STILL_PRESENT
+            exit 1
+          fi
           cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni.so) \
               <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so)
-          cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni_wg128.so) \
-              original-upstream/app/avatar_chat/android/app/src/main/jniLibs/arm64-v8a/lible_jni_wg128.so
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml > essence2-local-mock-proof/ab-manifest.txt
           grep -Fq ':hitel_original' essence2-local-mock-proof/ab-manifest.txt
-          grep -Fq ':hitel_wg128' essence2-local-mock-proof/ab-manifest.txt
+          grep -Fq ':hitel_gpu3' essence2-local-mock-proof/ab-manifest.txt
           SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -1)"
           "$SIGNER" verify --verbose "$APK"
-          echo PASS_SINGLE_APK_TWO_REAL_JNI_LIBRARIES_AND_ISOLATED_ACTIVITY_ROUTES
+          echo PASS_ORIGINAL_GPU3_TWO_PROCESSES_ONE_ORIGINAL_ELF_VENDORIZED_CPU_FALLBACK_SIGNED
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -388,7 +389,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk"
+          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk"
           PCM="$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
           ASSET=assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm
           test "$(wc -c < "$PCM")" -eq 480000
@@ -411,7 +412,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG=hitel-essence2-original-e048-real-wg128-from-release-20261123
-          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk
+          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk
           test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
           STRICT RESTORE: all original/player/audio/display/model/voice/app startup files and the two-process selector come from the ACTUAL 2026-11-23 e04874faf018d97f0afa9b760be93373212c1777 single APK commit. No GPU logger, SDK instrumentation or any route changes applied to BASELINE. WG128 lible_jni_wg128.so is extracted directly, without repatching, from the ACTUAL released APK hitel-essence2-wg128-wav-pull-bf7290b661. Its 2026-11-22 historical OpenCL kernel logger C++ is compiled with only the dlopen target name changed to match the isolated WG128 soname, loaded on WG128 process only. Original vendor native SHA is verified, and 4-workgroup-word difference is checked. Model, PCM10s, player and both existing UI controls preserved. This SDK-specific injection does not modify the video player or PCM/audio chain. CI cannot prove Galaxy speaker audio or GPU -54 repair.
@@ -423,7 +424,7 @@ jobs:
               --title 'HITEL Sofia exact original E048 player + real 2026-11-22 WG128 SDK release' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
