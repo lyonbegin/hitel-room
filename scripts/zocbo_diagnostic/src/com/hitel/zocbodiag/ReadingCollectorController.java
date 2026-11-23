@@ -31,6 +31,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import android.util.Base64;
+import android.util.Log;
+import java.nio.charset.StandardCharsets;
 
 /**
  * In-app metadata-only crawler: original authenticated previousExam.asp WebView
@@ -44,6 +47,7 @@ import java.util.UUID;
 public final class ReadingCollectorController {
   public static final String EXTRA_COLLECT="com.hitel.zocbodiag.COLLECT_METADATA";
   public static final String EXTRA_SOURCE_URL="com.hitel.zocbodiag.COLLECT_SOURCE_URL";
+  public static final String EXTRA_QA_ORIGINAL_HTML="com.hitel.zocbodiag.QA_ORIGINAL_HTML_BASE64";
   private static final int EXPORT_CSV=7441,EXPORT_JSON=7442;
   private static final int PER_PAGE=10, DELAY_MS=1600;
   private static final String[] SUBJECTS={"KR","EG","MT","SC","LS","HI","ET","TH","CH","OT"};
@@ -64,6 +68,7 @@ public final class ReadingCollectorController {
   private String lastAreaName="";
   private static final String[] SCHOOL_LEVELS={"M","H"};
   private String sourceUrl,runKey="",discoveryRunKey="",scope="ALL_UNVERIFIED";
+  private final boolean qaOriginalHtml;
   private String currentSchool="",currentCity="",currentDistrict="",currentFilter="";
   private String currentSite="",currentGrade="",currentYear="",currentTerm="",currentSubject="",currentPaid="N";
   private JSONArray currentRows=new JSONArray();
@@ -116,6 +121,9 @@ public final class ReadingCollectorController {
   public ReadingCollectorController(Activity a,String lastUrl){
     activity=a;store=new ReadingCollectorStore(a);
     sourceUrl=safeUrl(lastUrl);
+    qaOriginalHtml=a.getIntent()!=null&&a.getIntent().hasExtra(EXTRA_QA_ORIGINAL_HTML);
+    if(qaOriginalHtml&&!ReadingCollectorQaProof.emulator())
+      throw new SecurityException("Local original HTML QA is emulator-only");
     ScrollView scroll=new ScrollView(a);
     scroll.setBackgroundColor(Color.WHITE);scroll.setFillViewport(true);
     LinearLayout root=new LinearLayout(a);root.setOrientation(LinearLayout.VERTICAL);
@@ -184,7 +192,13 @@ public final class ReadingCollectorController {
     root.addView(web,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(175)));
     a.setContentView(scroll);
     a.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    web.loadUrl(sourceUrl);
+    if(qaOriginalHtml){
+      String encoded=a.getIntent().getStringExtra(EXTRA_QA_ORIGINAL_HTML);
+      if(encoded==null||encoded.length()>45000)throw new IllegalArgumentException("QA HTML length");
+      String originalObservedHtml=new String(Base64.decode(encoded,Base64.NO_WRAP),StandardCharsets.UTF_8);
+      web.loadDataWithBaseURL(sourceUrl,originalObservedHtml,"text/html","UTF-8",sourceUrl);
+      Log.i("ZocboQA","QA_ORIGINAL_HTML_WEBVIEW_PAGE_LOADED source=prior_user_capture not_live");
+    }else web.loadUrl(sourceUrl);
     Diag.log("COLLECTOR_ACTIVITY_READY","local-db="+ReadingCollectorStore.DB_NAME+" original-WebView="+safeUrl(sourceUrl).split("\\?")[0]);
   }
 
@@ -296,10 +310,12 @@ public final class ReadingCollectorController {
                 currentSchool+"|"+currentCity+"|"+currentDistrict);
               int committed=store.savePage(key,observed,currentRows,currentSite,
                 currentGrade,currentYear,currentTerm,currentSubject,
-                "LIVE_ORIGINAL_WEBVIEW_PAGE1");
-              Diag.log("COLLECTOR_LIVE_FIRST_PAGE_SQLITE_COMMIT",
-                "page_rows="+currentRows.length()+" committed="+committed+
-                " db_count="+store.count()+" no_pdf=true");
+                qaOriginalHtml?"QA_USER_CAPTURED_HTML_WEBVIEW":"LIVE_ORIGINAL_WEBVIEW_PAGE1");
+              String commitName=qaOriginalHtml?"COLLECTOR_QA_CAPTURED_WEBVIEW_SQLITE_COMMIT":"COLLECTOR_LIVE_FIRST_PAGE_SQLITE_COMMIT";
+              String commitProof="page_rows="+currentRows.length()+" committed="+committed+
+                " db_count="+store.count()+" no_pdf=true origin="+(qaOriginalHtml?"PRIOR_USER_HTML":"LIVE_WEBVIEW");
+              Diag.log(commitName,commitProof);
+              if(qaOriginalHtml)Log.i("ZocboQA",commitName+" "+commitProof);
             }catch(Throwable saveError){
               Diag.log("COLLECTOR_LIVE_FIRST_PAGE_STORE_ERROR",
                 saveError.getClass().getName()+":"+saveError.getMessage());
