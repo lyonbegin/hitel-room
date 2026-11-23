@@ -1,0 +1,70 @@
+name: Zocbo R17 Original WebView JS Real SQLite End-to-End
+on:
+  push:
+    branches:
+      - fix/zocbo-r17-original-webview-parser-proof-20261124
+    paths:
+      - .github/workflows/zocbo-r17-webview-sqlite-qa.yml
+      - .github/qa/zocbo_r17_original_webview_parser.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-html-webview-to-android-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download signed R17 exact published release APK with digest verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/r17-webview-evidence
+          TAG=zocbo-original-webview-sqlite-20261124-r17-test
+          APK=Zocbo_4.3.11_Original_WebView_SQLite_R17_TEST_20261124.apk
+          for n in $(seq 1 50); do
+            if curl --connect-timeout 15 --max-time 75 -fsSL \
+              "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK" \
+              -o work/r17.apk && test "$(stat -c%s work/r17.apk)" -gt 30000000; then
+              echo R17_ORIGINAL_APK_DOWNLOADED
+              break
+            fi
+            sleep 5
+          done
+          test -s work/r17.apk
+          curl -fsSL "https://api.github.com/repos/lyonbegin/hitel-room/releases/tags/$TAG" > work/r17-release.json
+          EXPECTED="$(python3 -c 'import json;d=json.load(open("work/r17-release.json"));print(next(x["digest"].split(":")[-1] for x in d["assets"] if x["name"].endswith(".apk")))' )"
+          ACTUAL="$(sha256sum work/r17.apk | cut -d ' ' -f 1)"
+          test "$EXPECTED" = "$ACTUAL"
+          echo R17_RELEASE_APK_HASH_VERIFIED "$ACTUAL"
+          test -s .github/qa/zocbo_r17_original_webview_parser.py
+          test -s .github/qa/fixtures/zocbo_user_observed_previousExam_20261123_10ids.json
+      - name: Enable exact R13-proven KVM setup
+        run: sudo chmod 666 /dev/kvm
+      - name: Run original HTML -> actual production WebView -> JS bridge -> SQLite -> restart -> exported CSV
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
+          script: |
+            set -euo pipefail
+            python3 -u .github/qa/zocbo_r17_original_webview_parser.py | tee work/r17-webview-evidence/runtime.txt
+            grep -q 'R17_WEBVIEW_ORIGINAL_DOM_TO_ACTUAL_ANDROID_SQLITE_PASS' work/r17-webview-evidence/runtime.txt
+            grep -q 'R17_REAL_WEBVIEW_JS_TO_SQLITE_RESTART_AND_EXPORTED_CSV_10_PASS live_origin=False' work/r17-webview-evidence/runtime.txt
+      - name: Upload screenshot, actual WebView bridge logcat, CSV file, and SQLite results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-r17-original-webview-sqlite-strict-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: work/r17-webview-evidence/
