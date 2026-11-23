@@ -58,7 +58,7 @@ public final class ReadingCollectorController {
   private final EditText startYear,endYear;
   private final List<Job> jobs=new ArrayList<>();
   private final List<AreaScope> originalAreas=new ArrayList<>();
-  private boolean discovering=false, waitingAreaNavigation=false;
+  private boolean discovering=false, waitingAreaNavigation=false, awaitingAreaSnapshot=false;
   private int discoverySiteIndex=0, discoveryIndex=0, selectorRetries=0;
   private int discoverFromYear=2000, discoverToYear=2026;
   private String lastAreaName="";
@@ -166,6 +166,7 @@ public final class ReadingCollectorController {
         if(loaded){
           Diag.log("COLLECTOR_WEBVIEW_READY","original previousExam.asp loaded");
           showStatus(discovering?"지역 ‘전체’ 적용 결과를 읽는 중":"원본 열람실 준비됨; 수집 버튼을 눌러 주십시오.");
+          awaitingAreaSnapshot=discovering && waitingAreaNavigation;
           waitingAreaNavigation=false;
           readCurrentScope();
         } else {
@@ -198,6 +199,57 @@ public final class ReadingCollectorController {
   }
 
   private final class Bridge {
+    @JavascriptInterface public void areaCandidates(String auth,String payload){
+      if(!nonce.equals(auth)||payload==null||payload.length()>180000)return;
+      ui.post(()->{
+        if(!discovering||destroyed||waitingAreaNavigation)return;
+        try{
+          JSONArray list=new JSONArray(payload);
+          Diag.log("COLLECTOR_AREA_CHOICES","site="+SCHOOL_LEVELS[discoverySiteIndex]+
+            " total="+list.length()+" index="+discoveryIndex);
+          if(list.length()==0){
+            if(++selectorRetries<4){
+              ui.postDelayed(()->scanOriginalAreaChoices(),1100);
+            }else stopDiscovery("원본 지역 선택기의 ‘전체’ 항목을 찾지 못했습니다. 잘못된 임의 지역 검색은 하지 않습니다.");
+            return;
+          }
+          if(discoveryIndex>=list.length()){
+            discoverySiteIndex++;
+            discoveryIndex=0;
+            if(discoverySiteIndex>=SCHOOL_LEVELS.length){
+              finishAreaDiscovery();
+            }else openAreaSelector();
+            return;
+          }
+          JSONObject item=list.optJSONObject(discoveryIndex);
+          if(item==null){stopDiscovery("지역 선택 항목을 읽지 못했습니다.");return;}
+          lastAreaName=item.optString("name",item.optString("label","전체"));
+          Diag.log("COLLECTOR_ORIGINAL_AREA_SELECT","site="+SCHOOL_LEVELS[discoverySiteIndex]+
+            " selector="+(discoveryIndex+1)+"/"+list.length()+" area="+lastAreaName);
+          showStatus("원본 지역 선택: "+SCHOOL_LEVELS[discoverySiteIndex]+
+            " · "+(discoveryIndex+1)+"/"+list.length()+" · "+lastAreaName+" 전체");
+          waitingAreaNavigation=true;
+          web.evaluateJavascript(ReadingAreaSelector.click(nonce,discoveryIndex),null);
+          ui.postDelayed(()->{
+            if(discovering&&waitingAreaNavigation){
+              stopDiscovery("원본 지역 ‘전체’ 항목의 클릭 후 열람실 이동이 확인되지 않았습니다: "+
+                lastAreaName+" (임의 검색 대신 진단 로그 보존)");
+            }
+          },8500);
+        }catch(Throwable t){
+          stopDiscovery("원본 지역 선택 목록 분석 실패: "+t.getClass().getSimpleName());
+        }
+      });
+    }
+    @JavascriptInterface public void areaClick(String auth,String label){
+      if(nonce.equals(auth))Diag.log("COLLECTOR_ORIGINAL_AREA_CLICK",
+        ReadingCollectorStore.sanitize(label,70));
+    }
+    @JavascriptInterface public void areaError(String auth,String error){
+      if(!nonce.equals(auth))return;
+      ui.post(()->stopDiscovery("원본 지역 선택 실행 실패: "+
+        ReadingCollectorStore.sanitize(error,130)));
+    }
     @JavascriptInterface public void snapshot(String auth,String payload){
       if(!nonce.equals(auth)||payload==null||payload.length()>250000)return;
       try {
@@ -223,6 +275,30 @@ public final class ReadingCollectorController {
             +" / "+currentSite+currentGrade+" "+currentYear+" "+currentTerm+" "+currentSubject;
           showStatus(msg);
           Diag.log("COLLECTOR_SCOPE_FOUND",msg);
+          if(discovering&&awaitingAreaSnapshot){
+            awaitingAreaSnapshot=false;
+            if(!SCHOOL_LEVELS[discoverySiteIndex].equals(currentSite)||
+                currentSchool.isEmpty()||currentCity.isEmpty()){
+              stopDiscovery("‘"+lastAreaName+" 전체’ 조회 결과에서 학교 목록·시도 정보가 누락됐습니다. 원본 값을 임의로 만들지 않습니다.");
+              return;
+            }
+            AreaScope found=new AreaScope(lastAreaName,currentSite,currentSchool,
+              currentCity,currentDistrict,currentFilter,currentPaid,currentGrade,
+              currentYear,currentTerm,currentSubject,currentRows);
+            for(AreaScope prior:originalAreas){
+              if(prior.nameKey().equals(found.nameKey())){
+                stopDiscovery("지역 선택기가 같은 지역을 중복 반환했습니다: "+found.nameKey());
+                return;
+              }
+            }
+            originalAreas.add(found);
+            Diag.log("COLLECTOR_ORIGINAL_AREA_CAPTURED","site="+found.site+
+              " area="+found.name+" city="+found.city+
+              " schoolIDs="+found.schools.split("\\|").length+
+              " initialRows="+found.firstPage.length());
+            discoveryIndex++;
+            ui.postDelayed(()->openAreaSelector(),600);
+          }
         });
       }catch(Throwable t){
         Diag.log("COLLECTOR_SCOPE_JSON_ERROR",t.getClass().getName());
