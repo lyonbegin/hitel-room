@@ -71,4 +71,44 @@ print("EXAM_SOURCE_FILES",len(out["files_exam"]),"WEBVIEW_SOURCE_FILES",len(out[
 for f in out["files_exam"][:35]:print("FREE_READING_CALLSITE",json.dumps(f,ensure_ascii=False),flush=True)
 for f in out["files_webview"][:35]:print("WEBVIEW_CALLSITE",json.dumps(f,ensure_ascii=False),flush=True)
 if not out["files_exam"]:print("WARNING: No direct free-reading URL in DEX; possible remote HTML/script or obfuscated runtime navigation",flush=True)
+
+# Focused native navigation call chain: JS bridge -> Runnable -> Activity -> WebView
+focus=[]
+focus_paths=[
+ "sources/com/eduzone/eduzoneviewer/interfaces/WebAppInterface.java",
+ "sources/com/eduzone/eduzoneviewer/interfaces/d.java",
+ "sources/p040e3/c.java",
+ "sources/p040e3/d.java",
+ "sources/p040e3/k.java",
+ "sources/p079i3/S0.java",
+ "sources/p079i3/z0.java",
+ "sources/p239z3/k.java",
+ "sources/p239z3/m.java",
+]
+for target in focus_paths:
+ f=OUT/target
+ if f.exists():
+  ls=f.read_text("utf8","replace").splitlines()
+  focus.append("=== COMPLETE TARGET SOURCE: "+target+" ===\n"+"\n".join(f"{i+1}: {line}" for i,line in enumerate(ls[:1000]))+"\n")
+for f in sorted(OUT.rglob("*.java")):
+ try:s=f.read_text("utf8","replace")
+ except Exception:continue
+ keys=["goPreviousExam", "previousExam.asp", "school/previousExam", "goWebViewLink",
+       "addJavascriptInterface(", "setUserAgentString(", "getUserAgentString(", "SchoolSearchActivity.class",
+       "WebAppInterface(", "main/pastexam", "zocbo://viewer", "goPreviousExam()"]
+ ls=s.splitlines()
+ hits=[(i,k) for i,line in enumerate(ls) for k in keys if k in line]
+ if hits:
+  # Include anything with interface setup or actual free-room navigation
+  if ("eduzone" in str(f) or "p239z3" in str(f) or "p079i3" in str(f) or
+      any(k in ("goPreviousExam","previousExam.asp","school/previousExam","addJavascriptInterface(") for i,k in hits)):
+   selected=[]
+   for i,k in hits[:24]:
+    st=max(0,i-24);en=min(len(ls),i+44)
+    selected.append(f"=== {f.relative_to(OUT)}:{i+1} ({k}) ===\n"+
+      "\n".join(f"{p+1}: {ls[p][:350]}" for p in range(st,en)))
+   focus.append("\n".join(selected))
+(ROOT/"focused_navigation.txt").write_text("\n\n".join(focus)[:1200000],encoding="utf8")
+print("FOCUSED_NAVIGATION_CHARS",sum(len(x) for x in focus),flush=True)
+
 APK.unlink(missing_ok=True)
