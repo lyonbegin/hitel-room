@@ -19,6 +19,13 @@ object HitelSdkLoader {
     }
     @JvmStatic fun libraryForProcess(): String {
         val lib = if (route()=="WG128") "le_jni_wg128" else "le_jni"
+        if (route() == "WG128") {
+            // Only the SECOND SDK process: load verified 2026-11-22 native first,
+            // then attach its real OpenCL observer before vendor nativeCreate().
+            // The original BASELINE loader remains exactly the previous path.
+            System.loadLibrary(lib)
+            HitelSdkProbe.afterNativeLoad()
+        }
         Log.i("HITEL_SDK_AB", "sdk.loader route="+route()+" so="+lib+" pid="+Process.myPid())
         return lib
     }
