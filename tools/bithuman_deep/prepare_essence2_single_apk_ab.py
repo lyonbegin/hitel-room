@@ -208,8 +208,8 @@ def patch_trace(plugin):
     assert t.count('File(folder, "hitel_e2_trace.previous.log")')==2
     t=t.replace('File(folder, "hitel_e2_trace.previous.log")',
       'File(folder, "hitel_e2_trace_" + ROUTE + ".previous.log")')
-    t=once(t,'FileOutputStream(output, false)',
-      'FileOutputStream(output, true)',"trace-initial-append")
+    t=once(t,'var writer = FileOutputStream(output, false)',
+      'var writer = FileOutputStream(output, true)',"trace-initial-append")
     t=once(t,'FileOutputStream(File(folder, "hitel_sdk_backend.log"), false)',
       'FileOutputStream(File(folder, "hitel_sdk_backend_" + ROUTE + ".log"), true)',
       "backend-route-append")
