@@ -1,0 +1,55 @@
+name: Reverse engineer Zocbo original app free-reading entry
+on:
+  push:
+    branches: [research/zocbo-original-xapk-free-reading-dex-20261123]
+    paths:
+      - .github/workflows/zocbo-original-free-reading-dex.yml
+      - scripts/zocbo_original_dex/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-xapk-dex:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 14
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download ORIGINAL app and verify user-provided SHA256
+        id: original
+        continue-on-error: true
+        run: python3 scripts/zocbo_original_dex/download_verified_xapk.py source
+      - name: Fail if original was not verified
+        if: steps.original.outcome != 'success'
+        run: |
+          cat source/source_verification.json || true
+          echo 'BLOCKED: cannot obtain exact original uploaded XAPK; do not substitute a newer app'
+          exit 1
+      - name: Install JADX decompiler for original verified APK
+        if: steps.original.outcome == 'success'
+        run: |
+          curl -fLsS --connect-timeout 10 --max-time 90 -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          echo /tmp/jadx/bin >> "$GITHUB_PATH"
+          /tmp/jadx/bin/jadx --version
+      - name: Trace actual free-reading navigation and WebView methods
+        if: steps.original.outcome == 'success'
+        run: python3 -u scripts/zocbo_original_dex/analyze.py
+      - name: Upload real DEX analysis, call sites and source verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-free-reading-dex-${{ github.run_number }}
+          path: |
+            source/source_verification.json
+            evidence/zocbo-original-dex/analysis.json
+            evidence/zocbo-original-dex/callsites.txt
+            evidence/zocbo-original-dex/jadx.log
+            evidence/zocbo-original-dex/error.txt
+          retention-days: 14
+          if-no-files-found: warn
