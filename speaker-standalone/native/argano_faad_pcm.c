@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -37,6 +38,8 @@ static NeAACDecHandle aac;
 static SwrContext *resampler;
 static int configuredChannels;
 static long long frames, outBytes;
+static volatile sig_atomic_t stopRequested=0;
+static void gracefulStop(int signum){(void)signum;stopRequested=1;}
 
 static void sleepMs(long ms){
   struct timespec ts={ms/1000,(ms%1000)*1000000};
@@ -152,12 +155,14 @@ int main(int argc,char **argv){
     fprintf(stderr,"usage: argano-faad-pcm file.m4a follow|fixed\n");return 2;
   }
   int fixed=!strcmp(argv[2],"fixed");
+  signal(SIGTERM,gracefulStop);
+  signal(SIGINT,gracefulStop);
   FILE *f=fopen(argv[1],"rb");
   if(!f){perror("ARGANO_FAAD_OPEN");return 3;}
   setvbuf(stderr,NULL,_IOLBF,0);
   if(initAac()!=0){fprintf(stderr,"ARGANO_FAAD_ERROR:INIT\n");return 4;}
   int ready=0, idle=0;
-  for(;;){
+  while(!stopRequested){
     struct stat st;
     if(fstat(fileno(f),&st)!=0){perror("ARGANO_FAAD_FSTAT");return 5;}
     long long size=(long long)st.st_size;
@@ -233,6 +238,13 @@ int main(int argc,char **argv){
     if(!fixed && pendingLen>=PENDING_MAX-NEW_DATA_BUFFER){
       fprintf(stderr,"ARGANO_FAAD_ERROR:STALLED_FRAME\n");return 16;
     }
+  }
+  if(!fixed && stopRequested){
+    if(drainResample()!=0){
+      fprintf(stderr,"ARGANO_FAAD_ERROR:FINAL_PCM_FLUSH\n");return 18;
+    }
+    fprintf(stderr,"ARGANO_FAAD_GRACEFUL_STOP:frames=%lld:pcmBytes=%lld:pendingAac=%zu\n",
+      frames,outBytes,pendingLen);
   }
   if(resampler)swr_free(&resampler);
   if(aac)NeAACDecClose(aac);
