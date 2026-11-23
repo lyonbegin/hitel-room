@@ -362,6 +362,11 @@ public final class Diag implements View.OnClickListener {
   private static final String QA_ORIGINAL_INTENT="com.hitel.zocbodiag.QA_ORIGINAL_READING_FROM_MAIN";
   private static void maybeRunOriginalMainQa(Activity activity) {
     try {
+      boolean isEmulator=ReadingCollectorQaProof.emulator();
+      boolean isOriginalMain="com.eduzone.eduzoneviewer.ui.activities.MainActivity".equals(activity.getClass().getName());
+      boolean requested=activity.getIntent()!=null&&activity.getIntent().getBooleanExtra(QA_ORIGINAL_INTENT,false);
+      android.util.Log.i("ZocboInApp","stage=ORIGINAL_QA_GATE emulator="+isEmulator+
+        " main="+isOriginalMain+" requested="+requested+" attempted="+qaOriginalStarted);
       if(!ReadingCollectorQaProof.emulator()||
          !"com.eduzone.eduzoneviewer.ui.activities.MainActivity".equals(activity.getClass().getName())||
          activity.getIntent()==null||
@@ -405,6 +410,11 @@ public final class Diag implements View.OnClickListener {
   }
 
   public static void install(Activity a) {
+    try {
+      if(ReadingCollectorQaProof.emulator())
+        android.util.Log.i("ZocboInApp","stage=DIAG_INSTALL_HOOK activity="+a.getClass().getName()+
+          " requested="+(a.getIntent()!=null&&a.getIntent().getBooleanExtra(QA_ORIGINAL_INTENT,false)));
+    }catch(Throwable ignored){}
     synchronized(Diag.class) {
       if(app==null) {
         app=a.getApplicationContext();
