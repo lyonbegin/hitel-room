@@ -32,6 +32,45 @@ jobs:
           java -Xmx2400m -jar bin/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-pcm-bridge/smali/main /tmp/ixio-pcm-bridge/main.dex
           java -Xmx2400m -jar bin/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-pcm-bridge/smali/recorder /tmp/ixio-pcm-bridge/recorder.dex
           python3 tools/ixio/probe_original_pcm_bridge_20261123.py
+      - name: Verify actual PCM source constants normalization math and Flow collector
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('/tmp/ixio-pcm-bridge/smali')
+          cases={
+            'main/com/lguplus/aicallagent/incall/call/data/LocalAudioRecordSource.smali':[(605,690),(204,292)],
+            'main/com/lguplus/aicallagent/incall/call/data/LocalAudioRecordSource$downlinkFlow$1.smali':[(300,376)],
+            'main/com/lguplus/aicallagent/incall/call/data/LocalAudioRecordSource$uplinkFlow$1.smali':[(307,374)],
+            'main/com/lguplus/aicallagent/incall/call/service/CallScriptManager$readAndRecognizeDownLinkAudio$2.smali':[(222,288)],
+            'main/com/lguplus/aicallagent/incall/call/service/CallScriptManager.smali':[(8120,8210)],
+            'main/com/lguplus/aicallagent/data/call/ai/SpeechToTextRepositoryImpl.smali':[(5103,5151)],
+            'recorder/com/lguplus/callrecorder/CallRecordingService.smali':[(1165,1231)]
+          }
+          out=[]
+          for p,windows in cases.items():
+            file=root/p
+            if not file.exists():
+              print('MISSING_CLASS',p,flush=True)
+              continue
+            lines=file.read_text(errors='replace').splitlines()
+            for start,end in windows:
+              title='SOURCE_BLOCK '+p+' L'+str(start)+'-'+str(end)
+              print(title,flush=True)
+              out.append(title)
+              for j in range(start-1,min(end,len(lines))):
+                val=f'{j+1}: {lines[j]}'
+                print(val,flush=True)
+                out.append(val)
+          Path('evidence/pcm-exact-windows.txt').write_text('\n'.join(out))
+          PY
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          if test -x "$AAPT";then
+            for apk in original/*.apk;do
+              echo "ORIGINAL_APK_PERMISSIONS:$(basename "$apk")"
+              "$AAPT" dump permissions "$apk" | grep -E 'CAPTURE_AUDIO_OUTPUT|RECORD_AUDIO|READ_PHONE_STATE|ROLE_DIALER|MODIFY_PHONE_STATE|FOREGROUND_SERVICE' || true
+            done
+          fi
       - name: Upload indexed PCM bridge method contracts without private APKs
         if: always()
         uses: actions/upload-artifact@v4
