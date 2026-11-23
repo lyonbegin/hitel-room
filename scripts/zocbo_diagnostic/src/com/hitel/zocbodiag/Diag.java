@@ -310,6 +310,7 @@ public final class Diag implements View.OnClickListener {
     try {
       if(w == null)return;
       w.addJavascriptInterface(new NativePdfTitleBridge(w),"hitelPdfTitleLink");
+      OriginalInAppMetadataCollector.attach(w);
       log("READING_TITLE_BRIDGE_REGISTERED","WebView bridge attached before load");
     } catch(Throwable t) {
       log("READING_TITLE_BRIDGE_ERROR",t.getClass().getName());
@@ -319,6 +320,9 @@ public final class Diag implements View.OnClickListener {
   public static void pageFinished(WebView w,String currentUrl) {
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
+    // R19: parse only the original app's existing authenticated WebView.
+    // Do not start a diagnostic Activity or allocate a second WebView.
+    OriginalInAppMetadataCollector.onOriginalPageFinished(w,currentUrl);
     if(NativePdfTitleBridge.isFreeReadingPage(currentUrl)) {
       lastReadingUrl=currentUrl;
       try {
@@ -412,16 +416,11 @@ public final class Diag implements View.OnClickListener {
   @Override public void onClick(View v) {
     String op=String.valueOf(v.getTag());
     if(op.equals("수집")) {
-      try {
-        Intent i=new Intent(activity,NativePdfEntryActivity.class);
-        i.putExtra(ReadingCollectorController.EXTRA_COLLECT,true);
-        i.putExtra(ReadingCollectorController.EXTRA_SOURCE_URL,lastReadingUrl);
-        Diag.log("COLLECTOR_OPEN_CLICK","Open in-app list collector; last-original-page="+(!lastReadingUrl.isEmpty()));
-        activity.startActivity(i);
-      }catch(Throwable t){
-        Diag.log("COLLECTOR_OPEN_ERROR",t.getClass().getName());
-        Toast.makeText(activity,"시험지 목록 수집 화면을 열 수 없습니다",Toast.LENGTH_LONG).show();
-      }
+      // Use the original MainActivity -> CommonWebviewActivity -> previousExam.asp
+      // path. NEVER launch the new NativePdfEntryActivity for source-list work.
+      Diag.log("ORIGINAL_IN_APP_COLLECT_CLICK","original WebView only");
+      OriginalInAppMetadataCollector.startNineFromOriginalApp();
+      Toast.makeText(activity,"원본 기출 열람실에서 전국 수집을 시작합니다. 목록 화면이 없다면 먼저 원본 앱 메뉴로 이동해 주십시오.",Toast.LENGTH_LONG).show();
       return;
     }
     if(op.equals("원본PDF")) {
