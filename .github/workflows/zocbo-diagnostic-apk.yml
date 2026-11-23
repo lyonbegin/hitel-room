@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/zocbo-diagnostic-apk-20261123
+      - research/zocbo-network-failure-20261123
     paths:
       - .github/workflows/zocbo-diagnostic-apk.yml
       - scripts/zocbo_diagnostic/**
@@ -51,6 +52,8 @@ jobs:
           set -euxo pipefail
           apktool d -f -r -o work/decoded work/original-base.apk
           find work/decoded -name 'MainActivity.smali' -o -name 'WebAppInterface.smali' -o -name 'CommonWebviewActivity.smali' | head -30
+      - name: Inspect exact original Smali network threshold and split APKs
+        run: python3 -u scripts/zocbo_diagnostic/inspect_universal.py
       - name: Compile standalone Android diagnostic class to Smali
         shell: bash
         run: |
