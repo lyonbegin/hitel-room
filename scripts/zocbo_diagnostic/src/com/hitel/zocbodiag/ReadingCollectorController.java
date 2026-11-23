@@ -324,6 +324,102 @@ public final class ReadingCollectorController {
     }
   }
 
+  private void startNationwide(){
+    if(running||discovering){
+      showStatus("이미 수집 또는 원본 지역 순회가 진행 중입니다.");return;
+    }
+    if(!loaded){
+      showStatus("먼저 원본 기출 열람실 로그인·페이지 로딩이 필요합니다.");return;
+    }
+    try{
+      discoverFromYear=Integer.parseInt(startYear.getText().toString().trim());
+      discoverToYear=Integer.parseInt(endYear.getText().toString().trim());
+    }catch(Throwable t){showStatus("시작 연도와 종료 연도를 숫자로 입력해 주십시오.");return;}
+    if(discoverFromYear<1990||discoverToYear>2100||discoverFromYear>discoverToYear){
+      showStatus("연도 범위를 확인해 주십시오 (1990~2100).");return;
+    }
+    discovering=true;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
+    originalAreas.clear();discoverySiteIndex=0;discoveryIndex=0;selectorRetries=0;
+    showStatus("전국 ‘전체’ 자동 순회 시작: 원본 지역 선택 화면 분석");
+    Diag.log("COLLECTOR_NATIONWIDE_DISCOVERY_START","year="+discoverFromYear+"-"+discoverToYear);
+    openAreaSelector();
+  }
+  private void openAreaSelector(){
+    if(!discovering||destroyed)return;
+    if(discoverySiteIndex>=SCHOOL_LEVELS.length){finishAreaDiscovery();return;}
+    loaded=false;scopeReady=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
+    String url=ReadingAreaSelector.page(SCHOOL_LEVELS[discoverySiteIndex]);
+    Diag.log("COLLECTOR_OPEN_ORIGINAL_REGION_SELECTOR",
+      "site="+SCHOOL_LEVELS[discoverySiteIndex]+" index="+discoveryIndex);
+    web.loadUrl(url);
+  }
+  private void scanOriginalAreaChoices(){
+    if(!discovering||destroyed||!ReadingAreaSelector.isSelector(web.getUrl()))return;
+    try{
+      web.evaluateJavascript(ReadingAreaSelector.scan(nonce),v->
+        Diag.log("COLLECTOR_SELECTOR_SCAN",String.valueOf(v)));
+    }catch(Throwable t){
+      stopDiscovery("원본 지역 목록 JavaScript 실행 실패: "+t.getClass().getSimpleName());
+    }
+  }
+  private void stopDiscovery(String reason){
+    if(!discovering)return;
+    discovering=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
+    Diag.log("COLLECTOR_DISCOVERY_STOP",
+      ReadingCollectorStore.sanitize(reason,200)+" collectedAreas="+originalAreas.size());
+    showStatus(reason+" · 이미 저장한 시험지는 보존됩니다.");
+  }
+  private void finishAreaDiscovery(){
+    if(!discovering)return;
+    discovering=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
+    if(originalAreas.isEmpty()){
+      showStatus("원본 지역 ‘전체’ 범위가 하나도 확보되지 않았습니다.");
+      return;
+    }
+    // Build a stable order from exactly the source-delivered region choices.
+    // No user-selected school ID and no blank / guessed geography parameters.
+    jobs.clear();StringBuilder seed=new StringBuilder("R10|"+discoverFromYear+"|"+discoverToYear+"|");
+    for(AreaScope region:originalAreas){
+      seed.append(region.fingerprint()).append(';');
+      for(int y=discoverToYear;y>=discoverFromYear;y--)
+        for(String grade:new String[]{"1","2","3"})
+          for(String term:TERMS)
+            for(String subj:SUBJECTS)
+              jobs.add(new Job(region,region.site,grade,String.valueOf(y),term,subj));
+    }
+    runKey=sha256(seed.toString());
+    progress=store.load(runKey);
+    // The original ASP embeds the authentic first page before any JSON API
+    // scroll. Save these observed items once, without altering run position.
+    for(AreaScope area:originalAreas){
+      if(area.firstPage==null||area.firstPage.length()==0)continue;
+      ReadingCollectorStore.Progress tmp=new ReadingCollectorStore.Progress();
+      tmp.page=1;
+      store.savePage("original-area-baseline-"+sha256(area.fingerprint()),tmp,
+        area.firstPage,area.site,area.grade,area.year,area.term,area.subject,
+        "ORIGINAL_AREA:"+area.name);
+    }
+    Diag.log("COLLECTOR_AREA_SET_READY",
+      "areaScopes="+originalAreas.size()+" jobs="+jobs.size()+" checkpoint="+
+      progress.taskIndex+":"+progress.page+" unique="+store.count());
+    if(progress.finished||progress.taskIndex>=jobs.size()){
+      showStatus("이 지역·연도 범위는 이미 마지막 페이지까지 조회했습니다. "+
+        store.count()+"건 저장 · CSV/JSON으로 내보내십시오.");
+      return;
+    }
+    // WebView remains on the last successful ORIGINAL previousExam.asp page,
+    // so original comm.send(...) is available for listing requests.
+    loaded=NativePdfTitleBridge.isFreeReadingPage(web.getUrl());
+    if(!loaded){
+      showStatus("원본 열람실 페이지가 없어 수집을 시작하지 않습니다.");return;
+    }
+    scope="ORIGINAL_AREA_ALL";
+    running=true;requestPending=false;previousPageSignature="";prevTask=-1;
+    showStatus("원본 지역 ‘전체’ "+originalAreas.size()+"개 범위 확보 · "+
+      jobs.size()+"개 조건 수집 시작");
+    nextPage();
+  }
+
   private void start(boolean useCurrent) {
     if(running){showStatus("이미 순차 수집이 진행 중입니다.");return;}
     if(!loaded){showStatus("원본 열람실 접속 후 시작할 수 있습니다. 로그인과 페이지 로딩을 확인하십시오.");return;}
