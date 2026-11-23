@@ -121,6 +121,46 @@ public final class Diag implements View.OnClickListener {
   public static void event(String category,String detail) {
     log(category,protect(detail==null?"":detail));
   }
+
+  /** Observer of rendered DOM inside the already authorized original WebView.
+   *  No request interception, cookie exposure, or authentication alteration. */
+  private static final java.util.WeakHashMap<WebView,Boolean> probeBridges = new java.util.WeakHashMap<WebView,Boolean>();
+  private static final String MODAL_JS = "(function(){\n if(window.__hitelZocboModalObserver){return \"already\";};\n var bridge=window.hitelZocboDiag;\n if(!bridge||typeof bridge.hit!==\"function\")return \"bridge_missing\";\n window.__hitelZocboModalObserver=true;\n var sent={};\n function emit(kind,s){try{\n   var val=String(s||\"\").replace(/[\\r\\n\\t]+/g,\" \").slice(0,450);\n   var key=kind+\"|\"+val;if(sent[key])return;sent[key]=true;\n   bridge.hit(\"FREE_MEMBER_THREE_\"+kind+\"|\"+val);\n }catch(e){}}\n function matches(s){return /(?:무료\\s*회원.{0,70}?하루.{0,50}?(?:3|세)\\s*회)|(?:하루.{0,30}?(?:3|세)\\s*회.{0,80}?열람)|(?:(?:3|세)\\s*회.{0,60}?열람)/i.test(String(s||\"\").replace(/\\s+/g,\" \"));}\n function scan(){\n  try{\n   var root=document.body;if(!root)return;\n   var text=root.innerText||\"\";\n   var m=text.replace(/\\s+/g,\" \").match(/.{0,85}(?:무료\\s*회원.{0,70}?하루.{0,40}?(?:3|세)\\s*회|하루.{0,25}?(?:3|세)\\s*회.{0,50}열람).{0,100}/i);\n   if(m)emit(\"BODY_MATCH\",m[0]);\n   var qs='dialog,[role=\"dialog\"],.modal,.popup,.pop,.layer,.alert,.dialog,.modal-content,.layer-popup';\n   var nodes=document.querySelectorAll(qs);\n   for(var i=0;i<nodes.length&&i<120;i++){\n    var node=nodes[i];var t=(node.innerText||node.textContent||\"\").replace(/\\s+/g,\" \");\n    if(matches(t)){\n      var pos=node.tagName+\"#\"+(node.id||\"\")+\".\"+(typeof node.className===\"string\"?node.className.slice(0,90):\"\");\n      emit(\"MODAL_ELEMENT\",pos+\"|\"+t.slice(0,240));\n    }\n   }\n  }catch(e){emit(\"PROBE_ERROR\",e.name);}\n }\n function scriptAudit(){\n  try {\n   if(!/exam|previous/i.test(location.pathname))return;\n   var scripts=document.scripts||[];\n   emit(\"SCRIPT_COUNT\",String(scripts.length)+\"|path=\"+location.pathname);\n   var paths=[];\n   for(var i=0;i<scripts.length&&i<90;i++){\n     var n=scripts[i];\n     if(n.src){try{paths.push(new URL(n.src,location.href).pathname.slice(0,130));}catch(e){}}\n     else if(matches(n.textContent||\"\")) emit(\"INLINE_SCRIPT_MATCH\",\"index=\"+i+\"|\"+\n       ((n.textContent||\"\").replace(/\\s+/g,\" \").match(/.{0,65}(?:무료\\s*회원|하루.{0,15}(?:3|세)\\s*회).{0,100}/i)||[\"phrase-in-inline-script\"])[0]);\n   }\n   emit(\"SCRIPT_PATHS\",paths.slice(0,14).join(\",\"));\n  }catch(e){}\n }\n scriptAudit();scan();\n var pending=false;\n var mo=new MutationObserver(function(){if(pending)return;pending=true;\n   setTimeout(function(){pending=false;scan();},180);\n });\n if(document.documentElement)mo.observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:[\"style\",\"class\",\"hidden\"]});\n window.addEventListener(\"load\",scan);\n return \"observer_installed\";\n})()";
+  public static final class WebPageProbe {
+    @android.webkit.JavascriptInterface
+    public void hit(String message) {
+      if(message == null || message.length()>900 || !message.startsWith("FREE_MEMBER_THREE_")) return;
+      log("WEBPAGE_MODAL_PROBE",protect(message));
+    }
+  }
+  public static void probeBeforeLoad(WebView w,String url) {
+    if(w==null || url==null || !url.startsWith("https://m.zocbo.com/"))return;
+    try {
+      synchronized(probeBridges) {
+        if(probeBridges.containsKey(w)) return;
+        w.addJavascriptInterface(new WebPageProbe(),"hitelZocboDiag");
+        probeBridges.put(w,Boolean.TRUE);
+      }
+      log("WEBPAGE_MODAL_BRIDGE","installed_before_navigation");
+    } catch(Throwable t){log("WEBPAGE_MODAL_BRIDGE","error="+t.getClass().getSimpleName());}
+  }
+  public static void jsDialog(String message) {
+    if(message==null)return;
+    String normalized=message.replaceAll("\\s+"," ");
+    if(normalized.contains("3회") || normalized.contains("세 회") || normalized.contains("무료회원"))
+      log("WEBPAGE_JS_ALERT_MODAL",protect(normalized.substring(0,Math.min(350,normalized.length()))));
+  }
+  public static void inspectLivePage(WebView w,String currentUrl) {
+    if(w==null || currentUrl==null || !currentUrl.startsWith("https://m.zocbo.com/"))return;
+    try {
+      w.evaluateJavascript(MODAL_JS,new android.webkit.ValueCallback<String>() {
+        @Override public void onReceiveValue(String result) {
+          log("WEBPAGE_MODAL_WATCHER",String.valueOf(result).substring(0,Math.min(90,String.valueOf(result).length())));
+        }
+      });
+    } catch(Throwable t){log("WEBPAGE_MODAL_WATCHER","error="+t.getClass().getSimpleName());}
+  }
+
   public static void bandwidth(int kbps) { log("NETWORK_GATE_DOWNSTREAM_KBPS","reported="+kbps+"; originalThreshold=100; diagnosticThreshold=0"); }
   public static void bridge() {log("JS_BRIDGE_goPreviousExam","invoked");}
   public static void webViewLink() {log("JS_BRIDGE_goWebViewLink","invoked");}
@@ -168,6 +208,7 @@ public final class Diag implements View.OnClickListener {
   public static void pageFinished(WebView w,String currentUrl) {
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
+    inspectLivePage(w,currentUrl);
   }
   private static synchronized String current() {
     StringBuilder b=new StringBuilder("ZOCBO_ORIGINAL_4.3.11(2)_DIAGNOSTIC\n"+
