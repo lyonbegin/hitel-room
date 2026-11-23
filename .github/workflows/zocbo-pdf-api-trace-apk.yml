@@ -46,10 +46,10 @@ jobs:
           apktool --version
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls -d "$ANDROID_HOME"/build-tools/* | tail -5
-      - name: Decode original APK without rewriting resource table
+      - name: Decode original APK including text manifest for native Activity registration
         run: |
           set -euxo pipefail
-          apktool d -f -r -o work/decoded work/original-base.apk
+          apktool d -f -o work/decoded work/original-base.apk
           find work/decoded -name 'MainActivity.smali' -o -name 'WebAppInterface.smali' -o -name 'CommonWebviewActivity.smali' | head -30
       - name: Inspect exact original Smali network threshold and split APKs
         run: python3 -u scripts/zocbo_diagnostic/inspect_universal.py
