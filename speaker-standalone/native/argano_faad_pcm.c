@@ -81,6 +81,32 @@ static int initAac(void){
   fprintf(stderr,"ARGANO_FAAD_INIT:rate=%lu:declaredChannels=%u\n",rate,channels);
   return rate==48000?0:-1;
 }
+/*
+ * Argano's speculative frame detection must NOT mutate the long-lived decoder:
+ * a truncated access unit can poison its overlap state and lose a complete
+ * frame after a reset. Test with a disposable libfaad decoder first.
+ * Only when this probe reports a complete raw AAC frame should the live
+ * decoder receive exactly the same data.
+ */
+static long probeComplete(const uint8_t *data,size_t available){
+  if(!available)return 0;
+  static unsigned char asc[2]={0x11,0x88}; /* AAC LC 48kHz mono */
+  NeAACDecHandle probe=NeAACDecOpen();
+  if(!probe)return -1;
+  unsigned long rate=0;unsigned char channels=0;
+  long complete=0;
+  NeAACDecConfigurationPtr cfg=NeAACDecGetCurrentConfiguration(probe);
+  cfg->outputFormat=FAAD_FMT_16BIT;
+  if(NeAACDecSetConfiguration(probe,cfg) &&
+     NeAACDecInit2(probe,asc,2,&rate,&channels)==0){
+    NeAACDecFrameInfo info;memset(&info,0,sizeof(info));
+    NeAACDecDecode(probe,&info,(unsigned char *)data,(unsigned long)available);
+    if(info.error==0 && info.bytesconsumed>0 && info.bytesconsumed<=available)
+      complete=(long)info.bytesconsumed;
+  }
+  NeAACDecClose(probe);
+  return complete;
+}
 static int setupResample(int channels){
   if(channels!=1 && channels!=2)return -1;
   int64_t inLayout=channels==1?AV_CH_LAYOUT_MONO:AV_CH_LAYOUT_STEREO;
@@ -164,23 +190,23 @@ int main(int argc,char **argv){
     }else if(!fixed){sleepMs(25);continue;}
     size_t processed=0;
     while(processed<pendingLen){
+      size_t available=pendingLen-processed;
+      long complete=probeComplete(pending+processed,available);
+      if(complete<=0){ /* Incomplete AAC: keep all bytes, do not touch live decoder */
+        if(++idle==1 || idle%200==0)
+          fprintf(stderr,"ARGANO_FAAD_AWAIT_MORE_AAC:pending=%zu\n",available);
+        break;
+      }
       NeAACDecFrameInfo info;
       memset(&info,0,sizeof(info));
       void *samples=NeAACDecDecode(aac,&info,pending+processed,
-                                    (unsigned long)(pendingLen-processed));
-      if(info.error||info.bytesconsumed==0){
-        /* A truncated AAC frame is not discarded: retry after next write.
-           Following argano, reset poisoned codec state for the next attempt. */
-        if(info.error){
-          NeAACDecClose(aac);aac=NULL;
-          if(initAac()!=0)return 10;
-          if(++idle==1 || idle%200==0)
-            fprintf(stderr,"ARGANO_FAAD_PARTIAL:pending=%zu:error=%u\n",
-                    pendingLen-processed,info.error);
-        }
-        break;
+                                    (unsigned long)available);
+      if(info.error || info.bytesconsumed!=(unsigned long)complete){
+        fprintf(stderr,"ARGANO_FAAD_ERROR:LIVE_DECODE_DISAGREES_WITH_PROBE:probe=%ld:live=%lu:error=%u\n",
+                complete,info.bytesconsumed,info.error);
+        return 10;
       }
-      if(info.bytesconsumed>pendingLen-processed)return 11;
+      if(info.bytesconsumed>available)return 11;
       if(info.samplerate!=48000 || (info.channels!=1&&info.channels!=2)){
         fprintf(stderr,"ARGANO_FAAD_ERROR:UNSUPPORTED_FORMAT:rate=%lu:channels=%u\n",
                 info.samplerate,info.channels);return 12;
