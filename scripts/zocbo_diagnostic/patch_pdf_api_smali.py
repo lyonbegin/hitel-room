@@ -50,7 +50,7 @@ for f in paths:
     if is_pdf and 'Lokhttp3/Request$Builder;->url(Ljava/lang/String;)' in s and 'Lokhttp3/OkHttpClient$Builder;->build()Lokhttp3/OkHttpClient;' in s:
       s,n=patch_builder(original,s,PDF)
       touched[1]+=n
-    if is_request_model and s.startswith(".method") and '<init>(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V' in s and REQUEST_MODEL not in s:
+    if is_request_model and '<init>(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V' in s.split(chr(10),1)[0] and REQUEST_MODEL not in s:
       pattern=re.compile(r"(?m)^    return-void[ ]*$")
       def insert_constructor(z):
         touched[3]+=1
