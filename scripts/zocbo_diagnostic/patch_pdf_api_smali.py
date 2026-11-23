@@ -36,7 +36,10 @@ for f in paths:
   is_pdf='Lokhttp3/Request$Builder;->url(Ljava/lang/String;)' in original and \
     'Lokhttp3/OkHttpClient$Builder;->build()Lokhttp3/OkHttpClient;' in original and \
     'Lokhttp3/Call;->enqueue(' in original
-  is_request_model = all('value = "'+k+'"' in original for k in ['expapr_no','file_type','short_url','pk','qr','device']) and 'Landroid/os/Parcelable;' in original
+  # JADX verified original v3.n six-field Gson ReqPdfPath; avoid decompiler-dependent annotation syntax.
+  is_request_model = str(f.relative_to(root)).endswith('/v3/n.smali') and all(k in original for k in ['expapr_no','file_type','short_url','pk','qr','device'])
+  if str(f.relative_to(root)).endswith('/v3/n.smali'):
+    print("REQUEST_MODEL_CLASS_CANDIDATE",f.relative_to(root),"all_field_names",all(k in original for k in ['expapr_no','file_type','short_url','pk','qr','device']),"methods",[l for l in original.splitlines() if '<init>(' in l][:6],flush=True)
   if not is_provider and not is_pdf and not is_request_model and 'getPdfPath()Ljava/lang/String;' not in original:continue
   touched=[0,0,0,0]
   def rewrite_method(m):
