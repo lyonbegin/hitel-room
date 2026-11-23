@@ -46,10 +46,10 @@ jobs:
           apktool --version
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls -d "$ANDROID_HOME"/build-tools/* | tail -5
-      - name: Decode original APK including text manifest for native Activity registration
+      - name: Decode original code while preserving binary resources and original manifest
         run: |
           set -euxo pipefail
-          apktool d -f -o work/decoded work/original-base.apk
+          apktool d -f -r -o work/decoded work/original-base.apk
           find work/decoded -name 'MainActivity.smali' -o -name 'WebAppInterface.smali' -o -name 'CommonWebviewActivity.smali' | head -30
       - name: Inspect exact original Smali network threshold and split APKs
         run: python3 -u scripts/zocbo_diagnostic/inspect_universal.py
@@ -69,7 +69,6 @@ jobs:
           python3 -u scripts/zocbo_diagnostic/patch_smali.py work/decoded work/diag-patch-report.json | tee work/patch-log.txt
           python3 -u scripts/zocbo_diagnostic/fix_network_preflight.py work/decoded work/network-preflight-fix.json | tee work/network-patch-log.txt
           python3 -u scripts/zocbo_diagnostic/patch_pdf_api_smali.py work/decoded work/pdf-api-patch-report.json | tee work/pdf-api-patch-log.txt
-          python3 -u scripts/zocbo_diagnostic/register_native_activity.py work/decoded/AndroidManifest.xml
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -91,6 +90,29 @@ jobs:
             name=f"classes{nextid}.dex"
             z.write("work/diag-dex/classes.dex",name,compress_type=zipfile.ZIP_STORED)
             print("DIAGNOSTIC_NEW_MULTIDEX",name,"ORIGINAL_DEX_COUNT",len(ids),flush=True)
+          PY
+          # Original source contains a compiled binary AndroidManifest.xml. Patch the
+          # binary manifest ONLY, without recompiling resources. Preserves original DEX.
+          mkdir -p work/manifest-editor
+          gh release download v1.0.2 -R WindySha/ManifestEditor \
+            -p 'ManifestEditor-1.0.2.jar' -D work/manifest-editor
+          test "$(stat -c%s work/manifest-editor/ManifestEditor-1.0.2.jar)" -eq 104607
+          java -jar work/manifest-editor/ManifestEditor-1.0.2.jar \
+            work/zocbo-unzipaligned.apk \
+            -act com.hitel.zocbodiag.NativePdfEntryActivity:false \
+            -o work/zocbo-unzipaligned-with-native-entry.apk
+          test -s work/zocbo-unzipaligned-with-native-entry.apk
+          mv work/zocbo-unzipaligned-with-native-entry.apk work/zocbo-unzipaligned.apk
+          aapt dump xmltree work/zocbo-unzipaligned.apk AndroidManifest.xml \
+            | tee work/native-entry-manifest-proof.txt
+          grep -q 'com.hitel.zocbodiag.NativePdfEntryActivity' work/native-entry-manifest-proof.txt
+          python3 - <<'PY'
+          import zipfile
+          p="work/zocbo-unzipaligned.apk"
+          with zipfile.ZipFile(p) as z:
+            assert "classes4.dex" in z.namelist()
+            assert z.read("AndroidManifest.xml")[:4] in [b"\x03\x00\x08\x00",b"\x03\x00\x00\x00"],"binary AXML expected"
+          print("NATIVE_PDF_ORIGINAL_DEX_AND_BINARY_MANIFEST_READY",flush=True)
           PY
       - name: Zipalign, sign test build and verify test signature
         shell: bash
