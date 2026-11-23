@@ -145,6 +145,8 @@ final class DirectPcmKoreanStt {
     StringBuilder committed=new StringBuilder();
     String lastDisplayed="";
     long lastLog=0;
+    long inferCalls=0,slowestInferenceMs=0;
+    boolean endpointSeen=false;
     try{
       File encoder=model("encoder.ort");
       File decoder=model("decoder.ort");
@@ -185,13 +187,24 @@ final class DirectPcmKoreanStt {
           if(inputFinished&&queue.isEmpty())break;
           continue;
         }
-        float[] samples=new float[pcm.length/2];
-        for(int i=0,j=0;i<samples.length;i++,j+=2){
-          short sample=(short)((pcm[j]&255)|((pcm[j+1]&255)<<8));
-          samples[i]=sample/32768.0f;
-          if(Math.abs((int)sample)>250)nonZero++;
-        }
+        // Exactly the IXIO original 16kHz mono float[] input contract.
+        // No per-window AGC or duration/frequency changes are allowed.
+        float[] samples=IxioPcmNormalizer.decode(pcm);
+        IxioPcmNormalizer.Stats stats=IxioPcmNormalizer.stats(samples);
+        if(stats.hasInvalid())
+          throw new IOException("IXIO float[] contained a NaN or infinity");
+        nonZero+=stats.nonzero;
+        if(inferCalls==0||inferCalls%8==0||stats.clipped>0)
+          log.event("STT","IXIO_PCM_FLOAT_CONTRACT",
+            "chunk",inferCalls,"sampleRate",RATE,"channels",1,
+            "floatFrames",stats.frames,"durationMs",stats.frames*1000.0/RATE,
+            "rms",stats.rms,"dc",stats.dc,"peak",stats.peak,
+            "clipCount",stats.clipped,"nearSilent",stats.isNearSilent());
+        long inferStarted=SystemClock.elapsedRealtime();
         Object triple=infer.invoke(sdk,samples,CHANNEL,false);
+        long inferMs=SystemClock.elapsedRealtime()-inferStarted;
+        if(inferMs>slowestInferenceMs)slowestInferenceMs=inferMs;
+        inferCalls++;
         recognizedSamples+=samples.length;
         if(triple==null)continue;
         if(tripleFirst==null){
@@ -202,7 +215,13 @@ final class DirectPcmKoreanStt {
         Object third=tripleThird.invoke(triple);
         String partial=first==null?"":String.valueOf(first).trim();
         boolean endpoint=Boolean.TRUE.equals(third);
+        if(endpoint || (!partial.isEmpty() && inferCalls%4==1))
+          log.event("STT","IXIO_SPEECHSDK_TRIPLE_RESULT",
+            "inference",inferCalls,"text",partial,
+            "kws",String.valueOf(triple.getClass().getMethod("getSecond").invoke(triple)),
+            "endpoint",endpoint,"inferenceMs",inferMs);
         if(endpoint){
+          endpointSeen=true;
           if(!partial.isEmpty()){
             if(committed.length()>0)committed.append("\n");
             committed.append(partial);
@@ -226,21 +245,47 @@ final class DirectPcmKoreanStt {
             "queuedChunks",queue.size(),"sdkReady",ready);
         }
       }
-      // A little trailing silence flushes the same IXIO channel without
-      // resetting or switching to a second recognition implementation.
+      // IXIO's OnlineStream endpoint logic requires trailing PCM frames.
+      // Feed 200ms blocks (the same format as real audio), up to 2.6 seconds.
+      // Distinguish partial text from a genuine SDK endpoint. The original
+      // speechSDK, NOT a second recognizer, performs every inference.
+      int tailChunks=0;
       if(recognizedSamples>0){
-        Object tail=infer.invoke(sdk,new float[4800],CHANNEL,false);
-        if(tail!=null){
-          String t=String.valueOf(tail.getClass().getMethod("getFirst").invoke(tail)).trim();
+        for(int i=0;i<13 && !endpointSeen;i++){
+          long began=SystemClock.elapsedRealtime();
+          Object tail=infer.invoke(sdk,new float[3200],CHANNEL,false);
+          long elapsed=SystemClock.elapsedRealtime()-began;
+          tailChunks++;
+          inferCalls++;
+          if(tail==null)continue;
+          Method firstMethod=tail.getClass().getMethod("getFirst");
+          Method thirdMethod=tail.getClass().getMethod("getThird");
+          Object first=firstMethod.invoke(tail);
+          String t=first==null?"":String.valueOf(first).trim();
+          boolean end=Boolean.TRUE.equals(thirdMethod.invoke(tail));
+          log.event("STT","IXIO_ENDPOINT_TAIL_STEP",
+            "silenceMs",tailChunks*200,"text",t,"endpoint",end,
+            "inferenceMs",elapsed);
+          if(end){
+            endpointSeen=true;
+            if(!t.isEmpty()){
+              if(committed.length()>0)committed.append("\n");
+              committed.append(t);
+              listener.caption(committed.toString(),true);
+              log.event("STT","IXIO_FINAL_SEGMENT","text",t,"tail",true);
+            }
+            break;
+          }
           if(!t.isEmpty()&&!t.equals(lastDisplayed)){
-            if(committed.length()>0)committed.append("\n");
-            committed.append(t);
-            listener.caption(committed.toString(),true);
+            lastDisplayed=t;
+            listener.caption(committed.length()==0?t:committed+"\n"+t,false);
           }
         }
       }
       log.event("STT","IXIO_SESSION_FINAL","samples",recognizedSamples,
-        "nonZeroSamples",nonZero,"captionChars",committed.length());
+        "nonZeroSamples",nonZero,"captionChars",committed.length(),
+        "endpointObserved",endpointSeen,"tailSilenceMs",tailChunks*200,
+        "inferenceCalls",inferCalls,"maxInferenceMs",slowestInferenceMs);
       listener.status(String.format(Locale.KOREA,
         "IXIO STT 종료 · PCM %.1f초",recognizedSamples/(double)RATE));
     }catch(Throwable error){
