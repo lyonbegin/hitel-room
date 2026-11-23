@@ -167,8 +167,15 @@ public final class MainActivity extends Activity {
           Log.i("IXIO_SDK_PROBE","PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS");
           // The user's previous failure was missing original code. Check
           // the actual original arm64 native STT library independently too.
+          long since=android.os.SystemClock.elapsedRealtime();
+          Log.i("IXIO_SDK_PROBE","ORIGINAL_NATIVE_ONNXRUNTIME_LOAD_ENTER");
+          System.loadLibrary("onnxruntime");
+          Log.i("IXIO_SDK_PROBE","ORIGINAL_NATIVE_ONNXRUNTIME_LOAD_OK ms="+
+             (android.os.SystemClock.elapsedRealtime()-since));
+          Log.i("IXIO_SDK_PROBE","ORIGINAL_NATIVE_SHERPA_JNI_LOAD_ENTER");
           System.loadLibrary("sherpa-onnx-jni");
-          Log.i("IXIO_SDK_PROBE","PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED");
+          Log.i("IXIO_SDK_PROBE","PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED ms="+
+             (android.os.SystemClock.elapsedRealtime()-since));
           runOnUiThread(()->status.setText("IXIO SDK 원본 클래스 로딩 성공 · STT 모델 추론 시험 별도"));
         }catch(Throwable t){
           Log.e("IXIO_SDK_PROBE","FAIL_ORIGINAL_IXIO_CLASSLOADER",t);
