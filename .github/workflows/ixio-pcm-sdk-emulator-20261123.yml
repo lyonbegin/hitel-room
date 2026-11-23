@@ -18,11 +18,11 @@ jobs:
           set -euo pipefail
           mkdir -p testing
           for i in $(seq 1 35); do
-            gh release view ixio-pcm-endpoint-original-sdk-20261123 -R lyonbegin/hitel-room >/dev/null 2>&1 && break
+            gh release view ixio-pcm-endpoint-original-sdk-isolated-20261123 -R lyonbegin/hitel-room >/dev/null 2>&1 && break
             sleep 10
           done
-          gh release download ixio-pcm-endpoint-original-sdk-20261123 \
-            -R lyonbegin/hitel-room -p HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk \
+          gh release download ixio-pcm-endpoint-original-sdk-isolated-20261123 \
+            -R lyonbegin/hitel-room -p HITEL_IXIO_PCM_Diag9_20261123.apk \
             -p SHA256.txt -D testing
           (cd testing && sha256sum -c SHA256.txt)
       - name: Create exact binary class and JNI smoke probe
@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           echo "DEVICE_ABIS=$(adb shell getprop ro.product.cpu.abilist)"
           echo "DEVICE_NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)"
-          adb install --abi arm64-v8a testing/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          adb install --abi arm64-v8a testing/HITEL_IXIO_PCM_Diag9_20261123.apk
           adb logcat -c
           adb shell am start -W -n app.hitel.recording.ixio.pcmaudit/app.hitel.speakeronly.MainActivity \
             -a app.hitel.speakeronly.PROBE_IXIO_SDK | tee testing/probe-activity.txt
