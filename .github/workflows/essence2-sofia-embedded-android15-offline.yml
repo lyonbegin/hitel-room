@@ -411,17 +411,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-original-e048-real-wg128-from-release-20261123
+          TAG=hitel-essence2-sofia-original-gpu3-compact-vendor-cpu-20261123
           APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk
           test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          STRICT RESTORE: all original/player/audio/display/model/voice/app startup files and the two-process selector come from the ACTUAL 2026-11-23 e04874faf018d97f0afa9b760be93373212c1777 single APK commit. No GPU logger, SDK instrumentation or any route changes applied to BASELINE. WG128 lible_jni_wg128.so is extracted directly, without repatching, from the ACTUAL released APK hitel-essence2-wg128-wav-pull-bf7290b661. Its 2026-11-22 historical OpenCL kernel logger C++ is compiled with only the dlopen target name changed to match the isolated WG128 soname, loaded on WG128 process only. Original vendor native SHA is verified, and 4-workgroup-word difference is checked. Model, PCM10s, player and both existing UI controls preserved. This SDK-specific injection does not modify the video player or PCM/audio chain. CI cannot prove Galaxy speaker audio or GPU -54 repair.
+          THREE-STAGE GPU EXPERIMENT. Both BASELINE and GPU3 use byte-identical ORIGINAL Essence2 0.9.5 vendor ELF (SHA256 3eed089467f5ffeab88715c0d126f09e87734e84190e6e4899494db6b67657cf). The prior four-word patched WG128 ELF is NOT PRESENT. BASELINE has no OpenCL hook. GPU3 hooks the original SDK OpenCL dispatcher before nativeCreate. Stage 1 executes ORIGINAL GPU. Stage 2 re-enqueues the SAME original vendor convolution kernel with smaller local Y=1 only when stage 1 returns -54 (CL_INVALID_WORK_GROUP_SIZE). Stage 3, if retry fails, returns the ORIGINAL -54 code unchanged to original SDK for its vendor GPU-to-CPU demotion. Logs: [hitel-gpu3] ORIGINAL_GPU_OK, ORIGINAL_GPU_INVALID_WORK_GROUP_SIZE, COMPAT_GPU_OK, COMPAT_GPU_FAILED_ORIGINAL_CPU_FALLBACK, ORIGINAL_GPU_FAILED_ORIGINAL_CPU_FALLBACK; original SDK [borrow-gpu] DEMOTED shows actual CPU fallback. Original PCM, player and video renderer code unchanged from e048 baseline. CAUTION: changing local workgroup size can change results for kernels depending on local_id/barrier; exact pixel numerical parity is NOT proven. Build/sign/download is NOT physical-device validation.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Sofia exact original E048 player + real 2026-11-22 WG128 SDK release' \
+              --title 'HITEL Sofia original GPU then compact GPU then original vendor CPU three-stage experiment' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
           URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_ORIGINAL_GPU3_20261123_ARM64.apk") | .url')"
@@ -436,12 +436,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: essence2-e048-baseline-real-wg128-release-provenance-evidence
+          name: essence2-original-gpu3-compat-vendorcpu-build-proofs
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/ab-manifest.txt
             essence2-local-mock-proof/native-loader-disassembly.txt
             essence2-local-mock-proof/native-loader-asm-proof.txt
-            essence2-local-mock-proof/wg128-probe-active-sha.txt
+            essence2-local-mock-proof/gpu3-dispatch-sha.txt
             essence2-local-mock-proof/apk-sha256.txt
           retention-days: 14
