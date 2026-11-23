@@ -63,7 +63,7 @@ public final class ReadingCollectorController {
   private int discoverFromYear=2000, discoverToYear=2026;
   private String lastAreaName="";
   private static final String[] SCHOOL_LEVELS={"M","H"};
-  private String sourceUrl,runKey="",scope="ALL_UNVERIFIED";
+  private String sourceUrl,runKey="",discoveryRunKey="",scope="ALL_UNVERIFIED";
   private String currentSchool="",currentCity="",currentDistrict="",currentFilter="";
   private String currentSite="",currentGrade="",currentYear="",currentTerm="",currentSubject="",currentPaid="N";
   private JSONArray currentRows=new JSONArray();
@@ -77,6 +77,7 @@ public final class ReadingCollectorController {
   static final class AreaScope {
     String name,site,schools,city,district,filter,paid,grade,year,term,subject;
     JSONArray firstPage;
+    int ordinal=-1; // original left-column selector index, persisted for restart
     AreaScope(String name,String site,String schools,String city,String district,String filter,
               String paid,String grade,String year,String term,String subject,JSONArray firstPage){
       this.name=name;this.site=site;this.schools=schools;this.city=city;this.district=district;
@@ -212,6 +213,16 @@ public final class ReadingCollectorController {
             }else stopDiscovery("원본 지역 선택기의 ‘전체’ 항목을 찾지 못했습니다. 잘못된 임의 지역 검색은 하지 않습니다.");
             return;
           }
+          // Fail safely if the source's left column changed since the checkpoint.
+          for(AreaScope prior:originalAreas){
+            if(!SCHOOL_LEVELS[discoverySiteIndex].equals(prior.site))continue;
+            JSONObject row=prior.ordinal>=0&&prior.ordinal<list.length()
+              ?list.optJSONObject(prior.ordinal):null;
+            if(row==null || !prior.name.equals(row.optString("name",""))){
+              stopDiscovery("저장 이후 원본 지역 목록의 순서가 변경되었습니다. 기존 DB는 유지하며, 다른 지역을 건너뛰지 않습니다.");
+              return;
+            }
+          }
           if(discoveryIndex>=list.length()){
             discoverySiteIndex++;
             discoveryIndex=0;
@@ -290,7 +301,28 @@ public final class ReadingCollectorController {
                 return;
               }
             }
+            // Commit the first-page metadata before recording the region as complete.
+            // Interrupted regions may safely retry via exam_no primary key.
+            try{
+              if(found.firstPage!=null&&found.firstPage.length()>0){
+                ReadingCollectorStore.Progress baseline=new ReadingCollectorStore.Progress();
+                baseline.page=1;
+                store.savePage("original-area-baseline-"+sha256(found.fingerprint()),baseline,
+                  found.firstPage,found.site,found.grade,found.year,found.term,found.subject,
+                  "ORIGINAL_AREA:"+found.site+"/"+found.name);
+              }
+              found.ordinal=discoveryIndex;
+              store.saveArea(discoveryRunKey,discoveryIndex,found);
+            }catch(Throwable saveError){
+              Diag.log("COLLECTOR_AREA_SAVE_ERROR",saveError.getClass().getName());
+              stopDiscovery("지역별 DB 저장 실패: "+saveError.getClass().getSimpleName());
+              return;
+            }
             originalAreas.add(found);
+            Diag.log("COLLECTOR_AREA_PERSISTED",
+              "region="+found.site+"/"+found.name+" index="+found.ordinal+
+              " rows="+found.firstPage.length()+" areas="+store.countAreas(discoveryRunKey)+
+              " exams="+store.count());
             Diag.log("COLLECTOR_ORIGINAL_AREA_CAPTURED","site="+found.site+
               " area="+found.name+" city="+found.city+
               " schoolIDs="+found.schools.split("\\|").length+
@@ -338,8 +370,22 @@ public final class ReadingCollectorController {
       showStatus("연도 범위를 확인해 주십시오 (1990~2100).");return;
     }
     discovering=true;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
+    discoveryRunKey="discovery-v2-"+discoverFromYear+"-"+discoverToYear;
     originalAreas.clear();discoverySiteIndex=0;discoveryIndex=0;selectorRetries=0;
-    showStatus("전국 ‘전체’ 자동 순회 시작: 원본 지역 선택 화면 분석");
+    try{
+      originalAreas.addAll(store.loadAreas(discoveryRunKey));
+      if(!originalAreas.isEmpty()){
+        AreaScope last=originalAreas.get(originalAreas.size()-1);
+        discoverySiteIndex="H".equals(last.site)?1:0;
+        discoveryIndex=last.ordinal+1;
+      }
+    }catch(Throwable t){
+      discovering=false;
+      showStatus("저장된 지역 탐색 위치 복원 실패: "+t.getClass().getSimpleName());
+      return;
+    }
+    showStatus("전국 지역 순회 재개: DB에 저장된 지역 "+
+      originalAreas.size()+"곳 · 다음 지역부터 탐색");
     Diag.log("COLLECTOR_NATIONWIDE_DISCOVERY_START","year="+discoverFromYear+"-"+discoverToYear);
     openAreaSelector();
   }
@@ -366,7 +412,7 @@ public final class ReadingCollectorController {
     discovering=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
     Diag.log("COLLECTOR_DISCOVERY_STOP",
       ReadingCollectorStore.sanitize(reason,200)+" collectedAreas="+originalAreas.size());
-    showStatus(reason+" · 이미 저장한 시험지는 보존됩니다.");
+    showStatus(reason+" · 저장된 지역 "+originalAreas.size()+"곳 / 시험지 "+store.count()+"건 유지. 같은 연도 범위로 이어하기 가능합니다.");
   }
   private void finishAreaDiscovery(){
     if(!discovering)return;
@@ -388,16 +434,7 @@ public final class ReadingCollectorController {
     }
     runKey=sha256(seed.toString());
     progress=store.load(runKey);
-    // The original ASP embeds the authentic first page before any JSON API
-    // scroll. Save these observed items once, without altering run position.
-    for(AreaScope area:originalAreas){
-      if(area.firstPage==null||area.firstPage.length()==0)continue;
-      ReadingCollectorStore.Progress tmp=new ReadingCollectorStore.Progress();
-      tmp.page=1;
-      store.savePage("original-area-baseline-"+sha256(area.fingerprint()),tmp,
-        area.firstPage,area.site,area.grade,area.year,area.term,area.subject,
-        "ORIGINAL_AREA:"+area.name);
-    }
+    // R14: First-page metadata was already saved during each region discovery.
     Diag.log("COLLECTOR_AREA_SET_READY",
       "areaScopes="+originalAreas.size()+" jobs="+jobs.size()+" checkpoint="+
       progress.taskIndex+":"+progress.page+" unique="+store.count());
@@ -611,7 +648,8 @@ public final class ReadingCollectorController {
     if(discovering){stopDiscovery(reason);return;}
     if(!running){showStatus(reason);return;}
     running=false;requestPending=false;
-    Diag.log("COLLECTOR_PAUSED",reason+" checkpoint="+progress.taskIndex+":"+progress.page);
+    ReadingCollectorStore.Progress saved=store.load(runKey);
+    Diag.log("COLLECTOR_PAUSED",reason+" persisted_checkpoint="+saved.taskIndex+":"+saved.page+" db_rows="+store.count());
     showStatus(reason+" · 이미 수집한 "+store.count()+"건 유지");
   }
   private void finish(){
@@ -632,6 +670,7 @@ public final class ReadingCollectorController {
 
   private void export(int format){
     if(running){pause("파일 내보내기를 위해 수집 일시정지");}
+    if(discovering){stopDiscovery("파일 내보내기를 위해 지역 탐색 일시정지");}
     exportMode=format;
     Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
     i.addCategory(Intent.CATEGORY_OPENABLE);
