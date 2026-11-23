@@ -285,8 +285,8 @@ def patch_ui(app):
         pass
     s=once(s,"  Future<void> _hitelCopyDiagnostics() async {\n",
         DART_METHODS+"  Future<void> _hitelCopyDiagnostics() async {\n","dart-ab-methods")
-    s=once(s,"    _boot();\n",
-        "    _hitelAbGetRoute();\n    _boot();\n","dart-route-init")
+    s=once(s,"    WidgetsBinding.instance.addObserver(this);\n",
+        "    WidgetsBinding.instance.addObserver(this);\n    _hitelAbGetRoute();\n","dart-route-init")
     # The existing clipboard UI reads the per-route native trace.
     s=once(s,"/hitel_e2_trace.log'",
         "/hitel_e2_trace_'+_hitelAbRoute+'.log'","dart-current-log")
