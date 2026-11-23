@@ -4,9 +4,9 @@ import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * The original 2026-11-22 WG128 native OpenCL observer ONLY.
- * This is loaded after WG128 JNI initialization, never from BASELINE.
- * NO SDK methods, AvatarPlayer, PCM path or renderer are replaced.
+ * Three-stage original GPU -> compact GPU -> vendor CPU fallback observer and selective dispatcher.
+ * Loaded after ORIGINAL vendor JNI in GPU3 process only; BASELINE remains original.
+ * The ORIGINAL native ELF, AvatarPlayer, PCM and renderer code are unchanged.
  * JNI functions are provided by the 2026-11-22 pinned probe C++ source.
  */
 internal object HitelSdkProbe {
@@ -16,15 +16,17 @@ internal object HitelSdkProbe {
     private external fun nativeDrain(): Array<String>
 
     @JvmStatic fun afterNativeLoad() {
-        if (HitelSdkLoader.route() != "WG128" || !started.compareAndSet(false, true)) return
+        if (HitelSdkLoader.route() != "GPU3" || !started.compareAndSet(false, true)) return
         try {
             System.loadLibrary("hitel_e2_probe")
             val flags = nativeInstall("")
             val hook = nativePrepareGpuAudit()
-            HitelE2Trace.event("sdk.backend.clhook", "sdkRoute" to "WG128",
+            HitelE2Trace.event("sdk.backend.clhook", "sdkRoute" to "GPU3",
                 "installed" to (hook == 1), "captureFlags" to flags,
-                "sourceSdk" to "bf7290b661:WG128_WavPull")
-            if (hook != 1) Log.e("HITEL_GPU_SDK", "OpenCL hook NOT installed; do not claim GPU instrumentation")
+                "executionOrder" to "ORIGINAL_GPU>COMPACT_GPU>ORIGINAL_CPU",
+                "originalNativeUnchanged" to true,
+                "sourceSdk" to "ORIGINAL:3eed0894;gpu3:runtime-dispatch-only")
+            if (hook != 1) Log.e("HITEL_GPU_SDK", "GPU3 hook NOT installed; original vendor fallback still available")
             Thread({
                 while (!Thread.currentThread().isInterrupted) {
                     try {
@@ -33,7 +35,7 @@ internal object HitelSdkProbe {
                             val f = entry.split('\t', limit = 6)
                             if (f.size != 6) continue
                             HitelE2Trace.event("sdk.backend.native",
-                                "sdkRoute" to "WG128", "nativeNs" to f[0], "nativeTid" to f[1],
+                                "sdkRoute" to "GPU3", "nativeNs" to f[0], "nativeTid" to f[1],
                                 "nativeCpuUs" to f[2], "transport" to f[3], "message" to f[4],
                                 "turn" to f[5])
                         }
@@ -45,10 +47,10 @@ internal object HitelSdkProbe {
                         break
                     }
                 }
-            }, "hitel-wg128-gpu-probe").apply { isDaemon = true; start() }
+            }, "hitel-gpu3-gpu-probe").apply { isDaemon = true; start() }
         } catch (ex: Throwable) {
-            Log.e("HITEL_GPU_SDK", "WG128 probe startup failed", ex)
-            HitelE2Trace.failure("sdk.backend.clhook.failure", ex, "sdkRoute" to "WG128")
+            Log.e("HITEL_GPU_SDK", "GPU3 probe startup failed", ex)
+            HitelE2Trace.failure("sdk.backend.clhook.failure", ex, "sdkRoute" to "GPU3")
         }
     }
 }
