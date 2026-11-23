@@ -1,4 +1,4 @@
-name: HITEL Essence2 Sofia Korean 10s ONE APK SDK original-WG128 chooser
+name: HITEL Essence2 Sofia Korean 10s one APK EXACT pinned GPU probes A/B
 on:
   workflow_dispatch:
   push:
@@ -9,7 +9,11 @@ on:
       - tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py
       - tools/bithuman_deep/test_essence2_hitel_no_key_runtime.py
       - tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh
-      - tools/bithuman_deep/prepare_essence2_vendor_speech_player.py
+      - tools/bithuman_deep/prepare_essence2_equal_gpu_probe.py
+      - tools/bithuman_deep/prepare_essence2_single_apk_ab.py
+      - tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
+      - tools/bithuman_deep/InstrumentEssence2.java
+      - tools/bithuman_deep/essence2_ab_verified/**
       - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
       - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
       - tools/bithuman_deep/wait_essence2_playout_complete.py
@@ -116,7 +120,7 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/spoken-phonemes.json"
           python3 tools/bithuman_deep/prepare_essence2_function_trace.py \
             --app "$APP" --plugin "$PLUGIN" \
-            --trace-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelE2Trace.kt" \
+            --trace-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_ab_verified/HitelE2Trace.kt" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/function-trace-patch.json"
           python3 tools/bithuman_deep/prepare_essence2_monitor_trace.py \
             --plugin "$PLUGIN" \
@@ -129,15 +133,20 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/persistent-ai-trace-patch.json"
           python3 tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py \
             --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel-no-key-source.json"
-          python3 tools/bithuman_deep/prepare_essence2_vendor_speech_player.py \
-            --plugin "$PLUGIN" --upstream "$GITHUB_WORKSPACE/original-upstream" \
-            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/vendor-speech-integration.json"
           python3 tools/bithuman_deep/prepare_essence2_single_apk_ab.py \
             --app "$APP" --plugin "$PLUGIN" \
             --loader-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelSdkLoader.kt" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/single-apk-sdk-ab.json"
-          python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
+          python3 tools/bithuman_deep/prepare_essence2_equal_gpu_probe.py \
+            --plugin "$PLUGIN" \
+            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_ab_verified" \
+            --cpp-out "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel_e2_probe_ab.cpp" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/equal-native-gpu-probes.json"
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py tools/bithuman_deep/prepare_essence2_equal_gpu_probe.py
+          grep -Fq 'HitelSdkProbe.install(context)' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          grep -Fq 'hitel_sdk_backend_' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
+          grep -Fq 'nativePrepareGpuAudit(HitelSdkLoader.libraryForProcess())' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelSdkProbe.kt"
+          echo PASS_PINNED_GPU_DIAGNOSTICS_INSTALLED_IDENTICAL_BOTH_SDKS
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
@@ -234,9 +243,14 @@ jobs:
           set -euo pipefail
           SDK="$GITHUB_WORKSPACE/essence2-sdk-local"
           curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.7.1/asm-9.7.1.jar -o "$SDK/asm.jar"
-          javac -cp "$SDK/asm.jar" -d "$SDK" tools/bithuman_deep/SelectEssence2NativeLibrary.java
+          javac -cp "$SDK/asm.jar" -d "$SDK" \
+            tools/bithuman_deep/InstrumentEssence2.java \
+            tools/bithuman_deep/SelectEssence2NativeLibrary.java
+          java -cp "$SDK:$SDK/asm.jar" InstrumentEssence2 \
+            "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-traced-0.9.5.aar" \
+            | tee essence2-local-mock-proof/pinned-sdk-jni-instrumentation.txt
           java -cp "$SDK:$SDK/asm.jar" SelectEssence2NativeLibrary \
-            "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
+            "$SDK/hitel-traced-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
             | tee essence2-local-mock-proof/native-loader-asm-proof.txt
           python3 tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py \
             --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
@@ -246,7 +260,41 @@ jobs:
           javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.NativeBridge \
             > essence2-local-mock-proof/native-loader-disassembly.txt
           grep -Fq 'HitelSdkLoader.libraryForProcess' essence2-local-mock-proof/native-loader-disassembly.txt
-          echo PASS_ONE_APK_TWO_NATIVE_SDKS_PROCESS_ROUTED_LOADER
+          unzip -Z1 "$SDK/dual-classes.jar" | grep -Fq 'ai/bithuman/elevate/HitelProbeBridge.class'
+          javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.HitelProbeBridge \
+            > essence2-local-mock-proof/native-jni-probes-disassembly.txt
+          grep -Fq 'HitelSdkProbe' essence2-local-mock-proof/native-jni-probes-disassembly.txt
+          # Identity check: BOTH variants use the same traced JVM classes.jar. Only
+          # four ARM64 workgroup words differ between native vendor ELF variants.
+          cmp <(unzip -p "$SDK/hitel-traced-0.9.5.aar" jni/arm64-v8a/lible_jni.so) \
+              <(unzip -p "$SDK/vendor-original-0.9.5.aar" jni/arm64-v8a/lible_jni.so)
+          echo PASS_ONE_APK_EQUAL_JVM_INSTRUMENTATION_UNMODIFIED_VENDOR_BASELINE
+
+      - name: Compile the ORIGINAL pinned OpenCL kernel probe for both native SDK versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK_VERSION=28.2.13676358
+          NDK_DIR="$ANDROID_HOME/ndk/$NDK_VERSION"
+          CXX="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++"
+          if [ ! -x "$CXX" ]; then
+            SDK_MANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f 2>/dev/null | sort -V | tail -1 || true)"
+            if [ -z "$SDK_MANAGER" ]; then
+              curl -fLsS --retry 3 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o "$RUNNER_TEMP/hitel-cmdline-tools.zip"
+              unzip -q "$RUNNER_TEMP/hitel-cmdline-tools.zip" -d "$RUNNER_TEMP/hitel-cmdline-tools"
+              SDK_MANAGER="$RUNNER_TEMP/hitel-cmdline-tools/cmdline-tools/bin/sdkmanager"
+            fi
+            "$SDK_MANAGER" --sdk_root="$ANDROID_HOME" --install "ndk;$NDK_VERSION"
+          fi
+          OUTPUT="$GITHUB_WORKSPACE/essence2-local-mock-plugin/android/src/main/jniLibs/arm64-v8a"
+          mkdir -p "$OUTPUT"
+          "$CXX" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -fvisibility=hidden -shared \
+            -static-libstdc++ -Wl,--no-undefined \
+            "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel_e2_probe_ab.cpp" \
+            -ldl -o "$OUTPUT/libhitel_e2_probe.so"
+          readelf -Ws "$OUTPUT/libhitel_e2_probe.so" | grep 'HitelSdkProbe_native'
+          sha256sum "$OUTPUT/libhitel_e2_probe.so" > essence2-local-mock-proof/dual-native-gpu-probe-sha256.txt
+          echo PASS_ORIGINAL_PINNED_OPENCL_HOOK_COMPILED_FOR_BOTH_SDK_ROUTES
 
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
@@ -281,7 +329,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -291,17 +339,18 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Verify BOTH SDK native files and process routing are in this single signed APK
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
+          APK=HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni_wg128.so'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libhitel_e2_probe.so'
           cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni.so) \
               <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni_wg128.so) \
@@ -319,7 +368,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -327,7 +376,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk"
+          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk"
           PCM="$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
           ASSET=assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm
           test "$(wc -c < "$PCM")" -eq 480000
@@ -349,20 +398,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-korean10s-one-apk-dual-sdk-20261123
-          APK=HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
+          TAG=hitel-essence2-sofia-ko10s-pinned-gpu-ab-logs-20261123
+          APK=HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk
           test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          ONE APK TWO SDK SELECTOR: includes BOTH exact original lible_jni.so and WG128 native lible_jni_wg128.so (four ARM64 workgroup instructions altered). The launcher and Flutter controls choose between two Android SDK processes to avoid JNI collisions: selecting the alternate starts its avatar instance; no APK reinstall. Both routes use the SAME Sofia model and SAME generated ko-KR synthetic 10s PCM fixture (24kHz, mono). Per-route trace files and on-screen comparison export included. This is NOT the user's original M4A. Physical-device OpenCL and audio playback remain unverified; no real-time same-process native hot swapping is claimed.
+          REBUILT from the exact pinned 2026-11-22 GPU SDK diagnostic stack, not recreated simplified JNI. ONE APK with original lible_jni.so and four-workgroup-instruction WG128 lible_jni_wg128.so; same InstrumentEssence2.java HitelProbeBridge JNI instrumentation on BOTH; same HitelSdkProbe.kt and native libhitel_e2_probe.so with process-sensitive symbol name and both exact native instruction identities. GPU vendor native logd/stderr and [hitel-cl] create,wg_limit,enqueue (kernel global/local/return code) events are recorded on both paths in per-route files including separate backend logs. ORIGINAL AvatarPlayer / Essence2Engine GPU hardware buffer route preserved; no forced zeroCopy=false. Identical generated 10-second Korean PCM and Sofia model. CI structural proof is not a physical Adreno runtime success and no -54 fix is claimed. Release contains debug APK for diagnosis.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 Sofia Korean 10s ONE APK Original and WG128 SDK chooser' \
+              --title 'HITEL Essence2 Sofia ONE APK original vs WG128 pinned identical GPU diagnostics' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_PINNED_GPU_AB_LOGS_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -374,11 +423,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: essence2-one-apk-dual-sdk-manifest-loader-and-native-proofs
+          name: essence2-original-and-wg128-pinned-gpu-probes-and-apk-proof
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/ab-manifest.txt
             essence2-local-mock-proof/native-loader-disassembly.txt
             essence2-local-mock-proof/native-loader-asm-proof.txt
+            essence2-local-mock-proof/native-jni-probes-disassembly.txt
+            essence2-local-mock-proof/pinned-sdk-jni-instrumentation.txt
+            essence2-local-mock-proof/dual-native-gpu-probe-sha256.txt
             essence2-local-mock-proof/apk-sha256.txt
           retention-days: 14
