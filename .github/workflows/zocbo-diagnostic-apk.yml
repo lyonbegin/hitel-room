@@ -42,9 +42,8 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool smali
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool
           apktool --version
-          baksmali --version || true
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls -d "$ANDROID_HOME"/build-tools/* | tail -5
       - name: Decode original APK without rewriting resource table
@@ -58,20 +57,26 @@ jobs:
           set -euxo pipefail
           SDK_PLATFORM="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
           SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          mkdir -p work/classes work/diag-dex work/diag-smali
+          mkdir -p work/classes work/diag-dex
           javac -source 8 -target 8 -Xlint:-options -cp "$SDK_PLATFORM/android.jar" -d work/classes scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/Diag.java
           "$SDK_BUILD/d8" --min-api 23 --lib "$SDK_PLATFORM/android.jar" --output work/diag-dex $(find work/classes -name '*.class')
-          baksmali d work/diag-dex/classes.dex -o work/diag-smali
-          SMALI="$(find work/decoded -maxdepth 1 -type d -name 'smali*' | sort -V | tail -1)"
-          test -n "$SMALI"
-          mkdir -p "$SMALI/com/hitel/zocbodiag"
-          cp -a work/diag-smali/com/hitel/zocbodiag/*.smali "$SMALI/com/hitel/zocbodiag/"
-          find "$SMALI/com/hitel/zocbodiag" -name '*.smali' -print
+          file work/diag-dex/classes.dex
       - name: Patch original native functions and build instrumented app
         run: |
           set -euxo pipefail
           python3 -u scripts/zocbo_diagnostic/patch_smali.py work/decoded work/diag-patch-report.json | tee work/patch-log.txt
           apktool b -o work/zocbo-unzipaligned.apk work/decoded
+          python3 - <<'PY'
+          import zipfile,re
+          apk="work/zocbo-unzipaligned.apk"
+          with zipfile.ZipFile(apk,"a") as z:
+            ids=[int(m.group(1) or "1") for n in z.namelist() if (m:=re.fullmatch(r"classes(\d*)\.dex",n))]
+            assert ids,"original APK has no classes.dex"
+            nextid=max(ids)+1
+            name=f"classes{nextid}.dex"
+            z.write("work/diag-dex/classes.dex",name,compress_type=zipfile.ZIP_STORED)
+            print("DIAGNOSTIC_NEW_MULTIDEX",name,"ORIGINAL_DEX_COUNT",len(ids),flush=True)
+          PY
       - name: Zipalign, sign test build and verify test signature
         shell: bash
         run: |
