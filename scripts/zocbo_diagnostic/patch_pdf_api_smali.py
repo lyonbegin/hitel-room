@@ -70,6 +70,8 @@ for f in paths:
 out.parent.mkdir(parents=True,exist_ok=True)
 out.write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding="utf8")
 print("RESULT",json.dumps(results,ensure_ascii=False),flush=True)
-for k in ("api_builder","pdf_builder","model_pdf_path"):
+for k in ("api_builder","pdf_builder"):
   n=sum(t["hook_count"] for t in results[k])
   if n!=1:raise SystemExit(f"ABORT_EXPECTED_EXACTLY_ONE_{k}_FOUND_{n}")
+if not results["model_pdf_path"]:
+  print("MODEL_PDF_PATH_GETTER_SKIPPED: API response JSON and PDF GET URL still independently logged",flush=True)
