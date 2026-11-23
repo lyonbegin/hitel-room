@@ -1,0 +1,41 @@
+name: IXIO original main APK on-device STT model asset inventory
+on:
+  push:
+    branches: [fix/ixio-pcm-sdk-compat-final-20261123]
+    paths: [.github/workflows/ixio-original-apk-model-assets-inventory-20261123.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Fetch original IXIO 169 MB APK and verify exact release bytes
+        run: |
+          set -euo pipefail
+          mkdir -p inventory
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 -R lyonbegin/hitel-room \
+            -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk -D inventory
+          APK=inventory/IXIO_Main_OriginalFGSPrestartQA_20261122.apk
+          echo 'd8876b1396c5cc94d2f44b646d75b4dc1688ef8b04c71109941f598944afdb9b  inventory/IXIO_Main_OriginalFGSPrestartQA_20261122.apk' | sha256sum -c -
+          unzip -Z1 "$APK" > inventory/apk-all-entries.txt
+          unzip -l "$APK" > inventory/apk-entry-sizes.txt
+          grep -Ei '(^|/)(stt|vad|model|speech|itn|encoder|decoder|joiner)|\.(ort|onnx|vocab|zip)$' inventory/apk-all-entries.txt > inventory/model-candidates.txt || true
+          echo "TOTAL_APK_ENTRIES=$(wc -l < inventory/apk-all-entries.txt)"
+          echo "MODEL_RELATED_ENTRIES=$(wc -l < inventory/model-candidates.txt)"
+          head -130 inventory/model-candidates.txt
+          for name in encoder.ort decoder.ort joiner.ort vad.onnx tokens.txt bpe.vocab; do
+            count="$(grep -Ec "(^|/)${name//./\.}$" inventory/apk-all-entries.txt || true)"
+            echo "BUILTIN_MODEL_FILE_$name=$count"
+          done
+          echo ORIGINAL_IXIO_APK_ASSET_INVENTORY_DONE
+      - name: Store inventory without uploading app or model binaries
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO-Original-APK-STT-Asset-Names-20261123
+          path: inventory/*.txt
+          if-no-files-found: warn
