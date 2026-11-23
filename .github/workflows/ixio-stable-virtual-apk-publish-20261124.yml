@@ -1,0 +1,45 @@
+name: Publish emulator-verified IXIO stable virtual-call APK HTTPS
+on:
+  push:
+    branches: [feature/ixio-stable-virtual-call-replay-20261124]
+    paths: ['.github/workflows/ixio-stable-virtual-apk-publish-20261124.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-verified-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch ONLY the emulator-tested APK artifact from successful run
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 45288564537 -R lyonbegin/hitel-room \
+            -n IXIO-Stable-V11-VirtualCall-ARM64-20261124 -D dist
+          cd dist
+          sha256sum -c SHA256.txt
+          unzip -t HITEL_IXIO_Stable_VirtualCall_20261124.apk >/dev/null
+          test "$(stat -c %s HITEL_IXIO_Stable_VirtualCall_20261124.apk)" -gt 20000000
+          echo PASS_EMULATOR_TESTED_APK_SHA256
+      - name: Publish APK and SHA to a GitHub Release
+        run: |
+          set -euo pipefail
+          TAG=ixio-stable-original-virtual-call-20261124
+          APK=HITEL_IXIO_Stable_VirtualCall_20261124.apk
+          gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1 || \
+            gh release create "$TAG" -R lyonbegin/hitel-room \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "IXIO original STT stable: no 3-growth gate, virtual call emulator verified" \
+              --notes "Source branch: feature/ixio-stable-virtual-call-replay-20261124. Exact APK from successful Android 15 x86_64 ARM64-native-bridge emulator run 45288564537. APK installs and launches, app-private virtual M4A source is selected immediately, AAC follower and MediaCodec are verified. Original IXIO STT model is NOT included; import the original IXIO 4.0.4 STT.zip separately. No full speech inference is claimed."
+          gh release upload "$TAG" -R lyonbegin/hitel-room \
+            "dist/$APK" dist/SHA256.txt --clobber
+          URL="https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK"
+          curl -fLsS --retry 4 --max-time 300 "$URL" -o /tmp/verified-public-ixio.apk
+          cmp "dist/$APK" /tmp/verified-public-ixio.apk
+          echo PASS_PUBLIC_HTTPS_APK_BYTE_FOR_BYTE_VERIFIED
+          echo "$URL"
