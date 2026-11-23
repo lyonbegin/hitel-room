@@ -12,9 +12,10 @@ assert paths,"decoded smali files are missing"
 API="Lcom/hitel/zocbodiag/NetTrace;->apiClient(Ljava/lang/Object;)V"
 PDF="Lcom/hitel/zocbodiag/NetTrace;->pdfClient(Ljava/lang/Object;)V"
 MODEL="Lcom/hitel/zocbodiag/NetTrace;->pdfPath(Ljava/lang/String;)V"
+REQUEST_MODEL="Lcom/hitel/zocbodiag/NetTrace;->requestModel(Ljava/lang/Object;)V"
 build_re=re.compile(r"(?m)^([ \t]*)(invoke-virtual(?:/range)?)\s+\{([^}]+)\},\s+Lokhttp3/OkHttpClient\$Builder;->build\(\)Lokhttp3/OkHttpClient;")
 method_re=re.compile(r"(?ms)^\.method[^\n]*\n.*?^\.end method")
-results={"api_builder":[],"pdf_builder":[],"model_pdf_path":[],"patch_version":"focused-api-pdf-v1"}
+results={"api_builder":[],"pdf_builder":[],"model_pdf_path":[],"request_model_constructor":[],"patch_version":"focused-api-pdf-sixfield-v2"}
 def patch_builder(source,method,marker):
   def replace(m):
     group=m.group(3)
@@ -35,8 +36,9 @@ for f in paths:
   is_pdf='Lokhttp3/Request$Builder;->url(Ljava/lang/String;)' in original and \
     'Lokhttp3/OkHttpClient$Builder;->build()Lokhttp3/OkHttpClient;' in original and \
     'Lokhttp3/Call;->enqueue(' in original
-  if not is_provider and not is_pdf and 'getPdfPath()Ljava/lang/String;' not in original:continue
-  touched=[0,0,0]
+  is_request_model = all('value = "'+k+'"' in original for k in ['expapr_no','file_type','short_url','pk','qr','device']) and 'Landroid/os/Parcelable;' in original
+  if not is_provider and not is_pdf and not is_request_model and 'getPdfPath()Ljava/lang/String;' not in original:continue
+  touched=[0,0,0,0]
   def rewrite_method(m):
     s=m.group(0)
     if is_provider and 'Lokhttp3/OkHttpClient$Builder;->build()Lokhttp3/OkHttpClient;' in s and 'Lcom/eduzone/eduzoneviewer/modules/HeaderInterceptor;' in s:
@@ -45,6 +47,12 @@ for f in paths:
     if is_pdf and 'Lokhttp3/Request$Builder;->url(Ljava/lang/String;)' in s and 'Lokhttp3/OkHttpClient$Builder;->build()Lokhttp3/OkHttpClient;' in s:
       s,n=patch_builder(original,s,PDF)
       touched[1]+=n
+    if is_request_model and s.startswith(".method") and '<init>(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V' in s and REQUEST_MODEL not in s:
+      pattern=re.compile(r"(?m)^    return-void\\s*$")
+      def insert_constructor(z):
+        touched[3]+=1
+        return "    invoke-static {p0}, "+REQUEST_MODEL+"\\n"+z.group(0)
+      s=pattern.sub(insert_constructor,s,count=1)
     if '->getPdfPath()Ljava/lang/String;' in s and MODEL not in s:
       # The getter result must be copied to a register immediately after invocation.
       p=re.compile(r"(?m)(^    invoke-(?:virtual|interface)(?:/range)? \{[^\n]+\}, L[^;\n]+;->getPdfPath\(\)Ljava/lang/String;[ \t]*\n)(^    move-result-object (v\d+|p\d+)[ \t]*$)")
@@ -61,7 +69,7 @@ for f in paths:
     return s
   modified=method_re.sub(rewrite_method,original)
   if modified!=original:f.write_text(modified,encoding="utf8")
-  for i,key in enumerate(["api_builder","pdf_builder","model_pdf_path"]):
+  for i,key in enumerate(["api_builder","pdf_builder","model_pdf_path","request_model_constructor"]):
     if touched[i]:
       results[key].append({"smali":str(f.relative_to(root)),"hook_count":touched[i]})
       print("INJECT",key,str(f.relative_to(root)),touched[i],flush=True)
@@ -70,7 +78,7 @@ for f in paths:
 out.parent.mkdir(parents=True,exist_ok=True)
 out.write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding="utf8")
 print("RESULT",json.dumps(results,ensure_ascii=False),flush=True)
-for k in ("api_builder","pdf_builder"):
+for k in ("api_builder","pdf_builder","request_model_constructor"):
   n=sum(t["hook_count"] for t in results[k])
   if n!=1:raise SystemExit(f"ABORT_EXPECTED_EXACTLY_ONE_{k}_FOUND_{n}")
 if not results["model_pdf_path"]:
