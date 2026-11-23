@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/zocbo-viewer-native-callgraph.yml
       - scripts/zocbo_original_dex/trace_native_viewer_data.py
+      - scripts/zocbo_original_dex/trace_dotcomapi_baseurl.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -120,6 +121,9 @@ jobs:
       - name: Trace original native PDF data and renderer methods
         shell: bash
         run: python3 -u scripts/zocbo_original_dex/trace_native_viewer_data.py
+      - name: Trace DotComAPI provider and exact original base URL
+        shell: bash
+        run: python3 -u scripts/zocbo_original_dex/trace_dotcomapi_baseurl.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -129,6 +133,8 @@ jobs:
           path: |
             source/source_verification.json
             evidence/zocbo-original-dex/focused_navigation.txt
+            evidence/zocbo-original-dex/dotcomapi_baseurl_deep_trace.txt
+            evidence/zocbo-original-dex/dotcomapi_baseurl_index.json
             evidence/zocbo-viewer-callgraph/native_viewer_trace.txt
             evidence/zocbo-viewer-callgraph/native_viewer_index.json
             evidence/zocbo-viewer-callgraph/viewmodel_network_trace.txt
