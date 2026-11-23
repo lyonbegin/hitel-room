@@ -141,7 +141,8 @@ public final class ReadingCollectorController {
     button("일시정지",root,()->pause("사용자 요청으로 일시정지"));
     button("CSV 파일 내보내기 (엑셀)",root,()->export(EXPORT_CSV));
     button("JSON 파일 내보내기 (전체 메타데이터)",root,()->export(EXPORT_JSON));
-    button("저장된 건수·진행상태 확인",root,()->showStatus("상태 조회"));
+    button("저장된 건수·진행상태 확인",root,()->showStatus("상태 조회 · 원본 서버 저장 행과 시험용 캡처는 source_scope로 구분"));
+
 
     status=text("연결 대기 · 앱 내부 DB: "+store.count()+"건",13);
     root.addView(status);
@@ -280,6 +281,33 @@ public final class ReadingCollectorController {
           currentPaid=o.optString("paid","N");
           currentRows=first==null?new JSONArray():first;
           scopeReady=true;
+          // Persist ACTUALLY rendered original exam IDs immediately; never defer
+          // page-one records until every nationwide selector has been scanned.
+          if(currentRows.length()>0&&currentSite.matches("[MH]")&&
+             currentGrade.matches("[123]")&&currentYear.matches("[0-9]{4}")&&
+             currentTerm.matches("(1M|1E|2M|2E)")&&currentSubject.matches("[A-Z0-9]{2,4}")){
+            try{
+              ReadingCollectorStore.Progress observed=new ReadingCollectorStore.Progress();
+              observed.page=1;
+              observed.pagesDone=1;
+              observed.rowsSeen=currentRows.length();
+              String key="live-rendered-"+sha256(currentSite+"|"+currentGrade+"|"+
+                currentYear+"|"+currentTerm+"|"+currentSubject+"|"+
+                currentSchool+"|"+currentCity+"|"+currentDistrict);
+              int committed=store.savePage(key,observed,currentRows,currentSite,
+                currentGrade,currentYear,currentTerm,currentSubject,
+                "LIVE_ORIGINAL_WEBVIEW_PAGE1");
+              Diag.log("COLLECTOR_LIVE_FIRST_PAGE_SQLITE_COMMIT",
+                "page_rows="+currentRows.length()+" committed="+committed+
+                " db_count="+store.count()+" no_pdf=true");
+            }catch(Throwable saveError){
+              Diag.log("COLLECTOR_LIVE_FIRST_PAGE_STORE_ERROR",
+                saveError.getClass().getName()+":"+saveError.getMessage());
+              stopDiscovery("원본 첫 페이지 시험번호 DB 저장 실패");
+              showStatus("원본 시험번호 DB 저장 실패: "+saveError.getClass().getSimpleName());
+              return;
+            }
+          }
           String msg="원본 화면 자료 "+currentRows.length()+"건, 학교 ID "+(school.isEmpty()?0:school.split("\\|").length)
             +"개, 지역 "+currentCity+" "+currentDistrict
             +" / "+currentSite+currentGrade+" "+currentYear+" "+currentTerm+" "+currentSubject;
