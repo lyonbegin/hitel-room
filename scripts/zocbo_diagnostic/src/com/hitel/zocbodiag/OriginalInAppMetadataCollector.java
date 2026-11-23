@@ -27,6 +27,10 @@ import java.util.UUID;
 public final class OriginalInAppMetadataCollector {
   private static final Map<WebView,OriginalInAppMetadataCollector> HOLDERS=new WeakHashMap<>();
   private static WeakReference<OriginalInAppMetadataCollector> mostRecent=new WeakReference<>(null);
+  private static volatile boolean pendingQaNine=false;
+  static void requestEmulatorAutoNine() {
+    if(ReadingCollectorQaProof.emulator())pendingQaNine=true;
+  }
   private static final String[] SITES={"M","H"};
   private static final int REGION_COUNT=9;
   private static final String RUN="original-in-app-nine-seoul-2026-v1";
@@ -122,6 +126,11 @@ public final class OriginalInAppMetadataCollector {
         int saved=store.savePage(key,p,rows,site,grade,year,term,subject,
           "LIVE_ORIGINAL_EMBEDDED_WEBVIEW_PAGE1");
         event("PAGE1_SQLITE_COMMIT","observed_rows="+rows.length()+" persisted="+saved);
+        if(!active&&pendingQaNine&&ReadingCollectorQaProof.emulator()) {
+          pendingQaNine=false;
+          ui.postDelayed(()->start(),750);
+          event("QA_AUTO_NINE_AFTER_AUTHENTIC_PAGE1","original source IDs verified first");
+        }
         if(!active||!awaitingSnapshot)return;
         String schools=j.optString("schools","").trim();
         String city=j.optString("city","").trim();
