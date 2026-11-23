@@ -223,19 +223,19 @@ public final class SpeakerService extends Service {
       @Override public void recordingCandidate(String name,long size,int growthEvents){
         session.event("RECORDING","RECORDING_GROWTH_CANDIDATE",
             "filename",name,"bytes",size,"growthEvents",growthEvents);
-        send("녹음 시작 후보 감지 · "+name+
-            " · 100ms 크기 증가 "+growthEvents+"/3회 검증 중",false);
+        send("녹음 시작 후보 감지 · "+name,false);
       }
       @Override public void confirmedRecording(String name,long bytes){
         SamsungRecordAccessibility.cancelRequest();
-        session.event("RECORDING","RECORDING_VERIFIED_BY_M4A_GROWTH",
-            "filename",name,"bytes",bytes,"verified",true);
+        session.event("RECORDING","RECORDING_NEWEST_FILE_SELECTED",
+            "filename",name,"bytesReportedByProvider",bytes,
+            "growthProofRequired",false);
       }
     },(transcript,isFinal)->sendCaption(session,transcript,isFinal));
     holder[0]=task;
     engine=task;
     send(callTriggered?
-        "통화 시작 감지 · 같은 M4A 크기를 100ms 간격으로 3회 증가 확인 중":
+        "통화 시작 감지 · 최신 M4A 즉시 선택 대기":
         "선택한 녹음 파일 직접 STT 시작",false);
     task.start(folderUri,callTriggered);
   }

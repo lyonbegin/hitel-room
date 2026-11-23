@@ -88,7 +88,7 @@ public final class MainActivity extends Activity {
     fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
     source=text(root,"녹음 폴더를 선택하십시오. 이후 실행에서는 저장된 폴더를 자동 감시합니다.",13);
     detectedSource=text(root,"현재 녹음 중인 파일: 증가 확인 대기",14);
-    text(root,"통화 시작(OFFHOOK) 즉시 접근성 녹음 시작을 시도하고, M4A 파일의 크기 증가를 3회 확인한 뒤 새 PCM만 STT에 전달합니다. 통화 종료(IDLE)에는 인식을 마무리합니다.",12);
+    text(root,"통화 시작(OFFHOOK) 즉시 접근성 녹음 시작을 시도하고 최신 M4A를 발견하면 바로 선택합니다. 원본 IXIO 모델 준비 시 한 번만 오래된 PCM을 정리하며 이후 PCM은 FIFO 순서대로 전달합니다. 통화 종료(IDLE)에는 인식을 마무리합니다.",12);
     source.setTextIsSelectable(true);
     // The 'play saved M4A' label must actually start the full-file test after picking.
     fileButton.setOnClickListener(v->{startQuickTestAfterPick=true;choose(false);});

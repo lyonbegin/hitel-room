@@ -40,8 +40,6 @@ final class SpeakerEngine {
   private final Callback callback;
   private final CaptionListener captionListener;
   private final RecordingStatusListener recordListener;
-  private volatile long confirmedFileBytes;
-  private volatile long skippedPreLiveFrames;
   private final Object mirrorLock=new Object();
   private volatile boolean stop;
   private volatile boolean finished;
@@ -153,52 +151,57 @@ final class SpeakerEngine {
     }
   }
 
+  /**
+   * Select the newest M4A as soon as it appears or becomes current.
+   * Only distinguish a new call from stale files; never wait for 3 increments.
+   * This path intentionally does not drop audio: a single pre-ready PCM trim
+   * happens in DirectPcmKoreanStt once the original IXIO SDK becomes ready.
+   */
   private Uri waitForRecording(Uri directory) throws Exception {
     DocumentFile root=DocumentFile.fromTreeUri(context,directory);
     if(root==null||!root.isDirectory())
       throw new IOException("통화 녹음 폴더 접근 실패. 폴더를 다시 선택하십시오.");
     String rootId=DocumentsContract.getTreeDocumentId(directory);
-    GrowingM4aSelector detector=new GrowingM4aSelector();
-    log.event("FOLDER","RECORDING_EVENT_WATCH_STARTED",
-        "uri",directory.toString(),"pollMs",100,"requiredPositiveGrowthEvents",3,
-        "eventSources","SAF_CONTENT_OBSERVER_AND_MEDIASTORE");
-    notifyState("통화 연결 · 녹음 시작/파일 변경 이벤트 감시 중",false);
-
+    final long beganWall=System.currentTimeMillis();
+    final long began=SystemClock.elapsedRealtime();
+    log.event("FOLDER","RECORDING_NEWEST_FILE_WATCH_STARTED",
+      "uri",directory.toString(),"pollMs",100,"growthProofRequired",false,
+      "eventSources","SAF_CONTENT_OBSERVER_AND_MEDIASTORE");
     final java.util.concurrent.atomic.AtomicBoolean changed=
-        new java.util.concurrent.atomic.AtomicBoolean(true);
+      new java.util.concurrent.atomic.AtomicBoolean(true);
     ContentObserver observer=new ContentObserver(new Handler(Looper.getMainLooper())){
       @Override public void onChange(boolean selfChange){
         changed.set(true);
-        log.event("FOLDER","RECORDING_CONTENT_CHANGED_EVENT","uri",directory.toString());
+        log.event("FOLDER","RECORDING_CONTENT_CHANGED_EVENT",
+          "uri",directory.toString());
       }
-      @Override public void onChange(boolean selfChange,Uri changedUri){
+      @Override public void onChange(boolean selfChange,Uri uri){
         onChange(selfChange);
       }
     };
     boolean registered=false;
-    try{
-      try{
+    try {
+      try {
         context.getContentResolver().registerContentObserver(directory,true,observer);
         registered=true;
       }catch(Exception error){
         log.event("FOLDER","TREE_OBSERVER_UNAVAILABLE",
-            "reason",error.getClass().getSimpleName());
+          "reason",error.getClass().getSimpleName());
       }
-      try{
+      try {
         context.getContentResolver().registerContentObserver(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,true,observer);
+          MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,true,observer);
         registered=true;
       }catch(Exception error){
         log.event("FOLDER","MEDIASTORE_OBSERVER_UNAVAILABLE",
-            "reason",error.getClass().getSimpleName());
+          "reason",error.getClass().getSimpleName());
       }
-
       List<GrowingM4aSelector.Entry> found=new ArrayList<>();
-      int scan=0;
-      long started=SystemClock.elapsedRealtime();
+      String baselineNewest=null;
+      boolean sawBaseline=false;
       long nextRescan=0;
       long lastRecordRequest=0;
-      boolean candidateEventSent=false;
+      int pollCount=0;
       while(!stop){
         long now=SystemClock.elapsedRealtime();
         if(changed.getAndSet(false)||now>=nextRescan){
@@ -210,52 +213,37 @@ final class SpeakerEngine {
           });
           nextRescan=now+1000;
         }
-        List<GrowingM4aSelector.Entry> snapshot=new ArrayList<>(found);
-        for(int i=0;i<Math.min(4,snapshot.size());i++){
-          GrowingM4aSelector.Entry e=snapshot.get(i);
-          long liveBytes=actualFileLength(Uri.parse(e.uri),e.bytes);
-          snapshot.set(i,new GrowingM4aSelector.Entry(
-              e.uri,e.name,liveBytes,e.modified));
+        GrowingM4aSelector.Entry newest=found.isEmpty()?null:found.get(0);
+        if(!sawBaseline){
+          baselineNewest=newest==null?null:newest.uri;
+          sawBaseline=true;
         }
-        GrowingM4aSelector.Decision d=detector.observe(snapshot);
-        if(!candidateEventSent && d.latest!=null &&
-           d.verifiedGrowthEvents>0){
-          candidateEventSent=true;
-          log.event("RECORDING","RECORDING_CANDIDATE_FILE_GROWTH",
-              "name",d.latest.name,"bytes",d.latest.bytes,
-              "growthEvents",d.verifiedGrowthEvents);
+        // New filename OR new modification timestamp is sufficient; no
+        // additional size/growth verification and no early AAC cutoff.
+        if(newest!=null && (
+            baselineNewest==null ||
+            !newest.uri.equals(baselineNewest) ||
+            newest.modified>=beganWall-2000L)){
+          Uri selected=Uri.parse(newest.uri);
+          log.event("SOURCE","LATEST_M4A_SELECTED_NO_GROWTH_GATE",
+            "filename",newest.name,"bytes",newest.bytes,
+            "modified",newest.modified,"uri",newest.uri,
+            "elapsedSinceWatchStartMs",now-began);
           if(recordListener!=null)
-            recordListener.recordingCandidate(d.latest.name,d.latest.bytes,
-                d.verifiedGrowthEvents);
+            recordListener.confirmedRecording(newest.name,newest.bytes);
+          notifyState("최신 녹음파일 즉시 선택: "+newest.name,false);
+          return selected;
         }
-        if(d.growing!=null){
-          Uri file=Uri.parse(d.growing.uri);
-          log.event("FOLDER","LIVE_M4A_CONFIRMED_GROWING",
-              "fileName",d.growing.name,"sizeBytes",d.growing.bytes,
-              "growthBytes",d.growthBytes,"positiveGrowthEvents",
-              d.verifiedGrowthEvents,"uri",d.growing.uri);
-          if(recordListener!=null)
-            recordListener.confirmedRecording(d.growing.name,d.growing.bytes);
-          notifyState("녹음 중 파일 발견: "+d.growing.name+
-              " · 100ms 검사 3회 크기 증가 확인",false);
-          return file;
-        }
-        if(recordListener!=null && now-started>=2500 &&
-           d.verifiedGrowthEvents==0 && now-lastRecordRequest>=5000){
+        if(recordListener!=null && now-began>=2500 &&
+           now-lastRecordRequest>=5000){
           lastRecordRequest=now;
-          log.event("FOLDER","NO_RECORDING_GROWTH_REQUEST_START",
-              "waitingMs",now-started,"files",d.files,
-              "latestFile",d.latest==null?"":d.latest.name);
-          recordListener.noRecordingEvidence(now-started);
+          log.event("FOLDER","NO_NEW_RECORDING_YET",
+            "waitingMs",now-began,"files",found.size());
+          recordListener.noRecordingEvidence(now-began);
         }
-        if(scan%10==0){
-          if(d.latest==null)
-            notifyState("통화 연결 · 아직 녹음 파일 없음 · 녹음 시작 요청/대기",false);
-          else
-            notifyState("최신 M4A: "+d.latest.name+" ("+d.latest.bytes+
-                "바이트) · 증가 "+d.verifiedGrowthEvents+"/3회 확인 중",false);
-        }
-        scan++;
+        if(pollCount%10==0)
+          notifyState("통화 녹음 시작 대기 · 최신 M4A 즉시 선택",false);
+        pollCount++;
         Thread.sleep(100);
       }
       return null;
@@ -330,10 +318,9 @@ final class SpeakerEngine {
       mirror=new File(context.getCacheDir(),"recording-speaker-"+SystemClock.elapsedRealtime()+".m4a");
       if(!mirror.createNewFile())throw new IOException("Mirror already exists");
       appendNewBytes(selected);
-      confirmedFileBytes=folder?mirroredBytes:0;
-      log.event("SOURCE","LIVE_PLAYBACK_CUTOFF",
-          "sourceBytesAtVerification",confirmedFileBytes,
-          "preLiveAudioWillBeSuppressed",folder);
+      log.event("SOURCE","LIVE_AAC_FROM_START",
+          "initialMirroredBytes",mirroredBytes,
+          "startupPcmTrimAtSdkReady",true);
       // Preserve original AAC decode and 16k FIR resampler, but no speaker track.
       codec=new StreamingAacPcmDecoder(log);
       copier=new Thread(()->{
@@ -554,10 +541,7 @@ final class SpeakerEngine {
         byte[] adts=new byte[n];
         try{input.readFully(adts);}
         catch(IOException e){if(stop)break;throw e;}
-        final boolean inLiveWindow=confirmedFileBytes==0 ||
-            offset>=Math.max(0L,confirmedFileBytes-2048);
         codec.feedAdtsFrame(adts,pcm->{
-          if(!inLiveWindow){skippedPreLiveFrames++;return;}
           DirectPcmKoreanStt target=stt;
           if(target==null)throw new IOException("Direct STT sink not initialized");
           target.accept(pcm);

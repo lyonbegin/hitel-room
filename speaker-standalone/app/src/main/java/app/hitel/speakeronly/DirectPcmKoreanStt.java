@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.util.Locale;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,11 +38,11 @@ final class DirectPcmKoreanStt {
   private static volatile ClassLoader sharedIxioLoader;
   private static final int RATE=16000;
   private static final int CHANNEL=0;
-  private static final int QUEUE_CAPACITY=512;
   private final Context context;
   private final TraceJournal log;
   private final Listener listener;
-  private final ArrayBlockingQueue<byte[]> queue=new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+  // Keep all PCM during original IXIO model initialization; trim exactly once at READY.
+  private final LinkedBlockingQueue<byte[]> queue=new LinkedBlockingQueue<>();
   private volatile boolean inputFinished,ready,completed;
   private volatile Throwable failure;
   private volatile long queuedBytes,recognizedSamples;
@@ -75,10 +75,7 @@ final class DirectPcmKoreanStt {
     if(failure!=null)throw new IOException("IXIO speechSDK failed",failure);
     if(inputFinished)throw new IOException("IXIO STT already finished");
     byte[] owned=pcm.clone();
-    if(!queue.offer(owned)){
-      log.event("STT","IXIO_PCM_QUEUE_FULL","chunks",queue.size(),"bytes",queuedBytes);
-      throw new IOException("IXIO speechSDK too slow: PCM queue full");
-    }
+    queue.add(owned);
     queuedBytes+=owned.length;
     if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length)
       log.event("STT","IXIO_PCM_QUEUED","bytes",queuedBytes,
@@ -223,10 +220,24 @@ final class DirectPcmKoreanStt {
       flag.setAccessible(true);
       if(!flag.getBoolean(sdk))
         throw new IOException("Original IXIO speechSDK returned sttReady=false after loadSTT");
+      // A finite snapshot: discard only the older PCM accumulated before
+      // the original SDK was ready, retain its newest 512-sample chunk.
+      // Every PCM packet arriving afterwards stays in original FIFO order.
+      long sdkReadyAtMs=SystemClock.elapsedRealtime();
+      PcmReadyLatestGate.Snapshot startup=
+        PcmReadyLatestGate.trimPreReadyBacklog(queue);
       ready=true;
       log.event("STT","IXIO_ORIGINAL_SPEECHSDK_READY",
-        "class",klass.getName(),"channel",CHANNEL,"rate",RATE,"amplitude",1.0f);
-      listener.status("IXIO 원본 speechSDK 준비 완료");
+        "class",klass.getName(),"channel",CHANNEL,"rate",RATE,"amplitude",1.0f,
+        "sdkReadyAtElapsedMs",sdkReadyAtMs);
+      log.event("STT","IXIO_FIRST_READY_LATEST_PCM_SNAPSHOT",
+        "policy","ONE_SHOT_DISCARD_OLDER_KEEP_NEWEST",
+        "queuedChunksAtReady",startup.queuedAtReady,
+        "discardedChunks",startup.discardedChunks,
+        "discardedAudioMs",startup.discardedSamples()*1000L/RATE,
+        "queueChunksAfterTrim",startup.queuedAfterTrim,
+        "futureFramesDiscarded",false);
+      listener.status("IXIO 원본 speechSDK 준비 완료 · 최신 PCM부터 인식");
       Method tripleFirst=null,tripleThird=null;
       while(true){
         byte[] pcm=queue.poll(300,TimeUnit.MILLISECONDS);
