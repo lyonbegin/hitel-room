@@ -25,8 +25,16 @@ public final class NetTrace {
   private NetTrace(){}
   public static void apiClient(Object builder){
     originalDotComBuilder=builder;
-    attach(builder,"DOTCOM_API");
-    Diag.log("PDF_MANUAL_CLIENT_AVAILABLE","original configured DotCom OkHttp builder captured; no credentials extracted");
+    // The original Kotlin OkHttp Interceptor.intercept() does not declare
+    // checked IOException to java.lang.reflect.Proxy. A network timeout
+    // thrown through the diagnostic proxy becomes UndeclaredThrowableException
+    // and CRASHES the app's OkHttp Dispatcher on offline emulators.
+    // Never inject a reflective interceptor into the original app-wide client.
+    // Preserve the original interceptor chain and its normal onFailure path.
+    Diag.log("DOTCOM_API_PROXY_DISABLED",
+      "Preserve original app-wide OkHttp failure callbacks; no extra proxy injected");
+    Diag.log("PDF_MANUAL_CLIENT_AVAILABLE",
+      "original configured DotCom OkHttp builder captured; no credentials extracted");
   }
   public static Object originalApiBuilder(){return originalDotComBuilder;}
   public static int lastModelExamNo(){return lastSixFieldExamNo;}
