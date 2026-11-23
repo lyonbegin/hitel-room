@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """One APK, two isolated Android SDK processes, one UI selector, persistent A/B logs.
 
-Do not load the two copies of lible_jni in the same JVM: both export/register
+Do not load duplicate native JNIs in the same JVM: both processes export/register
 identical native methods and the SDK's NativeBridge uses static initialization.
-Each SDK process shares the same app data directory and Sofía Korean PCM asset.
+Both routes load the same ORIGINAL vendor ELF; only GPU3 preinstalls a runtime OpenCL fallback dispatcher. Each process shares the same Sofía Korean PCM asset.
 """
 import argparse
 import json
@@ -51,7 +51,7 @@ class MainActivity : Activity() {
         }
         val desc=TextView(this).apply {
             text="하나의 APK 안에서 SDK 두 개를 선택합니다.\n"+
-                 "원본과 WG128은 각각 별도 Android 프로세스에서 실행하여 JNI 충돌을 피합니다.\n"+
+                 "원본 GPU와 GPU 3단 모드는 서로 분리된 프로세스에서 동일한 원본 SDK로 실행합니다.\n"+
                  "같은 한국어 음성과 Sofia 모델을 사용합니다."
             textSize=15f
             setTextColor(Color.LTGRAY)
@@ -68,7 +68,7 @@ class MainActivity : Activity() {
             },LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=20 })
         }
         button("① 원본 Essence2 SDK 실행", OriginalSdkActivity::class.java)
-        button("② WG128 GPU 수정 SDK 실행", Wg128SdkActivity::class.java)
+        button("② 원본 GPU → 저용량 GPU → 원본 CPU 실행", Gpu3SdkActivity::class.java)
         val info=TextView(this).apply {
             text="각 실행 화면에서 SDK 변경·로그 복사·두 경로 비교를 선택할 수 있습니다."
             textSize=13f
@@ -87,13 +87,13 @@ open class SdkFlutterActivity : FlutterActivity() {
                 when (call.method) {
                     "route" -> {
                         val proc=android.app.Application.getProcessName()
-                        result.success(if(proc.endsWith(":hitel_wg128")) "WG128" else "BASELINE")
+                        result.success(if(proc.endsWith(":hitel_gpu3")) "GPU3" else "BASELINE")
                     }
                     "switch" -> {
                         val route=call.argument<String>("route")
                         val target=when(route) {
                             "BASELINE" -> OriginalSdkActivity::class.java
-                            "WG128" -> Wg128SdkActivity::class.java
+                            "GPU3" -> Gpu3SdkActivity::class.java
                             else -> { result.error("UNKNOWN_SDK",route,null); return@setMethodCallHandler }
                         }
                         val proc=android.app.Application.getProcessName()
@@ -108,7 +108,7 @@ open class SdkFlutterActivity : FlutterActivity() {
     }
 }
 class OriginalSdkActivity : SdkFlutterActivity()
-class Wg128SdkActivity : SdkFlutterActivity()
+class Gpu3SdkActivity : SdkFlutterActivity()
 '''
 def update_manifest(m):
     begin=m.index("        <activity\n")
@@ -124,7 +124,7 @@ def update_manifest(m):
         </activity>
 '''
     tail=""
-    for name,proc in (("OriginalSdkActivity","hitel_original"),("Wg128SdkActivity","hitel_wg128")):
+    for name,proc in (("OriginalSdkActivity","hitel_original"),("Gpu3SdkActivity","hitel_gpu3")):
         tail+=f'''        <activity
             android:name="ai.bithuman.example.avatar_chat.{name}"
             android:process=":{proc}"
@@ -205,7 +205,7 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
     try {
       final dir=await _appFilesDir();
       final srcA=File(dir.path+'/hitel_e2_trace_BASELINE.log');
-      final srcB=File(dir.path+'/hitel_e2_trace_WG128.log');
+      final srcB=File(dir.path+'/hitel_e2_trace_GPU3.log');
       final base=await srcA.exists()?await srcA.readAsString():'';
       final wg=await srcB.exists()?await srcB.readAsString():'';
       Map<String,List<String>> records(String raw) {
@@ -236,15 +236,15 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
       final comparison=<String>[
         'Sofia 한국어 10초 Essence2 SDK 비교 로그',
         'BASELINE=원본 lible_jni.so',
-        'WG128=수정 lible_jni_wg128.so (ARM64 4 instructions)',
-        '두 SDK는 동일 APK·PCM·모델·재생 코드이며 Android 분리 프로세스로 동작',
+        'GPU3=원본 lible_jni.so + 실패 시 저용량 GPU 재시도 + 원본 CPU 폴백',
+        '두 모드는 동일 원본 .so·PCM·모델·재생 코드이며 Android 분리 프로세스로 동작',
         'A로그 존재='+base.isNotEmpty.toString()+' B로그 존재='+wg.isNotEmpty.toString(),
-        'stage | BASELINE count/time | WG128 count/time',
+        'stage | BASELINE count/time | GPU3 count/time',
       ];
       for(final stage in allStages)comparison.add(
         stage+' | '+metrics(a[stage]??<String>[])+
         ' | '+metrics(b[stage]??<String>[]));
-      for(final pair in <List<String>>[['BASELINE',base],['WG128',wg]]) {
+      for(final pair in <List<String>>[['BASELINE',base],['GPU3',wg]]) {
         final matches=pair[1].split('\n').where((l)=>
           RegExp(r'(cl_error|-54|exception|error|fail|demot|fallback|stalled|stale|lost=[1-9])',caseSensitive:false)
             .hasMatch(l)).toList();
@@ -258,10 +258,10 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
         }
         comparison.add(pair[0]+' unique_sdk_frame_ordinals='+frames.length.toString());
       }
-      comparison.add('주의: 실제 OpenCL 커널 내부 -54와 GPU→CPU 전환은 별도 logcat 검증 필요');
+      comparison.add('GPU3 상태는 [hitel-gpu3] stage=ORIGINAL_GPU_OK / COMPAT_GPU_OK / COMPAT_GPU_FAILED_ORIGINAL_CPU_FALLBACK 와 SDK의 DEMOTED를 직접 확인');
       final summary=comparison.join('\n');
       final full=summary+'\n\n--- BASELINE RAW EVENTS ---\n'+base+
-        '\n\n--- WG128 RAW EVENTS ---\n'+wg;
+        '\n\n--- GPU3 RAW EVENTS ---\n'+wg;
       final file=File(dir.path+'/hitel_sdk_ab_comparison.txt');
       await file.writeAsString(full,flush:true);
       await Clipboard.setData(ClipboardData(
@@ -309,8 +309,8 @@ def patch_ui(app):
                 Row(mainAxisSize:MainAxisSize.min,children:[
                   TextButton(onPressed:()=>_hitelAbSwitch('BASELINE'),
                     child:const Text('원본 SDK')),
-                  TextButton(onPressed:()=>_hitelAbSwitch('WG128'),
-                    child:const Text('GPU 수정 SDK')),
+                  TextButton(onPressed:()=>_hitelAbSwitch('GPU3'),
+                    child:const Text('GPU 3단 SDK')),
                 ]),
                 FloatingActionButton.small(
                   heroTag:'sdk_ab_copy',tooltip:'현재 SDK 상세 로그 복사',
@@ -345,15 +345,15 @@ def main():
     manifest=a.app/MANIFEST
     manifest.write_text(update_manifest(manifest.read_text()))
     assert "android:process=\":hitel_original\"" in manifest.read_text()
-    assert "android:process=\":hitel_wg128\"" in manifest.read_text()
+    assert "android:process=\":hitel_gpu3\"" in manifest.read_text()
     a.report.parent.mkdir(parents=True,exist_ok=True)
     a.report.write_text(json.dumps({
-      "single_apk":True,"native_variants":["lible_jni.so","lible_jni_wg128.so"],
+      "single_apk":True,"native_variants":["lible_jni.so"],"gpu3":"unmodified-original-elf-with-runtime-OpenCL-compatibility-dispatch",
       "native_loader_binding":"NativeBridge static initializer chooses by process",
-      "android_processes":[":hitel_original",":hitel_wg128"],
+      "android_processes":[":hitel_original",":hitel_gpu3"],
       "switch":"same APK, Android starts other isolated FlutterActivity",
       "same_app_data":True,"preserved_model_and_korean_pcm":True,
-      "persistent_native_logs":["hitel_e2_trace_BASELINE.log","hitel_e2_trace_WG128.log"],
+      "persistent_native_logs":["hitel_e2_trace_BASELINE.log","hitel_e2_trace_GPU3.log"],
       "full_comparison_file":"hitel_sdk_ab_comparison.txt",
       "live_same_process_hot_swap":False,
       "opencl_kernel_exact_workgroups_observed":False
