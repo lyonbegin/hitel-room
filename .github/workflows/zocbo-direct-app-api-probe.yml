@@ -1,0 +1,44 @@
+name: Zocbo direct API endpoint reachability (read-only probe)
+on:
+  push:
+    branches: [research/zocbo-viewer-callgraph-20261123]
+    paths:
+      - .github/workflows/zocbo-direct-app-api-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    steps:
+      - name: Test DNS, HTTPS, GET and unauthenticated request with invalid exam number
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import socket, urllib.request, urllib.error, json, time
+          from urllib.parse import urlsplit
+          hosts=['m.zocbo.com','www.zocbo.com','zocbo.com']
+          for host in hosts:
+              print('HOST',host,flush=True)
+              try:
+                  addr=sorted({x[4][0] for x in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)})
+                  print('DNS',addr[:4],flush=True)
+              except Exception as e:
+                  print('DNS_ERROR',type(e).__name__,str(e)[:250],flush=True)
+                  continue
+              for path,method in [('/app.api.asp','GET'),('/app.api.asp?cmd=VIEWER_FILE_PATH','GET'),('/app.api.asp?cmd=VIEWER_FILE_PATH','POST')]:
+                  url='https://'+host+path
+                  data=json.dumps({'expapr_no':0,'file_type':'Q','short_url':'','pk':'','qr':False,'device':'M'}).encode() if method=='POST' else None
+                  req=urllib.request.Request(url,data=data,method=method,headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0 ZocboEndpointDiagnostic/1.0'})
+                  t=time.time()
+                  try:
+                      with urllib.request.urlopen(req,timeout=8) as r:
+                          raw=r.read(550)
+                          print('RESULT',method,url,'STATUS',r.status,'MIME',r.headers.get('Content-Type'),'ELAPSED',round(time.time()-t,2),'BODY',raw.decode('utf-8','replace')[:400].replace('\n','\\n'),flush=True)
+                  except urllib.error.HTTPError as e:
+                      raw=e.read(550)
+                      print('HTTP_ERROR',method,url,'STATUS',e.code,'MIME',e.headers.get('Content-Type'),'ELAPSED',round(time.time()-t,2),'BODY',raw.decode('utf-8','replace')[:400].replace('\n','\\n'),flush=True)
+                  except Exception as e:
+                      print('NETWORK_ERROR',method,url,type(e).__name__,str(e)[:250],'ELAPSED',round(time.time()-t,2),flush=True)
+          PY
