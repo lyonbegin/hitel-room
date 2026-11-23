@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/zocbo-pdf-api-trace-20261123
+      - fix/zocbo-r14-durable-region-checkpoint-20261124
     paths:
       - .github/workflows/zocbo-pdf-api-trace-apk.yml
       - scripts/zocbo_diagnostic/**
@@ -227,7 +228,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"COLLECTOR_ACTIVITY_READY",b"COLLECTOR_PAGE_SAVED",b"COLLECTOR_EXPORT_OK",b"zocbo_exam_metadata_v1.db",b"COLLECTOR_ORIGINAL_PAGE1_SAVED",b"COLLECTOR_SCOPE_INCOMPLETE",b"original-page-snapshot",b"COLLECTOR_ORIGINAL_AREA_CAPTURED",b"COLLECTOR_AREA_CHOICES",b"COLLECTOR_AREA_SET_READY",b"COLLECTOR_NATIONWIDE_DISCOVERY_START"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"COLLECTOR_ACTIVITY_READY",b"COLLECTOR_PAGE_SAVED",b"COLLECTOR_EXPORT_OK",b"zocbo_exam_metadata_v1.db",b"COLLECTOR_ORIGINAL_PAGE1_SAVED",b"COLLECTOR_SCOPE_INCOMPLETE",b"original-page-snapshot",b"COLLECTOR_ORIGINAL_AREA_CAPTURED",b"COLLECTOR_AREA_CHOICES",b"COLLECTOR_AREA_SET_READY",b"COLLECTOR_NATIONWIDE_DISCOVERY_START",b"COLLECTOR_AREA_PERSISTED",b"area_scopes"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
@@ -257,9 +258,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
-          test -s work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
-          sha256sum work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Durable_Region_Collector_R14_TEST_20261124.apk
+          test -s work/Zocbo_4.3.11_Durable_Region_Collector_R14_TEST_20261124.apk
+          sha256sum work/Zocbo_4.3.11_Durable_Region_Collector_R14_TEST_20261124.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -273,11 +274,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-emulator-direct-collector-20261124-r13-test
-          APK=work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
+          TAG=zocbo-durable-region-checkpoint-20261124-r14-test
+          APK=work/Zocbo_4.3.11_Durable_Region_Collector_R14_TEST_20261124.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo R13 TEST - Direct in-app Collector Activity emulator entry (not validated live)" \
-            --notes "TEST ONLY, NOT VERIFIED FOR REAL SERVER DATA. For offline Android emulator UI testing, NativePdfEntryActivity is exported temporarily so ADB can launch it with --ez com.hitel.zocbodiag.COLLECT_METADATA true without the original network-dependent MainActivity initialization. Includes R11 two-column original region selection, R12 no dynamic API interceptor proxy, local SQLite metadata storage and CSV/JSON system file export. Do not treat as a successful nationwide collector. Original m.zocbo.com is unreachable from the CI runner." \
+            --title "Zocbo R14 TEST - Durable region metadata checkpoint and resume (not live verified)" \
+            --notes "TEST BUILD, NOT VERIFIED AGAINST LIVE SERVER. R14 extends R13: each discovered school-region scope and its observed first-page exam IDs are persisted immediately in SQLite v2; pause and restart reload the last saved region index and original selector labels; CSV/JSON export includes all committed records. Existing SQLite v1 exams are preserved on upgrade. The original app viewer path is unchanged. Real nationwide coverage remains unverified." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -291,7 +292,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
+            work/Zocbo_4.3.11_Durable_Region_Collector_R14_TEST_20261124.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
