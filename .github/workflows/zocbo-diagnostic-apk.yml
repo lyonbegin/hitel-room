@@ -4,6 +4,7 @@ on:
     branches:
       - feature/zocbo-diagnostic-apk-20261123
       - research/zocbo-network-failure-20261123
+      - feature/zocbo-threeview-modal-webview-probe-20261123
     paths:
       - .github/workflows/zocbo-diagnostic-apk.yml
       - scripts/zocbo_diagnostic/**
@@ -155,11 +156,11 @@ jobs:
           test -s work/zocbo-networkfix-merged-unsigned.apk
           SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-networkfix-merged-unsigned.apk work/zocbo-networkfix-merged-aligned.apk
-          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/zocbo-networkfix-merged-aligned.apk
-          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk work/zocbo-networkfix-merged-aligned.apk
+          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk
           python3 - <<'PY'
           import zipfile,subprocess,pathlib
-          p="work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk"
+          p="work/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk"
           with zipfile.ZipFile(p) as z:
             libs=[x for x in z.namelist() if x.startswith("lib/arm64-v8a/") and x.endswith(".so")]
             dex=[x for x in z.namelist() if x.startswith("classes") and x.endswith(".dex")]
@@ -175,7 +176,7 @@ jobs:
           assert "isSplitRequired" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: isSplitRequired found"
           print("UNIVERSAL_APK_READY_FOR_ADB_INSTALL_TEST",p,flush=True)
           PY
-          sha256sum work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk >> work/SHA256SUMS.txt
+          sha256sum work/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk >> work/SHA256SUMS.txt
       - name: Check diagnostic signatures embedded into resulting APK
         shell: bash
         run: |
@@ -202,7 +203,7 @@ jobs:
           path: |
             work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
             work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk
-            work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+            work/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk
             work/network-preflight-fix.json
             work/network-patch-log.txt
             work/universal-merge-log.txt
