@@ -1,0 +1,50 @@
+name: IXIO original speechSDK exact method verification
+on:
+  push:
+    branches: [fix/ixio-standalone-original-stt-final-20261123]
+    paths: ['.github/workflows/ixio-original-speechsdk-exact-verify-20261123.yml']
+  workflow_dispatch:
+permissions: {contents: read, actions: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env: {GH_TOKEN: "${{ github.token }}"}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact original SDK and usage from original IXIO APK
+        run: |
+          set -euo pipefail
+          mkdir -p input tool out
+          gh run download 43799320393 -R lyonbegin/hitel-room -n IXIO_Main_NoAppSealing_Single_APK -D input
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tool/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tool/baksmali.jar' | sha256sum -c -
+          for num in 16 18 6; do
+            unzip -p input/IXIO_Main_NoAppSealing_Single.apk classes$num.dex > out/classes$num.dex
+            java -Xmx2600m -jar tool/baksmali.jar d --api 34 --jobs 3 -o out/smali$num out/classes$num.dex
+          done
+          for path in             out/smali16/com/lguplus/ixispeech_ktn/speechSDK.smali             out/smali18/com/lguplus/aicallagent/data/call/ai/SpeechToTextRepositoryImpl.smali             out/smali6/com/k2fsa/sherpa/onnx/CombinedSTTKWS.smali;do
+            cp "$path" out/"$(basename "$(dirname "$path")")-$(basename "$path")"
+            echo METHOD_SOURCE_PATH "$path"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          a=Path("out/ixispeech_ktn-speechSDK.smali").read_text()
+          for t in ("loadSTT","loadVAD","loadADV","SpeechInference","release"):
+            for m in re.finditer(r"(?ms)^\\.method[^\\n]* "+t+r"\\([^\\n]*\\n.*?^\\.end method",a):
+              s=m.group()
+              print("=== SDK METHOD",s.splitlines()[0])
+              print(s[:18000])
+          b=Path("out/ai-SpeechToTextRepositoryImpl.smali").read_text()
+          for t in ("loadSTT","loadVAD","loadADV"):
+            for m in list(re.finditer(r".*"+t+r".*",b)):
+              print("=== REPOSITORY call",t,b[max(0,m.start()-650):min(len(b),m.end()+550)])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-Original-SpeechSDK-Exact-Smali-20261123
+          path: |
+            out/ixispeech_ktn-speechSDK.smali
+            out/ai-SpeechToTextRepositoryImpl.smali
+            out/onnx-CombinedSTTKWS.smali
