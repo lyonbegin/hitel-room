@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/hitel-essence2-main
+      - fix/essence2-restore-e048-swap-real-wg128-20261123
     paths:
       - .github/workflows/essence2-sofia-embedded-android15-offline.yml
       - tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py
@@ -255,7 +256,7 @@ jobs:
             | tee essence2-local-mock-proof/native-loader-asm-proof.txt
           # Actual 2026-11-22 released SDK artifact, NEVER regenerate the GPU ELF.
           mkdir -p "$SDK/historical-gpu"
-          gh release download hitel-essence2-wg128-wav-pull-bf7290b661 \
+          GH_TOKEN="${{ github.token }}" gh release download hitel-essence2-wg128-wav-pull-bf7290b661 \
             --repo lyonbegin/hitel-room \
             --pattern 'HITEL_Essence2_WG128_WavPull_ARM64.apk' \
             --dir "$SDK/historical-gpu"
