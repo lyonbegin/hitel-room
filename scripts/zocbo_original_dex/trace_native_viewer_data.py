@@ -6,9 +6,9 @@ src=Path("/tmp/zocbo_jadx/sources")
 out=Path("evidence/zocbo-viewer-callgraph")
 out.mkdir(parents=True,exist_ok=True)
 core=[
-"p229y3/Y0.java","p229y3/T0.java","p079i3/Q0.java","p079i3/z0.java",
+"p229y3/Y0.java","p229y3/T0.java","p229y3/R0.java","p229y3/P0.java","p229y3/Q0.java","p229y3/S0.java","p229y3/U0.java","p079i3/Q0.java","p079i3/z0.java",
 "p079i3/P0.java","p079i3/I0.java","p203v3/P.java","p203v3/Y.java",
-"A3/x0.java","com/eduzone/eduzoneviewer/repository/S.java",
+"A3/x0.java","com/eduzone/eduzoneviewer/repository/S.java","com/eduzone/eduzoneviewer/repository/I.java","com/eduzone/eduzoneviewer/repository/z.java","A3/c0.java",
 "com/eduzone/eduzoneviewer/repository/T.java",
 ]
 terms=[
