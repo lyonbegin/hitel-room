@@ -5,6 +5,7 @@ on:
       - fix/zocbo-r16-real-capture-sqlite-proof-20261124
     paths:
       - .github/workflows/zocbo-r16-android-sqlite-qa.yml
+      - .github/qa/zocbo_r16_real_capture_sqlite.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -59,6 +60,7 @@ jobs:
             python3 -u .github/qa/zocbo_r16_real_capture_sqlite.py | tee work/r16-sqlite-evidence/runtime.txt
             grep -q 'R16_ANDROID_SQLITE_REOPEN_10_PERSISTED_PASS' work/r16-sqlite-evidence/runtime.txt
             grep -q 'R16_CAPTURED_USER_HTML_APP_SQLITE_AND_CSV_PASS count=10 live_server_verified=False' work/r16-sqlite-evidence/runtime.txt
+            grep -q 'R16_REAL_EXPORTED_CSV_CONTENT_MATCHES_ORIGINAL_CAPTURE_PASS' work/r16-sqlite-evidence/runtime.txt
       - name: Upload real ADB logcat, screenshots, UI XML, and export verification results
         if: always()
         uses: actions/upload-artifact@v4
