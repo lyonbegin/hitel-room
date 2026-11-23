@@ -201,6 +201,42 @@ public final class NetTrace {
       event(context,"BODY_PREFIX_REDACTED",safeText(trunc(input,800)));
     }
   }
+  /**
+   * Gets the six values directly from the ORIGINAL Gson-annotated ReqPdfPath
+   * model constructor, immediately before the original Retrofit invocation.
+   * No Okio dependency, no network-body replay, and no request mutation.
+   * The requested JSON field names come from original @SerializedName.
+   */
+  public static void requestModel(Object request) {
+    if(request==null){event("VIEWER_MODEL_REQUEST","ERROR","null original request");return;}
+    try {
+      JSONObject model=new JSONObject();
+      int count=0;
+      for(Field f:request.getClass().getDeclaredFields()) {
+        String name=null;
+        for(java.lang.annotation.Annotation annotation:f.getDeclaredAnnotations()) {
+          if("com.google.gson.annotations.SerializedName".equals(annotation.annotationType().getName())) {
+            name=String.valueOf(annotation.annotationType().getMethod("value").invoke(annotation));
+            break;
+          }
+        }
+        if(name==null)continue;
+        if(!("expapr_no".equals(name)||"file_type".equals(name)||
+             "short_url".equals(name)||"pk".equals(name)||
+             "qr".equals(name)||"device".equals(name)))continue;
+        f.setAccessible(true);
+        Object value=f.get(request);
+        model.put(name,value==null?JSONObject.NULL:value);
+        count++;
+      }
+      String raw=model.toString();
+      event("VIEWER_MODEL_REQUEST","FIELD_COUNT",String.valueOf(count));
+      event("VIEWER_MODEL_REQUEST","RUNTIME_CLASS",request.getClass().getName());
+      jsonDetails("VIEWER_MODEL_REQUEST",raw);
+      if(count==6)Diag.rawPdf("VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",raw);
+      else event("VIEWER_MODEL_REQUEST","EXPECTED_SIX_FIELDS_MISSING","captured="+count+" (model not modified)");
+    }catch(Throwable t){event("VIEWER_MODEL_REQUEST","REFLECTION_ERROR",cause(t));}
+  }
   private static String requestBody(Object body)throws Throwable {
     if(body==null)return "[no body]";
     Class<?> cls=Class.forName("okhttp3.RequestBody");
@@ -235,9 +271,11 @@ public final class NetTrace {
       event(ctx,"REQUEST_HEADERS",headerLines(headers));
       Object body=zero(requestClass,req,"body");
       if(viewerPath){
-        String json=requestBody(body);
-        Diag.rawPdf("VIEWER_FILE_PATH_REQUEST_JSON_ORIGINAL",json);
-        jsonDetails(ctx+"_REQUEST",json);
+        event(ctx,"REQUEST_MODEL_ORIGIN","Captured at original six-field ReqPdfPath constructor; no Okio request-body replay");
+        if(body!=null){
+          Object len=zero(Class.forName("okhttp3.RequestBody"),body,"contentLength");
+          event(ctx,"REQUEST_BODY_BYTES",String.valueOf(len));
+        }
       }else if(body!=null){
         Object len=zero(Class.forName("okhttp3.RequestBody"),body,"contentLength");
         event(ctx,"REQUEST_BODY_BYTES",String.valueOf(len));
