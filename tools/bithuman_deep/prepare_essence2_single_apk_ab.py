@@ -202,6 +202,10 @@ def patch_trace(plugin):
     t=once(t,'    private const val TAG = "HITEL_E2TRACE"\n',
       '    private const val TAG = "HITEL_E2TRACE"\n    private val ROUTE get() = HitelSdkLoader.route()\n',"trace-route")
     t=once(t,"12L * 1024L * 1024L","16L * 1024L * 1024L","trace-limit")
+    t=once(t,"    fun init(context: Context) {\n        if (!started.compareAndSet(false, true)) return",
+      "    fun init(context: Context) {\n        if (ROUTE == \"BASELINE\") return\n        if (!started.compareAndSet(false, true)) return","baseline-no-log-file")
+    t=once(t,"    fun event(stage: String, vararg fields: Pair<String, Any?>) {\n",
+      "    fun event(stage: String, vararg fields: Pair<String, Any?>) {\n        if (ROUTE == \"BASELINE\") return\n","baseline-no-logging")
     t=once(t,"120000L","350000L","trace-count")
     t=once(t,'val output = File(folder, "hitel_e2_trace.log")',
       'val output = File(folder, "hitel_e2_trace_" + ROUTE + ".log")',"trace-file")
