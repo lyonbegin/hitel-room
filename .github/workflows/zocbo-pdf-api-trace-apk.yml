@@ -1,0 +1,258 @@
+name: Zocbo Native PDF API Diagnostic APK Build
+on:
+  push:
+    branches:
+      - feature/zocbo-diagnostic-apk-20261123
+      - research/zocbo-network-failure-20261123
+    paths:
+      - .github/workflows/zocbo-pdf-api-trace-apk.yml
+      - scripts/zocbo_diagnostic/**
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-original-diagnostic-apk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified, original user XAPK (abort unless exact original SHA256)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 scripts/zocbo_original_dex/download_verified_xapk.py work/source
+          python3 - <<'PY'
+          import zipfile,hashlib,pathlib,json
+          src=pathlib.Path("work/source/jokbo.xapk")
+          assert hashlib.sha256(src.read_bytes()).hexdigest()=="d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5"
+          with zipfile.ZipFile(src) as z:
+            apk=[x for x in z.infolist() if x.filename.endswith(".apk")]
+            print("APK_ENTRIES",[(x.filename,x.file_size) for x in apk],flush=True)
+            base=sorted(apk,key=lambda x:("base" not in x.filename.lower() and "eduzoneviewer.apk" not in x.filename.lower(),-x.file_size))[0]
+            pathlib.Path("work/original-base.apk").write_bytes(z.read(base))
+            print("ORIGINAL_BASE",base.filename,base.file_size,flush=True)
+          PY
+      - name: Install APKTool and baksmali utilities
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool
+          apktool --version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -d "$ANDROID_HOME"/build-tools/* | tail -5
+      - name: Decode original APK without rewriting resource table
+        run: |
+          set -euxo pipefail
+          apktool d -f -r -o work/decoded work/original-base.apk
+          find work/decoded -name 'MainActivity.smali' -o -name 'WebAppInterface.smali' -o -name 'CommonWebviewActivity.smali' | head -30
+      - name: Inspect exact original Smali network threshold and split APKs
+        run: python3 -u scripts/zocbo_diagnostic/inspect_universal.py
+      - name: Compile standalone Android diagnostic class to Smali
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK_PLATFORM="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/classes work/diag-dex
+          javac -source 8 -target 8 -Xlint:-options -cp "$SDK_PLATFORM/android.jar" -d work/classes scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/Diag.java
+          "$SDK_BUILD/d8" --min-api 23 --lib "$SDK_PLATFORM/android.jar" --output work/diag-dex $(find work/classes -name '*.class')
+          file work/diag-dex/classes.dex
+      - name: Patch original native functions and build instrumented app
+        run: |
+          set -euxo pipefail
+          python3 -u scripts/zocbo_diagnostic/patch_smali.py work/decoded work/diag-patch-report.json | tee work/patch-log.txt
+          python3 -u scripts/zocbo_diagnostic/fix_network_preflight.py work/decoded work/network-preflight-fix.json | tee work/network-patch-log.txt
+          python3 -u scripts/zocbo_diagnostic/patch_pdf_api_smali.py work/decoded work/pdf-api-patch-report.json | tee work/pdf-api-patch-log.txt
+          apktool b -o work/zocbo-unzipaligned.apk work/decoded
+          python3 - <<'PY'
+          import zipfile,re
+          apk="work/zocbo-unzipaligned.apk"
+          with zipfile.ZipFile(apk,"a") as z:
+            ids=[int(m.group(1) or "1") for n in z.namelist() if (m:=re.fullmatch(r"classes(\d*)\.dex",n))]
+            assert ids,"original APK has no classes.dex"
+            nextid=max(ids)+1
+            name=f"classes{nextid}.dex"
+            z.write("work/diag-dex/classes.dex",name,compress_type=zipfile.ZIP_STORED)
+            print("DIAGNOSTIC_NEW_MULTIDEX",name,"ORIGINAL_DEX_COUNT",len(ids),flush=True)
+          PY
+      - name: Zipalign, sign test build and verify test signature
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-unzipaligned.apk work/zocbo-aligned.apk
+          keytool -genkeypair -keystore work/diagnostic.jks -alias diagnostic -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=HITEL Diagnostic Test,O=Diagnostic,C=KR" -noprompt
+          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk work/zocbo-aligned.apk
+          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+          sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk | tee work/SHA256SUMS.txt
+          file work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+      - name: Sign the three original split APKs with the same diagnostic certificate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/original-splits work/signed-splits
+          python3 - <<'PY'
+          import zipfile,pathlib
+          with zipfile.ZipFile("work/source/jokbo.xapk") as z:
+            for name in z.namelist():
+              if name.endswith(".apk") and pathlib.PurePosixPath(name).name != "com.eduzone.eduzoneviewer.apk":
+                p=pathlib.Path("work/original-splits")/pathlib.PurePosixPath(name).name
+                p.write_bytes(z.read(name))
+                print("SPLIT_FOUND",name,p.stat().st_size)
+          PY
+          for apk in work/original-splits/*.apk; do
+            [ -f "$apk" ] || continue
+            name="$(basename "$apk")"
+            "$SDK_BUILD/zipalign" -f -p 4 "$apk" "work/signed-splits/aligned-$name"
+            "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out "work/signed-splits/$name" "work/signed-splits/aligned-$name"
+            "$SDK_BUILD/apksigner" verify --verbose "work/signed-splits/$name"
+          done
+      - name: Create installable modified XAPK retaining original split filenames and manifest
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import zipfile,pathlib,json
+          src="work/source/jokbo.xapk"
+          dst="work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk"
+          base=pathlib.Path("work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk")
+          with zipfile.ZipFile(src) as old, zipfile.ZipFile(dst,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=5) as new:
+            for item in old.infolist():
+              name=item.filename
+              if name.endswith(".apk"):
+                replacement=base if pathlib.PurePosixPath(name).name=="com.eduzone.eduzoneviewer.apk" else pathlib.Path("work/signed-splits")/pathlib.PurePosixPath(name).name
+                assert replacement.exists(),name
+                payload=replacement.read_bytes()
+                print("PACK_SIGNED_APK",name,len(payload))
+              else:
+                payload=old.read(item)
+                if name=="manifest.json":
+                  try:
+                    obj=json.loads(payload)
+                    print("ORIGINAL_XAPK_MANIFEST_KEYS",list(obj))
+                    if "total_size" in obj:
+                      obj["total_size"]=base.stat().st_size + sum(p.stat().st_size for p in pathlib.Path("work/signed-splits").glob("*.apk") if not p.name.startswith("aligned-"))
+                    payload=json.dumps(obj,ensure_ascii=False,indent=2).encode("utf-8")
+                  except Exception as e:print("MANIFEST_METADATA_UNCHANGED",e)
+              new.writestr(name,payload)
+          with zipfile.ZipFile(dst) as f:
+            print("SIGNED_XAPK_FINAL_ENTRIES",[(x.filename,x.file_size) for x in f.infolist() if x.filename.endswith(".apk")])
+          PY
+          sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk >> work/SHA256SUMS.txt
+      - name: Merge original four split APKs into ONE installable APK with APKEditor
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fLsS --retry 3 --connect-timeout 15 --max-time 100 -o /tmp/APKEditor-1.4.9.jar https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar
+          java -jar /tmp/APKEditor-1.4.9.jar m -i work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk -o work/zocbo-networkfix-merged-unsigned.apk | tee work/universal-merge-log.txt
+          test -s work/zocbo-networkfix-merged-unsigned.apk
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-networkfix-merged-unsigned.apk work/zocbo-networkfix-merged-aligned.apk
+          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/zocbo-networkfix-merged-aligned.apk
+          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+          python3 - <<'PY'
+          import zipfile,subprocess,pathlib
+          p="work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk"
+          with zipfile.ZipFile(p) as z:
+            libs=[x for x in z.namelist() if x.startswith("lib/arm64-v8a/") and x.endswith(".so")]
+            dex=[x for x in z.namelist() if x.startswith("classes") and x.endswith(".dex")]
+            assert libs, "NO_ARM64_LIBRARIES_IN_UNIVERSAL_APK"
+            assert len(dex)>=4, "DIAGNOSTIC_DEX_MISSING"
+            print("UNIVERSAL_ARM64_LIBRARY_COUNT",len(libs),flush=True)
+            print("UNIVERSAL_DEX",dex,flush=True)
+          result=subprocess.run(["aapt","dump","xmltree",p,"AndroidManifest.xml"],capture_output=True,text=True,check=True)
+          manifest=result.stdout
+          print("UNIVERSAL_MANIFEST_SPLIT_FLAGS", [(x,x in manifest) for x in ("requiredSplitTypes","splitTypes","com.android.vending.splits.required")],flush=True)
+          assert "requiredSplitTypes" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: requiredSplitTypes found"
+          assert "com.android.vending.splits.required" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: required metadata present"
+          assert "isSplitRequired" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: isSplitRequired found"
+          print("UNIVERSAL_APK_READY_FOR_ADB_INSTALL_TEST",p,flush=True)
+          PY
+          sha256sum work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk >> work/SHA256SUMS.txt
+      - name: Check diagnostic signatures embedded into resulting APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import zipfile
+          p="work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk"
+          with zipfile.ZipFile(p) as f:
+            dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
+            print("DEX_COUNT",len(dex))
+            assert dex
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH_REQUEST_JSON",b"PDF_DOWNLOAD_REQUEST_URL_FULL"]:
+              ok=any(needle in f.read(d) for d in dex)
+              print("DIAG_MARKER",needle.decode(),ok)
+              if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
+          PY
+      - name: Upload APK and real patch logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-${{ github.run_number }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+            work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk
+            work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+            work/network-preflight-fix.json
+            work/network-patch-log.txt
+            work/universal-merge-log.txt
+            work/diag-patch-report.json
+            work/pdf-api-patch-report.json
+            work/pdf-api-patch-log.txt
+            work/patch-log.txt
+            work/SHA256SUMS.txt
+            work/source/source_verification.json
+
+      - name: Copy standalone APK to PDF-specific release filename and verify present
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Native_PDF_API_Trace_20261123.apk
+          test -s work/Zocbo_4.3.11_Native_PDF_API_Trace_20261123.apk
+          sha256sum work/Zocbo_4.3.11_Native_PDF_API_Trace_20261123.apk
+          python3 - <<'PY'
+          import json
+          j=json.load(open("work/pdf-api-patch-report.json"))
+          for k in ("api_builder","pdf_builder","model_pdf_path"):
+            assert sum(x["hook_count"] for x in j[k])==1, (k,j)
+          print("NATIVE_PDF_API_LOG_HOOKS_VERIFIED",j,flush=True)
+          PY
+      - name: Publish new standalone diagnostic APK to external GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-native-pdf-api-trace-20261123
+          APK=work/Zocbo_4.3.11_Native_PDF_API_Trace_20261123.apk
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+            --title "Zocbo original 4.3.11(2) Native PDF API/GET Trace" \
+            --notes "Unmodified original hash-verified XAPK as input. Instrumented its own OkHttp clients at Hilt Retrofit and viewer PDF download, logging full VIEWER_FILE_PATH URL, JSON request and response, pdf_path, PDF GET URL, HTTP codes, content types, response sizes and errors into existing on-screen copy/share/clear log. No request rewriting or authentication bypass. Unofficial test APK re-signed with test key; uninstalling original to install may erase app data. Runtime actual server responses require testing in an authorized session." \
+            "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
+          mkdir -p work/release-recheck
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
+          test "$(sha256sum "$APK" | cut -d ' ' -f1)" = "$(sha256sum "work/release-recheck/$(basename "$APK")" | cut -d ' ' -f1)"
+          echo EXTERNAL_HTTPS_APK_DOWNLOAD_BYTES_VERIFIED
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{url:.url,assets:[.assets[]|{name:.name,size:.size,url:.url}]}'
+      - name: Upload final new APK and PDF hook proof (includes artifacts even if publish fails)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-native-pdf-api-trace-apk
+          retention-days: 14
+          path: |
+            work/Zocbo_4.3.11_Native_PDF_API_Trace_20261123.apk
+            work/pdf-api-patch-report.json
+            work/pdf-api-patch-log.txt
+            work/SHA256SUMS.txt
