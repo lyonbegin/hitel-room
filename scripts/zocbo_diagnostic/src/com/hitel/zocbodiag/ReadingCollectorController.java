@@ -176,6 +176,13 @@ public final class ReadingCollectorController {
         }
       }
       @Override public void onReceivedError(WebView w,int code,String description,String failingUrl){
+        Diag.log("COLLECTOR_ORIGIN_WEB_ERROR",
+          "code="+code+" selector="+ReadingAreaSelector.isSelector(failingUrl));
+        if(discovering && ReadingAreaSelector.isSelector(failingUrl)) {
+          stopDiscovery("원본 지역 선택기 접속 오류("+code+"): "+
+            ReadingCollectorStore.sanitize(description,100));
+          return;
+        }
         showStatus("열람실 WebView 오류: "+code+" "+description);
       }
     });
@@ -209,7 +216,8 @@ public final class ReadingCollectorController {
           if(list.length()==0){
             if(++selectorRetries<4){
               ui.postDelayed(()->scanOriginalAreaChoices(),1100);
-            }else stopDiscovery("원본 지역 선택기의 ‘전체’ 항목을 찾지 못했습니다. 잘못된 임의 지역 검색은 하지 않습니다.");
+            }else stopDiscovery("원본 지역 선택기 로딩 후 '.region .tab__button[data-order]'와 "+
+              "짝이 맞는 '.region .tab__content[data-order]'가 없습니다. UI 구조 진단 후 중단합니다.");
             return;
           }
           if(discoveryIndex>=list.length()){
@@ -277,10 +285,18 @@ public final class ReadingCollectorController {
           if(discovering&&awaitingAreaSnapshot){
             awaitingAreaSnapshot=false;
             if(!SCHOOL_LEVELS[discoverySiteIndex].equals(currentSite)||
-                currentSchool.isEmpty()||currentCity.isEmpty()){
-              stopDiscovery("‘"+lastAreaName+" 전체’ 조회 결과에서 학교 목록·시도 정보가 누락됐습니다. 원본 값을 임의로 만들지 않습니다.");
+                (currentCity.isEmpty()&&currentFilter.isEmpty())){
+              stopDiscovery("‘"+lastAreaName+" 전체’ 조회 결과에서 "+
+                "원본 지역 정보가 확인되지 않았습니다. 임의 지역코드는 사용하지 않습니다.");
               return;
             }
+            // Kind=REGION may include an automatically supplied pipe-delimited
+            // Scl_ID. Preserve it when present, but don't demand the user
+            // select individual schools or fabricate missing server values.
+            Diag.log("COLLECTOR_AREA_SCOPE",
+              "city_present="+!currentCity.isEmpty()+
+              " filter_present="+!currentFilter.isEmpty()+
+              " original_school_ids="+(currentSchool.isEmpty()?0:currentSchool.split("\\|").length));
             AreaScope found=new AreaScope(lastAreaName,currentSite,currentSchool,
               currentCity,currentDistrict,currentFilter,currentPaid,currentGrade,
               currentYear,currentTerm,currentSubject,currentRows);
@@ -347,7 +363,7 @@ public final class ReadingCollectorController {
     if(!discovering||destroyed)return;
     if(discoverySiteIndex>=SCHOOL_LEVELS.length){finishAreaDiscovery();return;}
     loaded=false;scopeReady=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
-    String url=ReadingAreaSelector.page(SCHOOL_LEVELS[discoverySiteIndex]);
+    String url=ReadingAreaSelector.page(sourceUrl,SCHOOL_LEVELS[discoverySiteIndex],discoverToYear);
     Diag.log("COLLECTOR_OPEN_ORIGINAL_REGION_SELECTOR",
       "site="+SCHOOL_LEVELS[discoverySiteIndex]+" index="+discoveryIndex);
     web.loadUrl(url);
@@ -377,7 +393,7 @@ public final class ReadingCollectorController {
     }
     // Build a stable order from exactly the source-delivered region choices.
     // No user-selected school ID and no blank / guessed geography parameters.
-    jobs.clear();StringBuilder seed=new StringBuilder("R10|"+discoverFromYear+"|"+discoverToYear+"|");
+    jobs.clear();StringBuilder seed=new StringBuilder("R14|"+discoverFromYear+"|"+discoverToYear+"|");
     for(AreaScope region:originalAreas){
       seed.append(region.fingerprint()).append(';');
       for(int y=discoverToYear;y>=discoverFromYear;y--)
