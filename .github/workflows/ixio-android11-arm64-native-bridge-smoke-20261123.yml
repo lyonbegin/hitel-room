@@ -1,4 +1,4 @@
-name: IXIO original arm64 runtime Android emulator smoke
+name: IXIO original arm64 runtime Android15 emulator JNI verification
 on:
   push:
     branches: [fix/ixio-stt-original-online-stream-deps-20261123]
@@ -75,7 +75,7 @@ jobs:
       - run: test -c /dev/kvm && sudo chmod a+rw /dev/kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_6
