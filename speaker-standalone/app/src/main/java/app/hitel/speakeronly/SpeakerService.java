@@ -15,7 +15,7 @@ import android.util.Log;
 import android.telephony.TelephonyManager;
 import java.io.IOException;
 
-/** Background call recording watcher with direct 16kHz PCM to Sherpa Korean STT. */
+/** Background call recording watcher with direct 16kHz PCM to the original IXIO speechSDK. */
 public final class SpeakerService extends Service {
   static final String START="app.hitel.speakeronly.START";
   static final String STOP="app.hitel.speakeronly.STOP";
@@ -109,7 +109,7 @@ public final class SpeakerService extends Service {
     restartAfterCleanup=false;
     SamsungRecordAccessibility.cancelRequest();
     journal.event("TELEPHONY","CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION",
-        "folderUri",folderUri.toString(),"modelIncludedInApk",true);
+        "folderUri",folderUri.toString(),"modelIncludedInApk",false);
     launchSession(true);
     // OFFHOOK is the first real opportunity to start Samsung recording.
     // Arm Accessibility immediately; never equate a UI click with recording.
@@ -159,7 +159,7 @@ public final class SpeakerService extends Service {
         .putString("lastRunId",session.id()).apply();
     session.event("CONTROL",callTriggered?"OFFHOOK_SESSION_STARTED":"MANUAL_DIAGNOSTIC_SESSION_STARTED",
         "callTriggered",callTriggered,"sourceUri",folderUri.toString(),
-        "sttProcessStarted",true,"sttRoute","M4A_PCM_TO_ZIPFORMER");
+        "sttProcessStarted",true,"sttRoute","M4A_PCM_TO_IXIO_SPEECHSDK");
     final SpeakerEngine[] holder=new SpeakerEngine[1];
     SpeakerEngine task=new SpeakerEngine(this,session,(message,finished)->{
       if(!finished){send(message,false);return;}
@@ -274,8 +274,8 @@ public final class SpeakerService extends Service {
        PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
     Notification note=new Notification.Builder(this,CHANNEL)
         .setSmallIcon(android.R.drawable.ic_media_play)
-        .setContentTitle("통화 녹음 → 16kHz 한국어 STT")
-        .setContentText("AAC → PCM 직접 한국어 Zipformer 인식 · 스피커 재생 없음")
+        .setContentTitle("통화 녹음 → IXIO 원본 STT")
+        .setContentText("AAC → PCM → IXIO 원본 speechSDK 인식 · 스피커 재생 없음")
         .setOngoing(true).setContentIntent(view)
         .addAction(android.R.drawable.ic_media_pause,"중지",stop).build();
     if(Build.VERSION.SDK_INT>=29)
