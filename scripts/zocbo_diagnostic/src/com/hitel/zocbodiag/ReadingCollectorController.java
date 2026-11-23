@@ -59,6 +59,9 @@ public final class ReadingCollectorController {
   private final List<Job> jobs=new ArrayList<>();
   private String sourceUrl,runKey="",scope="ALL_UNVERIFIED";
   private String currentSchool="",currentCity="",currentDistrict="",currentFilter="";
+  private String currentSite="",currentGrade="",currentYear="",currentTerm="",currentSubject="",currentPaid="N";
+  private JSONArray currentRows=new JSONArray();
+  private boolean scopeReady=false;
   private boolean loaded=false,running=false,destroyed=false,requestPending=false;
   private ReadingCollectorStore.Progress progress=new ReadingCollectorStore.Progress();
   private String previousPageSignature="";
@@ -99,7 +102,7 @@ public final class ReadingCollectorController {
     scroll.addView(root);
     root.addView(text("기출 열람실 시험지 목록 수집",21));
     root.addView(text("PDF는 열거나 저장하지 않습니다. 시험지 번호와 목록 정보만 앱 내부 SQLite에 저장하며, 수집한 내용은 CSV/JSON으로 직접 내보낼 수 있습니다.",13));
-    root.addView(text("전체 조건 탐색: 지역/학교 미지정 검색이 전국 전체 자료를 반환하는지는 확인 전입니다. 서버가 제공한 결과만 저장하며, 전체 수집이 보장된 것으로 표시하지 않습니다.",12));
+    root.addView(text("원본 지역·학교 ID 및 첫 페이지 목록을 원본 previousExam.asp에서 직접 읽습니다. 현재 화면의 지역에 포함된 학교만 탐색하며 전국 완료로 오인하지 않습니다.",12));
 
     LinearLayout yr=new LinearLayout(a);yr.setOrientation(LinearLayout.HORIZONTAL);
     startYear=new EditText(a);startYear.setSingleLine(true);
@@ -111,9 +114,9 @@ public final class ReadingCollectorController {
     endYear.setText("2026");endYear.setHint("마지막 연도");
     yr.addView(endYear,new LinearLayout.LayoutParams(0,dp(48),1f));
     root.addView(yr);
-    root.addView(text("연도 범위는 수정 가능합니다. 전체 탐색은 중·고등 / 학년 / 연도 / 4개 시험구분 / 10개 과목 코드를 순차 조회합니다.",12));
+    root.addView(text("연도 범위는 수정 가능합니다. 화면에서 선택된 중/고등 학교군과 지역의 학년·연도·4개 시험구분·10개 과목을 순차 조회합니다.",12));
 
-    button("전체 조건 수집 시작 / 이어하기",root,()->start(false));
+    button("현재 지역·학교 전 조건 수집 / 이어하기",root,()->start(false));
     button("현재 열람실 조건만 수집",root,()->start(true));
     button("일시정지",root,()->pause("사용자 요청으로 일시정지"));
     button("CSV 파일 내보내기 (엑셀)",root,()->export(EXPORT_CSV));
@@ -133,6 +136,7 @@ public final class ReadingCollectorController {
     web.setWebViewClient(new WebViewClient(){
       @Override public void onPageFinished(WebView w,String url){
         loaded=NativePdfTitleBridge.isFreeReadingPage(url);
+        scopeReady=false;
         if(loaded){
           Diag.log("COLLECTOR_WEBVIEW_READY","original previousExam.asp loaded");
           showStatus("원본 열람실 준비됨; 수집 버튼을 눌러 주십시오.");
@@ -156,31 +160,50 @@ public final class ReadingCollectorController {
 
   private void readCurrentScope(){
     if(!loaded)return;
-    // This is read-only observation of source HTML, never credential extraction.
-    String script="(function(){try{"
-      +"var p=new URLSearchParams(location.search);"
-      +"var s=p.get('scl_id')||p.get('Scl_ID')||p.get('search_scl_id')||'';"
-      +"if(!s){var scripts=document.querySelectorAll('script');"
-      +"for(var i=0;i<scripts.length;i++){var t=scripts[i].textContent||'';"
-      +"var m=t.match(/var\\s+scl_id\\s*=\\s*[\u0027\\\"]([0-9|]+)[\u0027\\\"]/);"
-      +"if(m){s=m[1];break;}}}"
-      +"window.hitelCollectorNative.scope('"+nonce+"',s,"
-      +"p.get('Rg_CitiesProvinces')||'',p.get('Rg_District')||'',"
-      +"p.get('filter_gugun')||'');"
-      +"return 'scope-captured';}catch(e){return 'scope-error';}})();";
-    web.evaluateJavascript(script,null);
+    try{
+      web.evaluateJavascript(ReadingOriginalPageCapture.script(nonce),v->
+        Diag.log("COLLECTOR_PAGE_SNAPSHOT",String.valueOf(v)));
+    }catch(Throwable t){
+      showStatus("원본 페이지 목록 분석 실패: "+t.getClass().getSimpleName());
+      Diag.log("COLLECTOR_SCOPE_ERROR",t.getClass().getName());
+    }
   }
 
   private final class Bridge {
-    @JavascriptInterface public void scope(String auth,String schools,String city,String district,String filter){
+    @JavascriptInterface public void snapshot(String auth,String payload){
+      if(!nonce.equals(auth)||payload==null||payload.length()>250000)return;
+      try {
+        JSONObject o=new JSONObject(payload);
+        final String school=o.optString("schools","").replaceAll("[^0-9|]","");
+        final JSONArray first=o.optJSONArray("rows");
+        ui.post(()->{
+          if(destroyed)return;
+          currentSchool=school;
+          currentCity=o.optString("city","");
+          currentDistrict=o.optString("district","");
+          currentFilter=o.optString("filter","");
+          currentSite=o.optString("site","");
+          currentGrade=o.optString("grade","");
+          currentYear=o.optString("year","");
+          currentTerm=o.optString("term","");
+          currentSubject=o.optString("subject","");
+          currentPaid=o.optString("paid","N");
+          currentRows=first==null?new JSONArray():first;
+          scopeReady=true;
+          String msg="원본 화면 자료 "+currentRows.length()+"건, 학교 ID "+(school.isEmpty()?0:school.split("\\|").length)
+            +"개, 지역 "+currentCity+" "+currentDistrict
+            +" / "+currentSite+currentGrade+" "+currentYear+" "+currentTerm+" "+currentSubject;
+          showStatus(msg);
+          Diag.log("COLLECTOR_SCOPE_FOUND",msg);
+        });
+      }catch(Throwable t){
+        Diag.log("COLLECTOR_SCOPE_JSON_ERROR",t.getClass().getName());
+      }
+    }
+    @JavascriptInterface public void snapshotError(String auth,String error){
       if(!nonce.equals(auth))return;
-      ui.post(()->{
-        currentSchool=schools==null?"":schools.replaceAll("[^0-9|]","");
-        currentCity=city==null?"":city;
-        currentDistrict=district==null?"":district;
-        currentFilter=filter==null?"":filter;
-        Diag.log("COLLECTOR_SCOPE_FOUND","schools-length="+currentSchool.length());
-      });
+      ui.post(()->showStatus("원본 목록 분석 실패: "+ReadingCollectorStore.sanitize(error,150)));
+      Diag.log("COLLECTOR_SCOPE_JS_ERROR",ReadingCollectorStore.sanitize(error,100));
     }
     @JavascriptInterface public void page(String auth,int task,int page,String data){
       if(!nonce.equals(auth)||data==null||data.length()>250000)return;
@@ -207,31 +230,46 @@ public final class ReadingCollectorController {
     if(begin<1990||finish>2100||begin>finish||finish-begin>110){
       showStatus("연도 범위를 다시 확인하십시오 (1990~2100).");return;
     }
-    Uri original=Uri.parse(sourceUrl);
-    jobs.clear();
-    if(useCurrent){
-      String site=urlParam(original,"SiteID","M");
-      String grade=urlParam(original,"Grade","3");
-      String year=urlParam(original,"ExPapr_TestYear",String.valueOf(finish));
-      String term=urlParam(original,"ExPapr_MidEndTerm","2E");
-      String subject=urlParam(original,"Subj_Code","KR");
-      if(!site.matches("[MH]")||!grade.matches("[123]")||!year.matches("[0-9]{4}")
-          ||!term.matches("(1M|1E|2M|2E)")||!subject.matches("[A-Z]{2}")){
-        showStatus("현재 열람실 조건이 불명확합니다. 앱의 연도·학년·학기·과목을 선택한 뒤 재시도하십시오.");return;
-      }
-      jobs.add(new Job(site,grade,year,term,subject));
-      scope="CURRENT_FILTER";
-    }else {
-      for(int y=finish;y>=begin;y--)
-        for(String site:new String[]{"M","H"})
-          for(String grade:new String[]{"1","2","3"})
-            for(String term:TERMS)
-              for(String subj:SUBJECTS)
-                jobs.add(new Job(site,grade,String.valueOf(y),term,subj));
-      scope="ALL_GEOGRAPHY_UNVERIFIED";
+    if(!scopeReady){
+      showStatus("원본 검색 조건 읽기 전입니다. 열람실 로딩이 완료되어야 합니다.");return;
     }
-    String seed=scope+"|"+begin+"|"+finish+"|"+
-      (useCurrent?(currentSchool+"|"+currentCity+"|"+currentDistrict+"|"+sourceUrl.split("\\?")[0]):"");
+    if(currentSchool.isEmpty()||currentCity.isEmpty()||currentDistrict.isEmpty()
+      ||currentFilter.isEmpty()){
+      showStatus("수집 차단: 원본의 학교 ID/시도/시군구/지역필터가 완전하지 않습니다. 빈 검색 조건으로 진행하지 않습니다.");
+      Diag.log("COLLECTOR_SCOPE_INCOMPLETE","school="+currentSchool.length()
+        +" city="+currentCity.length()+" district="+currentDistrict.length()
+        +" filter="+currentFilter.length());return;
+    }
+    if(!currentSite.matches("[MH]")||!currentGrade.matches("[123]")
+        ||!currentYear.matches("[0-9]{4}")
+        ||!currentTerm.matches("(1M|1E|2M|2E)")||!currentSubject.matches("[A-Z]{2}")){
+      showStatus("원본 학년·연도·과목 선택값을 확보하지 못했습니다. 임의 기본값으로 요청하지 않습니다.");return;
+    }
+    if(currentRows.length()==0){
+      showStatus("원본 페이지의 시험지 목록이 0건입니다. 표시된 목록의 번호를 먼저 확인한 후 시작해야 잘못된 전체 수집을 피할 수 있습니다.");
+      Diag.log("COLLECTOR_EMPTY_BASELINE","original page has no visible exam data");
+      return;
+    }
+    jobs.clear();
+    Job initial=new Job(currentSite,currentGrade,currentYear,currentTerm,currentSubject);
+    if(useCurrent){
+      jobs.add(initial);
+      scope="CURRENT_FILTER_ORIGINAL";
+    }else{
+      jobs.add(initial);
+      for(int y=finish;y>=begin;y--)
+        for(String grade:new String[]{"1","2","3"})
+          for(String term:TERMS)
+            for(String subj:SUBJECTS){
+              if(initial.year.equals(String.valueOf(y))&&initial.grade.equals(grade)
+                 &&initial.term.equals(term)&&initial.subject.equals(subj))continue;
+              jobs.add(new Job(currentSite,grade,String.valueOf(y),term,subj));
+            }
+      scope="ORIGINAL_REGION_SCHOOL_SET";
+    }
+    String seed="R9|"+scope+"|"+begin+"|"+finish+"|"+currentSite+"|"
+      +currentSchool+"|"+currentCity+"|"+currentDistrict+"|"+currentFilter
+      +"|"+currentGrade+"|"+currentYear+"|"+currentTerm+"|"+currentSubject;
     runKey=sha256(seed);
     progress=store.load(runKey);
     if(progress.finished){
@@ -241,6 +279,19 @@ public final class ReadingCollectorController {
     if(progress.taskIndex>=jobs.size()){
       progress.finished=true;store.saveProgress(runKey,progress);
       showStatus("완료: DB="+store.count()+"건");return;
+    }
+    // Original server already rendered Page 1 into the WebView. Capture its
+    // real IDs before any AJAX: source's scroll handler begins at Page 2.
+    // Save the page atomically with the page-2 resume checkpoint.
+    if(progress.taskIndex==0 && progress.page==1 && progress.pagesDone==0){
+      ReadingCollectorStore.Progress next=new ReadingCollectorStore.Progress();
+      next.taskIndex=0;next.page=2;next.pagesDone=1;
+      next.rowsSeen=currentRows.length();
+      store.savePage(runKey,next,currentRows,currentSite,currentGrade,
+        currentYear,currentTerm,currentSubject,scope);
+      progress=next;
+      Diag.log("COLLECTOR_ORIGINAL_PAGE1_SAVED","rows="+currentRows.length()
+        +" DB="+store.count()+" next=original AJAX Page 2");
     }
     running=true;requestPending=false;
     previousPageSignature="";prevTask=-1;
@@ -269,12 +320,9 @@ public final class ReadingCollectorController {
   private String query(Job job,int page) {
     String data="cmd=PREVIOUSEXAM_SEARCHZOCBO_MAIN_V1"
       +"&SiteID="+enc(job.site)+"&Group=A";
-    data=append(data,"Rg_CitiesProvinces",
-      "CURRENT_FILTER".equals(scope)?currentCity:"");
-    data=append(data,"Rg_District",
-      "CURRENT_FILTER".equals(scope)?currentDistrict:"");
-    data=append(data,"Scl_ID",
-      "CURRENT_FILTER".equals(scope)?currentSchool:"");
+    data=append(data,"Rg_CitiesProvinces",currentCity);
+    data=append(data,"Rg_District",currentDistrict);
+    data=append(data,"Scl_ID",currentSchool);
     data=append(data,"Exfl_Group","");
     data+="&Kind=REGION&Page="+page+"&PageSize="+PER_PAGE;
     data=append(data,"ExPapr_CoreType","E");
@@ -282,9 +330,8 @@ public final class ReadingCollectorController {
     data=append(data,"ExPapr_TestYear",job.year);
     data=append(data,"ExPapr_MidEndTerm",job.term);
     data=append(data,"Subj_Code",job.subject);
-    data=append(data,"filter_gugun",
-      "CURRENT_FILTER".equals(scope)?currentFilter:"");
-    data+="&answer_chk_status=N&isAnswerPaid=Y";
+    data=append(data,"filter_gugun",currentFilter);
+    data+="&answer_chk_status=N&isAnswerPaid="+("Y".equals(currentPaid)?"Y":"N");
     if("H".equals(job.site))data+="&Course_Name=";
     return data;
   }
