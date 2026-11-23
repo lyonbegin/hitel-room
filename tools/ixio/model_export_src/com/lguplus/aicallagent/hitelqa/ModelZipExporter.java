@@ -142,6 +142,18 @@ public final class ModelZipExporter {
             if(copied!=before)throw new IOException(
               "STT model changed during export: "+file.getName());
           }
+          // IXIO's original bpe.vocab is packaged as assets/stt/bpe.vocab
+          // in the main APK, not necessarily in its downloaded model folder.
+          if(!files.containsKey("bpe.vocab")){
+            try(InputStream bpe=app.getAssets().open("stt/bpe.vocab")){
+              zip.putNextEntry(new ZipEntry("bpe.vocab"));
+              int n;
+              while((n=bpe.read(buf))>=0){
+                if(n>0){zip.write(buf,0,n);bytes+=n;}
+              }
+              zip.closeEntry();
+            }
+          }
           zip.putNextEntry(new ZipEntry("IXIO_MODEL_EXPORT.txt"));
           zip.write(("source=existing IXIO app private files\n"+
                      "copied_models="+ordered.size()+"\n"+
