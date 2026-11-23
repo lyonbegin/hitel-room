@@ -90,11 +90,12 @@ public final class MainActivity extends Activity {
     detectedSource=text(root,"현재 녹음 중인 파일: 증가 확인 대기",14);
     text(root,"통화 시작(OFFHOOK) 즉시 접근성 녹음 시작을 시도하고, M4A 파일의 크기 증가를 3회 확인한 뒤 새 PCM만 STT에 전달합니다. 통화 종료(IDLE)에는 인식을 마무리합니다.",12);
     source.setTextIsSelectable(true);
-    fileButton.setOnClickListener(v->choose(false));
+    // The 'play saved M4A' label must actually start the full-file test after picking.
+    fileButton.setOnClickListener(v->{startQuickTestAfterPick=true;choose(false);});
     folderButton.setOnClickListener(v->choose(true));
     quickTestButton=button(root,"삼성 원본 녹음 M4A → IXIO STT 자동 시험");
     quickTestButton.setOnClickListener(v->startQuickTest());
-    text(root,"이미 선택한 파일 또는 통화녹음 폴더 안의 '통화 녹음 100_261123_005259.m4a'를 사용합니다. 파일 접근 권한이 없는 경우에는 최초 한 번만 파일을 선택하시면 됩니다. 이 버튼은 실제 IXIO 자막이 나오는지를 시험합니다.",12);
+    text(root,"직접 선택하신 원본 M4A의 처음부터 끝까지 인식합니다. 폴더가 선택된 경우에는 파일을 다시 지정하며, 짧은 시험파일을 임의로 선택하거나 일부 구간만 처리하지 않습니다.",12);
 
     text(root,"3. 통화 중 녹음 자동 시작 설정",17);
     accessibilityButton=button(root,"삼성 전화 녹음 시작 보조 활성화 (접근성 설정)");
@@ -195,43 +196,16 @@ public final class MainActivity extends Activity {
       status.setText("IXIO 원본 모델을 먼저 등록하십시오: IXIO_STT_Original_4.0.4.zip");
       return;
     }
-    if(selected==null){
-      startQuickTestAfterPick=true;
-      choose(false);
-      return;
-    }
-    if(!folderMode){
+    // Never silently substitute the old 2.5-second CI fixture for the
+    // recording the user meant to transcribe. An explicitly chosen file is
+    // the only valid input for this completed-M4A test.
+    if(selected!=null&&!folderMode){
       startFixedFileTest(selected);
       return;
     }
-    Uri tree=selected;
-    status.setText("삼성 Recordings/Call 안의 원본 M4A 시험 파일 검색 중");
-    new Thread(()->{
-      try{
-        DocumentFile folder=DocumentFile.fromTreeUri(this,tree);
-        if(folder==null||!folder.isDirectory())throw new java.io.IOException("녹음 폴더 권한 없음");
-        Uri target=null;
-        DocumentFile[] all=folder.listFiles();
-        for(DocumentFile child:all){
-          if(child.isFile()&&"통화 녹음 100_261123_005259.m4a".equals(child.getName())){
-            target=child.getUri();break;
-          }
-        }
-        Uri found=target;
-        runOnUiThread(()->{
-          if(found!=null)startFixedFileTest(found);
-          else{
-            status.setText("시험용 원본 녹음파일이 폴더에 없습니다. 파일을 한 번 선택하십시오.");
-            startQuickTestAfterPick=true;choose(false);
-          }
-        });
-      }catch(Exception e){
-        runOnUiThread(()->{
-          status.setText("폴더 검색 실패: "+e.getMessage()+" · 원본 M4A 직접 선택");
-          startQuickTestAfterPick=true;choose(false);
-        });
-      }
-    },"IXIO-QuickTest-Find-Original-Recording").start();
+    startQuickTestAfterPick=true;
+    status.setText("원본 녹음파일 전체를 선택하십시오. 선택 후 자동으로 전체 STT를 시작합니다.");
+    choose(false);
   }
 
   private void startFixedFileTest(Uri file){
