@@ -55,6 +55,7 @@ final class SpeakerEngine {
   private volatile String endReason="NOT_STARTED";
   private volatile int requestedDeviceId;
   private volatile DirectPcmKoreanStt stt;
+  private volatile FileBackedLocalAudioRecordSource filePcmSource;
   private volatile StreamingAacPcmDecoder codec;
   private Thread worker;
   private Thread copier;
@@ -297,6 +298,17 @@ final class SpeakerEngine {
     }
   }
 
+  /** The original IXIO LocalAudioRecordSource reads PCM from AudioRecord.
+   * This port reads the same PCM16 format from Samsung's decoded M4A stream.
+   * This is the ONLY interface between the growing recording and original STT.
+   */
+  private void deliverFilePcm(byte[] pcm)throws Exception {
+    FileBackedLocalAudioRecordSource source=filePcmSource;
+    if(source==null)throw new IOException("IXIO file-backed PCM Flow is not ready");
+    source.accept(pcm);
+    pcmBytes+=pcm.length;
+  }
+
   private void run(Uri input,boolean folder){
     String finalStatus;
     try{
@@ -312,6 +324,19 @@ final class SpeakerEngine {
         }
       });
       stt.start();
+      // Original IXIO: AudioRecord.read(short[512]) -> normalized float[512]
+      // -> FlowCollector -> speechSDK. Our only change is that PCM16 is
+      // supplied by the Samsung recording file's persistent AAC decoder.
+      filePcmSource=new FileBackedLocalAudioRecordSource(samples->{
+        DirectPcmKoreanStt target=stt;
+        if(target==null)throw new IOException("IXIO original speechSDK unavailable");
+        target.acceptFloat(samples);
+      });
+      log.event("PCM","ORIGINAL_LOCAL_AUDIO_SOURCE_FILE_ADAPTER_READY",
+        "source","Samsung growing M4A after persistent AAC decode",
+        "frameSamples",512,"rate",16000,"encoding","PCM_16BIT_LE",
+        "flowOutput","float[512] to original speechSDK",
+        "audioRecordCapture",false);
       selected=folder?waitForRecording(input):input;
       if(selected==null){endReason="USER_STOP";return;}
       log.event("SOURCE",folder?"LIVE_GROWING_RECORDING_SELECTED":"MANUAL_FILE_SELECTED",
@@ -396,9 +421,27 @@ final class SpeakerEngine {
       StreamingAacPcmDecoder dec=codec;
       if(dec!=null){try{
           if(!folder||pcmBytes>0)
-            dec.finish(pcm->{DirectPcmKoreanStt target=stt;if(target!=null)target.accept(pcm);pcmBytes+=pcm.length;});
+            dec.finish(this::deliverFilePcm);
         }catch(Throwable e){log.error("AAC","FINAL_DRAIN_FAILURE",e);}
         dec.close();
+      }
+      FileBackedLocalAudioRecordSource source=filePcmSource;
+      if(source!=null){
+        try{
+          source.finish();
+          log.event("PCM","ORIGINAL_FILE_PCM_FLOW_DRAINED",
+            "inputBytes",pcmBytes,"emittedSamples",source.emittedSamples(),
+            "frames",source.emittedFrames(),
+            "remainingSamples",source.bufferedSamples(),
+            "byteCountMatches",source.emittedSamples()*2==pcmBytes);
+          if(source.emittedSamples()*2!=pcmBytes)
+            endReason="ERROR_PCM_FLOW_SAMPLE_MISMATCH";
+        }catch(Exception error){
+          endReason="ERROR_PCM_FLOW_FINAL_DRAIN";
+          log.error("PCM","ORIGINAL_FILE_PCM_FLOW_DRAIN_FAILED",error);
+        }finally{
+          filePcmSource=null;
+        }
       }
       DirectPcmKoreanStt recognizer=stt;
       if(recognizer!=null){
@@ -490,8 +533,7 @@ final class SpeakerEngine {
         codec.feedRawAacFrame(packet,pcm->{
           DirectPcmKoreanStt original=stt;
           if(original==null)throw new IOException("IXIO original SDK unavailable");
-          original.accept(pcm);
-          pcmBytes+=pcm.length;
+          deliverFilePcm(pcm);
           if(pcmBytes/32000>lastStatusMs.get()){
             lastStatusMs.set(pcmBytes/32000);
             log.event("TEST","ORIGINAL_IXIO_PCM_QUEUED",
@@ -560,8 +602,7 @@ final class SpeakerEngine {
           if(!inLiveWindow){skippedPreLiveFrames++;return;}
           DirectPcmKoreanStt target=stt;
           if(target==null)throw new IOException("Direct STT sink not initialized");
-          target.accept(pcm);
-          pcmBytes+=pcm.length;
+          deliverFilePcm(pcm);
           if(pcmBytes/32000>lastStatusMs.get()){
             lastStatusMs.set(pcmBytes/32000);
             log.event("STT","DIRECT_PCM_SENT","pcmBytes",pcmBytes,
