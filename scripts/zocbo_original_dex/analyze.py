@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT=Path("evidence/zocbo-original-dex");ROOT.mkdir(parents=True,exist_ok=True)
 SRC=Path("source/jokbo.xapk"); EXPECT="d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5"
 assert SRC.exists(),"Exact original jokbo.xapk not available"
-digest=hashlib.file_digest(SRC.open("rb"),"sha256").hexdigest()
+digest=hashlib.sha256(SRC.read_bytes()).hexdigest()
 assert digest==EXPECT,f"SHA-256 mismatch: {digest}"
 print("SOURCE_SHA256_VERIFIED",digest,flush=True)
 with zipfile.ZipFile(SRC) as z:
