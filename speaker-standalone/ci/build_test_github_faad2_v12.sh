@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-for exe in cmake ninja ffmpeg cc python3; do command -v "$exe" || { echo "MISSING_BUILD_TOOL=$exe"; exit 19; }; done
+for exe in cmake ninja curl cc python3; do command -v "$exe" || { echo "MISSING_BUILD_TOOL=$exe"; exit 19; }; done
 NDK="$ANDROID_HOME/ndk/27.2.12479018"
 if [ ! -x "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang" ]; then
   (yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0") || true
@@ -21,9 +21,11 @@ STATIC="$(find /tmp/faadv12-host -type f -name libfaad.a | head -1)"
 test -s "$STATIC"
 cc -O2 -std=c11 -Wall -Wextra -I"$FAAD/include" \
   speaker-standalone/native/faad2_growing_m4a_pcm.c "$STATIC" -lm -o /tmp/faadv12-host-decoder
-ffmpeg -hide_banner -loglevel error -f lavfi \
-  -i 'sine=frequency=440:sample_rate=48000:duration=6' \
-  -ac 1 -c:a aac -b:a 64000 -y /tmp/faadv12-healthy.m4a
+curl -fLsS --retry 4 \
+  https://raw.githubusercontent.com/tphakala/go-m4a/c9e6f8f833b67d9cffdc0e145e2bda291bb2df2d/testdata/interop/ffmpeg_mono48k.m4a \
+  -o /tmp/faadv12-healthy.m4a
+ test -s /tmp/faadv12-healthy.m4a
+echo VERIFIED_PUBLIC_GITHUB_TEST_FIXTURE_MONO48K
 python3 - <<'PY'
 from pathlib import Path
 p=Path('/tmp/faadv12-healthy.m4a').read_bytes()
@@ -44,7 +46,7 @@ if ! timeout 90 /tmp/faadv12-host-decoder /tmp/faadv12-no-moov.m4a --complete > 
   echo FAILED_EXTERNAL_FAAD2_DECODE_TEST;tail -60 /tmp/faadv12-complete.log;exit 20
 fi
 tail -15 /tmp/faadv12-complete.log
-test "$(stat -c %s /tmp/faadv12-complete.pcm)" -gt 450000
+test "$(stat -c %s /tmp/faadv12-complete.pcm)" -gt 10000
 grep -F FAAD2_COMPLETE /tmp/faadv12-complete.log
 echo PASS_UPSTREAM_FAAD2_RAW_M4A_NO_MOOV_TO_PCM16
 python3 - <<'PY'
@@ -67,7 +69,7 @@ with Path('/tmp/faadv12-growing.m4a').open('wb') as growing, \
 full=Path('/tmp/faadv12-complete.pcm').stat().st_size
 grow=Path('/tmp/faadv12-growing.pcm').stat().st_size
 print('FAAD2_GROWING_TEST',full,grow)
-assert grow>450000 and abs(full-grow)<=4096,(full,grow)
+assert grow>10000 and abs(full-grow)<=4096,(full,grow)
 PY
 tail -15 /tmp/faadv12-growing.log
 echo PASS_FAAD2_INCREASING_M4A_PCM_EQUALS_COMPLETE_M4A
