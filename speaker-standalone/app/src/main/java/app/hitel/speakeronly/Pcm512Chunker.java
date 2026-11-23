@@ -29,7 +29,6 @@ final class Pcm512Chunker {
     if(finished)throw new IOException("PCM producer already finished");
     if(src==null||offset<0||length<0||offset>src.length-length)
       throw new IOException("Invalid PCM input range");
-    if((length&1)!=0)throw new IOException("PCM16 chunks must have even byte length");
     int at=offset;
     int end=offset+length;
     while(at<end){
@@ -51,6 +50,7 @@ final class Pcm512Chunker {
    */
   void finish()throws IOException {
     if(finished)return;
+    if((used&1)!=0)throw new IOException("PCM producer ended mid 16-bit sample");
     if(used>0){
       Arrays.fill(partial,used,BYTES,(byte)0);
       sink.put(Arrays.copyOf(partial,BYTES));
