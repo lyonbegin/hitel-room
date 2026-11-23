@@ -1,0 +1,71 @@
+name: Zocbo R14 Native Collector Emulator Smoke
+on:
+  push:
+    branches:
+      - fix/zocbo-r14-durable-region-checkpoint-20261124
+    paths:
+      - .github/workflows/zocbo-r14-emulator-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  r14-real-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Obtain externally published and checksum-verified R14 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/r14-emulator
+          curl -fL --retry 3 --connect-timeout 15 -o work/r14.apk \
+            https://github.com/lyonbegin/hitel-room/releases/download/zocbo-durable-region-checkpoint-20261124-r14-test/Zocbo_4.3.11_Durable_Region_Collector_R14_TEST_20261124.apk
+          echo '557deec33d90cd9af4c686a42f82fa3cc00345e086ba5797e84146f9f00441e6  work/r14.apk' | sha256sum -c -
+      - name: Boot real Android emulator and inspect direct collector entry
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 420
+          script: |
+            set -euo pipefail
+            adb install -r work/r14.apk
+            adb logcat -c
+            adb shell am start -n com.eduzone.eduzoneviewer/com.hitel.zocbodiag.NativePdfEntryActivity --ez com.hitel.zocbodiag.COLLECT_METADATA true
+            sleep 8
+            adb shell uiautomator dump /sdcard/r14.xml || true
+            adb shell cat /sdcard/r14.xml > work/r14-emulator/ui.xml || true
+            adb exec-out screencap -p > work/r14-emulator/screen.png || true
+            adb logcat -d -v time -t 2000 > work/r14-emulator/logcat.txt
+            adb shell dumpsys activity activities > work/r14-emulator/activities.txt
+            python3 - <<'PY'
+            from pathlib import Path
+            import re,xml.etree.ElementTree as ET
+            x=Path('work/r14-emulator/ui.xml').read_text(errors='replace')
+            log=Path('work/r14-emulator/logcat.txt').read_text(errors='replace')
+            print('R14_UI_TEXT',re.findall(r'text="([^"]+)"',x)[:65])
+            print('R14_ACTIVITY_LAUNCHED', 'NativePdfEntryActivity' in Path('work/r14-emulator/activities.txt').read_text(errors='replace'))
+            if not ('기출 열람실 시험지 목록 수집' in x or '전국 지역' in x):
+                raise AssertionError('R14 collector native screen not visible')
+            if 'FATAL EXCEPTION' in log and ('com.eduzone.eduzoneviewer' in log or 'com.hitel.zocbodiag' in log):
+                raise AssertionError('R14 runtime fatal exception')
+            if not ('저장 DB' in x or '앱 내부 DB' in x):
+                raise AssertionError('R14 SQLite status not present in UI')
+            print('R14_EMULATOR_ENTRY_AND_SQLITE_STATUS_PASS')
+            print('NOTE: Live server collection and pause persistence not proven by offline UI smoke')
+            PY
+      - name: Preserve screenshot UI hierarchy and Android logcat
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-r14-emulator-entry-evidence
+          retention-days: 14
+          path: work/r14-emulator/
