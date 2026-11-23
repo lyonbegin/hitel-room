@@ -26,6 +26,8 @@ def snap(label):
 apk=Path("work/r20-source.apk")
 assert apk.is_file() and apk.stat().st_size>30_000_000
 print("R20_APK_INSTALLED",adb("install","-r",apk,timeout=180).strip(),flush=True)
+print("R20_EMULATOR_MODEL",adb("shell","getprop","ro.product.model").strip(),flush=True)
+print("R20_EMULATOR_FINGERPRINT",adb("shell","getprop","ro.build.fingerprint").strip(),flush=True)
 adb("logcat","-c")
 print("R20_START_REAL_ORIGINAL_MAIN",adb("shell","am","start","-n",MAIN,"--ez",EXTRA,"true").strip(),flush=True)
 time.sleep(15)
@@ -52,6 +54,13 @@ try:
     print("R20_ADB_ROOT",root.strip(),flush=True)
     time.sleep(3)
     adb("wait-for-device",timeout=50)
+    trace="/data/user/0/"+PKG+"/files/zocbo_free_exam_trace.txt"
+    if adb("shell","ls",trace,check=False).strip()==trace:
+        subprocess.run(["adb","pull",trace,str(OUT/"redacted_original_app_trace.txt")],
+            check=True,capture_output=True,text=True,timeout=80)
+        raw=(OUT/"redacted_original_app_trace.txt").read_text("utf-8",errors="replace")
+        print("R20_ORIGINAL_IN_APP_TRACE",raw[-5800:],flush=True)
+    else:print("R20_ORIGINAL_DIAG_TRACE_ABSENT",flush=True)
     db="/data/user/0/"+PKG+"/databases/zocbo_exam_metadata_v1.db"
     if adb("shell","ls",db,check=False).strip()==db:
         subprocess.run(["adb","pull",db,str(OUT/"actual_app_sqlite.db")],
