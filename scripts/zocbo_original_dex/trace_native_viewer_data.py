@@ -8,7 +8,7 @@ out.mkdir(parents=True,exist_ok=True)
 core=[
 "p229y3/Y0.java","p229y3/T0.java","p229y3/V0.java","p229y3/R0.java","p229y3/P0.java","p229y3/Q0.java","p229y3/S0.java","p229y3/U0.java","p079i3/Q0.java","p079i3/z0.java",
 "p079i3/P0.java","p079i3/I0.java","p203v3/P.java","p203v3/C1994n.java","p203v3/Y.java","p193u3/s.java",
-"A3/x0.java","p040e3/b.java","p050f3/a.java","p144p3/E.java","p144p3/p.java","com/eduzone/eduzoneviewer/repository/S.java","com/eduzone/eduzoneviewer/repository/I.java","com/eduzone/eduzoneviewer/repository/z.java","A3/c0.java",
+"A3/x0.java","p040e3/b.java","p050f3/a.java","p144p3/E.java","p144p3/p.java","com/eduzone/eduzoneviewer/repository/S.java","com/eduzone/eduzoneviewer/repository/E.java","com/eduzone/eduzoneviewer/repository/I.java","com/eduzone/eduzoneviewer/repository/z.java","A3/c0.java",
 "com/eduzone/eduzoneviewer/repository/T.java",
 ]
 terms=[
