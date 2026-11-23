@@ -1,0 +1,61 @@
+name: Zocbo R13 Direct Collector Android Emulator UI And CSV Smoke
+on:
+  push:
+    branches:
+      - feature/zocbo-pdf-api-trace-20261123
+    paths:
+      - .github/workflows/zocbo-r13-direct-collector-emulator.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  direct-collector-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for signed R13 testing APK and verify asset SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/direct-ui-evidence
+          ASSET='Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk'
+          TAG='zocbo-emulator-direct-collector-20261124-r13-test'
+          for n in $(seq 1 40); do
+            if curl --connect-timeout 15 --max-time 55 -fsSL \
+              "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$ASSET" \
+              -o work/direct-test.apk && test "$(stat -c%s work/direct-test.apk)" -gt 30000000; then
+              echo TEST_APK_DOWNLOADED; break
+            fi
+            sleep 5
+          done
+          test -s work/direct-test.apk
+          curl -fsSL "https://api.github.com/repos/lyonbegin/hitel-room/releases/tags/$TAG" -o work/release.json
+          EXPECTED="$(python3 -c 'import json;d=json.load(open("work/release.json"));print(next(x["digest"].split(":")[-1] for x in d["assets"] if x["name"].endswith(".apk")))' )"
+          ACTUAL="$(sha256sum work/direct-test.apk | awk '{print $1}')"
+          test "$EXPECTED" = "$ACTUAL"
+          echo TEST_APK_SHA256_VERIFIED "$ACTUAL"
+      - name: Enable KVM hardware virtualization
+        run: sudo chmod 666 /dev/kvm
+      - name: Boot emulator and launch native collector Activity directly
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          disk-size: 4096M
+          disable-animations: true
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
+          script: python3 scripts/zocbo_diagnostic/emulator_direct_collector.py | tee work/direct-ui-evidence/runtime.txt
+      - name: Upload actual screenshots, UI hierarchy, export status, and logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r13-direct-emulator-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: work/direct-ui-evidence/
