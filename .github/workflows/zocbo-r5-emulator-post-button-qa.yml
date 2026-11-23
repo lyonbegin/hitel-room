@@ -1,0 +1,49 @@
+name: Zocbo R5 Actual Android Emulator POST PDF Button QA
+on:
+  push:
+    branches:
+      - feature/zocbo-pdf-api-trace-20261123
+    paths:
+      - .github/workflows/zocbo-r5-emulator-post-button-qa.yml
+      - scripts/zocbo_diagnostic/emulator_post_pdf_qa.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install-launch-tap-post-and-capture:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download SHA256-verified previously released R5 APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          mkdir -p test-apk qa-logs
+          gh release download zocbo-native-pdf-post-button-20261123-r5 \
+            -R "$GITHUB_REPOSITORY" \
+            -D test-apk -p 'Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk'
+          test -s test-apk/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk
+          echo 'ef96e8ec8ce6ef32ea82388833b659ad81aa4aa958943f4b7acd0c41a52addc6  test-apk/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk' | sha256sum -c
+          echo 'EXACT_R5_RELEASE_APK_SHA256_MATCH'
+      - name: Real Android emulator: actual install, launch, POST·PDF button and HTTP diagnostic
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: |
+            python3 -u scripts/zocbo_diagnostic/emulator_post_pdf_qa.py
+      - name: Upload all actual emulator screenshots, UI XML, logcat, verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r5-emulator-full-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: qa-logs/
