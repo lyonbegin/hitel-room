@@ -34,6 +34,19 @@ def prepare(plugin,source,report,cppout):
       'HitelE2Trace.event("sdk.probe.ready", "nativeLibrary" to nativeAvailable, "captureFlags" to flags,',
       'HitelE2Trace.event("sdk.probe.ready", "sdkRoute" to HitelSdkLoader.route(), "nativeLibrary" to nativeAvailable, "captureFlags" to flags,',
       "KOTLIN_TRACE_ROUTE")
+    kotlin=once(kotlin,
+      "    private external fun nativePrepareGpuAudit(sdkLibrary: String): Int",
+      """    @JvmStatic fun armNativeGpuHook() {
+        if (!active || HitelSdkLoader.route() != "WG128") return
+        val installed = runCatching {
+            nativeBridge
+            if (nativeAvailable) nativePrepareGpuAudit(HitelSdkLoader.libraryForProcess()) else 0
+        }.getOrElse { HitelE2Trace.failure("sdk.backend.clhook.failure", it); 0 }
+        HitelE2Trace.event("sdk.backend.clhook", "installed" to (installed == 1),
+            "sdkRoute" to "WG128", "nativeLibrary" to HitelSdkLoader.libraryForProcess())
+    }
+    private external fun nativePrepareGpuAudit(sdkLibrary: String): Int""",
+      "KOTLIN_MANUAL_WG128_ONLY_HOOK")
     (dest/"HitelSdkProbe.kt").write_text(kotlin)
 
     original=(source/"hitel_e2_probe.cpp").read_text()
@@ -92,26 +105,29 @@ def prepare(plugin,source,report,cppout):
     body=once(body,
       "        HitelE2Trace.init(context)\n",
       "        HitelE2Trace.init(context)\n"
-      "        HitelSdkProbe.install(context)\n"
-      "        HitelSdkProbe.setTurn(1)\n",
+      "        if (HitelSdkLoader.route() == \"WG128\") {\n"
+      "            HitelSdkProbe.install(context)\n"
+      "            HitelSdkProbe.setTurn(1)\n"
+      "            HitelSdkProbe.armNativeGpuHook()\n"
+      "        }\n",
       "PLUGIN_EARLY_PROBE_INSTALL")
     pluginfile.write_text(body)
 
     report.parent.mkdir(parents=True,exist_ok=True)
     report.write_text(json.dumps({
       "pinned_gpu_diagnostics_commit":"bf7290b6615117a4cb6a8cbb6b509282669b5765",
-      "same_probe_kotlin_both_routes":True,
-      "same_cpp_probe_both_routes":True,
+      "gpu_probe_kotlin_only_wg128":True,"baseline_probe_installed":False,
+      "gpu_probe_native_only_wg128":True,
       "existing_gpu_kernel_hook":"OpenCL API function pointer table, four hooks (create,wg_limit,enqueue,release)",
       "only_probe_change":"choose SDK process native name and validate ORIGINAL vs WG128 instruction identity",
       "native_source_sha256":hashlib.sha256(original.encode()).hexdigest(),
-      "instrumented_calls_sdk_jvm":"same HitelProbeBridge both native variants",
-      "backend_debug_capture":True,
+      "instrumented_calls_sdk_jvm":"NONE; original vendor Java is uninstrumented",
+      "backend_debug_capture":"WG128 only",
       "probe_log_events":["sdk.probe.ready","sdk.backend.clhook","sdk.backend.create_args",
              "sdk.backend.native","sdk.backend.snapshot","sdk.internal.call",
              "sdk.library.mapped","sdk.worker.cpu"]
     },indent=2)+"\n")
-    print("PASS_RESTORED_PINNED_GPU_PROBE_APPLIED_IDENTICALLY_TO_TWO_SDK_ROUTES")
+    print("PASS_BASELINE_NO_GPU_LOGGER_WG128_GPU_ONLY")
 
 if __name__=="__main__":
     p=argparse.ArgumentParser()
