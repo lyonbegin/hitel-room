@@ -106,7 +106,7 @@ jobs:
           grep -q -- '--activity' work/manifest-editor-help.txt
           java -jar work/ManifestEditor-current.jar \
             work/zocbo-unzipaligned.apk \
-            -act com.hitel.zocbodiag.NativePdfEntryActivity:true \
+            -act com.hitel.zocbodiag.NativePdfEntryActivity:false \
             -o work/zocbo-unzipaligned-with-native-entry.apk
           test -s work/zocbo-unzipaligned-with-native-entry.apk
           mv work/zocbo-unzipaligned-with-native-entry.apk work/zocbo-unzipaligned.apk
@@ -257,9 +257,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
-          test -s work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
-          sha256sum work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Original_Region_DataOrder_R14_20261124.apk
+          test -s work/Zocbo_4.3.11_Original_Region_DataOrder_R14_20261124.apk
+          sha256sum work/Zocbo_4.3.11_Original_Region_DataOrder_R14_20261124.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -273,11 +273,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-emulator-direct-collector-20261124-r13-test
-          APK=work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
+          TAG=zocbo-original-region-dataorder-20261124-r14
+          APK=work/Zocbo_4.3.11_Original_Region_DataOrder_R14_20261124.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo R13 TEST - Direct in-app Collector Activity emulator entry (not validated live)" \
-            --notes "TEST ONLY, NOT VERIFIED FOR REAL SERVER DATA. For offline Android emulator UI testing, NativePdfEntryActivity is exported temporarily so ADB can launch it with --ez com.hitel.zocbodiag.COLLECT_METADATA true without the original network-dependent MainActivity initialization. Includes R11 two-column original region selection, R12 no dynamic API interceptor proxy, local SQLite metadata storage and CSV/JSON system file export. Do not treat as a successful nationwide collector. Original m.zocbo.com is unreachable from the CI runner." \
+            --title "Zocbo R14 - Original region selector data-order repair" \
+            --notes "R14 corrects original region-wide selection from the original bundled ui.js regionFilter() implementation: match LEFT .region .tab__button and RIGHT .region .tab__content by data-order; click region and only active RIGHT 전체 row. Uses server-returned school ID list when present, without demanding manual school selection; retains original previousExam query parameters when opening the selector; reports origin-network errors separately from absent selectors. Keeps private SQLite, serial metadata pages, CSV/JSON exports and original PDF viewer. R13 temporary exported native Activity is restored to non-exported. Original selector Java compiles, emitted production JS passes node --check and synthetic original data-order interaction test. Real server-wide extraction and geographic completeness remain unverified because the runner cannot reach m.zocbo.com." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -291,7 +291,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_Collector_EmulatorEntry_R13_TEST_20261124.apk
+            work/Zocbo_4.3.11_Original_Region_DataOrder_R14_20261124.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
