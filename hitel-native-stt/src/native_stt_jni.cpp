@@ -28,7 +28,11 @@ struct Session {
     JNIEnv *env = nullptr;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK)
       return env;
+#if defined(__ANDROID__)
+    if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK)
+#else
     if (vm->AttachCurrentThread(reinterpret_cast<void **>(&env), nullptr) != JNI_OK)
+#endif
       throw std::runtime_error("Cannot attach JNI STT callback thread");
     *attached = true;
     return env;
