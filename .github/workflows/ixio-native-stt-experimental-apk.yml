@@ -8,7 +8,7 @@ on:
       - '.github/workflows/ixio-native-stt-experimental-apk.yml'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   build-verify-publish:
     runs-on: ubuntu-24.04
@@ -26,7 +26,8 @@ jobs:
         run: bash speaker-standalone/ci/build_test_github_faad2_v12.sh
       - name: Build isolated native-only Android APK and verify signature
         run: bash hitel-native-stt/ci/build_native_only_apk.sh
-      - name: Upload native experiment apk, even when publishing fails
+      - name: Upload verified native experiment APK to GitHub Actions
+        id: native_apk_upload
         if: success()
         uses: actions/upload-artifact@v4
         with:
@@ -35,25 +36,11 @@ jobs:
             speaker-standalone/dist/HITEL_NativeSTT_OriginalModel_Experiment_20261123.apk
             speaker-standalone/dist/NATIVE_STT_SHA256.txt
           retention-days: 14
-      - name: Publish prerelease only after signed APK and architecture verified
+      - name: Report verified GitHub-hosted artifact URL
         env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
+          ARTIFACT_URL: ${{ steps.native_apk_upload.outputs.artifact-url }}
         run: |
           set -euo pipefail
-          TAG=ixio-native-original-model-experiment-20261123
-          APK=HITEL_NativeSTT_OriginalModel_Experiment_20261123.apk
-          LOCAL=speaker-standalone/dist/$APK
-          test -s "$LOCAL"
-          gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1 || \
-            gh release create "$TAG" -R lyonbegin/hitel-room \
-              --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Native STT isolated experiment - not validated with IXIO models' \
-              --notes 'Experimental NEW app package app.hitel.recording.ixio.nativestt.experiment. Keeps old IXIO and V14 apps untouched. FAAD2 growing M4A to PCM512 FIFO to new C++ Sherpa-ONNX v2.0.3 engine; imported original IXIO model ZIP is mandatory and NOT included. Android ARM64 APK compile, signature and static inclusion are verified. Real original .ort model acceptance, transcription, word latency and 320ms chunk support are NOT YET VERIFIED. Do not replace a functioning STT app with this prototype.'
-          gh release upload "$TAG" -R lyonbegin/hitel-room \
-            "$LOCAL" speaker-standalone/dist/NATIVE_STT_SHA256.txt --clobber
-          curl -fLsS --retry 4 --max-time 200 \
-            "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK" \
-            -o /tmp/hitel-native-experiment-verified.apk
-          cmp "$LOCAL" /tmp/hitel-native-experiment-verified.apk
-          echo HTTPS_NATIVE_EXPERIMENT_APK_VERIFIED
+          test -n "$ARTIFACT_URL"
+          echo "SIGNED_NATIVE_EXPERIMENT_APK_ARTIFACT=$ARTIFACT_URL"
+          echo "Public Releases upload is disabled by repository token permissions; download the GitHub Actions ZIP containing the signed APK."
