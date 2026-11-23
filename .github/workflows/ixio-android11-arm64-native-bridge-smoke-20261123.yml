@@ -10,13 +10,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 38
     steps:
-      - name: Fetch exact newly built M4A quick-test APK
+      - name: Fetch EXACT latest built APK from verified workflow artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p testing
-          curl -fLsS --retry 5 --max-time 240 \
-            https://github.com/lyonbegin/hitel-room/releases/download/ixio-original-stt-m4a-quicktest-20261123/HITEL_IXIO_OriginalSTT_M4A_QuickTest_20261123.apk \
-            -o testing/ixio-quick-test.apk
+          mkdir -p testing/original-build
+          gh run download 45113612233 -R lyonbegin/hitel-room \
+            -n IXIO-Original-STT-M4A-QuickTest-ARM64-20261123 \
+            -D testing/original-build
+          cp testing/original-build/HITEL_IXIO_OriginalSTT_M4A_QuickTest_20261123.apk testing/ixio-quick-test.apk
+          (cd testing/original-build && sha256sum -c SHA256.txt)
           test -s testing/ixio-quick-test.apk
       - name: Prepare emulator test script
         run: |
@@ -44,10 +48,21 @@ jobs:
           test -s testing/app-process.txt || exit 5
           adb logcat -d -v threadtime > testing/app-logcat.txt
           adb logcat -d -b crash > testing/app-crash.txt
+          # Exact original DEX runtime probe: test the previously missing
+          # OnlineStream in addition to CombinedSTTKWS and speechSDK.
+          adb logcat -c
+          adb shell am force-stop app.hitel.recording.directstt
+          adb shell am start -n app.hitel.recording.directstt/.MainActivity \
+            -a app.hitel.speakeronly.PROBE_IXIO_SDK
+          sleep 12
+          adb logcat -d -v threadtime > testing/original-ixio-sdk-probe-logcat.txt
+          grep -F 'PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS' testing/original-ixio-sdk-probe-logcat.txt
+          ! grep -F 'FAIL_ORIGINAL_IXIO_CLASSLOADER' testing/original-ixio-sdk-probe-logcat.txt
           ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' testing/app-crash.txt || exit 6
           adb shell screencap -p /sdcard/Download/ixio-quick-test-ui.png
           adb pull /sdcard/Download/ixio-quick-test-ui.png testing/ui.png
           echo "EMULATOR_ARM64_APP_INSTALL_START_AND_UI_OK"
+          echo "EMULATOR_ORIGINAL_IXIO_ONLINESTREAM_CLASSLOADER_PROBE_PASS"
           echo "FULL_ORIGINAL_STT_NOT_VERIFIED_WITHOUT_PRIVATE_IXIO_MODEL_AND_USER_RECORDING"
           SH
           chmod +x testing/emulator-test.sh
