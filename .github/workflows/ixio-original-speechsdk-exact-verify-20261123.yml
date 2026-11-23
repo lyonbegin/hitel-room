@@ -32,14 +32,19 @@ jobs:
           import re
           a=Path("out/ixispeech_ktn-speechSDK.smali").read_text()
           for t in ("loadSTT","loadVAD","loadADV","SpeechInference","release"):
-            for m in re.finditer(r"(?ms)^\\.method[^\\n]* "+t+r"\\([^\\n]*\\n.*?^\\.end method",a):
-              s=m.group()
-              print("=== SDK METHOD",s.splitlines()[0])
-              print(s[:18000])
+            for line in a.splitlines():
+              if not line.startswith(".method") or " "+t+"(" not in line:
+                continue
+              p=a.index(line)
+              stop=a.index(".end method",p)+len(".end method")
+              print("=== SDK METHOD",line,flush=True)
+              print(a[p:stop][:18000],flush=True)
           b=Path("out/ai-SpeechToTextRepositoryImpl.smali").read_text()
           for t in ("loadSTT","loadVAD","loadADV"):
-            for m in list(re.finditer(r".*"+t+r".*",b)):
-              print("=== REPOSITORY call",t,b[max(0,m.start()-650):min(len(b),m.end()+550)])
+            for line in b.splitlines():
+              if t not in line:continue
+              p=b.index(line)
+              print("=== REPOSITORY call",t,b[max(0,p-650):min(len(b),p+900)],flush=True)
           PY
       - uses: actions/upload-artifact@v4
         with:
