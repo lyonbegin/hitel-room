@@ -332,9 +332,42 @@ final class SpeakerEngine {
         }
       },"Recording-M4A-SAF-Copier");
       copier.start();
+      if(!folder){
+        // The original Samsung M4A is a finite file. The native AAC follower
+        // intentionally waits for growth forever; terminate it after fixed
+        // file PCM has gone unchanged for 2s and flush the original IXIO SDK.
+        new Thread(()->{
+          long began=SystemClock.elapsedRealtime();
+          long lastPcm=-1,unchangedSince=began;
+          while(!stop && SystemClock.elapsedRealtime()-began<60000){
+            long actual=pcmBytes;
+            if(actual!=lastPcm){lastPcm=actual;unchangedSince=SystemClock.elapsedRealtime();}
+            else if(actual>0&&receivedFrames>0&&
+                    SystemClock.elapsedRealtime()-unchangedSince>=2000){
+              endReason="FIXED_M4A_AUTO_EOF";
+              log.event("CONTROL","FIXED_M4A_AUTO_EOF",
+                "pcmBytes",actual,"aacFrames",receivedFrames,
+                "mirrorBytes",mirroredBytes,"sttReady",stt!=null&&stt.isReady());
+              stop=true;
+              Process proc=follower;if(proc!=null&&proc.isAlive())proc.destroy();
+              Thread cp=copier;if(cp!=null)cp.interrupt();
+              return;
+            }
+            try{Thread.sleep(250);}catch(InterruptedException ignore){return;}
+          }
+          if(!stop){
+            endReason="FIXED_M4A_WATCHDOG_TIMEOUT";
+            log.event("CONTROL","FIXED_M4A_WATCHDOG_TIMEOUT",
+                "pcmBytes",pcmBytes,"frames",receivedFrames);
+            stop=true;
+            Process proc=follower;if(proc!=null&&proc.isAlive())proc.destroy();
+          }
+        },"IXIO-Fixed-M4A-Auto-Finish").start();
+      }
       notifyState("16kHz PCM → IXIO 원본 speechSDK 직접 전송 · 입력 대기",false);
       followPcm(mirror);
-      endReason=stop?"USER_STOP":"AAC_FOLLOWER_EXIT";
+      if("NOT_STARTED".equals(endReason))
+        endReason=stop?"USER_STOP":"AAC_FOLLOWER_EXIT";
     }catch(Throwable err){
       if(!stop){endReason="ERROR_"+err.getClass().getSimpleName();
         log.error("STT","DIRECT_PIPELINE_FATAL_ERROR",err);}
