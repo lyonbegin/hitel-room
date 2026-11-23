@@ -116,6 +116,7 @@ jobs:
           print('VIEWMODEL_TRACE_CHARS',len(report),'SECTIONS',len(chunks))
           for c in chunks[:5]:print(c[:17000])
           PY
+      # Verify the precise VIEWER_FILE_PATH coroutine and response assignment path.
       - name: Trace original native PDF data and renderer methods
         shell: bash
         run: python3 -u scripts/zocbo_original_dex/trace_native_viewer_data.py
