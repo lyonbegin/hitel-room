@@ -22,6 +22,8 @@ jobs:
           echo 'fe4ccf7b36a0cb479724df2f1ba0b8fcf896c12118151ee7a25569565e2fbebb  /tmp/sherpa-v2.0.3.tar.bz2' | sha256sum -c -
           mkdir -p /tmp/sherpa-stage
           tar -xjf /tmp/sherpa-v2.0.3.tar.bz2 -C /tmp/sherpa-stage
+          echo STATIC_ARCHIVE_FILES
+          find /tmp/sherpa-stage -type f | sort | head -160
           find /tmp/sherpa-stage -type f | grep -E '(\.so$|c-api\.h$)' | sort | head -100
           find /tmp/sherpa-stage -type f -name 'libsherpa-onnx-c-api.so' > /tmp/c-api-list
           mkdir -p /tmp/sherpa-stage/include/sherpa-onnx/c-api
