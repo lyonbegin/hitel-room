@@ -1,0 +1,48 @@
+name: Verify Zocbo Free Member Three-Views Modal in Live Page JS and APK
+on:
+  push:
+    branches: [research/zocbo-black-free-exam-20261123]
+    paths:
+      - .github/workflows/zocbo-free-three-views-web-audit.yml
+      - scripts/zocbo_original_dex/scan_live_page_modal.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-site-and-original-apk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 14
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get exact original user-provided XAPK and hash verify
+        run: python3 scripts/zocbo_original_dex/download_verified_xapk.py source
+      - name: Decode all original APK resources, assets and code without modification
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import zipfile,pathlib
+          with zipfile.ZipFile("source/jokbo.xapk") as z:
+            a=z.read("com.eduzone.eduzoneviewer.apk")
+            pathlib.Path("/tmp/orig-zocbo-base.apk").write_bytes(a)
+          PY
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool
+          apktool d -f -s -o /tmp/zocbo_original_resource /tmp/orig-zocbo-base.apk
+      - name: Fetch exact public webpage HTML and linked site JS and compare with APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -u scripts/zocbo_original_dex/scan_live_page_modal.py | tee evidence/zocbo-original-dex/free_member_three_views_audit.log
+      - name: Upload verifiable results and never raw cookies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-free-member-three-views-web-audit
+          retention-days: 14
+          path: |
+            evidence/zocbo-original-dex/free_member_three_views_modal_page_audit.json
+            evidence/zocbo-original-dex/free_member_three_views_audit.log
