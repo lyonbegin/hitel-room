@@ -31,3 +31,44 @@
 - 실제 기출 열람실 ASP 페이지의 JS가 `zocbostudyaos.goPreviousExam()`을 호출하는지.
 
 판정: 무료 기출열람실에는 Android JavaScript 브리지와 별도 WebView 실행 경로가 존재하지만, 앱 외 브라우저가 막히는 원인이 JS 브리지 부재만인지 서버 접근 정책까지 포함하는지는 아직 결론 불가.
+
+
+## 2026-11-23 추가 정밀검증: 앱을 웹과 구분하는 실제 코드
+
+원본 버전 `4.3.11(2)`, SHA256 `d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5`의 전체 JADX 소스에 대해 별도 패턴 검사를 실시함.
+실행: https://github.com/lyonbegin/hitel-room/actions/runs/45101051864
+산출물: `app_gate_audit.json`
+
+1. **WebView 쿠키 선설정 확인**
+   - `p239z3/e.java:365-413`: `CID=<PREF_CREATED_CID>`, `SERVICETYPECD=4`를 `Domain=.zocbo.com`에 CookieManager로 설정.
+   - `com/eduzone/eduzoneviewer/repository/C1010a.java:58-61`: `e()`는 `C1020k.b("PREF_CREATED_CID","")`의 값을 반환. 로그인 Access Token과 별도 저장 항목임.
+   - `p239z3/e.java:378-410`: `CID`가 비어 있으면 해당 로딩 분기에서 실패 및 반환.
+   - `MainActivity.java:1084`: `eVar.h(strA,true)`로 쿠키 선설정 경로 호출.
+   - `p107l3/f.java:120-134`에도 동일한 `CID`, `SERVICETYPECD=4` 설정 코드가 존재.
+   - 이는 **앱 측 전처리 장치임이 확정**. 서버가 쿠키를 검사한다는 사실은 서버 응답을 확인하지 못해 별도 미검증.
+
+2. **URL의 앱 식별 파라미터 확인**
+   - `A3/x0.java:46-56`: URL에 `os-type=aos`, `device_id`, `app_version=4.3.11(2)`를 조건부 추가.
+   - 해당 파라미터가 **무료 기출열람실의 실제 목적지**에도 적용되는지는 이 호출 체인의 동적 증거가 부족하므로 미검증.
+
+3. **SSO 웹 세션 전달 경로 확인**
+   - `A3/x0.java:15-19`: `https://m.zocbo.com/sso/setCookie.asp`에 `onetime_token_key=<browserKey>`와 `gourl=<targetUrl>`을 사용.
+   - `CommonWebviewActivity`와 `ViewerActivity`에도 동종 호출이 존재.
+   - 일반적인 앱 외부 Chrome에는 이 앱 세션 연결이 자동으로 공유되지 않음.
+
+4. **JavaScript 네이티브 브리지 확인**
+   - `p239z3/e.java:240-255`: `zocbostudyaos`라는 JavaScriptInterface를 config에 따라 등록.
+   - `WebAppInterface.java:123-129`: `goPreviousExam()` 호출.
+   - `p239z3/m.java:329-335`: config 플래그에 따라 허용/무시.
+   - 일반 Chrome에는 이 Android JavaScript 객체가 기본으로 존재하지 않음.
+
+5. **User-Agent와 헤더에 관한 부정 증거**
+   - 해당 APK 전체 JADX Java 소스에서 `setUserAgentString(`, `getUserAgentString(` 호출 **0건** 검색됨. 앱이 맞춤 UA를 사용한다는 증거 없음.
+   - `modules/HeaderInterceptor.java:107-117`의 `X-API-KEY`, `authorization`, `app-version`, `os-type` 헤더는 앱 HTTP API 클라이언트에서 설정된 것임. 이것이 웹페이지 자체의 WebView 요청에도 자동 첨부된다고 주장할 수 없음.
+   - `search_webview=Y` 문자열은 전체 JADX Java 소스에서 0건 검색됨. 외부 웹 리디렉션에서 목적지에 존재하는 것은 별도로 알려져 있음.
+
+6. **네트워크 접근의 별도 문제**
+   - GitHub Actions의 족보닷컴 서버 접속은 DNS 성공 후 TCP 연결 단계에서 타임아웃. 구글 200 정상. HTTP `403`/앱 전용 차단 본문을 받은 결과가 아님. 따라서 **서버가 정확히 무엇을 강제 검사하는지 미확정**.
+
+### 판단
+앱과 일반 모바일 브라우저를 구별하는 **실제 클라이언트 측 장치**는 (1) WebView 전용 `CID`·`SERVICETYPECD` 쿠키, (2) 앱 식별 URL 매개변수, (3) `zocbostudyaos` 네이티브 브리지, (4) 일부 SSO 플로우의 일회용 키다. 해당 장치 중 어느 것을 족보닷컴 서버가 필수로 검사하는지는 원본 앱만으로는 확정 불가.
