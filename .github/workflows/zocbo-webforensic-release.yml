@@ -1,0 +1,71 @@
+name: Publish Zocbo Web Forensic Diagnostic Single APK
+on:
+  push:
+    branches:
+      - research/zocbo-black-free-exam-20261123
+    paths:
+      - .github/workflows/zocbo-webforensic-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-13
+          run-id: 45113834074
+          github-token: ${{ github.token }}
+          path: compiled
+      - name: Verify source artifact, diagnostic code and merged APK format
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zipfile
+          src=Path("compiled/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk")
+          expected="3ec61afaf586a8be886b2b8bcb25ee3abffed33e328544c771d864d250ab6d3a"
+          assert src.is_file()
+          data=src.read_bytes()
+          h=hashlib.sha256(data).hexdigest()
+          print("FORENSIC_SINGLE_APK_SHA256",h,"SIZE",len(data),flush=True)
+          assert h==expected
+          with zipfile.ZipFile(src) as z:
+            dex=[n for n in z.namelist() if n.startswith("classes") and n.endswith(".dex")]
+            libraries=[n for n in z.namelist() if n.startswith("lib/arm64-v8a/") and n.endswith(".so")]
+            print("DEX",dex,"LIBS_ARM64",len(libraries),flush=True)
+            assert len(dex)==4 and len(libraries)==10
+            all_dex=b"".join(z.read(name) for name in dex)
+            for marker in [b"WebForensic",b"hitelForensicBridge",b"current_page_DOM.html",b"page_resources.json",b"xhr_fetch.jsonl",b"chrome://inspect",b"WEBPAGE_MODAL_WATCHER"]:
+              present=marker in all_dex
+              print("SOURCE_MARKER",marker.decode(),present,flush=True)
+              assert present
+          dst=Path("compiled/Zocbo_4.3.11_WebForensic_Diagnostic_20261123.apk")
+          src.rename(dst)
+          PY
+      - name: Publish verified APK and re-download its public URL
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-webforensic-diagnostic-20261123
+          APK=compiled/Zocbo_4.3.11_WebForensic_Diagnostic_20261123.apk
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+              --title "Zocbo Original 4.3.11(2) — Web Forensic USB Chrome DevTools Diagnostic APK" \
+              --notes "Unofficial user-owned original-APK forensic test. Added buttons: web DOM dump (current_page_DOM.html), resource URL manifest (page_resources.json), opt-in fetch/XHR response monitor (xhr_fetch.jsonl), Downloads ZIP export, and USB Chrome DevTools enable/disable. Keeps original login/cookie/SSO and previousExam/examViewer flows, plus previous 100kbps false-negative check fix. Four split APKs merged into single signed arm64-v8a APK; v2 verified, no requiredSplitTypes. DO NOT share raw HTML or DevTools HAR publicly as it may contain tokens, private data and copyrighted content. JavaScript monitor begins only when enabled and cannot capture all HTML/images/native requests; use PC Chrome DevTools Network for complete WebView traffic. On-device functional test not yet conducted. Re-signed APK may conflict with previously installed diagnostic; back up app data before uninstall." \
+              "$APK"
+          fi
+          mkdir -p redownload
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D redownload -p "*.apk"
+          test "$(sha256sum redownload/Zocbo_4.3.11_WebForensic_Diagnostic_20261123.apk | cut -d' ' -f1)" = "3ec61afaf586a8be886b2b8bcb25ee3abffed33e328544c771d864d250ab6d3a"
+          echo "WEB_FORENSIC_PUBLIC_APK_REDOWNLOAD_SHA_VERIFIED"
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{release:.url,files:[.assets[]|{name:.name,size:.size,url:.url}]}'
