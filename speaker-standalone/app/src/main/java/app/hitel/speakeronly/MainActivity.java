@@ -84,28 +84,14 @@ public final class MainActivity extends Activity {
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
     int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);scroll.addView(root);
-    header=text(root,"삼성 통화녹음 → IXIO 원본 speechSDK STT",21);
+    header=text(root,"삼성 통화녹음 → HITEL Native C++ STT 실험판",21);
     header.setTypeface(null,Typeface.BOLD);
-    text(root,"삼성 통화녹음 파일 증가분을 16kHz PCM으로 변환하여 IXIO 원본 speechSDK.SpeechInference()에 입력합니다. HITEL14 공개 인식기는 사용하지 않습니다.",13);
+    text(root,"삼성 통화녹음 파일 증가분을 16kHz PCM으로 변환하여 독립 C++ 인식 엔진에 입력합니다. 원본 IXIO 모델만 선택하며 인식 호환성은 현재 시험 단계입니다.",13);
 
     text(root,"1. IXIO 원본 STT 모델 선택 (최초 1회)",17);
-    nativeModeButton=button(root,"STT 엔진 선택");
-    refreshNativeEngineModeButton();
-    nativeModeButton.setOnClickListener(v->{
-      if(active()){
-        status.setText("실험 엔진은 통화/파일 시험을 종료한 뒤 변경하십시오.");
-        return;
-      }
-      boolean old=getSharedPreferences("speaker",MODE_PRIVATE)
-        .getBoolean("nativeSttExperiment",false);
-      getSharedPreferences("speaker",MODE_PRIVATE).edit()
-        .putBoolean("nativeSttExperiment",!old).apply();
-      refreshNativeEngineModeButton();
-      status.setText(!old?
-        "다음 시험부터 실험 C++ STT를 사용합니다. 실패해도 기존 IXIO SDK와 APK는 보존됩니다.":
-        "다음 시험부터 이전 IXIO 원본 speechSDK를 사용합니다.");
-    });
-    text(root,"실험 C++ STT는 다른 앱 식별자로 설치되며 원본 녹음/FIFO는 그대로 사용합니다. 원본 IXIO 모델과 공개 Sherpa 인식기의 호환성은 실기기로 검증해야 합니다.",12);
+    nativeModeButton=button(root,"HITEL 네이티브 C++ STT 실험 전용 · 별도 설치 앱");
+    nativeModeButton.setEnabled(false);
+    text(root,"이 앱은 새 STT 전용 시험판입니다. 실패하더라도 기존 IXIO 앱은 별도로 보존되며, 원본 모델과 녹음파일을 이용해 호환성을 검증합니다.",12);
     modelButton=button(root,"IXIO 원본 STT.zip 가져오기");
     modelButton.setOnClickListener(v->selectOriginalIxioSttZip());
     text(root,"IXIO 원본 STT 4.0.4 ZIP의 encoder.ort / decoder.ort / joiner.ort / tokens.txt / bpe.vocab / vad.onnx가 필요합니다. 모델이 없으면 다른 인식기로 대체하지 않습니다.",12);
@@ -131,13 +117,13 @@ public final class MainActivity extends Activity {
       catch(Exception e){status.setText("접근성 설정 열기 실패: "+e.getMessage());}
     });
 
-    text(root,"4. PCM을 IXIO speechSDK에 직접 전송",17);
+    text(root,"4. PCM을 HITEL Native C++ STT에 직접 전송",17);
     outputButton=button(root,"출력 선택 · 내장 스피커 / 수화부 / 블루투스 / USB-C");
     deviceSummary=text(root,"출력 장치: 자동 / 내장 스피커 우선",15);
     text(root,"AudioTrack 스피커로 재생하지 않고 16kHz PCM을 STT에 직접 전달합니다. 원래의 출력 장치 선택 기능은 이 실험에서 사용하지 않습니다.",12);
     outputButton.setOnClickListener(v->showOutputs());
 
-    text(root,"5. 통화 이벤트 및 IXIO 실시간 STT",17);
+    text(root,"5. 통화 이벤트 및 실험 네이티브 실시간 STT",17);
     startButton=button(root,"통화 이벤트 자동 감시 켜기 · OFFHOOK 시 STT");
     stopButton=button(root,"통화 이벤트 자동 감시 해제");
     startButton.setOnClickListener(v->start());
@@ -151,8 +137,8 @@ public final class MainActivity extends Activity {
       .getString("lastTranscript","아직 인식된 자막이 없습니다."));
     status.setTextIsSelectable(true);
     explanation=text(root,
-      "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → IXIO speechSDK.SpeechInference() → 인식 자막. AudioTrack 및 MediaProjection 미사용. 원본 모델 로딩 여부·PCM 큐·초기화 상태·최종 인식 로그를 ZIP에 저장합니다.",12);
-    text(root,"6. PCM → IXIO STT 인식 진단",17);
+      "진단 기준: 커지는 M4A → FAAD2 → 16kHz PCM512 FIFO → Native C++ Sherpa C API → 변경된 부분 자막. 원본 모델 호환성 및 네이티브 인식 결과를 ZIP 로그로 검증합니다.",12);
+    text(root,"6. PCM → 네이티브 STT 인식 진단",17);
     exportButton=button(root,"진단 ZIP 다운로드에 저장 · 실제 파일 확인");
     exportButton.setOnClickListener(v->export());
     openExportButton=button(root,"저장된 ZIP 직접 열기");
