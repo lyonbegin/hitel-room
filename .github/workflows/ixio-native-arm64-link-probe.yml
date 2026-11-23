@@ -31,8 +31,45 @@ jobs:
           echo C_API_HEADERS; cat /tmp/c-header-list
           test -s /tmp/c-api-list
           test -s /tmp/c-header-list
-          SO=$(head -1 /tmp/c-api-list)
+          SO=/tmp/sherpa-stage/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so
+          test -s "$SO"
           file "$SO"
           readelf -hW "$SO" | grep -F AArch64
           readelf -dW "$SO" | grep NEEDED || true
           echo VERIFIED_PUBLIC_SHERPA_ANDROID_ARCHIVE
+      - name: Build and link native STT engine against ARM64 Sherpa v2.0.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK="${ANDROID_HOME}/ndk/27.2.12479018"
+          if [ ! -f "$NDK/build/cmake/android.toolchain.cmake" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.2.12479018' 'platforms;android-35' || true
+          fi
+          test -f "$NDK/build/cmake/android.toolchain.cmake"
+          cmake -S hitel-native-stt -B /tmp/hitel-native-arm64 -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+            -DHITEL_WITH_SHERPA=ON -DHITEL_BUILD_JNI=ON \
+            -DSHERPA_HEADER_ROOT=/tmp/sherpa-stage/include \
+            -DSHERPA_C_API_LIBRARY=/tmp/sherpa-stage/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so
+          cmake --build /tmp/hitel-native-arm64 --parallel 2
+          LIB=/tmp/hitel-native-arm64/libhitel-native-stt-jni.so
+          test -s "$LIB"
+          file "$LIB"
+          readelf -hW "$LIB" | grep -F AArch64
+          readelf -dW "$LIB" | grep NEEDED
+          nm -D "$LIB" | grep -F Java_app_hitel_speakeronly_NativeSttBridge_nativeOpen
+          mkdir -p native-artifacts/arm64-v8a
+          cp "$LIB" native-artifacts/arm64-v8a/
+          cp /tmp/sherpa-stage/jniLibs/arm64-v8a/libsherpa-onnx-c-api.so native-artifacts/arm64-v8a/
+          cp /tmp/sherpa-stage/jniLibs/arm64-v8a/libonnxruntime.so native-artifacts/arm64-v8a/
+          (cd native-artifacts/arm64-v8a && sha256sum *.so > SHA256.txt)
+          echo ARM64_NATIVE_STT_JNI_LINK_SUCCESS
+      - name: Save experimental ARM64 libraries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Native-STT-v2.0.3-ARM64-experimental
+          path: native-artifacts/arm64-v8a/
+          retention-days: 14
