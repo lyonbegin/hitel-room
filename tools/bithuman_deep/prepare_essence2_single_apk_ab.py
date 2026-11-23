@@ -277,6 +277,53 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
         SnackBar(content:Text('SDK 전환 실패: '+e.toString())));
     }
   }
+  /// Saves every byte of the requested source logs; the SAF picker chooses the folder.
+  Future<void> _hitelAbExportCurrent() async {
+    IOSink? sink;
+    try {
+      final dir=await _appFilesDir();
+      final route=_hitelAbRoute;
+      if(route!='BASELINE' && route!='GPU3') {
+        throw StateError('실행 SDK 경로를 확인할 수 없습니다.');
+      }
+      final output=File(dir.path+'/hitel_sdk_current_full_export.txt');
+      sink=output.openWrite();
+      sink.writeln('HITEL Essence2 전체 진단 로그 / SDK='+route);
+      final names=<String>[
+        'hitel_e2_trace_'+route+'.previous.log',
+        'hitel_e2_trace_'+route+'.log',
+        'boot_status.txt',
+        'hitel_ai_e2e.log',
+      ];
+      for(final name in names) {
+        sink.writeln('\n--- '+name+' ---');
+        final input=File(dir.path+'/'+name);
+        if(await input.exists()) {
+          await sink.addStream(input.openRead()); // No length cap.
+        } else {
+          sink.writeln('(파일 없음)');
+        }
+      }
+      await sink.flush();
+      await sink.close();
+      sink=null;
+      final saved=await _hitelAbChannel.invokeMethod<String>(
+        'exportComparison',<String,String>{
+          'path':output.path,
+          'filename':'HITEL_Essence2_'+route+'_logs_'+DateTime.now().millisecondsSinceEpoch.toString()+'.txt',
+        });
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text(saved==null
+          ? '저장이 취소되었습니다. 앱 내부 원본 로그는 유지됩니다.'
+          : '현재 SDK 전체 로그를 선택하신 폴더에 저장했습니다.')));
+    } catch(e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content:Text('전체 진단 로그 저장 실패: '+e.toString())));
+    } finally {
+      // Closing in the error case must not mask the original error.
+      if(sink!=null) await sink.close();
+    }
+  }
   Future<void> _hitelAbCompare() async {
     try {
       final dir=await _appFilesDir();
@@ -340,10 +387,21 @@ DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
       final file=File(dir.path+'/hitel_sdk_ab_comparison.txt');
       final sink=file.openWrite();
       sink.write(summary);
-      sink.write('\n\n--- BASELINE RAW EVENTS ---\n');
-      sink.write(base);
-      sink.write('\n\n--- GPU3 RAW EVENTS ---\n');
-      sink.write(wg);
+      // Include the previous rotation FIRST and preserve entire raw files.
+      // Reading from files as streams avoids a second 140,000-char clipboard cap.
+      Future<void> attach(String name) async {
+        sink.writeln('\n\n--- '+name+' ---');
+        final input=File(dir.path+'/'+name);
+        if(await input.exists()) {
+          await sink.addStream(input.openRead());
+        } else {
+          sink.writeln('(파일 없음)');
+        }
+      }
+      await attach('hitel_e2_trace_BASELINE.previous.log');
+      await attach('hitel_e2_trace_BASELINE.log');
+      await attach('hitel_e2_trace_GPU3.previous.log');
+      await attach('hitel_e2_trace_GPU3.log');
       await sink.flush();
       await sink.close();
       final saved=await _hitelAbChannel.invokeMethod<String>(
@@ -400,8 +458,8 @@ def patch_ui(app):
                     child:const Text('GPU 3단 SDK')),
                 ]),
                 FloatingActionButton.small(
-                  heroTag:'sdk_ab_copy',tooltip:'현재 SDK 상세 로그 복사',
-                  onPressed:_hitelCopyDiagnostics,
+                  heroTag:'sdk_ab_copy',tooltip:'현재 SDK 전체 로그를 Android 폴더에 파일 저장',
+                  onPressed:_hitelAbExportCurrent,
                   child:const Icon(Icons.copy_all_rounded)),
                 const SizedBox(height:8),
                 FloatingActionButton.small(
@@ -443,6 +501,7 @@ def main():
       "persistent_native_logs":["hitel_e2_trace_BASELINE.log","hitel_e2_trace_GPU3.log"],
       "full_comparison_file":"hitel_sdk_ab_comparison.txt",
       "comparison_export":"Android ACTION_OPEN_DOCUMENT_TREE + DocumentsContract.createDocument full UTF-8 content, no clipboard truncation",
+      "current_log_export":"all original+previous route logs plus boot and AI trace; SAF folder chooser",
       "live_same_process_hot_swap":False,
       "opencl_kernel_exact_workgroups_observed":False
     },indent=2,ensure_ascii=False)+"\n")
