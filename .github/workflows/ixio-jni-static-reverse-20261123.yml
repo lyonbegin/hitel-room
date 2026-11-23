@@ -85,6 +85,46 @@ jobs:
           echo '===== RESULT EXTRACTION JNI ====='
           head -160 evidence/JNI_GET_RESULT_DEEP_ASSEMBLY.txt || true
 
+          readelf -Wr "$so" > evidence/ELF_RELOCATIONS.txt
+          python3 - <<'PYCODE'
+          import re,pathlib,collections
+          d=pathlib.Path('evidence')
+          raw=(d/'ELF_RELOCATIONS.txt').read_text()
+          sections=(d/'ELF_SECTIONS.txt').read_text()
+          m=re.search(r'\[\s*\d+\]\s+\.text\s+PROGBITS\s+([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+([0-9a-fA-F]+)',sections)
+          if not m: raise RuntimeError('Missing .text section')
+          text_start=int(m.group(1),16); text_end=text_start+int(m.group(2),16)
+          reloc={}
+          for line in raw.splitlines():
+              m=re.search(r'^\s*([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+R_AARCH64_RELATIVE\s+([0-9a-fA-F]+)\s*
+          head -70 evidence/RELEVANT_SYMBOLS.txt || true
+          echo '===== LIBRARY STRINGS ====='
+          head -100 evidence/RELEVANT_STRINGS.txt || true
+      - name: Save reverse-engineering evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-JNI-Binary-Disassembly-20261123
+          path: evidence/*.txt
+          retention-days: 30
+,line)
+              if m:
+                  a=int(m.group(1),16); b=int(m.group(2),16)
+                  reloc[a]=b
+          code={k:v for k,v in reloc.items() if text_start<=v<text_end}
+          runs=[]
+          for pos in sorted(code):
+              if pos-8 in code: continue
+              items=[]
+              while pos+len(items)*8 in code:
+                  items.append(code[pos+len(items)*8])
+              if len(items)>=8:runs.append((pos,items))
+          runs.sort(key=lambda t:(-len(t[1]),t[0]))
+          lines=['text_range='+hex(text_start)+'-'+hex(text_end),'relative_relocations='+str(len(reloc)),'code_target_relatives='+str(len(code)),'consecutive_code_runs_ge8='+str(len(runs))]
+          for pos,items in runs[:130]:
+              lines.append('TABLE '+hex(pos)+' count='+str(len(items))+' pointers='+','.join(hex(x) for x in items[:14]))
+          (d/'VTABLE_CANDIDATES.txt').write_text('\n'.join(lines))
+          print('\n'.join(lines[:70]))
+          PYCODE
           echo '===== JNI SYMBOLS ====='
           head -70 evidence/RELEVANT_SYMBOLS.txt || true
           echo '===== LIBRARY STRINGS ====='
