@@ -69,6 +69,17 @@ jobs:
           python3 -u scripts/zocbo_diagnostic/patch_smali.py work/decoded work/diag-patch-report.json | tee work/patch-log.txt
           python3 -u scripts/zocbo_diagnostic/fix_network_preflight.py work/decoded work/network-preflight-fix.json | tee work/network-patch-log.txt
           python3 -u scripts/zocbo_diagnostic/patch_pdf_api_smali.py work/decoded work/pdf-api-patch-report.json | tee work/pdf-api-patch-log.txt
+          python3 -u scripts/zocbo_diagnostic/register_native_activity.py work/decoded/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          files=list(Path("work/decoded").glob("smali*/A3/L.smali"))
+          assert len(files)==1,files
+          code=files[0].read_text("utf-8")
+          assert re.search(r'(?m)^\.method[^\n]*\bstatic\b[^\n]*\bc\(Landroid/content/Context;Ljava/lang/String;',code),"original A3.L.c missing"
+          assert "Lcom/eduzone/eduzoneviewer/ui/activities/ViewerActivity;" in code,"original launcher target missing"
+          print("NATIVE_PDF_ORIGINAL_FACTORY_CONFIRMED",files[0],flush=True)
+          PY
           apktool b -o work/zocbo-unzipaligned.apk work/decoded
           python3 - <<'PY'
           import zipfile,re
@@ -187,7 +198,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"MANUAL_POST_API_STATUS",b"MANUAL_PDF_SAVED",b"MANUAL_POST_BUTTON",b"PDF_MANUAL_CLIENT_AVAILABLE",b"MANUAL_PDF_RESULT"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
@@ -217,9 +228,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk
-          test -s work/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk
-          sha256sum work/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Original_DEX_PDF_Viewer_R6_20261123.apk
+          test -s work/Zocbo_4.3.11_Original_DEX_PDF_Viewer_R6_20261123.apk
+          sha256sum work/Zocbo_4.3.11_Original_DEX_PDF_Viewer_R6_20261123.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -233,11 +244,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-native-pdf-post-button-20261123-r5
-          APK=work/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk
+          TAG=zocbo-original-dex-viewer-20261123-r6
+          APK=work/Zocbo_4.3.11_Original_DEX_PDF_Viewer_R6_20261123.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo 4.3.11(2) PDF POST Button R5 - in-app authenticated-session PDF download" \
-            --notes "R5: Adds POST·PDF button to original app diagnostic overlay. Reuses original configured OkHttp HeaderInterceptor and live login session for direct VIEWER_FILE_PATH POST using six-field exam JSON, parses response, validates genuine PDF magic, saves into Android public Downloads/HITEL-Zocbo, and records full step-level HTTP status/errors. A successful read may consume a viewer quota. Original login/session bypass is NOT provided. Builds upon R4 which fixes request-body logging ClassNotFoundException okio.Buffer using original Gson six-field model tracing. Exact SHA-256 original XAPK source. Native VIEWER_FILE_PATH and PDF GET OkHttp request/response lifecycle, request correlation IDs, redacted request/response headers, selected JSON variables and response fields, pdf_path presence/hash/redacted path, PDF magic, TLS/protocol/timings, nested exception chains, original ViewerActivity extras/lifecycle, app crash trace, prior WebView/cookie/JS logs. Existing UI logs/copy/share/clear plus full rotating log export (저장) and guarded opt-in original PDF URL and request JSON capture (원본). Authentication, cookies, HTTP traffic and API responses untouched. Signed with test key. URL signed query and tokens are intentionally redacted. Runtime session/login/PDF display are not claimed verified." \
+            --title "Zocbo 4.3.11(2) R6 - original DEX ViewerActivity PDF engine via native entry Activity" \
+            --notes "R6: NativePdfEntryActivity takes an exam ID, calls the ORIGINAL A3.L.c(...) method from the verified source DEX and launches ORIGINAL ViewerActivity. All original V0 request, repository.E Retrofit, original authentication HeaderInterceptor, server-returned PDF path, Y0 PDF GET and PDF viewer remain untouched. NO duplicated POST, NO separate GET code; PdfReplay.java DELETED. Existing diagnostic overlay retained with 원본PDF button, logs. This is a re-signed test APK; Android session authorization still required. Build, signature and release bytes verified. Actual runtime on authenticated device not yet confirmed." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -251,7 +262,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk
+            work/Zocbo_4.3.11_Original_DEX_PDF_Viewer_R6_20261123.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
