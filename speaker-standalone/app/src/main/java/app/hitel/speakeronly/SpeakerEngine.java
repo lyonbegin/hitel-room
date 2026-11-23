@@ -263,7 +263,8 @@ final class SpeakerEngine {
       appendNewBytes(selected); // all bytes from source offset zero
       if(!folder){
         // Extract duration metadata only; AAC decoding always uses FAAD2 below.
-        try(MediaExtractor meta=new MediaExtractor()){
+        MediaExtractor meta=new MediaExtractor();
+        try{
           meta.setDataSource(context,selected,null);
           for(int i=0;i<meta.getTrackCount();i++){
             MediaFormat f=meta.getTrackFormat(i);
@@ -276,6 +277,8 @@ final class SpeakerEngine {
         }catch(Throwable error){
           log.event("TEST","OPTIONAL_M4A_DURATION_UNAVAILABLE",
             "error",error.getClass().getSimpleName());
+        }finally{
+          meta.release();
         }
       }else{
         copier=new Thread(()->{
