@@ -1,0 +1,70 @@
+name: IXIO original arm64 runtime Android emulator smoke
+on:
+  push:
+    branches: [fix/ixio-stt-original-online-stream-deps-20261123]
+    paths: ['.github/workflows/ixio-android11-arm64-native-bridge-smoke-20261123.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  run-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 38
+    steps:
+      - name: Fetch exact newly built M4A quick-test APK
+        run: |
+          set -euo pipefail
+          mkdir -p testing
+          curl -fLsS --retry 5 --max-time 240 \
+            https://github.com/lyonbegin/hitel-room/releases/download/ixio-original-stt-m4a-quicktest-20261123/HITEL_IXIO_OriginalSTT_M4A_QuickTest_20261123.apk \
+            -o testing/ixio-quick-test.apk
+          test -s testing/ixio-quick-test.apk
+      - name: Prepare emulator test script
+        run: |
+          cat > testing/emulator-test.sh <<'SH'
+          #!/bin/bash
+          set -uo pipefail
+          echo "DEVICE_API=$(adb shell getprop ro.build.version.sdk)"
+          echo "DEVICE_ABIS=$(adb shell getprop ro.product.cpu.abilist)"
+          echo "DEVICE_NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)"
+          echo "NATIVE_BRIDGE_ARCH=$(adb shell getprop ro.dalvik.vm.isa.arm64)"
+          echo "ABI_TRANSLATOR_CHECK_START"
+          adb shell getprop | grep -E 'ndk_translation|native.bridge|isa.arm64|cpu.abilist' || true
+          echo "ABI_TRANSLATOR_CHECK_END"
+          adb install --abi arm64-v8a testing/ixio-quick-test.apk
+          rc=$?
+          echo "APK_INSTALL_RC=$rc"
+          if [ "$rc" -ne 0 ];then
+            echo "EMULATOR_CANNOT_INSTALL_ORIGINAL_IXIO_ARM64_CODE=YES"
+            exit "$rc"
+          fi
+          adb logcat -c
+          adb shell monkey -p app.hitel.recording.directstt -c android.intent.category.LAUNCHER 1
+          sleep 9
+          adb shell pidof app.hitel.recording.directstt | tee testing/app-process.txt
+          test -s testing/app-process.txt || exit 5
+          adb logcat -d -v threadtime > testing/app-logcat.txt
+          adb logcat -d -b crash > testing/app-crash.txt
+          ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' testing/app-crash.txt || exit 6
+          adb shell screencap -p /sdcard/Download/ixio-quick-test-ui.png
+          adb pull /sdcard/Download/ixio-quick-test-ui.png testing/ui.png
+          echo "EMULATOR_ARM64_APP_INSTALL_START_AND_UI_OK"
+          echo "FULL_ORIGINAL_STT_NOT_VERIFIED_WITHOUT_PRIVATE_IXIO_MODEL_AND_USER_RECORDING"
+          SH
+          chmod +x testing/emulator-test.sh
+      - run: test -c /dev/kvm && sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash testing/emulator-test.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO-Arm64-NativeBridge-Emulator-Smoke-20261123
+          path: testing/
