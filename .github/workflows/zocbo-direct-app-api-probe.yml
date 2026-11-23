@@ -1,4 +1,4 @@
-name: Zocbo direct API endpoint reachability (read-only probe)
+name: Zocbo DEX-confirmed endpoint transport verification
 on:
   push:
     branches: [research/zocbo-viewer-callgraph-20261123]
@@ -10,35 +10,35 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-22.04
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Test DNS, HTTPS, GET and unauthenticated request with invalid exam number
+      - name: Exact original APK Retrofit endpoint GET and POST transport
         shell: bash
         run: |
           python3 - <<'PY'
-          import socket, urllib.request, urllib.error, json, time
-          from urllib.parse import urlsplit
-          hosts=['m.zocbo.com','www.zocbo.com','zocbo.com']
-          for host in hosts:
-              print('HOST',host,flush=True)
+          import socket, urllib.request, urllib.error, json, time, ssl
+          host="m.zocbo.com"
+          print("SOURCE_ORIGINAL_X2_F_BASEURL","https://m.zocbo.com/_AppApi/",flush=True)
+          print("SOURCE_ORIGINAL_RETROFIT_POST","app.api.asp?cmd=VIEWER_FILE_PATH",flush=True)
+          try:
+              print("DNS",sorted({x[4][0] for x in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)}),flush=True)
+          except Exception as e:print("DNS_ERROR",repr(e),flush=True)
+          for url,method in [
+              ("https://m.zocbo.com/_AppApi/app.api.asp","GET"),
+              ("https://m.zocbo.com/_AppApi/app.api.asp?cmd=VIEWER_FILE_PATH","GET"),
+              ("https://m.zocbo.com/_AppApi/app.api.asp?cmd=VIEWER_FILE_PATH","POST"),
+              ("http://m.zocbo.com/_AppApi/app.api.asp?cmd=VIEWER_FILE_PATH","GET"),
+          ]:
+              data=json.dumps({"expapr_no":0,"file_type":"Q","short_url":"","pk":"","qr":False,"device":"M"}).encode() if method=="POST" else None
+              req=urllib.request.Request(url,data=data,method=method,headers={"Content-Type":"application/json","app-version":"4.3.11","os-type":"aos","os-version":"13","User-Agent":"okhttp/4.12.0"})
+              started=time.monotonic()
               try:
-                  addr=sorted({x[4][0] for x in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)})
-                  print('DNS',addr[:4],flush=True)
+                  with urllib.request.urlopen(req,timeout=6) as r:
+                      body=r.read(600).decode("utf-8","replace").replace(chr(10),"\\n")
+                      print("HTTP",method,url,"STATUS",r.status,"TYPE",r.headers.get("Content-Type"),"BODY",body[:450],"ELAPSED",round(time.monotonic()-started,2),flush=True)
+              except urllib.error.HTTPError as e:
+                  body=e.read(600).decode("utf-8","replace").replace(chr(10),"\\n")
+                  print("HTTP",method,url,"STATUS",e.code,"TYPE",e.headers.get("Content-Type"),"BODY",body[:450],"ELAPSED",round(time.monotonic()-started,2),flush=True)
               except Exception as e:
-                  print('DNS_ERROR',type(e).__name__,str(e)[:250],flush=True)
-                  continue
-              for path,method in [('/app.api.asp','GET'),('/app.api.asp?cmd=VIEWER_FILE_PATH','GET'),('/app.api.asp?cmd=VIEWER_FILE_PATH','POST')]:
-                  url='https://'+host+path
-                  data=json.dumps({'expapr_no':0,'file_type':'Q','short_url':'','pk':'','qr':False,'device':'M'}).encode() if method=='POST' else None
-                  req=urllib.request.Request(url,data=data,method=method,headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0 ZocboEndpointDiagnostic/1.0'})
-                  t=time.time()
-                  try:
-                      with urllib.request.urlopen(req,timeout=8) as r:
-                          raw=r.read(550)
-                          print('RESULT',method,url,'STATUS',r.status,'MIME',r.headers.get('Content-Type'),'ELAPSED',round(time.time()-t,2),'BODY',raw.decode('utf-8','replace')[:400].replace('\n','\\n'),flush=True)
-                  except urllib.error.HTTPError as e:
-                      raw=e.read(550)
-                      print('HTTP_ERROR',method,url,'STATUS',e.code,'MIME',e.headers.get('Content-Type'),'ELAPSED',round(time.time()-t,2),'BODY',raw.decode('utf-8','replace')[:400].replace('\n','\\n'),flush=True)
-                  except Exception as e:
-                      print('NETWORK_ERROR',method,url,type(e).__name__,str(e)[:250],'ELAPSED',round(time.time()-t,2),flush=True)
+                  print("ERROR",method,url,type(e).__name__,str(e)[:350],"ELAPSED",round(time.monotonic()-started,2),flush=True)
           PY
