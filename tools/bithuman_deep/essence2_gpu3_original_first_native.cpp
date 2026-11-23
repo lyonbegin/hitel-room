@@ -107,7 +107,7 @@ struct KernelLog { std::string name; unsigned long long calls = 0; };
 std::unordered_map<void*, KernelLog> kernel_names;
 std::once_flag gpu_once;
 int gpu_flags = 0;
-std::atomic<unsigned long long> original_gpu_ok{0}, compact_gpu_ok{0}, cpu_error_returned{0}, bypassed{0};
+std::atomic<unsigned long long> original_gpu_ok{0}, compact_gpu_ok{0}, cpu_error_returned{0};
 
 void route_record(const char* stage, const std::string& kernel, unsigned long long index,
                   const size_t* global, const size_t* requested, const size_t* smaller,
