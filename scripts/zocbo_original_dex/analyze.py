@@ -97,7 +97,7 @@ for target in focus_paths:
 for f in sorted(OUT.rglob("*.java")):
  try:s=f.read_text("utf8","replace")
  except Exception:continue
- keys=["goPreviousExam", "previousExam.asp", "school/previousExam", "goWebViewLink",
+ keys=["f29300b0", "goPreviousExam", "previousExam.asp", "school/previousExam", "goWebViewLink",
        "addJavascriptInterface(", "setUserAgentString(", "getUserAgentString(", "SchoolSearchActivity.class",
        "WebAppInterface(", "main/pastexam", "zocbo://viewer", "goPreviousExam()"]
  ls=s.splitlines()
