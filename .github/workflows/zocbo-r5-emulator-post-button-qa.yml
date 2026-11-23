@@ -28,7 +28,7 @@ jobs:
           test -s test-apk/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk
           echo 'ef96e8ec8ce6ef32ea82388833b659ad81aa4aa958943f4b7acd0c41a52addc6  test-apk/Zocbo_4.3.11_PDF_POST_BUTTON_R5_20261123.apk' | sha256sum -c
           echo 'EXACT_R5_RELEASE_APK_SHA256_MATCH'
-      - name: Real Android emulator: actual install, launch, POST·PDF button and HTTP diagnostic
+      - name: 'Real Android emulator - install, launch, POST PDF button and HTTP diagnostic'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
