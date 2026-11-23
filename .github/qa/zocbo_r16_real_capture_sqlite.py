@@ -100,9 +100,25 @@ if "CSV 저장 완료: 10건" not in xml:
     xml=snapshot("05_export_status_delayed")
 assert "CSV 저장 완료: 10건" in xml,"Native CSV exporter did not export ten committed SQLite rows"
 
-for path in ("/sdcard/Download","/sdcard/Documents"):
-    try:
-        names=adb("shell","ls","-l",path)
-        print("R16_EXPORTED_FILES",path,names[:1000],flush=True)
-    except Exception as exc:print("R16_NO_EXPORT_LIST",path,repr(exc),flush=True)
+# Read exported CSV bytes back from Android shared storage, not just a UI success label.
+from io import StringIO
+import csv
+names=adb("shell","ls","-1","/sdcard/Download").splitlines()
+candidates=[name.strip() for name in names if
+    name.strip().startswith("zocbo_exam_metadata_") and name.strip().endswith(".csv")]
+assert len(candidates)==1,"expected one actual exported CSV in fresh emulator Downloads, got "+repr(candidates)
+exported_name=candidates[0]
+data=adb("shell","cat","/sdcard/Download/"+exported_name,timeout=90)
+(OUT/"exported_original_captured_10_metadata.csv").write_text(data,encoding="utf-8")
+reader=csv.DictReader(StringIO(data.lstrip("\ufeff")))
+csv_rows=list(reader)
+assert len(csv_rows)==10,"file has "+str(len(csv_rows))+" data rows instead of 10"
+assert sorted(x["exam_no"] for x in csv_rows)==sorted(x["expapr_no"] for x in rows),"CSV exam numbers differ from original captured HTML"
+assert len({x["exam_no"] for x in csv_rows})==10,"CSV duplicated exam_no"
+assert {x["source_scope"] for x in csv_rows}=={"CAPTURED_HTML_QA_ONLY"},"CSV provenance was incorrectly claimed as a live server result"
+for item in csv_rows:
+    observed=next(x for x in rows if x["expapr_no"]==item["exam_no"])
+    assert item["school"]==observed["scl_short_name"] and item["title"]==observed["viewer_title"], "CSV metadata mismatch: "+item["exam_no"]
+print("R16_REAL_EXPORTED_CSV_CONTENT_MATCHES_ORIGINAL_CAPTURE_PASS filename="+exported_name+
+      " rows=10 source_scope=CAPTURED_HTML_QA_ONLY",flush=True)
 print("R16_CAPTURED_USER_HTML_APP_SQLITE_AND_CSV_PASS count=10 live_server_verified=False",flush=True)
