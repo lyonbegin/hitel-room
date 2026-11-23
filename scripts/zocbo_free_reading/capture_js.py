@@ -16,7 +16,6 @@ ROOT=Path("evidence/zocbo-free-reading")
 JS=ROOT/"javascript"
 JS.mkdir(parents=True,exist_ok=True)
 URLS={
-  "free_entry":"https://m.zocbo.com/Freetrial/FreeReading.asp",
   "actual_exam_page":"https://m.zocbo.com/exam/school/previousexam.asp?search_webview=Y",
 }
 MOBILE="Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36"
@@ -74,10 +73,12 @@ class InlineScriptParser(HTMLParser):
 
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
- for platform,ua,is_mobile in [("desktop",DESKTOP,False),("android_mobile",MOBILE,True)]:
+ for platform,ua,is_mobile in [("desktop",DESKTOP,False)]:
   context=browser.new_context(user_agent=ua,is_mobile=is_mobile,viewport={"width":390 if is_mobile else 1280,"height":844 if is_mobile else 800},locale="ko-KR")
   for key,target in URLS.items():
    page=context.new_page()
+   page.set_default_timeout(6000)
+   print(f"OPEN {key} {platform} {target}",flush=True)
    cdp=context.new_cdp_session(page)
    cdp.send("Network.enable",{"maxTotalBufferSize":50000000,"maxResourceBufferSize":10000000})
    requests={};loaded=set();browser_events=[]
@@ -104,6 +105,7 @@ with sync_playwright() as p:
    except Exception as exc:
     err=str(exc)[:300]
    final=page.url
+   print(f"NAVIGATED {key} {platform} status={status} final={redact(final)} error={err}",flush=True)
    html=""
    try:
     html=page.content()
