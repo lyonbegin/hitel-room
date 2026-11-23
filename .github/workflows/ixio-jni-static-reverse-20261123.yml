@@ -78,6 +78,13 @@ jobs:
           aarch64-linux-gnu-objdump -d -C --no-show-raw-insn --start-address=0x1e1c80 --stop-address=0x1e1f80 "$so" > evidence/JNI_CORE_ASSEMBLY.txt
           aarch64-linux-gnu-objdump -d -C --no-show-raw-insn --start-address=0x1e19d8 --stop-address=0x1e1ba0 "$so" > evidence/JNI_MODEL_CONSTRUCTOR_ASSEMBLY.txt
           head -175 evidence/JNI_CORE_ASSEMBLY.txt || true
+          aarch64-linux-gnu-objdump -d -C --no-show-raw-insn --start-address=0x2b04c0 --stop-address=0x2b0a00 "$so" > evidence/NATIVE_CAPI_COMBINED_STT.txt
+          aarch64-linux-gnu-objdump -d -C --no-show-raw-insn --start-address=0x1e1ed0 --stop-address=0x1e23d0 "$so" > evidence/JNI_GET_RESULT_DEEP_ASSEMBLY.txt
+          echo '===== COMBINED-STT INTERNAL C API ====='
+          head -190 evidence/NATIVE_CAPI_COMBINED_STT.txt || true
+          echo '===== RESULT EXTRACTION JNI ====='
+          head -160 evidence/JNI_GET_RESULT_DEEP_ASSEMBLY.txt || true
+
           echo '===== JNI SYMBOLS ====='
           head -70 evidence/RELEVANT_SYMBOLS.txt || true
           echo '===== LIBRARY STRINGS ====='
