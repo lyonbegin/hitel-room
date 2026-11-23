@@ -68,6 +68,7 @@ jobs:
         run: |
           set -euxo pipefail
           python3 -u scripts/zocbo_diagnostic/patch_smali.py work/decoded work/diag-patch-report.json | tee work/patch-log.txt
+          python3 -u scripts/zocbo_diagnostic/fix_network_preflight.py work/decoded work/network-preflight-fix.json | tee work/network-patch-log.txt
           apktool b -o work/zocbo-unzipaligned.apk work/decoded
           python3 - <<'PY'
           import zipfile,re
@@ -145,6 +146,36 @@ jobs:
             print("SIGNED_XAPK_FINAL_ENTRIES",[(x.filename,x.file_size) for x in f.infolist() if x.filename.endswith(".apk")])
           PY
           sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk >> work/SHA256SUMS.txt
+      - name: Merge original four split APKs into ONE installable APK with APKEditor
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fLsS --retry 3 --connect-timeout 15 --max-time 100 -o /tmp/APKEditor-1.4.9.jar https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar
+          java -jar /tmp/APKEditor-1.4.9.jar m -i work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk -o work/zocbo-networkfix-merged-unsigned.apk | tee work/universal-merge-log.txt
+          test -s work/zocbo-networkfix-merged-unsigned.apk
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-networkfix-merged-unsigned.apk work/zocbo-networkfix-merged-aligned.apk
+          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/zocbo-networkfix-merged-aligned.apk
+          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+          python3 - <<'PY'
+          import zipfile,subprocess,pathlib
+          p="work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk"
+          with zipfile.ZipFile(p) as z:
+            libs=[x for x in z.namelist() if x.startswith("lib/arm64-v8a/") and x.endswith(".so")]
+            dex=[x for x in z.namelist() if x.startswith("classes") and x.endswith(".dex")]
+            assert libs, "NO_ARM64_LIBRARIES_IN_UNIVERSAL_APK"
+            assert len(dex)>=4, "DIAGNOSTIC_DEX_MISSING"
+            print("UNIVERSAL_ARM64_LIBRARY_COUNT",len(libs),flush=True)
+            print("UNIVERSAL_DEX",dex,flush=True)
+          result=subprocess.run(["aapt","dump","xmltree",p,"AndroidManifest.xml"],capture_output=True,text=True,check=True)
+          manifest=result.stdout
+          print("UNIVERSAL_MANIFEST_SPLIT_FLAGS", [(x,x in manifest) for x in ("requiredSplitTypes","splitTypes","com.android.vending.splits.required")],flush=True)
+          assert "requiredSplitTypes" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: requiredSplitTypes found"
+          assert "com.android.vending.splits.required" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: required metadata present"
+          assert "isSplitRequired" not in manifest,"INSTALL_FAILED_MISSING_SPLIT still possible: isSplitRequired found"
+          print("UNIVERSAL_APK_READY_FOR_ADB_INSTALL_TEST",p,flush=True)
+          PY
+          sha256sum work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk >> work/SHA256SUMS.txt
       - name: Check diagnostic signatures embedded into resulting APK
         shell: bash
         run: |
@@ -171,6 +202,10 @@ jobs:
           path: |
             work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
             work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk
+            work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+            work/network-preflight-fix.json
+            work/network-patch-log.txt
+            work/universal-merge-log.txt
             work/diag-patch-report.json
             work/patch-log.txt
             work/SHA256SUMS.txt
