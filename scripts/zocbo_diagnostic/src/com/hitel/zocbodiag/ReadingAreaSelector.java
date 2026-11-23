@@ -1,13 +1,12 @@
 package com.hitel.zocbodiag;
-
-import org.json.JSONObject;
 import android.net.Uri;
+import org.json.JSONObject;
+import java.util.Locale;
 
 /**
- * Uses the ORIGINAL /exam/include/school/school_region_filter.asp page.
- * We discover clickable '전체' choices from the live DOM; no fabricated
- * school codes, and no hard-coded municipality guesses are required.
- * The normal original page click handler performs its own navigation.
+ * Exact TWO-COLUMN flow: choose a left region first, then click its dynamic
+ * right-side "[region] 전체" option. R10 incorrectly assumed all region-wide
+ * rows were simultaneously visible.
  */
 public final class ReadingAreaSelector {
   private ReadingAreaSelector(){}
@@ -18,42 +17,63 @@ public final class ReadingAreaSelector {
   public static boolean isSelector(String url){
     if(url==null)return false;
     try{
-      Uri u=Uri.parse(url);
-      String host=u.getHost(),p=u.getPath();
+      Uri u=Uri.parse(url);String h=u.getHost(),p=u.getPath();
       return "https".equalsIgnoreCase(u.getScheme())
-          && host!=null&&(host.equalsIgnoreCase("m.zocbo.com")||
-                 host.toLowerCase(java.util.Locale.US).endsWith(".zocbo.com"))
-          && p!=null&&p.toLowerCase(java.util.Locale.US).endsWith("/school_region_filter.asp");
+        && h!=null&&(h.equalsIgnoreCase("m.zocbo.com")||h.toLowerCase(Locale.US).endsWith(".zocbo.com"))
+        && p!=null&&p.toLowerCase(Locale.US).endsWith("/school_region_filter.asp");
     }catch(Throwable t){return false;}
   }
-  public static String scan(String nonce){
-    return "(function(){try{"
-      +"function norm(s){return String(s||'').replace(/\\s+/g,' ').trim();}"
-      +"var nodes=Array.prototype.slice.call(document.querySelectorAll('a,button,input[type=button],input[type=radio],li[onclick],div[onclick],[role=button]'));"
-      +"var cities='서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주|기타'.split('|');"
-      +"var found=[];"
-      +"for(var i=0;i<nodes.length;i++){var el=nodes[i];"
-      +"var label=norm(el.innerText||el.value||el.textContent);"
-      +"if(!label||label.length>55||!(label==='전체'||/^[가-힣]{2,6}\\s*전체$/.test(label)))continue;"
-      +"var parent=el.closest('li,tr,.region,.region__item,.list__item,.filter__item')||el.parentElement;"
-      +"var near=norm(parent&&parent.textContent).slice(0,100);"
-      +"var named='';for(var k=0;k<cities.length;k++){if(label.indexOf(cities[k])===0||near.indexOf(cities[k])>=0){named=cities[k];break;}}"
 
-      +"found.push({i:i,label:label,name:named||label,near:near});"
-      +"}"
-      +"window.__hitelAreaNodes=nodes;"
+  private static String helpers(){
+    return "function norm(s){return String(s||'').replace(/\\s+/g,' ').trim();}"
+      +"var names='서울|세종|대구|대전|부산|인천|울산|경기|강원|광주|충북|충남|전북|전남|경북|경남|제주|제주도|강원도|경기도|경상남도|경상북도|전라남도|전라북도|충청남도|충청북도'.split('|');"
+      +"function nodes(){"
+      +"var out=[],root=document.body;if(!root)return out;"
+      +"var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false),t;"
+      +"while((t=w.nextNode())){"
+      +"var e=t.parentElement;if(!e||e.closest('script,style,template,noscript,option'))continue;"
+      +"var v=norm(t.nodeValue);if(v.length>0&&v.length<60)out.push({el:e,text:v});"
+      +"}return out;}"
+      +"function click(n){if(!n||!document.contains(n))return false;"
+      +"try{n.scrollIntoView({block:'center',inline:'nearest'});}catch(e){}"
+      +"try{n.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));return true;}"
+      +"catch(e){try{n.click();return true;}catch(e2){return false;}}"
+      +"}";
+  }
+
+  public static String scan(String nonce){
+    return "(function(){try{"+helpers()
+      +"var list=nodes(),found=[],seen={};"
+      +"for(var i=0;i<list.length;i++){var s=list[i].text;"
+      +"if(names.indexOf(s)<0||seen[s])continue;seen[s]=1;"
+      +"found.push({name:s,label:s});}"
       +"window.__hitelAreaCandidates=found;"
       +"window.hitelCollectorNative.areaCandidates("+JSONObject.quote(nonce)+",JSON.stringify(found));"
-      +"return 'area-total-buttons:'+found.length;"
-      +"}catch(e){window.hitelCollectorNative.areaError("+JSONObject.quote(nonce)+",String(e));return 'area-scan-error';}})();";
+      +"return 'left-area-options:'+found.length;"
+      +"}catch(e){window.hitelCollectorNative.areaError("+JSONObject.quote(nonce)+",String(e));"
+      +"return 'scan-error';}})();";
   }
-  public static String click(String nonce,int candidate){
-    return "(function(){try{"
-      +"var p=window.__hitelAreaCandidates||[],a=window.__hitelAreaNodes||[];"
-      +"if("+candidate+"<0||"+candidate+">=p.length)throw Error('choice not found');"
-      +"var obj=p["+candidate+"],el=a[obj.i];if(!el||!document.contains(el))throw Error('choice detached');"
-      +"window.hitelCollectorNative.areaClick("+JSONObject.quote(nonce)+",obj.name||obj.label);"
-      +"el.click();return 'original-area-clicked:'+String(obj.name||obj.label);"
-      +"}catch(e){window.hitelCollectorNative.areaError("+JSONObject.quote(nonce)+",String(e));return 'area-click-error';}})();";
+
+  public static String click(String nonce,int index){
+    return "(function(){try{"+helpers()
+      +"var ls=window.__hitelAreaCandidates||[];"
+      +"if("+index+"<0||"+index+">=ls.length)throw Error('city index missing');"
+      +"var city=ls["+index+"].name,list=nodes(),left=null;"
+      +"for(var i=0;i<list.length;i++){if(list[i].text===city){left=list[i].el;break;}}"
+      +"if(!left)throw Error('left city text missing:'+city);"
+      +"window.hitelCollectorNative.areaClick("+JSONObject.quote(nonce)+",city+' left-region');"
+      +"if(!click(left))throw Error('left city click failed:'+city);"
+      +"var attempt=0;"
+      +"function total(){var now=nodes(),a=null,exact=city+' 전체';"
+      +"for(var i=0;i<now.length;i++){if(now[i].text===exact){a=now[i].el;break;}}"
+      +"if(!a){for(var j=0;j<now.length;j++){if(now[j].text==='전체'){a=now[j].el;break;}}}"
+      +"if(!a&&++attempt<14){setTimeout(total,250);return;}"
+      +"if(!a){window.hitelCollectorNative.areaError("+JSONObject.quote(nonce)+",'right area 전체 missing for '+city);return;}"
+      +"window.hitelCollectorNative.areaClick("+JSONObject.quote(nonce)+",city+' right-전체');"
+      +"if(!click(a))window.hitelCollectorNative.areaError("+JSONObject.quote(nonce)+",'right 전체 click failed for '+city);"
+      +"}"
+      +"setTimeout(total,400);return 'two-column-region-requested:'+city;"
+      +"}catch(e){window.hitelCollectorNative.areaError("+JSONObject.quote(nonce)+",String(e));"
+      +"return 'click-error';}})();";
   }
 }
