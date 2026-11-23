@@ -14,6 +14,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
+import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -26,6 +28,7 @@ import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.WeakHashMap;
 
 /**
  * Source-instrumented on-device app-flow diagnostic. No credentials,
@@ -130,6 +133,63 @@ public final class Diag implements View.OnClickListener {
   public static void jsInterface() {
     log("JS_INTERFACE_REGISTERED","name=zocbostudyaos");
   }
+  private static final WeakHashMap<WebView,Boolean> probed = new WeakHashMap<WebView,Boolean>();
+  private static final class ThreeViewsJsBridge {
+    @JavascriptInterface public void detected(String path) {
+      // Never pass arbitrary page text, headers, cookies, or personal data to logs.
+      String safe = path!=null && path.matches("/[a-zA-Z0-9/_.-]{1,120}")
+         ? path : "[path-omitted]";
+      log("FREE_MEMBER_3_VIEWS_WEB_MODAL", "visible_DOM=true; path="+safe+
+        "; match=무료회원_하루3회_열람");
+    }
+  }
+  public static void attach(WebView w,String destinationUrl) {
+    if(w==null || destinationUrl==null) return;
+    try {
+      Uri uri=Uri.parse(destinationUrl);
+      String host=uri.getHost();
+      if(host==null || !(host.equals("zocbo.com") || host.endsWith(".zocbo.com"))) return;
+      synchronized(probed){
+        if(Boolean.TRUE.equals(probed.get(w))) return;
+        w.addJavascriptInterface(new ThreeViewsJsBridge(),"hitelZocboThreeViewsProbe");
+        probed.put(w,Boolean.TRUE);
+        log("WEB_MODAL_JS_BRIDGE_ATTACHED","host="+host);
+      }
+    } catch(Throwable e){ log("WEB_MODAL_PROBE_ATTACH_ERROR",e.getClass().getSimpleName()); }
+  }
+  // Script observes rendered DOM text; it never reads or reports credentials,
+  // session cookies, document contents, or remote API payloads.
+  private static final String THREE_VIEW_WATCHER =
+      "(function(){"+
+      "if(window.__hitelThreeViewObserver) return 'already-installed';"+
+      "window.__hitelThreeViewObserver=true;"+
+      "function ck(){try{"+
+      "var body=document.body;if(!body)return;"+
+      "var txt=String(body.innerText||'').replace(/\\s+/g,'');"+
+      "var hit=/무료회원.{0,60}하루3회.{0,65}열람/.test(txt);"+
+      "if(hit&&!window.__hitelThreeViewReported){"+
+      "window.__hitelThreeViewReported=true;"+
+      "if(window.hitelZocboThreeViewsProbe)hitelZocboThreeViewsProbe.detected(location.pathname);"+
+      "}"+
+      "}catch(e){}}"+
+      "var root=document.documentElement||document.body;"+
+      "if(root){var obs=new MutationObserver(function(){ck();});"+
+      "obs.observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}"+
+      "ck();return 'observer-installed';"+
+      "})()";
+  public static void inspectFreeMemberModal(WebView w,String url) {
+    if(w==null || url==null)return;
+    try {
+      Uri uri=Uri.parse(url);
+      String host=uri.getHost();
+      if(host==null || !(host.equals("zocbo.com") || host.endsWith(".zocbo.com")))return;
+      w.evaluateJavascript(THREE_VIEW_WATCHER,new ValueCallback<String>() {
+        public void onReceiveValue(String result) {
+          log("WEB_MODAL_DOM_WATCHER",result==null?"no-result":protect(result));
+        }
+      });
+    } catch(Throwable e){log("WEB_MODAL_PROBE_EVAL_ERROR",e.getClass().getSimpleName());}
+  }
   public static void url(String url) {
     log("WEBVIEW_LOADURL",sanitizeUrl(url));
   }
@@ -168,6 +228,7 @@ public final class Diag implements View.OnClickListener {
   public static void pageFinished(WebView w,String currentUrl) {
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
+    inspectFreeMemberModal(w,currentUrl);
   }
   private static synchronized String current() {
     StringBuilder b=new StringBuilder("ZOCBO_ORIGINAL_4.3.11(2)_DIAGNOSTIC\n"+
