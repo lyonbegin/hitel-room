@@ -270,17 +270,26 @@ public final class ReadingCollectorController {
             }else stopDiscovery("원본 지역선택기에서 .region .tab__button[data-order]와 대응하는 .region .tab__content[data-order]가 확인되지 않았습니다. 현재 원본 페이지의 구조 또는 접근 상태 확인이 필요합니다.");
             return;
           }
+          final ArrayList<Integer> chosen=nineSourceTabOrder(list);
+          ArrayList<String> sourceNine=new ArrayList<>();
+          for(int actual:chosen)sourceNine.add(list.getJSONObject(actual).optString("name","").trim());
+          if(requestedRegionNames.isEmpty())requestedRegionNames.addAll(sourceNine);
+          else if(!requestedRegionNames.equals(sourceNine)){
+            stopDiscovery("원본 중학교/고등학교 지역 목록이 일치하지 않습니다.");
+            return;
+          }
+          logNine("REGION_CHOICES","source_total="+list.length()+" chosen="+sourceNine.toString());
           // Fail safely if the source's left column changed since the checkpoint.
           for(AreaScope prior:originalAreas){
             if(!SCHOOL_LEVELS[discoverySiteIndex].equals(prior.site))continue;
             JSONObject row=prior.ordinal>=0&&prior.ordinal<list.length()
               ?list.optJSONObject(prior.ordinal):null;
-            if(row==null || !prior.name.equals(row.optString("name",""))){
+            if(row==null || !prior.name.equals(row.optString("name","")) || !chosen.contains(prior.ordinal)){
               stopDiscovery("저장 이후 원본 지역 목록의 순서가 변경되었습니다. 기존 DB는 유지하며, 다른 지역을 건너뛰지 않습니다.");
               return;
             }
           }
-          if(discoveryIndex>=list.length()){
+          if(discoveryIndex>=REGION_LIMIT){
             discoverySiteIndex++;
             discoveryIndex=0;
             if(discoverySiteIndex>=SCHOOL_LEVELS.length){
@@ -288,15 +297,18 @@ public final class ReadingCollectorController {
             }else openAreaSelector();
             return;
           }
-          JSONObject item=list.optJSONObject(discoveryIndex);
+          final int actualTab=chosen.get(discoveryIndex);
+          selectedTabOrdinal=actualTab;
+          JSONObject item=list.optJSONObject(actualTab);
           if(item==null){stopDiscovery("지역 선택 항목을 읽지 못했습니다.");return;}
           lastAreaName=item.optString("name",item.optString("label","전체"));
           Diag.log("COLLECTOR_ORIGINAL_AREA_SELECT","site="+SCHOOL_LEVELS[discoverySiteIndex]+
-            " selector="+(discoveryIndex+1)+"/"+list.length()+" area="+lastAreaName);
+            " selector="+(discoveryIndex+1)+"/"+REGION_LIMIT+" original_tab="+actualTab+" area="+lastAreaName);
           showStatus("원본 지역 선택: "+SCHOOL_LEVELS[discoverySiteIndex]+
-            " · "+(discoveryIndex+1)+"/"+list.length()+" · "+lastAreaName+" 전체");
+            " · "+(discoveryIndex+1)+"/"+REGION_LIMIT+" · "+lastAreaName+" 전체");
           waitingAreaNavigation=true;
-          web.evaluateJavascript(ReadingAreaSelector.click(nonce,discoveryIndex),null);
+          logNine("CLICK_SOURCE_REGION","original_tab="+actualTab);
+          web.evaluateJavascript(ReadingAreaSelector.click(nonce,actualTab),null);
           ui.postDelayed(()->{
             if(discovering&&waitingAreaNavigation){
               stopDiscovery("원본 지역 ‘전체’ 항목의 클릭 후 열람실 이동이 확인되지 않았습니다: "+
@@ -400,8 +412,8 @@ public final class ReadingCollectorController {
                   found.firstPage,found.site,found.grade,found.year,found.term,found.subject,
                   "ORIGINAL_AREA:"+found.site+"/"+found.name);
               }
-              found.ordinal=discoveryIndex;
-              store.saveArea(discoveryRunKey,discoveryIndex,found);
+              found.ordinal=selectedTabOrdinal;
+              store.saveArea(discoveryRunKey,found.ordinal,found);
             }catch(Throwable saveError){
               Diag.log("COLLECTOR_AREA_SAVE_ERROR",saveError.getClass().getName());
               stopDiscovery("지역별 DB 저장 실패: "+saveError.getClass().getSimpleName());
@@ -416,6 +428,7 @@ public final class ReadingCollectorController {
               " area="+found.name+" city="+found.city+
               " schoolIDs="+found.schools.split("\\|").length+
               " initialRows="+found.firstPage.length());
+            logNine("AREA_SAVED","observed_first_page="+found.firstPage.length());
             discoveryIndex++;
             ui.postDelayed(()->openAreaSelector(),600);
           }
