@@ -251,7 +251,7 @@ jobs:
             <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
 
-      - name: Add both independently loadable native SDK versions to ONE fully built APK
+      - name: Install exact ORIGINAL vendor ELF in both routes and GPU3 runtime OpenCL hook
         shell: bash
         run: |
           set -euo pipefail
@@ -261,37 +261,21 @@ jobs:
           java -cp "$SDK:$SDK/asm.jar" SelectEssence2NativeLibrary \
             "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
             | tee essence2-local-mock-proof/native-loader-asm-proof.txt
-          # Actual 2026-11-22 released SDK artifact, NEVER regenerate the GPU ELF.
-          mkdir -p "$SDK/historical-gpu"
-          GH_TOKEN="${{ github.token }}" gh release download hitel-essence2-wg128-wav-pull-bf7290b661 \
-            --repo lyonbegin/hitel-room \
-            --pattern 'HITEL_Essence2_WG128_WavPull_ARM64.apk' \
-            --dir "$SDK/historical-gpu"
-          HIST="$SDK/historical-gpu/HITEL_Essence2_WG128_WavPull_ARM64.apk"
-          test -s "$HIST"
-          unzip -Z1 "$HIST" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
-          unzip -Z1 "$HIST" | grep -Fx 'lib/arm64-v8a/libhitel_e2_probe.so'
-          python3 tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py \
+          python3 tools/bithuman_deep/prepare_essence2_original_gpu3.py \
             --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
             --sdk "$SDK" \
-            --historical-wg128-apk "$HIST" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/one-apk-dual-sdk-hashes.json"
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/gpu3-native-provenance.json"
           unzip -p "$SDK/hitel-dual-loader-0.9.5.aar" classes.jar > "$SDK/dual-classes.jar"
           javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.NativeBridge \
             > essence2-local-mock-proof/native-loader-disassembly.txt
           grep -Fq 'HitelSdkLoader.libraryForProcess' essence2-local-mock-proof/native-loader-disassembly.txt
-          echo PASS_ONE_APK_TWO_NATIVE_SDKS_PROCESS_ROUTED_LOADER
-          # Build identical previous OpenCL hook except SONAME now targets isolated
-          # lible_jni_wg128.so; baseline's JVM/SO/player remains pristine.
-          python3 - <<'PY'
-          from pathlib import Path
-          source=Path("tools/bithuman_deep/essence2_real_wg128_original_probe_20261122.cpp").read_text()
-          before='dlopen("lible_jni.so", RTLD_NOW | RTLD_NOLOAD)'
-          after='dlopen("lible_jni_wg128.so", RTLD_NOW | RTLD_NOLOAD)'
-          assert source.count(before)==1
-          Path("essence2-sdk-local/hitel_e2_probe_wg128.cpp").write_text(source.replace(before,after))
-          print("PASS_PINNED_20261122_GPU_HOOK_ONLY_SONAME_UPDATED")
-          PY
+          cmp <(unzip -p "$SDK/vendor-original-0.9.5.aar" jni/arm64-v8a/lible_jni.so) \
+              <(unzip -p "$SDK/hitel-dual-loader-0.9.5.aar" jni/arm64-v8a/lible_jni.so)
+          if test -e "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat/android/app/src/main/jniLibs/arm64-v8a/lible_jni_wg128.so"; then
+            echo FAIL_OBSOLETE_WG128_NATIVE_PRESENT
+            exit 1
+          fi
+          echo PASS_GPU3_BOTH_ROUTES_EXACT_ORIGINAL_SDK
           CXX="$(find "$ANDROID_HOME/ndk" -path '*/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++' -type f 2>/dev/null | sort -V | tail -1)"
           if [ -z "$CXX" ]; then
             SDKM="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -1)"
@@ -303,11 +287,26 @@ jobs:
           mkdir -p "$GPU_LIBS"
           "$CXX" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -fvisibility=hidden -shared \
             -static-libstdc++ -Wl,--no-undefined \
-            essence2-sdk-local/hitel_e2_probe_wg128.cpp -ldl \
+            tools/bithuman_deep/essence2_gpu3_original_first_native.cpp -ldl \
             -o "$GPU_LIBS/libhitel_e2_probe.so"
           readelf -Ws "$GPU_LIBS/libhitel_e2_probe.so" | grep -F HitelSdkProbe_nativePrepareGpuAudit
-          sha256sum "$GPU_LIBS/libhitel_e2_probe.so" > essence2-local-mock-proof/wg128-probe-active-sha.txt
-          echo PASS_REAL_HISTORICAL_GPU_SDK_WITH_WG128_ONLY_OPENCL_OBSERVER
+          sha256sum "$GPU_LIBS/libhitel_e2_probe.so" > essence2-local-mock-proof/gpu3-dispatch-sha.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('tools/bithuman_deep/essence2_gpu3_original_first_native.cpp').read_text()
+          p0=src.index('const int original_rc=old_enqueue(')
+          p1=src.index('if(original_rc==-54')
+          p2=src.index('const int compact_rc=old_enqueue(')
+          p3=src.index('return original_rc;',p2)
+          assert p0<p1<p2<p3
+          assert 'LE_DIRECTOR_OPENCL", "1"' not in src
+          assert '"ORIGINAL_GPU_OK"' in src and '"COMPAT_GPU_OK"' in src
+          assert '"COMPAT_GPU_FAILED_ORIGINAL_CPU_FALLBACK"' in src
+          assert '"ORIGINAL_GPU_FAILED_ORIGINAL_CPU_FALLBACK"' in src
+          assert '0x937d7d16' in src and '0x5280010b' in src
+          assert '0x93407d16' not in src and '0x5280002b' not in src
+          print('PASS_GPU3_VENDOR_GPU_FIRST_COMPAT_RETRY_AND_ORIGINAL_VENDOR_CPU_FALLBACK')
+          PY
 
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
