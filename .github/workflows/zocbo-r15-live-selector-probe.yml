@@ -1,0 +1,57 @@
+name: Zocbo R15 Live Original Region HTML Check (No Auth)
+on:
+  push:
+    branches:
+      - fix/zocbo-r15-original-regionfilter-restore-20261124
+    paths:
+      - .github/workflows/zocbo-r15-live-selector-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-selector-check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 6
+    steps:
+      - name: Fetch live publicly accessible original region selector once
+        shell: bash
+        run: |
+          mkdir -p live-evidence
+          URL='https://m.zocbo.com/exam/include/school/school_region_filter.asp?SiteID=M&Grade=3'
+          set +e
+          curl --compressed --connect-timeout 15 --max-time 35 -fsSL -A 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36' -D live-evidence/headers.txt -o live-evidence/selector.html "$URL" >live-evidence/curl.out 2>live-evidence/curl.err
+          EXIT=$?
+          set -e
+          echo "LIVE_HTTP_CURL_EXIT=$EXIT"
+          echo "LIVE_HTML_BYTES=$(wc -c < live-evidence/selector.html 2>/dev/null || echo 0)"
+          if test "$EXIT" -ne 0; then
+            cat live-evidence/curl.err
+            echo 'LIVE_ORIGINAL_PAGE_UNREACHABLE: no live selector assertion possible'
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('live-evidence/selector.html').read_text('utf-8',errors='replace')
+          evidence={
+             'html_bytes':len(html.encode('utf-8')),
+             'html_tab_button_marker':html.count('tab__button'),
+             'html_tab_content_marker':html.count('tab__content'),
+             'data_order_marker':html.count('data-order'),
+             'selector_city_mentions':sum(x in html for x in ['서울','부산','대구','대전','광주','울산']),
+             'full_label_mentions':html.count('전체'),
+             'login_required_words':sum(x in html for x in ['로그인','login','LOGIN']),
+          }
+          print('LIVE_HTML_CONTENT_DIAGNOSTIC',evidence)
+          if not evidence['html_tab_button_marker'] or not evidence['html_tab_content_marker']:
+             raise AssertionError('No real region tab structure in anonymous HTML; may require logged-in WebView or dynamic scripts')
+          print('LIVE_ORIGINAL_SELECTOR_HTML_STRUCTURAL_EVIDENCE_PASS')
+          PY
+      - name: Preserve observed network and HTML evidence (not fake data)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zocbo-r15-live-selector-public-evidence
+          retention-days: 7
+          if-no-files-found: warn
+          path: live-evidence/
