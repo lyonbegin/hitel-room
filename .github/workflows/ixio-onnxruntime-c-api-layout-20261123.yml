@@ -1,0 +1,40 @@
+name: ONNX Runtime 1.21 C API struct pointer layout for private offline IXIO model tests
+on:
+  push:
+    branches: [fix/ixio-pcm-sdk-compat-final-20261123]
+    paths: [.github/workflows/ixio-onnxruntime-c-api-layout-20261123.yml]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  index-map:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Parse upstream exact v1.21.0 OrtApi struct into index map
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/microsoft/onnxruntime/v1.21.0/include/onnxruntime/core/session/onnxruntime_c_api.h -o /tmp/onnxruntime_c_api.h
+          python3 - <<'PY'
+          import re
+          s=open('/tmp/onnxruntime_c_api.h').read().split('struct OrtApi {',1)[1].split('\n};',1)[0]
+          # Remove /* */ and // comments, so examples do not count as fields.
+          s=re.sub(r'/\*.*?\*/','',s,flags=re.S)
+          s=re.sub(r'//[^\n]*','',s)
+          fields=[]
+          for f in s.split(';'):
+            f=f.strip()
+            if not f: continue
+            m=re.search(r'ORT_API2_STATUS\s*\(\s*([A-Za-z][A-Za-z0-9_]*)',f)
+            if m: fields.append(m.group(1));continue
+            m=re.search(r'ORT_CLASS_RELEASE\s*\(\s*([A-Za-z][A-Za-z0-9_]*)',f)
+            if m: fields.append('Release'+m.group(1));continue
+            m=re.search(r'\(\s*ORT_API_CALL\s*\*\s*([A-Za-z][A-Za-z0-9_]*)\s*\)',f)
+            if m: fields.append(m.group(1));continue
+            print('UNPARSED FIELD',repr(f[:100]))
+          for i,x in enumerate(fields):
+            if i < 180:
+              print(f'ORT_CAPI_INDEX {i:03d} {x}')
+          assert fields[0:4] == ['CreateStatus','GetErrorCode','GetErrorMessage','CreateEnv'],fields[:5]
+          assert fields[7:11] == ['CreateSession','CreateSessionFromArray','Run','CreateSessionOptions'],fields[7:11]
+          print('INDEX_MAPPING_DONE',len(fields))
+          PY
