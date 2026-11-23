@@ -3,11 +3,11 @@ android {
   namespace = "app.hitel.speakeronly"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.recording.ixio.transcriptv11"
+    applicationId = "app.hitel.recording.ixio.stablevirtual"
     minSdk = 26
     targetSdk = 28
-    versionCode = 11
-    versionName = "1.0.11-ixio-transcript-snapshot"
+    versionCode = 110024
+    versionName = "1.0.11-ixio-stable-virtual-call"
     ndk { abiFilters.add("arm64-v8a") }
   }
   packaging {
