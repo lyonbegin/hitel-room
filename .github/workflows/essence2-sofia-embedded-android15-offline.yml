@@ -1,4 +1,4 @@
-name: HITEL Essence2 Sofia Korean 10s one APK EXACT pinned GPU probes A/B
+name: HITEL Essence2 Sofia Korean 10s original audio rollback
 on:
   workflow_dispatch:
   push:
@@ -13,7 +13,6 @@ on:
       - tools/bithuman_deep/prepare_essence2_restore_audible_audio.py
       - tools/bithuman_deep/prepare_essence2_single_apk_ab.py
       - tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
-      - tools/bithuman_deep/InstrumentEssence2.java
       - tools/bithuman_deep/essence2_ab_verified/**
       - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
       - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
@@ -134,6 +133,12 @@ jobs:
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/persistent-ai-trace-patch.json"
           python3 tools/bithuman_deep/prepare_essence2_hitel_no_key_runtime.py \
             --app "$APP" --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel-no-key-source.json"
+          # Restore previous BASELINE utterance-first 10s voice then AudioTrack.
+          # WG128 keeps original live GPU player; no reinterpretation of baseline SDK.
+          python3 tools/bithuman_deep/prepare_essence2_vendor_speech_player.py \
+            --plugin "$PLUGIN" --upstream "$GITHUB_WORKSPACE/original-upstream" \
+            --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/baseline-audio-restored.json"
           python3 tools/bithuman_deep/prepare_essence2_single_apk_ab.py \
             --app "$APP" --plugin "$PLUGIN" \
             --loader-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelSdkLoader.kt" \
@@ -143,18 +148,14 @@ jobs:
             --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_ab_verified" \
             --cpp-out "$GITHUB_WORKSPACE/essence2-local-mock-proof/hitel_e2_probe_ab.cpp" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/equal-native-gpu-probes.json"
-          python3 tools/bithuman_deep/prepare_essence2_restore_audible_audio.py \
-            --plugin "$PLUGIN" \
-            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/speaker-media-audio-fix.json"
-          grep -Fq 'capturable = true' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
-          grep -Fq 'audio.route.start' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt"
-          grep -Fq 'audio.track.short_write' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/AvatarPlayer.kt"
-          echo PASS_AUDIO_ROUTE_MEDIA_AND_SHORT_WRITE_GUARD_ON_BOTH_NATIVE_SDK_ROUTES
           python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py tools/bithuman_deep/prepare_essence2_equal_gpu_probe.py
-          grep -Fq 'HitelSdkProbe.install(context)' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          grep -Fq 'HitelSdkProbe.armNativeGpuHook()' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          grep -Fq 'if (HitelSdkLoader.route() == "WG128")' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          grep -Fq 'if (ROUTE == "BASELINE") return' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
+          grep -Fq 's.avatar is Essence2Engine && HitelSdkLoader.route() == "BASELINE"' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
           grep -Fq 'hitel_sdk_backend_' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'nativePrepareGpuAudit(HitelSdkLoader.libraryForProcess())' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelSdkProbe.kt"
-          echo PASS_PINNED_GPU_DIAGNOSTICS_INSTALLED_IDENTICAL_BOTH_SDKS
+          echo PASS_UNMODIFIED_BASELINE_NO_LOGGING_WITH_RESTORED_AUDIO
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
@@ -251,14 +252,11 @@ jobs:
           set -euo pipefail
           SDK="$GITHUB_WORKSPACE/essence2-sdk-local"
           curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.7.1/asm-9.7.1.jar -o "$SDK/asm.jar"
-          javac -cp "$SDK/asm.jar" -d "$SDK" \
-            tools/bithuman_deep/InstrumentEssence2.java \
-            tools/bithuman_deep/SelectEssence2NativeLibrary.java
-          java -cp "$SDK:$SDK/asm.jar" InstrumentEssence2 \
-            "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-traced-0.9.5.aar" \
-            | tee essence2-local-mock-proof/pinned-sdk-jni-instrumentation.txt
+          # No SDK JVM injection. Preserve original Java SDK classes except library
+          # selection and local test meter, and preserve original JNI byte-for-byte.
+          javac -cp "$SDK/asm.jar" -d "$SDK" tools/bithuman_deep/SelectEssence2NativeLibrary.java
           java -cp "$SDK:$SDK/asm.jar" SelectEssence2NativeLibrary \
-            "$SDK/hitel-traced-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
+            "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
             | tee essence2-local-mock-proof/native-loader-asm-proof.txt
           python3 tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py \
             --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
@@ -268,15 +266,13 @@ jobs:
           javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.NativeBridge \
             > essence2-local-mock-proof/native-loader-disassembly.txt
           grep -Fq 'HitelSdkLoader.libraryForProcess' essence2-local-mock-proof/native-loader-disassembly.txt
-          unzip -Z1 "$SDK/dual-classes.jar" | grep -Fq 'ai/bithuman/elevate/HitelProbeBridge.class'
-          javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.HitelProbeBridge \
-            > essence2-local-mock-proof/native-jni-probes-disassembly.txt
-          grep -Fq 'HitelSdkProbe' essence2-local-mock-proof/native-jni-probes-disassembly.txt
+          ! unzip -Z1 "$SDK/dual-classes.jar" | grep -Fq 'ai/bithuman/elevate/HitelProbeBridge.class'
+          ! grep -Fq 'HitelSdkProbe' essence2-local-mock-proof/native-loader-disassembly.txt
           # Identity check: BOTH variants use the same traced JVM classes.jar. Only
           # four ARM64 workgroup words differ between native vendor ELF variants.
-          cmp <(unzip -p "$SDK/hitel-traced-0.9.5.aar" jni/arm64-v8a/lible_jni.so) \
+          cmp <(unzip -p "$SDK/hitel-dual-loader-0.9.5.aar" jni/arm64-v8a/lible_jni.so) \
               <(unzip -p "$SDK/vendor-original-0.9.5.aar" jni/arm64-v8a/lible_jni.so)
-          echo PASS_ONE_APK_EQUAL_JVM_INSTRUMENTATION_UNMODIFIED_VENDOR_BASELINE
+          echo PASS_ORIGINAL_VENDOR_JAVA_NO_PROBE_ORIGINAL_JNI_BYTES
 
       - name: Compile the ORIGINAL pinned OpenCL kernel probe for both native SDK versions
         shell: bash
@@ -337,7 +333,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -347,14 +343,14 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Verify BOTH SDK native files and process routing are in this single signed APK
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk
+          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni_wg128.so'
@@ -376,7 +372,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -384,7 +380,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk"
+          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk"
           PCM="$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
           ASSET=assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm
           test "$(wc -c < "$PCM")" -eq 480000
@@ -406,20 +402,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-ko10s-dualsdk-media-audio-fix-20261123
-          APK=HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk
+          TAG=hitel-essence2-sofia-ko10s-original-audio-restored-20261123
+          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk
           test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          REBUILT from the exact pinned 2026-11-22 GPU SDK diagnostic stack, not recreated simplified JNI. ONE APK with original lible_jni.so and four-workgroup-instruction WG128 lible_jni_wg128.so; same InstrumentEssence2.java HitelProbeBridge JNI instrumentation on BOTH; same HitelSdkProbe.kt and native libhitel_e2_probe.so with process-sensitive symbol name and both exact native instruction identities. GPU vendor native logd/stderr and [hitel-cl] create,wg_limit,enqueue (kernel global/local/return code) events are recorded on both paths in per-route files including separate backend logs. ORIGINAL AvatarPlayer / Essence2Engine GPU hardware buffer route preserved; no forced zeroCopy=false. Identical generated 10-second Korean PCM and Sofia model. Restores Android MEDIA audio routing of earlier audible vendor player (previous default AvatarPlayer USAGE_VOICE_COMMUNICATION), retries zero/short writes, and logs real audio route/play state and PCM nonzero status. GPU vendor native and model unchanged. CI structural proof is not a physical device audio or Adreno runtime success and no -54 fix is claimed. Release contains debug APK for diagnosis.
+          BASELINE AUDIO RESTORED: the vendor-original native lible_jni.so is byte-identical, original SDK JVM classes no longer contain HitelProbeBridge/InstrumentEssence2 wrappers (only native loader for two-process selection and local offline meter URL getter). No HitelSdkProbe is installed and no HitelE2Trace log is emitted in BASELINE. Restores previous Essence2SpeechPlayer prepare-before-AudioTrack audio and associated image sizing in BASELINE only. WG128 retains original GPU-capable live AvatarPlayer and native OpenCL probe in separate process. Same Sofia model and same 10-second Korean PCM. Real physical device audible sound and GPU workgroup error remain UNVERIFIED.
+
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Sofia 10s Original vs WG128 same GPU logs + audible MEDIA AudioTrack fix' \
+              --title 'HITEL Sofia original audio path restored, WG128 GPU separate' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_GPU_AB_MEDIA_AUDIO_FIX_20261123_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_ORIGINAL_AUDIO_RESTORED_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -437,8 +434,6 @@ jobs:
             essence2-local-mock-proof/ab-manifest.txt
             essence2-local-mock-proof/native-loader-disassembly.txt
             essence2-local-mock-proof/native-loader-asm-proof.txt
-            essence2-local-mock-proof/native-jni-probes-disassembly.txt
-            essence2-local-mock-proof/pinned-sdk-jni-instrumentation.txt
             essence2-local-mock-proof/dual-native-gpu-probe-sha256.txt
             essence2-local-mock-proof/apk-sha256.txt
           retention-days: 14
