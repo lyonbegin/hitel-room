@@ -1,0 +1,62 @@
+name: IXIO main model-completion export bytecode inspection
+on:
+  push:
+    branches: [fix/ixio-main-model-export-downloads-20261123]
+    paths: ['.github/workflows/ixio-model-export-inspect-20261123.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Obtain exact final main baseline and disassembler
+        run: |
+          set -euo pipefail
+          mkdir -p input tools out
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 --repo lyonbegin/hitel-room -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk -D input
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tools/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tools/baksmali.jar' | sha256sum -c -
+          sha256sum input/*.apk
+          unzip -Z1 input/*.apk | grep -E '^classes[0-9]*.dex$' | tail -8
+      - name: Locate original model unpack completion / toast path and show exact methods
+        run: |
+          set -euo pipefail
+          APK=input/IXIO_Main_OriginalFGSPrestartQA_20261122.apk
+          for N in 14 15 16 17 18 19 20; do
+            if unzip -Z1 "$APK" | grep -Fxq "classes$N.dex";then
+              unzip -p "$APK" "classes$N.dex" > "out/classes$N.dex"
+              java -Xmx3g -jar tools/baksmali.jar d --api 34 --jobs 3 -o "out/smali$N" "out/classes$N.dex"
+            fi
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for n in ("FileUnzipWorker","DownloadWorker","ZipFileUtil","DownloadViewModel","AiModelUpdateRepositoryImpl","SttModelFiles"):
+            matches=list(Path("out").glob(f"smali*/**/{n}.smali"))
+            print("\n===CLASS",n,"matches",len(matches),flush=True)
+            for p in matches:
+              s=p.read_text()
+              methods=re.findall(r'(?ms)^\\.method[^\\n]*\\n.*?^\\.end method$',s)
+              print("PATH",p,"METHODS",len(methods),flush=True)
+              for m in methods:
+                sig=m.splitlines()[0]
+                if n in ("FileUnzipWorker","ZipFileUtil","SttModelFiles") or any(t in sig.lower() for t in ("dowork","completion","success","finished","model","toast")):
+                  print("\n",sig,flush=True)
+                  for line in m.splitlines():
+                    if any(t in line for t in ("return","Result;","->success(","->failure(","getFilesDir","getCacheDir","getAbsolutePath","ZipFileUtil","unzip","download","Download","Landroid/widget/Toast;","ModelFile","FileUnzipWorker","getFiles","getCache")):
+                      print(line[:200],flush=True)
+              if n in ("FileUnzipWorker","ZipFileUtil","SttModelFiles"):
+                Path("out/"+n+".smali").write_text(s)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: IXIO-model-export-original-worker-smali-20261123
+          path: |
+            out/FileUnzipWorker.smali
+            out/ZipFileUtil.smali
+            out/SttModelFiles.smali
