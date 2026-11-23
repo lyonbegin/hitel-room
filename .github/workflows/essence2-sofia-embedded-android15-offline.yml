@@ -1,4 +1,4 @@
-name: HITEL Essence2 Sofia Korean 10s ONE APK SDK original-WG128 chooser
+name: HITEL Essence2 EXACT e048 baseline with real released WG128 SDK native only
 on:
   workflow_dispatch:
   push:
@@ -10,6 +10,10 @@ on:
       - tools/bithuman_deep/test_essence2_hitel_no_key_runtime.py
       - tools/bithuman_deep/essence2_hitel_no_key_boot_probe.sh
       - tools/bithuman_deep/prepare_essence2_vendor_speech_player.py
+      - tools/bithuman_deep/essence2_local_android/HitelSdkLoader.kt
+      - tools/bithuman_deep/essence2_local_android/HitelSdkProbe.kt
+      - tools/bithuman_deep/essence2_real_wg128_original_probe_20261122.cpp
+      - tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
       - tools/bithuman_deep/essence2_local_android/Essence2SpeechPlayer.kt
       - tools/bithuman_deep/essence2_local_android/Essence2VendorRender.kt
       - tools/bithuman_deep/wait_essence2_playout_complete.py
@@ -137,6 +141,17 @@ jobs:
             --app "$APP" --plugin "$PLUGIN" \
             --loader-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelSdkLoader.kt" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/single-apk-sdk-ab.json"
+          cp tools/bithuman_deep/essence2_local_android/HitelSdkProbe.kt \
+            "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelSdkProbe.kt"
+          # Hard regression gate: original player, renderer, audio, route switch and
+          # all their source preparation scripts MUST remain byte-identical to e04874f.
+          for source in prepare_essence2_vendor_speech_player.py prepare_essence2_single_apk_ab.py; do
+            cmp <(git show e04874faf018d97f0afa9b760be93373212c1777:"tools/bithuman_deep/$source") \
+                "tools/bithuman_deep/$source"
+          done
+          grep -Fq 'zeroCopy = false' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          grep -Fq 'Essence2SpeechPlayer' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/BithumanPlugin.kt"
+          echo PASS_RESTORED_e04874f_ORIGINAL_PLAYER_AND_ALL_PCM_VIDEO_PATHS_BYTE_IDENTICAL
           python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
@@ -238,15 +253,53 @@ jobs:
           java -cp "$SDK:$SDK/asm.jar" SelectEssence2NativeLibrary \
             "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
             | tee essence2-local-mock-proof/native-loader-asm-proof.txt
+          # Actual 2026-11-22 released SDK artifact, NEVER regenerate the GPU ELF.
+          mkdir -p "$SDK/historical-gpu"
+          gh release download hitel-essence2-wg128-wav-pull-bf7290b661 \
+            --repo lyonbegin/hitel-room \
+            --pattern 'HITEL_Essence2_WG128_WavPull_ARM64.apk' \
+            --dir "$SDK/historical-gpu"
+          HIST="$SDK/historical-gpu/HITEL_Essence2_WG128_WavPull_ARM64.apk"
+          test -s "$HIST"
+          unzip -Z1 "$HIST" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          unzip -Z1 "$HIST" | grep -Fx 'lib/arm64-v8a/libhitel_e2_probe.so'
           python3 tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py \
             --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
             --sdk "$SDK" \
+            --historical-wg128-apk "$HIST" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/one-apk-dual-sdk-hashes.json"
           unzip -p "$SDK/hitel-dual-loader-0.9.5.aar" classes.jar > "$SDK/dual-classes.jar"
           javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.NativeBridge \
             > essence2-local-mock-proof/native-loader-disassembly.txt
           grep -Fq 'HitelSdkLoader.libraryForProcess' essence2-local-mock-proof/native-loader-disassembly.txt
           echo PASS_ONE_APK_TWO_NATIVE_SDKS_PROCESS_ROUTED_LOADER
+          # Build identical previous OpenCL hook except SONAME now targets isolated
+          # lible_jni_wg128.so; baseline's JVM/SO/player remains pristine.
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path("tools/bithuman_deep/essence2_real_wg128_original_probe_20261122.cpp").read_text()
+          before='dlopen("lible_jni.so", RTLD_NOW | RTLD_NOLOAD)'
+          after='dlopen("lible_jni_wg128.so", RTLD_NOW | RTLD_NOLOAD)'
+          assert source.count(before)==1
+          Path("essence2-sdk-local/hitel_e2_probe_wg128.cpp").write_text(source.replace(before,after))
+          print("PASS_PINNED_20261122_GPU_HOOK_ONLY_SONAME_UPDATED")
+          PY
+          CXX="$(find "$ANDROID_HOME/ndk" -path '*/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++' -type f 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$CXX" ]; then
+            SDKM="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -1)"
+            "$SDKM" --sdk_root="$ANDROID_HOME" --install 'ndk;28.2.13676358'
+            CXX="$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++"
+          fi
+          test -x "$CXX"
+          GPU_LIBS="$GITHUB_WORKSPACE/essence2-local-mock-plugin/android/src/main/jniLibs/arm64-v8a"
+          mkdir -p "$GPU_LIBS"
+          "$CXX" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -fvisibility=hidden -shared \
+            -static-libstdc++ -Wl,--no-undefined \
+            essence2-sdk-local/hitel_e2_probe_wg128.cpp -ldl \
+            -o "$GPU_LIBS/libhitel_e2_probe.so"
+          readelf -Ws "$GPU_LIBS/libhitel_e2_probe.so" | grep -F HitelSdkProbe_nativePrepareGpuAudit
+          sha256sum "$GPU_LIBS/libhitel_e2_probe.so" > essence2-local-mock-proof/wg128-probe-active-sha.txt
+          echo PASS_REAL_HISTORICAL_GPU_SDK_WITH_WG128_ONLY_OPENCL_OBSERVER
 
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
@@ -281,7 +334,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -291,17 +344,18 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Verify BOTH SDK native files and process routing are in this single signed APK
         shell: bash
         run: |
           set -euo pipefail
-          APK=HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
+          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
           unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni_wg128.so'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/libhitel_e2_probe.so'
           cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni.so) \
               <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni_wg128.so) \
@@ -319,7 +373,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -327,7 +381,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk"
+          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk"
           PCM="$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
           ASSET=assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm
           test "$(wc -c < "$PCM")" -eq 480000
@@ -349,20 +403,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-korean10s-one-apk-dual-sdk-20261123
-          APK=HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
+          TAG=hitel-essence2-original-e048-real-wg128-from-release-20261123
+          APK=HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk
           test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          ONE APK TWO SDK SELECTOR: includes BOTH exact original lible_jni.so and WG128 native lible_jni_wg128.so (four ARM64 workgroup instructions altered). The launcher and Flutter controls choose between two Android SDK processes to avoid JNI collisions: selecting the alternate starts its avatar instance; no APK reinstall. Both routes use the SAME Sofia model and SAME generated ko-KR synthetic 10s PCM fixture (24kHz, mono). Per-route trace files and on-screen comparison export included. This is NOT the user's original M4A. Physical-device OpenCL and audio playback remain unverified; no real-time same-process native hot swapping is claimed.
+          STRICT RESTORE: all original/player/audio/display/model/voice/app startup files and the two-process selector come from the ACTUAL 2026-11-23 e04874faf018d97f0afa9b760be93373212c1777 single APK commit. No GPU logger, SDK instrumentation or any route changes applied to BASELINE. WG128 lible_jni_wg128.so is extracted directly, without repatching, from the ACTUAL released APK hitel-essence2-wg128-wav-pull-bf7290b661. Its 2026-11-22 historical OpenCL kernel logger C++ is compiled with only the dlopen target name changed to match the isolated WG128 soname, loaded on WG128 process only. Original vendor native SHA is verified, and 4-workgroup-word difference is checked. Model, PCM10s, player and both existing UI controls preserved. This SDK-specific injection does not modify the video player or PCM/audio chain. CI cannot prove Galaxy speaker audio or GPU -54 repair.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 Sofia Korean 10s ONE APK Original and WG128 SDK chooser' \
+              --title 'HITEL Sofia exact original E048 player + real 2026-11-22 WG128 SDK release' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_ORIGINAL_E048_REAL_WG128_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -374,11 +428,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: essence2-one-apk-dual-sdk-manifest-loader-and-native-proofs
+          name: essence2-e048-baseline-real-wg128-release-provenance-evidence
           path: |
             essence2-local-mock-proof/*.json
             essence2-local-mock-proof/ab-manifest.txt
             essence2-local-mock-proof/native-loader-disassembly.txt
             essence2-local-mock-proof/native-loader-asm-proof.txt
+            essence2-local-mock-proof/wg128-probe-active-sha.txt
             essence2-local-mock-proof/apk-sha256.txt
           retention-days: 14
