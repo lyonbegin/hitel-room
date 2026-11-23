@@ -17,13 +17,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p testing
-          for i in $(seq 1 35); do
-            gh release view ixio-pcm-endpoint-original-sdk-isolated-20261123 -R lyonbegin/hitel-room >/dev/null 2>&1 && break
-            sleep 10
-          done
-          gh release download ixio-pcm-endpoint-original-sdk-isolated-20261123 \
-            -R lyonbegin/hitel-room -p HITEL_IXIO_PCM_Diag9_20261123.apk \
-            -p SHA256.txt -D testing
+          gh run download 45120812573 -R lyonbegin/hitel-room \
+            -n IXIO-PCM-Diag9-ARM64-20261123 -D testing
           (cd testing && sha256sum -c SHA256.txt)
       - name: Create exact binary class and JNI smoke probe
         run: |
