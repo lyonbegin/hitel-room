@@ -1,0 +1,68 @@
+name: Publish Zocbo Free Three-Views Modal WebView Diagnostic APK
+on:
+  push:
+    branches: [feature/zocbo-threeview-modal-webview-probe-20261123]
+    paths:
+      - .github/workflows/zocbo-threeviews-modal-probe-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-12
+          run-id: 45113278610
+          github-token: ${{ github.token }}
+          path: compiled
+      - name: Independently verify final single APK, content probe and original build digest
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import pathlib,zipfile,hashlib,re
+          p=pathlib.Path("compiled/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk")
+          sums=pathlib.Path("compiled/SHA256SUMS.txt").read_text()
+          h=hashlib.sha256(p.read_bytes()).hexdigest()
+          matches=[s for s in sums.splitlines() if s.endswith("work/"+p.name)]
+          assert len(matches)==1
+          assert matches[0].split()[0]==h
+          with zipfile.ZipFile(p) as z:
+           dex=[z.read(n) for n in z.namelist() if re.fullmatch("classes[0-9]*\\.dex",n)]
+           libs=[n for n in z.namelist() if n.startswith("lib/arm64-v8a/") and n.endswith(".so")]
+           assert len(dex)==4 and len(libs)>=10
+           for marker in (b"FREE_MEMBER_3_VIEWS_WEB_MODAL",b"WEB_MODAL_DOM_WATCHER",b"hitelZocboThreeViewsProbe"):
+            assert any(marker in b for b in dex),marker
+          print("SINGLE_APK_SHA256",h,"BYTES",p.stat().st_size)
+          print("JS_DOM_OBSERVER_AND_BRIDGE_EMBEDDED")
+          PY
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$SDK_BUILD/apksigner" verify --verbose compiled/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk
+          "$SDK_BUILD/aapt" dump xmltree compiled/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk AndroidManifest.xml > /tmp/modal-manifest.txt
+          ! grep -E 'requiredSplitTypes|com.android.vending.splits.required|isSplitRequired' /tmp/modal-manifest.txt
+      - name: Publish official GitHub release of diagnostic single APK and re-download to verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-free-threeviews-modal-webprobe-20261123
+          APK=compiled/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+              --title "Zocbo 4.3.11(2) diagnostic single APK: free-member 3-views modal DOM probe" \
+              --notes "UNOFFICIAL DIAGNOSTIC TEST APK. Builds on original 4.3.11(2) exact SHA, SSO/cookie/original viewer unchanged, prior 100kbps false network gate fix retained. A targeted WebView JS DOM observer detects visible popup words 무료회원 하루 3회 열람 and logs FREE_MEMBER_3_VIEWS_WEB_MODAL plus redacted page pathname; DOES NOT capture page text, credentials, cookies, tokens, content, PDF data. Build uses original merged base+ARM64+density+language in one APK; tested static structure, original source SHA, v2 signature, no required split metadata, uploaded-and-redownloaded SHA. Actual popup detection still requires user to reproduce on the phone; no claim it is verified yet. This APK is re-signed and may require uninstall of prior app; back up data first." \
+              "$APK"
+          fi
+          mkdir -p verify
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D verify -p '*.apk'
+          test "$(sha256sum verify/Zocbo_4.3.11_Diagnostic_Free3ModalProbe_20261123.apk | cut -d ' ' -f1)" = "$(sha256sum "$APK" | cut -d ' ' -f1)"
+          echo "PUBLIC_APK_REDOWNLOAD_SHA256_VERIFIED"
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{release:.url,files:[.assets[]|{name:.name,size:.size,url:.url}]}'
