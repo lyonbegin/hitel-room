@@ -24,6 +24,8 @@ jobs:
           tar -xjf /tmp/sherpa-v2.0.3.tar.bz2 -C /tmp/sherpa-stage
           find /tmp/sherpa-stage -type f | grep -E '(\.so$|c-api\.h$)' | sort | head -100
           find /tmp/sherpa-stage -type f -name 'libsherpa-onnx-c-api.so' > /tmp/c-api-list
+          mkdir -p /tmp/sherpa-stage/include/sherpa-onnx/c-api
+          curl -fLsS --retry 4 'https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v2.0.3/sherpa-onnx/c-api/c-api.h' -o /tmp/sherpa-stage/include/sherpa-onnx/c-api/c-api.h
           find /tmp/sherpa-stage -type f -name 'c-api.h' > /tmp/c-header-list
           echo C_API_CANDIDATES; cat /tmp/c-api-list
           echo C_API_HEADERS; cat /tmp/c-header-list
