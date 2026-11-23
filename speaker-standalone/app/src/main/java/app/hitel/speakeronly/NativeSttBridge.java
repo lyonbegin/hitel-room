@@ -1,6 +1,5 @@
 package app.hitel.speakeronly;
 
-import android.os.SystemClock;
 import java.io.Closeable;
 import java.io.File;
 
