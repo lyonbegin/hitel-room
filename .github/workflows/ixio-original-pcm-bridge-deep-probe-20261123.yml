@@ -1,0 +1,41 @@
+name: IXIO original PCM AudioRecord Flow to SpeechInference exact callgraph
+on:
+  push:
+    branches: [research/ixio-original-pcm-to-speechsdk-20261123]
+    paths: [.github/workflows/ixio-original-pcm-bridge-deep-probe-20261123.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deep:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve source APKs with verified byte hashes
+        run: |
+          set -euo pipefail
+          mkdir -p original bin evidence /tmp/ixio-pcm-bridge/smali/main /tmp/ixio-pcm-bridge/smali/recorder
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 -R lyonbegin/hitel-room -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk -D original
+          gh release download ixio-qa-original-flow-trace-20261122 -R lyonbegin/hitel-room -p IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk -D original
+          echo 'd8876b1396c5cc94d2f44b646d75b4dc1688ef8b04c71109941f598944afdb9b  original/IXIO_Main_OriginalFGSPrestartQA_20261122.apk' | sha256sum -c -
+          echo '25463e9553299371ad0ca37f558c0c232593ff6daf7659c61f27fee3777295e8  original/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk' | sha256sum -c -
+          curl -fLsS --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o bin/baksmali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  bin/baksmali.jar' | sha256sum -c -
+      - name: Disassemble original application PCM and recorder producer DEX
+        run: |
+          set -euo pipefail
+          unzip -p original/IXIO_Main_OriginalFGSPrestartQA_20261122.apk classes18.dex > /tmp/ixio-pcm-bridge/main.dex
+          unzip -p original/IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk classes6.dex > /tmp/ixio-pcm-bridge/recorder.dex
+          java -Xmx2400m -jar bin/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-pcm-bridge/smali/main /tmp/ixio-pcm-bridge/main.dex
+          java -Xmx2400m -jar bin/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-pcm-bridge/smali/recorder /tmp/ixio-pcm-bridge/recorder.dex
+          python3 tools/ixio/probe_original_pcm_bridge_20261123.py
+      - name: Upload indexed PCM bridge method contracts without private APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-Original-LocalAudioRecordSource-PCM-Flow-Contracts-20261123
+          path: evidence/*.json
+          if-no-files-found: warn
