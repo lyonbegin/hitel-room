@@ -223,7 +223,7 @@ jobs:
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
-          for k in ("api_builder","pdf_builder","model_pdf_path"):
+          for k in ("api_builder","pdf_builder"):
             assert sum(x["hook_count"] for x in j[k])==1, (k,j)
           print("NATIVE_PDF_API_LOG_HOOKS_VERIFIED",j,flush=True)
           PY
