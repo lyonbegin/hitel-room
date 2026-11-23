@@ -124,16 +124,16 @@ public final class SpeakerService extends Service {
     boolean available=SamsungRecordAccessibility.requestRecording(event->{
       session.event("RECORD_UI",event,"waitingMs",waitingMs);
       if("RECORD_START_BUTTON_TAPPED_NOT_YET_VERIFIED".equals(event))
-        send("삼성 녹음 시작 버튼 작동 · M4A 크기 증가 검증 대기",false);
+        send("삼성 녹음 시작 버튼 작동 · 최신 M4A 생성 대기",false);
       else if("RECORDING_UI_INDICATES_ACTIVE".equals(event))
-        send("삼성 전화 UI에 녹음 중 표시 · M4A 크기 증가 검증 대기",false);
+        send("삼성 전화 UI에 녹음 중 표시 · 최신 M4A 생성 대기",false);
     });
     session.event("RECORDING",waitingMs==0L?
         "RECORDING_IMMEDIATE_ACCESSIBILITY_REQUEST":"RECORDING_RECHECK_ACCESSIBILITY_REQUEST",
         "waitingMs",waitingMs,"accessibilityAvailable",available,
         "verifiedRecording",false);
     if(!available)
-      send("녹음 파일 증가 없음 · 접근성 보조를 허용하거나 삼성 전화 자동 녹음을 켜십시오.",false);
+      send("새로운 녹음 파일이 아직 확인되지 않았습니다 · 접근성 보조를 허용하거나 삼성 전화 자동 녹음을 켜십시오.",false);
   }
 
   private synchronized void onCallEnded(){
@@ -202,19 +202,18 @@ public final class SpeakerService extends Service {
       @Override public void recordingCandidate(String name,long size,int growthEvents){
         session.event("RECORDING","RECORDING_GROWTH_CANDIDATE",
             "filename",name,"bytes",size,"growthEvents",growthEvents);
-        send("녹음 시작 후보 감지 · "+name+
-            " · 100ms 크기 증가 "+growthEvents+"/3회 검증 중",false);
+        send("새 녹음파일 후보 · "+name,false);
       }
       @Override public void confirmedRecording(String name,long bytes){
         SamsungRecordAccessibility.cancelRequest();
-        session.event("RECORDING","RECORDING_VERIFIED_BY_M4A_GROWTH",
-            "filename",name,"bytes",bytes,"verified",true);
+        session.event("RECORDING","NEWEST_M4A_SELECTED_WITHOUT_GROWTH_GATE",
+            "filename",name,"bytesAtSelection",bytes,"fileChosen",true);
       }
     },(transcript,isFinal)->sendCaption(session,transcript,isFinal));
     holder[0]=task;
     engine=task;
     send(callTriggered?
-        "통화 시작 감지 · 같은 M4A 크기를 100ms 간격으로 3회 증가 확인 중":
+        "통화 시작 감지 · 녹음 시작 시점의 최신 M4A 파일 대기":
         "선택한 녹음 파일 직접 STT 시작",false);
     task.start(folderUri,callTriggered);
   }
