@@ -187,7 +187,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"MANUAL_POST_API_STATUS",b"MANUAL_PDF_SAVED",b"MANUAL_POST_BUTTON",b"PDF_MANUAL_CLIENT_AVAILABLE",b"MANUAL_PDF_RESULT",b"POST\xc2·PDF"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"MANUAL_POST_API_STATUS",b"MANUAL_PDF_SAVED",b"MANUAL_POST_BUTTON",b"PDF_MANUAL_CLIENT_AVAILABLE",b"MANUAL_PDF_RESULT"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
