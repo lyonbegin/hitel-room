@@ -58,8 +58,17 @@ public final class NativePdfEntryActivity extends Activity {
     exam=new EditText(this);
     exam.setSingleLine(true);
     exam.setInputType(InputType.TYPE_CLASS_NUMBER);
+    String fromTitle=null;
+    try{
+      if(getIntent()!=null)fromTitle=getIntent().getStringExtra(NativePdfTitleBridge.EXTRA_EXAM_ID);
+    }catch(Throwable ignored){}
+    final boolean provided=(fromTitle!=null && fromTitle.matches("[1-9][0-9]{0,9}"));
     int previous=NetTrace.lastModelExamNo();
-    exam.setText(previous>0?String.valueOf(previous):"15958873");
+    String initial=provided?fromTitle:(previous>0?String.valueOf(previous):"15958873");
+    exam.setText(initial);
+    Diag.log("NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",
+      (provided?"selected_previous_exam_title":previous>0?"last_original_model":"diagnostic_default")
+      +" exam="+initial);
     exam.selectAll();
     exam.setContentDescription("시험지 번호");
     body.addView(exam,new LinearLayout.LayoutParams(
