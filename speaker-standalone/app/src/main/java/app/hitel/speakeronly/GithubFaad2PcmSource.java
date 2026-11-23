@@ -26,6 +26,7 @@ final class GithubFaad2PcmSource {
   private long inputFrames,pcmSamples,chunks;
   private final byte[] window=new byte[CHUNK_BYTES];
   private volatile Process process;
+  private volatile boolean stopRequested;
   private volatile Thread stderrThread;
 
   GithubFaad2PcmSource(TraceJournal journal) {
@@ -42,6 +43,7 @@ final class GithubFaad2PcmSource {
   }
 
   void requestStop() {
+    stopRequested=true;
     Process p=process;
     if(p!=null&&p.isAlive())p.destroy();
   }
@@ -69,7 +71,13 @@ final class GithubFaad2PcmSource {
         while((line=reader.readLine())!=null)
           log.event("FAAD2","UPSTREAM_DECODER_LOG","line",line);
       }catch(Throwable e){
-        log.error("FAAD2","UPSTREAM_STDERR_READER_ERROR",e);
+        // Process.destroy() closes stderr on Android; that IOException is normal
+        // after the user's call has stopped, not an AAC decoding failure.
+        if(stopRequested && e instanceof IOException)
+          log.event("FAAD2","EXPECTED_STDERR_CLOSE_AFTER_CALL_STOP",
+            "exception",e.getClass().getSimpleName());
+        else
+          log.error("FAAD2","UPSTREAM_STDERR_READER_ERROR",e);
       }
     },"FAAD2-Stderr");
     stderrThread=err;err.start();
@@ -105,8 +113,9 @@ final class GithubFaad2PcmSource {
       process=null;
       log.event("FAAD2","UPSTREAM_PCM_EXIT","code",rc,
         "sourceSamples48k",inputFrames,"pcmSamples16k",pcmSamples,
-        "pcmChunks512",chunks,"completedFile",completedFile);
-      if(problem==null&&completedFile&&rc!=0)
+        "pcmChunks512",chunks,"completedFile",completedFile,
+        "stopRequested",stopRequested,"expectedStopExit",stopRequested && rc==143);
+      if(problem==null && rc!=0 && !stopRequested)
         throw new IOException("FAAD2 upstream decoder failed, exit="+rc);
     }
   }
