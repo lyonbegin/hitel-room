@@ -20,8 +20,19 @@ jobs:
           mkdir -p evidence/native
           curl -fL --retry 4 --retry-delay 2 'https://github.com/lyonbegin/hitel-room/releases/download/ixio-v10-full-m4a-single-loader-20261123/HITEL_IXIO_FullM4A_SingleLoader_V10_20261123.apk' -o /tmp/ixio-v10.apk
           echo '8c4245bed2fab624d4ad160ae50445a8eee167c93b4e5a9567622e632a5e5092  /tmp/ixio-v10.apk' | sha256sum -c -
-          unzip -Z1 /tmp/ixio-v10.apk | grep -E '(^lib/.+\\.so$|ixio-original-sdk\\.jar$)' | tee evidence/APK_NATIVE_PATHS.txt
-          unzip -j /tmp/ixio-v10.apk 'lib/arm64-v8a/libsherpa-onnx-jni.so' -d evidence/native
+          python3 - <<'PYCODE'
+          import pathlib,zipfile
+          z=zipfile.ZipFile('/tmp/ixio-v10.apk')
+          names=z.namelist()
+          paths=[p for p in names if p.endswith('.so') or p.endswith('ixio-original-sdk.jar')]
+          pathlib.Path('evidence/APK_NATIVE_PATHS.txt').write_text('\\n'.join(paths))
+          print('NATIVE_PATHS',paths)
+          matches=[p for p in names if p.endswith('libsherpa-onnx-jni.so')]
+          if not matches: raise RuntimeError('Original JNI library not found in APK')
+          out=pathlib.Path('evidence/native/libsherpa-onnx-jni.so')
+          out.write_bytes(z.read(matches[0]))
+          print('EXTRACTED_SO',matches[0],out.stat().st_size)
+          PYCODE
           sha256sum evidence/native/*.so | tee evidence/NATIVE_SHA256.txt
       - name: Inspect JNI exports and disassemble visible native functions
         shell: bash
