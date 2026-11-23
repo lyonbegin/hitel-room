@@ -1,0 +1,25 @@
+name: Essence2 GPU3 native dispatch deterministic regression
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/essence2-original-gpu-compat-cpu-3stage-20261123
+    paths:
+      - tools/bithuman_deep/test_essence2_gpu3_native_dispatch.py
+      - tools/bithuman_deep/essence2_gpu3_original_first_native.cpp
+      - .github/workflows/essence2-gpu3-native-dispatch-regression.yml
+permissions:
+  contents: read
+jobs:
+  test-actual-native-three-stage-routing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile extracted production dispatch and exercise original/compact/CPU return paths
+        run: |
+          python3 tools/bithuman_deep/test_essence2_gpu3_native_dispatch.py
+      - name: Explain verification boundary
+        run: |
+          echo "PASS = production C++ dispatch function against mock OpenCL responses"
+          echo "NOT VERIFIED = real Adreno GPU workgroup acceptance, execution completion, numerical correctness, actual CPU demotion, phone speaker/video output"
