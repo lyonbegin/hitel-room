@@ -4,29 +4,32 @@ import android.app.Application
 import android.os.Process
 import android.util.Log
 
-/** Used by the ORIGINAL SDK's patched NativeBridge.<clinit> before JNI symbols resolve.
- * Each choice lives in a distinct Android process so both native versions
- * register the same JNI API against independent Java virtual machines.
+/**
+ * BASELINE: untouched vendor ELF, SDK chooses its own GPU/CPU paths.
+ * GPU3: the EXACT SAME untouched vendor ELF, with a per-process OpenCL
+ * dispatcher installed prior to nativeCreate. Stage 1 original GPU, stage 2
+ * compatible small-workgroup GPU on -54, stage 3 original vendor CPU fallback.
+ * No JNI/native model/PCM/player/render code is replaced.
  */
 object HitelSdkLoader {
     @JvmStatic fun route(): String {
-        val p=Application.getProcessName()
+        val name = Application.getProcessName()
         return when {
-            p.endsWith(":hitel_original") -> "BASELINE"
-            p.endsWith(":hitel_wg128") -> "WG128"
-            else -> throw IllegalStateException("SDK requested outside isolated Android SDK process: "+p)
+            name.endsWith(":hitel_original") -> "BASELINE"
+            name.endsWith(":hitel_gpu3") -> "GPU3"
+            else -> throw IllegalStateException("SDK requested outside isolated Android SDK process: " + name)
         }
     }
     @JvmStatic fun libraryForProcess(): String {
-        val lib = if (route()=="WG128") "le_jni_wg128" else "le_jni"
-        if (route() == "WG128") {
-            // Only the SECOND SDK process: load verified 2026-11-22 native first,
-            // then attach its real OpenCL observer before vendor nativeCreate().
-            // The original BASELINE loader remains exactly the previous path.
-            System.loadLibrary(lib)
+        val current = route()
+        if (current == "GPU3") {
+            System.loadLibrary("le_jni")
             HitelSdkProbe.afterNativeLoad()
         }
-        Log.i("HITEL_SDK_AB", "sdk.loader route="+route()+" so="+lib+" pid="+Process.myPid())
-        return lib
+        // Both process routes return the ORIGINAL library name.
+        // NativeBridge's existing System.loadLibrary handles BASELINE as before.
+        Log.i("HITEL_SDK_AB", "sdk.loader route=" + current +
+            " so=le_jni originalVendorNative=true pid=" + Process.myPid())
+        return "le_jni"
     }
 }
