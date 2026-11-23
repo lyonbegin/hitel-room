@@ -51,5 +51,5 @@ jobs:
           gh release upload "$TAG" -R lyonbegin/hitel-room "$LOCAL" speaker-standalone/dist/SHA256.txt --clobber
           curl -fLsS --retry 4 --max-time 240 \
             "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK" -o /tmp/ixio-v13-verified.apk
-          cmp "$LOCAL" /tmp/ixio-v12-verified.apk
+          cmp "$LOCAL" /tmp/ixio-v13-verified.apk
           echo VERIFIED_HTTPS_FAAD2_V13_FIRST_READY_LATEST_ANDROID_APK
