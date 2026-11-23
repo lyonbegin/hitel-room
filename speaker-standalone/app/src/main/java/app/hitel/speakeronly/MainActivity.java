@@ -30,13 +30,13 @@ import java.util.List;
 
 /** Standalone Samsung growing recording -> direct Korean STT with live caption UI. */
 public final class MainActivity extends Activity {
-  static final int PICK_FILE=41,PICK_FOLDER=42,SAVE_ZIP=43,BLUETOOTH_PERMISSION=44,PHONE_STATE_PERMISSION=45;
+  static final int PICK_FILE=41,PICK_FOLDER=42,SAVE_ZIP=43,BLUETOOTH_PERMISSION=44,PHONE_STATE_PERMISSION=45,PICK_IXIO_MODEL=46;
   private final Handler ui=new Handler(Looper.getMainLooper());
   private Uri selected;
   private boolean folderMode;
   private int deviceId=-1;
   private TextView header,source,detectedSource,status,deviceSummary,explanation,liveTranscript;
-  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton;
+  private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton,modelButton;
   private boolean receiverRegistered;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
@@ -73,11 +73,15 @@ public final class MainActivity extends Activity {
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
     int padding=(int)(16*getResources().getDisplayMetrics().density);
     root.setPadding(padding,padding,padding,padding);scroll.addView(root);
-    header=text(root,"녹음 중 최신 M4A → 한국어 STT 직접 인식",21);
+    header=text(root,"삼성 통화녹음 → IXIO 원본 speechSDK STT",21);
     header.setTypeface(null,Typeface.BOLD);
-    text(root,"삼성 통화 녹음파일이 커지는 동안 AAC→16kHz PCM으로 변환해 같은 앱의 한국어 Sherpa-ONNX Zipformer에 직접 입력합니다. 스피커 재생·다른 앱 오디오 캡처·Android 단일 앱 선택이 필요 없습니다.",13);
+    text(root,"삼성 통화녹음 파일 증가분을 16kHz PCM으로 변환하여 IXIO 원본 speechSDK.SpeechInference()에 입력합니다. HITEL14 공개 인식기는 사용하지 않습니다.",13);
 
-    text(root,"1. 삼성 통화 녹음 폴더 지정 (최초 1회)",17);
+    text(root,"1. IXIO 원본 STT 모델 선택 (최초 1회)",17);
+    modelButton=button(root,"IXIO 원본 STT.zip 가져오기");
+    modelButton.setOnClickListener(v->selectOriginalIxioSttZip());
+    text(root,"IXIO의 encoder.ort / decoder.ort / joiner.ort / tokens.txt가 필요합니다. 모델이 없으면 다른 인식기로 대체하지 않습니다.",12);
+    text(root,"2. 삼성 통화 녹음 폴더 지정 (최초 1회)",17);
     folderButton=button(root,"통화녹음 폴더 선택 · 최신 증가 M4A 자동 감시");
     fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
     source=text(root,"녹음 폴더를 선택하십시오. 이후 실행에서는 저장된 폴더를 자동 감시합니다.",13);
@@ -87,7 +91,7 @@ public final class MainActivity extends Activity {
     fileButton.setOnClickListener(v->choose(false));
     folderButton.setOnClickListener(v->choose(true));
 
-    text(root,"2. 통화 중 녹음 자동 시작 설정",17);
+    text(root,"3. 통화 중 녹음 자동 시작 설정",17);
     accessibilityButton=button(root,"삼성 전화 녹음 시작 보조 활성화 (접근성 설정)");
     text(root,"통화가 연결되면 접근성 서비스를 즉시 호출하여 삼성 전화의 녹음 버튼을 찾습니다. 이미 자동 녹음 중이면 버튼을 다시 누르지 않습니다. 최초 한 번 접근성 서비스 사용자가 직접 허용해야 합니다. 실제 녹음 성공은 M4A 파일이 증가할 때만 확정합니다.",12);
     accessibilityButton.setOnClickListener(v->{
@@ -95,13 +99,13 @@ public final class MainActivity extends Activity {
       catch(Exception e){status.setText("접근성 설정 열기 실패: "+e.getMessage());}
     });
 
-    text(root,"3. 음성 출력 없음 (PCM을 직접 STT)",17);
+    text(root,"4. PCM을 IXIO speechSDK에 직접 전송",17);
     outputButton=button(root,"출력 선택 · 내장 스피커 / 수화부 / 블루투스 / USB-C");
     deviceSummary=text(root,"출력 장치: 자동 / 내장 스피커 우선",15);
     text(root,"AudioTrack 스피커로 재생하지 않고 16kHz PCM을 STT에 직접 전달합니다. 원래의 출력 장치 선택 기능은 이 실험에서 사용하지 않습니다.",12);
     outputButton.setOnClickListener(v->showOutputs());
 
-    text(root,"4. 통화 이벤트 및 실시간 한국어 STT",17);
+    text(root,"5. 통화 이벤트 및 IXIO 실시간 STT",17);
     startButton=button(root,"통화 이벤트 자동 감시 켜기 · OFFHOOK 시 STT");
     stopButton=button(root,"통화 이벤트 자동 감시 해제");
     startButton.setOnClickListener(v->start());
@@ -115,8 +119,8 @@ public final class MainActivity extends Activity {
       .getString("lastTranscript","아직 인식된 자막이 없습니다."));
     status.setTextIsSelectable(true);
     explanation=text(root,
-      "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → Zipformer OnlineStream.acceptWaveform() → partial/final 자막. AudioTrack 및 MediaProjection 미사용. 모델 포함 여부·PCM 큐·decode 회수·최종 인식 로그를 ZIP에 저장합니다.",12);
-    text(root,"5. PCM → STT 인식 진단",17);
+      "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → IXIO speechSDK.SpeechInference() → 인식 자막. AudioTrack 및 MediaProjection 미사용. 모델 포함 여부·PCM 큐·decode 회수·최종 인식 로그를 ZIP에 저장합니다.",12);
+    text(root,"6. PCM → IXIO STT 인식 진단",17);
     exportButton=button(root,"진단 ZIP 다운로드에 저장 · 실제 파일 확인");
     exportButton.setOnClickListener(v->export());
     openExportButton=button(root,"저장된 ZIP 직접 열기");
@@ -131,6 +135,15 @@ public final class MainActivity extends Activity {
     String detected=getSharedPreferences("speaker",MODE_PRIVATE).getString("detectedSource","");
     if(!detected.isEmpty())detectedSource.setText(detected);
     updateDeviceLabel();updateButtons();
+  }
+
+  private void selectOriginalIxioSttZip(){
+    if(active())return;
+    Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+    intent.addCategory(Intent.CATEGORY_OPENABLE);
+    intent.setType("application/zip");
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    startActivityForResult(intent,PICK_IXIO_MODEL);
   }
 
   void choose(boolean folder){
@@ -152,6 +165,20 @@ public final class MainActivity extends Activity {
     super.onActivityResult(requestCode,resultCode,data);
     if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
     Uri uri=data.getData();
+    if(requestCode==PICK_IXIO_MODEL){
+      if(active()){status.setText("통화 감시 종료 후 IXIO 모델을 교체하십시오.");return;}
+      status.setText("IXIO 원본 STT.zip 검사 및 설치 중");
+      Uri chosen=uri;
+      new Thread(()->{
+        try{
+          String result=IxioModelImporter.importZip(this,chosen);
+          runOnUiThread(()->{status.setText(result);updateButtons();});
+        }catch(Exception error){
+          runOnUiThread(()->status.setText("IXIO 모델 설치 실패: "+error.getMessage()));
+        }
+      },"IXIO-Original-STT-Model-Import").start();
+      return;
+    }
     if(requestCode==PICK_FILE||requestCode==PICK_FOLDER){
       try{getContentResolver().takePersistableUriPermission(uri,
           Intent.FLAG_GRANT_READ_URI_PERMISSION);}
@@ -273,6 +300,12 @@ public final class MainActivity extends Activity {
     stopButton.setEnabled(running);
     fileButton.setEnabled(!running);
     folderButton.setEnabled(!running);
+    if(modelButton!=null){
+      modelButton.setEnabled(!running);
+      modelButton.setText(IxioModelImporter.isReady(this)?
+        "IXIO 원본 STT 모델 준비됨 · ZIP 다시 선택":
+        "IXIO 원본 STT.zip 가져오기 (필수)");
+    }
     exportButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
       .getString("lastRunId","").isEmpty());
     openExportButton.setEnabled(!getSharedPreferences("speaker",MODE_PRIVATE)
@@ -285,6 +318,10 @@ public final class MainActivity extends Activity {
   }
   private void start(){
     if(selected==null){status.setText("녹음 파일이나 폴더를 선택하십시오.");return;}
+    if(!IxioModelImporter.isReady(this)){
+      status.setText("IXIO 원본 STT 모델이 없습니다. STT.zip을 먼저 가져오십시오.");
+      return;
+    }
     if(active())return;
     if(folderMode && Build.VERSION.SDK_INT>=23 &&
         checkSelfPermission(Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED){
