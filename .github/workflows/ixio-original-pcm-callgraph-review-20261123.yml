@@ -39,6 +39,6 @@ jobs:
           text=(folder/'critical-bytecode-context.txt').read_text()
           blocks=text.split('## ')
           for block in blocks:
-            if any(z in block.splitlines()[0] for z in ['LocalAudioRecordSource$downlinkFlow$1','LocalAudioRecordSource$uplinkFlow$1','SpeechToTextRepositoryImpl.smali','CallRecordingService$processAudioRecording$downProducerJob$1','RecordCallbackRepositoryImpl$startRecordingJob$1']):
+            if block.strip() and any(z in block.splitlines()[0] for z in ['LocalAudioRecordSource$downlinkFlow$1','LocalAudioRecordSource$uplinkFlow$1','SpeechToTextRepositoryImpl.smali','CallRecordingService$processAudioRecording$downProducerJob$1','RecordCallbackRepositoryImpl$startRecordingJob$1']):
               print('ORIGINAL_BYTECODE_CONTEXT',block[:12500])
           PY
