@@ -1,0 +1,61 @@
+name: Zocbo R10 Real Android Emulator UI Smoke
+on:
+  push:
+    branches:
+      - feature/zocbo-pdf-api-trace-20261123
+    paths:
+      - scripts/zocbo_diagnostic/emulator_smoke.py
+      - .github/workflows/zocbo-r10-real-emulator-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-real-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact public R10 APK
+        shell: bash
+        run: |
+          mkdir -p work/emulator-evidence
+          curl -fL --retry 3 --connect-timeout 15 -o work/r10.apk \
+            https://github.com/lyonbegin/hitel-room/releases/download/zocbo-original-area-all-metadata-collector-20261123-r10/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk
+          echo "15fa3c24f34fd5145b83fcda726b86cbe065af70e02d655c20ab074b8c674d3d  work/r10.apk" | sha256sum -c -
+      - name: Enable hardware virtualization
+        run: |
+          ls -l /dev/kvm || true
+          sudo sh -c 'echo KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm" > /etc/udev/rules.d/99-kvm4all.rules'
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Actually boot emulator, install APK, inspect and tap in-app collector
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: python3 scripts/zocbo_diagnostic/emulator_smoke.py | tee work/emulator-evidence/runtime-output.txt
+      - name: Check runtime for crash and region discovery evidence
+        if: always()
+        run: |
+          if test -f work/emulator-evidence/runtime-output.txt; then
+            grep -E 'SMOKE_RESULT|UI_ELEMENTS|COLLECTOR_|FATAL EXCEPTION' work/emulator-evidence/runtime-output.txt | tail -120 || true
+          else
+            echo NO_RUNTIME_OUTPUT
+          fi
+      - name: Save genuine emulator screenshots UI hierarchy and logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r10-real-emulator-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            work/emulator-evidence/
