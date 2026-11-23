@@ -69,6 +69,15 @@ jobs:
           "$BUILD/apksigner" verify --verbose work/r20-app.apk
           sha256sum work/r20-app.apk | tee work/r20-app/SHA256SUMS.txt
           echo R20_ORIGINAL_APK_BUILD_PASS
+      - name: Enable KVM access before x86_64 Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -l /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          echo R20_KVM_READY
       - name: Run original MainActivity inside Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -104,4 +113,6 @@ jobs:
         with:
           name: zocbo-r20-original-main-inapp-evidence
           retention-days: 14
-          path: work/r20-app/
+          path: |
+            work/r20-app/
+            work/r20-app.apk
