@@ -64,6 +64,19 @@ public final class ReadingCollectorStore extends SQLiteOpenHelper {
     Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM exams",null);
     try {return c.moveToFirst()?c.getInt(0):0;}finally{c.close();}
   }
+  /** Genuine source metadata only, excluding every replay/fixture QA row. */
+  public synchronized int countLive(){
+    Cursor c=getReadableDatabase().rawQuery(
+      "SELECT COUNT(*) FROM exams WHERE source_scope NOT LIKE 'QA_%' "+
+      "AND source_scope <> 'CAPTURED_HTML_QA_ONLY'",null);
+    try{return c.moveToFirst()?c.getInt(0):0;}finally{c.close();}
+  }
+  public synchronized long lastLiveTimestamp(){
+    Cursor c=getReadableDatabase().rawQuery(
+      "SELECT COALESCE(MAX(last_seen),0) FROM exams WHERE source_scope NOT LIKE 'QA_%' "+
+      "AND source_scope <> 'CAPTURED_HTML_QA_ONLY'",null);
+    try{return c.moveToFirst()?c.getLong(0):0L;}finally{c.close();}
+  }
   public static final class Progress {
     public int taskIndex,page,pagesDone,rowsSeen;
     public boolean finished;
