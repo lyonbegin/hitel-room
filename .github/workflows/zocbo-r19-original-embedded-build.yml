@@ -1,0 +1,107 @@
+name: Zocbo R19 Original App Embedded WebView Build And Emulator
+on:
+  push:
+    branches: [fix/zocbo-r19-original-main-webview-20261124]
+    paths: [.github/workflows/zocbo-r19-original-embedded-build.yml, scripts/zocbo_diagnostic/src/**]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  original-main-build-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original-app-derived R18 base and verify digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/r19-app
+          curl --retry 3 --connect-timeout 15 --max-time 100 -fsSL https://github.com/lyonbegin/hitel-room/releases/download/zocbo-nine-region-collector-20261124-r18-test/Zocbo_4.3.11_Nine_Region_Collector_R18_TEST_20261124.apk -o work/r19-base.apk
+          echo '59e7919897bd75b34fc51d050dc1e66548564ba7ecdf996ba1c7eee47c12cb4a  work/r19-base.apk' | sha256sum -c -
+      - name: Compile new instrumentation into single diagnostic DEX
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLATFORM="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
+          BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/r19-classes work/r19-dex
+          javac -source 8 -target 8 -Xlint:-options -cp "$PLATFORM/android.jar" -d work/r19-classes $(find scripts/zocbo_diagnostic/src -name '*.java')
+          "$BUILD/d8" --min-api 23 --lib "$PLATFORM/android.jar" --output work/r19-dex $(find work/r19-classes -name '*.class')
+          test -s work/r19-dex/classes.dex
+          echo R19_JAVA_DEX_COMPILE_PASS
+      - name: Replace ONLY previously instrumented classes dex in original merged app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile,pathlib,re
+          base=pathlib.Path("work/r19-base.apk")
+          out=pathlib.Path("work/r19-unsigned.apk")
+          compiled=pathlib.Path("work/r19-dex/classes.dex").read_bytes()
+          assert b"OriginalInAppMetadataCollector" in compiled
+          with zipfile.ZipFile(base) as original:
+            dexes=[n for n in original.namelist() if re.fullmatch(r"classes\d*\.dex",n)]
+            targets=[n for n in dexes if b"zocbo_free_exam_trace.txt" in original.read(n)]
+            print("R19_ORIGINAL_DEXES",len(dexes),"replace",targets,flush=True)
+            assert len(targets)==1,"Multiple or missing old diagnostic DEX"
+            with zipfile.ZipFile(out,"w") as output:
+              for entry in original.infolist():
+                name=entry.filename
+                if name.startswith("META-INF/") and name.upper().endswith((".RSA",".SF",".DSA")):
+                  continue
+                output.writestr(entry,compiled if name==targets[0] else original.read(name))
+          with zipfile.ZipFile(out) as z:
+            assert sum(b"OriginalInAppMetadataCollector" in z.read(n) for n in dexes)==1
+            assert sum(b"zocbo_free_exam_trace.txt" in z.read(n) for n in dexes)==1
+          print("R19_ORIGINAL_APK_DEX_SWAP_VERIFIED",flush=True)
+          PY
+      - name: Zipalign, sign and verify R19 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD/zipalign" -f -p 4 work/r19-unsigned.apk work/r19-aligned.apk
+          keytool -genkeypair -keystore work/r19-sign.jks -alias r19 -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=HITEL Diagnostic R19,O=Test,C=KR" -noprompt
+          "$BUILD/apksigner" sign --ks work/r19-sign.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias r19 --out work/r19-app.apk work/r19-aligned.apk
+          "$BUILD/apksigner" verify --verbose work/r19-app.apk
+          sha256sum work/r19-app.apk | tee work/r19-app/SHA256SUMS.txt
+          echo R19_ORIGINAL_APK_BUILD_PASS
+      - name: Run original MainActivity inside Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          disk-size: 4096M
+          disable-animations: true
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 420
+          script: |
+            set -euo pipefail
+            cp work/r19-app.apk work/r19-source.apk
+            python3 -u .github/qa/zocbo_r19_original_main.py | tee work/r19-app/runtime.txt
+            grep -q 'R19_ORIGINAL_MAIN_ACTUAL_ANDROID_EXECUTED' work/r19-app/runtime.txt
+      - name: Publish exactly tested signed R19 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=zocbo-original-main-inapp-r19-20261124
+          cp work/r19-app.apk work/Zocbo_4.3.11_Original_Main_InApp_R19_TEST.apk
+          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false --title "R19 Original Zocbo Main in-app list collector" --notes "R19 TEST. Runs the original MainActivity and attaches metadata collection to the existing source WebView; no separate list Activity. Emulator results are in Actions artifacts; no live server success is claimed without data." work/Zocbo_4.3.11_Original_Main_InApp_R19_TEST.apk
+          gh release download "$TAG" -p '*.apk' -D work/r19-app
+          test "$(sha256sum work/r19-app.apk | cut -d' ' -f1)" = "$(sha256sum work/r19-app/Zocbo_4.3.11_Original_Main_InApp_R19_TEST.apk | cut -d' ' -f1)"
+          echo R19_RELEASE_SHA256_BYTE_MATCH_PASS
+      - name: Preserve emulator proof and rebuilt APK digest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-r19-original-main-inapp-evidence
+          retention-days: 14
+          path: work/r19-app/
