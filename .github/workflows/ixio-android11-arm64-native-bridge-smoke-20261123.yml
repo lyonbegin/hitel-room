@@ -62,6 +62,7 @@ jobs:
           adb logcat -d -b crash > testing/probe-crash.txt
           ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' testing/probe-crash.txt
           grep -F 'PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS' testing/original-ixio-sdk-probe-logcat.txt
+          grep -F 'PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED' testing/original-ixio-sdk-probe-logcat.txt
           ! grep -F 'FAIL_ORIGINAL_IXIO_CLASSLOADER' testing/original-ixio-sdk-probe-logcat.txt
           ! grep -E 'FATAL EXCEPTION|VerifyError|NoClassDefFoundError' testing/app-crash.txt || exit 6
           adb shell screencap -p /sdcard/Download/ixio-quick-test-ui.png
