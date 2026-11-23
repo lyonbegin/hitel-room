@@ -5,7 +5,7 @@
   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
   <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
   <application
-      android:label="IXIO STT 독립형 (삼성 녹음)"
+      android:label="HITEL Native STT 실험본"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"
       android:extractNativeLibs="true"
       android:allowBackup="false"
@@ -20,7 +20,7 @@
     <service android:name=".SamsungRecordAccessibility"
         android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
         android:exported="true"
-        android:label="통화 녹음 자동 시작 보조">
+        android:label="HITEL Native 실험본 녹음 보조">
       <intent-filter>
         <action android:name="android.accessibilityservice.AccessibilityService"/>
       </intent-filter>
