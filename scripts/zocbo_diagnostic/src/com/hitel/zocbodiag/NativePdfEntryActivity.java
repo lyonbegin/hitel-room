@@ -46,6 +46,7 @@ public final class NativePdfEntryActivity extends Activity {
     super.onCreate(savedState);
     if(getIntent()!=null && getIntent().getBooleanExtra(ReadingCollectorController.EXTRA_COLLECT,false)){
       Diag.log("COLLECTOR_ACTIVITY_OPEN","in-app collector, original DEX PDF route untouched");
+      ReadingCollectorQaProof.runIfRequested(this,getIntent());
       collector=new ReadingCollectorController(this,
         getIntent().getStringExtra(ReadingCollectorController.EXTRA_SOURCE_URL));
       return;
