@@ -156,7 +156,7 @@ final class SpeakerEngine {
    * The last-modified time is only used to avoid an OLD call's file when
    * telephony fires before Samsung has created the next recording.
    */
-  private Uri waitForRecording(Uri directory) throws Exception {
+  private Uri waitForRecording(Uri directory,boolean requireFresh) throws Exception {
     DocumentFile root=DocumentFile.fromTreeUri(context,directory);
     if(root==null||!root.isDirectory())
       throw new IOException("통화 녹음 폴더 접근 실패. 폴더를 다시 선택하십시오.");
@@ -177,7 +177,7 @@ final class SpeakerEngine {
       if(!found.isEmpty()){
         GrowingM4aSelector.Entry latest=found.get(0);
         // A source must belong to this recording session, not an old call.
-        if(latest.modified>=wallStart-3000L){
+        if(!requireFresh || latest.modified>=wallStart-3000L){
           selected=Uri.parse(latest.uri);
           log.event("FOLDER","NEWEST_RECORDING_SELECTED_NO_GROWTH_GATE",
             "file",latest.name,"uri",latest.uri,
@@ -244,7 +244,16 @@ final class SpeakerEngine {
         }
       });
       stt.start(); // independent consumer thread starts before PCM producer
-      selected=folder?waitForRecording(input):input;
+      boolean directoryInput=folder;
+      if(!directoryInput){
+        try{
+          DocumentFile tree=DocumentFile.fromTreeUri(context,input);
+          directoryInput=tree!=null&&tree.isDirectory();
+        }catch(Exception notTree){directoryInput=false;}
+      }
+      // Automatic calls await this call's recording. Manual folder tests use
+      // the latest existing file even after recording has already completed.
+      selected=directoryInput?waitForRecording(input,folder):input;
       if(selected==null){endReason="USER_STOP";return;}
       log.event("SOURCE","ARGANO_FAAD2_SOURCE_SELECTED",
         "uri",selected.toString(),"folder",folder,"fromRecordingStart",true);
