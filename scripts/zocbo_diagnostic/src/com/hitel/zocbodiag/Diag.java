@@ -306,9 +306,27 @@ public final class Diag implements View.OnClickListener {
     } catch(Exception e) {log("WEBVIEW_UA","unavailable");}
     cookieState();
   }
+  public static void registerTitleBridge(WebView w) {
+    try {
+      if(w == null)return;
+      w.addJavascriptInterface(new NativePdfTitleBridge(w),"hitelPdfTitleLink");
+      log("READING_TITLE_BRIDGE_REGISTERED","WebView bridge attached before load");
+    } catch(Throwable t) {
+      log("READING_TITLE_BRIDGE_ERROR",t.getClass().getName());
+    }
+  }
   public static void pageFinished(WebView w,String currentUrl) {
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
+    if(NativePdfTitleBridge.isFreeReadingPage(currentUrl)) {
+      try {
+        w.evaluateJavascript(NativePdfTitleBridge.titleClickScript(),value->
+          log("READING_TITLE_LISTENER_RESULT",value==null?"null":value));
+        log("READING_TITLE_LISTENER_INJECTED","only previousExam.asp page, same-row data-no");
+      }catch(Throwable t){
+        log("READING_TITLE_LISTENER_ERROR",t.getClass().getName());
+      }
+    }
   }
   private static synchronized String current() {
     StringBuilder b=new StringBuilder("ZOCBO_ORIGINAL_4.3.11(2)_NATIVE_PDF_DIAGNOSTIC\n"+
