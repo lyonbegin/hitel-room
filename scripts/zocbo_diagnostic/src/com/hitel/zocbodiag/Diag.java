@@ -77,6 +77,9 @@ public final class Diag implements View.OnClickListener {
   private static String sanitizeUrl(String value) {
     if(value==null)return "[null]";
     try {
+      if(value.startsWith("/"))return protect(value.length()>500?value.substring(0,500):value);
+      if(!value.startsWith("https://") && !value.startsWith("http://"))
+        return "[non-url;"+sensitive(value)+"]";
       Uri u=Uri.parse(value);
       String scheme=u.getScheme();
       if(scheme==null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
@@ -119,6 +122,7 @@ public final class Diag implements View.OnClickListener {
     log(category,protect(detail==null?"":detail));
   }
   public static void bridge() {log("JS_BRIDGE_goPreviousExam","invoked");}
+  public static void webViewLink() {log("JS_BRIDGE_goWebViewLink","invoked");}
   public static void gate(boolean enabled) {
     log("GO_PREVIOUS_EXAM_ALLOWED",String.valueOf(enabled));
   }
@@ -188,7 +192,20 @@ public final class Diag implements View.OnClickListener {
     return b.toString();
   }
   public static void install(Activity a) {
-    app=a.getApplicationContext();
+    synchronized(Diag.class) {
+      if(app==null) {
+        app=a.getApplicationContext();
+        // Early WebView cookie/navigation events occur in onCreate, before the onResume UI.
+        // Preserve them in the file so the clipboard contains the full trace.
+        if(live.length()>0) {
+          try {
+            FileOutputStream early=new FileOutputStream(new File(app.getFilesDir(),FILE),true);
+            try{early.write(live.toString().getBytes(StandardCharsets.UTF_8));}
+            finally{early.close();}
+          }catch(Exception ignored){}
+        }
+      }
+    }
     try {
       FrameLayout root=a.findViewById(android.R.id.content);
       if(root==null) {log("DIAG_UI","activity has no content root");return;}
