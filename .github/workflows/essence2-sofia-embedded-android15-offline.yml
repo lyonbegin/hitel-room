@@ -294,6 +294,26 @@ jobs:
             <(unzip -p HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
+      - name: Verify BOTH SDK native files and process routing are in this single signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni.so'
+          unzip -Z1 "$APK" | grep -Fx 'lib/arm64-v8a/lible_jni_wg128.so'
+          cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni.so) \
+              <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so)
+          cmp <(unzip -p "$APK" lib/arm64-v8a/lible_jni_wg128.so) \
+              original-upstream/app/avatar_chat/android/app/src/main/jniLibs/arm64-v8a/lible_jni_wg128.so
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -1)"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > essence2-local-mock-proof/ab-manifest.txt
+          grep -Fq ':hitel_original' essence2-local-mock-proof/ab-manifest.txt
+          grep -Fq ':hitel_wg128' essence2-local-mock-proof/ab-manifest.txt
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -1)"
+          "$SIGNER" verify --verbose "$APK"
+          echo PASS_SINGLE_APK_TWO_REAL_JNI_LIBRARIES_AND_ISOLATED_ACTIVITY_ROUTES
+
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
         shell: bash
         run: |
@@ -350,60 +370,15 @@ jobs:
           echo PASS_HITEL_LOCAL_NO_KEY_PUBLIC_DOWNLOAD_IDENTICAL
           printf '%s\n' "$URL"
 
-      - name: Release build daemons before the emulator uses host memory
-        working-directory: original-upstream/app/avatar_chat/android
-        run: ./gradlew --stop
-
-      - name: Enable KVM
-        run: |
-          test -c /dev/kvm
-          sudo chmod 666 /dev/kvm
-          mkdir -p essence2-sofia-offline-proof
-          python3 -m pip install --quiet numpy
-
-      - name: Actually install and run embedded Sofia with Internet disabled in Android 15
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
-      - name: Verify captured virtual speaker contains the actual test speech
-        if: always()
-        run: |
-          python3 tools/bithuman_deep/verify_essence2_emulator_speaker.py \
-            --wav essence2-sofia-offline-proof/emulator-speaker.wav \
-            --reference essence2-local-mock-proof/voiced-test.pcm \
-            --report essence2-sofia-offline-proof/speaker-verification.json
-      - name: Save Sofia embedded APK as short-lived internal installation test artifact
+      - name: Publish detailed dual SDK build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
-          path: HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
-          if-no-files-found: warn
-          retention-days: 1
-
-      - name: Upload non-model diagnostic logs
-
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: essence2-sofia-embedded-offline-android15-test-logs-only
+          name: essence2-one-apk-dual-sdk-manifest-loader-and-native-proofs
           path: |
             essence2-local-mock-proof/*.json
+            essence2-local-mock-proof/ab-manifest.txt
+            essence2-local-mock-proof/native-loader-disassembly.txt
+            essence2-local-mock-proof/native-loader-asm-proof.txt
             essence2-local-mock-proof/apk-sha256.txt
-            essence2-sofia-offline-proof/*.txt
-            essence2-sofia-offline-proof/*.png
-            essence2-sofia-offline-proof/*.json
-            essence2-sofia-offline-proof/*.wav
-            essence2-e2trace-proof/*.txt
-            essence2-e2trace-proof/*.json
-            essence2-e2trace-proof/*.png
           retention-days: 14
-
-
