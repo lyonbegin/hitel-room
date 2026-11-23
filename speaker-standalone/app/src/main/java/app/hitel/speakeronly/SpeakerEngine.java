@@ -238,8 +238,7 @@ final class SpeakerEngine {
 
   private void run(Uri input,boolean folder){
     try{
-      nativeMode=context.getSharedPreferences("speaker",Context.MODE_PRIVATE)
-        .getBoolean("nativeSttExperiment",false);
+      nativeMode=true; // Native-only experimental APK: do not load original IXIO ORT alongside public runtime.
       log.event("APP","FAAD2_GITHUB_M4A_PCM_QUEUE_STARTED",
         "mode",folder?"latest-recording":"fixed-file",
         "source","knik0/faad2-2.11.4",
