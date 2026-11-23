@@ -96,6 +96,21 @@ public final class TraceJournal {
       out.write((data+"\n").getBytes(StandardCharsets.UTF_8));
     }catch(Exception e){event("JOURNAL","RAW_WRITE_FAILED","filename",basename,"error",safe(e));}
   }
+  /**
+   * CAPTION_FINAL_SAVED carries the entire cumulative transcript, not just
+   * a new utterance. Keep transcript_final.txt as one CURRENT snapshot
+   * instead of appending repeated copies of earlier utterances.
+   */
+  public synchronized void rawReplace(String basename,String data){
+    File file=new File(directory,basename);
+    try(FileOutputStream out=new FileOutputStream(file,false)){
+      out.write(data.getBytes(StandardCharsets.UTF_8));
+      out.write('\n');
+      out.getFD().sync();
+    }catch(Exception e){
+      event("JOURNAL","RAW_REPLACE_FAILED","filename",basename,"error",safe(e));
+    }
+  }
   public void diagnosticSummary(){
     event("APP","RUN_SUMMARY","eventCount",lines,"lastUI",lastUI,"runtimeMs",SystemClock.elapsedRealtime()-started);
     timing("APP","TIMELINE_SUMMARY","droppedEvents",latency.lost(),"note","no speech-onset ground truth without an external synchronized microphone");
@@ -216,11 +231,11 @@ public final class TraceJournal {
       }
       zip.putNextEntry(new ZipEntry("README.txt"));
       zip.write(("Growing Samsung call-recording M4A diagnostics.\n"+
-        "LOCAL DEVICE DIAGNOSIS, does not prove native telephony audio capture.\n"+
-        "events.jsonl: latest growing M4A, selected source, PCM playback and actual output device.\n"+
-        "latency-trace.jsonl: timestamps, 16kHz PCM AudioTrack writes and playback head positions.\n"+
+        "LOCAL DEVICE DIAGNOSIS, Samsung M4A file growth does not prove direct protected telephony capture.\n"+
+        "events.jsonl: latest growing M4A, source detection, AAC decoding, PCM transfer and original IXIO speechSDK results.\n"+
+        "latency-trace.jsonl: timestamps and diagnostic markers; no AudioTrack playback in original IXIO direct STT mode.\n"+
         "ENERGY_ONSET_CANDIDATE is acoustic energy, NOT a proven time the caller started speaking. UI_NEXT_FRAME_CALLBACK does NOT prove actual display scanout.\n"+
-        "This app contains no STT or speech recognition model.\n"+
+        "Original IXIO speechSDK STT is loaded from the user's locally imported private model ZIP (not bundled in APK).\n"+
         "May contain local file names, paths and transcripts. Share only after reviewing.\n"+
         "Run ID: "+runId+"\n").getBytes(StandardCharsets.UTF_8));
       zip.closeEntry();
