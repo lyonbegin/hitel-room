@@ -354,6 +354,56 @@ public final class Diag implements View.OnClickListener {
     b.append(live.length()>480000?live.substring(live.length()-480000):live.toString());
     return b.toString();
   }
+
+  // Emulator QA enters from the REAL original MainActivity and uses the
+  // exact original A3.L.a(...) factory to launch original CommonWebviewActivity.
+  // Normal devices and user launches are untouched.
+  private static boolean qaOriginalStarted=false;
+  private static final String QA_ORIGINAL_INTENT="com.hitel.zocbodiag.QA_ORIGINAL_READING_FROM_MAIN";
+  private static void maybeRunOriginalMainQa(Activity activity) {
+    try {
+      if(!ReadingCollectorQaProof.emulator()||
+         !"com.eduzone.eduzoneviewer.ui.activities.MainActivity".equals(activity.getClass().getName())||
+         activity.getIntent()==null||
+         !activity.getIntent().getBooleanExtra(QA_ORIGINAL_INTENT,false)||
+         qaOriginalStarted)return;
+      qaOriginalStarted=true;
+      android.util.Log.i("ZocboInApp","stage=ORIGINAL_MAIN_STARTED native_only=true");
+      new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{
+        try {
+          // Signature and parameter mask are taken from original JADX
+          // A3.L.a and actual MainActivity source invocation (mask=524262).
+          Class<?> factory=Class.forName("A3.L");
+          java.lang.reflect.Method method=factory.getDeclaredMethod("a",
+            Context.class,
+            String.class,String.class,String.class,String.class,
+            String.class,String.class,String.class,String.class,
+            boolean.class,boolean.class,
+            String.class,String.class,String.class,String.class,String.class,int.class);
+          method.setAccessible(true);
+          String target="https://m.zocbo.com/exam/school/previousExam.asp";
+          Object result=method.invoke(null,
+            activity,null,null,"학교별 기출시험",target,
+            null,null,null,null,false,false,null,null,null,null,null,524262);
+          if(!(result instanceof Intent))throw new IllegalStateException("Original factory did not return Intent");
+          Intent intent=(Intent)result;
+          if(intent.getComponent()==null||
+             !"com.eduzone.eduzoneviewer.ui.activities.CommonWebviewActivity".equals(
+                intent.getComponent().getClassName())||
+             !target.equals(intent.getStringExtra("EXTRA_WEBVIEW_URL")))
+            throw new SecurityException("Original WebView factory target/URL mismatch");
+          OriginalInAppMetadataCollector.requestEmulatorAutoNine();
+          log("ORIGINAL_QA_FACTORY","real MainActivity -> original A3.L.a -> CommonWebviewActivity; target school previousExam.asp");
+          activity.startActivity(intent);
+          android.util.Log.i("ZocboInApp","stage=ORIGINAL_COMMON_WEBVIEW_ACTIVITY_STARTED url_path=/exam/school/previousExam.asp");
+        }catch(Throwable t) {
+          log("ORIGINAL_QA_FACTORY_ERROR",t.getClass().getName()+": "+String.valueOf(t.getMessage()));
+          android.util.Log.e("ZocboInApp","stage=ORIGINAL_NATIVE_FACTORY_ERROR class="+t.getClass().getSimpleName(),t);
+        }
+      },6000L);
+    }catch(Throwable t){log("ORIGINAL_QA_SETUP_ERROR",t.getClass().getName());}
+  }
+
   public static void install(Activity a) {
     synchronized(Diag.class) {
       if(app==null) {
@@ -380,6 +430,7 @@ public final class Diag implements View.OnClickListener {
       }
     }
     installCrashHook();
+    maybeRunOriginalMainQa(a);
     try {
       FrameLayout root=a.findViewById(android.R.id.content);
       if(root==null) {log("DIAG_UI","activity has no content root");return;}
