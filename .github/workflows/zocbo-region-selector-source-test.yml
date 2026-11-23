@@ -6,6 +6,8 @@ on:
     paths:
       - scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/ReadingAreaSelector.java
       - scripts/zocbo_diagnostic/test_region_selector.mjs
+      - scripts/zocbo_diagnostic/test_original_page_scope.mjs
+      - scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/ReadingOriginalPageCapture.java
       - .github/workflows/zocbo-region-selector-source-test.yml
   workflow_dispatch:
 permissions:
@@ -24,6 +26,7 @@ jobs:
           mkdir -p work/selector-tests/src/org/json
           mkdir -p work/selector-tests/src/com/hitel/zocbodiag
           cp scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/ReadingAreaSelector.java work/selector-tests/src/com/hitel/zocbodiag/
+          cp scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/ReadingOriginalPageCapture.java work/selector-tests/src/com/hitel/zocbodiag/
           cat >work/selector-tests/src/android/net/Uri.java <<'JAVA'
           package android.net;
           import java.util.*;
@@ -57,21 +60,26 @@ jobs:
           JAVA
           cat >work/selector-tests/src/EmitJs.java <<'JAVA'
           import com.hitel.zocbodiag.ReadingAreaSelector;
+          import com.hitel.zocbodiag.ReadingOriginalPageCapture;
           import java.nio.file.*;
           public class EmitJs {
             public static void main(String[] args)throws Exception {
               Files.writeString(Path.of(args[0]),ReadingAreaSelector.scan("test"));
               Files.writeString(Path.of(args[1]),ReadingAreaSelector.click("test",1));
+              Files.writeString(Path.of(args[2]),ReadingOriginalPageCapture.script("test"));
             }
           }
           JAVA
           mkdir -p work/selector-tests/classes
           javac -encoding UTF-8 -d work/selector-tests/classes $(find work/selector-tests/src -name '*.java')
-          java -cp work/selector-tests/classes EmitJs work/selector-tests/scan.js work/selector-tests/click.js
+          java -cp work/selector-tests/classes EmitJs work/selector-tests/scan.js work/selector-tests/click.js work/selector-tests/original-page-snapshot.js
           node --check work/selector-tests/scan.js
           node --check work/selector-tests/click.js
+          node --check work/selector-tests/original-page-snapshot.js
       - name: Simulate original regionFilter() tabs and verify exact data-order selection
         run: node scripts/zocbo_diagnostic/test_region_selector.mjs work/selector-tests/scan.js work/selector-tests/click.js
+      - name: Verify actual previousExam server-side inline regional filter capture
+        run: node scripts/zocbo_diagnostic/test_original_page_scope.mjs work/selector-tests/original-page-snapshot.js
       - name: Preserve emitted production JS and test output
         if: always()
         uses: actions/upload-artifact@v4
