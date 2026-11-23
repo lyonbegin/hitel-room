@@ -80,7 +80,7 @@ public final class MainActivity extends Activity {
     text(root,"1. IXIO 원본 STT 모델 선택 (최초 1회)",17);
     modelButton=button(root,"IXIO 원본 STT.zip 가져오기");
     modelButton.setOnClickListener(v->selectOriginalIxioSttZip());
-    text(root,"IXIO의 encoder.ort / decoder.ort / joiner.ort / tokens.txt가 필요합니다. 모델이 없으면 다른 인식기로 대체하지 않습니다.",12);
+    text(root,"IXIO 원본 STT 4.0.4 ZIP의 encoder.ort / decoder.ort / joiner.ort / tokens.txt / bpe.vocab / vad.onnx가 필요합니다. 모델이 없으면 다른 인식기로 대체하지 않습니다.",12);
     text(root,"2. 삼성 통화 녹음 폴더 지정 (최초 1회)",17);
     folderButton=button(root,"통화녹음 폴더 선택 · 최신 증가 M4A 자동 감시");
     fileButton=button(root,"저장된 M4A 직접 재생 (실시간 감지 아님 · 진단 전용)");
@@ -119,7 +119,7 @@ public final class MainActivity extends Activity {
       .getString("lastTranscript","아직 인식된 자막이 없습니다."));
     status.setTextIsSelectable(true);
     explanation=text(root,
-      "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → IXIO speechSDK.SpeechInference() → 인식 자막. AudioTrack 및 MediaProjection 미사용. 모델 포함 여부·PCM 큐·decode 회수·최종 인식 로그를 ZIP에 저장합니다.",12);
+      "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → IXIO speechSDK.SpeechInference() → 인식 자막. AudioTrack 및 MediaProjection 미사용. 원본 모델 로딩 여부·PCM 큐·초기화 상태·최종 인식 로그를 ZIP에 저장합니다.",12);
     text(root,"6. PCM → IXIO STT 인식 진단",17);
     exportButton=button(root,"진단 ZIP 다운로드에 저장 · 실제 파일 확인");
     exportButton.setOnClickListener(v->export());
