@@ -140,6 +140,14 @@ public final class MainActivity extends Activity {
     String detected=getSharedPreferences("speaker",MODE_PRIVATE).getString("detectedSource","");
     if(!detected.isEmpty())detectedSource.setText(detected);
     updateDeviceLabel();updateButtons();
+    // Offline emulator regression entry: ADB injects an original (private)
+    // model and a real M4A into app-private files before launching. This
+    // calls exactly the same one-button test path; no fake STT result.
+    if("app.hitel.speakeronly.RUN_STT_FILE".equals(getIntent().getAction())){
+      String testUri=getIntent().getStringExtra("m4aUri");
+      if(testUri!=null&&!testUri.isEmpty())
+        ui.post(()->startFixedFileTest(Uri.parse(testUri)));
+    }
   }
 
   private void selectOriginalIxioSttZip(){
