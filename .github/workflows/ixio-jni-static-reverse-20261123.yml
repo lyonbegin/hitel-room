@@ -56,7 +56,7 @@ jobs:
           lines=(d/'ELF_ALL_SYMBOLS.txt').read_text(errors='replace').splitlines()
           names=[]
           for row in lines:
-              if not re.search(r'FUNC\\s+GLOBAL',row): continue
+              if 'FUNC' not in row or 'GLOBAL' not in row: continue
               bits=row.split()
               if len(bits)<8: continue
               name=bits[-1]
@@ -74,6 +74,10 @@ jobs:
           print('HAVE_SYMTAB',bool(re.search(r'\\.symtab',(d/'ELF_SECTIONS.txt').read_text())))
           print('MATCHED_SYMBOLS',names)
           PYCODE
+          echo '===== TARGETED ARM64 JNI DISASSEMBLY ====='
+          aarch64-linux-gnu-objdump -d -C --no-show-raw-insn --start-address=0x1e1c80 --stop-address=0x1e1f80 "$so" > evidence/JNI_CORE_ASSEMBLY.txt
+          aarch64-linux-gnu-objdump -d -C --no-show-raw-insn --start-address=0x1e19d8 --stop-address=0x1e1ba0 "$so" > evidence/JNI_MODEL_CONSTRUCTOR_ASSEMBLY.txt
+          head -175 evidence/JNI_CORE_ASSEMBLY.txt || true
           echo '===== JNI SYMBOLS ====='
           head -70 evidence/RELEVANT_SYMBOLS.txt || true
           echo '===== LIBRARY STRINGS ====='
