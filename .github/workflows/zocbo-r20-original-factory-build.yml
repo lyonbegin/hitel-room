@@ -2,10 +2,13 @@ name: Zocbo R20 Original App Embedded WebView Build And Emulator
 on:
   push:
     branches: [fix/zocbo-r20-original-main-native-deeplink-20261124]
-    paths: [.github/workflows/zocbo-r20-original-factory-build.yml, scripts/zocbo_diagnostic/src/**]
+    paths: [.github/workflows/zocbo-r20-original-factory-build.yml, .github/qa/zocbo_r20_original_factory_qa.py, scripts/zocbo_diagnostic/src/**]
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: zocbo-r20-original-app
+  cancel-in-progress: true
 jobs:
   original-main-build-and-run:
     runs-on: ubuntu-latest
@@ -115,4 +118,5 @@ jobs:
           retention-days: 14
           path: |
             work/r20-app/
+            work/r20-native-proof/
             work/r20-app.apk
