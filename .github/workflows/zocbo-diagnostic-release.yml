@@ -1,0 +1,60 @@
+name: Publish Verified Zocbo Diagnostic APK Downloads
+on:
+  push:
+    branches:
+      - feature/zocbo-diagnostic-apk-20261123
+    paths:
+      - .github/workflows/zocbo-diagnostic-release.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 45103193735
+          name: zocbo-original-diagnostic-6
+          github-token: ${{ github.token }}
+          path: downloadable
+      - name: Verify downloaded build SHA256 and package member count
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import pathlib,hashlib,zipfile
+          root=pathlib.Path("downloadable")
+          for suffix in ["apk","xapk"]:
+            name="Zocbo_4.3.11_Original_Diagnostic_20261123."+suffix
+            p=root/name
+            assert p.exists(),str(p)
+            digest=hashlib.sha256(p.read_bytes()).hexdigest()
+            print("VERIFIED_DOWNLOAD",str(p),p.stat().st_size,digest)
+            if suffix=="apk":
+              assert digest=="7c645a1ef7f1ef02f6e36df5f127336101df547b9a3e9b4acd7bdcc1fddbc387"
+            else:
+              assert digest=="e61c7ecc79a713b2f5d94ac5c45d461e3024159ee858f87608834ec2b9003245"
+              with zipfile.ZipFile(p) as z:
+                names=[n for n in z.namelist() if n.endswith(".apk")]
+                assert len(names)==4,names
+                print("SIGNED_XAPK_APK_COUNT",len(names),names)
+          PY
+      - name: Publish externally accessible release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-diagnostic-4.3.11-20261123-r3
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" downloadable/Zocbo_4.3.11_Original_Diagnostic_20261123.apk downloadable/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk downloadable/SHA256SUMS.txt downloadable/diag-patch-report.json --clobber
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false --title "Zocbo 4.3.11(2) original APK diagnostic (test build)" \
+              --notes "Original SHA-256 verified. Added on-device copy/share/clear logs to Main, Login and CommonWebview Activities; logs JS bridge, cookie names (secrets redacted), URL loading and app gate. Re-signed test build, NOT an official Zocbo release. Use separate test device; cannot overwrite genuine package signed by the original developer. The XAPK contains the three required ARM64/language/density split APKs all signed consistently. Build/sign/DEX markers verified. Emulator runtime functionality is separately checked; no claim of full end-to-end app functionality." \
+              downloadable/Zocbo_4.3.11_Original_Diagnostic_20261123.apk downloadable/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk downloadable/SHA256SUMS.txt downloadable/diag-patch-report.json
+          fi
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json url,assets --jq '{url:.url,assets:[.assets[]|{name:.name,size:.size,url:.url}]}'
