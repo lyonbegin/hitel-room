@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libavutil-dev libswresample-dev
+          sudo apt-get install -y -qq ffmpeg libavutil-dev libswresample-dev
           cmake -S /tmp/faad-src -B /tmp/faad-host -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DFAAD_BUILD_CLI=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build /tmp/faad-host --target faad --parallel 4
           FAADLIB="$(find /tmp/faad-host -name libfaad.a | head -1)"
