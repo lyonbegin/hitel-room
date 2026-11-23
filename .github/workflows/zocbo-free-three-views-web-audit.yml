@@ -14,6 +14,9 @@ jobs:
     timeout-minutes: 14
     env:
       GH_TOKEN: ${{ github.token }}
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
       APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
     steps:
       - uses: actions/checkout@v4
