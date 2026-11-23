@@ -224,21 +224,19 @@ jobs:
           name: IXIO-Stable-V11-VirtualCall-ARM64-20261124
           path: speaker-standalone/dist/
           if-no-files-found: warn
-      - name: Install ffmpeg CLI for synthetic audio on runner
+      - name: Reuse the earlier verified synthetic AAC fixture without apt dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
-          command -v ffmpeg
-      - name: Generate NON-PRIVATE public test fixture with real AAC codec, not fake STT
-        run: |
-          set -euo pipefail
-          mkdir -p replay-qa
-          ffmpeg -y -hide_banner -loglevel error -f lavfi -i 'sine=frequency=600:sample_rate=48000:duration=9' \
-             -c:a aac -b:a 128k -ac 1 -ar 48000 replay-qa/synthetic_mono_aac.m4a
-          ffprobe -v error -show_entries stream=codec_name,sample_rate,channels -of default=nw=1 replay-qa/synthetic_mono_aac.m4a
-          test "$(stat -c %s replay-qa/synthetic_mono_aac.m4a)" -gt 4096
-          echo SYNTHETIC_AUDIO_ONLY_REAL_USER_SAMPLE_NOT_PUBLISHED
+          mkdir -p replay-qa /tmp/verified-synthetic-aac
+          gh run download 45286719723 -R lyonbegin/hitel-room \
+            -n IXIO-Stable-V11-VirtualCall-Emulator-Evidence \
+            -D /tmp/verified-synthetic-aac
+          cp /tmp/verified-synthetic-aac/synthetic_mono_aac.m4a replay-qa/synthetic_mono_aac.m4a
+          test "$(stat -c %s replay-qa/synthetic_mono_aac.m4a)" -eq 146505
+          sha256sum replay-qa/synthetic_mono_aac.m4a > replay-qa/synthetic-sha256.txt
+          echo PASS_REUSED_REAL_AAC_TEST_FILE_NO_FFMPEG_INSTALL
       - name: Create on-device virtual phone call and SAF observer check
         shell: bash
         run: |
