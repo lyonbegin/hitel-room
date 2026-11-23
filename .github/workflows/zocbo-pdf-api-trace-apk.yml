@@ -94,10 +94,10 @@ jobs:
           # Original source contains a compiled binary AndroidManifest.xml. Patch the
           # binary manifest ONLY, without recompiling resources. Preserves original DEX.
           mkdir -p work/manifest-editor
-          gh release download v1.0.2 -R WindySha/ManifestEditor \
-            -p 'ManifestEditor-1.0.2.jar' -D work/manifest-editor
-          test "$(stat -c%s work/manifest-editor/ManifestEditor-1.0.2.jar)" -eq 104607
-          java -jar work/manifest-editor/ManifestEditor-1.0.2.jar \
+          gh release download v2.0 -R WindySha/ManifestEditor \
+            -p 'ManifestEditor-2.0.jar' -D work/manifest-editor
+          test "$(stat -c%s work/manifest-editor/ManifestEditor-2.0.jar)" -eq 113689
+          java -jar work/manifest-editor/ManifestEditor-2.0.jar \
             work/zocbo-unzipaligned.apk \
             -act com.hitel.zocbodiag.NativePdfEntryActivity:false \
             -o work/zocbo-unzipaligned-with-native-entry.apk
