@@ -37,12 +37,12 @@ jobs:
               print('NATIVE_LOADER_CLASSES=',hits)
               open('native-loader-classes.txt','w').write('\n'.join(hits))
           PY
-          while read -r cls; do
+          while IFS= read -r cls || [ -n "$cls" ]; do
             [ -n "$cls" ] || continue
             dot="${cls%.class}"
             dot="${dot//\//.}"
             echo "==== $dot ===="
-            javap -classpath classes.jar -c -p "$dot" | grep -B 32 -A 30 -E 'loadLibrary|java/lang/System.load|le_jni' || :
+            javap -classpath classes.jar -c -p "$dot" | grep -B 22 -A 35 -E 'loadLibrary|System\.load|le_jni|static \{|loadNative|nativeInit|load\(' || :
           done < native-loader-classes.txt
           echo "SDK_SOURCE_AAR_SHA256 $(sha256sum sdk.aar)"
       - name: Save loader probe
