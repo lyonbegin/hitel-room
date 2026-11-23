@@ -8,6 +8,10 @@ grep -F 'faadSource.pump(context,mirror,!folder' "$ENGINE"
 grep -F 'CHUNK_SAMPLES=512' "$SOURCE"
 grep -F 'pcmFill==CHUNK_BYTES' "$SOURCE"
 grep -F 'LinkedBlockingQueue<byte[]>' "$STT"
+grep -F 'PcmReadyLatestGate.trimPreReadyBacklog(queue)' "$STT"
+grep -F 'queue.poll(32,TimeUnit.MILLISECONDS)' "$STT"
+grep -F 'IXIO_FIRST_READY_LATEST_PCM_SNAPSHOT' "$STT"
+grep -F 'IXIO_FIRST_READY_NEWEST_PCM_SELECTED' "$STT"
 grep -F 'recognizer.finishAndWait()' "$ENGINE"
 grep -F 'com.lguplus.ixispeech_ktn.speechSDK' "$STT"
 if grep -E 'aac_mdat_follow|followPcm\(|codec.feedAdtsFrame|LIVE_PLAYBACK_CUTOFF|requiredPositiveGrowthEvents|StreamingAacPcmDecoder' "$ENGINE";then
@@ -16,8 +20,11 @@ fi
 mkdir -p /tmp/ixio-faadv12-junit
 javac -d /tmp/ixio-faadv12-junit \
  speaker-standalone/app/src/main/java/app/hitel/speakeronly/IxioPcmNormalizer.java \
- speaker-standalone/ci/IxioPcmNormalizerTest.java
+ speaker-standalone/ci/IxioPcmNormalizerTest.java \
+ speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmReadyLatestGate.java \
+ speaker-standalone/ci/PcmReadyLatestGateTest.java
 java -cp /tmp/ixio-faadv12-junit app.hitel.speakeronly.IxioPcmNormalizerTest
+java -cp /tmp/ixio-faadv12-junit app.hitel.speakeronly.PcmReadyLatestGateTest
 mkdir -p /tmp/ixio-faadv12-original /tmp/ixio-faadv12-dex
 gh release download ixio-main-original-fgs-prestart-qa-20261122 \
  -R lyonbegin/hitel-room -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk \
@@ -40,7 +47,7 @@ gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
 APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
 "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" \
- | grep -F 'app.hitel.recording.ixio.githubfaad2v12'
+ | grep -F 'app.hitel.recording.ixio.githubfaad2v13'
 unzip -Z1 "$APK" > /tmp/ixio-faadv12-apk-files.txt
 grep -Fx 'lib/arm64-v8a/libfaad2-growing-pcm.so' /tmp/ixio-faadv12-apk-files.txt
 grep -Fx 'lib/arm64-v8a/libsherpa-onnx-jni.so' /tmp/ixio-faadv12-apk-files.txt
@@ -50,6 +57,6 @@ if grep -E 'libaac-mdat-follow|libavcodec|libswresample' /tmp/ixio-faadv12-apk-f
   echo ERROR_OLD_FFMPEG_LIBS_STILL_PACKAGED;exit 1
 fi
 mkdir -p speaker-standalone/dist
-cp "$APK" speaker-standalone/dist/HITEL_IXIO_GitHub_FAAD2_PCM512_V12_20261123.apk
-(cd speaker-standalone/dist && sha256sum HITEL_IXIO_GitHub_FAAD2_PCM512_V12_20261123.apk > SHA256.txt)
-echo PASS_UPSTREAM_GITHUB_FAAD2_PCM512_IXIO_ARM64_SIGNED_APK
+cp "$APK" speaker-standalone/dist/HITEL_IXIO_GitHub_FAAD2_FirstReadyLatest_V13_20261123.apk
+(cd speaker-standalone/dist && sha256sum HITEL_IXIO_GitHub_FAAD2_FirstReadyLatest_V13_20261123.apk > SHA256.txt)
+echo PASS_IXIO_V13_FIRST_READY_LATEST_PCM_AND_THEN_FIFO_ARM64_SIGNED_APK
