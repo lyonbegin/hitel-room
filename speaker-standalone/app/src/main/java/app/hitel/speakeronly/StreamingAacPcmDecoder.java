@@ -114,6 +114,16 @@ final class StreamingAacPcmDecoder implements AutoCloseable {
     drain(sink,0);
     // flushPcm occurs automatically at each 200ms window, not on phrase end.
   }
+  /** One raw AAC access unit from Android MediaExtractor for a FINISHED
+   * M4A recording. It shares the exact MediaCodec and FIR PCM path with
+   * incremental ADTS frames but needs no ARM native follower executable.
+   */
+  void feedRawAacFrame(byte[] raw,PcmSink sink)throws Exception {
+    if(ended)throw new IllegalStateException("AAC decoder already closed");
+    if(raw==null||raw.length==0)throw new IOException("Empty AAC access unit");
+    queueFrame(raw,sink);
+    drain(sink,0);
+  }
   private void queueFrame(byte[] data,PcmSink sink)throws Exception {
     long begin=SystemClock.elapsedRealtime();
     for(;;){
