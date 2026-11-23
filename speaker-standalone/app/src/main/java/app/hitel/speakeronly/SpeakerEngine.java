@@ -395,8 +395,7 @@ final class SpeakerEngine {
       while(!stop){
         int n=nativePcm.read(buf);
         if(n<0)break;
-        // PCM16LE comes from native as whole 16-bit samples, never byte halves.
-        if((n&1)!=0)throw new IOException("Native PCM producer returned odd byte count");
+        // A pipe read may split a 16-bit sample; chunker retains the partial byte.
         chunker.write(buf,0,n);
       }
       chunker.finish(); // last partial frame is zero-padded, never dropped
