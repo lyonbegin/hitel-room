@@ -46,6 +46,8 @@ jobs:
           tail -15 /tmp/decompiler-output.txt
       - name: Trace exact network error dialog producers and HTTP exceptions
         run: python3 -u scripts/zocbo_original_dex/scan_network_failure.py
+      - name: Inspect exact CommonWebViewActivity network-error branch and HTTP exception mapper
+        run: python3 -u scripts/zocbo_original_dex/network_path_detail.py
       - name: Upload error resource/consumer source audit
         if: always()
         uses: actions/upload-artifact@v4
@@ -54,4 +56,5 @@ jobs:
           retention-days: 14
           path: |
             evidence/zocbo-original-dex/network_failure_audit.json
+            evidence/zocbo-original-dex/network_path_detail.txt
             source/source_verification.json
