@@ -48,8 +48,9 @@ public final class ReadingCollectorController {
   public static final String EXTRA_COLLECT="com.hitel.zocbodiag.COLLECT_METADATA";
   public static final String EXTRA_SOURCE_URL="com.hitel.zocbodiag.COLLECT_SOURCE_URL";
   public static final String EXTRA_QA_ORIGINAL_HTML="com.hitel.zocbodiag.QA_ORIGINAL_HTML_BASE64";
+  public static final String EXTRA_AUTO_NINE="com.hitel.zocbodiag.AUTO_NINE_REGION";
   private static final int EXPORT_CSV=7441,EXPORT_JSON=7442;
-  private static final int PER_PAGE=10, DELAY_MS=1600;
+  private static final int PER_PAGE=10, DELAY_MS=1600, REGION_LIMIT=9;
   private static final String[] SUBJECTS={"KR","EG","MT","SC","LS","HI","ET","TH","CH","OT"};
   private static final String[] TERMS={"1M","1E","2M","2E"};
   private static final String DEFAULT_URL="https://m.zocbo.com/exam/school/previousExam.asp";
@@ -64,6 +65,8 @@ public final class ReadingCollectorController {
   private final List<AreaScope> originalAreas=new ArrayList<>();
   private boolean discovering=false, waitingAreaNavigation=false, awaitingAreaSnapshot=false;
   private int discoverySiteIndex=0, discoveryIndex=0, selectorRetries=0;
+  private int selectedTabOrdinal=-1;
+  private final ArrayList<String> requestedRegionNames=new ArrayList<>();
   private int discoverFromYear=2000, discoverToYear=2026;
   private String lastAreaName="";
   private static final String[] SCHOOL_LEVELS={"M","H"};
@@ -199,6 +202,11 @@ public final class ReadingCollectorController {
       web.loadDataWithBaseURL(sourceUrl,originalObservedHtml,"text/html","UTF-8",sourceUrl);
       Log.i("ZocboQA","QA_ORIGINAL_HTML_WEBVIEW_PAGE_LOADED source=prior_user_capture not_live");
     }else web.loadUrl(sourceUrl);
+    if(!qaOriginalHtml && ReadingCollectorQaProof.emulator() &&
+       a.getIntent()!=null&&a.getIntent().getBooleanExtra(EXTRA_AUTO_NINE,false)){
+      Log.i("ZocboNine","AUTO_NINE_REGION_ATTEMPT requested=true");
+      ui.postDelayed(()->{if(!destroyed)startNationwide();},1500);
+    }
     Diag.log("COLLECTOR_ACTIVITY_READY","local-db="+ReadingCollectorStore.DB_NAME+" original-WebView="+safeUrl(sourceUrl).split("\\?")[0]);
   }
 
@@ -213,6 +221,40 @@ public final class ReadingCollectorController {
     }
   }
 
+  private ArrayList<Integer> nineSourceTabOrder(JSONArray original){
+    ArrayList<Integer> selected=new ArrayList<>();
+    if(original.length()<REGION_LIMIT)
+      throw new IllegalStateException("Original region choices below nine: "+original.length());
+    int seoul=-1;
+    for(int i=0;i<original.length();i++){
+      JSONObject item=original.optJSONObject(i);
+      if(item==null)continue;
+      String name=item.optString("name","").trim();
+      if("서울".equals(name)||"서울특별시".equals(name)){
+        if(seoul>=0)throw new IllegalStateException("Duplicate Seoul choices");
+        seoul=i;
+      }
+    }
+    if(seoul<0)throw new IllegalStateException("Seoul not found in original source");
+    selected.add(seoul);
+    for(int i=0;i<original.length()&&selected.size()<REGION_LIMIT;i++){
+      if(i==seoul)continue;
+      JSONObject item=original.optJSONObject(i);
+      if(item!=null && !item.optString("name","").trim().isEmpty())selected.add(i);
+    }
+    if(selected.size()!=REGION_LIMIT)throw new IllegalStateException("Nine source choices unavailable");
+    return selected;
+  }
+  private void logNine(String stage,String detail){
+    String body="stage="+stage+" site="+(discoverySiteIndex<SCHOOL_LEVELS.length?SCHOOL_LEVELS[discoverySiteIndex]:"done")+
+      " region_position="+(discoveryIndex+1)+"/"+REGION_LIMIT+
+      " selected="+ReadingCollectorStore.sanitize(lastAreaName,50)+
+      " area_scopes="+store.countAreas(discoveryRunKey)+
+      " live_exam_unique="+store.countLive()+" checkpoint="+progress.taskIndex+":"+progress.page+
+      " pages="+progress.pagesDone+" "+ReadingCollectorStore.sanitize(detail,120);
+    Log.i("ZocboNine",body);
+    Diag.log("COLLECTOR_NINE_HEARTBEAT",body);
+  }
   private final class Bridge {
     @JavascriptInterface public void areaCandidates(String auth,String payload){
       if(!nonce.equals(auth)||payload==null||payload.length()>180000)return;
