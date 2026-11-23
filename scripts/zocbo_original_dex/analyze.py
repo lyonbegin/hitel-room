@@ -83,6 +83,10 @@ focus_paths=[
  "sources/p079i3/S0.java",
  "sources/p079i3/z0.java",
  "sources/p239z3/k.java",
+ "sources/p239z3/h.java",
+ "sources/p239z3/a.java",
+ "sources/p239z3/b.java",
+ "sources/A3/L.java",
  "sources/p239z3/m.java",
 ]
 for target in focus_paths:
