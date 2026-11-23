@@ -1,0 +1,204 @@
+name: IXIO PCM float conformance and endpoint actual one-button STT ARM64
+on:
+  push:
+    branches: [fix/ixio-pcm-sdk-compat-final-20261123]
+    paths:
+      - 'speaker-standalone/**'
+      - 'sherpa-original-launcher/native/aac_mdat_follow.c'
+      - '.github/workflows/ixio-pcm-sdk-compat-final-20261123.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  speaker-arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Prepare NDK and compiler
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          COMPILER="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang"
+          if [ ! -x "$COMPILER" ] || [ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            (yes | timeout 240 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018") || true
+          fi
+          test -x "$COMPILER"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Download original native AAC follower FFmpeg runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ffmpeg-download /tmp/ffmpeg-headers
+          gh release download v6.0.4-lts-android -R ffmpegkit-maintained/ffmpeg             -p ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar -D /tmp/ffmpeg-download
+          curl -fLsS --retry 4 https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/refs/tags/n6.0 -o /tmp/ffmpeg-headers.tar.gz
+          tar -xzf /tmp/ffmpeg-headers.tar.gz -C /tmp/ffmpeg-headers
+          SOURCE="$(find /tmp/ffmpeg-headers -mindepth 1 -maxdepth 1 -type d | head -1)"
+          printf '#ifndef AVUTIL_AVCONFIG_H\n#define AVUTIL_AVCONFIG_H\n#define AV_HAVE_BIGENDIAN 0\n#define AV_HAVE_FAST_UNALIGNED 1\n#endif\n' > "$SOURCE/libavutil/avconfig.h"
+          ROOT=speaker-standalone/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$ROOT" /tmp/native
+          for NAME in libavcodec.so libavutil.so libswresample.so; do
+            unzip -p /tmp/ffmpeg-download/ffmpeg-kit-min-6.0.4-arm64-v8a-x86_64.aar "jni/arm64-v8a/$NAME" > "$ROOT/$NAME"
+            test -s "$ROOT/$NAME"
+          done
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          LLVM="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$ROOT/"
+          "$LLVM/aarch64-linux-android26-clang" -O2 -std=c11 -fPIE -pie             -I"$SOURCE" sherpa-original-launcher/native/aac_mdat_follow.c             -L"$ROOT" -lavcodec -lavutil -Wl,--no-undefined             -o "$ROOT/libaac-mdat-follow.so"
+          "$LLVM/llvm-readelf" -h "$ROOT/libaac-mdat-follow.so" | grep -F 'AArch64'
+          "$LLVM/llvm-readelf" -d "$ROOT/libaac-mdat-follow.so" | grep -F 'libavcodec.so'
+          echo "ORIGINAL_GROWING_M4A_NATIVE_AAC_LIBS_READY"
+          ls -lh "$ROOT"
+          ! find "$ROOT" -name '*sherpa*' -o -name '*onnx*' | grep .
+      - name: Regression test newest M4A 3 actual growth increments sampled at 100ms
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/growing-m4a-test
+          javac -d /tmp/growing-m4a-test \
+            speaker-standalone/app/src/main/java/app/hitel/speakeronly/GrowingM4aSelector.java \
+            speaker-standalone/ci/GrowingM4aSelectorTest.java
+          java -cp /tmp/growing-m4a-test app.hitel.speakeronly.GrowingM4aSelectorTest
+      - name: PCM16LE to exact IXIO float[] contract regression
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-pcm-test
+          javac -d /tmp/ixio-pcm-test \
+            speaker-standalone/app/src/main/java/app/hitel/speakeronly/IxioPcmNormalizer.java \
+            speaker-standalone/ci/IxioPcmNormalizerTest.java
+          java -cp /tmp/ixio-pcm-test app.hitel.speakeronly.IxioPcmNormalizerTest
+          grep -F 'IXIO_PCM_FLOAT_CONTRACT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'IXIO_ENDPOINT_TAIL_STEP' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+      - name: Verify immediate accessibility request and user opt-in
+        run: |
+          set -euo pipefail
+          grep -F 'if(started!=null)requestRecordingFromUi(started,0L);' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_IMMEDIATE_ACCESSIBILITY_REQUEST' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'getBoolean("autoEnabled",false)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/MainActivity.java
+          grep -F 'SamsungRecordAccessibility.cancelRequest();' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          echo PASS_EARLY_ACCESSIBILITY_CALL_START
+      - name: Verify original TELEPHONY call start/stop and positive M4A growth gate
+        run: |
+          set -euo pipefail
+          grep -F 'registerTelephonyCallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallStateGate.java
+          grep -F 'CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'CALL_IDLE_STOP_OUTPUT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'requiredPositiveGrowthEvents' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'android.permission.READ_PHONE_STATE' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'USAGE_MEDIA' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
+      - name: Verify recording start controller is opt-in and evidence-based
+        run: |
+          set -euo pipefail
+          grep -F 'BIND_ACCESSIBILITY_SERVICE' speaker-standalone/app/src/main/AndroidManifest.xml
+          grep -F 'requestRecording' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
+          grep -F 'RECORDING_GROWTH_CANDIDATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_CONTENT_CHANGED_EVENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'confirmedFileBytes' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          ! grep -E 'endCall\(|ANSWER_PHONE_CALLS|MODIFY_PHONE_STATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
+      - name: Stage user's original IXIO speechSDK runtime (NOT HITEL Sherpa)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-original /tmp/ixio-dex
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 \
+            -R lyonbegin/hitel-room -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk \
+            -D /tmp/ixio-original
+          SRC=/tmp/ixio-original/IXIO_Main_OriginalFGSPrestartQA_20261122.apk
+          test -s "$SRC"
+          unzip -t "$SRC" >/dev/null
+          # Unmodified IXIO speechSDK is in classes16; IXIO's CombinedSTTKWS
+          # and companion classes are in classes6.
+          unzip -p "$SRC" classes6.dex > /tmp/ixio-dex/classes.dex
+          unzip -p "$SRC" classes16.dex > /tmp/ixio-dex/classes2.dex
+          # Original OnlineStream lives in classes9.dex, not classes6.dex.
+          unzip -p "$SRC" classes9.dex > /tmp/ixio-dex/classes3.dex
+          strings /tmp/ixio-dex/classes2.dex | grep -F 'Lcom/lguplus/ixispeech_ktn/speechSDK;'
+          strings /tmp/ixio-dex/classes.dex | grep -F 'Lcom/k2fsa/sherpa/onnx/CombinedSTTKWS;'
+          strings /tmp/ixio-dex/classes3.dex | grep -F 'Lcom/k2fsa/sherpa/onnx/OnlineStream;'
+          mkdir -p speaker-standalone/app/src/main/assets/ixio
+          (cd /tmp/ixio-dex && zip -q -0 "$GITHUB_WORKSPACE/speaker-standalone/app/src/main/assets/ixio/ixio-original-sdk.jar" classes.dex classes2.dex classes3.dex)
+          unzip -Z1 speaker-standalone/app/src/main/assets/ixio/ixio-original-sdk.jar | grep -Fx classes3.dex
+          unzip -p "$SRC" assets/stt/bpe.vocab > speaker-standalone/app/src/main/assets/ixio/bpe.vocab
+          ROOT=speaker-standalone/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$ROOT"
+          for LIB in libsherpa-onnx-jni.so libonnxruntime.so; do
+            unzip -p "$SRC" "lib/arm64-v8a/$LIB" > "$ROOT/$LIB"
+            test -s "$ROOT/$LIB"
+          done
+          readelf -d "$ROOT/libsherpa-onnx-jni.so" | grep -F 'libonnxruntime.so'
+          unzip -t speaker-standalone/app/src/main/assets/ixio/ixio-original-sdk.jar >/dev/null
+          echo PASS_EXACT_ORIGINAL_IXIO_SPEECHSDK_DEX_AND_JNI_STAGED
+      - name: Verify ONLY original IXIO speechSDK and build
+        run: |
+          set -euo pipefail
+          grep -F 'codec.feedAdtsFrame(adts,pcm->' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'target.accept(pcm)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'com.lguplus.ixispeech_ktn.speechSDK' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'getMethod("SpeechInference"' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'no public-model fallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'loadVAD.invoke(sdk,vad.getAbsolutePath());' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'bpe.getAbsolutePath(),1.0f);' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'getDeclaredField("sttReady")' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F '삼성 원본 녹음 M4A → IXIO STT 자동 시험' speaker-standalone/app/src/main/java/app/hitel/speakeronly/MainActivity.java
+          grep -F 'FIXED_M4A_AUTO_EOF' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'IXIO 원본 STT.zip' speaker-standalone/app/src/main/java/app/hitel/speakeronly/MainActivity.java
+          grep -F 'encoder.ort","decoder.ort","joiner.ort","tokens.txt","bpe.vocab","vad.onnx' speaker-standalone/app/src/main/java/app/hitel/speakeronly/IxioModelImporter.java
+          ! grep -F 'implementation("com.github.k2-fsa:sherpa-onnx' speaker-standalone/app/build.gradle.kts
+          ! grep -F 'import com.k2fsa.sherpa.onnx.' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          ! find speaker-standalone/app/src/main/assets -name '*epoch-99*' | grep .
+          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
+          APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.directstt'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='9'"
+          unzip -Z1 "$APK" > /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libaac-mdat-follow.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libavcodec.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libsherpa-onnx-jni.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'lib/arm64-v8a/libonnxruntime.so' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'assets/ixio/ixio-original-sdk.jar' /tmp/ixio-standalone-contents.txt
+          grep -Fx 'assets/ixio/bpe.vocab' /tmp/ixio-standalone-contents.txt
+          ! grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/ixio-standalone-contents.txt
+          mkdir -p speaker-standalone/dist
+          cp "$APK" speaker-standalone/dist/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk > SHA256.txt)
+          echo PASS_ORIGINAL_IXIO_SDK_ONLY_EXPERIMENTAL_APK
+      - name: Upload original IXIO STT experimental APK as Actions artifact ONLY
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-PCM-Endpoint-Diagnostic-ARM64-20261123
+          path: speaker-standalone/dist/
+          if-no-files-found: warn
+
+      - name: Publish verified model-free APK for user's original STT.zip import
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          LOCAL=speaker-standalone/dist/$APK
+          test -s "$LOCAL"
+          test "$(stat -c '%s' "$LOCAL")" -gt 10000000
+          TAG=ixio-pcm-endpoint-original-sdk-20261123
+          gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1 || \
+            gh release create "$TAG" -R lyonbegin/hitel-room \
+              --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title 'IXIO original speechSDK PCM-normalization and endpoint diagnostics for Samsung M4A' \
+              --notes 'Standalone Samsung phone auto-record accessibility, growing M4A to PCM, original IXIO speechSDK/CombinedSTTKWS/ONNX native. Model STT.zip is NOT bundled or published: import original IXIO_STT_Original_4.0.4.zip from phone storage. Verified PCM normalization regression/build/signature/model importer; real original model inference is not validated on emulator, so this is EXPERIMENTAL.'
+          gh release upload "$TAG" -R lyonbegin/hitel-room "$LOCAL" speaker-standalone/dist/SHA256.txt --clobber
+          curl -fLsS --retry 4 --max-time 240 \
+            "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK" -o /tmp/verify-public.apk
+          cmp "$LOCAL" /tmp/verify-public.apk
+          echo IXIO_ORIGINAL_STT_HTTPS_ASSET_BYTE_VERIFIED
