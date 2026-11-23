@@ -4,6 +4,7 @@ on:
     branches: [research/zocbo-viewer-callgraph-20261123]
     paths:
       - .github/workflows/zocbo-viewer-native-callgraph.yml
+      - scripts/zocbo_original_dex/trace_native_viewer_data.py
   workflow_dispatch:
 permissions:
   contents: read
