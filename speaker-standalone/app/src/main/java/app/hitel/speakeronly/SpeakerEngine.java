@@ -392,7 +392,9 @@ final class SpeakerEngine {
     });
     byte[] buf=new byte[8192];
     try(BufferedInputStream nativePcm=new BufferedInputStream(p.getInputStream(),65536)){
-      while(!stop){
+      // Even after call stop, drain the native process stdout to EOF:
+      // SIGTERM asks native FAAD2 to flush its remaining resampler samples.
+      while(true){
         int n=nativePcm.read(buf);
         if(n<0)break;
         // A pipe read may split a 16-bit sample; chunker retains the partial byte.
