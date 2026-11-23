@@ -35,7 +35,7 @@ for f in paths:
   is_pdf='Lokhttp3/Request$Builder;->url(Ljava/lang/String;)' in original and \
     'Lokhttp3/OkHttpClient$Builder;->build()Lokhttp3/OkHttpClient;' in original and \
     'Lokhttp3/Call;->enqueue(' in original
-  if not is_provider and not is_pdf and '->getPdfPath()Ljava/lang/String;' not in original:continue
+  if not is_provider and not is_pdf and 'getPdfPath()Ljava/lang/String;' not in original:continue
   touched=[0,0,0]
   def rewrite_method(m):
     s=m.group(0)
@@ -52,6 +52,12 @@ for f in paths:
         touched[2]+=1
         return z.group(1)+z.group(2)+"\n    invoke-static {"+z.group(3)+"}, "+MODEL
       s=p.sub(insert_hook,s)
+    if re.search(r"^\\.method[^\\n]*\\bgetPdfPath\\(\\)Ljava/lang/String;",s,re.M) and MODEL not in s:
+      p=re.compile(r"(?m)^    return-object (v\\d+|p\\d+)[ \\t]*$")
+      def insert_return(z):
+        touched[2]+=1
+        return "    invoke-static {"+z.group(1)+"}, "+MODEL+"\\n"+z.group(0)
+      s=p.sub(insert_return,s,count=1)
     return s
   modified=method_re.sub(rewrite_method,original)
   if modified!=original:f.write_text(modified,encoding="utf8")
