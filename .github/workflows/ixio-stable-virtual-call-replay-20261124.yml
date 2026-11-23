@@ -59,14 +59,23 @@ jobs:
           echo "ORIGINAL_GROWING_M4A_NATIVE_AAC_LIBS_READY"
           ls -lh "$ROOT"
           ! find "$ROOT" -name '*sherpa*' -o -name '*onnx*' | grep .
-      - name: Regression test newest M4A 3 actual growth increments sampled at 100ms
+      - name: Verify live M4A selection does NOT wait for three growth events
         run: |
           set -euo pipefail
-          mkdir -p /tmp/growing-m4a-test
-          javac -d /tmp/growing-m4a-test \
-            speaker-standalone/app/src/main/java/app/hitel/speakeronly/GrowingM4aSelector.java \
-            speaker-standalone/ci/GrowingM4aSelectorTest.java
-          java -cp /tmp/growing-m4a-test app.hitel.speakeronly.GrowingM4aSelectorTest
+          ENGINE=speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          STT=speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
+          grep -F 'LATEST_M4A_SELECTED_NO_GROWTH_GATE' "$ENGINE"
+          ! grep -F 'requiredPositiveGrowthEvents' "$ENGINE"
+          ! grep -F 'detector.observe' "$ENGINE"
+          ! grep -F 'LIVE_PLAYBACK_CUTOFF' "$ENGINE"
+          ! grep -F 'inLiveWindow' "$ENGINE"
+          grep -F 'PcmReadyLatestGate.trimPreReadyBacklog(queue)' "$STT"
+          mkdir -p /tmp/ixio-pre-ready-test
+          javac -d /tmp/ixio-pre-ready-test \
+            speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmReadyLatestGate.java \
+            speaker-standalone/ci/PcmReadyLatestGateTest.java
+          java -cp /tmp/ixio-pre-ready-test app.hitel.speakeronly.PcmReadyLatestGateTest
+          echo PASS_NEWEST_FILE_NO_GROWTH_GATE_ONE_SHOT_READY_GATE
       - name: PCM16LE to exact IXIO float[] contract regression
         run: |
           set -euo pipefail
@@ -107,17 +116,17 @@ jobs:
           set -euo pipefail
           grep -F 'if(started!=null)requestRecordingFromUi(started,0L);' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
           grep -F 'RECORDING_IMMEDIATE_ACCESSIBILITY_REQUEST' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
-          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_NEWEST_FILE_SELECTED' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
           grep -F 'getBoolean("autoEnabled",false)' speaker-standalone/app/src/main/java/app/hitel/speakeronly/MainActivity.java
           grep -F 'SamsungRecordAccessibility.cancelRequest();' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
           echo PASS_EARLY_ACCESSIBILITY_CALL_START
-      - name: Verify original TELEPHONY call start/stop and positive M4A growth gate
+      - name: Verify original TELEPHONY call start/stop and immediate M4A file watch
         run: |
           set -euo pipefail
           grep -F 'registerTelephonyCallback' speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallStateGate.java
           grep -F 'CALL_OFFHOOK_BEGIN_LIVE_RECORDING_VALIDATION' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
           grep -F 'CALL_IDLE_STOP_OUTPUT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
-          grep -F 'requiredPositiveGrowthEvents' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          grep -F 'LATEST_M4A_SELECTED_NO_GROWTH_GATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
           grep -F 'android.permission.READ_PHONE_STATE' speaker-standalone/app/src/main/AndroidManifest.xml
           grep -F 'USAGE_MEDIA' speaker-standalone/app/src/main/java/app/hitel/speakeronly/PcmSpeakerMonitor.java
       - name: Verify recording start controller is opt-in and evidence-based
@@ -126,9 +135,9 @@ jobs:
           grep -F 'BIND_ACCESSIBILITY_SERVICE' speaker-standalone/app/src/main/AndroidManifest.xml
           grep -F 'requestRecording' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
           grep -F 'RECORDING_GROWTH_CANDIDATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
-          grep -F 'RECORDING_VERIFIED_BY_M4A_GROWTH' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+          grep -F 'RECORDING_NEWEST_FILE_SELECTED' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
           grep -F 'RECORDING_CONTENT_CHANGED_EVENT' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
-          grep -F 'confirmedFileBytes' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
+          ! grep -F 'confirmedFileBytes' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerEngine.java
           ! grep -E 'endCall\(|ANSWER_PHONE_CALLS|MODIFY_PHONE_STATE' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SamsungRecordAccessibility.java
       - name: Stage user's original IXIO speechSDK runtime (NOT HITEL Sherpa)
         env:
@@ -182,7 +191,12 @@ jobs:
           ! grep -F 'implementation("com.github.k2-fsa:sherpa-onnx' speaker-standalone/app/build.gradle.kts
           ! grep -F 'import com.k2fsa.sherpa.onnx.' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
           ! find speaker-standalone/app/src/main/assets -name '*epoch-99*' | grep .
-          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace
+          # Previous failure: Maven Central HTTP 429. Prefer mirror in CI only.
+          cp speaker-standalone/settings.gradle.kts /tmp/ixio-original-settings.gradle.kts
+          sed -i 's#mavenCentral()#maven { url = uri("https://maven.aliyun.com/repository/central") }#g' speaker-standalone/settings.gradle.kts
+          gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace ||
+          { echo MAVEN_MIRROR_FALLBACK_TO_ORIGINAL; cp /tmp/ixio-original-settings.gradle.kts speaker-standalone/settings.gradle.kts;
+            gradle -p speaker-standalone :app:assembleDebug --no-daemon --stacktrace; }
           APK=speaker-standalone/app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F 'app.hitel.recording.ixio.stablevirtual'
@@ -206,12 +220,18 @@ jobs:
           name: IXIO-Stable-V11-VirtualCall-ARM64-20261124
           path: speaker-standalone/dist/
           if-no-files-found: warn
+      - name: Install ffmpeg CLI for synthetic audio on runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          command -v ffmpeg
       - name: Generate NON-PRIVATE public test fixture with real AAC codec, not fake STT
         run: |
           set -euo pipefail
           mkdir -p replay-qa
           ffmpeg -y -hide_banner -loglevel error -f lavfi -i 'sine=frequency=600:sample_rate=48000:duration=9' \
-             -c:a aac -b:a 128k -ac 1 -ar 48000 -movflags +faststart replay-qa/synthetic_mono_aac.m4a
+             -c:a aac -b:a 128k -ac 1 -ar 48000 replay-qa/synthetic_mono_aac.m4a
           ffprobe -v error -show_entries stream=codec_name,sample_rate,channels -of default=nw=1 replay-qa/synthetic_mono_aac.m4a
           test "$(stat -c %s replay-qa/synthetic_mono_aac.m4a)" -gt 4096
           echo SYNTHETIC_AUDIO_ONLY_REAL_USER_SAMPLE_NOT_PUBLISHED
@@ -231,8 +251,7 @@ jobs:
           grep -F Success replay-qa/install.txt
           adb shell run-as "$PKG" mkdir -p files/virtual_call
           adb push replay-qa/synthetic_mono_aac.m4a /data/local/tmp/ixio-virtual-call.m4a
-          adb shell 'cat /data/local/tmp/ixio-virtual-call.m4a' | \
-            adb shell run-as "$PKG" sh -c 'cat > files/virtual_call/original.m4a'
+          adb shell run-as "$PKG" cp /data/local/tmp/ixio-virtual-call.m4a files/virtual_call/original.m4a
           SIZE=$(adb shell run-as "$PKG" stat -c %s files/virtual_call/original.m4a | tr -d '\r')
           test "$SIZE" -gt 4096
           adb logcat -c
@@ -252,8 +271,8 @@ jobs:
             > replay-qa/events.jsonl || true
           grep -F 'VIRTUAL_M4A_WRITE' replay-qa/logcat.txt
           grep -F 'VIRTUAL_CALL_AUDIO_EOF' replay-qa/logcat.txt
-          grep -F 'RECORDING_CANDIDATE_FILE_GROWTH' replay-qa/events.jsonl
-          grep -F 'LIVE_M4A_CONFIRMED_GROWING' replay-qa/events.jsonl
+          grep -F 'LATEST_M4A_SELECTED_NO_GROWTH_GATE' replay-qa/events.jsonl
+          ! grep -F 'LIVE_M4A_CONFIRMED_GROWING' replay-qa/events.jsonl
           grep -F 'APPENDED_NEW_SOURCE_BYTES' replay-qa/events.jsonl
           if grep -E 'FATAL EXCEPTION|SIGSEGV|UnsatisfiedLinkError' replay-qa/crash.txt; then exit 26; fi
           echo PASS_ORIGINAL_V11_VIRTUAL_SAF_GROWING_FILE_ANDROID_X86_ARM64
