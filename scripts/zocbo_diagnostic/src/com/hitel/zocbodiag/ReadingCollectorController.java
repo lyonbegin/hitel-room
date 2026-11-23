@@ -83,7 +83,7 @@ public final class ReadingCollectorController {
       this.filter=filter;this.paid=paid;this.grade=grade;this.year=year;this.term=term;
       this.subject=subject;this.firstPage=firstPage;
     }
-    String nameKey(){return site+"|"+name+"|"+city;}
+    String nameKey(){return site+"|"+name+"|"+city+"|"+district+"|"+schools;}
     String fingerprint(){return nameKey()+"|"+schools+"|"+district+"|"+filter;}
   }
   static class Job {
@@ -137,7 +137,6 @@ public final class ReadingCollectorController {
     root.addView(text("연도 범위만 설정하시면 됩니다. 수집은 중학교·고등학교 × 원본 지역 ‘전체’ 목록 × 학년·연도·학기·과목을 자동 순회합니다.",12));
 
     button("전국 지역 ‘전체’ 자동수집 / 이어하기",root,()->startNationwide());
-    button("현재 화면 목록만 시험수집",root,()->start(true));
     button("일시정지",root,()->pause("사용자 요청으로 일시정지"));
     button("CSV 파일 내보내기 (엑셀)",root,()->export(EXPORT_CSV));
     button("JSON 파일 내보내기 (전체 메타데이터)",root,()->export(EXPORT_JSON));
