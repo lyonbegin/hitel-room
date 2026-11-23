@@ -121,6 +121,7 @@ public final class Diag implements View.OnClickListener {
   public static void event(String category,String detail) {
     log(category,protect(detail==null?"":detail));
   }
+  public static void bandwidth(int kbps) { log("NETWORK_GATE_DOWNSTREAM_KBPS","reported="+kbps+"; originalThreshold=100; diagnosticThreshold=0"); }
   public static void bridge() {log("JS_BRIDGE_goPreviousExam","invoked");}
   public static void webViewLink() {log("JS_BRIDGE_goWebViewLink","invoked");}
   public static void gate(boolean enabled) {
