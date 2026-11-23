@@ -171,14 +171,14 @@ jobs:
           grep -Fx 'assets/ixio/bpe.vocab' /tmp/ixio-standalone-contents.txt
           ! grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/ixio-standalone-contents.txt
           mkdir -p speaker-standalone/dist
-          cp "$APK" speaker-standalone/dist/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
-          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk > SHA256.txt)
+          cp "$APK" speaker-standalone/dist/HITEL_IXIO_PCM_Diag9_20261123.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_PCM_Diag9_20261123.apk > SHA256.txt)
           echo PASS_ORIGINAL_IXIO_SDK_ONLY_EXPERIMENTAL_APK
       - name: Upload original IXIO STT experimental APK as Actions artifact ONLY
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO-PCM-Endpoint-Diagnostic-ARM64-20261123
+          name: IXIO-PCM-Diag9-ARM64-20261123
           path: speaker-standalone/dist/
           if-no-files-found: warn
 
@@ -187,11 +187,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK=HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
+          APK=HITEL_IXIO_PCM_Diag9_20261123.apk
           LOCAL=speaker-standalone/dist/$APK
           test -s "$LOCAL"
           test "$(stat -c '%s' "$LOCAL")" -gt 10000000
-          TAG=ixio-pcm-endpoint-original-sdk-20261123
+          TAG=ixio-pcm-endpoint-original-sdk-isolated-20261123
           gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1 || \
             gh release create "$TAG" -R lyonbegin/hitel-room \
               --target "$GITHUB_SHA" --prerelease --latest=false \
