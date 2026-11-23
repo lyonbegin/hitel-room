@@ -32,6 +32,7 @@ jobs:
           java -Xmx2400m -jar bin/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-pcm-bridge/smali/main /tmp/ixio-pcm-bridge/main.dex
           java -Xmx2400m -jar bin/baksmali.jar d --api 34 --jobs 3 -o /tmp/ixio-pcm-bridge/smali/recorder /tmp/ixio-pcm-bridge/recorder.dex
           python3 tools/ixio/probe_original_pcm_bridge_20261123.py
+          python3 tools/ixio/deep_original_pcm_source_contract_20261123.py
       - name: Verify actual PCM source constants normalization math and Flow collector
         run: |
           set -euo pipefail
