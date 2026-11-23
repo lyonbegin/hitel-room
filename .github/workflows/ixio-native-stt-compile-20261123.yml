@@ -1,0 +1,30 @@
+name: IXIO Native STT C++ Compile and Partial-Caption Tests
+on:
+  push:
+    branches:
+      - feature/ixio-native-stt-reimplementation-20261123
+    paths:
+      - 'hitel-native-stt/**'
+      - '.github/workflows/ixio-native-stt-compile-20261123.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cpp-native-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile C++17 engine under warnings as errors
+        run: |
+          cmake -S hitel-native-stt -B /tmp/hitel-native-build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build /tmp/hitel-native-build --parallel 2
+      - name: Test non-batched partial captions, all PCM samples and endpoint events
+        run: ctest --test-dir /tmp/hitel-native-build --output-on-failure --verbose
+      - name: Compile public Sherpa C API adapter against official upstream header
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/sherpa-headers/sherpa-onnx/c-api
+          curl -fL --retry 3 'https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/master/sherpa-onnx/c-api/c-api.h' -o /tmp/sherpa-headers/sherpa-onnx/c-api/c-api.h
+          c++ -std=c++17 -Wall -Wextra -Werror -pedantic -fsyntax-only -Ihitel-native-stt/include -I/tmp/sherpa-headers hitel-native-stt/src/sherpa_backend.cpp
+          echo 'SHERPA_ADAPTER_SYNTAX_OK'
