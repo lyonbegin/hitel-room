@@ -146,6 +146,8 @@ jobs:
             "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelSdkProbe.kt"
           # Hard regression gate: original player, renderer, audio, route switch and
           # all their source preparation scripts MUST remain byte-identical to e04874f.
+          git fetch --no-tags --depth=20 origin e04874faf018d97f0afa9b760be93373212c1777
+          git cat-file -e e04874faf018d97f0afa9b760be93373212c1777^{commit}
           for source in prepare_essence2_vendor_speech_player.py prepare_essence2_single_apk_ab.py; do
             cmp <(git show e04874faf018d97f0afa9b760be93373212c1777:"tools/bithuman_deep/$source") \
                 "tools/bithuman_deep/$source"
