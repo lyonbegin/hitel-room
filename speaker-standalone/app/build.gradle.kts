@@ -3,7 +3,7 @@ android {
   namespace = "app.hitel.speakeronly"
   compileSdk = 35
   defaultConfig {
-    applicationId = "app.hitel.recording.directstt"
+    applicationId = "app.hitel.recording.ixio.pcmaudit"
     minSdk = 26
     targetSdk = 28
     versionCode = 9
