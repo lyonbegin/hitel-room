@@ -210,7 +210,7 @@ public final class ReadingCollectorController {
           if(list.length()==0){
             if(++selectorRetries<4){
               ui.postDelayed(()->scanOriginalAreaChoices(),1100);
-            }else stopDiscovery("원본 지역 선택기의 ‘전체’ 항목을 찾지 못했습니다. 잘못된 임의 지역 검색은 하지 않습니다.");
+            }else stopDiscovery("원본 지역선택기에서 .region .tab__button[data-order]와 대응하는 .region .tab__content[data-order]가 확인되지 않았습니다. 현재 원본 페이지의 구조 또는 접근 상태 확인이 필요합니다.");
             return;
           }
           // Fail safely if the source's left column changed since the checkpoint.
@@ -288,10 +288,13 @@ public final class ReadingCollectorController {
           if(discovering&&awaitingAreaSnapshot){
             awaitingAreaSnapshot=false;
             if(!SCHOOL_LEVELS[discoverySiteIndex].equals(currentSite)||
-                currentSchool.isEmpty()||currentCity.isEmpty()){
-              stopDiscovery("‘"+lastAreaName+" 전체’ 조회 결과에서 학교 목록·시도 정보가 누락됐습니다. 원본 값을 임의로 만들지 않습니다.");
+                (currentCity.isEmpty()&&currentFilter.isEmpty())){
+              stopDiscovery("‘"+lastAreaName+" 전체’ 조회 결과에서 원본 지역 정보가 확인되지 않았습니다. 임의 지역코드는 사용하지 않습니다.");
               return;
             }
+            Diag.log("COLLECTOR_AREA_SCOPE","city_present="+!currentCity.isEmpty()+
+              " filter_present="+!currentFilter.isEmpty()+
+              " server_school_id_count="+(currentSchool.isEmpty()?0:currentSchool.split("\\|").length));
             AreaScope found=new AreaScope(lastAreaName,currentSite,currentSchool,
               currentCity,currentDistrict,currentFilter,currentPaid,currentGrade,
               currentYear,currentTerm,currentSubject,currentRows);
@@ -393,7 +396,7 @@ public final class ReadingCollectorController {
     if(!discovering||destroyed)return;
     if(discoverySiteIndex>=SCHOOL_LEVELS.length){finishAreaDiscovery();return;}
     loaded=false;scopeReady=false;waitingAreaNavigation=false;awaitingAreaSnapshot=false;
-    String url=ReadingAreaSelector.page(SCHOOL_LEVELS[discoverySiteIndex]);
+    String url=ReadingAreaSelector.page(sourceUrl,SCHOOL_LEVELS[discoverySiteIndex],discoverToYear);
     Diag.log("COLLECTOR_OPEN_ORIGINAL_REGION_SELECTOR",
       "site="+SCHOOL_LEVELS[discoverySiteIndex]+" index="+discoveryIndex);
     web.loadUrl(url);
