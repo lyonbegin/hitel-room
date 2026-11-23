@@ -1,0 +1,114 @@
+name: Zocbo Original APK Diagnostic Build
+on:
+  push:
+    branches:
+      - feature/zocbo-diagnostic-apk-20261123
+    paths:
+      - .github/workflows/zocbo-diagnostic-apk.yml
+      - scripts/zocbo_diagnostic/**
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-original-diagnostic-apk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified, original user XAPK (abort unless exact original SHA256)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 scripts/zocbo_original_dex/download_verified_xapk.py work/source
+          python3 - <<'PY'
+          import zipfile,hashlib,pathlib,json
+          src=pathlib.Path("work/source/jokbo.xapk")
+          assert hashlib.sha256(src.read_bytes()).hexdigest()=="d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5"
+          with zipfile.ZipFile(src) as z:
+            apk=[x for x in z.infolist() if x.filename.endswith(".apk")]
+            print("APK_ENTRIES",[(x.filename,x.file_size) for x in apk],flush=True)
+            base=sorted(apk,key=lambda x:("base" not in x.filename.lower() and "eduzoneviewer.apk" not in x.filename.lower(),-x.file_size))[0]
+            pathlib.Path("work/original-base.apk").write_bytes(z.read(base))
+            print("ORIGINAL_BASE",base.filename,base.file_size,flush=True)
+          PY
+      - name: Install APKTool and baksmali utilities
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apktool smali
+          apktool --version
+          baksmali --version || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -d "$ANDROID_HOME"/build-tools/* | tail -5
+      - name: Decode original APK without rewriting resource table
+        run: |
+          set -euxo pipefail
+          apktool d -f -r -o work/decoded work/original-base.apk
+          find work/decoded -name 'MainActivity.smali' -o -name 'WebAppInterface.smali' -o -name 'CommonWebviewActivity.smali' | head -30
+      - name: Compile standalone Android diagnostic class to Smali
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK_PLATFORM="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/classes work/diag-dex work/diag-smali
+          javac -source 8 -target 8 -Xlint:-options -cp "$SDK_PLATFORM/android.jar" -d work/classes scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/Diag.java
+          "$SDK_BUILD/d8" --min-api 23 --lib "$SDK_PLATFORM/android.jar" --output work/diag-dex $(find work/classes -name '*.class')
+          baksmali d work/diag-dex/classes.dex -o work/diag-smali
+          SMALI="$(find work/decoded -maxdepth 1 -type d -name 'smali*' | sort -V | tail -1)"
+          test -n "$SMALI"
+          mkdir -p "$SMALI/com/hitel/zocbodiag"
+          cp -a work/diag-smali/com/hitel/zocbodiag/*.smali "$SMALI/com/hitel/zocbodiag/"
+          find "$SMALI/com/hitel/zocbodiag" -name '*.smali' -print
+      - name: Patch original native functions and build instrumented app
+        run: |
+          set -euxo pipefail
+          python3 -u scripts/zocbo_diagnostic/patch_smali.py work/decoded work/diag-patch-report.json | tee work/patch-log.txt
+          apktool b -o work/zocbo-unzipaligned.apk work/decoded
+      - name: Zipalign, sign test build and verify test signature
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-unzipaligned.apk work/zocbo-aligned.apk
+          keytool -genkeypair -keystore work/diagnostic.jks -alias diagnostic -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=HITEL Diagnostic Test,O=Diagnostic,C=KR" -noprompt
+          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk work/zocbo-aligned.apk
+          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+          sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk | tee work/SHA256SUMS.txt
+          file work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+      - name: Check diagnostic signatures embedded into resulting APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import zipfile
+          p="work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk"
+          with zipfile.ZipFile(p) as f:
+            dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
+            print("DEX_COUNT",len(dex))
+            assert dex
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT"]:
+              ok=any(needle in f.read(d) for d in dex)
+              print("DIAG_MARKER",needle.decode(),ok)
+              if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
+          PY
+      - name: Upload APK and real patch logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zocbo-original-diagnostic-${{ github.run_number }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
+            work/diag-patch-report.json
+            work/patch-log.txt
+            work/SHA256SUMS.txt
+            work/source/source_verification.json
