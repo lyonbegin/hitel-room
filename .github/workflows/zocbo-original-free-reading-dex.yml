@@ -40,6 +40,9 @@ jobs:
       - name: Trace actual free-reading navigation and WebView methods
         if: steps.original.outcome == 'success'
         run: python3 -u scripts/zocbo_original_dex/analyze.py
+      - name: Examine original app-only identification markers across all JADX source
+        if: steps.original.outcome == 'success'
+        run: python3 -u scripts/zocbo_original_dex/scan_gate.py
       - name: Upload real DEX analysis, call sites and source verification
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,6 +51,7 @@ jobs:
           path: |
             source/source_verification.json
             evidence/zocbo-original-dex/analysis.json
+            evidence/zocbo-original-dex/app_gate_audit.json
             evidence/zocbo-original-dex/callsites.txt
             evidence/zocbo-original-dex/focused_navigation.txt
             evidence/zocbo-original-dex/jadx.log
