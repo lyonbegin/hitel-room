@@ -79,8 +79,11 @@ def hook_calls(f):
         count["loadUrl"]+=1
     m=re.search(r"invoke-virtual\s+\{([^}]+)\},\s+Landroid/webkit/WebView;->addJavascriptInterface\(Ljava/lang/Object;Ljava/lang/String;\)V",l)
     if m:
+      args=[x.strip() for x in m.group(1).split(",")]
+      if len(args)>=3:
+        parts.append("    invoke-static {"+args[0]+"}, "+S+"->registerTitleBridge(Landroid/webkit/WebView;)V\n")
+        count["addJavascriptInterface"]+=1
       parts.append("    invoke-static {}, "+S+"->jsInterface()V\n")
-      count["addJavascriptInterface"]+=1
     l2=l
     parts.append(l2)
   s2="".join(parts)
