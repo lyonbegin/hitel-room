@@ -227,7 +227,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"COLLECTOR_ACTIVITY_READY",b"COLLECTOR_PAGE_SAVED",b"COLLECTOR_EXPORT_OK",b"zocbo_exam_metadata_v1.db",b"COLLECTOR_ORIGINAL_PAGE1_SAVED",b"COLLECTOR_SCOPE_INCOMPLETE",b"original-page-snapshot"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"COLLECTOR_ACTIVITY_READY",b"COLLECTOR_PAGE_SAVED",b"COLLECTOR_EXPORT_OK",b"zocbo_exam_metadata_v1.db",b"COLLECTOR_ORIGINAL_PAGE1_SAVED",b"COLLECTOR_SCOPE_INCOMPLETE",b"original-page-snapshot",b"COLLECTOR_ORIGINAL_AREA_CAPTURED",b"COLLECTOR_AREA_CHOICES",b"COLLECTOR_AREA_SET_READY",b"COLLECTOR_NATIONWIDE_DISCOVERY_START"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
@@ -257,9 +257,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Original_Scope_Collector_R9_20261123.apk
-          test -s work/Zocbo_4.3.11_Original_Scope_Collector_R9_20261123.apk
-          sha256sum work/Zocbo_4.3.11_Original_Scope_Collector_R9_20261123.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk
+          test -s work/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk
+          sha256sum work/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -273,11 +273,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-original-scope-metadata-collector-20261123-r9
-          APK=work/Zocbo_4.3.11_Original_Scope_Collector_R9_20261123.apk
+          TAG=zocbo-original-area-all-metadata-collector-20261123-r10
+          APK=work/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo R9 - Original previousExam scope + server rendered first page + paginated metadata SQLite/CSV" \
-            --notes "R9 fixes R8 zero-row collection. The app reads real server-rendered SiteID/Grade/subject/year/term, scl_id and 지역/지역필터 from the original previousExam.asp WebView scripts; extracts the original Page 1 exam rows into SQLite first, then calls the original comm.send listing API serially from Page 2 with the observed region and school IDs. Missing scope blocks collection (no blank fabricated requests). Entire enumeration is limited to verified current regional school scope, not falsely labeled nationwide. Keeps CSV JSON via Android system file picker, local SQLite checkpoints, and original R7 viewer flow. CI APK build, package signature, release download verified; actual authenticated on-device data collection still requires real testing." \
+            --title "Zocbo R10 - Original Area 전체 automatic nationwide in-app metadata collector" \
+            --notes "R10: One tap automatically opens the ORIGINAL school_region_filter.asp selector, scans every visible original 지역 전체 clickable choice (without hardcoded school IDs), invokes its native original DOM onclick, captures the real server-returned previousExam.asp school IDs, city/district, and baseline rows across middle and high school scopes, and serially collects year, grade, subject and term metadata through the ORIGINAL comm.send paginated endpoint. App-private SQLite checkpoint/resume and CSV/JSON export preserved; original R7 PDF viewer preserved. This build verifies Java compilation, APK signatures, and HTTPS release bytes; live regional selector behavior and completeness must be tested on a logged-in device. It stops on invalid selector responses, access errors or limits instead of inventing school IDs or bypassing controls." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -291,7 +291,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_Original_Scope_Collector_R9_20261123.apk
+            work/Zocbo_4.3.11_Original_Area_All_Collector_R10_20261123.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
