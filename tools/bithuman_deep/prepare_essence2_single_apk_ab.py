@@ -143,21 +143,31 @@ def update_manifest(m):
     return m[:begin]+head+tail+m[close:]
 
 def patch_trace(plugin):
+    """Extend the pinned full GPU diagnostic trace, preserve its backend writer."""
     path=plugin/PKG/"HitelE2Trace.kt"
     t=path.read_text()
     t=once(t,'    private const val TAG = "HITEL_E2TRACE"\n',
       '    private const val TAG = "HITEL_E2TRACE"\n    private val ROUTE get() = HitelSdkLoader.route()\n',"trace-route")
-    t=once(t,"4L * 1024L * 1024L","16L * 1024L * 1024L","trace-limit")
+    t=once(t,"12L * 1024L * 1024L","16L * 1024L * 1024L","trace-limit")
     t=once(t,"120000L","350000L","trace-count")
     t=once(t,'val output = File(folder, "hitel_e2_trace.log")',
       'val output = File(folder, "hitel_e2_trace_" + ROUTE + ".log")',"trace-file")
-    t=once(t,'val old = File(folder, "hitel_e2_trace.previous.log")',
-      'val old = File(folder, "hitel_e2_trace_" + ROUTE + ".previous.log")',"trace-rotation")
-    t=once(t,'var writer = FileOutputStream(output, false)\n                var length = 0L',
-      'var writer = FileOutputStream(output, true)\n                var length = output.length()',"trace-append")
+    assert t.count('File(folder, "hitel_e2_trace.previous.log")')==2
+    t=t.replace('File(folder, "hitel_e2_trace.previous.log")',
+      'File(folder, "hitel_e2_trace_" + ROUTE + ".previous.log")')
+    t=once(t,'FileOutputStream(output, false)',
+      'FileOutputStream(output, true)',"trace-initial-append")
+    t=once(t,'FileOutputStream(File(folder, "hitel_sdk_backend.log"), false)',
+      'FileOutputStream(File(folder, "hitel_sdk_backend_" + ROUTE + ".log"), true)',
+      "backend-route-append")
+    t=once(t,'var backendLength = 0L',
+      'var backendLength = File(folder, "hitel_sdk_backend_" + ROUTE + ".log").length()',
+      "backend-current-size")
+    t=once(t,'var length = 0L\n                while (true)',
+      'var length = output.length()\n                while (true)',"trace-current-size")
     t=once(t,'" stage=" + safe(stage) + " lost="',
       '" stage=" + safe(stage) + " sdkRoute=" + ROUTE + " lost="',"trace-tag")
-    t=once(t,'event("trace.start", "version" to 1, "maxFileBytes" to MAX_BYTES)',
+    t=once(t,'event("trace.start", "version" to 2, "maxFileBytes" to MAX_BYTES)',
       '''val libName = "lib" + HitelSdkLoader.libraryForProcess() + ".so"
         val libFile = File(context.applicationInfo.nativeLibraryDir, libName)
         val md = java.security.MessageDigest.getInstance("SHA-256")
@@ -171,7 +181,7 @@ def patch_trace(plugin):
         }
         val soHash=if(libFile.isFile) md.digest().joinToString("") { "%02x".format(it) }
                   else "not-extracted"
-        event("trace.start", "version" to 3, "route" to ROUTE,
+        event("trace.start", "version" to 4, "route" to ROUTE,
             "nativeLib" to libName, "nativeSha256" to soHash,
             "nativeFileBytes" to libFile.length(),
             "process" to android.app.Application.getProcessName(),
@@ -179,6 +189,7 @@ def patch_trace(plugin):
             "device" to android.os.Build.DEVICE,
             "maxFileBytes" to MAX_BYTES)
 ''',"trace-identity")
+    assert 'sdk.backend.' in t and 'backend.write(bytes)' in t
     path.write_text(t)
 
 DART_METHODS=r'''  String _hitelAbRoute='SDK 확인 중';
