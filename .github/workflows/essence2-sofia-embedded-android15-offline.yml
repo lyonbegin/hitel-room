@@ -1,4 +1,4 @@
-name: HITEL Essence2 Sofia existing local session - no vendor key
+name: HITEL Essence2 Sofia Korean 10s ONE APK SDK original-WG128 chooser
 on:
   workflow_dispatch:
   push:
@@ -133,6 +133,11 @@ jobs:
             --plugin "$PLUGIN" --upstream "$GITHUB_WORKSPACE/original-upstream" \
             --sources "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/vendor-speech-integration.json"
+          python3 tools/bithuman_deep/prepare_essence2_single_apk_ab.py \
+            --app "$APP" --plugin "$PLUGIN" \
+            --loader-source "$GITHUB_WORKSPACE/tools/bithuman_deep/essence2_local_android/HitelSdkLoader.kt" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/single-apk-sdk-ab.json"
+          python3 -m py_compile tools/bithuman_deep/prepare_essence2_single_apk_ab.py tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py
           test -f "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           grep -Fq 'stage=' "$PLUGIN/android/src/main/kotlin/ai/bithuman/flutter/HitelE2Trace.kt"
           cmp "$ARCHIVE/lib/bithuman.dart" "$PLUGIN/lib/bithuman.dart"
@@ -223,6 +228,26 @@ jobs:
             <(unzip -p essence2-sdk-local/hitel-local-test-meter-0.9.5.aar jni/arm64-v8a/lible_jni.so)
           echo PASS_ORIGINAL_NATIVE_UNMODIFIED_TEST_METER_ONLY
 
+      - name: Add both independently loadable native SDK versions to ONE fully built APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$GITHUB_WORKSPACE/essence2-sdk-local"
+          curl -fLsS --retry 3 https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.7.1/asm-9.7.1.jar -o "$SDK/asm.jar"
+          javac -cp "$SDK/asm.jar" -d "$SDK" tools/bithuman_deep/SelectEssence2NativeLibrary.java
+          java -cp "$SDK:$SDK/asm.jar" SelectEssence2NativeLibrary \
+            "$SDK/hitel-local-test-meter-0.9.5.aar" "$SDK/hitel-dual-loader-0.9.5.aar" \
+            | tee essence2-local-mock-proof/native-loader-asm-proof.txt
+          python3 tools/bithuman_deep/prepare_essence2_one_apk_two_native_libs.py \
+            --app "$GITHUB_WORKSPACE/original-upstream/app/avatar_chat" \
+            --sdk "$SDK" \
+            --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/one-apk-dual-sdk-hashes.json"
+          unzip -p "$SDK/hitel-dual-loader-0.9.5.aar" classes.jar > "$SDK/dual-classes.jar"
+          javap -c -p -classpath "$SDK/dual-classes.jar" ai.bithuman.elevate.NativeBridge \
+            > essence2-local-mock-proof/native-loader-disassembly.txt
+          grep -Fq 'HitelSdkLoader.libraryForProcess' essence2-local-mock-proof/native-loader-disassembly.txt
+          echo PASS_ONE_APK_TWO_NATIVE_SDKS_PROCESS_ROUTED_LOADER
+
       - name: Compile fully assembled five-sample Android debug APK
         shell: bash
         working-directory: original-upstream/app/avatar_chat
@@ -256,7 +281,7 @@ jobs:
           unzip -t "$APK" | tail -1
           unzip -Z1 "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
           grep -Fxq 'lib/arm64-v8a/lible_jni.so' "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-members.txt"
-          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk"
           sha256sum "$APK" > "$GITHUB_WORKSPACE/essence2-local-mock-proof/apk-sha256.txt"
           echo PASS_ESSENCE2_SYNTHETIC_LOCAL_MOCK_REAL_ORIGINAL_NATIVE_APK_COMPILED
 
@@ -266,7 +291,7 @@ jobs:
           set -euo pipefail
           cmp \
             <(unzip -p essence2-sdk-local/vendor-original-0.9.5.aar jni/arm64-v8a/lible_jni.so) \
-            <(unzip -p HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
+            <(unzip -p HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk lib/arm64-v8a/lible_jni.so)
           echo PASS_ESSENCE2_NATIVE_ORIGINAL_BYTE_IDENTICAL_IN_SYNTHETIC_MOCK_APK
 
       - name: Validate actual assembled APK contains all Sofia files, hashes and original JNI
@@ -274,7 +299,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/bithuman_deep/package_essence2_sofia_embedded_assets.py \
-            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk" \
+            --apk "$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk" \
             --report "$GITHUB_WORKSPACE/essence2-local-mock-proof/sofia-apk-assets-sha.json"
           echo PASS_SOFIA_MODEL_OFFLINE_ASSETS_REAL_APK
 
@@ -282,7 +307,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk"
+          APK="$GITHUB_WORKSPACE/HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk"
           PCM="$GITHUB_WORKSPACE/essence2-local-mock-proof/voiced-test.pcm"
           ASSET=assets/flutter_assets/assets/hitel_essence2_spoken_24k.pcm
           test "$(wc -c < "$PCM")" -eq 480000
@@ -304,20 +329,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG=hitel-essence2-sofia-korean-10s-full-build-20261123
-          APK=HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk
+          TAG=hitel-essence2-sofia-korean10s-one-apk-dual-sdk-20261123
+          APK=HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
           test -s "$APK"
           cat > essence2-local-mock-proof/release-notes.md <<'EOF'
-          FULL SOURCE BUILT Korean 10s INSTALLATION TEST: uses a Korean ko-KR synthetic test voice generated at build time, NOT the user's original M4A. No English voice is bundled as the spoken reply. The voice is exactly 10 seconds, 24kHz mono PCM16. Sends full PCM without 100ms wall-clock pacing, renders speech frames before playing audio-clock synchronized voice and mouth. Sofia SDK/model and original screen unchanged. Android emulator speaker verification is independent and may report failure; phone playback is not assumed verified.
+          ONE APK TWO SDK SELECTOR: includes BOTH exact original lible_jni.so and WG128 native lible_jni_wg128.so (four ARM64 workgroup instructions altered). The launcher and Flutter controls choose between two Android SDK processes to avoid JNI collisions: selecting the alternate starts its avatar instance; no APK reinstall. Both routes use the SAME Sofia model and SAME generated ko-KR synthetic 10s PCM fixture (24kHz, mono). Per-route trace files and on-screen comparison export included. This is NOT the user's original M4A. Physical-device OpenCL and audio playback remain unverified; no real-time same-process native hot swapping is claimed.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
             gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title 'HITEL Essence2 Sofia - Korean 10s installation TEST' \
+              --title 'HITEL Essence2 Sofia Korean 10s ONE APK Original and WG128 SDK chooser' \
               --notes-file essence2-local-mock-proof/release-notes.md
           fi
-          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk") | .url')"
+          URL="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk") | .url')"
           test -n "$URL"
           curl --fail --location --retry 3 --retry-all-errors "$URL" -o verified-download.apk
           cmp "$APK" verified-download.apk
@@ -346,7 +371,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -no-boot-anim -gpu swiftshader_indirect -memory 4096 -no-snapshot -wipe-data
-          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
+          script: bash tools/bithuman_deep/essence2_audio_lipsync_emulator_probe.sh HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk essence2-sofia-offline-proof essence2-e2trace-proof
       - name: Verify captured virtual speaker contains the actual test speech
         if: always()
         run: |
@@ -359,7 +384,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HITEL_Essence2_Sofia_HITEL_Local_20261120_Install
-          path: HITEL_Essence2_Sofia_KOREAN_10s_NoWait_20261123_ARM64.apk
+          path: HITEL_Essence2_Sofia_Korean10s_DUALSDK_Original_WG128_20261123_ARM64.apk
           if-no-files-found: warn
           retention-days: 1
 
