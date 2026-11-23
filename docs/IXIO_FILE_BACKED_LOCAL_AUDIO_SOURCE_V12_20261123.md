@@ -20,7 +20,7 @@
 ## 이번 V12 구성
 
 1. `SpeakerEngine`: 원래의 삼성 통화녹음 SAF 파일 발견/증가 감시, 필요할 때 임시 증가 파일 및 FFmpeg AAC 프레임 follower 유지 (원본 M4A는 AAC 압축이므로 디코딩 없이 PCM으로 사용할 수 없음).
-2. `StreamingAacPcmDecoder`: 기존 지속적인 MediaCodec/AAC 디코드 + FIR 48kHz → 16kHz 모노 PCM16. 출력 윈도우만 200ms에서 **512샘플(32ms)**로 축소. 중간 M4A 파일·PCM 파일은 새로 만들지 않음.
+2. `StreamingAacPcmDecoder`: 기존 지속적인 MediaCodec/AAC 디코드 + FIR 48kHz → 16kHz 모노 PCM16. 출력 윈도우만 200ms에서 **512샘플(32ms)**로 축소. 별도의 PCM 파일은 생성하지 않으며, 기존 live 모드에서 사용하는 임시 M4A 미러 파일은 아직 유지함.
 3. **`FileBackedLocalAudioRecordSource`**: 디코더가 연속 공급하는 PCM16LE 바이트를 반쪽 샘플까지 보관하며 16비트 `short[512]`로 결합, 원본 수식으로 `float[512]`을 만들고 연속 emit.
 4. `DirectPcmKoreanStt.acceptFloat(float[])`: 원본 `CallScriptManager`와 마찬가지로 생산자가 재사용하는 float 버퍼를 `clone()`한 뒤 **원본 IXIO 인식 SDK의 입력 큐**로 전송.
 5. `DirectPcmKoreanStt.work()`: 큐에서 바로 float을 받아 `SpeechInference()` 실행. 기존 `byte[]` 재인코딩/재변환 단계 제거. 기존 모델/JNI ClassLoader/자막·endpoint 처리 보존.
