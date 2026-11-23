@@ -1,0 +1,82 @@
+name: Native STT ARM64 APK on proven x86_64 NativeBridge emulator
+on:
+  push:
+    branches: [feature/ixio-native-stt-reimplementation-20261123]
+    paths: ['.github/workflows/ixio-native-x86-bridge-smoke-20261124.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  x86-android15-arm64-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Download previously signed native-only experiment APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qa apk
+          gh run download 45204707038 -R lyonbegin/hitel-room \
+            -n HITEL-NativeSTT-OriginalModel-Experiment-ARM64 -D apk
+          test -s apk/HITEL_NativeSTT_OriginalModel_Experiment_20261123.apk
+          (cd apk && sha256sum -c NATIVE_STT_SHA256.txt)
+          unzip -Z1 apk/HITEL_NativeSTT_OriginalModel_Experiment_20261123.apk > qa/apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libhitel-native-stt-jni.so' qa/apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libsherpa-onnx-c-api.so' qa/apk-contents.txt
+          grep -Fx 'lib/arm64-v8a/libonnxruntime.so' qa/apk-contents.txt
+          echo APK_SHA256_VERIFIED_ARM64_LIBRARIES_PRESENT
+      - name: Prepare ADB emulator test with precise NativeBridge facts
+        run: |
+          cat > qa/run-x86-emulator.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PKG=app.hitel.recording.ixio.nativestt.experiment
+          APK=apk/HITEL_NativeSTT_OriginalModel_Experiment_20261123.apk
+          echo "DEVICE_API=$(adb shell getprop ro.build.version.sdk)" | tee qa/device-facts.txt
+          echo "DEVICE_ABIS=$(adb shell getprop ro.product.cpu.abilist)" | tee -a qa/device-facts.txt
+          echo "DEVICE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)" | tee -a qa/device-facts.txt
+          grep -F 'arm64-v8a' qa/device-facts.txt
+          grep -F 'libndk_translation.so' qa/device-facts.txt
+          adb install --abi arm64-v8a "$APK" | tee qa/install.txt
+          grep -F 'Success' qa/install.txt
+          adb logcat -c
+          adb shell am start -W -n "$PKG/app.hitel.speakeronly.MainActivity" | tee qa/start.txt
+          sleep 8
+          adb shell pidof "$PKG" | tee qa/pid.txt
+          test -s qa/pid.txt
+          adb shell screencap -p /sdcard/Download/native-stt-emulator.png
+          adb pull /sdcard/Download/native-stt-emulator.png qa/native-stt-emulator.png
+          adb logcat -d -v threadtime > qa/logcat.txt
+          adb logcat -d -b crash > qa/crash.txt
+          if grep -E 'FATAL EXCEPTION|UnsatisfiedLinkError' qa/crash.txt; then
+            echo NATIVE_STT_EMULATOR_PROCESS_CRASH; exit 31
+          fi
+          echo PASS_NEW_NATIVE_STT_ARM64_APK_ON_ANDROID15_X86_64_NDK_TRANSLATION
+          echo ORIGINAL_IXIO_MODEL_AND_USER_M4A_INFERENCE_NOT_EXECUTED
+          SH
+          chmod +x qa/run-x86-emulator.sh
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Install and start actual ARM64 APK on x86_64 Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash qa/run-x86-emulator.sh
+      - name: Upload actual x86 NativeBridge emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Native-STT-X86-Bridge-Emulator-20261124
+          path: qa/
+          if-no-files-found: warn
