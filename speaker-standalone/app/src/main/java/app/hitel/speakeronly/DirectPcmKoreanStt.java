@@ -77,7 +77,7 @@ final class DirectPcmKoreanStt {
     // Producer never waits for inference. The FIFO owns an independent copy.
     queue.put(pcm);
     queuedBytes+=pcm.length;
-    if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length)
+    if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<pcm.length)
       log.event("STT","IXIO_PCM_QUEUED","bytes",queuedBytes,
         "modelReady",ready,"chunks",queue.size());
   }
