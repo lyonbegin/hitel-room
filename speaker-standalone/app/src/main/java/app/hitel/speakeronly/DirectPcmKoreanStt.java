@@ -93,6 +93,16 @@ final class DirectPcmKoreanStt {
 
   private File model(String name)throws IOException {
     File file=new File(new File(context.getFilesDir(),MODEL_DIR),name);
+    if("bpe.vocab".equals(name)&&(!file.isFile()||file.length()==0)){
+      File dir=file.getParentFile();
+      if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("Cannot initialize IXIO model dir");
+      try(InputStream in=context.getAssets().open("ixio/bpe.vocab");
+          FileOutputStream out=new FileOutputStream(file)){
+        byte[] buffer=new byte[65536];int size;
+        while((size=in.read(buffer))!=-1)out.write(buffer,0,size);
+        out.getFD().sync();
+      }
+    }
     if(!file.isFile()||file.length()==0)
       throw new IOException("IXIO STT model missing: "+name+
         ". Import the original IXIO STT model ZIP first; no public-model fallback.");
