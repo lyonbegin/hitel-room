@@ -34,7 +34,7 @@ jobs:
           echo "DEVICE_NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)"
           adb install --abi arm64-v8a testing/HITEL_IXIO_PCM_Endpoint_Diagnostic_20261123.apk
           adb logcat -c
-          adb shell am start -W -n app.hitel.recording.directstt/app.hitel.speakeronly.MainActivity \
+          adb shell am start -W -n app.hitel.recording.ixio.pcmaudit/app.hitel.speakeronly.MainActivity \
             -a app.hitel.speakeronly.PROBE_IXIO_SDK | tee testing/probe-activity.txt
           sleep 40
           adb logcat -d -v threadtime > testing/ixio-sdk-logcat.txt
