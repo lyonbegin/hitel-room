@@ -1,0 +1,81 @@
+name: Pickle exact-input Smali roundtrip
+on:
+  push:
+    branches: [analysis/pickle-smali-roundtrip-20261125]
+    paths: ['.github/workflows/pickle-smali-roundtrip-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  roundtrip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch and verify original official tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work reports
+          curl -fL --retry 2 --max-time 120 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o work/baksmali.jar
+          curl -fL --retry 2 --max-time 120 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o work/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  work/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  work/smali.jar' | sha256sum -c -
+          echo 'TOOLS_VERIFIED' | tee reports/tools.txt
+      - name: Try public exact-version download, require uploaded sample digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=6c7df387f44d6924b4ce9789990d6d290376319bc5d83cd638db1aa6472c7a07
+          for url in 'https://d.apkpure.com/b/XAPK/com.pickle.client?versionCode=462543' 'https://d.apkpure.net/b/XAPK/com.pickle.client?versionCode=462543'; do
+            rm -f work/input.xapk
+            if curl -fL --retry 1 --max-time 180 "$url" -o work/input.xapk; then
+              actual=$(sha256sum work/input.xapk | cut -d' ' -f1)
+              echo "$url $actual" | tee -a reports/input.txt
+              if [[ "$actual" == "$expected" ]]; then
+                echo 'EXACT_INPUT_VERIFIED' | tee -a reports/input.txt
+                exit 0
+              fi
+            fi
+          done
+          echo 'EXACT_INPUT_NOT_AVAILABLE: no alternative version accepted' | tee -a reports/input.txt
+          exit 1
+      - name: Full unchanged DEX roundtrip
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -p work/input.xapk com.pickle.client.apk > work/base.apk
+          for d in classes classes2; do
+            unzip -p work/base.apk "$d.dex" > "work/$d.dex"
+            java -Xmx2500m -jar work/baksmali.jar disassemble --api 36 --jobs 2 --output "work/$d-smali" "work/$d.dex" > "reports/$d-disassembly.log" 2>&1
+            java -Xmx2500m -jar work/smali.jar assemble --api 36 --jobs 2 --output "work/$d-rebuilt.dex" "work/$d-smali" > "reports/$d-assembly.log" 2>&1
+            java -Xmx2500m -jar work/baksmali.jar disassemble --api 36 --jobs 2 --output "work/$d-rebuilt-smali" "work/$d-rebuilt.dex" > "reports/$d-rebuilt-disassembly.log" 2>&1
+            diff -qr "work/$d-smali" "work/$d-rebuilt-smali" > "reports/$d-text-diff.log"
+            echo "$d SMALI_TEXT_ROUNDTRIP_PASS" | tee -a reports/roundtrip.txt
+          done
+          python3 - <<'PY'
+          import pathlib,struct,json
+          report={}
+          for d in ['classes','classes2']:
+              o=pathlib.Path('work',d+'.dex').read_bytes()
+              n=pathlib.Path('work',d+'-rebuilt.dex').read_bytes()
+              get=lambda b,i:struct.unpack_from('<I',b,i)[0]
+              fields={'class_defs':0x60,'method_ids':0x58}
+              info={k:[get(o,v),get(n,v)] for k,v in fields.items()}
+              assert all(a==b for a,b in info.values()),info
+              report[d]=info
+          pathlib.Path('reports/structure.json').write_text(json.dumps(report,indent=2))
+          PY
+      - name: Upload verification logs only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickle-roundtrip-verification
+          path: reports/
+          retention-days: 7
+      - name: Delete proprietary input and generated sources
+        if: always()
+        run: rm -rf work
