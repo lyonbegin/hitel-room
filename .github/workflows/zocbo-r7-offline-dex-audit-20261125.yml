@@ -1,0 +1,67 @@
+name: R7 offline DEX callsite audit
+on:
+  push:
+    branches: [research/zocbo-r7-offline-dex-audit-20261125]
+    paths: [.github/workflows/zocbo-r7-offline-dex-audit-20261125.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - name: Download exact existing R7 and verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download zocbo-r7-usb-devtools-20261124 -R "$GITHUB_REPOSITORY" -p '*.apk' -D input
+          echo 'a6a442d57c86364256fc1dd4e1c5ce2dc95a458c7ef2fbe215395455cbfec151  input/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk' | sha256sum -c -
+      - name: Decode existing APK using JADX
+        run: |
+          curl -fLsS --retry 2 --max-time 60 -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
+          test -d decoded/sources
+      - name: Audit viewer callsites and storage operations offline
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('decoded/sources')
+          selected=[]
+          for p in root.rglob('*.java'):
+              if p.name not in ('ViewerActivity.java','Y0.java','V0.java','n.java','P.java') and not p.name.startswith('ViewerActivity$'):
+                  continue
+              s=p.read_text(errors='replace')
+              if p.name!='ViewerActivity.java' and not any(k in s for k in ('ViewerActivity','ReqPdfPath','getPdfPath','expapr_no','NetTrace.pdfClient')):
+                  continue
+              selected.append(p)
+          for p in root.rglob('*.java'):
+              if p in selected: continue
+              s=p.read_text(errors='replace')
+              if 'NetTrace.pdfClient' in s or ('ViewerActivity' in s and ('onResponse(' in s or 'fromBytes(' in s or 'fromStream(' in s)):
+                  selected.append(p)
+          keys=re.compile(r'NetTrace\.pdfClient|enqueue\(|onResponse\(|getPdfPath\(|byteStream\(|\.bytes\(|fromBytes\(|fromStream\(|fromFile\(|getCacheDir\(|getFilesDir\(|FileOutputStream|createTempFile|Pdfium|ReqPdfPath|repository\.E\(')
+          report=[]
+          for p in selected:
+              lines=p.read_text(errors='replace').splitlines()
+              matches=[(i+1,l.strip()) for i,l in enumerate(lines) if keys.search(l)]
+              if not matches: continue
+              report.append(str(p.relative_to(root)))
+              for n,l in matches[:70]:
+                  # Report only bounded relevant callsites; never credentials or entire third-party source.
+                  if re.search('token|authorization|password|cookie|https?://',l,re.I): continue
+                  report.append(f'{n}: {l[:240]}')
+          result='\n'.join(report)
+          assert result.strip(), 'No relevant source located'
+          Path('callsite-audit.txt').write_text(result)
+          print(result[:20000])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r7-offline-callsite-audit
+          path: |
+            callsite-audit.txt
+            jadx.log
+          retention-days: 7
