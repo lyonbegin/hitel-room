@@ -29,44 +29,38 @@ jobs:
           import re
           root=Path('decoded/sources')
           report=[]
-          def add(p, lo, hi):
-              if not p.exists(): return
+          def add(p, hits, radius=7):
               lines=p.read_text(errors='replace').splitlines()
+              idx=set()
+              for i in hits:
+                  idx.update(range(max(0,i-radius),min(len(lines),i+radius+1)))
+              if not idx:return
               report.append('=== '+str(p.relative_to(root))+' ===')
-              for i in range(max(lo-1,0),min(hi,len(lines))):
+              for i in sorted(idx):
                   l=lines[i]
-                  if re.search(r'token|authorization|password|cookie|https?://', l,re.I): continue
-                  report.append(f'{i+1}: {l[:240]}')
-          y=root/'p229y3/Y0.java'
-          assert y.exists()
-          add(y,1,40)
-          add(y,445,485)
+                  if re.search(r'token|authorization|password|cookie|https?://',l,re.I):continue
+                  report.append(f'{i+1}: {l[:250]}')
           v=root/'com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java'
-          add(v,1643,1685)
-          p=root/'p203v3/P.java'
-          add(p,655,668)
-          s=y.read_text(errors='replace')
-          imports=re.findall(r'^import ([\w.]+\.c);',s,re.M)
-          report.append('CALLBACK_IMPORTS '+repr(imports))
-          candidates=[root/(x.replace('.','/')+'.java') for x in imports]+[y.parent/'c.java']
-          for c in candidates:
-              if not c.exists(): continue
-              lines=c.read_text(errors='replace').splitlines()
-              report.append('CALLBACK '+str(c.relative_to(root)))
-              for i,l in enumerate(lines):
-                  if re.search(r'onResponse\(|case 19:|byteStream\(|\.bytes\(|fromBytes\(|fromStream\(|fromFile\(|FileOutputStream|createTempFile|resumeWith\(',l):
-                      if re.search(r'case 19:|onResponse\(',l):
-                          add(c,i+1,i+38)
-                      else:
-                          add(c,i+1,i+2)
-          # Locate consumer of downloaded byte array, if present, in viewer source.
-          for p in (v,y):
-              for i,l in enumerate(p.read_text(errors='replace').splitlines()):
-                  if re.search(r'byte\[\]|ByteArray|ParcelFileDescriptor|newDocument\(|getCacheDir\(|getFilesDir\(|fromBytes\(|fromStream\(|fromFile\(|FileOutputStream',l):
-                      add(p,i+1,i+4)
+          y=root/'p229y3/Y0.java'
+          c=root/'p096k1/c.java'
+          for p in root.rglob('*.java'):
+              s=p.read_text(errors='replace')
+              if 'f29506C' in s:
+                  add(p,[i for i,l in enumerate(s.splitlines()) if 'f29506C' in l],8)
+              if p.name in ('V0.java','Q0.java','R0.java','Y0.java') and 'package p229y3;' in s:
+                  add(p,[i for i,l in enumerate(s.splitlines()) if re.search(r'\bpublic .* v\(|Y0\.g\(|Y0\.h\(|getPdfPath\(|f29574o0|File\.delete|\.delete\(\)|newDocument\(',l)],5)
+              if p==v:
+                  add(p,[i for i,l in enumerate(s.splitlines()) if 'getPdfPath()' in l or 'f29506C' in l],6)
+              if p.name=='n.java' and 'package p203v3;' in s and 'expapr_no' in s:
+                  add(p,[i for i,l in enumerate(s.splitlines()) if 'expapr_no' in l or 'ReqPdfPath(' in l],2)
+              if p.name=='P.java' and 'package p203v3;' in s:
+                  add(p,[i for i,l in enumerate(s.splitlines()) if 'SerializedName("pdf_path")' in l or 'return this.pdfPath;' in l],3)
+              if 'class C1023n' in s:
+                  add(p,[i for i,l in enumerate(s.splitlines()) if 'public final Object E(' in l],7)
           result='\n'.join(report)
+          assert 'f29506C' in result
           Path('callsite-audit.txt').write_text(result)
-          print(result[:28000])
+          print(result[:30000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
