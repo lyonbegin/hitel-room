@@ -28,34 +28,45 @@ jobs:
           from pathlib import Path
           import re
           root=Path('decoded/sources')
-          selected=[]
-          for p in root.rglob('*.java'):
-              if p.name not in ('ViewerActivity.java','Y0.java','V0.java','n.java','P.java') and not p.name.startswith('ViewerActivity$'):
-                  continue
-              s=p.read_text(errors='replace')
-              if p.name!='ViewerActivity.java' and not any(k in s for k in ('ViewerActivity','ReqPdfPath','getPdfPath','expapr_no','NetTrace.pdfClient')):
-                  continue
-              selected.append(p)
-          for p in root.rglob('*.java'):
-              if p in selected: continue
-              s=p.read_text(errors='replace')
-              if 'NetTrace.pdfClient' in s or ('ViewerActivity' in s and ('onResponse(' in s or 'fromBytes(' in s or 'fromStream(' in s)):
-                  selected.append(p)
-          keys=re.compile(r'NetTrace\.pdfClient|enqueue\(|onResponse\(|getPdfPath\(|byteStream\(|\.bytes\(|fromBytes\(|fromStream\(|fromFile\(|getCacheDir\(|getFilesDir\(|FileOutputStream|createTempFile|Pdfium|ReqPdfPath|repository\.E\(')
           report=[]
-          for p in selected:
+          def add(p, lo, hi):
+              if not p.exists(): return
               lines=p.read_text(errors='replace').splitlines()
-              matches=[(i+1,l.strip()) for i,l in enumerate(lines) if keys.search(l)]
-              if not matches: continue
-              report.append(str(p.relative_to(root)))
-              for n,l in matches[:70]:
-                  # Report only bounded relevant callsites; never credentials or entire third-party source.
-                  if re.search('token|authorization|password|cookie|https?://',l,re.I): continue
-                  report.append(f'{n}: {l[:240]}')
+              report.append('=== '+str(p.relative_to(root))+' ===')
+              for i in range(max(lo-1,0),min(hi,len(lines))):
+                  l=lines[i]
+                  if re.search(r'token|authorization|password|cookie|https?://', l,re.I): continue
+                  report.append(f'{i+1}: {l[:240]}')
+          y=root/'p229y3/Y0.java'
+          assert y.exists()
+          add(y,1,40)
+          add(y,445,485)
+          v=root/'com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java'
+          add(v,1643,1685)
+          p=root/'p203v3/P.java'
+          add(p,655,668)
+          s=y.read_text(errors='replace')
+          imports=re.findall(r'^import ([\w.]+\.c);',s,re.M)
+          report.append('CALLBACK_IMPORTS '+repr(imports))
+          candidates=[root/(x.replace('.','/')+'.java') for x in imports]+[y.parent/'c.java']
+          for c in candidates:
+              if not c.exists(): continue
+              lines=c.read_text(errors='replace').splitlines()
+              report.append('CALLBACK '+str(c.relative_to(root)))
+              for i,l in enumerate(lines):
+                  if re.search(r'onResponse\(|case 19:|byteStream\(|\.bytes\(|fromBytes\(|fromStream\(|fromFile\(|FileOutputStream|createTempFile|resumeWith\(',l):
+                      if re.search(r'case 19:|onResponse\(',l):
+                          add(c,i+1,i+38)
+                      else:
+                          add(c,i+1,i+2)
+          # Locate consumer of downloaded byte array, if present, in viewer source.
+          for p in (v,y):
+              for i,l in enumerate(p.read_text(errors='replace').splitlines()):
+                  if re.search(r'byte\[\]|ByteArray|ParcelFileDescriptor|newDocument\(|getCacheDir\(|getFilesDir\(|fromBytes\(|fromStream\(|fromFile\(|FileOutputStream',l):
+                      add(p,i+1,i+4)
           result='\n'.join(report)
-          assert result.strip(), 'No relevant source located'
           Path('callsite-audit.txt').write_text(result)
-          print(result[:20000])
+          print(result[:28000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
