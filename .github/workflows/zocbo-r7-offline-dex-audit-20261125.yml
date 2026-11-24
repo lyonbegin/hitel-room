@@ -34,29 +34,28 @@ jobs:
               ls=p.read_text(errors='replace').splitlines()
               report.append('=== '+str(p.relative_to(root))+' ===')
               for i in range(max(0,lo-1),min(hi,len(ls))):
-                  line=ls[i]
-                  if re.search(r'token|authorization|password|cookie|https?://',line,re.I):continue
-                  report.append(f'{i+1}: {line[:250]}')
-          p=root/'p079i3/P0.java'
-          add(p,1,62)
-          s=p.read_text(errors='replace')
-          for imp in re.findall(r'^import ([\w.]+\.D);',s,re.M):
-              d=root/(imp.replace('.','/')+'.java')
-              if not d.exists():continue
-              ls=d.read_text(errors='replace').splitlines()
-              for i,l in enumerate(ls):
-                  if re.search(r'\bs\(File ',l):
-                      add(d,i+1,i+35)
-          v=root/'p229y3/V0.java'
-          add(v,1,115)
-          q=root/'p229y3/R0.java'
-          ls=q.read_text(errors='replace').splitlines()
-          for i,l in enumerate(ls):
-              if re.search(r'\bFile\b|Pdfium|newDocument\(|ParcelFileDescriptor|Q0\(',l):
-                  add(q,i-2,i+5)
+                  l=ls[i]
+                  if re.search(r'token|authorization|password|cookie|https?://',l,re.I):continue
+                  report.append(f'{i+1}: {l[:250]}')
+          base=root/'com/eduzone/eduzoneviewer/repository'
+          p=base/'E.java'
+          assert p.exists()
+          add(p,1,130)
+          p=root/'p203v3/C1994n.java'
+          add(p,1,115)
+          p=root/'p203v3/P.java'
+          add(p,65,75)
+          add(p,659,662)
+          for p in root.rglob('*.java'):
+              s=p.read_text(errors='replace')
+              if 'VIEWER_FILE_PATH' in s and 'com.hitel.zocbodiag' not in s[:100]:
+                  for i,l in enumerate(s.splitlines()):
+                      if 'VIEWER_FILE_PATH' in l:
+                          add(p,i-3,i+7)
           result='\n'.join(report)
+          assert 'repository/E.java' in result
           Path('callsite-audit.txt').write_text(result)
-          print(result[:26000])
+          print(result[:20000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
