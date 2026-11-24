@@ -1,0 +1,36 @@
+name: Probe original IXIO APK model assets without publication
+on:
+  push:
+    branches: [feature/ixio-stable-virtual-call-replay-20261124]
+    paths:
+      - .github/workflows/ixio-model-presence-probe-20261124.yml
+permissions:
+  contents: read
+jobs:
+  inspect_original_model_source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect APK archive names and model byte lengths only
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ixio-source
+          gh release download ixio-main-original-fgs-prestart-qa-20261122 \
+            -R lyonbegin/hitel-room \
+            -p IXIO_Main_OriginalFGSPrestartQA_20261122.apk \
+            -D /tmp/ixio-source
+          python3 - <<'PY'
+          import zipfile
+          p='/tmp/ixio-source/IXIO_Main_OriginalFGSPrestartQA_20261122.apk'
+          names=['encoder.ort','decoder.ort','joiner.ort','vad.onnx','tokens.txt','bpe.vocab']
+          with zipfile.ZipFile(p) as z:
+              info=[(i.filename, i.file_size) for i in z.infolist() if
+                    any(i.filename.endswith('/'+name) or i.filename==name for name in names)]
+          for n,size in info:
+              print('MODEL_ASSET', n, size)
+          print('FULL_MODEL_SET_PRESENT',all(any(n.endswith('/'+t) or n==t for n,_ in info) for t in names))
+          print('MODEL_BINARY_NOT_EXPORTED')
+          PY
