@@ -227,7 +227,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"DEVTOOLS_WEBVIEW_DEBUG_ENABLED",b"setWebContentsDebuggingEnabled"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
@@ -257,9 +257,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_Reading_Title_Native_PDF_R7_20261123.apk
-          test -s work/Zocbo_4.3.11_Reading_Title_Native_PDF_R7_20261123.apk
-          sha256sum work/Zocbo_4.3.11_Reading_Title_Native_PDF_R7_20261123.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk
+          test -s work/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk
+          sha256sum work/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -273,11 +273,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-reading-title-to-native-pdf-20261123-r7
-          APK=work/Zocbo_4.3.11_Reading_Title_Native_PDF_R7_20261123.apk
+          TAG=zocbo-r7-usb-devtools-20261124
+          APK=work/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo 4.3.11(2) R7 - Free Reading title click opens native PDF Activity with row exam number" \
-            --notes "R7: The ORIGINAL free-reading page previousExam.asp remains unchanged. When user taps a school/subject/title text in an existing .download result row, the Android WebView injected event handler takes that SAME row existing [id^=li_freereading][data-no], invokes a dedicated trusted-origin-only JavaScript bridge and opens the existing R6 NativePdfEntryActivity with exam number PRE-FILLED (not auto executing). Press 원본 뷰어 실행 to call untouched A3.L.c and original ViewerActivity/PDF download. Original answer and 기출 buttons stay untouched, no new search UI, no separate POST/GET. Logs READING_TITLE_* and NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE. Test-signed; original login required. CI APK/release checksum confirmed, authenticated title interaction untested." \
+            --title "Zocbo R7 Baseline + PC Chrome DevTools - original free reading title to native PDF" \
+            --notes "R7 baseline with PC Chrome chrome://inspect USB WebView remote debugging enabled. All original free-reading and title click logic retained. The ORIGINAL free-reading page previousExam.asp remains unchanged. When user taps a school/subject/title text in an existing .download result row, the Android WebView injected event handler takes that SAME row existing [id^=li_freereading][data-no], invokes a dedicated trusted-origin-only JavaScript bridge and opens the existing R6 NativePdfEntryActivity with exam number PRE-FILLED (not auto executing). Press 원본 뷰어 실행 to call untouched A3.L.c and original ViewerActivity/PDF download. Original answer and 기출 buttons stay untouched, no new search UI, no separate POST/GET. Logs READING_TITLE_* and NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE. Test-signed; original login required. CI APK/release checksum confirmed, authenticated title interaction untested." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -291,7 +291,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_Reading_Title_Native_PDF_R7_20261123.apk
+            work/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
