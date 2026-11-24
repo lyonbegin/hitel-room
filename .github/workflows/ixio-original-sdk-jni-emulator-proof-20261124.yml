@@ -1,0 +1,79 @@
+name: IXIO original speechSDK class and JNI emulator proof
+on:
+  push:
+    branches: [feature/ixio-stable-virtual-call-replay-20261124]
+    paths:
+      - '.github/workflows/ixio-original-sdk-jni-emulator-proof-20261124.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prove-original-sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reuse verified original IXIO APK without modifying models or source
+        run: |
+          set -euo pipefail
+          mkdir -p ixio-probe
+          gh run download 45288564537 -R lyonbegin/hitel-room \
+            -n IXIO-Stable-V11-VirtualCall-ARM64-20261124 -D ixio-probe
+          (cd ixio-probe && sha256sum -c SHA256.txt)
+      - name: Prepare Android-15 native-bridge test script
+        run: |
+          cat > ixio-probe/run.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PKG=app.hitel.recording.ixio.stablevirtual
+          APK=ixio-probe/HITEL_IXIO_Stable_VirtualCall_20261124.apk
+          adb shell getprop ro.product.cpu.abilist | tee ixio-probe/abis.txt
+          adb shell getprop ro.dalvik.vm.native.bridge | tee ixio-probe/native-bridge.txt
+          grep -F arm64-v8a ixio-probe/abis.txt
+          grep -F libndk_translation.so ixio-probe/native-bridge.txt
+          adb install --abi arm64-v8a "$APK" | tee ixio-probe/install.txt
+          grep -F Success ixio-probe/install.txt
+          adb logcat -c
+          adb shell am start -W \
+            -n "$PKG/app.hitel.speakeronly.MainActivity" \
+            -a app.hitel.speakeronly.PROBE_IXIO_SDK \
+            | tee ixio-probe/activity.txt
+          sleep 9
+          adb logcat -d -v threadtime > ixio-probe/logcat.txt
+          adb logcat -d -b crash > ixio-probe/crash.txt
+          grep -F 'CLASS_FOUND com.lguplus.ixispeech_ktn.speechSDK' ixio-probe/logcat.txt
+          grep -F 'CLASS_FOUND com.k2fsa.sherpa.onnx.CombinedSTTKWS' ixio-probe/logcat.txt
+          grep -F 'PASS_ALL_ORIGINAL_IXIO_CLASSES_AND_METHODS' ixio-probe/logcat.txt
+          grep -F 'PASS_ORIGINAL_IXIO_NATIVE_JNI_LOADED' ixio-probe/logcat.txt
+          if grep -F 'FAIL_ORIGINAL_IXIO_CLASSLOADER' ixio-probe/logcat.txt;then exit 7;fi
+          if grep -E 'FATAL EXCEPTION|SIGSEGV|UnsatisfiedLinkError' ixio-probe/crash.txt;then exit 8;fi
+          echo PASS_EMULATOR_ORIGINAL_IXIO_SDK_JNI_NO_MODELS
+          echo MODEL_INFERENCE_NOT_TESTED_AS_MODELS_ARE_PRIVATE
+          BASH
+          chmod +x ixio-probe/run.sh
+      - name: KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Android 15 emulator original IXIO SDK and JNI actual execution
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          cores: 2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash ixio-probe/run.sh
+      - name: Save real logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: IXIO-Original-SDK-JNI-Emulator-Evidence-20261124
+          path: ixio-probe/*.txt
+          if-no-files-found: warn
