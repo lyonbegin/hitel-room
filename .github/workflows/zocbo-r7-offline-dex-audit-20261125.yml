@@ -30,32 +30,40 @@ jobs:
           root=Path('decoded/sources')
           report=[]
           def add(p,lo,hi):
-              if not p.exists(): return
               ls=p.read_text(errors='replace').splitlines()
               report.append('=== '+str(p.relative_to(root))+' ===')
               for i in range(max(0,lo-1),min(hi,len(ls))):
-                  l=ls[i]
-                  if re.search(r'token|authorization|password|cookie|https?://',l,re.I):continue
-                  report.append(f'{i+1}: {l[:250]}')
-          base=root/'com/eduzone/eduzoneviewer/repository'
-          p=base/'E.java'
-          assert p.exists()
-          add(p,1,130)
-          p=root/'p203v3/C1994n.java'
-          add(p,1,115)
-          p=root/'p203v3/P.java'
-          add(p,65,75)
-          add(p,659,662)
+                  line=ls[i]
+                  if re.search(r'token|authorization|password|cookie|https?://',line,re.I):continue
+                  report.append(f'{i+1}: {line[:250]}')
+          # Retrofit's generated service implementation, call execution and response conversion.
+          targets={
+          'Retrofit.java':r'newProxyInstance|loadServiceMethod|serviceMethod\.invoke|create\(Class',
+          'HttpServiceMethod.java':r'parseAnnotations|invoke\(|adapt\(|new OkHttpCall|responseConverter',
+          'OkHttpCall.java':r'parseResponse\(|responseConverter\.convert|rawResponse\.code|callback\.onResponse',
+          'GsonResponseBodyConverter.java':r'convert\(|adapter\.read|jsonReader|close\(',
+          'GsonConverterFactory.java':r'responseBodyConverter|getAdapter|new GsonResponseBodyConverter',
+          'RequestFactory.java':r'create\(|parameterHandlers|builder\.get\(',
+          'KotlinExtensions.java':r'await\(|enqueue\('
+          }
+          for p in root.rglob('*.java'):
+              if p.name in targets and ('retrofit' in str(p).lower() or 'converter' in str(p).lower()):
+                  ls=p.read_text(errors='replace').splitlines()
+                  for i,l in enumerate(ls):
+                      if re.search(targets[p.name],l):add(p,i-3,i+8)
+          # Obfuscated libraries: locate actual proxy, response conversion, and adapter read callsites.
           for p in root.rglob('*.java'):
               s=p.read_text(errors='replace')
-              if 'VIEWER_FILE_PATH' in s and 'com.hitel.zocbodiag' not in s[:100]:
+              if 'Proxy.newProxyInstance(' in s and ('retrofit' in s.lower() or 'ServiceMethod' in s):
                   for i,l in enumerate(s.splitlines()):
-                      if 'VIEWER_FILE_PATH' in l:
-                          add(p,i-3,i+7)
+                      if 'Proxy.newProxyInstance(' in l:add(p,i-8,i+15)
+              if 'ResponseBody' in s and ('JSON document was not fully consumed' in s or 'JSON document was not fully consumed.' in s):
+                  for i,l in enumerate(s.splitlines()):
+                      if 'JSON document was not fully consumed' in l:add(p,i-12,i+12)
           result='\n'.join(report)
-          assert 'repository/E.java' in result
+          assert result.strip()
           Path('callsite-audit.txt').write_text(result)
-          print(result[:20000])
+          print(result[:24000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
