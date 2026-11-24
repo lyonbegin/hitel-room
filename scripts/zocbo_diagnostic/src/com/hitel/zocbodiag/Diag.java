@@ -306,7 +306,21 @@ public final class Diag implements View.OnClickListener {
     } catch(Exception e) {log("WEBVIEW_UA","unavailable");}
     cookieState();
   }
+  // R7 USB inspector: enable the official Chromium WebView DevTools switch.
+  // No website requests, cookies, login state or original viewer logic are changed.
+  private static boolean webViewInspectorEnabled=false;
+  private static synchronized void enableWebViewInspector() {
+    if(webViewInspectorEnabled)return;
+    try {
+      WebView.setWebContentsDebuggingEnabled(true);
+      webViewInspectorEnabled=true;
+      log("DEVTOOLS_WEBVIEW_DEBUG_ENABLED","chrome://inspect/#devices; enable Android USB debugging");
+    }catch(Throwable error){
+      log("DEVTOOLS_WEBVIEW_DEBUG_ERROR",error.getClass().getName());
+    }
+  }
   public static void registerTitleBridge(WebView w) {
+    enableWebViewInspector();
     try {
       if(w == null)return;
       w.addJavascriptInterface(new NativePdfTitleBridge(w),"hitelPdfTitleLink");
@@ -349,6 +363,7 @@ public final class Diag implements View.OnClickListener {
     return b.toString();
   }
   public static void install(Activity a) {
+    enableWebViewInspector();
     synchronized(Diag.class) {
       if(app==null) {
         app=a.getApplicationContext();
