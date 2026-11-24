@@ -1,0 +1,23 @@
+name: IXIO private emulator runner syntax regression
+on:
+  push:
+    branches: [feature/ixio-stable-virtual-call-replay-20261124]
+    paths: ['.github/workflows/ixio-private-runner-syntax-20261124.yml']
+permissions:
+  contents: read
+jobs:
+  script_syntax:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate portable private-only runner without model data
+        run: |
+          set -euo pipefail
+          FILE=tools/ixio-original-private-emulator-regression.sh
+          bash -n "$FILE"
+          grep -F 'files/ixio-stt' "$FILE"
+          grep -F 'IXIO_ORIGINAL_SPEECHSDK_READY' "$FILE"
+          grep -F 'IXIO_FIRST_READY_LATEST_PCM_SNAPSHOT' "$FILE"
+          grep -F 'IXIO_SPEECHSDK_TRIPLE_RESULT' "$FILE"
+          ! grep -F 'gh release upload' "$FILE"
+          echo PASS_PRIVATE_ONLY_ORIGINAL_IXIO_EMULATOR_RUNNER_SYNTAX
