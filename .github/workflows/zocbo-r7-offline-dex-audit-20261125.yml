@@ -29,38 +29,34 @@ jobs:
           import re
           root=Path('decoded/sources')
           report=[]
-          def add(p, hits, radius=7):
-              lines=p.read_text(errors='replace').splitlines()
-              idx=set()
-              for i in hits:
-                  idx.update(range(max(0,i-radius),min(len(lines),i+radius+1)))
-              if not idx:return
+          def add(p,lo,hi):
+              if not p.exists(): return
+              ls=p.read_text(errors='replace').splitlines()
               report.append('=== '+str(p.relative_to(root))+' ===')
-              for i in sorted(idx):
-                  l=lines[i]
-                  if re.search(r'token|authorization|password|cookie|https?://',l,re.I):continue
-                  report.append(f'{i+1}: {l[:250]}')
-          v=root/'com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java'
-          y=root/'p229y3/Y0.java'
-          c=root/'p096k1/c.java'
-          for p in root.rglob('*.java'):
-              s=p.read_text(errors='replace')
-              if 'f29506C' in s:
-                  add(p,[i for i,l in enumerate(s.splitlines()) if 'f29506C' in l],8)
-              if p.name in ('V0.java','Q0.java','R0.java','Y0.java') and 'package p229y3;' in s:
-                  add(p,[i for i,l in enumerate(s.splitlines()) if re.search(r'\bpublic .* v\(|Y0\.g\(|Y0\.h\(|getPdfPath\(|f29574o0|File\.delete|\.delete\(\)|newDocument\(',l)],5)
-              if p==v:
-                  add(p,[i for i,l in enumerate(s.splitlines()) if 'getPdfPath()' in l or 'f29506C' in l],6)
-              if p.name=='n.java' and 'package p203v3;' in s and 'expapr_no' in s:
-                  add(p,[i for i,l in enumerate(s.splitlines()) if 'expapr_no' in l or 'ReqPdfPath(' in l],2)
-              if p.name=='P.java' and 'package p203v3;' in s:
-                  add(p,[i for i,l in enumerate(s.splitlines()) if 'SerializedName("pdf_path")' in l or 'return this.pdfPath;' in l],3)
-              if 'class C1023n' in s:
-                  add(p,[i for i,l in enumerate(s.splitlines()) if 'public final Object E(' in l],7)
+              for i in range(max(0,lo-1),min(hi,len(ls))):
+                  line=ls[i]
+                  if re.search(r'token|authorization|password|cookie|https?://',line,re.I):continue
+                  report.append(f'{i+1}: {line[:250]}')
+          p=root/'p079i3/P0.java'
+          add(p,1,62)
+          s=p.read_text(errors='replace')
+          for imp in re.findall(r'^import ([\w.]+\.D);',s,re.M):
+              d=root/(imp.replace('.','/')+'.java')
+              if not d.exists():continue
+              ls=d.read_text(errors='replace').splitlines()
+              for i,l in enumerate(ls):
+                  if re.search(r'\bs\(File ',l):
+                      add(d,i+1,i+35)
+          v=root/'p229y3/V0.java'
+          add(v,1,115)
+          q=root/'p229y3/R0.java'
+          ls=q.read_text(errors='replace').splitlines()
+          for i,l in enumerate(ls):
+              if re.search(r'\bFile\b|Pdfium|newDocument\(|ParcelFileDescriptor|Q0\(',l):
+                  add(q,i-2,i+5)
           result='\n'.join(report)
-          assert 'f29506C' in result
           Path('callsite-audit.txt').write_text(result)
-          print(result[:30000])
+          print(result[:26000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
