@@ -1,0 +1,121 @@
+name: PDF save-only Android test
+on:
+  push:
+    branches: [test/pdf-save-only-android-20261125]
+    paths: [.github/workflows/pdf-save-only-test-20261125.yml]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    steps:
+      - name: Build isolated Android test app
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p src/com/hitel/pdfsave/test classes dex out
+          cat > src/com/hitel/pdfsave/test/MainActivity.java <<'JAVA'
+          package com.hitel.pdfsave.test;
+          import android.app.Activity;
+          import android.content.ContentValues;
+          import android.content.Intent;
+          import android.content.Context;
+          import android.graphics.Paint;
+          import android.graphics.pdf.PdfDocument;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.provider.MediaStore;
+          import android.os.Environment;
+          import android.widget.*;
+          import java.io.*;
+          import java.security.MessageDigest;
+          import java.util.Locale;
+          import java.util.concurrent.Executors;
+          import java.util.concurrent.ExecutorService;
+          
+          public final class MainActivity extends Activity {
+           private TextView log;
+           private Button sample, select;
+           private final ExecutorService worker=Executors.newSingleThreadExecutor();
+           @Override public void onCreate(Bundle b) {
+            super.onCreate(b);
+            LinearLayout layout=new LinearLayout(this);layout.setOrientation(1);layout.setPadding(30,40,30,30);
+            TextView title=new TextView(this);title.setText("PDF 저장 테스트");title.setTextSize(25);layout.addView(title);
+            TextView help=new TextView(this);help.setText("뷰어를 열지 않고 PDF만 Downloads/HITEL-Zocbo에 저장합니다. 테스트 PDF 생성 또는 저장 권한이 있는 PDF 파일을 선택하십시오.");layout.addView(help);
+            sample=new Button(this);sample.setText("테스트 PDF 저장");layout.addView(sample);
+            select=new Button(this);select.setText("PDF 파일 선택 및 저장");layout.addView(select);
+            log=new TextView(this);log.setTextIsSelectable(true);log.setText("대기 중");layout.addView(log);
+            setContentView(layout);
+            sample.setOnClickListener(v->start(null));
+            select.setOnClickListener(v->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("application/pdf");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,1);});
+           }
+           @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==1&&result==RESULT_OK&&data!=null&&data.getData()!=null)start(data.getData());}
+           private void start(Uri source){
+            sample.setEnabled(false);select.setEnabled(false);log.setText("저장 중...");
+            worker.execute(()->{
+             String message;
+             try{message=save(source);}catch(Exception e){message="저장 실패: "+e.getClass().getSimpleName()+": "+e.getMessage();}
+             final String m=message;runOnUiThread(()->{log.setText(m);sample.setEnabled(true);select.setEnabled(true);});
+            });
+           }
+           private static String hex(byte[] a){StringBuilder s=new StringBuilder();for(byte b:a)s.append(String.format(Locale.US,"%02x",b&255));return s.toString();}
+           private String save(Uri source)throws Exception{
+            File sampleFile=null;Uri dest=null;
+            try{
+             InputStream input;
+             if(source==null){
+              sampleFile=File.createTempFile("sample_",".pdf",getCacheDir());
+              PdfDocument d=new PdfDocument();PdfDocument.Page p=d.startPage(new PdfDocument.PageInfo.Builder(595,842,1).create());Paint paint=new Paint();paint.setTextSize(22);p.getCanvas().drawText("HITEL PDF save test",50,80,paint);p.getCanvas().drawText("No PDF viewer opened.",50,120,paint);d.finishPage(p);
+              try(FileOutputStream out=new FileOutputStream(sampleFile)){d.writeTo(out);}finally{d.close();}
+              input=new FileInputStream(sampleFile);
+             }else input=getContentResolver().openInputStream(source);
+             if(input==null)throw new IOException("PDF 입력 스트림 없음");
+             String name="PDF_test_"+System.currentTimeMillis()+".pdf";
+             MessageDigest md=MessageDigest.getInstance("SHA-256");long count=0;
+             try(InputStream in=new BufferedInputStream(input)){
+              byte[] head=new byte[5];int at=0,n;while(at<5&&(n=in.read(head,at,5-at))!=-1)at+=n;
+              if(at!=5||head[0]!=37||head[1]!=80||head[2]!=68||head[3]!=70||head[4]!=45)throw new IOException("PDF signature invalid");
+              ContentValues cv=new ContentValues();cv.put(MediaStore.MediaColumns.DISPLAY_NAME,name);cv.put(MediaStore.MediaColumns.MIME_TYPE,"application/pdf");cv.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/HITEL-Zocbo");cv.put(MediaStore.MediaColumns.IS_PENDING,1);
+              dest=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,cv);if(dest==null)throw new IOException("MediaStore insert failed");
+              try(OutputStream raw=getContentResolver().openOutputStream(dest)){if(raw==null)throw new IOException("Output unavailable");BufferedOutputStream out=new BufferedOutputStream(raw);out.write(head);md.update(head);count=5;byte[] buf=new byte[32768];while((n=in.read(buf))!=-1){out.write(buf,0,n);md.update(buf,0,n);count+=n;}out.flush();}
+             }
+             String hash=hex(md.digest());MessageDigest check=MessageDigest.getInstance("SHA-256");long saved=0;try(InputStream in=getContentResolver().openInputStream(dest)){if(in==null)throw new IOException("Readback unavailable");byte[] buf=new byte[32768];int n;while((n=in.read(buf))!=-1){check.update(buf,0,n);saved+=n;}}
+             if(saved!=count||!hash.equals(hex(check.digest())))throw new IOException("Readback checksum mismatch");
+             ContentValues done=new ContentValues();done.put(MediaStore.MediaColumns.IS_PENDING,0);if(getContentResolver().update(dest,done,null,null)!=1)throw new IOException("Finalize failed");
+             dest=null;return "저장 성공\nDownload/HITEL-Zocbo/"+name+"\n"+count+" bytes\nSHA256: "+hash;
+            }finally{if(dest!=null)getContentResolver().delete(dest,null,null);if(sampleFile!=null)sampleFile.delete();}
+           }
+          }
+          JAVA
+          cat > AndroidManifest.xml <<'MANIFEST'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.hitel.pdfsave.test" android:versionCode="1" android:versionName="1.0"><uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35"/><application android:label="PDF 저장 테스트" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>
+          MANIFEST
+          SDK="$ANDROID_HOME/platforms/android-35/android.jar"
+          if [ ! -f "$SDK" ]; then sdkmanager 'platforms;android-35'; fi
+          BT=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          javac -source 8 -target 8 -cp "$SDK" -d classes src/com/hitel/pdfsave/test/MainActivity.java
+          "$BT/d8" --min-api 29 --lib "$SDK" --output dex $(find classes -name '*.class')
+          "$BT/aapt" package -f -M AndroidManifest.xml -I "$SDK" -F unsigned.apk
+          (cd dex && zip -q ../unsigned.apk classes.dex)
+          "$BT/zipalign" -f 4 unsigned.apk aligned.apk
+          keytool -genkeypair -keystore test.jks -alias pdf-test -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname 'CN=HITEL PDF Test' -noprompt
+          "$BT/apksigner" sign --ks test.jks --ks-pass pass:android --key-pass pass:android --out out/HITEL_PDF_Save_Only_Test.apk aligned.apk
+          "$BT/apksigner" verify --verbose out/HITEL_PDF_Save_Only_Test.apk
+          "$BT/aapt" dump badging out/HITEL_PDF_Save_Only_Test.apk | tee out/manifest-proof.txt
+          grep -q "package: name='com.hitel.pdfsave.test'" out/manifest-proof.txt
+          sha256sum out/HITEL_PDF_Save_Only_Test.apk | tee out/SHA256SUMS.txt
+      - name: Publish isolated test APK and verify download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          gh release create pdf-save-only-test-20261125 -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false --title 'PDF Save Only Test' --notes 'Independent Android 10+ test app; generates demo PDF or saves a user-selected authorized PDF to Download/HITEL-Zocbo, no PDF viewer and no third-party API requests. Build and signing verified; not a device runtime test.' out/HITEL_PDF_Save_Only_Test.apk out/SHA256SUMS.txt
+          gh release download pdf-save-only-test-20261125 -R "$GITHUB_REPOSITORY" -D recheck -p '*.apk'
+          cmp out/HITEL_PDF_Save_Only_Test.apk recheck/HITEL_PDF_Save_Only_Test.apk
+          echo VERIFIED_RELEASE_BYTES
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pdf-save-only-test
+          path: out/
