@@ -108,14 +108,18 @@ public final class OfficialPdfDownloads {
     // Reuse the existing, explicitly labelled official download action on the
     // same visible row. Never execute the free-view link or invent an endpoint.
     String js="(function(id){try{"
-      +"var rows=Array.from(document.querySelectorAll('.download')).filter(function(row){"
-      +"return Array.from(row.querySelectorAll('[id^=li_freereading][data-no]')).some(function(e){return e.getAttribute('data-no')===id;});});"
-      +"if(rows.length!==1)return 'EXAM_ROW_NOT_UNIQUE';"
+      +"var visible=function(e){var s=getComputedStyle(e);return e.getClientRects().length>0&&s.visibility!=='hidden'&&s.display!=='none';};"
+      +"var links=Array.from(document.querySelectorAll('[id^=li_freereading][data-no]')).filter(function(e){return String(e.getAttribute('data-no')||'').trim()===id;});"
+      +"if(!links.length)return 'EXAM_ID_NOT_ON_CURRENT_PAGE';"
+      +"var rows=Array.from(new Set(links.map(function(e){return e.closest('.download');}).filter(Boolean))).filter(visible);"
+      +"if(!rows.length)return 'EXAM_ROW_NOT_VISIBLE_OR_MISSING';"
+      +"if(rows.length!==1)return 'EXAM_ROW_MULTIPLE_VISIBLE';"
       +"var controls=Array.from(rows[0].querySelectorAll('button,a,input[type=button],input[type=submit],[role=button]')).filter(function(e){"
-      +"if(e.disabled||e.getAttribute('aria-disabled')==='true'||e.getClientRects().length===0||e.id.indexOf('li_freereading')===0)return false;"
+      +"if(e.closest('.download')!==rows[0]||e.disabled||e.getAttribute('aria-disabled')==='true'||!visible(e)||e.id.indexOf('li_freereading')===0)return false;"
       +"var label=(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ');"
       +"return /^(PDF 다운로드|시험지 다운로드|다운로드)$/.test(label);});"
-      +"if(controls.length!==1)return 'OFFICIAL_DOWNLOAD_CONTROL_NOT_UNIQUE';"
+      +"if(!controls.length)return 'OFFICIAL_DOWNLOAD_CONTROL_NOT_FOUND';"
+      +"if(controls.length!==1)return 'OFFICIAL_DOWNLOAD_CONTROL_MULTIPLE';"
       +"controls[0].click();return 'OFFICIAL_DOWNLOAD_REQUESTED';"
       +"}catch(e){return 'OFFICIAL_DOWNLOAD_TRIGGER_ERROR';}})("+JSONObject.quote(id)+")";
     try{
