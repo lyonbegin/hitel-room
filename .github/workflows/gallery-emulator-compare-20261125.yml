@@ -1,0 +1,80 @@
+name: Gallery original vs roundtrip emulator smoke
+on:
+  push:
+    branches: [analysis/google-ai-edge-gallery-1.0.23-20261125]
+    paths: ['.github/workflows/gallery-emulator-compare-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Download exact original and rebuilt APK evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p inputs evidence
+          gh run download 45548395396 --repo "$GH_REPO" --name gallery-1.0.23-apk-input-and-roundtrip --dir inputs
+          echo 'a1bf8d261d19663a6bba551abd177fdd78bc8c434de25fdf9830e0ef4b7093d7  inputs/original/gallery.apk' | sha256sum -c -
+          echo '523cc84285a610af6010c5a9fd0e4f6e798875f7b52c51b96be6f4bda01d3804  inputs/rebuilt/gallery-roundtrip.apk' | sha256sum -c -
+      - name: Prepare isolated comparison script
+        run: |
+          cat > smoke.sh <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          pkg=com.google.ai.edge.gallery
+          act="$pkg/com.google.ai.edge.gallery.MainActivity"
+          adb wait-for-device
+          adb shell getprop > evidence/device-props.txt
+          adb shell getprop sys.boot_completed | tee evidence/boot.txt
+          adb shell wm size > evidence/display.txt
+          for mode in original rebuilt; do
+            if [[ "$mode" == original ]]; then apk=inputs/original/gallery.apk; else apk=inputs/rebuilt/gallery-roundtrip.apk; fi
+            mkdir -p "evidence/$mode"
+            adb logcat -c
+            adb install "$apk" 2>&1 | tee "evidence/$mode/install.txt"
+            adb shell am start -W -n "$act" 2>&1 | tee "evidence/$mode/start.txt"
+            sleep 12
+            adb exec-out screencap -p > "evidence/$mode/screen.png"
+            adb shell uiautomator dump /sdcard/gallery-window.xml > "evidence/$mode/uiautomator.txt" 2>&1 || true
+            adb pull /sdcard/gallery-window.xml "evidence/$mode/window.xml" || true
+            adb shell dumpsys activity activities > "evidence/$mode/activities.txt"
+            adb shell dumpsys meminfo "$pkg" > "evidence/$mode/meminfo.txt"
+            adb logcat -d -v threadtime > "evidence/$mode/logcat.txt"
+            adb logcat -b crash -d > "evidence/$mode/crash.txt"
+            adb shell pidof "$pkg" | tee "evidence/$mode/pid.txt"
+            test -s "evidence/$mode/pid.txt"
+            grep -E 'Status: ok' "evidence/$mode/start.txt"
+            grep -E 'mResumedActivity|topResumedActivity' "evidence/$mode/activities.txt" | grep -F "$pkg"
+            if grep -E 'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError' "evidence/$mode/crash.txt"; then exit 41; fi
+            echo "$mode INSTALL_LAUNCH_PASS; MODEL_INFERENCE_NOT_TESTED" | tee -a evidence/result.txt
+            adb uninstall "$pkg" | tee "evidence/$mode/uninstall.txt"
+          done
+          SH
+          chmod +x smoke.sh
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-emulator-comparison
+          path: evidence/
+          retention-days: 14
