@@ -35,7 +35,13 @@ jobs:
         working-directory: upstream/Android/src
         run: |
           set -euo pipefail
-          ./gradlew :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee ../../../evidence/gradle.log
+          for attempt in 1 2 3; do
+            if ./gradlew :app:assembleDebug --stacktrace --no-daemon --max-workers=2 2>&1 | tee ../../../evidence/gradle-$attempt.log; then exit 0; fi
+            if ! grep -Eq 'Plugin .* was not found|Could not (GET|HEAD|resolve|download)|Read timed out|Connection reset' ../../../evidence/gradle-$attempt.log; then exit 1; fi
+            echo "Dependency retrieval retry $attempt"
+            sleep 12
+          done
+          exit 1
       - name: Verify APK
         run: |
           set -euo pipefail
