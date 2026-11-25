@@ -1,0 +1,106 @@
+name: Gallery 1.0.23 Korean ASR debug
+on:
+  push:
+    branches: [build/gallery-korean-asr-20261125]
+    paths: ['.github/workflows/gallery-korean-asr-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  debug:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch pinned Gallery and apply Korean ASR
+        run: |
+          set -euo pipefail
+          mkdir -p evidence dist
+          git init upstream
+          git -C upstream remote add origin https://github.com/google-ai-edge/gallery.git
+          git -C upstream fetch --depth=1 origin 9cb31cf47c21b0ed76901ff589a52b509803edfa
+          git -C upstream checkout --detach FETCH_HEAD
+          python3 gallery-korean-asr/patch.py upstream/Android/src | tee evidence/patch.log
+          git -C upstream diff --check
+          git -C upstream diff > evidence/source.patch
+      - name: Install SDK
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" 2>&1 | tee evidence/sdk.log
+      - name: Compile Debug APK
+        working-directory: upstream/Android/src
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee ../../../evidence/gradle.log
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -n "$apk"
+          cp "$apk" dist/HITEL_Gallery_Korean_ASR_Debug_20261125.apk
+          bt="$ANDROID_HOME/build-tools/36.0.0"
+          "$bt/apksigner" verify --verbose --print-certs dist/*.apk | tee evidence/signature.txt
+          "$bt/aapt2" dump badging dist/*.apk | tee evidence/badging.txt
+          grep -F application-debuggable evidence/badging.txt
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          cp upstream/LICENSE dist/LICENSE
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Prepare emulator smoke test
+        run: |
+          cat > smoke.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          pkg=com.google.aiedge.gallery
+          adb logcat -c
+          adb install dist/HITEL_Gallery_Korean_ASR_Debug_20261125.apk
+          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
+          sleep 15
+          adb exec-out screencap -p > evidence/screen.png
+          adb logcat -d -v threadtime > evidence/logcat.txt
+          adb logcat -b crash -d > evidence/crash.txt
+          adb shell pidof "$pkg" > evidence/pid.txt
+          adb shell run-as "$pkg" id > evidence/run-as.txt
+          grep HITEL_ASR evidence/logcat.txt > evidence/asr-log.txt || true
+          test -s evidence/pid.txt
+          if grep -E 'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError' evidence/crash.txt; then exit 1; fi
+          echo INSTALL_LAUNCH_PASS_KOREAN_RECOGNITION_NOT_TESTED > evidence/result.txt
+          SH
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-korean-asr-evidence
+          path: evidence/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-korean-asr-debug-apk
+          path: dist/
+          if-no-files-found: ignore
+      - name: Publish and verify download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create gallery-korean-asr-debug-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Gallery Korean ASR Debug 1.0.23" --notes "Original Gallery 1.0.23 source. Korean default and ML Kit Basic preference, language pack probe/download on dictation, system recognizer fallback, HITEL_ASR diagnostics. Existing agent and model code retained. Emulator install/launch tested; actual Korean recognition and Gemma inference not verified."
+          mkdir verify
+          gh release download gallery-korean-asr-debug-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
