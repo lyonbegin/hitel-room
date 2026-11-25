@@ -38,15 +38,10 @@ public final class PrivatePapers {
   private static final Handler main = new Handler(Looper.getMainLooper());
   private static final Map<Object, Job> jobs = new WeakHashMap<>();
 
-  private static final Map<String, Long> permits = new LinkedHashMap<String, Long>(32, 0.75f, true) {
-    @Override protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) { return size() > 128; }
-  };
-
   static final class Job {
     final WeakReference<Activity> host;
     final String owner, key, exam;
     volatile String title;
-    volatile long reusableUntil;
     volatile boolean finished;
     Job(Activity host, String owner, String key, String exam) {
       this.host = new WeakReference<>(host);
@@ -113,7 +108,8 @@ public final class PrivatePapers {
   }
 
   public static void begin(Activity host, Object vm) {
-    if (Diag.showViewer(host)) return;
+    if (Diag.showViewer(host)) { Diag.log("PRIVATE_PAPER_TEST_MODE", "ON: original viewer"); return; }
+    Diag.log("PRIVATE_PAPER_TEST_MODE", "OFF: file write");
     String owner = account();
     String key = documentKey(host.getIntent());
     Job job = new Job(host, owner, key, host.getIntent().getStringExtra(EXAM));
@@ -134,73 +130,16 @@ public final class PrivatePapers {
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
   public static boolean saving(Object vm) { return job(vm) != null; }
 
-  private static long responseDeadline(Object response) throws Exception {
-    Class<?> type = Class.forName("okhttp3.Response");
-    Object headers = type.getMethod("headers").invoke(response);
-    java.lang.reflect.Method get = headers.getClass().getMethod("get", String.class);
-    String control = (String)get.invoke(headers, "Cache-Control");
-    String expires = (String)get.invoke(headers, "Expires");
-    String date = (String)get.invoke(headers, "Date");
-    String age = (String)get.invoke(headers, "Age");
-    return PaperFreshness.deadline(control == null ? "" : control, expires, date, age, System.currentTimeMillis());
-  }
-
-  // Bind the service's original metadata decision to this account and this
-  // document. Only its cache lifetime is kept, never its URL or response body.
-  static synchronized void recordModel(Object response, Object request, String ownerAtRequest) {
-    try {
-      if (ownerAtRequest.isEmpty() || !ownerAtRequest.equals(account())) return;
-      Class<?> invocationType = Class.forName("retrofit2.Invocation");
-      Object tag = Class.forName("okhttp3.Request").getMethod("tag", Class.class).invoke(request, invocationType);
-      List<?> args = (List<?>)invocationType.getMethod("arguments").invoke(tag);
-      if (args.isEmpty() || !"v3.n".equals(args.get(0).getClass().getName())) return;
-      Object original = args.get(0);
-      JSONObject query = new JSONObject();
-      for (java.lang.reflect.Field field : original.getClass().getDeclaredFields()) {
-        for (java.lang.annotation.Annotation annotation : field.getDeclaredAnnotations()) {
-          if (annotation.annotationType().getName().equals("com.google.gson.annotations.SerializedName")) {
-            String name = (String)annotation.annotationType().getMethod("value").invoke(annotation);
-            field.setAccessible(true); query.put(name, field.get(original));
-          }
-        }
-      }
-      String key = digest(query.getString("expapr_no") + "\n" + query.getString("file_type") + "\n"
-          + query.optString("pk", "") + "\n" + query.optString("short_url", ""));
-      int status = ((Number)Class.forName("okhttp3.Response").getMethod("code").invoke(response)).intValue();
-      if (status >= 500) return;
-      long until = 0;
-      if (status >= 200 && status < 300) {
-        String modelText = (String)Class.forName("okhttp3.ResponseBody").getMethod("string").invoke(
-            Class.forName("okhttp3.Response").getMethod("peekBody", long.class).invoke(response, 1024L * 1024L));
-        String path = new JSONObject(modelText).optString("pdf_path", "");
-        if (!path.isEmpty() && !"null".equals(path)) until = responseDeadline(response);
-      }
-      String grantKey = ownerAtRequest + key;
-      synchronized (permits) {
-        permits.remove(grantKey);
-        if (until > System.currentTimeMillis()) permits.put(grantKey, until);
-      }
-      Context context = Diag.applicationContext();
-      if (context != null) {
-        SharedPreferences prefs = index(context, ownerAtRequest);
-        String previous = prefs.getString(key, null);
-        if (previous != null) {
-          JSONObject saved = new JSONObject(previous);
-          long limit = Math.min(until, saved.optLong("until", 0));
-          if (limit != saved.optLong("until", 0)) prefs.edit().putString(key, saved.put("until", limit).toString()).commit();
-        }
-      }
-    } catch (Exception ignored) { /* No reusable metadata for this request. */ }
-  }
+  // Test build: the original viewer handles its own authenticated request.
+  // Keep the diagnostic hook compatible, without maintaining a second local
+  // metadata-based decision for file creation.
+  static void recordModel(Object response, Object request, String ownerAtRequest) { }
 
   public static boolean prepare(Object vm, String title, String pdfUrl) {
     Job job = job(vm);
     if (job == null) return false;
     job.title = title;
-    synchronized (permits) {
-      Long until = permits.remove(job.owner + job.key);
-      job.reusableUntil = until == null ? 0 : until;
-    }
+    Diag.log("PRIVATE_PAPER_TEST_PREPARE", "exam=" + job.exam + " hasPdf=" + (pdfUrl != null && !pdfUrl.trim().isEmpty()));
     if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
       finish(job, "이 시험지에는 저장할 PDF가 없습니다.");
     }
@@ -209,6 +148,7 @@ public final class PrivatePapers {
 
   static void finish(Job job, String message) {
     synchronized (job) { if (job.finished) return; job.finished = true; }
+    Diag.log("PRIVATE_PAPER_TEST_FINISH", "exam=" + job.exam + " result=" + message);
     main.post(() -> {
       Activity a = job.host.get();
       if (a == null || a.isDestroyed() || a.isFinishing()) return;
@@ -233,24 +173,13 @@ public final class PrivatePapers {
     Activity host = job.host.get();
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
-      long modelUntil = job.reusableUntil;
-      if (modelUntil == Long.MAX_VALUE) {
-        // A user download explicitly offered as an attachment is a standalone
-        // document. Inline reading without a reusable model has no offline grant.
-        Object headers = Class.forName("okhttp3.Response").getMethod("headers").invoke(response);
-        String disposition = (String)headers.getClass().getMethod("get", String.class)
-            .invoke(headers, "Content-Disposition");
-        String kind = disposition == null ? "" : disposition.split(";", 2)[0].trim();
-        if (!"attachment".equalsIgnoreCase(kind)) modelUntil = 0;
-      }
-      long until = Math.min(modelUntil, responseDeadline(response));
-      if (until <= System.currentTimeMillis()) {
-        index(host, job.owner).edit().remove(job.key).commit();
-        finish(job, "이 PDF는 다시 열 때 서버 확인이 필요합니다.");
-        return;
-      }
+      // File-creation test: use only the file already obtained by the original
+      // authenticated viewer. Do not make an additional network request.
+      if (original == null || !original.isFile() || original.length() <= 0)
+        throw new IOException("missing source PDF");
+      Diag.log("PRIVATE_PAPER_TEST_RECEIVED", "exam=" + job.exam + " bytes=" + original.length());
       if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
-      store(host, job.owner, job.key, job.title, job.exam, original, until);
+      store(host, job.owner, job.key, job.title, job.exam, original, Long.MAX_VALUE);
       finish(job, "앱에 저장했습니다.");
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
@@ -271,9 +200,12 @@ public final class PrivatePapers {
         while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
         out.getFD().sync();
       }
-      try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(candidate, ParcelFileDescriptor.MODE_READ_ONLY);
-           PdfRenderer renderer = new PdfRenderer(fd)) {
-        if (renderer.getPageCount() < 1) throw new IOException("empty PDF");
+      if (candidate.length() != source.length() || candidate.length() <= 0)
+        throw new IOException("copy length mismatch");
+      try (FileInputStream check = new FileInputStream(candidate)) {
+        byte[] header = new byte[5];
+        if (check.read(header) != 5 || !"%PDF-".equals(new String(header, StandardCharsets.US_ASCII)))
+          throw new IOException("invalid PDF header");
       }
       SharedPreferences prefs = index(context, owner);
       String old = prefs.getString(key, null);
@@ -282,6 +214,7 @@ public final class PrivatePapers {
           .put("saved", System.currentTimeMillis()).put("until", until);
       published = prefs.edit().putString(key, row.toString()).commit();
       if (!published) throw new IOException("document index");
+      Diag.log("PRIVATE_PAPER_TEST_WRITE_OK", "exam=" + exam + " bytes=" + candidate.length() + " file=" + candidate.getAbsolutePath());
       if (old != null) {
         try { File previous = resolveFile(context, owner, new JSONObject(old));
           if (previous != null && !previous.equals(candidate)) previous.delete();
