@@ -70,25 +70,97 @@ jobs:
         run: |
           test -c /dev/kvm
           sudo chmod a+rw /dev/kvm
-      - name: Prepare emulator smoke test
+      - name: Prepare 90-second clean startup verification
         run: |
           cat > smoke.sh <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
           pkg=com.google.aiedge.gallery
-          adb logcat -c
+          mkdir -p evidence/startup
+          adb shell getprop > evidence/device-props.txt
+          adb shell dumpsys package com.google.android.tts > evidence/startup/speech-services.txt
+          adb shell dumpsys package com.google.android.aicore > evidence/startup/aicore.txt
+          adb shell dumpsys jobscheduler > evidence/startup/jobs-before.txt
+          adb uninstall "$pkg" || true
           adb install dist/HITEL_Gallery_Original_KO_Only_20261125.apk
-          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
-          sleep 15
-          adb exec-out screencap -p > evidence/screen.png
-          adb logcat -d -v threadtime > evidence/logcat.txt
-          adb logcat -b crash -d > evidence/crash.txt
-          adb shell pidof "$pkg" > evidence/pid.txt
+          adb shell pm clear "$pkg"
           adb shell run-as "$pkg" id > evidence/run-as.txt
-          grep -Ei 'AGAsr|MLKit|SpeechRecognition|download' evidence/logcat.txt > evidence/asr-log.txt || true
+          adb logcat -b all -c
+          adb shell am force-stop "$pkg"
+          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
+          for t in 5 15 30 60 90; do
+            sleep "$((t-${previous:-0}))"
+            previous=$t
+            adb exec-out screencap -p > "evidence/startup/screen-$t.png"
+            adb shell uiautomator dump /sdcard/gallery-qa.xml > "evidence/startup/ui-dump-$t.txt" 2>&1 || true
+            adb exec-out cat /sdcard/gallery-qa.xml > "evidence/startup/ui-$t.xml" || true
+            adb logcat -b all -d -v threadtime > "evidence/startup/logcat-$t.txt"
+            adb exec-out run-as "$pkg" cat files/datastore/settings.pb > "evidence/startup/settings-$t.pb" 2>"evidence/startup/settings-$t.err" || true
+          done
+          adb shell pidof "$pkg" > evidence/pid.txt
+          adb logcat -b crash -d > evidence/crash.txt
+          adb shell dumpsys jobscheduler > evidence/startup/jobs-after.txt
+          adb shell dumpsys activity services com.google.android.tts > evidence/startup/tts-services-after.txt
+          grep -Ei 'AGAsr|MLKit|SpeechRecognition|download|AiCore' evidence/startup/logcat-90.txt > evidence/asr-log.txt || true
+          python3 - <<'PY' | tee evidence/result.txt
+          import pathlib, re, sys, json
+          p = pathlib.Path("evidence/startup")
+          def fields(data):
+              i = 0
+              def varint():
+                  nonlocal i
+                  n = shift = 0
+                  while i < len(data):
+                      v = data[i]; i += 1
+                      n |= (v & 127) << shift
+                      if v < 128: return n
+                      shift += 7
+                      if shift > 63: raise ValueError("bad varint")
+                  raise ValueError("truncated varint")
+              while i < len(data):
+                  key = varint(); field, wire = key >> 3, key & 7
+                  if wire == 0: value = varint()
+                  elif wire == 2:
+                      n = varint(); value = data[i:i+n]; i += n
+                      if len(value) != n: raise ValueError("truncated field")
+                  elif wire in (1,5):
+                      n = 8 if wire == 1 else 4; value = data[i:i+n]; i += n
+                  else: raise ValueError(f"unsupported wire {wire}")
+                  yield field, value
+          version = re.search(r"versionCode=(\d+)", (p/"speech-services.txt").read_text())
+          problems = []
+          if not version or int(version.group(1)) < 210665810:
+              problems.append("INCONCLUSIVE: emulator Speech Services missing or below upstream ML Kit minimum")
+          records = []
+          for f in sorted(p.glob("settings-*.pb")):
+              raw = f.read_bytes()
+              if not raw:
+                  records.append({"file":f.name,"persisted_settings":"absent; default applies if not loaded/saved"})
+                  continue
+              asr = dict(fields(raw)).get(13,b"")
+              a = dict(fields(asr))
+              engine = a.get(1,b"").decode() or "android_system_asr"
+              locale = a.get(2,b"").decode() or "ko-KR"
+              records.append({"file":f.name,"engine":engine,"locale":locale,"explicit":bool(a.get(5,0))})
+              if engine != "android_system_asr" or bool(a.get(5,0)):
+                  problems.append(f"Unexpected persisted engine selection: {f.name} {engine}")
+              if locale != "ko-KR": problems.append(f"Unexpected locale: {f.name} {locale}")
+          log=(p/"logcat-90.txt").read_text(errors="replace")
+          pattern=re.compile(r"download\(\) triggered for engineType=MLKIT|speechRecognizer\.download\(\) event|ML Kit Basic language pack.*download (?:started|failed)|HITEL_ASR.*(?:DOWNLOAD_BEGIN|DOWNLOAD_STATE)",re.I)
+          hits=[line for line in log.splitlines() if pattern.search(line)]
+          if hits: problems.append("FAIL: explicit ML Kit download events without user input")
+          # Detect visible download/progress text tied to ML Kit in UI dumps.
+          ui_pattern=re.compile(r"(?:downloading|download in progress|다운로드 중).{0,100}(?:ML Kit|MLKit)|(?:ML Kit|MLKit).{0,100}(?:downloading|download in progress|다운로드 중)",re.I)
+          ui_hits=[f.name for f in p.glob("ui-*.xml") if ui_pattern.search(f.read_text(errors="replace"))]
+          if ui_hits: problems.append("FAIL: visible ML Kit download progress in UI")
+          if not any(f.stat().st_size>100 for f in p.glob("ui-*.xml")):
+              problems.append("INCONCLUSIVE: no UI hierarchy captured")
+          print(json.dumps({"speech_services_version":int(version.group(1)) if version else None,"settings":records,"download_log_hits":hits,"download_ui_hits":ui_hits,"limitations":"No user input; 90s startup observation only; private system service files not inspected; absence of logs does not prove absence of opaque SDK traffic.","problems":problems},ensure_ascii=False,indent=2))
+          if problems: sys.exit(1)
+          print("STARTUP_OBSERVATION_PASS_NO_OBSERVED_AUTO_MLKIT_DOWNLOAD_OR_PERSISTED_ENGINE_CHANGE")
+          PY
           test -s evidence/pid.txt
           if grep -E 'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError' evidence/crash.txt; then exit 1; fi
-          echo INSTALL_LAUNCH_PASS_KOREAN_RECOGNITION_NOT_TESTED > evidence/result.txt
           SH
       - uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -118,7 +190,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create gallery-original-ko-only-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Gallery Original 1.0.23 Korean locale only" --notes "Fresh pinned upstream source, exactly one line changed: AsrDefaults.LANGUAGE_CODE en-US to ko-KR. No V1/V2 patch or diagnostic injection. Emulator install/launch only; actual speech recognition and system-managed downloads not verified."
+          gh release create gallery-original-ko-only-startup-verified-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Gallery Original 1.0.23 Korean locale only" --notes "Fresh pinned upstream source, exactly one line changed: AsrDefaults.LANGUAGE_CODE en-US to ko-KR. No V1/V2 patch or diagnostic injection. 90-second clean emulator startup gate: supported Speech Services, persisted ASR settings, UI and logs checked for unexpected engine selection or visible/explicit ML Kit downloads. Opaque system SDK downloads and physical-device behavior not proven."
           mkdir verify
-          gh release download gallery-original-ko-only-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          gh release download gallery-original-ko-only-startup-verified-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
           (cd verify && sha256sum -c SHA256SUMS.txt)
