@@ -1,0 +1,61 @@
+name: Box Debug build watcher
+on:
+  push:
+    branches: [build/box-3.5.7-20261125]
+    paths: ['.github/workflows/box-build-watch-20261125.yml']
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Box debug build run ID
+        required: true
+        default: '45586476776'
+permissions:
+  actions: read
+  contents: read
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: ${{ inputs.run_id || '45586476776' }}
+    steps:
+      - name: Poll actual build until terminal result
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p watch
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          for ((i=1;i<=380;i++)); do
+            state=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID")
+            status=$(jq -r '.status' <<< "$state")
+            conclusion=$(jq -r '.conclusion // "pending"' <<< "$state")
+            steps=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/jobs" | jq -r '[.jobs[].steps[]? | select(.status=="in_progress" or .conclusion=="failure") | (.name + "=" + (.conclusion // .status))] | join(", ")')
+            printf '%s run=%s status=%s conclusion=%s %s\n' "$(date -u +%FT%TZ)" "$RUN_ID" "$status" "$conclusion" "$steps" | tee -a watch/poll.log
+            if [[ "$status" == completed ]]; then
+              printf '%s\n' "$state" > watch/final-run.json
+              printf '## Build %s: %s\n%s\n' "$RUN_ID" "$conclusion" "$steps" >> "$GITHUB_STEP_SUMMARY"
+              if [[ "$conclusion" != success ]]; then
+                echo "Build failed. See https://github.com/$GH_REPO/actions/runs/$RUN_ID" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 15
+          done
+          echo 'Watch timeout: build not confirmed complete' | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: Confirm published Korean Debug APK
+        run: |
+          set -euo pipefail
+          gh release view box-korean-debug-20261125 --repo "$GH_REPO" --json tagName,assets,url > watch/release.json
+          mkdir -p verify
+          gh release download box-korean-debug-20261125 --repo "$GH_REPO" --pattern HITEL_Box_Korean_Debug_20261125.apk --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt) | tee watch/checksum.txt
+          printf '[Verified APK](https://github.com/%s/releases/download/box-korean-debug-20261125/HITEL_Box_Korean_Debug_20261125.apk)\n' "$GH_REPO" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: box-build-watch-result
+          path: watch/
