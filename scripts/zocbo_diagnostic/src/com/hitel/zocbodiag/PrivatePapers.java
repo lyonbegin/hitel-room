@@ -53,6 +53,7 @@ public final class PrivatePapers {
     final WeakReference<Activity> host;
     final String owner, key, exam;
     volatile String title;
+    volatile List<String> questionPaths = Collections.emptyList();
     final boolean revalidation;
     volatile ModelDecision model;
     volatile boolean finished;
@@ -139,7 +140,7 @@ public final class PrivatePapers {
     main.postDelayed(() -> {
       if (!host.isFinishing() && !host.isDestroyed() && job(vm) == job)
         finish(job, "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
-    }, 90000);
+    }, 300000);
   }
 
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
@@ -215,15 +216,24 @@ public final class PrivatePapers {
     } catch (Exception ignored) { /* No reusable metadata for this request. */ }
   }
 
-  public static boolean prepare(Object vm, String title, String pdfUrl) {
+  public static boolean prepare(Object vm, String title, String pdfUrl, Object viewerModel) {
     Job job = job(vm);
     if (job == null) return false;
     job.title = title;
+    job.questionPaths = PaperFolders.questions(viewerModel);
+    Diag.log("QUESTION_MODEL_COUNT", String.valueOf(job.questionPaths.size()));
     synchronized (permits) {
       job.model = permits.remove(job.owner + job.key);
     }
     if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
-      finish(job, "이 시험지에는 저장할 PDF가 없습니다.");
+      Activity host = job.host.get();
+      if (host == null || job.revalidation) { finish(job, "이 시험지에는 저장할 PDF가 없습니다."); return true; }
+      new Thread(() -> {
+        try {
+          int count = PaperFolders.saveImages(host, job.title, job.exam, job.questionPaths, job.owner);
+          finish(job, "문제 이미지 " + count + "/" + job.questionPaths.size() + "개 저장, 시험지 PDF 없음");
+        } catch (Exception e) { finish(job, "문제 폴더 저장 실패"); }
+      }, "question-folder-save").start();
     }
     return true;
   }
@@ -286,7 +296,10 @@ public final class PrivatePapers {
           if (!host.isFinishing() && !host.isDestroyed()) host.setResult(Activity.RESULT_OK, result);
         });
         finish(job, "서버 확인을 완료했습니다.");
-      } else finish(job, "앱에 저장했습니다.");
+      } else {
+        int count = PaperFolders.saveImages(host, job.title, job.exam, job.questionPaths, job.owner);
+        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 " + count + "/" + job.questionPaths.size() + "개 저장");
+      }
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
       finish(job, "PDF를 저장하지 못했습니다.");
@@ -298,7 +311,8 @@ public final class PrivatePapers {
     File dir = directory(context, owner);
     if (dir == null || (!dir.isDirectory() && !dir.mkdirs()))
       throw new IOException("app-specific external files directory unavailable");
-    File candidate = new File(dir, UUID.randomUUID().toString() + ".pdf");
+    File folder = PaperFolders.examFolder(context, title, exam);
+    File candidate = new File(new File(folder, "시험지"), UUID.randomUUID().toString() + ".pdf");
     boolean published = false;
     try {
       try (FileInputStream in = new FileInputStream(source);
@@ -313,7 +327,7 @@ public final class PrivatePapers {
       }
       SharedPreferences prefs = index(context, owner);
       String old = prefs.getString(key, null);
-      JSONObject row = new JSONObject().put("file", candidate.getName()).put("exam", exam)
+      JSONObject row = new JSONObject().put("file", PaperFolders.relative(context, candidate)).put("exam", exam)
           .put("title", title == null || title.trim().isEmpty() ? "시험지 " + exam : title)
           .put("saved", System.currentTimeMillis()).put("until", until);
       published = prefs.edit().putString(key, row.toString()).commit();
@@ -329,10 +343,10 @@ public final class PrivatePapers {
   static File resolveFile(Context context, String owner, JSONObject row) {
     if (row == null || owner.isEmpty()) return null;
     String name = row.optString("file");
+    if (!name.endsWith(".pdf")) return null;
+    File file = PaperFolders.resolve(context, name);
+    if (file != null) return file;
     if (!name.matches("[a-f0-9-]{36}\\.pdf")) return null;
-    File dir = directory(context, owner);
-    File file = dir == null ? null : new File(dir, name);
-    if (file != null && file.isFile()) return file;
     // Existing account-indexed papers from older builds remain readable.
     File legacy = new File(legacyDirectory(context, owner), name);
     return legacy.isFile() ? legacy : null;
