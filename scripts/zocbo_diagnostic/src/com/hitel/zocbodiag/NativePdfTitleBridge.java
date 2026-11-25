@@ -45,10 +45,40 @@ public final class NativePdfTitleBridge {
     return w!=null && Diag.showViewer(w.getContext());
   }
 
-  /** Compatibility entry: no direct native viewer launch. */
+  /** Open the requested paper through the original viewer and its current mode. */
   @JavascriptInterface
   public void titleSelected(String expaprNo) {
-    Diag.log("READING_TITLE_DIRECT_DISABLED","use existing authorized page action");
+    if (expaprNo == null || !expaprNo.matches("[1-9][0-9]{0,9}")) return;
+    try { Integer.parseInt(expaprNo); } catch (NumberFormatException e) { return; }
+    final WebView web = target.get();
+    if (web == null) return;
+    web.post(() -> {
+      if (!web.isAttachedToWindow() || !isFreeReadingPage(web.getUrl())) return;
+      Context context = web.getContext();
+      try {
+        java.lang.reflect.Method factory = Class.forName("A3.L").getDeclaredMethod("c",
+            Context.class, String.class, String.class, String.class, String.class,
+            String.class, String.class, String.class, String.class, boolean.class,
+            String.class, Integer.class, int.class);
+        Intent viewer = (Intent)factory.invoke(null, context, expaprNo, "Q", "", "", "", "", "", "",
+            false, "", null, 0);
+        if (viewer == null || viewer.getComponent() == null
+            || !context.getPackageName().equals(viewer.getComponent().getPackageName())
+            || !"com.eduzone.eduzoneviewer.ui.activities.ViewerActivity".equals(viewer.getComponent().getClassName())) return;
+        Context host = context;
+        while (host instanceof ContextWrapper && !(host instanceof Activity)) {
+          Context base = ((ContextWrapper)host).getBaseContext();
+          if (base == host) break;
+          host = base;
+        }
+        if (!(host instanceof Activity)) viewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        host.startActivity(viewer);
+        Diag.log("READING_TITLE_SELECTED", expaprNo);
+      } catch (Exception e) {
+        Diag.log("READING_TITLE_LAUNCH_ERROR", e.getClass().getSimpleName());
+        android.widget.Toast.makeText(context, "시험지를 열 수 없습니다.", android.widget.Toast.LENGTH_SHORT).show();
+      }
+    });
   }
 
   /**
