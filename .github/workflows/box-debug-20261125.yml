@@ -40,6 +40,8 @@ jobs:
             sed -i 's/compileSdk = 36/compileSdk = 37/' "$f"
           done
           sed -i '/id("org.gradle.toolchains.foojay-resolver-convention")/d' upstream/Android/src/settings.gradle.kts
+          git -C upstream grep -nE '^[[:space:]]*context[[:space:]]*\(' -- '*.kt' || true
+          sed -i '/freeCompilerArgs += "-Xcontext-receivers"/d' upstream/Android/src/app/build.gradle.kts
           git -C upstream diff --check
           git -C upstream diff > evidence/diagnostic.patch
       - name: Install SDK and native toolchain
@@ -54,6 +56,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
+          ./gradlew :app:compileDebugKotlin --no-daemon --stacktrace --max-workers=2 2>&1 | tee ../../../evidence/kotlin-preflight.log
           ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2 2>&1 | tee ../../../evidence/gradle-debug.log
       - name: Verify APK and debug flag
         run: |
