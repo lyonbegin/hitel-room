@@ -42,8 +42,8 @@ public final class PrivatePapers {
 
   static final class ModelDecision {
     final long until;
-    final boolean network;
-    ModelDecision(long until, boolean network) { this.until = until; this.network = network; }
+    final boolean network, retain;
+    ModelDecision(long until, boolean network, boolean retain) { this.until = until; this.network = network; this.retain = retain; }
   }
   private static final Map<String, ModelDecision> permits = new LinkedHashMap<String, ModelDecision>(32, 0.75f, true) {
     @Override protected boolean removeEldestEntry(Map.Entry<String, ModelDecision> eldest) { return size() > 128; }
@@ -188,12 +188,14 @@ public final class PrivatePapers {
         }
       }
       String key = digest(query.getString("expapr_no") + "\n" + query.getString("file_type") + "\n"
-          + query.optString("pk", "") + "\n" + query.optString("short_url", ""));
+          + (query.isNull("pk") ? "" : query.optString("pk", "")) + "\n"
+          + (query.isNull("short_url") ? "" : query.optString("short_url", "")));
       int status = ((Number)Class.forName("okhttp3.Response").getMethod("code").invoke(response)).intValue();
       if (status >= 500) return;
       long until = 0;
       boolean valid = false;
-      if (status >= 200 && status < 300 && mayStore(response)) {
+      boolean retain = mayStore(response);
+      if (status >= 200 && status < 300 && retain) {
         String modelText = (String)Class.forName("okhttp3.ResponseBody").getMethod("string").invoke(
             Class.forName("okhttp3.Response").getMethod("peekBody", long.class).invoke(response, 1024L * 1024L));
         String path = new JSONObject(modelText).optString("pdf_path", "");
@@ -205,7 +207,8 @@ public final class PrivatePapers {
       String grantKey = ownerAtRequest + key;
       synchronized (permits) {
         permits.remove(grantKey);
-        if (valid) permits.put(grantKey, new ModelDecision(until, hasNetworkResponse(response)));
+        if (valid || !retain || status < 200 || status >= 300)
+          permits.put(grantKey, new ModelDecision(until, valid && hasNetworkResponse(response), retain && status >= 200 && status < 300));
       }
       Context context = Diag.applicationContext();
       if (context != null) {
@@ -260,11 +263,11 @@ public final class PrivatePapers {
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
       ModelDecision model = job.model;
-      if (model == null || !mayStore(response)) {
+      if ((model != null && !model.retain) || !mayStore(response)) {
         finish(job, "이 PDF는 앱에 저장할 수 없습니다.");
         return;
       }
-      long modelUntil = model.until;
+      long modelUntil = model == null ? 0 : model.until;
       if (modelUntil == Long.MAX_VALUE) {
         // A user download explicitly offered as an attachment is a standalone
         // document. Inline reading without a reusable model has no offline grant.
@@ -277,7 +280,7 @@ public final class PrivatePapers {
       long until = Math.min(modelUntil, responseDeadline(response));
       // Retention and permission to reuse are separate. An expired or
       // no-cache response is retained but is never rendered without validation.
-      if (job.revalidation && (!model.network || !hasNetworkResponse(response))) {
+      if (job.revalidation && (model == null || !model.network || !hasNetworkResponse(response))) {
         finish(job, "서버 확인을 완료하지 못했습니다.");
         return;
       }
