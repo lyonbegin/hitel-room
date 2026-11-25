@@ -1,0 +1,90 @@
+name: Mika v0.1.51 official developer logs APK
+on:
+  push:
+    branches: [build/mika-v0.1.51-logs-20261125]
+    paths: ['.github/workflows/mika-logs-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch pinned upstream
+        run: |
+          set -euo pipefail
+          git init upstream
+          git -C upstream remote add origin https://github.com/wangzan101/Mika.git
+          git -C upstream fetch --depth=1 origin e9c027006533d00e86cebc47fe122c2c3b52ef13
+          git -C upstream checkout --detach FETCH_HEAD
+          test "$(git -C upstream rev-parse HEAD)" = e9c027006533d00e86cebc47fe122c2c3b52ef13
+          mkdir -p evidence dist
+          git -C upstream rev-parse HEAD > evidence/source-commit.txt
+      - name: Build unchanged official logs variant
+        run: |
+          set -euo pipefail
+          cd upstream
+          ./gradlew :app:assembleLogs --no-daemon --stacktrace 2>&1 | tee ../evidence/gradle.log
+          cp app/build/outputs/apk/logs/app-logs.apk ../dist/Mika-v0.1.51-Logs.apk
+          cp LICENSE ../dist/LICENSE
+          cp NOTICE ../dist/NOTICE
+      - name: Verify APK signature and metadata
+        run: |
+          set -euo pipefail
+          bt=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$bt/apksigner" verify --verbose --print-certs dist/Mika-v0.1.51-Logs.apk > evidence/signature.txt
+          "$bt/aapt2" dump badging dist/Mika-v0.1.51-Logs.apk | tee evidence/badging.txt
+          grep -F "package: name='com.wangzan101.mika.logs'" evidence/badging.txt
+          grep -F "application-debuggable" evidence/badging.txt
+          (cd dist && sha256sum Mika-v0.1.51-Logs.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mika-v0.1.51-Logs
+          path: dist/
+          retention-days: 14
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Verify isolated installation and launch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: |
+            adb install dist/Mika-v0.1.51-Logs.apk
+            adb shell monkey -p com.wangzan101.mika.logs -c android.intent.category.LAUNCHER 1
+            sleep 8
+            adb shell pidof com.wangzan101.mika.logs | tee evidence/pid.txt
+            test -s evidence/pid.txt
+            adb shell run-as com.wangzan101.mika.logs ls files > evidence/run-as.txt
+            adb exec-out screencap -p > evidence/screen.png
+            adb logcat -b crash -d > evidence/crash.txt
+            if grep -E 'FATAL EXCEPTION|SIGSEGV' evidence/crash.txt; then exit 1; fi
+      - name: Publish tested APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create mika-v0.1.51-logs-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "Mika v0.1.51 developer logs build" --notes "Unmodified Apache-2.0 upstream e9c027006533d00e86cebc47fe122c2c3b52ef13; official assembleLogs variant. Debug signed, separate package. Install and launch smoke tested; no model credentials or live inference tested."
+          mkdir -p verify
+          gh release download mika-v0.1.51-logs-20261125 --repo "$GH_REPO" --pattern 'Mika-v0.1.51-Logs.apk' --pattern 'SHA256SUMS.txt' --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Mika-logs-build-evidence
+          path: evidence/
+          retention-days: 14
