@@ -22,50 +22,35 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Trace body WebView initialization, load and rendering callbacks
+      - name: Identify WebView navigation and rendering architecture
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
           report=[]
-          def emit(p,indices,limit=400):
-              if not p.exists():return
+          for p in sorted((root/'p239z3').rglob('*.java')):
               lines=p.read_text(errors='replace').splitlines()
-              report.append('=== '+str(p.relative_to(root))+' ===')
-              for i in sorted(set(indices))[:limit]:
-                  if i<0 or i>=len(lines):continue
-                  l=lines[i]
-                  if re.search(r'authorization|bearer|access.?token|refresh.?token|password|cookie|api.?key',l,re.I):continue
-                  l=re.sub(r'https?://[^"\s]+','[URL omitted]',l)
-                  report.append(f'{i+1}: {l[:400]}')
+              matches=[]
+              for i,l in enumerate(lines):
+                  if re.search(r'loadUrl\(|loadData\(|loadDataWithBaseURL\(|onPageFinished\(|onPageStarted\(|setWebViewClient\(|setWebChromeClient\(|public final void h\(|public final void l\(|evaluateJavascript\(|class .*WebViewClient|class .*WebChromeClient',l):
+                      if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|header|intercept',l,re.I):continue
+                      matches.append(f'{i+1}: {l.strip()[:220]}')
+              if matches:report.extend(['=== '+str(p.relative_to(root))+' ===']+matches)
           p=root/'p174s3/k.java'
           lines=p.read_text(errors='replace').splitlines()
-          emit(p,list(range(0,100))+list(range(350,570))+list(range(2750,len(lines))),450)
-          p=root/'p174s3/h.java'
-          if p.exists():
-              lines=p.read_text(errors='replace').splitlines()
-              emit(p,range(len(lines)),220)
-          for p in (root/'p174s3').rglob('*.java'):
-              if p.name in ['k.java','h.java']:continue
-              lines=p.read_text(errors='replace').splitlines()
-              hits=[i for i,l in enumerate(lines) if re.search(r'loadUrl\(|loadData\(|loadDataWithBaseURL\(|WebViewClient|onPageFinished\(|onPageStarted\(|evaluateJavascript\(|addJavascriptInterface\(|VIEWER_ARGUMENT_URL|\.f9376n|WebResourceResponse|shouldInterceptRequest\(',l)]
-              if hits:emit(p,[j for i in hits for j in range(i-4,i+5)],130)
-          for p in root.rglob('*.java'):
-              rel=str(p.relative_to(root))
-              if not ('eduzoneviewer' in rel or re.match(r'p\d+[a-z]\d?/',rel)):continue
-              if rel.startswith('p174s3/'):continue
-              lines=p.read_text(errors='replace').splitlines()
-              hits=[i for i,l in enumerate(lines) if re.search(r'ViewerWebViewFragment|VIEWER_ARGUMENT_URL|f9376n|fragment_viewer_webview',l)]
-              if hits:emit(p,[j for i in hits for j in range(i-3,i+4)],80)
+          for i in range(2759,min(2787,len(lines))):
+              l=lines[i]
+              if re.search(r'Uri\.parse|buildUpon\(|\.build\(\)|eVar\.h\(|new p239z3.e|WebView webView',l) and not re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://',l,re.I):
+                  report.append(f'Fragment {i+1}: {l.strip()[:240]}')
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result[:85000])
+          print(result)
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-body-webview-flow-audit
+          name: r7-question-webview-navigation-audit
           path: |
             callsite-audit.txt
             jadx.log
