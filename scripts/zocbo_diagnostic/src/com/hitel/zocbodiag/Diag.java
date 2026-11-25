@@ -49,6 +49,7 @@ public final class Diag implements View.OnClickListener {
   private static boolean crashHookInstalled=false;
   private static final long startedAt=SystemClock.elapsedRealtime();
   private static Context app;
+  static Context applicationContext() { return app; }
   private static final StringBuilder live = new StringBuilder(4096);
   private final Activity activity;
 
@@ -441,14 +442,20 @@ public final class Diag implements View.OnClickListener {
       viewerSwitch.setTextSize(12);
       viewerSwitch.setPadding(dp(a,8),0,dp(a,8),0);
       viewerSwitch.setChecked(showViewer(a));
-      viewerSwitch.setContentDescription("시험지 제목으로 뷰어 열기 ON/OFF");
+      viewerSwitch.setContentDescription("ON은 바로 열기, OFF는 앱에 저장");
       bar.addView(viewerSwitch,new LinearLayout.LayoutParams(-2,dp(a,38)));
+      {
+        Button saved = new Button(a);
+        saved.setText("저장한 시험지");
+        saved.setOnClickListener(v -> a.startActivity(new Intent(a, NativePdfEntryActivity.class)));
+        bar.addView(saved, new LinearLayout.LayoutParams(-2,dp(a,38)));
+      }
       root.addView(hs,lp);
       viewerSwitch.setOnCheckedChangeListener((button,checked)->{
         a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
           .edit().putBoolean(DISPLAY_KEY,checked).apply();
         viewerSwitch.setText(checked?"뷰어 ON":"뷰어 OFF");
-        if(!checked)Toast.makeText(a,"제목으로 뷰어 열기 중지. 캐시 전용 경로 미지원.",Toast.LENGTH_SHORT).show();
+        if(!checked)Toast.makeText(a,"시험지를 선택하면 앱에 저장합니다.",Toast.LENGTH_SHORT).show();
         log("VIEWER_DISPLAY_TOGGLE",checked?"ON":"OFF");
       });
       log("DIAG_PANEL","installed Activity="+a.getClass().getName()+" Android="+Build.VERSION.SDK_INT);

@@ -298,6 +298,7 @@ public final class NetTrace {
         event(ctx,"REQUEST_BODY_BYTES",String.valueOf(len));
       }
     }catch(Throwable t){event(ctx,"REQUEST_INSTRUMENTATION_ERROR",cause(t));}
+    String paperAccount = viewerPath ? PrivatePapers.account() : "";
     Object response;
     try {
       response=invoke(chainClass,chain,"proceed",new Class<?>[]{requestClass},req);
@@ -306,6 +307,7 @@ public final class NetTrace {
       event(ctx,"FAIL_ELAPSED_MS",String.valueOf(SystemClock.elapsedRealtime()-started));
       throw originalError;
     }
+    if (viewerPath) PrivatePapers.recordModel(response, req, paperAccount);
     try {
       event(ctx,"HTTP_STATUS",String.valueOf(zero(responseClass,response,"code")));
       event(ctx,"HTTP_MESSAGE",safeText(String.valueOf(zero(responseClass,response,"message"))));

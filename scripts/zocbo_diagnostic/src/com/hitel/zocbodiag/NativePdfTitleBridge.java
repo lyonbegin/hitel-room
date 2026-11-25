@@ -73,7 +73,7 @@ public final class NativePdfTitleBridge {
       +"if(!/^[1-9][0-9]{0,9}$/.test(no))return;"
       +"if(!window.hitelPdfTitleLink||!window.hitelPdfTitleLink.viewerEnabled)return;"
       +"ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();"
-      +"if(window.hitelPdfTitleLink.viewerEnabled())link.click();"
+      +"link.click();"
       +"}catch(ex){}"
       +"},true);"
       +"return 'reading-title-listener-ready';"
