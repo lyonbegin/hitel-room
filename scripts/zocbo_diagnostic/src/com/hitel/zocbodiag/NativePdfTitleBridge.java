@@ -58,7 +58,8 @@ public final class NativePdfTitleBridge {
   private static void deliver(String id, String fallback) {
     Pending p = pending.remove(id);
     if (p == null) return;
-    JSONObject result = p.result == null ? outcome(id, p, false, fallback, "") : p.result;
+    JSONObject result = p.result == null ? outcome(id, p, false, fallback, "Activity ended before work confirmed") : p.result;
+    android.util.Log.i("hitel_zocbo_result", "RESULT " + id + " " + result.optString("status"));
     WebView web = p.web.get();
     if (web == null) return;
     web.post(() -> {
@@ -151,7 +152,7 @@ public final class NativePdfTitleBridge {
         }
         if (!(host instanceof Activity)) viewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         host.startActivity(viewer);
-        Diag.log("READING_TITLE_SELECTED", expaprNo);
+        android.util.Log.i("hitel_zocbo_result", "START " + id);
       } catch (Exception e) {
         deliver(id, "LAUNCH_ERROR");
         Diag.log("READING_TITLE_LAUNCH_ERROR", e.getClass().getSimpleName());

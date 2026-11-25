@@ -1,0 +1,1 @@
+package okhttp3; public interface Interceptor { Response intercept(Chain chain) throws java.io.IOException; interface Chain { Request request(); Response proceed(Request request) throws java.io.IOException; } }

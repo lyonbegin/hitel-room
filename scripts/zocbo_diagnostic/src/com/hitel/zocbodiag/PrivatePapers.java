@@ -246,8 +246,9 @@ public final class PrivatePapers {
     synchronized (job) { if (job.finished) return; job.finished = true; }
     main.post(() -> {
       Activity a = job.host.get();
-      if (a == null || a.isDestroyed() || a.isFinishing()) return;
+      if (a == null || a.isDestroyed()) return;
       NativePdfTitleBridge.recordResult(a, success, status, message);
+      if (a.isFinishing()) return;
       Toast.makeText(a, message, Toast.LENGTH_LONG).show();
       a.finish();
       a.overridePendingTransition(0, 0);
