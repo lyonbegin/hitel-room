@@ -1,0 +1,31 @@
+name: Gallery pinned input and source inventory
+on:
+  push:
+    branches: [analysis/google-ai-edge-gallery-1.0.23-20261125]
+    paths: ['.github/workflows/gallery-input-export-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Export public pinned inputs
+        run: |
+          set -euo pipefail
+          mkdir -p export
+          curl -fL --retry 3 https://github.com/google-ai-edge/gallery/releases/download/1.0.23/ai_edge_gallery_app.apk -o export/gallery.apk
+          echo 'a1bf8d261d19663a6bba551abd177fdd78bc8c434de25fdf9830e0ef4b7093d7  export/gallery.apk' | sha256sum -c -
+          git init source
+          git -C source remote add origin https://github.com/google-ai-edge/gallery.git
+          git -C source fetch --depth=1 origin 9cb31cf47c21b0ed76901ff589a52b509803edfa
+          git -C source checkout --detach FETCH_HEAD
+          test "$(git -C source rev-parse HEAD)" = 9cb31cf47c21b0ed76901ff589a52b509803edfa
+          git -C source archive --format=tar.gz -o "$PWD/export/gallery-source.tar.gz" HEAD
+          sha256sum export/* > export/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gallery-pinned-public-inputs
+          path: export/
+          retention-days: 14
