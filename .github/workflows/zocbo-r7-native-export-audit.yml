@@ -1,0 +1,57 @@
+name: R7 native document export audit
+on:
+  push:
+    branches: [research/zocbo-r7-native-export-audit-20261125]
+    paths: [.github/workflows/zocbo-r7-native-export-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - name: Download exact existing R7 and verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download zocbo-r7-usb-devtools-20261124 -R "$GITHUB_REPOSITORY" -p '*.apk' -D input
+          echo 'a6a442d57c86364256fc1dd4e1c5ce2dc95a458c7ef2fbe215395455cbfec151  input/Zocbo_4.3.11_R7_Chrome_DevTools_20261124.apk' | sha256sum -c -
+      - name: Decode existing APK using JADX
+        run: |
+          curl -fLsS --retry 2 --max-time 60 -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
+          test -d decoded/sources
+      - name: Identify original native document export and completed-download operations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('decoded/sources')
+          export=re.compile(r'ACTION_CREATE_DOCUMENT|ACTION_SEND(?:_MULTIPLE)?\b|android\.intent\.action\.(?:CREATE_DOCUMENT|SEND)|MediaStore\.(?:Downloads|Files)|getExternalFilesDir\(|DIRECTORY_DOWNLOADS|PrintDocumentAdapter|PrintManager|FileProvider\.getUriForFile|DownloadManager|savePdf|exportPdf|downloadPdf|savePDF|exportPDF|pdf_save|pdf_share|pdf_download|file_save|file_share|download__file|isDownload|isPrint',re.I)
+          def show(p, hits, radius=7, maximum=180):
+              lines=p.read_text(errors='replace').splitlines()
+              idx=set()
+              for i in hits:idx.update(range(max(0,i-radius),min(len(lines),i+radius+1)))
+              if not idx:return
+              print('=== '+str(p.relative_to(root))+' ===',flush=True)
+              for i in sorted(idx)[:maximum]:
+                  l=lines[i]
+                  if re.search(r'token|authorization|password|cookie|https?://',l,re.I):continue
+                  print(f'{i+1}: {l[:300]}',flush=True)
+          v=root/'com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java'
+          for p in root.rglob('*.java'):
+              if p.parts[-2] not in ('p079i3','p229y3','p203v3','activities','modules','p096k1') and 'eduzoneviewer' not in str(p):continue
+              s=p.read_text(errors='replace')
+              hits=[i for i,l in enumerate(s.splitlines()) if export.search(l)]
+              if hits:show(p,hits,4,80)
+          assert v.exists()
+          lines=v.read_text(errors='replace').splitlines()
+          show(v,[i for i,l in enumerate(lines) if 'public final void l0()' in l],45,100)
+          show(v,[i for i,l in enumerate(lines) if re.search(r'\bl0\(\)|\bsave\b|\bshare\b|\bprint\b|\bexport\b',l,re.I)],3,100)
+          for name in ('p096k1/c.java','p229y3/R0.java','p229y3/Q0.java'):
+              p=root/name
+              if p.exists():
+                  lines=p.read_text(errors='replace').splitlines()
+                  show(p,[i for i,l in enumerate(lines) if 'new FileOutputStream(' in l or 'newDocument(' in l or 'FileOutputStream' in l or 'File)' in l],8,120)
+          PY
