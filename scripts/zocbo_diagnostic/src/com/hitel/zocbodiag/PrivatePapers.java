@@ -34,25 +34,34 @@ import java.util.WeakHashMap;
 public final class PrivatePapers {
   static final String EXAM = "EXTRA_PDF_EX_PAPR_NO";
   static final String TYPE = "EXTRA_PDF_FILE_TYPE";
+  static final String REVALIDATE = "com.hitel.zocbodiag.REVALIDATE_SAVED_PAPER";
+  static final String VALIDATED_FILE = "com.hitel.zocbodiag.VALIDATED_FILE";
   private static final String PREFS = "hitel_offline_papers_v1";
   private static final Handler main = new Handler(Looper.getMainLooper());
   private static final Map<Object, Job> jobs = new WeakHashMap<>();
 
-  private static final Map<String, Long> permits = new LinkedHashMap<String, Long>(32, 0.75f, true) {
-    @Override protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) { return size() > 128; }
+  static final class ModelDecision {
+    final long until;
+    final boolean network;
+    ModelDecision(long until, boolean network) { this.until = until; this.network = network; }
+  }
+  private static final Map<String, ModelDecision> permits = new LinkedHashMap<String, ModelDecision>(32, 0.75f, true) {
+    @Override protected boolean removeEldestEntry(Map.Entry<String, ModelDecision> eldest) { return size() > 128; }
   };
 
   static final class Job {
     final WeakReference<Activity> host;
     final String owner, key, exam;
     volatile String title;
-    volatile long reusableUntil;
+    final boolean revalidation;
+    volatile ModelDecision model;
     volatile boolean finished;
     Job(Activity host, String owner, String key, String exam) {
       this.host = new WeakReference<>(host);
       this.owner = owner;
       this.key = key;
       this.exam = exam;
+      this.revalidation = host.getIntent().getBooleanExtra(REVALIDATE, false);
     }
   }
 
@@ -104,6 +113,7 @@ public final class PrivatePapers {
 
   public static boolean offlineLaunch(Activity host) {
     if (!offline(host)) return false;
+    if (host.getIntent().getBooleanExtra(REVALIDATE, false)) { host.finish(); return true; }
     Intent read = new Intent(host, NativePdfEntryActivity.class);
     String key = documentKey(host.getIntent());
     if (!key.isEmpty()) read.putExtra("paper", key);
@@ -113,7 +123,7 @@ public final class PrivatePapers {
   }
 
   public static void begin(Activity host, Object vm) {
-    if (Diag.showViewer(host)) return;
+    if (Diag.showViewer(host) && !host.getIntent().getBooleanExtra(REVALIDATE, false)) return;
     String owner = account();
     String key = documentKey(host.getIntent());
     Job job = new Job(host, owner, key, host.getIntent().getStringExtra(EXAM));
@@ -122,6 +132,7 @@ public final class PrivatePapers {
       finish(job, owner.isEmpty() ? "로그인한 계정을 확인할 수 없습니다." : "시험지 번호를 확인할 수 없습니다.");
       return;
     }
+    synchronized (permits) { permits.remove(owner + key); }
     host.setVisible(false);
     host.overridePendingTransition(0, 0);
     Toast.makeText(host, "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
@@ -133,6 +144,18 @@ public final class PrivatePapers {
 
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
   public static boolean saving(Object vm) { return job(vm) != null; }
+
+  private static boolean mayStore(Object response) throws Exception {
+    Object headers = Class.forName("okhttp3.Response").getMethod("headers").invoke(response);
+    String control = (String)headers.getClass().getMethod("get", String.class).invoke(headers, "Cache-Control");
+    return PaperFreshness.mayStore(control);
+  }
+
+  private static boolean hasNetworkResponse(Object response) {
+    try {
+      return Class.forName("okhttp3.Response").getMethod("networkResponse").invoke(response) != null;
+    } catch (Exception e) { return false; }
+  }
 
   private static long responseDeadline(Object response) throws Exception {
     Class<?> type = Class.forName("okhttp3.Response");
@@ -169,16 +192,20 @@ public final class PrivatePapers {
       int status = ((Number)Class.forName("okhttp3.Response").getMethod("code").invoke(response)).intValue();
       if (status >= 500) return;
       long until = 0;
-      if (status >= 200 && status < 300) {
+      boolean valid = false;
+      if (status >= 200 && status < 300 && mayStore(response)) {
         String modelText = (String)Class.forName("okhttp3.ResponseBody").getMethod("string").invoke(
             Class.forName("okhttp3.Response").getMethod("peekBody", long.class).invoke(response, 1024L * 1024L));
         String path = new JSONObject(modelText).optString("pdf_path", "");
-        if (!path.isEmpty() && !"null".equals(path)) until = responseDeadline(response);
+        if (!path.isEmpty() && !"null".equals(path)) {
+          valid = true;
+          until = responseDeadline(response);
+        }
       }
       String grantKey = ownerAtRequest + key;
       synchronized (permits) {
         permits.remove(grantKey);
-        if (until > System.currentTimeMillis()) permits.put(grantKey, until);
+        if (valid) permits.put(grantKey, new ModelDecision(until, hasNetworkResponse(response)));
       }
       Context context = Diag.applicationContext();
       if (context != null) {
@@ -198,8 +225,7 @@ public final class PrivatePapers {
     if (job == null) return false;
     job.title = title;
     synchronized (permits) {
-      Long until = permits.remove(job.owner + job.key);
-      job.reusableUntil = until == null ? 0 : until;
+      job.model = permits.remove(job.owner + job.key);
     }
     if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
       finish(job, "이 시험지에는 저장할 PDF가 없습니다.");
@@ -233,7 +259,12 @@ public final class PrivatePapers {
     Activity host = job.host.get();
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
-      long modelUntil = job.reusableUntil;
+      ModelDecision model = job.model;
+      if (model == null || !mayStore(response)) {
+        finish(job, "이 PDF는 앱에 저장할 수 없습니다.");
+        return;
+      }
+      long modelUntil = model.until;
       if (modelUntil == Long.MAX_VALUE) {
         // A user download explicitly offered as an attachment is a standalone
         // document. Inline reading without a reusable model has no offline grant.
@@ -244,14 +275,23 @@ public final class PrivatePapers {
         if (!"attachment".equalsIgnoreCase(kind)) modelUntil = 0;
       }
       long until = Math.min(modelUntil, responseDeadline(response));
-      if (until <= System.currentTimeMillis()) {
-        index(host, job.owner).edit().remove(job.key).commit();
-        finish(job, "이 PDF는 다시 열 때 서버 확인이 필요합니다.");
+      // Retention and permission to reuse are separate. An expired or
+      // no-cache response is retained but is never rendered without validation.
+      if (job.revalidation && (!model.network || !hasNetworkResponse(response))) {
+        finish(job, "서버 확인을 완료하지 못했습니다.");
         return;
       }
       if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
       store(host, job.owner, job.key, job.title, job.exam, original, until);
-      finish(job, "앱에 저장했습니다.");
+      if (job.revalidation) {
+        JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
+        Intent result = new Intent().putExtra("paper", job.key)
+            .putExtra(VALIDATED_FILE, saved.optString("file"));
+        main.post(() -> {
+          if (!host.isFinishing() && !host.isDestroyed()) host.setResult(Activity.RESULT_OK, result);
+        });
+        finish(job, "서버 확인을 완료했습니다.");
+      } else finish(job, "앱에 저장했습니다.");
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
       finish(job, "PDF를 저장하지 못했습니다.");
@@ -291,11 +331,41 @@ public final class PrivatePapers {
   }
 
   static File resolveFile(Context context, String owner, JSONObject row) {
-    if (row == null || owner.isEmpty() || row.optLong("until", 0) <= System.currentTimeMillis()) return null;
+    if (row == null || owner.isEmpty()) return null;
     String name = row.optString("file");
     if (!name.matches("[a-f0-9-]{36}\\.pdf")) return null;
     File file = new File(directory(context, owner), name);
     return file.isFile() ? file : null;
+  }
+
+  static boolean canRead(JSONObject row, String validatedFile) {
+    return row != null && (row.optLong("until", 0) > System.currentTimeMillis()
+        || (validatedFile != null && validatedFile.equals(row.optString("file"))));
+  }
+
+  static boolean startRevalidation(Activity host, String owner, JSONObject row, int requestCode) {
+    try {
+      if (!owner.equals(account()) || resolveFile(host, owner, row) == null || offline(host)) return false;
+      String exam = row.optString("exam");
+      if (!exam.matches("[1-9][0-9]{0,9}")) return false;
+      // Only recreate the existing normal question-viewer intent when it
+      // exactly matches the saved document. Other routes must use the original page.
+      java.lang.reflect.Method factory = Class.forName("A3.L").getDeclaredMethod("c",
+          Context.class, String.class, String.class, String.class, String.class,
+          String.class, String.class, String.class, String.class, boolean.class,
+          String.class, Integer.class, int.class);
+      Intent viewer = (Intent)factory.invoke(null, host, exam, "Q", "", "", "", "", "", "", false, "", null, 0);
+      if (viewer == null || viewer.getComponent() == null
+          || !host.getPackageName().equals(viewer.getComponent().getPackageName())
+          || !"com.eduzone.eduzoneviewer.ui.activities.ViewerActivity".equals(viewer.getComponent().getClassName())
+          || !documentKey(viewer).equals(row.optString("key"))) return false;
+      viewer.putExtra(REVALIDATE, true);
+      host.startActivityForResult(viewer, requestCode);
+      return true;
+    } catch (Exception e) {
+      Diag.log("PRIVATE_PAPER_REVALIDATION_ERROR", e.getClass().getSimpleName());
+      return false;
+    }
   }
 
   static List<JSONObject> list(Context context, String owner) {

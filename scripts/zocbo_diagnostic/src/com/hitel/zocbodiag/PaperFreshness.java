@@ -19,6 +19,16 @@ final class PaperFreshness {
   private static long seconds(String value) {
     return Math.min(Integer.MAX_VALUE, Long.parseLong(value.trim().replace("\"", ""))) * 1000L;
   }
+  // no-store prohibits retaining the response; no-cache permits retention
+  // but requires validation before a later use.
+  static boolean mayStore(String control) {
+    if (control == null) return true;
+    for (String directive : control.split(",")) {
+      if ("no-store".equalsIgnoreCase(directive.trim().split("=", 2)[0].trim())) return false;
+    }
+    return true;
+  }
+
   static long deadline(String control, String expires, String date, String age, long now) {
     long dateMs = httpDate(date);
     long elapsed = dateMs < 0 ? 0 : Math.max(0, now - dateMs);
