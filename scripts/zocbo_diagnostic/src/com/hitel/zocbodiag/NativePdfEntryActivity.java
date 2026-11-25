@@ -107,7 +107,8 @@ public final class NativePdfEntryActivity extends Activity {
       boolean missing = selected != null;
       selected = null;
       body.addView(label("저장한 시험지", 22));
-      body.addView(label("앱 내부 저장 폴더", 15));
+      File folder = PrivatePapers.directory(this, owner);
+      body.addView(label(folder == null ? "앱 저장 폴더를 사용할 수 없습니다." : folder.getAbsolutePath(), 13));
       body.addView(button("다른 PDF 선택", this::openPicker));
       if (missing) body.addView(label("선택한 시험지의 저장본을 열 수 없습니다.", 15));
       if (rows.isEmpty()) {
