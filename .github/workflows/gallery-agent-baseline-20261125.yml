@@ -1,0 +1,115 @@
+name: Gallery 1.0.23 source Agent Skills baseline
+on:
+  push:
+    branches: [analysis/google-ai-edge-gallery-1.0.23-20261125]
+    paths: ['.github/workflows/gallery-agent-baseline-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Retrieve previously compiled pinned source APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p input dist evidence
+          gh run download 45548395396 --repo "$GH_REPO" --name gallery-1.0.23-source-built-apk --dir input
+          gh run download 45548395396 --repo "$GH_REPO" --name gallery-1.0.23-source-build-evidence --dir evidence/source-build
+          find input -name '*.apk' -print
+          apk=$(find input -name '*.apk' | head -1)
+          test -n "$apk"
+          cp "$apk" dist/HITEL_Gallery_Agent_1.0.23.apk
+          bt=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$bt/apksigner" verify --verbose --print-certs dist/*.apk | tee evidence/signature.txt
+          "$bt/aapt2" dump badging dist/*.apk | tee evidence/badging.txt
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          curl -fsSL https://raw.githubusercontent.com/google-ai-edge/gallery/9cb31cf47c21b0ed76901ff589a52b509803edfa/LICENSE -o dist/LICENSE
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Prepare UI smoke
+        run: |
+          cat > smoke.sh <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          pkg=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" evidence/badging.txt | head -1)
+          test -n "$pkg"
+          adb install dist/HITEL_Gallery_Agent_1.0.23.apk | tee evidence/install.txt
+          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
+          sleep 12
+          adb shell pidof "$pkg" | tee evidence/pid.txt
+          test -s evidence/pid.txt
+          capture() {
+            adb exec-out screencap -p > "evidence/$1.png"
+            adb shell uiautomator dump /sdcard/gallery.xml >/dev/null
+            adb pull /sdcard/gallery.xml "evidence/$1.xml" >/dev/null
+          }
+          tap_label() {
+            local f="$1" label="$2"
+            local xy
+            xy=$(python3 - "$f" "$label" <<'PY'
+          import sys,xml.etree.ElementTree as E,re
+          for n in E.parse(sys.argv[1]).iter('node'):
+              if any(sys.argv[2].lower() in n.get(a,'').lower() for a in ('text','content-desc')):
+                  x,y,X,Y=map(int,re.findall(r'\d+',n.get('bounds','')))
+                  print((x+X)//2,(y+Y)//2)
+                  break
+          PY
+          )
+            test -n "$xy" || return 1
+            adb shell input tap $xy
+            sleep 5
+          }
+          capture initial
+          if tap_label evidence/initial.xml 'Accept & continue'; then capture home; else cp evidence/initial.xml evidence/home.xml; fi
+          for i in 1 2 3 4; do
+            if tap_label evidence/home.xml 'Agent Skills'; then
+              capture agent
+              echo AGENT_ENTRY_TAPPED | tee evidence/agent-result.txt
+              break
+            fi
+            adb shell input swipe 540 1700 540 450 400
+            sleep 2
+            capture home
+          done
+          test -f evidence/agent-result.txt || echo AGENT_ENTRY_NOT_LOCATED > evidence/agent-result.txt
+          adb logcat -b crash -d > evidence/crash.txt
+          adb logcat -d -v threadtime > evidence/logcat.txt
+          if grep -E 'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError' evidence/crash.txt; then exit 1; fi
+          echo INSTALL_LAUNCH_PASS_MODEL_INFERENCE_NOT_TESTED > evidence/result.txt
+          SH
+          chmod +x smoke.sh
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash smoke.sh
+      - name: Publish tested source baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create gallery-agent-source-1.0.23-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "Gallery Agent Skills 1.0.23 source baseline" --notes "Unmodified Google AI Edge Gallery source at 9cb31cf47c21b0ed76901ff589a52b509803edfa, previously compiled in run 45548395396. Agent Skills built in. Emulator install/launch checked. Local model inference not verified. Not a Mika integration."
+          mkdir verify
+          gh release download gallery-agent-source-1.0.23-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-agent-source-test-evidence
+          path: evidence/
+          retention-days: 14
