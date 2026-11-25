@@ -1,0 +1,38 @@
+name: Export Android analysis and packaging tools
+on:
+  push:
+    branches: [analysis/pickle-smali-roundtrip-20261125]
+    paths: ['.github/workflows/pickle-export-android-tools.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Package Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          echo "SDK $sdk"
+          ls "$sdk/build-tools"
+          bt=$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -x "$bt/apksigner"
+          test -x "$bt/zipalign"
+          cp -a "$bt/apksigner" "$bt/zipalign" "$bt/aapt" "$bt/aapt2" "$bt/lib" tools/
+          cp "$sdk/platform-tools/adb" tools/
+          curl -fL --retry 2 --max-time 90 https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar -o tools/apktool.jar
+          curl -fL --retry 2 --max-time 90 https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -o tools/jadx.zip
+          cd tools
+          sha256sum apktool.jar jadx.zip apksigner zipalign aapt aapt2 adb lib/apksigner.jar > SHA256SUMS
+          java -jar apktool.jar --version
+          ./apksigner version
+          ./adb version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-analysis-packaging-tools
+          path: tools/
+          retention-days: 7
