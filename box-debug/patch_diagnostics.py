@@ -146,3 +146,24 @@ edit(app/"ui/whisper/WhisperTaskModule.kt",[
 ('                name = "Whisper Tiny",','                name = "Whisper Tiny (Multilingual / 한국어)",'),
 ('                name = "Whisper Base",','                name = "Whisper Base (Multilingual / 한국어)",')])
 print("TOTAL_PATCH_COUNT",count)
+
+
+# V2: encode each dynamic route segment; retain model names and storage paths.
+edit(app/"ui/navigation/GalleryNavGraph.kt",[
+('navController.navigate("$ROUTE_MODEL/${BuiltInTaskId.LLM_CHAT}/${firstModel.name}?autoResume=false")',
+ 'navController.navigate("$ROUTE_MODEL/${BuiltInTaskId.LLM_CHAT}/${android.net.Uri.encode(firstModel.name)}?autoResume=false")'),
+('navController.navigate("$ROUTE_MODEL/${it.id}/${model.name}")',
+ '''val route = "$ROUTE_MODEL/${android.net.Uri.encode(it.id)}/${android.net.Uri.encode(model.name)}"
+            Log.i("HITEL_BOX", "MODEL_NAV_BEGIN route=$route")
+            navController.navigate(route)'''),
+('navController.navigate("$ROUTE_MODEL/${task.id}/${model.name}")',
+ 'navController.navigate("$ROUTE_MODEL/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(model.name)}")'),
+('navController.navigate("$ROUTE_BENCHMARK/${model.name}")',
+ 'navController.navigate("$ROUTE_BENCHMARK/${android.net.Uri.encode(model.name)}")'),
+('navController.navigate("$ROUTE_MODEL/${taskId}/${model.name}")',
+ 'navController.navigate("$ROUTE_MODEL/${android.net.Uri.encode(taskId)}/${android.net.Uri.encode(model.name)}")'),
+('      val conversationId = backStackEntry.arguments?.getString("conversationId")',
+ '''      Log.i("HITEL_BOX", "MODEL_NAV_DESTINATION task=$taskId model=$modelName")
+      val conversationId = backStackEntry.arguments?.getString("conversationId")''')
+])
+print("V2_PATCH_COUNT", count)
