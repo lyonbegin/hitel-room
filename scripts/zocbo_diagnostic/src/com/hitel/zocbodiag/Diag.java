@@ -362,6 +362,38 @@ public final class Diag implements View.OnClickListener {
     b.append(live.length()>480000?live.substring(live.length()-480000):live.toString());
     return b.toString();
   }
+  // Display preference only. Original PDF reception, rendering engine,
+  // cache location/lifetime, entitlement and cleanup are left untouched.
+  private static final String DISPLAY_PREFS = "hitel_viewer_display";
+  private static final String DISPLAY_KEY = "show_viewer";
+  private static final String DISPLAY_COVER = "hitel_viewer_display_cover";
+  private static boolean showViewer(Activity a) {
+    return a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
+      .getBoolean(DISPLAY_KEY,true);
+  }
+  private static void applyViewerDisplay(Activity a,FrameLayout root,View panel) {
+    if(!"com.eduzone.eduzoneviewer.ui.activities.ViewerActivity".equals(a.getClass().getName()))return;
+    View existing=root.findViewWithTag(DISPLAY_COVER);
+    if(showViewer(a)) {
+      if(existing!=null)root.removeView(existing);
+      return;
+    }
+    if(existing==null) {
+      FrameLayout cover=new FrameLayout(a);
+      cover.setTag(DISPLAY_COVER);
+      cover.setBackgroundColor(Color.rgb(248,249,250));
+      cover.setClickable(true);
+      cover.setFocusable(true);
+      TextView message=new TextView(a);
+      message.setText("뷰어 표시 OFF\n원본 내부 처리 및 캐시 정책 유지 중");
+      message.setTextColor(Color.rgb(30,40,54));
+      message.setTextSize(16);
+      message.setGravity(Gravity.CENTER);
+      cover.addView(message,new FrameLayout.LayoutParams(-1,-1));
+      root.addView(cover,new FrameLayout.LayoutParams(-1,-1));
+    }
+    panel.bringToFront();
+  }
   public static void install(Activity a) {
     enableWebViewInspector();
     synchronized(Diag.class) {
@@ -392,7 +424,21 @@ public final class Diag implements View.OnClickListener {
     try {
       FrameLayout root=a.findViewById(android.R.id.content);
       if(root==null) {log("DIAG_UI","activity has no content root");return;}
-      if(root.findViewWithTag(TAG)!=null)return;
+      if(root.findViewWithTag(TAG)!=null){
+        View barView=root.findViewWithTag(TAG);
+        if(barView instanceof LinearLayout){
+          LinearLayout existingBar=(LinearLayout)barView;
+          for(int i=0;i<existingBar.getChildCount();i++){
+            View item=existingBar.getChildAt(i);
+            if(item instanceof android.widget.Switch){
+              ((android.widget.Switch)item).setChecked(showViewer(a));
+            }
+          }
+          if(existingBar.getParent() instanceof View)
+            applyViewerDisplay(a,root,(View)existingBar.getParent());
+        }
+        return;
+      }
       LinearLayout bar=new LinearLayout(a);
       bar.setTag(TAG);
       bar.setOrientation(LinearLayout.HORIZONTAL);
@@ -417,7 +463,22 @@ public final class Diag implements View.OnClickListener {
         ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT,
         Gravity.TOP|Gravity.RIGHT);
       lp.topMargin=dp(a,38);
+      android.widget.Switch viewerSwitch=new android.widget.Switch(a);
+      viewerSwitch.setText("뷰어 표시");
+      viewerSwitch.setTextColor(Color.WHITE);
+      viewerSwitch.setTextSize(12);
+      viewerSwitch.setPadding(dp(a,8),0,dp(a,8),0);
+      viewerSwitch.setChecked(showViewer(a));
+      viewerSwitch.setContentDescription("뷰어 표시 ON/OFF");
+      bar.addView(viewerSwitch,new LinearLayout.LayoutParams(-2,dp(a,38)));
       root.addView(hs,lp);
+      viewerSwitch.setOnCheckedChangeListener((button,checked)->{
+        a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
+          .edit().putBoolean(DISPLAY_KEY,checked).apply();
+        applyViewerDisplay(a,root,hs);
+        log("VIEWER_DISPLAY_TOGGLE",checked?"ON":"OFF");
+      });
+      applyViewerDisplay(a,root,hs);
       log("DIAG_PANEL","installed Activity="+a.getClass().getName()+" Android="+Build.VERSION.SDK_INT);
       cookieState();
     } catch(Throwable t) {android.util.Log.w(TAG,"UI init failed: "+t.getClass().getSimpleName());}
