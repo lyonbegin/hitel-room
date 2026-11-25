@@ -300,6 +300,7 @@ public final class Diag implements View.OnClickListener {
     } catch(Exception e) {log("COOKIE_SNAPSHOT","unavailable:"+e.getClass().getSimpleName());}
   }
   public static void page(WebView w,String currentUrl) {
+    questionPage(w,currentUrl,false);
     log("ON_PAGE_STARTED",sanitizeUrl(currentUrl));
     try {
       String ua=w.getSettings().getUserAgentString();
@@ -330,7 +331,72 @@ public final class Diag implements View.OnClickListener {
       log("READING_TITLE_BRIDGE_ERROR",t.getClass().getName());
     }
   }
+  // Read-only runtime tracing: no network requests, no content extraction, no credentials.
+  private static String questionValue(Object value) {
+    if (value == null) return "null";
+    if (!(value instanceof String)) return "type="+value.getClass().getSimpleName();
+    String v=(String)value;
+    String kind="other";
+    try {
+      Uri u=Uri.parse(v);
+      String scheme=u.getScheme();
+      if ("https".equalsIgnoreCase(scheme)||"http".equalsIgnoreCase(scheme)) {
+        String p=u.getPath();
+        String ext=p==null?"":p.toLowerCase(Locale.US);
+        kind=(ext.endsWith(".png")||ext.endsWith(".jpg")||ext.endsWith(".jpeg")||ext.endsWith(".webp"))
+            ?"image-file-style-url":(ext.endsWith(".asp")||ext.endsWith(".aspx")||ext.endsWith(".php"))?"endpoint-style-url":"web-url";
+        kind+=";scheme="+scheme;
+      } else if (v.isEmpty()) kind="empty";
+    }catch(Throwable ignored){}
+    return "type=String;kind="+kind+";length="+v.length()+";fingerprint="+hash(v);
+  }
+  public static void questionModel(Object model) {
+    try {
+      Object list=PaperFolders.field(model,"qst_list");
+      if(!(list instanceof java.util.List)){log("QUESTION_MODEL_STAGE","list absent");return;}
+      java.util.List<?> rows=(java.util.List<?>)list;
+      log("QUESTION_MODEL_STAGE","count="+rows.size());
+      int i=0;
+      for(Object row:rows) {
+        if(++i>500)break;
+        log("QUESTION_MODEL_ROW","order="+i+" image="+questionValue(PaperFolders.field(row,"qst_img_path"))
+            +" viewer="+questionValue(PaperFolders.field(row,"qst_viewer_path")));
+      }
+    }catch(Throwable t){log("QUESTION_MODEL_STAGE_ERROR",t.getClass().getSimpleName());}
+  }
+  public static void questionGlide(String value) {
+    try {log("QUESTION_GLIDE_INPUT",questionValue(value));}catch(Throwable ignored){}
+  }
+  public static void questionAdapter(java.util.List<?> values) {
+    try {
+      log("QUESTION_BODY_ADAPTER","count="+(values==null?-1:values.size()));
+      if(values!=null)for(int i=0;i<Math.min(values.size(),500);i++)
+        log("QUESTION_BODY_ADAPTER_ROW","order="+(i+1)+" "+questionValue(values.get(i)));
+    }catch(Throwable ignored){}
+  }
+  private static final java.util.Set<String> bodyUrls=new java.util.HashSet<>();
+  private static final java.util.Set<WebView> bodyViews=java.util.Collections.newSetFromMap(new java.util.WeakHashMap<WebView,Boolean>());
+  public static synchronized void questionBodyNavigation(String value) {
+    try {
+      if(bodyUrls.size()>2000)bodyUrls.clear();
+      if(value!=null)bodyUrls.add(hash(value));
+      log("QUESTION_BODY_NAVIGATION",questionValue(value));
+    }catch(Throwable ignored){}
+  }
+  private static synchronized void questionPage(WebView w,String value,boolean finished) {
+    try {
+      if(w==null)return;
+      boolean matched=value!=null&&bodyUrls.contains(hash(value));
+      if(matched)bodyViews.add(w);
+      if(!bodyViews.contains(w))return;
+      log(finished?"QUESTION_WEBVIEW_FINISHED":"QUESTION_WEBVIEW_STARTED",questionValue(value));
+      if(finished)w.evaluateJavascript("(function(){var a=document.images,n=0;for(var i=0;i<a.length;i++){if(a[i].complete&&a[i].naturalWidth>0)n++;}return JSON.stringify({ready:document.readyState,mime:document.contentType,images:a.length,loadedImages:n,canvas:document.querySelectorAll('canvas').length,svg:document.querySelectorAll('svg').length,frames:document.querySelectorAll('iframe').length});})()",result->{
+        try {log("QUESTION_DOM_SUMMARY",result==null?"null":result.substring(0,Math.min(350,result.length())));}catch(Throwable ignored){}
+      });
+    }catch(Throwable t){log("QUESTION_WEBVIEW_STAGE_ERROR",t.getClass().getSimpleName());}
+  }
   public static void pageFinished(WebView w,String currentUrl) {
+    questionPage(w,currentUrl,true);
     log("ON_PAGE_FINISHED",sanitizeUrl(currentUrl));
     cookieState();
     if(NativePdfTitleBridge.isFreeReadingPage(currentUrl)) {
