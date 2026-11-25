@@ -33,6 +33,9 @@ jobs:
           python3 box-debug/patch_diagnostics.py upstream/Android/src | tee evidence/patch.txt
           sed -i 's/^android.newDsl=true$/android.newDsl=false/' upstream/Android/src/gradle.properties
           grep -Fx 'android.newDsl=false' upstream/Android/src/gradle.properties
+          for f in upstream/Android/src/{app,smollm,stablediffusion,whisper}/build.gradle.kts; do
+            sed -i '1i @file:Suppress("DEPRECATION", "DEPRECATION_ERROR")' "$f"
+          done
           git -C upstream diff --check
           git -C upstream diff > evidence/diagnostic.patch
       - name: Install SDK and native toolchain
