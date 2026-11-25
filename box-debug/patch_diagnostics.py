@@ -116,3 +116,33 @@ edit(app/"ui/modelmanager/ModelManagerViewModel.kt",[
 ('      val onDoneFn: (error: String) -> Unit = { error ->','''      val onDoneFn: (error: String) -> Unit = { error ->
         Log.i("HITEL_BOX", "MODEL_INIT_CALLBACK model=${model.name} hasInstance=${model.instance != null} errorPresent=${error.isNotEmpty()}")''')])
 print("PATCH_COUNT",count)
+
+
+# Korean defaults; preserve English-only models and offer a visible language selector.
+edit(app/"ui/common/textandvoiceinput/HoldToDictateViewModel.kt",[
+('putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")','putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")')])
+edit(root/"whisper/src/main/java/com/google/ai/edge/gallery/whisper/WhisperEngine.kt",[
+('language: String = "en"','language: String = "ko"')])
+edit(app/"ui/whisper/WhisperViewModel.kt",[
+('fun stopRecordingAndTranscribe(model: Model) {','fun stopRecordingAndTranscribe(model: Model, language: String = "ko") {'),
+('                engine.transcribe(samples)','''                if (model.downloadFileName.endsWith(".en.bin") && language != "en") {
+                    android.util.Log.e("HITEL_BOX", "WHISPER_LANGUAGE_MODEL_MISMATCH language=$language")
+                    _uiState.value = _uiState.value.copy(isTranscribing = false, errorMessage = "한국어는 다국어 Whisper 모델을 선택하십시오.")
+                    return@launch
+                }
+                engine.transcribe(samples, language = language)''')])
+edit(app/"ui/whisper/WhisperScreen.kt",[
+('    val clipboard = LocalClipboardManager.current','''    val clipboard = LocalClipboardManager.current
+    var language by remember { mutableStateOf("ko") }'''),
+('        // Record button','''        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { language = "ko" }, enabled = !uiState.isRecording && !uiState.isTranscribing && language != "ko") { Text("한국어") }
+            Button(onClick = { language = "en" }, enabled = !uiState.isRecording && !uiState.isTranscribing && language != "en") { Text("English") }
+            Button(onClick = { language = "auto" }, enabled = !uiState.isRecording && !uiState.isTranscribing && language != "auto") { Text("Auto") }
+        }
+        Text("STT language: $language")
+        // Record button'''),
+('viewModel.stopRecordingAndTranscribe(selectedModel)','viewModel.stopRecordingAndTranscribe(selectedModel, language)')])
+edit(app/"ui/whisper/WhisperTaskModule.kt",[
+('                name = "Whisper Tiny",','                name = "Whisper Tiny (Multilingual / 한국어)",'),
+('                name = "Whisper Base",','                name = "Whisper Base (Multilingual / 한국어)",')])
+print("TOTAL_PATCH_COUNT",count)
