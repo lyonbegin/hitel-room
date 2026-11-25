@@ -231,7 +231,7 @@ public final class PrivatePapers {
       new Thread(() -> {
         try {
           int count = PaperFolders.saveImages(host, job.title, job.exam, job.questionPaths, job.owner);
-          finish(job, "문제 이미지 " + count + "/" + job.questionPaths.size() + "개 저장, 시험지 PDF 없음");
+          finish(job, "문제 이미지 실제 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
         } catch (Exception e) { finish(job, "문제 폴더 저장 실패"); }
       }, "question-folder-save").start();
     }
@@ -297,8 +297,14 @@ public final class PrivatePapers {
         });
         finish(job, "서버 확인을 완료했습니다.");
       } else {
-        int count = PaperFolders.saveImages(host, job.title, job.exam, job.questionPaths, job.owner);
-        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 " + count + "/" + job.questionPaths.size() + "개 저장");
+        JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
+        File pdf = resolveFile(host, job.owner, saved);
+        if (pdf == null || pdf.getParentFile() == null || pdf.getParentFile().getParentFile() == null)
+          throw new IOException("saved PDF path unavailable");
+        File folder = pdf.getParentFile().getParentFile();
+        List<String> paths = new ArrayList<>(job.questionPaths);
+        int count = PaperFolders.saveImagesInFolder(host, folder, paths, job.owner);
+        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 실제 저장 " + count + "개 (전체 " + paths.size() + "개)");
       }
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
