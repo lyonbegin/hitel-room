@@ -167,3 +167,67 @@ edit(app/"ui/navigation/GalleryNavGraph.kt",[
       val conversationId = backStackEntry.arguments?.getString("conversationId")''')
 ])
 print("V2_PATCH_COUNT", count)
+
+
+# Share the actual route builder with an Android Navigation regression test.
+edit(app/"ui/navigation/GalleryNavGraph.kt",[
+('private const val ROUTE_MODEL = "route_model"',
+ '''private const val ROUTE_MODEL = "route_model"
+
+fun modelNavigationRoute(taskId: String, modelName: String): String =
+  "$ROUTE_MODEL/${android.net.Uri.encode(taskId)}/${android.net.Uri.encode(modelName)}"'''),
+('val route = "$ROUTE_MODEL/${android.net.Uri.encode(it.id)}/${android.net.Uri.encode(model.name)}"',
+ 'val route = modelNavigationRoute(it.id, model.name)'),
+('navController.navigate("$ROUTE_MODEL/${BuiltInTaskId.LLM_CHAT}/${android.net.Uri.encode(firstModel.name)}?autoResume=false")',
+ 'navController.navigate(modelNavigationRoute(BuiltInTaskId.LLM_CHAT, firstModel.name) + "?autoResume=false")'),
+('navController.navigate("$ROUTE_MODEL/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(model.name)}")',
+ 'navController.navigate(modelNavigationRoute(task.id, model.name))'),
+('navController.navigate("$ROUTE_MODEL/${android.net.Uri.encode(taskId)}/${android.net.Uri.encode(model.name)}")',
+ 'navController.navigate(modelNavigationRoute(taskId, model.name))')
+])
+test=root/"app/src/androidTest/java/com/google/ai/edge/gallery/ui/navigation/WhisperRouteTest.kt"
+test.parent.mkdir(parents=True, exist_ok=True)
+test.write_text('''package com.google.ai.edge.gallery.ui.navigation
+
+import androidx.compose.material3.Text
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+
+class WhisperRouteTest {
+  @get:Rule val compose = createComposeRule()
+
+  @Test fun koreanWhisperModelNameSurvivesNavigation() {
+    lateinit var nav: NavHostController
+    compose.setContent {
+      nav = rememberNavController()
+      NavHost(navController = nav, startDestination = "homepage") {
+        composable("homepage") { Text("home") }
+        composable(
+          route = "route_model/{taskId}/{modelName}?conversationId={conversationId}&autoResume={autoResume}",
+          arguments = listOf(
+            navArgument("taskId") { type = NavType.StringType },
+            navArgument("modelName") { type = NavType.StringType },
+            navArgument("conversationId") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("autoResume") { type = NavType.BoolType; defaultValue = true }
+          )
+        ) { Text("model") }
+      }
+    }
+    val name = "Whisper Base (Multilingual / 한국어)"
+    compose.runOnIdle { nav.navigate(modelNavigationRoute("whisper", name)) }
+    compose.runOnIdle {
+      assertEquals("whisper", nav.currentBackStackEntry?.arguments?.getString("taskId"))
+      assertEquals(name, nav.currentBackStackEntry?.arguments?.getString("modelName"))
+    }
+  }
+}
+''')
+print("V2_REGRESSION_TEST_CREATED",test)
