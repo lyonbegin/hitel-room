@@ -22,25 +22,19 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Trace model assignment and pre-display functions
+      - name: Inspect main question viewer adapter
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
           report=[]
-          targets={'p203v3/P.java':r'qstImgPath|qst_img_path|getQstImgPath|getQstViewerPath','p079i3/G0.java':r'.','p079i3/Q0.java':r'f29588v0|i18 =','p079i3/z0.java':r'f29544W|f29538S|f29540T|f29588v0|getQstList|getQstImgPath','com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java':r'f29538S|f29540T|new p089j3.w|Glide|questionRecyclerView|loadUrl','p089j3/w.java':r'urls|f20299b|Glide|onBindViewHolder'}
-          for rel,pat in targets.items():
+          for rel in ['p089j3/n.java','p089j3/m.java','p089j3/l.java','p089j3/k.java']:
               p=root/rel
+              if not p.exists():continue
               report.append('=== '+rel+' ===')
-              if not p.exists():
-                  report.append('MISSING')
-                  continue
               lines=p.read_text(errors='replace').splitlines()
-              hits=[i for i,l in enumerate(lines) if re.search(pat,l)]
-              idx=sorted({j for i in hits for j in range(max(0,i-5),min(len(lines),i+6))})
-              for i in idx[:350]:
-                  l=lines[i]
+              for i,l in enumerate(lines):
                   if re.search(r'authorization|bearertoken|access.?token|password|cookie|api.?key',l,re.I):continue
                   l=re.sub(r'https?://[^"\s]+','[URL omitted]',l)
                   report.append(f'{i+1}: {l[:350]}')
@@ -51,7 +45,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-pre-display-audit
+          name: r7-question-body-viewer-audit
           path: |
             callsite-audit.txt
             jadx.log
