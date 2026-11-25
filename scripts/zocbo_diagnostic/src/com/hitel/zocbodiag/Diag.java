@@ -324,6 +324,7 @@ public final class Diag implements View.OnClickListener {
     try {
       if(w == null)return;
       w.addJavascriptInterface(new NativePdfTitleBridge(w),"hitelPdfTitleLink");
+      OfficialPdfDownloads.install(w);
       log("READING_TITLE_BRIDGE_REGISTERED","WebView bridge attached before load");
     } catch(Throwable t) {
       log("READING_TITLE_BRIDGE_ERROR",t.getClass().getName());
