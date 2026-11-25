@@ -416,6 +416,14 @@ public final class Diag implements View.OnClickListener {
       bar.setTag(TAG);
       bar.setOrientation(LinearLayout.HORIZONTAL);
       bar.setBackgroundColor(Color.argb(215,17,30,45));
+      Button readFile = new Button(a);
+      readFile.setText("파일 읽기");
+      readFile.setTextSize(12);
+      readFile.setMinWidth(0);
+      readFile.setMinimumWidth(0);
+      readFile.setPadding(dp(a,6),0,dp(a,6),0);
+      readFile.setOnClickListener(v -> a.startActivity(new Intent(a, NativePdfEntryActivity.class)));
+      bar.addView(readFile, new LinearLayout.LayoutParams(-2,dp(a,38)));
       Diag listener=new Diag(a);
       for(String label:new String[]{"로그","복사","저장","지우기"}) {
         Button btn=new Button(a);
@@ -443,13 +451,7 @@ public final class Diag implements View.OnClickListener {
       viewerSwitch.setPadding(dp(a,8),0,dp(a,8),0);
       viewerSwitch.setChecked(showViewer(a));
       viewerSwitch.setContentDescription("ON은 바로 열기, OFF는 앱에 저장");
-      bar.addView(viewerSwitch,new LinearLayout.LayoutParams(-2,dp(a,38)));
-      {
-        Button saved = new Button(a);
-        saved.setText("저장한 시험지");
-        saved.setOnClickListener(v -> a.startActivity(new Intent(a, NativePdfEntryActivity.class)));
-        bar.addView(saved, new LinearLayout.LayoutParams(-2,dp(a,38)));
-      }
+      bar.addView(viewerSwitch,1,new LinearLayout.LayoutParams(-2,dp(a,38)));
       root.addView(hs,lp);
       viewerSwitch.setOnCheckedChangeListener((button,checked)->{
         a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
