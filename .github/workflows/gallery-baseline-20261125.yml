@@ -1,0 +1,190 @@
+name: Gallery 1.0.23 baseline and DEX roundtrip
+on:
+  push:
+    branches: [analysis/google-ai-edge-gallery-1.0.23-20261125]
+    paths: ['.github/workflows/gallery-baseline-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  SOURCE_SHA: 9cb31cf47c21b0ed76901ff589a52b509803edfa
+  APK_SHA: a1bf8d261d19663a6bba551abd177fdd78bc8c434de25fdf9830e0ef4b7093d7
+jobs:
+  apk-roundtrip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch pinned public release and tools
+        run: |
+          set -euo pipefail
+          mkdir -p gallery-work/{original,tools,dex,smali,rebuilt,redisassembled,evidence,native}
+          cd gallery-work
+          curl -fL --retry 3 https://github.com/google-ai-edge/gallery/releases/download/1.0.23/ai_edge_gallery_app.apk -o original/gallery.apk
+          echo "$APK_SHA  original/gallery.apk" | sha256sum -c -
+          curl -fL --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tools/baksmali.jar
+          curl -fL --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o tools/smali.jar
+          echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tools/baksmali.jar' | sha256sum -c -
+          echo '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  tools/smali.jar' | sha256sum -c -
+          java -jar tools/baksmali.jar --version
+          java -jar tools/smali.jar --version
+      - name: Inventory original APK and native libraries
+        run: |
+          set -euo pipefail
+          cd gallery-work
+          python3 - <<'PY'
+          import zipfile,pathlib,hashlib,json,re,struct
+          with zipfile.ZipFile('original/gallery.apk') as z:
+              assert z.testzip() is None
+              items=[]
+              for i in z.infolist():
+                  if i.is_dir(): continue
+                  b=z.read(i)
+                  items.append(dict(path=i.filename,size=i.file_size,crc32=f'{i.CRC:08x}',compression=i.compress_type,sha256=hashlib.sha256(b).hexdigest()))
+                  if re.fullmatch(r'classes\d*\.dex',i.filename): pathlib.Path('dex',i.filename).write_bytes(b)
+                  if re.fullmatch(r'lib/[^/]+/[^/]+\.so',i.filename):
+                      p=pathlib.Path('native',i.filename);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b)
+              pathlib.Path('evidence/apk-inventory.json').write_text(json.dumps(items,indent=2))
+              print('APK_INVENTORY',len(items),'DEX',len(list(pathlib.Path('dex').glob('*.dex'))))
+          PY
+          bt=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$bt/aapt2" dump badging original/gallery.apk > evidence/badging.txt
+          "$bt/apksigner" verify --min-sdk-version 31 --verbose --print-certs original/gallery.apk > evidence/original-signature.txt
+          "$bt/zipalign" -c -P 16 -v 4 original/gallery.apk > evidence/original-alignment.txt || echo ORIGINAL_ALIGNMENT_CHECK_FAILED
+          mkdir -p evidence/elf
+          while IFS= read -r -d '' so; do
+            n=$(echo "$so" | tr / _)
+            readelf -h -l -S -d -s -r "$so" > "evidence/elf/$n.txt"
+          done < <(find native -name '*.so' -print0)
+      - name: Official full Smali disassemble assemble redisassemble
+        run: |
+          set -euo pipefail
+          cd gallery-work
+          for f in dex/*.dex; do
+            d=$(basename "$f" .dex)
+            magic=$(python3 -c 'import sys;print(open(sys.argv[1],"rb").read(8)[4:7].decode())' "$f")
+            case "$magic" in 035) api=23;; 037) api=25;; 038) api=27;; 039) api=29;; 040) api=34;; *) echo "UNSUPPORTED_DEX_MAGIC $magic"; exit 31;; esac
+            echo "$d magic=$magic api=$api" | tee -a evidence/dex-versions.txt
+            java -Xmx3g -jar tools/baksmali.jar disassemble --api "$api" --jobs 4 -o "smali/$d" "$f" > "evidence/$d-disassemble.log" 2>&1
+            java -Xmx3g -jar tools/smali.jar assemble --api "$api" --jobs 4 -o "rebuilt/$d.dex" "smali/$d" > "evidence/$d-assemble.log" 2>&1
+            java -Xmx3g -jar tools/baksmali.jar disassemble --api "$api" --jobs 4 -o "redisassembled/$d" "rebuilt/$d.dex" > "evidence/$d-redisassemble.log" 2>&1
+            diff -ru "smali/$d" "redisassembled/$d" > "evidence/$d.diff" || test "$?" -eq 1
+          done
+          python3 - <<'PY'
+          import pathlib,struct,hashlib,zlib,json,re,sqlite3
+          P=pathlib.Path
+          def dexinfo(p):
+              b=p.read_bytes(); get=lambda i:struct.unpack_from('<I',b,i)[0]
+              assert b[12:32]==hashlib.sha1(b[32:]).digest() and get(8)==zlib.adler32(b[12:]) & 0xffffffff
+              return dict(size=len(b),sha256=hashlib.sha256(b).hexdigest(),class_defs=get(96),method_ids=get(88),field_ids=get(80),magic=b[4:7].decode())
+          db=sqlite3.connect('evidence/function-index.sqlite')
+          db.executescript('CREATE TABLE classes(dex TEXT,path TEXT,descriptor TEXT);CREATE TABLE methods(dex TEXT,path TEXT,line INTEGER,signature TEXT,registers TEXT);CREATE TABLE fields(dex TEXT,path TEXT,line INTEGER,signature TEXT);CREATE TABLE refs(dex TEXT,path TEXT,method TEXT,line INTEGER,opcode TEXT,target TEXT);')
+          reports=[]
+          for p in sorted(P('dex').glob('*.dex')):
+              d=p.stem;o=dexinfo(p);n=dexinfo(P('rebuilt',p.name))
+              assert all(o[k]==n[k] for k in ('class_defs','method_ids','field_ids'))
+              a=P('smali',d);b=P('redisassembled',d)
+              old={str(x.relative_to(a)) for x in a.rglob('*.smali')};new={str(x.relative_to(b)) for x in b.rglob('*.smali')}
+              assert old==new and len(old)==o['class_defs']
+              diff=[];counts={'methods':0,'fields':0,'code_methods':0,'invoke_refs':0}
+              for path in sorted(old):
+                  f=a/path;t=f.read_text();u=(b/path).read_text()
+                  if t!=u: diff.append(path)
+                  cls=next((x for x in t.splitlines() if x.startswith('.class ')),'')
+                  db.execute('INSERT INTO classes VALUES(?,?,?)',(d,path,cls))
+                  method='';start=0;regs=''
+                  for i,line in enumerate(t.splitlines(),1):
+                      s=line.strip()
+                      if s.startswith('.method '):method=s;start=i;regs=''
+                      elif s.startswith(('.registers ','.locals ')):regs=s
+                      elif s=='.end method':
+                          db.execute('INSERT INTO methods VALUES(?,?,?,?,?)',(d,path,start,method,regs));counts['methods']+=1;counts['code_methods']+=bool(regs);method=''
+                      elif s.startswith('.field '):
+                          db.execute('INSERT INTO fields VALUES(?,?,?,?)',(d,path,i,s));counts['fields']+=1
+                      elif method and s.startswith(('invoke-','iget','iput','sget','sput','const-string','new-instance','check-cast')):
+                          op=s.split()[0];db.execute('INSERT INTO refs VALUES(?,?,?,?,?,?)',(d,path,method,i,op,s));counts['invoke_refs']+=op.startswith('invoke-')
+              reports.append(dict(dex=d,original=o,rebuilt=n,classes=len(old),different_classes=diff,counts=counts))
+          db.commit();assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+          P('evidence/roundtrip.json').write_text(json.dumps(reports,indent=2));print(json.dumps(reports,indent=2))
+          PY
+      - name: Repackage original resources and rebuilt DEX with local test signing
+        run: |
+          set -euo pipefail
+          cd gallery-work
+          python3 - <<'PY'
+          import pathlib,zipfile,re
+          with zipfile.ZipFile('original/gallery.apk') as src,zipfile.ZipFile('rebuilt/unsigned.apk','w') as dst:
+              for i in src.infolist():
+                  if re.match(r'META-INF/(MANIFEST\.MF|[^/]+\.(SF|RSA|DSA|EC))$',i.filename,re.I):continue
+                  p=pathlib.Path('rebuilt',i.filename)
+                  dst.writestr(i,p.read_bytes() if re.fullmatch(r'classes\d*\.dex',i.filename) else src.read(i))
+          PY
+          bt=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          keytool -genkeypair -keystore tools/test.jks -storepass android -keypass android -alias androiddebugkey -dname "CN=Gallery Baseline Test" -keyalg RSA -keysize 2048 -validity 365
+          "$bt/zipalign" -P 16 -f -v 4 rebuilt/unsigned.apk rebuilt/aligned.apk > evidence/rebuild-alignment.log
+          "$bt/apksigner" sign --ks tools/test.jks --ks-pass pass:android --key-pass pass:android --out rebuilt/gallery-roundtrip.apk rebuilt/aligned.apk
+          "$bt/apksigner" verify --min-sdk-version 31 --verbose --print-certs rebuilt/gallery-roundtrip.apk > evidence/rebuilt-signature.txt
+          "$bt/zipalign" -c -P 16 -v 4 rebuilt/gallery-roundtrip.apk > evidence/rebuilt-alignment.txt
+          sha256sum rebuilt/gallery-roundtrip.apk | tee evidence/rebuilt-apk.sha256
+      - name: Export analysis evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-1.0.23-apk-analysis
+          path: gallery-work/evidence/
+          retention-days: 14
+      - name: Export public original and test-signed APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-1.0.23-apk-input-and-roundtrip
+          path: |
+            gallery-work/original/gallery.apk
+            gallery-work/rebuilt/gallery-roundtrip.apk
+          retention-days: 14
+  source-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch exact source
+        run: |
+          set -euo pipefail
+          git init upstream
+          git -C upstream remote add origin https://github.com/google-ai-edge/gallery.git
+          git -C upstream fetch --depth=1 origin "$SOURCE_SHA"
+          git -C upstream checkout --detach FETCH_HEAD
+          test "$(git -C upstream rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir -p evidence
+          git -C upstream ls-tree -r --long HEAD > evidence/source-tree.txt
+          cp upstream/Android/src/gradle/libs.versions.toml evidence/
+          cp upstream/Android/src/app/build.gradle.kts evidence/
+          cp upstream/Android/src/gradle/wrapper/gradle-wrapper.properties evidence/
+      - name: Build original as upstream workflow
+        run: |
+          set -euo pipefail
+          echo y | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" 2>&1 | tee evidence/sdk.log
+          cd upstream/Android/src
+          ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee ../../../evidence/gradle.log
+          find app/build/outputs/apk -name '*.apk' -exec sha256sum {} + | tee ../../../evidence/source-apk.sha256
+      - name: Export original-source build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-1.0.23-source-build-evidence
+          path: evidence/
+          retention-days: 14
+      - name: Export source-built APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-1.0.23-source-built-apk
+          path: upstream/Android/src/app/build/outputs/apk/**/*.apk
+          retention-days: 14
