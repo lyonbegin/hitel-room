@@ -31,6 +31,8 @@ public final class NativePdfEntryActivity extends Activity {
   private boolean checking;
   private int page, generation;
   private LinearLayout body;
+  private NativeBatchPanel batchPanel;
+  private boolean batchMode;
   private final ExecutorService worker = Executors.newSingleThreadExecutor();
   private final Handler main = new Handler(Looper.getMainLooper());
 
@@ -41,6 +43,7 @@ public final class NativePdfEntryActivity extends Activity {
     owner = PrivatePapers.account();
     selected = state == null ? getIntent().getStringExtra("paper") : state.getString("paper");
     page = state == null ? 0 : state.getInt("page");
+    batchMode = state != null && state.getBoolean("batchMode");
     if (state != null) {
       String uri = state.getString("externalPdf");
       if (uri != null) externalPdf = Uri.parse(uri);
@@ -52,7 +55,7 @@ public final class NativePdfEntryActivity extends Activity {
     super.onResume();
     String current = PrivatePapers.account();
     if (!current.equals(owner)) { owner = current; selected = null; validatedFile = null; page = 0; }
-    display();
+    if (batchMode) showBatch(); else display();
   }
 
   @Override protected void onSaveInstanceState(Bundle out) {
@@ -60,6 +63,7 @@ public final class NativePdfEntryActivity extends Activity {
     out.putString("paper", selected); out.putInt("page", page);
     if (externalPdf != null) out.putString("externalPdf", externalPdf.toString());
     out.putString("externalTitle", externalTitle);
+    out.putBoolean("batchMode", batchMode);
   }
 
   private int dp(int value) { return Math.round(getResources().getDisplayMetrics().density * value); }
@@ -90,7 +94,17 @@ public final class NativePdfEntryActivity extends Activity {
     return "선택한 PDF";
   }
 
+  private void showBatch() {
+    batchMode = true;
+    generation++;
+    if (batchPanel != null) batchPanel.detach();
+    batchPanel = new NativeBatchPanel(this, () -> { batchMode = false; display(); });
+    setContentView(batchPanel.view());
+  }
+
   private void display() {
+    batchMode = false;
+    if (batchPanel != null) { batchPanel.detach(); batchPanel = null; }
     final int version = ++generation;
     body = new LinearLayout(this);
     body.setOrientation(LinearLayout.VERTICAL); body.setBackgroundColor(Color.WHITE);
@@ -110,6 +124,7 @@ public final class NativePdfEntryActivity extends Activity {
       File folder = PrivatePapers.directory(this, owner);
       body.addView(label(folder == null ? "앱 저장 폴더를 사용할 수 없습니다." : folder.getAbsolutePath(), 13));
       body.addView(button("다른 PDF 선택", this::openPicker));
+      body.addView(button("네이티브 작업 관리 (5 Worker)", this::showBatch));
       if (missing) body.addView(label("선택한 시험지의 저장본을 열 수 없습니다.", 15));
       if (rows.isEmpty()) {
         body.addView(label(owner.isEmpty() ? "로그인한 계정의 저장본을 확인할 수 없습니다." : "저장한 시험지가 없습니다.", 16));
@@ -212,6 +227,11 @@ public final class NativePdfEntryActivity extends Activity {
 
   @Override protected void onActivityResult(int request, int result, Intent data) {
     super.onActivityResult(request, result, data);
+    if (request == NativeBatchPanel.PICK_JSONL) {
+      if (batchPanel == null) showBatch();
+      if (result == RESULT_OK && data != null) batchPanel.importFile(data.getData());
+      return;
+    }
     if (request == PICK_PDF) {
       if (result == RESULT_OK && data != null && data.getData() != null
           && "content".equals(data.getData().getScheme())) {
@@ -237,11 +257,13 @@ public final class NativePdfEntryActivity extends Activity {
   }
 
   @Override public void onBackPressed() {
+    if (batchMode) { display(); return; }
     if (externalPdf != null) { externalPdf = null; externalTitle = null; page = 0; display(); }
     else if (selected == null) super.onBackPressed();
     else { selected = null; validatedFile = null; page = 0; display(); }
   }
   @Override protected void onDestroy() {
+    if (batchPanel != null) batchPanel.detach();
     generation++; worker.shutdownNow(); super.onDestroy();
   }
 }
