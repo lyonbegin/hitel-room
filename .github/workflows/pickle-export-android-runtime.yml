@@ -1,0 +1,32 @@
+name: Export Android build-tools shared runtime
+on:
+  push:
+    branches: [analysis/pickle-smali-roundtrip-20261125]
+    paths: ['.github/workflows/pickle-export-android-runtime.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Find exact build-tools runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          bt=$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          echo "$bt"
+          find "$bt" -name 'libc++.so*'
+          lib=$(find "$bt" -name 'libc++.so' -print -quit)
+          test -n "$lib"
+          mkdir -p runtime
+          cp -L "$lib" runtime/libc++.so
+          cd runtime
+          sha256sum libc++.so > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-runtime
+          path: runtime/
+          retention-days: 7
