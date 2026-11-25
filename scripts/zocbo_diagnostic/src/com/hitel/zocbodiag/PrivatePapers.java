@@ -53,7 +53,7 @@ public final class PrivatePapers {
     final WeakReference<Activity> host;
     final String owner, key, exam;
     volatile String title;
-    volatile List<String> questionPaths = Collections.emptyList();
+    volatile List<JSONObject> questionPaths = Collections.emptyList();
     final boolean revalidation;
     volatile ModelDecision model;
     volatile boolean finished;
@@ -230,8 +230,8 @@ public final class PrivatePapers {
       if (host == null || job.revalidation) { finish(job, "이 시험지에는 저장할 PDF가 없습니다."); return true; }
       new Thread(() -> {
         try {
-          int count = PaperFolders.saveImages(host, job.title, job.exam, job.questionPaths, job.owner);
-          finish(job, "문제 이미지 실제 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
+          int count = PaperFolders.saveQuestionPaths(host, job.title, job.exam, job.questionPaths, job.owner);
+          finish(job, "문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
         } catch (Exception e) { finish(job, "문제 폴더 저장 실패"); }
       }, "question-folder-save").start();
     }
@@ -302,9 +302,9 @@ public final class PrivatePapers {
         if (pdf == null || pdf.getParentFile() == null || pdf.getParentFile().getParentFile() == null)
           throw new IOException("saved PDF path unavailable");
         File folder = pdf.getParentFile().getParentFile();
-        List<String> paths = new ArrayList<>(job.questionPaths);
-        int count = PaperFolders.saveImagesInFolder(host, folder, paths, job.owner);
-        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 실제 저장 " + count + "개 (전체 " + paths.size() + "개)");
+        List<JSONObject> paths = new ArrayList<>(job.questionPaths);
+        int count = PaperFolders.saveQuestionPathsInFolder(host, folder, paths, job.owner);
+        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + paths.size() + "개)");
       }
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
