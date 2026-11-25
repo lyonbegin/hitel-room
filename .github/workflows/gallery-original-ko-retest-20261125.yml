@@ -1,4 +1,4 @@
-name: Gallery original KO only - supported emulator startup retest
+name: Gallery original KO only - API 37.0 and 37.1 startup verification
 on:
   push:
     branches: [build/gallery-original-ko-only-20261125]
@@ -13,15 +13,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - api: 36
-            target: google_apis
-            id: api36-google
-          - api: 36
-            target: google_apis_playstore
-            id: api36-playstore
-          - api: 37
-            target: google_apis
-            id: api37-google
+          - api: '37.0'
+            target: google_apis_ps16k
+            id: api370-google
+          - api: '37.0'
+            target: google_apis_playstore_ps16k
+            id: api370-playstore
+          - api: '37.1'
+            target: google_apis_ps16k
+            id: api371-google
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -105,11 +105,36 @@ jobs:
             fi
           fi
           sleep 5
+          capture permission-5
+          if test -f evidence/ui-permission-5.xml; then
+            python3 - <<'PY' > evidence/notification-coordinate.txt
+          import re, xml.etree.ElementTree as ET
+          nodes=list(ET.parse('evidence/ui-permission-5.xml').iter('node'))
+          if any('send you notifications' in n.attrib.get('text','') for n in nodes):
+              for n in nodes:
+                  t=n.attrib.get('text','').replace('’',"'").lower()
+                  if t=="don't allow":
+                      x1,y1,x2,y2=map(int,re.findall(r'\d+',n.attrib['bounds']))
+                      print((x1+x2)//2,(y1+y2)//2)
+                      break
+          PY
+            if test -s evidence/notification-coordinate.txt; then
+              read -r x y < evidence/notification-coordinate.txt
+              adb shell input tap "$x" "$y"
+              echo QA_NOTIFICATION_DENIED > evidence/notification-action.txt
+            fi
+          fi
+          sleep 5
           capture home-5
           sleep 25
           capture home-30
           sleep 60
           capture home-90
+          adb logcat -b all -c
+          adb shell am force-stop "$pkg"
+          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
+          sleep 15
+          capture relaunch-15
           adb shell pidof "$pkg" > evidence/pid.txt || true
           adb logcat -b crash -d > evidence/crash.txt
           adb shell dumpsys jobscheduler > evidence/jobs-after.txt
@@ -145,7 +170,7 @@ jobs:
           version=int(version.group(1)) if version else None
           if version is None or version<210665810:
               inconclusive.append('Speech Services below minimum version 210665810')
-          for label in ['first-5','first-30','home-5','home-30','home-90']:
+          for label in ['first-5','first-30','home-5','home-30','home-90','relaunch-15']:
               f=p/f'settings-{label}.pb'
               if not f.exists():
                   records.append({'sample':label,'persisted_settings':'absent','default_from_verified_source':'android_system_asr / ko-KR'})
@@ -159,10 +184,14 @@ jobs:
                   if engine!='android_system_asr' or explicit: failures.append(f'unexpected ASR engine selection: {label} {engine}')
                   if locale!='ko-KR': failures.append(f'unexpected locale: {label} {locale}')
               except Exception as e: inconclusive.append(f'Cannot decode settings {label}: {e}')
-          log=(p/'logcat-home-90.txt').read_text(errors='replace')
+          first_log=(p/'logcat-home-90.txt').read_text(errors='replace')
+          restart_log=(p/'logcat-relaunch-15.txt').read_text(errors='replace')
+          log=first_log+'\n'+restart_log
           asr=[l for l in log.splitlines() if 'AGMlKitAsrService' in l or 'AGMlKitAsrBasicGate' in l]
           (p/'asr-log.txt').write_text('\n'.join(asr)+'\n')
           statuses=[int(m.group(1)) for l in asr if (m:=re.search(r'speechRecognizer\.checkStatus\(\) raw result:\s*([0-3])',l))]
+          if 'speechRecognizer.checkStatus() raw result:' not in restart_log: inconclusive.append('No actual SDK probe after relaunch')
+          if 'speechRecognizer.checkStatus() raw result:' not in first_log: inconclusive.append('No actual SDK probe during first launch')
           if not statuses: inconclusive.append('No actual ML Kit SDK feature status observed')
           elif statuses[0]!=1: inconclusive.append(f'First ML Kit status {statuses[0]} is not DOWNLOADABLE=1 on clean test')
           if 2 in statuses: failures.append('SDK reports DOWNLOADING=2 without ASR user input')
@@ -175,14 +204,14 @@ jobs:
                   ui[f.name]=[n.attrib.get('text','') for n in ET.parse(f).iter('node') if n.attrib.get('text')]
               except ET.ParseError as e: inconclusive.append(f'UI decode: {f.name}: {e}')
           if 'ui-home-90.xml' not in ui: inconclusive.append('missing final home hierarchy')
-          elif any('Welcome to Google AI Edge Gallery' in t for t in ui['ui-home-90.xml']): inconclusive.append('onboarding not completed')
+          elif any('Welcome to Google AI Edge Gallery' in t or 'send you notifications' in t for t in ui['ui-home-90.xml']): inconclusive.append('home screen blocked by onboarding or permission dialog')
           for f,ts in ui.items():
               if any(re.search(r'(?:ML Kit|MLKit).*(?:Downloading|다운로드 중)|(?:Downloading|다운로드 중).*(?:ML Kit|MLKit)',t,re.I) for t in ts):
                   failures.append(f'visible ML Kit downloading: {f}')
           if not (p/'pid.txt').read_text().strip(): failures.append('app process missing')
           if re.search(r'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError',(p/'crash.txt').read_text()): failures.append('app or emulator crash')
           result='FAIL' if failures else ('INCONCLUSIVE' if inconclusive else 'PASS')
-          obj={'result':result,'speech_services_version':version,'mlkit_statuses':statuses,'settings':records,'explicit_download_hits':hits,'ui_text':ui,'failures':failures,'inconclusive':inconclusive,'scope':'Fresh emulator only, 30s first launch + 90s after welcome. No ASR model/language/engine selection. Opaque system activity and Galaxy behavior not proven.'}
+          obj={'result':result,'speech_services_version':version,'mlkit_statuses':statuses,'settings':records,'explicit_download_hits':hits,'ui_text':ui,'failures':failures,'inconclusive':inconclusive,'scope':'Fresh emulator only, 30s first launch + 90s after welcome + 15s after app relaunch. No ASR model/language/engine selection. Opaque system activity and Galaxy behavior not proven.'}
           print(json.dumps(obj,ensure_ascii=False,indent=2))
           (p/'verdict.json').write_text(json.dumps(obj,ensure_ascii=False,indent=2))
           if result!='PASS': sys.exit(1)
@@ -195,7 +224,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           cores: 2
-          ram-size: 4096M
+          ram-size: 6144M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           emulator-boot-timeout: 600
           script: bash smoke.sh
