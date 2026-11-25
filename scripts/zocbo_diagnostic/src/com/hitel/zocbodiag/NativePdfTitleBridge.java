@@ -11,10 +11,9 @@ import java.lang.ref.WeakReference;
 import java.util.Locale;
 
 /**
- * Original Free Reading (previousExam.asp) list title -> existing R6 native
- * Activity with the selected row's exact expapr_no. The title bridge does not
- * make network requests, alter original PDF entitlement, or download files.
- * Invoked only after an actual user taps a title in the already loaded page.
+ * User-initiated title taps invoke the existing same-row free-reading
+ * action. The website retains its original authority checks and native
+ * viewer handoff. No new document acquisition or cache logic.
  */
 public final class NativePdfTitleBridge {
   public static final String EXTRA_EXAM_ID = "com.hitel.zocbodiag.SELECTED_EXAM_ID";
@@ -39,54 +38,17 @@ public final class NativePdfTitleBridge {
     } catch(Throwable t){return false;}
   }
 
-  /**
-   * Registered on original WebView before load. Browser calls on Java bridge
-   * thread, so switch to WebView UI thread before reading URL/startActivity.
-   */
+  /** Read the user's UI preference; no native document request is made. */
   @JavascriptInterface
-  public void titleSelected(final String expaprNo) {
-    if(expaprNo==null || !expaprNo.matches("[1-9][0-9]{0,9}")) {
-      Diag.log("READING_TITLE_INVALID_ID","title click ignored: invalid exam ID");
-      return;
-    }
-    final WebView w=target.get();
-    if(w==null){
-      Diag.log("READING_TITLE_WEBVIEW_GONE","title click ignored: webview reclaimed");
-      return;
-    }
-    w.post(()->{
-      String url=w.getUrl();
-      if(!isFreeReadingPage(url)) {
-        Diag.log("READING_TITLE_WRONG_ORIGIN","title click ignored: origin mismatch");
-        return;
-      }
-      try {
-        Context ctx=w.getContext();
-        Activity activity=null;
-        Context c=ctx;
-        for(int i=0;i<8;i++){
-          if(c instanceof Activity){activity=(Activity)c;break;}
-          if(!(c instanceof ContextWrapper))break;
-          Context b=((ContextWrapper)c).getBaseContext();
-          if(b==c)break;
-          c=b;
-        }
-        if(activity!=null && (activity.isFinishing() ||
-           (android.os.Build.VERSION.SDK_INT>=17 && activity.isDestroyed()))) {
-           Diag.log("READING_TITLE_ACTIVITY_GONE","activity no longer active");
-           return;
-        }
-        Intent intent=new Intent(ctx,NativePdfEntryActivity.class);
-        intent.putExtra(EXTRA_EXAM_ID,expaprNo);
-        if(activity==null)intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        Diag.log("READING_TITLE_SELECTED","exam="+expaprNo+" source=previousExam.asp title");
-        if(activity!=null)activity.startActivity(intent);
-        else ctx.startActivity(intent);
-        Diag.log("READING_TITLE_ACTIVITY_STARTED","NativePdfEntryActivity requested");
-      }catch(Throwable t) {
-        Diag.log("READING_TITLE_LAUNCH_ERROR",t.getClass().getName());
-      }
-    });
+  public boolean viewerEnabled() {
+    WebView w=target.get();
+    return w!=null && Diag.showViewer(w.getContext());
+  }
+
+  /** Compatibility entry: no direct native viewer launch. */
+  @JavascriptInterface
+  public void titleSelected(String expaprNo) {
+    Diag.log("READING_TITLE_DIRECT_DISABLED","use existing authorized page action");
   }
 
   /**
@@ -101,7 +63,7 @@ public final class NativePdfTitleBridge {
       +"document.addEventListener('click',function(ev){"
       +"try{"
       +"var el=ev.target;"
-      +"if(!el||!el.closest||el.closest('button,a,input,select,label'))return;"
+      +"if(!ev.isTrusted||!el||!el.closest||el.closest('button,a,input,select,label'))return;"
       +"var title=el.closest('.download .text__school, .download .text__subject, .download .class__subject, .download .grouping__box');"
       +"if(!title)return;"
       +"var row=title.closest('.download');if(!row)return;"
@@ -109,9 +71,9 @@ public final class NativePdfTitleBridge {
       +"if(!link)return;"
       +"var no=String(link.getAttribute('data-no')||'').trim();"
       +"if(!/^[1-9][0-9]{0,9}$/.test(no))return;"
-      +"if(!window.hitelPdfTitleLink||!window.hitelPdfTitleLink.titleSelected)return;"
+      +"if(!window.hitelPdfTitleLink||!window.hitelPdfTitleLink.viewerEnabled)return;"
       +"ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();"
-      +"window.hitelPdfTitleLink.titleSelected(no);"
+      +"if(window.hitelPdfTitleLink.viewerEnabled())link.click();"
       +"}catch(ex){}"
       +"},true);"
       +"return 'reading-title-listener-ready';"
