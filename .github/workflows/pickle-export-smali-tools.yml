@@ -1,0 +1,28 @@
+name: Export verified Smali tools
+on:
+  push:
+    branches: [analysis/pickle-smali-roundtrip-20261125]
+    paths: ['.github/workflows/pickle-export-smali-tools.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download pinned official tools
+        run: |
+          set -euo pipefail
+          mkdir tools
+          cd tools
+          curl -fL --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o baksmali.jar
+          curl -fL --retry 3 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o smali.jar
+          printf '%s\n' '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  baksmali.jar' '32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a  smali.jar' > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          java -jar baksmali.jar --version
+          java -jar smali.jar --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-smali-tools-3.0.10
+          path: tools/
+          retention-days: 7
