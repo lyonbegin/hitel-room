@@ -134,7 +134,7 @@ public final class PrivatePapers {
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
   public static boolean saving(Object vm) { return job(vm) != null; }
 
-  private static long responseDeadline(Object response, boolean requireFreshness) throws Exception {
+  private static long responseDeadline(Object response) throws Exception {
     Class<?> type = Class.forName("okhttp3.Response");
     Object headers = type.getMethod("headers").invoke(response);
     java.lang.reflect.Method get = headers.getClass().getMethod("get", String.class);
@@ -142,8 +142,7 @@ public final class PrivatePapers {
     String expires = (String)get.invoke(headers, "Expires");
     String date = (String)get.invoke(headers, "Date");
     String age = (String)get.invoke(headers, "Age");
-    long value = PaperFreshness.deadline(control == null ? "" : control, expires, date, age, System.currentTimeMillis());
-    return requireFreshness && value == Long.MAX_VALUE ? 0 : value;
+    return PaperFreshness.deadline(control == null ? "" : control, expires, date, age, System.currentTimeMillis());
   }
 
   // Bind the service's original metadata decision to this account and this
@@ -174,7 +173,7 @@ public final class PrivatePapers {
         String modelText = (String)Class.forName("okhttp3.ResponseBody").getMethod("string").invoke(
             Class.forName("okhttp3.Response").getMethod("peekBody", long.class).invoke(response, 1024L * 1024L));
         String path = new JSONObject(modelText).optString("pdf_path", "");
-        if (!path.isEmpty() && !"null".equals(path)) until = responseDeadline(response, true);
+        if (!path.isEmpty() && !"null".equals(path)) until = responseDeadline(response);
       }
       String grantKey = ownerAtRequest + key;
       synchronized (permits) {
@@ -234,7 +233,17 @@ public final class PrivatePapers {
     Activity host = job.host.get();
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
-      long until = Math.min(job.reusableUntil, responseDeadline(response, false));
+      long modelUntil = job.reusableUntil;
+      if (modelUntil == Long.MAX_VALUE) {
+        // A user download explicitly offered as an attachment is a standalone
+        // document. Inline reading without a reusable model has no offline grant.
+        Object headers = Class.forName("okhttp3.Response").getMethod("headers").invoke(response);
+        String disposition = (String)headers.getClass().getMethod("get", String.class)
+            .invoke(headers, "Content-Disposition");
+        String kind = disposition == null ? "" : disposition.split(";", 2)[0].trim();
+        if (!"attachment".equalsIgnoreCase(kind)) modelUntil = 0;
+      }
+      long until = Math.min(modelUntil, responseDeadline(response));
       if (until <= System.currentTimeMillis()) {
         index(host, job.owner).edit().remove(job.key).commit();
         finish(job, "이 PDF는 다시 열 때 서버 확인이 필요합니다.");
