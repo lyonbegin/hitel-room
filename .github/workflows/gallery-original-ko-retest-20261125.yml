@@ -1,4 +1,4 @@
-name: Gallery original KO only - API 37.2 stable startup verification
+name: Gallery original KO only - Android 16 signed Speech Services update
 on:
   push:
     branches: [build/gallery-original-ko-only-20261125]
@@ -13,12 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - api: '37.2'
-            target: google_apis_ps16k
-            id: api372-google
-          - api: '37.2'
-            target: google_apis_playstore_ps16k
-            id: api372-playstore
+          - api: 36
+            target: google_apis
+            id: api36-updated-speech
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -42,6 +39,55 @@ jobs:
           test "$(grep -c '^[-+] *const val LANGUAGE_CODE' provenance/source.patch)" = 2
           mkdir -p evidence
           cp provenance/source.patch provenance/upstream-commit.txt dist/SHA256SUMS.txt evidence/
+      - name: Retrieve published x86_64 Google Speech Services candidate
+        run: |
+          set -euo pipefail
+          mkdir -p speech-update
+          python3 - <<'PY'
+          import urllib.request, urllib.parse, html.parser, pathlib, zipfile, io, re
+          url='https://www.apkmirror.com/apk/google-inc/google-text-to-speech-engine/speech-recognition-synthesis-googletts-google-speech-apk_20260817-01_p0-966249458-release/speech-recognition-synthesis-googletts-google-speech-apk_20260817-01_p0-966249458-8-android-apk-download/'
+          class Links(html.parser.HTMLParser):
+              def __init__(self): super().__init__(); self.items=[]
+              def handle_starttag(self,tag,attrs):
+                  if tag=='a':
+                      d=dict(attrs)
+                      if 'href' in d: self.items.append(d)
+          def fetch(u):
+              req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0','Accept':'*/*'})
+              with urllib.request.urlopen(req,timeout=90) as resp:
+                  print('HTTP',resp.status,resp.geturl().split('?')[0],resp.headers.get('Content-Type'),flush=True)
+                  return resp.geturl(),resp.read(250*1024*1024+1)
+          for step in range(4):
+              base,body=fetch(url)
+              if len(body)>250*1024*1024: raise SystemExit('Candidate exceeds size limit')
+              if body.startswith(b'PK'):
+                  z=zipfile.ZipFile(io.BytesIO(body))
+                  if 'AndroidManifest.xml' in z.namelist():
+                      pathlib.Path('speech-update/base.apk').write_bytes(body)
+                  else:
+                      used=set()
+                      for n in z.namelist():
+                          if not n.endswith('.apk'): continue
+                          name=pathlib.PurePosixPath(n).name
+                          if name in used: raise SystemExit('Duplicate APK entry')
+                          used.add(name)
+                          pathlib.Path('speech-update',name).write_bytes(z.read(n))
+                      if not used: raise SystemExit('No APK entries in bundle')
+                  break
+              parser=Links(); parser.feed(body.decode(errors='replace'))
+              candidates=[]
+              for d in parser.items:
+                  href=d['href']; u=urllib.parse.urljoin(base,href)
+                  if urllib.parse.urlparse(u).scheme!='https': continue
+                  if 'download.php' in href: candidates.append((0,u))
+                  elif 'downloadButton' in d.get('class','') and ('/download/' in href or 'key=' in href): candidates.append((1,u))
+                  elif '/download/' in href and 'key=' in href: candidates.append((2,u))
+              if not candidates: raise SystemExit('Public download link not available; do not bypass access restrictions')
+              url=sorted(candidates)[0][1]
+          else: raise SystemExit('No APK bundle returned')
+          PY
+          test -s speech-update/base.apk
+          sha256sum speech-update/*.apk | tee evidence/speech-candidate-sha256.txt
       - name: Enable KVM
         run: |
           test -c /dev/kvm
@@ -66,6 +112,247 @@ jobs:
           test "$stable" -ge 4
           adb shell df -h /data > evidence/data-space.txt
           adb shell getprop > evidence/device-props.txt
+          adb shell dumpsys package com.google.android.tts > evidence/speech-services-before.txt
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          test -x "$signer"
+          old=$(adb shell pm path com.google.android.tts | tr -d '\r' | sed -n 's/^package://p' | grep '/base.apk
+          adb shell dumpsys package com.google.android.tts > evidence/speech-services.txt
+          adb shell dumpsys package com.google.android.aicore > evidence/aicore.txt
+          adb shell dumpsys jobscheduler > evidence/jobs-before.txt
+          adb shell dumpsys connectivity > evidence/connectivity-before.txt
+          if adb shell pm path "$pkg" | grep -q 'package:'; then adb uninstall "$pkg"; fi
+          adb install dist/HITEL_Gallery_Original_KO_Only_20261125.apk 2>&1 | tee evidence/install.log
+          adb shell pm clear "$pkg"
+          adb shell run-as "$pkg" id > evidence/run-as.txt
+          adb logcat -b all -c
+          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
+          capture() {
+            local label="$1"
+            adb exec-out screencap -p > "evidence/screen-$label.png"
+            adb shell rm -f /sdcard/gallery-qa.xml
+            adb shell uiautomator dump /sdcard/gallery-qa.xml > "evidence/ui-dump-$label.txt" 2>&1 || true
+            if adb shell test -f /sdcard/gallery-qa.xml; then
+              adb exec-out cat /sdcard/gallery-qa.xml > "evidence/ui-$label.xml"
+            fi
+            if adb shell run-as "$pkg" test -f files/datastore/settings.pb; then
+              adb exec-out run-as "$pkg" cat files/datastore/settings.pb > "evidence/settings-$label.pb"
+            else
+              echo ABSENT > "evidence/settings-$label.absent"
+            fi
+            adb logcat -b all -d -v threadtime > "evidence/logcat-$label.txt"
+          }
+          sleep 5
+          capture first-5
+          sleep 25
+          capture first-30
+          # Test onboarding only, in disposable account-free emulator.
+          # Never touch microphone, engine selection or download controls.
+          if test -f evidence/ui-first-30.xml; then
+            python3 - <<'PY' > evidence/onboarding-coordinate.txt
+          import re, xml.etree.ElementTree as ET
+          for n in ET.parse('evidence/ui-first-30.xml').iter('node'):
+              if n.attrib.get('text') == 'Accept & continue':
+                  x1,y1,x2,y2=map(int,re.findall(r'\d+',n.attrib['bounds']))
+                  print((x1+x2)//2,(y1+y2)//2)
+                  break
+          PY
+            if test -s evidence/onboarding-coordinate.txt; then
+              read -r x y < evidence/onboarding-coordinate.txt
+              adb shell input tap "$x" "$y"
+              echo QA_ONBOARDING_ONLY > evidence/onboarding-action.txt
+            else
+              echo NO_WELCOME_BUTTON > evidence/onboarding-action.txt
+            fi
+          fi
+          sleep 5
+          capture permission-5
+          if test -f evidence/ui-permission-5.xml; then
+            python3 - <<'PY' > evidence/notification-coordinate.txt
+          import re, xml.etree.ElementTree as ET
+          nodes=list(ET.parse('evidence/ui-permission-5.xml').iter('node'))
+          if any('send you notifications' in n.attrib.get('text','') for n in nodes):
+              for n in nodes:
+                  t=n.attrib.get('text','').replace('’',"'").lower()
+                  if t=="don't allow":
+                      x1,y1,x2,y2=map(int,re.findall(r'\d+',n.attrib['bounds']))
+                      print((x1+x2)//2,(y1+y2)//2)
+                      break
+          PY
+            if test -s evidence/notification-coordinate.txt; then
+              read -r x y < evidence/notification-coordinate.txt
+              adb shell input tap "$x" "$y"
+              echo QA_NOTIFICATION_DENIED > evidence/notification-action.txt
+            fi
+          fi
+          sleep 5
+          capture home-5
+          sleep 25
+          capture home-30
+          sleep 60
+          capture home-90
+          adb logcat -b all -c
+          adb shell am force-stop "$pkg"
+          adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
+          sleep 15
+          capture relaunch-15
+          adb shell pidof "$pkg" > evidence/pid.txt || true
+          adb logcat -b crash -d > evidence/crash.txt
+          adb shell dumpsys jobscheduler > evidence/jobs-after.txt
+          adb shell dumpsys activity services com.google.android.tts > evidence/tts-services-after.txt
+          adb shell ps -A > evidence/processes-after.txt
+          python3 - <<'PY' | tee evidence/result.txt
+          import pathlib, re, sys, json, xml.etree.ElementTree as ET
+          p=pathlib.Path('evidence')
+          def fields(data):
+              i=0
+              def varint():
+                  nonlocal i
+                  v=shift=0
+                  while i<len(data):
+                      b=data[i]; i+=1; v|=(b&127)<<shift
+                      if b<128: return v
+                      shift+=7
+                      if shift>63: raise ValueError('bad varint')
+                  raise ValueError('truncated varint')
+              while i<len(data):
+                  key=varint(); field,wire=key>>3,key&7
+                  if not field: raise ValueError('invalid field zero')
+                  if wire==0: val=varint()
+                  elif wire==2:
+                      n=varint(); val=data[i:i+n]; i+=n
+                      if len(val)!=n: raise ValueError('truncated field')
+                  elif wire in (1,5):
+                      n=8 if wire==1 else 4; val=data[i:i+n]; i+=n
+                  else: raise ValueError(f'unsupported wire {wire}')
+                  yield field,val
+          failures=[]; inconclusive=[]; records=[]
+          version=re.search(r'versionCode=(\d+)',(p/'speech-services.txt').read_text())
+          version=int(version.group(1)) if version else None
+          if version is None or version<210665810:
+              inconclusive.append('Speech Services below minimum version 210665810')
+          for label in ['first-5','first-30','home-5','home-30','home-90','relaunch-15']:
+              f=p/f'settings-{label}.pb'
+              if not f.exists():
+                  records.append({'sample':label,'persisted_settings':'absent','default_from_verified_source':'android_system_asr / ko-KR'})
+                  continue
+              try:
+                  a=dict(fields(dict(fields(f.read_bytes())).get(13,b'')))
+                  engine=a.get(1,b'').decode() or 'android_system_asr'
+                  locale=a.get(2,b'').decode() or 'ko-KR'
+                  explicit=bool(a.get(5,0))
+                  records.append({'sample':label,'engine':engine,'locale':locale,'explicit':explicit})
+                  if engine!='android_system_asr' or explicit: failures.append(f'unexpected ASR engine selection: {label} {engine}')
+                  if locale!='ko-KR': failures.append(f'unexpected locale: {label} {locale}')
+              except Exception as e: inconclusive.append(f'Cannot decode settings {label}: {e}')
+          first_log=(p/'logcat-home-90.txt').read_text(errors='replace')
+          restart_log=(p/'logcat-relaunch-15.txt').read_text(errors='replace')
+          log=first_log+'\n'+restart_log
+          asr=[l for l in log.splitlines() if 'AGMlKitAsrService' in l or 'AGMlKitAsrBasicGate' in l]
+          (p/'asr-log.txt').write_text('\n'.join(asr)+'\n')
+          statuses=[int(m.group(1)) for l in asr if (m:=re.search(r'speechRecognizer\.checkStatus\(\) raw result:\s*([0-3])',l))]
+          if 'speechRecognizer.checkStatus() raw result:' not in restart_log: inconclusive.append('No actual SDK probe after relaunch')
+          if 'speechRecognizer.checkStatus() raw result:' not in first_log: inconclusive.append('No actual SDK probe during first launch')
+          if not statuses: inconclusive.append('No actual ML Kit SDK feature status observed')
+          elif statuses[0]!=1: inconclusive.append(f'First ML Kit status {statuses[0]} is not DOWNLOADABLE=1 on clean test')
+          if 2 in statuses: failures.append('SDK reports DOWNLOADING=2 without ASR user input')
+          if statuses and statuses[0]==1 and 3 in statuses[1:]: failures.append('SDK transitions from DOWNLOADABLE to AVAILABLE without ASR user input')
+          hits=[l for l in asr if re.search(r'download\(\) triggered|speechRecognizer\.download\(\) event|Download started|Download completed|ML Kit Basic language pack.*download failed',l,re.I)]
+          if hits: failures.append('explicit app ML Kit download log without ASR user input')
+          ui={}
+          for f in p.glob('ui-*.xml'):
+              try:
+                  ui[f.name]=[n.attrib.get('text','') for n in ET.parse(f).iter('node') if n.attrib.get('text')]
+              except ET.ParseError as e: inconclusive.append(f'UI decode: {f.name}: {e}')
+          if 'ui-home-90.xml' not in ui: inconclusive.append('missing final home hierarchy')
+          elif any('Welcome to Google AI Edge Gallery' in t or 'send you notifications' in t for t in ui['ui-home-90.xml']): inconclusive.append('home screen blocked by onboarding or permission dialog')
+          for f,ts in ui.items():
+              if any(re.search(r'(?:ML Kit|MLKit).*(?:Downloading|다운로드 중)|(?:Downloading|다운로드 중).*(?:ML Kit|MLKit)',t,re.I) for t in ts):
+                  failures.append(f'visible ML Kit downloading: {f}')
+          if not (p/'pid.txt').read_text().strip(): failures.append('app process missing')
+          if re.search(r'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError',(p/'crash.txt').read_text()): failures.append('app or emulator crash')
+          result='FAIL' if failures else ('INCONCLUSIVE' if inconclusive else 'PASS')
+          obj={'result':result,'speech_services_version':version,'mlkit_statuses':statuses,'settings':records,'explicit_download_hits':hits,'ui_text':ui,'failures':failures,'inconclusive':inconclusive,'scope':'Fresh emulator only, 30s first launch + 90s after welcome + 15s after app relaunch. No ASR model/language/engine selection. Opaque system activity and Galaxy behavior not proven.'}
+          print(json.dumps(obj,ensure_ascii=False,indent=2))
+          (p/'verdict.json').write_text(json.dumps(obj,ensure_ascii=False,indent=2))
+          if result!='PASS': sys.exit(1)
+          PY
+          SH
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          disk-size: 8192M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -partition-size 8192
+          emulator-boot-timeout: 600
+          script: bash smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-ko-startup-${{ matrix.id }}
+          path: evidence/
+          if-no-files-found: warn
+  publish:
+    needs: verify
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gallery-ko-startup-*
+          path: tests
+      - name: Require a supported clean-start PASS and reject observed failures
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib,sys
+          verdicts=[(str(f),json.loads(f.read_text())) for f in pathlib.Path('tests').rglob('verdict.json')]
+          for path,v in verdicts: print(path,v['result'],v['speech_services_version'],v['mlkit_statuses'],v['failures'],v['inconclusive'])
+          if any(v['result']=='FAIL' for _,v in verdicts) or not any(v['result']=='PASS' for _,v in verdicts):
+              sys.exit('NO_RELEASE: no qualifying PASS or actual observed failure')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: gallery-original-ko-only-apk
+          run-id: 45630469482
+          github-token: ${{ github.token }}
+          path: dist
+      - name: Publish exact APK after qualifying emulator evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          gh release create gallery-original-ko-only-startup-verified-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "Gallery 1.0.23 - Korean default only, emulator startup verified" --notes "Exact artifact from run 45630469482, upstream 9cb31cf47c21b0ed76901ff589a52b509803edfa, one-line locale change only. Qualifying emulator verdict required; real-device and opaque system downloads not proven."
+          mkdir verify
+          gh release download gallery-original-ko-only-startup-verified-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
+ | head -1 || true)
+          if test -z "$old"; then old=$(adb shell pm path com.google.android.tts | tr -d '\r' | sed -n 's/^package://p' | head -1); fi
+          test -n "$old"
+          adb pull "$old" evidence/system-speech-base.apk
+          "$signer" verify --print-certs evidence/system-speech-base.apk > evidence/system-speech-cert.txt
+          cert=$(grep 'Signer #1 certificate SHA-256 digest:' evidence/system-speech-cert.txt | head -1)
+          test -n "$cert"
+          for apk in speech-update/*.apk; do
+            "$signer" verify --print-certs "$apk" > "evidence/$(basename "$apk").cert.txt"
+            grep -Fx "$cert" "evidence/$(basename "$apk").cert.txt"
+          done
+          rm evidence/system-speech-base.apk
+          adb install-multiple -r speech-update/*.apk 2>&1 | tee evidence/speech-update-install.txt
+          adb shell dumpsys package com.google.android.tts > evidence/speech-services-after-update.txt
+          python3 - <<'PY'
+          import re,pathlib
+          t=pathlib.Path('evidence/speech-services-after-update.txt').read_text()
+          m=re.search(r'versionCode=(\d+)',t)
+          assert m and int(m.group(1))>=210665810, 'Speech Services still below required version'
+          print('Verified Speech Services version',m.group(1))
+          PY
+          sleep 15
           adb shell dumpsys package com.google.android.tts > evidence/speech-services.txt
           adb shell dumpsys package com.google.android.aicore > evidence/aicore.txt
           adb shell dumpsys jobscheduler > evidence/jobs-before.txt
