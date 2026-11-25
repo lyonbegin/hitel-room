@@ -27,7 +27,9 @@ public final class Diag {
   }
   public static void viewerLaunch(Activity a) {}
   public static void viewerPause(Activity a) {}
-  public static void viewerDestroy(Activity a) {}
+  public static void viewerDestroy(Activity a) {
+    PrivatePapers.onHostDestroyed(a);
+  }
   public static void event(String category,String detail) { log(category,detail); }
   public static void bandwidth(int kbps) {}
   public static void bridge() {}
