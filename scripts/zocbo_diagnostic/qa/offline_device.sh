@@ -8,8 +8,8 @@ android_jar=$(ls -d "${ANDROID_HOME}"/platforms/android-*/android.jar | sort -V 
 adb install -r "$production_apk"
 adb shell svc wifi disable
 adb shell svc data disable
-adb shell settings put global airplane_mode_on 1
-adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null
+adb shell cmd connectivity airplane-mode enable
+test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = 1
 sleep 3
 adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.eduzone.eduzoneviewer/.ui.activities.SplashActivity
 wait_text() {
@@ -25,6 +25,11 @@ PY
     then return; fi
     sleep 1
   done
+  python3 - "$qa_dir/ui.xml" <<'PYD'
+import sys, xml.etree.ElementTree as ET
+try: print("visible text", [e.get("text") for e in ET.parse(sys.argv[1]).iter("node") if e.get("text")][:30])
+except ET.ParseError: pass
+PYD
   adb shell dumpsys activity activities | grep -E 'mResumed|topResumed' || true
   adb logcat -d -s AndroidRuntime:E | tail -n 60
   return 1
@@ -168,7 +173,10 @@ for i in $(seq 1 15); do
   if adb logcat -d -s PAPER_QA:I | grep -q 'PASS save callback'; then break; fi
   sleep 1
 done
-adb logcat -d -s PAPER_QA:I | grep 'PASS save callback'
+if ! adb logcat -d -s PAPER_QA:I | grep 'PASS save callback'; then
+  adb logcat -d -s AndroidRuntime:E | tail -n 80
+  exit 1
+fi
 adb shell am force-stop dev.hitel.paperfixture
 adb shell am start -W -a read -n dev.hitel.paperfixture/com.hitel.zocbodiag.Fixture
 wait_text '두 페이지 시험지'
