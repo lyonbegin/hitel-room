@@ -234,16 +234,12 @@ public final class PrivatePapers {
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
       long modelUntil = job.reusableUntil;
-      if (modelUntil == Long.MAX_VALUE) {
-        // A user download explicitly offered as an attachment is a standalone
-        // document. Inline reading without a reusable model has no offline grant.
-        Object headers = Class.forName("okhttp3.Response").getMethod("headers").invoke(response);
-        String disposition = (String)headers.getClass().getMethod("get", String.class)
-            .invoke(headers, "Content-Disposition");
-        String kind = disposition == null ? "" : disposition.split(";", 2)[0].trim();
-        if (!"attachment".equalsIgnoreCase(kind)) modelUntil = 0;
-      }
-      long until = Math.min(modelUntil, responseDeadline(response));
+      // An absent Content-Disposition attachment is not an explicit cache
+      // restriction. Keep the original account and response freshness checks.
+      long pdfUntil = responseDeadline(response);
+      long until = Math.min(modelUntil, pdfUntil);
+      Diag.log("PRIVATE_PAPER_SAVE_DECISION",
+          "modelUntil=" + modelUntil + " pdfUntil=" + pdfUntil + " until=" + until);
       if (until <= System.currentTimeMillis()) {
         index(host, job.owner).edit().remove(job.key).commit();
         finish(job, "이 PDF는 다시 열 때 서버 확인이 필요합니다.");
