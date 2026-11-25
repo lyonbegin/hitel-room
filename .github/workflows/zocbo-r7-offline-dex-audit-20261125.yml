@@ -29,39 +29,37 @@ jobs:
           import re
           root=Path('decoded/sources')
           report=[]
-          def add(p,lo,hi):
-              ls=p.read_text(errors='replace').splitlines()
+          def classify(p, pattern, limit=100):
+              lines=p.read_text(errors='replace').splitlines()
               report.append('=== '+str(p.relative_to(root))+' ===')
-              for i in range(max(0,lo-1),min(hi,len(ls))):
-                  line=ls[i]
-                  if re.search(r'token|authorization|password|cookie|https?://',line,re.I):continue
-                  report.append(f'{i+1}: {line[:250]}')
-          # Retrofit's generated service implementation, call execution and response conversion.
-          targets={
-          'Retrofit.java':r'newProxyInstance|loadServiceMethod|serviceMethod\.invoke|create\(Class',
-          'HttpServiceMethod.java':r'parseAnnotations|invoke\(|adapt\(|new OkHttpCall|responseConverter',
-          'OkHttpCall.java':r'parseResponse\(|responseConverter\.convert|rawResponse\.code|callback\.onResponse',
-          'GsonResponseBodyConverter.java':r'convert\(|adapter\.read|jsonReader|close\(',
-          'GsonConverterFactory.java':r'responseBodyConverter|getAdapter|new GsonResponseBodyConverter',
-          'RequestFactory.java':r'create\(|parameterHandlers|builder\.get\(',
-          'KotlinExtensions.java':r'await\(|enqueue\('
-          }
+              n=0
+              for i,l in enumerate(lines):
+                  if not re.search(pattern,l,re.I):continue
+                  # Only report gate calls and control-flow; omit credential expressions and values.
+                  if re.search(r'authorization|bearertoken|access.?token|refresh.?token|password|cookie|api.?key|https?://',l,re.I):
+                      names=[x for x in ('authorization','bearertoken','accessToken','refreshToken','cookie','apiKey') if x.lower() in l.lower()]
+                      report.append(f'{i+1}: credential-related operation (values omitted), names={names}')
+                  else:
+                      report.append(f'{i+1}: {l.strip()[:220]}')
+                  n+=1
+                  if n>=limit:break
+          viewer=root/'com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java'
+          assert viewer.exists()
+          classify(viewer,r'login|로그인|unauthor|forbidden|responsecode|responsemessage|pdf_open_fail|onCreate\(|getPdfPath\(|blockChk|not.?auth|isLogged',100)
+          for rel in ['p229y3/V0.java','com/eduzone/eduzoneviewer/repository/E.java','p203v3/C1994n.java','p203v3/P.java']:
+              p=root/rel
+              if p.exists():classify(p,r'login|로그인|unauthor|forbidden|responsecode|responsemessage|pdfPath|SerializedName|new C1994n|bVar\.a\(|blockChk',50)
+          for p in root.rglob('HeaderInterceptor.java'):
+              classify(p,r'intercept\(|authorization|bearertoken|access.?token|login|proceed\(|response\.code|401|403',50)
+          # Only locate centralized authorization-response handling (no code extraction of credentials).
           for p in root.rglob('*.java'):
-              if p.name in targets and ('retrofit' in str(p).lower() or 'converter' in str(p).lower()):
-                  ls=p.read_text(errors='replace').splitlines()
-                  for i,l in enumerate(ls):
-                      if re.search(targets[p.name],l):add(p,i-3,i+8)
-          # Obfuscated libraries: locate actual proxy, response conversion, and adapter read callsites.
-          for p in root.rglob('*.java'):
+              rel=str(p.relative_to(root))
+              if not ('eduzone' in rel or re.match(r'p\d+[a-z]\d?/',rel)):continue
               s=p.read_text(errors='replace')
-              if 'Proxy.newProxyInstance(' in s and ('retrofit' in s.lower() or 'ServiceMethod' in s):
-                  for i,l in enumerate(s.splitlines()):
-                      if 'Proxy.newProxyInstance(' in l:add(p,i-8,i+15)
-              if 'ResponseBody' in s and ('JSON document was not fully consumed' in s or 'JSON document was not fully consumed.' in s):
-                  for i,l in enumerate(s.splitlines()):
-                      if 'JSON document was not fully consumed' in l:add(p,i-12,i+12)
+              if 'getResponseCode()' not in s and 'getResponseMessage()' not in s:continue
+              if not re.search(r'401|403|LoginActivity|login_required|loginRequired|Unauthorized',s,re.I):continue
+              classify(p,r'getResponseCode\(|getResponseMessage\(|401|403|LoginActivity|login_required|loginRequired|Unauthorized',15)
           result='\n'.join(report)
-          assert result.strip()
           Path('callsite-audit.txt').write_text(result)
           print(result[:24000])
           PY
