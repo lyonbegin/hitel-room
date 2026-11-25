@@ -1,0 +1,73 @@
+name: Box 3.5.7 pinned public source build
+on:
+  push:
+    branches: [build/box-3.5.7-20261125]
+    paths: ['.github/workflows/box-source-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch pinned source and native submodules
+        run: |
+          set -euo pipefail
+          mkdir -p evidence dist
+          git init upstream
+          git -C upstream remote add origin https://github.com/jegly/Box.git
+          git -C upstream fetch --depth=1 origin f09495df81d9aa2603d2d5fdfec7960c82547ca6
+          git -C upstream checkout --detach FETCH_HEAD
+          git -C upstream submodule update --init --recursive --depth=1
+          git -C upstream rev-parse HEAD | tee evidence/source.txt
+          git -C upstream submodule status --recursive | tee evidence/submodules.txt
+          git -C upstream ls-files > evidence/source-files.txt
+          cp upstream/Android/src/app/build.gradle.kts evidence/
+          cp upstream/Android/src/gradle/libs.versions.toml evidence/
+      - name: Install declared SDK and native toolchain
+        run: |
+          set -euo pipefail
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+      - name: Build unmodified public source
+        working-directory: upstream/Android/src
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace --max-workers=2 2>&1 | tee ../../../evidence/gradle.log
+      - name: Inspect actual APK and copy distribution files
+        run: |
+          set -euo pipefail
+          apk=$(find upstream/Android/src/app/build/outputs/apk/release -name '*.apk' -print -quit)
+          test -n "$apk"
+          cp "$apk" dist/HITEL_Box_PublicSource_20261125.apk
+          bt="$ANDROID_HOME/build-tools/36.0.0"
+          "$bt/apksigner" verify --verbose --print-certs dist/*.apk | tee evidence/signature.txt
+          "$bt/aapt2" dump badging dist/*.apk | tee evidence/badging.txt
+          unzip -Z1 dist/*.apk > evidence/apk-files.txt
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          cp upstream/LICENSE dist/LICENSE
+          if test -f upstream/NOTICE; then cp upstream/NOTICE dist/NOTICE; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: box-source-evidence
+          path: evidence/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box-public-source-apk
+          path: dist/
+      - name: Publish source build (not official binary equivalent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create box-public-source-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "Box public source baseline 2026-11-25" --notes "Built from public tag 3.5.7 commit f09495df81d9aa2603d2d5fdfec7960c82547ca6. Public source declares internal version 1.0.12; no claim of parity with developer release 3.5.7. No device or inference test yet."
+          mkdir verify
+          gh release download box-public-source-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
