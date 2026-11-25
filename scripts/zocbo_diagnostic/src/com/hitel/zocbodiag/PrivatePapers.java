@@ -42,8 +42,8 @@ public final class PrivatePapers {
 
   static final class ModelDecision {
     final long until;
-    final boolean network, retain;
-    ModelDecision(long until, boolean network, boolean retain) { this.until = until; this.network = network; this.retain = retain; }
+    final boolean network;
+    ModelDecision(long until, boolean network) { this.until = until; this.network = network; }
   }
   private static final Map<String, ModelDecision> permits = new LinkedHashMap<String, ModelDecision>(32, 0.75f, true) {
     @Override protected boolean removeEldestEntry(Map.Entry<String, ModelDecision> eldest) { return size() > 128; }
@@ -135,7 +135,7 @@ public final class PrivatePapers {
     synchronized (permits) { permits.remove(owner + key); }
     host.setVisible(false);
     host.overridePendingTransition(0, 0);
-    Toast.makeText(host, "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
+    Toast.makeText(host, job.revalidation ? "서버 확인 중입니다." : "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
     main.postDelayed(() -> {
       if (!host.isFinishing() && !host.isDestroyed() && job(vm) == job)
         finish(job, "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
@@ -144,12 +144,6 @@ public final class PrivatePapers {
 
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
   public static boolean saving(Object vm) { return job(vm) != null; }
-
-  private static boolean mayStore(Object response) throws Exception {
-    Object headers = Class.forName("okhttp3.Response").getMethod("headers").invoke(response);
-    String control = (String)headers.getClass().getMethod("get", String.class).invoke(headers, "Cache-Control");
-    return PaperFreshness.mayStore(control);
-  }
 
   private static boolean hasNetworkResponse(Object response) {
     try {
@@ -194,8 +188,7 @@ public final class PrivatePapers {
       if (status >= 500) return;
       long until = 0;
       boolean valid = false;
-      boolean retain = mayStore(response);
-      if (status >= 200 && status < 300 && retain) {
+      if (status >= 200 && status < 300) {
         String modelText = (String)Class.forName("okhttp3.ResponseBody").getMethod("string").invoke(
             Class.forName("okhttp3.Response").getMethod("peekBody", long.class).invoke(response, 1024L * 1024L));
         String path = new JSONObject(modelText).optString("pdf_path", "");
@@ -207,16 +200,15 @@ public final class PrivatePapers {
       String grantKey = ownerAtRequest + key;
       synchronized (permits) {
         permits.remove(grantKey);
-        if (valid || !retain || status < 200 || status >= 300)
-          permits.put(grantKey, new ModelDecision(until, valid && hasNetworkResponse(response), retain && status >= 200 && status < 300));
+        if (valid) permits.put(grantKey, new ModelDecision(until, hasNetworkResponse(response)));
       }
       Context context = Diag.applicationContext();
       if (context != null) {
         SharedPreferences prefs = index(context, ownerAtRequest);
         String previous = prefs.getString(key, null);
-        if (previous != null) {
+        if (previous != null && (status == 401 || status == 403)) {
           JSONObject saved = new JSONObject(previous);
-          long limit = Math.min(until, saved.optLong("until", 0));
+          long limit = 0;
           if (limit != saved.optLong("until", 0)) prefs.edit().putString(key, saved.put("until", limit).toString()).commit();
         }
       }
@@ -263,29 +255,25 @@ public final class PrivatePapers {
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
       ModelDecision model = job.model;
-      if ((model != null && !model.retain) || !mayStore(response)) {
-        finish(job, "이 PDF는 앱에 저장할 수 없습니다.");
-        return;
+      // A user-selected private file is not the HTTP response cache.
+      // The native callback already received and verified the PDF. Its
+      // response freshness determines reopening, never the initial file write.
+      long until = 0;
+      try {
+        long deadline = responseDeadline(response);
+        // No explicit freshness lifetime: require server validation on reopen.
+        if (deadline != Long.MAX_VALUE) until = deadline;
+      } catch (Exception e) {
+        Diag.log("PRIVATE_PAPER_FRESHNESS_UNKNOWN", e.getClass().getSimpleName());
       }
-      long modelUntil = model == null ? 0 : model.until;
-      if (modelUntil == Long.MAX_VALUE) {
-        // A user download explicitly offered as an attachment is a standalone
-        // document. Inline reading without a reusable model has no offline grant.
-        Object headers = Class.forName("okhttp3.Response").getMethod("headers").invoke(response);
-        String disposition = (String)headers.getClass().getMethod("get", String.class)
-            .invoke(headers, "Content-Disposition");
-        String kind = disposition == null ? "" : disposition.split(";", 2)[0].trim();
-        if (!"attachment".equalsIgnoreCase(kind)) modelUntil = 0;
-      }
-      long until = Math.min(modelUntil, responseDeadline(response));
-      // Retention and permission to reuse are separate. An expired or
-      // no-cache response is retained but is never rendered without validation.
+      Diag.log("PRIVATE_PAPER_RECEIVED_REOPEN_DEADLINE", String.valueOf(until));
       if (job.revalidation && (model == null || !model.network || !hasNetworkResponse(response))) {
         finish(job, "서버 확인을 완료하지 못했습니다.");
         return;
       }
       if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
       store(host, job.owner, job.key, job.title, job.exam, original, until);
+      Diag.log("PRIVATE_PAPER_FILE_WRITTEN", job.exam);
       if (job.revalidation) {
         JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
         Intent result = new Intent().putExtra("paper", job.key)
