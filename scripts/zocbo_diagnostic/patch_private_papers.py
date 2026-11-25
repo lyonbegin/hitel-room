@@ -54,6 +54,7 @@ def save_only(source):
     # v6 remains live on the original ON branch. Save all the original
     # registers by moving OFF handling into a separate method.
     code = """
+    invoke-static {v1}, Lcom/hitel/zocbodiag/Diag;->questionModel(Ljava/lang/Object;)V
     invoke-static {v2, v1, v4}, Lcom/hitel/zocbodiag/ViewerPaperHooks;->saveIfSelected(Lcom/eduzone/eduzoneviewer/ui/activities/ViewerActivity;Lv3/P;Ljava/lang/String;)Z
     move-result v5
     if-eqz v5, :hitel_display_paper
