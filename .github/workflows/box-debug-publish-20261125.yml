@@ -1,0 +1,70 @@
+name: Box Korean Debug retest and publish
+on:
+  push:
+    branches: [build/box-3.5.7-20261125]
+    paths: ['.github/workflows/box-debug-publish-20261125.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Recover original compiled APK and check checksum
+        run: |
+          set -euo pipefail
+          mkdir dist evidence
+          gh run download 45586476776 --repo "$GH_REPO" --name box-debug-apk --dir dist
+          (cd dist && sha256sum -c SHA256SUMS.txt) | tee evidence/input-checksum.txt
+          ls -lh dist
+          bt=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$bt/apksigner" verify --verbose --print-certs dist/HITEL_Box_Korean_Debug_20261125.apk | tee evidence/signature.txt
+          "$bt/aapt2" dump badging dist/HITEL_Box_Korean_Debug_20261125.apk | tee evidence/badging.txt
+          grep -F application-debuggable evidence/badging.txt
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: |
+            adb logcat -c
+            adb install dist/HITEL_Box_Korean_Debug_20261125.apk
+            adb shell monkey -p com.box.gallery -c android.intent.category.LAUNCHER 1
+            sleep 15
+            adb exec-out screencap -p > evidence/screen.png
+            adb logcat -d -v threadtime > evidence/logcat.txt
+            adb logcat -b crash -d > evidence/crash.txt
+            adb shell pidof com.box.gallery > evidence/pid.txt
+            adb shell run-as com.box.gallery id > evidence/run-as.txt
+            grep HITEL_BOX evidence/logcat.txt | tee evidence/hitel-box.txt
+            grep APP_START evidence/hitel-box.txt
+            grep ACTIVITY_RESUMED evidence/hitel-box.txt
+            test -s evidence/pid.txt
+            if grep -E 'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError' evidence/crash.txt; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: box-retest-evidence
+          path: evidence/
+      - name: Publish identical tested APK and verify download
+        run: |
+          set -euo pipefail
+          gh release create box-korean-debug-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Box Korean Debug public-source baseline" --notes "Compiled from public Box source tag 3.5.7, commit f09495df81d9aa2603d2d5fdfec7960c82547ca6 (internal version 1.0.12). Korean defaults and diagnostics added. Original build 45586476776. Emulator install, launch and diagnostic log smoke test verified. Real Korean recognition/model inference not verified."
+          mkdir verify
+          gh release download box-korean-debug-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
+          printf '[Verified debug APK](https://github.com/%s/releases/download/box-korean-debug-20261125/HITEL_Box_Korean_Debug_20261125.apk)\n' "$GH_REPO" >> "$GITHUB_STEP_SUMMARY"
