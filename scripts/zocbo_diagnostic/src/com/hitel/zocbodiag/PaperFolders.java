@@ -1,9 +1,11 @@
 package com.hitel.zocbodiag;
 
 import android.content.Context;
-import android.graphics.BitmapFactory;
+import android.util.AtomicFile;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.nio.charset.StandardCharsets;
 import java.io.*;
-import java.net.*;
 import java.util.*;
 import java.lang.reflect.Field;
 import java.lang.annotation.Annotation;
@@ -24,20 +26,25 @@ final class PaperFolders {
     return null;
   }
 
-  static List<String> questions(Object model) {
-    List<String> paths = new ArrayList<>();
+  static List<JSONObject> questions(Object model) {
+    List<JSONObject> rows = new ArrayList<>();
     try {
       Object list = field(model, "qst_list");
       if (list instanceof List<?>) {
+        int position = 0;
         for (Object row : (List<?>)list) {
           Object path = field(row, "qst_img_path");
-          paths.add(path instanceof String ? (String)path : "");
+          Object seq = field(row, "qst_seq");
+          rows.add(new JSONObject()
+              .put("order", ++position)
+              .put("qst_seq", seq == null ? JSONObject.NULL : seq)
+              .put("qst_img_path", path instanceof String ? path : JSONObject.NULL));
         }
       }
     } catch (Exception e) {
       Diag.log("QUESTION_MODEL_ERROR", e.getClass().getSimpleName());
     }
-    return paths;
+    return rows;
   }
 
   static File examFolder(Context context, String title, String exam) throws IOException {
@@ -75,95 +82,41 @@ final class PaperFolders {
     } catch (IOException e) { return null; }
   }
 
-  // Accept only the original model's HTTPS image URLs and normal successful
-  // responses. Do not synthesize URLs, replay credentials or override no-store.
-  static int saveImages(Context context, String title, String exam,
-                        List<String> paths, String account) throws IOException {
-    return saveImagesInFolder(context, examFolder(context,title,exam), paths, account);
+  // Save the metadata supplied by the normal viewer, without requesting images,
+  // constructing URLs, or attempting to refresh or extend their validity.
+  static int saveQuestionPaths(Context context, String title, String exam,
+                         List<JSONObject> rows, String account) throws Exception {
+    return saveQuestionPathsInFolder(context, examFolder(context,title,exam), rows, account);
   }
 
-  static int saveImagesInFolder(Context context, File folder, List<String> paths, String account) throws IOException {
+  static int saveQuestionPathsInFolder(Context context, File folder,
+                         List<JSONObject> rows, String account) throws Exception {
+    if (account.isEmpty() || !account.equals(PrivatePapers.account()))
+      throw new IOException("account changed");
     File dir = new File(folder, "문제");
     if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("question folder unavailable");
-    Diag.log("QUESTION_FOLDER_PATH", dir.getAbsolutePath());
-    Set<String> written = new LinkedHashSet<>();
-    int saved = 0;
-    for (int i=0; i<paths.size(); i++) {
-      if (!account.equals(PrivatePapers.account())) break;
-      HttpURLConnection connection = null;
-      File temporary = null;
-      try {
-        URL url = new URL(paths.get(i));
-        if (!"https".equalsIgnoreCase(url.getProtocol()) || url.getUserInfo()!=null) {
-          Diag.log("QUESTION_IMAGE_SKIPPED", (i+1)+" unsupported URL");
-          continue;
-        }
-        connection = (HttpURLConnection)url.openConnection();
-        connection.setInstanceFollowRedirects(false);
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(7000);
-        connection.setUseCaches(false);
-        if (connection.getResponseCode()!=200) {
-          Diag.log("QUESTION_IMAGE_HTTP", (i+1)+" status="+connection.getResponseCode());
-          continue;
-        }
-        if (!PaperFreshness.mayStore(connection.getHeaderField("Cache-Control"))) {
-          Diag.log("QUESTION_IMAGE_NO_STORE", String.valueOf(i+1));
-          continue;
-        }
-        String type=connection.getContentType();
-        if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("image/")) {
-          Diag.log("QUESTION_IMAGE_SKIPPED", (i+1)+" response not image");
-          continue;
-        }
-        temporary=File.createTempFile(".question-", ".tmp", dir);
-        try (InputStream in=connection.getInputStream(); FileOutputStream out=new FileOutputStream(temporary)) {
-          byte[] buffer=new byte[16384]; int n; long size=0;
-          while ((n=in.read(buffer))!=-1) {
-            size+=n;
-            if (size>24L*1024*1024) throw new IOException("image too large");
-            out.write(buffer,0,n);
-          }
-          out.getFD().sync();
-        }
-        BitmapFactory.Options opts=new BitmapFactory.Options();
-        opts.inJustDecodeBounds=true;
-        BitmapFactory.decodeFile(temporary.getAbsolutePath(),opts);
-        if (opts.outWidth<=0 || opts.outHeight<=0) throw new IOException("invalid image");
-        String mime=opts.outMimeType;
-        String ext="image/png".equals(mime)?".png":"image/jpeg".equals(mime)?".jpg":
-                   "image/webp".equals(mime)?".webp":"image/gif".equals(mime)?".gif":null;
-        if (ext==null) {
-          Diag.log("QUESTION_IMAGE_SKIPPED", (i+1)+" unsupported image type");
-          continue;
-        }
-        if (!account.equals(PrivatePapers.account())) break;
-        String stem=String.format(Locale.ROOT,"%03d", i+1);
-        File destination=new File(dir,stem+ext);
-        if (!temporary.renameTo(destination)) throw new IOException("image move failed");
-        for (String old : new String[]{".png",".jpg",".webp",".gif"}) {
-          if (!old.equals(ext)) new File(dir,stem+old).delete();
-        }
-        if (!destination.isFile() || destination.length()<=0) throw new IOException("image missing after move");
-        written.add(destination.getName());
-        Diag.log("QUESTION_IMAGE_WRITTEN", destination.getName()+" bytes="+destination.length());
-      } catch (Exception e) {
-        Diag.log("QUESTION_IMAGE_ERROR",(i+1)+" "+e.getClass().getSimpleName());
-      } finally {
-        if (temporary!=null) temporary.delete();
-        if (connection!=null) connection.disconnect();
-      }
+    JSONArray questions = new JSONArray();
+    int count = 0;
+    for (JSONObject row : rows) {
+      questions.put(row);
+      if (!row.isNull("qst_img_path") && !row.optString("qst_img_path").trim().isEmpty()) count++;
     }
-    for (String name : written) {
-      File actual = new File(dir,name);
-      if (!actual.isFile() || actual.length()<=0) continue;
-      BitmapFactory.Options opts=new BitmapFactory.Options();
-      opts.inJustDecodeBounds=true;
-      BitmapFactory.decodeFile(actual.getAbsolutePath(),opts);
-      if (opts.outWidth>0 && opts.outHeight>0) saved++;
+    JSONObject document = new JSONObject().put("question_count", rows.size())
+        .put("image_path_count", count).put("questions", questions);
+    File destination = new File(dir, "questions.json");
+    AtomicFile atomic = new AtomicFile(destination);
+    FileOutputStream out = null;
+    try {
+      out = atomic.startWrite();
+      out.write(document.toString(2).getBytes(StandardCharsets.UTF_8));
+      if (!account.equals(PrivatePapers.account())) throw new IOException("account changed");
+      atomic.finishWrite(out);
+      out = null;
+    } finally {
+      if (out != null) atomic.failWrite(out);
     }
-    File[] children=dir.listFiles();
-    Diag.log("QUESTION_IMAGE_COUNT",saved+"/"+paths.size()+" verified; directory entries="+(children==null?-1:children.length));
-    return saved;
+    if (!destination.isFile() || destination.length()<=0) throw new IOException("JSON missing");
+    Diag.log("QUESTION_JSON_SAVED", destination.getAbsolutePath()+" count="+count+"/"+rows.size());
+    return count;
   }
 }
