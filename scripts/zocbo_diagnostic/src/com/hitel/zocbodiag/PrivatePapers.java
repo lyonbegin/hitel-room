@@ -239,7 +239,11 @@ public final class PrivatePapers {
     });
   }
 
-  private static File directory(Context context, String owner) {
+  static File directory(Context context, String owner) {
+    // Android's package-specific external files directory. Never a public Downloads folder.
+    return context.getExternalFilesDir(null);
+  }
+  private static File legacyDirectory(Context context, String owner) {
     return new File(new File(context.getFilesDir(), "offline_papers"), owner);
   }
   static SharedPreferences index(Context context, String owner) {
@@ -273,7 +277,7 @@ public final class PrivatePapers {
       }
       if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
       store(host, job.owner, job.key, job.title, job.exam, original, until);
-      Diag.log("PRIVATE_PAPER_FILE_WRITTEN", job.exam);
+      Diag.log("PRIVATE_PAPER_FILE_WRITTEN", job.exam + " directory=" + directory(host, job.owner));
       if (job.revalidation) {
         JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
         Intent result = new Intent().putExtra("paper", job.key)
@@ -292,7 +296,8 @@ public final class PrivatePapers {
   static synchronized void store(Context context, String owner, String key, String title,
                                 String exam, File source, long until) throws Exception {
     File dir = directory(context, owner);
-    if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("document directory");
+    if (dir == null || (!dir.isDirectory() && !dir.mkdirs()))
+      throw new IOException("app-specific external files directory unavailable");
     File candidate = new File(dir, UUID.randomUUID().toString() + ".pdf");
     boolean published = false;
     try {
@@ -325,8 +330,12 @@ public final class PrivatePapers {
     if (row == null || owner.isEmpty()) return null;
     String name = row.optString("file");
     if (!name.matches("[a-f0-9-]{36}\\.pdf")) return null;
-    File file = new File(directory(context, owner), name);
-    return file.isFile() ? file : null;
+    File dir = directory(context, owner);
+    File file = dir == null ? null : new File(dir, name);
+    if (file != null && file.isFile()) return file;
+    // Existing account-indexed papers from older builds remain readable.
+    File legacy = new File(legacyDirectory(context, owner), name);
+    return legacy.isFile() ? legacy : null;
   }
 
   static boolean canRead(JSONObject row, String validatedFile) {
