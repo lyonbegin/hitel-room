@@ -1,0 +1,82 @@
+name: R7 native worker Android compile and exact-source trace
+on:
+  push:
+    branches:
+      - feature/zocbo-r7-single-activity-workers-20261126
+    paths:
+      - .github/workflows/zocbo-r7-single-activity-compile.yml
+      - scripts/zocbo_diagnostic/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile actual Android sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          platform="$(find "$ANDROID_HOME/platforms" -maxdepth 1 -name 'android-*' | sort -V | tail -1)"
+          build="$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -1)"
+          mkdir -p out/classes out/dex out/test
+          javac -source 8 -target 8 -cp "$platform/android.jar" -d out/classes $(find scripts/zocbo_diagnostic/src scripts/zocbo_diagnostic/compile-stubs -name '*.java') 2>&1 | tee out/javac.log
+          "$build/d8" --min-api 23 --lib "$platform/android.jar" --output out/dex $(find out/classes/com/hitel -name '*.class')
+          test -s out/dex/classes.dex
+          javac -cp out/classes -d out/test scripts/zocbo_diagnostic/qa/PoolTest.java
+          java -cp out/classes:out/test PoolTest | tee out/worker-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-worker-compile-proof
+          path: |
+            out/javac.log
+            out/worker-test.log
+            out/dex/classes.dex
+  exact-source:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      APP_ID: jokbo
+      APP_PACKAGE: com.eduzone.eduzoneviewer
+      APP_VERSION: '4.3.11(2)'
+      APP_SHA256: d45ba34990d4f4eaaad126371023bba74be0ca120b4b26e78af2c4a8fa2ba3a5
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve exact original
+        run: python3 scripts/zocbo_original_dex/download_verified_xapk.py source
+      - name: Install JADX
+        run: |
+          curl -fLsS --connect-timeout 10 --max-time 100 -o /tmp/jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          echo /tmp/jadx/bin >> "$GITHUB_PATH"
+      - name: Extract original classes needed for lifecycle refactor
+        shell: bash
+        run: |
+          python3 -u scripts/zocbo_original_dex/analyze.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('/tmp/zocbo_jadx/sources')
+          out=Path('out/trace'); out.mkdir(parents=True,exist_ok=True)
+          wanted=['p229y3/V0.java','p229y3/Y0.java','p079i3/Q0.java','p079i3/I0.java','p079i3/z0.java','p079i3/G0.java','com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java']
+          summary={}
+          for name in wanted:
+              f=root/name
+              summary[name]=f.is_file()
+              if f.is_file():
+                  (out/name.replace('/','_')).write_text(f.read_text('utf8','replace'),encoding='utf8')
+          (out/'inventory.json').write_text(json.dumps(summary,indent=2))
+          print(json.dumps(summary,indent=2))
+          assert all(summary.values()), 'missing original classes; do not guess'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exact-original-lifecycle-trace
+          path: |
+            out/trace/
+            source/source_verification.json
