@@ -22,30 +22,30 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Inspect main question viewer adapter
+      - name: Inspect question fragment rendering architecture
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
           report=[]
-          for rel in ['p089j3/n.java','p089j3/m.java','p089j3/l.java','p089j3/k.java']:
-              p=root/rel
-              if not p.exists():continue
-              report.append('=== '+rel+' ===')
-              lines=p.read_text(errors='replace').splitlines()
-              for i,l in enumerate(lines):
-                  if re.search(r'authorization|bearertoken|access.?token|password|cookie|api.?key',l,re.I):continue
-                  l=re.sub(r'https?://[^"\s]+','[URL omitted]',l)
-                  report.append(f'{i+1}: {l[:350]}')
+          p=root/'p174s3/k.java'
+          assert p.exists()
+          lines=p.read_text(errors='replace').splitlines()
+          # Report UI architecture only, not private network endpoints, request parameters or credentials.
+          pat=r'import .*WebView|import .*Glide|import .*Bitmap|class k |onCreateView|onViewCreated|onDestroyView|WebView|ImageView|Glide|setImageBitmap|loadUrl\(|loadDataWithBaseURL|setAdapter|Fragment|VIEWER_ARGUMENT_URL'
+          for i,l in enumerate(lines):
+              if not re.search(pat,l):continue
+              if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|header|intercept',l,re.I):continue
+              report.append(f'{i+1}: {l.strip()[:300]}')
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result[:55000])
+          print(result)
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-body-viewer-audit
+          name: r7-question-fragment-rendering-audit
           path: |
             callsite-audit.txt
             jadx.log
