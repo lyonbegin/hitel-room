@@ -1,4 +1,4 @@
-name: Gallery 1.0.23 Korean ASR debug
+name: Gallery 1.0.23 Korean ASR V2 manual download
 on:
   push:
     branches: [build/gallery-korean-asr-20261125]
@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
           apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           test -n "$apk"
-          cp "$apk" dist/HITEL_Gallery_Korean_ASR_Debug_20261125.apk
+          cp "$apk" dist/HITEL_Gallery_Korean_ASR_Debug_V2_20261125.apk
           bt="$ANDROID_HOME/build-tools/36.0.0"
           "$bt/apksigner" verify --verbose --print-certs dist/*.apk | tee evidence/signature.txt
           "$bt/aapt2" dump badging dist/*.apk | tee evidence/badging.txt
@@ -65,7 +65,7 @@ jobs:
           set -euo pipefail
           pkg=com.google.aiedge.gallery
           adb logcat -c
-          adb install dist/HITEL_Gallery_Korean_ASR_Debug_20261125.apk
+          adb install dist/HITEL_Gallery_Korean_ASR_Debug_V2_20261125.apk
           adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
           sleep 15
           adb exec-out screencap -p > evidence/screen.png
@@ -106,7 +106,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create gallery-korean-asr-debug-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Gallery Korean ASR Debug 1.0.23" --notes "Original Gallery 1.0.23 source. Korean default and ML Kit Basic preference, language pack probe/download on dictation, system recognizer fallback, HITEL_ASR diagnostics. Existing agent and model code retained. Emulator install/launch tested; actual Korean recognition and Gemma inference not verified."
+          gh release create gallery-korean-asr-debug-v2-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Gallery Korean ASR Debug V2 1.0.23" --notes "Original Gallery 1.0.23 source. Korean locale default; original manual language pack installation and original engine selection/fallback restored; HITEL_ASR diagnostic logs only. Existing agent and model code retained. Emulator install/launch tested; actual Korean recognition and Gemma inference not verified."
           mkdir verify
-          gh release download gallery-korean-asr-debug-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          gh release download gallery-korean-asr-debug-v2-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
           (cd verify && sha256sum -c SHA256SUMS.txt)
