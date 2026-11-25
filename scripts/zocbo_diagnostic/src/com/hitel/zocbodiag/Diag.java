@@ -369,7 +369,47 @@ public final class Diag implements View.OnClickListener {
     return a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
       .getBoolean(DISPLAY_KEY,true);
   }
+  // A dedicated button anchored to the window, not to a scrolling WebView or
+  // the diagnostic horizontal toolbar. Do not cover the native PDF viewer.
+  static void installFileReaderButton(Activity a) {
+    if (a.getClass().getName().endsWith(".ViewerActivity") || a.isFinishing()) return;
+    try {
+      View decor = a.getWindow().getDecorView();
+      if (!(decor instanceof FrameLayout)) return;
+      FrameLayout frame = (FrameLayout)decor;
+      final String tag = "HITEL_FIXED_FILE_READER";
+      View existing = frame.findViewWithTag(tag);
+      if (existing != null) { existing.setVisibility(View.VISIBLE); existing.bringToFront(); return; }
+      Button file = new Button(a);
+      file.setTag(tag);
+      file.setText("파일 읽기");
+      file.setContentDescription("파일 읽기 · 앱 내부 저장 폴더");
+      file.setTextSize(13);
+      file.setTextColor(Color.WHITE);
+      file.setBackgroundColor(Color.rgb(22,78,128));
+      file.setMinWidth(0); file.setMinimumWidth(0);
+      file.setPadding(dp(a,12),0,dp(a,12),0);
+      file.setElevation(dp(a,12));
+      file.setOnClickListener(v -> {
+        try { a.startActivity(new Intent(a, NativePdfEntryActivity.class)); }
+        catch (Exception e) {
+          log("FIXED_FILE_READER_ERROR", e.getClass().getSimpleName());
+          Toast.makeText(a,"파일 읽기 화면을 열 수 없습니다.",Toast.LENGTH_LONG).show();
+        }
+      });
+      int status = a.getResources().getIdentifier("status_bar_height","dimen","android");
+      int inset = status == 0 ? dp(a,24) : a.getResources().getDimensionPixelSize(status);
+      FrameLayout.LayoutParams pos = new FrameLayout.LayoutParams(-2,dp(a,42),Gravity.TOP|Gravity.RIGHT);
+      pos.topMargin = inset + dp(a,4);
+      pos.rightMargin = dp(a,8);
+      frame.addView(file,pos);
+      file.bringToFront();
+      log("FIXED_FILE_READER_VISIBLE", a.getClass().getName());
+    } catch (Throwable e) { log("FIXED_FILE_READER_ERROR", e.getClass().getSimpleName()); }
+  }
+
   public static void install(Activity a) {
+    installFileReaderButton(a);
     enableWebViewInspector();
     synchronized(Diag.class) {
       if(app==null) {
@@ -416,14 +456,6 @@ public final class Diag implements View.OnClickListener {
       bar.setTag(TAG);
       bar.setOrientation(LinearLayout.HORIZONTAL);
       bar.setBackgroundColor(Color.argb(215,17,30,45));
-      Button readFile = new Button(a);
-      readFile.setText("파일 읽기");
-      readFile.setTextSize(12);
-      readFile.setMinWidth(0);
-      readFile.setMinimumWidth(0);
-      readFile.setPadding(dp(a,6),0,dp(a,6),0);
-      readFile.setOnClickListener(v -> a.startActivity(new Intent(a, NativePdfEntryActivity.class)));
-      bar.addView(readFile, new LinearLayout.LayoutParams(-2,dp(a,38)));
       Diag listener=new Diag(a);
       for(String label:new String[]{"로그","복사","저장","지우기"}) {
         Button btn=new Button(a);
@@ -451,7 +483,7 @@ public final class Diag implements View.OnClickListener {
       viewerSwitch.setPadding(dp(a,8),0,dp(a,8),0);
       viewerSwitch.setChecked(showViewer(a));
       viewerSwitch.setContentDescription("ON은 바로 열기, OFF는 앱에 저장");
-      bar.addView(viewerSwitch,1,new LinearLayout.LayoutParams(-2,dp(a,38)));
+      bar.addView(viewerSwitch,new LinearLayout.LayoutParams(-2,dp(a,38)));
       root.addView(hs,lp);
       viewerSwitch.setOnCheckedChangeListener((button,checked)->{
         a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
