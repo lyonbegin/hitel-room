@@ -139,7 +139,7 @@ public final class PrivatePapers {
     Toast.makeText(host, job.revalidation ? "서버 확인 중입니다." : "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
     main.postDelayed(() -> {
       if (!host.isFinishing() && !host.isDestroyed() && job(vm) == job)
-        finish(job, "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
+        finish(job, false, "TIMEOUT", "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
     }, 300000);
   }
 
@@ -231,7 +231,7 @@ public final class PrivatePapers {
       new Thread(() -> {
         try {
           int count = PaperFolders.saveQuestionPaths(host, job.title, job.exam, job.questionPaths, job.owner);
-          finish(job, "문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
+          finish(job, true, "JSON_ONLY_SAVED", "문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
         } catch (Exception e) { finish(job, "문제 폴더 저장 실패"); }
       }, "question-folder-save").start();
     }
@@ -239,10 +239,15 @@ public final class PrivatePapers {
   }
 
   static void finish(Job job, String message) {
+    finish(job, false, "FAILED", message);
+  }
+
+  static void finish(Job job, boolean success, String status, String message) {
     synchronized (job) { if (job.finished) return; job.finished = true; }
     main.post(() -> {
       Activity a = job.host.get();
       if (a == null || a.isDestroyed() || a.isFinishing()) return;
+      NativePdfTitleBridge.recordResult(a, success, status, message);
       Toast.makeText(a, message, Toast.LENGTH_LONG).show();
       a.finish();
       a.overridePendingTransition(0, 0);
@@ -295,7 +300,7 @@ public final class PrivatePapers {
         main.post(() -> {
           if (!host.isFinishing() && !host.isDestroyed()) host.setResult(Activity.RESULT_OK, result);
         });
-        finish(job, "서버 확인을 완료했습니다.");
+        finish(job, true, "REVALIDATED", "서버 확인을 완료했습니다.");
       } else {
         JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
         File pdf = resolveFile(host, job.owner, saved);
@@ -304,7 +309,7 @@ public final class PrivatePapers {
         File folder = pdf.getParentFile().getParentFile();
         List<JSONObject> paths = new ArrayList<>(job.questionPaths);
         int count = PaperFolders.saveQuestionPathsInFolder(host, folder, paths, job.owner);
-        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + paths.size() + "개)");
+        finish(job, true, "PDF_AND_JSON_SAVED", "시험지 PDF 저장 완료 / 문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + paths.size() + "개)");
       }
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
