@@ -22,30 +22,50 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Inspect question fragment rendering architecture
+      - name: Trace body WebView initialization, load and rendering callbacks
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
           report=[]
+          def emit(p,indices,limit=400):
+              if not p.exists():return
+              lines=p.read_text(errors='replace').splitlines()
+              report.append('=== '+str(p.relative_to(root))+' ===')
+              for i in sorted(set(indices))[:limit]:
+                  if i<0 or i>=len(lines):continue
+                  l=lines[i]
+                  if re.search(r'authorization|bearer|access.?token|refresh.?token|password|cookie|api.?key',l,re.I):continue
+                  l=re.sub(r'https?://[^"\s]+','[URL omitted]',l)
+                  report.append(f'{i+1}: {l[:400]}')
           p=root/'p174s3/k.java'
-          assert p.exists()
           lines=p.read_text(errors='replace').splitlines()
-          # Report UI architecture only, not private network endpoints, request parameters or credentials.
-          pat=r'import .*WebView|import .*Glide|import .*Bitmap|class k |onCreateView|onViewCreated|onDestroyView|WebView|ImageView|Glide|setImageBitmap|loadUrl\(|loadDataWithBaseURL|setAdapter|Fragment|VIEWER_ARGUMENT_URL'
-          for i,l in enumerate(lines):
-              if not re.search(pat,l):continue
-              if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|header|intercept',l,re.I):continue
-              report.append(f'{i+1}: {l.strip()[:300]}')
+          emit(p,list(range(0,100))+list(range(350,570))+list(range(2750,len(lines))),450)
+          p=root/'p174s3/h.java'
+          if p.exists():
+              lines=p.read_text(errors='replace').splitlines()
+              emit(p,range(len(lines)),220)
+          for p in (root/'p174s3').rglob('*.java'):
+              if p.name in ['k.java','h.java']:continue
+              lines=p.read_text(errors='replace').splitlines()
+              hits=[i for i,l in enumerate(lines) if re.search(r'loadUrl\(|loadData\(|loadDataWithBaseURL\(|WebViewClient|onPageFinished\(|onPageStarted\(|evaluateJavascript\(|addJavascriptInterface\(|VIEWER_ARGUMENT_URL|\.f9376n|WebResourceResponse|shouldInterceptRequest\(',l)]
+              if hits:emit(p,[j for i in hits for j in range(i-4,i+5)],130)
+          for p in root.rglob('*.java'):
+              rel=str(p.relative_to(root))
+              if not ('eduzoneviewer' in rel or re.match(r'p\d+[a-z]\d?/',rel)):continue
+              if rel.startswith('p174s3/'):continue
+              lines=p.read_text(errors='replace').splitlines()
+              hits=[i for i,l in enumerate(lines) if re.search(r'ViewerWebViewFragment|VIEWER_ARGUMENT_URL|f9376n|fragment_viewer_webview',l)]
+              if hits:emit(p,[j for i in hits for j in range(i-3,i+4)],80)
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result)
+          print(result[:85000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-fragment-rendering-audit
+          name: r7-question-body-webview-flow-audit
           path: |
             callsite-audit.txt
             jadx.log
