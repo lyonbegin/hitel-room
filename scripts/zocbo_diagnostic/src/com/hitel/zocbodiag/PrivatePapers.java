@@ -57,6 +57,7 @@ public final class PrivatePapers {
     final boolean revalidation;
     volatile ModelDecision model;
     volatile boolean finished;
+    Runnable timeout;
     Job(Activity host, String owner, String key, String exam) {
       this.host = new WeakReference<>(host);
       this.owner = owner;
@@ -137,13 +138,42 @@ public final class PrivatePapers {
     host.setVisible(false);
     host.overridePendingTransition(0, 0);
     Toast.makeText(host, job.revalidation ? "서버 확인 중입니다." : "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
-    main.postDelayed(() -> {
-      if (!host.isFinishing() && !host.isDestroyed() && job(vm) == job)
+    // Do not retain an Activity or ViewModel for five minutes after completion.
+    final WeakReference<Object> vmRef = new WeakReference<>(vm);
+    final Runnable timeout = () -> {
+      Activity active = job.host.get();
+      Object model = vmRef.get();
+      if (active != null && model != null && !active.isFinishing()
+          && !active.isDestroyed() && job(model) == job)
         finish(job, false, "TIMEOUT", "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
-    }, 300000);
+    };
+    synchronized (job) {
+      if (!job.finished) {
+        job.timeout = timeout;
+        main.postDelayed(timeout, 300000);
+      }
+    }
   }
 
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
+
+  private static void clearTimeoutLocked(Job job) {
+    if (job.timeout != null) {
+      main.removeCallbacks(job.timeout);
+      job.timeout = null;
+    }
+  }
+
+  static void onHostDestroyed(Activity host) {
+    final List<Job> owned = new ArrayList<>();
+    synchronized (jobs) {
+      for (Job j : jobs.values()) if (j.host.get() == host) owned.add(j);
+    }
+    for (Job j : owned) synchronized (j) {
+      j.finished = true;
+      clearTimeoutLocked(j);
+    }
+  }
   public static boolean saving(Object vm) { return job(vm) != null; }
 
   private static boolean hasNetworkResponse(Object response) {
@@ -219,6 +249,7 @@ public final class PrivatePapers {
   public static boolean prepare(Object vm, String title, String pdfUrl, Object viewerModel) {
     Job job = job(vm);
     if (job == null) return false;
+    if (job.finished) return true;
     job.title = title;
     job.questionPaths = PaperFolders.questions(viewerModel);
     Diag.log("QUESTION_MODEL_COUNT", String.valueOf(job.questionPaths.size()));
@@ -243,7 +274,11 @@ public final class PrivatePapers {
   }
 
   static void finish(Job job, boolean success, String status, String message) {
-    synchronized (job) { if (job.finished) return; job.finished = true; }
+    synchronized (job) {
+      if (job.finished) return;
+      job.finished = true;
+      clearTimeoutLocked(job);
+    }
     main.post(() -> {
       Activity a = job.host.get();
       if (a == null || a.isDestroyed()) return;
