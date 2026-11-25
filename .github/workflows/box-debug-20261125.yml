@@ -47,7 +47,7 @@ jobs:
           sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdk"
           "$sdk" --version
-          "$sdk" 'platforms;android-37' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+          "$sdk" 'platforms;android-37.0' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
       - name: Compile debuggable APK
         working-directory: upstream/Android/src
         run: |
