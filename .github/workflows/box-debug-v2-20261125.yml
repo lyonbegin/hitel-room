@@ -1,0 +1,130 @@
+name: Box Korean Debug V2 navigation crash fix
+on:
+  push:
+    branches: [build/box-3.5.7-20261125]
+    paths: ['.github/workflows/box-debug-v2-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  debug:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch pinned upstream with submodules
+        run: |
+          set -euo pipefail
+          mkdir -p evidence dist
+          git init upstream
+          git -C upstream remote add origin https://github.com/jegly/Box.git
+          git -C upstream fetch --depth=1 origin f09495df81d9aa2603d2d5fdfec7960c82547ca6
+          git -C upstream checkout --detach FETCH_HEAD
+          git -C upstream submodule update --init --recursive --depth=1
+          git -C upstream rev-parse HEAD | tee evidence/source.txt
+          git -C upstream submodule status --recursive | tee evidence/submodules.txt
+      - name: Apply diagnostic source modifications
+        run: |
+          set -euo pipefail
+          python3 box-debug/patch_diagnostics.py upstream/Android/src | tee evidence/patch.txt
+          sed -i 's/^android.newDsl=true$/android.newDsl=false/' upstream/Android/src/gradle.properties
+          grep -Fx 'android.newDsl=false' upstream/Android/src/gradle.properties
+          for f in upstream/Android/src/{app,smollm,stablediffusion,whisper}/build.gradle.kts; do
+            sed -i '1i @file:Suppress("DEPRECATION", "DEPRECATION_ERROR")' "$f"
+          done
+          for f in upstream/Android/src/{app,smollm,stablediffusion,whisper}/build.gradle.kts; do
+            sed -i 's/compileSdk = 36/compileSdk = 37/' "$f"
+          done
+          sed -i '/id("org.gradle.toolchains.foojay-resolver-convention")/d' upstream/Android/src/settings.gradle.kts
+          git -C upstream grep -nE '^[[:space:]]*context[[:space:]]*\(' -- '*.kt' || true
+          sed -i '/freeCompilerArgs += "-Xcontext-receivers"/d' upstream/Android/src/app/build.gradle.kts
+          git -C upstream diff --check
+          git -C upstream diff > evidence/diagnostic.patch
+          cp upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/ui/navigation/WhisperRouteTest.kt evidence/
+      - name: Install SDK and native toolchain
+        run: |
+          set -euo pipefail
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdk"
+          "$sdk" --version
+          "$sdk" 'platforms;android-37.0' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+      - name: Compile debuggable APK
+        working-directory: upstream/Android/src
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace --max-workers=2 2>&1 | tee ../../../evidence/gradle-debug.log
+      - name: Verify APK and debug flag
+        run: |
+          set -euo pipefail
+          apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
+          test -n "$apk"
+          cp "$apk" dist/HITEL_Box_Korean_Debug_V2_20261125.apk
+          testapk=$(find upstream/Android/src/app/build/outputs/apk/androidTest -name '*.apk' -print -quit)
+          test -n "$testapk"
+          cp "$testapk" evidence/route-test.apk
+          bt="$ANDROID_HOME/build-tools/36.0.0"
+          "$bt/apksigner" verify --verbose --print-certs dist/*.apk | tee evidence/signature.txt
+          "$bt/aapt2" dump badging dist/*.apk | tee evidence/badging.txt
+          grep -q 'application-debuggable' evidence/badging.txt
+          unzip -Z1 dist/*.apk > evidence/apk-files.txt
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          cp upstream/LICENSE dist/LICENSE
+          if test -f upstream/NOTICE; then cp upstream/NOTICE dist/NOTICE; fi
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          script: |
+            adb logcat -c
+            adb install dist/HITEL_Box_Korean_Debug_V2_20261125.apk
+            adb install evidence/route-test.apk
+            adb shell am instrument -w -r -e class com.google.ai.edge.gallery.ui.navigation.WhisperRouteTest com.box.gallery.test/androidx.test.runner.AndroidJUnitRunner > evidence/route-test.txt
+            cat evidence/route-test.txt
+            grep -F 'OK (1 test)' evidence/route-test.txt
+            adb shell monkey -p com.box.gallery -c android.intent.category.LAUNCHER 1
+            sleep 12
+            adb exec-out screencap -p > evidence/screen.png
+            adb logcat -d -v threadtime > evidence/logcat.txt
+            adb logcat -b crash -d > evidence/crash.txt
+            adb shell pidof com.box.gallery > evidence/pid.txt
+            adb shell run-as com.box.gallery id > evidence/run-as.txt
+            grep HITEL_BOX evidence/logcat.txt | tee evidence/hitel-box.txt
+            grep APP_START evidence/hitel-box.txt
+            test -s evidence/pid.txt
+            if grep -E 'FATAL EXCEPTION|SIGSEGV|VerifyError|UnsatisfiedLinkError' evidence/crash.txt; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: box-debug-evidence
+          path: evidence/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: box-debug-apk
+          path: dist/
+          if-no-files-found: ignore
+      - name: Publish validated debug build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create box-korean-debug-v2-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Box Korean Debug V2 navigation fix" --notes "V2 fixes model-name path separator crash by URI encoding. Navigation regression tested on Android emulator. Korean-default debug build with HITEL_BOX logcat instrumentation from public 3.5.7 tag (source declares 1.0.12). Not equivalent to official 3.5.7 APK. Emulator launch verified; real model inference and Korean STT not verified."
+          mkdir verify
+          gh release download box-korean-debug-v2-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          (cd verify && sha256sum -c SHA256SUMS.txt)
