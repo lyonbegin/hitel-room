@@ -79,7 +79,14 @@ final class PaperFolders {
   // responses. Do not synthesize URLs, replay credentials or override no-store.
   static int saveImages(Context context, String title, String exam,
                         List<String> paths, String account) throws IOException {
-    File dir = new File(examFolder(context,title,exam), "문제");
+    return saveImagesInFolder(context, examFolder(context,title,exam), paths, account);
+  }
+
+  static int saveImagesInFolder(Context context, File folder, List<String> paths, String account) throws IOException {
+    File dir = new File(folder, "문제");
+    if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("question folder unavailable");
+    Diag.log("QUESTION_FOLDER_PATH", dir.getAbsolutePath());
+    Set<String> written = new LinkedHashSet<>();
     int saved = 0;
     for (int i=0; i<paths.size(); i++) {
       if (!account.equals(PrivatePapers.account())) break;
@@ -87,7 +94,10 @@ final class PaperFolders {
       File temporary = null;
       try {
         URL url = new URL(paths.get(i));
-        if (!"https".equalsIgnoreCase(url.getProtocol()) || url.getUserInfo()!=null) continue;
+        if (!"https".equalsIgnoreCase(url.getProtocol()) || url.getUserInfo()!=null) {
+          Diag.log("QUESTION_IMAGE_SKIPPED", (i+1)+" unsupported URL");
+          continue;
+        }
         connection = (HttpURLConnection)url.openConnection();
         connection.setInstanceFollowRedirects(false);
         connection.setConnectTimeout(5000);
@@ -102,7 +112,10 @@ final class PaperFolders {
           continue;
         }
         String type=connection.getContentType();
-        if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("image/")) continue;
+        if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("image/")) {
+          Diag.log("QUESTION_IMAGE_SKIPPED", (i+1)+" response not image");
+          continue;
+        }
         temporary=File.createTempFile(".question-", ".tmp", dir);
         try (InputStream in=connection.getInputStream(); FileOutputStream out=new FileOutputStream(temporary)) {
           byte[] buffer=new byte[16384]; int n; long size=0;
@@ -120,7 +133,10 @@ final class PaperFolders {
         String mime=opts.outMimeType;
         String ext="image/png".equals(mime)?".png":"image/jpeg".equals(mime)?".jpg":
                    "image/webp".equals(mime)?".webp":"image/gif".equals(mime)?".gif":null;
-        if (ext==null) continue;
+        if (ext==null) {
+          Diag.log("QUESTION_IMAGE_SKIPPED", (i+1)+" unsupported image type");
+          continue;
+        }
         if (!account.equals(PrivatePapers.account())) break;
         String stem=String.format(Locale.ROOT,"%03d", i+1);
         File destination=new File(dir,stem+ext);
@@ -128,7 +144,9 @@ final class PaperFolders {
         for (String old : new String[]{".png",".jpg",".webp",".gif"}) {
           if (!old.equals(ext)) new File(dir,stem+old).delete();
         }
-        saved++;
+        if (!destination.isFile() || destination.length()<=0) throw new IOException("image missing after move");
+        written.add(destination.getName());
+        Diag.log("QUESTION_IMAGE_WRITTEN", destination.getName()+" bytes="+destination.length());
       } catch (Exception e) {
         Diag.log("QUESTION_IMAGE_ERROR",(i+1)+" "+e.getClass().getSimpleName());
       } finally {
@@ -136,7 +154,16 @@ final class PaperFolders {
         if (connection!=null) connection.disconnect();
       }
     }
-    Diag.log("QUESTION_IMAGE_COUNT",saved+"/"+paths.size());
+    for (String name : written) {
+      File actual = new File(dir,name);
+      if (!actual.isFile() || actual.length()<=0) continue;
+      BitmapFactory.Options opts=new BitmapFactory.Options();
+      opts.inJustDecodeBounds=true;
+      BitmapFactory.decodeFile(actual.getAbsolutePath(),opts);
+      if (opts.outWidth>0 && opts.outHeight>0) saved++;
+    }
+    File[] children=dir.listFiles();
+    Diag.log("QUESTION_IMAGE_COUNT",saved+"/"+paths.size()+" verified; directory entries="+(children==null?-1:children.length));
     return saved;
   }
 }
