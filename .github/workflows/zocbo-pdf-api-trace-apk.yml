@@ -21,6 +21,22 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+      - name: Restore fixed APK signing key (never generate a replacement)
+        shell: bash
+        env:
+          SIGNING_KEY_B64: ${{ secrets.ZOCBO_SIGNING_KEY_B64 }}
+          SIGNING_PASSWORD: ${{ secrets.ZOCBO_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SIGNING_KEY_B64" ] || [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::error::Configure ZOCBO_SIGNING_KEY_B64 and ZOCBO_SIGNING_PASSWORD in repository Actions secrets. No random-key APK will be published."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$SIGNING_KEY_B64" | base64 --decode > "$RUNNER_TEMP/zocbo-fixed.p12"
+          test -s "$RUNNER_TEMP/zocbo-fixed.p12"
+          keytool -list -storetype PKCS12 -keystore "$RUNNER_TEMP/zocbo-fixed.p12" -alias diagnostic -storepass:env SIGNING_PASSWORD >/dev/null
+          echo FIXED_SIGNING_KEY_READY
       - name: Download verified, original user XAPK (abort unless exact original SHA256)
         shell: bash
         run: |
@@ -124,17 +140,20 @@ jobs:
           PY
       - name: Zipalign, sign test build and verify test signature
         shell: bash
+        env:
+          SIGNING_PASSWORD: ${{ secrets.ZOCBO_SIGNING_PASSWORD }}
         run: |
           set -euxo pipefail
           SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-unzipaligned.apk work/zocbo-aligned.apk
-          keytool -genkeypair -keystore work/diagnostic.jks -alias diagnostic -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=HITEL Diagnostic Test,O=Diagnostic,C=KR" -noprompt
-          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk work/zocbo-aligned.apk
+          "$SDK_BUILD/apksigner" sign --ks "$RUNNER_TEMP/zocbo-fixed.p12" --ks-type PKCS12 --ks-pass env:SIGNING_PASSWORD --key-pass env:SIGNING_PASSWORD --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk work/zocbo-aligned.apk
           "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
           sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk | tee work/SHA256SUMS.txt
           file work/Zocbo_4.3.11_Original_Diagnostic_20261123.apk
       - name: Sign the three original split APKs with the same diagnostic certificate
         shell: bash
+        env:
+          SIGNING_PASSWORD: ${{ secrets.ZOCBO_SIGNING_PASSWORD }}
         run: |
           set -euxo pipefail
           SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
@@ -152,7 +171,7 @@ jobs:
             [ -f "$apk" ] || continue
             name="$(basename "$apk")"
             "$SDK_BUILD/zipalign" -f -p 4 "$apk" "work/signed-splits/aligned-$name"
-            "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out "work/signed-splits/$name" "work/signed-splits/aligned-$name"
+            "$SDK_BUILD/apksigner" sign --ks "$RUNNER_TEMP/zocbo-fixed.p12" --ks-type PKCS12 --ks-pass env:SIGNING_PASSWORD --key-pass env:SIGNING_PASSWORD --ks-key-alias diagnostic --out "work/signed-splits/$name" "work/signed-splits/aligned-$name"
             "$SDK_BUILD/apksigner" verify --verbose "work/signed-splits/$name"
           done
       - name: Create installable modified XAPK retaining original split filenames and manifest
@@ -189,6 +208,8 @@ jobs:
           sha256sum work/Zocbo_4.3.11_Original_Diagnostic_20261123.xapk >> work/SHA256SUMS.txt
       - name: Merge original four split APKs into ONE installable APK with APKEditor
         shell: bash
+        env:
+          SIGNING_PASSWORD: ${{ secrets.ZOCBO_SIGNING_PASSWORD }}
         run: |
           set -euxo pipefail
           curl -fLsS --retry 3 --connect-timeout 15 --max-time 100 -o /tmp/APKEditor-1.4.9.jar https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar
@@ -196,8 +217,8 @@ jobs:
           test -s work/zocbo-networkfix-merged-unsigned.apk
           SDK_BUILD="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
           "$SDK_BUILD/zipalign" -f -p 4 work/zocbo-networkfix-merged-unsigned.apk work/zocbo-networkfix-merged-aligned.apk
-          "$SDK_BUILD/apksigner" sign --ks work/diagnostic.jks --ks-pass pass:android --key-pass pass:android --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/zocbo-networkfix-merged-aligned.apk
-          "$SDK_BUILD/apksigner" verify --verbose work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk
+          "$SDK_BUILD/apksigner" sign --ks "$RUNNER_TEMP/zocbo-fixed.p12" --ks-type PKCS12 --ks-pass env:SIGNING_PASSWORD --key-pass env:SIGNING_PASSWORD --ks-key-alias diagnostic --out work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/zocbo-networkfix-merged-aligned.apk
+          "$SDK_BUILD/apksigner" verify --verbose --print-certs work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk | tee work/signing-certificate.txt
           python3 - <<'PY'
           import zipfile,subprocess,pathlib
           p="work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk"
@@ -258,9 +279,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
-          test -s work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
-          sha256sum work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_R7_Persistent_WebView_Save_FixedSigning.apk
+          test -s work/Zocbo_4.3.11_R7_Persistent_WebView_Save_FixedSigning.apk
+          sha256sum work/Zocbo_4.3.11_R7_Persistent_WebView_Save_FixedSigning.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -274,12 +295,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-r7-persistent-webview-save-20261125
-          APK=work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
+          TAG="zocbo-r7-persistent-webview-save-fixed-signing-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          APK=work/Zocbo_4.3.11_R7_Persistent_WebView_Save_FixedSigning.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
             --title "Zocbo R7 Persistent WebView PDF Save Test" \
-            --notes "saveExam starts the same-row official download in the existing WebView without launching or closing an Activity. Original titleSelected still opens the original viewer. R7 original viewer preserved. Explicitly armed official WebView PDF attachment is handled by Android DownloadManager, then validated and saved to Download/HITEL-Zocbo. Native viewer-only cache is not exported. Chrome Console armOfficialSave and officialSaveStatus. CI build and release byte verification only; authenticated attachment callback untested." \
-            "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
+            --notes "saveExam starts the same-row official download in the existing WebView without launching or closing an Activity. Original titleSelected still opens the original viewer. R7 original viewer preserved. Explicitly armed official WebView PDF attachment is handled by Android DownloadManager, then validated and saved to Download/HITEL-Zocbo. Native viewer-only cache is not exported. Chrome Console armOfficialSave and officialSaveStatus. CI build and release byte verification only; authenticated attachment callback untested. Fixed repository signing key; subsequent installations with the same certificate may update in place. First migration from a random-key build may require reinstall." \
+            "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt work/signing-certificate.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
           test "$(sha256sum "$APK" | cut -d ' ' -f1)" = "$(sha256sum "work/release-recheck/$(basename "$APK")" | cut -d ' ' -f1)"
@@ -292,7 +313,12 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
+            work/Zocbo_4.3.11_R7_Persistent_WebView_Save_FixedSigning.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
+
+      - name: Remove signing key from runner
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/zocbo-fixed.p12"
