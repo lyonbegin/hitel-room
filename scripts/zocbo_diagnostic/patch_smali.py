@@ -168,6 +168,43 @@ for folder in smalis:
       "onPageStarted(Landroid/webkit/WebView;" in raw or
       "onPageFinished(Landroid/webkit/WebView;" in raw):
     hook_calls(f)
+# Read-only stage tracing; preserve registers and original control flow.
+def question_stage(rel,callee,helper,arg_index):
+  f=find(rel)
+  if not f: raise SystemExit("Missing diagnostic target "+rel)
+  old=f.read_text("utf8")
+  count=0
+  def inject(m):
+    nonlocal count
+    args=m.group(2).strip()
+    if ".." in args:
+      first,last=[v.strip() for v in args.split("..")]
+      if first[0]!=last[0]:raise ValueError("mixed register range")
+      args=[first[0]+str(n) for n in range(int(first[1:]),int(last[1:])+1)]
+    else:args=[v.strip() for v in args.split(",")]
+    reg=args[arg_index]
+    count+=1
+    return "    invoke-static/range {"+reg+" .. "+reg+"}, "+S+"->"+helper+"(Ljava/lang/String;)V\n"+m.group(0)
+  pattern=r"(?m)^(\s*invoke-(?:virtual|interface)(?:/range)?\s+)\{([^}]+)\},\s*"+callee+r"\s*$"
+  new=re.sub(pattern,inject,old)
+  if not count:raise SystemExit("No callsite "+rel+" "+helper)
+  save(f,old,new,"question-"+helper)
+  print("QUESTION_STAGE_COUNT",helper,count)
+question_stage("j3/w.smali",r"Lcom/bumptech/glide/RequestManager;->load\(Ljava/lang/String;\)Lcom/bumptech/glide/RequestBuilder;","questionGlide",1)
+question_stage("s3/k.smali",r"Lz3/e;->h\(Ljava/lang/String;Z\)V","questionBodyNavigation",1)
+f=find("j3/n.smali")
+if not f:raise SystemExit("Missing question body adapter")
+old=f.read_text("utf8")
+pat=r"(?m)^\.method[^\n]*<init>\(L[^;]+;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ZI\)V\s*\n"
+m=re.search(pat,old)
+if not m:raise SystemExit("Question adapter constructor signature not found")
+end=old.index(".end method",m.end())
+body=old[m.end():end]
+reg=re.search(r"(?m)^    \.(?:registers|locals) \d+[ \t]*$",body)
+if not reg:raise SystemExit("Question adapter registers missing")
+new=old[:m.end()+reg.end()]+"\n    invoke-static/range {p5 .. p5}, "+S+"->questionAdapter(Ljava/util/List;)V\n"+old[m.end()+reg.end():]
+save(f,old,new,"question-body-adapter")
+
 # Confirm patch counts / critical classes.
 print("PATCH_SUMMARY",json.dumps(out,ensure_ascii=False),flush=True)
 outf=Path(sys.argv[2]) if len(sys.argv)>2 else Path("diag-patch-report.json")
