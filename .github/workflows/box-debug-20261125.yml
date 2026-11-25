@@ -16,7 +16,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
       - name: Fetch pinned upstream with submodules
         run: |
           set -euo pipefail
@@ -37,8 +36,10 @@ jobs:
       - name: Install SDK and native toolchain
         run: |
           set -euo pipefail
-          command -v sdkmanager
-          sdkmanager 'platforms;android-36' 'platforms;android-37' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdk"
+          "$sdk" --version
+          "$sdk" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018' 'cmake;3.22.1'
       - name: Compile debuggable APK
         working-directory: upstream/Android/src
         run: |
@@ -50,7 +51,7 @@ jobs:
           set -euo pipefail
           apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           test -n "$apk"
-          cp "$apk" dist/HITEL_Box_Debug_20261125.apk
+          cp "$apk" dist/HITEL_Box_Korean_Debug_20261125.apk
           bt="$ANDROID_HOME/build-tools/36.0.0"
           "$bt/apksigner" verify --verbose --print-certs dist/*.apk | tee evidence/signature.txt
           "$bt/aapt2" dump badging dist/*.apk | tee evidence/badging.txt
@@ -75,7 +76,7 @@ jobs:
           emulator-boot-timeout: 600
           script: |
             adb logcat -c
-            adb install dist/HITEL_Box_Debug_20261125.apk
+            adb install dist/HITEL_Box_Korean_Debug_20261125.apk
             pkg=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" evidence/badging.txt | head -1)
             adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1
             sleep 12
@@ -105,7 +106,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create box-debug-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Box Debug public-source baseline" --notes "Debug build with HITEL_BOX logcat instrumentation from public 3.5.7 tag (source declares 1.0.12). Not equivalent to official 3.5.7 APK. Emulator launch verified; real model inference and Korean STT not verified."
+          gh release create box-korean-debug-20261125 dist/* --repo "$GH_REPO" --target "$GITHUB_SHA" --title "HITEL Box Debug public-source baseline" --notes "Korean-default debug build with HITEL_BOX logcat instrumentation from public 3.5.7 tag (source declares 1.0.12). Not equivalent to official 3.5.7 APK. Emulator launch verified; real model inference and Korean STT not verified."
           mkdir verify
-          gh release download box-debug-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
+          gh release download box-korean-debug-20261125 --repo "$GH_REPO" --pattern '*.apk' --pattern SHA256SUMS.txt --dir verify
           (cd verify && sha256sum -c SHA256SUMS.txt)
