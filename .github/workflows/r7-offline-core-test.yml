@@ -1,0 +1,21 @@
+name: R7 offline PDF core unit test
+on:
+  push:
+    branches: [feature/r7-private-offline-pdf-core-20261125]
+    paths:
+      - '.github/workflows/r7-offline-core-test.yml'
+      - 'scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/OfflinePdf*.java'
+      - 'scripts/zocbo_diagnostic/test/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and exercise offline storage and controller
+        run: |
+          mkdir -p /tmp/r7-offline-test
+          javac -encoding UTF-8 -source 8 -target 8 -d /tmp/r7-offline-test scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/OfflinePdfStore.java scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/OfflinePdfController.java scripts/zocbo_diagnostic/test/com/hitel/zocbodiag/OfflinePdfStoreTest.java
+          java -cp /tmp/r7-offline-test com.hitel.zocbodiag.OfflinePdfStoreTest
