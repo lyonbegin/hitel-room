@@ -77,7 +77,7 @@ public final class OfficialPdfDownloads {
     view.post(()->{
       if(!NativePdfTitleBridge.isFreeReadingPage(view.getUrl()))return;
       synchronized(s){
-        if(s.running)return;
+        if(s.running || (s.examId!=null&&SystemClock.elapsedRealtime()<=s.expires))return;
         if(id==null||!id.matches("[1-9][0-9]{0,9}")){
           s.result=json(null,"error","INVALID_EXAM_ID",null,-1);return;}
         if(Build.VERSION.SDK_INT<29){
@@ -87,6 +87,50 @@ public final class OfficialPdfDownloads {
       }
       Diag.log("OFFICIAL_PDF_ARMED","exam="+id+" one attachment; 60s");
     });
+  }
+  static void startAutomatic(WebView view,String id) {
+    if(!NativePdfTitleBridge.isFreeReadingPage(view.getUrl()))return;
+    State s=state(view);
+    synchronized(s){
+      if(s.running || (s.examId!=null&&SystemClock.elapsedRealtime()<=s.expires)){
+        Diag.log("AUTO_OFFICIAL_BUSY","exam="+id);return;
+      }
+      if(id==null||!id.matches("[1-9][0-9]{0,9}")){
+        s.result=json(null,"error","INVALID_EXAM_ID",null,-1);return;
+      }
+      if(Build.VERSION.SDK_INT<29){
+        s.result=json(id,"error","ANDROID_10_REQUIRED",null,-1);return;
+      }
+      s.examId=id;s.expires=SystemClock.elapsedRealtime()+ARM_MS;
+      s.result=json(id,"armed",null,null,-1);
+    }
+    Diag.log("AUTO_OFFICIAL_WEBVIEW_STARTED","exam="+id);
+    // Reuse the existing, explicitly labelled official download action on the
+    // same visible row. Never execute the free-view link or invent an endpoint.
+    String js="(function(id){try{"
+      +"var rows=Array.from(document.querySelectorAll('.download')).filter(function(row){"
+      +"return Array.from(row.querySelectorAll('[id^=li_freereading][data-no]')).some(function(e){return e.getAttribute('data-no')===id;});});"
+      +"if(rows.length!==1)return 'EXAM_ROW_NOT_UNIQUE';"
+      +"var controls=Array.from(rows[0].querySelectorAll('button,a,input[type=button],input[type=submit],[role=button]')).filter(function(e){"
+      +"if(e.disabled||e.getAttribute('aria-disabled')==='true'||e.getClientRects().length===0||e.id.indexOf('li_freereading')===0)return false;"
+      +"var label=(e.innerText||e.value||e.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ');"
+      +"return /^(PDF 다운로드|시험지 다운로드|다운로드)$/.test(label);});"
+      +"if(controls.length!==1)return 'OFFICIAL_DOWNLOAD_CONTROL_NOT_UNIQUE';"
+      +"controls[0].click();return 'OFFICIAL_DOWNLOAD_REQUESTED';"
+      +"}catch(e){return 'OFFICIAL_DOWNLOAD_TRIGGER_ERROR';}})("+JSONObject.quote(id)+")";
+    try{
+      view.evaluateJavascript(js,result->{
+        if("\"OFFICIAL_DOWNLOAD_REQUESTED\"".equals(result)){
+          Diag.log("AUTO_OFFICIAL_DOWNLOAD_REQUESTED","exam="+id);return;
+        }
+        synchronized(s){
+          if(s.running||!id.equals(s.examId))return;
+          String error=result==null?"OFFICIAL_DOWNLOAD_TRIGGER_ERROR":result.replace("\"","");
+          if(!error.matches("[A-Z0-9_]+"))error="OFFICIAL_DOWNLOAD_TRIGGER_ERROR";
+          finish(s,id,"error",error,null,-1);
+        }
+      });
+    }catch(Exception ex){finish(s,id,"error","OFFICIAL_DOWNLOAD_TRIGGER_ERROR",null,-1);}
   }
   static String status(WebView view) {
     State s=state(view);

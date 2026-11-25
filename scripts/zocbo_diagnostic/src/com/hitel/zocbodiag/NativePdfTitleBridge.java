@@ -89,6 +89,13 @@ public final class NativePdfTitleBridge {
     });
   }
 
+  /** Start one official download in the existing WebView; no Activity launch. */
+  @JavascriptInterface
+  public void saveExam(String examId) {
+    WebView w=target.get();
+    if(w!=null)w.post(()->OfficialPdfDownloads.startAutomatic(w,examId));
+  }
+
   @JavascriptInterface
   public void armOfficialSave(String examId) {
     WebView w=target.get();

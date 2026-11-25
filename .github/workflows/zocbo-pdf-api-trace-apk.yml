@@ -228,7 +228,7 @@ jobs:
             dex=[n for n in f.namelist() if n.startswith("classes") and n.endswith(".dex")]
             print("DEX_COUNT",len(dex))
             assert dex
-            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"DEVTOOLS_WEBVIEW_DEBUG_ENABLED",b"setWebContentsDebuggingEnabled",b"armOfficialSave",b"officialSaveStatus",b"OFFICIAL_PDF_ARMED"]:
+            for needle in [b"zocbo_free_exam_trace.txt",b"JS_BRIDGE_goPreviousExam",b"COOKIE_SNAPSHOT",b"VIEWER_FILE_PATH",b"PDF_DOWNLOAD",b"REQUEST_URL_REDACTED",b"JSON_REDACTED",b"VIEWER_INTENT_EXTRA_KEYS",b"TRACE_EXPORT",b"PDF_RAW_CAPTURED",b"VIEWER_MODEL_REQUEST",b"VIEWER_MODEL_SIX_FIELDS_JSON_ORIGINAL",b"NATIVE_PDF_ENTRY_CLICK",b"NATIVE_ORIGINAL_ACTIVITY",b"NATIVE_ORIGINAL_FACTORY_OK",b"NATIVE_ORIGINAL_VIEWER_START",b"READING_TITLE_BRIDGE_REGISTERED",b"READING_TITLE_LISTENER_INJECTED",b"READING_TITLE_SELECTED",b"NATIVE_ORIGINAL_ACTIVITY_EXAM_SOURCE",b"DEVTOOLS_WEBVIEW_DEBUG_ENABLED",b"setWebContentsDebuggingEnabled",b"armOfficialSave",b"officialSaveStatus",b"OFFICIAL_PDF_ARMED",b"AUTO_OFFICIAL_WEBVIEW_STARTED",b"saveExam"]:
               ok=any(needle in f.read(d) for d in dex)
               print("DIAG_MARKER",needle.decode(),ok)
               if not ok:raise AssertionError("Instrumentation not embedded: "+needle.decode())
@@ -258,9 +258,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_R7_Official_Download_Status_20261125.apk
-          test -s work/Zocbo_4.3.11_R7_Official_Download_Status_20261125.apk
-          sha256sum work/Zocbo_4.3.11_R7_Official_Download_Status_20261125.apk | tee -a work/SHA256SUMS.txt
+          cp work/Zocbo_4.3.11_Diagnostic_SingleAPK_NetworkFix_20261123.apk work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
+          test -s work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
+          sha256sum work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk | tee -a work/SHA256SUMS.txt
           python3 - <<'PY'
           import json
           j=json.load(open("work/pdf-api-patch-report.json"))
@@ -274,11 +274,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG=zocbo-r7-official-download-status-20261125
-          APK=work/Zocbo_4.3.11_R7_Official_Download_Status_20261125.apk
+          TAG=zocbo-r7-persistent-webview-save-20261125
+          APK=work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Zocbo R7 Official PDF Attachment Save Test" \
-            --notes "R7 original viewer preserved. Explicitly armed official WebView PDF attachment is handled by Android DownloadManager, then validated and saved to Download/HITEL-Zocbo. Native viewer-only cache is not exported. Chrome Console armOfficialSave and officialSaveStatus. CI build and release byte verification only; authenticated attachment callback untested." \
+            --title "Zocbo R7 Persistent WebView PDF Save Test" \
+            --notes "saveExam starts the same-row official download in the existing WebView without launching or closing an Activity. Original titleSelected still opens the original viewer. R7 original viewer preserved. Explicitly armed official WebView PDF attachment is handled by Android DownloadManager, then validated and saved to Download/HITEL-Zocbo. Native viewer-only cache is not exported. Chrome Console armOfficialSave and officialSaveStatus. CI build and release byte verification only; authenticated attachment callback untested." \
             "$APK" work/pdf-api-patch-report.json work/SHA256SUMS.txt
           mkdir -p work/release-recheck
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D work/release-recheck -p '*.apk'
@@ -292,7 +292,7 @@ jobs:
           name: zocbo-native-pdf-api-trace-apk
           retention-days: 14
           path: |
-            work/Zocbo_4.3.11_R7_Official_Download_Status_20261125.apk
+            work/Zocbo_4.3.11_R7_Persistent_WebView_Save_20261125.apk
             work/pdf-api-patch-report.json
             work/pdf-api-patch-log.txt
             work/SHA256SUMS.txt
