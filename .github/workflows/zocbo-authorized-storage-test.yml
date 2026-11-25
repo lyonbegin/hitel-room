@@ -1,0 +1,46 @@
+name: Authorized PDF storage test APK
+on:
+  push:
+    branches: [feature/zocbo-r7-authorized-pdf-store-20261125]
+    paths: ['scripts/zocbo_storage_test/**', 'scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/AuthorizedPdfStore.java', '.github/workflows/zocbo-authorized-storage-test.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and sign standalone storage test APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDK="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)"
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p work/classes work/dex
+          javac -source 8 -target 8 -cp "$SDK/android.jar" -d work/classes scripts/zocbo_storage_test/StorageTestActivity.java scripts/zocbo_diagnostic/src/com/hitel/zocbodiag/AuthorizedPdfStore.java
+          "$BT/d8" --min-api 29 --lib "$SDK/android.jar" --output work/dex $(find work/classes -name '*.class')
+          "$BT/aapt" package -f -M scripts/zocbo_storage_test/AndroidManifest.xml -I "$SDK/android.jar" -F work/unsigned.apk
+          (cd work/dex && zip -j ../unsigned.apk classes.dex)
+          "$BT/zipalign" -f 4 work/unsigned.apk work/aligned.apk
+          keytool -genkeypair -keystore work/test.jks -alias test -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=HITEL Storage Test" -noprompt
+          "$BT/apksigner" sign --ks work/test.jks --ks-pass pass:android --key-pass pass:android --out work/HITEL_PDF_Storage_Test.apk work/aligned.apk
+          "$BT/apksigner" verify --verbose work/HITEL_PDF_Storage_Test.apk
+          "$BT/aapt" dump badging work/HITEL_PDF_Storage_Test.apk
+          (cd work && sha256sum HITEL_PDF_Storage_Test.apk > SHA256SUMS.txt)
+      - name: Publish and re-download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG=zocbo-authorized-storage-test-20261125
+          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false --title "HITEL PDF storage test (standalone)" --notes "Android 10+. Tests saving user-selected authorized PDFs. Separate app, no R7 login or viewer interception. Build signature verified, real-device behavior untested." work/HITEL_PDF_Storage_Test.apk work/SHA256SUMS.txt
+          mkdir -p work/recheck
+          gh release download "$TAG" -D work/recheck
+          (cd work/recheck && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel-pdf-storage-test
+          path: |
+            work/HITEL_PDF_Storage_Test.apk
+            work/SHA256SUMS.txt
