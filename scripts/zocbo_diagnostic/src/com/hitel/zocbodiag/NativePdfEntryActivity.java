@@ -29,6 +29,8 @@ public final class NativePdfEntryActivity extends Activity {
   private EditText exam;
   private TextView status;
   private boolean started=false;
+  private static final int PICK_AUTHORIZED_FOLDER=7214;
+  private TextView sourceStatus;
 
   private int dp(int units) {
     return (int)(getResources().getDisplayMetrics().density*units+0.5f);
@@ -42,7 +44,16 @@ public final class NativePdfEntryActivity extends Activity {
     return t;
   }
   @Override public void onCreate(Bundle savedState) {
+    boolean headless=getIntent()!=null && getIntent().getBooleanExtra(NativePdfTitleBridge.EXTRA_HEADLESS,false);
+    if(headless)setTheme(android.R.style.Theme_NoDisplay);
     super.onCreate(savedState);
+    if(headless){
+      try {
+        HeadlessPdfJobs.execute(getApplicationContext(),getIntent().getStringExtra(NativePdfTitleBridge.EXTRA_JOB),
+          getIntent().getStringExtra(NativePdfTitleBridge.EXTRA_EXAM_ID));
+      } finally {finish();overridePendingTransition(0,0);}
+      return;
+    }
     Diag.log("NATIVE_ORIGINAL_ACTIVITY","onCreate; standalone entry; network+PDF handled ONLY by original DEX");
     ScrollView scroller=new ScrollView(this);
     scroller.setFillViewport(true);
@@ -82,6 +93,17 @@ public final class NativePdfEntryActivity extends Activity {
     status=text("상태: 입력 대기",14);
     body.addView(status);
     body.addView(text("추가적인 API POST나 PDF GET을 이 화면에서 작성하지 않습니다. 원본 앱과 동일한 인증·열람 조건이 적용되며 열람 횟수에 영향을 줄 수 있습니다.",12));
+    Button folder = new Button(this);
+    folder.setText("정식 다운로드 PDF 원본 폴더 설정 (최초 1회)");
+    folder.setOnClickListener(v->{
+      Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+      pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+      try{startActivityForResult(pick,PICK_AUTHORIZED_FOLDER);}
+      catch(Exception ex){sourceStatus.setText("폴더 선택 실패: "+ex.getClass().getSimpleName());}
+    });
+    body.addView(folder);
+    sourceStatus=text(HeadlessPdfJobs.hasSource(this)?"원본 폴더: 연결됨":"원본 폴더: 미연결",13);
+    body.addView(sourceStatus);
     open.setOnClickListener(v->launchOriginalViewer());
     setContentView(scroller);
     Diag.log("NATIVE_ORIGINAL_ACTIVITY_READY","exam="+exam.getText().toString()+"; launcher=A3.L.c");
@@ -133,8 +155,19 @@ public final class NativePdfEntryActivity extends Activity {
       Toast.makeText(this,"원본 뷰어 시작 실패. 로그를 확인해 주십시오.",Toast.LENGTH_LONG).show();
     }
   }
+  @Override protected void onActivityResult(int request,int result,Intent data){
+    super.onActivityResult(request,result,data);
+    if(request!=PICK_AUTHORIZED_FOLDER || result!=RESULT_OK || data==null || data.getData()==null)return;
+    try{
+      HeadlessPdfJobs.setSource(this,data.getData());
+      if(sourceStatus!=null)sourceStatus.setText("원본 폴더: 연결됨");
+    }catch(Exception ex){
+      if(sourceStatus!=null)sourceStatus.setText("폴더 연결 실패: "+ex.getClass().getSimpleName());
+    }
+  }
   @Override public void onResume(){
     super.onResume();started=false;
+    if(getIntent()!=null && getIntent().getBooleanExtra(NativePdfTitleBridge.EXTRA_HEADLESS,false))return;
     Diag.log("NATIVE_ORIGINAL_ACTIVITY","onResume");
   }
 }

@@ -18,6 +18,8 @@ import java.util.Locale;
  */
 public final class NativePdfTitleBridge {
   public static final String EXTRA_EXAM_ID = "com.hitel.zocbodiag.SELECTED_EXAM_ID";
+  public static final String EXTRA_HEADLESS = "com.hitel.zocbodiag.HEADLESS_SAVE";
+  public static final String EXTRA_JOB = "com.hitel.zocbodiag.SAVE_JOB";
   private final WeakReference<WebView> target;
 
   public NativePdfTitleBridge(WebView w) {
@@ -78,15 +80,28 @@ public final class NativePdfTitleBridge {
         }
         Intent intent=new Intent(ctx,NativePdfEntryActivity.class);
         intent.putExtra(EXTRA_EXAM_ID,expaprNo);
+        intent.putExtra(EXTRA_HEADLESS,true);
+        String job = HeadlessPdfJobs.register(w, expaprNo);
+        if(job==null)return;
+        intent.putExtra(EXTRA_JOB,job);
         if(activity==null)intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Diag.log("READING_TITLE_SELECTED","exam="+expaprNo+" source=previousExam.asp title");
-        if(activity!=null)activity.startActivity(intent);
-        else ctx.startActivity(intent);
+        try {
+          if(activity!=null)activity.startActivity(intent);
+          else ctx.startActivity(intent);
+        } catch(Throwable launchError){HeadlessPdfJobs.fail(job,"ACTIVITY_START_FAILED");throw launchError;}
         Diag.log("READING_TITLE_ACTIVITY_STARTED","NativePdfEntryActivity requested");
       }catch(Throwable t) {
         Diag.log("READING_TITLE_LAUNCH_ERROR",t.getClass().getName());
       }
     });
+  }
+
+  /** Async status request; result is delivered only to the same trusted page. */
+  @JavascriptInterface public void saveStatus(final String examId) {
+    final WebView w=target.get();
+    if(w==null || examId==null || !examId.matches("[1-9][0-9]{0,9}"))return;
+    w.post(()->{if(isFreeReadingPage(w.getUrl()))HeadlessPdfJobs.status(w,examId);});
   }
 
   /**
