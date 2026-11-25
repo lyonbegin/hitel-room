@@ -1,4 +1,4 @@
-name: Gallery original KO only - API 37.0 and 37.1 startup verification
+name: Gallery original KO only - API 37.2 stable startup verification
 on:
   push:
     branches: [build/gallery-original-ko-only-20261125]
@@ -13,15 +13,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - api: '37.0'
+          - api: '37.2'
             target: google_apis_ps16k
-            id: api370-google
-          - api: '37.0'
+            id: api372-google
+          - api: '37.2'
             target: google_apis_playstore_ps16k
-            id: api370-playstore
-          - api: '37.1'
-            target: google_apis_ps16k
-            id: api371-google
+            id: api372-playstore
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -55,13 +52,26 @@ jobs:
           #!/usr/bin/env bash
           set -euo pipefail
           pkg=com.google.aiedge.gallery
+          # sys.boot_completed alone is insufficient on newer images: wait for stable PMS.
+          stable=0
+          for attempt in $(seq 1 60); do
+            if adb shell getprop sys.boot_completed | grep -qx 1 && adb shell cmd package list packages | grep -q 'package:android'; then
+              stable=$((stable+1))
+            else
+              stable=0
+            fi
+            if test "$stable" -ge 4; then break; fi
+            sleep 5
+          done
+          test "$stable" -ge 4
+          adb shell df -h /data > evidence/data-space.txt
           adb shell getprop > evidence/device-props.txt
           adb shell dumpsys package com.google.android.tts > evidence/speech-services.txt
           adb shell dumpsys package com.google.android.aicore > evidence/aicore.txt
           adb shell dumpsys jobscheduler > evidence/jobs-before.txt
           adb shell dumpsys connectivity > evidence/connectivity-before.txt
           if adb shell pm path "$pkg" | grep -q 'package:'; then adb uninstall "$pkg"; fi
-          adb install dist/HITEL_Gallery_Original_KO_Only_20261125.apk
+          adb install dist/HITEL_Gallery_Original_KO_Only_20261125.apk 2>&1 | tee evidence/install.log
           adb shell pm clear "$pkg"
           adb shell run-as "$pkg" id > evidence/run-as.txt
           adb logcat -b all -c
@@ -224,8 +234,9 @@ jobs:
           arch: x86_64
           profile: pixel_6
           cores: 2
-          ram-size: 6144M
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          ram-size: 4096M
+          disk-size: 8192M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -partition-size 8192
           emulator-boot-timeout: 600
           script: bash smoke.sh
       - uses: actions/upload-artifact@v4
