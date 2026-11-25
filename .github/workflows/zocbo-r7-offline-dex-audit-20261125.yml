@@ -22,38 +22,40 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Trace question RecyclerView adapter and observer
+      - name: Inspect image model URL resolution and registered Glide loaders
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
-          paths=['p089j3/w.java','p079i3/G0.java','p079i3/Q0.java']
           report=[]
-          for rel in paths:
-              p=root/rel
-              if not p.exists():
-                  report.append('MISSING '+rel)
-                  continue
-              report.append('=== '+rel+' ===')
-              lines=p.read_text(errors='replace').splitlines()
-              if rel.endswith('/w.java'):
-                  indices=range(len(lines))
-              else:
-                  hits=[i for i,l in enumerate(lines) if re.search(r'ArrayList|List<|p089j3\.w|new w\(|RecyclerView|i18 =|f29588v0|ImageView|\.load\(',l)]
-                  indices=sorted({j for i in hits for j in range(max(0,i-8),min(len(lines),i+9))})
-              for i in indices:
+          def emit(p,lines,hits,radius=6,limit=180):
+              if not hits:return
+              report.append('=== '+str(p.relative_to(root))+' ===')
+              idx=sorted({j for i in hits for j in range(max(0,i-radius),min(len(lines),i+radius+1))})
+              for i in idx[:limit]:
                   l=lines[i]
-                  if re.search(r'authorization|bearertoken|access.?token|password|cookie|https?://',l,re.I):continue
-                  report.append(f'{i+1}: {l[:350]}')
+                  if re.search(r'authorization|bearertoken|access.?token|password|cookie|api.?key',l,re.I):continue
+                  if re.search(r'https?://',l):l=re.sub(r'https?://[^"\s]+','[URL omitted]',l)
+                  report.append(f'{i+1}: {l[:400]}')
+          for p in root.rglob('*.java'):
+              rel=str(p.relative_to(root))
+              s=p.read_text(errors='replace')
+              lines=s.splitlines()
+              if any(x in rel for x in ['StringLoader','UriLoader','UrlUriLoader','GeneratedAppGlideModule','GlideModule','GlideUrl','HttpGlideUrlLoader']):
+                  emit(p,lines,list(range(len(lines))),0,150)
+              elif re.search(r'extends (?:AppGlideModule|LibraryGlideModule)|implements GlideModule|registerComponents\(',s):
+                  emit(p,lines,[i for i,l in enumerate(lines) if re.search(r'GlideModule|registerComponents|registry\.|\.replace\(|\.append\(|\.prepend\(',l)],7,120)
+              elif rel in ['p203v3/P.java','p079i3/z0.java','p229y3/Y0.java','p089j3/w.java']:
+                  emit(p,lines,[i for i,l in enumerate(lines) if re.search(r'qstImgPath\s*=|getQstImgPath\(|getQstViewerPath\(|qst_img_path|\.load\(str\)|f29540T',l)],5,110)
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result[:48000])
+          print(result[:44000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-adapter-audit
+          name: r7-image-url-resolution-audit
           path: |
             callsite-audit.txt
             jadx.log
