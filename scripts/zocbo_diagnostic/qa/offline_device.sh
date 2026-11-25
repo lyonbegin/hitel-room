@@ -90,9 +90,13 @@ JAVA
 cat > "$qa_dir/src/okhttp3/Response.java" <<'JAVA'
 package okhttp3;
 public class Response {
-  public Headers headers(){return new Headers();} public int code(){return 200;}
+  public Headers headers(){return new Headers();} public int code(){return 200;} public ResponseBody peekBody(long n){return new ResponseBody();}
   public static class Headers { public String get(String name){return "Cache-Control".equals(name)?"private, max-age=3600":null;} }
 }
+JAVA
+cat > "$qa_dir/src/okhttp3/ResponseBody.java" <<'JAVA'
+package okhttp3;
+public class ResponseBody { public String string(){return "{\"pdf_path\":\"https://example.invalid/sample\"}";} }
 JAVA
 cat > "$dest/Fixture.java" <<'JAVA'
 package com.hitel.zocbodiag;

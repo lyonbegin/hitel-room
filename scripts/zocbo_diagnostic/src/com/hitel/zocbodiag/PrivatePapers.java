@@ -47,6 +47,7 @@ public final class PrivatePapers {
     final String owner, key, exam;
     volatile String title;
     volatile long reusableUntil;
+    volatile boolean finished;
     Job(Activity host, String owner, String key, String exam) {
       this.host = new WeakReference<>(host);
       this.owner = owner;
@@ -147,7 +148,7 @@ public final class PrivatePapers {
 
   // Bind the service's original metadata decision to this account and this
   // document. Only its cache lifetime is kept, never its URL or response body.
-  static void recordModel(Object response, Object request, String ownerAtRequest) {
+  static synchronized void recordModel(Object response, Object request, String ownerAtRequest) {
     try {
       if (ownerAtRequest.isEmpty() || !ownerAtRequest.equals(account())) return;
       Class<?> invocationType = Class.forName("retrofit2.Invocation");
@@ -167,7 +168,14 @@ public final class PrivatePapers {
       String key = digest(query.getString("expapr_no") + "\n" + query.getString("file_type") + "\n"
           + query.optString("pk", "") + "\n" + query.optString("short_url", ""));
       int status = ((Number)Class.forName("okhttp3.Response").getMethod("code").invoke(response)).intValue();
-      long until = status >= 200 && status < 300 ? responseDeadline(response, true) : 0;
+      if (status >= 500) return;
+      long until = 0;
+      if (status >= 200 && status < 300) {
+        String modelText = (String)Class.forName("okhttp3.ResponseBody").getMethod("string").invoke(
+            Class.forName("okhttp3.Response").getMethod("peekBody", long.class).invoke(response, 1024L * 1024L));
+        String path = new JSONObject(modelText).optString("pdf_path", "");
+        if (!path.isEmpty() && !"null".equals(path)) until = responseDeadline(response, true);
+      }
       String grantKey = ownerAtRequest + key;
       synchronized (permits) {
         permits.remove(grantKey);
@@ -201,6 +209,7 @@ public final class PrivatePapers {
   }
 
   static void finish(Job job, String message) {
+    synchronized (job) { if (job.finished) return; job.finished = true; }
     main.post(() -> {
       Activity a = job.host.get();
       if (a == null || a.isDestroyed() || a.isFinishing()) return;
@@ -223,7 +232,7 @@ public final class PrivatePapers {
     Job job = job(vm);
     if (job == null) return;
     Activity host = job.host.get();
-    if (host == null || host.isFinishing() || host.isDestroyed()) return;
+    if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
     try {
       long until = Math.min(job.reusableUntil, responseDeadline(response, false));
       if (until <= System.currentTimeMillis()) {
