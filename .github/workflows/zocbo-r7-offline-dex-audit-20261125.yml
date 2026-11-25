@@ -22,35 +22,48 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Identify WebView navigation and rendering architecture
+      - name: Trace body page navigation and local rendering assets
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import zipfile,re
           root=Path('decoded/sources')
           report=[]
-          for p in sorted((root/'p239z3').rglob('*.java')):
+          for rel,lo,hi in [('p239z3/e.java',350,525),('p239z3/k.java',35,180),('p174s3/k.java',2758,2790)]:
+              p=root/rel
+              if not p.exists():continue
+              report.append('=== '+rel+' ===')
               lines=p.read_text(errors='replace').splitlines()
-              matches=[]
-              for i,l in enumerate(lines):
-                  if re.search(r'loadUrl\(|loadData\(|loadDataWithBaseURL\(|onPageFinished\(|onPageStarted\(|setWebViewClient\(|setWebChromeClient\(|public final void h\(|public final void l\(|evaluateJavascript\(|class .*WebViewClient|class .*WebChromeClient',l):
-                      if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|header|intercept',l,re.I):continue
-                      matches.append(f'{i+1}: {l.strip()[:220]}')
-              if matches:report.extend(['=== '+str(p.relative_to(root))+' ===']+matches)
-          p=root/'p174s3/k.java'
-          lines=p.read_text(errors='replace').splitlines()
-          for i in range(2759,min(2787,len(lines))):
-              l=lines[i]
-              if re.search(r'Uri\.parse|buildUpon\(|\.build\(\)|eVar\.h\(|new p239z3.e|WebView webView',l) and not re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://',l,re.I):
-                  report.append(f'Fragment {i+1}: {l.strip()[:240]}')
+              for n in range(lo-1,min(hi,len(lines))):
+                  l=lines[n]
+                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|header|appendQueryParameter|https?://',l,re.I):continue
+                  if re.search(r'loadUrl|loadData|postUrl|\bWebView\b|evaluateJavascript|onPageFinished|onPageStarted|shouldInterceptRequest|shouldOverrideUrlLoading|setWebViewClient|setWebChromeClient|\.h\(string|\.build\(\)|Uri.parse|launch|new [A-Za-z0-9_.]+\(|public final void [hl]\(',l):
+                      report.append(f'{n+1}: {l.strip()[:350]}')
+          report.append('=== Navigation callsites and classes ===')
+          for p in root.rglob('*.java'):
+              lines=p.read_text(errors='replace').splitlines()
+              if not any('p239z3.e' in l or 'f30309b' in l for l in lines):continue
+              if 'bumptech' in str(p):continue
+              for n,l in enumerate(lines):
+                  if not re.search(r'loadUrl\(|loadDataWithBaseURL\(|loadData\(|postUrl\(',l):continue
+                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|header|https?://',l,re.I):
+                      report.append(f'{p.relative_to(root)}:{n+1}: page load call (arguments omitted)')
+                  else:report.append(f'{p.relative_to(root)}:{n+1}: {l.strip()[:220]}')
+          report.append('=== Local web resources in APK ===')
+          for apk in Path('input').glob('*.apk'):
+              with zipfile.ZipFile(apk) as z:
+                  assets=[n for n in z.namelist() if n.startswith('assets/') and n.lower().endswith(('.html','.htm','.js','.css'))]
+                  report.append('HTML/JS/CSS count: '+str(len(assets)))
+                  for name in assets[:100]:
+                      report.append(name)
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result)
+          print(result[:45000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-webview-navigation-audit
+          name: r7-question-webview-content-audit
           path: |
             callsite-audit.txt
             jadx.log
