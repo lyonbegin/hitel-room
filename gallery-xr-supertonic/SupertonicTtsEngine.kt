@@ -166,7 +166,7 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
         var samplesOut=0L
         val producer=this
         try {
-          native.generateWithConfigAndCallback(text,GenerationConfig(sid=sid,speed=effective.speed ?: 1f,numSteps=8,extra=mapOf("lang" to lang))) { samples ->
+          native.generateWithConfigAndCallback(text,GenerationConfig(sid=sid,speed=effective.speed ?: 1f,numSteps=8,extra=mapOf("lang" to lang)), NativeAudioCallback { samples ->
             if(!producer.isActive || epoch.get()!=jobEpoch) 0
             else {
               val pcm=resampler.convert(samples)
@@ -176,7 +176,7 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
                 if(!sent) 0 else { samplesOut+=pcm.size/2; if(epoch.get()==jobEpoch) 1 else 0 }
               } else 1
             }
-          }
+          })
           if(epoch.get()==jobEpoch && producer.isActive) {
             check(samplesOut>0) { "Supertonic produced no PCM" }
             Log.i(TAG,"SYNTHESIS_OK lang=$lang sid=$sid samples24k=$samplesOut")
@@ -187,6 +187,11 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
       }
     }.buffer(8).flowOn(Dispatchers.IO)
   )
+  // JNI expects invoke(float[]): java.lang.Integer, not an erased indy lambda.
+  @androidx.annotation.Keep
+  private class NativeAudioCallback(private val body: (FloatArray) -> Int) : (FloatArray) -> Int {
+    override fun invoke(samples: FloatArray): Int = body(samples)
+  }
   // Continuous linear resampling; preserves interpolation state across native callbacks.
   private class PcmResampler(private val rate:Int) {
     private var next=0.0
