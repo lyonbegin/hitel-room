@@ -26,6 +26,9 @@ jobs:
           git -C upstream checkout --detach FETCH_HEAD
           python3 gallery-xr-supertonic/patch.py upstream
           python3 gallery-xr-supertonic/manage_mlkit_sdk.py upstream | tee evidence/managed-mlkit-sdk.txt
+          testdir=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/services/asr
+          mkdir -p "$testdir"
+          cp gallery-xr-supertonic/ManagedMlKitDeviceTest.kt "$testdir/"
           git -C upstream add -N .
           git -C upstream diff --check
           git -C upstream diff --stat | tee evidence/patch-stat.txt
@@ -77,7 +80,7 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
           emulator-boot-timeout: 600
-          script: bash gallery-xr-supertonic/device-test.sh
+          script: bash gallery-xr-supertonic/device-test.sh && bash gallery-xr-supertonic/mlkit-device-test.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
