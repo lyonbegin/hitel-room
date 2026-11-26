@@ -39,7 +39,6 @@ jobs:
             java -jar tools/smali.jar --version
             readelf --version | head -n 1
             llvm-objdump --version
-            adb version
             sha256sum tools/*.jar tools/jadx.zip
           } 2>&1 | tee evidence/tools.txt
       - name: Enable KVM
@@ -55,6 +54,7 @@ jobs:
           profile: pixel_6
           script: |
             mkdir -p evidence
+            adb version | tee evidence/adb.txt
             adb shell getprop ro.build.version.sdk | tee evidence/api.txt
             adb shell getprop ro.product.cpu.abilist | tee evidence/abi.txt
             adb shell getprop ro.dalvik.vm.native.bridge | tee evidence/native-bridge.txt
