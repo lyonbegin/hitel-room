@@ -1,0 +1,36 @@
+name: HITEL Persistent Android Farm
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Provision or check the persistent Play Store AVD (approved private test runner)'
+        type: choice
+        options: [provision, check]
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: hitel-persistent-avd
+  cancel-in-progress: false
+jobs:
+  device:
+    if: github.ref == 'refs/heads/feature/hitel-agent-framework-20261127'
+    runs-on: [self-hosted, linux, hitel-private-android]
+    environment: hitel-private-android
+    timeout-minutes: 35
+    env:
+      HITEL_AVD_ROOT: ${{ vars.HITEL_AVD_ROOT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Provision persistent Google Play AVD
+        if: inputs.action == 'provision'
+        run: bash hitel-agent-framework/ci/persistent-emulator.sh provision
+      - name: Start and check persistent device
+        run: |
+          bash hitel-agent-framework/ci/persistent-emulator.sh start
+          bash hitel-agent-framework/ci/persistent-emulator.sh status
+      - name: Stop device without wiping account and app state
+        if: always()
+        run: bash hitel-agent-framework/ci/persistent-emulator.sh stop
