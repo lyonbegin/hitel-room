@@ -37,6 +37,7 @@ public final class PrivatePapers {
   private static final String PREFS = "hitel_offline_papers_v1";
   private static final Handler main = new Handler(Looper.getMainLooper());
   private static final Map<Object, Job> jobs = new WeakHashMap<>();
+  private static final java.util.concurrent.ExecutorService copies = java.util.concurrent.Executors.newSingleThreadExecutor();
 
   static final class Job {
     final WeakReference<Activity> host;
@@ -108,27 +109,19 @@ public final class PrivatePapers {
   }
 
   public static void begin(Activity host, Object vm) {
-    if (Diag.showViewer(host)) { Diag.log("PRIVATE_PAPER_TEST_MODE", "ON: original viewer"); return; }
-    Diag.log("PRIVATE_PAPER_TEST_MODE", "OFF: file write");
     String owner = account();
     String key = documentKey(host.getIntent());
-    Job job = new Job(host, owner, key, host.getIntent().getStringExtra(EXAM));
-    synchronized (jobs) { jobs.put(vm, job); }
     if (owner.isEmpty() || key.isEmpty()) {
-      finish(job, owner.isEmpty() ? "로그인한 계정을 확인할 수 없습니다." : "시험지 번호를 확인할 수 없습니다.");
+      Diag.log("LOCAL_SAVE_SKIPPED", "account or document key unavailable");
       return;
     }
-    host.setVisible(false);
-    host.overridePendingTransition(0, 0);
-    Toast.makeText(host, "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
-    main.postDelayed(() -> {
-      if (!host.isFinishing() && !host.isDestroyed() && job(vm) == job)
-        finish(job, "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
-    }, 90000);
+    Job job = new Job(host, owner, key, host.getIntent().getStringExtra(EXAM));
+    synchronized (jobs) { jobs.put(vm, job); }
+    Diag.log("VIEW_AND_SAVE_BEGIN", "exam=" + job.exam);
   }
 
   private static Job job(Object vm) { synchronized (jobs) { return jobs.get(vm); } }
-  public static boolean saving(Object vm) { return job(vm) != null; }
+  public static boolean saving(Object vm) { return false; }
 
   // Test build: the original viewer handles its own authenticated request.
   // Keep the diagnostic hook compatible, without maintaining a second local
@@ -143,7 +136,7 @@ public final class PrivatePapers {
     if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
       finish(job, "이 시험지에는 저장할 PDF가 없습니다.");
     }
-    return true;
+    return false; // Continue the original viewer and its single PDF request.
   }
 
   static void finish(Job job, String message) {
@@ -153,8 +146,7 @@ public final class PrivatePapers {
       Activity a = job.host.get();
       if (a == null || a.isDestroyed() || a.isFinishing()) return;
       Toast.makeText(a, message, Toast.LENGTH_LONG).show();
-      a.finish();
-      a.overridePendingTransition(0, 0);
+
     });
   }
 
@@ -171,42 +163,62 @@ public final class PrivatePapers {
     Job job = job(vm);
     if (job == null) return;
     Activity host = job.host.get();
-    if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
+    if (host == null) return;
+    synchronized (job) { if (job.finished) return; job.finished = true; }
+    final Context context = host.getApplicationContext();
     try {
-      // File-creation test: use only the file already obtained by the original
-      // authenticated viewer. Do not make an additional network request.
       if (original == null || !original.isFile() || original.length() <= 0)
         throw new IOException("missing source PDF");
-      Diag.log("PRIVATE_PAPER_TEST_RECEIVED", "exam=" + job.exam + " bytes=" + original.length());
-      if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
-      store(host, job.owner, job.key, job.title, job.exam, original, Long.MAX_VALUE);
-      finish(job, "앱에 저장했습니다.");
+      // Pin the already downloaded file before the viewer resumes. Copy on a
+      // different worker so disk writes never hold up rendering or the UI.
+      final FileInputStream input = new FileInputStream(original);
+      final long length = input.getChannel().size();
+      copies.execute(() -> {
+        String message;
+        try (FileInputStream in = input) {
+          if (!job.owner.equals(account())) throw new IOException("account changed");
+          storeStream(context, job.owner, job.key, job.title, job.exam, in, length, Long.MAX_VALUE);
+          message = "저장한 시험지 폴더에 저장했습니다.";
+        } catch (Exception e) {
+          Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
+          message = "PDF를 저장하지 못했습니다.";
+        }
+        final String result = message;
+        main.post(() -> Toast.makeText(context, result, Toast.LENGTH_SHORT).show());
+      });
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
-      finish(job, "PDF를 저장하지 못했습니다.");
+      main.post(() -> Toast.makeText(context, "PDF를 저장하지 못했습니다.", Toast.LENGTH_SHORT).show());
     }
   }
 
   static synchronized void store(Context context, String owner, String key, String title,
                                 String exam, File source, long until) throws Exception {
+    try (FileInputStream in = new FileInputStream(source)) {
+      storeStream(context, owner, key, title, exam, in, in.getChannel().size(), until);
+    }
+  }
+
+  private static synchronized void storeStream(Context context, String owner, String key,
+      String title, String exam, FileInputStream in, long sourceLength, long until) throws Exception {
     File dir = directory(context, owner);
     if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("document directory");
     File candidate = new File(dir, UUID.randomUUID().toString() + ".pdf");
     boolean published = false;
     try {
-      try (FileInputStream in = new FileInputStream(source);
-           FileOutputStream out = new FileOutputStream(candidate)) {
+      try (FileOutputStream out = new FileOutputStream(candidate)) {
         byte[] buffer = new byte[65536]; int count;
         while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
         out.getFD().sync();
       }
-      if (candidate.length() != source.length() || candidate.length() <= 0)
+      if (candidate.length() != sourceLength || candidate.length() <= 0)
         throw new IOException("copy length mismatch");
       try (FileInputStream check = new FileInputStream(candidate)) {
         byte[] header = new byte[5];
         if (check.read(header) != 5 || !"%PDF-".equals(new String(header, StandardCharsets.US_ASCII)))
           throw new IOException("invalid PDF header");
       }
+      if (!owner.equals(account())) throw new IOException("account changed");
       SharedPreferences prefs = index(context, owner);
       String old = prefs.getString(key, null);
       JSONObject row = new JSONObject().put("file", candidate.getName()).put("exam", exam)
@@ -215,6 +227,7 @@ public final class PrivatePapers {
       published = prefs.edit().putString(key, row.toString()).commit();
       if (!published) throw new IOException("document index");
       Diag.log("PRIVATE_PAPER_TEST_WRITE_OK", "exam=" + exam + " bytes=" + candidate.length() + " file=" + candidate.getAbsolutePath());
+      PaperDocumentsProvider.changed(context);
       if (old != null) {
         try { File previous = resolveFile(context, owner, new JSONObject(old));
           if (previous != null && !previous.equals(candidate)) previous.delete();

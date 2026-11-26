@@ -366,8 +366,7 @@ public final class Diag implements View.OnClickListener {
   private static final String DISPLAY_PREFS = "hitel_viewer_display";
   private static final String DISPLAY_KEY = "show_viewer";
   static boolean showViewer(Context a) {
-    return a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
-      .getBoolean(DISPLAY_KEY,true);
+    return true;
   }
   public static void install(Activity a) {
     enableWebViewInspector();
@@ -436,28 +435,11 @@ public final class Diag implements View.OnClickListener {
         ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT,
         Gravity.TOP|Gravity.RIGHT);
       lp.topMargin=dp(a,38);
-      android.widget.Switch viewerSwitch=new android.widget.Switch(a);
-      viewerSwitch.setText(showViewer(a)?"뷰어 ON":"뷰어 OFF");
-      viewerSwitch.setTextColor(Color.WHITE);
-      viewerSwitch.setTextSize(12);
-      viewerSwitch.setPadding(dp(a,8),0,dp(a,8),0);
-      viewerSwitch.setChecked(showViewer(a));
-      viewerSwitch.setContentDescription("ON은 바로 열기, OFF는 앱에 저장");
-      bar.addView(viewerSwitch,new LinearLayout.LayoutParams(-2,dp(a,38)));
-      {
-        Button saved = new Button(a);
-        saved.setText("저장한 시험지");
-        saved.setOnClickListener(v -> a.startActivity(new Intent(a, NativePdfEntryActivity.class)));
-        bar.addView(saved, new LinearLayout.LayoutParams(-2,dp(a,38)));
-      }
+      Button saved = new Button(a);
+      saved.setText("로컬 열람");
+      saved.setOnClickListener(v -> a.startActivity(new Intent(a, NativePdfEntryActivity.class).putExtra("pick_local", true)));
+      bar.addView(saved, new LinearLayout.LayoutParams(-2,dp(a,38)));
       root.addView(hs,lp);
-      viewerSwitch.setOnCheckedChangeListener((button,checked)->{
-        a.getSharedPreferences(DISPLAY_PREFS,Context.MODE_PRIVATE)
-          .edit().putBoolean(DISPLAY_KEY,checked).apply();
-        viewerSwitch.setText(checked?"뷰어 ON":"뷰어 OFF");
-        if(!checked)Toast.makeText(a,"시험지를 선택하면 앱에 저장합니다.",Toast.LENGTH_SHORT).show();
-        log("VIEWER_DISPLAY_TOGGLE",checked?"ON":"OFF");
-      });
       log("DIAG_PANEL","installed Activity="+a.getClass().getName()+" Android="+Build.VERSION.SDK_INT);
       cookieState();
     } catch(Throwable t) {android.util.Log.w(TAG,"UI init failed: "+t.getClass().getSimpleName());}

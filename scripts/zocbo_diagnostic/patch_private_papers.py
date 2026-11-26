@@ -73,37 +73,21 @@ edit("k1/c.smali", "onResponse(Lokhttp3/Call;Lokhttp3/Response;)V",
      lambda s:insert(s,r"^    invoke-virtual \{p1, v4\}, LU7/j;->resumeWith\(Ljava/lang/Object;\)V$",
                      "    invoke-static {v2, v4, p2}, "+helper+"->received(Ljava/lang/Object;Ljava/io/File;Ljava/lang/Object;)V",False))
 
-def stop_render(source):
-    return insert(source, r"^    check-cast v2, Ljava/io/File;$", """
-    invoke-static {v12}, HELPER->saving(Ljava/lang/Object;)Z
-    move-result v5
-    if-eqz v5, :hitel_render_file
-    sget-object v5, Lkotlin/Unit;->a:Lkotlin/Unit;
-    return-object v5
-    :hitel_render_file
-""".replace("HELPER",helper))
-
-edit("y3/R0.smali","invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;",stop_render)
+# Rendering is left untouched: saving is a side effect of the completed PDF callback.
 target = root/"smali"/"com/hitel/zocbodiag/ViewerPaperHooks.smali"
 target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(""".class public final Lcom/hitel/zocbodiag/ViewerPaperHooks;
 .super Ljava/lang/Object;
 
 .method public static saveIfSelected(Lcom/eduzone/eduzoneviewer/ui/activities/ViewerActivity;Lv3/P;Ljava/lang/String;)Z
-    .locals 3
+    .locals 2
     invoke-virtual {p0}, Lcom/eduzone/eduzoneviewer/ui/activities/ViewerActivity;->Y()Ly3/Y0;
     move-result-object v0
     invoke-virtual {p1}, Lv3/P;->C()Ljava/lang/String;
     move-result-object v1
     invoke-static {v0, v1, p2}, Lcom/hitel/zocbodiag/PrivatePapers;->prepare(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)Z
     move-result v1
-    if-eqz v1, :end
-    invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
-    move-result v2
-    if-nez v2, :end
-    const/4 v2, 0x0
-    invoke-virtual {v0, p2, v2}, Ly3/Y0;->v(Ljava/lang/String;Z)V
-    :end
+    const/4 v1, 0x0
     return v1
 .end method
 """)
