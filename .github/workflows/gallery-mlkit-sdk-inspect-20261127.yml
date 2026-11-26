@@ -1,0 +1,51 @@
+name: ML Kit SDK interface inspection
+on:
+  push:
+    branches: [analysis/gallery-mlkit-sdk-20261127]
+    paths: ['.github/workflows/gallery-mlkit-sdk-inspect-20261127.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Inspect pinned SDK artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p input evidence
+          base=https://dl.google.com/dl/android/maven2/com/google/mlkit
+          for spec in genai-speech-recognition:1.0.0-alpha2 genai-common:1.0.0-beta5; do
+            name=${spec%:*}; version=${spec#*:}
+            url="$base/$name/$version/$name-$version"
+            curl -fL --retry 3 "$url.aar" -o "input/$name.aar"
+            curl -fL --retry 3 "$url.pom" -o "evidence/$name.pom"
+            sha256sum "input/$name.aar" >> evidence/sha256.txt
+            unzip -l "input/$name.aar" > "evidence/$name.entries.txt"
+            unzip -p "input/$name.aar" classes.jar > "input/$name.jar"
+            jar tf "input/$name.jar" > "evidence/$name.classes.txt"
+            unzip -p "input/$name.aar" AndroidManifest.xml > "evidence/$name.manifest.xml"
+            for cls in $(grep -E '(^|/)(SpeechRecognition|SpeechRecognizer|SpeechRecognizerOptions|SpeechRecognizerRequest|AudioSource|FeatureStatus|DownloadStatus)\.class$' "evidence/$name.classes.txt" | sed 's/\.class$//;s|/|.|g'); do
+              javap -public -classpath "input/$name.jar" "$cls" >> "evidence/$name.public-api.txt"
+            done
+            if curl -fLsS "$url-sources.jar" -o "input/$name-sources.jar"; then
+              jar tf "input/$name-sources.jar" > "evidence/$name.sources-index.txt"
+              printf '%s\n' "$name: sources jar available" >> evidence/source-status.txt
+            else
+              printf '%s\n' "$name: sources jar not retrieved" >> evidence/source-status.txt
+            fi
+          done
+          cat evidence/sha256.txt evidence/source-status.txt
+          grep -Ei 'grpc|service|recogniz|download' evidence/genai-speech-recognition.classes.txt | head -80 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mlkit-sdk-interface-evidence
+          path: evidence/
+          retention-days: 7
