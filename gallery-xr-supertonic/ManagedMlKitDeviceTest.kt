@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ManagedMlKitDeviceTest {
-  @Test fun koreanBasicRecognition() = runBlocking {
+  @Test fun koreanBasicRecognition(): Unit = runBlocking {
     val context = InstrumentationRegistry.getInstrumentation().targetContext
     val tag = "HITEL_MLKIT_TEST"
     val source = File(context.filesDir, "mlkit-ko-test.pcm")
@@ -71,5 +71,6 @@ class ManagedMlKitDeviceTest {
       assertTrue("Expected Korean words from real audio: $result", result.contains("안녕") && result.contains("한국어"))
       Log.i(tag, "MLKIT_BASIC_KOREAN_PCM_PASS")
     } finally { client.close() }
+    Unit
   }
 }
