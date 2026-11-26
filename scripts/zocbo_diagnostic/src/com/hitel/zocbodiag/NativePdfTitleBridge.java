@@ -45,38 +45,82 @@ public final class NativePdfTitleBridge {
     return w!=null && Diag.showViewer(w.getContext());
   }
 
-  /** Open the requested paper through the original viewer and its current mode. */
+  // Selection requests are separate from the native local processing pool.
+  // The existing site's confirmation and authorization remain in the UI.
+  private final java.util.ArrayDeque<String> selections = new java.util.ArrayDeque<>();
+  private String currentSelection;
+  private static final int MAX_SELECTIONS = 256;
+
   @JavascriptInterface
   public void titleSelected(String expaprNo) {
-    if (expaprNo == null || !expaprNo.matches("[1-9][0-9]{0,9}")) return;
-    try { Integer.parseInt(expaprNo); } catch (NumberFormatException e) { return; }
-    final WebView web = target.get();
-    if (web == null) return;
-    web.post(() -> {
-      if (!web.isAttachedToWindow() || !isFreeReadingPage(web.getUrl())) return;
-      Context context = web.getContext();
-      try {
-        java.lang.reflect.Method factory = Class.forName("A3.L").getDeclaredMethod("c",
-            Context.class, String.class, String.class, String.class, String.class,
-            String.class, String.class, String.class, String.class, boolean.class,
-            String.class, Integer.class, int.class);
-        Intent viewer = (Intent)factory.invoke(null, context, expaprNo, "Q", "", "", "", "", "", "",
-            false, "", null, 0);
-        if (viewer == null || viewer.getComponent() == null
-            || !context.getPackageName().equals(viewer.getComponent().getPackageName())
-            || !"com.eduzone.eduzoneviewer.ui.activities.ViewerActivity".equals(viewer.getComponent().getClassName())) return;
-        Context host = context;
-        while (host instanceof ContextWrapper && !(host instanceof Activity)) {
-          Context base = ((ContextWrapper)host).getBaseContext();
-          if (base == host) break;
-          host = base;
+    enqueueSelection(expaprNo);
+  }
+
+  @JavascriptInterface
+  public String enqueueSelection(String expaprNo) {
+    if (expaprNo == null || !expaprNo.matches("[1-9][0-9]{0,9}")) return "INVALID";
+    try { Integer.parseInt(expaprNo); } catch (NumberFormatException e) { return "INVALID"; }
+    WebView web = target.get();
+    if (web == null) return "NO_VIEW";
+    synchronized (selections) {
+      if (expaprNo.equals(currentSelection) || selections.contains(expaprNo)) return "DUPLICATE";
+      if (selections.size() >= MAX_SELECTIONS) return "FULL";
+      selections.addLast(expaprNo);
+    }
+    web.post(this::dispatchSelection);
+    return "ACCEPTED";
+  }
+
+  @JavascriptInterface
+  public String queueStatus() {
+    synchronized (selections) {
+      return "{\"selectionWaiting\":" + selections.size()
+          + ",\"selectionActive\":" + (currentSelection != null)
+          + ",\"localRunning\":" + NativeWorkQueue.running()
+          + ",\"localWaiting\":" + NativeWorkQueue.waiting() + "}";
+    }
+  }
+
+  /** Called explicitly after the current normal UI selection has finished or
+   * been cancelled. Never automatically confirm a site's authorization prompt. */
+  @JavascriptInterface
+  public void nextSelection() {
+    WebView web = target.get();
+    if (web != null) web.post(() -> {
+      synchronized (selections) { currentSelection = null; }
+      dispatchSelection();
+    });
+  }
+
+  @JavascriptInterface
+  public void clearSelections() {
+    synchronized (selections) { selections.clear(); }
+  }
+
+  private void dispatchSelection() {
+    WebView web = target.get();
+    if (web == null || !web.isAttachedToWindow() || !web.hasWindowFocus()
+        || !isFreeReadingPage(web.getUrl())) return;
+    final String id;
+    synchronized (selections) {
+      if (currentSelection != null || selections.isEmpty()) return;
+      id = selections.removeFirst();
+      currentSelection = id;
+    }
+    // Select only the existing visible row; the original site handler owns
+    // confirmation, authorization and navigation.
+    String js = "(function(){var nodes=document.querySelectorAll('button[id^=li_freereading][data-no]');"
+        + "for(var i=0;i<nodes.length;i++){var b=nodes[i];"
+        + "if(b.getAttribute('data-no')==='" + id + "'&&!b.disabled&&b.getClientRects().length){"
+        + "b.click();return 'selected';}}return 'missing';})()";
+    web.evaluateJavascript(js, result -> {
+      if (!"\"selected\"".equals(result)) {
+        synchronized (selections) {
+          if (id.equals(currentSelection)) currentSelection = null;
         }
-        if (!(host instanceof Activity)) viewer.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        host.startActivity(viewer);
-        Diag.log("READING_TITLE_SELECTED", expaprNo);
-      } catch (Exception e) {
-        Diag.log("READING_TITLE_LAUNCH_ERROR", e.getClass().getSimpleName());
-        android.widget.Toast.makeText(context, "시험지를 열 수 없습니다.", android.widget.Toast.LENGTH_SHORT).show();
+        Diag.log("READING_SELECTION_NOT_VISIBLE", id);
+      } else {
+        Diag.log("READING_SELECTION_DISPATCHED", id);
       }
     });
   }
