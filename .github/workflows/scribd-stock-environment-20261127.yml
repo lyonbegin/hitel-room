@@ -1,4 +1,4 @@
-name: Scribd stock diagnostic environment
+name: Scribd original 16.24 install
 on:
   push:
     branches: [test/scribd-stock-environment-20261127]
@@ -7,66 +7,86 @@ on:
 permissions:
   contents: read
 jobs:
-  environment:
+  stock:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
+    env:
+      EXPECTED_SHA: 44069da1f308bdaa00edee7b031a1a8408dac02c281b36fe9d17e05ef4874909
+      PKG: com.scribd.app.reader0.docs
     steps:
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Install LLVM and binary utilities
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y llvm binutils
-          command -v llvm-objdump
-      - name: Prepare independent diagnostic tools
+      - name: Fetch exact original XAPK and verify checksum
+        env:
+          ORIGINAL_URL: ${{ secrets.SCRIBD_ORIGINAL_XAPK_URL }}
         shell: bash
         run: |
-          mkdir -p evidence tools
-          set -o pipefail
-          {
-            java -version
-            curl -fL --retry 2 --max-time 120 https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -o tools/jadx.zip
-            unzip -q tools/jadx.zip -d tools/jadx
-            tools/jadx/bin/jadx --version
-            curl -fL --retry 2 --max-time 120 https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar -o tools/apktool.jar
-            java -jar tools/apktool.jar --version
-            curl -fL --retry 2 --max-time 120 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tools/baksmali.jar
-            echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tools/baksmali.jar' | sha256sum -c -
-            java -jar tools/baksmali.jar --version
-            curl -fL --retry 2 --max-time 120 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o tools/smali.jar
-            java -jar tools/smali.jar --version
-            readelf --version | head -n 1
-            llvm-objdump --version
-            sha256sum tools/*.jar tools/jadx.zip
-          } 2>&1 | tee evidence/tools.txt
+          mkdir -p evidence source
+          matched=0
+          candidates=()
+          if [[ -n "$ORIGINAL_URL" ]]; then candidates+=("$ORIGINAL_URL"); fi
+          candidates+=("https://d.apkpure.net/b/XAPK/$PKG?version=6351801" "https://d.apkpure.com/b/XAPK/$PKG?version=6351801")
+          for url in "${candidates[@]}"; do
+            if curl -fsSL --connect-timeout 20 --max-time 150 -A 'Mozilla/5.0' "$url" -o source/original.xapk 2>/dev/null; then
+              actual=$(sha256sum source/original.xapk | cut -d' ' -f1)
+              echo "candidate SHA256=$actual" | tee -a evidence/source.txt
+              if [[ "$actual" == "$EXPECTED_SHA" ]]; then matched=1; break; fi
+            fi
+            rm -f source/original.xapk
+          done
+          if [[ "$matched" != 1 ]]; then
+            echo 'BLOCKED: exact original XAPK unavailable; configure SCRIBD_ORIGINAL_XAPK_URL with a private temporary download URL' | tee -a evidence/source.txt
+            exit 1
+          fi
+          echo ORIGINAL_SHA256_VERIFIED | tee -a evidence/source.txt
+          python3 - <<'PY'
+          import pathlib, zipfile
+          root=pathlib.Path('source/splits')
+          root.mkdir(exist_ok=True)
+          with zipfile.ZipFile('source/original.xapk') as z:
+              for entry in z.infolist():
+                  name=pathlib.PurePosixPath(entry.filename).name
+                  if not name.endswith('.apk'): continue
+                  if any(s in name for s in ('x86','armeabi_v7a','armeabi-v7a')): continue
+                  dest=root/name
+                  if dest.exists(): raise RuntimeError('duplicate APK basename')
+                  with z.open(entry) as src, dest.open('wb') as out:
+                      import shutil
+                      shutil.copyfileobj(src,out)
+                  print('ORIGINAL_SPLIT',name)
+          assert list(root.glob('*.apk')), 'no APK files'
+          PY
       - name: Enable KVM
-        run: |
-          test -c /dev/kvm
-          sudo chmod a+rw /dev/kvm
-      - name: Verify API 35 Native Bridge on a clean emulator
+        run: sudo chmod a+rw /dev/kvm
+      - name: Install unchanged APK on API35 and launch login screen
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          ram-size: 4096M
+          disk-size: 8192M
           script: |
-            mkdir -p evidence
-            adb version | tee evidence/adb.txt
+            set -e
             adb shell getprop ro.build.version.sdk | tee evidence/api.txt
             adb shell getprop ro.product.cpu.abilist | tee evidence/abi.txt
             adb shell getprop ro.dalvik.vm.native.bridge | tee evidence/native-bridge.txt
             grep -Fx 35 evidence/api.txt
             grep -F arm64-v8a evidence/abi.txt
             grep -F libndk_translation.so evidence/native-bridge.txt
-            adb exec-out screencap -p > evidence/emulator.png
-            adb shell dumpsys connectivity | grep -E 'Active default network|NetworkAgentInfo|Transports:' > evidence/connectivity.txt || true
-            echo ENVIRONMENT_VERIFIED_NO_SCRIBD_APK_TEST
+            adb install-multiple source/splits/*.apk | tee evidence/install.txt
+            adb shell dumpsys package "$PKG" | grep -E 'versionCode=|versionName=|minSdk=|targetSdk=' | tee evidence/package.txt
+            grep -F 'versionCode=6351801' evidence/package.txt
+            grep -F 'versionName=16.24' evidence/package.txt
+            adb logcat -c
+            adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1
+            sleep 20
+            adb shell pidof "$PKG" | tee evidence/pid.txt
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee evidence/activity.txt
+            adb exec-out screencap -p > evidence/prelogin.png
+            echo STOCK_INSTALL_AND_LAUNCH_CHECKED
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: stock-environment-evidence
+          name: scribd-stock-prelogin-evidence
           path: evidence/
-          if-no-files-found: warn
+          retention-days: 3
