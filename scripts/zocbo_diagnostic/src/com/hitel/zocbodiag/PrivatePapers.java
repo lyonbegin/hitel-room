@@ -273,45 +273,78 @@ public final class PrivatePapers {
     if (job == null) return;
     Activity host = job.host.get();
     if (job.finished || host == null || host.isFinishing() || host.isDestroyed()) return;
+    Context context = host.getApplicationContext();
+    if (job.revalidation) {
+      // Activity result is required for the original online revalidation route.
+      completeReceived(job, context, original, response, host);
+      return;
+    }
+    // The original callback may release its temporary file immediately after
+    // returning. Snapshot only the bytes already delivered by that callback.
+    File snapshot = null;
+    try {
+      if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
+      snapshot = File.createTempFile("native-paper-", ".pdf", context.getCacheDir());
+      try (FileInputStream in = new FileInputStream(original);
+           FileOutputStream out = new FileOutputStream(snapshot)) {
+        byte[] buffer = new byte[65536]; int count;
+        while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+      }
+      final File input = snapshot;
+      final long deadline = receivedDeadline(response);
+      final List<JSONObject> paths = new ArrayList<>(job.questionPaths);
+      NativeWorkQueue.Result queued = NativeWorkQueue.submit(job.owner + ":" + job.key, () -> {
+        try {
+          if (job.finished) return;
+          if (!job.owner.equals(account())) throw new IOException("account changed");
+          store(context, job.owner, job.key, job.title, job.exam, input, deadline);
+          JSONObject saved = new JSONObject(index(context, job.owner).getString(job.key, "{}"));
+          File pdf = resolveFile(context, job.owner, saved);
+          if (pdf == null || pdf.getParentFile() == null || pdf.getParentFile().getParentFile() == null)
+            throw new IOException("saved PDF path unavailable");
+          int count = PaperFolders.saveQuestionPathsInFolder(context, pdf.getParentFile().getParentFile(), paths, job.owner);
+          finish(job, "시험지 PDF 저장 완료 / 문제 이미지 경로 JSON 저장 " + count + "개");
+        } catch (Exception e) {
+          Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
+          finish(job, "PDF를 저장하지 못했습니다.");
+        } finally { input.delete(); }
+      });
+      Diag.log("NATIVE_LOCAL_QUEUE", queued.name() + " running=" + NativeWorkQueue.running()
+          + " waiting=" + NativeWorkQueue.waiting());
+      if (queued == NativeWorkQueue.Result.ACCEPTED) snapshot = null;
+      else finish(job, queued == NativeWorkQueue.Result.DUPLICATE ? "이미 처리 중인 시험지입니다." : "저장 대기열이 가득 찼습니다.");
+    } catch (Exception e) {
+      Diag.log("PRIVATE_PAPER_QUEUE_ERROR", e.getClass().getSimpleName());
+      finish(job, "PDF 저장 준비 실패");
+    } finally { if (snapshot != null) snapshot.delete(); }
+  }
+
+  private static long receivedDeadline(Object response) {
+    try {
+      long deadline = responseDeadline(response);
+      return deadline == Long.MAX_VALUE ? 0 : deadline;
+    } catch (Exception e) {
+      Diag.log("PRIVATE_PAPER_FRESHNESS_UNKNOWN", e.getClass().getSimpleName());
+      return 0;
+    }
+  }
+
+  private static void completeReceived(Job job, Context context, File original, Object response, Activity host) {
     try {
       ModelDecision model = job.model;
-      // A user-selected private file is not the HTTP response cache.
-      // The native callback already received and verified the PDF. Its
-      // response freshness determines reopening, never the initial file write.
-      long until = 0;
-      try {
-        long deadline = responseDeadline(response);
-        // No explicit freshness lifetime: require server validation on reopen.
-        if (deadline != Long.MAX_VALUE) until = deadline;
-      } catch (Exception e) {
-        Diag.log("PRIVATE_PAPER_FRESHNESS_UNKNOWN", e.getClass().getSimpleName());
-      }
-      Diag.log("PRIVATE_PAPER_RECEIVED_REOPEN_DEADLINE", String.valueOf(until));
-      if (job.revalidation && (model == null || !model.network || !hasNetworkResponse(response))) {
+      if (model == null || !model.network || !hasNetworkResponse(response)) {
         finish(job, "서버 확인을 완료하지 못했습니다.");
         return;
       }
       if (job.owner.isEmpty() || !job.owner.equals(account())) throw new IOException("account changed");
-      store(host, job.owner, job.key, job.title, job.exam, original, until);
-      Diag.log("PRIVATE_PAPER_FILE_WRITTEN", job.exam + " directory=" + directory(host, job.owner));
-      if (job.revalidation) {
-        JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
-        Intent result = new Intent().putExtra("paper", job.key)
-            .putExtra(VALIDATED_FILE, saved.optString("file"));
-        main.post(() -> {
-          if (!host.isFinishing() && !host.isDestroyed()) host.setResult(Activity.RESULT_OK, result);
-        });
-        finish(job, "서버 확인을 완료했습니다.");
-      } else {
-        JSONObject saved = new JSONObject(index(host, job.owner).getString(job.key, "{}"));
-        File pdf = resolveFile(host, job.owner, saved);
-        if (pdf == null || pdf.getParentFile() == null || pdf.getParentFile().getParentFile() == null)
-          throw new IOException("saved PDF path unavailable");
-        File folder = pdf.getParentFile().getParentFile();
-        List<JSONObject> paths = new ArrayList<>(job.questionPaths);
-        int count = PaperFolders.saveQuestionPathsInFolder(host, folder, paths, job.owner);
-        finish(job, "시험지 PDF 저장 완료 / 문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + paths.size() + "개)");
-      }
+      store(context, job.owner, job.key, job.title, job.exam, original, receivedDeadline(response));
+      JSONObject saved = new JSONObject(index(context, job.owner).getString(job.key, "{}"));
+      Intent result = new Intent().putExtra("paper", job.key)
+          .putExtra(VALIDATED_FILE, saved.optString("file"));
+      main.post(() -> {
+        if (!host.isFinishing() && !host.isDestroyed()) host.setResult(Activity.RESULT_OK, result);
+      });
+      finish(job, "서버 확인을 완료했습니다.");
     } catch (Exception e) {
       Diag.log("PRIVATE_PAPER_SAVE_ERROR", e.getClass().getSimpleName());
       finish(job, "PDF를 저장하지 못했습니다.");
