@@ -1,0 +1,59 @@
+name: ML Kit SDK bytecode contract analysis
+on:
+  push:
+    branches: [analysis/gallery-mlkit-sdk-20261127]
+    paths: ['.github/workflows/gallery-mlkit-sdk-contract-20261127.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Analyze exact SDK client contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p input evidence
+          base=https://dl.google.com/dl/android/maven2/com/google/mlkit
+          curl -fL --retry 3 "$base/genai-speech-recognition/1.0.0-alpha2/genai-speech-recognition-1.0.0-alpha2.aar" -o input/speech.aar
+          curl -fL --retry 3 "$base/genai-common/1.0.0-beta5/genai-common-1.0.0-beta5.aar" -o input/common.aar
+          printf '%s\n' 'a7bef8c8eef655240f4d2cd10bfe5b583c22ec0f384b634691e634fa5d6063f6  input/speech.aar' 'cefcd33b43fb3078f7d10da169316ae146c0a67b28aa6bf5008f10571d646a4c  input/common.aar' | sha256sum -c - | tee evidence/sha256.txt
+          for name in speech common; do
+            unzip -p input/$name.aar classes.jar > input/$name.jar
+            jar tf input/$name.jar > evidence/$name.entries.txt
+            grep -c '\.class$' evidence/$name.entries.txt
+          done
+          python3 - <<'PY'
+          import zipfile,re,json
+          patterns = (b'GoogleAsrService',b'checkModelAvailability',b'downloadModel',b'getInstalledPackPath',b'importFiles',b'language_pack_directory')
+          result = {}
+          for name in ('speech','common'):
+              with zipfile.ZipFile('input/'+name+'.jar') as z:
+                  classes = [p for p in z.namelist() if p.endswith('.class')]
+                  result[name] = {'class_count':len(classes),'references':{p.decode():[] for p in patterns}}
+                  for path in classes:
+                      data=z.read(path)
+                      for p in patterns:
+                          if p in data: result[name]['references'][p.decode()].append(path)
+          with open('evidence/sdk-reference-index.json','w') as f: json.dump(result,f,indent=2)
+          print(json.dumps(result,indent=2))
+          PY
+          cp="input/speech.jar:input/common.jar"
+          for cls in SpeechRecognition SpeechRecognizer SpeechRecognizerOptions SpeechRecognizerOptions\$Builder SpeechRecognizerRequest SpeechRecognizerRequest\$Builder RecognitionOptions\$Builder; do
+            javap -p -s -classpath "$cp" "com.google.mlkit.genai.speechrecognition.$cls"
+          done > evidence/sdk-signatures.txt
+          javap -p -s -classpath "$cp" com.google.mlkit.genai.common.audio.AudioSource >> evidence/sdk-signatures.txt
+          javap -p -c -classpath "$cp" com.google.mlkit.genai.speechrecognition.SpeechRecognizer | grep -E '^[[:space:]]*(public|private|protected)|// (Method|InterfaceMethod|Field)' > evidence/sdk-client-calls.txt
+          cat evidence/sdk-signatures.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mlkit-sdk-contract-evidence
+          path: evidence/
+          retention-days: 7
