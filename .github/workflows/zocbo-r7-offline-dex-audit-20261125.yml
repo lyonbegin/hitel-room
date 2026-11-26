@@ -22,39 +22,36 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Audit model and UI dependency boundaries
+      - name: Audit model delivery and authorization boundary
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
           report=[]
-          def read(rel):
+          for rel in ['p079i3/Q0.java','p229y3/Y0.java','p079i3/z0.java','com/eduzone/eduzoneviewer/ui/activities/MainActivity.java','com/eduzone/eduzoneviewer/ui/activities/CommonWebviewActivity.java','p203v3/P.java']:
               p=root/rel
-              return p.read_text(errors='replace').splitlines() if p.exists() else []
-          def emit(lines,pat,limit=100):
-              for i,l in list((i,l) for i,l in enumerate(lines,1) if re.search(pat,l))[:limit]:
-                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|@(?:GET|POST)|EXTRA_PDF|\.getStringExtra',l,re.I):continue
-                  report.append(f'{i}: {l.strip()[:280]}')
-          for rel in ['p229y3/Y0.java','p203v3/P.java','p079i3/Q0.java','p079i3/z0.java','com/eduzone/eduzoneviewer/ui/activities/MainActivity.java','com/eduzone/eduzoneviewer/ui/activities/CommonWebviewActivity.java']:
               report.append('=== '+rel+' ===')
-              lines=read(rel)
-              if not lines:
-                  report.append('MISSING');continue
-              emit(lines,r'^public .*class |^@HiltViewModel|^import .* (Activity|Context)|^import .*repository|^import .*lifecycle|^\s+public (?:Y0|P)\(|@SerializedName\("(?:qst_list|qst_img_path|qst_seq)"\)|\bgetQst(?:ImgPath|Seq)\(')
-              if 'Y0.java' in rel:
-                  report.append('UI dependency occurrence counts')
-                  for pat in ['Activity','Context','WebView','ViewModel','LiveData','Fragment','Repository','CoroutineScope','PdfRenderer']:
-                      report.append(pat+': '+str(sum(bool(re.search(r'\b'+pat+r'\b',l)) for l in lines)))
-                  emit(lines,r'^\s+(?:private|public|protected).*?\b(?:Activity|Context|WebView|Fragment|PdfRenderer)\b',40)
-              if 'Q0.java' in rel:
-                  report.append('UI observer count: '+str(sum('.e(callback,' in l for l in lines)))
-                  report.append('UI event registrations: '+str(sum('AbstractC0208z.f(callback,' in l for l in lines)))
-                  emit(lines,r'getLifecycle\(|setAdapter\(|getWindow\(|getLayoutInflater\(|setContentView\(',30)
-              if 'z0.java' in rel:
-                  emit(lines,r'getQstImgPath\(|getQstViewerPath\(|arrayList[0-9]*\.clear\(|setAdapter\(',25)
-              if 'Activity.java' in rel:
-                  emit(lines,r'public .*onCreate\(|public .*onResume\(|public .*onDestroy\(|\bWebView\b|registerTitleBridge\(',30)
+              if not p.exists():
+                  report.append('MISSING')
+                  continue
+              lines=p.read_text(errors='replace').splitlines()
+              for label,pat in [('model reference',r'\b(?:p203v3\.P|P\.b|getQstImgPath|getQstViewerPath)\b'),('viewer dependency',r'\bViewerActivity\b'),('lifecycle subscription',r'\.e\(callback,|getLifecycle\(|observe\('),('response status',r'getResponseCode|getResponseMessage|isSuccessful\('),('access decision',r'getAccessType|isAllowed|isAuthorized|getPermission|isFreeReading'),('view creation',r'setContentView\(|setAdapter\(|getLayoutInflater\(')]:
+                  hits=[i+1 for i,l in enumerate(lines) if re.search(pat,l)]
+                  report.append(f'{label}: {len(hits)}; lines {",".join(map(str,hits[:30]))}')
+              if rel.endswith('/P.java'):
+                  report.append('Independent Parcelable model: '+str(any('implements Parcelable' in l for l in lines)))
+              if rel.endswith('/Q0.java'):
+                  report.append('Viewer-coupled observer initializations: '+str(sum('.e(callback,' in l for l in lines)))
+          # Identify the classes referencing the model without exporting request
+          # parameters, endpoint strings, credentials, or service invocation code.
+          report.append('=== Model reference class inventory ===')
+          for p in root.rglob('*.java'):
+              try: lines=p.read_text(errors='replace').splitlines()
+              except OSError: continue
+              matches=[i+1 for i,l in enumerate(lines) if re.search(r'\bimport p203v3\.P;|\bgetQstImgPath\(|\bgetQstViewerPath\(',l)]
+              if not matches:continue
+              report.append(str(p.relative_to(root))+': '+','.join(map(str,matches[:20])))
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
           print(result[:45000])
@@ -62,7 +59,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-model-ui-dependency-audit
+          name: r7-model-delivery-boundary-audit
           path: |
             callsite-audit.txt
             jadx.log
