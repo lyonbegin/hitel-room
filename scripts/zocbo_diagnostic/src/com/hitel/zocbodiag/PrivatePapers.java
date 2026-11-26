@@ -58,12 +58,14 @@ public final class PrivatePapers {
     volatile ModelDecision model;
     volatile boolean finished;
     volatile boolean localQueued;
+    final JsonJobCompletion completion;
     Job(Activity host, String owner, String key, String exam) {
       this.host = new WeakReference<>(host);
       this.owner = owner;
       this.key = key;
       this.exam = exam;
       this.revalidation = host.getIntent().getBooleanExtra(REVALIDATE, false);
+      this.completion = revalidation ? null : NativePdfTitleBridge.completionFor(owner, exam);
     }
   }
 
@@ -239,7 +241,9 @@ public final class PrivatePapers {
     try {
       job.localQueued = true;
       NativeWorkQueue.Result queued = NativeJsonJobs.enqueue(host.getApplicationContext(),
-          job.owner, job.key, job.exam, job.title, job.questionPaths);
+          job.owner, job.key, job.exam, job.title, job.questionPaths, job.completion);
+      if (queued != NativeWorkQueue.Result.ACCEPTED && job.completion != null)
+        job.completion.finish("FAILED:" + queued.name(), 0, job.questionPaths.size());
       Diag.log("NATIVE_JSON_QUEUE", queued.name() + " running=" + NativeWorkQueue.running()
           + " waiting=" + NativeWorkQueue.waiting());
       // Release the temporary normal viewer immediately. The accepted JSON
@@ -247,6 +251,8 @@ public final class PrivatePapers {
       finish(job, queued == NativeWorkQueue.Result.ACCEPTED ? "JSON 저장 대기열에 등록했습니다."
           : queued == NativeWorkQueue.Result.DUPLICATE ? "이미 처리 중인 시험지입니다." : "저장 대기열이 가득 찼습니다.");
     } catch (Exception e) {
+      if (job.completion != null)
+        job.completion.finish("FAILED:" + e.getClass().getSimpleName(), 0, job.questionPaths.size());
       Diag.log("NATIVE_JSON_QUEUE_ERROR", e.getClass().getSimpleName());
       finish(job, "JSON 저장 준비 실패");
     }
@@ -263,6 +269,8 @@ public final class PrivatePapers {
 
   static void finish(Job job, String message) {
     synchronized (job) { if (job.finished) return; job.finished = true; }
+    if (!job.localQueued && job.completion != null)
+      job.completion.finish("FAILED:NO_MODEL", 0, 0);
     main.post(() -> {
       Activity a = job.host.get();
       if (a == null || a.isDestroyed() || a.isFinishing()) return;

@@ -33,6 +33,11 @@ final class NativeJsonJobs {
 
   static NativeWorkQueue.Result enqueue(Context context, String owner, String key,
       String exam, String title, List<JSONObject> rows) throws Exception {
+    return enqueue(context, owner, key, exam, title, rows, null);
+  }
+
+  static NativeWorkQueue.Result enqueue(Context context, String owner, String key,
+      String exam, String title, List<JSONObject> rows, JsonJobCompletion completion) throws Exception {
     if (owner == null || owner.isEmpty() || !owner.equals(PrivatePapers.account()))
       throw new IOException("account changed");
     if (exam == null || !exam.matches("[1-9][0-9]{0,9}") || key == null || key.isEmpty())
@@ -49,17 +54,24 @@ final class NativeJsonJobs {
       setStatus(statusId, "QUEUED");
       NativeWorkQueue.Result result = NativeWorkQueue.submit(owner + ":" + key, () -> {
         setStatus(statusId, "RUNNING");
+        String terminal;
+        int savedPaths = 0;
         try {
           if (!owner.equals(PrivatePapers.account())) throw new IOException("account changed");
-          int count = PaperFolders.saveQuestionPaths(app, title, exam, snapshot, owner);
+          savedPaths = PaperFolders.saveQuestionPaths(app, title, exam, snapshot, owner);
           completed.incrementAndGet();
-          setStatus(statusId, "COMPLETE:" + count + "/" + snapshot.size());
-          Diag.log("JSON_WORK_COMPLETE", "exam=" + exam + " count=" + count + "/" + snapshot.size());
+          terminal = "COMPLETE:" + savedPaths + "/" + snapshot.size();
+          setStatus(statusId, terminal);
+          Diag.log("JSON_WORK_COMPLETE", "exam=" + exam + " count=" + savedPaths + "/" + snapshot.size());
         } catch (Exception e) {
           failed.incrementAndGet();
-          setStatus(statusId, "FAILED:" + e.getClass().getSimpleName());
+          terminal = "FAILED:" + e.getClass().getSimpleName();
+          setStatus(statusId, terminal);
           Diag.log("JSON_WORK_FAILED", "exam=" + exam + " " + e.getClass().getSimpleName());
         }
+        // The callback is independent of ViewerActivity; it is fired only
+        // after the actual save attempt, never on queue acceptance.
+        if (completion != null) completion.finish(terminal, savedPaths, snapshot.size());
       });
       if (result != NativeWorkQueue.Result.ACCEPTED) {
         if (existing == null) statuses.remove(statusId);

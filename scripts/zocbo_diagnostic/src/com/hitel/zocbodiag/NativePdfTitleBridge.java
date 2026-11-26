@@ -18,9 +18,51 @@ import java.util.Locale;
 public final class NativePdfTitleBridge {
   public static final String EXTRA_EXAM_ID = "com.hitel.zocbodiag.SELECTED_EXAM_ID";
   private final WeakReference<WebView> target;
+  private static final java.util.Set<NativePdfTitleBridge> bridges =
+      java.util.Collections.newSetFromMap(new java.util.WeakHashMap<NativePdfTitleBridge, Boolean>());
 
   public NativePdfTitleBridge(WebView w) {
     target = new WeakReference<>(w);
+    synchronized (bridges) { bridges.add(this); }
+  }
+
+  /** Bind a completion event only to a unique outstanding original UI selection.
+   * No credentials, model contents, or resource URLs are sent into JavaScript. */
+  static JsonJobCompletion completionFor(String owner, String exam) {
+    if (owner == null || owner.isEmpty() || exam == null) return null;
+    JsonJobCompletion found = null;
+    synchronized (bridges) {
+      for (NativePdfTitleBridge bridge : bridges) {
+        synchronized (bridge.selections) {
+          if (!exam.equals(bridge.currentSelection) || !owner.equals(bridge.selectionOwner)
+              || bridge.selectionPage == null || bridge.selectionRequest == null) continue;
+          if (found != null) return null; // ambiguous originating page; do not deliver
+          final WeakReference<WebView> target = bridge.target;
+          final String page = bridge.selectionPage;
+          final String requestId = bridge.selectionRequest;
+          found = new JsonJobCompletion((state, pathCount, questionCount) -> {
+            WebView web = target.get();
+            if (web == null) return;
+            web.post(() -> {
+              if (!web.isAttachedToWindow() || !page.equals(web.getUrl())
+                  || !isFreeReadingPage(web.getUrl()) || !owner.equals(PrivatePapers.account())) return;
+              try {
+                org.json.JSONObject data = new org.json.JSONObject();
+                data.put("requestId", requestId);
+                data.put("examNo", exam);
+                data.put("status", state);
+                data.put("success", state.startsWith("COMPLETE:"));
+                data.put("imagePathCount", pathCount);
+                data.put("questionCount", questionCount);
+                web.evaluateJavascript("window.dispatchEvent(new CustomEvent('hitelJsonResult',{detail:JSON.parse("
+                    + org.json.JSONObject.quote(data.toString()) + ")}));", null);
+              } catch (Exception ignored) { /* originating page is unavailable */ }
+            });
+          });
+        }
+      }
+    }
+    return found;
   }
 
   static boolean isFreeReadingPage(String raw) {
@@ -49,6 +91,10 @@ public final class NativePdfTitleBridge {
   // The existing site's confirmation and authorization remain in the UI.
   private final java.util.ArrayDeque<String> selections = new java.util.ArrayDeque<>();
   private String currentSelection;
+  private String selectionOwner, selectionPage, selectionRequest;
+  private void clearCurrentSelection() {
+    currentSelection = selectionOwner = selectionPage = selectionRequest = null;
+  }
   private static final int MAX_SELECTIONS = 256;
 
   @JavascriptInterface
@@ -96,7 +142,7 @@ public final class NativePdfTitleBridge {
   public void nextSelection() {
     WebView web = target.get();
     if (web != null) web.post(() -> {
-      synchronized (selections) { currentSelection = null; }
+      synchronized (selections) { clearCurrentSelection(); }
       dispatchSelection();
     });
   }
@@ -115,6 +161,9 @@ public final class NativePdfTitleBridge {
       if (currentSelection != null || selections.isEmpty()) return;
       id = selections.removeFirst();
       currentSelection = id;
+      selectionOwner = PrivatePapers.account();
+      selectionPage = web.getUrl();
+      selectionRequest = java.util.UUID.randomUUID().toString();
     }
     // Select only the existing visible row; the original site handler owns
     // confirmation, authorization and navigation.
@@ -125,7 +174,7 @@ public final class NativePdfTitleBridge {
     web.evaluateJavascript(js, result -> {
       if (!"\"selected\"".equals(result)) {
         synchronized (selections) {
-          if (id.equals(currentSelection)) currentSelection = null;
+          if (id.equals(currentSelection)) clearCurrentSelection();
         }
         Diag.log("READING_SELECTION_NOT_VISIBLE", id);
       } else {
