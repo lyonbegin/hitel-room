@@ -191,6 +191,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.google.ai.edge.gallery.services.asr.AsrEngineType
 import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
 import com.google.ai.edge.gallery.ui.modelmanager.downloadLanguagePack
@@ -241,6 +242,7 @@ private fun HitelBasicPackPanel(model: Model, manager: ModelManagerViewModel) {
           style = MaterialTheme.typography.bodySmall)
       }
     }
+    HitelDirectSodaDownload(context)
     if (network.contains("VPN") && network.contains("metered=true")) {
       Text("Google Speech Services may pause language downloads on this metered VPN. " +
         "Open Google app > Settings > Voice > Offline speech recognition and allow all networks, if offered.",
@@ -271,6 +273,81 @@ private fun HitelBasicPackPanel(model: Model, manager: ModelManagerViewModel) {
         context.startActivity(Intent(Settings.ACTION_SETTINGS))
       }
     }) { Text("Open Google app") }
+  }
+}
+
+/** Direct HTTPS file retrieval over any working network; never reports SDK model installed. */
+@Composable
+private fun HitelDirectSodaDownload(context: Context) {
+  val scope = androidx.compose.runtime.rememberCoroutineScope()
+  var busy by remember { mutableStateOf(false) }
+  var result by remember { mutableStateOf("") }
+  TextButton(enabled = !busy, onClick = {
+    busy = true
+    result = "Direct HTTPS download starting..."
+    scope.launch {
+      try {
+        val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+          hitelFetchEnglishSoda(context)
+        }
+        result = "ZIP verified: " + file.absolutePath + ". Not registered in ML Kit."
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e("HITEL_ASR_DIRECT", "DOWNLOAD_FAILED", e)
+        result = "Direct download failed: " + (e.message ?: e.javaClass.simpleName)
+      } finally {
+        busy = false
+      }
+    }
+  }) { Text("Direct HTTPS: English SODA ZIP") }
+  if (result.isNotEmpty()) Text(result, style = MaterialTheme.typography.bodySmall)
+}
+
+private fun hitelFetchEnglishSoda(context: Context): java.io.File {
+  val folder = java.io.File(context.getExternalFilesDir(null) ?: context.filesDir, "soda-direct")
+  check(folder.isDirectory || folder.mkdirs()) { "Cannot create download directory" }
+  val target = java.io.File(folder, "soda-en-US-v3072.zip")
+  val part = java.io.File(folder, "soda-en-US-v3072.zip.part")
+  val expected = "F8745C8DBBDAE1E77A9A9E7BAF378CBC78B7BB2A"
+  val connection = java.net.URL("https://dl.google.com/android/voice/soda/en-US/v3072/soda-en-US-v3072.zip")
+    .openConnection() as java.net.HttpURLConnection
+  connection.connectTimeout = 20000
+  connection.readTimeout = 30000
+  connection.instanceFollowRedirects = true
+  try {
+    Log.i("HITEL_ASR_DIRECT", "HTTP_START no Wi-Fi or metered-network check")
+    check(connection.responseCode == 200) { "HTTP " + connection.responseCode }
+    val digest = java.security.MessageDigest.getInstance("SHA-1")
+    var bytes = 0L
+    var nextLog = 4L * 1024 * 1024
+    connection.inputStream.use { input ->
+      part.outputStream().use { output ->
+        val buffer = ByteArray(65536)
+        while (true) {
+          val count = input.read(buffer)
+          if (count < 0) break
+          bytes += count
+          check(bytes <= 100L * 1024 * 1024) { "Model ZIP exceeds limit" }
+          digest.update(buffer, 0, count)
+          output.write(buffer, 0, count)
+          if (bytes >= nextLog) {
+            Log.i("HITEL_ASR_DIRECT", "HTTP_PROGRESS bytes=" + bytes)
+            nextLog = bytes + 4L * 1024 * 1024
+          }
+        }
+      }
+    }
+    val hash = digest.digest().joinToString("") { "%02X".format(it.toInt() and 255) }
+    Log.i("HITEL_ASR_DIRECT", "HTTP_COMPLETE bytes=" + bytes + " sha1=" + hash)
+    check(hash.equals(expected, ignoreCase = true)) { "SHA-1 mismatch: " + hash }
+    java.util.zip.ZipFile(part).use { check(it.size() > 0) { "Empty ZIP" } }
+    check(part.renameTo(target)) { "Cannot move verified ZIP" }
+    Log.i("HITEL_ASR_DIRECT", "ZIP_VERIFIED SDK_REGISTRATION_NOT_PERFORMED")
+    return target
+  } finally {
+    connection.disconnect()
+    part.delete()
   }
 }
 
