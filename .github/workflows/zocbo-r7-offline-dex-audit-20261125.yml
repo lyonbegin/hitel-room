@@ -22,49 +22,47 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Audit Activity lifecycle and retained state
+      - name: Audit model and UI dependency boundaries
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           root=Path('decoded/sources')
           report=[]
-          targets=[('com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java',r'onCreate|onNewIntent|onDestroy|onStop|onPause|onResume|onBackPressed|finish\(|getIntent\(|setIntent\(|ViewModelProvider|ViewModelLazy|setAdapter\(|removeObserver|removeObservers|registerForActivityResult|onCleared|super\.'),
-                   ('p229y3/Y0.java',r'onCleared|cancel\(|clear\(|reset|LiveData|ViewModel|removeObserver'),
-                   ('p079i3/Q0.java',r'observe|\.e\(|\.f\(|getLifecycle|ViewerActivity'),
-                   ('p079i3/z0.java',r'finish\(|getLifecycle|isFinishing|isDestroyed|setAdapter\(|clear\(|removeObserver'),
-                   ('p079i3/y.java',r'onCreate|onNewIntent|onDestroy|onStop|onResume|finish\(|getIntent\(|setIntent\('),
-                   ('p079i3/x.java',r'onCreate|onNewIntent|onDestroy|onStop|onResume|finish\(|getIntent\(|setIntent\(')]
-          for rel,pat in targets:
+          def read(rel):
               p=root/rel
+              return p.read_text(errors='replace').splitlines() if p.exists() else []
+          def emit(lines,pat,limit=100):
+              for i,l in list((i,l) for i,l in enumerate(lines,1) if re.search(pat,l))[:limit]:
+                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|@(?:GET|POST)|EXTRA_PDF|\.getStringExtra',l,re.I):continue
+                  report.append(f'{i}: {l.strip()[:280]}')
+          for rel in ['p229y3/Y0.java','p203v3/P.java','p079i3/Q0.java','p079i3/z0.java','com/eduzone/eduzoneviewer/ui/activities/MainActivity.java','com/eduzone/eduzoneviewer/ui/activities/CommonWebviewActivity.java']:
               report.append('=== '+rel+' ===')
-              if not p.exists():
+              lines=read(rel)
+              if not lines:
                   report.append('MISSING');continue
-              lines=p.read_text(errors='replace').splitlines()
-              hits=[i for i,l in enumerate(lines) if re.search(pat,l)]
-              for i in hits[:180]:
-                  l=lines[i].strip()
-                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://',l,re.I):continue
-                  report.append(f'{i+1}: {l[:300]}')
-              if 'ViewerActivity.java' in rel:
-                  report.append('=== Viewer lifecycle method bodies (filtered) ===')
-                  for i,l in enumerate(lines):
-                      if not re.search(r'\b(?:void|boolean)\s+(?:onCreate|onNewIntent|onDestroy|onStop|onPause|onResume)\(',l):continue
-                      report.append('METHOD '+str(i+1))
-                      for j in range(i,min(i+240,len(lines))):
-                          x=lines[j]
-                          if j>i and re.match(r'^    }\s*$',x):
-                              report.append(f'{j+1}: END');break
-                          if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|EXTRA_PDF|\.getStringExtra|\.getIntExtra',x,re.I):continue
-                          report.append(f'{j+1}: {x.strip()[:240]}')
+              emit(lines,r'^public .*class |^@HiltViewModel|^import .* (Activity|Context)|^import .*repository|^import .*lifecycle|^\s+public (?:Y0|P)\(|@SerializedName\("(?:qst_list|qst_img_path|qst_seq)"\)|\bgetQst(?:ImgPath|Seq)\(')
+              if 'Y0.java' in rel:
+                  report.append('UI dependency occurrence counts')
+                  for pat in ['Activity','Context','WebView','ViewModel','LiveData','Fragment','Repository','CoroutineScope','PdfRenderer']:
+                      report.append(pat+': '+str(sum(bool(re.search(r'\b'+pat+r'\b',l)) for l in lines)))
+                  emit(lines,r'^\s+(?:private|public|protected).*?\b(?:Activity|Context|WebView|Fragment|PdfRenderer)\b',40)
+              if 'Q0.java' in rel:
+                  report.append('UI observer count: '+str(sum('.e(callback,' in l for l in lines)))
+                  report.append('UI event registrations: '+str(sum('AbstractC0208z.f(callback,' in l for l in lines)))
+                  emit(lines,r'getLifecycle\(|setAdapter\(|getWindow\(|getLayoutInflater\(|setContentView\(',30)
+              if 'z0.java' in rel:
+                  emit(lines,r'getQstImgPath\(|getQstViewerPath\(|arrayList[0-9]*\.clear\(|setAdapter\(',25)
+              if 'Activity.java' in rel:
+                  emit(lines,r'public .*onCreate\(|public .*onResume\(|public .*onDestroy\(|\bWebView\b|registerTitleBridge\(',30)
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result[:65000])
+          print(result[:45000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-viewer-activity-lifecycle-audit
+          name: r7-model-ui-dependency-audit
           path: |
             callsite-audit.txt
             jadx.log
