@@ -1,0 +1,67 @@
+name: Scribd stock diagnostic environment
+on:
+  push:
+    branches: [test/scribd-stock-environment-20261127]
+    paths: ['.github/workflows/scribd-stock-environment-20261127.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  environment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare independent diagnostic tools
+        shell: bash
+        run: |
+          mkdir -p evidence tools
+          set -o pipefail
+          {
+            java -version
+            curl -fL --retry 2 --max-time 120 https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -o tools/jadx.zip
+            unzip -q tools/jadx.zip -d tools/jadx
+            tools/jadx/bin/jadx --version
+            curl -fL --retry 2 --max-time 120 https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar -o tools/apktool.jar
+            java -jar tools/apktool.jar --version
+            curl -fL --retry 2 --max-time 120 https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar -o tools/baksmali.jar
+            echo '37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f  tools/baksmali.jar' | sha256sum -c -
+            java -jar tools/baksmali.jar --version
+            curl -fL --retry 2 --max-time 120 https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar -o tools/smali.jar
+            java -jar tools/smali.jar --version
+            readelf --version | head -n 1
+            llvm-objdump --version
+            adb version
+            sha256sum tools/*.jar tools/jadx.zip
+          } 2>&1 | tee evidence/tools.txt
+      - name: Enable KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Verify API 35 Native Bridge on a clean emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          script: |
+            mkdir -p evidence
+            adb shell getprop ro.build.version.sdk | tee evidence/api.txt
+            adb shell getprop ro.product.cpu.abilist | tee evidence/abi.txt
+            adb shell getprop ro.dalvik.vm.native.bridge | tee evidence/native-bridge.txt
+            grep -Fx 35 evidence/api.txt
+            grep -F arm64-v8a evidence/abi.txt
+            grep -F libndk_translation.so evidence/native-bridge.txt
+            adb exec-out screencap -p > evidence/emulator.png
+            adb shell dumpsys connectivity | grep -E 'Active default network|NetworkAgentInfo|Transports:' > evidence/connectivity.txt || true
+            echo ENVIRONMENT_VERIFIED_NO_SCRIBD_APK_TEST
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stock-environment-evidence
+          path: evidence/
+          if-no-files-found: warn
