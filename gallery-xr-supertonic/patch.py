@@ -192,6 +192,8 @@ import android.net.NetworkCapabilities
 import android.provider.Settings
 import android.util.Log
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Checkbox
+import kotlinx.coroutines.ensureActive
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -237,18 +239,42 @@ private fun HitelAsrSourcePanel(model: Model, manager: ModelManagerViewModel) {
   }
 }
 
-private data class HitelSodaPack(val locale: String, val name: String, val bytes: Long, val sha1: String)
-private val hitelSodaPacks = listOf(
-  HitelSodaPack("ko-KR", "soda-ko-KR-v5072.zip", 93639000L, "58DEECE081FD89EE928BA6BD705B6878BE6BD395"),
-  HitelSodaPack("en-US", "soda-en-US-v3072.zip", 62065000L, "F8745C8DBBDAE1E77A9A9E7BAF378CBC78B7BB2A"),
+private data class HitelSodaPack(val locale: String, val version: String, val name: String, val uri: Uri)
+private data class HitelSodaExpected(val bytes: Long, val sha1: String)
+private val hitelSodaKnown = mapOf(
+  "soda-ko-KR-v5072.zip" to HitelSodaExpected(93639000L, "58DEECE081FD89EE928BA6BD705B6878BE6BD395"),
+  "soda-en-US-v3072.zip" to HitelSodaExpected(62065000L, "F8745C8DBBDAE1E77A9A9E7BAF378CBC78B7BB2A"),
 )
+private val hitelSodaName = Regex("soda-([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})+)-v([0-9]+)[.]zip", RegexOption.IGNORE_CASE)
+
+private fun hitelListSodaPacks(context: Context, tree: Uri): List<HitelSodaPack> {
+  val resolver = context.contentResolver
+  val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+  val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+  val result = mutableListOf<HitelSodaPack>()
+  resolver.query(children, columns, null, null, null)?.use { cursor ->
+    while (cursor.moveToNext()) {
+      val name = cursor.getString(1) ?: continue
+      val match = hitelSodaName.matchEntire(name) ?: continue
+      val locale = Locale.forLanguageTag(match.groupValues[1]).toLanguageTag()
+      if (locale == "und") continue
+      result.add(HitelSodaPack(locale, match.groupValues[2], name,
+        DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0))))
+    }
+  } ?: error("Cannot read selected folder")
+  return result.sortedWith(compareBy({ it.locale }, { it.name }))
+}
 
 @Composable
 private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
   val context = LocalContext.current
   var folder by remember { mutableStateOf(prefs.getString("folder", null)) }
   var refresh by remember { mutableStateOf(0) }
+  var verify by remember { mutableStateOf(0) }
   var error by remember { mutableStateOf("") }
+  var scanning by remember { mutableStateOf(false) }
+  var packs by remember { mutableStateOf<List<HitelSodaPack>>(emptyList()) }
+  var checked by remember { mutableStateOf(prefs.getStringSet("checked_models", emptySet())?.toSet() ?: emptySet()) }
   var results by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
   val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
     if (uri != null) {
@@ -256,6 +282,10 @@ private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
         context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         val old = folder
         folder = uri.toString()
+        if (old != folder) {
+          checked = emptySet()
+          prefs.edit().remove("checked_models").apply()
+        }
         prefs.edit().putString("folder", folder).apply()
         if (old != null && old != folder) {
           try {
@@ -272,14 +302,37 @@ private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
     }
   }
   LaunchedEffect(folder, refresh) {
+    scanning = true
     results = emptyMap()
-    val selected = folder
-    if (selected != null) {
-      for (pack in hitelSodaPacks) {
-        results = results + (pack.locale to "Checking ZIP...")
+    packs = emptyList()
+    error = ""
+    try {
+      val selected = folder
+      if (selected != null) {
+        packs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+          hitelListSodaPacks(context, Uri.parse(selected))
+        }
+        checked = checked.intersect(packs.map { it.name }.toSet())
+        prefs.edit().putStringSet("checked_models", checked).apply()
+        Log.i("HITEL_SODA_LOCAL", "SCAN_COMPLETE packs=" + packs.size)
+      }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      error = "Folder scan failed: " + (e.message ?: e.javaClass.simpleName)
+      Log.w("HITEL_SODA_LOCAL", "SCAN_FAILED", e)
+    } finally {
+      scanning = false
+    }
+  }
+  LaunchedEffect(folder, refresh, verify, checked, packs) {
+    results = emptyMap()
+    if (verify > 0 && !scanning) {
+      for (pack in packs.filter { it.name in checked }) {
+        results = results + (pack.name to "Checking ZIP...")
         val state = try {
           kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            hitelVerifySodaPack(context, Uri.parse(selected), pack)
+            hitelVerifySodaPack(context, pack)
           }
         } catch (e: kotlinx.coroutines.CancellationException) {
           throw e
@@ -287,22 +340,50 @@ private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
           Log.w("HITEL_SODA_LOCAL", "VERIFY_FAILED " + pack.locale, e)
           "Verification failed: " + (e.message ?: e.javaClass.simpleName)
         }
-        results = results + (pack.locale to state)
+        results = results + (pack.name to state)
       }
     }
   }
   Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Text("SODA Local model folder", style = MaterialTheme.typography.titleSmall)
-    Text("Place the original Korean and English ZIP files in one folder. No SDK download is started here.",
+    Text("Select one folder containing SODA ZIP language packs. Check the languages you want to use.",
       style = MaterialTheme.typography.bodySmall)
     Text(folder ?: "No folder selected", style = MaterialTheme.typography.bodySmall)
-    TextButton(onClick = { picker.launch(null) }) { Text("Select model folder") }
-    for (pack in hitelSodaPacks) {
-      Text(pack.locale + ": " + (results[pack.locale] ?: "Not checked"),
-        style = MaterialTheme.typography.bodySmall)
-      Text(pack.name, style = MaterialTheme.typography.bodySmall)
+    Row {
+      TextButton(onClick = { picker.launch(null) }) { Text("Select model folder") }
+      TextButton(enabled = folder != null && !scanning, onClick = { refresh++ }) { Text("Rescan") }
     }
-    TextButton(enabled = folder != null, onClick = { refresh++ }) { Text("Verify local models") }
+    if (scanning) Text("Scanning folder...")
+    if (!scanning && folder != null && packs.isEmpty()) Text("No SODA language ZIP files found.")
+    if (packs.isNotEmpty()) {
+      Text("Local languages: " + checked.size + " / " + packs.size, style = MaterialTheme.typography.titleSmall)
+      Row {
+        TextButton(onClick = {
+          checked = packs.map { it.name }.toSet()
+          prefs.edit().putStringSet("checked_models", checked).apply()
+        }) { Text("Select all") }
+        TextButton(onClick = {
+          checked = emptySet()
+          prefs.edit().putStringSet("checked_models", checked).apply()
+        }) { Text("Clear all") }
+      }
+    }
+    for (pack in packs) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = pack.name in checked, onCheckedChange = { enabled ->
+          checked = if (enabled) checked + pack.name else checked - pack.name
+          prefs.edit().putStringSet("checked_models", checked).apply()
+          Log.i("HITEL_SODA_LOCAL", "LANGUAGE_SELECTION " + pack.locale + " v" + pack.version + " checked=" + enabled)
+        })
+        Column(modifier = Modifier.weight(1f)) {
+          val language = Locale.forLanguageTag(pack.locale)
+          Text(language.getDisplayName(Locale.getDefault()) + " (" + pack.locale + ")")
+          Text(pack.name, style = MaterialTheme.typography.bodySmall)
+          Text(results[pack.name] ?: "Not verified", style = MaterialTheme.typography.bodySmall)
+        }
+      }
+    }
+    TextButton(enabled = checked.isNotEmpty() && !scanning, onClick = { verify++ }) { Text("Verify selected models") }
     if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error,
       style = MaterialTheme.typography.bodySmall)
     Text("Local file setup only. Native SODA runtime is not connected. Speech recognition still uses ML Kit Basic.",
@@ -310,39 +391,31 @@ private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
   }
 }
 
-private fun hitelVerifySodaPack(context: Context, tree: Uri, pack: HitelSodaPack): String {
-  val resolver = context.contentResolver
-  val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-  val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-  var documentId: String? = null
-  resolver.query(children, columns, null, null, null)?.use { cursor ->
-    while (cursor.moveToNext()) {
-      if (cursor.getString(1) == pack.name) {
-        documentId = cursor.getString(0)
-        break
-      }
-    }
-  } ?: error("Cannot read selected folder")
-  val id = documentId ?: return "ZIP missing"
-  val uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+private suspend fun hitelVerifySodaPack(context: Context, pack: HitelSodaPack): String {
+  val expected = hitelSodaKnown[pack.name]
   val digest = java.security.MessageDigest.getInstance("SHA-1")
   var bytes = 0L
-  val input = resolver.openInputStream(uri) ?: error("Cannot read ZIP")
+  val input = context.contentResolver.openInputStream(pack.uri) ?: error("Cannot read ZIP")
   input.use {
     val buffer = ByteArray(65536)
     while (true) {
+      kotlinx.coroutines.currentCoroutineContext().ensureActive()
       val count = it.read(buffer)
       if (count < 0) break
       bytes += count
-      check(bytes <= pack.bytes) { "ZIP exceeds expected size" }
+      if (expected != null) check(bytes <= expected.bytes) { "ZIP exceeds expected size" }
       digest.update(buffer, 0, count)
     }
   }
   val hash = digest.digest().joinToString("") { "%02X".format(it.toInt() and 255) }
-  check(bytes == pack.bytes) { "ZIP size mismatch: " + bytes }
-  check(hash.equals(pack.sha1, ignoreCase = true)) { "ZIP SHA-1 mismatch" }
-  Log.i("HITEL_SODA_LOCAL", "ZIP_VERIFIED " + pack.locale + " bytes=" + bytes + " sha1=" + hash)
-  return "ZIP verified (runtime not connected)"
+  if (expected != null) {
+    check(bytes == expected.bytes) { "ZIP size mismatch: " + bytes }
+    check(hash.equals(expected.sha1, ignoreCase = true)) { "ZIP SHA-1 mismatch" }
+    Log.i("HITEL_SODA_LOCAL", "ZIP_VERIFIED " + pack.locale + " bytes=" + bytes + " sha1=" + hash)
+    return "ZIP verified (runtime not connected)"
+  }
+  Log.i("HITEL_SODA_LOCAL", "ZIP_HASH_ONLY " + pack.locale + " bytes=" + bytes + " sha1=" + hash)
+  return "Hash calculated; official checksum unknown (not verified)"
 }
 
 /** User-triggered language downloads and public settings, never a private Google Activity. */
