@@ -22,48 +22,49 @@ jobs:
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           /tmp/jadx/bin/jadx --no-res --no-debug-info --show-bad-code -j 4 -d decoded input/*.apk >jadx.log 2>&1 || true
           test -d decoded/sources
-      - name: Trace body page navigation and local rendering assets
+      - name: Audit Activity lifecycle and retained state
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import zipfile,re
+          import re
           root=Path('decoded/sources')
           report=[]
-          for rel,lo,hi in [('p239z3/e.java',350,525),('p239z3/k.java',35,180),('p174s3/k.java',2758,2790)]:
+          targets=[('com/eduzone/eduzoneviewer/ui/activities/ViewerActivity.java',r'onCreate|onNewIntent|onDestroy|onStop|onPause|onResume|onBackPressed|finish\(|getIntent\(|setIntent\(|ViewModelProvider|ViewModelLazy|setAdapter\(|removeObserver|removeObservers|registerForActivityResult|onCleared|super\.'),
+                   ('p229y3/Y0.java',r'onCleared|cancel\(|clear\(|reset|LiveData|ViewModel|removeObserver'),
+                   ('p079i3/Q0.java',r'observe|\.e\(|\.f\(|getLifecycle|ViewerActivity'),
+                   ('p079i3/z0.java',r'finish\(|getLifecycle|isFinishing|isDestroyed|setAdapter\(|clear\(|removeObserver'),
+                   ('p079i3/y.java',r'onCreate|onNewIntent|onDestroy|onStop|onResume|finish\(|getIntent\(|setIntent\('),
+                   ('p079i3/x.java',r'onCreate|onNewIntent|onDestroy|onStop|onResume|finish\(|getIntent\(|setIntent\(')]
+          for rel,pat in targets:
               p=root/rel
-              if not p.exists():continue
               report.append('=== '+rel+' ===')
+              if not p.exists():
+                  report.append('MISSING');continue
               lines=p.read_text(errors='replace').splitlines()
-              for n in range(lo-1,min(hi,len(lines))):
-                  l=lines[n]
-                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|header|appendQueryParameter|https?://',l,re.I):continue
-                  if re.search(r'loadUrl|loadData|postUrl|\bWebView\b|evaluateJavascript|onPageFinished|onPageStarted|shouldInterceptRequest|shouldOverrideUrlLoading|setWebViewClient|setWebChromeClient|\.h\(string|\.build\(\)|Uri.parse|launch|new [A-Za-z0-9_.]+\(|public final void [hl]\(',l):
-                      report.append(f'{n+1}: {l.strip()[:350]}')
-          report.append('=== Navigation callsites and classes ===')
-          for p in root.rglob('*.java'):
-              lines=p.read_text(errors='replace').splitlines()
-              if not any('p239z3.e' in l or 'f30309b' in l for l in lines):continue
-              if 'bumptech' in str(p):continue
-              for n,l in enumerate(lines):
-                  if not re.search(r'loadUrl\(|loadDataWithBaseURL\(|loadData\(|postUrl\(',l):continue
-                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|header|https?://',l,re.I):
-                      report.append(f'{p.relative_to(root)}:{n+1}: page load call (arguments omitted)')
-                  else:report.append(f'{p.relative_to(root)}:{n+1}: {l.strip()[:220]}')
-          report.append('=== Local web resources in APK ===')
-          for apk in Path('input').glob('*.apk'):
-              with zipfile.ZipFile(apk) as z:
-                  assets=[n for n in z.namelist() if n.startswith('assets/') and n.lower().endswith(('.html','.htm','.js','.css'))]
-                  report.append('HTML/JS/CSS count: '+str(len(assets)))
-                  for name in assets[:100]:
-                      report.append(name)
+              hits=[i for i,l in enumerate(lines) if re.search(pat,l)]
+              for i in hits[:180]:
+                  l=lines[i].strip()
+                  if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://',l,re.I):continue
+                  report.append(f'{i+1}: {l[:300]}')
+              if 'ViewerActivity.java' in rel:
+                  report.append('=== Viewer lifecycle method bodies (filtered) ===')
+                  for i,l in enumerate(lines):
+                      if not re.search(r'\b(?:void|boolean)\s+(?:onCreate|onNewIntent|onDestroy|onStop|onPause|onResume)\(',l):continue
+                      report.append('METHOD '+str(i+1))
+                      for j in range(i,min(i+240,len(lines))):
+                          x=lines[j]
+                          if j>i and re.match(r'^    }\s*$',x):
+                              report.append(f'{j+1}: END');break
+                          if re.search(r'authorization|bearer|token|password|cookie|api.?key|https?://|EXTRA_PDF|\.getStringExtra|\.getIntExtra',x,re.I):continue
+                          report.append(f'{j+1}: {x.strip()[:240]}')
           result='\n'.join(report)
           Path('callsite-audit.txt').write_text(result)
-          print(result[:45000])
+          print(result[:65000])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r7-question-webview-content-audit
+          name: r7-viewer-activity-lifecycle-audit
           path: |
             callsite-audit.txt
             jadx.log
