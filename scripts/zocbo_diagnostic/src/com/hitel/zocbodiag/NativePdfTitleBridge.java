@@ -83,6 +83,13 @@ public final class NativePdfTitleBridge {
     }
   }
 
+  /** Status of a previously accepted local JSON job. No new request. */
+  @JavascriptInterface
+  public String jsonStatus(String expaprNo) {
+    if (expaprNo == null || !expaprNo.matches("[1-9][0-9]{0,9}")) return "INVALID";
+    return NativeJsonJobs.status(PrivatePapers.account(), expaprNo);
+  }
+
   /** Called explicitly after the current normal UI selection has finished or
    * been cancelled. Never automatically confirm a site's authorization prompt. */
   @JavascriptInterface
