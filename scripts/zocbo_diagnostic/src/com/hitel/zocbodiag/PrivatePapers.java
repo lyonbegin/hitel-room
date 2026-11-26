@@ -57,6 +57,7 @@ public final class PrivatePapers {
     final boolean revalidation;
     volatile ModelDecision model;
     volatile boolean finished;
+    volatile boolean localQueued;
     Job(Activity host, String owner, String key, String exam) {
       this.host = new WeakReference<>(host);
       this.owner = owner;
@@ -138,7 +139,7 @@ public final class PrivatePapers {
     host.overridePendingTransition(0, 0);
     Toast.makeText(host, job.revalidation ? "서버 확인 중입니다." : "시험지를 저장하고 있습니다.", Toast.LENGTH_SHORT).show();
     main.postDelayed(() -> {
-      if (!host.isFinishing() && !host.isDestroyed() && job(vm) == job)
+      if (!job.localQueued && !host.isFinishing() && !host.isDestroyed() && job(vm) == job)
         finish(job, "저장이 완료되지 않았습니다. 연결 상태를 확인해 주세요.");
     }, 300000);
   }
@@ -229,6 +230,7 @@ public final class PrivatePapers {
       Activity host = job.host.get();
       if (host == null || job.revalidation) { finish(job, "이 시험지에는 저장할 PDF가 없습니다."); return true; }
       Context appContext = host.getApplicationContext();
+      job.localQueued = true;
       NativeWorkQueue.Result queued = NativeWorkQueue.submit(job.owner + ":" + job.key, () -> {
         try {
           if (job.finished) return;
@@ -293,6 +295,7 @@ public final class PrivatePapers {
       final File input = snapshot;
       final long deadline = receivedDeadline(response);
       final List<JSONObject> paths = new ArrayList<>(job.questionPaths);
+      job.localQueued = true;
       NativeWorkQueue.Result queued = NativeWorkQueue.submit(job.owner + ":" + job.key, () -> {
         try {
           if (job.finished) return;
@@ -351,7 +354,7 @@ public final class PrivatePapers {
     }
   }
 
-  static synchronized void store(Context context, String owner, String key, String title,
+  static void store(Context context, String owner, String key, String title,
                                 String exam, File source, long until) throws Exception {
     File dir = directory(context, owner);
     if (dir == null || (!dir.isDirectory() && !dir.mkdirs()))
@@ -370,17 +373,20 @@ public final class PrivatePapers {
            PdfRenderer renderer = new PdfRenderer(fd)) {
         if (renderer.getPageCount() < 1) throw new IOException("empty PDF");
       }
-      SharedPreferences prefs = index(context, owner);
-      String old = prefs.getString(key, null);
-      JSONObject row = new JSONObject().put("file", PaperFolders.relative(context, candidate)).put("exam", exam)
-          .put("title", title == null || title.trim().isEmpty() ? "시험지 " + exam : title)
-          .put("saved", System.currentTimeMillis()).put("until", until);
-      published = prefs.edit().putString(key, row.toString()).commit();
-      if (!published) throw new IOException("document index");
-      if (old != null) {
-        try { File previous = resolveFile(context, owner, new JSONObject(old));
-          if (previous != null && !previous.equals(candidate)) previous.delete();
-        } catch (Exception ignored) { }
+      synchronized (PrivatePapers.class) {
+        if (!owner.equals(account())) throw new IOException("account changed");
+        SharedPreferences prefs = index(context, owner);
+        String old = prefs.getString(key, null);
+        JSONObject row = new JSONObject().put("file", PaperFolders.relative(context, candidate)).put("exam", exam)
+            .put("title", title == null || title.trim().isEmpty() ? "시험지 " + exam : title)
+            .put("saved", System.currentTimeMillis()).put("until", until);
+        published = prefs.edit().putString(key, row.toString()).commit();
+        if (!published) throw new IOException("document index");
+        if (old != null) {
+          try { File previous = resolveFile(context, owner, new JSONObject(old));
+            if (previous != null && !previous.equals(candidate)) previous.delete();
+          } catch (Exception ignored) { }
+        }
       }
     } finally { if (!published) candidate.delete(); }
   }
