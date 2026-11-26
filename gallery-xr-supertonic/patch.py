@@ -10,7 +10,8 @@ def replace(path, old, new):
     p.write_text(s.replace(old,new,1))
 def insert(path, marker, addition):
     replace(path,marker,addition+marker)
-replace("services/asr/AsrModelMetadata.kt",'const val LANGUAGE_CODE = "en-US"','const val LANGUAGE_CODE = "ko-KR"')
+# ASR must stay byte-identical to pinned Google upstream. Do not set a global Korean default.
+assert 'const val LANGUAGE_CODE = "en-US"' in (base/"services/asr/AsrModelMetadata.kt").read_text()
 insert("data/ModelEnums.kt",'  @SerializedName("mlkit_asr")','''  @SerializedName("sherpa_onnx")
   SHERPA_ONNX(
     downloadsViaRepository = false,
@@ -178,4 +179,15 @@ s=s.replace("      engine.downloadModel(SupertonicTtsEngine.ID,SupertonicTtsEngi
       android.util.Log.i("HITEL_SUPERTONIC","XR_FILTER_KO_AND_HILT_DOWNLOADER_PASS")''')
 test.write_text(s)
 
+# Fail closed if any original ASR service or ML Kit ASR gate was modified.
+import subprocess
+asr_paths = [
+    str((base/"services/asr").relative_to(root)),
+    str((base/"data/supplementary/gates/MlKitAsrBasicGate.kt").relative_to(root)),
+    str((base/"data/supplementary/gates/MlKitAsrAdvancedGate.kt").relative_to(root)),
+    str((base/"customtasks/xrlanguageteacher/services/XrLanguageTeacherAsrCoordinator.kt").relative_to(root)),
+    str((base/"customtasks/xrlanguageteacher/models/LanguageUtils.kt").relative_to(root)),
+]
+subprocess.run(["git","-C",str(root),"diff","--exit-code","HEAD","--",*asr_paths],check=True)
+print("ASR_UPSTREAM_UNCHANGED en-US")
 print("PATCH_APPLIED",len(langs),"languages")
