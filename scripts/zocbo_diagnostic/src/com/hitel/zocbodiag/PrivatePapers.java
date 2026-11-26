@@ -228,12 +228,18 @@ public final class PrivatePapers {
     if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
       Activity host = job.host.get();
       if (host == null || job.revalidation) { finish(job, "이 시험지에는 저장할 PDF가 없습니다."); return true; }
-      new Thread(() -> {
+      Context appContext = host.getApplicationContext();
+      NativeWorkQueue.Result queued = NativeWorkQueue.submit(job.owner + ":" + job.key, () -> {
         try {
-          int count = PaperFolders.saveQuestionPaths(host, job.title, job.exam, job.questionPaths, job.owner);
+          if (job.finished) return;
+          int count = PaperFolders.saveQuestionPaths(appContext, job.title, job.exam, job.questionPaths, job.owner);
           finish(job, "문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
         } catch (Exception e) { finish(job, "문제 폴더 저장 실패"); }
-      }, "question-folder-save").start();
+      });
+      Diag.log("NATIVE_LOCAL_QUEUE", queued.name() + " running=" + NativeWorkQueue.running()
+          + " waiting=" + NativeWorkQueue.waiting());
+      if (queued != NativeWorkQueue.Result.ACCEPTED)
+        finish(job, queued == NativeWorkQueue.Result.DUPLICATE ? "이미 처리 중인 시험지입니다." : "저장 대기열이 가득 찼습니다.");
     }
     return true;
   }
