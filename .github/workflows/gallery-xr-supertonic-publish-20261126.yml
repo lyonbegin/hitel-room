@@ -1,0 +1,49 @@
+name: Publish verified XR Supertonic engine device-test APK
+on:
+  push:
+    branches: [build/gallery-xr-supertonic-20261126]
+    paths: ['.github/workflows/gallery-xr-supertonic-publish-20261126.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: gallery-xr-supertonic-debug-apks
+          path: dist
+          run-id: 45748468435
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: gallery-xr-supertonic-evidence
+          path: evidence
+          run-id: 45748468435
+          github-token: ${{ github.token }}
+      - name: Gate verified engine and checksum
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          grep -Fx 'SUPERTONIC_ENGINE_PCM_PASS; XR_FULL_DIALOGUE_NOT_TESTED' evidence/result.txt
+          grep -F 'XR_FILTER_KO_AND_HILT_DOWNLOADER_PASS' evidence/logcat.txt
+          grep -F 'SYNTHESIS_OK lang=ko' evidence/logcat.txt
+          grep -F 'SYNTHESIS_OK lang=en' evidence/logcat.txt
+          test ! -s evidence/crash.txt
+          test -s evidence/ko-KR.wav
+          test -s evidence/en-US.wav
+      - name: Publish exact validated APK and audio samples
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag=gallery-xr-supertonic-engine-test-20261126
+          sha=5cdfd3d4eb66afdaa6599622c6940d080f17a4b9
+          (cd dist && sha256sum HITEL_Gallery_XR_Supertonic_Debug.apk > APK-SHA256.txt)
+          gh release create "$tag" dist/HITEL_Gallery_XR_Supertonic_Debug.apk dist/APK-SHA256.txt evidence/ko-KR.wav evidence/en-US.wav --repo "$GH_REPO" --target "$sha" --title "HITEL Gallery XR Supertonic 3 — engine verified / device test" --notes "Verified x86_64 Android 15 instrumentation: actual Gallery Hilt model downloader, Korean XR eligibility and real Korean/English Supertonic 3 PCM synthesis. Full XR UI/dialogue, ML Kit Basic ASR, and physical ARM64 device behavior are not verified. Existing Kokoro, PocketTTS and Gemma retained. Source 5cdfd3d4eb66afdaa6599622c6940d080f17a4b9. Evidence run 45748468435."
+          mkdir verify
+          gh release download "$tag" --repo "$GH_REPO" --pattern HITEL_Gallery_XR_Supertonic_Debug.apk --pattern APK-SHA256.txt --dir verify
+          (cd verify && sha256sum -c APK-SHA256.txt)
