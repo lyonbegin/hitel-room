@@ -17,7 +17,6 @@ for n in 1 2 3; do
   java -cp '/usr/share/java/*' org.jf.baksmali.Main disassemble --api 23 -o "work/decoded/smali${suffix}" "work/original$n.dex"
 done
 python3 "$scripts/patch_smali.py" work/decoded work/diag-patch-report.json
-python3 "$scripts/fix_network_preflight.py" work/decoded work/network-preflight-fix.json
 python3 "$scripts/patch_pdf_api_smali.py" work/decoded work/pdf-api-patch-report.json
 python3 "$scripts/patch_private_papers.py" work/decoded
 for n in 1 2 3; do
