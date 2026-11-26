@@ -77,7 +77,9 @@ public final class NativePdfTitleBridge {
       return "{\"selectionWaiting\":" + selections.size()
           + ",\"selectionActive\":" + (currentSelection != null)
           + ",\"localRunning\":" + NativeWorkQueue.running()
-          + ",\"localWaiting\":" + NativeWorkQueue.waiting() + "}";
+          + ",\"localWaiting\":" + NativeWorkQueue.waiting()
+          + ",\"jsonCompleted\":" + NativeJsonJobs.completed()
+          + ",\"jsonFailed\":" + NativeJsonJobs.failed() + "}";
     }
   }
 
