@@ -179,6 +179,125 @@ s=s.replace("      engine.downloadModel(SupertonicTtsEngine.ID,SupertonicTtsEngi
       android.util.Log.i("HITEL_SUPERTONIC","XR_FILTER_KO_AND_HILT_DOWNLOADER_PASS")''')
 test.write_text(s)
 
+# Only augment the selected Basic ASR card. Keep Google ASR gates and service byte-identical.
+card = "ui/common/modelitem/ModelRadioItem.kt"
+insert(card, "import androidx.compose.animation.AnimatedContent", """import android.content.Context
+import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.provider.Settings
+import android.util.Log
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.ai.edge.gallery.services.asr.AsrEngineType
+import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
+import com.google.ai.edge.gallery.ui.modelmanager.downloadLanguagePack
+import com.google.ai.edge.gallery.ui.modelmanager.refreshLanguagePackStatuses
+""")
+insert(card, "      // Explain why the model can't be used.", """      if (selected && selectable && modelManagerViewModel != null &&
+        AsrModelRegistry.engineTypeForModelId(model.modelId) == AsrEngineType.MLKIT_BASIC) {
+        HitelBasicPackPanel(model, modelManagerViewModel)
+      }
+
+""")
+p = base/card
+p.write_text(p.read_text() + """
+/** User-triggered language downloads and public settings, never a private Google Activity. */
+@Composable
+private fun HitelBasicPackPanel(model: Model, manager: ModelManagerViewModel) {
+  val context = LocalContext.current
+  val ui by manager.uiState.collectAsStateWithLifecycle()
+  val tags = listOf("en-US", "ko-KR")
+  var network by remember { mutableStateOf(hitelNetworkDescription(context)) }
+  LaunchedEffect(model.name) {
+    manager.refreshLanguagePackStatuses(model, tags)
+  }
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text("ML Kit Basic language packs", style = MaterialTheme.typography.titleSmall)
+    Text(network, style = MaterialTheme.typography.bodySmall)
+    for (tag in tags) {
+      val status = ui.languagePackStatus[model.name]?.get(tag)
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+          text = tag + ": " + (status?.status?.name ?: "Checking"),
+          modifier = Modifier.weight(1f),
+          style = MaterialTheme.typography.bodySmall,
+        )
+        TextButton(
+          enabled = status?.status != ModelDownloadStatusType.IN_PROGRESS &&
+            status?.status != ModelDownloadStatusType.SUCCEEDED &&
+            status?.status != ModelDownloadStatusType.UNAVAILABLE,
+          onClick = {
+            network = hitelNetworkDescription(context)
+            Log.i("HITEL_ASR_PACK", "DOWNLOAD_REQUEST " + tag + " " + network)
+            manager.downloadLanguagePack(model, tag)
+          },
+        ) { Text("Download") }
+      }
+      if (status?.status == ModelDownloadStatusType.FAILED) {
+        Text(status.errorMessage.orEmpty(), color = MaterialTheme.colorScheme.error,
+          style = MaterialTheme.typography.bodySmall)
+      }
+    }
+    if (network.contains("VPN") && network.contains("metered=true")) {
+      Text("Google Speech Services may pause language downloads on this metered VPN. " +
+        "Open Google app > Settings > Voice > Offline speech recognition and allow all networks, if offered.",
+        style = MaterialTheme.typography.bodySmall)
+    }
+    Row {
+      TextButton(onClick = {
+        network = hitelNetworkDescription(context)
+        manager.refreshLanguagePackStatuses(model, tags)
+        Log.i("HITEL_ASR_PACK", "REFRESH " + network)
+      }) { Text("Refresh status") }
+      TextButton(onClick = {
+        try {
+          context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+        } catch (e: Exception) {
+          Log.w("HITEL_ASR_PACK", "Voice settings unavailable", e)
+          context.startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
+      }) { Text("Voice settings") }
+    }
+    TextButton(onClick = {
+      try {
+        context.startActivity(Intent(Intent.ACTION_MAIN)
+          .addCategory(Intent.CATEGORY_LAUNCHER)
+          .setPackage("com.google.android.googlequicksearchbox"))
+      } catch (e: Exception) {
+        Log.w("HITEL_ASR_PACK", "Google app unavailable", e)
+        context.startActivity(Intent(Settings.ACTION_SETTINGS))
+      }
+    }) { Text("Open Google app") }
+  }
+}
+
+private fun hitelNetworkDescription(context: Context): String {
+  return try {
+    val cm = context.getSystemService(ConnectivityManager::class.java)
+    val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+    if (caps == null) "Network: disconnected"
+    else {
+      val transport = when {
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+        else -> "Other"
+      }
+      "Network: " + transport + ", metered=" + cm.isActiveNetworkMetered +
+        ", validated=" + caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) +
+        ", reported downstream=" + caps.linkDownstreamBandwidthKbps + " kbps"
+    }
+  } catch (e: Exception) {
+    Log.w("HITEL_ASR_PACK", "Network query failed", e)
+    "Network: unknown"
+  }
+}
+""")
+
 # Fail closed if any original ASR service or ML Kit ASR gate was modified.
 import subprocess
 asr_paths = [
