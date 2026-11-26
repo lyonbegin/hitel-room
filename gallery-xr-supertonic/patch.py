@@ -362,7 +362,7 @@ private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
     TextButton(enabled = checked.isNotEmpty() && !scanning, onClick = { verify++ }) { Text("Verify selected models") }
     if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error,
       style = MaterialTheme.typography.bodySmall)
-    Text("Local file setup only. Native SODA runtime is not connected. Speech recognition still uses ML Kit Basic.",
+    Text("Native SODA runtime is not connected. Local recognition cannot start yet; no ML Kit fallback.",
       color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
   }
 }
@@ -507,7 +507,7 @@ replace(vm, '''    ModelSelectionTarget.ASR_MODEL,
       modelManagerUiState.supplementaryModels.filter(section.modelFilter) + hitelSodaLocalModel
     ModelSelectionTarget.TTS_MODEL ->
       modelManagerUiState.supplementaryModels.filter(section.modelFilter)''')
-insert(vm, "    val statuses = currentBinding.host.uiState.value.modelDownloadStatus\\n    val mainModel =", '''    if (selectedModels.any { it.modelId == HITEL_SODA_LOCAL_ID }) {
+insert(vm, "    val statuses = currentBinding.host.uiState.value.modelDownloadStatus\n    val mainModel =", '''    if (selectedModels.any { it.modelId == HITEL_SODA_LOCAL_ID }) {
       Log.i(TAG, "HITEL_SODA_LOCAL: launch blocked; native runtime not connected; no SDK download")
       update(state.value.copy(
         launchPhase = ModelSelectionLaunchPhase.IDLE,
@@ -518,7 +518,7 @@ insert(vm, "    val statuses = currentBinding.host.uiState.value.modelDownloadSt
       return
     }
 ''')
-insert(vm, "    val sectionByModelName =\\n", '''    if (hitelSodaLocalModel.name in current.selections.values) {
+insert(vm, "    val sectionByModelName =\n", '''    if (hitelSodaLocalModel.name in current.selections.values) {
       Log.i(TAG, "HITEL_SODA_LOCAL: rejected download gate")
       update(current.copy(launchPhase = ModelSelectionLaunchPhase.IDLE, gateRequest = null,
         startedDownloads = emptySet(), mobileDataConfirmation = null))
@@ -528,6 +528,12 @@ insert(vm, "    val sectionByModelName =\\n", '''    if (hitelSodaLocalModel.nam
 # Explicitly exclude the local candidate from legacy automatic saved-engine checks.
 replace(vm, '''          isSavedSelection(section.target, it) && isDownloaded(it) && !isMemoryLow(it)''', '''          it.modelId != HITEL_SODA_LOCAL_ID &&
             isSavedSelection(section.target, it) && isDownloaded(it) && !isMemoryLow(it)''')
+replace(vm, '''  when (status?.status) {
+    ModelDownloadStatusType.SUCCEEDED,''', '''  if (model.modelId == HITEL_SODA_LOCAL_ID) false
+  else when (status?.status) {
+    ModelDownloadStatusType.SUCCEEDED,''')
+insert(vm, "  val asrLanguages = selectedLanguages(ModelSelectionTarget.ASR_MODEL) ?: return null", '''  if (sections.any { it.selectedModel?.modelId == HITEL_SODA_LOCAL_ID }) return null
+''')
 print("SODA_LOCAL_INDEPENDENT_SELECTION_NO_SDK_DOWNLOAD")
 
 # Fail closed if any original ASR service or ML Kit ASR gate was modified.
