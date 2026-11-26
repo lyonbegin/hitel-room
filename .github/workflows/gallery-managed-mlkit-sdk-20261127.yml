@@ -66,6 +66,11 @@ jobs:
         with:
           name: gallery-managed-mlkit-debug-apks
           path: dist/
+      - name: Prepare PCM conversion tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
       - name: Enable KVM
         run: sudo chmod a+rw /dev/kvm
       - name: Install and exercise actual engine
