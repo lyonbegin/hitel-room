@@ -183,6 +183,10 @@ test.write_text(s)
 card = "ui/common/modelitem/ModelRadioItem.kt"
 insert(card, "import androidx.compose.animation.AnimatedContent", """import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.provider.Settings
@@ -198,12 +202,149 @@ import com.google.ai.edge.gallery.ui.modelmanager.refreshLanguagePackStatuses
 """)
 insert(card, "      // Explain why the model can't be used.", """      if (selected && selectable && modelManagerViewModel != null &&
         AsrModelRegistry.engineTypeForModelId(model.modelId) == AsrEngineType.MLKIT_BASIC) {
-        HitelBasicPackPanel(model, modelManagerViewModel)
+        HitelAsrSourcePanel(model, modelManagerViewModel)
       }
 
 """)
 p = base/card
 p.write_text(p.read_text() + """
+/** Independent model-source setup; never treats a local ZIP as an installed ML Kit pack. */
+@Composable
+private fun HitelAsrSourcePanel(model: Model, manager: ModelManagerViewModel) {
+  val context = LocalContext.current
+  val prefs = remember(context) { context.getSharedPreferences("hitel_soda_source", Context.MODE_PRIVATE) }
+  var local by remember { mutableStateOf(prefs.getBoolean("local", false)) }
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text("ASR model source", style = MaterialTheme.typography.titleSmall)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      RadioButton(selected = !local, onClick = {
+        local = false
+        prefs.edit().putBoolean("local", false).apply()
+        Log.i("HITEL_SODA_LOCAL", "SOURCE_MLKIT")
+      })
+      Text("ML Kit Basic (Google download)", style = MaterialTheme.typography.bodySmall)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      RadioButton(selected = local, onClick = {
+        local = true
+        prefs.edit().putBoolean("local", true).apply()
+        Log.i("HITEL_SODA_LOCAL", "SOURCE_LOCAL_SETUP")
+      })
+      Text("SODA Local (model folder)", style = MaterialTheme.typography.bodySmall)
+    }
+    if (local) HitelSodaLocalPanel(prefs)
+    else HitelBasicPackPanel(model, manager)
+  }
+}
+
+private data class HitelSodaPack(val locale: String, val name: String, val bytes: Long, val sha1: String)
+private val hitelSodaPacks = listOf(
+  HitelSodaPack("ko-KR", "soda-ko-KR-v5072.zip", 93639000L, "58DEECE081FD89EE928BA6BD705B6878BE6BD395"),
+  HitelSodaPack("en-US", "soda-en-US-v3072.zip", 62065000L, "F8745C8DBBDAE1E77A9A9E7BAF378CBC78B7BB2A"),
+)
+
+@Composable
+private fun HitelSodaLocalPanel(prefs: android.content.SharedPreferences) {
+  val context = LocalContext.current
+  var folder by remember { mutableStateOf(prefs.getString("folder", null)) }
+  var refresh by remember { mutableStateOf(0) }
+  var error by remember { mutableStateOf("") }
+  var results by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+  val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+    if (uri != null) {
+      try {
+        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val old = folder
+        folder = uri.toString()
+        prefs.edit().putString("folder", folder).apply()
+        if (old != null && old != folder) {
+          try {
+            context.contentResolver.releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          } catch (_: Exception) { }
+        }
+        error = ""
+        refresh++
+        Log.i("HITEL_SODA_LOCAL", "FOLDER_SELECTED")
+      } catch (e: Exception) {
+        error = "Folder permission failed: " + (e.message ?: e.javaClass.simpleName)
+        Log.w("HITEL_SODA_LOCAL", "FOLDER_PERMISSION_FAILED", e)
+      }
+    }
+  }
+  LaunchedEffect(folder, refresh) {
+    results = emptyMap()
+    val selected = folder
+    if (selected != null) {
+      for (pack in hitelSodaPacks) {
+        results = results + (pack.locale to "Checking ZIP...")
+        val state = try {
+          kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            hitelVerifySodaPack(context, Uri.parse(selected), pack)
+          }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          Log.w("HITEL_SODA_LOCAL", "VERIFY_FAILED " + pack.locale, e)
+          "Verification failed: " + (e.message ?: e.javaClass.simpleName)
+        }
+        results = results + (pack.locale to state)
+      }
+    }
+  }
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text("SODA Local model folder", style = MaterialTheme.typography.titleSmall)
+    Text("Place the original Korean and English ZIP files in one folder. No SDK download is started here.",
+      style = MaterialTheme.typography.bodySmall)
+    Text(folder ?: "No folder selected", style = MaterialTheme.typography.bodySmall)
+    TextButton(onClick = { picker.launch(null) }) { Text("Select model folder") }
+    for (pack in hitelSodaPacks) {
+      Text(pack.locale + ": " + (results[pack.locale] ?: "Not checked"),
+        style = MaterialTheme.typography.bodySmall)
+      Text(pack.name, style = MaterialTheme.typography.bodySmall)
+    }
+    TextButton(enabled = folder != null, onClick = { refresh++ }) { Text("Verify local models") }
+    if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error,
+      style = MaterialTheme.typography.bodySmall)
+    Text("Local file setup only. Native SODA runtime is not connected. Speech recognition still uses ML Kit Basic.",
+      color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+  }
+}
+
+private fun hitelVerifySodaPack(context: Context, tree: Uri, pack: HitelSodaPack): String {
+  val resolver = context.contentResolver
+  val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+  val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+  var documentId: String? = null
+  resolver.query(children, columns, null, null, null)?.use { cursor ->
+    while (cursor.moveToNext()) {
+      if (cursor.getString(1) == pack.name) {
+        documentId = cursor.getString(0)
+        break
+      }
+    }
+  } ?: error("Cannot read selected folder")
+  val id = documentId ?: return "ZIP missing"
+  val uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+  val digest = java.security.MessageDigest.getInstance("SHA-1")
+  var bytes = 0L
+  val input = resolver.openInputStream(uri) ?: error("Cannot read ZIP")
+  input.use {
+    val buffer = ByteArray(65536)
+    while (true) {
+      val count = it.read(buffer)
+      if (count < 0) break
+      bytes += count
+      check(bytes <= pack.bytes) { "ZIP exceeds expected size" }
+      digest.update(buffer, 0, count)
+    }
+  }
+  val hash = digest.digest().joinToString("") { "%02X".format(it.toInt() and 255) }
+  check(bytes == pack.bytes) { "ZIP size mismatch: " + bytes }
+  check(hash.equals(pack.sha1, ignoreCase = true)) { "ZIP SHA-1 mismatch" }
+  Log.i("HITEL_SODA_LOCAL", "ZIP_VERIFIED " + pack.locale + " bytes=" + bytes + " sha1=" + hash)
+  return "ZIP verified (runtime not connected)"
+}
+
 /** User-triggered language downloads and public settings, never a private Google Activity. */
 @Composable
 private fun HitelBasicPackPanel(model: Model, manager: ModelManagerViewModel) {
