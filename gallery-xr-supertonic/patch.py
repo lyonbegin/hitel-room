@@ -110,4 +110,72 @@ class SupertonicDeviceTest {
   }
 }
 ''')
+
+# Add the actual XR HUD engine label instead of inheriting the previous selected engine's label.
+replace("customtasks/xrlanguageteacher/models/XrLanguageTeacherEducationalCards.kt","  POCKET_TTS;","  POCKET_TTS,\n  SUPERTONIC_TTS;")
+insert("customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsEngineManager.kt","    TtsModelIdentifier.isSystemEngine(modelId) -> SpeechEngine.PLATFORM_TTS",'    modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3 -> SpeechEngine.SUPERTONIC_TTS\n')
+insert("customtasks/xrlanguageteacher/views/cameraview/XrLanguageTeacherSettingsButton.kt","      SpeechEngine.POCKET_TTS -> stringResource(R.string.xrteacher_engine_pocket_tts)",'      SpeechEngine.SUPERTONIC_TTS -> "Supertonic 3"\n')
+# A status query must not reset a live Supertonic download to NOT_DOWNLOADED.
+# Keep the progress path for the new engine isolated from Google's ML Kit engine.
+insert("services/tts/TtsModelDownloader.kt","    val availability =\n      try {\n        ttsServiceProvider.service(forModelId = engineId).checkModelAvailability(engineId)",'''    if (engineId == SupertonicTtsEngine.ID &&
+      activeDownloadJobs[engineId]?.isActive == true &&
+      ttsServiceProvider.serviceOrNull(engineId)?.checkModelAvailability(engineId) != TtsModelAvailability.Downloaded) {
+      return ModelDownloadStatus(
+        status = ModelDownloadStatusType.IN_PROGRESS,
+        totalBytes = model.downloadInfo.totalBytes,
+      )
+    }
+
+''')
+# Actual application component access, debug/test only; no extra release UI.
+entry=root/"Android/src/app/src/debug/java/com/google/ai/edge/gallery/services/tts/SupertonicQaEntryPoint.kt"
+entry.parent.mkdir(parents=True,exist_ok=True)
+entry.write_text('''package com.google.ai.edge.gallery.services.tts
+
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import com.google.ai.edge.gallery.data.ModelDownloader
+import com.google.ai.edge.gallery.data.RuntimeType
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface SupertonicQaEntryPoint {
+  fun ttsServiceProvider(): TtsServiceProvider
+  fun modelDownloaders(): Map<RuntimeType, @JvmSuppressWildcards ModelDownloader>
+}
+''')
+s=test.read_text()
+s=s.replace("import kotlinx.coroutines.runBlocking",'''import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeout
+import com.google.ai.edge.gallery.data.AllowedModel
+import com.google.ai.edge.gallery.data.RuntimeType
+import com.google.ai.edge.gallery.data.ModelDownloadStatusType
+import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XR_LANGUAGE_TEACHER_MODEL_SELECTION_CONFIG
+import com.google.ai.edge.gallery.data.ModelSelectionTarget
+import com.google.gson.Gson
+import dagger.hilt.android.EntryPointAccessors''')
+s=s.replace("    val engine=SupertonicTtsEngine(context)",'''    val qa=EntryPointAccessors.fromApplication(context.applicationContext,SupertonicQaEntryPoint::class.java)
+    val provider=qa.ttsServiceProvider()
+    val engine=provider.serviceOrNull(SupertonicTtsEngine.ID) as SupertonicTtsEngine
+    assertTrue(provider.availableModels.any { it.modelId==TtsModelIdentifier.MEDIAPIPE_KOKORO_82M })
+    assertTrue(provider.availableModels.any { it.modelId==TtsModelIdentifier.MEDIAPIPE_POCKET_TTS_100M })
+    val model=checkNotNull(Gson().fromJson("""'''+json.dumps(model,separators=(",",":"))+'''""",AllowedModel::class.java).toModel())
+    val xr=XR_LANGUAGE_TEACHER_MODEL_SELECTION_CONFIG
+    assertTrue(xr.sections.single { it.target==ModelSelectionTarget.TTS_MODEL }.modelFilter(model))
+    assertTrue(xr.speechLanguageOverlap!!.invoke(listOf("ko-KR","en-US"),model.ttsProfile!!.languages).shared.contains("ko-KR"))
+    val downloader=qa.modelDownloaders().getValue(RuntimeType.SHERPA_ONNX)''')
+s=s.replace("      engine.downloadModel(SupertonicTtsEngine.ID,SupertonicTtsEngine.SIZE).collect {}",'''      val completed=CompletableDeferred<com.google.ai.edge.gallery.data.ModelDownloadStatus>()
+      downloader.download(null,model,false) { _,status ->
+        if(status.status==ModelDownloadStatusType.SUCCEEDED || status.status==ModelDownloadStatusType.FAILED) {
+          completed.complete(status)
+        }
+      }
+      val terminal=withTimeout(480000) { completed.await() }
+      assertEquals(terminal.errorMessage,ModelDownloadStatusType.SUCCEEDED,terminal.status)
+      assertEquals(ModelDownloadStatusType.SUCCEEDED,downloader.queryStatus(model).status)
+      android.util.Log.i("HITEL_SUPERTONIC","XR_FILTER_KO_AND_HILT_DOWNLOADER_PASS")''')
+test.write_text(s)
+
 print("PATCH_APPLIED",len(langs),"languages")
