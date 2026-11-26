@@ -15,6 +15,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Install LLVM and binary utilities
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y llvm binutils
+          command -v llvm-objdump
       - name: Prepare independent diagnostic tools
         shell: bash
         run: |
