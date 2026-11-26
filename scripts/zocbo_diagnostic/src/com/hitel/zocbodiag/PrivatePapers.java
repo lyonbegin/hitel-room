@@ -226,25 +226,40 @@ public final class PrivatePapers {
     synchronized (permits) {
       job.model = permits.remove(job.owner + job.key);
     }
-    if (pdfUrl == null || pdfUrl.trim().isEmpty()) {
-      Activity host = job.host.get();
-      if (host == null || job.revalidation) { finish(job, "이 시험지에는 저장할 PDF가 없습니다."); return true; }
-      Context appContext = host.getApplicationContext();
+    if (job.revalidation) {
+      if (pdfUrl == null || pdfUrl.trim().isEmpty())
+        finish(job, "이 시험지에는 확인할 PDF가 없습니다.");
+      return true;
+    }
+    Activity host = job.host.get();
+    if (host == null || host.isDestroyed() || host.isFinishing()) {
+      finish(job, "목록으로 돌아갈 수 없습니다.");
+      return true;
+    }
+    try {
       job.localQueued = true;
-      NativeWorkQueue.Result queued = NativeWorkQueue.submit(job.owner + ":" + job.key, () -> {
-        try {
-          if (job.finished) return;
-          int count = PaperFolders.saveQuestionPaths(appContext, job.title, job.exam, job.questionPaths, job.owner);
-          finish(job, "문제 이미지 경로 JSON 저장 " + count + "개 (전체 " + job.questionPaths.size() + "개), 시험지 PDF 없음");
-        } catch (Exception e) { finish(job, "문제 폴더 저장 실패"); }
-      });
-      Diag.log("NATIVE_LOCAL_QUEUE", queued.name() + " running=" + NativeWorkQueue.running()
+      NativeWorkQueue.Result queued = NativeJsonJobs.enqueue(host.getApplicationContext(),
+          job.owner, job.key, job.exam, job.title, job.questionPaths);
+      Diag.log("NATIVE_JSON_QUEUE", queued.name() + " running=" + NativeWorkQueue.running()
           + " waiting=" + NativeWorkQueue.waiting());
-      if (queued != NativeWorkQueue.Result.ACCEPTED)
-        finish(job, queued == NativeWorkQueue.Result.DUPLICATE ? "이미 처리 중인 시험지입니다." : "저장 대기열이 가득 찼습니다.");
+      // Release the temporary normal viewer immediately. The accepted JSON
+      // job has its own immutable snapshot and no dependency on this Activity.
+      finish(job, queued == NativeWorkQueue.Result.ACCEPTED ? "JSON 저장 대기열에 등록했습니다."
+          : queued == NativeWorkQueue.Result.DUPLICATE ? "이미 처리 중인 시험지입니다." : "저장 대기열이 가득 찼습니다.");
+    } catch (Exception e) {
+      Diag.log("NATIVE_JSON_QUEUE_ERROR", e.getClass().getSimpleName());
+      finish(job, "JSON 저장 준비 실패");
     }
     return true;
   }
+
+  // Preserve the original online revalidation route only. JSON-only OFF
+  // processing never starts an additional PDF request.
+  public static boolean requiresPdf(Object vm) {
+    Job job = job(vm);
+    return job != null && job.revalidation && !job.finished;
+  }
+
 
   static void finish(Job job, String message) {
     synchronized (job) { if (job.finished) return; job.finished = true; }
