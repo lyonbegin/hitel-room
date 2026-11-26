@@ -33,6 +33,9 @@ jobs:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install ARTEMIS dependencies
         working-directory: upstream-artemis
         run: |
@@ -96,6 +99,9 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.java }}
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install Gallery SDK
         if: matrix.project == 'gallery'
         run: sdkmanager "platforms;android-37.0"
@@ -115,6 +121,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - uses: actions/download-artifact@v4
         with:
           pattern: '*-debug-apk'
@@ -145,6 +154,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Check ARM64 Android emulator availability
         shell: bash
         run: |
