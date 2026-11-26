@@ -99,6 +99,9 @@ target.write_text(""".class public final Lcom/hitel/zocbodiag/ViewerPaperHooks;
     invoke-static {v0, v1, p2, p1}, Lcom/hitel/zocbodiag/PrivatePapers;->prepare(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)Z
     move-result v1
     if-eqz v1, :end
+    invoke-static {v0}, Lcom/hitel/zocbodiag/PrivatePapers;->requiresPdf(Ljava/lang/Object;)Z
+    move-result v2
+    if-eqz v2, :end
     invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
     move-result v2
     if-nez v2, :end
