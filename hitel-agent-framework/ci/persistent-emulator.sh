@@ -54,11 +54,19 @@ case "${1:-status}" in
     adb -s "$SERIAL" shell pm path com.android.vending
     ;;
   stop)
-    if adb devices | awk '{print $1}' | grep -Fxq "$SERIAL"; then
-      adb -s "$SERIAL" emu kill
-    fi
     if [[ -f "$HITEL_AVD_ROOT/emulator.pid" ]]; then
       pid="$(cat "$HITEL_AVD_ROOT/emulator.pid")"
+      if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
+        rm -f "$HITEL_AVD_ROOT/emulator.pid"
+        exit 0
+      fi
+      if ! tr '\0' ' ' < "/proc/$pid/cmdline" | grep -Fq "$NAME"; then
+        echo "Refusing to terminate a process not owned by this AVD." >&2
+        exit 2
+      fi
+      if adb devices | awk '{print $1}' | grep -Fxq "$SERIAL"; then
+        adb -s "$SERIAL" emu kill
+      fi
       for _ in $(seq 1 30); do
         kill -0 "$pid" 2>/dev/null || break
         sleep 1
