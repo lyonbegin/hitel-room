@@ -164,20 +164,36 @@ class MainActivity : Activity() {
         trace("SDK_DOWNLOAD_ENTER initial=$s")
         val start=SystemClock.elapsedRealtime()
         var events=0
+        var completedCallback=false
+        var errorCode:Int?=null
+        var previousBytes=0L
         val finished=withTimeoutOrNull(180000) {
             client.download().collect { ev ->
                 events++
                 when(ev) {
                     is DownloadStatus.DownloadStarted -> trace("DOWNLOAD_STARTED bytes=${ev.bytesToDownload}")
-                    is DownloadStatus.DownloadProgress -> trace("DOWNLOAD_PROGRESS bytes=${ev.totalBytesDownloaded}")
-                    is DownloadStatus.DownloadCompleted -> trace("DOWNLOAD_COMPLETED_CALLBACK")
-                    is DownloadStatus.DownloadFailed -> failure("DOWNLOAD_FAILED_CALLBACK",ev.e)
+                    is DownloadStatus.DownloadProgress -> { val bytes=ev.totalBytesDownloaded; trace("DOWNLOAD_PROGRESS bytes=$bytes delta=${bytes-previousBytes}"); previousBytes=bytes }
+                    is DownloadStatus.DownloadCompleted -> { completedCallback=true; trace("DOWNLOAD_COMPLETED_CALLBACK") }
+                    is DownloadStatus.DownloadFailed -> { errorCode=ev.e.errorCode; failure("DOWNLOAD_FAILED_CALLBACK",ev.e) }
                 }
             }
             true
         }
-        trace("SDK_DOWNLOAD_FLOW_END completed=$finished events=$events elapsed=${SystemClock.elapsedRealtime()-start}ms")
-        check(client)
+        trace("SDK_DOWNLOAD_FLOW_END flowReturned=$finished completedCallback=$completedCallback errorCode=$errorCode events=$events elapsed=${SystemClock.elapsedRealtime()-start}ms")
+        var current=check(client)
+        if(current==FeatureStatus.DOWNLOADING) {
+            trace("MODEL_PENDING_OBSERVE_BEGIN intervalMs=10000 maxSamples=18; no repeat download requests")
+            for(i in 1..18) {
+                delay(10000)
+                val cm=getSystemService(ConnectivityManager::class.java)
+                val caps=cm.getNetworkCapabilities(cm.activeNetwork)
+                trace("PENDING_POLL index=$i metered=${cm.isActiveNetworkMetered} validated=${caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)} vpn=${caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN)}")
+                current=check(client)
+                if(current!=FeatureStatus.DOWNLOADING) break
+            }
+        }
+        trace("MODEL_DOWNLOAD_VERDICT raw=$current installed=${current==FeatureStatus.AVAILABLE} completedCallback=$completedCallback lastError=$errorCode")
+        platform(false)
     }
     private suspend fun platform(doDownload:Boolean) {
         if(Build.VERSION.SDK_INT<33) { trace("PLATFORM_SUPPORT_API requires Android 13"); return }
