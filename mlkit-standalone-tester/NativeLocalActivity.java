@@ -251,7 +251,7 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
         byte[] core=pb(b(1,pb(b(1,audio),b(2,audio))),
             b(3,pb(v(1,1),b(13,modelDir.getAbsolutePath().getBytes(StandardCharsets.UTF_8)),v(18,4),v(20,1),b(48,v(1,0)),v(999,1))),
             b(6,b(1,locale.getBytes(StandardCharsets.UTF_8))),b(9,v(2,1)));
-        log("NATIVE_INIT_ENTER path="+modelDir+" configBytes="+core.length+" mode=AMBIENT_CONTINUOUS; candidate Android config");
+        log("NATIVE_INIT_ENTER path="+modelDir+" configBytes="+core.length+" mode=AMBIENT_CONTINUOUS; candidate Android config raw="+hex(core));
         byte[] result=soda.nativeInit(handle,core);
         if(result==null)throw new IOException("Native init returned null");
         long code=number(result,1,0);String msg=firstText(result,2);
@@ -310,12 +310,22 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
                     log("PCM_READ attempt="+attempts+" bytes="+n+" samples="+(n/2)+" peak="+peak+" rms="+Math.sqrt((double)square/(n/2))+" direct="+direct.isDirect()+" position="+direct.position()+" limit="+direct.limit());
                 }
                 long callStart=SystemClock.elapsedRealtime();
-                boolean ok=soda.nativeAddAudio(handle,direct,n);
+                // Actual NGSA ConversationSession: fqq MicAudio (kxl) -> lei(1,3,oui)
+                // -> lex -> lfa.i -> Soda.u -> nativePushAudio(handle,0,0,proto,len,-1000).
+                // oui.1 is raw bytes; oui.2 is Louk sample format/rate/channel count.
+                byte[] packet=pb(b(1,java.util.Arrays.copyOf(chunk,n)),b(2,format));
+                ByteBuffer wire=ByteBuffer.allocateDirect(packet.length);
+                wire.put(packet); // original Soda.u writes bytes, native obtains base address
+                byte[] pushResult=soda.nativePushAudio(handle,0,0,wire,packet.length,-1000);
+                if(pushResult==null)throw new IOException("nativePushAudio returned null");
+                long pushCode=number(pushResult,1,0);
+                boolean ok=pushCode==0;
+                if(attempts<=3||!ok||attempts%32==0)log("NATIVE_PUSH_AUDIO_RETURN source=0 action=0 packetBytes="+packet.length+" timeoutMs=-1000 code="+pushCode+" message="+firstText(pushResult,2)+" raw="+hex(pushResult));
                 bytes+=n;chunks++;
                 if(ok){accepted+=n;consecutiveReject=0;}
                 else{rejected+=n;consecutiveReject++;log("NATIVE_PCM_REJECT attempt="+attempts+" bytes="+n+" elapsedMs="+(SystemClock.elapsedRealtime()-callStart)+" consecutive="+consecutiveReject);}
                 if(attempts<=3||attempts%32==0)log("NATIVE_PCM_FEED attempt="+attempts+" result="+ok+" readBytes="+bytes+" acceptedBytes="+accepted+" rejectedBytes="+rejected);
-                if(consecutiveReject>=8)throw new IOException("nativeAddAudio rejected 8 consecutive chunks; inspect native events");
+                if(consecutiveReject>=8)throw new IOException("nativePushAudio rejected 8 consecutive chunks; inspect returned status and native events");
                 if(uri!=null&&n<chunk.length)break;
             }
             log("PCM_INPUT_END readBytes="+bytes+" chunks="+chunks+" acceptedBytes="+accepted+" rejectedBytes="+rejected);
