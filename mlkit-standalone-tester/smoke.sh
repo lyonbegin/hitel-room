@@ -41,6 +41,30 @@ grep -F 'APP_READY' evidence/status-probe.txt
 grep -F 'TASK_ENTER STATUS' evidence/status-probe.txt
 grep -F 'SDK_GET_CLIENT_ENTER' evidence/status-probe.txt
 grep -F 'TASK_END STATUS' evidence/status-probe.txt
+# Exercise the newly added original Gallery SDK comparison, without granting a model fake availability.
+adb shell pm grant "$pkg" android.permission.RECORD_AUDIO
+adb shell uiautomator dump /sdcard/hitel-xr.xml
+adb exec-out cat /sdcard/hitel-xr.xml > evidence/xr-button.xml
+xy=$(python3 - <<'PYXR'
+import xml.etree.ElementTree as ET,re
+for n in ET.parse("evidence/xr-button.xml").getroot().iter("node"):
+    if n.get("text")=="XR 원본 마이크":
+        x,y,x2,y2=map(int,re.findall(r"\d+",n.get("bounds")))
+        print((x+x2)//2,(y+y2)//2)
+        break
+else: raise SystemExit("XR original microphone button missing")
+PYXR
+)
+adb shell input tap $xy
+for i in $(seq 1 75); do
+  adb logcat -d -s HITEL_MLKIT_PROBE:I AGMlKitAsrService:I AGGlassesMicStream:I '*:S' > evidence/xr-probe.txt
+  if grep -F 'TASK_END XR_ORIGINAL_MIC' evidence/xr-probe.txt; then break; fi
+  sleep 2
+done
+cat evidence/xr-probe.txt
+grep -F 'XR_ORIGINAL_STATUS_RETURN' evidence/xr-probe.txt
+grep -F 'TASK_END XR_ORIGINAL_MIC' evidence/xr-probe.txt
+echo 'XR_ORIGINAL_STATUS_CALL_VERIFIED; RECOGNITION_NOT_CERTIFIED' | tee evidence/xr-result.txt
 # Confirm the actual local-model button opens the Android system file picker.
 adb shell uiautomator dump /sdcard/hitel-ui.xml
 adb exec-out cat /sdcard/hitel-ui.xml > evidence/local-button.xml
