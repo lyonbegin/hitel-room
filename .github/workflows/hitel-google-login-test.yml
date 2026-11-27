@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      HITEL_AVD_ROOT: ${{ runner.temp }}/hitel-disposable-avd
       HITEL_DISPOSABLE_LOGIN_TEST: '1'
       HITEL_MILESTONE_PR: '15'
       HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
@@ -32,6 +31,8 @@ jobs:
         with:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
+      - name: Set disposable AVD path
+        run: echo "HITEL_AVD_ROOT=$RUNNER_TEMP/hitel-disposable-avd" >> "$GITHUB_ENV"
       - name: Prepare clean device without credentials
         run: |
           if [[ -c /dev/kvm ]]; then sudo chmod a+rw /dev/kvm || true; fi
@@ -79,7 +80,7 @@ jobs:
         if: always()
         run: |
           bash hitel-agent-framework/ci/persistent-emulator.sh stop || true
-          rm -rf -- "$HITEL_AVD_ROOT" "$RUNNER_TEMP/hitel-login-result.txt" "$RUNNER_TEMP/hitel-login-venv"
+          rm -rf -- "$RUNNER_TEMP/hitel-disposable-avd" "$RUNNER_TEMP/hitel-login-result.txt" "$RUNNER_TEMP/hitel-login-venv"
       - name: Report login test outcome
         if: always()
         run: bash hitel-agent-framework/ci/milestone.sh 'Disposable Google account login test' '${{ job.status }}'
