@@ -3,11 +3,20 @@ set -euo pipefail
 pkg=com.hitel.soda.local
 adb install -r dist/HITEL_SODA_Local.apk
 adb logcat -c
-adb shell am start -W -n "$pkg/com.hitel.mlkit.tester.MainActivity"
-sleep 3
-adb shell uiautomator dump /sdcard/hitel-ui.xml
-adb exec-out cat /sdcard/hitel-ui.xml > evidence/ui.xml
+# Wait for the launcher and input surface; avoid treating an emulator boot overlay as app failure.
+adb shell input keyevent 82 || true
+for attempt in $(seq 1 8); do
+  adb shell am start -W -n "$pkg/com.hitel.mlkit.tester.MainActivity" | tee -a evidence/activity-start.txt
+  sleep 3
+  adb shell uiautomator dump /sdcard/hitel-ui.xml || true
+  adb exec-out cat /sdcard/hitel-ui.xml > evidence/ui.xml || true
+  if grep -F '상태 검사' evidence/ui.xml; then break; fi
+  adb shell input keyevent 82 || true
+  adb shell input keyevent 4 || true
+done
 adb exec-out screencap -p > evidence/launch.png
+adb logcat -d -v threadtime > evidence/launch-logcat.txt
+grep -F '상태 검사' evidence/ui.xml
 xy=$(python3 - <<'PY'
 import xml.etree.ElementTree as ET,re
 root=ET.parse("evidence/ui.xml").getroot()
