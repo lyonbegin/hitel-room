@@ -5,7 +5,7 @@ on:
       action:
         description: 'Provision or check the persistent Play Store AVD (approved private test runner)'
         type: choice
-        options: [provision, check]
+        options: [provision, check, login]
         required: true
 permissions:
   contents: read
@@ -31,6 +31,18 @@ jobs:
         run: |
           bash hitel-agent-framework/ci/persistent-emulator.sh start
           bash hitel-agent-framework/ci/persistent-emulator.sh status
+      - name: Install isolated login helper
+        if: inputs.action == 'login'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/hitel-login-venv"
+          "$RUNNER_TEMP/hitel-login-venv/bin/pip" install 'uiautomator2==3.5.0'
+      - name: Authenticate test Google account (private device only)
+        if: inputs.action == 'login'
+        env:
+          GOOGLE_TEST_EMAIL: ${{ secrets.GOOGLE_TEST_EMAIL }}
+          GOOGLE_TEST_PASSWORD: ${{ secrets.GOOGLE_TEST_PASSWORD }}
+        run: |
+          "$RUNNER_TEMP/hitel-login-venv/bin/python" hitel-agent-framework/ci/google-play-login.py
       - name: Stop device without wiping account and app state
         if: always()
         run: bash hitel-agent-framework/ci/persistent-emulator.sh stop
