@@ -1,0 +1,264 @@
+name: HITEL Agent Framework Bootstrap
+on:
+  push:
+    branches: [feature/hitel-agent-framework-20261127]
+    paths:
+      - '.github/workflows/hitel-agent-framework.yml'
+      - 'hitel-agent-framework/**'
+  workflow_dispatch:
+    inputs:
+      mission:
+        description: 'Optional non-sensitive exploration task; discover apps as needed'
+        required: false
+        type: string
+permissions:
+  contents: read
+  pull-requests: write
+env:
+  ANDROID_I_WANT_MY_TCG: 'yes'
+  HITEL_MILESTONE_PR: '15'
+  HITEL_MILESTONE_WEBHOOK: ${{ secrets.HITEL_MILESTONE_WEBHOOK }}
+concurrency:
+  group: hitel-framework-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  artemis-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: google/artemis
+          ref: 351ca8422f7b5b54e80a9c1ce03a222e02415b6b
+          path: upstream-artemis
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install ARTEMIS dependencies
+        working-directory: upstream-artemis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          uv sync --locked
+          uv run artemis --help
+      - name: ARTEMIS installed
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS dependencies and CLI ready'
+      - name: Select available emulator acceleration
+        id: acceleration
+        shell: bash
+        run: |
+          if [[ -c /dev/kvm ]]; then
+            sudo chmod a+rw /dev/kvm || true
+          fi
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo 'disable=false' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator hardware acceleration available' started
+          else
+            echo 'disable=true' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator software fallback selected' started
+          fi
+      - name: Run clean Google Play Android emulator and ARTEMIS MCP smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+          HITEL_MISSION: ${{ inputs.mission || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-linux-hw-accel: ${{ steps.acceleration.outputs.disable }}
+          emulator-boot-timeout: 2400
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: bash hitel-agent-framework/ci/emulator-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: artemis-emulator-smoke
+          path: hitel-framework-results/
+          if-no-files-found: warn
+          retention-days: 3
+      - name: Report ARTEMIS and emulator job result
+        if: always()
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS and emulator job' '${{ job.status }}'
+  build-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: gallery
+            repository: google-ai-edge/gallery
+            ref: 200ee1bbcf5d12d0c422753d86b6b7066b370ef3
+            java: '21'
+            root: upstream/Android/src
+          - project: pokeclaw
+            repository: agents-io/PokeClaw
+            ref: 936eca3ef7881e37908b5f183bf948ccaf1615e4
+            java: '17'
+            root: upstream
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.ref }}
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install Gallery SDK
+        if: matrix.project == 'gallery'
+        run: sdkmanager "platforms;android-37.0"
+      - name: Apply HITEL native task bridge to PokeClaw
+        if: matrix.project == 'pokeclaw'
+        run: python3 hitel-agent-framework/ci/patch-pokeclaw.py upstream
+      - name: Build debug APK
+        working-directory: ${{ matrix.root }}
+        run: bash gradlew --no-daemon assembleDebug
+      - name: Report APK build completion
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: bash hitel-agent-framework/ci/milestone.sh '${{ matrix.project }} APK compiled'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.project }}-debug-apk
+          path: ${{ matrix.root }}/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Report APK job result
+        if: always()
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: bash hitel-agent-framework/ci/milestone.sh '${{ matrix.project }} build and artifact job' '${{ job.status }}'
+  mobile-emulator-smoke:
+    needs: build-mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-debug-apk'
+          path: mobile-apks
+      - name: Select available emulator acceleration
+        id: acceleration
+        shell: bash
+        run: |
+          if [[ -c /dev/kvm ]]; then
+            sudo chmod a+rw /dev/kvm || true
+          fi
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo 'disable=false' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator hardware acceleration available' started
+          else
+            echo 'disable=true' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator software fallback selected' started
+          fi
+      - name: Install and launch both mobile apps on clean Google Play emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-linux-hw-accel: ${{ steps.acceleration.outputs.disable }}
+          emulator-boot-timeout: 2400
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash hitel-agent-framework/ci/mobile-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-launch-smoke
+          path: mobile-smoke-results/
+          retention-days: 3
+          if-no-files-found: warn
+      - name: Report mobile smoke job result
+        if: always()
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: bash hitel-agent-framework/ci/milestone.sh 'Emulator mobile smoke job' '${{ job.status }}'
+  arm64-capability:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Check ARM64 Android emulator availability
+        shell: bash
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          uname -m
+          test "$(uname -m)" = aarch64
+          sdkmanager --list > /tmp/sdk-packages.txt
+          if ! grep -F 'system-images;android-35;google_apis_playstore;arm64-v8a' /tmp/sdk-packages.txt; then
+            echo "::error::Requested Google Play ARM64 image is unavailable on this runner."
+            exit 1
+          fi
+          echo 'ARM64 image is available; KVM is deliberately not required.'
+          bash hitel-agent-framework/ci/milestone.sh 'ARM64 Google Play image catalog verified (not an emulator boot)'
+      - name: Report ARM64 capability result
+        if: always()
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARM64 image availability job' '${{ job.status }}'
+  report:
+    needs: [artemis-emulator, build-mobile, mobile-emulator-smoke, arm64-capability]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report final infrastructure result
+        env:
+          HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+          ARTEMIS_RESULT: ${{ needs.artemis-emulator.result }}
+          BUILD_RESULT: ${{ needs.build-mobile.result }}
+          SMOKE_RESULT: ${{ needs.mobile-emulator-smoke.result }}
+          ARM_RESULT: ${{ needs.arm64-capability.result }}
+        run: |
+          status=success
+          for result in "$ARTEMIS_RESULT" "$BUILD_RESULT" "$SMOKE_RESULT" "$ARM_RESULT"; do
+            if [[ "$result" != success ]]; then status=failure; fi
+          done
+          bash hitel-agent-framework/ci/milestone.sh "Infrastructure result: ARTEMIS=$ARTEMIS_RESULT APK=$BUILD_RESULT emulator-smoke=$SMOKE_RESULT ARM64-catalog=$ARM_RESULT" "$status"
+          [[ "$status" == success ]]

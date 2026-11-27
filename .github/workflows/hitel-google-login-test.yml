@@ -1,0 +1,87 @@
+name: HITEL Google Play Login Verification
+on:
+  push:
+    branches: [feature/hitel-agent-framework-20261127]
+    paths: ['.github/workflows/hitel-google-login-test.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: hitel-test-google-login
+  cancel-in-progress: false
+jobs:
+  login-test:
+    if: github.ref == 'refs/heads/feature/hitel-agent-framework-20261127'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HITEL_DISPOSABLE_LOGIN_TEST: '1'
+      HITEL_MILESTONE_PR: '15'
+      HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+      ANDROID_I_WANT_MY_TCG: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Set disposable AVD path
+        run: echo "HITEL_AVD_ROOT=$RUNNER_TEMP/hitel-disposable-avd" >> "$GITHUB_ENV"
+      - name: Prepare clean device without credentials
+        run: |
+          if [[ -c /dev/kvm ]]; then sudo chmod a+rw /dev/kvm || true; fi
+          bash hitel-agent-framework/ci/persistent-emulator.sh provision
+          python3 -m venv "$RUNNER_TEMP/hitel-login-venv"
+          "$RUNNER_TEMP/hitel-login-venv/bin/pip" install 'uiautomator2==3.5.0'
+          bash hitel-agent-framework/ci/persistent-emulator.sh start
+          bash hitel-agent-framework/ci/milestone.sh 'Disposable Android Google Play login test device booted'
+      - name: Login via native Google UI
+        env:
+          GOOGLE_TEST_EMAIL: ${{ secrets.GOOGLE_TEST_EMAIL }}
+          GOOGLE_TEST_PASSWORD: ${{ secrets.GOOGLE_TEST_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          timeout 360 "$RUNNER_TEMP/hitel-login-venv/bin/python" hitel-agent-framework/ci/google-play-login.py > "$RUNNER_TEMP/hitel-login-result.txt" 2>&1
+          rc=$?
+          set -e
+          if [[ "$rc" == 0 ]]; then
+            bash hitel-agent-framework/ci/milestone.sh 'Google account sign-in independently verified on disposable emulator' success
+          else
+            # Fixed sanitized status messages only; never publish UI, account identifiers, or exception details.
+            result="$(grep '^BLOCKED:' "$RUNNER_TEMP/hitel-login-result.txt" | tail -1 || true)"
+            case "$result" in
+              'BLOCKED: Google verification or security challenge; manual sign-in required') reason='Google security verification required' ;;
+              'BLOCKED: Google consent screen requires manual approval') reason='Google consent requires manual approval' ;;
+              'BLOCKED: test account secrets are missing') reason='test account secrets missing' ;;
+              'BLOCKED: unexpected app during sign-in; manual review required') reason='unexpected sign-in activity' ;;
+              'BLOCKED: password submit control not recognized') reason='password submit UI not recognized' ;;
+              'BLOCKED: email submit control not recognized') reason='email submit UI not recognized' ;;
+              'BLOCKED: account not confirmed; manual review needed') reason='account not confirmed' ;;
+              *) reason='login helper failed or timed out' ;;
+            esac
+            if grep -Fxq 'STAGE: email field populated' "$RUNNER_TEMP/hitel-login-result.txt"; then
+              bash hitel-agent-framework/ci/milestone.sh 'Google native email input reached' success
+            fi
+            if grep -Fxq 'STAGE: password field populated' "$RUNNER_TEMP/hitel-login-result.txt"; then
+              bash hitel-agent-framework/ci/milestone.sh 'Google native password input reached' success
+            fi
+            grep -E "^STAGE: transient foreground package [A-Za-z0-9_.]{1,160}$" "$RUNNER_TEMP/hitel-login-result.txt" | sort -u || true
+            bash hitel-agent-framework/ci/milestone.sh "Google login: $reason" blocked
+            exit 1
+          fi
+      - name: Stop and erase disposable device
+        if: always()
+        run: |
+          bash hitel-agent-framework/ci/persistent-emulator.sh stop || true
+          rm -rf -- "$RUNNER_TEMP/hitel-disposable-avd" "$RUNNER_TEMP/hitel-login-result.txt" "$RUNNER_TEMP/hitel-login-venv"
+      - name: Report login test outcome
+        if: always()
+        run: bash hitel-agent-framework/ci/milestone.sh 'Disposable Google account login test' '${{ job.status }}'
