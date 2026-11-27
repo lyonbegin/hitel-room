@@ -82,6 +82,9 @@ async def update(request: Request):
                      (status, detail, request.path_params["task_id"]))
     return JSONResponse({"status": status})
 
+from skills_runtime import register as register_skills
+register_skills(mcp, connect)
+
 app = mcp.streamable_http_app()
 app.router.routes.extend([
     Route("/device/pending", pending, methods=["GET"]),

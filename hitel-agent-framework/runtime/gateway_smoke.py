@@ -28,7 +28,11 @@ async def main():
             async with ClientSession(r,w) as session:
                 await session.initialize()
                 tools = {t.name for t in (await session.list_tools()).tools}
-                assert {"mobile_get_device_state","mobile_run_task","hitel_submit_task","hitel_task_status"} <= tools
+                assert {"mobile_get_device_state","mobile_run_task","hitel_submit_task","hitel_task_status","hitel_explore_capability","hitel_create_skill_candidate","hitel_replay_skill","hitel_publish_skill","hitel_list_skills"} <= tools
+                empty = await session.call_tool("hitel_list_skills", {})
+                assert not empty.isError and (empty.structuredContent is None or empty.structuredContent.get("result")==[]), empty
+                invalid = await session.call_tool("hitel_create_skill_candidate", {"capability":"test","package":"com.example.test","version":"1","observed_steps":["open"],"source_trace":"nonexistent-trace"})
+                assert invalid.isError, "An ungrounded skill must not be created"
                 obs = await session.call_tool("mobile_get_device_state", {"view_type":"hierarchy"})
                 assert not obs.isError and obs.content, obs
                 observation = " ".join(getattr(x,"text","") for x in obs.content)
