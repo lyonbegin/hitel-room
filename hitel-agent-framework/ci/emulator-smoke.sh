@@ -45,6 +45,7 @@ bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "ARTEMIS MCP initialized and 
 bash "$ROOT/hitel-agent-framework/ci/gateway-smoke.sh"
 bash "$ROOT/hitel-agent-framework/ci/discovery-smoke.sh"
 bash "$ROOT/hitel-agent-framework/ci/persistence-smoke.sh"
+bash "$ROOT/hitel-agent-framework/ci/model-mission.sh"
 bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "Persistent authenticated device host and interactive Play login not provisioned in hosted CI" blocked
 if [[ -n "${HITEL_MISSION:-}" ]]; then
   if [[ -z "${GEMINI_API_KEY:-}" ]]; then
