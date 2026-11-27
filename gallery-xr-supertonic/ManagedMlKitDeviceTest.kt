@@ -64,17 +64,32 @@ class ManagedMlKitDeviceTest {
           support.complete(null)
         }
       }
+      val downloadDone = CompletableDeferred<Boolean>()
       try {
         val result = withTimeoutOrNull(20000) { support.await() }
         if (result != null && result.supportedOnDeviceLanguages.any { it.equals("ko-KR", true) } &&
             result.installedOnDeviceLanguages.none { it.equals("ko-KR", true) }) {
           instrumentation.runOnMainSync {
             try {
-              platform!!.triggerModelDownload(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+              val downloadIntent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                 .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
-                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+              if (android.os.Build.VERSION.SDK_INT >= 34) {
+                platform!!.triggerModelDownload(downloadIntent, context.mainExecutor,
+                  object : android.speech.ModelDownloadListener {
+                    override fun onProgress(completedPercent: Int) { Log.i(tag, "PLATFORM_DOWNLOAD_PROGRESS=$completedPercent") }
+                    override fun onSuccess() { Log.i(tag, "PLATFORM_DOWNLOAD_SUCCESS"); downloadDone.complete(true) }
+                    override fun onScheduled() { Log.i(tag, "PLATFORM_DOWNLOAD_SCHEDULED") }
+                    override fun onError(error: Int) { Log.w(tag, "PLATFORM_DOWNLOAD_CALLBACK_ERROR=$error"); downloadDone.complete(false) }
+                  })
+              } else {
+                platform!!.triggerModelDownload(downloadIntent)
+              }
               Log.i(tag, "PLATFORM_KOREAN_DOWNLOAD_REQUESTED")
             } catch (e: Exception) { Log.w(tag, "PLATFORM_DOWNLOAD_ERROR", e) }
+          }
+          if (android.os.Build.VERSION.SDK_INT >= 34) {
+            Log.i(tag, "PLATFORM_DOWNLOAD_TERMINAL=${withTimeoutOrNull(120000) { downloadDone.await() }}")
           }
         }
       } finally { instrumentation.runOnMainSync { platform?.destroy() } }
