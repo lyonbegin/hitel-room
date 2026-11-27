@@ -1,7 +1,7 @@
-name: Gallery integrated local SODA SDK
+name: Gallery Mobile Actions local file import
 on:
   push:
-    branches: [build/gallery-local-soda-sdk-20261128]
+    branches: [build/gallery-mobile-actions-local-20261128]
     paths: ['gallery-xr-supertonic/**', '.github/workflows/gallery-managed-mlkit-sdk-20261127.yml']
   workflow_dispatch:
 permissions:
@@ -26,10 +26,14 @@ jobs:
           git -C upstream checkout --detach FETCH_HEAD
           python3 gallery-xr-supertonic/patch.py upstream
           python3 gallery-xr-supertonic/integrate_local_sdk.py upstream
+          python3 gallery-xr-supertonic/integrate_mobile_actions_local.py upstream
           python3 gallery-xr-supertonic/manage_mlkit_sdk.py upstream | tee evidence/managed-mlkit-sdk.txt
           testdir=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/services/asr
           mkdir -p "$testdir"
           cp gallery-xr-supertonic/local-sdk/LocalSodaIntegrationTest.kt "$testdir/"
+          mobiletest=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/ui/common
+          mkdir -p "$mobiletest"
+          cp gallery-xr-supertonic/MobileActionsLocalImportTest.kt "$mobiletest/"
           git -C upstream add -N .
           git -C upstream diff --check
           git -C upstream diff --stat | tee evidence/patch-stat.txt
@@ -56,21 +60,22 @@ jobs:
           set -euo pipefail
           apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           test -n "$apk"
-          cp "$apk" dist/HITEL_Gallery_Local_SODA.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_Local_SODA.apk | tee evidence/signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_Local_SODA.apk | tee evidence/badging.txt
-          unzip -l dist/HITEL_Gallery_Local_SODA.apk > evidence/apk-files.txt
+          cp "$apk" dist/HITEL_Gallery_MobileActions_Local.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_MobileActions_Local.apk | tee evidence/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_MobileActions_Local.apk | tee evidence/badging.txt
+          unzip -l dist/HITEL_Gallery_MobileActions_Local.apk > evidence/apk-files.txt
           cp upstream/Android/src/hitel-local-soda-sdk/build/outputs/aar/hitel-local-soda-sdk-debug.aar dist/HITEL_Local_SODA_SDK.aar
           (cd dist && sha256sum *.apk *.aar > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: gallery-local-soda-apks
+          name: gallery-mobile-actions-local-apks
           path: dist/
       - name: Publish compiled test APK and SDK
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "gallery-local-soda-${GITHUB_RUN_ID}" dist/HITEL_Gallery_Local_SODA.apk dist/HITEL_Local_SODA_SDK.aar dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "HITEL Gallery Local SODA SDK" --notes "Compiled and signed Gallery APK; native SDK integrated. ARM64 end-to-end Gallery STT remains to be tested. Native final callback not certified." --prerelease
+          gh release create "gallery-mobile-actions-local-${GITHUB_RUN_ID}" dist/HITEL_Gallery_MobileActions_Local.apk dist/HITEL_Local_SODA_SDK.aar dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "HITEL Gallery Local SODA SDK" --notes "Compiled and signed Gallery APK; native SDK integrated. ARM64 end-to-end Gallery STT remains to be tested. Native final callback not certified." --prerelease
       - name: Compile integration test after publishing APK
         working-directory: upstream/Android/src
         run: |
@@ -93,9 +98,9 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
           emulator-boot-timeout: 600
-          script: bash gallery-xr-supertonic/local-sdk/smoke.sh
+          script: adb install -r dist/HITEL_Gallery_MobileActions_Local.apk && adb install -r -t dist/HITEL_Gallery_Local_SODA_Test.apk && adb shell am instrument -w -r -e class com.google.ai.edge.gallery.ui.common.MobileActionsLocalImportTest com.google.aiedge.gallery.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/mobile-import-test.txt && grep -F 'OK (1 test)' evidence/mobile-import-test.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gallery-local-soda-evidence
+          name: gallery-mobile-actions-local-evidence
           path: evidence/
