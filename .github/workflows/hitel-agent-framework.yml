@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
 env:
+  ANDROID_I_WANT_MY_TCG: 'yes'
   HITEL_MILESTONE_WEBHOOK: ${{ secrets.HITEL_MILESTONE_WEBHOOK }}
 concurrency:
   group: hitel-framework-${{ github.ref }}
@@ -59,7 +60,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-linux-hw-accel: true
-          emulator-boot-timeout: 1200
+          emulator-boot-timeout: 2400
           emulator-options: -no-window -accel off -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           script: bash hitel-agent-framework/ci/emulator-smoke.sh
@@ -145,7 +146,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-linux-hw-accel: true
-          emulator-boot-timeout: 1200
+          emulator-boot-timeout: 2400
           emulator-options: -no-window -accel off -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: bash hitel-agent-framework/ci/mobile-smoke.sh
       - uses: actions/upload-artifact@v4
