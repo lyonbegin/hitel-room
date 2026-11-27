@@ -27,7 +27,7 @@ write(module/"src/main/AndroidManifest.xml",'''<manifest xmlns:android="http://s
 </manifest>''')
 for rel,name in [("com/hitel/soda/sdk","LocalSodaSdk.java"),("com/google/android/libraries/assistant/soda","Soda.java")]:
     p=module/"src/main/java"/rel/name;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(here/name,p)
-change(android/"build.gradle.kts","  alias(libs.plugins.android.application) apply false","  alias(libs.plugins.android.application) apply false\n  id(\"com.android.library\") version libs.versions.agp.get() apply false")
+change(android/"build.gradle.kts","  alias(libs.plugins.android.application) apply false","  alias(libs.plugins.android.application) apply false\n  id(\"com.android.library\") version \"9.0.1\" apply false")
 with (android/"settings.gradle.kts").open("a") as f:f.write('\ninclude(":hitel-local-soda-sdk")\n')
 change(android/"app/build.gradle.kts","dependencies {","dependencies {\n  implementation(project(\":hitel-local-soda-sdk\"))")
 shutil.copy2(here/"HitelLocalSodaAsrService.kt",base/"services/asr/HitelLocalSodaAsrService.kt")
@@ -49,7 +49,7 @@ s=s[:a]+'''      if (modelManagerViewModel != null &&
       }
 
 '''+s[b:]
-card.write_text(s)
+card.write_text(s.rstrip()+"\n")
 # The supported pack list matches the SDK's exact known hashes, not the old remote catalog.
 reg=base/"services/asr/AsrModelRegistry.kt"
 s=reg.read_text()
