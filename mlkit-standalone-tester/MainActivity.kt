@@ -48,7 +48,7 @@ class MainActivity : Activity() {
             v.setPadding(bars.left+12,bars.top+12,bars.right+12,bars.bottom+12)
             inset
         }
-        root.addView(TextView(this).apply { text = "HITEL ML Kit SDK Tester"; textSize = 21f })
+        root.addView(TextView(this).apply { text = "HITEL SODA Local"; textSize = 21f })
         localePicker = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,listOf("ko-KR","en-US"))
         }
@@ -73,7 +73,7 @@ class MainActivity : Activity() {
         fileLabel=TextView(this).apply { text="PCM 파일: 선택 안 됨"; textSize=12f; maxLines=2 }
         root.addView(fileLabel)
         row("로컬 모델 선택" to { openDocument(12) },
-            "로컬 ZIP 검사" to { val uri=localModel; if(uri==null) trace("LOCAL_MODEL_NOT_SELECTED") else runTask("LOCAL_MODEL_VERIFY") { verifyLocal(uri) } })
+            "로컬 실행 화면" to { startActivity(Intent(this,NativeLocalActivity::class.java)) })
         modelLabel=TextView(this).apply { text="SODA ZIP: 선택 안 됨"; textSize=12f; maxLines=2 }
         root.addView(modelLabel)
         row("전체 자동 시험" to { runTask("AUTO") { environment(); platform(false); withClient { download(it) } } },
@@ -87,7 +87,9 @@ class MainActivity : Activity() {
             else { operation?.cancel(); trace("LOCAL_WAIT_CANCEL_REQUESTED") }
         }
         action("로그 복사") {
-            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("ML Kit log",lines.toString()))
+            val localLog=java.io.File(filesDir,"local-soda.log")
+            val extra=runCatching { if(localLog.isFile) "\n--- Local SODA ---\n"+localLog.readText() else "" }.getOrDefault("")
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("ML Kit / Local SODA log",lines.toString()+extra))
             Toast.makeText(this,"로그 복사 완료",Toast.LENGTH_SHORT).show()
         }
         action("로그 지우기") { lines.clear(); output.text=""; trace("LOG_CLEARED") }
@@ -281,8 +283,8 @@ class MainActivity : Activity() {
         } else {
             localModel=uri
             modelLabel.text="SODA ZIP: $name"
-            trace("LOCAL_MODEL_SELECTED name=$name; not installed")
-            runTask("LOCAL_MODEL_VERIFY") { verifyLocal(uri) }
+            trace("LOCAL_MODEL_SELECTED name=$name; start independent native process")
+            startActivity(Intent(this,NativeLocalActivity::class.java).setData(uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
         }
     }
     private suspend fun verifyLocal(uri:Uri) {
