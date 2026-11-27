@@ -26,6 +26,16 @@ class ManagedMlKitDeviceTest {
     val tag = "HITEL_MLKIT_TEST"
     val source = File(context.filesDir, "mlkit-ko-test.pcm")
     assertTrue("Missing actual PCM fixture", source.length() > 32000)
+    // Compare Android's public on-device recognizer with the ML Kit client.
+    val instrumentation = InstrumentationRegistry.getInstrumentation()
+    instrumentation.runOnMainSync {
+      try {
+        Log.i(tag, "PLATFORM_RECOGNITION_AVAILABLE=${android.speech.SpeechRecognizer.isRecognitionAvailable(context)}")
+        Log.i(tag, "PLATFORM_ON_DEVICE_AVAILABLE=${android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)}")
+      } catch (e: Exception) {
+        Log.w(tag, "PLATFORM_AVAILABILITY_ERROR", e)
+      }
+    }
     val client = SpeechRecognition.getClient(speechRecognizerOptions {
       locale = Locale.forLanguageTag("ko-KR")
       preferredMode = SpeechRecognizerOptions.Mode.MODE_BASIC
