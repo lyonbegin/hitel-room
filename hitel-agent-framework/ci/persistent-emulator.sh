@@ -35,7 +35,13 @@ case "${1:-status}" in
       echo "Port already in use; refusing to attach to an unidentified emulator." >&2
       exit 2
     fi
-    emulator -avd "$NAME" -port "$PORT" -no-window -accel off -noaudio -gpu swiftshader_indirect -no-boot-anim -no-snapshot > "$HITEL_AVD_ROOT/emulator.log" 2>&1 &
+    accel=auto
+    if ! emulator -accel-check > "$HITEL_AVD_ROOT/accel-check.log" 2>&1; then
+      accel=off
+      export ANDROID_I_WANT_MY_TCG=yes
+    fi
+    echo "Emulator acceleration: $accel"
+    emulator -avd "$NAME" -port "$PORT" -no-window -accel "$accel" -noaudio -gpu swiftshader_indirect -no-boot-anim -no-snapshot > "$HITEL_AVD_ROOT/emulator.log" 2>&1 &
     echo "$!" > "$HITEL_AVD_ROOT/emulator.pid"
     timeout 1200 adb -s "$SERIAL" wait-for-device
     for _ in $(seq 1 600); do
