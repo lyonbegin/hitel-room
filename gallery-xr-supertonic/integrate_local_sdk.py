@@ -29,6 +29,11 @@ for rel,name in [("com/hitel/soda/sdk","LocalSodaSdk.java"),("com/google/android
     p=module/"src/main/java"/rel/name;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(here/name,p)
 change(android/"build.gradle.kts","  alias(libs.plugins.android.application) apply false","  alias(libs.plugins.android.application) apply false\n  id(\"com.android.library\") version \"9.0.1\" apply false")
 with (android/"settings.gradle.kts").open("a") as f:f.write('\ninclude(":hitel-local-soda-sdk")\n')
+# Same upstream dependency versions, with Google's Central mirror before Maven Central.
+settings=android/"settings.gradle.kts"
+s=settings.read_text()
+assert s.count("    mavenCentral()")==2
+settings.write_text(s.replace("    mavenCentral()", '    maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2") }\n    mavenCentral()'))
 change(android/"app/build.gradle.kts","dependencies {","dependencies {\n  implementation(project(\":hitel-local-soda-sdk\"))")
 shutil.copy2(here/"HitelLocalSodaAsrService.kt",base/"services/asr/HitelLocalSodaAsrService.kt")
 change(base/"di/SpeechServicesModule.kt","      MlKitAsrService(context, AsrEngineType.MLKIT_BASIC)","      com.google.ai.edge.gallery.services.asr.HitelLocalSodaAsrService(context)")
