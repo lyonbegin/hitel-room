@@ -1,0 +1,33 @@
+name: HITEL Google Account Preflight
+on:
+  push:
+    branches: [feature/hitel-agent-framework-20261127]
+    paths: ['.github/workflows/hitel-google-account-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HITEL_MILESTONE_PR: '15'
+      HITEL_MILESTONE_GITHUB_TOKEN: ${{ github.token }}
+      EMAIL_PRESENT: ${{ secrets.GOOGLE_TEST_EMAIL != '' }}
+      PASSWORD_PRESENT: ${{ secrets.GOOGLE_TEST_PASSWORD != '' }}
+      AVd_ROOT_PRESENT: ${{ vars.HITEL_AVD_ROOT != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check only presence of repository login secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EMAIL_PRESENT" == true && "$PASSWORD_PRESENT" == true ]]; then
+            bash hitel-agent-framework/ci/milestone.sh 'Repository Google test account secrets present (values never loaded)' success
+          else
+            bash hitel-agent-framework/ci/milestone.sh "Repository Google account secret presence: email=$EMAIL_PRESENT password=$PASSWORD_PRESENT (environment secrets not checked)" blocked
+          fi
+          bash hitel-agent-framework/ci/milestone.sh "Repository persistent AVD directory variable present=$AVd_ROOT_PRESENT (private runner not verified)" success
