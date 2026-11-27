@@ -33,6 +33,9 @@ class MainActivity : Activity() {
     private var active: SpeechRecognizer? = null
     private var recognizing = false
     private var file: Uri? = null
+    private var localModel: Uri? = null
+    private lateinit var fileLabel: TextView
+    private lateinit var modelLabel: TextView
     private val tag = "HITEL_MLKIT_PROBE"
     private val language get() = localePicker.selectedItem.toString()
     private val controls = mutableListOf<Button>()
@@ -67,6 +70,12 @@ class MainActivity : Activity() {
             "마이크 STT" to { mic() })
         row("PCM 선택" to { chooseFile() },
             "PCM STT" to { val uri=file; if (uri==null) trace("Select raw PCM first") else runTask("PCM_STT") { recognize(uri) } })
+        fileLabel=TextView(this).apply { text="PCM 파일: 선택 안 됨"; textSize=12f; maxLines=2 }
+        root.addView(fileLabel)
+        row("로컬 모델 선택" to { openDocument(12) },
+            "로컬 ZIP 검사" to { val uri=localModel; if(uri==null) trace("LOCAL_MODEL_NOT_SELECTED") else runTask("LOCAL_MODEL_VERIFY") { verifyLocal(uri) } })
+        modelLabel=TextView(this).apply { text="SODA ZIP: 선택 안 됨"; textSize=12f; maxLines=2 }
+        root.addView(modelLabel)
         row("전체 자동 시험" to { runTask("AUTO") { environment(); platform(false); withClient { download(it) } } },
             "음성 설정" to { try { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) } catch(e:Exception) { failure("SETTINGS",e) } })
         val actions=LinearLayout(this)
@@ -240,12 +249,85 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(code,permissions,results)
         if(code==10) { trace("MIC_PERMISSION_RESULT=${results.firstOrNull()}"); if(results.firstOrNull()==PackageManager.PERMISSION_GRANTED) mic() }
     }
-    private fun chooseFile() {
-        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE) },11)
+    private fun chooseFile() { openDocument(11) }
+    private fun openDocument(code:Int) {
+        trace("FILE_PICKER_ENTER kind=${if(code==12) "SODA_ZIP" else "PCM"}")
+        try {
+            val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                type="*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivityForResult(intent,code)
+        } catch(e:Exception) { failure("FILE_PICKER",e) }
+    }
+    private fun documentName(uri:Uri):String {
+        return try {
+            contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use {
+                if(it.moveToFirst()) it.getString(0) else null
+            } ?: "선택한 파일"
+        } catch(e:Exception) { "선택한 파일" }
     }
     override fun onActivityResult(code:Int,result:Int,data:Intent?) {
         super.onActivityResult(code,result,data)
-        if(code==11 && result==RESULT_OK) { file=data?.data; trace("PCM_SELECTED=${file!=null}") }
+        if(code!=11 && code!=12) return
+        val uri=data?.data
+        if(result!=RESULT_OK || uri==null) { trace("FILE_PICKER_CANCELLED code=$code"); return }
+        val name=documentName(uri)
+        if(code==11) {
+            file=uri
+            fileLabel.text="PCM 파일: $name"
+            trace("PCM_SELECTED name=$name")
+        } else {
+            localModel=uri
+            modelLabel.text="SODA ZIP: $name"
+            trace("LOCAL_MODEL_SELECTED name=$name; not installed")
+            runTask("LOCAL_MODEL_VERIFY") { verifyLocal(uri) }
+        }
+    }
+    private suspend fun verifyLocal(uri:Uri) {
+        val name=documentName(uri)
+        trace("LOCAL_ZIP_VERIFY_ENTER name=$name")
+        val result=withContext(Dispatchers.IO) {
+            val digest=java.security.MessageDigest.getInstance("SHA-1")
+            var bytes=0L
+            val header=ByteArray(4)
+            var headerCount=0
+            val input=contentResolver.openInputStream(uri) ?: error("Cannot open selected file")
+            input.use {
+                val buf=ByteArray(65536)
+                while(true) {
+                    ensureActive()
+                    val n=it.read(buf)
+                    if(n<0) break
+                    if(n==0) continue
+                    if(headerCount<4) {
+                        val copy=minOf(n,4-headerCount)
+                        System.arraycopy(buf,0,header,headerCount,copy)
+                        headerCount+=copy
+                    }
+                    digest.update(buf,0,n)
+                    bytes+=n
+                }
+            }
+            val zip=headerCount==4 && header[0]==0x50.toByte() && header[1]==0x4b.toByte() && header[2]==3.toByte() && header[3]==4.toByte()
+            Triple(bytes,digest.digest().joinToString("") { "%02X".format(it.toInt() and 255) },zip)
+        }
+        trace("LOCAL_ZIP_VERIFY_RESULT name=$name bytes=${result.first} sha1=${result.second} zipHeader=${result.third}")
+        val known=when(name) {
+            "soda-ko-KR-v5072.zip" -> 93639000L to "58DEECE081FD89EE928BA6BD705B6878BE6BD395"
+            "soda-en-US-v3072.zip" -> 62065000L to "F8745C8DBBDAE1E77A9A9E7BAF378CBC78B7BB2A"
+            else -> null
+        }
+        val verified=known!=null && result.third && result.first==known.first && result.second.equals(known.second,true)
+        val verdict=when {
+            !result.third -> "NOT_ZIP"
+            known==null -> "HASH_ONLY_UNKNOWN_VERSION"
+            verified -> "EXPECTED_SIZE_SHA1_MATCH"
+            else -> "SIZE_OR_HASH_MISMATCH"
+        }
+        trace("LOCAL_ZIP_VERDICT=$verdict; SDK local model registration/loading not implemented")
+        modelLabel.text="SODA ZIP: $name / $verdict"
     }
     private suspend fun recognize(uri:Uri?) {
         withClient { client ->
