@@ -32,6 +32,7 @@ jobs:
           testdir=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/services/asr
           mkdir -p "$testdir"
           cp gallery-xr-supertonic/local-sdk/LocalSodaIntegrationTest.kt "$testdir/"
+          cp gallery-xr-supertonic/GlobalAsrSettingsTest.kt "$testdir/"
           mobiletest=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/ui/common
           mkdir -p "$mobiletest"
           cp gallery-xr-supertonic/MobileActionsLocalImportTest.kt "$mobiletest/"
@@ -99,7 +100,7 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
           emulator-boot-timeout: 600
-          script: adb install -r dist/HITEL_Gallery_Global_ASR.apk && adb install -r -t dist/HITEL_Gallery_Local_SODA_Test.apk && adb shell am instrument -w -r -e class com.google.ai.edge.gallery.ui.common.MobileActionsLocalImportTest com.google.aiedge.gallery.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/mobile-import-test.txt && grep -F 'OK (1 test)' evidence/mobile-import-test.txt
+          script: adb install -r dist/HITEL_Gallery_Global_ASR.apk && adb install -r -t dist/HITEL_Gallery_Local_SODA_Test.apk && adb shell am instrument -w -r -e class com.google.ai.edge.gallery.ui.common.MobileActionsLocalImportTest,com.google.ai.edge.gallery.services.asr.GlobalAsrSettingsTest,com.google.ai.edge.gallery.services.asr.LocalSodaIntegrationTest com.google.aiedge.gallery.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/global-asr-test.txt && grep -F 'OK (3 tests)' evidence/global-asr-test.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

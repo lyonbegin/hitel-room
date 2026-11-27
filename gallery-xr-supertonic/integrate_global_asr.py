@@ -39,7 +39,10 @@ change(settings,"  /** Updates the persisted BCP-47 language code for ASR recogn
   /** Updates the persisted BCP-47 language code for ASR recognition. */''')
 change(settings,"  ): AsrSessionSettings {\n    val currentModelId = _selectedModelId.value","  ): AsrSessionSettings = synchronized(lock) {\n    val currentModelId = modelIdOf(settings)")
 change(settings,"    return AsrSessionSettings(\n      modelId = resolvedModelId,\n      languageCode = languageCodeOverride ?: _selectedLanguageCode.value,\n      showInterimResults = _showInterimResults.value,\n    )","    AsrSessionSettings(\n      modelId = resolvedModelId,\n      languageCode = languageCodeOverride ?: languageCodeOf(settings),\n      showInterimResults = showInterimResultsOf(settings),\n    )")
-change(base/"services/asr/AsrModelMetadata.kt",'const val LANGUAGE_CODE = "en-US"','const val LANGUAGE_CODE = "ko-KR"')
+# Change the global repository default, not language metadata for unrelated English-only models.
+change(settings,"    fun languageCodeOf(languageCode: String): String = languageCode.ifEmpty {\n      AsrDefaults.LANGUAGE_CODE\n    }",'''    fun languageCodeOf(languageCode: String): String = languageCode.ifEmpty {
+      "ko-KR"
+    }''')
 change(base/"ui/modelmanager/ModelManagerViewModel.kt","  init {\n    observeTtsSettingsUiState()","  init {\n    if (com.hitel.soda.sdk.LocalSodaSdk.installed(context, \"ko-KR\")) {\n      asrSettingsRepository.preferInstalledLocalKorean()\n    }\n    observeTtsSettingsUiState()")
 change(base/"ui/modelmanager/HitelLocalPackPanel.kt","                manager.setLanguagePackStatus(model,locale,ModelDownloadStatus(status=ModelDownloadStatusType.SUCCEEDED))","                manager.asrSettingsRepository.setGlobalLocalAsr(locale)\n                manager.setLanguagePackStatus(model,locale,ModelDownloadStatus(status=ModelDownloadStatusType.SUCCEEDED))")
 change(base/"services/asr/HitelLocalSodaAsrService.kt",'@Volatile private var language="en-US"','@Volatile private var language="ko-KR"')
