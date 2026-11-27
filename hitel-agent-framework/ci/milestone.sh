@@ -16,3 +16,14 @@ if [[ "${HITEL_MILESTONE_WEBHOOK:-}" == https://* ]]; then
     echo '::warning::Milestone webhook delivery failed; status remains available in Actions.'
   fi
 fi
+
+# GitHub-native event bridge for ChatGPT Work pull request comment triggers.
+# The PR is a draft status feed, never merged by the workflow.
+if [[ "$state" != started && "${HITEL_MILESTONE_PR:-}" =~ ^[0-9]+$ && -n "${HITEL_MILESTONE_GITHUB_TOKEN:-}" ]]; then
+  body="$(printf '[HITEL MILESTONE] %s — %s\n\nRun: %s (attempt %s)\nCommit: %s\nJob: %s' "$stage" "$state" "$run_url" "${GITHUB_RUN_ATTEMPT:-1}" "${GITHUB_SHA:-unknown}" "${GITHUB_JOB:-unknown}")"
+  if GH_TOKEN="$HITEL_MILESTONE_GITHUB_TOKEN" gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$HITEL_MILESTONE_PR/comments" -f "body=$body" --jq '.html_url'; then
+    echo '::notice::GitHub PR milestone comment published'
+  else
+    echo '::warning::GitHub PR milestone comment delivery failed'
+  fi
+fi
