@@ -13,13 +13,15 @@ on:
         type: string
 permissions:
   contents: read
+env:
+  HITEL_MILESTONE_WEBHOOK: ${{ secrets.HITEL_MILESTONE_WEBHOOK }}
 concurrency:
   group: hitel-framework-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   artemis-emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -43,12 +45,8 @@ jobs:
           sudo apt-get install -y ffmpeg
           uv sync --locked
           uv run artemis --help
-      - name: Enable emulator acceleration
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          test -r /dev/kvm
+      - name: ARTEMIS installed
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS dependencies and CLI ready'
       - name: Run clean Google Play Android emulator and ARTEMIS MCP smoke
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -60,7 +58,9 @@ jobs:
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-linux-hw-accel: true
+          emulator-boot-timeout: 1200
+          emulator-options: -no-window -accel off -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           script: bash hitel-agent-framework/ci/emulator-smoke.sh
       - uses: actions/upload-artifact@v4
@@ -70,6 +70,9 @@ jobs:
           path: hitel-framework-results/
           if-no-files-found: warn
           retention-days: 3
+      - name: Report ARTEMIS and emulator job result
+        if: always()
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS and CPU emulator job' '${{ job.status }}'
   build-mobile:
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -88,6 +91,7 @@ jobs:
             java: '17'
             root: upstream
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
           repository: ${{ matrix.repository }}
@@ -108,16 +112,21 @@ jobs:
       - name: Build debug APK
         working-directory: ${{ matrix.root }}
         run: bash gradlew --no-daemon assembleDebug
+      - name: Report APK build completion
+        run: bash hitel-agent-framework/ci/milestone.sh '${{ matrix.project }} APK compiled'
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.project }}-debug-apk
           path: ${{ matrix.root }}/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Report APK job result
+        if: always()
+        run: bash hitel-agent-framework/ci/milestone.sh '${{ matrix.project }} build and artifact job' '${{ job.status }}'
   mobile-emulator-smoke:
     needs: build-mobile
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: android-actions/setup-android@v3
@@ -128,11 +137,6 @@ jobs:
         with:
           pattern: '*-debug-apk'
           path: mobile-apks
-      - name: Enable emulator acceleration
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
       - name: Install and launch both mobile apps on clean Google Play emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -140,7 +144,9 @@ jobs:
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-linux-hw-accel: true
+          emulator-boot-timeout: 1200
+          emulator-options: -no-window -accel off -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: bash hitel-agent-framework/ci/mobile-smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
@@ -149,10 +155,14 @@ jobs:
           path: mobile-smoke-results/
           retention-days: 3
           if-no-files-found: warn
+      - name: Report mobile smoke job result
+        if: always()
+        run: bash hitel-agent-framework/ci/milestone.sh 'CPU emulator mobile smoke job' '${{ job.status }}'
   arm64-capability:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
+      - uses: actions/checkout@v4
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -168,8 +178,27 @@ jobs:
             echo "::error::Requested Google Play ARM64 image is unavailable on this runner."
             exit 1
           fi
-          if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
-            echo "::error::ARM64 runner does not expose usable KVM; provision a suitable self-hosted host."
-            exit 1
-          fi
-          echo "ARM64 image and KVM capability check passed; actual model execution is a separate test."
+          echo 'ARM64 image is available; KVM is deliberately not required.'
+          bash hitel-agent-framework/ci/milestone.sh 'ARM64 Google Play image catalog verified (not an emulator boot)'
+      - name: Report ARM64 capability result
+        if: always()
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARM64 image availability job' '${{ job.status }}'
+  report:
+    needs: [artemis-emulator, build-mobile, mobile-emulator-smoke, arm64-capability]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report final infrastructure result
+        env:
+          ARTEMIS_RESULT: ${{ needs.artemis-emulator.result }}
+          BUILD_RESULT: ${{ needs.build-mobile.result }}
+          SMOKE_RESULT: ${{ needs.mobile-emulator-smoke.result }}
+          ARM_RESULT: ${{ needs.arm64-capability.result }}
+        run: |
+          status=success
+          for result in "$ARTEMIS_RESULT" "$BUILD_RESULT" "$SMOKE_RESULT" "$ARM_RESULT"; do
+            if [[ "$result" != success ]]; then status=failure; fi
+          done
+          bash hitel-agent-framework/ci/milestone.sh "Infrastructure result: ARTEMIS=$ARTEMIS_RESULT APK=$BUILD_RESULT CPU-smoke=$SMOKE_RESULT ARM64-catalog=$ARM_RESULT" "$status"
+          [[ "$status" == success ]]
