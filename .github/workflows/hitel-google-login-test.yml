@@ -73,6 +73,7 @@ jobs:
             if grep -Fxq 'STAGE: password field populated' "$RUNNER_TEMP/hitel-login-result.txt"; then
               bash hitel-agent-framework/ci/milestone.sh 'Google native password input reached' success
             fi
+            grep -E "^STAGE: transient foreground package [A-Za-z0-9_.]{1,160}$" "$RUNNER_TEMP/hitel-login-result.txt" | sort -u || true
             bash hitel-agent-framework/ci/milestone.sh "Google login: $reason" blocked
             exit 1
           fi

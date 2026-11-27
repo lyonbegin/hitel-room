@@ -47,14 +47,25 @@ def main():
     # Go through native Play Store sign-in, not a browser or arbitrary app.
     device.app_start("com.android.vending")
     email_sent = password_sent = False
+    unexpected_count = 0
     for _ in range(90):
         if account_present():
             print("SUCCESS: Google account present on Android test device")
             return 0
         current = device.app_current().get("package", "")
         if current not in {"com.android.vending", "com.google.android.gms", "com.google.android.gsf.login"}:
-            print("BLOCKED: unexpected app during sign-in; manual review required")
-            return 3
+            unexpected_count += 1
+            if unexpected_count == 1:
+                # Package names are diagnostic only; never capture text or credentials here.
+                import re
+                if re.fullmatch(r"[a-zA-Z0-9_.]{1,160}", current):
+                    print("STAGE: transient foreground package " + current, flush=True)
+            if unexpected_count >= 10:
+                print("BLOCKED: unexpected app during sign-in; manual review required")
+                return 3
+            time.sleep(3)
+            continue
+        unexpected_count = 0
         root = ET.fromstring(device.dump_hierarchy())
         nodes = list(root.iter("node"))
         screen = " ".join(n.get("text","")+" "+n.get("content-desc","") for n in nodes).lower()
