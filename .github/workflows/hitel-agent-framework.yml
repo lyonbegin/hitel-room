@@ -48,6 +48,20 @@ jobs:
           uv run artemis --help
       - name: ARTEMIS installed
         run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS dependencies and CLI ready'
+      - name: Select available emulator acceleration
+        id: acceleration
+        shell: bash
+        run: |
+          if [[ -c /dev/kvm ]]; then
+            sudo chmod a+rw /dev/kvm || true
+          fi
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo 'disable=false' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator hardware acceleration available' started
+          else
+            echo 'disable=true' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator software fallback selected' started
+          fi
       - name: Run clean Google Play Android emulator and ARTEMIS MCP smoke
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -59,9 +73,9 @@ jobs:
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
-          disable-linux-hw-accel: true
+          disable-linux-hw-accel: ${{ steps.acceleration.outputs.disable }}
           emulator-boot-timeout: 2400
-          emulator-options: -no-window -accel off -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           script: bash hitel-agent-framework/ci/emulator-smoke.sh
       - uses: actions/upload-artifact@v4
@@ -73,7 +87,7 @@ jobs:
           retention-days: 3
       - name: Report ARTEMIS and emulator job result
         if: always()
-        run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS and CPU emulator job' '${{ job.status }}'
+        run: bash hitel-agent-framework/ci/milestone.sh 'ARTEMIS and emulator job' '${{ job.status }}'
   build-mobile:
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -138,6 +152,20 @@ jobs:
         with:
           pattern: '*-debug-apk'
           path: mobile-apks
+      - name: Select available emulator acceleration
+        id: acceleration
+        shell: bash
+        run: |
+          if [[ -c /dev/kvm ]]; then
+            sudo chmod a+rw /dev/kvm || true
+          fi
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo 'disable=false' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator hardware acceleration available' started
+          else
+            echo 'disable=true' >> "$GITHUB_OUTPUT"
+            bash hitel-agent-framework/ci/milestone.sh 'Emulator software fallback selected' started
+          fi
       - name: Install and launch both mobile apps on clean Google Play emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -145,9 +173,9 @@ jobs:
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
-          disable-linux-hw-accel: true
+          disable-linux-hw-accel: ${{ steps.acceleration.outputs.disable }}
           emulator-boot-timeout: 2400
-          emulator-options: -no-window -accel off -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: bash hitel-agent-framework/ci/mobile-smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
@@ -158,7 +186,7 @@ jobs:
           if-no-files-found: warn
       - name: Report mobile smoke job result
         if: always()
-        run: bash hitel-agent-framework/ci/milestone.sh 'CPU emulator mobile smoke job' '${{ job.status }}'
+        run: bash hitel-agent-framework/ci/milestone.sh 'Emulator mobile smoke job' '${{ job.status }}'
   arm64-capability:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
@@ -201,5 +229,5 @@ jobs:
           for result in "$ARTEMIS_RESULT" "$BUILD_RESULT" "$SMOKE_RESULT" "$ARM_RESULT"; do
             if [[ "$result" != success ]]; then status=failure; fi
           done
-          bash hitel-agent-framework/ci/milestone.sh "Infrastructure result: ARTEMIS=$ARTEMIS_RESULT APK=$BUILD_RESULT CPU-smoke=$SMOKE_RESULT ARM64-catalog=$ARM_RESULT" "$status"
+          bash hitel-agent-framework/ci/milestone.sh "Infrastructure result: ARTEMIS=$ARTEMIS_RESULT APK=$BUILD_RESULT emulator-smoke=$SMOKE_RESULT ARM64-catalog=$ARM_RESULT" "$status"
           [[ "$status" == success ]]
