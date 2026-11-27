@@ -85,7 +85,10 @@ async def update(request: Request):
 from skills_runtime import register as register_skills
 register_skills(mcp, connect)
 
+from direct_runtime import register as register_direct
+direct_routes = register_direct(mcp)
 app = mcp.streamable_http_app()
+app.router.routes.extend(direct_routes)
 app.router.routes.extend([
     Route("/device/pending", pending, methods=["GET"]),
     Route("/device/tasks/{task_id}", update, methods=["POST"]),
