@@ -33,6 +33,14 @@ class ManagedMlKitDeviceTest {
     try {
       var status = withTimeout(30000) { client.checkStatus() }
       Log.i(tag, "INITIAL_STATUS=$status")
+      // Allow freshly booted Google services to initialize; never bypass availability.
+      repeat(12) {
+        if (status == FeatureStatus.UNAVAILABLE) {
+          delay(5000)
+          status = withTimeout(30000) { client.checkStatus() }
+          Log.i(tag, "AVAILABILITY_RECHECK=$status")
+        }
+      }
       if (status == FeatureStatus.DOWNLOADABLE || status == FeatureStatus.DOWNLOADING) {
         val downloadResult = withTimeoutOrNull(180000) {
           client.download().collect { Log.i(tag, "DOWNLOAD_EVENT=$it") }
@@ -42,7 +50,7 @@ class ManagedMlKitDeviceTest {
         status = withTimeout(30000) { client.checkStatus() }
       }
       Log.i(tag, "AFTER_DOWNLOAD_STATUS=$status")
-      assertEquals("ML Kit model not available after SDK download", FeatureStatus.AVAILABLE, status)
+      assertEquals("ML Kit model unavailable; download only attempted for downloadable/downloading status", FeatureStatus.AVAILABLE, status)
       withTimeout(30000) { client.warmup() }
       Log.i(tag, "WARMUP_OK")
       val finals = mutableListOf<String>()
