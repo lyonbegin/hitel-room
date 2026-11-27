@@ -20,6 +20,7 @@ public final class Soda {
     public native byte[] nativeInit(long handle, byte[] config);
     public native byte[] nativeStartCapture(long handle, byte[] config);
     public native boolean nativeAddAudio(long handle, ByteBuffer buffer, long bytes);
+    public native byte[] nativePushAudio(long handle, int source, int action, ByteBuffer packet, long packetBytes, int timeoutMillis);
     public native void nativeStopCapture(long handle);
     public native void nativeDelete(long handle);
     protected void handleSodaEvent(byte[] payload) { listener.event(payload); }
