@@ -35,10 +35,10 @@ case "${1:-status}" in
       echo "Port already in use; refusing to attach to an unidentified emulator." >&2
       exit 2
     fi
-    emulator -avd "$NAME" -port "$PORT" -no-window -noaudio -gpu swiftshader_indirect -no-boot-anim -no-snapshot > "$HITEL_AVD_ROOT/emulator.log" 2>&1 &
+    emulator -avd "$NAME" -port "$PORT" -no-window -accel off -noaudio -gpu swiftshader_indirect -no-boot-anim -no-snapshot > "$HITEL_AVD_ROOT/emulator.log" 2>&1 &
     echo "$!" > "$HITEL_AVD_ROOT/emulator.pid"
-    timeout 240 adb -s "$SERIAL" wait-for-device
-    for _ in $(seq 1 120); do
+    timeout 1200 adb -s "$SERIAL" wait-for-device
+    for _ in $(seq 1 600); do
       if [[ "$(adb -s "$SERIAL" shell getprop sys.boot_completed | tr -d '\r')" = 1 ]]; then
         adb -s "$SERIAL" shell pm path com.android.vending | grep -q '^package:'
         echo "Persistent Google Play device ready: $SERIAL"
