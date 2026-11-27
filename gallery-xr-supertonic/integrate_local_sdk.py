@@ -70,4 +70,41 @@ change(xr,"          modelManagerViewModel.downloadLanguagePack(pack.model, pack
           } else {
             modelManagerViewModel.downloadLanguagePack(pack.model, pack.languageTag)
           }''')
+
+# Model Manager's Supplementary tab uses the same local file picker.
+global_card=base/"ui/modelmanager/TtsModelDetails.kt"
+change(global_card,"""  modelManagerViewModel: ModelManagerViewModel,
+): SupplementaryModelsActions =
+  remember(supplementaryModelsViewModel, modelManagerViewModel) {""",
+"""  modelManagerViewModel: ModelManagerViewModel,
+): SupplementaryModelsActions {
+  val localPicker = rememberHitelLocalPackPicker(modelManagerViewModel)
+  return remember(supplementaryModelsViewModel, modelManagerViewModel, localPicker) {""")
+change(global_card,"""        modelManagerViewModel.downloadLanguagePack(model, languageCode)""",
+"""        if (com.google.ai.edge.gallery.services.asr.AsrModelRegistry.engineTypeForModelId(model.modelId) ==
+          com.google.ai.edge.gallery.services.asr.AsrEngineType.MLKIT_BASIC) localPicker(model)
+        else modelManagerViewModel.downloadLanguagePack(model, languageCode)""")
+change(global_card,"""        modelManagerViewModel.downloadModelAfterMobileDataCheck(task = null, model = model)""",
+"""        if (com.google.ai.edge.gallery.services.asr.AsrModelRegistry.engineTypeForModelId(model.modelId) ==
+          com.google.ai.edge.gallery.services.asr.AsrEngineType.MLKIT_BASIC) localPicker(model)
+        else modelManagerViewModel.downloadModelAfterMobileDataCheck(task = null, model = model)""")
+change(global_card,"""      onStopVoicePreview = modelManagerViewModel::stopVoicePreview,
+    )
+  }""","""      onStopVoicePreview = modelManagerViewModel::stopVoicePreview,
+    )
+  }
+}""")
+change(global_card,"""        SupplementaryModelDetails(
+          card = card,""",
+"""        if (com.google.ai.edge.gallery.services.asr.AsrModelRegistry.engineTypeForModelId(model.modelId) ==
+          com.google.ai.edge.gallery.services.asr.AsrEngineType.MLKIT_BASIC) {
+          HitelLocalPackPanel(model, viewModel)
+        }
+        SupplementaryModelDetails(
+          card = card,""")
+change(reg,"""  fun supportedLanguages(model: Model): List<String> {
+    model.asrProfile""","""  fun supportedLanguages(model: Model): List<String> {
+    if (engineTypeForModelId(model.modelId) == AsrEngineType.MLKIT_BASIC) return listOf("ko-KR", "en-US")
+    model.asrProfile""")
+
 print("LOCAL_SODA_SDK_MODULE_AND_BASIC_PROVIDER_CONNECTED")
