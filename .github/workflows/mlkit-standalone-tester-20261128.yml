@@ -1,0 +1,73 @@
+name: Standalone ML Kit SDK Tester
+on:
+  push:
+    branches: [build/mlkit-standalone-tester-20261128]
+    paths: ['mlkit-standalone-tester/**', '.github/workflows/mlkit-standalone-tester-20261128.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up standalone project
+        run: |
+          set -euo pipefail
+          mkdir -p evidence dist
+          python3 mlkit-standalone-tester/create_project.py tester | tee evidence/sdk-input.txt
+          git init wrapper-source
+          git -C wrapper-source remote add origin https://github.com/google-ai-edge/gallery.git
+          git -C wrapper-source fetch --depth=1 origin 9cb31cf47c21b0ed76901ff589a52b509803edfa
+          git -C wrapper-source checkout --detach FETCH_HEAD
+          cp wrapper-source/Android/src/gradlew tester/
+          cp -r wrapper-source/Android/src/gradle tester/
+          chmod +x tester/gradlew
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"
+      - name: Compile APK
+        working-directory: tester
+        run: |
+          set -euo pipefail
+          ./gradlew :app:dependencyInsight --dependency genai-speech-recognition --configuration debugRuntimeClasspath --no-daemon | tee ../evidence/dependencies.txt
+          ./gradlew :app:assembleDebug --no-daemon --max-workers=2 --stacktrace | tee ../evidence/build.txt
+          cp app/build/outputs/apk/debug/app-debug.apk ../dist/HITEL_MLKit_SDK_Tester.apk
+      - name: Verify APK
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_MLKit_SDK_Tester.apk | tee evidence/signature.txt
+          (cd dist && sha256sum HITEL_MLKit_SDK_Tester.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitel-mlkit-sdk-tester-apk
+          path: dist/
+      - name: Enable KVM
+        run: sudo chmod a+rw /dev/kvm
+      - name: Verify actual tester UI and SDK status on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
+          emulator-boot-timeout: 600
+          script: bash mlkit-standalone-tester/smoke.sh
+      - name: Publish diagnostic APK after UI smoke test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="mlkit-sdk-tester-${GITHUB_RUN_ID}"
+          gh release create "$tag" dist/HITEL_MLKit_SDK_Tester.apk dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "HITEL ML Kit SDK Tester" --notes "Standalone diagnostic wrapper of official ML Kit AAR. Emulator UI and status probe tested. Model download and recognition success not certified." --prerelease
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hitel-mlkit-sdk-tester-evidence
+          path: evidence/
