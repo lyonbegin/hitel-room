@@ -50,6 +50,19 @@ class ManagedMlKitDeviceTest {
         status = withTimeout(30000) { client.checkStatus() }
       }
       Log.i(tag, "AFTER_DOWNLOAD_STATUS=$status")
+      if (status == FeatureStatus.UNAVAILABLE) {
+        // Compare a common supported locale on the same service, without downloading or changing models.
+        val probe = SpeechRecognition.getClient(speechRecognizerOptions {
+          locale = Locale.forLanguageTag("en-US")
+          preferredMode = SpeechRecognizerOptions.Mode.MODE_BASIC
+        })
+        try {
+          Log.i(tag, "CONTROL_EN_US_BASIC_STATUS=${withTimeout(30000) { probe.checkStatus() }}")
+        } catch (e: Exception) {
+          Log.w(tag, "CONTROL_EN_US_BASIC_ERROR", e)
+        } finally { probe.close() }
+        Log.i(tag, "DEVICE_ABIS=${android.os.Build.SUPPORTED_ABIS.joinToString()}; SDK=${android.os.Build.VERSION.SDK_INT}; MODEL=${android.os.Build.MODEL}")
+      }
       assertEquals("ML Kit model unavailable; download only attempted for downloadable/downloading status", FeatureStatus.AVAILABLE, status)
       withTimeout(30000) { client.warmup() }
       Log.i(tag, "WARMUP_OK")
