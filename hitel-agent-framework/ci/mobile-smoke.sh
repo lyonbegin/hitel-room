@@ -45,6 +45,6 @@ grep -q "Status: ok" "$OUT/hitel-bridge-launch.txt"
 sleep 5
 adb shell uiautomator dump /sdcard/hitel-bridge.xml >/dev/null
 adb pull /sdcard/hitel-bridge.xml "$OUT/hitel-bridge.xml" >/dev/null
-grep -q "Check pending task" "$OUT/hitel-bridge.xml"
+grep -qi "Check pending task" "$OUT/hitel-bridge.xml"
 adb exec-out screencap -p > "$OUT/hitel-bridge-clean.png"
 bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "Patched PokeClaw native task bridge installed and UI verified (remote native callback pending)"

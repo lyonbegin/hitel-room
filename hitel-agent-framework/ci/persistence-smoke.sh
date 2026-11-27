@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # Reboot the disposable test device, not an authenticated persistent farm.
-adb shell 'echo hitel-restart-probe > /sdcard/Download/hitel-restart-probe.txt'
+adb shell 'echo hitel-restart-probe > /data/local/tmp/hitel-restart-probe.txt'
 old_boot="$(adb shell cat /proc/sys/kernel/random/boot_id | tr -d '\r')"
 adb reboot
 timeout 1800 adb wait-for-device
@@ -13,7 +13,7 @@ for i in $(seq 1 600); do
 done
 test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1
  test "$(adb shell cat /proc/sys/kernel/random/boot_id | tr -d '\r')" != "$old_boot"
-test "$(adb shell cat /sdcard/Download/hitel-restart-probe.txt | tr -d '\r')" = hitel-restart-probe
-adb shell rm /sdcard/Download/hitel-restart-probe.txt
+test "$(adb shell cat /data/local/tmp/hitel-restart-probe.txt | tr -d '\r')" = hitel-restart-probe
+adb shell rm -f /data/local/tmp/hitel-restart-probe.txt || echo "::warning::Probe cleanup failed after verified persistence"
 adb shell pm path com.android.vending | grep -q '^package:'
 bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "Android reboot storage persistence verified (no account session tested)"
