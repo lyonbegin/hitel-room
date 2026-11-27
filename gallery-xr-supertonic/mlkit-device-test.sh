@@ -35,12 +35,20 @@ cat evidence/mlkit-network-probes.txt
 ffmpeg -nostdin -y -i evidence/ko-KR.wav -ar 16000 -ac 1 -f s16le evidence/mlkit-ko-test.pcm
 adb push evidence/mlkit-ko-test.pcm /data/local/tmp/mlkit-ko-test.pcm
 adb shell "run-as $pkg cp /data/local/tmp/mlkit-ko-test.pcm files/mlkit-ko-test.pcm"
+# Keep the emulator awake and explicitly allow ordinary background network access.
+# Do not force unrelated jobs or modify the speech service/model.
+adb shell svc power stayon true
+adb shell cmd netpolicy set restrict-background false
+adb shell dumpsys battery > evidence/mlkit-battery.txt
+adb shell dumpsys deviceidle > evidence/mlkit-idle.txt
 adb logcat -c
 set +e
 timeout 900 adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.asr.ManagedMlKitDeviceTest "$pkg.test/androidx.test.runner.AndroidJUnitRunner" | tee evidence/mlkit-instrumentation.txt
 rc=${PIPESTATUS[0]}
 set -e
 adb logcat -d -v threadtime > evidence/mlkit-logcat.txt
+adb shell dumpsys download > evidence/mlkit-download-manager.txt 2>&1 || true
+adb shell dumpsys activity services com.google.android.tts > evidence/mlkit-services-after.txt 2>&1 || true
 adb shell dumpsys jobscheduler com.google.android.tts > evidence/mlkit-jobs-after.txt 2>&1 || true
 adb shell dumpsys connectivity > evidence/mlkit-network-after.txt 2>&1 || true
 grep -E 'HITEL_MLKIT_TEST|MddLanguagePackDownload|LPRequestState|ModelManagerImpl|NGSA.GoogleAsrService' evidence/mlkit-logcat.txt | tail -150 | tee evidence/mlkit-events.txt || true
