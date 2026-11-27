@@ -28,8 +28,16 @@ def main():
     if not EMAIL or not PASSWORD:
         print("BLOCKED: test account secrets are missing")
         return 2
-    if not os.environ.get("HITEL_AVD_ROOT") or os.environ.get("RUNNER_ENVIRONMENT") != "self-hosted":
-        print("BLOCKED: requires isolated persistent self-hosted device")
+    persistent = os.environ.get("RUNNER_ENVIRONMENT") == "self-hosted" and bool(os.environ.get("HITEL_AVD_ROOT"))
+    disposable = (
+        os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+        and os.environ.get("HITEL_DISPOSABLE_LOGIN_TEST") == "1"
+        and os.environ.get("GITHUB_EVENT_NAME") in {"push", "workflow_dispatch"}
+        and os.environ.get("GITHUB_REF") == "refs/heads/feature/hitel-agent-framework-20261127"
+        and os.path.realpath(os.environ.get("HITEL_AVD_ROOT", "/")) == os.path.join(os.path.realpath(os.environ.get("RUNNER_TEMP", "/")), "hitel-disposable-avd")
+    )
+    if not (persistent or disposable):
+        print("BLOCKED: requires isolated approved test device")
         return 2
     if account_present():
         print("SUCCESS: existing Google account session detected; credentials not entered")
@@ -41,7 +49,7 @@ def main():
     email_sent = password_sent = False
     for _ in range(90):
         if account_present():
-            print("SUCCESS: Google account present on persistent Android")
+            print("SUCCESS: Google account present on Android test device")
             return 0
         current = device.app_current().get("package", "")
         if current not in {"com.android.vending", "com.google.android.gms", "com.google.android.gsf.login"}:
@@ -61,6 +69,7 @@ def main():
                     return True
             return False
         if not email_sent and not password_sent and click_text("Sign in", "SIGN IN"):
+            print("STAGE: Play Store sign-in opened", flush=True)
             time.sleep(3)
             continue
         edits = [n for n in nodes if n.get("class") == "android.widget.EditText" and n.get("enabled") == "true"]
@@ -72,6 +81,7 @@ def main():
                 # Use the exact visible Google UI element, not shell input.
                 obj = device(resourceId=node.get("resource-id")) if node.get("resource-id") else device(className="android.widget.EditText", instance=idx)
                 obj.set_text(PASSWORD)
+                print("STAGE: password field populated", flush=True)
                 password_sent = True
                 if not click_text("Next","NEXT"):
                     print("BLOCKED: password submit control not recognized")
@@ -80,6 +90,7 @@ def main():
             if email_field and not email_sent and not password_field:
                 obj = device(resourceId=node.get("resource-id")) if node.get("resource-id") else device(className="android.widget.EditText", instance=idx)
                 obj.set_text(EMAIL)
+                print("STAGE: email field populated", flush=True)
                 email_sent = True
                 if not click_text("Next","NEXT"):
                     print("BLOCKED: email submit control not recognized")
