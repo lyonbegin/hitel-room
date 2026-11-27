@@ -36,6 +36,49 @@ class ManagedMlKitDeviceTest {
         Log.w(tag, "PLATFORM_AVAILABILITY_ERROR", e)
       }
     }
+    // Query actual language support, not merely the existence of a service.
+    if (android.os.Build.VERSION.SDK_INT >= 33) {
+      val support = CompletableDeferred<android.speech.RecognitionSupport?>()
+      var platform: android.speech.SpeechRecognizer? = null
+      instrumentation.runOnMainSync {
+        try {
+          platform = android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+          val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+          platform!!.checkRecognitionSupport(intent, context.mainExecutor,
+            object : android.speech.RecognitionSupportCallback {
+              override fun onSupportResult(result: android.speech.RecognitionSupport) {
+                Log.i(tag, "PLATFORM_INSTALLED=${result.installedOnDeviceLanguages}")
+                Log.i(tag, "PLATFORM_PENDING=${result.pendingOnDeviceLanguages}")
+                Log.i(tag, "PLATFORM_SUPPORTED=${result.supportedOnDeviceLanguages}")
+                support.complete(result)
+              }
+              override fun onError(error: Int) {
+                Log.w(tag, "PLATFORM_SUPPORT_ERROR=$error")
+                support.complete(null)
+              }
+            })
+        } catch (e: Exception) {
+          Log.w(tag, "PLATFORM_SUPPORT_EXCEPTION", e)
+          support.complete(null)
+        }
+      }
+      try {
+        val result = withTimeoutOrNull(20000) { support.await() }
+        if (result != null && result.supportedOnDeviceLanguages.any { it.equals("ko-KR", true) } &&
+            result.installedOnDeviceLanguages.none { it.equals("ko-KR", true) }) {
+          instrumentation.runOnMainSync {
+            try {
+              platform!!.triggerModelDownload(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))
+              Log.i(tag, "PLATFORM_KOREAN_DOWNLOAD_REQUESTED")
+            } catch (e: Exception) { Log.w(tag, "PLATFORM_DOWNLOAD_ERROR", e) }
+          }
+        }
+      } finally { instrumentation.runOnMainSync { platform?.destroy() } }
+    }
     val client = SpeechRecognition.getClient(speechRecognizerOptions {
       locale = Locale.forLanguageTag("ko-KR")
       preferredMode = SpeechRecognizerOptions.Mode.MODE_BASIC
