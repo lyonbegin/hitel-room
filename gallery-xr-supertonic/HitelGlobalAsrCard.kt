@@ -10,6 +10,7 @@ import android.util.Log
 import com.google.ai.edge.gallery.services.asr.AsrEngineType
 import com.google.ai.edge.gallery.services.asr.AsrModelRegistry
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
+import com.google.ai.edge.gallery.ui.modelmanager.checkAsrEngineSupport
 import com.google.ai.edge.gallery.ui.modelmanager.rememberHitelLocalPackPicker
 import com.hitel.soda.sdk.LocalSodaSdk
 import kotlinx.coroutines.*
