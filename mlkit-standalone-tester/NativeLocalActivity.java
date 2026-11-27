@@ -157,9 +157,11 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
             try(InputStream in=requireInput(uri);OutputStream out=new FileOutputStream(zip)){size=copyBounded(in,out,110000000L);}
             String digest=hash(zip,"SHA-1");
             log("LOCAL_ZIP bytes="+size+" sha1="+digest);
-            if(size==93639000L&&KO_SHA.equals(digest)){locale="ko-KR";}
-            else if(size==62065000L&&EN_SHA.equals(digest)){locale="en-US";}
-            else throw new IOException("Model not one of the exact verified v5072/v3072 packs");
+            long descriptorSize;
+            if(KO_SHA.equals(digest)){locale="ko-KR";descriptorSize=93639000L;}
+            else if(EN_SHA.equals(digest)){locale="en-US";descriptorSize=62065000L;}
+            else throw new IOException("Model SHA-1 does not match verified v5072/v3072 packs");
+            log("MODEL_SIZE_METADATA descriptor="+descriptorSize+" actual="+size+" delta="+(size-descriptorSize)+"; exact SHA-1 matched, proceed to ZIP extraction");
             log("MODEL_HASH_MATCH locale="+locale);
             long expanded=0;int entries=0;Set<String> names=new HashSet<>();
             try(ZipInputStream zis=new ZipInputStream(new BufferedInputStream(new FileInputStream(zip)))){
