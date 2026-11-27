@@ -7,7 +7,7 @@ def write(path, body):
     p=root/path
     p.parent.mkdir(parents=True,exist_ok=True)
     p.write_text(body,encoding="utf-8")
-write("settings.gradle.kts",'''pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+write("settings.gradle.kts",'''pluginManagement { repositories { google(); maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2") }; mavenCentral(); gradlePluginPortal() } }
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
@@ -16,6 +16,7 @@ dependencyResolutionManagement {
       filter { includeModule("com.google.mlkit", "genai-speech-recognition"); includeModule("com.google.mlkit", "genai-common") }
     }
     google()
+    maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2") }
     mavenCentral()
   }
 }
