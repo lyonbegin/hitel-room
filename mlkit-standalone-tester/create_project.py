@@ -30,7 +30,7 @@ android {
   namespace = "com.hitel.mlkit.tester"
   compileSdk { this.version = release(37) { minorApiLevel = 0 } }
   defaultConfig {
-    applicationId = "com.hitel.mlkit.tester"
+    applicationId = "com.hitel.soda.local"
     minSdk = 31
     targetSdk = 35
     versionCode = 1
@@ -64,8 +64,9 @@ write("app/src/main/AndroidManifest.xml",'''<manifest xmlns:android="http://sche
     <package android:name="com.google.android.aicore"/>
     <intent><action android:name="android.speech.RecognitionService"/></intent>
   </queries>
-  <application android:label="HITEL ML Kit Tester" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
-    <activity android:name=".MainActivity" android:exported="true">
+  <application android:label="HITEL SODA Local" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
+    <activity android:name="com.hitel.mlkit.tester.NativeLocalActivity" android:exported="false" android:process=":soda_local"/>
+    <activity android:name="com.hitel.mlkit.tester.MainActivity" android:exported="true">
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
     </activity>
   </application>
@@ -73,6 +74,10 @@ write("app/src/main/AndroidManifest.xml",'''<manifest xmlns:android="http://sche
 p=root/"app/src/main/java/com/hitel/mlkit/tester/MainActivity.kt"
 p.parent.mkdir(parents=True,exist_ok=True)
 shutil.copyfile(src/"MainActivity.kt",p)
+shutil.copyfile(src/"NativeLocalActivity.java",p.parent/"NativeLocalActivity.java")
+soda=root/"app/src/main/java/com/google/android/libraries/assistant/soda/Soda.java"
+soda.parent.mkdir(parents=True,exist_ok=True)
+shutil.copyfile(src/"Soda.java",soda)
 # Use exactly the same original AARs and local Maven routing as the Gallery build.
 for name,version,expected in [
  ("genai-speech-recognition","1.0.0-alpha2","a7bef8c8eef655240f4d2cd10bfe5b583c22ec0f384b634691e634fa5d6063f6"),
