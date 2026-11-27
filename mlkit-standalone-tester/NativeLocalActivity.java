@@ -45,6 +45,10 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
         super.onCreate(state);
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(12,36,12,12);
+        root.setOnApplyWindowInsetsListener((v,insets)->{
+            android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());
+            v.setPadding(bars.left+12,bars.top+12,bars.right+12,bars.bottom+12);return insets;
+        });
         status=new TextView(this); status.setText("SODA Local — native experiment"); status.setTextSize(18); root.addView(status);
         Button choose=button(root,"로컬 모델 ZIP 선택",()->pick(10));
         engine=button(root,"원본 엔진 split APK 선택 (필요시)",()->pick(21));
