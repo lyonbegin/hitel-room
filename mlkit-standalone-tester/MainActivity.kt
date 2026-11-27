@@ -31,6 +31,7 @@ class MainActivity : Activity() {
     private val lines = StringBuilder()
     private var operation: Job? = null
     private var active: SpeechRecognizer? = null
+    private var xrProbe: GalleryXrProbe? = null
     private var recognizing = false
     private var file: Uri? = null
     private var localModel: Uri? = null
@@ -76,6 +77,8 @@ class MainActivity : Activity() {
             "로컬 실행 화면" to { startActivity(Intent(this,NativeLocalActivity::class.java)) })
         modelLabel=TextView(this).apply { text="SODA ZIP: 선택 안 됨"; textSize=12f; maxLines=2 }
         root.addView(modelLabel)
+        row("XR 원본 마이크" to { xrMic() },
+            "XR 원본 PCM" to { val uri=file; if(uri==null) trace("Select raw PCM first") else runTask("XR_ORIGINAL_PCM") { runXr(uri) } })
         row("전체 자동 시험" to { runTask("AUTO") { environment(); platform(false); withClient { download(it) } } },
             "음성 설정" to { try { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) } catch(e:Exception) { failure("SETTINGS",e) } })
         val actions=LinearLayout(this)
@@ -83,7 +86,8 @@ class MainActivity : Activity() {
             actions.addView(Button(this).apply { text=name; textSize=12f; setOnClickListener { f() } },LinearLayout.LayoutParams(0,-2,1f))
         }
         action("중지") {
-            if (recognizing) scope.launch { try { trace("STOP_ENTER"); active?.stopRecognition(); trace("STOP_RETURN") } catch(e:Exception) { failure("STOP",e) } }
+            if (xrProbe!=null) scope.launch { try { xrProbe?.stop() } catch(e:Exception) { failure("XR_STOP",e) } }
+            else if (recognizing) scope.launch { try { trace("STOP_ENTER"); active?.stopRecognition(); trace("STOP_RETURN") } catch(e:Exception) { failure("STOP",e) } }
             else { operation?.cancel(); trace("LOCAL_WAIT_CANCEL_REQUESTED") }
         }
         action("로그 복사") {
@@ -241,6 +245,17 @@ class MainActivity : Activity() {
             }
         } finally { p.destroy(); trace("PLATFORM_DESTROY") }
     }
+    private suspend fun runXr(uri:Uri?) {
+        val probe=GalleryXrProbe(this,::trace)
+        xrProbe=probe
+        try { probe.run(language,uri) } finally { xrProbe=null }
+    }
+    private fun xrMic() {
+        if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),13); return
+        }
+        runTask("XR_ORIGINAL_MIC") { runXr(null) }
+    }
     private fun mic() {
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO),10); return
@@ -249,6 +264,7 @@ class MainActivity : Activity() {
     }
     override fun onRequestPermissionsResult(code:Int,permissions:Array<out String>,results:IntArray) {
         super.onRequestPermissionsResult(code,permissions,results)
+        if(code==13 && results.firstOrNull()==PackageManager.PERMISSION_GRANTED) xrMic()
         if(code==10) { trace("MIC_PERMISSION_RESULT=${results.firstOrNull()}"); if(results.firstOrNull()==PackageManager.PERMISSION_GRANTED) mic() }
     }
     private fun chooseFile() { openDocument(11) }
