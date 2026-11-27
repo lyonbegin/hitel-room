@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 pkg=com.hitel.soda.local
-adb install -r dist/HITEL_SODA_Local.apk
+adb install -r dist/HITEL_SODA_XR_Compare.apk
 adb logcat -c
 # Wait for the launcher and input surface; avoid treating an emulator boot overlay as app failure.
 adb shell input keyevent 82 || true
