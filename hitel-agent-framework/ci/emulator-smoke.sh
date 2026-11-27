@@ -10,7 +10,7 @@ adb shell getprop ro.build.version.sdk > "$OUT/android-api.txt"
 adb shell getprop ro.product.cpu.abi > "$OUT/android-abi.txt"
 adb shell pm path com.android.vending | tee "$OUT/play-store.txt"
 grep -q '^package:' "$OUT/play-store.txt"
-bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "CPU Android boot and Play Store package detected"
+bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "Android boot and Play Store package detected"
 component="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER com.android.vending | tr -d '\r' | tail -1)"
 [[ "$component" == com.android.vending/* ]]
 adb shell am start -W -n "$component" | tee "$OUT/play-launch.txt"
@@ -42,6 +42,10 @@ async def main():
 asyncio.run(main())
 PY
 bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "ARTEMIS MCP initialized and tools registered"
+bash "$ROOT/hitel-agent-framework/ci/gateway-smoke.sh"
+bash "$ROOT/hitel-agent-framework/ci/discovery-smoke.sh"
+bash "$ROOT/hitel-agent-framework/ci/persistence-smoke.sh"
+bash "$ROOT/hitel-agent-framework/ci/milestone.sh" "Persistent authenticated device host and interactive Play login not provisioned in hosted CI" blocked
 if [[ -n "${HITEL_MISSION:-}" ]]; then
   if [[ -z "${GEMINI_API_KEY:-}" ]]; then
     echo "Mission requested but GEMINI_API_KEY secret not configured." >&2

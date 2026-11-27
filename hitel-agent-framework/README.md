@@ -39,3 +39,8 @@ App installation and account data persist in the host AVD disk; they are never u
 6. Verify Android model runtime, ARM64 and Google Play distribution policy.
 
 These are explicit gates, not claims that integration or deployment is already complete.
+
+
+## Phase 2 integration (development only)
+
+The bootstrap workflow now also tests actual ARTEMIS device observation over authenticated Streamable HTTP MCP, the device approval/result protocol with a simulated client, a generic Play Store search entry, Android reboot storage retention, and the patched PokeClaw native bridge UI. The bridge uses the upstream External Automation contract; it is opt-in, checks for tasks on user action, requires explicit approval and HTTPS, and does not claim background autonomous execution. The actual native callback and Gallery model tool call require a running authenticated HTTPS gateway and mobile configuration. Gallery itself remains upstream/unmodified. Single-device prototype tokens must be distinct; do not use the prototype for multiple users or real credentials without hardening. Persistent authenticated AVD and third-party login require a dedicated trusted host and test account. The workflow labels those as blocked, not success. No target app catalog is shipped.

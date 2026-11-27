@@ -20,11 +20,11 @@ env:
   HITEL_MILESTONE_WEBHOOK: ${{ secrets.HITEL_MILESTONE_WEBHOOK }}
 concurrency:
   group: hitel-framework-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   artemis-emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
         with:
@@ -135,6 +135,9 @@ jobs:
       - name: Install Gallery SDK
         if: matrix.project == 'gallery'
         run: sdkmanager "platforms;android-37.0"
+      - name: Apply HITEL native task bridge to PokeClaw
+        if: matrix.project == 'pokeclaw'
+        run: python3 hitel-agent-framework/ci/patch-pokeclaw.py upstream
       - name: Build debug APK
         working-directory: ${{ matrix.root }}
         run: bash gradlew --no-daemon assembleDebug
