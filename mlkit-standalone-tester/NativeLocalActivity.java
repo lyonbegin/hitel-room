@@ -271,15 +271,26 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
                 rec=new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,Math.max(4096,min));
                 if(rec.getState()!=AudioRecord.STATE_INITIALIZED)throw new IOException("AudioRecord init failed");
             }else in=new BufferedInputStream(requireInput(uri));
-            log("NATIVE_START_CAPTURE_ENTER");
-            byte[] result=soda.nativeStartCapture(handle,v(102,1));
+            // Original hee.getStreamingSodaConfig(): Lozu.5 -> Lozs.1 -> Lozt.
+            // Lozt.1=0, .2=2, .4=Louk(INT16,16000,1), .8=0;
+            // Lozu.2=true, .3=false, .9=0. Retain ConversationSession field102.
+            byte[] format=pb(v(2,1),v(3,16000),v(4,1));
+            byte[] streaming=pb(v(1,0),v(2,2),b(4,format),v(8,0));
+            byte[] captureConfig=pb(v(2,1),v(3,0),b(5,b(1,streaming)),v(9,0),v(102,1));
+            log("NATIVE_START_CAPTURE_ENTER source="+(uri==null?"MIC":"PCM_FILE")+" format=INT16/16000/1 streamingConfig="+hex(captureConfig));
+            byte[] result=soda.nativeStartCapture(handle,captureConfig);
             if(result==null)throw new IOException("Native start returned null");
             long code=number(result,1,0);
             log("NATIVE_START_CAPTURE_RETURN code="+code+" message="+firstText(result,2)+" raw="+hex(result));
             if(code!=0)throw new IOException("Native capture rejected");
-            started=true;if(rec!=null)rec.startRecording();
-            byte[] chunk=new byte[1024];ByteBuffer direct=ByteBuffer.allocateDirect(1024);
-            long start=SystemClock.elapsedRealtime(),bytes=0,chunks=0;
+            started=true;
+            if(rec!=null){
+                rec.startRecording();
+                log("AUDIO_RECORD_STARTED state="+rec.getRecordingState()+" sampleRate="+rec.getSampleRate()+" channels="+rec.getChannelCount()+" encoding="+rec.getAudioFormat());
+                if(rec.getRecordingState()!=AudioRecord.RECORDSTATE_RECORDING)throw new IOException("AudioRecord failed to enter recording state");
+            }
+            byte[] chunk=new byte[1024];ByteBuffer direct=ByteBuffer.allocateDirect(1024).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            long start=SystemClock.elapsedRealtime(),bytes=0,chunks=0,accepted=0,rejected=0,attempts=0; int consecutiveReject=0;
             while(!stop&&(SystemClock.elapsedRealtime()-start)<120000){
                 int n=0;
                 while(n<chunk.length&&!stop){
@@ -292,12 +303,22 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
                 if(uri!=null&&chunks==0&&n>=12&&((chunk[0]=='R'&&chunk[1]=='I'&&chunk[2]=='F'&&chunk[3]=='F')||(chunk[4]=='f'&&chunk[5]=='t'&&chunk[6]=='y'&&chunk[7]=='p')))throw new IOException("Select raw PCM16, not WAV/M4A");
                 if(uri!=null){long wait=start+bytes/32-SystemClock.elapsedRealtime();if(wait>0)Thread.sleep(wait);}
                 direct.clear();direct.put(chunk,0,n);direct.flip();
-                if(!soda.nativeAddAudio(handle,direct,n))throw new IOException("nativeAddAudio returned false");
+                attempts++;
+                if(attempts<=3||attempts%32==0){
+                    int peak=0;long square=0;
+                    for(int i=0;i<n;i+=2){int sample=(short)((chunk[i]&255)|(chunk[i+1]<<8));peak=Math.max(peak,Math.abs(sample));square+=(long)sample*sample;}
+                    log("PCM_READ attempt="+attempts+" bytes="+n+" samples="+(n/2)+" peak="+peak+" rms="+Math.sqrt((double)square/(n/2))+" direct="+direct.isDirect()+" position="+direct.position()+" limit="+direct.limit());
+                }
+                long callStart=SystemClock.elapsedRealtime();
+                boolean ok=soda.nativeAddAudio(handle,direct,n);
                 bytes+=n;chunks++;
-                if(chunks==1||chunks%32==0)log("NATIVE_PCM_FEED chunks="+chunks+" bytes="+bytes);
+                if(ok){accepted+=n;consecutiveReject=0;}
+                else{rejected+=n;consecutiveReject++;log("NATIVE_PCM_REJECT attempt="+attempts+" bytes="+n+" elapsedMs="+(SystemClock.elapsedRealtime()-callStart)+" consecutive="+consecutiveReject);}
+                if(attempts<=3||attempts%32==0)log("NATIVE_PCM_FEED attempt="+attempts+" result="+ok+" readBytes="+bytes+" acceptedBytes="+accepted+" rejectedBytes="+rejected);
+                if(consecutiveReject>=8)throw new IOException("nativeAddAudio rejected 8 consecutive chunks; inspect native events");
                 if(uri!=null&&n<chunk.length)break;
             }
-            log("PCM_INPUT_END bytes="+bytes+" chunks="+chunks);
+            log("PCM_INPUT_END readBytes="+bytes+" chunks="+chunks+" acceptedBytes="+accepted+" rejectedBytes="+rejected);
         }finally{
             if(rec!=null){try{rec.stop();}catch(Exception ignored){}rec.release();}
             if(in!=null)in.close();
@@ -320,7 +341,7 @@ public final class NativeLocalActivity extends Activity implements Soda.Listener
                     if(!text.isEmpty()){if(h.id==1)finals++;log((h.id==1?"FINAL":h.id==2?"PARTIAL":"PREFETCH")+"="+text);}
                 }
             }
-            log("NATIVE_EVENT bytes="+raw.length);
+            log("NATIVE_EVENT bytes="+raw.length+" raw="+hex(raw));
         }catch(Throwable e){log("EVENT_PARSE_ERROR "+e+" raw="+hex(raw));}
     }
     private static String hex(byte[] bytes){StringBuilder s=new StringBuilder();for(int i=0;i<Math.min(bytes.length,256);i++)s.append(String.format(Locale.ROOT,"%02x",bytes[i]&255));return s.toString();}
