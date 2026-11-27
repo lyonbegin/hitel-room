@@ -25,5 +25,6 @@ class LocalSodaIntegrationTest {
         try{service.prepare(AsrPreparationConfig(languageCode="ko-KR"))}catch(e:AsrServiceError.ModelNotDownloaded){failed=true}
         assertTrue(failed)
         android.util.Log.i("HITEL_LOCAL_SDK","GALLERY_SDK_NO_FAKE_READY_PASS; ARM64_STT_NOT_TESTED")
+        Unit
     }
 }

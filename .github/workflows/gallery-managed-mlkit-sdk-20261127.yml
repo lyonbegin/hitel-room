@@ -45,20 +45,18 @@ jobs:
           grep -F 'jni/arm64-v8a/' evidence/aar-files.txt
           grep -F 'jni/x86_64/' evidence/aar-files.txt
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" 2>&1 | tee evidence/sdk.txt
-      - name: Compile application and instrumentation test
+      - name: Compile Gallery and local SDK
         working-directory: upstream/Android/src
         run: |
           set -euo pipefail
           ./gradlew :app:dependencyInsight --dependency genai-speech-recognition --configuration debugRuntimeClasspath --no-daemon 2>&1 | tee ../../../evidence/managed-sdk-dependencies.txt
-          ./gradlew :hitel-local-soda-sdk:assembleDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --stacktrace 2>&1 | tee ../../../evidence/build.txt
+          ./gradlew :hitel-local-soda-sdk:assembleDebug :app:assembleDebug --no-daemon --max-workers=2 --stacktrace 2>&1 | tee ../../../evidence/build.txt
       - name: Inspect signed APK
         run: |
           set -euo pipefail
           apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
-          testapk=$(find upstream/Android/src/app/build/outputs/apk/androidTest -name '*.apk' -print -quit)
-          test -n "$apk" && test -n "$testapk"
+          test -n "$apk"
           cp "$apk" dist/HITEL_Gallery_Local_SODA.apk
-          cp "$testapk" dist/HITEL_Gallery_Local_SODA_Test.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_Local_SODA.apk | tee evidence/signature.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_Local_SODA.apk | tee evidence/badging.txt
           unzip -l dist/HITEL_Gallery_Local_SODA.apk > evidence/apk-files.txt
@@ -73,6 +71,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "gallery-local-soda-${GITHUB_RUN_ID}" dist/HITEL_Gallery_Local_SODA.apk dist/HITEL_Local_SODA_SDK.aar dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "HITEL Gallery Local SODA SDK" --notes "Compiled and signed Gallery APK; native SDK integrated. ARM64 end-to-end Gallery STT remains to be tested. Native final callback not certified." --prerelease
+      - name: Compile integration test after publishing APK
+        working-directory: upstream/Android/src
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --stacktrace 2>&1 | tee ../../../evidence/test-build.txt
+          testapk=$(find app/build/outputs/apk/androidTest -name '*.apk' -print -quit)
+          test -n "$testapk"
+          cp "$testapk" ../../../dist/HITEL_Gallery_Local_SODA_Test.apk
       - name: Enable KVM
         run: sudo chmod a+rw /dev/kvm
       - name: Install and exercise actual engine

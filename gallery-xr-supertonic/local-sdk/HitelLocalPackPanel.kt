@@ -42,6 +42,7 @@ internal fun rememberHitelLocalPackPicker(
                 manager.supplementarySpeechModelRepository.onLanguageDownloadProgress(model.name,LanguageState.Installed(locale))
                 manager.supplementarySpeechModelRepository.retryModel(model)
                 manager.refreshLanguagePackStatuses(model,listOf("ko-KR","en-US"))
+                manager.refreshSupplementaryStatuses()
                 manager.checkAsrEngineSupport()
                 val message="$locale 로컬 모델 준비 완료"
                 messageCallback(message)
