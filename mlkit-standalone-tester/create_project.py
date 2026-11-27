@@ -51,6 +51,7 @@ dependencies {
   implementation("com.google.mlkit:genai-speech-recognition:1.0.0-alpha2")
   implementation("com.google.mlkit:genai-common:1.0.0-beta5")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+  implementation("androidx.core:core-ktx:1.16.0")
 }
 ''')
 write("app/src/main/AndroidManifest.xml",'''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -74,6 +75,7 @@ write("app/src/main/AndroidManifest.xml",'''<manifest xmlns:android="http://sche
 p=root/"app/src/main/java/com/hitel/mlkit/tester/MainActivity.kt"
 p.parent.mkdir(parents=True,exist_ok=True)
 shutil.copyfile(src/"MainActivity.kt",p)
+shutil.copyfile(src/"GalleryXrProbe.kt",p.parent/"GalleryXrProbe.kt")
 shutil.copyfile(src/"NativeLocalActivity.java",p.parent/"NativeLocalActivity.java")
 soda=root/"app/src/main/java/com/google/android/libraries/assistant/soda/Soda.java"
 soda.parent.mkdir(parents=True,exist_ok=True)
