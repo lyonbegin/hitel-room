@@ -1,11 +1,11 @@
-name: Gallery managed ML Kit SDK build
+name: Gallery integrated local SODA SDK
 on:
   push:
-    branches: [build/gallery-managed-mlkit-sdk-20261127]
+    branches: [build/gallery-local-soda-sdk-20261128]
     paths: ['gallery-xr-supertonic/**', '.github/workflows/gallery-managed-mlkit-sdk-20261127.yml']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
@@ -25,10 +25,11 @@ jobs:
           git -C upstream fetch --depth=1 origin 9cb31cf47c21b0ed76901ff589a52b509803edfa
           git -C upstream checkout --detach FETCH_HEAD
           python3 gallery-xr-supertonic/patch.py upstream
+          python3 gallery-xr-supertonic/integrate_local_sdk.py upstream
           python3 gallery-xr-supertonic/manage_mlkit_sdk.py upstream | tee evidence/managed-mlkit-sdk.txt
           testdir=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/services/asr
           mkdir -p "$testdir"
-          cp gallery-xr-supertonic/ManagedMlKitDeviceTest.kt "$testdir/"
+          cp gallery-xr-supertonic/local-sdk/LocalSodaIntegrationTest.kt "$testdir/"
           git -C upstream add -N .
           git -C upstream diff --check
           git -C upstream diff --stat | tee evidence/patch-stat.txt
@@ -49,28 +50,29 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew :app:dependencyInsight --dependency genai-speech-recognition --configuration debugRuntimeClasspath --no-daemon 2>&1 | tee ../../../evidence/managed-sdk-dependencies.txt
-          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --stacktrace 2>&1 | tee ../../../evidence/build.txt
+          ./gradlew :hitel-local-soda-sdk:assembleDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --stacktrace 2>&1 | tee ../../../evidence/build.txt
       - name: Inspect signed APK
         run: |
           set -euo pipefail
           apk=$(find upstream/Android/src/app/build/outputs/apk/debug -name '*.apk' -print -quit)
           testapk=$(find upstream/Android/src/app/build/outputs/apk/androidTest -name '*.apk' -print -quit)
           test -n "$apk" && test -n "$testapk"
-          cp "$apk" dist/HITEL_Gallery_XR_Supertonic_Debug.apk
-          cp "$testapk" dist/HITEL_Gallery_XR_Supertonic_Test.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_XR_Supertonic_Debug.apk | tee evidence/signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_XR_Supertonic_Debug.apk | tee evidence/badging.txt
-          unzip -l dist/HITEL_Gallery_XR_Supertonic_Debug.apk > evidence/apk-files.txt
-          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          cp "$apk" dist/HITEL_Gallery_Local_SODA.apk
+          cp "$testapk" dist/HITEL_Gallery_Local_SODA_Test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_Local_SODA.apk | tee evidence/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_Local_SODA.apk | tee evidence/badging.txt
+          unzip -l dist/HITEL_Gallery_Local_SODA.apk > evidence/apk-files.txt
+          cp upstream/Android/src/hitel-local-soda-sdk/build/outputs/aar/hitel-local-soda-sdk-debug.aar dist/HITEL_Local_SODA_SDK.aar
+          (cd dist && sha256sum *.apk *.aar > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: gallery-managed-mlkit-debug-apks
+          name: gallery-local-soda-apks
           path: dist/
-      - name: Prepare PCM conversion tool
+      - name: Publish compiled test APK and SDK
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          ffmpeg -version | head -n 1
+          gh release create "gallery-local-soda-${GITHUB_RUN_ID}" dist/HITEL_Gallery_Local_SODA.apk dist/HITEL_Local_SODA_SDK.aar dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "HITEL Gallery Local SODA SDK" --notes "Compiled and signed Gallery APK; native SDK integrated. ARM64 end-to-end Gallery STT remains to be tested. Native final callback not certified." --prerelease
       - name: Enable KVM
         run: sudo chmod a+rw /dev/kvm
       - name: Install and exercise actual engine
@@ -85,9 +87,9 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
           emulator-boot-timeout: 600
-          script: bash gallery-xr-supertonic/device-test.sh && bash gallery-xr-supertonic/mlkit-device-test.sh
+          script: bash gallery-xr-supertonic/local-sdk/smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gallery-managed-mlkit-evidence
+          name: gallery-local-soda-evidence
           path: evidence/
