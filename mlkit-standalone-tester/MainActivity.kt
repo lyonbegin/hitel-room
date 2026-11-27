@@ -235,33 +235,73 @@ class MainActivity : Activity() {
         withClient { client ->
             if(check(client)!=FeatureStatus.AVAILABLE) { trace("STT_BLOCKED_MODEL_NOT_AVAILABLE"); return@withClient }
             trace("WARMUP_ENTER"); withTimeout(30000){client.warmup()}; trace("WARMUP_RETURN")
-            val fd=uri?.let { contentResolver.openFileDescriptor(it,"r") ?: error("Cannot open selected PCM") }
+            val pipe=uri?.let { ParcelFileDescriptor.createPipe() }
+            val read=pipe?.get(0)
+            val write=pipe?.get(1)
             try {
-                trace("AUDIO_SOURCE=${if(fd==null) "MIC" else "PFD raw16k mono s16le bytes="+fd.statSize}")
-                val request=speechRecognizerRequest { audioSource=fd?.let{AudioSource.fromPfd(it)} ?: AudioSource.fromMic() }
-                recognizing=true
-                var finals=0
-                trace("START_RECOGNITION_ENTER")
-                withTimeout(120000) {
-                    val stopper=if(fd!=null) launch {
-                        val duration=if(fd.statSize>0) (fd.statSize/32+1500).coerceIn(2000,100000) else 15000
-                        delay(duration); trace("PCM_STOP_ENTER"); client.stopRecognition(); trace("PCM_STOP_RETURN")
+                coroutineScope {
+                    trace("AUDIO_SOURCE=${if(uri==null) "MIC" else "PFD_PIPE raw16k mono s16le chunk=1024 bytes/32ms"}")
+                    val request=speechRecognizerRequest {
+                        audioSource=read?.let{AudioSource.fromPfd(it)} ?: AudioSource.fromMic()
+                    }
+                    recognizing=true
+                    var finals=0
+                    trace("START_RECOGNITION_ENTER")
+                    val producer=if(uri!=null && write!=null) launch(Dispatchers.IO) {
+                        var bytes=0L
+                        var chunks=0L
+                        val start=SystemClock.elapsedRealtime()
+                        try {
+                            ParcelFileDescriptor.AutoCloseOutputStream(write).use { sink ->
+                                val input=contentResolver.openInputStream(uri) ?: error("Cannot open raw PCM")
+                                input.use {
+                                    val buffer=ByteArray(1024)
+                                    while(isActive) {
+                                        var n=0
+                                        while(n<buffer.size) {
+                                            val count=it.read(buffer,n,buffer.size-n)
+                                            if(count<=0) break
+                                            n+=count
+                                        }
+                                        if(n==0) break
+                                        check(n%2==0) { "Invalid PCM: odd byte count" }
+                                        val due=start+bytes/32
+                                        delay((due-SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+                                        sink.write(buffer,0,n)
+                                        bytes+=n; chunks++
+                                        if(chunks==1L || chunks%32L==0L) withContext(Dispatchers.Main) {
+                                            trace("PCM_WRITE chunks=$chunks bytes=$bytes elapsed=${SystemClock.elapsedRealtime()-start}ms")
+                                        }
+                                        if(n<buffer.size) break
+                                    }
+                                    delay((start+bytes/32-SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+                                }
+                            }
+                            withContext(Dispatchers.Main) { trace("PCM_EOF chunks=$chunks bytes=$bytes"); client.stopRecognition(); trace("PCM_STOP_RETURN") }
+                        } catch(e:CancellationException) { throw e }
+                        catch(e:Exception) { withContext(Dispatchers.Main) { failure("PCM_PRODUCER",e) }; throw e }
                     } else null
                     try {
-                        client.startRecognition(request).takeWhile { response ->
-                            when(response) {
-                                is SpeechRecognizerResponse.PartialTextResponse -> trace("PARTIAL=${response.text}")
-                                is SpeechRecognizerResponse.FinalTextResponse -> { finals++; trace("FINAL=${response.text}") }
-                                is SpeechRecognizerResponse.ErrorResponse -> { failure("RECOGNITION_ERROR",response.e); throw response.e }
-                                is SpeechRecognizerResponse.CompletedResponse -> trace("COMPLETED_RESPONSE finals=$finals")
-                                else -> if(response !is SpeechRecognizerResponse.AudioLevelResponse) trace("RESPONSE=${response.javaClass.simpleName}")
-                            }
-                            response !is SpeechRecognizerResponse.CompletedResponse
-                        }.collect{}
-                    } finally { stopper?.cancel() }
+                        withTimeout(120000) {
+                            client.startRecognition(request).takeWhile { response ->
+                                when(response) {
+                                    is SpeechRecognizerResponse.PartialTextResponse -> trace("PARTIAL=${response.text}")
+                                    is SpeechRecognizerResponse.FinalTextResponse -> { finals++; trace("FINAL=${response.text}") }
+                                    is SpeechRecognizerResponse.ErrorResponse -> { failure("RECOGNITION_ERROR",response.e); throw response.e }
+                                    is SpeechRecognizerResponse.CompletedResponse -> trace("COMPLETED_RESPONSE finals=$finals")
+                                    else -> if(response !is SpeechRecognizerResponse.AudioLevelResponse) trace("RESPONSE=${response.javaClass.simpleName}")
+                                }
+                                response !is SpeechRecognizerResponse.CompletedResponse
+                            }.collect{}
+                        }
+                        trace("RECOGNITION_FLOW_END finalCount=$finals")
+                    } finally {
+                        runCatching { read?.close() }
+                        runCatching { write?.close() }
+                        producer?.cancel()
+                    }
                 }
-                trace("RECOGNITION_FLOW_END finalCount=$finals")
-            } finally { recognizing=false; fd?.close() }
+            } finally { recognizing=false; runCatching { read?.close() }; runCatching { write?.close() } }
         }
     }
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
