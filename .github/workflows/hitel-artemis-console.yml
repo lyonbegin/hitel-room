@@ -1,38 +1,22 @@
-name: HITEL ARTEMIS Console
-run-name: ${{ github.event_name == 'issues' && github.event.issue.title || (github.event_name == 'push' && 'HITEL ARTEMIS provider regression' || format('HITEL ARTEMIS · {0}', inputs.request_id)) }}
+name: ARTEMIS original HITEL API client
 on:
   push:
     branches: [main, feature/hitel-artemis-web2-api-20261129]
-    paths:
-      - 'hitel-artemis-console/hitel_*.py'
-      - 'hitel-artemis-console/install_hitel_provider.py'
-      - 'hitel-artemis-console/run_hitel_planner.py'
-      - 'hitel-artemis-console/test_*.py'
-      - 'hitel-artemis-console/web2_client.py'
-      - 'hitel-artemis-console/poll_progress.py'
-      - 'hitel-artemis-console/web2-api/**'
-      - '.github/workflows/hitel-artemis-console.yml'
-  issues:
-    types: [opened]
+    paths: ['hitel-artemis-console/**', '.github/workflows/hitel-artemis-console.yml']
   workflow_dispatch:
     inputs:
-      request_id:
-        description: Console request identifier
+      task_id:
+        description: Existing separately approved task ID on original HITEL API
         required: true
         type: string
       mission:
-        description: Public non-sensitive planning test goal
+        description: Public synthetic ARTEMIS goal only
         required: true
         type: string
 permissions:
   contents: read
-  id-token: write
-concurrency:
-  group: hitel-artemis-console
-  cancel-in-progress: false
 jobs:
   mission:
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event.issue.user.login == 'lyonbegin' && github.event.issue.author_association == 'OWNER' && startsWith(github.event.issue.title, 'HITEL ARTEMIS · ')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -42,21 +26,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validate public test request
-        if: github.event_name != 'push'
-        env:
-          MISSION: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.mission }}
-          REQUEST_ID: ${{ github.event_name == 'issues' && github.event.issue.title || inputs.request_id }}
-        run: |
-          python3 - <<'PY'
-          import os,re
-          assert re.fullmatch(r'[a-zA-Z0-9-]{8,64}',os.environ['REQUEST_ID'].removeprefix('HITEL ARTEMIS · '))
-          assert 1 <= len(os.environ['MISSION'].strip()) <= 1000
-          PY
-      - name: Verify extracted Web2 API and transport with offline fixtures
+      - name: Verify original API client contract
+        run: cd hitel-artemis-console && python -m unittest -v test_hitel_transport
+      - name: Read original API public state and event ledger (read only)
         run: |
           cd hitel-artemis-console
-          python -m unittest -v test_hitel_transport test_web2_client test_poll_progress
+          python - <<'PY'
+          from hitel_transport import read_json
+          base="universal/state/demo-events-001/"
+          s=read_json(base+"state.json")
+          e=read_json(base+"events.json")
+          assert s["status"]=="complete" and s["provider"]=="mock" and s["verified_ai_completed"]==0
+          assert any(x["payload"]["event"]=="project.completed" for x in e["events"])
+          print("Original API read verified; existing mock evidence is NOT live AI evidence")
+          PY
       - uses: actions/checkout@v4
         with:
           repository: google/artemis
@@ -64,79 +47,31 @@ jobs:
           path: upstream-artemis
           persist-credentials: false
       - uses: astral-sh/setup-uv@v6
-      - name: Prepare pinned ARTEMIS and install HITEL provider
+      - name: Install ARTEMIS client adapter
         run: |
           python hitel-artemis-console/install_hitel_provider.py upstream-artemis
           cd upstream-artemis
           uv sync --locked
-      - name: Verify ARTEMIS model adapter offline (not live AI)
+      - name: Verify ARTEMIS model adapter offline
         working-directory: upstream-artemis
         env:
           PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
           HITEL_ARTEMIS_PROVIDER: '1'
-        run: |
-          uv run --locked python -m unittest -v test_hitel_model
-          uv run --locked python - <<'PY'
-          from artemis.llm.router import ModelEndpoint, ModelFactory, ModelProvider
-          from hitel_model import HitelChatModel
-          assert isinstance(ModelFactory.get_model(ModelEndpoint(provider=ModelProvider.CUSTOM)), HitelChatModel)
-          from artemis.agents.planner.planner import validate_plan_format
-          assert validate_plan_format("- [ ] Inspect available capabilities")[0]
-          print("ARTEMIS provider factory and actual planner grammar integration verified offline")
-          PY
-      - name: Check live Web2 task approval (no API request)
-        if: github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push'
-        env:
-          HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
-        run: |
-          cd hitel-artemis-console
-          python - <<'PY'
-          from hitel_transport import approved_task, ApprovalError
-          try:
-              approved_task()
-          except ApprovalError as exc:
-              print("::error::LIVE BLOCKED: " + str(exc), flush=True)
-              raise SystemExit(1)
-          print("LIVE PREFLIGHT PASSED; actual response not yet verified", flush=True)
-          PY
-      - name: Run approved HITEL-backed ARTEMIS text plan
-        if: success() && (github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push')
+        run: uv run --locked python -m unittest -v test_hitel_model
+      - name: Use original HITEL API for approved public text plan
+        if: github.event_name == 'workflow_dispatch'
         working-directory: upstream-artemis
         env:
           PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
           HITEL_ARTEMIS_PROVIDER: '1'
-          HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
-          HITEL_MISSION: ${{ github.event_name == 'push' && 'Prepare a read-only plan to inspect Android network settings. Do not claim actual device execution.' || (github.event_name == 'issues' && github.event.issue.body || inputs.mission) }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          task_id: ${{ inputs.task_id }}
+          HITEL_MISSION: ${{ inputs.mission }}
         run: uv run --locked python "$GITHUB_WORKSPACE/hitel-artemis-console/run_hitel_planner.py"
-      - name: Upload public plan evidence
-        if: always() && (github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push')
+      - name: Upload verified plan
+        if: success() && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: artemis-console-result
           path: console-results/
-          if-no-files-found: warn
-          retention-days: 3
-      - name: Report integration scope
-        if: always()
-        run: |
-          echo '### ARTEMIS + HITEL AI' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Offline fixture success is not live AI success. The live route requires a separately approved HITEL task and uses no OpenAI or Gemini API key. Text planning only; no device execution or image inference.' >> "$GITHUB_STEP_SUMMARY"
-
-  progress:
-    name: Poll and report ARTEMIS progress
-    if: github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    timeout-minutes: 32
-    permissions:
-      contents: read
-      actions: read
-      issues: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Poll mission every 10 seconds and post changes
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPORT_ISSUE: '17'
-        run: python3 -u hitel-artemis-console/poll_progress.py
+          if-no-files-found: error

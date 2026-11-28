@@ -1,12 +1,9 @@
-# ARTEMIS Web2 API source integration
-Source: https://github.com/lyonbegin/hitel-scribd-runner/tree/24aed60fb99e7fc2ec3867521419a8ab51571bd8
-Source branch: feature/hitel-universal-ai-ui-api-20261127
-Exact commit: 24aed60fb99e7fc2ec3867521419a8ab51571bd8
-Source file: universal/engine.py. The transport functions http, get, submit, result and their constants/helpers were copied without functional changes into web2_client.py; hitel_transport.py imports this local module. The provided public API contract is archived in web2-api/API.md. No Scribd batch engine, watchdog, project records, state, user sessions or credentials are activated or required by this branch.
+# ARTEMIS — original HITEL Universal AI API client only
 
-The original API is an asynchronous text service; no server implementation, browser worker source or image upload contract is included in the supplied source. This branch does not duplicate the remote server. Live calls still require a new authorized ARTEMIS task and approved GitHub OIDC producer, as documented by the original API. No existing task is reused. No OpenAI/Gemini key or browser token input. Offline regression on push; real tests are not simulated as success. No FunctionGemma changes.
+Original repository: https://github.com/lyonbegin/hitel-scribd-runner/tree/feature/hitel-universal-ai-ui-api-20261127
 
-The deployed Pages site and main are intentionally unchanged by this branch-specific import.
+Original API guide: https://github.com/lyonbegin/hitel-scribd-runner/blob/feature/hitel-universal-ai-ui-api-20261127/docs/HITEL_UNIVERSAL_AI_PUBLIC_API_GUIDE_KO.md
 
-## Original contract configuration
-The ARTEMIS adapter reads the proposed dedicated task_id from `web2-api/task.json` and uses the original repository variable `HITEL_ALLOW_LIVE`, not ARTEMIS-specific approval variables. The proposed ID is not evidence of server registration or approval. The server operator must provision the task and authorize this repository/workflow/ref as an OIDC producer using an approved administration interface. The supplied API guide has no task-provisioning endpoint. Do not set a live flag to evade that requirement. No browser token or paid model API key is used.
+ARTEMIS sends requests exclusively through the documented GitHub Contents/Actions endpoints on the original repository. No copied engine, watchdog, separate backend, direct relay calls, or local approval flags. The original repository source is not modified by this client.
+
+The documented input is a new project JSON with provider=hitel and an already approved dedicated task_id; result is original state.json and results.csv, with events.json used for progress. The original workflow owns execution and approval. Do not reuse an unrelated task. The existing authorized GitHub connection is required for writes; runtime GH_TOKEN follows the original API guide. The GitHub Actions repository-scoped default token cannot be assumed to write to another repository. No browser token field, no OpenAI/Gemini key. This public target accepts only public synthetic data. Actual AI execution remains unverified until the original API returns a verified response. Push runs test the client and read existing public mock evidence only.

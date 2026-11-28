@@ -1,49 +1,36 @@
-import os, tempfile, unittest, json
-from pathlib import Path
+import base64, json, unittest, os
 from unittest.mock import patch
-from hitel_transport import complete, approved_task, ContractError, ApprovalError
-
-class Stub:
-    def __init__(self, uncertain=False, invalid=False):
-        self.j=None; self.posts=0; self.uncertain=uncertain; self.invalid=invalid
-    def get(self,p):
-        if p.startswith("/requests/"):return self.j
-        return dict(self.j,status="completed",result_ready=True,chatgpt_send_confirmed=True,assistant_reply_observed=not self.invalid)
-    def submit(self,p,b,text):
-        self.posts+=1
-        if self.uncertain:raise OSError("uncertain")
-        self.j=dict(request_id=b["request_id"],job_id="job_test",room_id="room_test")
-        return self.j
-    def result(self,job,r):return "verified test answer"
-
-class TransportTests(unittest.TestCase):
-    def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.config=Path(self.tmp.name)/"task.json"
-        self.config.write_text(json.dumps({"task_id":"artemis-test"}),encoding="utf-8")
-        self.config_patch=patch("hitel_transport.TASK_CONFIG",self.config)
-        self.config_patch.start();self.addCleanup(self.config_patch.stop)
-        self.env=patch.dict(os.environ,{"HITEL_ALLOW_LIVE":"true","ACTIONS_ID_TOKEN_REQUEST_URL":"test","ACTIONS_ID_TOKEN_REQUEST_TOKEN":"test","GITHUB_RUN_ID":"123","GITHUB_RUN_ATTEMPT":"1","RUNNER_TEMP":self.tmp.name},clear=True)
-        self.env.start();self.addCleanup(self.env.stop)
-    def test_reconcile_no_duplicate(self):
-        s=Stub()
-        self.assertEqual(complete("one",transport=s),"verified test answer")
-        self.assertEqual(complete("one",transport=s),"verified test answer")
-        self.assertEqual(s.posts,1)
-    def test_uncertain_no_resend(self):
-        s=Stub(uncertain=True)
-        with self.assertRaises(OSError):complete("one",transport=s)
-        with self.assertRaises(ContractError):complete("one",transport=s)
-        self.assertEqual(s.posts,1)
-    def test_reject_unverified(self):
-        with self.assertRaises(ContractError):complete("one",transport=Stub(invalid=True))
-    def test_approval_gate(self):
-        self.config.write_text(json.dumps({"task_id":"scribd-18109"}),encoding="utf-8")
-        with self.assertRaises(ApprovalError):approved_task()
-    def test_original_live_flag(self):
-        os.environ.pop("HITEL_ALLOW_LIVE")
-        with self.assertRaisesRegex(ApprovalError, "HITEL_ALLOW_LIVE"):
-            approved_task()
-    def test_size_limit(self):
-        with self.assertRaises(ContractError):complete("x"*24001,transport=Stub())
-if __name__=="__main__":unittest.main()
+import hitel_transport as c
+class ClientTests(unittest.TestCase):
+    def test_project(self):
+        p=c.project_for("public synthetic request","artemis-approved","1")
+        self.assertEqual(p["provider"],"hitel")
+        self.assertEqual(p["task_id"],"artemis-approved")
+        self.assertEqual(p,c.project_for("public synthetic request","artemis-approved","1"))
+    def test_register_original_endpoint(self):
+        calls=[]
+        def api(method,path,body=None,token=None):
+            calls.append((method,path,body))
+            return {"commit":{"sha":"test"}} if method=="PUT" else None
+        p=c.project_for("public","artemis-approved","1")
+        c.register(p,call=api,token="fixture")
+        self.assertEqual(calls[1][0],"PUT")
+        self.assertTrue(calls[1][1].startswith("/contents/universal/projects/"))
+        self.assertEqual(calls[1][2]["branch"],c.BRANCH)
+        self.assertEqual(json.loads(base64.b64decode(calls[1][2]["content"])),p)
+    def test_no_overwrite(self):
+        p=c.project_for("public","artemis-approved","1")
+        def api(method,path,body=None,token=None):
+            self.assertEqual(method,"GET")
+            return {"encoding":"base64","content":base64.b64encode(json.dumps(p).encode()).decode()}
+        self.assertIsNone(c.register(p,call=api,token="fixture"))
+    def test_mock_not_live(self):
+        with self.assertRaises(c.ContractError): c.verified_answer({"status":"complete","provider":"mock","total":1,"verified_ai_completed":0},b"")
+    def test_verified_live(self):
+        s={"status":"complete","provider":"hitel","total":1,"mock_completed":0,"verified_ai_completed":1,"results":[{"record_id":"turn-1","answer":"ok"}]}
+        self.assertEqual(c.verified_answer(s,b"record_id,answer\nturn-1,ok\n"),"ok")
+        with self.assertRaises(c.ContractError): c.verified_answer(s,b"record_id,answer\nturn-1,wrong\n")
+    def test_approval_not_invented(self):
+        with patch.dict(os.environ,{},clear=True):
+            with self.assertRaises(c.ApprovalError): c.approved_task()
+if __name__=="__main__": unittest.main()
