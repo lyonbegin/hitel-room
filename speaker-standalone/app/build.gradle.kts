@@ -23,4 +23,8 @@ dependencies {
   // IXIO speechSDK and native libraries are staged from the original IXIO APK.
   // The HITEL14 public Sherpa-ONNX dependency is explicitly prohibited.
   implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
+  implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
+  implementation("org.bouncycastle:bcprov-jdk15to18:1.87")
+  implementation("org.bouncycastle:bcpkix-jdk15to18:1.87")
+  implementation("org.conscrypt:conscrypt-android:2.9.0")
 }

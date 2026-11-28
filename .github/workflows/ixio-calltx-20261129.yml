@@ -228,8 +228,8 @@ jobs:
           grep -Fx 'assets/ixio/bpe.vocab' /tmp/ixio-standalone-contents.txt
           ! grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/ixio-standalone-contents.txt
           mkdir -p speaker-standalone/dist
-          cp "$APK" speaker-standalone/dist/HITEL_IXIO_V14_InCall_PCM_TX_20261129.apk
-          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_V14_InCall_PCM_TX_20261129.apk > SHA256.txt)
+          cp "$APK" speaker-standalone/dist/HITEL_IXIO_V14_InCall_PCM_TX_Local_20261129.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_V14_InCall_PCM_TX_Local_20261129.apk > SHA256.txt)
           echo PASS_ORIGINAL_IXIO_SDK_ONLY_EXPERIMENTAL_APK
       - name: Upload original IXIO STT experimental APK as Actions artifact ONLY
         if: always()
@@ -258,7 +258,7 @@ jobs:
           #!/usr/bin/env bash
           set -euo pipefail
           PKG=app.hitel.recording.ixio.stablevirtual
-          APK=speaker-standalone/dist/HITEL_IXIO_V14_InCall_PCM_TX_20261129.apk
+          APK=speaker-standalone/dist/HITEL_IXIO_V14_InCall_PCM_TX_Local_20261129.apk
           echo "ABIS=$(adb shell getprop ro.product.cpu.abilist)" | tee replay-qa/device.txt
           echo "NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)" | tee -a replay-qa/device.txt
           grep -F 'arm64-v8a' replay-qa/device.txt
@@ -331,11 +331,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=ixio-v14-incall-pcm-tx-${GITHUB_SHA:0:7}-20261129
-          APK=HITEL_IXIO_V14_InCall_PCM_TX_20261129.apk
+          TAG=ixio-v14-incall-pcm-tx-local-${GITHUB_SHA:0:7}-20261129
+          APK=HITEL_IXIO_V14_InCall_PCM_TX_Local_20261129.apk
           cd speaker-standalone/dist
           sha256sum -c SHA256.txt
-          gh release create "$TAG" -R lyonbegin/hitel-room --target "$GITHUB_SHA" --prerelease --latest=false --title "IXIO V14 manual In-call PCM TX test APK" --notes "Exact source $GITHUB_SHA. JVM and emulator regression passed. Original model not included; real inference timing requires device test." "$APK" SHA256.txt
+          gh release create "$TAG" -R lyonbegin/hitel-room --target "$GITHUB_SHA" --prerelease --latest=false --title "IXIO V14 In-call PCM TX local bootstrap" --notes "Exact source $GITHUB_SHA. JVM and emulator regression passed. Original model not included; real inference timing requires device test." "$APK" SHA256.txt
           mkdir -p /tmp/ixio-publish-verify
           gh release download "$TAG" -R lyonbegin/hitel-room -p "$APK" -D /tmp/ixio-publish-verify
           cmp "$APK" "/tmp/ixio-publish-verify/$APK"
