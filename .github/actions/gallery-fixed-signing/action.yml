@@ -1,0 +1,33 @@
+name: Restore fixed HITEL Gallery signing identity
+description: Restore the one persistent debug keystore and fail closed if its certificate differs.
+inputs:
+  keystore-base64:
+    description: Base64 keystore from encrypted repository secret HITEL_GALLERY_KEYSTORE_B64
+    required: true
+  expected-sha256:
+    description: Public SHA256 of the signing certificate from repository variable HITEL_GALLERY_SIGNER_SHA256
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Restore and verify fixed signing key
+      shell: bash
+      env:
+        KEYSTORE_B64: ${{ inputs.keystore-base64 }}
+        EXPECTED_SHA256: ${{ inputs.expected-sha256 }}
+      run: |
+        set -euo pipefail
+        umask 077
+        test -n "$KEYSTORE_B64" || { echo "::error::Fixed Gallery signing secret is missing"; exit 1; }
+        expected=$(printf '%s' "$EXPECTED_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+        [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Invalid or missing fixed signing certificate SHA256"; exit 1; }
+        mkdir -p "$HOME/.android"
+        temp=$(mktemp "$HOME/.android/gallery-signing.XXXXXX")
+        trap 'rm -f "$temp"' EXIT
+        printf '%s' "$KEYSTORE_B64" | base64 --decode > "$temp"
+        actual=$(keytool -exportcert -keystore "$temp" -storepass android -alias androiddebugkey | sha256sum | cut -d' ' -f1)
+        [[ "$actual" == "$expected" ]] || { echo "::error::Signing key fingerprint mismatch"; exit 1; }
+        mv -f "$temp" "$HOME/.android/debug.keystore"
+        chmod 600 "$HOME/.android/debug.keystore"
+        echo "FIXED_GALLERY_SIGNER_SHA256=$actual"
+        echo "HITEL_GALLERY_EXPECTED_SHA256=$expected" >> "$GITHUB_ENV"
