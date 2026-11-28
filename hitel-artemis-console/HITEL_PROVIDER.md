@@ -1,8 +1,9 @@
-# ARTEMIS + existing HITEL Universal AI
-The vendor files are pinned to 69d8e1298e31f2b40b8273c5c08d5aa3c405dd2a. No original task or credentials are copied or activated. The integration reuses existing authorized transport functions: submit, get and hash-verified result. No new AI server or OpenAI/Gemini key is needed by the HITEL route. GitHub Actions OIDC is automatic; the user-facing HTML requires no API key.
+# ARTEMIS Web2 API source integration
+Source: https://github.com/lyonbegin/hitel-scribd-runner/tree/24aed60fb99e7fc2ec3867521419a8ab51571bd8
+Source branch: feature/hitel-universal-ai-ui-api-20261127
+Exact commit: 24aed60fb99e7fc2ec3867521419a8ab51571bd8
+Source file: universal/engine.py. The transport functions http, get, submit, result and their constants/helpers were copied without functional changes into web2_client.py; hitel_transport.py imports this local module. The provided public API contract is archived in web2-api/API.md. No Scribd batch engine, watchdog, project records, state, user sessions or credentials are activated or required by this branch.
 
-The operator must approve a new ARTEMIS task at the existing service, authorize lyonbegin/hitel-room and its intended workflow/ref for that task, and set repository variables HITEL_ARTEMIS_TASK_ID (artemis-*), HITEL_ARTEMIS_ALLOW_LIVE=true. No existing Scribd or other project task may be reused. Without approval the live job fails explicitly. No fallback to Gemini or OpenAI.
+The original API is an asynchronous text service; no server implementation, browser worker source or image upload contract is included in the supplied source. This branch does not duplicate the remote server. Live calls still require a new authorized ARTEMIS task and approved GitHub OIDC producer, as documented by the original API. No existing task is reused. No OpenAI/Gemini key or browser token input. Offline regression on push; real tests are not simulated as success. No FunctionGemma changes.
 
-Text-only model supports LangChain messages, JSON tool calls, schema validation and structured output. It rejects image blocks; the existing transport exposes no image upload contract. The console currently tests the original Planner prompt and plan grammar via the model factory, not a complete mobile device mission. Full PlannerNode/Operator/Explorer/Checker screen execution requires an authorized image contract or an explicitly redesigned observation interface. No FunctionGemma work in this change.
-
-Original Universal AI code is vendored for coordinated maintenance; do not launch the copied source queue/watchdog against the original repository. Existing console emulator code remains as legacy source but is not selected by the new HITEL workflow. Test evidence distinguishes offline fixture from live response.
+The deployed Pages site and main are intentionally unchanged by this branch-specific import.

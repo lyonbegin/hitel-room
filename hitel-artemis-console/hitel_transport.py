@@ -4,14 +4,11 @@ import json
 import os
 import pathlib
 import re
-import sys
 import tempfile
 import threading
 import time
 
-VENDOR = pathlib.Path(__file__).resolve().parent / "vendor" / "universal"
-sys.path.insert(0, str(VENDOR))
-import engine as upstream
+import web2_client as upstream
 
 _lock = threading.Lock()
 

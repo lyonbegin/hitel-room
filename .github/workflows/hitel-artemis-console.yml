@@ -2,13 +2,14 @@ name: HITEL ARTEMIS Console
 run-name: ${{ github.event_name == 'issues' && github.event.issue.title || (github.event_name == 'push' && 'HITEL ARTEMIS provider regression' || format('HITEL ARTEMIS · {0}', inputs.request_id)) }}
 on:
   push:
-    branches: [main]
+    branches: [main, feature/hitel-artemis-web2-api-20261129]
     paths:
       - 'hitel-artemis-console/hitel_*.py'
       - 'hitel-artemis-console/install_hitel_provider.py'
       - 'hitel-artemis-console/run_hitel_planner.py'
       - 'hitel-artemis-console/test_*.py'
-      - 'hitel-artemis-console/vendor/**'
+      - 'hitel-artemis-console/web2_client.py'
+      - 'hitel-artemis-console/web2-api/**'
       - '.github/workflows/hitel-artemis-console.yml'
   issues:
     types: [opened]
@@ -51,11 +52,10 @@ jobs:
           assert re.fullmatch(r'[a-zA-Z0-9-]{8,64}',os.environ['REQUEST_ID'].removeprefix('HITEL ARTEMIS · '))
           assert 1 <= len(os.environ['MISSION'].strip()) <= 1000
           PY
-      - name: Verify vendored engine and transport with offline fixtures
+      - name: Verify extracted Web2 API and transport with offline fixtures
         run: |
           cd hitel-artemis-console
-          python -m unittest discover -s vendor/universal -p 'test_*.py' -v
-          python -m unittest -v test_hitel_transport
+          python -m unittest -v test_hitel_transport test_web2_client
       - uses: actions/checkout@v4
         with:
           repository: google/artemis
