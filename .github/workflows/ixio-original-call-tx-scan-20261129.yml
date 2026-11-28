@@ -1,0 +1,34 @@
+name: IXIO original DEX call TX read-only scan
+on:
+  push:
+    branches: [analysis/ixio-original-call-tx-20261129]
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download pinned existing analysis APKs and verify hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/ixio
+          gh release download ixio-qa-original-flow-trace-20261122 -R lyonbegin/hitel-room -p '*.apk' -D /tmp/ixio
+          cd /tmp/ixio
+          echo 'adf4affccc9f38e9c8cce4a3a7b6848a12fa0903dda9ad3a064ebfcd9de875bb  IXIO_HITEL_QA_OriginalFlowTrace_20261122.apk' | sha256sum -c -
+          echo '25463e9553299371ad0ca37f558c0c232593ff6daf7659c61f27fee3777295e8  IXIO_Recorder_Companion_OriginalFlowTrace_20261122.apk' | sha256sum -c -
+      - name: Install static analysis library
+        run: pip install androguard==4.1.3
+      - name: Scan permissions and actual DEX callsites
+        run: |
+          set -o pipefail
+          python tools/ixio/scan_call_tx.py /tmp/ixio/*.apk | tee /tmp/ixio/call-tx-scan.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ixio-original-call-tx-scan
+          path: /tmp/ixio/call-tx-scan.txt
