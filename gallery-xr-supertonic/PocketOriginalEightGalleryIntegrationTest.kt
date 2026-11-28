@@ -26,6 +26,12 @@ class PocketOriginalEightGalleryIntegrationTest {
     val dest=File(model.getPath(context))
     check(dest.parentFile!!.isDirectory || dest.parentFile!!.mkdirs())
     source.copyTo(dest,overwrite=true)
+    val pack=File(context.filesDir,"pocketprobe/PocketTTS_Korean_100M.zip")
+    assertTrue("Missing external Korean pack",pack.isFile)
+    assertFalse("Unexpected bundled Korean model",HitelPocketEightModel.installed(context))
+    assertEquals(dest,HitelPocketEightModel.install(context,dest))
+    HitelPocketEightModel.importPack(context,android.net.Uri.fromFile(pack))
+    assertTrue(HitelPocketEightModel.installed(context))
     val engine=MediaPipeTtsEngine(context)
     try {
       val meta=engine.availableModels.single { it.modelId == id }
