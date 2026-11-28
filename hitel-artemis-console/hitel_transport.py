@@ -60,9 +60,11 @@ def complete(prompt, *, timeout=145, transport=upstream, sleep=time.sleep, clock
             j = transport.submit({"task_id": task}, {"request_id": req, "room_name": "HITEL-ARTEMIS-" + digest[:24]}, prompt)
         identity(j, req)
     job, room = j["job_id"], j["room_id"]
+    print("HITEL job accepted or reconciled; polling status", flush=True)
     deadline = clock() + timeout
     while clock() < deadline:
         response = identity(transport.get("/jobs/" + job), req, job, room)
+        print("HITEL poll: " + str(response.get("status")), flush=True)
         if response.get("status") == "completed":
             if not all(response.get(k) is True for k in ("result_ready", "chatgpt_send_confirmed", "assistant_reply_observed")):
                 raise ContractError("HITEL response lacks completion evidence")

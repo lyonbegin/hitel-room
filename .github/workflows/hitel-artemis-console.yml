@@ -9,6 +9,7 @@ on:
       - 'hitel-artemis-console/run_hitel_planner.py'
       - 'hitel-artemis-console/test_*.py'
       - 'hitel-artemis-console/web2_client.py'
+      - 'hitel-artemis-console/poll_progress.py'
       - 'hitel-artemis-console/web2-api/**'
       - '.github/workflows/hitel-artemis-console.yml'
   issues:
@@ -55,7 +56,7 @@ jobs:
       - name: Verify extracted Web2 API and transport with offline fixtures
         run: |
           cd hitel-artemis-console
-          python -m unittest -v test_hitel_transport test_web2_client
+          python -m unittest -v test_hitel_transport test_web2_client test_poll_progress
       - uses: actions/checkout@v4
         with:
           repository: google/artemis
@@ -83,18 +84,34 @@ jobs:
           assert validate_plan_format("- [ ] Inspect available capabilities")[0]
           print("ARTEMIS provider factory and actual planner grammar integration verified offline")
           PY
+      - name: Check live Web2 task approval (no API request)
+        if: github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push'
+        env:
+          HITEL_ARTEMIS_ALLOW_LIVE: ${{ vars.HITEL_ARTEMIS_ALLOW_LIVE }}
+          HITEL_ARTEMIS_TASK_ID: ${{ vars.HITEL_ARTEMIS_TASK_ID }}
+        run: |
+          cd hitel-artemis-console
+          python - <<'PY'
+          from hitel_transport import approved_task, ApprovalError
+          try:
+              approved_task()
+          except ApprovalError as exc:
+              print("::error::LIVE BLOCKED: " + str(exc), flush=True)
+              raise SystemExit(1)
+          print("LIVE PREFLIGHT PASSED; actual response not yet verified", flush=True)
+          PY
       - name: Run approved HITEL-backed ARTEMIS text plan
-        if: github.event_name != 'push'
+        if: success() && (github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push')
         working-directory: upstream-artemis
         env:
           PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
           HITEL_ARTEMIS_PROVIDER: '1'
           HITEL_ARTEMIS_ALLOW_LIVE: ${{ vars.HITEL_ARTEMIS_ALLOW_LIVE }}
           HITEL_ARTEMIS_TASK_ID: ${{ vars.HITEL_ARTEMIS_TASK_ID }}
-          HITEL_MISSION: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.mission }}
+          HITEL_MISSION: ${{ github.event_name == 'push' && 'Prepare a read-only plan to inspect Android network settings. Do not claim actual device execution.' || (github.event_name == 'issues' && github.event.issue.body || inputs.mission) }}
         run: uv run --locked python "$GITHUB_WORKSPACE/hitel-artemis-console/run_hitel_planner.py"
       - name: Upload public plan evidence
-        if: always() && github.event_name != 'push'
+        if: always() && (github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push')
         uses: actions/upload-artifact@v4
         with:
           name: artemis-console-result
@@ -106,3 +123,22 @@ jobs:
         run: |
           echo '### ARTEMIS + HITEL AI' >> "$GITHUB_STEP_SUMMARY"
           echo 'Offline fixture success is not live AI success. The live route requires a separately approved HITEL task and uses no OpenAI or Gemini API key. Text planning only; no device execution or image inference.' >> "$GITHUB_STEP_SUMMARY"
+
+  progress:
+    name: Poll and report ARTEMIS progress
+    if: github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Poll mission every 10 seconds and post changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT_ISSUE: '17'
+        run: python3 -u hitel-artemis-console/poll_progress.py
