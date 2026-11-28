@@ -1,0 +1,36 @@
+name: Publish exact final PCM512 APK d853e12
+on:
+  push:
+    branches: [feature/ixio-v14-pcm512-paced-20261129]
+    paths: ['.github/workflows/ixio-pcm512-publish-exact-d853e12-20261129.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download exact final build and publish to unique immutable tag
+        run: |
+          set -euo pipefail
+          REPO=lyonbegin/hitel-room
+          SHA=d853e12b0ee6cba489fdef771b03d7e8802af91c
+          RUN=46164671674
+          TAG=ixio-v14-pcm512-32ms-d853e12-20261129
+          APK=HITEL_IXIO_V14_PCM512_32ms_20261129.apk
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .head_sha)" = "$SHA"
+          mkdir dist
+          gh run download "$RUN" -R "$REPO" -n IXIO-V14-PCM512-32ms-ARM64-20261129 -D dist
+          cd dist
+          sha256sum -c SHA256.txt
+          unzip -t "$APK" >/dev/null
+          gh release create "$TAG" -R "$REPO" --target "$SHA" --prerelease --latest=false --title "IXIO V14 PCM512 32ms final test APK d853e12" --notes "Exact source d853e12; JVM framer and pacing test passed; Android real model and emulator test pending. Original model not included." "$APK" SHA256.txt
+          URL=$(gh release view "$TAG" -R "$REPO" --json assets --jq '.assets[] | select(.name=="HITEL_IXIO_V14_PCM512_32ms_20261129.apk") | .url')
+          test -n "$URL"
+          mkdir -p /tmp/ixio-release-check
+          gh release download "$TAG" -R "$REPO" -p "$APK" -D /tmp/ixio-release-check
+          cmp "$APK" "/tmp/ixio-release-check/$APK"
+          echo "PASS_EXACT_RELEASE_APK_BYTES $URL"
