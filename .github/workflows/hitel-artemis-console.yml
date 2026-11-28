@@ -1,0 +1,108 @@
+name: HITEL ARTEMIS Console
+run-name: HITEL ARTEMIS · ${{ inputs.request_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Console request identifier
+        required: true
+        type: string
+      mission:
+        description: Public, non-sensitive Android emulator test goal
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: hitel-artemis-console
+  cancel-in-progress: false
+jobs:
+  mission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Validate public test request
+        env:
+          MISSION: ${{ inputs.mission }}
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          assert re.fullmatch(r'[a-zA-Z0-9-]{8,64}',os.environ['REQUEST_ID'])
+          assert 1 <= len(os.environ['MISSION'].strip()) <= 1000
+          PY
+      - uses: actions/checkout@v4
+        with:
+          repository: google/artemis
+          ref: 351ca8422f7b5b54e80a9c1ce03a222e02415b6b
+          path: upstream-artemis
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Prepare ARTEMIS
+        working-directory: upstream-artemis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          uv sync --locked
+          uv run artemis --help
+      - name: Check model secret and emulator acceleration
+        id: ready
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          test -n "$GEMINI_API_KEY" || { echo "::error::GEMINI_API_KEY is missing"; exit 1; }
+          if [[ -c /dev/kvm ]]; then sudo chmod a+rw /dev/kvm || true; fi
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then echo 'disable=false' >> "$GITHUB_OUTPUT"; else echo 'disable=true' >> "$GITHUB_OUTPUT"; fi
+          mkdir -p "$GITHUB_WORKSPACE/console-results"
+      - name: Run ARTEMIS on disposable Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HITEL_MISSION: ${{ inputs.mission }}
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-linux-hw-accel: ${{ steps.ready.outputs.disable }}
+          emulator-boot-timeout: 1200
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: |
+            set -eu
+            cd "$GITHUB_WORKSPACE/upstream-artemis"
+            adb shell pm list packages -3 > "$GITHUB_WORKSPACE/console-results/third-party-packages.txt"
+            set +e
+            timeout 600 uv run artemis run "This is a disposable, unauthenticated test emulator. Work only on harmless read-only navigation and inspection of installed apps. No login, credentials, purchases, messages, account creation, app installation, permissions changes or shell shortcuts. Stop if any are needed. User test goal: $HITEL_MISSION" --profile pro --explorer-pro-mode pro --standalone > /tmp/artemis-console.log 2>&1
+            result=$?
+            set -e
+            export ARTEMIS_EXIT_CODE="$result"
+            python3 - <<'PY'
+            import os,json,pathlib
+            p=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'console-results'/'result.json'
+            code=int(os.environ['ARTEMIS_EXIT_CODE'])
+            p.write_text(json.dumps({'cli_exit_code':code,'execution':'upstream ARTEMIS on disposable emulator','goal_independently_verified':False,'functiongemma_connected':False},indent=2))
+            PY
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|ResumedActivity' > "$GITHUB_WORKSPACE/console-results/foreground.txt" || true
+            exit "$result"
+      - name: Upload public non-sensitive evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artemis-console-result
+          path: console-results/
+          if-no-files-found: warn
+          retention-days: 3
+      - name: Write status summary
+        if: always()
+        run: |
+          echo '### ARTEMIS Console' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This run uses the pinned upstream ARTEMIS emulator path. CLI success is not independent goal verification. FunctionGemma adapter is not connected.' >> "$GITHUB_STEP_SUMMARY"
