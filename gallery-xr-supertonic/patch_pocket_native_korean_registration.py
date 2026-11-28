@@ -22,7 +22,19 @@ def patch_native(raw, arch):
     end = rx['p_filesz']
     limit = loads[1][1]['p_offset']
     cave = (end+15)&~15
-    assert limit-cave>=512 and not any(raw[end:limit]), "Nonempty or insufficient RX segment padding"
+    # The pinned x86 linker fills unmapped alignment padding with INT3.
+    # Verify the entire proposed region is outside every file-backed
+    # section and segment, not merely that its bytes are zero.
+    assert limit-cave>=512
+    for sec in elf.iter_sections():
+        if sec['sh_type']=='SHT_NOBITS' or not sec['sh_size']: continue
+        a,b=sec['sh_offset'],sec['sh_offset']+sec['sh_size']
+        assert b<=cave or a>=cave+512,(sec.name,hex(a),hex(b))
+    for i,seg in enumerate(elf.iter_segments()):
+        if i==index or not seg['p_filesz']: continue
+        a,b=seg['p_offset'],seg['p_offset']+seg['p_filesz']
+        assert b<=cave or a>=cave+512,(seg['p_type'],hex(a),hex(b))
+    print("RX_UNMAPPED_PADDING",arch,hex(cave),hex(limit),sorted(set(raw[cave:cave+512])))
     data = bytearray(raw)
     ks=Ks(ka,mode)
     def asm(addr, code):
