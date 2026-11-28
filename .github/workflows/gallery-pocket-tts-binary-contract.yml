@@ -1,0 +1,68 @@
+name: Gallery Pocket TTS binary contract analysis
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-binary-contract.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download pinned native and model files
+        run: |
+          set -euo pipefail
+          mkdir -p evidence inputs
+          python -m pip install huggingface_hub
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_fr_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('seastar105/pocket-tts-korean-100m','model.safetensors',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+          curl -fL --retry 3 https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-audio/1.2.0/tasks-audio-1.2.0.aar -o inputs/audio.aar
+          unzip -q inputs/audio.aar -d inputs/aar
+      - name: Inspect PKTW and PKTV fields and tensor record boundaries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib, struct, re, json, collections
+          p=pathlib.Path('inputs/pocket_tts_fr_int8.litertlm')
+          with p.open('rb') as f:
+              f.seek(81920)
+              w=f.read(120090818)
+              f.seek(123305984)
+              v=f.read(3784712)
+          assert w.startswith(b'PKTW'),w[:16]
+          assert v.startswith(b'PKTV'),v[:16]
+          def hexdump(x):
+              return '\n'.join(f'{i:06x}: '+x[i:i+16].hex(' ')+'  '+''.join(chr(b) if 32<=b<127 else '.' for b in x[i:i+16]) for i in range(0,len(x),16))
+          pathlib.Path('evidence/pktw-head.txt').write_text(hexdump(w[:512]))
+          pathlib.Path('evidence/pktv-head.txt').write_text(hexdump(v[:512]))
+          with open('inputs/model.safetensors','rb') as f:
+              h=json.loads(f.read(struct.unpack('<Q',f.read(8))[0]))
+          names=[]
+          for m in re.finditer(rb'(?:flow_lm|mimi)\.[A-Za-z0-9_.]+',w):
+              s=m.group().decode()
+              if len(s)>200: continue
+              off=m.start()
+              names.append({'offset':off,'name':s,'ko':h.get(s),'before_hex':w[max(0,off-16):off].hex(),'after_hex':w[m.end():m.end()+80].hex()})
+          pathlib.Path('evidence/tensor-records.json').write_text(json.dumps(names,indent=2))
+          pathlib.Path('evidence/record-summary.txt').write_text(str(len(names))+' names\n'+str(sum(x['ko'] is not None for x in names))+' exact Korean names\n')
+          PY
+          lib=inputs/aar/jni/x86_64/libmediapipe_tasks_audio_jni.so
+          strings -a -t x "$lib" | grep -iE 'Unsupported PocketTTS language|pocket_tts_weights|PKTW|PKTV|sp_tokenizer_|ko-KR|nl-NL|pocket_tts_.*litertlm|num_layers|LanguageForVoiceName' > evidence/native-string-offsets.txt || true
+          readelf -W -S -l "$lib" > evidence/native-layout.txt
+          nm -D -C "$lib" | grep -iE 'PocketTts|LanguageForVoiceName' > evidence/native-exported-functions.txt || true
+          cat evidence/record-summary.txt
+          cat evidence/pktw-head.txt
+          cat evidence/pktv-head.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pocket-tts-binary-contract
+          path: evidence/
