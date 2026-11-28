@@ -97,6 +97,7 @@ for p in sorted(res.rglob("*")):
 for p in sorted(res.glob("values*/strings.xml")):
     s=p.read_text()
     s=re.sub(r'<string\s+name="([^"]+)"[^>]*>[\s\S]*?</string>',lambda m:"" if prefix.match(m.group(1)) and m.group(1) not in resrefs else m.group(0),s)
+    s=re.sub(r"(?m)^[ \t]+$", "", s)
     write(p,s)
 # Dependency removal is conditional on remaining imports, preserving vision
 # segmentation and every speech/model library regardless of feature count.
