@@ -586,3 +586,34 @@ s=s.replace(anchor, '''    val buffer=com.google.ai.edge.gallery.customtasks.xrl
 '''+anchor,1)
 test.write_text(s)
 print("SUPERTONIC_REALTIME_CLAUSE_POLICY_APPLIED")
+
+# Exercise actual native PCM on a simulated growing XR reply, not just a batch string.
+s=test.read_text()
+anchor="    } finally { engine.release() }"
+assert s.count(anchor)==1
+s=s.replace(anchor, '''      val live=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrMixedSpeechBuffer()
+      val mixedCfg=TtsConfig(modelId=SupertonicTtsEngine.ID,languageCode="na",voiceId="0")
+      engine.prepare(mixedCfg)
+      val first=live.offer("안녕하세요. Hello",false,0)
+      assertEquals(listOf("안녕하세요."),first)
+      val started=android.os.SystemClock.elapsedRealtime()
+      var firstPcmAt=-1L
+      val pcm=File(context.filesDir,"supertonic-test-incremental.pcm")
+      pcm.outputStream().use { output ->
+        (engine.synthesize(first.single(),mixedCfg.copy(supertonicSteps=4)) as TtsOutput.AudioStream).flow.collect { bytes ->
+          if(bytes.isNotEmpty() && firstPcmAt<0) firstPcmAt=android.os.SystemClock.elapsedRealtime()
+          output.write(bytes)
+        }
+        assertTrue("first native PCM before final snapshot",firstPcmAt>=started)
+        assertTrue("first PCM bytes",pcm.length()>0)
+        val finalAt=android.os.SystemClock.elapsedRealtime()
+        android.util.Log.i("HITEL_SUPERTONIC","FIRST_PCM_BEFORE_FINAL_INPUT_PASS firstMs="+(firstPcmAt-started)+" finalMs="+(finalAt-started))
+        val tail=live.offer("안녕하세요. Hello world. 한국어와 English 혼합 시험입니다.",true,finalAt)
+        assertTrue(tail.isNotEmpty())
+        for(part in tail) {
+          (engine.synthesize(part,mixedCfg.copy(supertonicSteps=8)) as TtsOutput.AudioStream).flow.collect { output.write(it) }
+        }
+      }
+      assertTrue("incremental PCM length",pcm.length()>24000)
+'''+anchor,1)
+test.write_text(s)
