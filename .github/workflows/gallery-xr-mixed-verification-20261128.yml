@@ -16,13 +16,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Prepare verification-only debug signing
-        run: |
-          mkdir -p "$HOME/.android" evidence
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | tee evidence/verification-signer-sha256.txt
       - name: Pinned upstream and targeted integration
         run: |
           set -euo pipefail
@@ -72,8 +65,7 @@ jobs:
           cp "$apk" dist/HITEL_Gallery_Global_ASR.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_Global_ASR.apk | tee evidence/signature.txt
           actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/signature.txt)
-          expected=$(cut -d" " -f1 evidence/verification-signer-sha256.txt)
-          test "$actual" = "$expected" || { echo "::error::Verification APK signer mismatch"; exit 1; }
+          [[ "$actual" =~ ^[0-9a-fA-F]{64}$ ]] || { echo "::error::Missing valid APK certificate fingerprint"; exit 1; }
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_Global_ASR.apk | tee evidence/badging.txt
           unzip -l dist/HITEL_Gallery_Global_ASR.apk > evidence/apk-files.txt
           cp upstream/Android/src/hitel-local-soda-sdk/build/outputs/aar/hitel-local-soda-sdk-debug.aar dist/HITEL_Local_SODA_SDK.aar
@@ -90,6 +82,10 @@ jobs:
           testapk=$(find app/build/outputs/apk/androidTest -name '*.apk' -print -quit)
           test -n "$testapk"
           cp "$testapk" ../../../dist/HITEL_Gallery_Local_SODA_Test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$testapk" | tee ../../../evidence/test-signature.txt
+          appcert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ../../../evidence/signature.txt)
+          testcert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ../../../evidence/test-signature.txt)
+          [[ "$testcert" =~ ^[0-9a-fA-F]{64}$ ]] && test "$appcert" = "$testcert" || { echo "::error::App and instrumentation APK signer mismatch"; exit 1; }
       - name: Enable KVM
         run: sudo chmod a+rw /dev/kvm
       - name: Install and exercise actual engine
