@@ -1,0 +1,36 @@
+name: Trace Pocket TTS native locale dispatch on Android
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-native-xref.yml','gallery-xr-supertonic/trace_pocket_native_locales.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        arch: [x86_64, arm64-v8a]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Acquire exact Android native SDK and trace disassembly
+        run: |
+          set -euo pipefail
+          mkdir -p inputs evidence
+          python -m pip install capstone pyelftools
+          curl -fL --retry 3 https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-audio/1.2.0/tasks-audio-1.2.0.aar -o inputs/audio.aar
+          unzip -q inputs/audio.aar "jni/${{ matrix.arch }}/*" -d inputs
+          lib="inputs/jni/${{ matrix.arch }}/libmediapipe_tasks_audio_jni.so"
+          sha256sum "$lib" > evidence/native-sha.txt
+          python gallery-xr-supertonic/trace_pocket_native_locales.py "$lib" evidence/xrefs.txt
+          grep -E '^XREF |^XREF_COUNT' evidence/xrefs.txt | head -100 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pocket-native-xref-${{ matrix.arch }}
+          path: evidence/
