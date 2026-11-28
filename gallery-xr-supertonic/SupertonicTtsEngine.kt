@@ -27,6 +27,7 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
   companion object {
     const val ID = "sherpa_supertonic_3"
     const val NAME = "Supertonic 3 (TTS)"
+    const val MIXED_LANGUAGE_CODE = "na"
     const val URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2"
     const val SHA = "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427"
     const val SIZE = 128774318L
@@ -157,8 +158,8 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
       lock.withLock {
         val native=engine ?: throw TtsServiceError.EngineUnavailable("Supertonic not prepared")
         val effective=config ?: prepared ?: throw TtsServiceError.EngineUnavailable("No config")
-        val lang=Locale.forLanguageTag(effective.languageCode ?: "ko-KR").language
-        require(LANGUAGES.any { Locale.forLanguageTag(it).language==lang }) { "Unsupported language: $lang" }
+        val lang=if(effective.languageCode==MIXED_LANGUAGE_CODE) MIXED_LANGUAGE_CODE else Locale.forLanguageTag(effective.languageCode ?: "ko-KR").language
+        require(lang==MIXED_LANGUAGE_CODE || LANGUAGES.any { Locale.forLanguageTag(it).language==lang }) { "Unsupported language: $lang" }
         val sid=(effective.voiceId?.toIntOrNull() ?: 0).coerceIn(0,native.numSpeakers()-1)
         val rate=native.sampleRate()
         val resampler=PcmResampler(rate)
@@ -166,6 +167,7 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
         var samplesOut=0L
         val producer=this
         try {
+          Log.i(TAG,"SYNTHESIS_BEGIN lang=$lang sid=$sid chars="+text.length)
           native.generateWithConfigAndCallback(text,GenerationConfig(sid=sid,speed=effective.speed ?: 1f,numSteps=8,extra=mapOf("lang" to lang)), NativeAudioCallback { samples ->
             if(!producer.isActive || epoch.get()!=jobEpoch) 0
             else {
