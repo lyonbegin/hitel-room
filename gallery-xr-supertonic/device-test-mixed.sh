@@ -40,8 +40,8 @@ for locale in ['ko-KR','en-US','na','incremental']:
 PY
 test "$status" = 0
 grep -F 'OK (1 test)' evidence/instrumentation.txt
-grep -F 'SYNTHESIS_OK lang=ko' evidence/logcat.txt
-grep -F 'SYNTHESIS_OK lang=en' evidence/logcat.txt
+grep -F 'HUD_NO_TAG_NO_LENGTH_GATE_PASS' evidence/logcat.txt
+if grep -E 'SYNTHESIS_BEGIN lang=(ko|en)( |$)' evidence/logcat.txt; then exit 1; fi
 grep -F 'SYNTHESIS_OK lang=na' evidence/logcat.txt
 grep -F 'INCREMENTAL_CLAUSE_BUFFER_PASS' evidence/logcat.txt
 grep -F 'FIRST_PCM_BEFORE_FINAL_INPUT_PASS' evidence/logcat.txt

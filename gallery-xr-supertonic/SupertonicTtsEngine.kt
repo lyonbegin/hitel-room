@@ -146,7 +146,8 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
             numThreads=2,provider="cpu",debug=false)))
           Log.i(TAG,"ENGINE_READY rate=${engine!!.sampleRate()} speakers=${engine!!.numSpeakers()}")
         }
-        prepared=config
+        prepared=config.copy(languageCode=MIXED_LANGUAGE_CODE)
+        Log.i(TAG,"ENGINE_PREPARE lang=na requested=${config.languageCode} sid=${config.voiceId} instance=${System.identityHashCode(engine)}")
         mutableStatus.value=TtsServiceStatus.Ready
       } catch(e: Exception) { mutableStatus.value=TtsServiceStatus.Failed(e); throw e }
     }
@@ -158,8 +159,7 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
       lock.withLock {
         val native=engine ?: throw TtsServiceError.EngineUnavailable("Supertonic not prepared")
         val effective=config ?: prepared ?: throw TtsServiceError.EngineUnavailable("No config")
-        val lang=if(effective.languageCode==MIXED_LANGUAGE_CODE) MIXED_LANGUAGE_CODE else Locale.forLanguageTag(effective.languageCode ?: "ko-KR").language
-        require(lang==MIXED_LANGUAGE_CODE || LANGUAGES.any { Locale.forLanguageTag(it).language==lang }) { "Unsupported language: $lang" }
+        val lang=MIXED_LANGUAGE_CODE
         val sid=(effective.voiceId?.toIntOrNull() ?: 0).coerceIn(0,native.numSpeakers()-1)
         val rate=native.sampleRate()
         val resampler=PcmResampler(rate)
@@ -167,13 +167,14 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
         var samplesOut=0L
         val producer=this
         try {
-          Log.i(TAG,"SYNTHESIS_BEGIN lang=$lang sid=$sid steps=${effective.supertonicSteps ?: 8} chars="+text.length)
+          Log.i(TAG,"SYNTHESIS_BEGIN lang=$lang sid=$sid steps=${effective.supertonicSteps ?: 8} chars="+text.length+" instance="+System.identityHashCode(native)+" t="+android.os.SystemClock.elapsedRealtime())
           native.generateWithConfigAndCallback(text,GenerationConfig(sid=sid,speed=effective.speed ?: 1f,numSteps=effective.supertonicSteps ?: 8,extra=mapOf("lang" to lang)), NativeAudioCallback { samples ->
             if(!producer.isActive || epoch.get()!=jobEpoch) 0
             else {
               val pcm=resampler.convert(samples)
               if(pcm.isNotEmpty()) {
                 // Block only the native producer on bounded-channel backpressure.
+                if(samplesOut==0L) Log.i(TAG,"FIRST_PCM lang=$lang sid=$sid t="+android.os.SystemClock.elapsedRealtime())
                 val sent=runBlocking { runCatching { producer.send(pcm) }.isSuccess }
                 if(!sent) 0 else { samplesOut+=pcm.size/2; if(epoch.get()==jobEpoch) 1 else 0 }
               } else 1

@@ -552,9 +552,9 @@ print("PATCH_APPLIED",len(langs),"languages")
 # Route the existing XR incremental inference callback into its existing FIFO player.
 shutil.copy2(here/"XrMixedSpeechBuffer.kt",base/"customtasks/xrlanguageteacher/models/XrMixedSpeechBuffer.kt")
 replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDialogueFormatter","import com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrMixedSpeechBuffer\nimport com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.MultilingualTtsSegment\nimport com.google.ai.edge.gallery.services.tts.TtsModelIdentifier\nimport com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDialogueFormatter")
-replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","      var pendingSentenceLength = 0","      var pendingSentenceLength = 0\n      val mixedSpeech = if (selectedTtsModelID.value == TtsModelIdentifier.SHERPA_SUPERTONIC_3) XrMixedSpeechBuffer() else null\n      fun enqueueMixedReply(raw: String, done: Boolean) {\n        val buffer = mixedSpeech ?: return\n        for (part in buffer.offer(raw, done, android.os.SystemClock.elapsedRealtime())) {\n          val sent = ttsChannel?.trySend(MultilingualTtsSegment(text = part, languageCode = \"na\", isTargetLanguage = false))\n          if (sent?.isSuccess == true) Log.i(TAG, \"XR_MIXED_DELTA chars=${part.length} done=$done\")\n          else Log.w(TAG, \"XR_MIXED_DELTA_CHANNEL_CLOSED\")\n        }\n      }")
-replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","        pendingSentenceLength =\n          flushRemainingTtsSentence(","        if (mixedSpeech != null) {\n          enqueueMixedReply(if (streamingState.hasReplyOpenTag) streamingState.rawReplyContent else parsed.replyWithTargetTags, true)\n          finishStreamingTts()\n          ttsFinishedForReply = true\n          return\n        }\n        pendingSentenceLength =\n          flushRemainingTtsSentence(")
-replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","            if (!ttsFinishedForReply) {\n              if (streamingState.hasReplyOpenTag && !sawReplyOpenTag) {","            if (!ttsFinishedForReply && mixedSpeech != null) {\n              // Do not speak a provisional preamble before the schema's reply tag.\n              if (streamingState.hasReplyOpenTag) enqueueMixedReply(streamingState.rawReplyContent, false)\n            } else if (!ttsFinishedForReply) {\n              if (streamingState.hasReplyOpenTag && !sawReplyOpenTag) {")
+replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","      var pendingSentenceLength = 0","      var pendingSentenceLength = 0\n      val mixedSpeech = if (selectedTtsModelID.value == TtsModelIdentifier.SHERPA_SUPERTONIC_3) XrMixedSpeechBuffer() else null\n      fun enqueueMixedReply(raw: String, done: Boolean) {\n        val buffer = mixedSpeech ?: return\n        for (part in buffer.offer(raw, done, android.os.SystemClock.elapsedRealtime())) {\n          val sent = ttsChannel?.trySend(MultilingualTtsSegment(text = part, languageCode = \"na\", isTargetLanguage = false))\n          if (sent?.isSuccess == true) Log.i(TAG, \"XR_MIXED_DELTA chars=${part.length} done=$done t=${android.os.SystemClock.elapsedRealtime()}\")\n          else Log.w(TAG, \"XR_MIXED_DELTA_CHANNEL_CLOSED\")\n        }\n      }")
+replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","        pendingSentenceLength =\n          flushRemainingTtsSentence(","        if (mixedSpeech != null) {\n          enqueueMixedReply(streamingState.replyWithTargetTags.ifEmpty { parsed.replyWithTargetTags }, true)\n          Log.i(TAG, \"XR_HUD_INPUT_CLOSED t=${android.os.SystemClock.elapsedRealtime()}\")\n          finishStreamingTts()\n          ttsFinishedForReply = true\n          return\n        }\n        pendingSentenceLength =\n          flushRemainingTtsSentence(")
+replace("customtasks/xrlanguageteacher/viewmodels/XrLanguageTeacherLessonController.kt","            if (!ttsFinishedForReply) {\n              if (streamingState.hasReplyOpenTag && !sawReplyOpenTag) {","            if (!ttsFinishedForReply && mixedSpeech != null) {\n              Log.i(TAG, \"XR_HUD_INPUT chars=${streamingState.replyWithTargetTags.length} done=$done t=${android.os.SystemClock.elapsedRealtime()}\")\n              enqueueMixedReply(streamingState.replyWithTargetTags, false)\n            } else if (!ttsFinishedForReply) {\n              if (streamingState.hasReplyOpenTag && !sawReplyOpenTag) {")
 replace("customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsEngineManager.kt","    languageCode = resolvedTag,\n    voiceId = PersonaVoices.voiceIdFor(modelId, persona, resolvedTag),","    languageCode = if (modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3) \"na\" else resolvedTag,\n    voiceId = PersonaVoices.voiceIdFor(modelId, persona, resolvedTag),")
 replace("customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsCoordinator.kt","  val channel = Channel<MultilingualTtsSegment>(capacity = 64)","  val channel = Channel<MultilingualTtsSegment>(capacity =\n    if (selectedTtsModelID.value == TtsModelIdentifier.SHERPA_SUPERTONIC_3) Channel.UNLIMITED else 64)")
 s=test.read_text()
@@ -615,5 +615,48 @@ s=s.replace(anchor, '''      val live=com.google.ai.edge.gallery.customtasks.xrl
         }
       }
       assertTrue("incremental PCM length",pcm.length()>24000)
+'''+anchor,1)
+test.write_text(s)
+
+# Single mixed-mode preparation and replay; preserve other engines.
+manager="customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsEngineManager.kt"
+replace(manager,"    for (tag in requiredTags) {\n      val config =",'''    val preparationTags = if (modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3) listOf("na") else requiredTags
+    for (tag in preparationTags) {
+      val config =''')
+replace(manager,"    voiceId = PersonaVoices.voiceIdFor(modelId, persona, resolvedTag),",'''    voiceId = PersonaVoices.voiceIdFor(modelId, persona, if (modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3) "na" else resolvedTag),''')
+coord="customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsCoordinator.kt"
+replace(coord,"  val segments =\n    XrLanguageTeacherDialogueFormatter.parseMultilingualSegments(\n      text = dialogueWithTargetTags,",'''  if (selectedTtsModelID.value == TtsModelIdentifier.SHERPA_SUPERTONIC_3) {
+    val plain = XrLanguageTeacherDialogueFormatter.stripTargetAndHtmlTags(dialogueWithTargetTags)
+    if (plain.isNotBlank()) speakSegments(listOf(MultilingualTtsSegment(text = plain, languageCode = "na", isTargetLanguage = false)), persona, source = TtsPlaybackSource.DIALOGUE)
+    return
+  }
+  val segments =
+    XrLanguageTeacherDialogueFormatter.parseMultilingualSegments(
+      text = dialogueWithTargetTags,''')
+replace(coord,"  val ttsSegments =\n    XrLanguageTeacherDialogueFormatter.dialogueSegmentsToMultilingualTtsSegments(",'''  if (selectedTtsModelID.value == TtsModelIdentifier.SHERPA_SUPERTONIC_3) {
+    val plain = segments.joinToString("") { it.text }
+    if (plain.isNotBlank()) speakSegments(listOf(MultilingualTtsSegment(text = plain, languageCode = "na", isTargetLanguage = false)), persona, source = TtsPlaybackSource.DIALOGUE)
+    return
+  }
+  val ttsSegments =
+    XrLanguageTeacherDialogueFormatter.dialogueSegmentsToMultilingualTtsSegments(''')
+replace(coord,"          val config =\n            if (canPipelineOnSameDirectEngine)",'''          if (baseConfig.modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3) Log.i(TAG, "XR_SUPERTONIC_DEQUEUE lang="+baseConfig.languageCode+" sid="+baseConfig.voiceId+" chars="+cleanSpoken.length+" filler="+segment.isFiller+" t="+android.os.SystemClock.elapsedRealtime())
+          val config =
+            if (canPipelineOnSameDirectEngine)''')
+replace(coord,"pcmAudioStreamPlayer.playStream(pcmFlow = prepared.pcmChannel.receiveAsFlow())",'''pcmAudioStreamPlayer.playStream(pcmFlow = prepared.pcmChannel.receiveAsFlow(), onFirstWrite = if (prepared.modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3) ({ Log.i(TAG, "XR_SUPERTONIC_AUDIO_WRITE filler="+prepared.isFiller+" t="+android.os.SystemClock.elapsedRealtime()) }) else null)''')
+player="customtasks/xrlanguageteacher/services/PcmAudioStreamPlayer.kt"
+replace(player,"suspend fun playStream(pcmFlow: Flow<ByteArray>): Boolean {","suspend fun playStream(pcmFlow: Flow<ByteArray>, onFirstWrite: (() -> Unit)? = null): Boolean {")
+replace(player,"        totalBytesWritten += written.toLong()","        if (totalBytesWritten == 0L && written > 0) onFirstWrite?.invoke()\n        totalBytesWritten += written.toLong()")
+s=test.read_text()
+anchor='    android.util.Log.i("HITEL_SUPERTONIC","INCREMENTAL_CLAUSE_BUFFER_PASS")'
+assert s.count(anchor)==1
+s=s.replace(anchor,'''    val hud=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrMixedSpeechBuffer()
+    val formatter=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrLanguageTeacherDialogueFormatter
+    fun hudText(raw:String)=formatter.extractStreamingReply(raw).replyWithTargetTags
+    assertTrue(hud.offer(hudText("점심 은요, <target>lunch</target>"),false,0).isEmpty())
+    assertEquals(listOf("점심 은요, lunch 를 먹을까요?"),hud.offer(hudText("점심 은요, <target>lunch</target> 를 먹을까요?"),false,1))
+    assertEquals(listOf("What should we eat?"),hud.offer(hudText("점심 은요, <target>lunch</target> 를 먹을까요? What should we eat?"),false,2))
+    assertTrue(hud.offer(hudText("점심 은요, <target>lunch</target> 를 먹을까요? What should we eat?"),true,3).isEmpty())
+    android.util.Log.i("HITEL_SUPERTONIC","HUD_NO_TAG_NO_LENGTH_GATE_PASS")
 '''+anchor,1)
 test.write_text(s)
