@@ -1,0 +1,37 @@
+name: Gallery obsolete duplicate APK artifact cleanup
+on:
+  push:
+    branches: [maintenance/gallery-artifact-prune-20261129]
+    paths: ['.github/workflows/gallery-obsolete-artifact-prune.yml']
+  workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
+jobs:
+  prune:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Remove only explicitly identified superseded APK archives
+        run: |
+          set -euo pipefail
+          removed=0
+          while read -r id run name; do
+            endpoint="repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+            metadata=$(gh api "$endpoint")
+            jq -e --arg name "$name" --argjson run "$run" --argjson id "$id" '.id == $id and .name == $name and .workflow_run.id == $run and .expired == false' <<<"$metadata" >/dev/null
+            bytes=$(jq -r .size_in_bytes <<<"$metadata")
+            gh api --method DELETE "$endpoint"
+            removed=$((removed+bytes))
+            echo "DELETED_ARTIFACT id=$id run=$run bytes=$bytes name=$name"
+          done <<'LIST'
+          15269219853 46160369990 gallery-xr-mixed-test-apks
+          15269331320 46159022313 gallery-xr-mixed-test-apks
+          15269108010 46158893288 gallery-xr-mixed-test-apks
+          15217475631 46035662026 gallery-local-soda-apks
+          15218140092 46035287578 gallery-local-soda-apks
+          LIST
+          echo "TOTAL_DELETED_BYTES=$removed"
+          echo "Current APK releases, signing identity, source commits, latest successful artifacts and all evidence retained."
