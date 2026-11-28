@@ -1,0 +1,75 @@
+name: Isolate Pocket TTS native silence from locale and converter issues
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-native-pcm-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pocket-tts-korean-pktw
+          run-id: 46110312046
+          github-token: ${{ github.token }}
+          path: inputs/weights
+      - uses: actions/download-artifact@v4
+        with:
+          name: korean-100m-voice-reference
+          run-id: 46111907120
+          github-token: ${{ github.token }}
+          path: inputs/voices
+      - name: Prepare baseline and isolated candidate
+        run: |
+          set -euo pipefail
+          mkdir -p evidence bundles
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler libegl1 libgles2 libgl1 libglx0
+          python -m pip install mediapipe==1.2.3 huggingface_hub numpy sentencepiece
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_en_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_fr_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('seastar105/pocket-tts-korean-100m','tokenizer.model',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.pktv --out bundles/pocket_tts_int8.litertlm --mode standalone-alias
+      - name: Native waveform and tokenizer controls
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee evidence/pcm-diagnostic.txt
+          import numpy as np, mediapipe as mp, sentencepiece as spm, wave, traceback
+          p=spm.SentencePieceProcessor(model_file='inputs/tokenizer.model')
+          texts={'latin':'Hello world.','korean':'안녕하세요. 한국어 음성 합성 시험입니다.','mixed':'Hello. 안녕하세요.'}
+          for name,text in texts.items(): print('TOKENIZER',name,p.encode(text,out_type=int),p.encode(text,out_type=str),flush=True)
+          for name,path in [('official-en','inputs/pocket_tts_en_int8.litertlm'),('official-fr','inputs/pocket_tts_fr_int8.litertlm'),('korean-alias','bundles/pocket_tts_int8.litertlm')]:
+              locale='fr-FR' if name=='official-fr' else 'en-US'
+              voice='estelle' if name=='official-fr' else 'alba'
+              try:
+                  opt=mp.tasks.audio.TextToSpeechOptions(base_options=mp.tasks.BaseOptions(model_asset_path=path),default_voice_id=voice,default_locale=locale)
+                  with mp.tasks.audio.TextToSpeech.create_from_options(opt) as t:
+                      for tag,text in (texts.items() if name=='korean-alias' else [('latin','Bonjour le monde.' if name=='official-fr' else 'Hello world.')]):
+                          r=t.synthesize(text,voice_id=voice,locale=locale)
+                          x=np.asarray(r.samples,dtype=np.float32).reshape(-1)
+                          rms=float(np.sqrt(np.mean(x*x))) if x.size else None
+                          print('PCM_STATS',name,tag,'samples',len(x),'rms',rms,'minmax',(float(x.min()),float(x.max())) if x.size else None,'nonzero',int(np.count_nonzero(x)),flush=True)
+                          if x.size:
+                              with wave.open('evidence/'+name+'-'+tag+'.wav','wb') as f:
+                                  f.setnchannels(1);f.setsampwidth(2);f.setframerate(r.sample_rate_hz)
+                                  f.writeframes((np.clip(x,-1,1)*32767).astype('<i2').tobytes())
+              except Exception: traceback.print_exc()
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pocket-native-pcm-diagnostic
+          path: evidence/
