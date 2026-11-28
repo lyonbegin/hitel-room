@@ -1,0 +1,161 @@
+name: Original single-engine Pocket TTS eight-language native registration probe
+on:
+  push:
+    branches: [analysis/gallery-pocket-original-native-ko-20261128]
+    paths: ['.github/workflows/gallery-pocket-original-native-ko-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reserve disk
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android/sdk/ndk /usr/local/lib/android/sdk/cmake
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pocket-korean-bf16-probe
+          run-id: 46112454252
+          github-token: ${{ github.token }}
+          path: inputs/weights
+      - uses: actions/download-artifact@v4
+        with:
+          name: korean-100m-voice-reference
+          run-id: 46111907120
+          github-token: ${{ github.token }}
+          path: inputs/voices
+      - name: Pinned upstream and preserve all existing integrations
+        run: |
+          set -euo pipefail
+          mkdir -p evidence dist
+          git init upstream
+          git -C upstream remote add origin https://github.com/google-ai-edge/gallery.git
+          git -C upstream fetch --depth=1 origin 9cb31cf47c21b0ed76901ff589a52b509803edfa
+          git -C upstream checkout --detach FETCH_HEAD
+          python3 gallery-xr-supertonic/patch.py upstream
+          python3 gallery-xr-supertonic/integrate_local_sdk.py upstream
+          python3 gallery-xr-supertonic/integrate_mobile_actions_local.py upstream
+          python3 gallery-xr-supertonic/integrate_global_asr.py upstream
+          python3 gallery-xr-supertonic/manage_mlkit_sdk.py upstream | tee evidence/managed-sdk.txt
+          testdir=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/services/tts
+          mkdir -p "$testdir"
+          cp gallery-xr-supertonic/PocketTtsOriginalEightLanguageProbe.kt "$testdir/"
+          git -C upstream add -N .
+          git -C upstream diff --check
+      - name: Download dependencies and candidate bundles
+        run: |
+          set -euo pipefail
+          mkdir -p upstream/Android/src/app/libs
+          aar=upstream/Android/src/app/libs/sherpa-onnx-2.0.3.aar
+          curl -fL --retry 3 https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-2.0.3.aar -o "$aar"
+          echo "4c766e2e74c9d33d595338c21fe3b305c73ba45d47e96a235675c33142a2ec50  $aar" | sha256sum -c -
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          python -m pip install huggingface_hub numpy keystone-engine pyelftools
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          for file in ['pocket_tts_fr_int8.litertlm','pocket_tts_int8.litertlm']:
+              hf_hub_download('litert-community/pocket-tts',file,revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('seastar105/pocket-tts-korean-100m','tokenizer.model',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+          python - <<'PY'
+          import pathlib,numpy as np
+          p=pathlib.Path('inputs/voices/layer-kv-time.pktv')
+          b=p.read_bytes()
+          x=np.frombuffer(b[8:],dtype='<f2').astype('<f4').view('<u4')
+          c=((x+0x7fff+((x>>16)&1))>>16).astype('<u2')
+          p.with_suffix('.bf16').write_bytes(b[:8]+c.tobytes())
+          PY
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.bf16 --out bundles/layer-kv-time/pocket_tts_int8.litertlm --mode standalone-alias
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.bf16 --out bundles/eight/pocket_tts_int8.litertlm --mode multilingual-ko
+          mkdir -p bundles/baseline
+          mv inputs/pocket_tts_int8.litertlm bundles/baseline/pocket_tts_int8.litertlm
+      - name: Build patched registration-only AAR and point original Gallery at it
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-audio/1.2.0/tasks-audio-1.2.0.aar -o inputs/tasks-audio.aar
+          python gallery-xr-supertonic/patch_pocket_native_korean_registration.py inputs/tasks-audio.aar upstream/Android/src/app/libs/tasks-audio-1.2.0-ko.aar
+          python - <<'PY'
+          from pathlib import Path
+          root=Path('upstream/Android/src')
+          p=root/'app/build.gradle.kts'
+          s=p.read_text()
+          import re
+          matches=re.findall(r'^.*implementation\(.*(?:tasks.audio|tasksAudio|mediapipe.audio|mediapipeAudio).*\).*$',s,re.M|re.I)
+          print("AUDIO_DEPENDENCY_LINES",matches)
+          assert len(matches)==1,matches
+          s=s.replace(matches[0],'    implementation(files("libs/tasks-audio-1.2.0-ko.aar"))',1)
+          p.write_text(s)
+          PY
+      - name: Compile original Gallery and native probe
+        working-directory: upstream/Android/src
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --stacktrace
+          cp "$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)" ../../../dist/gallery-ci-only.apk
+          cp "$(find app/build/outputs/apk/androidTest -name '*.apk' -print -quit)" ../../../dist/gallery-ci-probe.apk
+      - name: Free transient files and enable KVM
+        run: |
+          rm -rf upstream litert inputs "$HOME/.cache/huggingface" "$HOME/.cache/pip" "$HOME/.gradle/caches" "$HOME/.gradle/wrapper"
+          rm -rf bundles/layer-kv-time
+          df -h
+          sudo chmod a+rw /dev/kvm
+      - name: Test one native object with English French Korean repeated switching
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
+          emulator-boot-timeout: 600
+          script: |
+            set -e
+            pkg=com.google.aiedge.gallery
+            adb install -r dist/gallery-ci-only.apk
+            adb install -r -t dist/gallery-ci-probe.apk
+            adb shell run-as "$pkg" mkdir -p files/pocketprobe/eight
+            adb push bundles/eight/pocket_tts_int8.litertlm /data/local/tmp/pocket-probe.litertlm
+            adb shell "run-as $pkg cp /data/local/tmp/pocket-probe.litertlm files/pocketprobe/eight/pocket_tts_int8.litertlm"
+            adb shell rm /data/local/tmp/pocket-probe.litertlm
+            adb logcat -c
+            adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.PocketTtsOriginalEightLanguageProbe "$pkg.test/androidx.test.runner.AndroidJUnitRunner" | tee evidence/instrumentation.txt
+            adb logcat -d > evidence/logcat.txt
+            grep 'ORIGINAL_NATIVE_' evidence/logcat.txt || true
+            grep -F 'OK (1 test)' evidence/instrumentation.txt
+            for i in 0 1 2 3 4 5; do
+              adb exec-out run-as "$pkg" cat "files/pocketprobe/eight-$i.pcm" > "evidence/eight-$i.pcm"
+            done
+      - name: Independent speech recognition and latency evidence
+        run: |
+          python -m pip install faster-whisper
+          python - <<'PY'
+          from faster_whisper import WhisperModel
+          import wave,pathlib
+          model=WhisperModel('small',device='cpu',compute_type='int8',cpu_threads=4)
+          languages=['en','fr','en','ko','en','ko']
+          expected=['Hello world.','Bonjour tout le monde.','Hello world.','안녕하세요. 한국어 음성 합성 시험입니다.','Hello world.','안녕하세요. 한국어 음성 합성 시험입니다.']
+          norm=lambda s: ''.join(c.lower() for c in s if c.isalnum())
+          for i,lang in enumerate(languages):
+              with wave.open(f'evidence/eight-{i}.wav','wb') as f:
+                  f.setnchannels(1);f.setsampwidth(2);f.setframerate(24000);f.writeframes(pathlib.Path(f'evidence/eight-{i}.pcm').read_bytes())
+              segs,_=model.transcribe(f'evidence/eight-{i}.wav',language=lang,beam_size=5,condition_on_previous_text=False,vad_filter=False,temperature=0)
+              text=''.join(x.text for x in segs).strip()
+              print('ORIGINAL_NATIVE_ASR',i,lang,text)
+              assert norm(text)==norm(expected[i]),(i,text)
+          PY
