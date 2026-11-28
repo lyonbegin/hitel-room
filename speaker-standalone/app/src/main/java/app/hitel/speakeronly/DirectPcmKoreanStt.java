@@ -184,7 +184,8 @@ final class DirectPcmKoreanStt {
     Method release=null;
     long nonZero=0;
     StringBuilder committed=new StringBuilder();
-    String lastDisplayed="";
+    IxioLiveCaptionState liveCaption=new IxioLiveCaptionState();
+    long segmentId=1;
     long lastLog=0;
     long inferCalls=0,slowestInferenceMs=0;
     boolean endpointSeen=false;
@@ -284,16 +285,32 @@ final class DirectPcmKoreanStt {
             if(committed.length()>0)committed.append("\n");
             committed.append(partial);
             log.event("STT","IXIO_FINAL_SEGMENT","text",partial,
-              "samples",recognizedSamples);
-            listener.caption(committed.toString(),true);
+              "samples",recognizedSamples,"segmentId",segmentId);
           }
-          partial="";
-        }
-        String shown=committed.length()==0?partial:
-          (partial.isEmpty()?committed.toString():committed+"\n"+partial);
-        if(!shown.equals(lastDisplayed)){
-          lastDisplayed=shown;
-          listener.caption(shown,false);
+          log.event("CAPTION","IXIO_ENDPOINT_CLEAR_DISPLAY",
+            "segmentId",segmentId,"inference",inferCalls,
+            "finalTextChars",partial.length(),
+            "previousDisplayChars",liveCaption.current().length(),
+            "preservedFinalTranscriptChars",committed.length(),
+            "clearImmediately",true);
+          liveCaption.onEndpoint();
+          // Full history goes to the *diagnostic file only*, never the UI.
+          // Null means clear the UI without rewriting the final transcript
+          // when the SDK emitted an empty endpoint.
+          listener.caption(partial.isEmpty()?null:committed.toString(),true);
+          segmentId++;
+        }else{
+          // The SDK returns a mutable WHOLE-CURRENT-UTTERANCE hypothesis,
+          // not word deltas. Display only this current utterance; do not
+          // merge older committed segments into real-time captions.
+          String changed=liveCaption.onPartial(partial);
+          if(changed!=null){
+            log.event("CAPTION","IXIO_PARTIAL_CHANGED_DISPLAY_NOW",
+              "segmentId",segmentId,"inference",inferCalls,
+              "displayChars",changed.length(),"text",changed,
+              "historicalTranscriptOnScreen",false);
+            listener.caption(changed,false);
+          }
         }
         long now=SystemClock.elapsedRealtime();
         if(now-lastLog>=2500){
@@ -329,16 +346,30 @@ final class DirectPcmKoreanStt {
             if(!t.isEmpty()){
               if(committed.length()>0)committed.append("\n");
               committed.append(t);
-              listener.caption(committed.toString(),true);
-              log.event("STT","IXIO_FINAL_SEGMENT","text",t,"tail",true);
+              log.event("STT","IXIO_FINAL_SEGMENT",
+                "text",t,"tail",true,"segmentId",segmentId);
             }
+            log.event("CAPTION","IXIO_ENDPOINT_CLEAR_DISPLAY",
+              "segmentId",segmentId,"tail",true,"finalTextChars",t.length(),
+              "previousDisplayChars",liveCaption.current().length());
+            liveCaption.onEndpoint();
+            listener.caption(t.isEmpty()?null:committed.toString(),true);
+            segmentId++;
             break;
           }
-          if(!t.isEmpty()&&!t.equals(lastDisplayed)){
-            lastDisplayed=t;
-            listener.caption(committed.length()==0?t:committed+"\n"+t,false);
+          String updated=liveCaption.onPartial(t);
+          if(updated!=null){
+            log.event("CAPTION","IXIO_TAIL_PARTIAL_CHANGED_DISPLAY_NOW",
+              "segmentId",segmentId,"text",updated,"displayChars",updated.length());
+            listener.caption(updated,false);
           }
         }
+      }
+      if(liveCaption.hasVisibleText()){
+        log.event("CAPTION","IXIO_SESSION_END_CLEAR_UNFINISHED_PARTIAL",
+          "segmentId",segmentId,"displayChars",liveCaption.current().length());
+        liveCaption.onEndpoint();
+        listener.caption(null,true);
       }
       log.event("STT","IXIO_SESSION_FINAL","samples",recognizedSamples,
         "nonZeroSamples",nonZero,"captionChars",committed.length(),

@@ -11,6 +11,8 @@ import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.SystemClock;
+import java.util.concurrent.atomic.AtomicLong;
 import android.util.Log;
 import android.telephony.TelephonyManager;
 import java.io.IOException;
@@ -28,6 +30,8 @@ public final class SpeakerService extends Service {
   static final String EX_DEVICE="deviceId";
   static final String EX_STATUS="status";
   static final String EX_TRANSCRIPT="transcript";
+  static final String EX_CAPTION_SEQUENCE="captionSequence";
+  static final String EX_CAPTION_EMITTED_NS="captionEmittedBootNs";
   static final String EX_DONE="finished";
   static final String CHANNEL="samsung_recording_audio";
   private volatile SpeakerEngine engine;
@@ -40,6 +44,7 @@ public final class SpeakerService extends Service {
   private volatile int outputId=-1;
   private volatile TraceJournal sessionJournal;
   private volatile boolean restartAfterCleanup;
+  private final AtomicLong captionSequence=new AtomicLong();
 
   @Override public IBinder onBind(Intent intent){return null;}
 
@@ -177,7 +182,16 @@ public final class SpeakerService extends Service {
     final TraceJournal session=new TraceJournal(this);
     sessionJournal=session;
     getSharedPreferences("speaker",MODE_PRIVATE).edit()
-        .putString("lastRunId",session.id()).apply();
+        .putString("lastRunId",session.id())
+        .putString("lastTranscript","").apply();
+    // Every new call begins with a CLEAN caption surface, not prior call text.
+    Intent resetCaption=new Intent(EVENT).setPackage(getPackageName());
+    resetCaption.putExtra(EX_TRANSCRIPT,"");
+    resetCaption.putExtra(EX_CAPTION_SEQUENCE,captionSequence.incrementAndGet());
+    resetCaption.putExtra(EX_CAPTION_EMITTED_NS,SystemClock.elapsedRealtimeNanos());
+    sendBroadcast(resetCaption);
+    session.event("CAPTION","CAPTION_CLEAR_ON_NEW_SESSION",
+      "displayChars",0,"reason","NEW_CALL","cumulativeTranscriptOnScreen",false);
     session.event("CONTROL",callTriggered?"OFFHOOK_SESSION_STARTED":"MANUAL_DIAGNOSTIC_SESSION_STARTED",
         "callTriggered",callTriggered,"sourceUri",folderUri.toString(),
         "sttProcessStarted",true,"sttRoute","M4A_PCM_TO_IXIO_SPEECHSDK");
@@ -305,17 +319,33 @@ public final class SpeakerService extends Service {
   }
 
   private void sendCaption(TraceJournal session,String value,boolean finalSegment){
-    if(value==null)return;
-    getSharedPreferences("speaker",MODE_PRIVATE).edit()
-      .putString("lastTranscript",value).apply();
-    if(finalSegment){
+    if(!finalSegment&&value==null)return;
+    // The original SDK produces a full CURRENT utterance on every partial,
+    // while value on FINAL contains full history for the diagnostic file only.
+    // Never send that accumulated history to the screen.
+    String onScreen=finalSegment?"":value;
+    if(finalSegment && value!=null&&!value.isEmpty()){
       session.event("STT","CAPTION_FINAL_SAVED","text",value,"length",value.length());
       session.rawReplace("transcript_final.txt",value);
     }
+    getSharedPreferences("speaker",MODE_PRIVATE).edit()
+      .putString("lastTranscript",onScreen).apply();
+    long seq=captionSequence.incrementAndGet();
+    long at=SystemClock.elapsedRealtimeNanos();
+    session.event("CAPTION","CAPTION_UI_BROADCAST_SEND",
+      "sequence",seq,"displayChars",onScreen.length(),
+      "displayText",onScreen,"clearOnEndpoint",finalSegment,
+      "snapshotSavedToFile",finalSegment&&value!=null&&!value.isEmpty(),
+      "historicalTranscriptOnScreen",false,"emittedBootNs",at);
     Intent update=new Intent(EVENT).setPackage(getPackageName());
-    update.putExtra(EX_TRANSCRIPT,value);
+    update.putExtra(EX_TRANSCRIPT,onScreen);
     update.putExtra(EX_DONE,false);
+    update.putExtra(EX_CAPTION_SEQUENCE,seq);
+    update.putExtra(EX_CAPTION_EMITTED_NS,at);
     sendBroadcast(update);
+    session.event("CAPTION","CAPTION_UI_BROADCAST_DISPATCHED",
+      "sequence",seq,"elapsedSendMs",
+      (SystemClock.elapsedRealtimeNanos()-at)/1000000.0);
   }
 
   private void send(String s,boolean done){
