@@ -1,0 +1,50 @@
+name: Pocket TTS native locale capability probe
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-native-locale-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official MediaPipe Python task and get pinned baseline
+        run: |
+          set -euo pipefail
+          mkdir -p evidence inputs
+          python -m pip install mediapipe huggingface_hub
+          python -m pip freeze > evidence/deps.txt
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_en_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          PY
+      - name: Test actual task locale routing, without altering baseline model
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee evidence/locale-probe.log
+          import mediapipe as mp, inspect, traceback, numpy as np
+          print("MEDIAPIPE_VERSION",mp.__version__,flush=True)
+          assert hasattr(mp.tasks.audio,'TextToSpeech'),"Installed Python package does not expose TTS"
+          TTS=mp.tasks.audio.TextToSpeech
+          Opt=mp.tasks.audio.TextToSpeechOptions
+          print("OPTIONS",inspect.signature(Opt),flush=True)
+          with TTS.create_from_options(Opt(base_options=mp.tasks.BaseOptions(model_asset_path='inputs/pocket_tts_en_int8.litertlm'),default_voice_id='alba',default_locale='en-US')) as t:
+              print("VOICES",t.list_voices(),flush=True)
+              for locale,text in [('en-US','Hello.'),('ko-KR','안녕하세요.'),('fr-FR','Bonjour.')]:
+                  try:
+                      result=t.synthesize(text,voice_id='alba',locale=locale)
+                      print("LOCALE_RETURN",locale,type(result),[x for x in dir(result) if not x.startswith('_')],flush=True)
+                  except Exception as e:
+                      print("LOCALE_ERROR",locale,repr(e),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-locale-probe
+          path: evidence/
