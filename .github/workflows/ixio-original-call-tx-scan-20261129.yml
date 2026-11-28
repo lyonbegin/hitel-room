@@ -1,4 +1,4 @@
-name: IXIO original DEX call TX read-only scan
+name: IXIO TX detail and dialer role audit
 on:
   push:
     branches: [analysis/ixio-original-call-tx-20261129]
@@ -26,9 +26,9 @@ jobs:
       - name: Scan permissions and actual DEX callsites
         run: |
           set -o pipefail
-          python tools/ixio/scan_call_tx.py /tmp/ixio/*.apk | tee /tmp/ixio/call-tx-scan.txt
+          python tools/ixio/scan_call_tx_detail.py /tmp/ixio/*.apk | tee /tmp/ixio/call-tx-scan.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ixio-original-call-tx-scan
+          name: ixio-original-call-tx-detail
           path: /tmp/ixio/call-tx-scan.txt
