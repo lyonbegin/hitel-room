@@ -1,0 +1,33 @@
+name: Pocket Korean original streaming benchmark
+on:
+  push:
+    branches: [test/pocket-korean-stream-20261128]
+    paths: ['.github/workflows/pocket-korean-stream-20261128.yml','gallery-xr-supertonic/pocket-korean-stream.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official runtime
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'git+https://github.com/kyutai-labs/pocket-tts.git@9c26eb08dcdc4b2bcec88036f0e97f55db676610' scipy
+      - name: Execute Korean streaming and measure first audio
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python -u gallery-xr-supertonic/pocket-korean-stream.py 2>&1 | tee evidence/stream.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pocket-korean-stream-evidence
+          path: evidence/
