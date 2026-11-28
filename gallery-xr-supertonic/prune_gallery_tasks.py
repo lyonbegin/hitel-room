@@ -21,7 +21,7 @@ def cut(p,start,end=None):
         assert s.count(end)==1,(p,end)
         j=s.index(end,i)
     else: j=len(s)
-    write(p,s[:i]+s[j:])
+    write(p,(s[:i]+s[j:]).rstrip()+"\n")
 def delete(p):
     removed.append({"path":str(p.relative_to(root)),"bytes":p.stat().st_size})
     p.unlink()
