@@ -100,7 +100,7 @@ def main():
         # Test-only known locale/voice slot. No original installed model is modified.
         header=pack(a.reference,a.schema,a.out,{"SP_Tokenizer":a.tokenizer,"pocket_tts_weights":a.weights,"alba":a.voice},[],False)
     else:
-        header=pack(a.reference,a.schema,a.out,{},[(generic("sp_tokenizer_ko"),a.tokenizer),(generic("pocket_tts_weights_ko"),a.weights),(generic("hitel_ko"),a.voice)],True)
+        header=pack(a.reference,a.schema,a.out,{},[(generic("sp_tokenizer_ko"),a.tokenizer),(generic("pocket_tts_weights_ko"),a.weights),(generic("ko_hitel"),a.voice)],True)
     a.out.with_suffix(".sections.json").write_text(json.dumps(header,indent=2))
 if __name__=="__main__":
     main()
