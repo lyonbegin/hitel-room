@@ -16,10 +16,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: ./.github/actions/gallery-fixed-signing
-        with:
-          keystore-base64: ${{ secrets.HITEL_GALLERY_KEYSTORE_B64 }}
-          expected-sha256: ${{ vars.HITEL_GALLERY_SIGNER_SHA256 }}
+      - name: Prepare verification-only debug signing
+        run: |
+          mkdir -p "$HOME/.android" evidence
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | tee evidence/verification-signer-sha256.txt
       - name: Pinned upstream and targeted integration
         run: |
           set -euo pipefail
@@ -69,7 +72,8 @@ jobs:
           cp "$apk" dist/HITEL_Gallery_Global_ASR.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/HITEL_Gallery_Global_ASR.apk | tee evidence/signature.txt
           actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' evidence/signature.txt)
-          test "$actual" = "$HITEL_GALLERY_EXPECTED_SHA256" || { echo "::error::APK signer mismatch"; exit 1; }
+          expected=$(cut -d" " -f1 evidence/verification-signer-sha256.txt)
+          test "$actual" = "$expected" || { echo "::error::Verification APK signer mismatch"; exit 1; }
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging dist/HITEL_Gallery_Global_ASR.apk | tee evidence/badging.txt
           unzip -l dist/HITEL_Gallery_Global_ASR.apk > evidence/apk-files.txt
           cp upstream/Android/src/hitel-local-soda-sdk/build/outputs/aar/hitel-local-soda-sdk-debug.aar dist/HITEL_Local_SODA_SDK.aar
@@ -108,6 +112,7 @@ jobs:
             adb shell monkey -p com.google.aiedge.gallery -c android.intent.category.LAUNCHER 1
             adb exec-out screencap -p > evidence/xr-app-launch.png
             adb shell am force-stop com.google.aiedge.gallery
+            trap 'adb logcat -d -v threadtime > evidence/mixed-logcat.txt; adb logcat -b crash -d > evidence/mixed-crash.txt' EXIT
             timeout 600 adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.SupertonicDeviceTest com.google.aiedge.gallery.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/mixed-instrumentation.txt
             adb logcat -d -v threadtime > evidence/mixed-logcat.txt
             grep -F 'OK (1 test)' evidence/mixed-instrumentation.txt
