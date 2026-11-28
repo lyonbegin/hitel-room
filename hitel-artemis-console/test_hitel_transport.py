@@ -32,5 +32,42 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(c.ContractError): c.verified_answer(s,b"record_id,answer\nturn-1,wrong\n")
     def test_approval_not_invented(self):
         with patch.dict(os.environ,{},clear=True):
-            with self.assertRaises(c.ApprovalError): c.approved_task()
+            with self.assertRaises(c.ApprovalError): c.client_task()
+    def test_rejection_exact_project(self):
+        self.assertIsNone(c.rejection_in_log("PROJECT_REJECTED artemis-other operator live approval missing","artemis-test"))
+        self.assertEqual(c.rejection_in_log("2026-11-28T00:00:00Z PROJECT_REJECTED artemis-test operator live approval missing","artemis-test"),"operator live approval missing")
+    def test_rejection_before_state(self):
+        def api(method,path,body=None,token=None):
+            self.assertEqual(method,"GET")
+            if path.startswith("/contents/"): return None
+            if path.startswith("/actions/workflows/"): return {"workflow_runs":[{"id":7,"head_branch":c.BRANCH,"path":".github/workflows/universal-ai.yml","head_sha":"commit","status":"completed"}]}
+            if path.endswith("/jobs"): return {"jobs":[{"name":"run","id":8}]}
+            if path.endswith("/logs"): return "PROJECT_REJECTED artemis-test operator live approval missing"
+            raise AssertionError(path)
+        with self.assertRaises(c.ProjectRejected):
+            c.wait_project("artemis-test",call=api,timeout=30,registration={"commit":{"sha":"commit"}})
+    def test_pending_resume_get_only(self):
+        now=[0]
+        def api(method,path,body=None,token=None):
+            self.assertEqual(method,"GET")
+            return {"workflow_runs":[]} if path.startswith("/actions/workflows/") else None
+        with self.assertRaises(c.ProjectPending) as e:
+            c.wait_project("artemis-test",call=api,timeout=35,clock=lambda:now[0],sleep=lambda sec:now.__setitem__(0,now[0]+sec))
+        self.assertEqual(e.exception.project_id,"artemis-test")
+    def test_request_id_stable_across_runner(self):
+        with patch.dict(os.environ,{"task_id":"artemis-test","GH_TOKEN":"fixture","ARTEMIS_REQUEST_ID":"request-001","GITHUB_RUN_ID":"100"},clear=True):
+            with patch("hitel_transport.register",return_value=None),patch("hitel_transport.wait_project",return_value="answer") as wait:
+                c.complete("same")
+                first=wait.call_args.args[0]
+                os.environ["GITHUB_RUN_ID"]="101"
+                c.complete("same")
+                self.assertEqual(first,wait.call_args.args[0])
+    def test_dispatch_only_once_if_missing(self):
+        now=[0]; posts=[]
+        def api(method,path,body=None,token=None):
+            if method=="POST": posts.append(body); raise TimeoutError("uncertain dispatch")
+            return {"workflow_runs":[]} if path.startswith("/actions/workflows/") else None
+        with self.assertRaises(c.ProjectPending):
+            c.wait_project("artemis-test",call=api,timeout=100,clock=lambda:now[0],sleep=lambda sec:now.__setitem__(0,now[0]+sec),registration={"commit":{"sha":"commit"}})
+        self.assertEqual(len(posts),1)
 if __name__=="__main__": unittest.main()

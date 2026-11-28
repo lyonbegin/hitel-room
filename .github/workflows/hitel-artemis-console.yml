@@ -5,6 +5,10 @@ on:
     paths: ['hitel-artemis-console/**', '.github/workflows/hitel-artemis-console.yml']
   workflow_dispatch:
     inputs:
+      request_id:
+        description: Stable public request ID (reuse exactly on resume)
+        required: true
+        type: string
       task_id:
         description: Existing separately approved task ID on original HITEL API
         required: true
@@ -18,7 +22,7 @@ permissions:
 jobs:
   mission:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 95
     steps:
       - uses: actions/checkout@v4
         with:
@@ -65,13 +69,14 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
           HITEL_ARTEMIS_PROVIDER: '1'
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ARTEMIS_REQUEST_ID: ${{ inputs.request_id }}
           task_id: ${{ inputs.task_id }}
           HITEL_MISSION: ${{ inputs.mission }}
         run: uv run --locked python "$GITHUB_WORKSPACE/hitel-artemis-console/run_hitel_planner.py"
-      - name: Upload verified plan
-        if: success() && github.event_name == 'workflow_dispatch'
+      - name: Upload plan or pending checkpoint (not a success verdict)
+        if: always() && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: artemis-console-result
-          path: console-results/
-          if-no-files-found: error
+          path: ${{ github.workspace }}/console-results/
+          if-no-files-found: warn

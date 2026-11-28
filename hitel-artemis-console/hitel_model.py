@@ -1,6 +1,6 @@
 """Text-only LangChain model adapter for the existing HITEL service."""
 import json
-import uuid
+import hashlib
 from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage
@@ -31,7 +31,7 @@ def message_data(msg):
         d["tool_call_id"] = msg.tool_call_id
     return d
 
-def decode(raw, tools, choice=None):
+def decode(raw, tools, choice=None, turn_id=''):
     try:
         obj = json.loads(raw)
     except ValueError as e:
@@ -40,14 +40,14 @@ def decode(raw, tools, choice=None):
         raise ContractError("Invalid response envelope")
     allowed = {t["function"]["name"]:t["function"].get("parameters", {}) for t in tools}
     calls = []
-    for tc in obj["tool_calls"]:
+    for index, tc in enumerate(obj["tool_calls"]):
         if not isinstance(tc, dict) or set(tc) != {"name", "args"} or tc["name"] not in allowed or not isinstance(tc["args"], dict):
             raise ContractError("Unregistered or malformed tool call")
         try:
             validate_json(tc["args"], allowed[tc["name"]])
         except Exception as e:
             raise ContractError("Tool arguments fail schema validation") from e
-        calls.append({"name": tc["name"], "args": tc["args"], "id": "hitel-"+uuid.uuid4().hex})
+        calls.append({"name": tc["name"], "args": tc["args"], "id": "hitel-"+hashlib.sha256((turn_id+str(index)+raw).encode()).hexdigest()[:32]})
     required = choice in ("required", "any", True)
     if required and not calls:
         raise ContractError("Required tool call is missing")
@@ -64,7 +64,7 @@ def decode(raw, tools, choice=None):
 class HitelChatModel(BaseChatModel):
     tools: list[dict] = []
     tool_choice: Any = None
-    timeout_s: float = 145.0
+    timeout_s: float = 1200.0
 
     @property
     def _llm_type(self):
@@ -84,7 +84,7 @@ class HitelChatModel(BaseChatModel):
             "Do not include code fences or private reasoning. Input:\n"
             + json.dumps(data, ensure_ascii=False, separators=(",",":"))
         )
-        return ChatResult(generations=[ChatGeneration(message=decode(complete(prompt, timeout=self.timeout_s), self.tools, self.tool_choice))])
+        return ChatResult(generations=[ChatGeneration(message=decode(complete(prompt, timeout=self.timeout_s), self.tools, self.tool_choice, hashlib.sha256(prompt.encode()).hexdigest()))])
 
     def with_structured_output(self, schema, *, include_raw=False, **kwargs):
         tool = convert_to_openai_tool(schema)
