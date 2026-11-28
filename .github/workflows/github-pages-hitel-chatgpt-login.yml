@@ -7,6 +7,7 @@ on:
     paths:
       - "hitel-chatgpt-login/**"
       - "ixio-qa-login/**"
+      - "hitel-artemis-console/**"
       - ".github/workflows/github-pages-hitel-chatgpt-login.yml"
   workflow_dispatch:
 
@@ -41,6 +42,9 @@ jobs:
           cp hitel-chatgpt-login/index.html dist/hitel-chatgpt-login/index.html
           mkdir -p dist/ixio-qa-login
           cp ixio-qa-login/index.html dist/ixio-qa-login/index.html
+          mkdir -p dist/artemis
+          cp hitel-artemis-console/index.html dist/artemis/index.html
+          test -s dist/artemis/index.html
           touch dist/.nojekyll
           test -s dist/index.html
           test -s dist/hitel-chatgpt-login/index.html
