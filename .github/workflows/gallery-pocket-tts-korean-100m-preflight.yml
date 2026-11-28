@@ -1,0 +1,97 @@
+name: Gallery Pocket TTS Korean 100M conversion preflight
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-korean-100m-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Acquire exact model inputs and original SDK
+        run: |
+          set -euo pipefail
+          mkdir -p evidence inputs
+          python -m pip install huggingface_hub pyyaml
+          python - <<'PY'
+          import json, pathlib, hashlib
+          from huggingface_hub import HfApi, snapshot_download, hf_hub_download
+          api=HfApi()
+          rev='d5418f368ed97bc982ab80c5b639fe28f280636b'
+          ko='seastar105/pocket-tts-korean-100m'
+          official='litert-community/pocket-tts'
+          official_rev='bca93d6756489f9403f94d66826cfa65f80023a1'
+          models={}
+          for name, repo, revision in [('korean',ko,rev),('gallery',official,official_rev)]:
+              info=api.model_info(repo,revision=revision,files_metadata=True)
+              models[name]={'repo':repo,'revision':info.sha,'files':[{'name':s.rfilename,'size':s.size} for s in info.siblings]}
+          pathlib.Path('evidence/source-lock.json').write_text(json.dumps(models,indent=2))
+          snapshot_download(ko,revision=rev,local_dir='inputs/korean',allow_patterns=['*.yaml','*.json','*.model','*.safetensors','README.md'])
+          for f in ['pocket_tts_int8.litertlm']:
+              hf_hub_download(official,f,revision=official_rev,local_dir='inputs/gallery')
+          # The companion examples may be newer than the Gallery pin. Preserve their exact revision separately.
+          comp_rev=api.model_info(official).sha
+          pathlib.Path('evidence/companion-revision.txt').write_text(comp_rev)
+          for f in ['pocket_tts_en_int8.litertlm','pocket_tts_fr_int8.litertlm']:
+              hf_hub_download(official,f,revision=comp_rev,local_dir='inputs/companion')
+          PY
+          curl -fL --retry 3 https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-audio/1.2.0/tasks-audio-1.2.0.aar -o inputs/tasks-audio.aar
+          find inputs -type f -not -path '*/.cache/*' -print0 | xargs -0 sha256sum > evidence/input-sha256.txt
+      - name: Inspect actual Korean checkpoint and LiteRT container metadata
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          git -C litert rev-parse HEAD > evidence/litert-schema-revision.txt
+          python - <<'PY'
+          import json, pathlib, struct, math, yaml
+          config=pathlib.Path('inputs/korean/korean.yaml')
+          cfg=yaml.safe_load(config.read_text())
+          assert cfg['flow_lm']['transformer']['num_layers']==6, 'Not the requested 6-layer model'
+          pathlib.Path('evidence/korean-config.yaml').write_text(config.read_text())
+          for f in pathlib.Path('inputs/korean').rglob('*.safetensors'):
+              with f.open('rb') as stream:
+                  n=struct.unpack('<Q',stream.read(8))[0]
+                  assert 0<n<100_000_000
+                  header=json.loads(stream.read(n))
+              count=sum(math.prod(v['shape']) for k,v in header.items() if k!='__metadata__')
+              pathlib.Path('evidence/'+f.name+'.tensors.json').write_text(json.dumps({'parameters':count,'tensors':header},indent=2))
+          for f in pathlib.Path('inputs').rglob('*.litertlm'):
+              with f.open('rb') as stream:
+                  prefix=stream.read(32)
+                  assert prefix[:8]==b'LITERTLM',f
+                  end=struct.unpack_from('<Q',prefix,24)[0]
+                  assert 32<end<=min(f.stat().st_size,64*1024*1024),(f,end)
+                  header=stream.read(end-32)
+              pathlib.Path('evidence/'+f.stem+'.header.bin').write_bytes(header)
+          PY
+          for f in evidence/*.header.bin; do
+            flatc --json --strict-json --raw-binary -o evidence litert/schema/core/litertlm_header_schema.fbs -- "$f"
+          done
+      - name: Inventory Java API and native SDK
+        run: |
+          set -euo pipefail
+          unzip -l inputs/tasks-audio.aar > evidence/aar-files.txt
+          unzip -q inputs/tasks-audio.aar -d inputs/aar
+          jar tf inputs/aar/classes.jar > evidence/classes.txt
+          for cls in TextToSpeech TextToSpeechOptions SynthesisOptions AudioChunk; do
+            javap -p -s -c -classpath inputs/aar/classes.jar "com.google.mediapipe.tasks.audio.texttospeech.$cls" > "evidence/$cls.javap.txt"
+          done
+          while IFS= read -r -d '' lib; do
+            name=$(echo "${lib#inputs/aar/}" | tr / _)
+            readelf -h -d -Ws "$lib" > "evidence/$name.elf.txt"
+            strings -a "$lib" | grep -iE 'pocket.?tts|flow.?lm|kv.cache|companion|ko-KR|pocket_tts_.*litertlm' > "evidence/$name.pocket-strings.txt" || true
+          done < <(find inputs/aar -name '*.so' -print0)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-100m-conversion-evidence
+          path: evidence/
