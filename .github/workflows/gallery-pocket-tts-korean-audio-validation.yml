@@ -1,0 +1,70 @@
+name: Validate Korean Pocket TTS intelligibility
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-korean-audio-validation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pocket-korean-bf16-probe
+          run-id: 46112454252
+          github-token: ${{ github.token }}
+          path: inputs/bf16
+      - uses: actions/download-artifact@v4
+        with:
+          name: korean-100m-voice-reference
+          run-id: 46111907120
+          github-token: ${{ github.token }}
+          path: inputs/reference
+      - name: Install independent offline multilingual ASR
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python -m pip install faster-whisper
+          python -m pip freeze > evidence/dependencies.txt
+      - name: Transcribe and compare actual PCM candidates
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee evidence/asr-validation.log
+          import json, pathlib, unicodedata
+          from faster_whisper import WhisperModel
+          model=WhisperModel('small',device='cpu',compute_type='int8',cpu_threads=4)
+          expected='안녕하세요. 한국어 음성 합성 시험입니다.'
+          def norm(s):
+              return ''.join(c for c in unicodedata.normalize('NFKC',s) if c.isalnum())
+          def distance(a,b):
+              row=list(range(len(b)+1))
+              for i,x in enumerate(a,1):
+                  new=[i]
+                  for j,y in enumerate(b,1): new.append(min(new[-1]+1,row[j]+1,row[j-1]+(x!=y)))
+                  row=new
+              return row[-1]
+          results=[]
+          for f in sorted(pathlib.Path('inputs').rglob('*.wav')):
+              language='en' if f.stem=='official' else 'ko'
+              segments,info=model.transcribe(str(f),language=language,beam_size=5,condition_on_previous_text=False,vad_filter=False,temperature=0)
+              s=''.join(x.text for x in segments).strip()
+              ref='Hello world.' if language=='en' else expected
+              cer=distance(norm(ref).lower(),norm(s).lower())/max(1,len(norm(ref)))
+              record={'file':str(f),'language':language,'text':s,'expected':ref,'cer':cer,'duration':info.duration}
+              print(json.dumps(record,ensure_ascii=False),flush=True)
+              results.append(record)
+          pathlib.Path('evidence/asr-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
+          print('INTELLIGIBILITY_VALIDATION_COMPLETE',flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-pocket-asr-validation
+          path: evidence/
