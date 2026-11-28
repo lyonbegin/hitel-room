@@ -1,0 +1,8 @@
+# ARTEMIS + existing HITEL Universal AI
+The vendor files are pinned to 69d8e1298e31f2b40b8273c5c08d5aa3c405dd2a. No original task or credentials are copied or activated. The integration reuses existing authorized transport functions: submit, get and hash-verified result. No new AI server or OpenAI/Gemini key is needed by the HITEL route. GitHub Actions OIDC is automatic; the user-facing HTML requires no API key.
+
+The operator must approve a new ARTEMIS task at the existing service, authorize lyonbegin/hitel-room and its intended workflow/ref for that task, and set repository variables HITEL_ARTEMIS_TASK_ID (artemis-*), HITEL_ARTEMIS_ALLOW_LIVE=true. No existing Scribd or other project task may be reused. Without approval the live job fails explicitly. No fallback to Gemini or OpenAI.
+
+Text-only model supports LangChain messages, JSON tool calls, schema validation and structured output. It rejects image blocks; the existing transport exposes no image upload contract. The console currently tests the original Planner prompt and plan grammar via the model factory, not a complete mobile device mission. Full PlannerNode/Operator/Explorer/Checker screen execution requires an authorized image contract or an explicitly redesigned observation interface. No FunctionGemma work in this change.
+
+Original Universal AI code is vendored for coordinated maintenance; do not launch the copied source queue/watchdog against the original repository. Existing console emulator code remains as legacy source but is not selected by the new HITEL workflow. Test evidence distinguishes offline fixture from live response.
