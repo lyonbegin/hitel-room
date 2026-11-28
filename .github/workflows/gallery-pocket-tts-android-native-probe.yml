@@ -1,0 +1,131 @@
+name: Gallery Android MediaPipe 1.2.0 Korean native probe
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-android-native-probe.yml','gallery-xr-supertonic/PocketTtsKoreanNativeProbe.kt']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pocket-tts-korean-pktw
+          run-id: 46110312046
+          github-token: ${{ github.token }}
+          path: inputs/weights
+      - uses: actions/download-artifact@v4
+        with:
+          name: korean-100m-voice-reference
+          run-id: 46111907120
+          github-token: ${{ github.token }}
+          path: inputs/voices
+      - name: Pinned upstream and preserve all existing integrations
+        run: |
+          set -euo pipefail
+          mkdir -p evidence dist
+          git init upstream
+          git -C upstream remote add origin https://github.com/google-ai-edge/gallery.git
+          git -C upstream fetch --depth=1 origin 9cb31cf47c21b0ed76901ff589a52b509803edfa
+          git -C upstream checkout --detach FETCH_HEAD
+          python3 gallery-xr-supertonic/patch.py upstream
+          python3 gallery-xr-supertonic/integrate_local_sdk.py upstream
+          python3 gallery-xr-supertonic/integrate_mobile_actions_local.py upstream
+          python3 gallery-xr-supertonic/integrate_global_asr.py upstream
+          python3 gallery-xr-supertonic/manage_mlkit_sdk.py upstream | tee evidence/managed-sdk.txt
+          testdir=upstream/Android/src/app/src/androidTest/java/com/google/ai/edge/gallery/services/tts
+          mkdir -p "$testdir"
+          cp gallery-xr-supertonic/PocketTtsKoreanNativeProbe.kt "$testdir/"
+          git -C upstream add -N .
+          git -C upstream diff --check
+      - name: Download dependencies and candidate bundles
+        run: |
+          set -euo pipefail
+          mkdir -p upstream/Android/src/app/libs
+          aar=upstream/Android/src/app/libs/sherpa-onnx-2.0.3.aar
+          curl -fL --retry 3 https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.3/sherpa-onnx-2.0.3.aar -o "$aar"
+          echo "4c766e2e74c9d33d595338c21fe3b305c73ba45d47e96a235675c33142a2ec50  $aar" | sha256sum -c -
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          python -m pip install huggingface_hub
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          for file in ['pocket_tts_fr_int8.litertlm','pocket_tts_int8.litertlm']:
+              hf_hub_download('litert-community/pocket-tts',file,revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('seastar105/pocket-tts-korean-100m','tokenizer.model',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+          for variant in layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
+            python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice "inputs/voices/$variant.pktv" --out "bundles/$variant/pocket_tts_int8.litertlm" --mode standalone-alias
+          done
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.pktv --out bundles/eight/pocket_tts_int8.litertlm --mode multilingual-ko
+          mkdir -p bundles/baseline
+          mv inputs/pocket_tts_int8.litertlm bundles/baseline/pocket_tts_int8.litertlm
+      - name: Compile actual Gallery and Android native probe (CI test only)
+        working-directory: upstream/Android/src
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --max-workers=2 --stacktrace 2>&1 | tee ../../../evidence/build.txt
+          cp "$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)" ../../../dist/gallery-ci-only.apk
+          cp "$(find app/build/outputs/apk/androidTest -name '*.apk' -print -quit)" ../../../dist/gallery-ci-probe.apk
+      - name: Enable KVM
+        run: sudo chmod a+rw /dev/kvm
+      - name: Create test launcher
+        run: |
+          cat > run-probe.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          pkg=com.google.aiedge.gallery
+          adb install -r dist/gallery-ci-only.apk
+          adb install -r -t dist/gallery-ci-probe.apk
+          for name in baseline eight layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
+            adb shell run-as "$pkg" mkdir -p "files/pocketprobe/$name"
+            adb exec-in run-as "$pkg" sh -c "'cat > files/pocketprobe/$name/pocket_tts_int8.litertlm'" < "bundles/$name/pocket_tts_int8.litertlm"
+            locale=en-US
+            voice=alba
+            if [[ "$name" == eight ]]; then locale=ko-KR; voice=hitel_ko; fi
+            textargs=()
+            if [[ "$name" == baseline ]]; then textargs=(-e probeText Hello); fi
+            adb logcat -c
+            timeout 190 adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.PocketTtsKoreanNativeProbe -e probeCase "$name" -e probeLocale "$locale" -e probeVoice "$voice" "${textargs[@]}" "$pkg.test/androidx.test.runner.AndroidJUnitRunner" > "evidence/$name.instrument.txt" 2>&1 || true
+            adb logcat -d > "evidence/$name.logcat.txt"
+            adb exec-out run-as "$pkg" cat "files/pocketprobe/$name.pcm" > "evidence/$name.pcm" 2>/dev/null || true
+            adb shell am force-stop "$pkg" || true
+            adb shell run-as "$pkg" rm -f "files/pocketprobe/$name/pocket_tts_int8.litertlm"
+            grep -E 'ANDROID_NATIVE_PCM_PASS|Unsupported PocketTTS language' "evidence/$name.logcat.txt" | tail -5 || true
+            tail -15 "evidence/$name.instrument.txt"
+          done
+          grep -q 'ANDROID_NATIVE_PCM_PASS' evidence/baseline.logcat.txt
+          SH
+          chmod +x run-probe.sh
+      - name: Install Gallery and exercise exact Android SDK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 6144M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
+          emulator-boot-timeout: 600
+          script: ./run-probe.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-pocket-android-native-evidence
+          path: evidence/
