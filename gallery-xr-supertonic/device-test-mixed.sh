@@ -44,7 +44,7 @@ grep -F 'HUD_NO_TAG_NO_LENGTH_GATE_PASS' evidence/logcat.txt
 if grep -E 'SYNTHESIS_BEGIN lang=(ko|en)( |$)' evidence/logcat.txt; then exit 1; fi
 grep -F 'SYNTHESIS_OK lang=na' evidence/logcat.txt
 grep -F 'INCREMENTAL_CLAUSE_BUFFER_PASS' evidence/logcat.txt
-grep -F 'FIRST_PCM_BEFORE_FINAL_INPUT_PASS' evidence/logcat.txt
+grep -F 'INDEPENDENT_INPUT_AUDIO_HEAD_PASS' evidence/logcat.txt
 grep -E 'SYNTHESIS_BEGIN lang=na .*steps=4' evidence/logcat.txt
 grep -E 'SYNTHESIS_BEGIN lang=na .*steps=8' evidence/logcat.txt
-echo 'SUPERTONIC_INCREMENTAL_NATIVE_PCM_PASS; XR_FULL_LLM_TO_SPEAKER_NOT_TESTED' | tee evidence/result.txt
+echo 'SUPERTONIC_INDEPENDENT_INPUT_AUDIO_HEAD_PASS; SIMULATED_INPUT_NOT_FULL_LLM' | tee evidence/result.txt

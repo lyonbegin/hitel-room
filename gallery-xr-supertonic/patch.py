@@ -660,3 +660,112 @@ s=s.replace(anchor,'''    val hud=com.google.ai.edge.gallery.customtasks.xrlangu
     android.util.Log.i("HITEL_SUPERTONIC","HUD_NO_TAG_NO_LENGTH_GATE_PASS")
 '''+anchor,1)
 test.write_text(s)
+
+# Port the stable phone-call speaker monitor's immediate, lossless PCM writes.
+# 32ms at Gallery's existing 24kHz mono PCM16 is 1536 bytes, not 1024.
+# No resampling change, new framer, artificial sleep, or change to synthesis.
+replace(player,"suspend fun playStream(pcmFlow: Flow<ByteArray>, onFirstWrite: (() -> Unit)? = null): Boolean {",'''suspend fun playStream(
+    pcmFlow: Flow<ByteArray>,
+    onFirstWrite: (() -> Unit)? = null,
+    continuousPcm: Boolean = false,
+    onHeadAdvanced: (() -> Unit)? = null,
+  ): Boolean {
+    if (continuousPcm) return playContinuousPcm(pcmFlow, onFirstWrite, onHeadAdvanced)''')
+insert(player,"  /**\n   * Flushes any trailing buffered frames",'''  // Same immediate small-write FIFO principle as stable PcmSpeakerMonitor.
+  // 512 samples at 16kHz become 768 samples at the unchanged 24kHz output rate.
+  private suspend fun playContinuousPcm(
+    pcmFlow: Flow<ByteArray>,
+    onFirstWrite: (() -> Unit)?,
+    onHeadAdvanced: (() -> Unit)?,
+  ): Boolean {
+    var stream: Pair<AudioTrack, Long>? = null
+    var totalBytesWritten = 0L
+    var headReported = false
+    pcmFlow.collect { pcm ->
+      if (pcm.isEmpty()) return@collect
+      check(pcm.size % 2 == 0) { "Odd PCM16 byte count" }
+      val (track, initialFrames) = stream ?: getOrCreateTrackWithFrameOffset().also { stream = it }
+      var offset = 0
+      while (offset < pcm.size) {
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        val count = minOf(1536, pcm.size - offset)
+        if (totalBytesWritten == 0L) {
+          Log.i(TAG, "XR_PCM_FIRST_WRITE_BEGIN bytes=" + count + " t=" + android.os.SystemClock.elapsedRealtime())
+        }
+        val written = writeChunk(track, pcm, offset, count)
+        check(written > 0 && written % 2 == 0 && written <= count) { "AudioTrack.write=" + written }
+        offset += written
+        if (totalBytesWritten == 0L) {
+          Log.i(TAG, "XR_PCM_FIRST_WRITE bytes=" + written + " head=" + track.playbackHeadPosition + " t=" + android.os.SystemClock.elapsedRealtime())
+          onFirstWrite?.invoke()
+        }
+        totalBytesWritten += written
+        val head = track.playbackHeadPosition.toLong() and 0xFFFFFFFFL
+        if (!headReported && head > initialFrames) {
+          headReported = true
+          Log.i(TAG, "XR_PCM_HEAD_ADVANCED frames=" + (head - initialFrames) + " t=" + android.os.SystemClock.elapsedRealtime())
+          onHeadAdvanced?.invoke()
+        }
+      }
+    }
+    // Keep the same track and write the next queued segment immediately.
+    // The coordinator calls finishStream() once after all segments.
+    return totalBytesWritten > 0L
+  }
+
+''')
+insert(player,"import kotlinx.coroutines.flow.Flow","import kotlinx.coroutines.ensureActive\n")
+replace(player,"private suspend fun writeChunk(track: AudioTrack, pcmChunk: ByteArray): Int = mutex.withLock {","private suspend fun writeChunk(track: AudioTrack, pcmChunk: ByteArray, offset: Int = 0, count: Int = pcmChunk.size): Int = mutex.withLock {")
+replace(player,"val written = track.write(pcmChunk, 0, pcmChunk.size)","val written = track.write(pcmChunk, offset, count, AudioTrack.WRITE_BLOCKING)")
+replace(coord,"}) else null)\n          if (wroteAudio)", "}) else null, continuousPcm = prepared.modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3)\n          if (wroteAudio)")
+print("STABLE_PCM_MONITOR_32MS_FIFO_PORT_APPLIED")
+
+# Replace the prior sequential test: the final text arrives on its own timer,
+# not after synthesis has completed. Exercise the production AudioTrack player.
+s=test.read_text()
+start=s.index("      val live=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrMixedSpeechBuffer()")
+end=s.index('      assertTrue("incremental PCM length",pcm.length()>24000)',start)+len('      assertTrue("incremental PCM length",pcm.length()>24000)')
+s=s[:start]+'''      val live=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrMixedSpeechBuffer()
+      val mixedCfg=TtsConfig(modelId=SupertonicTtsEngine.ID,languageCode="na",voiceId="0")
+      engine.prepare(mixedCfg)
+      val player=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.services.PcmAudioStreamPlayer(kotlinx.coroutines.Dispatchers.IO)
+      val started=android.os.SystemClock.elapsedRealtime()
+      val finalAt=java.util.concurrent.atomic.AtomicLong(-1)
+      val firstWriteAt=java.util.concurrent.atomic.AtomicLong(-1)
+      val firstHeadAt=java.util.concurrent.atomic.AtomicLong(-1)
+      val firstPcmAt=java.util.concurrent.atomic.AtomicLong(-1)
+      val pcm=File(context.filesDir,"supertonic-test-incremental.pcm")
+      val queue=kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+      try {
+        kotlinx.coroutines.coroutineScope {
+          launch(kotlinx.coroutines.Dispatchers.Default) {
+            for(part in live.offer("안녕하세요. Hello",false,0)) queue.send(part)
+            kotlinx.coroutines.delay(3000)
+            finalAt.set(android.os.SystemClock.elapsedRealtime())
+            for(part in live.offer("안녕하세요. Hello world. 한국어와 English 혼합 시험입니다.",true,finalAt.get())) queue.send(part)
+            queue.close()
+          }
+          pcm.outputStream().use { output ->
+            var i=0
+            for(part in queue) {
+              val cfg=mixedCfg.copy(supertonicSteps=if(i++==0)4 else 8)
+              val flow=kotlinx.coroutines.flow.flow<ByteArray> {
+                (engine.synthesize(part,cfg) as TtsOutput.AudioStream).flow.collect { bytes ->
+                  if(bytes.isNotEmpty()) firstPcmAt.compareAndSet(-1,android.os.SystemClock.elapsedRealtime())
+                  output.write(bytes)
+                  emit(bytes)
+                }
+              }
+              assertTrue(player.playStream(flow, onFirstWrite={firstWriteAt.compareAndSet(-1,android.os.SystemClock.elapsedRealtime())}, continuousPcm=true, onHeadAdvanced={firstHeadAt.compareAndSet(-1,android.os.SystemClock.elapsedRealtime())}))
+            }
+          }
+          player.finishStream()
+        }
+        assertTrue("native PCM before independent final input",firstPcmAt.get()>=started && firstPcmAt.get()<finalAt.get())
+        assertTrue("first AudioTrack write before independent final input",firstWriteAt.get()>=started && firstWriteAt.get()<finalAt.get())
+        assertTrue("playback head before independent final input",firstHeadAt.get()>=started && firstHeadAt.get()<finalAt.get())
+        android.util.Log.i("HITEL_SUPERTONIC","INDEPENDENT_INPUT_AUDIO_HEAD_PASS firstPcmMs="+(firstPcmAt.get()-started)+" firstWriteMs="+(firstWriteAt.get()-started)+" firstHeadMs="+(firstHeadAt.get()-started)+" finalMs="+(finalAt.get()-started))
+        assertTrue("incremental PCM length",pcm.length()>24000)
+      } finally { player.release() }'''+s[end:]
+s=s.replace("import kotlinx.coroutines.runBlocking","import kotlinx.coroutines.runBlocking\nimport kotlinx.coroutines.launch",1)
+test.write_text(s)
