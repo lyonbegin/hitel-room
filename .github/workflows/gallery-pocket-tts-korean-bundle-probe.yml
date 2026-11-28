@@ -1,0 +1,99 @@
+name: Korean 100M LiteRT bundle and native inference probe
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-korean-bundle-probe.yml','gallery-xr-supertonic/pack_korean_pocket_tts.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pocket-tts-korean-pktw
+          run-id: 46110312046
+          github-token: ${{ github.token }}
+          path: inputs/weights
+      - uses: actions/download-artifact@v4
+        with:
+          name: korean-100m-voice-reference
+          run-id: 46111907120
+          github-token: ${{ github.token }}
+          path: inputs/voices
+      - name: Install official tools and download pinned reference
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          git -C litert rev-parse HEAD > evidence/schema-commit.txt
+          python -m pip install huggingface_hub mediapipe numpy
+          python -m pip freeze > evidence/deps.txt
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_fr_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('seastar105/pocket-tts-korean-100m','tokenizer.model',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+      - name: Pack standalone candidates and eight-language test bundle
+        run: |
+          set -euo pipefail
+          for variant in layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
+            python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice "inputs/voices/$variant.pktv" --out "bundles/$variant/pocket_tts_int8.litertlm" --mode standalone-alias
+            cp "bundles/$variant/pocket_tts_int8.sections.json" "evidence/$variant.sections.json"
+          done
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.pktv --out bundles/eight/pocket_tts_int8.litertlm --mode multilingual-ko
+          cp bundles/eight/pocket_tts_int8.sections.json evidence/eight.sections.json
+          find bundles -name '*.litertlm' -print0 | xargs -0 sha256sum | tee evidence/bundle-sha.txt
+      - name: Verify native actual synthesis in isolated processes
+        run: |
+          set -euo pipefail
+          cat > probe.py <<'PY'
+          import pathlib,sys,traceback,wave
+          import mediapipe as mp
+          import numpy as np
+          path,voice,locale,case=sys.argv[1:]
+          text='안녕하세요. 한국어 음성 합성 시험입니다.' if case!='baseline' else 'Hello.'
+          print('MEDIAPIPE_VERSION',mp.__version__,flush=True)
+          TTS=mp.tasks.audio.TextToSpeech
+          Opt=mp.tasks.audio.TextToSpeechOptions
+          with TTS.create_from_options(Opt(base_options=mp.tasks.BaseOptions(model_asset_path=path),default_voice_id=voice,default_locale=locale)) as t:
+              print('VOICE_LIST',t.list_voices(),flush=True)
+              r=t.synthesize(text,voice_id=voice,locale=locale)
+              print('RESULT_FIELDS',[a for a in dir(r) if not a.startswith('_')],flush=True)
+              audio=None
+              for field in ('audio','audio_data','samples','waveform','audio_samples'):
+                  if hasattr(r,field):
+                      audio=np.asarray(getattr(r,field),dtype=np.float32).reshape(-1);break
+              assert audio is not None
+              rate=int(getattr(r,'sample_rate',getattr(r,'sample_rate_hz',24000)))
+              assert rate==24000 and 2400<len(audio)<24000*40 and np.isfinite(audio).all()
+              rms=float(np.sqrt(np.mean(audio**2)))
+              assert rms>1e-5
+              with wave.open('evidence/'+case+'.wav','wb') as f:
+                  f.setnchannels(1);f.setsampwidth(2);f.setframerate(rate)
+                  f.writeframes((np.clip(audio,-1,1)*32767).astype('<i2').tobytes())
+              print('NATIVE_PCM_PASS',case,len(audio),rate,rms,flush=True)
+          PY
+          for variant in layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
+            timeout 150 python probe.py "bundles/$variant/pocket_tts_int8.litertlm" alba en-US "$variant" > "evidence/$variant.log" 2>&1 || true
+            tail -20 "evidence/$variant.log"
+          done
+          timeout 150 python probe.py bundles/eight/pocket_tts_int8.litertlm hitel_ko ko-KR eight-ko > evidence/eight-ko.log 2>&1 || true
+          tail -30 evidence/eight-ko.log
+          grep -H 'NATIVE_PCM_PASS' evidence/*.log || true
+          cp inputs/voices/reference-korean.wav evidence/original-pytorch-korean.wav
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-100m-bundle-probe-evidence
+          path: evidence/
