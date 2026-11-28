@@ -1,0 +1,83 @@
+name: Pocket TTS original native language registration evidence
+on:
+  push:
+    branches: [analysis/gallery-pocket-original-native-ko-20261128]
+    paths: ['.github/workflows/gallery-pocket-original-native-ko-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inspect pinned SDK and original seven-language model without modifications
+        run: |
+          set -euo pipefail
+          mkdir -p inputs
+          python -m pip install capstone pyelftools huggingface_hub
+          curl -fL --retry 3 https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-audio/1.2.0/tasks-audio-1.2.0.aar -o inputs/audio.aar
+          unzip -q inputs/audio.aar 'jni/*/libmediapipe_tasks_audio_jni.so' -d inputs
+          python - <<'PY'
+          from elftools.elf.elffile import ELFFile
+          from capstone import *
+          from capstone.arm64 import *
+          from capstone.x86 import *
+          import pathlib,hashlib,struct
+          specs={
+            'arm64-v8a':('8ddf00aeb13ce1d71a73875c2245d4e57138f27a7e1db5fcf9fb56ccfad6a0de',CS_ARCH_ARM64,CS_MODE_ARM,[(0xace820,0xacea90),(0xaceaf4,0xacece0),(0xac9f00,0xaca4c0),(0xacb780,0xacbb00)]),
+            'x86_64':(None,CS_ARCH_X86,CS_MODE_64,[(0xc1201d,0xc122dc),(0xc122dc,0xc12520)])
+          }
+          for arch,(expected,ca,mode,regions) in specs.items():
+              p=pathlib.Path('inputs/jni')/arch/'libmediapipe_tasks_audio_jni.so'
+              actual=hashlib.sha256(p.read_bytes()).hexdigest()
+              print('NATIVE_SHA',arch,actual)
+              if expected: assert actual==expected
+              with p.open('rb') as f:
+                  elf=ELFFile(f);sec=elf.get_section_by_name('.text');data=sec.data();base=sec['sh_addr']
+                  ro=[(s['sh_addr'],s.data()) for s in elf.iter_sections() if s['sh_flags']&2 and not s['sh_flags']&4 and s['sh_type']!='SHT_NOBITS']
+                  def string_at(addr):
+                      for b,d in ro:
+                          if b<=addr<b+len(d):
+                              t=d[addr-b:addr-b+160].split(b'\0',1)[0]
+                              if 1<len(t)<160 and all(32<=c<127 for c in t):return repr(t.decode())
+                      return ''
+                  md=Cs(ca,mode);md.detail=True;md.skipdata=True
+                  for lo,hi in regions:
+                      print('REGION',arch,hex(lo),hex(hi))
+                      pages={}
+                      for i in md.disasm(data[lo-base:hi-base],lo):
+                          note=[]
+                          if i.id and ca==CS_ARCH_ARM64:
+                              o=i.operands
+                              if i.mnemonic in ('adrp','adr') and len(o)==2 and o[0].type==ARM64_OP_REG and o[1].type==ARM64_OP_IMM:
+                                  pages[o[0].reg]=o[1].imm
+                              elif i.mnemonic=='add' and len(o)==3 and o[1].type==ARM64_OP_REG and o[2].type==ARM64_OP_IMM and o[1].reg in pages:
+                                  address=pages[o[1].reg]+o[2].imm
+                                  note.append(hex(address)+' '+string_at(address))
+                                  pages[o[0].reg]=address
+                          elif i.id:
+                              for o in i.operands:
+                                  if o.type==X86_OP_MEM and o.mem.base==X86_REG_RIP:
+                                      address=i.address+i.size+o.mem.disp
+                                      note.append(hex(address)+' '+string_at(address))
+                          print(hex(i.address),i.mnemonic,i.op_str,' '.join(note))
+          PY
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          import pathlib,struct,subprocess,json
+          p=pathlib.Path(hf_hub_download('litert-community/pocket-tts','pocket_tts_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs'))
+          with p.open('rb') as f:
+              prefix=f.read(32); assert prefix[:8]==b'LITERTLM'
+              end=struct.unpack_from('<Q',prefix,24)[0]; pathlib.Path('inputs/original.bin').write_bytes(f.read(end-32))
+          subprocess.run(['flatc','--json','--strict-json','--raw-binary','-o','inputs','litert/schema/core/litertlm_header_schema.fbs','--','inputs/original.bin'],check=True)
+          h=json.loads(pathlib.Path('inputs/original.json').read_text())
+          print('ORIGINAL_MODEL_BYTES',p.stat().st_size)
+          for o in h['section_metadata']['objects']:
+              print('ORIGINAL_SECTION',json.dumps(o,ensure_ascii=False))
+          PY
