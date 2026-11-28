@@ -1,6 +1,15 @@
 name: HITEL ARTEMIS Console
-run-name: ${{ github.event_name == 'issues' && github.event.issue.title || format('HITEL ARTEMIS · {0}', inputs.request_id) }}
+run-name: ${{ github.event_name == 'issues' && github.event.issue.title || (github.event_name == 'push' && 'HITEL ARTEMIS provider regression' || format('HITEL ARTEMIS · {0}', inputs.request_id)) }}
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'hitel-artemis-console/hitel_*.py'
+      - 'hitel-artemis-console/install_hitel_provider.py'
+      - 'hitel-artemis-console/run_hitel_planner.py'
+      - 'hitel-artemis-console/test_*.py'
+      - 'hitel-artemis-console/vendor/**'
+      - '.github/workflows/hitel-artemis-console.yml'
   issues:
     types: [opened]
   workflow_dispatch:
@@ -10,21 +19,29 @@ on:
         required: true
         type: string
       mission:
-        description: Public, non-sensitive Android emulator test goal
+        description: Public non-sensitive planning test goal
         required: true
         type: string
 permissions:
   contents: read
+  id-token: write
 concurrency:
   group: hitel-artemis-console
   cancel-in-progress: false
 jobs:
   mission:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.issue.user.login == 'lyonbegin' && github.event.issue.author_association == 'OWNER' && startsWith(github.event.issue.title, 'HITEL ARTEMIS · ')) }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event.issue.user.login == 'lyonbegin' && github.event.issue.author_association == 'OWNER' && startsWith(github.event.issue.title, 'HITEL ARTEMIS · ')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Validate public test request
+        if: github.event_name != 'push'
         env:
           MISSION: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.mission }}
           REQUEST_ID: ${{ github.event_name == 'issues' && github.event.issue.title || inputs.request_id }}
@@ -34,65 +51,58 @@ jobs:
           assert re.fullmatch(r'[a-zA-Z0-9-]{8,64}',os.environ['REQUEST_ID'].removeprefix('HITEL ARTEMIS · '))
           assert 1 <= len(os.environ['MISSION'].strip()) <= 1000
           PY
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Verify vendored engine and transport with offline fixtures
+        run: |
+          cd hitel-artemis-console
+          python -m unittest discover -s vendor/universal -p 'test_*.py' -v
+          python -m unittest -v test_hitel_transport
       - uses: actions/checkout@v4
         with:
           repository: google/artemis
           ref: 351ca8422f7b5b54e80a9c1ce03a222e02415b6b
           path: upstream-artemis
           persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
-          log-accepted-android-sdk-licenses: false
-      - name: Prepare ARTEMIS
-        working-directory: upstream-artemis
+      - name: Prepare pinned ARTEMIS and install HITEL provider
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          python hitel-artemis-console/install_hitel_provider.py upstream-artemis
+          cd upstream-artemis
           uv sync --locked
-          uv run artemis --help
-      - name: Check model secret and emulator acceleration
-        id: ready
+      - name: Verify ARTEMIS model adapter offline (not live AI)
+        working-directory: upstream-artemis
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
+          HITEL_ARTEMIS_PROVIDER: '1'
         run: |
-          test -n "$GEMINI_API_KEY" || { echo "::error::GEMINI_API_KEY is missing"; exit 1; }
-          if [[ -c /dev/kvm ]]; then sudo chmod a+rw /dev/kvm || true; fi
-          if [[ -r /dev/kvm && -w /dev/kvm ]]; then echo 'disable=false' >> "$GITHUB_OUTPUT"; else echo 'disable=true' >> "$GITHUB_OUTPUT"; fi
-          mkdir -p "$GITHUB_WORKSPACE/console-results"
-      - name: Run ARTEMIS on disposable Android emulator
-        uses: reactivecircus/android-emulator-runner@v2
+          uv run --locked python -m unittest -v test_hitel_model
+          uv run --locked python - <<'PY'
+          from artemis.llm.router import ModelEndpoint, ModelFactory, ModelProvider
+          from hitel_model import HitelChatModel
+          assert isinstance(ModelFactory.get_model(ModelEndpoint(provider=ModelProvider.CUSTOM)), HitelChatModel)
+          from artemis.agents.planner.planner import validate_plan_format
+          assert validate_plan_format("- [ ] Inspect available capabilities")[0]
+          print("ARTEMIS provider factory and actual planner grammar integration verified offline")
+          PY
+      - name: Run approved HITEL-backed ARTEMIS text plan
+        if: github.event_name != 'push'
+        working-directory: upstream-artemis
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
+          HITEL_ARTEMIS_PROVIDER: '1'
+          HITEL_ARTEMIS_ALLOW_LIVE: ${{ vars.HITEL_ARTEMIS_ALLOW_LIVE }}
+          HITEL_ARTEMIS_TASK_ID: ${{ vars.HITEL_ARTEMIS_TASK_ID }}
           HITEL_MISSION: ${{ github.event_name == 'issues' && github.event.issue.body || inputs.mission }}
-        with:
-          api-level: 35
-          target: google_apis_playstore
-          arch: x86_64
-          profile: pixel_6
-          disable-linux-hw-accel: ${{ steps.ready.outputs.disable }}
-          emulator-boot-timeout: 1200
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          disable-animations: true
-          script: bash hitel-artemis-console/run-mission.sh
-      - name: Upload public non-sensitive evidence
-        if: always()
+        run: uv run --locked python "$GITHUB_WORKSPACE/hitel-artemis-console/run_hitel_planner.py"
+      - name: Upload public plan evidence
+        if: always() && github.event_name != 'push'
         uses: actions/upload-artifact@v4
         with:
           name: artemis-console-result
           path: console-results/
           if-no-files-found: warn
           retention-days: 3
-      - name: Write status summary
+      - name: Report integration scope
         if: always()
         run: |
-          echo '### ARTEMIS Console' >> "$GITHUB_STEP_SUMMARY"
-          echo 'This run uses the pinned upstream ARTEMIS emulator path. CLI success is not independent goal verification. FunctionGemma adapter is not connected.' >> "$GITHUB_STEP_SUMMARY"
+          echo '### ARTEMIS + HITEL AI' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Offline fixture success is not live AI success. The live route requires a separately approved HITEL task and uses no OpenAI or Gemini API key. Text planning only; no device execution or image inference.' >> "$GITHUB_STEP_SUMMARY"
