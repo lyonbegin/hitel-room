@@ -22,8 +22,8 @@ jobs:
           python-version: '3.11'
       - uses: actions/download-artifact@v4
         with:
-          name: pocket-tts-korean-pktw
-          run-id: 46110312046
+          name: pocket-korean-bf16-probe
+          run-id: 46112454252
           github-token: ${{ github.token }}
           path: inputs/weights
       - uses: actions/download-artifact@v4
@@ -61,17 +61,23 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y flatbuffers-compiler
           git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
-          python -m pip install huggingface_hub
+          python -m pip install huggingface_hub numpy
           python - <<'PY'
           from huggingface_hub import hf_hub_download
           for file in ['pocket_tts_fr_int8.litertlm','pocket_tts_int8.litertlm']:
               hf_hub_download('litert-community/pocket-tts',file,revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
           hf_hub_download('seastar105/pocket-tts-korean-100m','tokenizer.model',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
           PY
-          for variant in layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
-            python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice "inputs/voices/$variant.pktv" --out "bundles/$variant/pocket_tts_int8.litertlm" --mode standalone-alias
-          done
-          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.pktv --out bundles/eight/pocket_tts_int8.litertlm --mode multilingual-ko
+          python - <<'PY'
+          import pathlib,numpy as np
+          p=pathlib.Path('inputs/voices/layer-kv-time.pktv')
+          b=p.read_bytes()
+          x=np.frombuffer(b[8:],dtype='<f2').astype('<f4').view('<u4')
+          c=((x+0x7fff+((x>>16)&1))>>16).astype('<u2')
+          p.with_suffix('.bf16').write_bytes(b[:8]+c.tobytes())
+          PY
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.bf16 --out bundles/layer-kv-time/pocket_tts_int8.litertlm --mode standalone-alias
+          python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights inputs/weights/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice inputs/voices/layer-kv-time.bf16 --out bundles/eight/pocket_tts_int8.litertlm --mode multilingual-ko
           mkdir -p bundles/baseline
           mv inputs/pocket_tts_int8.litertlm bundles/baseline/pocket_tts_int8.litertlm
       - name: Compile actual Gallery and Android native probe (CI test only)
@@ -91,9 +97,15 @@ jobs:
           pkg=com.google.aiedge.gallery
           adb install -r dist/gallery-ci-only.apk
           adb install -r -t dist/gallery-ci-probe.apk
-          for name in baseline eight layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
+          for name in baseline layer-kv-time eight; do
             adb shell run-as "$pkg" mkdir -p "files/pocketprobe/$name"
-            adb exec-in run-as "$pkg" sh -c "'cat > files/pocketprobe/$name/pocket_tts_int8.litertlm'" < "bundles/$name/pocket_tts_int8.litertlm"
+            adb push "bundles/$name/pocket_tts_int8.litertlm" /data/local/tmp/pocket-probe.litertlm
+            adb shell "run-as $pkg cp /data/local/tmp/pocket-probe.litertlm files/pocketprobe/$name/pocket_tts_int8.litertlm"
+            adb shell rm /data/local/tmp/pocket-probe.litertlm
+            expected=$(stat -c %s "bundles/$name/pocket_tts_int8.litertlm")
+            actual=$(adb shell "run-as $pkg stat -c %s files/pocketprobe/$name/pocket_tts_int8.litertlm" | tr -d '\r')
+            test "$actual" = "$expected"
+            echo "MODEL_COPY_PASS $name $actual"
             locale=en-US
             voice=alba
             if [[ "$name" == eight ]]; then locale=ko-KR; voice=hitel_ko; fi
@@ -106,9 +118,10 @@ jobs:
             adb shell am force-stop "$pkg" || true
             adb shell run-as "$pkg" rm -f "files/pocketprobe/$name/pocket_tts_int8.litertlm"
             grep -E 'ANDROID_NATIVE_PCM_PASS|Unsupported PocketTTS language' "evidence/$name.logcat.txt" | tail -5 || true
-            tail -15 "evidence/$name.instrument.txt"
+            cat "evidence/$name.instrument.txt"
           done
           grep -q 'ANDROID_NATIVE_PCM_PASS' evidence/baseline.logcat.txt
+          grep -q 'ANDROID_NATIVE_PCM_PASS' evidence/layer-kv-time.logcat.txt
           SH
           chmod +x run-probe.sh
       - name: Install Gallery and exercise exact Android SDK
