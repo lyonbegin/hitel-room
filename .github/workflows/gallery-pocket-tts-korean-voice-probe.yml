@@ -1,0 +1,51 @@
+name: Korean 100M voice-state and original inference probe
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-korean-voice-probe.yml','gallery-xr-supertonic/probe_korean_pocket_voice.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  voice-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original Pocket TTS on CPU
+        run: |
+          set -euo pipefail
+          mkdir -p inputs evidence
+          python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install pocket-tts huggingface_hub
+          python -m pip freeze > evidence/python-dependencies.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y espeak-ng ffmpeg
+      - name: Acquire Korean checkpoint and make non-person test prompt
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib,yaml
+          from huggingface_hub import snapshot_download
+          snapshot_download('seastar105/pocket-tts-korean-100m',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs',allow_patterns=['korean.yaml','model.safetensors','tokenizer.model'])
+          p=pathlib.Path('inputs/korean.yaml')
+          c=yaml.safe_load(p.read_text())
+          c['weights_path']=str(pathlib.Path('inputs/model.safetensors').resolve())
+          c['weights_path_without_voice_cloning']=c['weights_path']
+          c['flow_lm']['lookup_table']['tokenizer_path']=str(pathlib.Path('inputs/tokenizer.model').resolve())
+          p.write_text(yaml.safe_dump(c))
+          PY
+          espeak-ng -v en-us -s 145 -w inputs/test-raw.wav "This is a synthetic machine voice for the speech synthesis compatibility test. No real speaker is being imitated."
+          ffmpeg -loglevel error -i inputs/test-raw.wav -ar 24000 -ac 1 inputs/test-voice.wav
+      - name: Generate actual Korean voice-state and PCM reference
+        run: |
+          set -euo pipefail
+          python gallery-xr-supertonic/probe_korean_pocket_voice.py --config inputs/korean.yaml --voice inputs/test-voice.wav --output evidence | tee evidence/voice-probe.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: korean-100m-voice-reference
+          path: evidence/
