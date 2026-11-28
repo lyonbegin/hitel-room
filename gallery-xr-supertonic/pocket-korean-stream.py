@@ -8,7 +8,7 @@ out=Path("evidence");out.mkdir(exist_ok=True)
 files=list_repo_files("litert-community/pocket-tts")
 print("OFFICIAL_LITERTLM_FILES",json.dumps([f for f in files if f.endswith(".litertlm")]),flush=True)
 print("CPU",os.cpu_count(),"torch",torch.__version__,flush=True)
-config="hf://seastar105/pocket-tts-korean-100m/korean.yaml@d5418f368ed97bc982ab80c5b639fe28f280636b"
+config="hf://seastar105/pocket-tts-korean-300m/korean.yaml@df328c817a02866f20a6f74e5183e0a1fc6f6435"
 voice="hf://kyutai/tts-voices/alba-mackenna/casual.wav"
 texts=["안녕하세요. 오늘은 한국어 음성 합성 속도를 시험합니다.","지금 인공지능이 답변을 생성하는 동안 다음 문장을 동시에 음성으로 출력할 수 있는지 확인하고 있습니다."]
 results=[]
