@@ -1,0 +1,36 @@
+name: Convert Korean 100M to reference Pocket TTS PKTW
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-convert-korean-100m.yml','gallery-xr-supertonic/convert_korean_pocket_tts.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Acquire pinned model references
+        run: |
+          set -euo pipefail
+          mkdir -p inputs evidence
+          python -m pip install numpy huggingface_hub
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          hf_hub_download('litert-community/pocket-tts','pocket_tts_fr_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          hf_hub_download('seastar105/pocket-tts-korean-100m','model.safetensors',revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+      - name: Convert and reparse all 169 actual tensor records
+        run: |
+          set -euo pipefail
+          python gallery-xr-supertonic/convert_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --checkpoint inputs/model.safetensors --out evidence | tee evidence/conversion.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pocket-tts-korean-pktw
+          path: evidence/
