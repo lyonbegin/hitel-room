@@ -20,22 +20,49 @@ async def main():
                         return state["result"]
                 raise RuntimeError("No native callback: "+action)
             # Every command below is executed by native PokeClaw, never adb input.
-            await act("open_app",{"package":"com.android.settings"})
-            await asyncio.sleep(2)
-            screen=await act("get_screen_info")
-            assert screen["package"]=="com.android.settings",screen["package"]
-            node=next((n for n in screen["nodes"] if n["text"]=="Network & internet" or n["description"]=="Network & internet"),None)
-            assert node,"Network & internet not found"
-            await act("tap",{"x":node["x"],"y":node["y"]})
-            await asyncio.sleep(2)
-            after=await act("get_screen_info")
-            assert after["package"]=="com.android.settings"
-            assert after["nodes"]!=screen["nodes"],"UI unchanged after native tap"
-            assert any(n["text"]=="Network & internet" for n in after["nodes"]),"target page missing"
+            # Settings titles may be exposed via contentDescription or omitted
+            # from the active accessibility tree. Require destination-specific
+            # controls as evidence rather than relying on a single title.
+            trace = []
+            trace_path = Path(os.environ["HITEL_DIRECT_REPORT"]).with_name("direct-native-observations.json")
+            def labels(screen):
+                return {str(n.get(k, "")).strip().casefold()
+                        for n in screen.get("nodes", []) for k in ("text", "description")
+                        if n.get(k)}
+            async def observe(phase):
+                s = await act("get_screen_info")
+                assert s["package"] == "com.android.settings", s["package"]
+                trace.append({"phase": phase, "package": s["package"],
+                              "labels": sorted(labels(s))})
+                trace_path.write_text(json.dumps(trace, indent=2))
+                print(phase + ": " + json.dumps(trace[-1]), flush=True)
+                return s
+            parent_label = "network & internet"
+            destination_controls = {
+                "internet", "sims", "sim cards", "airplane mode",
+                "hotspot & tethering", "data saver", "vpn", "private dns",
+                "mobile network", "adaptive connectivity", "wifi", "wi-fi"
+            }
+            def is_destination(s):
+                return len(labels(s) & destination_controls) >= 2
+            async def wait_for(phase, predicate):
+                for i in range(3):
+                    await asyncio.sleep(1)
+                    s = await observe(phase + "-" + str(i + 1))
+                    if predicate(s):
+                        return s
+                raise AssertionError(phase + " not verified; see observations")
+            await act("open_app", {"package": "com.android.settings"})
+            screen = await wait_for("settings-parent", lambda s: parent_label in labels(s) and not is_destination(s))
+            candidates = [n for n in screen["nodes"] if parent_label in
+                          {str(n.get("text", "")).strip().casefold(),
+                           str(n.get("description", "")).strip().casefold()}]
+            assert candidates, "Settings entry missing"
+            node = next((n for n in candidates if n.get("clickable")), candidates[0])
+            await act("tap", {"x": node["x"], "y": node["y"]})
+            after = await wait_for("network-destination", lambda s: s["nodes"] != screen["nodes"] and is_destination(s))
             await act("back")
-            await asyncio.sleep(1)
-            back=await act("get_screen_info")
-            assert back["package"]=="com.android.settings" and back["nodes"]!=after["nodes"]
+            back = await wait_for("settings-return", lambda s: s["nodes"] != after["nodes"] and parent_label in labels(s) and not is_destination(s))
             Path(os.environ["HITEL_DIRECT_REPORT"]).write_text(json.dumps({"native_open_app":"verified","native_screen_tree":"verified","native_tap":"verified","native_back":"verified","transport":"authenticated MCP + native callback"},indent=2))
             print("Native direct open, observation, tap and back verified.")
 asyncio.run(main())
