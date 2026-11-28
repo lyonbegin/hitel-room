@@ -25,7 +25,49 @@ def patch_native(raw, arch):
     assert limit-cave>=512 and not any(raw[end:limit]), "Nonempty or insufficient RX segment padding"
     data = bytearray(raw)
     ks=Ks(ka,mode)
-    def asm(addr, code): return bytes(ks.asm(code,addr)[0])
+    def asm(addr, code):
+        if arch != "arm64-v8a":
+            return bytes(ks.asm(code,addr)[0])
+        # Encode fixed-width ARM64 branches and addresses explicitly, rather
+        # than relying on Keystone's ambiguous ADR/ADRP absolute operands.
+        lines=[x.strip() for x in code.splitlines() if x.strip()]
+        labels={}
+        at=addr
+        for line in lines:
+            if line.endswith(":"):
+                labels[line[:-1]]=at
+            else:
+                at+=4
+        out=bytearray()
+        def relative(target, bits, shift=0):
+            assert target % (1<<shift)==0
+            delta=target>>shift
+            assert -(1<<(bits-1)) <= delta < (1<<(bits-1)), (target,bits,shift)
+            return delta & ((1<<bits)-1)
+        for line in lines:
+            if line.endswith(":"):continue
+            pc=addr+len(out)
+            op,params=line.split(None,1)
+            a=[x.strip() for x in params.split(",")]
+            def dest(t):
+                return labels[t] if t in labels else int(t.lstrip("#"),0)
+            if op in ("adr","adrp"):
+                target=dest(a[1]); rd=int(a[0][1:])
+                imm=relative(target-pc,21) if op=="adr" else relative((target&~4095)-(pc&~4095),21,12)
+                word=(0x10000000 if op=="adr" else 0x90000000)|((imm&3)<<29)|((imm>>2)<<5)|rd
+            elif op in ("b","bl"):
+                word=(0x14000000 if op=="b" else 0x94000000)|relative(dest(a[0])-pc,26,2)
+            elif op in ("tbz","tbnz"):
+                assert a[0]=="w0" and a[1]=="#0",line
+                word=(0x36000000 if op=="tbz" else 0x37000000)|(relative(dest(a[2])-pc,14,2)<<5)
+            elif op=="add":
+                assert a[1]=="sp" and a[0] in ("x0","x1"),line
+                word=0x910003e0 | (int(a[2].lstrip("#"),0)<<10) | int(a[0][1:])
+            elif line=="mov x0, x19":
+                word=0xaa1303e0
+            else: raise AssertionError(line)
+            out+=struct.pack("<I",word)
+        return bytes(out)
     def place(addr, code):
         b=asm(addr,code)
         assert addr+len(b)<=limit
