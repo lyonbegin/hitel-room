@@ -45,15 +45,20 @@ jobs:
                       return (np.frombuffer(raw[s:e],dtype='<u2').astype('<u4')<<16).view('<f4').reshape(t['shape'])
                   return np.frombuffer(raw[s:e],dtype={'F32':'<f4','F16':'<f2','I64':'<i8'}[t['dtype']]).reshape(t['shape'])
               return h,get
+          def bf16(a):
+              bits=np.asarray(a,dtype='<f4').view('<u4')
+              return ((bits + 0x7fff + ((bits>>16)&1))>>16).astype('<u2')
+          def decode_bf16(data):
+              return (np.frombuffer(data,dtype='<u2').astype('<u4')<<16).view('<f4')
           h,get=load('inputs/languages/french/model.safetensors')
           records=parse(w,h)
           report=[]
           for name,dtype,n,rows,pos,size in records:
               a=get(name).astype(np.float32)
               if dtype==1:
-                  expected=a.astype('<f2').tobytes()
+                  expected=bf16(a).tobytes()
                   original=w[pos:pos+size]
-                  decoded=np.frombuffer(original,dtype='<f2').astype(np.float32).reshape(a.shape)
+                  decoded=decode_bf16(original).reshape(a.shape)
                   score=float(np.mean(np.abs(a-decoded)))
               else:
                   scale=np.frombuffer(w[pos:pos+rows*4],dtype='<f4')
@@ -76,10 +81,10 @@ jobs:
           print('VOICE_SHAPES',[(k,t['shape']) for k,t in sh.items() if k!='__metadata__'])
           assert len(caches)==6 and all(x.shape==(2,n,16,64) for x in caches)
           variants={'layer-kv-time':np.stack(caches),'layer-time-kv':np.stack([x.transpose(1,0,2,3) for x in caches]),'layer-kv-head':np.stack([x.transpose(0,2,1,3) for x in caches]),'kv-layer-time':np.stack(caches).transpose(1,0,2,3,4)}
-          original=np.frombuffer(v[8:],dtype='<f2').astype(np.float32)
+          original=decode_bf16(v[8:])
           scores=[]
           for name,array in variants.items():
-              cand=array.astype('<f2').reshape(-1).astype(np.float32)
+              cand=decode_bf16(bf16(array).tobytes())
               score=float(np.mean(np.abs(cand-original)))
               scores.append({'variant':name,'mean_absolute_error':score,'equal_fraction':float(np.mean(cand==original))})
           pathlib.Path('evidence/voice-calibration.json').write_text(json.dumps(scores,indent=2))
