@@ -44,7 +44,7 @@ class PocketTtsKoreanNativeProbe {
       var squares = 0.0
       var chunks = 0
       var finalSeen = false
-      FileOutputStream(result).use { out ->
+      FileOutputStream(result).buffered().use { out ->
         withTimeout(150_000L) {
           tts.synthesizeStream(text, SynthesisOptions(voiceId = voice, locale = locale)).collect { chunk ->
             assertTrue(chunk.sampleRateHz == 24000)
@@ -62,9 +62,10 @@ class PocketTtsKoreanNativeProbe {
         }
       }
       val rms = sqrt(squares / n.coerceAtLeast(1))
-      assertTrue("Too short/long: $n", n in 2401..960000)
+      assertTrue("Too short/long: $n", n in 2401L..960000L)
       assertTrue("Silent: $rms", rms > 0.00001)
       Log.i("HITEL_POCKET_PROBE", "ANDROID_NATIVE_PCM_PASS case=$caseName samples=$n chunks=$chunks final=$finalSeen rms=$rms")
     }
+    Unit
   }
 }
