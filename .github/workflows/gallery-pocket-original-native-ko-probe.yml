@@ -110,6 +110,35 @@ jobs:
           rm -rf bundles/layer-kv-time
           df -h
           sudo chmod a+rw /dev/kvm
+      - name: Create single-shell ARM64 test launcher
+        run: |
+          cat > run-native-probe.sh <<'SH'
+          set -euo pipefail
+          pkg=com.google.aiedge.gallery
+          adb shell getprop ro.product.cpu.abilist | tee evidence/abilist.txt
+          adb shell getprop ro.dalvik.vm.native.bridge | tee evidence/native-bridge.txt
+          adb shell getprop ro.dalvik.vm.isa.arm64 | tee evidence/isa-arm64.txt
+          grep -F arm64-v8a evidence/abilist.txt
+          grep -F libndk_translation.so evidence/native-bridge.txt
+          grep -F x86_64 evidence/isa-arm64.txt
+          unzip -Z1 dist/gallery-ci-only.apk | grep -Fx lib/arm64-v8a/libmediapipe_tasks_audio_jni.so
+          adb install --abi arm64-v8a -r dist/gallery-ci-only.apk
+          adb install -r -t dist/gallery-ci-probe.apk
+          adb shell dumpsys package "$pkg" | grep -F 'primaryCpuAbi=arm64-v8a' | tee evidence/package-abi.txt
+          adb shell run-as "$pkg" mkdir -p files/pocketprobe/eight
+          adb push bundles/eight/pocket_tts_int8.litertlm /data/local/tmp/pocket-probe.litertlm
+          adb shell "run-as $pkg cp /data/local/tmp/pocket-probe.litertlm files/pocketprobe/eight/pocket_tts_int8.litertlm"
+          adb shell rm /data/local/tmp/pocket-probe.litertlm
+          adb logcat -c
+          adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.PocketTtsOriginalEightLanguageProbe "$pkg.test/androidx.test.runner.AndroidJUnitRunner" | tee evidence/instrumentation.txt
+          adb logcat -d > evidence/logcat.txt
+          grep 'ORIGINAL_NATIVE_' evidence/logcat.txt || true
+          grep -F 'OK (1 test)' evidence/instrumentation.txt
+          for i in 0 1 2 3 4 5; do
+            adb exec-out run-as "$pkg" cat "files/pocketprobe/eight-$i.pcm" > "evidence/eight-$i.pcm"
+          done
+          SH
+          chmod +x run-native-probe.sh
       - name: Test one native object with English French Korean repeated switching
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -122,31 +151,7 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           emulator-boot-timeout: 600
-          script: |
-            set -e
-            pkg=com.google.aiedge.gallery
-            adb shell getprop ro.product.cpu.abilist | tee evidence/abilist.txt
-            adb shell getprop ro.dalvik.vm.native.bridge | tee evidence/native-bridge.txt
-            adb shell getprop ro.dalvik.vm.isa.arm64 | tee evidence/isa-arm64.txt
-            grep -F arm64-v8a evidence/abilist.txt
-            grep -F libndk_translation.so evidence/native-bridge.txt
-            grep -F x86_64 evidence/isa-arm64.txt
-            unzip -Z1 dist/gallery-ci-only.apk | grep -Fx lib/arm64-v8a/libmediapipe_tasks_audio_jni.so
-            adb install --abi arm64-v8a -r dist/gallery-ci-only.apk
-            adb install -r -t dist/gallery-ci-probe.apk
-            adb shell dumpsys package "$pkg" | grep -F 'primaryCpuAbi=arm64-v8a' | tee evidence/package-abi.txt
-            adb shell run-as "$pkg" mkdir -p files/pocketprobe/eight
-            adb push bundles/eight/pocket_tts_int8.litertlm /data/local/tmp/pocket-probe.litertlm
-            adb shell "run-as $pkg cp /data/local/tmp/pocket-probe.litertlm files/pocketprobe/eight/pocket_tts_int8.litertlm"
-            adb shell rm /data/local/tmp/pocket-probe.litertlm
-            adb logcat -c
-            adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.PocketTtsOriginalEightLanguageProbe "$pkg.test/androidx.test.runner.AndroidJUnitRunner" | tee evidence/instrumentation.txt
-            adb logcat -d > evidence/logcat.txt
-            grep 'ORIGINAL_NATIVE_' evidence/logcat.txt || true
-            grep -F 'OK (1 test)' evidence/instrumentation.txt
-            for i in 0 1 2 3 4 5; do
-              adb exec-out run-as "$pkg" cat "files/pocketprobe/eight-$i.pcm" > "evidence/eight-$i.pcm"
-            done
+          script: bash ./run-native-probe.sh
       - name: Independent speech recognition and latency evidence
         run: |
           python -m pip install faster-whisper
