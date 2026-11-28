@@ -40,6 +40,8 @@ public final class MainActivity extends Activity {
   private Button fileButton,folderButton,outputButton,startButton,stopButton,exportButton,openExportButton,saveAsButton,accessibilityButton,modelButton,quickTestButton;
   private boolean startQuickTestAfterPick;
   private boolean receiverRegistered;
+  private static final int PICK_TX_M4A=47;
+  private CallTxPanel txPanel;
 
   private final BroadcastReceiver receiver=new BroadcastReceiver(){
     @Override public void onReceive(Context c,Intent i){
@@ -124,6 +126,7 @@ public final class MainActivity extends Activity {
     liveTranscript.setText(getSharedPreferences("speaker",MODE_PRIVATE)
       .getString("lastTranscript","아직 인식된 자막이 없습니다."));
     status.setTextIsSelectable(true);
+    txPanel=new CallTxPanel(this,root,PICK_TX_M4A);
     explanation=text(root,
       "진단 기준: 커지는 M4A → 원본 AAC follower → Android MediaCodec → 16kHz 모노 PCM → IXIO speechSDK.SpeechInference() → 인식 자막. AudioTrack 및 MediaProjection 미사용. 원본 모델 로딩 여부·PCM 큐·초기화 상태·최종 인식 로그를 ZIP에 저장합니다.",12);
     text(root,"6. PCM → IXIO STT 인식 진단",17);
@@ -276,6 +279,7 @@ public final class MainActivity extends Activity {
     super.onActivityResult(requestCode,resultCode,data);
     if(resultCode!=RESULT_OK||data==null||data.getData()==null)return;
     Uri uri=data.getData();
+    if(requestCode==PICK_TX_M4A){if(txPanel!=null)txPanel.select(uri);return;}
     if(requestCode==PICK_IXIO_MODEL){
       if(active()){status.setText("통화 감시 종료 후 IXIO 모델을 교체하십시오.");return;}
       status.setText("IXIO 원본 STT.zip 검사 및 설치 중");
@@ -431,6 +435,7 @@ public final class MainActivity extends Activity {
     startButton.setText(folderMode?"통화 이벤트 자동 감시 켜기 · 통화 중 PCM 직접 STT":
       "선택한 M4A 파일 직접 한국어 STT (통화 연동 제외)");
     stopButton.setText(folderMode?"통화 자동 감시 해제":"수동 STT 중지");
+    if(txPanel!=null)txPanel.refresh();
   }
   private void start(){
     if(selected==null){status.setText("녹음 파일이나 폴더를 선택하십시오.");return;}
@@ -544,6 +549,7 @@ public final class MainActivity extends Activity {
 
   @Override protected void onStart(){
     super.onStart();
+    if(txPanel!=null)txPanel.visible(true);
     IntentFilter filter=new IntentFilter(SpeakerService.EVENT);
     if(Build.VERSION.SDK_INT>=33)registerReceiver(receiver,filter,Context.RECEIVER_NOT_EXPORTED);
     else registerReceiver(receiver,filter);
@@ -563,7 +569,12 @@ public final class MainActivity extends Activity {
       ui.post(()->{if(!active())start();});
     }
   }
+  @Override protected void onDestroy(){
+    if(txPanel!=null)txPanel.close();
+    super.onDestroy();
+  }
   @Override protected void onStop(){
+    if(txPanel!=null)txPanel.visible(false);
     if(receiverRegistered){unregisterReceiver(receiver);receiverRegistered=false;}
     super.onStop();
   }
