@@ -49,6 +49,7 @@ def main():
     ap.add_argument("--reference", required=True)
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--storage16", choices=["fp16","bf16"], default="fp16")
     args = ap.parse_args()
     out = pathlib.Path(args.out); out.mkdir(parents=True, exist_ok=True)
     with open(args.reference, "rb") as f:
@@ -74,10 +75,16 @@ def main():
             key = name.encode("ascii")
             f.write(struct.pack("<I", len(key)) + key + struct.pack("<II", dtype, count))
             if dtype == 1:
-                converted = a.astype("<f2")
-                assert np.isfinite(converted).all()
+                if args.storage16 == "bf16":
+                    bits = a.astype("<f4", copy=False).view("<u4")
+                    converted = ((bits + 0x7fff + ((bits >> 16) & 1)) >> 16).astype("<u2")
+                    reconstructed = (converted.astype("<u4") << 16).view("<f4")
+                else:
+                    converted = a.astype("<f2")
+                    reconstructed = converted.astype(np.float32)
+                assert np.isfinite(reconstructed).all()
                 f.write(converted.tobytes())
-                error = float(np.max(np.abs(a - converted.astype(np.float32))))
+                error = float(np.max(np.abs(a - reconstructed)))
             else:
                 # Symmetric signed per-row INT8. Match reference record layout:
                 # row count, one little-endian FP32 scale per row, then signed bytes.
@@ -94,7 +101,7 @@ def main():
     assert parse(converted,tensors) == records
     ignored = sorted(set(tensors) - {"__metadata__"} - {r[0] for r in records})
     (out/"conversion-report.json").write_text(json.dumps({
-        "status":"PKTW_STRUCTURAL_PASS_NOT_RUNTIME",
+        "status":"PKTW_STRUCTURAL_PASS_NOT_RUNTIME","storage16":args.storage16,
         "sha256":sha(converted),"bytes":len(converted),"records":len(records),
         "unrepresented_checkpoint_tensors":ignored,"entries":report},indent=2))
     print("PKTW_STRUCTURAL_PASS",len(records),len(converted),sha(converted))
