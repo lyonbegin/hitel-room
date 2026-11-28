@@ -24,13 +24,13 @@ keytool -exportcert -keystore $key -storepass android -alias androiddebugkey -fi
 if ($LASTEXITCODE -ne 0) { throw "Certificate export failed." }
 $sha = (Get-FileHash -Algorithm SHA256 $cert).Hash.ToLowerInvariant()
 if ($registered.Count -gt 0 -and $registered[0].value.ToLowerInvariant() -ne $sha) { throw "Local key differs from registered key. No change made." }
+if ($registered.Count -eq 0) {
+    gh variable set HITEL_GALLERY_SIGNER_SHA256 --repo $Repo --body $sha
+    if ($LASTEXITCODE -ne 0) { throw "Fingerprint registration failed. Keep the original key; retry." }
+}
 if (-not $exists) {
     [Convert]::ToBase64String([IO.File]::ReadAllBytes($key)) | gh secret set HITEL_GALLERY_KEYSTORE_B64 --repo $Repo
     if ($LASTEXITCODE -ne 0) { throw "Secret registration failed. Keep the local key and retry." }
-}
-if ($registered.Count -eq 0) {
-    gh variable set HITEL_GALLERY_SIGNER_SHA256 --repo $Repo --body $sha
-    if ($LASTEXITCODE -ne 0) { throw "Fingerprint registration failed. Keep the original key; do not rotate." }
 }
 Write-Host "FIXED_GALLERY_SIGNER_SHA256=$sha"
 Write-Host "Private backup: $key"
