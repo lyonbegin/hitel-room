@@ -92,11 +92,9 @@ jobs:
           root=Path('upstream/Android/src')
           p=root/'app/build.gradle.kts'
           s=p.read_text()
-          import re
-          matches=re.findall(r'^.*implementation\(.*(?:tasks.audio|tasksAudio|mediapipe.audio|mediapipeAudio).*\).*$',s,re.M|re.I)
-          print("AUDIO_DEPENDENCY_LINES",matches)
-          assert len(matches)==1,matches
-          s=s.replace(matches[0],'    implementation(files("libs/tasks-audio-1.2.0-ko.aar"))',1)
+          old='  implementation(libs.tasks.audio)'
+          assert s.count(old)==1
+          s=s.replace(old,'  implementation(files("libs/tasks-audio-1.2.0-ko.aar"))',1)
           p.write_text(s)
           PY
       - name: Compile original Gallery and native probe
