@@ -1,48 +1,66 @@
 package com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models
 
 /**
- * Supertonic is an offline text-to-PCM model. This adapter streams stable text prefixes
- * into its one resident engine while the LLM continues generating. Never synthesize a
- * partial word, never speak markup, never replay a committed prefix.
+ * Incremental clause adapter, matching supertonic-realtime's first/later sizing
+ * (reference de576308d03478edd169e372e2fbef2b54f52c2f).
+ * XR supplies cumulative reply snapshots; only new stable text enters the queue.
  */
 internal class XrMixedSpeechBuffer {
   private var committed = ""
-  private var waitingSince = -1L
+  private var emitted = 0
   private val tags = Regex("<[^>]*>")
-  private val boundaries = Regex("""\s+|[。！？]""")
+  private val abbreviations = setOf("mr.","mrs.","ms.","dr.","prof.","sr.","jr.","ph.d.","etc.","e.g.","i.e.","vs.","inc.","ltd.","co.","corp.","st.","ave.","blvd.")
+  private val strong = ".!?…。！？"
+  private val weak = ",;:—–、，；"
+  private val closers = "\"'’”)]}»›」』"
+
+  @Suppress("UNUSED_PARAMETER")
   fun offer(raw: String, done: Boolean, nowMs: Long): List<String> {
     val open = raw.lastIndexOf('<')
-    val stableRaw = if (open > raw.lastIndexOf('>')) raw.substring(0, open) else raw
-    val plain = tags.replace(stableRaw, "").trimStart()
-    // A transient partial tag may disappear from the latest parser snapshot.
+    val stable = if (open > raw.lastIndexOf('>')) raw.substring(0, open) else raw
+    val plain = tags.replace(stable, "").trimStart()
     if (!plain.startsWith(committed)) return emptyList()
-    val result = mutableListOf<String>()
-    if (waitingSince < 0 && plain.length > committed.length) waitingSince = nowMs
+    val out = mutableListOf<String>()
     while (committed.length < plain.length) {
-      val rest = plain.substring(committed.length)
-      if (rest.isBlank()) break
-      val ends = boundaries.findAll(rest).map { it.range.last + 1 }.toList()
-      val sentenceEnd = ends.firstOrNull { rest.substring(0,it).trimEnd().lastOrNull() in ".!?。！？".toList() }
-      val preferred = ends.filter { it <= 48 && rest.substring(0,it).trim().length >= 12 }
-      val timed = waitingSince >= 0 && nowMs - waitingSince >= 350L
-      val cut = when {
-        sentenceEnd != null && sentenceEnd <= 48 -> sentenceEnd
-        preferred.isNotEmpty() && (rest.length >= 30 || timed) -> preferred.last()
-        rest.length >= 48 && ends.isNotEmpty() -> ends.first()
-        timed && ends.isNotEmpty() && rest.substring(0,ends.last()).trim().length >= 6 -> ends.last()
-        done -> rest.length
-        else -> break
+      val remainder = plain.substring(committed.length)
+      val rest = remainder.trimStart()
+      val spaces = remainder.length - rest.length
+      if (rest.isEmpty()) { committed = plain; break }
+      val end = nextEnd(rest)
+      if (end < 0 && !done) break
+      val cut = if (end < 0) rest.length else end
+      val part = rest.substring(0, cut).trim()
+      committed += remainder.substring(0, spaces + cut)
+      if (part.isNotEmpty()) { out.add(part); emitted++ }
+    }
+    return out
+  }
+
+  private fun nextEnd(s: String): Int {
+    val target = if (emitted == 0) 60 else 180
+    val floor = if (emitted == 0) 0 else 23
+    for (i in floor until minOf(s.length, target)) {
+      val c = s[i]
+      if (c == '\n') return i + 1
+      if (c !in strong) continue
+      if (c == '.') {
+        val tail = s.substring(maxOf(0, i - 6), i + 1).lowercase()
+        if (abbreviations.any { tail.endsWith(it) } ||
+          (i >= 1 && s[i-1].isUpperCase() && (i < 2 || !s[i-2].isLetter()))) continue
       }
-      val part = rest.substring(0,cut)
-      committed += part
-      if (part.isNotBlank()) result.add(part.trim())
-      waitingSince = if (committed.length < plain.length) nowMs else -1L
+      var j = i + 1
+      while (j < s.length && s[j] in closers) j++
+      if (j < s.length && s[j].isWhitespace()) return j
     }
-    if (done && plain.startsWith(committed) && plain.length > committed.length) {
-      val remaining = plain.substring(committed.length)
-      if (remaining.isNotBlank()) result.add(remaining.trim())
-      committed = plain
+    if (s.length < target) return -1
+    for (i in minOf(s.length, target)-1 downTo floor) {
+      if (s[i] in weak && i+1 < s.length && s[i+1].isWhitespace()) return i+1
     }
-    return result
+    for (i in minOf(s.length, target)-1 downTo floor) {
+      if (s[i].isWhitespace() && i > 0) return i
+    }
+    // As in upstream, a very long unbroken token may require a hard cut.
+    // Do not split a UTF-16 surrogate pair.
+    return if (target < s.length && s[target-1].isHighSurrogate() && s[target].isLowSurrogate()) target-1 else target
   }
 }

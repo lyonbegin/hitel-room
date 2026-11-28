@@ -167,8 +167,8 @@ class SupertonicTtsEngine(private val context: Context) : TtsService {
         var samplesOut=0L
         val producer=this
         try {
-          Log.i(TAG,"SYNTHESIS_BEGIN lang=$lang sid=$sid chars="+text.length)
-          native.generateWithConfigAndCallback(text,GenerationConfig(sid=sid,speed=effective.speed ?: 1f,numSteps=8,extra=mapOf("lang" to lang)), NativeAudioCallback { samples ->
+          Log.i(TAG,"SYNTHESIS_BEGIN lang=$lang sid=$sid steps=${effective.supertonicSteps ?: 8} chars="+text.length)
+          native.generateWithConfigAndCallback(text,GenerationConfig(sid=sid,speed=effective.speed ?: 1f,numSteps=effective.supertonicSteps ?: 8,extra=mapOf("lang" to lang)), NativeAudioCallback { samples ->
             if(!producer.isActive || epoch.get()!=jobEpoch) 0
             else {
               val pcm=resampler.convert(samples)

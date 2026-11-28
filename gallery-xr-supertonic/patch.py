@@ -563,3 +563,26 @@ new='for ((locale,text) in listOf("ko-KR" to "안녕하세요. 한국어 음성 
 assert s.count(old)==1
 test.write_text(s.replace(old,new,1))
 print("XR_MIXED_INCREMENTAL_SOURCE_PATCH_APPLIED")
+
+# Match supertonic-realtime's first-clause 4 steps / later 8 steps in XR only.
+replace("services/tts/TtsConfig.kt", "  val queueMode: TtsQueueMode = TtsQueueMode.FLUSH,\n)", "  val queueMode: TtsQueueMode = TtsQueueMode.FLUSH,\n  val supertonicSteps: Int? = null,\n)")
+replace("customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsCoordinator.kt", "        val activeEngineJobs = CopyOnWriteArrayList<Job>()\n        segmentsFlow.collect", "        val activeEngineJobs = CopyOnWriteArrayList<Job>()\n        var supertonicReplyIndex = 0\n        segmentsFlow.collect")
+replace("customtasks/xrlanguageteacher/services/XrLanguageTeacherTtsCoordinator.kt", "            resolveSegmentTtsConfig(segment.languageCode, persona, TtsQueueMode.FLUSH)\n          val canPipelineOnSameDirectEngine", """            resolveSegmentTtsConfig(segment.languageCode, persona, TtsQueueMode.FLUSH).let { cfg ->
+              if (source == TtsPlaybackSource.DIALOGUE && cfg.modelId == TtsModelIdentifier.SHERPA_SUPERTONIC_3 && !segment.isFiller) {
+                cfg.copy(supertonicSteps = if (supertonicReplyIndex++ == 0) 4 else 8)
+              } else cfg
+            }
+          val canPipelineOnSameDirectEngine""")
+s=test.read_text()
+anchor="    val context=InstrumentationRegistry.getInstrumentation().targetContext"
+assert s.count(anchor)==1
+s=s.replace(anchor, '''    val buffer=com.google.ai.edge.gallery.customtasks.xrlanguageteacher.models.XrMixedSpeechBuffer()
+    assertTrue(buffer.offer("안녕",false,0).isEmpty())
+    assertEquals(listOf("안녕하세요."),buffer.offer("안녕하세요. Hello",false,1))
+    assertTrue(buffer.offer("안녕하세요. Hello",false,2).isEmpty())
+    assertEquals(listOf("Hello world."),buffer.offer("안녕하세요. Hello world.",true,3))
+    assertTrue(buffer.offer("안녕하세요. Hello world.",true,4).isEmpty())
+    android.util.Log.i("HITEL_SUPERTONIC","INCREMENTAL_CLAUSE_BUFFER_PASS")
+'''+anchor,1)
+test.write_text(s)
+print("SUPERTONIC_REALTIME_CLAUSE_POLICY_APPLIED")
