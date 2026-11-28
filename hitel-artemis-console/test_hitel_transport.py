@@ -1,4 +1,5 @@
-import os, tempfile, unittest
+import os, tempfile, unittest, json
+from pathlib import Path
 from unittest.mock import patch
 from hitel_transport import complete, approved_task, ContractError, ApprovalError
 
@@ -18,7 +19,11 @@ class Stub:
 class TransportTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
-        self.env=patch.dict(os.environ,{"HITEL_ARTEMIS_ALLOW_LIVE":"true","HITEL_ARTEMIS_TASK_ID":"artemis-test","ACTIONS_ID_TOKEN_REQUEST_URL":"test","ACTIONS_ID_TOKEN_REQUEST_TOKEN":"test","GITHUB_RUN_ID":"123","GITHUB_RUN_ATTEMPT":"1","RUNNER_TEMP":self.tmp.name},clear=True)
+        self.config=Path(self.tmp.name)/"task.json"
+        self.config.write_text(json.dumps({"task_id":"artemis-test"}),encoding="utf-8")
+        self.config_patch=patch("hitel_transport.TASK_CONFIG",self.config)
+        self.config_patch.start();self.addCleanup(self.config_patch.stop)
+        self.env=patch.dict(os.environ,{"HITEL_ALLOW_LIVE":"true","ACTIONS_ID_TOKEN_REQUEST_URL":"test","ACTIONS_ID_TOKEN_REQUEST_TOKEN":"test","GITHUB_RUN_ID":"123","GITHUB_RUN_ATTEMPT":"1","RUNNER_TEMP":self.tmp.name},clear=True)
         self.env.start();self.addCleanup(self.env.stop)
     def test_reconcile_no_duplicate(self):
         s=Stub()
@@ -33,8 +38,12 @@ class TransportTests(unittest.TestCase):
     def test_reject_unverified(self):
         with self.assertRaises(ContractError):complete("one",transport=Stub(invalid=True))
     def test_approval_gate(self):
-        os.environ["HITEL_ARTEMIS_TASK_ID"]="scribd-18109"
+        self.config.write_text(json.dumps({"task_id":"scribd-18109"}),encoding="utf-8")
         with self.assertRaises(ApprovalError):approved_task()
+    def test_original_live_flag(self):
+        os.environ.pop("HITEL_ALLOW_LIVE")
+        with self.assertRaisesRegex(ApprovalError, "HITEL_ALLOW_LIVE"):
+            approved_task()
     def test_size_limit(self):
         with self.assertRaises(ContractError):complete("x"*24001,transport=Stub())
 if __name__=="__main__":unittest.main()

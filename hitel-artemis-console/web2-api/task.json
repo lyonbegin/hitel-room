@@ -1,0 +1,5 @@
+{
+  "task_id": "artemis-web2-20261129",
+  "provider": "hitel",
+  "note": "Proposed new task identifier for ARTEMIS. This file does not create or approve a task on the server. Use only after explicit server-side producer and task authorization."
+}

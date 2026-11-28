@@ -87,8 +87,7 @@ jobs:
       - name: Check live Web2 task approval (no API request)
         if: github.ref == 'refs/heads/feature/hitel-artemis-web2-api-20261129' || github.event_name != 'push'
         env:
-          HITEL_ARTEMIS_ALLOW_LIVE: ${{ vars.HITEL_ARTEMIS_ALLOW_LIVE }}
-          HITEL_ARTEMIS_TASK_ID: ${{ vars.HITEL_ARTEMIS_TASK_ID }}
+          HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
         run: |
           cd hitel-artemis-console
           python - <<'PY'
@@ -106,8 +105,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
           HITEL_ARTEMIS_PROVIDER: '1'
-          HITEL_ARTEMIS_ALLOW_LIVE: ${{ vars.HITEL_ARTEMIS_ALLOW_LIVE }}
-          HITEL_ARTEMIS_TASK_ID: ${{ vars.HITEL_ARTEMIS_TASK_ID }}
+          HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
           HITEL_MISSION: ${{ github.event_name == 'push' && 'Prepare a read-only plan to inspect Android network settings. Do not claim actual device execution.' || (github.event_name == 'issues' && github.event.issue.body || inputs.mission) }}
         run: uv run --locked python "$GITHUB_WORKSPACE/hitel-artemis-console/run_hitel_planner.py"
       - name: Upload public plan evidence

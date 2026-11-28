@@ -11,6 +11,7 @@ import time
 import web2_client as upstream
 
 _lock = threading.Lock()
+TASK_CONFIG = pathlib.Path(__file__).resolve().parent / 'web2-api' / 'task.json'
 
 class ContractError(ValueError):
     status_code = 400
@@ -19,9 +20,16 @@ class ApprovalError(PermissionError):
     status_code = 403
 
 def approved_task():
-    task = os.getenv("HITEL_ARTEMIS_TASK_ID", "")
-    if os.getenv("HITEL_ARTEMIS_ALLOW_LIVE") != "true" or not re.fullmatch(r"artemis-[a-z0-9-]{1,55}", task):
-        raise ApprovalError("New approved ARTEMIS task and explicit live authorization required")
+    # The original API uses a project JSON task_id and HITEL_ALLOW_LIVE.
+    try:
+        config = json.loads(TASK_CONFIG.read_text(encoding="utf-8"))
+        task = config["task_id"]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ApprovalError("Missing or invalid Web2 task configuration") from exc
+    if not isinstance(task, str) or not re.fullmatch(r"[a-z][a-z0-9-]{2,63}", task) or not task.startswith("artemis-"):
+        raise ApprovalError("A separate ARTEMIS task_id is required; existing projects cannot be reused")
+    if os.getenv("HITEL_ALLOW_LIVE") != "true":
+        raise ApprovalError("Original API approval missing: HITEL_ALLOW_LIVE=true; configured task_id="+task+" (server authorization unverified)")
     if not os.getenv("ACTIONS_ID_TOKEN_REQUEST_URL") or not os.getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN"):
         raise ApprovalError("Authorized GitHub Actions OIDC context required")
     if os.getenv("GITHUB_RUN_ATTEMPT", "1") != "1":

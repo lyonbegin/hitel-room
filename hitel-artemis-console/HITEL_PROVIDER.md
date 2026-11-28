@@ -7,3 +7,6 @@ Source file: universal/engine.py. The transport functions http, get, submit, res
 The original API is an asynchronous text service; no server implementation, browser worker source or image upload contract is included in the supplied source. This branch does not duplicate the remote server. Live calls still require a new authorized ARTEMIS task and approved GitHub OIDC producer, as documented by the original API. No existing task is reused. No OpenAI/Gemini key or browser token input. Offline regression on push; real tests are not simulated as success. No FunctionGemma changes.
 
 The deployed Pages site and main are intentionally unchanged by this branch-specific import.
+
+## Original contract configuration
+The ARTEMIS adapter reads the proposed dedicated task_id from `web2-api/task.json` and uses the original repository variable `HITEL_ALLOW_LIVE`, not ARTEMIS-specific approval variables. The proposed ID is not evidence of server registration or approval. The server operator must provision the task and authorize this repository/workflow/ref as an OIDC producer using an approved administration interface. The supplied API guide has no task-provisioning endpoint. Do not set a live flag to evade that requirement. No browser token or paid model API key is used.
