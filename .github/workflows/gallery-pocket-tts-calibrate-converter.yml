@@ -41,6 +41,8 @@ jobs:
               raw=np.memmap(path,dtype='uint8',mode='r',offset=8+n)
               def get(name):
                   t=h[name];s,e=t['data_offsets']
+                  if t['dtype']=='BF16':
+                      return (np.frombuffer(raw[s:e],dtype='<u2').astype('<u4')<<16).view('<f4').reshape(t['shape'])
                   return np.frombuffer(raw[s:e],dtype={'F32':'<f4','F16':'<f2','I64':'<i8'}[t['dtype']]).reshape(t['shape'])
               return h,get
           h,get=load('inputs/languages/french/model.safetensors')
