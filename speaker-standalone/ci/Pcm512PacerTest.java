@@ -4,11 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 public final class Pcm512PacerTest {
   static void check(boolean ok,String why){if(!ok)throw new AssertionError(why);}
-  static final class FakeClock implements Pcm32Pacer.Clock {
-    long time;
-    public long now(){return time;}
-    public void sleep(long ns){time+=ns;}
-  }
   public static void main(String[] args)throws Exception{
     byte[] source=new byte[13964];
     for(int i=0;i<source.length;i++)source[i]=(byte)(i*31);
@@ -27,19 +22,10 @@ public final class Pcm512PacerTest {
     check(Arrays.equals(source,Arrays.copyOf(result,source.length)),"no audio loss/reorder");
     for(int i=source.length;i<result.length;i++)check(result[i]==0,"only EOF zero padding");
     check(f.finish(frames::add)==0,"no repeated EOF");
-    FakeClock c=new FakeClock();Pcm32Pacer pace=new Pcm32Pacer(c);
-    check(pace.await()==0,"first immediate");
-    c.time+=10_000_000L;check(pace.await()==32_000_000L,"normal 32ms");
-    c.time+=79_000_000L;check(pace.await()==111_000_000L,"overrun no extra delay");
-    check(pace.await()==143_000_000L,"no catch-up burst");
-    c.time+=250_000_000L;check(pace.await()==393_000_000L,"starvation recovery");
-    check(pace.await()==425_000_000L,"rebase after starvation");
-    Pcm32Pacer real=new Pcm32Pacer(new Pcm32Pacer.Clock(){
-      public long now(){return System.nanoTime();}
-      public void sleep(long ns)throws InterruptedException{Thread.sleep(ns/1000000L,(int)(ns%1000000L));}
-    });
-    long first=real.await(),prev=first,min=Long.MAX_VALUE,max=0;
-    for(int i=0;i<20;i++){long at=real.await(),dt=at-prev;check(dt>=32000000L,"no burst");min=Math.min(min,dt);max=Math.max(max,dt);prev=at;}
-    System.out.println("PASS_PCM512_BYTE_EXACT_FRAMING_EOF_PADDING_AND_32MS_NO_BURST minNs="+min+" maxNs="+max+" elapsedNs="+(prev-first));
+    java.util.concurrent.LinkedBlockingQueue<byte[]> fifo=new java.util.concurrent.LinkedBlockingQueue<>(frames.size()+1);
+    fifo.addAll(frames);
+    for(byte[] expected:frames)check(Arrays.equals(expected,fifo.poll()),"FIFO order");
+    check(fifo.isEmpty(),"all queued frames consumed");
+    System.out.println("PASS_PCM512_BYTE_EXACT_FRAMING_EOF_PADDING_FIFO");
   }
 }

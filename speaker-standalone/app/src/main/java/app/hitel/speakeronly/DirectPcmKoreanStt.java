@@ -247,12 +247,6 @@ final class DirectPcmKoreanStt {
         "futureFramesDiscarded",false);
       listener.status("IXIO 원본 speechSDK 준비 완료 · 최신 PCM부터 인식");
       Method tripleFirst=null,tripleThird=null;
-      Pcm32Pacer pace=new Pcm32Pacer(new Pcm32Pacer.Clock(){
-        public long now(){return SystemClock.elapsedRealtimeNanos();}
-        public void sleep(long ns)throws InterruptedException{
-          Thread.sleep(ns/1000000L,(int)(ns%1000000L));
-        }
-      });
       long previousInferNs=0;
       while(true){
         byte[] pcm=queue.poll(300,TimeUnit.MILLISECONDS);
@@ -269,17 +263,17 @@ final class DirectPcmKoreanStt {
           throw new IOException("IXIO float[] contained a NaN or infinity");
         nonZero+=stats.nonzero;
         if(inferCalls==0||inferCalls%8==0||stats.clipped>0)
-          log.event("STT","IXIO_PCM_FLOAT_CONTRACT",
+          log.inferenceMetric("IXIO_PCM_FLOAT_CONTRACT",
             "chunk",inferCalls,"sampleRate",RATE,"channels",1,
             "floatFrames",stats.frames,"durationMs",stats.frames*1000.0/RATE,
             "rms",stats.rms,"dc",stats.dc,"peak",stats.peak,
             "clipCount",stats.clipped,"nearSilent",stats.isNearSilent());
-        long startedNs=pace.await();
+        long startedNs=SystemClock.elapsedRealtimeNanos();
         Object triple=infer.invoke(sdk,samples,CHANNEL,false);
         long finishedNs=SystemClock.elapsedRealtimeNanos();
         long inferMs=(finishedNs-startedNs)/1000000L;
-        log.event("STT","IXIO_PCM512_CONSUMER_TICK",
-          "sequence",inferCalls+1,"samples",samples.length,"targetIntervalMs",32,
+        log.inferenceMetric("IXIO_PCM512_CONSUMER_TICK",
+          "sequence",inferCalls+1,"samples",samples.length,"audioFrameMs",32,"forcedPacing",false,
           "startBootNs",startedNs,"intervalNs",previousInferNs==0?0:startedNs-previousInferNs,
           "inferenceNs",finishedNs-startedNs,"remainingQueue",queue.size(),"tail",false);
         previousInferNs=startedNs;
@@ -296,7 +290,7 @@ final class DirectPcmKoreanStt {
         String partial=first==null?"":String.valueOf(first).trim();
         boolean endpoint=Boolean.TRUE.equals(third);
         if(endpoint || (!partial.isEmpty() && inferCalls%4==1))
-          log.event("STT","IXIO_SPEECHSDK_TRIPLE_RESULT",
+          log.inferenceMetric("IXIO_SPEECHSDK_TRIPLE_RESULT",
             "inference",inferCalls,"text",partial,
             "kws",String.valueOf(triple.getClass().getMethod("getSecond").invoke(triple)),
             "endpoint",endpoint,"inferenceMs",inferMs);
@@ -342,18 +336,18 @@ final class DirectPcmKoreanStt {
         }
       }
       // IXIO's OnlineStream endpoint logic requires trailing PCM frames.
-      // Feed PCM512 silence at the same 32ms cadence, up to 2.624 seconds.
+      // Feed PCM512 silence without wall-clock pacing, up to 2.624 seconds of audio.
       // Distinguish partial text from a genuine SDK endpoint. The original
       // speechSDK, NOT a second recognizer, performs every inference.
       int tailChunks=0;
       if(recognizedSamples>0){
         for(int i=0;i<82;i++){
-          long began=pace.await();
+          long began=SystemClock.elapsedRealtimeNanos();
           Object tail=infer.invoke(sdk,new float[Pcm512Framer.SAMPLES],CHANNEL,false);
           long ended=SystemClock.elapsedRealtimeNanos();
           long elapsed=(ended-began)/1000000L;
-          log.event("STT","IXIO_PCM512_CONSUMER_TICK",
-            "sequence",inferCalls+1,"samples",Pcm512Framer.SAMPLES,"targetIntervalMs",32,
+          log.inferenceMetric("IXIO_PCM512_CONSUMER_TICK",
+            "sequence",inferCalls+1,"samples",Pcm512Framer.SAMPLES,"audioFrameMs",32,"forcedPacing",false,
             "startBootNs",began,"intervalNs",previousInferNs==0?0:began-previousInferNs,
             "inferenceNs",ended-began,"remainingQueue",queue.size(),"tail",true);
           previousInferNs=began;
@@ -365,7 +359,7 @@ final class DirectPcmKoreanStt {
           Object first=firstMethod.invoke(tail);
           String t=first==null?"":String.valueOf(first).trim();
           boolean end=Boolean.TRUE.equals(thirdMethod.invoke(tail));
-          log.event("STT","IXIO_ENDPOINT_TAIL_STEP",
+          log.inferenceMetric("IXIO_ENDPOINT_TAIL_STEP",
             "silenceMs",tailChunks*32,"text",t,"endpoint",end,
             "inferenceMs",elapsed);
           if(end){

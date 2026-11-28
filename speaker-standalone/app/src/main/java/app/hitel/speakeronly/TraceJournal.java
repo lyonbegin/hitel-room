@@ -49,6 +49,8 @@ public final class TraceJournal {
   public String id(){return runId;}
   public File dir(){return directory;}
   public void timing(String stage,String name,Object... pairs){latency.add(stage,name,map(pairs));}
+  /** High-frequency STT metrics: enqueue only, no synchronized event-file write on inference thread. */
+  public void inferenceMetric(String name,Object... pairs){latency.add("STT",name,map(pairs));}
   public void timingAt(long bootNs,String stage,String name,Object... pairs){latency.at(bootNs,stage,name,map(pairs));}
   public static void uiTiming(long bootNs,String stage,String name,Object... pairs){
     TraceJournal journal=activeJournal;

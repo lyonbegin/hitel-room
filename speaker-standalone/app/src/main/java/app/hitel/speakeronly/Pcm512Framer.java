@@ -25,21 +25,3 @@ final class Pcm512Framer {
     return padding/2;
   }
 }
-
-/** Minimum start-to-start cadence, rebased after starvation/overrun; no catch-up bursts. */
-final class Pcm32Pacer {
-  static final long PERIOD_NS=32_000_000L;
-  interface Clock {long now();void sleep(long ns)throws InterruptedException;}
-  private final Clock clock;
-  private long previous=Long.MIN_VALUE;
-  Pcm32Pacer(Clock clock){this.clock=clock;}
-  long await()throws InterruptedException{
-    long now=clock.now();
-    if(previous!=Long.MIN_VALUE){
-      long left=PERIOD_NS-(now-previous);
-      while(left>0){clock.sleep(left);now=clock.now();left=PERIOD_NS-(now-previous);}
-    }
-    previous=now;
-    return now;
-  }
-}
