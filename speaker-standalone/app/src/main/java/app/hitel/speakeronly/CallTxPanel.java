@@ -80,7 +80,7 @@ final class CallTxPanel {
         if(!temp.renameTo(pcm))throw new IOException("PCM 파일 교체 실패");
         app.getSharedPreferences("call_tx",0).edit().putString("name",uri.getLastPathSegment()).apply();
         status("PCM 준비 완료: "+n+" bytes · "+n/96+"ms");
-      }catch(Throwable e){status("변환 실패 (이전 선택 PCM 유지): "+e.getMessage());}
+      }catch(Throwable e){pcm.delete();status("변환 실패 · 송신할 M4A를 다시 선택하십시오: "+e.getMessage());}
       finally{temp.delete();converting=false;ui.post(this::refresh);}
     },"HITEL-TX-Decode");job.start();
   }
@@ -100,7 +100,7 @@ final class CallTxPanel {
             s.setSoTimeout((int)Math.min(650000,n/96+10000));
             DataOutputStream out=new DataOutputStream(new BufferedOutputStream(s.getOutputStream()));
             DataInputStream in=new DataInputStream(s.getInputStream());
-            out.writeUTF(token);out.writeLong(n);out.flush();
+            CallTxAuth.client(token,in,out);out.writeLong(n);out.flush();
             String ack=in.readUTF();if(!"ACCEPTED".equals(ack))throw new IOException(ack);
             try(InputStream file=new BufferedInputStream(new FileInputStream(pcm))){
               byte[] block=new byte[CallTxPlayer.BLOCK];int k;

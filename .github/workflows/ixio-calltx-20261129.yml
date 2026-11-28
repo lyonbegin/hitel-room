@@ -31,6 +31,12 @@ jobs:
           java -cp /tmp/ixio-caption-test app.hitel.speakeronly.IxioLiveCaptionStateTest
           grep -F 'IXIO_ENDPOINT_CLEAR_DISPLAY' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
           grep -F 'String onScreen=finalSegment?"":value;' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
+      - name: Test local TX mutual authentication
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tx-auth
+          javac -d /tmp/tx-auth speaker-standalone/app/src/main/java/app/hitel/speakeronly/CallTxAuth.java speaker-standalone/ci/CallTxAuthTest.java
+          java -cp /tmp/tx-auth app.hitel.speakeronly.CallTxAuthTest
       - name: Prepare NDK and compiler
         run: |
           set -euo pipefail

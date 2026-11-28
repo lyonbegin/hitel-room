@@ -36,8 +36,7 @@ public final class CallTxShell {
           s.setSoTimeout(4000);
           DataInputStream in=new DataInputStream(new BufferedInputStream(s.getInputStream()));
           DataOutputStream out=new DataOutputStream(s.getOutputStream());
-          String key=in.readUTF();
-          if(!MessageDigest.isEqual(key.getBytes(java.nio.charset.StandardCharsets.US_ASCII),token.getBytes(java.nio.charset.StandardCharsets.US_ASCII)))continue;
+          CallTxAuth.server(token,in,out);
           long size=in.readLong();
           if(size==0){out.writeUTF("READY");out.flush();continue;}
           if(audio.getMode()!=AudioManager.MODE_IN_CALL||size<0||size>CallTxDecode.MAX_BYTES||(size&1)!=0){out.writeUTF("ERROR: NO_ACTIVE_VOICE_CALL_OR_BAD_PCM");out.flush();continue;}
