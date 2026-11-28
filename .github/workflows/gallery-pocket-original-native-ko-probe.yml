@@ -2,7 +2,7 @@ name: Original single-engine Pocket TTS eight-language native registration probe
 on:
   push:
     branches: [analysis/gallery-pocket-original-native-ko-20261128]
-    paths: ['.github/workflows/gallery-pocket-original-native-ko-probe.yml']
+    paths: ['.github/workflows/gallery-pocket-original-native-ko-probe.yml','gallery-xr-supertonic/patch_pocket_native_korean_registration.py','gallery-xr-supertonic/PocketTtsOriginalEightLanguageProbe.kt']
   workflow_dispatch:
 permissions:
   contents: read
