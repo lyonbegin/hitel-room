@@ -23,7 +23,7 @@ replace(engine,
     'val listed = synthesizer.listVoiceIds().filter(spec.voiceIdFilter)',
     '''val nativeVoices = synthesizer.listVoiceIds().filter(spec.voiceIdFilter)
         val listed = if (spec.engineModelId == TtsModelIdentifier.MEDIAPIPE_POCKET_TTS_100M) {
-          (nativeVoices + "ko_hitel").distinct()
+          if (HitelPocketEightModel.installed(context)) (nativeVoices + "ko_hitel").distinct() else nativeVoices
         } else nativeVoices''')
 models="services/tts/MediaPipeTtsModels.kt"
 replace(models,'      "alba" to "en-US",','      "ko_hitel" to "ko-KR",\n      "alba" to "en-US",')
@@ -35,6 +35,13 @@ replace("customtasks/xrlanguageteacher/models/XrLanguageTeacherPersonaVoices.kt"
         '          "nl-NL" to CharacterPersona.entries.associateWith { "daan" },',
         '          "nl-NL" to CharacterPersona.entries.associateWith { "daan" },\n          "ko-KR" to CharacterPersona.entries.associateWith { "ko_hitel" },')
 shutil.copy2(here/"HitelPocketEightModel.kt",base/"services/tts/HitelPocketEightModel.kt")
+shutil.copy2(here/"HitelPocketLocalPackPanel.kt",base/"ui/modelmanager/HitelPocketLocalPackPanel.kt")
+replace("ui/modelmanager/TtsModelDetails.kt",'''        SupplementaryModelDetails(
+          card = card,''','''        if (model.ttsProfile?.engineModelId == "mediapipe_pocket_tts_100m") {
+          HitelPocketLocalPackPanel()
+        }
+        SupplementaryModelDetails(
+          card = card,''')
 p=root/"Android/src/app/build.gradle.kts"
 s=p.read_text()
 old='  implementation(libs.tasks.audio)'
