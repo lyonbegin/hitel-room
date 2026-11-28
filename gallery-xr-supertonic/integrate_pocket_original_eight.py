@@ -42,6 +42,13 @@ replace("ui/modelmanager/TtsModelDetails.kt",'''        SupplementaryModelDetail
         }
         SupplementaryModelDetails(
           card = card,''')
+# The XR task setup uses ModelRadioItem, not SupplementaryModelDetails.
+# Keep the import action visible even when the model description is collapsed.
+replace("ui/common/modelitem/ModelRadioItem.kt",'''      // Explain why''','''      if (model.ttsProfile?.engineModelId == "mediapipe_pocket_tts_100m") {
+        com.google.ai.edge.gallery.ui.modelmanager.HitelPocketLocalPackPanel()
+      }
+
+      // Explain why''')
 p=root/"Android/src/app/build.gradle.kts"
 s=p.read_text()
 old='  implementation(libs.tasks.audio)'
