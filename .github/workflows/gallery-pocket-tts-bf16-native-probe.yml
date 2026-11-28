@@ -1,0 +1,78 @@
+name: Korean Pocket TTS BF16 native correction probe
+on:
+  push:
+    branches: [build/gallery-pocket-tts-korean-100m-20261128]
+    paths: ['.github/workflows/gallery-pocket-tts-bf16-native-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: korean-100m-voice-reference
+          run-id: 46111907120
+          github-token: ${{ github.token }}
+          path: inputs/voices
+      - name: Prepare BF16 weight and voice variants
+        run: |
+          set -euo pipefail
+          mkdir -p inputs evidence
+          sudo apt-get update -qq
+          sudo apt-get install -y flatbuffers-compiler libegl1 libgles2 libgl1 libglx0
+          python -m pip install numpy huggingface_hub mediapipe==1.2.3
+          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
+          python - <<'PY'
+          from huggingface_hub import hf_hub_download
+          for f in ['pocket_tts_fr_int8.litertlm','pocket_tts_en_int8.litertlm']:
+              hf_hub_download('litert-community/pocket-tts',f,revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs')
+          for f in ['model.safetensors','tokenizer.model']:
+              hf_hub_download('seastar105/pocket-tts-korean-100m',f,revision='d5418f368ed97bc982ab80c5b639fe28f280636b',local_dir='inputs')
+          PY
+          python gallery-xr-supertonic/convert_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --checkpoint inputs/model.safetensors --storage16 bf16 --out evidence
+          python - <<'PY'
+          import pathlib,numpy as np
+          for p in pathlib.Path('inputs/voices').glob('*.pktv'):
+              b=p.read_bytes(); x=np.frombuffer(b[8:],dtype='<f2').astype('<f4').view('<u4')
+              c=((x+0x7fff+((x>>16)&1))>>16).astype('<u2')
+              p.with_suffix('.bf16').write_bytes(b[:8]+c.tobytes())
+          PY
+          for variant in layer-kv-time layer-time-kv layer-kv-head kv-layer-time; do
+            for format in pktv bf16; do
+              name="$variant-$format"
+              python gallery-xr-supertonic/pack_korean_pocket_tts.py --reference inputs/pocket_tts_fr_int8.litertlm --schema litert/schema/core/litertlm_header_schema.fbs --weights evidence/pocket_tts_weights_ko.bin --tokenizer inputs/tokenizer.model --voice "inputs/voices/$variant.$format" --out "bundles/$name/pocket_tts_int8.litertlm" --mode standalone-alias
+            done
+          done
+      - name: Test actual native Korean PCM and official control
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee evidence/native-bf16.txt
+          import mediapipe as mp, numpy as np, pathlib,wave,traceback
+          paths=[('official','inputs/pocket_tts_en_int8.litertlm')]+[(p.parent.name,str(p)) for p in sorted(pathlib.Path('bundles').rglob('*.litertlm'))]
+          for name,path in paths:
+              try:
+                  opt=mp.tasks.audio.TextToSpeechOptions(base_options=mp.tasks.BaseOptions(model_asset_path=path),default_voice_id='alba',default_locale='en-US')
+                  with mp.tasks.audio.TextToSpeech.create_from_options(opt) as t:
+                      r=t.synthesize('Hello world.' if name=='official' else '안녕하세요. 한국어 음성 합성 시험입니다.',voice_id='alba',locale='en-US')
+                      x=np.asarray(r.samples,dtype=np.float32).reshape(-1)
+                      rms=float(np.sqrt(np.mean(x*x))) if len(x) else 0.0
+                      print('PCM_STATS',name,len(x),r.sample_rate_hz,rms,int(np.count_nonzero(x)),flush=True)
+                      if len(x) and np.isfinite(x).all():
+                          with wave.open('evidence/'+name+'.wav','wb') as f:
+                              f.setnchannels(1);f.setsampwidth(2);f.setframerate(r.sample_rate_hz)
+                              f.writeframes((np.clip(x,-1,1)*32767).astype('<i2').tobytes())
+              except Exception: traceback.print_exc()
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pocket-korean-bf16-probe
+          path: evidence/
