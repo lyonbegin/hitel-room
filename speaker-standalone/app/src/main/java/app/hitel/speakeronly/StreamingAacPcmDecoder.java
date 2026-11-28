@@ -18,7 +18,7 @@ import java.nio.ByteOrder;
 final class StreamingAacPcmDecoder implements AutoCloseable {
   interface PcmSink { void accept(byte[] pcm) throws Exception; }
   private static final int SOURCE_RATE=48000, RATE=16000, FILTER=33;
-  private static final int PCM_WINDOW_BYTES=Pcm512Framer.BYTES; // 512 samples = 32ms
+  private static final int PCM_WINDOW_BYTES=1024; // 32ms max, flush sooner
   private final MediaCodec codec;
   private final TraceJournal journal;
   private final MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();
@@ -112,7 +112,7 @@ final class StreamingAacPcmDecoder implements AutoCloseable {
     byte[] payload=java.util.Arrays.copyOfRange(frame,hdr,frame.length);
     queueFrame(payload,sink);
     drain(sink,0);
-    // flushPcm occurs automatically at each 32ms window, not on phrase end.
+    // flushPcm occurs automatically at each 200ms window, not on phrase end.
   }
   /** One raw AAC access unit from Android MediaExtractor for a FINISHED
    * M4A recording. It shares the exact MediaCodec and FIR PCM path with

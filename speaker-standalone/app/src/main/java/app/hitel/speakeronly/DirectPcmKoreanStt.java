@@ -43,8 +43,6 @@ final class DirectPcmKoreanStt {
   private final Listener listener;
   // Keep all PCM during original IXIO model initialization; trim exactly once at READY.
   private final LinkedBlockingQueue<byte[]> queue=new LinkedBlockingQueue<>();
-  private final Pcm512Framer framer=new Pcm512Framer();
-  private int eofPaddingSamples;
   private volatile boolean inputFinished,ready,completed;
   private volatile Throwable failure;
   private volatile long queuedBytes,recognizedSamples;
@@ -71,26 +69,21 @@ final class DirectPcmKoreanStt {
   long queuedBytes(){return queuedBytes;}
   long recognizedSamples(){return recognizedSamples;}
 
-  synchronized void accept(byte[] pcm)throws IOException {
+  void accept(byte[] pcm)throws IOException {
     if(pcm==null||pcm.length==0)return;
     if((pcm.length&1)!=0)throw new IOException("PCM16 must have an even byte length");
     if(failure!=null)throw new IOException("IXIO speechSDK failed",failure);
     if(inputFinished)throw new IOException("IXIO STT already finished");
-    framer.accept(pcm,queue::add);
-    queuedBytes+=pcm.length;
-    if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<pcm.length)
+    byte[] owned=pcm.clone();
+    queue.add(owned);
+    queuedBytes+=owned.length;
+    if(queuedBytes<=64000 || queuedBytes%(RATE*2*10)<owned.length)
       log.event("STT","IXIO_PCM_QUEUED","bytes",queuedBytes,
-        "modelReady",ready,"chunks",queue.size(),"frameSamples",Pcm512Framer.SAMPLES);
+        "modelReady",ready,"chunks",queue.size());
   }
 
   void finishAndWait(){
-    synchronized(this){
-      if(!inputFinished){
-        eofPaddingSamples=framer.finish(queue::add);
-        inputFinished=true;
-        log.event("STT","IXIO_PCM512_EOF","paddingSamples",eofPaddingSamples,"inputBytes",queuedBytes);
-      }
-    }
+    inputFinished=true;
     Thread current=worker;
     if(current==null)return;
     // The previous join(30000) silently returned while real inference still
@@ -247,7 +240,6 @@ final class DirectPcmKoreanStt {
         "futureFramesDiscarded",false);
       listener.status("IXIO 원본 speechSDK 준비 완료 · 최신 PCM부터 인식");
       Method tripleFirst=null,tripleThird=null;
-      long previousInferNs=0;
       while(true){
         byte[] pcm=queue.poll(300,TimeUnit.MILLISECONDS);
         if(pcm==null){
@@ -256,27 +248,20 @@ final class DirectPcmKoreanStt {
         }
         // Exactly the IXIO original 16kHz mono float[] input contract.
         // No per-window AGC or duration/frequency changes are allowed.
-        if(pcm.length!=Pcm512Framer.BYTES)throw new IOException("PCM512 frame length "+pcm.length);
         float[] samples=IxioPcmNormalizer.decode(pcm);
         IxioPcmNormalizer.Stats stats=IxioPcmNormalizer.stats(samples);
         if(stats.hasInvalid())
           throw new IOException("IXIO float[] contained a NaN or infinity");
         nonZero+=stats.nonzero;
         if(inferCalls==0||inferCalls%8==0||stats.clipped>0)
-          log.inferenceMetric("IXIO_PCM_FLOAT_CONTRACT",
+          log.event("STT","IXIO_PCM_FLOAT_CONTRACT",
             "chunk",inferCalls,"sampleRate",RATE,"channels",1,
             "floatFrames",stats.frames,"durationMs",stats.frames*1000.0/RATE,
             "rms",stats.rms,"dc",stats.dc,"peak",stats.peak,
             "clipCount",stats.clipped,"nearSilent",stats.isNearSilent());
-        long startedNs=SystemClock.elapsedRealtimeNanos();
+        long inferStarted=SystemClock.elapsedRealtime();
         Object triple=infer.invoke(sdk,samples,CHANNEL,false);
-        long finishedNs=SystemClock.elapsedRealtimeNanos();
-        long inferMs=(finishedNs-startedNs)/1000000L;
-        log.inferenceMetric("IXIO_PCM512_CONSUMER_TICK",
-          "sequence",inferCalls+1,"samples",samples.length,"audioFrameMs",32,"forcedPacing",false,
-          "startBootNs",startedNs,"intervalNs",previousInferNs==0?0:startedNs-previousInferNs,
-          "inferenceNs",finishedNs-startedNs,"remainingQueue",queue.size(),"tail",false);
-        previousInferNs=startedNs;
+        long inferMs=SystemClock.elapsedRealtime()-inferStarted;
         if(inferMs>slowestInferenceMs)slowestInferenceMs=inferMs;
         inferCalls++;
         recognizedSamples+=samples.length;
@@ -290,7 +275,7 @@ final class DirectPcmKoreanStt {
         String partial=first==null?"":String.valueOf(first).trim();
         boolean endpoint=Boolean.TRUE.equals(third);
         if(endpoint || (!partial.isEmpty() && inferCalls%4==1))
-          log.inferenceMetric("IXIO_SPEECHSDK_TRIPLE_RESULT",
+          log.event("STT","IXIO_SPEECHSDK_TRIPLE_RESULT",
             "inference",inferCalls,"text",partial,
             "kws",String.valueOf(triple.getClass().getMethod("getSecond").invoke(triple)),
             "endpoint",endpoint,"inferenceMs",inferMs);
@@ -336,21 +321,15 @@ final class DirectPcmKoreanStt {
         }
       }
       // IXIO's OnlineStream endpoint logic requires trailing PCM frames.
-      // Feed PCM512 silence without wall-clock pacing, up to 2.624 seconds of audio.
+      // Feed 200ms blocks (the same format as real audio), up to 2.6 seconds.
       // Distinguish partial text from a genuine SDK endpoint. The original
       // speechSDK, NOT a second recognizer, performs every inference.
       int tailChunks=0;
       if(recognizedSamples>0){
-        for(int i=0;i<82;i++){
-          long began=SystemClock.elapsedRealtimeNanos();
-          Object tail=infer.invoke(sdk,new float[Pcm512Framer.SAMPLES],CHANNEL,false);
-          long ended=SystemClock.elapsedRealtimeNanos();
-          long elapsed=(ended-began)/1000000L;
-          log.inferenceMetric("IXIO_PCM512_CONSUMER_TICK",
-            "sequence",inferCalls+1,"samples",Pcm512Framer.SAMPLES,"audioFrameMs",32,"forcedPacing",false,
-            "startBootNs",began,"intervalNs",previousInferNs==0?0:began-previousInferNs,
-            "inferenceNs",ended-began,"remainingQueue",queue.size(),"tail",true);
-          previousInferNs=began;
+        for(int i=0;i<13;i++){
+          long began=SystemClock.elapsedRealtime();
+          Object tail=infer.invoke(sdk,new float[3200],CHANNEL,false);
+          long elapsed=SystemClock.elapsedRealtime()-began;
           tailChunks++;
           inferCalls++;
           if(tail==null)continue;
@@ -359,8 +338,8 @@ final class DirectPcmKoreanStt {
           Object first=firstMethod.invoke(tail);
           String t=first==null?"":String.valueOf(first).trim();
           boolean end=Boolean.TRUE.equals(thirdMethod.invoke(tail));
-          log.inferenceMetric("IXIO_ENDPOINT_TAIL_STEP",
-            "silenceMs",tailChunks*32,"text",t,"endpoint",end,
+          log.event("STT","IXIO_ENDPOINT_TAIL_STEP",
+            "silenceMs",tailChunks*200,"text",t,"endpoint",end,
             "inferenceMs",elapsed);
           if(end){
             endpointSeen=true;
@@ -394,7 +373,7 @@ final class DirectPcmKoreanStt {
       }
       log.event("STT","IXIO_SESSION_FINAL","samples",recognizedSamples,
         "nonZeroSamples",nonZero,"captionChars",committed.length(),
-        "endpointObserved",endpointSeen,"tailSilenceMs",tailChunks*32,
+        "endpointObserved",endpointSeen,"tailSilenceMs",tailChunks*200,
         "inferenceCalls",inferCalls,"maxInferenceMs",slowestInferenceMs);
       listener.status(String.format(Locale.KOREA,
         "IXIO STT 종료 · PCM %.1f초",recognizedSamples/(double)RATE));

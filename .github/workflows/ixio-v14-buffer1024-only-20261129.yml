@@ -1,11 +1,11 @@
-name: IXIO V14 PCM512 immediate FIFO - build and virtual call regression
+name: IXIO V14 baseline only buffer 1024 - build and virtual call regression
 on:
   push:
     branches: [feature/ixio-v14-pcm512-paced-20261129]
     paths:
       - 'speaker-standalone/**'
       - 'sherpa-original-launcher/native/aac_mdat_follow.c'
-      - '.github/workflows/ixio-v14-pcm512-paced-20261129.yml'
+      - '.github/workflows/ixio-v14-buffer1024-only-20261129.yml'
   workflow_dispatch:
 permissions:
   contents: write
@@ -31,17 +31,6 @@ jobs:
           java -cp /tmp/ixio-caption-test app.hitel.speakeronly.IxioLiveCaptionStateTest
           grep -F 'IXIO_ENDPOINT_CLEAR_DISPLAY' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
           grep -F 'String onScreen=finalSegment?"":value;' speaker-standalone/app/src/main/java/app/hitel/speakeronly/SpeakerService.java
-      - name: Verify fixed PCM512, FIFO and absence of forced pacing
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/ixio-pcm512-test
-          javac -d /tmp/ixio-pcm512-test speaker-standalone/app/src/main/java/app/hitel/speakeronly/Pcm512Framer.java speaker-standalone/ci/Pcm512PacerTest.java
-          java -cp /tmp/ixio-pcm512-test app.hitel.speakeronly.Pcm512PacerTest
-          grep -F 'IXIO_PCM512_CONSUMER_TICK' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
-          ! grep -F 'new float[3200]' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
-          ! grep -E 'pace\.await|Pcm32Pacer|Thread\.sleep' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
-          grep -F 'log.inferenceMetric("IXIO_PCM512_CONSUMER_TICK"' speaker-standalone/app/src/main/java/app/hitel/speakeronly/DirectPcmKoreanStt.java
-          grep -F 'PCM_WINDOW_BYTES=Pcm512Framer.BYTES' speaker-standalone/app/src/main/java/app/hitel/speakeronly/StreamingAacPcmDecoder.java
       - name: Prepare NDK and compiler
         run: |
           set -euo pipefail
@@ -233,14 +222,14 @@ jobs:
           grep -Fx 'assets/ixio/bpe.vocab' /tmp/ixio-standalone-contents.txt
           ! grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/ixio-standalone-contents.txt
           mkdir -p speaker-standalone/dist
-          cp "$APK" speaker-standalone/dist/HITEL_IXIO_V14_PCM512_ImmediateFIFO_20261129.apk
-          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_V14_PCM512_ImmediateFIFO_20261129.apk > SHA256.txt)
+          cp "$APK" speaker-standalone/dist/HITEL_IXIO_V14_Buffer1024_Only_20261129.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_V14_Buffer1024_Only_20261129.apk > SHA256.txt)
           echo PASS_ORIGINAL_IXIO_SDK_ONLY_EXPERIMENTAL_APK
       - name: Upload original IXIO STT experimental APK as Actions artifact ONLY
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO-V14-PCM512-ImmediateFIFO-ARM64-20261129
+          name: IXIO-V14-Buffer1024-Only-ARM64-20261129
           path: speaker-standalone/dist/
           if-no-files-found: warn
       - name: Reuse the earlier verified synthetic AAC fixture without apt dependencies
@@ -263,7 +252,7 @@ jobs:
           #!/usr/bin/env bash
           set -euo pipefail
           PKG=app.hitel.recording.ixio.stablevirtual
-          APK=speaker-standalone/dist/HITEL_IXIO_V14_PCM512_ImmediateFIFO_20261129.apk
+          APK=speaker-standalone/dist/HITEL_IXIO_V14_Buffer1024_Only_20261129.apk
           echo "ABIS=$(adb shell getprop ro.product.cpu.abilist)" | tee replay-qa/device.txt
           echo "NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)" | tee -a replay-qa/device.txt
           grep -F 'arm64-v8a' replay-qa/device.txt
@@ -336,11 +325,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=ixio-v14-pcm512-immediate-fifo-${GITHUB_SHA:0:7}-20261129
-          APK=HITEL_IXIO_V14_PCM512_ImmediateFIFO_20261129.apk
+          TAG=ixio-v14-buffer1024-only-${GITHUB_SHA:0:7}-20261129
+          APK=HITEL_IXIO_V14_Buffer1024_Only_20261129.apk
           cd speaker-standalone/dist
           sha256sum -c SHA256.txt
-          gh release create "$TAG" -R lyonbegin/hitel-room --target "$GITHUB_SHA" --prerelease --latest=false --title "IXIO V14 PCM512 immediate FIFO test APK" --notes "Exact source $GITHUB_SHA. JVM and emulator regression passed. Original model not included; real inference timing requires device test." "$APK" SHA256.txt
+          gh release create "$TAG" -R lyonbegin/hitel-room --target "$GITHUB_SHA" --prerelease --latest=false --title "IXIO V14 baseline buffer1024 only test APK" --notes "Exact source $GITHUB_SHA. JVM and emulator regression passed. Original model not included; real inference timing requires device test." "$APK" SHA256.txt
           mkdir -p /tmp/ixio-publish-verify
           gh release download "$TAG" -R lyonbegin/hitel-room -p "$APK" -D /tmp/ixio-publish-verify
           cmp "$APK" "/tmp/ixio-publish-verify/$APK"

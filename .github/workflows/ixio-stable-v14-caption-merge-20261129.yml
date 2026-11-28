@@ -8,7 +8,7 @@ on:
       - '.github/workflows/ixio-stable-v14-caption-merge-20261129.yml'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   actions: read
 jobs:
   speaker-arm64:
@@ -222,28 +222,16 @@ jobs:
           grep -Fx 'assets/ixio/bpe.vocab' /tmp/ixio-standalone-contents.txt
           ! grep -F 'assets/models/encoder-epoch-99-avg-1.int8.onnx' /tmp/ixio-standalone-contents.txt
           mkdir -p speaker-standalone/dist
-          cp "$APK" speaker-standalone/dist/HITEL_IXIO_Stable_V14_Caption_20261129.apk
-          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_Stable_V14_Caption_20261129.apk > SHA256.txt)
+          cp "$APK" speaker-standalone/dist/HITEL_IXIO_Stable_VirtualCall_20261124.apk
+          (cd speaker-standalone/dist && sha256sum HITEL_IXIO_Stable_VirtualCall_20261124.apk > SHA256.txt)
           echo PASS_ORIGINAL_IXIO_SDK_ONLY_EXPERIMENTAL_APK
       - name: Upload original IXIO STT experimental APK as Actions artifact ONLY
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: IXIO-Stable-V14-Caption-ARM64-20261129
+          name: IXIO-Stable-V11-VirtualCall-ARM64-20261124
           path: speaker-standalone/dist/
           if-no-files-found: warn
-      - name: Publish newly built V14 test APK (emulator test follows)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TAG=ixio-stable-v14-caption-20261129
-          APK=HITEL_IXIO_Stable_V14_Caption_20261129.apk
-          cd speaker-standalone/dist
-          sha256sum -c SHA256.txt
-          gh release view "$TAG" -R lyonbegin/hitel-room >/dev/null 2>&1 || gh release create "$TAG" -R lyonbegin/hitel-room --target "$GITHUB_SHA" --prerelease --latest=false --title "IXIO stable V14 live caption test APK" --notes "Built from $GITHUB_SHA. V14 caption state on stable original audio pipeline. Original model must be imported separately. Emulator and real model inference verification are separate."
-          gh release upload "$TAG" -R lyonbegin/hitel-room "$APK" SHA256.txt --clobber
-          echo "https://github.com/lyonbegin/hitel-room/releases/download/$TAG/$APK"
       - name: Reuse the earlier verified synthetic AAC fixture without apt dependencies
         env:
           GH_TOKEN: ${{ github.token }}
@@ -264,7 +252,7 @@ jobs:
           #!/usr/bin/env bash
           set -euo pipefail
           PKG=app.hitel.recording.ixio.stablevirtual
-          APK=speaker-standalone/dist/HITEL_IXIO_Stable_V14_Caption_20261129.apk
+          APK=speaker-standalone/dist/HITEL_IXIO_Stable_VirtualCall_20261124.apk
           echo "ABIS=$(adb shell getprop ro.product.cpu.abilist)" | tee replay-qa/device.txt
           echo "NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)" | tee -a replay-qa/device.txt
           grep -F 'arm64-v8a' replay-qa/device.txt
