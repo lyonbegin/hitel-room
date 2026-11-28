@@ -86,6 +86,30 @@ jobs:
           appcert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ../../../evidence/signature.txt)
           testcert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ../../../evidence/test-signature.txt)
           [[ "$testcert" =~ ^[0-9a-fA-F]{64}$ ]] && test "$appcert" = "$testcert" || { echo "::error::App and instrumentation APK signer mismatch"; exit 1; }
+      - name: Prepare Bash emulator verification script
+        run: |
+          cat > "$RUNNER_TEMP/xr-mixed-verify.sh" <<'HITEL_SCRIPT'
+          set -euo pipefail
+          adb wait-for-device
+          adb devices -l | tee evidence/adb-devices.txt
+          adb install -r dist/HITEL_Gallery_Global_ASR.apk
+          adb install -r -t dist/HITEL_Gallery_Local_SODA_Test.apk
+          adb logcat -c
+          adb shell monkey -p com.google.aiedge.gallery -c android.intent.category.LAUNCHER 1
+          adb exec-out screencap -p > evidence/xr-app-launch.png
+          adb shell am force-stop com.google.aiedge.gallery
+          trap 'adb logcat -d -v threadtime > evidence/mixed-logcat.txt; adb logcat -b crash -d > evidence/mixed-crash.txt' EXIT
+          timeout 600 adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.SupertonicDeviceTest com.google.aiedge.gallery.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/mixed-instrumentation.txt
+          adb logcat -d -v threadtime > evidence/mixed-logcat.txt
+          grep -F 'OK (1 test)' evidence/mixed-instrumentation.txt
+          grep -F 'SYNTHESIS_OK lang=na' evidence/mixed-logcat.txt
+          for lang in ko-KR en-US na; do
+            adb exec-out run-as com.google.aiedge.gallery cat "files/supertonic-test-${lang}.pcm" > "evidence/${lang}.pcm"
+            test "$(wc -c < "evidence/${lang}.pcm")" -gt 24000
+          done
+          echo 'NATIVE_MIXED_PCM_PASS; FULL_XR_LLM_TO_SPEAKER_NOT_TESTED' | tee evidence/mixed-result.txt
+          HITEL_SCRIPT
+          bash -n "$RUNNER_TEMP/xr-mixed-verify.sh"
       - name: Enable KVM
         run: sudo chmod a+rw /dev/kvm
       - name: Install and exercise actual engine
@@ -100,24 +124,7 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
           emulator-boot-timeout: 600
-          script: |
-            set -euo pipefail
-            adb install -r dist/HITEL_Gallery_Global_ASR.apk
-            adb install -r -t dist/HITEL_Gallery_Local_SODA_Test.apk
-            adb logcat -c
-            adb shell monkey -p com.google.aiedge.gallery -c android.intent.category.LAUNCHER 1
-            adb exec-out screencap -p > evidence/xr-app-launch.png
-            adb shell am force-stop com.google.aiedge.gallery
-            trap 'adb logcat -d -v threadtime > evidence/mixed-logcat.txt; adb logcat -b crash -d > evidence/mixed-crash.txt' EXIT
-            timeout 600 adb shell am instrument -w -r -e class com.google.ai.edge.gallery.services.tts.SupertonicDeviceTest com.google.aiedge.gallery.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/mixed-instrumentation.txt
-            adb logcat -d -v threadtime > evidence/mixed-logcat.txt
-            grep -F 'OK (1 test)' evidence/mixed-instrumentation.txt
-            grep -F 'SYNTHESIS_OK lang=na' evidence/mixed-logcat.txt
-            for lang in ko-KR en-US na; do
-              adb exec-out run-as com.google.aiedge.gallery cat "files/supertonic-test-${lang}.pcm" > "evidence/${lang}.pcm"
-              test "$(wc -c < "evidence/${lang}.pcm")" -gt 24000
-            done
-            echo 'NATIVE_MIXED_PCM_PASS; FULL_XR_LLM_TO_SPEAKER_NOT_TESTED' | tee evidence/mixed-result.txt
+          script: bash "$RUNNER_TEMP/xr-mixed-verify.sh"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
