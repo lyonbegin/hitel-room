@@ -28,5 +28,7 @@ with a.base.open("rb") as f,a.combined.open("rb") as g:
             full_hash.update(c);out.write(c)
 meta={"baseSize":a.base.stat().st_size,"combinedSize":a.combined.stat().st_size,"baseSha256":base_hash.hexdigest(),"combinedSha256":full_hash.hexdigest()}
 assert meta["baseSize"]==760061960 and meta["combinedSize"]==882565128,meta
+for name,key in [("pocket-eight-header.bin","headerSha256"),("pocket-eight-tail.bin","tailSha256")]:
+    meta[key]=hashlib.file_digest((a.output/name).open("rb"),"sha256").hexdigest()
 (a.output/"pocket-eight.json").write_text(json.dumps(meta))
 print("ALL_ORIGINAL_PAYLOAD_BYTES_IDENTICAL",meta)
