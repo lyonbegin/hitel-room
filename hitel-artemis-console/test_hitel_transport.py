@@ -1,4 +1,5 @@
-import base64, json, unittest, os
+import base64, json, unittest, os, tempfile
+from pathlib import Path
 from unittest.mock import patch
 import hitel_transport as c
 class ClientTests(unittest.TestCase):
@@ -55,7 +56,7 @@ class ClientTests(unittest.TestCase):
             c.wait_project("artemis-test",call=api,timeout=35,clock=lambda:now[0],sleep=lambda sec:now.__setitem__(0,now[0]+sec))
         self.assertEqual(e.exception.project_id,"artemis-test")
     def test_request_id_stable_across_runner(self):
-        with patch.dict(os.environ,{"task_id":"artemis-test","GH_TOKEN":"fixture","ARTEMIS_REQUEST_ID":"request-001","GITHUB_RUN_ID":"100"},clear=True):
+        with patch.dict(os.environ,{"task_id":"artemis-test","GH_TOKEN":"fixture","ARTEMIS_REQUEST_ID":"request-001","GITHUB_RUN_ID":"100","ARTEMIS_API_MODE":"runtime"},clear=True):
             with patch("hitel_transport.register",return_value=None),patch("hitel_transport.wait_project",return_value="answer") as wait:
                 c.complete("same")
                 first=wait.call_args.args[0]
@@ -70,4 +71,36 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(c.ProjectPending):
             c.wait_project("artemis-test",call=api,timeout=100,clock=lambda:now[0],sleep=lambda sec:now.__setitem__(0,now[0]+sec),registration={"commit":{"sha":"commit"}})
         self.assertEqual(len(posts),1)
+    def test_connector_default_no_runtime_token_or_writes(self):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ,{"task_id":"artemis-test","ARTEMIS_REQUEST_ID":"request-001","GITHUB_WORKSPACE":root},clear=True):
+            calls=[]
+            def api(method,path,body=None,token=None):
+                calls.append((method,path,token))
+                self.assertEqual(method,"GET")
+                self.assertIsNone(token)
+                return None
+            with self.assertRaises(c.ProjectPending) as e:
+                c.complete("public synthetic goal",call=api)
+            pid=e.exception.project_id
+            artifact=Path(root)/"console-results"/"connector-projects"/(pid+".json")
+            self.assertEqual(json.loads(artifact.read_text()),c.project_for("public synthetic goal","artemis-test","request-001"))
+            self.assertEqual(len(calls),1)
+            self.assertIn("not confirmed",e.exception.reason)
+    def test_connector_verified_answer_and_definition(self):
+        with tempfile.TemporaryDirectory() as root, patch.dict(os.environ,{"GITHUB_WORKSPACE":root},clear=True):
+            p=c.project_for("public synthetic goal","artemis-test","request-001")
+            state={"status":"complete","definition_sha":c.definition_sha(p),"provider":"hitel","total":1,"mock_completed":0,"verified_ai_completed":1,"results":[{"record_id":"turn-1","answer":"ok"}]}
+            def api(method,path,body=None,token=None):
+                self.assertEqual(method,"GET")
+                data=(json.dumps(p).encode() if "project.json" in path else json.dumps(state).encode() if "state.json" in path else b"record_id,answer\nturn-1,ok\n")
+                return {"encoding":"base64","content":base64.b64encode(data).decode()}
+            self.assertEqual(c.connector_result(p,call=api),"ok")
+            state["definition_sha"]="different"
+            with self.assertRaises(c.ContractError): c.connector_result(p,call=api)
+            state["definition_sha"]=c.definition_sha(p)
+            state["provider"]="mock"
+            with self.assertRaises(c.ContractError): c.connector_result(p,call=api)
+    def test_runtime_still_requires_token(self):
+        with patch.dict(os.environ,{"task_id":"artemis-test","ARTEMIS_API_MODE":"runtime"},clear=True):
+            with self.assertRaises(c.ApprovalError): c.client_task()
 if __name__=="__main__": unittest.main()

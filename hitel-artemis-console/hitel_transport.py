@@ -1,5 +1,6 @@
 """Client of the original HITEL Universal API; no server, engine or direct relay calls."""
 import base64, csv, hashlib, io, json, os, re, time
+from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError
@@ -13,9 +14,10 @@ class ContractError(ValueError): pass
 class ApprovalError(PermissionError): pass
 class ProjectRejected(ContractError): pass
 class ProjectPending(TimeoutError):
-    def __init__(self, project_id):
+    def __init__(self, project_id, reason="original result pending"):
         self.project_id=project_id
-        super().__init__("Original API project pending: "+project_id+"; resume the same project; do not resubmit")
+        self.reason=reason
+        super().__init__("Original API project pending: "+project_id+"; "+reason+"; resume the same project; do not resubmit")
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -55,13 +57,21 @@ def read_json(path, *, call=api, token=None):
     data=file_bytes(path,call=call,token=token)
     return None if data is None else json.loads(data)
 
+def connector_only():
+    # A connected GitHub tool has its own authorization, not a runner token.
+    # Default to the no-write handoff unless runtime submission is explicit.
+    mode=os.environ.get("ARTEMIS_API_MODE","connector")
+    if mode not in ("connector","runtime"):
+        raise ContractError("ARTEMIS_API_MODE must be connector or runtime")
+    return mode=="connector"
+
 def client_task():
     # Validate input and GitHub transport only; original Actions/server own live approval.
     task=os.environ.get("task_id","")
     if not ID.fullmatch(task) or task=="scribd-18109":
         raise ApprovalError("Supply the original API task_id approved for this work")
-    if not os.environ.get("GH_TOKEN"):
-        raise ApprovalError("Original API requires an authorized GitHub connection (GH_TOKEN)")
+    if not connector_only() and not os.environ.get("GH_TOKEN"):
+        raise ApprovalError("Runtime submission requires separately authorized GH_TOKEN")
     return task
 
 def project_for(prompt, task, run):
@@ -193,13 +203,63 @@ def wait_project(pid, *, timeout=1200, call=api, token=None, sleep=time.sleep, c
         sleep(min(10,max(0,deadline-clock())))
     raise ProjectPending(pid)
 
+def definition_sha(project):
+    definition={k:v for k,v in project.items() if k not in ("command","notifications")}
+    raw=json.dumps(definition,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+def save_connector_request(project):
+    """Local artifact only; never creates or updates an original API project."""
+    root=Path(os.environ.get("GITHUB_WORKSPACE") or ".")/"console-results"/"connector-projects"
+    root.mkdir(parents=True,exist_ok=True)
+    path=root/(project["project_id"]+".json")
+    raw=json.dumps(project,ensure_ascii=False,indent=2)
+    if len(raw.encode("utf-8"))>850000:
+        raise ContractError("Original API project size limit exceeded")
+    if path.exists():
+        if json.loads(path.read_text(encoding="utf-8"))!=project:
+            raise ContractError("Local connector request identity conflict")
+    else:
+        # Exclusive creation prevents an unrelated local request being overwritten.
+        with path.open("x",encoding="utf-8") as f: f.write(raw+"\n")
+    print("Connector request artifact: "+str(path),flush=True)
+    return path
+
+def connector_result(project, *, call=api, token=None):
+    """GET-only consumer: connector registers approved requests outside this process."""
+    pid=project["project_id"]
+    save_connector_request(project)
+    stored=read_json("universal/projects/"+pid+"/project.json",call=call,token=token)
+    if stored is None:
+        raise ProjectPending(pid,"original registration not confirmed; use the approved connector to check or register the artifact")
+    expected=definition_sha(project)
+    if definition_sha(stored)!=expected:
+        raise ContractError("Original project definition does not match the connector request")
+    if stored.get("command")!="start":
+        raise ContractError("Original project is not in start mode; operator review required")
+    prefix="universal/state/"+pid+"/"
+    state=read_json(prefix+"state.json",call=call,token=token)
+    if state is None:
+        raise ProjectPending(pid,"original checkpoint not found; inspect the original Actions run for rejection or pending work")
+    if state.get("definition_sha")!=expected:
+        raise ContractError("Original checkpoint definition mismatch")
+    if state.get("provider")!="hitel":
+        raise ContractError("Original checkpoint is not a live-provider result")
+    if state.get("status") in ("blocked","paused"):
+        raise ContractError("Original project "+state["status"]+"; inspect original state and events")
+    if state.get("status")!="complete":
+        raise ProjectPending(pid,"original result not complete")
+    return verified_answer(state,file_bytes(prefix+"results.csv",call=call,token=token))
+
 def complete(prompt, *, timeout=1200, call=api, sleep=time.sleep, clock=time.monotonic):
     task=client_task()
-    token=os.environ["GH_TOKEN"]
+    token=os.environ.get("GH_TOKEN")
     request=os.environ.get("ARTEMIS_REQUEST_ID","")
     if not re.fullmatch(r"[a-zA-Z0-9-]{8,64}",request):
         raise ContractError("Stable ARTEMIS_REQUEST_ID required; reuse it on resume")
     p=project_for(prompt,task,request)
+    if connector_only():
+        return connector_result(p,call=call,token=token)
     registration=register(p,call=call,token=token)
     return wait_project(p["project_id"],timeout=timeout,call=call,token=token,sleep=sleep,clock=clock,registration=registration)
 

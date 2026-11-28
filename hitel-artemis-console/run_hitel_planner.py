@@ -26,7 +26,7 @@ for _ in range(4):
         reply = model.invoke(messages)
     except ProjectPending as exc:
         out=root/"console-results";out.mkdir(exist_ok=True)
-        (out/"pending.json").write_text(json.dumps({"status":"pending","project_id":exc.project_id,"request_id":os.environ["ARTEMIS_REQUEST_ID"],"turn":_+1},indent=2))
+        (out/"pending.json").write_text(json.dumps({"status":"pending","project_id":exc.project_id,"request_id":os.environ["ARTEMIS_REQUEST_ID"],"turn":_+1,"reason":exc.reason},indent=2))
         print("Pending original project; resume with same request ID and goal",flush=True)
         raise SystemExit(75)
     messages.append(reply)

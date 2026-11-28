@@ -5,6 +5,11 @@ on:
     paths: ['hitel-artemis-console/**', '.github/workflows/hitel-artemis-console.yml']
   workflow_dispatch:
     inputs:
+      api_mode:
+        description: Connector handoff (read only) or separately authorized runtime submission
+        type: choice
+        options: [connector, runtime]
+        default: connector
       request_id:
         description: Stable public request ID (reuse exactly on resume)
         required: true
@@ -68,7 +73,8 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/hitel-artemis-console:${{ github.workspace }}/upstream-artemis
           HITEL_ARTEMIS_PROVIDER: '1'
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ARTEMIS_API_MODE: ${{ inputs.api_mode }}
+          GH_TOKEN: ${{ inputs.api_mode == 'runtime' && secrets.GH_TOKEN || '' }}
           ARTEMIS_REQUEST_ID: ${{ inputs.request_id }}
           task_id: ${{ inputs.task_id }}
           HITEL_MISSION: ${{ inputs.mission }}
