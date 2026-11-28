@@ -14,7 +14,7 @@ hook = '''        if os.environ.get("HITEL_ARTEMIS_PROVIDER") == "1":
 target = '    if getattr(ctx, "llm_config", None) is None:'
 resolve = '''    if __import__("os").environ.get("HITEL_ARTEMIS_PROVIDER") == "1":
         return ModelEndpoint(provider=ModelProvider.CUSTOM, model_name="hitel-chatgpt-web-wrapper",
-                             timeout_seconds=145, is_multimodal=False)
+                             timeout_seconds=1200, is_multimodal=False)
 '''
 if a.count(anchor) != 1 or b.count(target) != 1:
     raise SystemExit("Pinned ARTEMIS provider patch anchors changed")

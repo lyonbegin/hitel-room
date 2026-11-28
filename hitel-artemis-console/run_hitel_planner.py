@@ -7,9 +7,9 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from artemis.agents.planner.planner import build_planner_system_blocks, validate_plan_format
 from artemis.utils.plan_grammar import render_plan_grammar_spec
 from artemis.llm.router import ModelEndpoint, ModelFactory, ModelProvider
-from hitel_transport import approved_task, ContractError
+from hitel_transport import client_task, ContractError, ProjectPending
 
-approved_task()
+client_task()
 goal = os.environ["HITEL_MISSION"].strip()
 root = Path(os.environ["GITHUB_WORKSPACE"])
 prompts = json.loads((root/"upstream-artemis/artemis/agents/planner/planner.json").read_text())
@@ -22,7 +22,13 @@ model = ModelFactory.get_model(ModelEndpoint(provider=ModelProvider.CUSTOM,model
 messages = [SystemMessage(content=system),HumanMessage(content=human)]
 notes = {}
 for _ in range(4):
-    reply = model.invoke(messages)
+    try:
+        reply = model.invoke(messages)
+    except ProjectPending as exc:
+        out=root/"console-results";out.mkdir(exist_ok=True)
+        (out/"pending.json").write_text(json.dumps({"status":"pending","project_id":exc.project_id,"request_id":os.environ["ARTEMIS_REQUEST_ID"],"turn":_+1},indent=2))
+        print("Pending original project; resume with same request ID and goal",flush=True)
+        raise SystemExit(75)
     messages.append(reply)
     for call in reply.tool_calls:
         args=call["args"]
