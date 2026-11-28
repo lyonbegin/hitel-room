@@ -27,8 +27,8 @@ jobs:
           from capstone.x86 import *
           import pathlib,hashlib,struct
           specs={
-            'arm64-v8a':('8ddf00aeb13ce1d71a73875c2245d4e57138f27a7e1db5fcf9fb56ccfad6a0de',CS_ARCH_ARM64,CS_MODE_ARM,[(0xace820,0xacea90),(0xaceaf4,0xacece0),(0xac9f00,0xaca4c0),(0xacb780,0xacbb00)]),
-            'x86_64':(None,CS_ARCH_X86,CS_MODE_64,[(0xc1201d,0xc122dc),(0xc122dc,0xc12520)])
+            'arm64-v8a':('8ddf00aeb13ce1d71a73875c2245d4e57138f27a7e1db5fcf9fb56ccfad6a0de',CS_ARCH_ARM64,CS_MODE_ARM,[(0xace720,0xace844),(0xacea8c,0xaceaf4),(0xacec5c,0xacef20),(0xacf3d0,0xacf428),(0x56b248,0x56b2b8),(0x75f964,0x75fa00),(0xabd24c,0xabd2f8)]),
+            'x86_64':(None,CS_ARCH_X86,CS_MODE_64,[(0xc11e90,0xc1201d),(0xc12491,0xc12780),(0x5b341a,0x5b34a2),(0x5b0fa4,0x5b1000),(0x5b2c3e,0x5b2cd0)])
           }
           for arch,(expected,ca,mode,regions) in specs.items():
               p=pathlib.Path('inputs/jni')/arch/'libmediapipe_tasks_audio_jni.so'
@@ -37,6 +37,9 @@ jobs:
               if expected: assert actual==expected
               with p.open('rb') as f:
                   elf=ELFFile(f);sec=elf.get_section_by_name('.text');data=sec.data();base=sec['sh_addr']
+                  for seg in elf.iter_segments():
+                      print('SEGMENT',arch,seg.header)
+                  print('SECTIONS',arch,[(s.name,hex(s['sh_addr']),hex(s['sh_offset']),hex(s['sh_size'])) for s in elf.iter_sections()])
                   ro=[(s['sh_addr'],s.data()) for s in elf.iter_sections() if s['sh_flags']&2 and not s['sh_flags']&4 and s['sh_type']!='SHT_NOBITS']
                   def string_at(addr):
                       for b,d in ro:
@@ -64,20 +67,4 @@ jobs:
                                       address=i.address+i.size+o.mem.disp
                                       note.append(hex(address)+' '+string_at(address))
                           print(hex(i.address),i.mnemonic,i.op_str,' '.join(note))
-          PY
-          sudo apt-get update -qq
-          sudo apt-get install -y flatbuffers-compiler
-          git clone --depth 1 https://github.com/google-ai-edge/LiteRT-LM.git litert
-          python - <<'PY'
-          from huggingface_hub import hf_hub_download
-          import pathlib,struct,subprocess,json
-          p=pathlib.Path(hf_hub_download('litert-community/pocket-tts','pocket_tts_int8.litertlm',revision='bca93d6756489f9403f94d66826cfa65f80023a1',local_dir='inputs'))
-          with p.open('rb') as f:
-              prefix=f.read(32); assert prefix[:8]==b'LITERTLM'
-              end=struct.unpack_from('<Q',prefix,24)[0]; pathlib.Path('inputs/original.bin').write_bytes(f.read(end-32))
-          subprocess.run(['flatc','--json','--strict-json','--raw-binary','-o','inputs','litert/schema/core/litertlm_header_schema.fbs','--','inputs/original.bin'],check=True)
-          h=json.loads(pathlib.Path('inputs/original.json').read_text())
-          print('ORIGINAL_MODEL_BYTES',p.stat().st_size)
-          for o in h['section_metadata']['objects']:
-              print('ORIGINAL_SECTION',json.dumps(o,ensure_ascii=False))
           PY
