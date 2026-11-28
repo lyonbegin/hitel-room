@@ -114,19 +114,27 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis_playstore
+          target: google_apis
           arch: x86_64
           profile: pixel_6
           cores: 4
           ram-size: 6144M
           disk-size: 8G
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           emulator-boot-timeout: 600
           script: |
             set -e
             pkg=com.google.aiedge.gallery
-            adb install -r dist/gallery-ci-only.apk
+            adb shell getprop ro.product.cpu.abilist | tee evidence/abilist.txt
+            adb shell getprop ro.dalvik.vm.native.bridge | tee evidence/native-bridge.txt
+            adb shell getprop ro.dalvik.vm.isa.arm64 | tee evidence/isa-arm64.txt
+            grep -F arm64-v8a evidence/abilist.txt
+            grep -F libndk_translation.so evidence/native-bridge.txt
+            grep -F x86_64 evidence/isa-arm64.txt
+            unzip -Z1 dist/gallery-ci-only.apk | grep -Fx lib/arm64-v8a/libmediapipe_tasks_audio_jni.so
+            adb install --abi arm64-v8a -r dist/gallery-ci-only.apk
             adb install -r -t dist/gallery-ci-probe.apk
+            adb shell dumpsys package "$pkg" | grep -F 'primaryCpuAbi=arm64-v8a' | tee evidence/package-abi.txt
             adb shell run-as "$pkg" mkdir -p files/pocketprobe/eight
             adb push bundles/eight/pocket_tts_int8.litertlm /data/local/tmp/pocket-probe.litertlm
             adb shell "run-as $pkg cp /data/local/tmp/pocket-probe.litertlm files/pocketprobe/eight/pocket_tts_int8.litertlm"
